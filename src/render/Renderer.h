@@ -16,7 +16,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
-#include "RenderPlan.h"
+#include "Compiled.h"
 #include "stages/OverlayDraw.h"
 #include "stages/PresentStage.h"
 #include "stages/Resolve.h"
@@ -34,8 +34,8 @@ namespace outshine::Render {
 class Renderer {
 public:
 
-  void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
-  [[nodiscard]] const RenderPlan &Plan() const { return *Plan_; }
+  void Init(int width, int height, std::shared_ptr<const Compiled> plan);
+  [[nodiscard]] const Compiled &Plan() const { return *Plan_; }
   [[nodiscard]] bool DeviceUsable() const { return Ready_; }
 
   [[nodiscard]] const std::string &WhyNot() const { return WhyNot_; }
@@ -264,7 +264,7 @@ private:
   bool Wanted_ = false;
   std::vector<uint8_t> Taken_;
   SDL_GPUTexture *Offscreen_ = nullptr;
-  std::shared_ptr<const RenderPlan> Plan_;
+  std::shared_ptr<const Compiled> Plan_;
   Gpu Handles_;
   OwnedTexture HdrTex_, VelTex_, DepthTex_, FrameTex_;
   OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;

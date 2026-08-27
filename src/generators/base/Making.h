@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_BASE_GENERATOR_H
-#define OUTSHINE_GENERATORS_BASE_GENERATOR_H
+#ifndef OUTSHINE_GENERATORS_BASE_MAKING_H
+#define OUTSHINE_GENERATORS_BASE_MAKING_H
 
 #include "ContactMaterial.h"
 #include "Ground.h"
@@ -16,11 +16,11 @@ template <size_t N>
   return true;
 }
 
-class Generator {
+class Making {
 public:
-  virtual ~Generator() = default;
-  Generator(const Generator &) = delete;
-  Generator &operator=(const Generator &) = delete;
+  virtual ~Making() = default;
+  Making(const Making &) = delete;
+  Making &operator=(const Making &) = delete;
 
   virtual void Occupy(const Ground &ground, Yield &yield) const noexcept = 0;
 
@@ -32,7 +32,7 @@ public:
   virtual Span<const char *const> NoteNames() const noexcept { return Span<const char *const>(); }
 
 protected:
-  Generator() = default;
+  Making() = default;
 };
 
 }

@@ -23,7 +23,7 @@ namespace outshine::Gltf {
 class Document;
 struct Primitive;
 
-struct Placement {
+struct Viewpoint {
   double EyeM[3] = {0, 0, 0};
   double Forward[3] = {0, 0, -1};
   double Right[3] = {1, 0, 0};
@@ -37,17 +37,17 @@ struct Placement {
   double ZFarM = 0;
 
   [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], double rollRad,
-                                   Placement &out);
+                                   Viewpoint &out);
 
   [[nodiscard]] bool View(Transform &out) const;
 
   [[nodiscard]] bool Clip(double viewportAspect, Transform &out) const;
 };
 
-[[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Placement &out,
+[[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out,
                               double fill = kFramingFill);
 
-[[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
+[[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out,
                                      std::string &error);
 
 enum class TangentSource { None, Supplied, Generated };
@@ -140,7 +140,7 @@ public:
   void CentreM(double out[3]) const;
 
   [[nodiscard]]
-  [[nodiscard]] bool Frame(Placement &out, double fill = kFramingFill) const;
+  [[nodiscard]] bool Frame(Viewpoint &out, double fill = kFramingFill) const;
 
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 

@@ -17,7 +17,7 @@ namespace outshine::Render {
 class Renderer;
 
 struct Eye {
-  Gltf::Placement Eye;
+  Gltf::Viewpoint Eye;
   bool StandsInside = false;
   size_t FramedParts = 0;
 };

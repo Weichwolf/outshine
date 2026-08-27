@@ -4,12 +4,12 @@
 #include "AlpineLimit.h"
 #include <array>
 
-#include "Generator.h"
+#include "Making.h"
 #include "Span.h"
 
 namespace outshine::Generators {
 
-class Forest : public Generator {
+class Forest : public Making {
 public:
 
   struct Stem {

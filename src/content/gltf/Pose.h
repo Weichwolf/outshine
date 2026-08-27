@@ -46,7 +46,7 @@ public:
 
 private:
 
-  struct Placement {
+  struct Viewpoint {
     double Translation[3] = {0, 0, 0};
     double Rotation[4] = {0, 0, 0, 1};
     double Scale[3] = {1, 1, 1};
@@ -68,7 +68,7 @@ private:
   };
 
   std::vector<std::unique_ptr<Channel>> Channels_;
-  std::vector<Placement> Nodes_;
+  std::vector<Viewpoint> Nodes_;
 
   std::vector<double> RestWeights_;
   double StartS_ = 0, EndS_ = 0;

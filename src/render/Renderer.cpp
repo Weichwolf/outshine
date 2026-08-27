@@ -176,7 +176,7 @@ std::expected<void, std::string_view> Renderer::StandsOffscreen() {
   return {};
 }
 
-void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
+void Renderer::Init(int width, int height, std::shared_ptr<const Compiled> plan) {
   WhyNot_.clear();
   Ready_ = false;
   Plan_ = std::move(plan);
@@ -201,13 +201,13 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   Handles_.Width = Width_;
   Handles_.Height = Height_;
 
-  for (const RenderPlan::Pass &pass : Plan_->Passes()) {
+  for (const Compiled::Pass &pass : Plan_->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
     Handles_.SceneColours = pass.Targets;
     break;
   }
   const auto coloursOfPassWith = [this](Stage wanted) {
-    for (const RenderPlan::Pass &pass : Plan_->Passes()) {
+    for (const Compiled::Pass &pass : Plan_->Passes()) {
       for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
         if (Plan_->Order()[at] == wanted) { return pass.Targets; }
       }
@@ -635,7 +635,7 @@ static float RadicalInverse(int index, int base) {
 }
 
 void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
-  const RenderPlan::Pass &declared = Plan_->Passes()[pass];
+  const Compiled::Pass &declared = Plan_->Passes()[pass];
   if (declared.Kind == PassKind::Compute) {
     SDL_GPUStorageTextureReadWriteBinding written[kMaxColourAttachments] = {};
     uint32_t writtenCount = 0;

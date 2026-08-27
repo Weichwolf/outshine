@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "Generator.h"
+#include "Making.h"
 #include "Rank.h"
 #include "Span.h"
 #include "Yield.h"
@@ -13,18 +13,18 @@ namespace outshine::Generators {
 class GeneratorSet {
 public:
 
-  [[nodiscard]] bool Add(Rank rank, const Generator &generator);
+  [[nodiscard]] bool Add(Rank rank, const Making &generator);
 
   [[nodiscard]] size_t Count() const { return Entries_.size(); }
   [[nodiscard]] Rank RankAt(size_t i) const { return Entries_[i].R; }
-  [[nodiscard]] const Generator &At(size_t i) const { return *Entries_[i].G; }
+  [[nodiscard]] const Making &At(size_t i) const { return *Entries_[i].G; }
 
   void Occupy(const Ground &ground, Span<Yield> yields) const noexcept;
 
 private:
   struct Entry {
     Rank R;
-    const Generator *G;
+    const Making *G;
   };
 
   std::vector<Entry> Entries_;

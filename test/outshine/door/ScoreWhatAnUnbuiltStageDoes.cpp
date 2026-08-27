@@ -3,7 +3,7 @@
 
 #include "Check.h"
 #include "RenderCatalogue.h"
-#include "RenderPlan.h"
+#include "Compiled.h"
 #include "Renderer.h"
 
 namespace {
@@ -47,7 +47,7 @@ int main(void) {
   bool everyRowCompiles = true;
   for (const Stage row : unbuilt) {
     const bool seated = Renderer::Executable(row);
-    auto made = RenderPlan::Compile(Naming(row, true));
+    auto made = Compiled::Compile(Naming(row, true));
     everyRowCompiles = everyRowCompiles && made.has_value();
     std::printf("  %-10s catalogue row, device seats it: %-3s   plan compiles: %s\n",
                 Row(row).Name, seated ? "YES" : "no", made ? "yes" : "no");
@@ -65,7 +65,7 @@ int main(void) {
   }
 
   Renderer device;
-  auto plain = RenderPlan::Compile(Naming(Stage::Terrain, false));
+  auto plain = Compiled::Compile(Naming(Stage::Terrain, false));
   if (!plain) {
     Unprepared(("a plan of seated stages would not compile: " + plain.error()).c_str());
     return Report();
@@ -79,7 +79,7 @@ int main(void) {
     return Report();
   }
 
-  auto withTerrain = RenderPlan::Compile(Naming(Stage::Terrain, true));
+  auto withTerrain = Compiled::Compile(Naming(Stage::Terrain, true));
   if (!withTerrain) {
     Unprepared(("a plan naming terrain would not compile: " + withTerrain.error()).c_str());
     return Report();

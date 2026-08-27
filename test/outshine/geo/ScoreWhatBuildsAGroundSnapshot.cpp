@@ -93,7 +93,7 @@ int main(void) {
         "member of `Core::Sim`, and a member of a class with one consumer is a capability no "
         "declaration can reach");
 
-  const Region region = Region::Of(kZoom, kLatDeg, kLonDeg);
+  const Tile region = Tile::Of(kZoom, kLatDeg, kLonDeg);
   const Flat ground;
   outshine::Ground::ClassField classes;
 

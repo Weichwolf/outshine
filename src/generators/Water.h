@@ -2,12 +2,12 @@
 #define OUTSHINE_GENERATORS_WATER_H
 
 #include "FeatureField.h"
-#include "Generator.h"
+#include "Making.h"
 #include "WaterDepth.h"
 
 namespace outshine::Generators {
 
-class Water : public Generator {
+class Water : public Making {
 public:
 
   [[nodiscard]] WaterDepth DepthAt(const Ground &ground, double eastM,

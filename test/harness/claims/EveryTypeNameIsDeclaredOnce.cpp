@@ -36,7 +36,7 @@ namespace {
 // on every move means each name that leaves the list leaves in a commit that says so, and each
 // new one arrives the same way. Both directions are information.
 
-constexpr size_t kTypeNamesTwice = 11;
+constexpr size_t kTypeNamesTwice = 8;
 constexpr size_t kConstantNamesTwice = 1;
 
 [[nodiscard]] std::string Word(const std::string &from, size_t at) {

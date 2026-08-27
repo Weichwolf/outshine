@@ -263,7 +263,7 @@ What stands wider than private. Private is the default and a wider door justifie
 shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 
 - `src/actor/mind/Task.h`
-- `src/generators/base/Generator.h`
+- `src/generators/base/Making.h`
 - `src/generators/draw/DrawSource.h`
 - `src/world/data/TerrariumDem.h`
 - `src/world/data/VersatilesVector.h`

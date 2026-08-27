@@ -68,8 +68,8 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
   Published.Places("the eye, east", eye[0], "m");
   Published.Places("the eye, up", eye[1], "m");
   Published.Places("the eye, south", eye[2], "m");
-  Gltf::Placement from;
-  if (!Gltf::Placement::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
+  Gltf::Viewpoint from;
+  if (!Gltf::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
   from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;

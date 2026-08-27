@@ -2,11 +2,11 @@
 #define OUTSHINE_GENERATORS_BUILDINGS_H
 
 #include "FeatureField.h"
-#include "Generator.h"
+#include "Making.h"
 
 namespace outshine::Generators {
 
-class Buildings : public Generator {
+class Buildings : public Making {
 public:
   explicit Buildings(ContactMaterial contact);
 

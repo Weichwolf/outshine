@@ -4,7 +4,7 @@
 
 namespace outshine::Generators {
 
-bool GeneratorSet::Add(Rank rank, const Generator &generator) {
+bool GeneratorSet::Add(Rank rank, const Making &generator) {
   size_t at = 0;
   while (at < Entries_.size() && Entries_[at].R < rank) at++;
   if (at < Entries_.size() && Entries_[at].R == rank) return false;

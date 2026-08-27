@@ -38,13 +38,13 @@
 #include "Log.h"
 #include "Image.h"
 #include "Pose.h"
-#include "RenderPlan.h"
+#include "Compiled.h"
 #include "Renderer.h"
 #include "Subject.h"
 
 using outshine::Json;
 using outshine::Gltf::Document;
-using outshine::Gltf::Placement;
+using outshine::Gltf::Viewpoint;
 using outshine::Gltf::Subject;
 using outshine::Gltf::Transform;
 using outshine::Gltf::Viewport;
@@ -67,7 +67,7 @@ struct Case {
   Json Manifest;
   Document File;
   Subject Geometry;
-  Placement Eye;
+  Viewpoint Eye;
   Viewport Frame;
   Acceptance Accepted;
   ExactnessClass Placement = ExactnessClass::GeneralPosition;
@@ -283,7 +283,7 @@ public:
       eye[axis] = declared["positionM"][axis].Num(0.0);
       aim[axis] = declared["lookAtM"][axis].Num(0.0);
     }
-    if (!Placement::LookAt(eye, aim, declared["rollRad"].Num(0.0), subject.Eye)) {
+    if (!Viewpoint::LookAt(eye, aim, declared["rollRad"].Num(0.0), subject.Eye)) {
       error = "the manifest's camera aims at its own eye or straight up";
       return false;
     }
@@ -338,7 +338,7 @@ public:
       eye[axis] = from["positionM"][axis].Num(0.0);
       aim[axis] = from["lookAtM"][axis].Num(0.0);
     }
-    if (!Placement::LookAt(eye, aim, from["rollRad"].Num(0.0), subject.Eye)) {
+    if (!Viewpoint::LookAt(eye, aim, from["rollRad"].Num(0.0), subject.Eye)) {
       error = "the derived camera aims at its own eye or straight up";
       return false;
     }
@@ -1125,8 +1125,8 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
 
   outshine::Render::PlanSpec declaration;
   DeclarePlan(subject, declaration);
-  std::shared_ptr<const outshine::Render::RenderPlan> plan;
-  const bool compiled = [&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
+  std::shared_ptr<const outshine::Render::Compiled> plan;
+  const bool compiled = [&] { auto made = outshine::Render::Compiled::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
   CHECK(compiled, "the case's render declaration compiles");
   if (!compiled) {
     Refused(why);
@@ -1334,7 +1334,7 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   return studio;
 }
 
-[[nodiscard]] bool RangeAt(const outshine::Gltf::Placement &eye, const outshine::Gltf::Viewport &frame,
+[[nodiscard]] bool RangeAt(const outshine::Gltf::Viewpoint &eye, const outshine::Gltf::Viewport &frame,
                            const std::vector<float> &depth, int column, int row, double &out,
                            std::string &error) {
   if (eye.Kind != outshine::Gltf::CameraKind::Perspective) {
@@ -2375,8 +2375,8 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
   }
 
   declaration.Outputs.push_back(outshine::Render::Resource::Surface);
-  std::shared_ptr<const outshine::Render::RenderPlan> plan;
-  if (![&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }()) { return false; }
+  std::shared_ptr<const outshine::Render::Compiled> plan;
+  if (![&] { auto made = outshine::Render::Compiled::Compile(declaration); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }()) { return false; }
   renderer.Init(surfaceW > 0 ? surfaceW : (int)Held_->Subject.Frame.WidthPx,
                 surfaceH > 0 ? surfaceH : (int)Held_->Subject.Frame.HeightPx, plan);
   if (!renderer.DeviceUsable()) {
@@ -2387,7 +2387,7 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
 }
 
 bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
-  Placement derived;
+  Viewpoint derived;
   if (!Held_->Subject.Geometry.Frame(derived, fill)) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;

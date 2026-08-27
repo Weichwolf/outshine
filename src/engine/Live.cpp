@@ -169,7 +169,7 @@ bool Live::Build(std::string &error) {
   }
   if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
-    auto made = Render::RenderPlan::Compile(declaration);
+    auto made = Render::Compiled::Compile(declaration);
     if (!made) {
       error = std::move(made).error();
       return false;
@@ -226,7 +226,7 @@ bool Live::Pose(int frame, std::string &error) {
   return Held_.Poses(frame, Declared_.Fps, error);
 }
 
-void Live::Eye(const Gltf::Placement &from) {
+void Live::Eye(const Gltf::Viewpoint &from) {
   Eye_ = from;
   HaveEye_ = true;
   Aimed_ = false;
@@ -294,7 +294,7 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
 }
 
 bool Live::Look(std::string &error) {
-  Gltf::Placement framed;
+  Gltf::Viewpoint framed;
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
@@ -339,7 +339,7 @@ bool Live::Stand(std::string &error) {
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }
   }
-  Looking_ = {HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_};
+  Looking_ = {HaveEye_ ? Eye_ : Gltf::Viewpoint{}, HaveEye_, Joined_};
   SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
@@ -393,7 +393,7 @@ bool Live::Stand(std::string &error) {
   Stood_.Around(environment);
 
   std::string why;
-  Gltf::Placement eye = Looking_.Eye;
+  Gltf::Viewpoint eye = Looking_.Eye;
   const bool declared = !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, eye, why);
   Looking_.Eye = eye;
   if (Declared_.Fill > 0.0 || !declared) {

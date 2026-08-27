@@ -1,4 +1,4 @@
-#include "RenderPlan.h"
+#include "Compiled.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -124,22 +124,22 @@ std::string Decimal(float value) {
 
 }
 
-std::optional<Stage> RenderPlan::StageByName(std::string_view name) {
+std::optional<Stage> Compiled::StageByName(std::string_view name) {
   for (size_t s = 0; s < kStageCount; ++s) {
     if (name == kStages[s].Name) { return static_cast<Stage>(s); }
   }
   return std::nullopt;
 }
 
-std::expected<std::shared_ptr<const RenderPlan>, std::string> RenderPlan::Compile(
+std::expected<std::shared_ptr<const Compiled>, std::string> Compiled::Compile(
     const PlanSpec &spec) {
-  std::shared_ptr<const RenderPlan> made;
+  std::shared_ptr<const Compiled> made;
   std::string error;
   if (!CompileInto(spec, &made, error)) { return std::unexpected(std::move(error)); }
   return made;
 }
 
-bool RenderPlan::CompileInto(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,
+bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled> *out,
                              std::string &error) {
   if (spec.Outputs.empty()) {
     error = "render.outputs: a plan that requests no output renders nothing";
@@ -159,7 +159,7 @@ bool RenderPlan::CompileInto(const PlanSpec &spec, std::shared_ptr<const RenderP
     return false;
   }
 
-  std::unique_ptr<RenderPlan> plan(new RenderPlan());
+  std::unique_ptr<Compiled> plan(new Compiled());
   for (size_t s = 0; s < kStageCount; ++s) {
     plan->HeldStage_[s] = pull.HeldStage[s];
     if (pull.HeldStage[s]) { plan->Order_.push_back(static_cast<Stage>(s)); }
@@ -346,7 +346,7 @@ bool RenderPlan::CompileInto(const PlanSpec &spec, std::shared_ptr<const RenderP
   material += "exposure " + Decimal(plan->Exposure_) + "\n";
   plan->Digest_ = Sha256Hex(material).substr(0, 16);
 
-  *out = std::shared_ptr<const RenderPlan>(plan.release());
+  *out = std::shared_ptr<const Compiled>(plan.release());
   return true;
 }
 

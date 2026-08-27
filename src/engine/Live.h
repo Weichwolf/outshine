@@ -98,9 +98,9 @@ public:
   [[nodiscard]] bool Advance(std::string &error);
   [[nodiscard]] bool Draw(std::string &error);
 
-  void Eye(const Gltf::Placement &from);
+  void Eye(const Gltf::Viewpoint &from);
 
-  [[nodiscard]] const Gltf::Placement &Aimed() const { return Looking_.Eye; }
+  [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
 
   void FrameItself() {
     HaveEye_ = false;
@@ -159,8 +159,8 @@ private:
   Overlay Over_;
   Declaration Declared_;
   double ShadowRadiusStoodM_ = 0.0;
-  std::shared_ptr<const Render::RenderPlan> Plan_;
-  Gltf::Placement Eye_;
+  std::shared_ptr<const Render::Compiled> Plan_;
+  Gltf::Viewpoint Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
   std::array<double, 16> SentBody_;

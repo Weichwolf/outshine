@@ -44,7 +44,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
   out.Nodes_.resize(document.Nodes().size());
   for (size_t node = 0; node < document.Nodes().size(); ++node) {
     const Node &source = document.Nodes()[node];
-    Placement &held = out.Nodes_[node];
+    Viewpoint &held = out.Nodes_[node];
     held.HasMatrix = source.HasMatrix;
     for (size_t at = 0; at < 3; ++at) {
       held.Translation[at] = source.Translation[at];
@@ -167,7 +167,7 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
   locals.resize(Nodes_.size());
   weights = RestWeights_;
   for (size_t node = 0; node < Nodes_.size(); ++node) {
-    Placement posed = Nodes_[node];
+    Viewpoint posed = Nodes_[node];
     for (const std::unique_ptr<Channel> &channel : Channels_) {
       if ((size_t)channel->Node != node) { continue; }
       switch (channel->Path) {

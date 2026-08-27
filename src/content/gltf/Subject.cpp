@@ -402,7 +402,7 @@ bool Subject::FlatNormalsFor(Part &part) {
   return true;
 }
 
-bool Placement::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Placement &out) {
+bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Normalise(forward)) { return false; }
   const double worldUp[3] = {0, 1, 0};
@@ -423,7 +423,7 @@ bool Placement::LookAt(const double eyeM[3], const double aimM[3], double rollRa
   return true;
 }
 
-bool Placement::View(Transform &out) const {
+bool Viewpoint::View(Transform &out) const {
   Transform world;
   for (int axis = 0; axis < 3; ++axis) {
     world.M[axis] = Right[axis];
@@ -436,7 +436,7 @@ bool Placement::View(Transform &out) const {
   return world.Inverse(out);
 }
 
-bool Placement::Clip(double viewportAspect, Transform &out) const {
+bool Viewpoint::Clip(double viewportAspect, Transform &out) const {
   Camera lens;
   lens.Kind = Kind;
   lens.YfovRad = YfovRad;
@@ -1163,11 +1163,11 @@ void Subject::CentreM(double out[3]) const {
   for (int axis = 0; axis < 3; ++axis) { out[axis] = 0.5 * (Min_[axis] + Max_[axis]); }
 }
 
-bool Subject::Frame(Placement &out, double fill) const {
+bool Subject::Frame(Viewpoint &out, double fill) const {
   return FramingFor(Min_, Max_, out, fill);
 }
 
-bool FramingFor(const double minM[3], const double maxM[3], Placement &out, double fill) {
+bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, double fill) {
   const double span[3] = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
   const double radius = 0.5 * Length(span);
   if (!(radius > 0)) { return false; }
@@ -1185,7 +1185,7 @@ bool FramingFor(const double minM[3], const double maxM[3], Placement &out, doub
   double eye[3];
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
 
-  if (!Placement::LookAt(eye, centre, 0.0, out)) { return false; }
+  if (!Viewpoint::LookAt(eye, centre, 0.0, out)) { return false; }
   out.YfovRad = yfov;
   const double floor = radius * kFramingNearFloorFraction;
   out.ZNearM = (distance - radius > floor) ? distance - radius : floor;
@@ -1193,7 +1193,7 @@ bool FramingFor(const double minM[3], const double maxM[3], Placement &out, doub
   return true;
 }
 
-bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
+bool DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out,
                        std::string &error) {
   if (cameraIndex < 0 || (size_t)cameraIndex >= document.Cameras().size()) {
     error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +

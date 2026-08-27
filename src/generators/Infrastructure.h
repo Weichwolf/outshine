@@ -4,11 +4,11 @@
 #include <optional>
 
 #include "FeatureField.h"
-#include "Generator.h"
+#include "Making.h"
 
 namespace outshine::Generators {
 
-class Infrastructure : public Generator {
+class Infrastructure : public Making {
 public:
 
   struct Made {
