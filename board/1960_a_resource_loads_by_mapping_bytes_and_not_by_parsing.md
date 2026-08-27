@@ -8,6 +8,18 @@ Area: content
 
 **Benchmark** — Unreal: import -> DDC -> cooked platform data, still parsed at load. RAGE: **map the bytes, fix the pointers, no parse**. **Taking RAGE** — a load that parses cannot keep up with a camera, and cell streaming is unaffordable without it.
 
+**THE MECHANISM HAS A NAME AND AN IMPLEMENTATION TO COPY: `mmap`.** RAGE's "map the bytes, fix
+the pointers, no parse" is Linux's page-cache mapping seen from userspace -- the file becomes
+addressable without a read, the kernel faults pages in on touch, and a second process mapping the
+same file shares the physical pages. `grep -rn mmap src/` finds NOTHING here, so the tree reads
+and decodes where it could map and touch.
+
+Two properties are worth naming because they are why the technique wins rather than merely
+differs: a mapped resource costs no resident memory until it is TOUCHED, which is exactly a
+streaming budget's shape; and eviction is the kernel dropping a clean page, which needs no
+bookkeeping of ours at all.
+
+
 **MEASURED BEFORE BUILDING, AND THE MEASUREMENT SAYS WAIT.** The store holds what was FETCHED, not
 what is USED: a cache entry opens `89 50 4E 47` -- a PNG, 97496 bytes, decoded on every load. So
 the defect this item names is real and present.

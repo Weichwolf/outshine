@@ -54,6 +54,13 @@ knowledge belongs, and only the second one lets the world stop building the tabl
       tick) and its caller is `Engine::State::Carries`, which builds that matrix from the
       quaternion BEFORE the diff can decide -- work spent ahead of the decision, which is the
       real cost rather than the compare.
+      **AND THE TECHNIQUE IS ALREADY IN THE TREE, one subsystem over.** The audio snapshot is a
+      double buffer with an atomic counter -- `Sources[2]`, `Ear[2]`, `std::atomic<unsigned>
+      Told` in `EngineHeld.h:228-230`: the writer fills the idle half and bumps the counter, the
+      reader takes `Told & 1`. That is RCU's shape in miniature (publish by pointer swap, readers
+      never block, no lock on the hot path) and it is what the sim -> render handoff wants too.
+      Linux's RCU and seqlock are the reference implementations; the second is cheaper for a
+      small value read often, which is what a camera pose is.
       But the picture holds ONE subject: `Advancing.cpp` carries `Freestanding.front()` and
       nothing else, so the table this would save building is one row long. A delta over one row
       is a line of code, not an architecture, and writing it now would prove nothing and would be
