@@ -80,6 +80,10 @@ private:
 
   const struct Tile *TileAt(long x, long y) const;
   const struct Tile *TileResident(long x, long y) const;
+  const struct Tile *CoarseResident(long x, long y) const;
+  void KeepCoarse(long x, long y) const;
+  [[nodiscard]] GroundSample SampleFrom(const struct Tile &tile, int zoom, double lat,
+                                        double lon) const;
 
   TilePool &Tiles_;
   GroundSurface Surface_;

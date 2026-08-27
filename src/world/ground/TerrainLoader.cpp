@@ -30,6 +30,8 @@ constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 constexpr int kPoolDemCacheTiles = 16;
 
 constexpr int kGroundSlots = 12;
+constexpr int kCoarseDrop = 3;
+constexpr int kCoarseSlots = 4;
 
 constexpr int kGroundStitchGrids = 5;
 constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
@@ -129,6 +131,7 @@ struct GroundStream::Held {
   Oracle Source;
   std::unique_ptr<TerrainTiles> Stitched;
   Tile Ground[kGroundSlots];
+  Tile Coarse[kCoarseSlots];
   uint64_t Clock = 0;
   long Builds = 0;
   long Decodes = 0;
@@ -154,6 +157,50 @@ GroundStream::~GroundStream() {
   }
 }
 
+const Tile *GroundStream::CoarseResident(long x, long y) const {
+  Held &held = *Held_;
+  for (Tile &t : held.Coarse) {
+    if (t.Resident && t.X == x && t.Y == y) {
+      t.Used = ++held.Clock;
+      return t.Hole ? nullptr : &t;
+    }
+  }
+  return nullptr;
+}
+
+void GroundStream::KeepCoarse(long x, long y) const {
+  Held &held = *Held_;
+  Tile *victim = &held.Coarse[0];
+  for (Tile &t : held.Coarse) {
+    if (t.Resident && t.X == x && t.Y == y) { return; }
+    if (t.Used < victim->Used) { victim = &t; }
+  }
+  const int zoom = Surface_.Z - kCoarseDrop;
+  if (zoom < 1) { return; }
+  held.Pending = false;
+  const TerrainGrid grid = held.Stitched->StitchedGrid(zoom, (uint32_t)x, (uint32_t)y);
+  const TerrainField *field = grid.TryField();
+  if (held.Pending) { return; }
+  const uint32_t stride = held.Stitched->Stride();
+  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const int gr = field ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
+  const int gc = field ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
+  victim->X = x;
+  victim->Y = y;
+  victim->Used = ++held.Clock;
+  victim->Resident = true;
+  victim->Hole = !square;
+  victim->Nodes = square ? gr : 0;
+  victim->Postings = square ? colPostings : 0;
+  if (!square) {
+    victim->H.clear();
+    return;
+  }
+  FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
+}
+
 const Tile *GroundStream::TileResident(long x, long y) const {
   Held &held = *Held_;
   for (Tile &t : held.Ground) {
@@ -165,6 +212,42 @@ const Tile *GroundStream::TileResident(long x, long y) const {
   return nullptr;
 }
 
+GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, double lon) const {
+  Geo place;
+  place.LatDeg = lat;
+  place.LonDeg = lon;
+  const TileFrac f = ToTileFracClamped(place, zoom);
+  const double u = f.X - (double)(long)f.X, v = f.Y - (double)(long)f.Y;
+  const double step = tile.Postings > 0 ? 1.0 / (double)tile.Postings : 0.0;
+  const double here = TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, v);
+  if (!(step > 0.0)) { return GroundSample::At(here); }
+
+  const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
+  const double eastAt = clamped(u + step), westAt = clamped(u - step);
+  const double southAt = clamped(v + step), northAt = clamped(v - step);
+  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
+                       (double)((long)1 << zoom) / (double)Surface_.Grid;
+  const double acrossEastM = (eastAt - westAt) * (double)tile.Postings * spanM;
+  const double acrossNorthM = (southAt - northAt) * (double)tile.Postings * spanM;
+  if (!(acrossEastM > 0.0) || !(acrossNorthM > 0.0)) { return GroundSample::At(here); }
+
+  const double byEast =
+      (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, eastAt, v) -
+       TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, westAt, v)) / acrossEastM;
+  const double bySouth =
+      (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, southAt) -
+       TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, northAt)) / acrossNorthM;
+  double normal[3] = {-byEast, 1.0, bySouth};
+  const double length =
+      std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+  if (length > 0.0) {
+    normal[0] /= length;
+    normal[1] /= length;
+    normal[2] /= length;
+  }
+  return GroundSample::At(here, normal);
+}
+
 GroundSample GroundStream::Resident(double lat, double lon) const {
   lon = Wrapped180(lon);
   Geo place;
@@ -173,33 +256,16 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = (long)f.X, hy = (long)f.Y;
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
-  const Tile *t = TileResident(hx, hy);
-  if (!t) { return GroundSample::Waiting(); }
+  if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
-  const double u = f.X - (double)hx, v = f.Y - (double)hy;
-  const double step = t->Postings > 0 ? 1.0 / (double)t->Postings : 0.0;
-  const double here = TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, v);
-  if (!(step > 0.0)) { return GroundSample::At(here); }
-
-  const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
-  const double eastAt = clamped(u + step), westAt = clamped(u - step);
-  const double southAt = clamped(v + step), northAt = clamped(v - step);
-  const double spanM = PostM(lat);
-  const double acrossEastM = (eastAt - westAt) * (double)t->Postings * spanM;
-  const double acrossNorthM = (southAt - northAt) * (double)t->Postings * spanM;
-  if (!(acrossEastM > 0.0) || !(acrossNorthM > 0.0)) { return GroundSample::At(here); }
-
-  const double byEast =
-      (TileHeightAslM(t->H.data(), t->Nodes, t->Postings, eastAt, v) -
-       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, westAt, v)) / acrossEastM;
-  const double bySouth =
-      (TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, southAt) -
-       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, northAt)) / acrossNorthM;
-  double normal[3] = {-byEast, 1.0, bySouth};
-  const double length =
-      std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-  for (double &axis : normal) { axis /= length; }
-  return GroundSample::At(here, normal);
+  const int zoom = Surface_.Z - kCoarseDrop;
+  long cx = hx >> kCoarseDrop, cy = hy >> kCoarseDrop;
+  if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
+    if (const Tile *coarse = CoarseResident(cx, cy)) {
+      return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
+    }
+  }
+  return GroundSample::Waiting();
 }
 
 const Tile *GroundStream::TileAt(long x, long y) const {
@@ -241,6 +307,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
     return nullptr;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
+  KeepCoarse(x >> kCoarseDrop, y >> kCoarseDrop);
   return victim;
 }
 

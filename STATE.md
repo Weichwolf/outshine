@@ -402,8 +402,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
+| 4 | `src/world/ground/TerrainLoader.cpp` |
 | 4 | `src/render/stages/SubjectDraw.h` |
 | 4 | `src/actor/path/ReferenceLine.h` |
 | 3 | `src/world/ground/WaterField.cpp` |
-| 3 | `src/world/ground/TerrainLoader.cpp` |
 | 3 | `src/world/ground/BuildingField.cpp` |

@@ -15,6 +15,11 @@ public:
     out.NormalM_[2] = normal[2];
     return out;
   }
+  [[nodiscard]] GroundSample Coarser(int byZoomSteps) const {
+    GroundSample out(*this);
+    out.CoarseBy_ = byZoomSteps;
+    return out;
+  }
   static GroundSample Waiting() { return GroundSample(State::Pending); }
   static GroundSample Missing() { return GroundSample(State::Hole); }
 
@@ -28,12 +33,15 @@ public:
 
   [[nodiscard]] const double *NormalM() const { return NormalM_; }
 
+  [[nodiscard]] int CoarseBy() const { return CoarseBy_; }
+
 private:
   explicit GroundSample(State where, double aslM = 0.0) : Where_(where), AslM_(aslM) {}
 
   State Where_;
   double AslM_;
   double NormalM_[3] = {0.0, 1.0, 0.0};
+  int CoarseBy_ = 0;
 };
 
 }
