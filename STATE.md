@@ -198,7 +198,7 @@ The heaviest units, against the median of them all.
 | lines | unit |
 |---|---|
 | 2020 | `content/gltf/Document.h` |
-| 1434 | `content/gltf/Subject.h` |
+| 1453 | `content/gltf/Subject.h` |
 | 1397 | `ui/Layout.h` |
 | 1342 | `render/Renderer.h` |
 | 1141 | `base/format/Script.h` |
@@ -215,7 +215,7 @@ The widest public surfaces.
 |---|---|
 | 61 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
-| 45 | `src/content/gltf/Subject.h` |
+| 46 | `src/content/gltf/Subject.h` |
 | 39 | `src/engine/Live.h` |
 | 34 | `src/scene/Store.h` |
 | 31 | `src/base/format/Xml.h` |

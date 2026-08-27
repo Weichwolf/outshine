@@ -217,10 +217,9 @@ bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
   return true;
 }
 
-bool Subject::BuildTangentsFor(const Document &document, const Primitive &primitive,
-                               const VertexPlacement &place, Span<const double> morphWeights,
-                               Part &part, size_t vertices) {
-  Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+bool Subject::SuppliedTangentsFor(const Document &document, const Primitive &primitive,
+                                  const VertexPlacement &place, Span<const double> morphWeights,
+                                  Part &part, size_t vertices, std::vector<double> &into) {
 
   const int supplied = primitive.Find("TANGENT");
   if (supplied >= 0) {
@@ -244,6 +243,7 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       }
     }
 
+    into.assign(vertices * 4, 0.0);
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Transform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
@@ -253,15 +253,14 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       placed.Direction(local, global);
       (void)Normalise(global);
       for (int axis = 0; axis < 3; ++axis) {
-        Tangents_[(part.FirstVertex + vertex) * 4 + (size_t)axis] = global[axis];
+        into[vertex * 4 + (size_t)axis] = global[axis];
       }
-      Tangents_[(part.FirstVertex + vertex) * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
+      into[vertex * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
     }
     part.Tangent = TangentSource::Supplied;
     return true;
   }
-
-  return GeneratedTangentsFor(part);
+  return true;
 }
 
 bool Subject::GeneratedTangentsFor(Part &part) {
@@ -543,14 +542,13 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
-  Surfaces_.clear();
-  TangentWanted_.clear();
-  for (const MaterialRef &declared : document.Materials()) {
-    Surfaces_.push_back(declared.Surface);
-    Surfaces_.back().NeedsTangents = declared.Normal.Texture >= 0;
-    TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
-  }
   Undrawn_ = Undrawn();
+  outshine::Geometry made;
+  for (const MaterialRef &declared : document.Materials()) {
+    Material row = declared.Surface;
+    row.NeedsTangents = declared.Normal.Texture >= 0;
+    (void)made.Surface("", row);
+  }
   bool anyUv = false;
   bool anyUv1 = false;
   bool anyNormal = false;
@@ -662,8 +660,10 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         Part part;
         part.NodeName = node.Name;
         part.Material = primitive.MaterialUnder(activeVariant);
-        part.FirstVertex = VertexCount();
-        part.FirstIndex = Indices_.size();
+        part.FirstVertex = 0;
+        part.FirstIndex = 0;
+        std::vector<double> atPos, atNor, atUv, atUv1, atCol, atTan;
+        std::vector<uint32_t> atIdx;
 
         if (!DrawsASurface(primitive.Mode)) {
           ++Undrawn_.Primitives;
@@ -684,7 +684,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
                         " components, which is not a whole number of points");
         }
-        const uint32_t base = (uint32_t)(Positions_.size() / 3);
         const size_t vertices = elements.size() / 3;
 
         std::vector<double> morphedPositions;
@@ -705,7 +704,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                              elements[vertex * 3 + 2]};
           double global[3];
           place.At(vertex).Point(local, global);
-          for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
+          for (int axis = 0; axis < 3; ++axis) { atPos.push_back(global[axis]); }
         }
 
         const struct {
@@ -713,13 +712,13 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           bool Part::*Carried;
           bool *Any;
           std::vector<double> *Into;
-        } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &Uv_},
-                           {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &Uv1_}};
+        } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &atUv},
+                           {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &atUv1}};
         for (const auto &set : sets) {
           const int uv = primitive.Find(set.Semantic);
           part.*set.Carried = uv >= 0;
           *set.Any = *set.Any || part.*set.Carried;
-          set.Into->resize((Positions_.size() / 3) * 2, 0.0);
+          set.Into->assign(vertices * 2, 0.0);
           if (uv < 0) { continue; }
           std::vector<double> coordinates;
           if (!document.ReadElements(uv, coordinates)) {
@@ -731,14 +730,13 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                           std::to_string(coordinates.size() / 2) + " pairs over " +
                           std::to_string(vertices) + " vertices");
           }
-          std::copy(coordinates.begin(), coordinates.end(),
-                    set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
+          std::copy(coordinates.begin(), coordinates.end(), set.Into->begin());
         }
 
         const int colour = primitive.Find("COLOR_0");
         part.HasColour = colour >= 0;
         anyColour = anyColour || part.HasColour;
-        Colours_.resize((Positions_.size() / 3) * 4, 0.0);
+        atCol.assign(vertices * 4, 0.0);
         if (colour >= 0) {
           if ((size_t)colour >= document.Accessors().size()) {
             return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
@@ -768,7 +766,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                               std::to_string(channel) +
                               ", and the format requires every component in [0, 1]");
               }
-              Colours_[(part.FirstVertex + vertex) * 4 + channel] = value;
+              atCol[vertex * 4 + channel] = value;
             }
           }
         }
@@ -776,7 +774,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         const int normal = primitive.Find("NORMAL");
         part.HasNormal = normal >= 0;
         anyNormal = anyNormal || part.HasNormal;
-        Normals_.resize(Positions_.size(), 0.0);
+        atNor.assign(vertices * 3, 0.0);
         if (normal >= 0) {
           std::vector<double> directions;
           if (!document.ReadElements(normal, directions)) {
@@ -804,7 +802,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
 
             (void)Normalise(global);
             for (int axis = 0; axis < 3; ++axis) {
-              Normals_[(part.FirstVertex + vertex) * 3 + (size_t)axis] = global[axis];
+              atNor[vertex * 3 + (size_t)axis] = global[axis];
             }
           }
         }
@@ -843,36 +841,58 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
             return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
                           std::to_string(vertices) + " vertices of its own primitive");
           }
-          Indices_.push_back(base + index);
+          atIdx.push_back(index);
         }
-        part.IndexCount = Indices_.size() - part.FirstIndex;
-
-        if (!FlatNormalsFor(part)) { return false; }
-        if (!BuildTangentsFor(document, primitive, place,
-                              Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
+        part.IndexCount = atIdx.size();
+        if (!SuppliedTangentsFor(document, primitive, place,
+                                 Span<const double>(nodeWeights.data(), morphCount), part, vertices,
+                                 atTan)) {
           return false;
         }
         anyTangent = anyTangent || part.HasTangent();
         anyNormal = anyNormal || part.HasNormal;
-        part.VertexCount = VertexCount() - part.FirstVertex;
+        part.VertexCount = atPos.size() / 3;
 
-        if (part.IndexCount > 0) { Parts_.push_back(part); }
+        if (part.IndexCount == 0) { continue; }
+        const auto asFloat = [](const std::vector<double> &from) {
+          std::vector<float> made(from.size());
+          for (size_t at = 0; at < from.size(); ++at) { made[at] = (float)from[at]; }
+          return made;
+        };
+        const int emitted = made.Part(part.NodeName, part.Material);
+        const std::vector<float> positions = asFloat(atPos);
+        (void)made.Positions(emitted, std::span<const float>(positions.data(), positions.size()));
+        if (part.HasNormal) {
+          const std::vector<float> held = asFloat(atNor);
+          (void)made.Normals(emitted, std::span<const float>(held.data(), held.size()));
+        }
+        if (part.HasUv) {
+          const std::vector<float> held = asFloat(atUv);
+          (void)made.Texture(emitted, std::span<const float>(held.data(), held.size()), 0);
+        }
+        if (part.HasUv1) {
+          const std::vector<float> held = asFloat(atUv1);
+          (void)made.Texture(emitted, std::span<const float>(held.data(), held.size()), 1);
+        }
+        if (part.HasTangent()) {
+          const std::vector<float> held = asFloat(atTan);
+          (void)made.Tangents(emitted, std::span<const float>(held.data(), held.size()));
+        }
+        if (part.HasColour) {
+          const std::vector<float> held = asFloat(atCol);
+          (void)made.Colours(emitted, std::span<const float>(held.data(), held.size()));
+        }
+        (void)made.Triangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
       }
     }
 
   }
 
-  if (!anyUv) { Uv_.clear(); }
-  if (!anyUv1) { Uv1_.clear(); }
-  if (!anyNormal) { Normals_.clear(); }
-  if (!anyTangent) { Tangents_.clear(); }
-  if (!anyColour) { Colours_.clear(); }
-  if (Indices_.empty()) {
+  if (made.Parts() == 0) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
   }
 
-  const outshine::Geometry made = Handed();
   const std::vector<PlacedLight> lit = Lights_;
   const Undrawn missed = Undrawn_;
   if (!Assemble(made)) { return false; }
@@ -1071,11 +1091,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     Parts_.push_back(part);
   }
 
-  if (!anyUv) { Uv_.clear(); }
-  if (!anyUv1) { Uv1_.clear(); }
-  if (!anyNormal) { Normals_.clear(); }
-  if (!anyTangent) { Tangents_.clear(); }
-  if (!anyColour) { Colours_.clear(); }
   Bound();
   return true;
 }

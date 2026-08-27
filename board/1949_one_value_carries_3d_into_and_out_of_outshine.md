@@ -148,8 +148,8 @@ and weights are structure, and this value carries the vertices that structure pr
 That is the right boundary for a value whose job is to be handed to a renderer -- one that could
 re-pose would be a second scene graph, which is the thing this item exists to avoid having two of.
 
-**WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
-`Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
+**WHAT IT COST, measured before starting and true afterwards.** `Subject::Build` was 440 lines
+touching the packed arrays 26 times. Redirecting the per-primitive
 EMIT into a `Geometry` part is mechanical -- positions, uv sets, colours, normals, tangents,
 indices are each read and copied at `part.FirstVertex`. That half is a morning.
 
@@ -170,10 +170,10 @@ starting: a reader that packs two ways is the second spelling this item exists t
       says nothing is dropped.
       proof: harness/outshine/content/ScoreWhatARoundTripKeeps
 
-      What is inelegant and recorded rather than hidden: the reader still packs, then expresses,
-      then the packer packs again -- a double pack at LOAD time, never on the frame path.
-      Redirecting the emit to write the `Geometry` directly removes it, and both obstacles that
-      made that look like a pipeline restructuring are gone. It is now a redirection.
+      The emit is redirected: `Build` writes its streams into a `Geometry` per primitive and
+      assembles that ONCE. It no longer touches `Positions_`, `Uv_`, `Normals_`, `Tangents_`,
+      `Colours_`, `Indices_` or `Parts_` at all -- the reader has stopped knowing the packed
+      layout, which was the last of the two spellings. 444 Khronos cases pass.
 - [x] The builder carries materials, and a handed part renders with the material it names.
       proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
       `outshine::Material` already carried the whole PBR row and all nine `KHR_materials_*` -- it

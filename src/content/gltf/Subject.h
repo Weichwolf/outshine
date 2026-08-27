@@ -163,6 +163,10 @@ private:
   [[nodiscard]] bool FlatNormalsFor(Part &part);
   [[nodiscard]] bool GeneratedTangentsFor(Part &part);
 
+  [[nodiscard]] bool SuppliedTangentsFor(const Document &document, const Primitive &primitive,
+                                         const VertexPlacement &place,
+                                         Span<const double> morphWeights, Part &part,
+                                         size_t vertices, std::vector<double> &into);
   [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
                                       const VertexPlacement &place,
                                        Span<const double> morphWeights, Part &part,
