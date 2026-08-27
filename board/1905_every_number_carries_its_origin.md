@@ -49,6 +49,12 @@ Their new home is right -- they belong to a scenario -- and their origin is stil
 
 ## What will be true
 
+- [ ] **The shipped body's numbers are in this count** (from board:1509): every spring and
+      damper rate DERIVED from a declared ride frequency and the load rather than guessed, the
+      eye height confirmed rather than estimated, and each traced to a measurement or a
+      published dimension. JSBSim is the bar -- an aircraft's mass, inertia tensor and ground
+      reactions are declared numbers with origins, which is how one simulator flies a Cessna
+      and a 737.
 - [ ] The count falls, one file at a time, and each number moves to where it is DECLARED -- the
       scenario or the client -- or gains a derivation in its board item
 - [ ] The walk sees an anonymous literal, so relocating a number cannot lower the count without

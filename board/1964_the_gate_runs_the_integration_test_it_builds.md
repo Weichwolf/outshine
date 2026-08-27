@@ -27,7 +27,10 @@ deterministic rather than merely possible.
 
 - [x] the gate runs the drive headless for a bounded number of frames and reads what it measured
       proof: outshine/door/ScoreWhatTheDriveMeasures
-- [ ] the tiles it needs are pinned and hashed, so the run is offline and deterministic
+- [ ] the tiles it needs are pinned and hashed, so the run is offline and deterministic. **The
+      SUBJECT asset belongs to this predicate too** (from board:1509): the F31 is a CC-BY-4.0
+      model fetched like any other corpus subject, and its attribution has to travel beside it.
+      One pinning mechanism, not two -- the corpora already have the shape, a URL and a hash.
 - [x] the run fails the gate when the drive refuses -- moving `scene.gltf` aside turns it red
 - [ ] the drive is its own suite rather than a case borrowing the door's, once a program can be
       one: `NAMED_ONLY="apps"` still answers "no declared suite under apps/driver/src"
