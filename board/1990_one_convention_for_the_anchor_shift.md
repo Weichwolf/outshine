@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1995
 Area: render
 Tags: measured, gpu-driven
