@@ -97,7 +97,7 @@ int main(void) {
   const Flat ground;
   outshine::Ground::ClassField classes;
 
-  Standing stands;
+  Fields stands;
   Ground::Snapshot snapshot;
   const Snapped without = SnapshotOver(region, ground, classes, stands, table, &snapshot);
   std::printf("WITHOUT VECTORS   %s, ground queries made %ld\n",
