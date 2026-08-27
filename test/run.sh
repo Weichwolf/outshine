@@ -413,16 +413,20 @@ SourceStamp() {
   stat -f '%m|%z|%N' -- $stampFiles 2>/dev/null || return 1
 }
 
+# THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
+# question: is anything this unit reads newer than what it produced. That is one `sed` to read the
+# dependency list the compiler already wrote, and then shell builtins -- where the stamp it
+# replaces spent a `stat` over a hundred paths and a `cat` per unit, 58 ms each over 158 units.
 UpToDate() {
   objectPath=$1
   sourcePath=$2
   depsPath=${objectPath%.o}.d
-  stampPath=${objectPath%.o}.stamp
   [ -f "$objectPath" ] || return 1
   [ -f "$depsPath" ] || return 1
-  [ -f "$stampPath" ] || return 1
-  freshStamp=$(SourceStamp "$sourcePath" "$depsPath") || return 1
-  [ "$freshStamp" = "$(cat "$stampPath")" ] || return 1
+  [ "$objectPath" -nt "$sourcePath" ] || return 1
+  for readAlso in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
+    [ "$objectPath" -nt "$readAlso" ] || return 1
+  done
   return 0
 }
 
@@ -436,16 +440,19 @@ BuildGroup() {
     *.cpp) groupUnits=$group ;;
     *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
   esac
+  # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
+  # editing -O2 or the warning set in this file silently reused objects built with the
+  # old one, and two of five flag groups is not an identity (board:1751). It is a GROUP's
+  # property, so it is computed once here rather than once per unit: at 157 units that was
+  # three processes each for a value that could not differ between them.
+  setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
   for unit in $groupUnits; do
     [ -e "$unit" ] || continue
-    # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
-    # editing -O2 or the warning set in this file silently reused objects built with the
-    # old one, and two of five flag groups is not an identity (board:1751)
-    setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
-    unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).$setId.o
+    unitFolder=${unit%/*}
+    unitStem=${unit##*/}
+    unitObject=$OBJDIR/$(printf '%s' "$unitFolder" | tr / -)-${unitStem%.cpp}.$setId.o
     if ! UpToDate "$unitObject" "$unit"; then
       $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
-      SourceStamp "$unit" "${unitObject%.o}.d" >"${unitObject%.o}.stamp"
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
@@ -577,14 +584,23 @@ BuildLibrary() {
   OBJECTS=""
   libraryGroups=" "
   for libraryUnit in $(find src -name '*.cpp' | sort); do
-    libraryGroup=$(dirname "$libraryUnit")
+    libraryGroup=${libraryUnit%/*}
     case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
     libraryGroups="$libraryGroups$libraryGroup "
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
   done
   mkdir -p build
-  rm -f build/liboutshine.a
-  ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
+  archiveStale=yes
+  if [ -f build/liboutshine.a ]; then
+    archiveStale=no
+    for member in $OBJECTS; do
+      if [ "$member" -nt build/liboutshine.a ]; then archiveStale=yes; break; fi
+    done
+  fi
+  if [ "$archiveStale" = yes ]; then
+    rm -f build/liboutshine.a
+    ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
+  fi
   printf -- '-> build/liboutshine.a (%s objects)\n' "$(echo $OBJECTS | wc -w | tr -d ' ')"
 
   # THE GENERATORS AS THEIR OWN ARCHIVE, and the member list is DERIVED. Owner's target: another
@@ -610,6 +626,9 @@ BuildLibrary() {
     layer=$(dirname "$program")
     Programs "$layer" >/dev/null 2>&1 || continue
     named=build/outshine-$(basename "$(dirname "$layer")")
+    if [ -f "$named" ] && [ "$named" -nt build/liboutshine.a ] && [ "$named" -nt "$program" ]; then
+      continue
+    fi
     $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") \
       "$program" $(LayerExtraSources "$layer") build/liboutshine.a $(LayerLink "$layer") \
       -o "$named" ||
@@ -765,17 +784,27 @@ StateDoor() {
 
 StateShape() {
   printf '\n## Shape\n\nModule depends on module, derived from the includes themselves.\n\n```mermaid\nflowchart LR\n'
-  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
-    from=$(printf '%s' "$source" |
-      sed -e 's|^src/\([^/]*/[^/]*\)/.*|\1|' -e 's|^src/\([^/]*\)/[^/]*$|\1|')
-    sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u |
-      while IFS= read -r head; do
-        to=$(awk -v want="$head" '$1 == want { print $2; exit }' "$modules")
-        [ -z "$to" ] && continue
-        [ "$to" = "$from" ] && continue
-        printf '%s|%s\n' "$from" "$to"
-      done
-  done | sort | uniq -c | sort -rn > "$BUILD/log/module-edges"
+  awk -v owner="$modules" '
+    BEGIN { while ((getline line < owner) > 0) { split(line, field, " "); owns[field[1]] = field[2] } }
+    FNR == 1 {
+      within = FILENAME
+      sub(/^src\//, "", within)
+      depth = split(within, part, "/")
+      from = (depth >= 3) ? part[1] "/" part[2] : (depth == 2 ? part[1] : within)
+      delete already
+    }
+    /^#include "/ {
+      head = $0
+      sub(/^#include "/, "", head); sub(/".*$/, "", head); sub(/^.*\//, "", head)
+      if (head in already) { next }
+      already[head] = 1
+      to = owns[head]
+      if (to == "" || to == from) { next }
+      crosses[from "|" to]++
+    }
+    END { for (edge in crosses) { printf "%d %s\n", crosses[edge], edge } }
+  ' $(find src \( -name '*.cpp' -o -name '*.h' \) -not -path 'src/assets/*' | sort) |
+    sort -rn > "$BUILD/log/module-edges"
   awk '$1 >= 3' "$BUILD/log/module-edges" |
     while read -r many edge; do
       printf '  %s --> |%s| %s\n' "$(printf '%s' "$edge" | cut -d'|' -f1 | tr '/' '_')" "$many" \
@@ -804,11 +833,12 @@ StateTiers() {
 StateMass() {
   printf '\n## Mass\n\nThe heaviest files. Headers and sources counted apart.\n\n| lines | kind | file |\n|---|---|---|\n'
   : > "$BUILD/log/unit-mass"
-  for one in $(find src -name '*.h' -not -path 'src/assets/*' | sort); do
-    printf '%s h %s\n' "$(wc -l < "$one" | tr -d ' ')" "${one#src/}" >> "$BUILD/log/unit-mass"
-  done
-  for one in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
-    printf '%s cpp %s\n' "$(wc -l < "$one" | tr -d ' ')" "${one#src/}" >> "$BUILD/log/unit-mass"
+  for kind in h cpp; do
+    massFiles=$(find src -name "*.$kind" -not -path 'src/assets/*' | sort)
+    [ -n "$massFiles" ] || continue
+    wc -l $massFiles |
+      awk -v kind="$kind" '$2 != "total" { sub(/^src\//, "", $2); printf "%s %s %s\n", $1, kind, $2 }' \
+      >> "$BUILD/log/unit-mass"
   done
   sort -rn "$BUILD/log/unit-mass" -o "$BUILD/log/unit-mass"
   head -10 "$BUILD/log/unit-mass" | while read -r many kind one; do
@@ -825,22 +855,25 @@ StateMass() {
 StateCarpet() {
 
   printf '\n## Carpet\n\nThe widest public surfaces.\n\n| `[[nodiscard]]` | header |\n|---|---|\n'
-  for header in $(find src include -name '*.h' -not -path 'src/assets/*' | sort); do
-    printf '%s %s\n' "$(grep -c '\[\[nodiscard\]\]' "$header" | tr -d ' ')" "$header"
-  done | sort -rn | head -6 | while read -r many header; do
-    printf '| %s | `%s` |\n' "$many" "$header"
-  done
+  grep -c '\[\[nodiscard\]\]' $(find src include -name '*.h' -not -path 'src/assets/*' | sort) |
+    awk -F: '{ printf "%s %s\n", $2, $1 }' | sort -rn | head -6 | while read -r many header; do
+      printf '| %s | `%s` |\n' "$many" "$header"
+    done
 }
 
 StateTwins() {
 
   printf '\n## Twins\n\nHeader names that collide.\n\n'
-  find src include -name '*.h' | xargs -n1 basename | sort | uniq -d |
-    while IFS= read -r name; do
-      printf '- `%s` -- %s\n' "$name" "$(find src include -name "$name" | tr '\n' ' ')"
+  twinHeaders=$(find src include -name '*.h' | sort)
+  twinNames=$(printf '%s\n' "$twinHeaders" | sed 's|.*/||' | sort | uniq -d)
+  if [ -n "$twinNames" ]; then
+    printf '%s\n' "$twinNames" | while IFS= read -r name; do
+      printf -- '- `%s` -- %s\n' "$name" \
+        "$(printf '%s\n' "$twinHeaders" | grep "/$name\$" | tr '\n' ' ')"
     done
-  find src include -name '*.h' | xargs -n1 basename | sort | uniq -d | grep -q . ||
+  else
     printf '  none -- and --audit-layers REFUSES the day one appears, because both walks on\n    this page resolve an include by its basename alone\n'
+  fi
 }
 
 StateStranded() {
@@ -1090,73 +1123,96 @@ if [ "$AUDIT_NUMBERS" = 1 ]; then
 fi
 
 if [ "$AUDIT_LAYERS" = 1 ]; then
-  owners=$BUILD/log/header-tiers
   mkdir -p "$BUILD/log"
-  find src -name '*.h' -not -path 'src/assets/*' |
-    sed -e 's|^src/\([^/]*\)/.*/\([^/]*\)$|\2 \1|' -e 's|^src/\([^/]*\)/\([^/]*\)$|\2 \1|' |
-    sort -u > "$owners"
-  crossed=0
-  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
-    tier=$(printf '%s' "$source" | sed 's|^src/\([^/]*\)/.*|\1|')
-    allowed=$(LayerReaches "$tier") || continue
-    for included in $(sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u); do
-      held=$(awk -v want="$included" '$1 == want { print $2; exit }' "$owners")
-      [ -z "$held" ] && continue
-      [ "$held" = "$tier" ] && continue
-      case " $allowed " in
-        *" $held "*) ;;
-        *)
-          printf 'AUDIT %s is in the %s tier and includes %s from %s, which %s does not reach\n' \
-            "$source" "$tier" "$included" "$held" "$tier"
-          crossed=$((crossed + 1))
-          ;;
-      esac
-    done
-  done
-  # A tier graph can be acyclic while the modules inside it are not: --audit-layers judges the
-  # first path component, and both cycles board:1904 named sat INSIDE one tier. A cycle means
-  # neither module can be read, built or replaced without the other, which is one module spelled
-  # in two directories.
-  twinned=$(find src include -name '*.h' | xargs -n1 basename | sort | uniq -d)
+
+  # THE TWIN CHECK COMES FIRST because the judgement below resolves an include by its BASENAME:
+  # with two headers sharing one name there is no fact to judge, and a crossing between them would
+  # go unseen. So this refuses before it decides, rather than deciding on an ambiguity.
+  twinned=$(find src include -name '*.h' | sed 's|.*/||' | sort | uniq -d)
   if [ -n "$twinned" ]; then
     printf 'AUDIT two headers share one basename, and this walk resolves an include by basename\n'
+    twinHeaders=$(find src include -name '*.h' | sort)
     printf '%s\n' "$twinned" | while IFS= read -r name; do
-      printf 'AUDIT   %-24s %s\n' "$name" "$(find src include -name "$name" | tr '\n' ' ')"
+      printf 'AUDIT   %-24s %s\n' "$name" \
+        "$(printf '%s\n' "$twinHeaders" | grep "/$name\$" | tr '\n' ' ')"
     done
     printf 'AUDIT so a tier crossing between them would go unseen -- one name, one header\n'
     exit 1
   fi
+
+  owners=$BUILD/log/header-tiers
+  find src -name '*.h' -not -path 'src/assets/*' |
+    sed -e 's|^src/\([^/]*\)/.*/\([^/]*\)$|\2 \1|' -e 's|^src/\([^/]*\)/\([^/]*\)$|\2 \1|' |
+    sort -u > "$owners"
   byModule=$BUILD/log/module-of-header
   find src -name '*.h' -not -path 'src/assets/*' |
     sed -e 's|^src/\([^/]*/[^/]*\)/.*/\([^/]*\)$|\2 \1|' \
         -e 's|^src/\([^/]*/[^/]*\)/\([^/]*\.h\)$|\2 \1|' \
         -e 's|^src/\([^/]*\)/\([^/]*\.h\)$|\2 \1|' | sort -u > "$byModule"
-  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
-    from=$(printf '%s' "$source" |
-      sed -e 's|^src/\([^/]*/[^/]*\)/.*|\1|' -e 's|^src/\([^/]*\)/[^/]*$|\1|')
-    sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u |
-      while IFS= read -r head; do
-        to=$(awk -v want="$head" '$1 == want { print $2; exit }' "$byModule")
-        [ -z "$to" ] && continue
-        [ "$to" = "$from" ] && continue
-        printf '%s|%s\n' "$from" "$to"
-      done
-  done | sort -u > "$BUILD/log/module-pairs"
-  cycles=$(awk '{ seen[$0] = 1 }
-    END { for (k in seen) { split(k, e, "|");
-            if ((e[2] "|" e[1]) in seen && e[1] < e[2])
-              printf "AUDIT %s and %s include each other -- a cycle is one module spelled in two directories\n", e[1], e[2] } }' \
-    "$BUILD/log/module-pairs")
-  if [ -n "$cycles" ]; then
-    printf '%s\n' "$cycles"
-    crossed=$((crossed + $(printf '%s\n' "$cycles" | grep -c .)))
-  fi
-  if [ "$crossed" = 0 ]; then
-    printf 'AUDIT layered: every source includes only what its tier declares it reaches, and no module includes the module that includes it\n'
-    exit 0
-  fi
-  printf 'AUDIT %s include(s) cross the declared layering\n' "$crossed"
-  exit 1
+
+  # LayerReaches is a shell case, so the permission table is written out ONCE for the walk to read.
+  # A tier the table does not name is not audited -- the same silence the per-source `|| continue`
+  # kept, said in one place instead of once per file.
+  reachTable=$BUILD/log/tier-reaches
+  : > "$reachTable"
+  for tier in $(find src -mindepth 1 -maxdepth 1 -type d | sed 's|^src/||' | sort); do
+    tierReaches=$(LayerReaches "$tier") || continue
+    printf '%s %s\n' "$tier" "$tierReaches" >> "$reachTable"
+  done
+
+  # BOTH JUDGEMENTS READ THE SAME LINE ONCE. The tier crossing and the module cycle are two
+  # questions about the same include, and asking them in two walks spent an `awk` per include line
+  # twice over -- seven seconds for a fact that is one pass over the tree.
+  awk -v ownerFile="$owners" -v moduleFile="$byModule" -v reachFile="$reachTable" '
+    BEGIN {
+      while ((getline line < ownerFile) > 0) { split(line, field, " "); tierOf[field[1]] = field[2] }
+      while ((getline line < moduleFile) > 0) { split(line, field, " "); moduleOf[field[1]] = field[2] }
+      while ((getline line < reachFile) > 0) {
+        width = split(line, field, " ")
+        audited[field[1]] = 1
+        for (i = 2; i <= width; i++) { reaches[field[1] " " field[i]] = 1 }
+      }
+    }
+    FNR == 1 {
+      within = FILENAME
+      sub(/^src\//, "", within)
+      depth = split(within, part, "/")
+      tier = part[1]
+      from = (depth >= 3) ? part[1] "/" part[2] : (depth == 2 ? part[1] : within)
+      delete already
+    }
+    /^#include "/ {
+      head = $0
+      sub(/^#include "/, "", head); sub(/".*$/, "", head); sub(/^.*\//, "", head)
+      if (head in already) { next }
+      already[head] = 1
+      held = tierOf[head]
+      if (held != "" && (tier in audited) && held != tier && !((tier " " held) in reaches)) {
+        printf "AUDIT %s is in the %s tier and includes %s from %s, which %s does not reach\n",
+               FILENAME, tier, head, held, tier
+        crossed++
+      }
+      to = moduleOf[head]
+      if (to != "" && to != from) { pair[from "|" to] = 1 }
+    }
+    END {
+      for (edge in pair) {
+        split(edge, side, "|")
+        if (((side[2] "|" side[1]) in pair) && side[1] < side[2]) {
+          printf "AUDIT %s and %s include each other -- a cycle is one module spelled in two directories\n",
+                 side[1], side[2]
+          crossed++
+        }
+      }
+      if (crossed == 0) {
+        printf "AUDIT layered: every source includes only what its tier declares it reaches, and no module includes the module that includes it\n"
+        exit 0
+      }
+      printf "AUDIT %d include(s) cross the declared layering\n", crossed
+      exit 1
+    }
+  ' $(find src \( -name '*.cpp' -o -name '*.h' \) -not -path 'src/assets/*' | sort)
+  exit $?
 fi
 
 if [ "$AUDIT" = 1 ]; then
