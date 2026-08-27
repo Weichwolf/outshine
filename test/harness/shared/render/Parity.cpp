@@ -837,13 +837,13 @@ struct Picture {
   std::vector<float> Velocity;
 };
 
-outshine::Render::View MakeView(const Case &subject) {
-  return outshine::Render::View{subject.Eye, false, 0};
+outshine::Render::Eye MakeView(const Case &subject) {
+  return outshine::Render::Eye{subject.Eye, false, 0};
 }
 
 [[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
                            const outshine::Render::SubjectProxy &studio,
-                           const outshine::Render::View &view, Picture &out,
+                           const outshine::Render::Eye &view, Picture &out,
                            std::string &error) {
   outshine::Render::SubjectScratch scratch;
   if (!outshine::Render::Show(renderer, studio, view, scratch, error)) { return false; }

@@ -16,7 +16,7 @@ namespace outshine::Render {
 
 class Renderer;
 
-struct View {
+struct Eye {
   Gltf::Placement Eye;
   bool StandsInside = false;
   size_t FramedParts = 0;
@@ -74,19 +74,19 @@ struct SubjectScratch {
   DrawList Draws;
 };
 
-[[nodiscard]] bool Aim(Renderer &renderer, const Gltf::Subject &subject, const View &view,
+[[nodiscard]] bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Eye &view,
                        const double anchorEcefM[3], std::string &error);
 
-[[nodiscard]] bool Show(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+[[nodiscard]] bool Show(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
                         SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Surface(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+[[nodiscard]] bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
                            SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Place(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+[[nodiscard]] bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
                          SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Move(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+[[nodiscard]] bool Move(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
                         SubjectScratch &scratch, std::string &error);
 
 }

@@ -11,14 +11,14 @@ namespace outshine::Physics {
 
 inline constexpr size_t kMaxMounts = 16;
 
-struct Drive {
+struct Lever {
   double Ratio = 0.0;
 };
 
 struct Freedom {
   bool Motion = false;
-  Drive Applied;
-  Drive Resisting;
+  Lever Applied;
+  Lever Resisting;
 };
 
 struct Mount {

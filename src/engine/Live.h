@@ -175,7 +175,7 @@ private:
   SurfaceTable Table_;
   Asset Held_;
   Render::SubjectProxy Stood_;
-  Render::View Looking_;
+  Render::Eye Looking_;
   Render::SubjectScratch Scratch_;
 
   bool Stoodup_ = false;

@@ -207,7 +207,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return true;
 }
 
-[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const View &view, const Gltf::Subject &subject,
+[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const Eye &view, const Gltf::Subject &subject,
                                  DrawList &list, std::string &error) {
   list.Clear();
   for (size_t part = 0; part < subject.Parts().size(); ++part) {
@@ -341,7 +341,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
 
 }
 
-bool Aim(Renderer &renderer, const Gltf::Subject &subject, const View &view,
+bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Eye &view,
          const double anchorEcefM[3], std::string &error) {
   const Gltf::Placement &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }
@@ -358,7 +358,7 @@ bool Aim(Renderer &renderer, const Gltf::Subject &subject, const View &view,
   return true;
 }
 
-bool Surface(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
              SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
@@ -372,13 +372,13 @@ bool Surface(Renderer &renderer, const SubjectProxy &proxy, const View &view,
   return true;
 }
 
-bool Show(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+bool Show(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
           SubjectScratch &scratch, std::string &error) {
   return Surface(renderer, proxy, view, scratch, error) &&
          Place(renderer, proxy, view, scratch, error);
 }
 
-bool Place(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
            SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
@@ -442,7 +442,7 @@ bool Place(Renderer &renderer, const SubjectProxy &proxy, const View &view,
   return true;
 }
 
-bool Move(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+bool Move(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
           SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
