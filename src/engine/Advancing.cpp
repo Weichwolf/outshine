@@ -144,6 +144,9 @@ void Engine::State::Falls(void) {
 
 void Engine::State::Drew(void) {
   Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
+  Published.Places("stages the compiled plan runs", (double)Picture.Standing->PlanStages(),
+                   "stages");
+  Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");
   Published.Places("vertex uniform pushes the subject stages make",
                    (double)Picture.Device.SubjectUniformPushes(), "pushes");
   Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");

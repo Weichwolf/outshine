@@ -101,7 +101,7 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
          a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
          a.Environment[0] == b.Environment[0] && a.Environment[1] == b.Environment[1] &&
          a.Environment[2] == b.Environment[2] && a.KeyLux == b.KeyLux &&
-         a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky &&
+         a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky && a.Stages == b.Stages &&
          a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
          a.KeyBearingDeg == b.KeyBearingDeg;
 }
@@ -164,6 +164,7 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.Fps = scenario.Render.Fps;
     declared.Fill = scenario.Render.Fill;
     declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
+    declared.Stages = scenario.Render.Stages;
   }
   declared.PictureLeftFrac = picture.LeftFrac;
   declared.PictureTopFrac = picture.TopFrac;

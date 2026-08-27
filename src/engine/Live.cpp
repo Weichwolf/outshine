@@ -22,11 +22,29 @@ namespace outshine::Core {
 namespace {
 
 
-void DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
-                 Render::PlanSpec &declaration) {
+bool DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
+                 const std::vector<std::string> &stages, Render::PlanSpec &declaration,
+                 std::string &error) {
   declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
 
   if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
+  if (!stages.empty()) {
+    declaration.Content.clear();
+    for (const std::string &named : stages) {
+      const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
+      if (!row) {
+        error = "the declaration names render stage '" + named +
+                "', and the catalogue holds no row by that name -- a stage list is checked "
+                "against the catalogue because a typo that silently drops a pass is a picture "
+                "nobody can explain";
+        return false;
+      }
+      declaration.Content.push_back(*row);
+    }
+    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
+    declaration.Exposure = Render::Declared<float>(1.0f);
+    return true;
+  }
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
   if (sky) { declaration.Content.push_back(Render::Stage::Sky); }
   if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
@@ -43,6 +61,7 @@ void DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
 
   declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
   declaration.Exposure = Render::Declared<float>(1.0f);
+  return true;
 }
 
 }
@@ -168,8 +187,10 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(Held_.File(), Held_.Moves(), Declared_.DrawsSky,
-              ShadowRadiusStoodM_ > 0.0, declaration);
+  if (!DeclarePlan(Held_.File(), Held_.Moves(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
+                   Declared_.Stages, declaration, error)) {
+    return false;
+  }
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {

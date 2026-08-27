@@ -33,6 +33,8 @@ struct Declaration {
   std::string Stands;
   std::vector<std::string> Joins;
 
+  std::vector<std::string> Stages;
+
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
@@ -131,6 +133,10 @@ public:
   [[nodiscard]] static size_t TookDrawing() { return TookDrawing_; }
   [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
   [[nodiscard]] static size_t PlanInits() { return PlanInits_; }
+
+  [[nodiscard]] size_t PlanStages() const { return Plan_ ? Plan_->Order().size() : 0u; }
+
+  [[nodiscard]] size_t PlanPasses() const { return Plan_ ? Plan_->Passes().size() : 0u; }
 
   [[nodiscard]] const Gltf::Subject &Shown() const { return Held_.Geometry(); }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }

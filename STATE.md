@@ -281,7 +281,7 @@ The widest public surfaces.
 | 63 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
-| 38 | `src/engine/Live.h` |
+| 40 | `src/engine/Live.h` |
 | 32 | `include/Scene.h` |
 | 32 | `include/Outshine.h` |
 

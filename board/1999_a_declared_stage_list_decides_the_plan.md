@@ -44,9 +44,18 @@ consulted.
 
 ## What will be true
 
-- [ ] A scenario that declares `<stage name="...">` gets those stages, and one that declares none
-      gets `DeclarePlan`'s answer -- the `Declared` flag read where the decision is made, not a
-      list silently replaced by a function body. An unknown stage name is REFUSED by name.
+- [x] A scenario that declares `<stage name="...">` gets those stages, and one that declares none
+      gets `DeclarePlan`'s answer. `Declaration` carries the list from `Declaring.cpp` and takes
+      part in the equality that decides whether the plan is rebuilt; `DeclarePlan` resolves each
+      name through `Compiled::StageByName` -- which stood in the tree with ZERO callers -- and
+      refuses an unknown one with the name in the reason.
+      proof: outshine/door/ScoreWhatADeclaredStageListDoes reads
+      `THE DEFAULT PLAN RUNS 5 stage(s)` beside `A DECLARED LIST RUNS 3 stage(s)`, and the
+      refusal quotes 'terrain'; khronos/glTF 444/444, because no corpus case declares stages and
+      the default path is untouched.
+      negative control: `if (false && !stages.empty())` makes the declared list read 5 stages too
+      and BOTH checks go red -- the count check and the refusal, because an ignored list is also
+      an unchecked one.
 - [ ] The velocity target follows what MOVES, not what animates: a scene whose placements change
       between frames carries `SceneVelocity`, and `outshine/door/ScoreWhatAMovingSceneResends`
       reads a non-zero moving-pixel count over the drive where it already counts nine re-sent rows.
