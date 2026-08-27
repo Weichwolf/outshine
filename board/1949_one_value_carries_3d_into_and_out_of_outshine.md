@@ -105,6 +105,23 @@ so the correction removes a row rather than adding one. The merge runs: the read
       nine floats reach the same frame through the glTF reader and through the door, 0 of 9216
       pixels apart.
       proof: harness/outshine/door/ScoreWhatAClientHandsIn
+**WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
+`Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
+EMIT into a `Geometry` part is mechanical -- positions, uv sets, colours, normals, tangents,
+indices are each read and copied at `part.FirstVertex`. That half is a morning.
+
+The half that is not: `FlatNormalsFor(part)` and `BuildTangentsFor(...)` run AFTER the emit and
+operate on the packed arrays, and flat normals SPLIT vertices -- `Positions_.push_back(Positions_[
+vertex * 3 + axis])` -- so they grow the layout while walking it. The packed form is not merely
+where the reader puts things; it is the working surface two passes need. Morph targets and skinning
+write through the same surface.
+
+So this is a restructuring of the reader's PIPELINE and not a redirection of its output, and it
+wants its own hour with the Khronos corpus after each sub-step: emit, then flat normals, then
+tangents, then morph, then skin. 1864 vendor cases is the right oracle for exactly this and the
+reason it is safe to attempt at all -- it is also why attempting it half-way is worse than not
+starting: a reader that packs two ways is the second spelling this item exists to remove.
+
 - [ ] **THE glTF READER FILLS IT.** `Gltf::Subject` stops being a second representation and
       becomes the reader OF this one, so what the reader takes and what the builder carries are
       the same list by construction rather than by maintenance.
