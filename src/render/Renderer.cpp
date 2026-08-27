@@ -1006,7 +1006,7 @@ std::expected<std::optional<Renderer::Shown>, std::string_view> Renderer::Presen
   if (Showing_ == nullptr) {
     return std::unexpected(
         "no window is being shown on: a frame is presented to a surface the caller declared, "
-        "and a Canvas names one");
+        "and `DrawsInto` names one");
   }
   if (Shown_.WidthPx == 0) { return std::optional<Shown>(); }
   return std::optional<Shown>(Shown_);

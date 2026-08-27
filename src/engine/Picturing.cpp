@@ -173,7 +173,7 @@ bool Engine::State::Composes(void) {
 
 bool Engine::State::Stood(void) {
   if (Picture.Standing) { return true; }
-  if (!Picture.Canvas) {
+  if (!Picture.Targeted) {
     Error = "no canvas stands, so there is nowhere to draw -- the client hands one in through "
             "DrawsInto";
     return false;

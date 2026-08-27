@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: core
 Tags: architecture, physics, actor
 Parent: 1953
@@ -100,6 +100,28 @@ The order this is done in:
    bend to", and `note(scenario.Bodies.size(), "vehicles")`, which a user READS. `src/actor`,
    `src/sim`, `src/engine`, `src/render`, `src/scenario`, `src/content` and `include` now carry the
    word nowhere at all.
+
+**THE WORD IS NOW COUNTED AND MAY ONLY FALL.** This item claimed that `src/actor`, `src/sim`,
+`src/engine`, `src/render`, `src/scenario`, `src/content` and `include` carry `vehicle` nowhere
+at all -- and nothing was checking, so it was a sentence rather than a fact. Worse, `vehicle` was
+only one word. Measured across `src/` and `include/` with the generator tier exempt:
+
+    Car 6 · Seat 16 · Door 13 · Steering 8 · Brake 4 · Throttle 2 · Tyre 0 · Wheel 0 ·
+    Chassis 0 · Axle 0 · Pedal 0 · Walker 0
+
+`harness/claims/TheEngineNamesNoSubject` declares those counts and refuses in BOTH directions:
+a word that arrives is caught, and a word that leaves has to be recorded where it left. The
+zeroes are the ones board:1897 already cleared, and they are held there.
+
+**`src/generators/` is exempt and that is the point rather than a loophole.** A generator's job
+is to MAKE one concrete thing, so a tree grower called `Tree` is named for what it produces and
+could not honestly be called anything else. CLAUDE.md names them that way itself -- forest,
+buildings, water, infrastructure -- and the tier links with none of the engine behind it, so a
+subject noun there decides nothing about the laws. Unreal draws the same line: PCG sits outside
+the physics and renderer modules that have to stay generic.
+
+- [x] no subject noun GROWS in the engine, and every one that leaves is recorded where it left
+      proof: harness/claims/TheEngineNamesNoSubject
 
 **THE PROVING TEST WAITS ON board:1965, AND SAYS SO RATHER THAN BEING BUILT AROUND.** Two thirds
 of it stand: board:1969 shows a body with no drive standing, integrated and placed. The last third

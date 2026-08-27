@@ -242,7 +242,7 @@ bool Engine::Declare(const Scenario &scenario) {
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
-  if (!S_->Picture.Canvas) {
+  if (!S_->Picture.Targeted) {
     S_->Session.Declared = scenario;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();

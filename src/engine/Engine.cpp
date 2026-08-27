@@ -169,7 +169,7 @@ bool Engine::DrawsInto(SDL_Window *presents) {
   }
   int widthPx = 0, heightPx = 0;
   SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx);
-  S_->Picture.Canvas = true;
+  S_->Picture.Targeted = true;
   const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, presents);
   if (!standing) {
     S_->Error = std::string(standing.error());
@@ -180,7 +180,7 @@ bool Engine::DrawsInto(SDL_Window *presents) {
 }
 
 bool Engine::DrawsInto(Extent offscreen) {
-  S_->Picture.Canvas = true;
+  S_->Picture.Targeted = true;
   const auto standing = S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
   if (!standing) {
     S_->Error = std::string(standing.error());
