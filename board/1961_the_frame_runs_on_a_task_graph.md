@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: host
 
@@ -25,4 +25,8 @@ the reason this belongs in the refactor and not after it.
       step and the render encode still run in sequence on one thread. Splitting them is the next
       step and it needs the two to stop touching each other's state, which is board:1957's proxy
       question seen from the other side.
-- [ ] a task graph result is identical to the serial one, proven by a case running both
+- [x] a task graph result is identical to the serial one, proven by a case running both --
+      `ON ONE HAND 12 step(s) ran, summing 78` against `ON FOUR HANDS 12 step(s) ran, summing 78`,
+      and the declared chain lands at 9 -> 10 -> 11 on four hands. A number that changed with the
+      number of hands would mean the graph schedules rather than merely runs.
+      proof: outshine/physics/ScoreWhatATaskGraphOrders
