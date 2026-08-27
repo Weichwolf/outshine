@@ -105,6 +105,18 @@ so the correction removes a row rather than adding one. The merge runs: the read
       nine floats reach the same frame through the glTF reader and through the door, 0 of 9216
       pixels apart.
       proof: harness/outshine/door/ScoreWhatAClientHandsIn
+**ONE PASS MOVED INTO THE PACKER, WHICH IS THE FIRST STEP OF THE MERGE AND STANDS ON ITS OWN.**
+`FlatNormalsFor` -- the pass that answers a glTF primitive omitting NORMAL by splitting shared
+vertices so each triangle carries its own facing -- ran only on the reader's path. The packer a
+handed value goes through did not call it, so a client's or a generator's geometry without normals
+was REFUSED outright: *the studio declares 1 punctual lights and an environment, and part 0 of node
+'face'...*. `Assemble` runs it now, and a part stating no normals renders identically to one that
+states them.
+      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
+
+That is the shape the merge takes everywhere: a pass the reader owned becomes the PACKER's, and
+both producers get it. It also removes one of the two obstacles measured below.
+
 **WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
 `Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
 EMIT into a `Geometry` part is mechanical -- positions, uv sets, colours, normals, tangents,

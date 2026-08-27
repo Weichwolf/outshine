@@ -999,6 +999,10 @@ bool Subject::Assemble(const outshine::Geometry &what) {
       }
       Indices_.push_back((uint32_t)part.FirstVertex + local);
     }
+    part.IndexCount = Indices_.size() - part.FirstIndex;
+    if (!FlatNormalsFor(part)) { return false; }
+    part.VertexCount = VertexCount() - part.FirstVertex;
+    anyNormal = anyNormal || part.HasNormal;
     Parts_.push_back(part);
   }
 

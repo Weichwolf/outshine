@@ -134,6 +134,37 @@ int main(void) {
         "blue moves blue above red, which a picture that ignored the declaration and picked its "
         "own colour could not do");
 
+  // AND A PART THAT STATES NO NORMALS IS STILL LIT. glTF lets a primitive omit NORMAL, and the
+  // reader has always answered that by generating FLAT normals -- splitting shared vertices so each
+  // triangle carries its own facing. The packer a handed value goes through did not, so geometry
+  // from a client or a generator arrived with no facing at all and the light had nothing to fall
+  // on. One packer, one answer: `Assemble` runs the same generation the reader does.
+  const auto bare = [&](std::vector<uint8_t> &rgba) {
+    outshine::Geometry geometry;
+    outshine::Material surface;
+    for (int at = 0; at < 4; ++at) { surface.BaseColour[at] = kRed[at]; }
+    surface.Roughness = 0.9f;
+    const int named = geometry.Surface("stated", surface);
+    const int part = geometry.Part("face", named);
+    return geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
+           geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6)) &&
+           engine.Stands(geometry) && engine.RenderTo(outshine::Extent{}) && engine.Pixels(rgba);
+  };
+  std::vector<uint8_t> unfaced;
+  const bool stoodBare = bare(unfaced);
+  const std::string whyBare = engine.Error();
+  const Lit ofBare = stoodBare ? Mean(unfaced) : Lit{0, 0, 0};
+  std::printf("STATING NO NORMALS  %s mean r %6.2f  g %6.2f  b %6.2f\n",
+              stoodBare ? "        " : "REFUSED,", ofBare.Red, ofBare.Green, ofBare.Blue);
+  if (!stoodBare) { std::printf("  BECAUSE %s\n", whyBare.c_str()); }
+
+  CHECK(stoodBare && ofBare.Red > 1.0,
+        "**A HANDED PART THAT STATES NO NORMALS IS STILL LIT**: glTF lets a primitive omit "
+        "NORMAL and the reader answers with FLAT normals, splitting shared vertices so each "
+        "triangle carries its own facing. The packer a handed value went through did not, so a "
+        "client's or a generator's geometry arrived with no facing and the light had nothing to "
+        "fall on -- one packer now, and one answer");
+
   Covers("the door: a client or a generator hands in the material its part wears, and the picture "
          "shows that material -- `outshine::Material` is a door type and the subject holds the "
          "surfaces it was assembled with, whichever producer filled them");
