@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: engine
 Progress: gpu-driven
@@ -52,9 +52,22 @@ beside `MeshCpuMs`, and the pool subtracts one from the other to get CPU time
 (`spanMs - (tFetchBlockedMs - blockedBefore)`) -- so the tree knows exactly how long a worker
 spends waiting rather than working, and spends it anyway.
 
-`src/host/Fetching` DOES have its own threads, so the HTTP transport is already off the frame
-path. What is not separated is the POLL: a pool worker blocks on `Sources_.Collect` in a loop
-rather than being handed the bytes when they arrive.
+**IO ALREADY HAS EIGHT THREADS, and that changes what is wrong here.** `Fetching`'s default is
+`kDefaultThreads = 8` (`src/host/Fetching.cpp:11`), so the transport is asynchronous and off the
+frame path already. The defect is narrower and worse than "IO needs a thread":
+
+    the 8 IO threads do the waiting
+    AND a compute worker sits beside them asking `Sources_.Collect` every few ms
+
+Both wait for the same bytes. One of them is a core.
+
+**Which gives the rule its second half: IO threads scale with CONCURRENT REQUESTS, compute
+threads scale with CORES.** Eight is a reasonable number of tiles to have in flight; it has
+nothing to do with how many cores the machine has, and a machine with two cores still wants
+eight requests outstanding because seven of them are asleep. That is why the two pools are sized
+by different quantities and cannot be merged into one.
+
+So the work is not "give IO a thread". It is: **a compute worker is NOTIFIED, never polls.**
 
 **WHY FOUR IS THE RIGHT NUMBER, AND IT IS NOT BECAUSE THERE ARE FOUR CORES.** A core count is a
 correspondence, not an argument, and this device has 2P+4E rather than four of anything. The
@@ -72,6 +85,7 @@ else. An IO task on a compute worker consumes a core, because the slot is held w
 work is happening. That asymmetry is the whole of it, and it holds on two cores as firmly as on
 sixteen.
 
-- [ ] IO has its own thread and a compute worker never blocks on a socket or a disk
+- [ ] a compute worker never blocks on a socket or a disk -- it is handed the bytes when the
+      IO threads have them, rather than asking for them in a loop
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared
