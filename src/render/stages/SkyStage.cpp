@@ -85,6 +85,12 @@ void SkyStage::Declare(const Medium &medium, const float sunDir[3], const float 
   Declared_ = true;
 }
 
+void SkyStage::Eye(const Medium &medium, float eyeHeightM) {
+  if (!Declared_) { return; }
+  Pushed_.EyeRadiusKm =
+      medium.BottomRadiusKm + kMediumGroundLiftKm + (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+}
+
 void SkyStage::SetBasis(const float right[3], const float upAxis[3], const float fwd[3],
                         float tanHalfW, float tanHalfH) {
   for (int axis = 0; axis < 3; ++axis) {

@@ -156,6 +156,13 @@ public:
     Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
 
+  void SetSkyEye(float eyeHeightM) {
+    if (!Sky_.Stands()) { return; }
+    EyeHeightM_ = eyeHeightM;
+    Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Sky_.Eye(Medium_, eyeHeightM);
+  }
+
   [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return SkyViewLut_.Get(); }
 
   [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const { return MultiScatterLut_.Get(); }

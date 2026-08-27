@@ -24,6 +24,10 @@ public:
   void Declare(const Medium &medium, const float sunDir[3], const float up[3],
                float illuminanceLux, float eyeHeightM);
 
+  void Eye(const Medium &medium, float eyeHeightM);
+
+  [[nodiscard]] bool Stands() const { return Declared_; }
+
   void SetBasis(const float right[3], const float upAxis[3], const float fwd[3], float tanHalfW,
                 float tanHalfH);
 

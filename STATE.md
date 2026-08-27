@@ -200,7 +200,7 @@ The heaviest units, against the median of them all.
 | 2020 | `content/gltf/Document.h` |
 | 1453 | `content/gltf/Subject.h` |
 | 1397 | `ui/Layout.h` |
-| 1342 | `render/Renderer.h` |
+| 1349 | `render/Renderer.h` |
 | 1141 | `base/format/Script.h` |
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |

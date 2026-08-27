@@ -174,9 +174,6 @@ private:
   };
   std::vector<Volume> PartBounds_;
   [[nodiscard]] bool PartVolumes(std::string &error);
-  float SkyToSun_[3] = {0, 0, 0};
-  float SkyUp_[3] = {0, 0, 0};
-  bool SkyStands_ = false;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
