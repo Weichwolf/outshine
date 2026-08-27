@@ -1,5 +1,5 @@
 Type: issue
-State: active
+State: open
 Area: test
 Tags: gate, guard
 Depends: 1898
