@@ -205,6 +205,8 @@ struct Seen {
   bool Canvas = false;
   Core::Declaration Shown;
   Ui::Typeface Face;
+  Gltf::Subject Handed;
+  bool Carrying = false;
 };
 
 struct Kept {

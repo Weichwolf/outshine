@@ -323,11 +323,6 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
 }
 
 bool Engine::Stands(const Geometry &geometry) {
-  if (!S_->Picture.Standing) {
-    S_->Error = "no scenario stands, so there is nothing for geometry to be handed to -- Declare "
-                "before Stands";
-    return false;
-  }
   if (!geometry.Whole()) {
     S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
                 "than an empty picture";
@@ -337,6 +332,12 @@ bool Engine::Stands(const Geometry &geometry) {
   if (!handed.Assemble(geometry)) {
     S_->Error = handed.Error();
     return false;
+  }
+  if (!S_->Picture.Standing) {
+    S_->Picture.Handed = std::move(handed);
+    S_->Picture.Carrying = true;
+    S_->Error.clear();
+    return true;
   }
   return S_->Picture.Standing->Restand(handed, 0, S_->Error);
 }

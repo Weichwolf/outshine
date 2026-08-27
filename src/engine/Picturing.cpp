@@ -181,8 +181,13 @@ bool Engine::State::Stood(void) {
   Core::Declaration wanted = Picture.Shown;
   wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
   wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
-  return Core::Live::Open(Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing,
-                          Error);
+  if (!Core::Live::Open(Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing,
+                        Error)) {
+    return false;
+  }
+  if (!Picture.Carrying) { return true; }
+  Picture.Carrying = false;
+  return Picture.Standing->Restand(Picture.Handed, 0, Error);
 }
 
 bool Engine::Mixes(std::span<float> stereo, int rate) {
