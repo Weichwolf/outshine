@@ -18,16 +18,24 @@ value:
 | what | where | what it says |
 |---|---|---|
 | previous view | `Renderer::RenderFrame` end | the real previous camera |
-| previous anchor | `SubjectProxy.cpp`, both sites | `PrevAnchor = Anchor` -- the current one |
-| previous placement | `SubjectDraw::Encode` | `before[i] = model[i]` -- the current one |
+| previous anchor | `SubjectProxy.cpp`, both sites | `PrevAnchor = Anchor` -- CORRECT, see below |
+| previous placement | `SubjectDraw::Encode` | `before[i] = model[i]` -- REPAIRED, see below |
 
-**MEASURED, and this is the item's whole point.** Building the previous placement without this
-put `SubjectDraw::CarryFrame()` at the end of `Renderer::RenderFrame`, which is where the camera's
-previous value is already carried. The corpus said that point is not reached on the path the
-cases take: `khronos/glTF/AnimatedCube` went from PASS to `velocity_pixels_moving = 97468` against
-a bound of 0, and 97468 px is exactly that case's covered area -- every covered pixel reporting
-motion is what a previous transform frozen at its first move looks like. 62 more animated cases
-went with it. So the camera's carry point is NOT the frame's end; it is one path's end.
+**MEASURED, AND TWO THIRDS OF THE TABLE ABOVE WAS WRONG.** `Renderer::RenderFrame` has exactly
+ONE caller, so a frame already ends in one place; the item was filed on a guess that it does not.
+
+And `PrevAnchor = Anchor` is CORRECT, not a defect. Carrying the anchor properly took
+`khronos/glTF/AnimatedCube` from PASS to `velocity_pixels_moving = 97468` against a bound of 0 --
+97468 px is exactly that case's covered area, so every covered pixel reported motion. The reason:
+`PrevVerts` are written into the scratch buffer against the CURRENT anchor, so previous positions
+live in today's anchor space and pairing them with yesterday's anchor moves the whole subject.
+The field is deleted rather than kept, because it can never differ from `Anchor`.
+
+What was real is the third row. `before[i] = model[i]` in `Encode` meant a rigid subject that
+changed PLACE reprojected onto itself, and that is now fixed: the placement row is 32 floats --
+current transform then previous -- carried across by `MovePlacement` under a per-slot frame stamp,
+with a first-write rule so a slot's first previous is its own current rather than the zeros
+`PlacementRows` fills.
 
 **The consequence today**: this tree has no rigid motion vector. A subject that changes place
 between frames writes zero velocity, and TAA has nothing to reproject it by. It is invisible
@@ -35,13 +43,22 @@ because nothing in the corpus moves a rigid subject without also deforming it.
 
 ## What will be true
 
-- [ ] **One method ends a frame** and every path that renders -- windowed, offscreen, headless
-      picture-taking -- passes through it exactly once. Named rather than assumed: a claim counts
-      the callers and refuses when there is more than one.
-- [ ] The previous view, the previous anchor and the previous placement are all carried THERE,
-      and nowhere else assigns a previous value.
-- [ ] A rigid subject that moves between frames writes a non-zero velocity, and one that does not
-      writes zero. The negative control is the case that found this: freeze the carry point and
-      `velocity_pixels_moving` reads the whole covered area rather than 0.
-- [ ] board:1989's 32-float placement row lands on top of it -- current transform then previous,
-      with a per-slot frame stamp so two moves in one frame cannot lose the old value.
+- [x] board:1989's 32-float placement row lands: current transform then previous, with a per-slot
+      frame stamp so two moves in one frame cannot lose the old value, and a first-write rule so a
+      slot's first previous is its own current rather than the zeros `PlacementRows` fills.
+      `SubjectDraw::CarryFrame()` advances the stamp at the end of `Renderer::RenderFrame`.
+      proof: khronos/glTF, outshine/door
+- [ ] **A rigid subject that moves between frames writes a non-zero velocity, and the door can
+      READ that.** Today it cannot, and the blocker has an address: `Renderer::ReadSceneVelocity`
+      exists and `harness/shared/render/Parity.cpp` is its only caller, reaching past `include/`.
+      A door case cannot. Declaring `temporalResolve` and `sceneVelocity` into
+      `apps/driver/src/f31.scenario`'s plan from a case is ACCEPTED and still leaves `VelTex_`
+      null, so the resource is aliased away before it is made -- that is the thing to understand
+      before the number is published, because publishing one that reads -1 forever is worse than
+      publishing none.
+      Until then the corpus proves velocity in both directions -- 354 cases demand at least one
+      moving pixel, 75 demand none, 444/444 pass -- but EVERY one of them animates GEOMETRY, so
+      their velocity comes from per-vertex `prevP` and would pass with the previous row disabled.
+      No case in this tree moves a PLACEMENT and looks at the result.
+- [ ] a claim counts the callers of the frame's end and refuses when there is more than one, so
+      the single caller `RenderFrame` has today is a fact rather than a coincidence
