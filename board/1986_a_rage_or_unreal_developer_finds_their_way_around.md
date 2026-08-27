@@ -1,5 +1,5 @@
 Type: issue
-State: active
+State: open
 Parent: 1953
 Area: architecture
 Tags: naming, benchmark
@@ -75,6 +75,13 @@ in the door -- two names for a placement, which is board:1980's other half.
 - [ ] the same for the names a client SEES: measure strings, refusal texts, event names
 - [ ] a claim holds the list of known collisions at zero, the way `TheEngineNamesNoSubject`
       holds subject nouns
-- [ ] `TheEngineNamesNoSubject` walks CLAUDE.md too. It walks `src/` and `include/`, so the page
-      that STATES the rule was the only place not held to it -- and carried three subject nouns
-      until this item found them
+**WITHDRAWN: `TheEngineNamesNoSubject` will NOT walk CLAUDE.md, and the reason is the measurement.**
+The page carries `car` once, `seat` once, `wheel` once -- all three inside the sentence that
+DEFINES them as subjects -- and `door` six times, every one of them the interface metaphor this
+tree uses throughout ("a header is public only if a client cannot use the engine without it").
+
+A word count cannot tell a page NAMING a thing from a page TALKING ABOUT the word, and CLAUDE.md
+does nothing but talk about words. A guard there would fire on its own rule and be silenced within
+a week. The three subject nouns it did carry -- "what a WHEEL stands on", "vehicle numbers", "the
+corridor the wheels stand on" -- were found by reading, and reading is the right instrument for a
+page that argues rather than declares.
