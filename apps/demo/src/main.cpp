@@ -65,7 +65,7 @@ constexpr int kMixFrames = 1024;
   blob.Name = "blob";
   blob.MassKg = 12.0;
   blob.Placed = true;
-  blob.AtM[1] = 6.0;
+  blob.Stands.AtM[1] = 6.0;
   made.Bodies.push_back(blob);
 
   made.Buses.push_back(outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0});

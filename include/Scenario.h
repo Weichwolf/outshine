@@ -309,8 +309,7 @@ struct Body {
   std::string Name;
   std::string Asset;
   bool Placed = false;
-  double AtM[3] = {0.0, 0.0, 0.0};
-  double FacingXyzw[4] = {0.0, 0.0, 0.0, 1.0};
+  Standing Stands;
   double MassKg = 0.0;
   double WidthM = 0.0;
 

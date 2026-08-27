@@ -166,6 +166,14 @@ void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *
   }
 }
 
+void ReadStanding(const Xml::Ref &from, Standing &into) {
+  ReadVector(from, "x", "y", "z", into.AtM, 3);
+  ReadVector(from, "qx", "qy", "qz", into.FacingXyzw, 3);
+  into.FacingXyzw[3] = from.Num("qw", into.FacingXyzw[3]);
+  const double evenly = from.Num("scale", 0.0);
+  if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
+}
+
 void ReadWorld(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
@@ -364,10 +372,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   for (const Xml::Ref one : placements.Children("place")) {
     Placement made;
     made.Asset = one.Attr("asset");
-    ReadVector(one, "x", "y", "z", made.Stands.AtM, 3);
-    ReadVector(one, "qx", "qy", "qz", made.Stands.FacingXyzw, 3);
-    made.Stands.FacingXyzw[3] = one.Num("qw", 1.0);
-    made.Stands.ScaleXyz[0] = made.Stands.ScaleXyz[1] = made.Stands.ScaleXyz[2] = one.Num("scale", 1.0);
+    ReadStanding(one, made.Stands);
     into.Placements.push_back(made);
   }
 
@@ -430,9 +435,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Of = one.Attr("of");
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
-    ReadVector(one, "x", "y", "z", made.Stands.AtM, 3);
-    ReadVector(one, "qx", "qy", "qz", made.Stands.FacingXyzw, 3);
-    made.Stands.FacingXyzw[3] = one.Num("qw", 1.0);
+    ReadStanding(one, made.Stands);
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
@@ -602,11 +605,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     if (Declares(one, "at")) {
       const Xml::Ref where = one.Child("at");
       made.Placed = true;
-      ReadVector(where, "x", "y", "z", made.AtM, 3);
-      made.FacingXyzw[0] = where.Num("qx", 0.0);
-      made.FacingXyzw[1] = where.Num("qy", 0.0);
-      made.FacingXyzw[2] = where.Num("qz", 0.0);
-      made.FacingXyzw[3] = where.Num("qw", 1.0);
+      ReadStanding(where, made.Stands);
     }
     const Xml::Ref centre = one.Child("centreOfMass");
     made.CentreOfMassM[0] = centre.Num("x", 0.0);

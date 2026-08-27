@@ -90,13 +90,13 @@ bool Engine::State::Routes(void) {
     Physics::Rigid held;
     held.MassKg = stands.MassKg;
     for (int axis = 0; axis < 3; ++axis) {
-      held.PositionM[axis] = stands.AtM[axis];
+      held.PositionM[axis] = stands.Stands.AtM[axis];
       held.InertiaKgM2[axis] = stands.InertiaKgM2[axis];
     }
-    held.OrientationQ[0] = stands.FacingXyzw[3];
-    held.OrientationQ[1] = stands.FacingXyzw[0];
-    held.OrientationQ[2] = stands.FacingXyzw[1];
-    held.OrientationQ[3] = stands.FacingXyzw[2];
+    held.OrientationQ[0] = stands.Stands.FacingXyzw[3];
+    held.OrientationQ[1] = stands.Stands.FacingXyzw[0];
+    held.OrientationQ[2] = stands.Stands.FacingXyzw[1];
+    held.OrientationQ[3] = stands.Stands.FacingXyzw[2];
     Ticking.Freestanding.push_back(held);
   }
   if (!declared.Routed.Declared) { return true; }

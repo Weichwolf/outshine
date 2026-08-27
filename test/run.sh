@@ -270,7 +270,7 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
-    outshine/scenario) printf '%s' "src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp" ;;
+    outshine/scenario) printf '%s' "src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp src/scenario/ScenarioRead.cpp src/scenario/Tables.cpp" ;;
     outshine/content) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/content/gltf" ;;
     outshine/geo) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/compositor src/generators/base src/generators src/generators/draw" ;;
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;
