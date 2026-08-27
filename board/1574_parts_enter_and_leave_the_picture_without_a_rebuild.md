@@ -79,3 +79,13 @@ field is added the build stops.
 What is NOT done, and this item stays open for it: parts ENTER and LEAVE. Today the picture
 holds one subject and a swap replaces it. A scenario that declares five bodies and drops one
 still has no verb, and the entity store is where that belongs (board:1896, board:1897).
+
+**The line that says so is one call.** `Engine::State::Draws` carries
+`Ticking.Freestanding.front()` -- the FIRST freestanding body and no other -- and
+`Live::Carry` then places every part of that one subject on that one transform. A scenario
+declaring two standing bodies draws one of them, and nothing refuses: the second is simply
+absent from the picture, which is the quietest kind of wrong.
+
+**This blocks board:1957's last predicate**, which asks for a DELTA instead of the boundary
+diff. A delta over a one-row table is a line of code rather than an architecture, so that
+predicate waits here and says so rather than being written twice.

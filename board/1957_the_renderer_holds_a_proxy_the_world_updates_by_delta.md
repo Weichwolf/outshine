@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Parent: 1953
-Depends: 1950
+Depends: 1950, 1574
 Area: render
 
 # The renderer holds a proxy the world updates by delta
@@ -48,3 +48,13 @@ knowledge belongs, and only the second one lets the world stop building the tabl
 - [ ] the DELTA rather than the diff: the caller says what it moved instead of the boundary
       comparing sixteen doubles per row. A diff is where the cost goes away; the delta is where
       the knowledge belongs, and only it lets the world stop building the table at all.
+      **MEASURED, and it waits on board:1574 rather than on effort.** Unreal's answer is
+      `MarkRenderTransformDirty()` -- the GAME side marks, and `FScene` never compares. Here the
+      comparison sits in `Live::Carry` (`SentBody_` against a freshly built matrix, 32 doubles a
+      tick) and its caller is `Engine::State::Carries`, which builds that matrix from the
+      quaternion BEFORE the diff can decide -- work spent ahead of the decision, which is the
+      real cost rather than the compare.
+      But the picture holds ONE subject: `Advancing.cpp` carries `Freestanding.front()` and
+      nothing else, so the table this would save building is one row long. A delta over one row
+      is a line of code, not an architecture, and writing it now would prove nothing and would be
+      rewritten the day the picture holds five. board:1574 is where that changes.
