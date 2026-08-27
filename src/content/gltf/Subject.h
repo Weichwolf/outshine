@@ -159,6 +159,7 @@ private:
                                   size_t vertices, std::vector<Transform> &out);
 
   [[nodiscard]] bool FlatNormalsFor(Part &part);
+  [[nodiscard]] bool GeneratedTangentsFor(Part &part);
 
   [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
                                       const VertexPlacement &place,
@@ -177,6 +178,7 @@ private:
   Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
   std::vector<Material> Surfaces_;
+  std::vector<uint8_t> TangentWanted_;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 

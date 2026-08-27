@@ -259,8 +259,14 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     return true;
   }
 
-  const bool needed = part.Material >= 0 && (size_t)part.Material < document.Materials().size() &&
-                      document.Materials()[(size_t)part.Material].Normal.Texture >= 0;
+  return GeneratedTangentsFor(part);
+}
+
+bool Subject::GeneratedTangentsFor(Part &part) {
+  Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+  if (part.Tangent == TangentSource::Supplied) { return true; }
+  const bool needed = part.Material >= 0 && (size_t)part.Material < TangentWanted_.size() &&
+                      TangentWanted_[(size_t)part.Material] != 0;
   if (!needed || !part.HasNormal || !part.HasUv || part.IndexCount == 0) { return true; }
 
   TangentSubject over;
@@ -273,8 +279,7 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
   std::vector<double> corners;
   std::string error;
   if (!GenerateTangents(over, corners, error)) {
-    return Refuse(document.Path() + ": the tangent basis the material needs cannot be generated: " +
-                  error);
+    return Refuse("the tangent basis the material needs cannot be generated: " + error);
   }
 
   std::map<BasisKey, uint32_t> split;
@@ -537,7 +542,11 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Parts_.clear();
   Lights_.clear();
   Surfaces_.clear();
-  for (const MaterialRef &declared : document.Materials()) { Surfaces_.push_back(declared.Surface); }
+  TangentWanted_.clear();
+  for (const MaterialRef &declared : document.Materials()) {
+    Surfaces_.push_back(declared.Surface);
+    TangentWanted_.push_back(declared.Normal.Texture >= 0 ? 1u : 0u);
+  }
   Undrawn_ = Undrawn();
   bool anyUv = false;
   bool anyUv1 = false;
@@ -889,8 +898,10 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Parts_.clear();
   Lights_.clear();
   Surfaces_.clear();
+  TangentWanted_.clear();
   for (int surface = 0; surface < what.Surfaces(); ++surface) {
     Surfaces_.push_back(what.SurfaceAt(surface));
+    TangentWanted_.push_back(0u);
   }
   for (int lamp = 0; lamp < what.Lamps(); ++lamp) {
     PlacedLight placed;
@@ -1000,7 +1011,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
       Indices_.push_back((uint32_t)part.FirstVertex + local);
     }
     part.IndexCount = Indices_.size() - part.FirstIndex;
-    if (!FlatNormalsFor(part)) { return false; }
+    if (!FlatNormalsFor(part) || !GeneratedTangentsFor(part)) { return false; }
     part.VertexCount = VertexCount() - part.FirstVertex;
     anyNormal = anyNormal || part.HasNormal;
     Parts_.push_back(part);

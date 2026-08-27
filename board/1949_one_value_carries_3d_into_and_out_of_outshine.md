@@ -114,19 +114,27 @@ was REFUSED outright: *the studio declares 1 punctual lights and an environment,
 states them.
       proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
 
+**AND THE SECOND SPLITTING PASS FOLLOWED IT.** `BuildTangentsFor` did two jobs: read a supplied
+TANGENT accessor (reader work) and GENERATE a basis when a material's normal texture needs one --
+and the second splits vertices too. Its only tie to the document was one yes-or-no question, *does
+this material carry a normal texture*, which is now a flag both producers fill. The generation is
+`GeneratedTangentsFor(part)`, document-free, and the packer runs it.
+
+So BOTH passes that grow the layout while walking it are the packer's now, which is exactly the
+obstacle measured below. 444 Khronos cases pass with the move.
+
 That is the shape the merge takes everywhere: a pass the reader owned becomes the PACKER's, and
-both producers get it. It also removes one of the two obstacles measured below.
+both producers get it.
 
 **WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
 `Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
 EMIT into a `Geometry` part is mechanical -- positions, uv sets, colours, normals, tangents,
 indices are each read and copied at `part.FirstVertex`. That half is a morning.
 
-The half that is not: `FlatNormalsFor(part)` and `BuildTangentsFor(...)` run AFTER the emit and
-operate on the packed arrays, and flat normals SPLIT vertices -- `Positions_.push_back(Positions_[
-vertex * 3 + axis])` -- so they grow the layout while walking it. The packed form is not merely
-where the reader puts things; it is the working surface two passes need. Morph targets and skinning
-write through the same surface.
+The half that WAS not, and is now: `FlatNormalsFor` and the generating half of `BuildTangentsFor`
+ran after the emit on the packed arrays and both SPLIT vertices, growing the layout while walking
+it. Both are the packer's, so the emit is all that is left of this obstacle. Morph targets and
+skinning still write through the packed surface.
 
 So this is a restructuring of the reader's PIPELINE and not a redirection of its output, and it
 wants its own hour with the Khronos corpus after each sub-step: emit, then flat normals, then
