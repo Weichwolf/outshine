@@ -70,6 +70,7 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 | **threading** | `FTaskGraph`, render + RHI threads | `sysTaskManager`, fibers | **agree** | explicit dependencies; 720p60 on four usable cores is unreachable from one thread and retrofitting is a rewrite |
 | **engine composition** | thin `UEngine`; each concern a SUBSYSTEM with a declared lifetime | **`gameSkeleton`**: INIT/UPDATE/SHUTDOWN steps in declared PHASES | **both** | they answer different halves — who OWNS state, and WHEN it runs. A flat struct of members has neither: every concern reaches every other, and the order is whatever the bodies happen to do |
 | **interface** | Slate/UMG authored in an editor | Scaleform: documents authored OUTSIDE, engine renders them | **RAGE's slot, HTML/CSS/JS in it** | an editor-authored widget tree is a build artefact, not declared content. A standards format buys what neither has: **WPT and test262 certify this layer from outside** |
+| **audio** | `USoundWave` (a file), **MetaSounds** (a node GRAPH compiled per voice), `USoundWaveProcedural` (a buffer the game fills); `UAudioComponent` binds a sound to an ACTOR; attenuation is a declared asset; submixes are a bus graph | file-backed streams, **`audSynthSound`** (a modular synth from DATA), streaming sounds; `audEntity` binds sound to an entity; a mixer bus graph | **both agree, three ways** | a FILE, a declared GRAPH, and a buffer the client fills — and the GRAPH is the one that matters here, because a procedural world cannot ship a wave file for every engine, wind and stream. Sound binds to an ENTITY in both, never to a coordinate |
 | **content surface** | `.uasset` + Interchange | offline tool chain | **neither** | glTF 2.0 is the only content surface — Interchange's role without its format |
 
 ## Invariants
@@ -108,6 +109,14 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
   here — `FMeshDescription` against `FStaticMeshLODResources` + `FNaniteResources`, with
   `FMeshBatch` a description of a DRAW rather than a third form — and RAGE's `grmGeometry` is the
   cooked form, which is why its file can be mapped rather than parsed
+- **SOUND IS DECLARED THE WAY GEOMETRY IS, AND A STANDARDS BODY OWNS BOTH HALVES.** WHERE a sound
+  is and how it falls off is glTF's own — `KHR_audio_emitter` puts an emitter on a NODE with a
+  distance model, rolloff and cone, which is inside the promise to read every ratified `KHR_`.
+  WHAT a sound is, is the **Web Audio API**: oscillators, biquads, delays, convolvers, shapers and
+  a panner with distance models, evaluated as a GRAPH — W3C's, with **WPT's `webaudio` suite** as
+  the oracle. That makes audio the SECOND subsystem here whose correctness someone else certifies,
+  after the interface. A procedural world settles which of the three ways matters: a generated
+  forest, engine or stream cannot ship a wave file, so the graph is the only form that scales
 - **Declarative.** Scenarios declare, the engine behaves. Content = data, engine = verbs; the
   consumer selects from a `constexpr` catalogue and cannot add to it. **A section NOT declared
   decides nothing** — its `Declared` flag is read where the decision is made, and the engine's own
