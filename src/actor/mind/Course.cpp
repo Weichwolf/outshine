@@ -24,9 +24,9 @@ double AwayFrom(const Placed &line, double eastM, double northM) {
 
 }
 
-Placement Locate(const ReferenceLine &along, double eastM, double northM, double heightM,
+Where Locate(const ReferenceLine &along, double eastM, double northM, double heightM,
                  double headingRad, double nearM, double windowM) {
-  Placement out;
+  Where out;
   out.EastM = eastM;
   out.NorthM = northM;
   out.HeightM = heightM;
@@ -50,7 +50,7 @@ Placement Locate(const ReferenceLine &along, double eastM, double northM, double
   return out;
 }
 
-Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM,
+Sighting Sight(const ReferenceLine &along, const Where &from, double chordM,
                double asideM) {
   Sighting out;
   if (!from.Found || !(chordM > 0.0)) { return out; }

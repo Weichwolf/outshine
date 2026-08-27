@@ -1,4 +1,4 @@
-#include "Body.h"
+#include "Rigid.h"
 
 #include <cmath>
 
@@ -26,13 +26,13 @@ void Unturn(const double orientationQ[4], const double worldV[3], double bodyV[3
   Turn(back, worldV, bodyV);
 }
 
-void Place(const Body &body, const double atBodyM[3], double worldM[3]) {
+void Place(const Rigid &body, const double atBodyM[3], double worldM[3]) {
   double turned[3];
   Turn(body.OrientationQ, atBodyM, turned);
   for (int axis = 0; axis < 3; ++axis) { worldM[axis] = body.PositionM[axis] + turned[axis]; }
 }
 
-void Carry(const Body &body, const double atBodyM[3], double worldMs[3]) {
+void Carry(const Rigid &body, const double atBodyM[3], double worldMs[3]) {
   double spun[3];
   Cross(body.SpinBodyRadS, atBodyM, spun);
   double turned[3];
@@ -40,7 +40,7 @@ void Carry(const Body &body, const double atBodyM[3], double worldMs[3]) {
   for (int axis = 0; axis < 3; ++axis) { worldMs[axis] = body.VelocityMs[axis] + turned[axis]; }
 }
 
-void Push(Wrench &wrench, const Body &body, const double atBodyM[3], const double forceN[3]) {
+void Push(Wrench &wrench, const Rigid &body, const double atBodyM[3], const double forceN[3]) {
   double arm[3];
   Turn(body.OrientationQ, atBodyM, arm);
   double torque[3];
@@ -51,11 +51,11 @@ void Push(Wrench &wrench, const Body &body, const double atBodyM[3], const doubl
   }
 }
 
-void Fall(Wrench &wrench, const Body &body, const double gravityMs2[3]) {
+void Fall(Wrench &wrench, const Rigid &body, const double gravityMs2[3]) {
   for (int axis = 0; axis < 3; ++axis) { wrench.ForceN[axis] += body.MassKg * gravityMs2[axis]; }
 }
 
-void Step(Body &body, const Wrench &wrench, double dtS) {
+void Step(Rigid &body, const Wrench &wrench, double dtS) {
   if (!(body.MassKg > 0.0) || !(dtS > 0.0)) { return; }
 
   for (int axis = 0; axis < 3; ++axis) {
@@ -95,7 +95,7 @@ void Step(Body &body, const Wrench &wrench, double dtS) {
   for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = turned[part] / length; }
 }
 
-double EnergyJ(const Body &body, const double gravityMs2[3]) {
+double EnergyJ(const Rigid &body, const double gravityMs2[3]) {
   double energy = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     energy += 0.5 * body.MassKg * body.VelocityMs[axis] * body.VelocityMs[axis];
@@ -116,7 +116,7 @@ void Unit(double v[3]) {
 
 }
 
-void Lie(Body &body, const double aheadM[3], const double upM[3]) {
+void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   double ahead[3] = {aheadM[0], aheadM[1], aheadM[2]};
   double up[3] = {upM[0], upM[1], upM[2]};
   Unit(up);

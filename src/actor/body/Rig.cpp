@@ -10,7 +10,7 @@ using outshine::Cross;
 using outshine::Dot;
 using outshine::Normalise;
 
-Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with, Wrench &into,
+Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &with, Wrench &into,
              double dtS) {
   Reading out;
   out.Count = of.Count;
@@ -98,7 +98,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
   return out;
 }
 
-void Resist(Wrench &into, const Body &body, double dragArea, double mediumDensity) {
+void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensity) {
   const double speedMs = std::sqrt(Dot(body.VelocityMs, body.VelocityMs));
   if (!(speedMs > 0.0) || !(dragArea > 0.0) || !(mediumDensity > 0.0)) { return; }
   const double dragN = 0.5 * mediumDensity * dragArea * speedMs * speedMs;

@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-#include "Body.h"
+#include "Rigid.h"
 #include "Prismatic.h"
 #include "Shear.h"
 
@@ -65,10 +65,10 @@ struct Reading {
   bool Sliding = false;
 };
 
-[[nodiscard]] Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with,
+[[nodiscard]] Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &with,
                            Wrench &into, double dtS);
 
-void Resist(Wrench &into, const Body &body, double dragArea, double mediumDensity);
+void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensity);
 
 }
 

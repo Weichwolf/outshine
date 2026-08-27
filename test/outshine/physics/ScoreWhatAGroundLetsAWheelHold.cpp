@@ -91,7 +91,7 @@ int main(void) {
   rig.Mounts[0].Spin.Applied.Ratio = 1.0;
 
   const auto readAt = [&rig](double factor, double askedN) {
-    Body body;
+    Rigid body;
     body.MassKg = 400.0;
     body.PositionM[1] = 0.28;
     Footing under;

@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstdio>
 
-#include "Body.h"
+#include "Rigid.h"
 #include "Rig.h"
 #include "Check.h"
 
@@ -34,8 +34,8 @@ constexpr double kBrakingN = -8000.0;
 constexpr double kAirDensityKgM3 = 1.225;
 constexpr double kDragArea = 0.66 * 2.19;
 
-[[nodiscard]] outshine::Physics::Body AtRest(void) {
-  outshine::Physics::Body body;
+[[nodiscard]] outshine::Physics::Rigid AtRest(void) {
+  outshine::Physics::Rigid body;
   body.MassKg = kMassKg;
   body.InertiaKgM2[0] = 540.0;
   body.InertiaKgM2[1] = 2400.0;
@@ -54,7 +54,7 @@ int main(void) {
   using namespace outshine::Physics;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const Body body = AtRest();
+  const Rigid body = AtRest();
 
   // ONE, first corollary: through the centre, no moment. If this were not exact, every force in
   // the engine would leak a spurious rotation.
@@ -101,7 +101,7 @@ int main(void) {
     const double forceN[3] = {0.0, 0.0, kBrakingN};
     Push(upright, body, at, forceN);
 
-    Body rolled = AtRest();
+    Rigid rolled = AtRest();
     const double halfRad = 0.5 * 0.4;
     rolled.OrientationQ[0] = std::cos(halfRad);
     rolled.OrientationQ[3] = std::sin(halfRad);
@@ -124,7 +124,7 @@ int main(void) {
     double worstRatio = 0.0;
     double worstAlong = 0.0;
     for (double speedMs = 5.0; speedMs <= 40.0; speedMs += 5.0) {
-      Body moving = AtRest();
+      Rigid moving = AtRest();
       moving.VelocityMs[2] = speedMs;
       Wrench slowed;
       Resist(slowed, moving, kDragArea, kAirDensityKgM3);
@@ -132,7 +132,7 @@ int main(void) {
       const double heldN = Length(slowed.ForceN);
       worstRatio = std::fmax(worstRatio, std::fabs(heldN - wantedN) / wantedN);
 
-      Body twice = AtRest();
+      Rigid twice = AtRest();
       twice.VelocityMs[2] = 2.0 * speedMs;
       Wrench slowedTwice;
       Resist(slowedTwice, twice, kDragArea, kAirDensityKgM3);

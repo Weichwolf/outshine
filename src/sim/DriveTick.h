@@ -6,7 +6,7 @@
 
 #include <Scenario.h>
 
-#include "Body.h"
+#include "Rigid.h"
 #include "CorridorLay.h"
 #include "Rig.h"
 #include "HoldLane.h"
@@ -91,7 +91,7 @@ struct DriveState {
   Control::HoldsLane Keeping;
   size_t Kept = 0;
   Physics::Rig Rig;
-  Physics::Body Body;
+  Physics::Rigid Body;
   double CarWidthM = 0.0;
   double NearM = 0.0;
   double LostM = 0.0;

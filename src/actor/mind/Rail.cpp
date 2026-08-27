@@ -9,7 +9,7 @@ double OverturningMs2(const Rails &on, double gravityMs2) {
   return gravityMs2 * 0.5 * on.GaugeM / on.CentreOfMassM;
 }
 
-Haul Ride(const Rails &on, const Envelope &within, const Demand &asked, const Placement &at,
+Haul Ride(const Rails &on, const Envelope &within, const Demand &asked, const Where &at,
           double speedMs) {
   Haul out;
   if (!asked.Held) { return out; }

@@ -7,7 +7,7 @@ namespace outshine::Pilot {
 
 inline constexpr int kChordSteps = 12;
 
-struct Placement {
+struct Where {
   bool Found = false;
   double EastM = 0.0;
   double NorthM = 0.0;
@@ -23,7 +23,7 @@ struct Placement {
   double BankRad = 0.0;
 };
 
-[[nodiscard]] Placement Locate(const ReferenceLine &along, double eastM, double northM,
+[[nodiscard]] Where Locate(const ReferenceLine &along, double eastM, double northM,
                                double heightM, double headingRad, double nearM, double windowM);
 
 struct Sighting {
@@ -36,7 +36,7 @@ struct Sighting {
   double ClimbRad = 0.0;
 };
 
-[[nodiscard]] Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM,
+[[nodiscard]] Sighting Sight(const ReferenceLine &along, const Where &from, double chordM,
                              double asideM = 0.0);
 
 }

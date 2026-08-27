@@ -31,7 +31,7 @@ struct Demand {
 [[nodiscard]] double ReachOf(const Reins &with, double speedMs,
                             double curvatureRatePerM = 0.0);
 
-[[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at,
+[[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Where &at,
                           double speedMs, double wantedMs);
 
 }

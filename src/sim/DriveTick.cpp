@@ -27,7 +27,7 @@ namespace {
 constexpr double kResectM = 4.0;
 constexpr double kFromM = 50.0;
 
-double HeadingOf(const outshine::Physics::Body &body) {
+double HeadingOf(const outshine::Physics::Rigid &body) {
   const double aheadBody[3] = {0.0, 0.0, -1.0};
   double ahead[3];
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
@@ -56,7 +56,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
   const double northM = -body.PositionM[2];
   const double headingRad = HeadingOf(body);
   const double windowM = kResectM + 3.0 * drive.LostM;
-  const outshine::Pilot::Placement at = outshine::Pilot::Locate(
+  const outshine::Pilot::Where at = outshine::Pilot::Locate(
       corridor, eastM, northM, body.PositionM[1], headingRad, drive.NearM, windowM);
   if (!at.Found) {
     out.Lost = true;

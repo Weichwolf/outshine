@@ -9,7 +9,7 @@ namespace outshine::Control {
 struct Sight {
   const ReferenceLine *Along = nullptr;
   const Pilot::Reins *With = nullptr;
-  const Pilot::Placement *At = nullptr;
+  const Pilot::Where *At = nullptr;
   double SpeedMs = 0.0;
   double WantedMs = 0.0;
 };

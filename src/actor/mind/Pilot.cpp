@@ -20,7 +20,7 @@ double ReachOf(const Reins &with, double speedMs, double curvatureRatePerM) {
   return reachM;
 }
 
-Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at, double speedMs,
+Demand Hold(const ReferenceLine &along, const Reins &with, const Where &at, double speedMs,
             double wantedMs) {
   Demand out;
   out.SpeedMs = wantedMs;

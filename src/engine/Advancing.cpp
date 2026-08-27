@@ -6,7 +6,7 @@ bool Engine::State::Rides(void) {
   return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
 }
 
-bool Engine::State::Carries(const Physics::Body &body, const double shiftM[3]) {
+bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
@@ -123,7 +123,7 @@ void Engine::State::Falls(void) {
   const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
   const double gravityMs2 =
       Session.Declared.Ground.GravityMs2 > 0.0 ? Session.Declared.Ground.GravityMs2 : 9.80665;
-  for (Physics::Body &held : Ticking.Freestanding) {
+  for (Physics::Rigid &held : Ticking.Freestanding) {
     Physics::Wrench pulled;
     pulled.ForceN[1] = -held.MassKg * gravityMs2;
     Physics::Step(held, pulled, stepS);

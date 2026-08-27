@@ -22,7 +22,7 @@ struct Haul {
 
 [[nodiscard]] double OverturningMs2(const Rails &on, double gravityMs2);
 [[nodiscard]] Haul Ride(const Rails &on, const Envelope &within, const Demand &asked,
-                        const Placement &at, double speedMs);
+                        const Where &at, double speedMs);
 
 }
 

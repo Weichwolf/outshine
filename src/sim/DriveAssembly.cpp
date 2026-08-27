@@ -6,7 +6,7 @@
 
 #include "DriveAssembly.h"
 
-#include "Body.h"
+#include "Rigid.h"
 #include "Carriageway.h"
 #include "Units.h"
 #include "TileGeodesy.h"
@@ -284,7 +284,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
   auto &rig = out.State.Rig;
   auto &body = out.State.Body;
   rig = stood.Rig;
-  body = outshine::Physics::Body();
+  body = outshine::Physics::Rigid();
   body.MassKg = stood.Envelope.MassKg;
   for (int axis = 0; axis < 3; ++axis) {
     body.InertiaKgM2[axis] = out.Car.InertiaKgM2[axis];

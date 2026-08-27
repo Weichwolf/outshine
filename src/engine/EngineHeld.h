@@ -240,7 +240,7 @@ struct Surrounds {
 
 struct Ticks {
   Sim::DriveProduct Drive;
-  std::vector<Physics::Body> Freestanding;
+  std::vector<Physics::Rigid> Freestanding;
   std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
   double OwedS = 0.0;
@@ -260,7 +260,7 @@ struct Engine::State {
 
   void Drew(void);
   [[nodiscard]] bool Rides(void);
-  [[nodiscard]] bool Carries(const Physics::Body &body, const double shiftM[3]);
+  [[nodiscard]] bool Carries(const Physics::Rigid &body, const double shiftM[3]);
   void Falls(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);

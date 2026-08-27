@@ -87,7 +87,7 @@ bool Engine::State::Routes(void) {
   Ticking.Freestanding.clear();
   for (const Body &stands : declared.Bodies) {
     if (!stands.Placed) { continue; }
-    Physics::Body held;
+    Physics::Rigid held;
     held.MassKg = stands.MassKg;
     for (int axis = 0; axis < 3; ++axis) {
       held.PositionM[axis] = stands.AtM[axis];
