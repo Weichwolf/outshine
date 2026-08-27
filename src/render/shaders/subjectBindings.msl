@@ -109,7 +109,7 @@ struct SFrag {
 #define SUBJECT_MOTION_VARYINGS float4 curClip; float4 prevClip;
 #define SUBJECT_SET_MOTION(o, v, s) \
   (((o).curClip = (o).pos), \
-   ((o).prevClip = (s).prevMvp * float4((v).prevP + (s).prevAnc.xyz, 1.0)))
+   ((o).prevClip = (s).prevMvp * float4((v).prevP, 1.0)))
 #define SUBJECT_SET_VELOCITY(o, in) \
   (o).vel = (in).curClip.xy / (in).curClip.w - (in).prevClip.xy / (in).prevClip.w
 #else

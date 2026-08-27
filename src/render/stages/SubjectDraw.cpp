@@ -718,8 +718,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
     double carried[16];
     for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
-    if (!Placed_.empty()) {
-      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis]; }
+    for (int axis = 0; axis < 3; ++axis) {
+      carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis];
     }
     double placed[16];
     for (int row = 0; row < 4; ++row) {
@@ -732,15 +732,23 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       }
     }
     for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
-    for (int i = 0; i < 3; i++) {
-      uniform[16 + i] = Placed_.empty() ? (float)(Anchor[i] + ctx.PreViewTranslation[i]) : 0.0f;
+    for (int i = 0; i < 3; i++) { uniform[16 + i] = 0.0f; }
+    double before[16];
+    for (int i = 0; i < 16; i++) { before[i] = model[i]; }
+    for (int axis = 0; axis < 3; ++axis) {
+      before[12 + axis] += PrevAnchor[axis] + ctx.PrevPreViewTranslation[axis];
     }
-    for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
-    for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] + ctx.PrevPreViewTranslation[i]); }
+    for (int row = 0; row < 4; ++row) {
+      for (int column = 0; column < 4; ++column) {
+        double sum = 0.0;
+        for (int over = 0; over < 4; ++over) {
+          sum += (double)ctx.PrevMvp16[over * 4 + row] * before[column * 4 + over];
+        }
+        uniform[20 + column * 4 + row] = (float)sum;
+      }
+    }
+    for (int i = 0; i < 3; i++) { uniform[36 + i] = 0.0f; }
 
-    if (Placed_.empty()) {
-      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis]; }
-    }
     for (int i = 0; i < 16; i++) { uniform[40 + i] = (float)carried[i]; }
     for (int column = 0; column < 4; ++column) {
       for (int row = 0; row < 4; ++row) {

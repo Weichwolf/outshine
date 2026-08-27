@@ -7,7 +7,7 @@ struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_UV_ATTRIBUTE SUBJECT_NORMAL
                   SUBJECT_TANGENT_ATTRIBUTE SUBJECT_PREV_ATTRIBUTE RUNS }; \
 vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   MOut o; \
-  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0); \
+  o.pos = s.mvp * float4(v.p, 1.0); \
   o.uv = v.uv; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
