@@ -198,44 +198,64 @@ inline std::vector<std::string> Unacted(const Scenario &scenario) {
   return carried;
 }
 
-struct Engine::State {
+struct Seen {
   Render::Renderer Device;
   std::unique_ptr<Core::Live> Standing;
   Extent Frame{1280, 720};
+  Core::Declaration Shown;
+  Ui::Typeface Face;
+};
+
+struct Kept {
   Scenario Declared;
   std::vector<std::string> Carried;
   std::vector<Scenario> Asleep;
   std::vector<std::string> LayerTrace;
-  std::optional<TableBook> Tabled;
-  Audio::BusGraph Sounding;
-  Store Scene;
-  Column<Body> Bodies;
-  Column<Journey> Drives;
-  Column<Traits> Kinds;
-  Assembled Stood;
   Roots Under;
-  std::unique_ptr<Data::Transport> Wire;
-  size_t GroundTiles = 0;
-  size_t MostSteps = 0;
-  size_t Steps = 0;
-  Ui::Typeface Face;
   std::optional<ViewBook> Views;
   InputMap Bound;
   Core::InputPump Pump;
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
-  Core::Ledger Published;
-  Host *Offered = nullptr;
+  size_t Fired = 0;
+  std::optional<TableBook> Tabled;
+  Audio::BusGraph Sounding;
+};
+
+struct Players {
+  Store Scene;
+  Column<Body> Bodies;
+  Column<Journey> Drives;
+  Column<Traits> Kinds;
+  Assembled Stood;
+};
+
+struct Surrounds {
+  std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
   std::vector<const Generates *> Making;
+  size_t GroundTiles = 0;
+};
+
+struct Ticks {
   Sim::DriveProduct Drive;
   std::vector<Physics::Body> Freestanding;
   std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
-  size_t Fired = 0;
-  Core::Declaration Shown;
   double OwedS = 0.0;
+  size_t Steps = 0;
+  size_t MostSteps = 0;
+};
+
+struct Engine::State {
+  Seen Picture;
+  Kept Session;
+  Players Cast;
+  Surrounds World;
+  Ticks Ticking;
+  Core::Ledger Published;
+  Host *Offered = nullptr;
   std::string Error;
 
   void Drew(void);
@@ -245,6 +265,7 @@ struct Engine::State {
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
 };
+
 
 }
 #endif

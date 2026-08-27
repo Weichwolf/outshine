@@ -3,13 +3,13 @@
 namespace outshine {
 
 bool Engine::Save(std::string_view path) const {
-  if (S_->Declared.State.empty()) {
+  if (S_->Session.Declared.State.empty()) {
     S_->Error = "the scenario declares nothing to persist, so a save would be an empty "
                 "promise -- declare <state><persist what=.../></state> first";
     return false;
   }
   std::vector<std::string> lines;
-  for (const Persisted &row : S_->Declared.State) {
+  for (const Persisted &row : S_->Session.Declared.State) {
     const size_t dot = row.What.find('.');
     if (dot == std::string::npos) {
       S_->Error = "the persist row '" + row.What +
@@ -17,9 +17,9 @@ bool Engine::Save(std::string_view path) const {
                   "put back";
       return false;
     }
-    const Entity holder = S_->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
-    const uint32_t key = S_->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
-    const Traits *held = holder == kNoEntity ? nullptr : S_->Kinds.Get(holder);
+    const Entity holder = S_->Cast.Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
+    const uint32_t key = S_->Cast.Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
+    const Traits *held = holder == kNoEntity ? nullptr : S_->Cast.Kinds.Get(holder);
     const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
     if (value == nullptr) {
       S_->Error = "the persist row '" + row.What +
@@ -32,8 +32,8 @@ bool Engine::Save(std::string_view path) const {
     lines.push_back(row.What + " " + std::string(digits, written.ptr) + "\n");
   }
   std::sort(lines.begin(), lines.end());
-  std::string text = "outshine-save 1 " + S_->Declared.Named.Name + " " +
-                     S_->Declared.Named.Version + "\n";
+  std::string text = "outshine-save 1 " + S_->Session.Declared.Named.Name + " " +
+                     S_->Session.Declared.Named.Version + "\n";
   for (const std::string &line : lines) { text += line; }
   if (text.size() > kMostSaveBytes) {
     S_->Error = "the save of " + std::to_string(text.size()) + " bytes overflows the bound of " +
@@ -58,7 +58,7 @@ bool Engine::Save(std::string_view path) const {
 }
 
 bool Engine::Restore(std::string_view path) {
-  if (!S_->Stood.Instances.size() && S_->Declared.Instances.empty()) {
+  if (!S_->Cast.Stood.Instances.size() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";
     return false;
@@ -68,7 +68,7 @@ bool Engine::Restore(std::string_view path) {
   size_t at = text.find('\n');
   const std::string head = text.substr(0, at == std::string::npos ? text.size() : at);
   const std::string wanted =
-      "outshine-save 1 " + S_->Declared.Named.Name + " " + S_->Declared.Named.Version;
+      "outshine-save 1 " + S_->Session.Declared.Named.Name + " " + S_->Session.Declared.Named.Version;
   if (head != wanted) {
     S_->Error = "the save says '" + head + "' and this engine stands '" + wanted +
                 "' -- a save from another scenario or version refuses quoting both";
@@ -93,8 +93,8 @@ bool Engine::Restore(std::string_view path) {
       return false;
     }
     Landing landing;
-    landing.Holder = S_->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
-    landing.Key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
+    landing.Holder = S_->Cast.Stood.InstanceNamed(std::string_view(line).substr(0, dot));
+    landing.Key = S_->Cast.Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
     const auto scanned =
         std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
     if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
@@ -117,7 +117,7 @@ bool Engine::Restore(std::string_view path) {
       if (held.first == landing.Holder) { row = &held.second; }
     }
     if (row == nullptr) {
-      const Traits *standing = S_->Kinds.Get(landing.Holder);
+      const Traits *standing = S_->Cast.Kinds.Get(landing.Holder);
       rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
       row = &rows.back().second;
     }
@@ -133,7 +133,7 @@ bool Engine::Restore(std::string_view path) {
     }
   }
   for (const auto &held : rows) {
-    if (!S_->Kinds.Put(held.first, held.second)) {
+    if (!S_->Cast.Kinds.Put(held.first, held.second)) {
       S_->Error = "a validated holder died between the dry run and the commit";
       return false;
     }
@@ -143,44 +143,44 @@ bool Engine::Restore(std::string_view path) {
 }
 
 bool Engine::Park() {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to park";
     return false;
   }
-  if (S_->Declared.Named.Name.empty()) {
+  if (S_->Session.Declared.Named.Name.empty()) {
     S_->Error = "a scenario is parked under its name and this one declares none";
     return false;
   }
-  for (const Scenario &asleep : S_->Asleep) {
-    if (asleep.Named.Name == S_->Declared.Named.Name) {
-      S_->Error = S_->Declared.Named.Name + " is parked already, so parking it twice would leave two";
+  for (const Scenario &asleep : S_->Session.Asleep) {
+    if (asleep.Named.Name == S_->Session.Declared.Named.Name) {
+      S_->Error = S_->Session.Declared.Named.Name + " is parked already, so parking it twice would leave two";
       return false;
     }
   }
-  if (S_->Asleep.size() >= kParkedBound) {
+  if (S_->Session.Asleep.size() >= kParkedBound) {
     S_->Error = "the parked set is full at its declared bound of " +
                 std::to_string(kParkedBound) + " -- resume or discard '" +
-                S_->Asleep.front().Named.Name + "' (the least recently live) before parking " +
-                S_->Declared.Named.Name;
+                S_->Session.Asleep.front().Named.Name + "' (the least recently live) before parking " +
+                S_->Session.Declared.Named.Name;
     return false;
   }
-  S_->Asleep.push_back(S_->Declared);
-  S_->Standing.reset();
+  S_->Session.Asleep.push_back(S_->Session.Declared);
+  S_->Picture.Standing.reset();
   S_->Error.clear();
   return true;
 }
 
 bool Engine::Resume(std::string_view name) {
-  if (S_->Standing) {
+  if (S_->Picture.Standing) {
     S_->Error = "a scenario is standing, and Resume stands nothing down -- park it or Discard "
                 "it explicitly first, because state that vanishes on somebody else's call is "
                 "state nobody can reason about";
     return false;
   }
-  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
-    if (S_->Asleep[at].Named.Name != name) { continue; }
-    if (!Declare(S_->Asleep[at])) { return false; }
-    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+  for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
+    if (S_->Session.Asleep[at].Named.Name != name) { continue; }
+    if (!Declare(S_->Session.Asleep[at])) { return false; }
+    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
     return true;
   }
   S_->Error = std::string(name) + " is not parked, and resuming what was never parked is not a load";
@@ -188,9 +188,9 @@ bool Engine::Resume(std::string_view name) {
 }
 
 bool Engine::Discard(std::string_view name) {
-  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
-    if (S_->Asleep[at].Named.Name != name) { continue; }
-    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+  for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
+    if (S_->Session.Asleep[at].Named.Name != name) { continue; }
+    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
     S_->Error.clear();
     return true;
   }
@@ -200,7 +200,7 @@ bool Engine::Discard(std::string_view name) {
 
 std::vector<std::string> Engine::Parked() const {
   std::vector<std::string> names;
-  for (const Scenario &asleep : S_->Asleep) { names.push_back(asleep.Named.Name); }
+  for (const Scenario &asleep : S_->Session.Asleep) { names.push_back(asleep.Named.Name); }
   return names;
 }
 

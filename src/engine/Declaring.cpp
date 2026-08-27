@@ -4,20 +4,20 @@ namespace outshine {
 
 
 bool Engine::Handles(const SDL_Event &event) {
-  if (!S_->Standing) { return false; }
+  if (!S_->Picture.Standing) { return false; }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f, yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
-    return S_->Standing->Wheeled((double)xPx, (double)yPx,
-                                 -(double)event.wheel.y * S_->Declared.WheelStepPx, S_->Error);
+    return S_->Picture.Standing->Wheeled((double)xPx, (double)yPx,
+                                 -(double)event.wheel.y * S_->Session.Declared.WheelStepPx, S_->Error);
   }
-  if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
+  if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     Core::InputPump::Fired fired[2];
-    const size_t many = S_->Pump.Translate(event, fired);
+    const size_t many = S_->Session.Pump.Translate(event, fired);
     if (S_->Offered == nullptr) { return false; }
     bool acted = false;
     for (size_t at = 0; at < many; ++at) {
-      const std::string *const named = S_->Bound.ActionNamed(fired[at].Action);
+      const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
       if (named == nullptr) { continue; }
       const Argument value{Argument::Kind::Number, (double)fired[at].Value, {}};
       acted = S_->Offered->Calls(*named, std::span<const Argument>(&value, 1)) || acted;
@@ -28,7 +28,7 @@ bool Engine::Handles(const SDL_Event &event) {
 
   size_t surface = 0;
   const Ui::Touched found =
-      S_->Standing->Under((double)event.button.x, (double)event.button.y, surface);
+      S_->Picture.Standing->Under((double)event.button.x, (double)event.button.y, surface);
   if (!found.Held() || found.Action.empty()) { return false; }
   const std::string &action = found.Action;
   if (S_->Offered == nullptr) {
@@ -39,7 +39,7 @@ bool Engine::Handles(const SDL_Event &event) {
   }
 
   Script::Program programme;
-  const std::string text = S_->Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
+  const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
   if (!programme.Read(text, S_->Error)) { return false; }
   ToTheClient answering(S_->Offered);
   if (!programme.Run(answering, S_->Error)) { return false; }
@@ -47,12 +47,12 @@ bool Engine::Handles(const SDL_Event &event) {
 }
 
 bool Engine::Shows(const std::vector<Surface> &surfaces) {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
                 "scenario is declared before its surfaces are exchanged";
     return false;
   }
-  if (!surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
+  if (!surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return false;
   }
   std::vector<const Surface *> ordered;
@@ -73,8 +73,8 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
     shows.HeightFrac = surface->Where.HeightFrac;
     laid.push_back(std::move(shows));
   }
-  S_->Declared.Surfaces = surfaces;
-  return S_->Standing->Redeclare(std::move(laid), S_->Error);
+  S_->Session.Declared.Surfaces = surfaces;
+  return S_->Picture.Standing->Redeclare(std::move(laid), S_->Error);
 }
 
 [[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
@@ -112,14 +112,14 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
 }
 
 void Engine::Ships(void) {
-  if (!S_->Making.empty()) { return; }
-  S_->Making.push_back(&S_->Shipped);
+  if (!S_->World.Making.empty()) { return; }
+  S_->World.Making.push_back(&S_->World.Shipped);
 }
 
 bool Engine::Declare(const Scenario &scenario) {
   Ships();
   const auto offers = [this](const std::string &kind) {
-    for (const Generates *const stood : S_->Making) {
+    for (const Generates *const stood : S_->World.Making) {
       if (stood->Kind() == kind) { return true; }
     }
     return false;
@@ -138,7 +138,7 @@ bool Engine::Declare(const Scenario &scenario) {
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return false;
   }
-  if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
+  if (S_->Picture.Frame.WidthPx <= 0 || S_->Picture.Frame.HeightPx <= 0) {
     S_->Error =
         "no canvas stands, so a scenario has nowhere to draw -- the client hands one in through "
         "DrawsInto before it declares";
@@ -147,10 +147,10 @@ bool Engine::Declare(const Scenario &scenario) {
   const Asset *const subject = scenario.Subject();
 
   Core::Declaration declared;
-  declared.SurfaceWidthPx = S_->Frame.WidthPx;
-  declared.SurfaceHeightPx = S_->Frame.HeightPx;
+  declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
+  declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
   if (subject != nullptr) {
-    declared.Stands = Beneath(S_->Under.Assets, subject->Uri);
+    declared.Stands = Beneath(S_->Session.Under.Assets, subject->Uri);
     declared.Variant = subject->Variant;
     declared.Animation = subject->Animation;
   }
@@ -190,31 +190,31 @@ bool Engine::Declare(const Scenario &scenario) {
     shows.HeightFrac = surface->Where.HeightFrac;
     declared.Surfaces.push_back(std::move(shows));
   }
-  if (!declared.Surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
+  if (!declared.Surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return false;
   }
 
-  S_->Pumping = false;
+  S_->Session.Pumping = false;
   if (!scenario.Input.empty()) {
-    if (!S_->Bound.Build(scenario.Input, S_->Error)) { return false; }
-    if (!S_->Pump.Open(S_->Bound)) {
+    if (!S_->Session.Bound.Build(scenario.Input, S_->Error)) { return false; }
+    if (!S_->Session.Pump.Open(S_->Session.Bound)) {
       S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
       return false;
     }
-    S_->Pumping = true;
+    S_->Session.Pumping = true;
   }
 
-  S_->Volumes.reset();
+  S_->Session.Volumes.reset();
   if (!scenario.Volumes.empty()) {
     auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);
     if (!stood) {
       S_->Error = stood.error();
       return false;
     }
-    S_->Volumes.emplace(std::move(*stood));
+    S_->Session.Volumes.emplace(std::move(*stood));
   }
 
-  S_->Views.reset();
+  S_->Session.Views.reset();
   if (!scenario.Views.empty()) {
     const std::string_view starting = scenario.Played.View.empty()
                                           ? std::string_view(scenario.Views.front().Id)
@@ -224,39 +224,39 @@ bool Engine::Declare(const Scenario &scenario) {
       S_->Error = stood.error();
       return false;
     }
-    S_->Views.emplace(std::move(*stood));
+    S_->Session.Views.emplace(std::move(*stood));
   }
 
-  if (S_->Standing && SamePicture(S_->Shown, declared)) {
-    if (!SameStand(S_->Shown, declared) &&
-        !S_->Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
+  if (S_->Picture.Standing && SamePicture(S_->Picture.Shown, declared)) {
+    if (!SameStand(S_->Picture.Shown, declared) &&
+        !S_->Picture.Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
                                 S_->Error)) {
       return false;
     }
-    if (!SameSurfaces(S_->Shown.Surfaces, declared.Surfaces) &&
-        !S_->Standing->Redeclare(declared.Surfaces, S_->Error)) {
+    if (!SameSurfaces(S_->Picture.Shown.Surfaces, declared.Surfaces) &&
+        !S_->Picture.Standing->Redeclare(declared.Surfaces, S_->Error)) {
       return false;
     }
-    S_->Shown = std::move(declared);
-    S_->Declared = scenario;
-    S_->Carried = Unacted(scenario);
+    S_->Picture.Shown = std::move(declared);
+    S_->Session.Declared = scenario;
+    S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
     return true;
   }
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
-  if (S_->Standing) { wasScrolled = S_->Standing->Scrolled(); }
-  S_->Standing.reset();
-  S_->Shown = declared;
-  if (!Core::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
-    S_->Standing.reset();
+  if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
+  S_->Picture.Standing.reset();
+  S_->Picture.Shown = declared;
+  if (!Core::Live::Open(S_->Picture.Device, std::move(declared), &S_->Picture.Face, S_->Picture.Standing, S_->Error)) {
+    S_->Picture.Standing.reset();
     return false;
   }
-  if (!wasScrolled.empty() && !S_->Standing->Scrolled(std::move(wasScrolled), S_->Error)) {
+  if (!wasScrolled.empty() && !S_->Picture.Standing->Scrolled(std::move(wasScrolled), S_->Error)) {
     return false;
   }
-  S_->Declared = scenario;
-  S_->Carried = Unacted(scenario);
+  S_->Session.Declared = scenario;
+  S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
   return Generated(scenario);
 }
@@ -269,7 +269,7 @@ bool Engine::Generated(const Scenario &scenario) {
 
   Geometry made;
   const auto asked = [&](const std::string &kind) {
-    for (const Generates *const stood : S_->Making) {
+    for (const Generates *const stood : S_->World.Making) {
       if (stood->Kind() != kind) { continue; }
       if (stood->Make(ask, made)) { return true; }
       S_->Error = "the generator of kind '" + kind + "' refused to make anything";
@@ -298,14 +298,14 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
     return false;
   }
 
-  S_->LayerTrace.clear();
+  S_->Session.LayerTrace.clear();
   if (out.Layers.empty()) { return true; }
   const size_t cut = held.find_last_of('/');
   const std::string dir = cut == std::string::npos ? std::string() : held.substr(0, cut + 1);
   for (const Layer &layer : out.Layers) {
     const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
     if (!LayerActive(layer, out.Named.Active)) {
-      S_->LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" + layer.Set +
+      S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" + layer.Set +
                                "' is not selected by active=\"" + out.Named.Active + "\"");
       continue;
     }
@@ -313,7 +313,7 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
         (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
     std::string fragmentText;
     if (!SlurpFile(at, fragmentText, S_->Error)) { return false; }
-    if (!ApplyLayer(out, fragmentText.c_str(), fragmentText.size(), named, S_->LayerTrace,
+    if (!ApplyLayer(out, fragmentText.c_str(), fragmentText.size(), named, S_->Session.LayerTrace,
                     S_->Error)) {
       S_->Error = at + ": " + S_->Error;
       return false;
@@ -323,7 +323,7 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
 }
 
 bool Engine::Stands(const Geometry &geometry) {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "no scenario stands, so there is nothing for geometry to be handed to -- Declare "
                 "before Stands";
     return false;
@@ -338,19 +338,19 @@ bool Engine::Stands(const Geometry &geometry) {
     S_->Error = handed.Error();
     return false;
   }
-  return S_->Standing->Restand(handed, 0, S_->Error);
+  return S_->Picture.Standing->Restand(handed, 0, S_->Error);
 }
 
 bool Engine::Read(std::string_view path) {
   Scenario scenario;
   if (!ReadInto(path, scenario)) { return false; }
-  S_->Declared = scenario;
-  S_->Carried = Unacted(scenario);
-  S_->Carried.insert(S_->Carried.end(), S_->LayerTrace.begin(), S_->LayerTrace.end());
+  S_->Session.Declared = scenario;
+  S_->Session.Carried = Unacted(scenario);
+  S_->Session.Carried.insert(S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
   S_->Error.clear();
   return true;
 }
 
-const Scenario &Engine::Declared() const { return S_->Declared; }
+const Scenario &Engine::Declared() const { return S_->Session.Declared; }
 
 }

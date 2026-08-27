@@ -3,7 +3,7 @@
 namespace outshine {
 
 bool Engine::State::Rides(void) {
-  return Carries(Drive.State.Body, Drive.Stood.ModelShiftM);
+  return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
 }
 
 bool Engine::State::Carries(const Physics::Body &body, const double shiftM[3]) {
@@ -28,26 +28,26 @@ bool Engine::State::Carries(const Physics::Body &body, const double shiftM[3]) {
   }
 
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  if (!Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
+  if (!Picture.Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
   Published.Places("the body, east", body.PositionM[0], "m");
   Published.Places("the body, up", body.PositionM[1], "m");
   Published.Places("the body, south", body.PositionM[2], "m");
   Published.Places("the mesh it carries, east", bodyFromWorld[12], "m");
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
-  if (Volumes) {
-    Volumes->Probe(0, body.PositionM, (double)Standing->At() * Declared.Motion.StepS);
-    for (const TriggerField::Fired &fired : Volumes->Drain()) {
-      ++Fired;
-      Published.Places("events a declared volume has fired", (double)Fired, "events");
-      Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
+  if (Session.Volumes) {
+    Session.Volumes->Probe(0, body.PositionM, (double)Picture.Standing->At() * Session.Declared.Motion.StepS);
+    for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
+      ++Session.Fired;
+      Published.Places("events a declared volume has fired", (double)Session.Fired, "events");
+      Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
     }
   }
-  if (!Views) { return true; }
+  if (!Session.Views) { return true; }
 
-  const View &seen = Views->Active();
-  const double *const centreM = Drive.Stood.CentreM;
+  const View &seen = Session.Views->Active();
+  const double *const centreM = Ticking.Drive.Stood.CentreM;
   const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
                            seen.OffsetM[2] - centreM[2]};
   double at[3];
@@ -73,26 +73,26 @@ bool Engine::State::Carries(const Physics::Body &body, const double shiftM[3]) {
     return true;
   }
   from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
-  Standing->Eye(from);
+  Picture.Standing->Eye(from);
   return true;
 }
 
 bool Engine::Advance() {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to advance";
     return false;
   }
-  if (S_->Drove) {
-    if (S_->Steps >= S_->MostSteps) {
-      S_->Error = "the drive has taken " + Said((double)S_->Steps) +
-                  " steps and its own plan allows " + Said((double)S_->MostSteps) +
+  if (S_->Ticking.Drove) {
+    if (S_->Ticking.Steps >= S_->Ticking.MostSteps) {
+      S_->Error = "the drive has taken " + Said((double)S_->Ticking.Steps) +
+                  " steps and its own plan allows " + Said((double)S_->Ticking.MostSteps) +
                   " at the slowest station on it, so it is not arriving";
       return false;
     }
-    ++S_->Steps;
+    ++S_->Ticking.Steps;
     const Sim::Ridden &rode =
-        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, *S_->Surface, S_->Drive.State,
-                       S_->Declared.Motion.StepS, nullptr);
+        Sim::DriveTick(S_->Ticking.Drive.Way, S_->Ticking.Drive.Stood, *S_->Ticking.Surface, S_->Ticking.Drive.State,
+                       S_->Session.Declared.Motion.StepS, nullptr);
     if (!rode.Found || rode.Lost) {
       S_->Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
       return false;
@@ -104,44 +104,44 @@ bool Engine::Advance() {
     }
     if (!S_->Rides()) { return false; }
   }
-  if (S_->Drove) {
-    S_->Published.Places("how far along it the body has come", S_->Drive.State.Tally.ReachedM, "m");
-    S_->Published.Places("ticks the one lane task has kept", (double)S_->Drive.State.Kept, "ticks");
+  if (S_->Ticking.Drove) {
+    S_->Published.Places("how far along it the body has come", S_->Ticking.Drive.State.Tally.ReachedM, "m");
+    S_->Published.Places("ticks the one lane task has kept", (double)S_->Ticking.Drive.State.Kept, "ticks");
     S_->Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   S_->Falls();
-  if (!S_->Drove && !S_->Freestanding.empty() && S_->Standing->Stands()) {
+  if (!S_->Ticking.Drove && !S_->Ticking.Freestanding.empty() && S_->Picture.Standing->Stands()) {
     const double unshifted[3] = {0.0, 0.0, 0.0};
-    if (!S_->Carries(S_->Freestanding.front(), unshifted)) { return false; }
+    if (!S_->Carries(S_->Ticking.Freestanding.front(), unshifted)) { return false; }
   }
-  if (!S_->Standing->Advance(S_->Error)) { return false; }
+  if (!S_->Picture.Standing->Advance(S_->Error)) { return false; }
   return true;
 }
 
 void Engine::State::Falls(void) {
-  if (Freestanding.empty()) { return; }
-  const double stepS = Declared.Motion.StepS > 0.0 ? Declared.Motion.StepS : 1.0 / 60.0;
+  if (Ticking.Freestanding.empty()) { return; }
+  const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
   const double gravityMs2 =
-      Declared.Ground.GravityMs2 > 0.0 ? Declared.Ground.GravityMs2 : 9.80665;
-  for (Physics::Body &held : Freestanding) {
+      Session.Declared.Ground.GravityMs2 > 0.0 ? Session.Declared.Ground.GravityMs2 : 9.80665;
+  for (Physics::Body &held : Ticking.Freestanding) {
     Physics::Wrench pulled;
     pulled.ForceN[1] = -held.MassKg * gravityMs2;
     Physics::Step(held, pulled, stepS);
   }
-  Published.Places("bodies standing on no route", (double)Freestanding.size(), "bodies");
-  Published.Places("the first of them, up", Freestanding.front().PositionM[1], "m");
-  Published.Places("and how fast it falls", Freestanding.front().VelocityMs[1], "m/s");
+  Published.Places("bodies standing on no route", (double)Ticking.Freestanding.size(), "bodies");
+  Published.Places("the first of them, up", Ticking.Freestanding.front().PositionM[1], "m");
+  Published.Places("and how fast it falls", Ticking.Freestanding.front().VelocityMs[1], "m/s");
 }
 
 void Engine::State::Drew(void) {
-  Published.Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
-  Published.Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
-  Published.Places("placement rows the renderer has been sent", (double)Device.SubjectPlacementsMoved(),
+  Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
+  Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");
+  Published.Places("placement rows the renderer has been sent", (double)Picture.Device.SubjectPlacementsMoved(),
          "rows");
-  Published.Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
+  Published.Places("frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
   {
     std::vector<float> depth;
-    if (Steps < 2 && Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
+    if (Ticking.Steps < 2 && Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
       double least = 1.0e30, most = -1.0e30, written = 0.0;
       for (const float one : depth) {
         if ((double)one < least) { least = (double)one; }
@@ -151,16 +151,16 @@ void Engine::State::Drew(void) {
       Published.Places("the shadow atlas, least depth", least, "");
       Published.Places("its most", most, "");
       Published.Places("texels above the clear", written, "texels");
-      Published.Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
+      Published.Places("the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
     }
     Published.Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
            "bytes");
-    Published.Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
-    Published.Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
-    if (Steps < 2) {
-      Published.Places("the exposure the picture applied", (double)Device.ExposureApplied(), "1/(cd/m2)");
+    Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
+    Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
+    if (Ticking.Steps < 2) {
+      Published.Places("the exposure the picture applied", (double)Picture.Device.ExposureApplied(), "1/(cd/m2)");
       std::vector<float> linear;
-      if (Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
+      if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
         double brightest = 0.0;
         for (size_t at = 0; at + 3 < linear.size(); at += 4) {
           for (int channel = 0; channel < 3; ++channel) {
@@ -171,7 +171,7 @@ void Engine::State::Drew(void) {
         Published.Places("the brightest the scene's linear buffer reached", brightest, "");
       }
       std::vector<uint8_t> shown;
-      if (Device.ReadPixels(shown) == Render::ReadState::Ready) {
+      if (Picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
         double peak = 0.0;
         for (size_t at = 0; at + 3 < shown.size(); at += 4) {
           for (int channel = 0; channel < 3; ++channel) {
@@ -184,22 +184,22 @@ void Engine::State::Drew(void) {
   }
 }
 
-double Engine::StepS(void) const { return S_->Declared.Motion.StepS; }
+double Engine::StepS(void) const { return S_->Session.Declared.Motion.StepS; }
 
 bool Engine::Advance(double elapsedS) {
-  if (elapsedS > 0.0) { S_->OwedS += elapsedS; }
+  if (elapsedS > 0.0) { S_->Ticking.OwedS += elapsedS; }
   bool stood = true;
-  for (int step = 0; step < S_->Declared.Motion.MostStepsInArrears && S_->OwedS >= S_->Declared.Motion.StepS; ++step) {
-    S_->OwedS -= S_->Declared.Motion.StepS;
+  for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears && S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS; ++step) {
+    S_->Ticking.OwedS -= S_->Session.Declared.Motion.StepS;
     stood = Advance();
     if (!stood) { break; }
   }
-  if (S_->OwedS > S_->Declared.Motion.MostStepsInArrears * S_->Declared.Motion.StepS) { S_->OwedS = 0.0; }
+  if (S_->Ticking.OwedS > S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) { S_->Ticking.OwedS = 0.0; }
   return stood;
 }
 
 bool Engine::Run() {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to run";
     return false;
   }

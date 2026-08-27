@@ -13,19 +13,19 @@ namespace {
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
 bool Engine::Assemble() {
-  const Scenario &declared = S_->Declared;
+  const Scenario &declared = S_->Session.Declared;
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
-    S_->Drove = false;
+    S_->Ticking.Drove = false;
     return S_->Routes();
   }
-  if (!S_->Scene.Open(named) || !S_->Bodies.Open(S_->Scene) ||
-      !S_->Drives.Open(S_->Scene) || !S_->Kinds.Open(S_->Scene)) {
+  if (!S_->Cast.Scene.Open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
+      !S_->Cast.Drives.Open(S_->Cast.Scene) || !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
     return false;
   }
-  if (!outshine::Assemble(declared, S_->Scene, S_->Bodies, S_->Drives, S_->Kinds, S_->Stood,
+  if (!outshine::Assemble(declared, S_->Cast.Scene, S_->Cast.Bodies, S_->Cast.Drives, S_->Cast.Kinds, S_->Cast.Stood,
                           S_->Error)) {
     return false;
   }
@@ -35,10 +35,10 @@ bool Engine::Assemble() {
       S_->Error = std::move(book).error();
       return false;
     }
-    S_->Tabled.emplace(*std::move(book));
+    S_->Session.Tabled.emplace(*std::move(book));
   }
   if (!declared.Buses.empty() || !declared.Sounds.empty()) {
-    if (!S_->Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
+    if (!S_->Session.Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
   }
 
   return S_->Routes();
@@ -82,9 +82,9 @@ const Travelling_ kAssemblers[kTravels] = {
 }
 
 bool Engine::State::Routes(void) {
-  const Scenario &declared = Declared;
-  Drove = false;
-  Freestanding.clear();
+  const Scenario &declared = Session.Declared;
+  Ticking.Drove = false;
+  Ticking.Freestanding.clear();
   for (const Body &stands : declared.Bodies) {
     if (!stands.Placed) { continue; }
     Physics::Body held;
@@ -97,7 +97,7 @@ bool Engine::State::Routes(void) {
     held.OrientationQ[1] = stands.FacingXyzw[0];
     held.OrientationQ[2] = stands.FacingXyzw[1];
     held.OrientationQ[3] = stands.FacingXyzw[2];
-    Freestanding.push_back(held);
+    Ticking.Freestanding.push_back(held);
   }
   if (!declared.Routed.Declared) { return true; }
   if (Assembles(declared.Routed.By) == nullptr) {
@@ -107,49 +107,49 @@ bool Engine::State::Routes(void) {
             "refusal, never a journey that quietly does not happen";
     return false;
   }
-  if (!Wire) {
-    if (Under.Offline) {
-      Wire = std::make_unique<Unwired>();
+  if (!World.Wire) {
+    if (Session.Under.Offline) {
+      World.Wire = std::make_unique<Unwired>();
     } else {
-      Wire = std::make_unique<Fetching>(Fetching::Config{});
+      World.Wire = std::make_unique<Fetching>(Fetching::Config{});
     }
   }
   Quietly say;
-  const Sim::Provision kept{Under.Cache, Under.Shipped,
+  const Sim::Provision kept{Session.Under.Cache, Session.Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Assembles(declared.Routed.By)(Scene, Stood, Bodies, Drives, declared.Ground,
-                                                    Stack, *Wire, kept, say, Drive);
+  const bool routed = Assembles(declared.Routed.By)(Cast.Scene, Cast.Stood, Cast.Bodies, Cast.Drives, declared.Ground,
+                                                    World.Stack, *World.Wire, kept, say, Ticking.Drive);
   if (routed) {
-    Stack.Restand(Drive.Way.FrameLat, Drive.Way.FrameLon);
-    Surface = std::make_unique<Sim::GroundUnderfoot>(Stack, Drive.Surfaces);
-    Surface->Restand();
+    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+    Ticking.Surface = std::make_unique<Sim::GroundUnderfoot>(World.Stack, Ticking.Drive.Surfaces);
+    Ticking.Surface->Restand();
   }
-  Carried.insert(Carried.end(), std::make_move_iterator(say.Lines().begin()),
+  Session.Carried.insert(Session.Carried.end(), std::make_move_iterator(say.Lines().begin()),
                      std::make_move_iterator(say.Lines().end()));
   Published.Stands(std::move(say.Numbers()));
   if (!routed) {
     Error = say.WhyNot();
     return false;
   }
-  Published.Places("how long the corridor is", Drive.Way.Line.LengthM(), "m");
+  Published.Places("how long the corridor is", Ticking.Drive.Way.Line.LengthM(), "m");
   Published.Places("how far along it the body has come", 0.0, "m");
-  if (Standing && Drive.Stood.MetresPerAssetUnit > 0.0) {
-    Standing->ScaledBy(Drive.Stood.MetresPerAssetUnit);
+  if (Picture.Standing && Ticking.Drive.Stood.MetresPerAssetUnit > 0.0) {
+    Picture.Standing->ScaledBy(Ticking.Drive.Stood.MetresPerAssetUnit);
   }
-  Drove = true;
+  Ticking.Drove = true;
   {
-    const double slowestMs = Drive.Way.Profile.Quantile(0.01);
+    const double slowestMs = Ticking.Drive.Way.Profile.Quantile(0.01);
     if (!(slowestMs > 0.0)) {
       Error = "a hundredth of this speed plan stands still, so the drive has no pace to be "
               "bounded by and would never arrive -- p01 is " + Said(slowestMs) + " m/s";
       return false;
     }
-    const double stepS = Declared.Motion.StepS > 0.0 ? Declared.Motion.StepS : 1.0;
-    MostSteps = (size_t)(Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
-    Published.Places("the steps the plan allows at its slowest station", (double)MostSteps, "steps");
+    const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0;
+    Ticking.MostSteps = (size_t)(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
+    Published.Places("the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
   }
   if (!Composes()) {
-    Carried.push_back("the ground did not compose: " + Error);
+    Session.Carried.push_back("the ground did not compose: " + Error);
     Error.clear();
   } else if (!Rides()) {
     return false;
@@ -169,26 +169,26 @@ bool Engine::DrawsInto(SDL_Window *presents) {
   }
   int widthPx = 0, heightPx = 0;
   SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx);
-  const auto standing = S_->Device.DrawsInto(widthPx, heightPx, presents);
+  const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, presents);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return false;
   }
-  S_->Frame = Extent{widthPx, heightPx};
+  S_->Picture.Frame = Extent{widthPx, heightPx};
   return true;
 }
 
 bool Engine::DrawsInto(Extent offscreen) {
-  const auto standing = S_->Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
+  const auto standing = S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return false;
   }
-  S_->Frame = offscreen;
+  S_->Picture.Frame = offscreen;
   return true;
 }
 
-void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
+void Engine::Under(Roots roots) { S_->Session.Under = std::move(roots); }
 
 
 
@@ -216,10 +216,10 @@ namespace {
 
 
 void Engine::Offers(const Generates &maker) {
-  for (const Generates *const stood : S_->Making) {
+  for (const Generates *const stood : S_->World.Making) {
     if (stood->Kind() == maker.Kind()) { return; }
   }
-  S_->Making.push_back(&maker);
+  S_->World.Making.push_back(&maker);
 }
 
 
@@ -235,17 +235,17 @@ namespace {
 
 
 
-const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
+const std::vector<std::string> &Engine::Carried() const { return S_->Session.Carried; }
 
 
 const std::vector<Measure> &Engine::Numbers() const { return S_->Published.Numbers(); }
 
 bool Engine::Takes(std::string_view view) {
-  if (!S_->Views) {
+  if (!S_->Session.Views) {
     S_->Error = "the scenario declares no views, so there is none to take";
     return false;
   }
-  if (!S_->Views->Take(view)) {
+  if (!S_->Session.Views->Take(view)) {
     S_->Error = "the scenario declares no view by that name";
     return false;
   }
@@ -264,7 +264,7 @@ bool Engine::Takes(std::string_view view) {
 
 
 
-bool Engine::Standing() const { return S_->Standing != nullptr; }
+bool Engine::Standing() const { return S_->Picture.Standing != nullptr; }
 const std::string &Engine::Error() const { return S_->Error; }
 
 }

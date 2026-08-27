@@ -3,14 +3,14 @@
 namespace outshine {
 
 bool Engine::State::Composes(void) {
-  GroundTiles = 0;
-  if (!Standing) {
+  World.GroundTiles = 0;
+  if (!Picture.Standing) {
     Error = "nothing stands to compose a world around";
     return false;
   }
-  const Scenario &declared = Declared;
-  const Sim::Corridor &way = Drive.Way;
-  const bool overADrive = Drove && !way.Fine.empty();
+  const Scenario &declared = Session.Declared;
+  const Sim::Corridor &way = Ticking.Drive.Way;
+  const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (!declared.Ground.Declared && !overADrive) {
     Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so there "
             "is nowhere for a ground to be composed";
@@ -18,19 +18,19 @@ bool Engine::State::Composes(void) {
   }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
   const double atLon = overADrive ? way.FrameLon : declared.Ground.Lon;
-  if (!Wire) {
-    if (Under.Offline) {
+  if (!World.Wire) {
+    if (Session.Under.Offline) {
       Error = "the ground is FETCHED and the engine was declared offline";
       return false;
     }
-    Wire = std::make_unique<Fetching>(Fetching::Config{});
+    World.Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
   Quietly say;
-  if (!Stack.Opened() &&
-      !Stack.Open(Under.Cache, Under.Shipped,
+  if (!World.Stack.Opened() &&
+      !World.Stack.Open(Session.Under.Cache, Session.Under.Shipped,
                       {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                      atLat, atLon, *Wire, say)) {
+                      atLat, atLon, *World.Wire, say)) {
     Error = say.WhyNot();
     return false;
   }
@@ -38,10 +38,10 @@ bool Engine::State::Composes(void) {
   Around over;
   over.LatDeg = atLat;
   over.LonDeg = atLon;
-  over.Zoom = Stack.FinestZoomOf(Data::DataKind::Elevation);
+  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Ring = 1;
   over.Awaited = true;
-  auto laid = LayPatchwork(Stack.Pool(), over);
+  auto laid = LayPatchwork(World.Stack.Pool(), over);
   if (!laid) {
     Error = laid.error();
     return false;
@@ -161,9 +161,9 @@ bool Engine::State::Composes(void) {
   for (int channel = 0; channel < 3; ++channel) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];
   }
-  const size_t drivenParts = Standing->Shown().Parts().size();
-  if (!Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
-  GroundTiles = laid->Tiles;
+  const size_t drivenParts = Picture.Standing->Shown().Parts().size();
+  if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
+  World.GroundTiles = laid->Tiles;
   Published.Places("tiles the ring laid", (double)laid->Tiles, "tiles");
   Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
   Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
@@ -172,41 +172,41 @@ bool Engine::State::Composes(void) {
 }
 
 bool Engine::RenderTo(Extent frame) {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to draw";
     return false;
   }
   if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
-      (frame.WidthPx != S_->Frame.WidthPx || frame.HeightPx != S_->Frame.HeightPx)) {
-    S_->Error = "this engine stands on a " + std::to_string(S_->Frame.WidthPx) + "x" +
-                std::to_string(S_->Frame.HeightPx) + " canvas and was asked to draw " +
+      (frame.WidthPx != S_->Picture.Frame.WidthPx || frame.HeightPx != S_->Picture.Frame.HeightPx)) {
+    S_->Error = "this engine stands on a " + std::to_string(S_->Picture.Frame.WidthPx) + "x" +
+                std::to_string(S_->Picture.Frame.HeightPx) + " canvas and was asked to draw " +
                 std::to_string(frame.WidthPx) + "x" + std::to_string(frame.HeightPx) +
                 " -- a canvas is declared before a scenario stands on it";
     return false;
   }
-  if (!S_->Standing->Draw(S_->Error)) { return false; }
+  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   S_->Drew();
   return true;
 }
 
 bool Engine::Pixels(std::vector<uint8_t> &rgba) {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
-  S_->Device.WantsPixels();
-  if (!S_->Standing->Draw(S_->Error)) { return false; }
-  return S_->Standing->ReadPixels(rgba, S_->Error);
+  S_->Picture.Device.WantsPixels();
+  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
 }
 
 bool Engine::Capture(std::string_view path) {
-  if (!S_->Standing) {
+  if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;
   }
-  S_->Device.WantsPixels();
-  if (!S_->Standing->Draw(S_->Error)) { return false; }
-  return S_->Standing->Screenshot(std::string(path), S_->Error);
+  S_->Picture.Device.WantsPixels();
+  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 
 }
