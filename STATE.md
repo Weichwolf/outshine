@@ -271,7 +271,7 @@ The heaviest files. Headers and sources counted apart.
 | 943 | `h` | `base/spatial/ClusterDag.h` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 842 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 694 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **45** | `h` | *the median of 238 header(s)* |
 | **119** | `cpp` | *the median of 158 source(s)* |
@@ -282,7 +282,7 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 62 | `src/render/Renderer.h` |
+| 63 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 38 | `src/engine/Live.h` |

@@ -148,7 +148,7 @@ public:
   float ShadowNearM() const { return ShadowNearM_; }
 
 private:
-  static constexpr int kUniFloats = 80;
+  static constexpr int kUniFloats = 56;
 
   static constexpr int kSurfaceScalars = 35;
 
@@ -216,9 +216,12 @@ private:
   double LightFromWorld_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   bool Shadowed_ = false;
   size_t ShadowedFrames_ = 0;
+  size_t UniformPushes_ = 0;
 
 public:
   [[nodiscard]] size_t ShadowedFrames() const { return ShadowedFrames_; }
+
+  [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
 
 private:
   OwnedPipeline DepthOnly_;

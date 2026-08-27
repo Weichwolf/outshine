@@ -8,7 +8,7 @@ struct NAME##In { float3 p [[attribute(0)]]; float3 emitted [[attribute(2)]]; \
 vertex SOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
                  SUBJECT_PLACEMENTS) { \
   SOut o; \
-  o.pos = s.viewProj * (SUBJECT_ROW * float4(v.p, 1.0)); \
+  o.pos = s.viewProj * (SUBJECT_ROW_SHIFTED(s) * float4(v.p, 1.0)); \
   o.uv = UV; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \

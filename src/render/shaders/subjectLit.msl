@@ -5,16 +5,18 @@ struct LOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour; flo
 #define SUBJECT_LIT_ARM(NAME, RUNS, UV, UV1, COLOUR) \
 struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_NORMAL_ATTRIBUTE \
                   SUBJECT_PREV_ATTRIBUTE RUNS }; \
-vertex LOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
+vertex LOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
+         SUBJECT_PLACEMENTS) { \
   LOut o; \
-  o.pos = s.viewProj * (s.model * float4(v.p, 1.0)); \
+  const float4x4 m = SUBJECT_ROW_SHIFTED(s); \
+  o.pos = s.viewProj * (m * float4(v.p, 1.0)); \
   o.uv = UV; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
-  o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
-  o.p = (s.model * float4(v.p, 1.0)).xyz; \
+  o.n = normalize(m[0].xyz * v.n.x + m[1].xyz * v.n.y + m[2].xyz * v.n.z); \
+  o.p = (m * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
-  o.ls = s.lightFromModel * float4(v.p, 1.0); \
+  o.ls = s.lightFromWorld * (m * float4(v.p, 1.0)); \
   SUBJECT_SET_MOTION(o, v, s); \
   return o; \
 }

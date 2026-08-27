@@ -108,6 +108,7 @@ int main(void) {
   }
 
   double alone = 0.0, together = 0.0;
+  double pushedAlone = 0.0, pushedTogether = 0.0;
   std::string refused;
   for (int pass = 0; pass < 2; ++pass) {
     outshine::Engine engine;
@@ -127,6 +128,8 @@ int main(void) {
       return Report();
     }
     (pass == 0 ? alone : together) = Measured(engine, "batches the picture draws");
+    (pass == 0 ? pushedAlone : pushedTogether) =
+        Measured(engine, "vertex uniform pushes the subject stages make");
   }
 
   if (!refused.empty()) {
@@ -136,6 +139,8 @@ int main(void) {
     std::printf("  one subject draws %.0f batch(es), two draw %.0f\n", alone, together);
   }
 
+  std::printf("  one subject pushes %.0f vertex uniform(s), two push %.0f\n", pushedAlone,
+              pushedTogether);
   const bool answered = !refused.empty() || (alone > 0.0 && together >= 2.0 * alone);
   CHECK(answered,
         "**A SECOND DECLARED SUBJECT IS DRAWN, OR THE ENGINE SAYS WHY NOT**: Unreal's FScene "
@@ -143,6 +148,17 @@ int main(void) {
         "neither is there a place for a second subject to be dropped from. Accepting a "
         "declaration and rendering half of it is worse than refusing it, because the frame looks "
         "finished");
+
+  // THE UNIFORM IS PER PASS AND NOT PER SUBJECT. Batches scale with what is drawn -- that is the
+  // point of a batch. The vertex uniform must not, because everything it still carries is a
+  // property of the VIEW: `viewProj`, `prevViewProj`, `lightFromWorld` and the two pre-view
+  // shifts. The model matrix left it for the placement buffer, so a second subject adds a ROW
+  // and no push. This is the CPU term Unreal's `FGPUScene` removes and it is measured here rather
+  // than asserted, because a push per model slot is invisible in a picture that looks correct.
+  CHECK(refused.empty() ? pushedTogether <= pushedAlone : true,
+        "**A SECOND SUBJECT COSTS A ROW, NOT A PUSH**: the vertex uniform carries only view "
+        "properties now, so drawing twice as much geometry pushes it exactly as often -- the day "
+        "a per-instance term returns to that uniform this number doubles and says so");
 
   Covers("the door: a scenario naming two subjects either draws both or is refused by name -- "
          "what it must not do is render one of them and say nothing");

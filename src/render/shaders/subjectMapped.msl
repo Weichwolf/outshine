@@ -5,18 +5,20 @@ struct MOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour; flo
 #define SUBJECT_MAPPED_ARM(NAME, RUNS, UV1, COLOUR) \
 struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_UV_ATTRIBUTE SUBJECT_NORMAL_ATTRIBUTE \
                   SUBJECT_TANGENT_ATTRIBUTE SUBJECT_PREV_ATTRIBUTE RUNS }; \
-vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
+vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
+         SUBJECT_PLACEMENTS) { \
   MOut o; \
-  o.pos = s.viewProj * (s.model * float4(v.p, 1.0)); \
+  const float4x4 m = SUBJECT_ROW_SHIFTED(s); \
+  o.pos = s.viewProj * (m * float4(v.p, 1.0)); \
   o.uv = v.uv; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
-  o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
-  o.p = (s.model * float4(v.p, 1.0)).xyz; \
+  o.n = normalize(m[0].xyz * v.n.x + m[1].xyz * v.n.y + m[2].xyz * v.n.z); \
+  o.p = (m * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
-  o.ls = s.lightFromModel * float4(v.p, 1.0); \
-  o.t = float4(normalize(s.model[0].xyz * v.t.x + s.model[1].xyz * v.t.y + \
-                         s.model[2].xyz * v.t.z), \
+  o.ls = s.lightFromWorld * (m * float4(v.p, 1.0)); \
+  o.t = float4(normalize(m[0].xyz * v.t.x + m[1].xyz * v.t.y + \
+                         m[2].xyz * v.t.z), \
                v.t.w); \
   SUBJECT_SET_MOTION(o, v, s); \
   return o; \

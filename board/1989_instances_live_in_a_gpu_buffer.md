@@ -53,8 +53,12 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
    opens a copy pass (`Renderer.cpp:759`).
 3. `subject.msl` reads `placements[first_instance + instance_id]` — ONE edit, because all seven
    vertex arms come from one macro
-4. `SameState` drops `ModelSlot`; the draw passes `batch.Draws` and `ModelSlot` as first instance.
-   `SDL_DrawGPUIndexedPrimitives` already takes both, pinned at 1 and 0 today
+4. **CORRECTED BY STEP 3.** `SameState` cannot drop `ModelSlot` here, and the reason is that
+   `ModelSlot` is the PART index -- every part carries its own index range. Merging two parts
+   into one batch would issue ONE instance over both ranges and give both the first part's row.
+   Merging across slots needs a per-draw index offset, which is the INDIRECT draw of board:1993.
+   What step 3 does buy is the precondition: the vertex uniform now carries nothing per-instance,
+   so the indirect path has nothing left to thread through it
 
 - [x] the uniform carries `viewProj` and the shader multiplies. `S` is now
       `{viewProj, prevViewProj, model, prevModel, lightFromModel}` -- five matrices, 80 floats,
@@ -73,6 +77,27 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
       proof: khronos/glTF/WaterBottle 3/3, `picture_p99_delta_code` at 1 against a bound of
       6.435, unmoved -- the buffer is written and not yet read, so an unmoved picture is exactly
       the right result
+- [x] all three lit vertex arms read `placements[first_instance + instance_id]`, and the vertex
+      uniform is now PER PASS. **The Metal question is answered by measurement**: with
+      `first_instance = ModelSlot` and a one-row table, `khronos/glTF/AlphaBlendModeTest` fell to
+      `coverage_fraction_outshine` 4.0e-05 against a floor of 0.001; with the base pinned at 0 the
+      same run read 0.0355. A base that changed the picture is a base the shader SAW -- SDL_GPU on
+      Metal folds it into `[[instance_id]]`, so no per-draw uniform is needed to carry the slot.
+      The crash that led there was the finding: `Placed_.empty() ? Model : ...` gave the single
+      subject NO table at all, which is the CPU branch on how-many that GPU-driven rendering
+      exists to remove -- one subject is a table with one row, and the table is sized to the
+      largest slot the batches name.
+      Three terms then left the uniform. `model` went to the buffer; `lightFromModel` became
+      `lightFromWorld` and the shader multiplies by the row it already has; `prevModel` was never
+      a second matrix -- `before[i] = model[i]` -- so it is the same row under a second shift.
+      `S` is `{viewProj, prevViewProj, lightFromWorld, shift, prevShift}`, 56 floats where step 1
+      left 80, and every one of them is a property of the VIEW.
+      proof: khronos/glTF 444/444, and outshine/door/ScoreWhatASecondSubjectDoes reads
+      `one subject draws 1 batch(es), two draw 2` beside `one subject pushes 1 vertex uniform(s),
+      two push 1` -- batches scale with geometry, the uniform does not.
+      negative control: `place()` restored to per-batch makes that line read `2` and `3`, and the
+      case goes RED on the push claim while the picture stays identical -- which is the whole
+      reason the number is measured rather than looked at
 
 - [ ] **STEP 3 NEEDS A MEASUREMENT FIRST, and it is the one that decides the shape.** The draw is
       `SDL_DrawGPUIndexedPrimitives(pass, count, 1, first, 0, 0)` -- the last argument is

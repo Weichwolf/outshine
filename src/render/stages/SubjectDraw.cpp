@@ -438,6 +438,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     PrevAnchor[axis] = mesh.PrevAnchor[axis];
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
+  RowsStale_ = true;
   if (Resident_.NVerts == 0 || Resident_.NIdx == 0) {
     Resident_.NIdx = 0;
     return true;
@@ -585,14 +586,27 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
 
 // THE INSTANCE BUFFER IS WRITTEN BEFORE THE PASS, NEVER INSIDE IT. SDL_GPU writes a buffer only
 // inside a copy pass, and Encode runs with a render pass already recording -- which is why the
-// placements went through a uniform in the first place. The shift stays in the uniform because it
-// is constant per PASS, so these rows are the raw placements and need no frame context.
+// placements went through a uniform in the first place. The shift stays in the uniform because
+// BOTH its terms are constant per PASS, so these rows are the raw placements: the anchor never
+// enters them and they survive a camera that moves.
+//
+// ONE SUBJECT IS A TABLE WITH ONE ROW. There is no second path for the unplaced case -- a CPU
+// that branches on how many subjects there are is the term GPU-driven rendering exists to remove,
+// and the branch also left the buffer unallocated, which is a crash rather than a design.
 bool SubjectDraw::HandPlacements(std::string &error) {
-  if (!RowsStale_) { return true; }
+  size_t needed = Placed_.size() / 16u;
+  for (const DrawBatch &batch : Batches) {
+    needed = std::max(needed, (size_t)batch.ModelSlot + 1u);
+  }
+  if (!RowsStale_ && Rows_.size() == needed * 16u) { return true; }
   RowsStale_ = false;
-  if (Placed_.empty()) { return true; }
-  Rows_.resize(Placed_.size());
-  for (size_t at = 0; at < Placed_.size(); ++at) { Rows_[at] = (float)Placed_[at]; }
+  if (needed == 0) { return true; }
+  Rows_.assign(needed * 16u, 0.0f);
+  for (size_t row = 0; row < needed; ++row) {
+    const double *const from =
+        row * 16u + 16u <= Placed_.size() ? Placed_.data() + row * 16u : Model;
+    for (size_t at = 0; at < 16u; ++at) { Rows_[row * 16u + at] = (float)from[at]; }
+  }
   SubjectResidency::Crossing rows[] = {
       {&Resident_.Placed, &Resident_.Held[(size_t)SubjectResidency::Stream::Placements],
        SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Rows_.data(),
@@ -650,6 +664,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
     PrevAnchor[axis] = pose.PrevAnchor[axis];
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
+  RowsStale_ = true;
   if (!HandStreams(pose, true, error)) {
     Resident_.DropStaged();
     return false;
@@ -729,39 +744,18 @@ uint32_t SubjectDraw::DrawCount() const {
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx || !Resident_.Emit || !Resident_.BvhNodes || !Resident_.BvhTris) { return; }
   float uniform[kUniFloats] = {};
-  const auto place = [this, &ctx, &uniform, &into](uint32_t slot) {
-    const double *const model =
-        Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
-
-    double carried[16];
-    for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
+  const auto place = [this, &ctx, &uniform, &into]() {
     for (int axis = 0; axis < 3; ++axis) {
-      carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis];
+      uniform[48 + axis] = (float)(Anchor[axis] + ctx.PreViewTranslation[axis]);
+      uniform[52 + axis] = (float)(PrevAnchor[axis] + ctx.PrevPreViewTranslation[axis]);
     }
     for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
-
-    double before[16];
-    for (int i = 0; i < 16; i++) { before[i] = model[i]; }
-    for (int axis = 0; axis < 3; ++axis) {
-      before[12 + axis] += PrevAnchor[axis] + ctx.PrevPreViewTranslation[axis];
-    }
     for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp16[i]; }
-    for (int i = 0; i < 16; i++) { uniform[48 + i] = (float)before[i]; }
-
-    for (int i = 0; i < 16; i++) { uniform[32 + i] = (float)carried[i]; }
-    for (int column = 0; column < 4; ++column) {
-      for (int row = 0; row < 4; ++row) {
-        double sum = 0.0;
-        for (int over = 0; over < 4; ++over) {
-          sum += LightFromWorld_[over * 4 + row] * carried[column * 4 + over];
-        }
-        uniform[64 + column * 4 + row] = (float)sum;
-      }
-    }
+    for (int i = 0; i < 16; i++) { uniform[32 + i] = (float)LightFromWorld_[i]; }
+    ++UniformPushes_;
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
   };
-  place(Batches.empty() ? 0u : Batches.front().ModelSlot);
-  uint32_t standing = Batches.empty() ? 0u : Batches.front().ModelSlot;
+  place();
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
   ShadowedFrames_ += lights[2] > 0.5f ? 1u : 0u;
   SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
@@ -829,10 +823,6 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
                                      (uint32_t)(surface.Row.size() * sizeof(float)));
       boundSlot = batch.MaterialSlot;
       slotBound = true;
-    }
-    if (batch.ModelSlot != standing) {
-      place(batch.ModelSlot);
-      standing = batch.ModelSlot;
     }
     SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0,
                                  batch.ModelSlot);

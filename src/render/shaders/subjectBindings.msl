@@ -1,9 +1,11 @@
 
-struct S { float4x4 viewProj; float4x4 prevViewProj; float4x4 model; float4x4 prevModel;
-           float4x4 lightFromModel; };
+struct S { float4x4 viewProj; float4x4 prevViewProj; float4x4 lightFromWorld;
+           float4 shift; float4 prevShift; };
 
 #define SUBJECT_PLACEMENTS device const float4x4 *rows [[buffer(1)]], uint iid [[instance_id]]
-#define SUBJECT_ROW (rows[iid])
+#define SUBJECT_ROW_BY(shifted) \
+  float4x4(rows[iid][0], rows[iid][1], rows[iid][2], rows[iid][3] + float4(shifted, 0.0))
+#define SUBJECT_ROW_SHIFTED(s) SUBJECT_ROW_BY((s).shift.xyz)
 
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
@@ -112,7 +114,7 @@ struct SFrag {
 #define SUBJECT_MOTION_VARYINGS float4 curClip; float4 prevClip;
 #define SUBJECT_SET_MOTION(o, v, s) \
   (((o).curClip = (o).pos), \
-   ((o).prevClip = (s).prevViewProj * ((s).prevModel * float4((v).prevP, 1.0))))
+   ((o).prevClip = (s).prevViewProj * (SUBJECT_ROW_BY((s).prevShift.xyz) * float4((v).prevP, 1.0))))
 #define SUBJECT_SET_VELOCITY(o, in) \
   (o).vel = (in).curClip.xy / (in).curClip.w - (in).prevClip.xy / (in).prevClip.w
 #else
