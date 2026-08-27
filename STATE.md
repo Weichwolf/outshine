@@ -198,7 +198,7 @@ The heaviest units, against the median of them all.
 | lines | unit |
 |---|---|
 | 2020 | `content/gltf/Document.h` |
-| 1429 | `content/gltf/Subject.h` |
+| 1434 | `content/gltf/Subject.h` |
 | 1397 | `ui/Layout.h` |
 | 1342 | `render/Renderer.h` |
 | 1141 | `base/format/Script.h` |

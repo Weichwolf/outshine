@@ -872,7 +872,12 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
   }
 
-  Bound();
+  const outshine::Geometry made = Handed();
+  const std::vector<PlacedLight> lit = Lights_;
+  const Undrawn missed = Undrawn_;
+  if (!Assemble(made)) { return false; }
+  Lights_ = lit;
+  Undrawn_ = missed;
   return true;
 }
 

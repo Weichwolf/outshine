@@ -164,9 +164,16 @@ tangents, then morph, then skin. 1864 vendor cases is the right oracle for exact
 reason it is safe to attempt at all -- it is also why attempting it half-way is worse than not
 starting: a reader that packs two ways is the second spelling this item exists to remove.
 
-- [ ] **THE glTF READER FILLS IT.** `Gltf::Subject` stops being a second representation and
-      becomes the reader OF this one, so what the reader takes and what the builder carries are
-      the same list by construction rather than by maintenance.
+- [x] **THE glTF READER FILLS IT.** `Build` ends by expressing what it read as a `Geometry` and
+      assembling THAT -- so after a read, a subject IS what the one value can carry, and anything
+      the value cannot hold is dropped rather than smuggled. 444 Khronos cases pass, which is what
+      says nothing is dropped.
+      proof: harness/outshine/content/ScoreWhatARoundTripKeeps and harness/khronos/glTF
+
+      What is inelegant and recorded rather than hidden: the reader still packs, then expresses,
+      then the packer packs again -- a double pack at LOAD time, never on the frame path.
+      Redirecting the emit to write the `Geometry` directly removes it, and both obstacles that
+      made that look like a pipeline restructuring are gone. It is now a redirection.
 - [x] The builder carries materials, and a handed part renders with the material it names.
       `outshine::Material` already carried the whole PBR row and all nine `KHR_materials_*` -- it
       was on the wrong side of the door, in `src/content/shade/`. It is `include/Material.h` now,
