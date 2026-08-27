@@ -22,7 +22,7 @@ namespace {
 // generators read as unreachable capability when what was unreachable was their DOOR.
 //
 // THIS CASE IS THE REACHABILITY. It stands in a suite that links no engine source at all -- the
-// geo suite's group list holds `src/world/generators` and nothing from `src/engine` -- and it
+// geo suite's group list holds `src/generators` and nothing from `src/engine` -- and it
 // builds a snapshot. That it COMPILES AND LINKS here is half the claim; the numbers below are
 // the other half.
 //

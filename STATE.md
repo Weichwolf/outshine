@@ -139,24 +139,24 @@ Module depends on module, derived from the includes themselves.
 flowchart LR
   render_stages --> |28| render_device
   world_ground --> |18| base_spatial
-  world_generators --> |15| world_ground
+  generators --> |17| generators_base
   world_ground --> |14| base_io
   sim --> |14| actor_path
+  generators_draw --> |14| generators_base
   render --> |13| render_stages
-  world_generators --> |12| base_spatial
   sim --> |12| world_ground
   engine --> |11| ui
+  generators --> |10| world_ground
   engine --> |10| content_gltf
   world_ground --> |9| world_data
   sim --> |8| actor_mind
+  generators_base --> |7| base_spatial
   actor_mind --> |7| actor_path
   engine --> |6| scenario
   engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
   content_gltf --> |5| base_spatial
-  world_generators --> |4| base_math
-  world_generators --> |4| base_geo
   render --> |4| base_io
   engine --> |4| scene
   world_ground --> |3| content_shade
@@ -166,9 +166,11 @@ flowchart LR
   render --> |3| render_device
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
+  generators_draw --> |3| world_ground
+  generators_draw --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  30 edge(s) drawn, 38 thinner than three includes not drawn
+  32 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 
@@ -188,7 +190,7 @@ What each directory under `src/` may include. `--audit-layers` refuses a crossin
 | `host` | base world |
 | `compositor` | base world content |
 | `sim` | base world content actor scene |
-| `engine` | base content world actor render scene scenario sim ui audio host compositor |
+| `engine` | base content world generators actor render scene scenario sim ui audio host compositor |
 
 ## Mass
 
@@ -242,22 +244,22 @@ What stands wider than private. Private is the default and a wider door justifie
 shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 
 - `src/actor/mind/Task.h`
+- `src/generators/base/Generator.h`
+- `src/generators/draw/DrawSource.h`
 - `src/world/data/TerrariumDem.h`
 - `src/world/data/VersatilesVector.h`
 - `src/world/data/WebTileSource.h`
-- `src/world/generators/draw/DrawSource.h`
-- `src/world/generators/Generator.h`
 - `src/world/ground/StructureMesher.h`
 
 40 public data member(s) in a class -- an invariant nobody can hold.
 
 | members | header |
 |---|---|
-| 7 | `src/world/generators/ContactMaterial.h` |
-| 5 | `src/world/generators/draw/TreeMesh.h` |
+| 7 | `src/generators/base/ContactMaterial.h` |
+| 5 | `src/generators/draw/TreeMesh.h` |
 | 5 | `src/engine/Live.h` |
-| 3 | `src/world/generators/draw/TreeFoliage.h` |
-| 3 | `src/world/generators/draw/LeafAngleDistribution.h` |
+| 3 | `src/generators/draw/TreeFoliage.h` |
+| 3 | `src/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |
 | 2 | `src/render/draw/DrawKey.h` |
 | 2 | `src/content/shade/TangentFrame.h` |
@@ -265,15 +267,15 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |
 | 1 | `src/world/ground/ClassField.h` |
-| 1 | `src/world/generators/FeatureLevel.h` |
-| 1 | `src/world/generators/draw/TreeRandom.h` |
-| 1 | `src/world/generators/Cover.h` |
-| 1 | `src/world/generators/Claim.h` |
 | 1 | `src/world/data/StarBands.h` |
 | 1 | `src/scene/Register.h` |
 | 1 | `src/scenario/Tables.h` |
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
+| 1 | `src/generators/draw/TreeRandom.h` |
+| 1 | `src/generators/base/FeatureLevel.h` |
+| 1 | `src/generators/base/Cover.h` |
+| 1 | `src/generators/base/Claim.h` |
 | 1 | `src/content/gltf/Keyframes.h` |
 | 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
@@ -309,8 +311,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 
 | constants | file |
 |---|---|
-| 16 | `src/world/generators/draw/BuildingShape.cpp` |
-| 14 | `src/world/generators/draw/BuildingMesh.cpp` |
+| 16 | `src/generators/draw/BuildingShape.cpp` |
+| 14 | `src/generators/draw/BuildingMesh.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
