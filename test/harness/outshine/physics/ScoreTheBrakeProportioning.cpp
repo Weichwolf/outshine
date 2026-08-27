@@ -32,16 +32,16 @@ constexpr double kAirDensityKgM3 = 1.225;
   one.AtM[0] = xM;
   one.AtM[1] = 0.333;
   one.AtM[2] = zM;
-  one.ReachM = 0.45;
-  one.StiffnessNPerM = 32000.0;
-  one.DampingNsPerM = 3400.0;
-  one.TravelM = 0.18;
-  one.StopNPerM = 450000.0;
-  one.LimitN = 24000.0;
-  one.Grip = 0.95;
-  one.RadiusM = 0.333;
-  one.CorneringNPerRad = 55000.0;
-  one.RelaxationM = 0.4;
+  one.Strut.ReachM = 0.45;
+  one.Strut.StiffnessNPerM = 32000.0;
+  one.Strut.DampingNsPerM = 3400.0;
+  one.Strut.TravelM = 0.18;
+  one.Strut.StopNPerM = 450000.0;
+  one.Strut.LimitN = 24000.0;
+  one.Touches.Grip = 0.95;
+  one.Touches.RadiusM = 0.333;
+  one.Touches.CorneringNPerRad = 55000.0;
+  one.Touches.RelaxationM = 0.4;
   return one;
 }
 

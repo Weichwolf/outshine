@@ -577,17 +577,17 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       Contact wheel;
       wheel.At = touch.Attr("at");
       ReadVector(touch, "x", "y", "z", wheel.AtM, 3);
-      wheel.ReachM = touch.Num("reachM", 0.0);
-      wheel.StiffnessNPerM = touch.Num("stiffnessNPerM", 0.0);
-      wheel.DampingNsPerM = touch.Num("dampingNsPerM", 0.0);
-      wheel.TravelM = touch.Num("travelM", 0.0);
-      wheel.StopNPerM = touch.Num("stopNPerM", 0.0);
-      wheel.LimitN = touch.Num("limitN", 0.0);
-      wheel.Grip = touch.Num("grip", 0.0);
-      wheel.LoadFalloff = touch.Num("loadFalloff", 0.0);
-      wheel.RadiusM = touch.Num("radiusM", 0.0);
-      wheel.CorneringNPerRad = touch.Num("corneringNPerRad", 0.0);
-      wheel.RelaxationM = touch.Num("relaxationM", 0.0);
+      wheel.Strut.ReachM = touch.Num("reachM", 0.0);
+      wheel.Strut.StiffnessNPerM = touch.Num("stiffnessNPerM", 0.0);
+      wheel.Strut.DampingNsPerM = touch.Num("dampingNsPerM", 0.0);
+      wheel.Strut.TravelM = touch.Num("travelM", 0.0);
+      wheel.Strut.StopNPerM = touch.Num("stopNPerM", 0.0);
+      wheel.Strut.LimitN = touch.Num("limitN", 0.0);
+      wheel.Touches.Grip = touch.Num("grip", 0.0);
+      wheel.Touches.LoadFalloff = touch.Num("loadFalloff", 0.0);
+      wheel.Touches.RadiusM = touch.Num("radiusM", 0.0);
+      wheel.Touches.CorneringNPerRad = touch.Num("corneringNPerRad", 0.0);
+      wheel.Touches.RelaxationM = touch.Num("relaxationM", 0.0);
       made.Contacts.push_back(wheel);
     }
     for (const Xml::Ref acts : one.Children("actuator")) {

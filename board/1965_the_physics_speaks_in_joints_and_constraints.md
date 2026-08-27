@@ -39,6 +39,10 @@ raycast car cannot be declared at all.
       Proof: 16 of 16 in harness/outshine/physics unchanged, and the two vendor cases green
 - [ ] a joint declares two bodies, a kind and its degrees of freedom
 - [ ] a drive on a degree of freedom carries a target, a limit and a ratio, and `Actuator` is gone
+- [x] the DOOR stops flattening three things into one: `Contact` was thirteen loose fields and is
+      now a place (`At`, `AtM`), a `Prismatic` strut and a `Slip` patch -- which is what
+      `Physics::Prismatic` and `Physics::Slip` already were on the inside, so the declaration and
+      the model finally spell the same decomposition
 - [ ] a contact is a constraint the solver reads, not a spring bolted to a point
 - [ ] the raycast-and-spring wheel survives as a DECLARED ASSEMBLY in the catalogue, which is where
       RAGE and Unreal keep it, and the drive still drives on it

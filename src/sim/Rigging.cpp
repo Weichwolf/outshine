@@ -45,7 +45,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
                     " contacts reaches the bound of " + std::to_string(Physics::kMaxMounts));
     return out;
   }
-  if (!(declared.Contacts.front().RadiusM > 0.0)) {
+  if (!(declared.Contacts.front().Touches.RadiusM > 0.0)) {
     Refuse(out, "a drive torque becomes a force at a radius, and this body declares none");
     return out;
   }
@@ -82,7 +82,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     }
     double standsAt = declared.Contacts[0].AtM[1];
     for (const Contact &one : declared.Contacts) { standsAt = std::fmin(standsAt, one.AtM[1]); }
-    standsAt -= declared.Contacts.front().RadiusM;
+    standsAt -= declared.Contacts.front().Touches.RadiusM;
 
     out.StandsAtM = standsAt;
     out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetSpanM;
@@ -128,16 +128,16 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     for (int axis = 0; axis < 3; ++axis) {
       mount.AtM[axis] = one.AtM[axis] - out.CentreM[axis];
     }
-    mount.Strut.ReachM = one.ReachM;
-    mount.Strut.StiffnessNPerM = one.StiffnessNPerM;
-    mount.Strut.DampingNsPerM = one.DampingNsPerM;
-    mount.Strut.TravelM = one.TravelM;
-    mount.Strut.StopNPerM = one.StopNPerM;
-    mount.Strut.LimitN = one.LimitN;
-    mount.Sheds.StiffnessNPerRad = one.CorneringNPerRad;
-    mount.Sheds.RelaxationM = one.RelaxationM;
-    mount.Sheds.Friction = one.Grip;
-    mount.Sheds.LoadFalloff = one.LoadFalloff;
+    mount.Strut.ReachM = one.Strut.ReachM;
+    mount.Strut.StiffnessNPerM = one.Strut.StiffnessNPerM;
+    mount.Strut.DampingNsPerM = one.Strut.DampingNsPerM;
+    mount.Strut.TravelM = one.Strut.TravelM;
+    mount.Strut.StopNPerM = one.Strut.StopNPerM;
+    mount.Strut.LimitN = one.Strut.LimitN;
+    mount.Sheds.StiffnessNPerRad = one.Touches.CorneringNPerRad;
+    mount.Sheds.RelaxationM = one.Touches.RelaxationM;
+    mount.Sheds.Friction = one.Touches.Grip;
+    mount.Sheds.LoadFalloff = one.Touches.LoadFalloff;
     const double armM = one.AtM[2] - out.CentreM[2];
     const double staticShare = armM < 0.0 ? frontLoadShare / frontMounts
                                           : (1.0 - frontLoadShare) / rearMounts;
@@ -177,8 +177,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
              ? frontLoadShare / frontMounts
              : (1.0 - frontLoadShare) / rearMounts);
     Physics::Slip planning;
-    planning.Friction = declared.Contacts.front().Grip;
-    planning.LoadFalloff = declared.Contacts.front().LoadFalloff;
+    planning.Friction = declared.Contacts.front().Touches.Grip;
+    planning.LoadFalloff = declared.Contacts.front().Touches.LoadFalloff;
     planning.FrictionAtLoadN = heaviestN;
     out.Envelope.Grip = Physics::FrictionAt(planning, heaviestN);
   }
@@ -188,9 +188,9 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   const Drive *const brakes = declared.Efforts(true);
   out.Envelope.DriveN = drives == nullptr ? 0.0
                                           : drives->PeakNm * drives->Ratio /
-                                                declared.Contacts.front().RadiusM;
+                                                declared.Contacts.front().Touches.RadiusM;
   out.Envelope.BrakeN =
-      brakes == nullptr ? 0.0 : brakes->PeakNm / declared.Contacts.front().RadiusM;
+      brakes == nullptr ? 0.0 : brakes->PeakNm / declared.Contacts.front().Touches.RadiusM;
   if (!(declared.DragCoefficient > 0.0) || !(declared.FrontalM2 > 0.0)) {
     Refuse(out, "the body '" + declared.Name + "' declares a drag coefficient of " +
                     std::to_string(declared.DragCoefficient) + " over a frontal area of " +

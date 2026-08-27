@@ -225,20 +225,28 @@ struct View {
   double TimeScale = 1.0;
 };
 
-struct Contact {
-  std::string At;
-  double Grip = 0.0;
-  double RadiusM = 0.0;
-  double CorneringNPerRad = 0.0;
-  double RelaxationM = 0.0;
-  double LoadFalloff = 0.0;
-  double AtM[3] = {0.0, 0.0, 0.0};
+struct Prismatic {
   double ReachM = 0.0;
   double StiffnessNPerM = 0.0;
   double DampingNsPerM = 0.0;
   double TravelM = 0.0;
   double StopNPerM = 0.0;
   double LimitN = 0.0;
+};
+
+struct Slip {
+  double Grip = 0.0;
+  double RadiusM = 0.0;
+  double CorneringNPerRad = 0.0;
+  double RelaxationM = 0.0;
+  double LoadFalloff = 0.0;
+};
+
+struct Contact {
+  std::string At;
+  double AtM[3] = {0.0, 0.0, 0.0};
+  Prismatic Strut;
+  Slip Touches;
 };
 
 enum class Drives : uint8_t { Effort, Motion };
