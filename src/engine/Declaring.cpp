@@ -138,6 +138,17 @@ bool Engine::Declare(const Scenario &scenario) {
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return false;
   }
+  size_t subjects = 0;
+  for (const Asset &shown : scenario.Assets) {
+    if (shown.Kind == "gltf") { ++subjects; }
+  }
+  if (subjects > 1) {
+    S_->Error = "the scenario stands " + std::to_string(subjects) +
+                " glTF assets and the picture holds ONE subject -- the others would be accepted, "
+                "counted and never drawn, and a frame that renders half of what was declared "
+                "looks finished";
+    return false;
+  }
   const Asset *const subject = scenario.Subject();
 
   Core::Declaration declared;

@@ -89,3 +89,21 @@ absent from the picture, which is the quietest kind of wrong.
 **This blocks board:1957's last predicate**, which asks for a DELTA instead of the boundary
 diff. A delta over a one-row table is a line of code rather than an architecture, so that
 predicate waits here and says so rather than being written twice.
+
+**MEASURED, and the silence is now a refusal.** `Scenario::Subject()` returns the FIRST glTF
+asset and ignores the rest; `Live` stands over that one document. A scenario naming two:
+
+    one subject draws 1 batch(es), two draw 1
+
+`Engine::Declare` refuses that now, by count and with a reason -- the others would be accepted,
+counted and never drawn, and a frame that renders half of what was declared looks finished. That
+is a step BACKWARD from the benchmark and it is deliberate: Unreal's `FScene` holds a proxy per
+primitive and RAGE puts every entity on its node's draw list, so neither has anywhere for a
+second subject to be dropped FROM. Until the picture can hold two, saying no is the honest half
+of the answer, and accepting a declaration and doing nothing with it is the dishonest one.
+
+- [ ] the picture holds MORE THAN ONE subject, and the refusal above is deleted on the day it
+      does. The proving case is already written to see both ends: it passes when two subjects
+      draw twice the batches of one, and it passes when the engine refuses by name -- so the
+      day the feature lands, the case reads the feature rather than the refusal.
+      proof: outshine/door/ScoreWhatASecondSubjectDoes
