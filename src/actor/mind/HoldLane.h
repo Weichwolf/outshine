@@ -19,10 +19,9 @@ public:
   [[nodiscard]] const Pilot::Demand &Asked() const { return Asked_; }
   void Sees(const Standing &now) { Now_ = now; }
 
-protected:
+private:
   [[nodiscard]] Doing Act(double dtS) override;
 
-private:
   Standing Now_;
   Pilot::Demand Asked_;
 };

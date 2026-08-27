@@ -33,6 +33,7 @@
 
 #include "Document.h"
 #include "SubjectProxy.h"
+#include "Wgs84.h"
 #include "Json.h"
 #include "Log.h"
 #include "Image.h"
@@ -1224,17 +1225,23 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Render::Subjec
       trouble = spelling.Error();
     } else {
       outshine::Render::SubjectProxy other = studio;
-      other.Geometry = &spelling;
-
+      const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
+      other.Stands(spelling, anchorEcefM);
+      other.Sees(studio.Eye(), studio.StandsInside(), studio.FramedParts());
+      other.Around(studio.Environment());
+      for (const outshine::PunctualLight &light : studio.Lights()) { other.Lit(light); }
+      std::vector<std::array<float, 3>> emitted;
       SurfaceTable surfaces;
       ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0,
                           subject.MaterialFromFile(), surfaces);
       built = (!subject.MaterialFromFile() ||
                ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
                                   trouble)) &&
-              ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
-      other.PartSurface = surfaces.PartSlot;
-      other.Surfaces = surfaces.Slots;
+              ResolveEmission(subject, alternate, spelling, emitted, trouble);
+      for (size_t part = 0; built && part < emitted.size(); ++part) {
+        (void)other.Emits(part, emitted[part]);
+      }
+      built = built && other.Wears(surfaces.PartSlot, surfaces.Slots, trouble);
       built = built && Capture(renderer, other, again, trouble);
     }
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
@@ -1298,24 +1305,28 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
 
 outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   outshine::Render::SubjectProxy studio;
-  studio.Geometry = &subject.Geometry;
-
-  if (subject.Animated()) { studio.PreviousPositionsM = &subject.PreviousGeometry.PositionsM(); }
-  studio.Eye = subject.Eye;
-  studio.EmittedRadiance = subject.Emitted;
-  studio.PartSurface = subject.Surfaces.PartSlot;
-  studio.Surfaces = subject.Surfaces.Slots;
+  const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
+  studio.Stands(subject.Geometry, anchorEcefM);
+  if (subject.Animated()) { studio.Posed(&subject.PreviousGeometry.PositionsM()); }
+  studio.Sees(subject.Eye, false, 0);
+  for (size_t part = 0; part < subject.Emitted.size(); ++part) {
+    (void)studio.Emits(part, subject.Emitted[part]);
+  }
+  std::string why;
+  (void)studio.Wears(subject.Surfaces.PartSlot, subject.Surfaces.Slots, why);
   if (subject.Lights == SceneLights::FromFile) {
     for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
-      studio.Lights.push_back(placed.Light);
+      studio.Lit(placed.Light);
     }
   }
-  if (subject.Lights == SceneLights::DeclaredSun) { studio.Lights.push_back(subject.Sun); }
+  if (subject.Lights == SceneLights::DeclaredSun) { studio.Lit(subject.Sun); }
 
   if (subject.ShadedByLights()) {
+    outshine::Render::SubjectEnvironment environment;
     for (int channel = 0; channel < 3; ++channel) {
-      studio.Environment.RadianceLinear[channel] = subject.WorldRadiance[channel];
+      environment.RadianceLinear[channel] = subject.WorldRadiance[channel];
     }
+    studio.Around(environment);
   }
   return studio;
 }
@@ -1365,7 +1376,7 @@ void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy 
       continue;
     }
     double measured = 0;
-    if (!RangeAt(studio.Eye, subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
+    if (!RangeAt(studio.Eye(), subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
                  probe["atPx"][(size_t)1].Int(-1), measured, why)) {
       Refused(where + ": " + why);
       metrics.push_back({name + "_range_error_m", std::nan(""), tolerance, "m", Direction::AtMost});
@@ -1387,7 +1398,7 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::Subje
           placed.Light.Kind == outshine::LightKind::Directional ? "lux" : "candela");
     }
   }
-  outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights.size(),
+  outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights().size(),
                        "lights");
 
   outshine::Test::Note("uv sets the subject carries", subject.Geometry.HasUv1() ? 2.0 : 1.0, "sets");

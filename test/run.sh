@@ -9,8 +9,8 @@ AUDIT_ACCESS=0
 STATE=0
 STRANDED=6
 DECIDED=126
-PROTECTED=6
-OPENDATA=49
+PROTECTED=7
+OPENDATA=41
 INHERITS=0
 OWNER_MAP_BUILT=no
 CORPUS=0
@@ -970,13 +970,26 @@ if [ "$AUDIT_ACCESS" = 1 ]; then
   shielded=$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null |
     awk -F: '{ n += $2 } END { print n + 0 }')
   bare=$(awk '
-    /^[ \t]*class[ \t]+[A-Za-z_]/ { inclass = 1; access = "private"; next }
-    /^[ \t]*struct[ \t]+[A-Za-z_]/ { inclass = 0; next }
+    function opens(s,  n) { n = gsub(/\{/, "{", s); return n }
+    function closes(s,  n) { n = gsub(/\}/, "}", s); return n }
+    { line = $0 }
+    inclass == 0 && line ~ /^[ \t]*class[ \t]+[A-Za-z_]/ && line !~ /;[ \t]*$/ {
+      inclass = 1; access = "private"; depth = opens(line) - closes(line); next
+    }
     inclass == 0 { next }
-    /^[ \t]*public:/ { access = "public"; next }
-    /^[ \t]*(private|protected):/ { access = "private"; next }
-    access == "public" && /^[ \t]+[A-Za-z_][A-Za-z_0-9:<>,& *]*[ \t]+[A-Za-z_][A-Za-z_0-9]*[ \t]*(=|\[|;)/ \
-      && !/\(/ && !/using/ && !/return/ { n++ }
+    {
+      before = depth
+      depth += opens(line) - closes(line)
+      if (depth <= 0) { inclass = 0; next }
+      if (before != 1) { next }
+      if (line ~ /^[ \t]*public:/) { access = "public"; next }
+      if (line ~ /^[ \t]*(private|protected):/) { access = "private"; next }
+      if (access != "public") { next }
+      if (line ~ /\(/ || line ~ /\)/ || line ~ /using/ || line ~ /return/) { next }
+      if (line ~ /^[ \t]*(template|friend|typedef)/) { next }
+      if (line ~ /^[ \t]*(class|struct|enum|union)[ \t]/) { next }
+      if (line ~ /^[ \t]+[A-Za-z_][A-Za-z_0-9:<>,& *]*[ \t]+[A-Za-z_][A-Za-z_0-9]*[ \t]*(=|\[|;)/) { n++ }
+    }
     END { print n + 0 }' $(find src -name '*.h' -not -path 'src/assets/*' | sort))
   printf 'AUDIT %s protected section(s), %s public data member(s) in a class\n' "$shielded" "$bare"
   if [ "$shielded" != "$PROTECTED" ] || [ "$bare" != "$OPENDATA" ]; then

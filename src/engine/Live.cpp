@@ -335,7 +335,7 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
     const Volume &held = PartBounds_[part];
     if (held.Empty) { continue; }
     const std::array<double, 16> &placed =
-        part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
+        part < Stood_.Parts() ? Stood_.Placement(part) : identity;
     for (int corner = 0; corner < 8; ++corner) {
       const double from[3] = {(corner & 1) ? held.MostM[0] : held.LeastM[0],
                               (corner & 2) ? held.MostM[1] : held.LeastM[1],
@@ -359,9 +359,8 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
 bool Live::Look(std::string &error) {
   Gltf::Placement framed;
   if (HaveEye_) {
-    Stood_.Eye = Eye_;
-    Stood_.EyeStandsInside = true;
-    return Render::Aim(*Renderer_, Geometry_, Stood_.Eye, Stood_.AnchorEcefM, error, true);
+    Stood_.Sees(Eye_, true, Stood_.FramedParts());
+    return Render::Aim(*Renderer_, Geometry_, Stood_.Eye(), Stood_.Anchor(), error, true);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -390,29 +389,22 @@ bool Live::Look(std::string &error) {
   for (int axis = 0; axis < 3; ++axis) { framed.Right[axis] = basis[axis]; }
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
-  Stood_.Eye = framed;
-  Stood_.EyeStandsInside = false;
-  return Render::Aim(*Renderer_, Geometry_, Stood_.Eye, Stood_.AnchorEcefM, error, false, Joined_);
+  Stood_.Sees(framed, false, Joined_);
+  return Render::Aim(*Renderer_, Geometry_, Stood_.Eye(), Stood_.Anchor(), error, false, Joined_);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
-  Stood_.AnchorEcefM[0] = Data::kWgs84A;
-  Stood_.EyeStandsInside = HaveEye_;
-  Stood_.FramedParts = Joined_;
-  if (HaveEye_) { Stood_.Eye = Eye_; }
-  Stood_.PartPlacement.assign(Geometry_.Parts().size(),
-                              {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
+  Stood_.Stands(Geometry_, anchorEcefM);
+  Stood_.Sees(HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_);
   SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
-  Stood_.Geometry = &Geometry_;
-  if (Moves_) { Stood_.PreviousPositionsM = &PreviousPositionsM_; }
-  Stood_.EmittedRadiance.assign(Geometry_.Parts().size(), {0.0f, 0.0f, 0.0f});
-  Stood_.PartSurface = Table_.PartSlot;
-  Stood_.Surfaces = Table_.Slots;
+  if (Moves_) { Stood_.Posed(&PreviousPositionsM_); }
+  if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
 
   for (const Gltf::PlacedLight &placed : Geometry_.Lights()) {
-    Stood_.Lights.push_back(placed.Light);
+    Stood_.Lit(placed.Light);
   }
   if (Declared_.KeyLux > 0.0) {
 
@@ -424,10 +416,11 @@ bool Live::Stand(std::string &error) {
     key.Direction[0] = (float)(-std::cos(elevation) * std::sin(bearing));
     key.Direction[1] = (float)(-std::sin(elevation));
     key.Direction[2] = (float)(-std::cos(elevation) * std::cos(bearing));
-    Stood_.Lights.push_back(key);
+    Stood_.Lit(key);
   }
+  Render::SubjectEnvironment environment;
   for (int channel = 0; channel < 3; ++channel) {
-    Stood_.Environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
+    environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
   }
   if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
 
@@ -451,14 +444,16 @@ bool Live::Stand(std::string &error) {
     Render::MediumSkyIrradiance(medium, medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
                                 cosSun, toSun, secondOrder, skylight);
     for (int channel = 0; channel < 3; ++channel) {
-      Stood_.Environment.RadianceLinear[channel] +=
+      environment.RadianceLinear[channel] +=
           skylight[channel] / std::numbers::pi_v<float> * Declared_.KeyLux;
     }
   }
+  Stood_.Around(environment);
 
   std::string why;
-  const bool declared = !File_.Cameras().empty() &&
-                        Gltf::DeclaredPlacement(File_, 0, Stood_.Eye, why);
+  Gltf::Placement eye = Stood_.Eye();
+  const bool declared = !File_.Cameras().empty() && Gltf::DeclaredPlacement(File_, 0, eye, why);
+  Stood_.Sees(eye, Stood_.StandsInside(), Stood_.FramedParts());
   if (Declared_.Fill > 0.0 || !declared) {
 
     double least[3], most[3];
@@ -473,10 +468,11 @@ bool Live::Stand(std::string &error) {
       }
     }
     if (Frames_ > 1 && !Pose(0, error)) { return false; }
-    if (!Gltf::FramingFor(least, most, Stood_.Eye, Framing())) {
+    if (!Gltf::FramingFor(least, most, eye, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }
+    Stood_.Sees(eye, Stood_.StandsInside(), Stood_.FramedParts());
   }
   return true;
 }
@@ -616,11 +612,13 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
     return false;
   }
   const size_t parts = Geometry_.Parts().size();
-  const bool restood = Stood_.PartPlacement.size() != parts;
-  if (restood) {
-    Stood_.PartPlacement.assign(parts, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  if (Stood_.Parts() != parts) {
+    error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
+            " parts and the geometry carries " + std::to_string(parts) +
+            ", so nothing standing was built from what is being carried";
+    return false;
   }
-  bool bodyMoved = restood, builtMoved = restood;
+  bool bodyMoved = false, builtMoved = false;
   for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[at] != body[at]; }
   for (int at = 0; at < 16 && !builtMoved; ++at) { builtMoved = SentBuilt_[at] != built[at]; }
   if (!bodyMoved && !builtMoved) { return true; }
@@ -628,12 +626,12 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   const size_t joined = Joined_ < parts ? Joined_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
-      for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = body[at]; }
+      if (!Stood_.Places(part, body)) { return false; }
     }
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = built[at]; }
+      if (!Stood_.Places(part, built)) { return false; }
     }
   }
   PartBounds_.clear();
