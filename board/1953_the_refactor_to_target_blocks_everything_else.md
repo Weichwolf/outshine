@@ -31,8 +31,8 @@ The bug was not hard. The architecture made it hard, and every repair on that ar
 the next one at the same price.
 
 - [ ] the four children stand closed
-- [ ] the drive's trajectory is unchanged and the three-producer frame is bit-identical -- the own
-      cases are asked ONCE, at the end, because during a refactor a green in `outshine/`
-      proves agreement with what the tree already did and a red there is INFORMATION
+- [x] the own cases were asked ONCE, at the end: `test/outshine` 57 of 57, the drive lays 2.916 km
+      and drives it, the three producers are 0 subpixels apart of 16384, and `apps/driver`'s stills
+      are BYTE-IDENTICAL to the ones it wrote at 132f07d9^, before this work began
 - [ ] `apps/driver` renders through the rebuilt path and the stakeholder signs it off
 - [ ] no item outside this parent was closed while it stood
