@@ -198,9 +198,7 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
                                 int atlasPx, const PassRecording &into) {
   if (Subjects_ == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
-  const std::vector<double> &Placed_ = Subjects_->Placements();
   const double *const Anchor = Subjects_->AnchorM();
-  const double *const Model = Subjects_->ModelM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
   if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx || into.Pass == nullptr) {
     return;
@@ -217,36 +215,20 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
   SDL_GPUBufferBinding indices{Resident_.Idx.Get(), 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-  float uniform[16];
-  uint32_t standing = ~0u;
-  const auto place = [&](uint32_t slot) {
-    const double *const model =
-        Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
-    double carried[16];
-    for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
-    for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + preView[axis]; }
-    double placed[16];
-    for (int row = 0; row < 4; ++row) {
-      for (int column = 0; column < 4; ++column) {
-        double sum = 0.0;
-        for (int over = 0; over < 4; ++over) {
-          sum += lightFromWorld16[over * 4 + row] * carried[column * 4 + over];
-        }
-        placed[column * 4 + row] = sum;
-      }
-    }
-    for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
-    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
-  };
+  SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
+
+  float uniform[20] = {};
+  for (int i = 0; i < 16; i++) { uniform[i] = (float)lightFromWorld16[i]; }
+  for (int axis = 0; axis < 3; ++axis) { uniform[16 + axis] = (float)(Anchor[axis] + preView[axis]); }
+  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+
   CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {
     if (batch.ModelSlot >= CastsBelow_) { continue; }
     ++CastBatches_;
-    if (batch.ModelSlot != standing) {
-      place(batch.ModelSlot);
-      standing = batch.ModelSlot;
-    }
-    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, 0);
+    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0,
+                                 batch.ModelSlot);
   }
 }
 

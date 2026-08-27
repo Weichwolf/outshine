@@ -38,7 +38,8 @@ public:
                                          .FragmentSamplers = kSubjectImages,
                                          .FragmentUniformBuffers = kSubjectFragmentUniforms,
                                          .FragmentStorageBuffers = kSubjectStorageBuffers};
-  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1};
+  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1,
+                                            .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
 
