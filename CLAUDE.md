@@ -73,6 +73,13 @@ wherever it stands.
   What this choice buys beyond the shape: **the format has a standards body and the standards body
   ships the corpus**, so WPT and test262 certify this layer from outside, and nothing else in the
   tree has that
+- **THE DOOR'S IMPLEMENTATION IS A SKELETON OF SUBSYSTEMS, never a struct with members.** Each
+  concern -- the picture, the declaration, the scene, the world, the simulation, the measures --
+  is an object that OWNS its state and answers a small door, and the engine holds those and
+  states the ORDER they run in. Two things follow that a member list cannot give: a concern's
+  state is unreachable from the others, so a defect has an address; and the phase order is
+  DECLARED, so a reader learns it without reading a function body. That is Unreal's subsystem
+  and RAGE's `gameSkeleton`, and neither engine kept its top level any other way
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it. **A section that is NOT declared decides nothing** — its `Declared` flag is read where the decision is made, and what stands in its place is the engine's own default, never the zeroes of a struct nobody filled in
 - **A SCENARIO IS A STREAM, not a value that is re-declared.** `Declare` seeds; after that parts
   enter and leave. The bound is a cost: the work a declaration causes is proportional to what it
@@ -182,6 +189,7 @@ can be read and RAGE is reconstruction, so a RAGE row carries less and says so.
 | **time** | variable step, physics substeps | fixed step, replay- and network-exact | **RAGE** | "temporally DETERMINISTIC" is not a wish: a fixed simulation step, one fixed order, and INTERPOLATION to the display is the mechanism, and nothing else delivers it |
 | **threading** | `FTaskGraph`, render + RHI threads, workers | `sysTaskManager`, fibers | **both agree** | a task graph with explicit dependencies; 720p60 on four usable cores is not reachable from one thread, and retrofitting threading is a rewrite |
 | **interface** | Slate/UMG: a native widget tree authored in the editor; CEF only for real browsers | **Scaleform GFx**: Flash documents with ActionScript, authored OUTSIDE and rendered by the engine | **RAGE's slot, with a standardised format in it** | a widget tree authored in an editor is not declared CONTENT, and this engine's rule is content = data. HTML/CSS/JS fills Scaleform's slot with a format a standards body maintains -- and that buys the thing neither Scaleform nor Slate has: **WPT and test262 prove the interface layer, so it is the one subsystem in this tree whose correctness someone else certifies** |
+| **engine composition** | `UEngine` is THIN; each concern is a SUBSYSTEM with a declared lifetime -- engine-scoped or world-scoped -- registered and discovered rather than named as a member | **`gameSkeleton`**: a declared list of INIT / UPDATE / SHUTDOWN steps grouped into PHASES, standing above the fw/rage libraries | **both, and for different halves** | Unreal answers WHO OWNS THE STATE and RAGE answers WHEN IT RUNS, and a top-level object needs both answers or it has neither. A struct of 42 members in a 1447-line file has neither: no subsystem owns anything, so every concern can reach every other, and the order is whatever the function bodies happen to do rather than something a reader can see |
 | **content surface** | `.uasset` + Interchange for import | offline tool chain | **neither wholesale** | glTF 2.0 is the only content surface here, which is Interchange's role without Interchange's format; what a client hands ACROSS the door is a handle, never a layout |
 
 ## Architecture (TARGET)

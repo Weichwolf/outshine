@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "Assembly.h"
+#include "Ledger.h"
 #include "BusGraph.h"
 #include "Tables.h"
 #include "ScenarioLayer.h"
@@ -118,8 +119,7 @@ struct Engine::State {
   Core::InputPump Pump;
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
-  std::vector<Measure> Numbers;
-  size_t Standing_Placed = 0;
+  Core::Ledger Published;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
@@ -133,10 +133,9 @@ struct Engine::State {
   double OwedS = 0.0;
   std::string Error;
 
-  void Places(const char *what, double how, const char *unit);
   void Drew(void);
   [[nodiscard]] bool Rides(void);
-  [[nodiscard]] bool Places(const Physics::Body &body, const double shiftM[3]);
+  [[nodiscard]] bool Carries(const Physics::Body &body, const double shiftM[3]);
   void Falls(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
@@ -308,14 +307,13 @@ bool Engine::State::Routes(void) {
   }
   Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
                      std::make_move_iterator(say.Held.end()));
-  Numbers = std::move(say.Took);
-  Standing_Placed = Numbers.size();
+  Published.Stands(std::move(say.Took));
   if (!routed) {
     Error = say.WhyNot();
     return false;
   }
-  Places("how long the corridor is", Drive.Way.Line.LengthM(), "m");
-  Places("how far along it the body has come", 0.0, "m");
+  Published.Places("how long the corridor is", Drive.Way.Line.LengthM(), "m");
+  Published.Places("how far along it the body has come", 0.0, "m");
   if (Standing && Drive.Stood.MetresPerAssetUnit > 0.0) {
     Standing->ScaledBy(Drive.Stood.MetresPerAssetUnit);
   }
@@ -329,7 +327,7 @@ bool Engine::State::Routes(void) {
     }
     const double stepS = Declared.Motion.StepS > 0.0 ? Declared.Motion.StepS : 1.0;
     MostSteps = (size_t)(Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
-    Places("the steps the plan allows at its slowest station", (double)MostSteps, "steps");
+    Published.Places("the steps the plan allows at its slowest station", (double)MostSteps, "steps");
   }
   if (!Composes()) {
     Carried.push_back("the ground did not compose: " + Error);
@@ -443,8 +441,8 @@ bool Engine::State::Composes(void) {
       nearest = away;
       atUp = (double)inFrame[at + 1];
     }
-    Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
-    Places("and its up", atUp, "m");
+    Published.Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
+    Published.Places("and its up", atUp, "m");
   }
   if (overADrive) {
     for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
@@ -482,9 +480,9 @@ bool Engine::State::Composes(void) {
       else if (upward < -0.5) { down += 1.0; }
       else { sideways += 1.0; }
     }
-    Places("the ring's normals that point up", up, "normals");
-    Places("its normals that point DOWN", down, "normals");
-    Places("its normals that lie sideways", sideways, "normals");
+    Published.Places("the ring's normals that point up", up, "normals");
+    Published.Places("its normals that point DOWN", down, "normals");
+    Published.Places("its normals that lie sideways", sideways, "normals");
     {
       double steepest = 0.0, mean = 0.0, counted = 0.0;
       for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
@@ -496,11 +494,11 @@ bool Engine::State::Composes(void) {
         mean += leanDeg;
         counted += 1.0;
       }
-      Places("the steepest the ring's surface leans", steepest, "deg");
-      Places("how far it leans on average", counted > 0.0 ? mean / counted : 0.0, "deg");
+      Published.Places("the steepest the ring's surface leans", steepest, "deg");
+      Published.Places("how far it leans on average", counted > 0.0 ? mean / counted : 0.0, "deg");
     }
-    Places("its normals with no length at all", unlengthed, "normals");
-    Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
+    Published.Places("its normals with no length at all", unlengthed, "normals");
+    Published.Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
     {
       double least = 1.0e30, most = -1.0e30;
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
@@ -509,8 +507,8 @@ bool Engine::State::Composes(void) {
         if (y < least) { least = y; }
         if (y > most) { most = y; }
       }
-      Places("the ring's lowest vertex", least, "m");
-      Places("its highest", most, "m");
+      Published.Places("the ring's lowest vertex", least, "m");
+      Published.Places("its highest", most, "m");
     }
   }
   Geometry ground;
@@ -537,10 +535,10 @@ bool Engine::State::Composes(void) {
   const size_t drivenParts = Standing->Shown().Parts().size();
   if (!Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
   GroundTiles = laid->Tiles;
-  Places("tiles the ring laid", (double)laid->Tiles, "tiles");
-  Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
-  Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
-  Places("tiles it refused", (double)laid->Refused, "tiles");
+  Published.Places("tiles the ring laid", (double)laid->Tiles, "tiles");
+  Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
+  Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
+  Published.Places("tiles it refused", (double)laid->Refused, "tiles");
   return true;
 }
 
@@ -1153,7 +1151,7 @@ bool Engine::Restore(std::string_view path) {
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 
-const std::vector<Measure> &Engine::Numbers() const { return S_->Numbers; }
+const std::vector<Measure> &Engine::Numbers() const { return S_->Published.Numbers(); }
 
 bool Engine::Takes(std::string_view view) {
   if (!S_->Views) {
@@ -1167,21 +1165,11 @@ bool Engine::Takes(std::string_view view) {
   return true;
 }
 
-void Engine::State::Places(const char *what, double how, const char *unit) {
-  for (size_t at = Standing_Placed; at < Numbers.size(); ++at) {
-    if (Numbers[at].What == what) {
-      Numbers[at].How = how;
-      return;
-    }
-  }
-  Numbers.push_back(Measure{what, how, unit});
-}
-
 bool Engine::State::Rides(void) {
-  return Places(Drive.State.Body, Drive.Stood.ModelShiftM);
+  return Carries(Drive.State.Body, Drive.Stood.ModelShiftM);
 }
 
-bool Engine::State::Places(const Physics::Body &body, const double shiftM[3]) {
+bool Engine::State::Carries(const Physics::Body &body, const double shiftM[3]) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
@@ -1204,17 +1192,17 @@ bool Engine::State::Places(const Physics::Body &body, const double shiftM[3]) {
 
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   if (!Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
-  Places("the body, east", body.PositionM[0], "m");
-  Places("the body, up", body.PositionM[1], "m");
-  Places("the body, south", body.PositionM[2], "m");
-  Places("the mesh it carries, east", bodyFromWorld[12], "m");
-  Places("the mesh it carries, up", bodyFromWorld[13], "m");
-  Places("the mesh it carries, south", bodyFromWorld[14], "m");
+  Published.Places("the body, east", body.PositionM[0], "m");
+  Published.Places("the body, up", body.PositionM[1], "m");
+  Published.Places("the body, south", body.PositionM[2], "m");
+  Published.Places("the mesh it carries, east", bodyFromWorld[12], "m");
+  Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
+  Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Volumes) {
     Volumes->Probe(0, body.PositionM, (double)Standing->At() * Declared.Motion.StepS);
     for (const TriggerField::Fired &fired : Volumes->Drain()) {
       ++Fired;
-      Places("events a declared volume has fired", (double)Fired, "events");
+      Published.Places("events a declared volume has fired", (double)Fired, "events");
       Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
     }
@@ -1240,9 +1228,9 @@ bool Engine::State::Places(const Physics::Body &body, const double shiftM[3]) {
                   bodyFromWorld[4 + axis] * back * seen.RisesBy;
     }
   }
-  Places("the eye, east", eye[0], "m");
-  Places("the eye, up", eye[1], "m");
-  Places("the eye, south", eye[2], "m");
+  Published.Places("the eye, east", eye[0], "m");
+  Published.Places("the eye, up", eye[1], "m");
+  Published.Places("the eye, south", eye[2], "m");
   Gltf::Placement from;
   if (!Gltf::Placement::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
@@ -1273,21 +1261,21 @@ bool Engine::Advance() {
       return false;
     }
     if (rode.Arrived) {
-      S_->Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
-      S_->Places("steps it could answer", (double)rode.GroundAnswered, "steps");
+      S_->Published.Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
+      S_->Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
       return false;
     }
     if (!S_->Rides()) { return false; }
   }
   if (S_->Drove) {
-    S_->Places("how far along it the body has come", S_->Drive.State.Tally.ReachedM, "m");
-    S_->Places("ticks the one lane task has kept", (double)S_->Drive.State.Kept, "ticks");
-    S_->Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
+    S_->Published.Places("how far along it the body has come", S_->Drive.State.Tally.ReachedM, "m");
+    S_->Published.Places("ticks the one lane task has kept", (double)S_->Drive.State.Kept, "ticks");
+    S_->Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   S_->Falls();
   if (!S_->Drove && !S_->Freestanding.empty() && S_->Standing->Stands()) {
     const double unshifted[3] = {0.0, 0.0, 0.0};
-    if (!S_->Places(S_->Freestanding.front(), unshifted)) { return false; }
+    if (!S_->Carries(S_->Freestanding.front(), unshifted)) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   return true;
@@ -1303,17 +1291,17 @@ void Engine::State::Falls(void) {
     pulled.ForceN[1] = -held.MassKg * gravityMs2;
     Physics::Step(held, pulled, stepS);
   }
-  Places("bodies standing on no route", (double)Freestanding.size(), "bodies");
-  Places("the first of them, up", Freestanding.front().PositionM[1], "m");
-  Places("and how fast it falls", Freestanding.front().VelocityMs[1], "m/s");
+  Published.Places("bodies standing on no route", (double)Freestanding.size(), "bodies");
+  Published.Places("the first of them, up", Freestanding.front().PositionM[1], "m");
+  Published.Places("and how fast it falls", Freestanding.front().VelocityMs[1], "m/s");
 }
 
 void Engine::State::Drew(void) {
-  Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
-  Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
-  Places("placement rows the renderer has been sent", (double)Device.SubjectPlacementsMoved(),
+  Published.Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
+  Published.Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
+  Published.Places("placement rows the renderer has been sent", (double)Device.SubjectPlacementsMoved(),
          "rows");
-  Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
+  Published.Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
   {
     std::vector<float> depth;
     if (Steps < 2 && Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
@@ -1323,17 +1311,17 @@ void Engine::State::Drew(void) {
         if ((double)one > most) { most = (double)one; }
         if (one > 0.0f) { written += 1.0; }
       }
-      Places("the shadow atlas, least depth", least, "");
-      Places("its most", most, "");
-      Places("texels above the clear", written, "texels");
-      Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
+      Published.Places("the shadow atlas, least depth", least, "");
+      Published.Places("its most", most, "");
+      Published.Places("texels above the clear", written, "texels");
+      Published.Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
     }
-    Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
+    Published.Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
            "bytes");
-    Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
-    Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
+    Published.Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
+    Published.Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
     if (Steps < 2) {
-      Places("the exposure the picture applied", (double)Device.ExposureApplied(), "1/(cd/m2)");
+      Published.Places("the exposure the picture applied", (double)Device.ExposureApplied(), "1/(cd/m2)");
       std::vector<float> linear;
       if (Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
         double brightest = 0.0;
@@ -1343,7 +1331,7 @@ void Engine::State::Drew(void) {
                                                                  : brightest;
           }
         }
-        Places("the brightest the scene's linear buffer reached", brightest, "");
+        Published.Places("the brightest the scene's linear buffer reached", brightest, "");
       }
       std::vector<uint8_t> shown;
       if (Device.ReadPixels(shown) == Render::ReadState::Ready) {
@@ -1353,7 +1341,7 @@ void Engine::State::Drew(void) {
             peak = (double)shown[at + channel] > peak ? (double)shown[at + channel] : peak;
           }
         }
-        Places("the brightest the presented frame shows", peak, "of 255");
+        Published.Places("the brightest the presented frame shows", peak, "of 255");
       }
     }
   }
