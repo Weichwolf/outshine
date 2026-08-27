@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_H
 #define OUTSHINE_SCENARIO_H
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -240,10 +241,10 @@ struct Contact {
   double LimitN = 0.0;
 };
 
-enum class Actuates : uint8_t { Torque, Steer };
+enum class Drives : uint8_t { Effort, Motion };
 
-struct Actuator {
-  Actuates Does = Actuates::Torque;
+struct Drive {
+  Drives Does = Drives::Effort;
   bool Opposes = false;
   double PeakNm = 0.0;
   double Ratio = 1.0;
@@ -271,23 +272,49 @@ struct Body {
   double CentreOfMassM[3] = {0.0, 0.0, 0.0};
   double InertiaKgM2[3] = {0.0, 0.0, 0.0};
   std::vector<Contact> Contacts;
-  std::vector<Actuator> Actuators;
+  std::vector<Drive> Driven;
   double DragCoefficient = 0.0;
   double FrontalM2 = 0.0;
   std::vector<Slot> Slots;
 
-  [[nodiscard]] const Actuator *Can(Actuates does) const {
-    for (const Actuator &one : Actuators) {
+  [[nodiscard]] const Drive *Can(Drives does) const {
+    for (const Drive &one : Driven) {
       if (one.Does == does) { return &one; }
     }
     return nullptr;
   }
 
-  [[nodiscard]] const Actuator *Torques(bool opposing) const {
-    for (const Actuator &one : Actuators) {
-      if (one.Does == Actuates::Torque && one.Opposes == opposing) { return &one; }
+  [[nodiscard]] const Drive *Efforts(bool opposing) const {
+    for (const Drive &one : Driven) {
+      if (one.Does == Drives::Effort && one.Opposes == opposing) { return &one; }
     }
     return nullptr;
+  }
+
+  [[nodiscard]] double SpanM() const {
+    double aheadM = 0.0, behindM = 0.0;
+    int ahead = 0, behind = 0;
+    for (const Contact &one : Contacts) {
+      if (one.AtM[2] < CentreOfMassM[2]) {
+        aheadM += one.AtM[2];
+        ++ahead;
+      } else if (one.AtM[2] > CentreOfMassM[2]) {
+        behindM += one.AtM[2];
+        ++behind;
+      }
+    }
+    return ahead > 0 && behind > 0
+               ? std::fabs(behindM / (double)behind - aheadM / (double)ahead)
+               : 0.0;
+  }
+
+  [[nodiscard]] double AcrossM() const {
+    double leastM = 0.0, mostM = 0.0;
+    for (const Contact &one : Contacts) {
+      leastM = one.AtM[0] < leastM ? one.AtM[0] : leastM;
+      mostM = one.AtM[0] > mostM ? one.AtM[0] : mostM;
+    }
+    return mostM - leastM;
   }
 };
 

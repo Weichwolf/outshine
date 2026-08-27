@@ -335,6 +335,10 @@ bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
   Stood_.Stands(Held_.Geometry(), anchorEcefM);
+  const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  for (size_t part = 0; part < Stood_.Parts(); ++part) {
+    if (!Stood_.Places(part, standingM16)) { return false; }
+  }
   Looking_ = {HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_};
   SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());

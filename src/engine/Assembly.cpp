@@ -189,8 +189,8 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &bodies,
       error = into.Error();
       return false;
     }
-    for (const Actuator &does : declaredBody.Actuators) {
-      const char *const named = does.Does == Actuates::Steer ? "steer"
+    for (const Drive &does : declaredBody.Driven) {
+      const char *const named = does.Does == Drives::Motion ? "steer"
                                                              : (does.Opposes ? "torque-opposing"
                                                                              : "torque");
       if (!into.Give(body, TagCatalogue::Under(tags::Does, Interned(out.TagNames, named)))) {

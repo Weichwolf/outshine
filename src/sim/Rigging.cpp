@@ -55,20 +55,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     out.SeatM[axis] = declared.Slots.empty() ? 0.0 : declared.Slots.front().AtM[axis];
   }
 
-  double frontZ = 0.0, rearZ = 0.0;
-  int front = 0, rear = 0;
-  for (const Contact &one : declared.Contacts) {
-    if (one.AtM[2] < out.CentreM[2]) {
-      frontZ += one.AtM[2];
-      ++front;
-    } else if (one.AtM[2] > out.CentreM[2]) {
-      rearZ += one.AtM[2];
-      ++rear;
-    }
-  }
-  out.Axles.WheelbaseM = front > 0 && rear > 0
-                             ? std::fabs(rearZ / (double)rear - frontZ / (double)front)
-                             : 0.0;
+  out.Axles.WheelbaseM = declared.SpanM();
   if (!(out.Axles.WheelbaseM > 0.0)) {
     Refuse(out, "the body '" + declared.Name +
                     "' has no wheelbase: its contacts stand on one side of the centre of "
@@ -160,35 +147,28 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     mount.Spin.Resisting.Ratio = staticShare;
   }
 
-  double leftX = 0.0, rightX = 0.0;
-  for (const Contact &one : declared.Contacts) {
-    leftX = std::fmin(leftX, one.AtM[0]);
-    rightX = std::fmax(rightX, one.AtM[0]);
-  }
-  const double trackM = rightX - leftX;
-  const Actuator *const steers = declared.Can(Actuates::Steer);
+  const double acrossM = declared.AcrossM();
+  const Drive *const steers = declared.Can(Drives::Motion);
   const double circleM = steers != nullptr ? steers->CircleM : 0.0;
-  if (!(circleM > trackM)) {
+  if (!(circleM > acrossM)) {
     Refuse(out, "a steering lock is what a turning circle MEANS, and this body declares a circle "
-                "of " + std::to_string(circleM) +
-                    " m against a track of " + std::to_string(trackM) +
-                    " m -- a circle no wider than the car is not one it can drive");
+                "of " + std::to_string(circleM) + " m against a stance of " +
+                    std::to_string(acrossM) + " m -- a circle no wider than the body is not one "
+                    "it can turn in");
     return out;
   }
   out.Axles.SteerLimitRad =
-      std::atan(out.Axles.WheelbaseM / (0.5 * circleM - 0.5 * trackM));
+      std::atan(out.Axles.WheelbaseM / (0.5 * circleM - 0.5 * acrossM));
 
   const double outerM = 0.5 * circleM;
   if (!(outerM > out.Axles.WheelbaseM)) {
     Refuse(out, "the turning circle's half of " + std::to_string(outerM) +
-                    " m is no longer than the wheelbase of " +
-                    std::to_string(out.Axles.WheelbaseM) +
-                    " m -- the rear axle would stand outside its own circle, and the "
-                    "tightest centreline radius that geometry implies is not a number");
+                    " m is no longer than the span of " + std::to_string(out.Axles.WheelbaseM) +
+                    " m -- the rear axle would stand outside its own circle, and the tightest "
+                    "centreline radius that geometry implies is not a number");
     return out;
   }
-  out.TightestM =
-      std::sqrt(outerM * outerM - out.Axles.WheelbaseM * out.Axles.WheelbaseM);
+  out.TightestM = std::sqrt(outerM * outerM - out.Axles.WheelbaseM * out.Axles.WheelbaseM);
 
   {
     const double heaviestN =
@@ -204,8 +184,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  const Actuator *const drives = declared.Torques(false);
-  const Actuator *const brakes = declared.Torques(true);
+  const Drive *const drives = declared.Efforts(false);
+  const Drive *const brakes = declared.Efforts(true);
   out.Envelope.DriveN = drives == nullptr ? 0.0
                                           : drives->PeakNm * drives->Ratio /
                                                 declared.Contacts.front().RadiusM;

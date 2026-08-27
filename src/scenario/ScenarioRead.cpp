@@ -1,3 +1,4 @@
+#include <cmath>
 #include "ScenarioRead.h"
 
 #include <Scenario.h>
@@ -590,15 +591,15 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       made.Contacts.push_back(wheel);
     }
     for (const Xml::Ref acts : one.Children("actuator")) {
-      Actuator does;
+      Drive does;
       const std::string named = acts.Attr("does");
       if (named == "torque") {
-        does.Does = Actuates::Torque;
+        does.Does = Drives::Effort;
         does.Opposes = acts.Num("opposes", 0.0) != 0.0;
       } else if (named == "steer") {
-        does.Does = Actuates::Steer;
+        does.Does = Drives::Motion;
       } else {
-        error = "a body declares an actuator that does '" + named +
+        error = "a body declares a drive that does '" + named +
                 "', and torque and steer are the whole catalogue -- a brake is a torque that "
                 "OPPOSES, which is the one physical difference between it and a drive";
         return false;
@@ -606,7 +607,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       does.PeakNm = acts.Num("peakNm", 0.0);
       does.Ratio = acts.Num("ratio", 1.0);
       does.CircleM = acts.Num("circleM", 0.0);
-      made.Actuators.push_back(does);
+      made.Driven.push_back(does);
     }
     const Xml::Ref aero = one.Child("aero");
     made.DragCoefficient = aero.Num("dragCoefficient", 0.0);
