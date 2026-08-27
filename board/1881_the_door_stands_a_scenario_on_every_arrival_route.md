@@ -6,6 +6,13 @@ Tags: door, driver, measured
 
 # Read -> Assemble -> Advance stands a picture, or it refuses at Read
 
+**A COMMIT ANNOUNCED THIS CLOSED AND IT IS NOT.** `acede045` reads "board:1881 closed -- the
+canvas comes first, and the present stage is in the plan", and four predicates below are still
+unticked. The commit ran ahead of the work. A reader following `git log --grep 'board:1881'`
+would conclude the opposite of what this file says, so the file says it here: the history is
+wrong about this item and the directory is right. board:1988 is the guard that stops the next
+one.
+
 **Benchmark** — Unreal: `LoadMap` fails loudly and the engine stays in a known state. RAGE: a resource that does not map is a refusal. **Both agree** — a declaration that cannot stand refuses at READ, before anything half-built exists.
 
 The front door says: **outshine loads a scenario and runs it.** Run exactly that way, it renders
