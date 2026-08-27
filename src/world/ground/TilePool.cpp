@@ -51,6 +51,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       OriginLonDeg_(config.OriginLonDeg),
       ByteBudget_(config.ByteBudget),
       DemCacheTiles_(config.DemCacheTiles),
+      PollAttempts_(config.PollAttempts),
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
   const int n = config.Threads > 0 ? config.Threads : 1;
@@ -187,7 +188,8 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
   Reply reply = Reply::Pending;
   const auto entered = std::chrono::steady_clock::now();
   double pollMs = 0.0;
-  for (int attempt = 0; attempt < kPollAttempts && reply == Reply::Pending; attempt++) {
+  const int attempts = PollAttempts_ > 0 ? PollAttempts_ : kPollAttempts;
+  for (int attempt = 0; attempt < attempts && reply == Reply::Pending; attempt++) {
     const auto t0 = std::chrono::steady_clock::now();
     Data::Delivery answer = Sources_.Collect(query, Wire_);
     pollMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();

@@ -90,6 +90,50 @@ private:
   bool Released_ = false;
 };
 
+[[nodiscard]] bool Ends(int pollAttempts, bool release, const char *nest, bool *entered,
+                        double *tookS, size_t *asked, std::string &why) {
+  outshine::Data::ContentStore::Config keeping;
+  keeping.Directory = std::string(nest) + "/wait-cache";
+  outshine::Data::ContentStore store(keeping);
+  outshine::Data::SourceSet sources(store);
+  const std::span<const outshine::Provider> shipped = outshine::Data::ShippedProviders();
+  if (!outshine::Data::RegisterDeclared(sources, shipped, "src/assets/sky", why)) { return false; }
+
+  Holding holding;
+  outshine::Ground::TilePool::Config config;
+  config.OriginLatDeg = 48.137;
+  config.OriginLonDeg = 11.576;
+  config.Threads = 1;
+  config.ByteBudget = 64u * 1024u * 1024u;
+  config.PollAttempts = pollAttempts;
+  outshine::Ground::TilePool pool(config, sources, holding);
+
+  std::atomic<bool> returned{false};
+  std::thread waiter([&] {
+    outshine::Ground::TileBuild built;
+    (void)pool.MeshAwaited(12, 2200, 1420, 64, &built);
+    returned = true;
+  });
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(120));
+  *entered = !returned.load();
+  if (release) { holding.Release(); }
+
+  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
+  while (!returned.load()) {
+    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
+        kWaitBudgetS) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  *tookS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+  const bool ended = returned.load();
+  if (ended) { waiter.join(); } else { waiter.detach(); }
+  *asked = holding.Asked();
+  return ended;
+}
+
 }
 
 int main(void) {
@@ -102,70 +146,45 @@ int main(void) {
     return Report();
   }
 
-  outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = std::string(nest) + "/wait-cache";
-  outshine::Data::ContentStore store(keeping);
-  outshine::Data::SourceSet sources(store);
-  std::string refused;
-  const std::span<const outshine::Provider> shipped = outshine::Data::ShippedProviders();
-  if (!outshine::Data::RegisterDeclared(sources, shipped, "src/assets/sky", refused)) {
-    Unprepared(("the declared sources did not register: " + refused).c_str());
+  // ARM ONE: the worker keeps polling, so the caller sits in the wait until the answer arrives.
+  bool entered = false;
+  double tookS = 0.0;
+  size_t asked = 0;
+  std::string why;
+  const bool landed = Ends(0, true, nest, &entered, &tookS, &asked, why);
+  if (!why.empty()) {
+    Unprepared(("the declared sources did not register: " + why).c_str());
     return Report();
   }
+  std::printf("  HELD then released   entered the wait: %s   ended: %s after %.3f s   "
+              "%zu ask(s)\n", entered ? "yes" : "NO", landed ? "yes" : "NO", tookS, asked);
 
-  Holding holding;
-  outshine::Ground::TilePool::Config config;
-  config.OriginLatDeg = 48.137;
-  config.OriginLonDeg = 11.576;
-  config.Threads = 1;
-  config.ByteBudget = 64u * 1024u * 1024u;
-  outshine::Ground::TilePool pool(config, sources, holding);
+  // ARM TWO: the worker's poll bound is three, so it gives up while the caller is still asleep
+  // and takes the branch that erases the posted job with `Done_` still empty. Nothing releases
+  // the transport -- the tile never arrives and never can.
+  bool enteredTwo = false;
+  double tookTwoS = 0.0;
+  size_t askedTwo = 0;
+  const bool dropped = Ends(3, false, nest, &enteredTwo, &tookTwoS, &askedTwo, why);
+  std::printf("  NEVER answered       ended: %s after %.3f s   %zu ask(s)\n",
+              dropped ? "yes" : "NO", tookTwoS, askedTwo);
 
-  std::atomic<bool> returned{false};
-  std::atomic<int> answered{-1};
-  std::thread waiter([&] {
-    outshine::Ground::TileBuild built;
-    answered = (int)pool.MeshAwaited(12, 2200, 1420, 64, &built);
-    returned = true;
-  });
-
-  // THE WAITER MUST STILL BE WAITING, or the case below proves nothing: a call that returned
-  // before the transport answered never entered the condition variable at all.
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  const bool waitedFirst = !returned.load();
-  std::printf("  with the transport holding, the call has returned: %s\n",
-              waitedFirst ? "no -- it is waiting" : "YES, so it never waited");
-
-  holding.Release();
-  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
-  while (!returned.load()) {
-    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
-        kWaitBudgetS) {
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  const double tookS =
-      std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-  const bool ended = returned.load();
-  if (ended) { waiter.join(); } else { waiter.detach(); }
-
-  std::printf("  after release, the wait ended: %s after %.3f s (budget %.1f s)\n",
-              ended ? "yes" : "NO", tookS, kWaitBudgetS);
-  std::printf("  the transport was asked %zu time(s)\n", holding.Asked());
-
-  CHECK(waitedFirst,
+  CHECK(entered,
         "**THE CALL ENTERS THE WAIT**: with the transport holding its answer the tile cannot have "
-        "landed, so a call that returned immediately took some other path and the check below "
+        "landed, so a call that returned immediately took some other path and the arm below "
         "would be measuring nothing");
-  CHECK(ended,
-        "**A WAIT FOR A TILE ENDS**: `MeshAwaited` waits for the tile to land OR for the job to "
-        "stop being posted, so a request that will never be answered releases its caller instead "
-        "of holding it for ever. Held by reading alone until now -- a hang has no error message, "
-        "and reading source cannot see a behaviour that only exists over time");
+  CHECK(landed,
+        "**A HELD REQUEST RELEASES ITS CALLER WHEN THE ANSWER ARRIVES**: the ordinary path, and "
+        "the control for the arm that follows -- a pool that never wakes anybody would fail here "
+        "first");
+  CHECK(dropped,
+        "**A WAIT ENDS WHEN THE JOB IS DROPPED, NOT ONLY WHEN THE TILE LANDS**: the transport "
+        "never answers, so the worker exhausts its polls and erases the posted job with `Done_` "
+        "still empty. A waiter watching only `Done_` sleeps for ever, and a hang has no error "
+        "message");
 
-  Covers("the tile pool: a caller blocked in MeshAwaited is released when the request it waits on "
-         "can no longer be answered, proven by a transport the case holds and then releases "
-         "rather than by inspecting the predicate");
+  Covers("the tile pool: a caller in MeshAwaited is released both when its tile lands and when "
+         "the worker gives the job up, proven with a transport the case holds and a poll bound it "
+         "declares rather than by reading the predicate");
   return Report();
 }

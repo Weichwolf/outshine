@@ -53,6 +53,8 @@ public:
     size_t ByteBudget = 0;
 
     int DemCacheTiles = 0;
+
+    int PollAttempts = 0;
   };
 
   TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
@@ -134,6 +136,7 @@ private:
   const double OriginLatDeg_, OriginLonDeg_;
   const size_t ByteBudget_;
   const int DemCacheTiles_;
+  const int PollAttempts_;
 
   mutable std::mutex CacheMutex_;
   std::vector<CacheEntry> Cache_;
