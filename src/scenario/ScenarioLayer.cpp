@@ -139,7 +139,7 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
 
   if (!fragment.Bodies.empty()) {
     into.Bodies = fragment.Bodies;
-    trace.push_back("layer '" + std::string(named) + "' replaced the vehicle");
+    trace.push_back("layer '" + std::string(named) + "' replaced the body");
   }
   if (!fragment.Render.Stages.empty()) {
     trace.push_back("layer '" + std::string(named) + "' replaced the stage list (" +

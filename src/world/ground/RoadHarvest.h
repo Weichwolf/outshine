@@ -43,7 +43,7 @@ struct Reaped {
 }
 
 [[nodiscard]] Reaped Reap(const OsmField &field, const VegetationTemplates &widths,
-                          double vehicleWidthM, Path::Network &into);
+                          double bodyWidthM, Path::Network &into);
 
 }
 

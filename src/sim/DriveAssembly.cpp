@@ -39,7 +39,7 @@ constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
 }
 
-bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body> &vehicles,
+bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body> &bodies,
                    const Column<Journey> &driven, const WorldSettings &world,
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
@@ -47,9 +47,9 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
     say.Refuse("no cache directory or assets root was provisioned");
     return false;
   }
-  const outshine::Body *car = vehicles.Get(cast.PlayerBody);
+  const outshine::Body *car = bodies.Get(cast.PlayerBody);
   if (car == nullptr) {
-    say.Refuse("the assembled body carries no vehicle declaration");
+    say.Refuse("the assembled body carries no body declaration");
     return false;
   }
   const outshine::Journey *driveTo = driven.Get(cast.Assignment);
@@ -75,7 +75,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
   const double carWidthM = out.State.CarWidthM;
   say.Number("the width the declaration gives the car", carWidthM, "m");
   if (!(carWidthM > 0.0)) {
-    say.Refuse("the vehicle declares no width");
+    say.Refuse("the body declares no width");
     return false;
   }
 

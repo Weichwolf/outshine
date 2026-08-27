@@ -172,7 +172,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Buses.size(), "audio buses");
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
-  note(scenario.Bodies.size(), "vehicles");
+  note(scenario.Bodies.size(), "bodies");
   note(scenario.State.size(), "persisted values");
   if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.push_back("a clock"); }

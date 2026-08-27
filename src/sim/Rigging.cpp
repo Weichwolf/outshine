@@ -31,22 +31,22 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     return out;
   }
   if (!(declared.MassKg > 0.0)) {
-    Refuse(out, "a vehicle with no mass cannot be pushed by anything, and every force this engine "
+    Refuse(out, "a body with no mass cannot be pushed by anything, and every force this engine "
                 "applies divides by it");
     return out;
   }
   if (declared.Contacts.empty()) {
-    Refuse(out, "a vehicle stands on 1..N contacts and this one declares none, so there is nothing "
+    Refuse(out, "a body stands on 1..N contacts and this one declares none, so there is nothing "
                 "for the ground to push on");
     return out;
   }
   if (declared.Contacts.size() > Physics::kMaxMounts) {
-    Refuse(out, "a vehicle of " + std::to_string(declared.Contacts.size()) +
+    Refuse(out, "a body of " + std::to_string(declared.Contacts.size()) +
                     " contacts reaches the bound of " + std::to_string(Physics::kMaxMounts));
     return out;
   }
   if (!(declared.Contacts.front().RadiusM > 0.0)) {
-    Refuse(out, "a drive torque becomes a force at a radius, and this vehicle declares none");
+    Refuse(out, "a drive torque becomes a force at a radius, and this body declares none");
     return out;
   }
 
@@ -79,14 +79,14 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
 
   if (!declared.Asset.empty()) {
     if (!(declared.AssetSpanM > 0.0)) {
-      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+      Refuse(out, "the body '" + declared.Name + "' draws '" + declared.Asset +
                       "' and declares no assetSpanM -- a model carries no scale, so the "
                       "one dimension it is measured against must be declared beside the "
                       "dimension it is measured with");
       return out;
     }
     if (!(declared.AssetGround < 0.0)) {
-      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+      Refuse(out, "the body '" + declared.Name + "' draws '" + declared.Asset +
                       "' and declares assetGround " + std::to_string(declared.AssetGround) +
                       " -- a model's lowest point stands BELOW its own origin, and without "
                       "that measurement the body is placed by the wrong point and sinks "
@@ -169,7 +169,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   const Actuator *const steers = declared.Can(Actuates::Steer);
   const double circleM = steers != nullptr ? steers->CircleM : 0.0;
   if (!(circleM > trackM)) {
-    Refuse(out, "a steering lock is what a turning circle MEANS, and this vehicle declares a circle "
+    Refuse(out, "a steering lock is what a turning circle MEANS, and this body declares a circle "
                 "of " + std::to_string(circleM) +
                     " m against a track of " + std::to_string(trackM) +
                     " m -- a circle no wider than the car is not one it can drive");
@@ -212,7 +212,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   out.Envelope.BrakeN =
       brakes == nullptr ? 0.0 : brakes->PeakNm / declared.Contacts.front().RadiusM;
   if (!(declared.DragCoefficient > 0.0) || !(declared.FrontalM2 > 0.0)) {
-    Refuse(out, "the vehicle '" + declared.Name + "' declares a drag coefficient of " +
+    Refuse(out, "the body '" + declared.Name + "' declares a drag coefficient of " +
                     std::to_string(declared.DragCoefficient) + " over a frontal area of " +
                     std::to_string(declared.FrontalM2) +
                     " m2 -- a body moving through declared air has a shape, and a speed plan "
@@ -223,7 +223,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   out.Envelope.AirDensity = airDensityKgM3;
 
   if (!(out.Envelope.BrakeMs2() > 0.0)) {
-    Refuse(out, "a vehicle that cannot slow cannot drive a corridor -- brakes and grip "
+    Refuse(out, "a body that cannot slow cannot drive a corridor -- brakes and grip "
                 "together yield " + std::to_string(out.Envelope.BrakeMs2()) +
                 " m/s2, and the tick would divide by it");
     return out;

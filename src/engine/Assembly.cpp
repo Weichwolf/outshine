@@ -38,7 +38,7 @@ namespace {
 
 }
 
-bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
+bool Assemble(const Scenario &declared, Store &into, Column<Body> &bodies,
               Column<Journey> &driven, Column<Traits> &traits, Assembled &out,
               std::string &error) {
   out = Assembled{};
@@ -183,13 +183,13 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
     }
   }
 
-  for (const Body &vehicle : declared.Bodies) {
+  for (const Body &declaredBody : declared.Bodies) {
     const Entity body = into.Add(Role::Body);
     if (!into.Alive(body)) {
       error = into.Error();
       return false;
     }
-    for (const Actuator &does : vehicle.Actuators) {
+    for (const Actuator &does : declaredBody.Actuators) {
       const char *const named = does.Does == Actuates::Steer ? "steer"
                                                              : (does.Opposes ? "torque-opposing"
                                                                              : "torque");
@@ -198,18 +198,18 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
         return false;
       }
     }
-    if (!vehicles.Put(body, vehicle)) {
-      error = "the vehicle's numbers found no column seat for '" + vehicle.Name + "'";
+    if (!bodies.Put(body, declaredBody)) {
+      error = "the body's numbers found no column seat for '" + declaredBody.Name + "'";
       return false;
     }
     out.Bodies.push_back(body);
-    if (!declared.Played.Is.empty() && declared.Played.Is == vehicle.Name) {
+    if (!declared.Played.Is.empty() && declared.Played.Is == declaredBody.Name) {
       out.PlayerBody = body;
     }
   }
   if (!declared.Played.Is.empty()) {
     if (out.PlayerBody == kNoEntity) {
-      error = "the player is '" + declared.Played.Is + "', which no vehicle declares";
+      error = "the player is '" + declared.Played.Is + "', which no body declares";
       return false;
     }
     out.PlayerMind = into.Add(Role::Mind);

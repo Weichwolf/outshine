@@ -173,7 +173,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     return false;
   }
   say.Number("the tightest radius the fit produced", fitted.TightestRadiusM, "m");
-  say.Number("the tightest radius the vehicle can drive", tightestM, "m");
+  say.Number("the tightest radius the body can drive", tightestM, "m");
   say.Number("the quantisation the drift is bounded against", quantumM, "m");
   say.Number("how much longer the corridor is than the polyline",
        fitted.LengthM / route.LengthM - 1.0, "of it");

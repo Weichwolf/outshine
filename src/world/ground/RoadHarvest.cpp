@@ -5,7 +5,7 @@
 
 namespace outshine::Ground {
 
-Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double vehicleWidthM,
+Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double bodyWidthM,
             Path::Network &into) {
   Reaped out;
   const int streets = field.Layer(OsmLayer::Streets);
@@ -28,7 +28,7 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
       continue;
     }
     const double widthM = (double)rule->WidthM;
-    if (widthM < vehicleWidthM) {
+    if (widthM < bodyWidthM) {
       ++out.TooNarrow;
       if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }
       continue;

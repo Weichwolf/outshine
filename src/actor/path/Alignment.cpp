@@ -171,7 +171,7 @@ constexpr double kMostClothoidShare = 1.0;
             std::to_string(bend.TurnRad) + " rad and the widest arc that stays within " +
             std::to_string(withinM) + " m of them is " + std::to_string(bend.RadiusM) +
             " m, tighter than the " + std::to_string(tightestM) +
-            " m this vehicle can bend to -- a corner tighter than the lock is a route that "
+            " m this body can bend to -- a corner tighter than the lock is a route that "
             "doubles back on itself, and that is a finding about the graph",
         bend.RadiusM, at, 1});
   }
@@ -311,7 +311,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double
               std::to_string(bend.LastVertex) +
               " shares its straights with its neighbours and what is left carries only " +
               std::to_string(bend.RadiusM) + " m, tighter than the " +
-              std::to_string(tightestM) + " m this vehicle can bend to",
+              std::to_string(tightestM) + " m this body can bend to",
           bend.RadiusM, bend.FirstVertex, 1});
     }
     if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {

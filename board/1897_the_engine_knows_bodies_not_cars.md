@@ -87,7 +87,17 @@ The order this is done in:
    read it. They are measures now, on the return channel `include/Event.h` already provides:
    `how long the corridor is` and `how far along it the body has come`. `apps/driver` reads them
    like any other number and lost nothing.
-4. `Column<Vehicle>` and `Column<Drive>` become columns the drive assembler owns
+4. RE-READ AND REDIRECTED. A `Column` is opened AGAINST the store -- `Bodies.Open(Scene)` -- so it
+   is the store's sidecar and not the assembler's; the engine holds handles to them and nothing
+   more. What this point actually asks for is that they go behind `Scene()` with the store, which
+   is board:1896's work, not a move into `Sim`. Recorded rather than forced into the shape the
+   point was first written in.
+
+   What DID come out of looking: the word `vehicle` was still in the code's own SPEECH -- "the
+   vehicle declares no width", "a vehicle with no mass cannot be pushed", "the m this vehicle can
+   bend to", and `note(scenario.Bodies.size(), "vehicles")`, which a user READS. `src/actor`,
+   `src/sim`, `src/engine`, `src/render`, `src/scenario`, `src/content` and `include` now carry the
+   word nowhere at all.
 
 **THE PROVING TEST WAITS ON board:1965, AND SAYS SO RATHER THAN BEING BUILT AROUND.** Two thirds
 of it stand: board:1969 shows a body with no drive standing, integrated and placed. The last third
