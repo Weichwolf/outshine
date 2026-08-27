@@ -119,11 +119,15 @@ Four architectural commitments. Everything else is a decision an item can revisi
   A section NOT declared decides nothing — the engine's own default stands in its place, never the
   zeroes of a struct nobody filled in. A scenario is a STREAM: `Declare` seeds, then parts enter
   and leave, and the work a declaration causes is proportional to what CHANGED
-- **UPDATE · RENDER · AUDIO RUN INDEPENDENTLY, and what passes between them is a SNAPSHOT.** The
-  simulation owns the world and hands the renderer a delta; the renderer draws a frame behind and
-  never reaches back. **Headless is the fast path, not a degraded one** — a picture is what makes
-  a run REALTIME. A subsystem that reads another's live state instead of its snapshot is the
-  defect, because it puts a wait where a handoff belongs
+- **FOUR THINGS RUN INDEPENDENTLY — SIM · VIDEO · AUDIO · IO — and what passes between them is a
+  SNAPSHOT.** The simulation owns the world and hands the renderer a delta; the renderer draws a
+  frame behind and never reaches back; the mixer reads where sources stood when it mixed. **IO is
+  the fourth and it is not a task**: a fetch BLOCKS, and a blocking task on a compute worker is a
+  worker doing nothing while holding a slot. Unreal separates it (`FIoDispatcher`, the async
+  loading thread) and so does RAGE (streaming threads beside `sysTaskManager`); neither lets a
+  stall on a disk or a socket cost a core. **Headless is the fast path, not a degraded one** — a
+  picture is what makes a run REALTIME. A subsystem that reads another's live state instead of
+  its snapshot is the defect, because it puts a wait where a handoff belongs
 
 ## Where things live
 

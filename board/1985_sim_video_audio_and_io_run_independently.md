@@ -4,7 +4,7 @@ Parent: 1953
 Area: engine
 Progress: gpu-driven
 
-# Update, render and audio run independently
+# Sim, video, audio and IO run independently
 
 **Benchmark** — Unreal names four: **game**, **render** (one frame BEHIND), **RHI** and **audio**,
 over an `FTaskGraph` worker pool. RAGE names three: **update**, **render**, **audio**, over
@@ -35,3 +35,27 @@ runs as fast as it can, which is what a dedicated server and every offline run a
       proof: outshine/audio, outshine/door
 - [ ] proof: a headless run of N steps takes measurably less wall time than the same N steps with
       a picture, and the trajectory is IDENTICAL -- same fixed step, same order, same numbers
+
+## IO is the fourth, and the tree measures its own cost already
+
+**Benchmark** — Unreal: `FIoDispatcher` and the async loading thread sit BESIDE the task graph,
+never on it. RAGE: streaming threads beside `sysTaskManager`. **Both agree** — a fetch blocks, and
+a blocking task on a compute worker is a worker doing nothing while holding a slot.
+
+`TilePool`'s workers do three jobs from one queue (`TilePool.cpp:426-435`): `Rank::Fetch` polls
+the network, `Rank::Mesh` stitches and decodes, `Rank::Dag` builds the cluster DAG. One is IO and
+two are compute, and the first can hold a thread for the whole of its poll bound -- 30000
+attempts by default, which board:1915 measured at roughly a minute.
+
+**The number that says so is already published.** `TilePool::Ledger` carries `FetchBlockedMs`
+beside `MeshCpuMs`, and the pool subtracts one from the other to get CPU time
+(`spanMs - (tFetchBlockedMs - blockedBefore)`) -- so the tree knows exactly how long a worker
+spends waiting rather than working, and spends it anyway.
+
+`src/host/Fetching` DOES have its own threads, so the HTTP transport is already off the frame
+path. What is not separated is the POLL: a pool worker blocks on `Sources_.Collect` in a loop
+rather than being handed the bytes when they arrive.
+
+- [ ] IO has its own thread and a compute worker never blocks on a socket or a disk
+- [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
+      the separation is real rather than declared
