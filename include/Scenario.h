@@ -188,11 +188,36 @@ struct Volume {
   double DwellS = 0.0;
 };
 
+enum class Falls : uint8_t { Linear, Inverse, Exponential };
+
+struct Emitter {
+  bool Positional = false;
+  Falls By = Falls::Inverse;
+  double RefM = 1.0;
+  double MostM = 0.0;
+  double Rolloff = 1.0;
+  double InnerRad = 0.0;
+  double OuterRad = 0.0;
+  double OuterGain = 0.0;
+};
+
+enum class Makes : uint8_t { Oscillator, Noise, Biquad, Delay, Gain, Shaper, Convolver, Mix };
+
+struct Voice {
+  std::string Id;
+  Makes Does = Makes::Oscillator;
+  std::vector<std::string> From;
+  std::vector<Setting> Parameters;
+};
+
 struct Sound {
   std::string Id;
   std::string Uri;
+  std::vector<Voice> Graph;
+  bool Streamed = false;
+  std::string On;
   std::string Bus;
-  bool Positional = false;
+  Emitter Heard;
   bool Loops = false;
   double GainDb = 0.0;
   double FalloffM = 0.0;

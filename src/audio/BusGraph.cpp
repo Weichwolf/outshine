@@ -106,14 +106,14 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
               "', which no bus declares";
       return false;
     }
-    if (sound.Positional && !(sound.FalloffM > 0.0)) {
+    if (sound.Heard.Positional && !(sound.FalloffM > 0.0)) {
       error = "the sound '" + sound.Id +
               "' is positional and declares no falloffM -- a positional source without a "
               "distance is a stereo source wearing a costume";
       return false;
     }
     Sounds_.push_back(
-        Source{sound.Id, into, Linear(sound.GainDb), sound.FalloffM, sound.Positional});
+        Source{sound.Id, into, Linear(sound.GainDb), sound.FalloffM, sound.Heard.Positional});
   }
   return true;
 }

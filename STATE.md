@@ -133,6 +133,8 @@ whose proof this tree does not hold is reported rather than counted.
     value: Region
     value: Door
     value: Volume
+    value: Emitter
+    value: Voice
     value: Sound
     value: Bus
     value: Table
@@ -264,7 +266,7 @@ The heaviest files. Headers and sources counted apart.
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 667 | `cpp` | `scene/Store.cpp` |
+| 684 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **45** | `h` | *the median of 237 header(s)* |
 | **119** | `cpp` | *the median of 157 source(s)* |
 

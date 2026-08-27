@@ -489,10 +489,42 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Id = one.Attr("id");
     made.Uri = one.Attr("uri");
     made.Bus = one.Attr("bus");
-    made.Positional = one.Flag("positional", false);
+    made.On = one.Attr("on");
+    made.Streamed = one.Flag("streamed", false);
     made.Loops = one.Flag("loops", false);
     made.GainDb = one.Num("gainDb", 0.0);
     made.FalloffM = one.Num("falloffM", 0.0);
+    made.Heard.Positional = one.Flag("positional", false);
+    const std::string falls = one.Attr("falls");
+    made.Heard.By = falls == "linear"        ? Falls::Linear
+                    : falls == "exponential" ? Falls::Exponential
+                                             : Falls::Inverse;
+    made.Heard.RefM = one.Num("refM", 1.0);
+    made.Heard.MostM = one.Num("mostM", 0.0);
+    made.Heard.Rolloff = one.Num("rolloff", 1.0);
+    made.Heard.InnerRad = one.Num("innerRad", 0.0);
+    made.Heard.OuterRad = one.Num("outerRad", 0.0);
+    made.Heard.OuterGain = one.Num("outerGain", 0.0);
+    for (const Xml::Ref unit : one.Children("voice")) {
+      Voice makes;
+      makes.Id = unit.Attr("id");
+      const std::string does = unit.Attr("does");
+      makes.Does = does == "noise"       ? Makes::Noise
+                   : does == "biquad"    ? Makes::Biquad
+                   : does == "delay"     ? Makes::Delay
+                   : does == "gain"      ? Makes::Gain
+                   : does == "shaper"    ? Makes::Shaper
+                   : does == "convolver" ? Makes::Convolver
+                   : does == "mix"       ? Makes::Mix
+                                         : Makes::Oscillator;
+      for (const Xml::Ref from : unit.Children("from")) {
+        makes.From.push_back(from.Attr("id"));
+      }
+      for (const Xml::Ref set : unit.Children("set")) {
+        makes.Parameters.push_back(Setting{set.Attr("name"), set.Attr("value")});
+      }
+      made.Graph.push_back(makes);
+    }
     into.Sounds.push_back(made);
   }
 
