@@ -965,31 +965,48 @@ StateProgress() {
   # (`--audit-layers`, checked to be an option this runner parses). Both run in the gate and both
   # refuse; an audit is not a lesser proof for having no `.cpp`.
   progressTally=$BUILD/log/progress
+  progressBare=$BUILD/log/progress-unproven
+  tab=$(printf '\t')
+  : > "$progressBare"
   : > "$progressTally"
   for item in board/*.md; do
     [ -e "$item" ] || continue
     slug=$(sed -n 's|^Progress:[ ]*||p' "$item" | head -1)
     [ -n "$slug" ] || continue
     ticket=$(basename "$item")
-    awk '
+    awk -F'\t' '
       function flush() {
-        if (state == "x") { printf "x %s\n", (proof == "" ? "-" : proof) }
-        else if (state == " ") { print "o -" }
+        if (state == "x") { printf "x\t%s\t%s\n", (proof == "" ? "-" : proof), said }
+        else if (state == " ") { printf "o\t-\t%s\n", said }
         state = ""
       }
-      /^- \[.\]/ { flush(); state = substr($0, 4, 1); proof = ""; next }
+      /^- \[.\]/ { flush(); state = substr($0, 4, 1); proof = ""; said = substr($0, 7); next }
       /proof:/ { if (state != "") { line = $0; sub(/^.*proof:[ \t]*/, "", line); proof = line } }
       END { flush() }
     ' "$item" |
-      while read -r kind named; do
+      while IFS="$tab" read -r kind named said; do
         if [ "$kind" = o ]; then
           printf '%s open %s\n' "$slug" "$ticket"
-        elif [ "$named" != - ] &&
-             { [ -f "test/$named.cpp" ] || [ -d "test/$named" ] ||
-               { case "$named" in --audit*) grep -q -- "$named)" test/run.sh ;; *) false ;; esac; }; }; then
+          continue
+        fi
+        # A TICK MAY NAME MORE THAN ONE PROOF and every one of them must stand: a predicate held
+        # by two cases is held by neither if one is missing, so the comma is a conjunction.
+        holds=yes
+        [ "$named" = - ] && holds=no
+        for oneProof in $(printf '%s' "$named" | tr ',' ' '); do
+          [ -f "test/$oneProof.cpp" ] && continue
+          [ -d "test/$oneProof" ] && continue
+          case "$oneProof" in --audit*) grep -q -- "$oneProof)" test/run.sh && continue ;; esac
+          holds=no
+          break
+        done
+        if [ "$holds" = yes ]; then
           printf '%s held %s\n' "$slug" "$ticket"
         else
           printf '%s unproven %s\n' "$slug" "$ticket"
+          printf -- '- `%s` in [%s](board/%s) names `%s` -- %s\n' \
+            "$slug" "${ticket%%_*}" "$ticket" "$named" "$(printf '%s' "$said" | cut -c1-96)" \
+            >> "$progressBare"
         fi
       done >> "$progressTally"
   done
@@ -1030,6 +1047,13 @@ StateProgress() {
     printf 'No item declares a `Progress:` area yet -- the table is EMPTY, not complete.\n'
   fi
 
+  # A COUNT OF UNPROVEN TICKS IS NOT A REPORT. Saying "1 tick names no proof" and withholding
+  # WHICH one makes a reader walk the board by hand to find it, which is the work this page exists
+  # to have already done.
+  if [ -s "$progressBare" ]; then
+    printf '\nTicked, but the named proof is not in this tree:\n\n'
+    sort -u "$progressBare"
+  fi
 }
 
 if [ "$STATE" = 1 ]; then
