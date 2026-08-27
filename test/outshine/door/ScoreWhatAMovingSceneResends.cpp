@@ -65,13 +65,15 @@ int main(void) {
   }
 
   double rowsAt[2] = {0.0, 0.0};
-  double batches = 0.0;
+  double batches = 0.0, moving = 0.0, furthest = 0.0;
   for (int half = 0; half < 2; ++half) {
     for (int step = 0; step < kFrames; ++step) {
       if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) { break; }
     }
     rowsAt[half] = Measured(engine, "placement rows the renderer has been sent");
     batches = Measured(engine, "batches the picture draws");
+    moving = Measured(engine, "pixels the velocity target says moved");
+    furthest = Measured(engine, "the furthest any of them moved");
   }
 
   const double perFrame = (rowsAt[1] - rowsAt[0]) / (double)kFrames;
@@ -88,6 +90,27 @@ int main(void) {
         "renderer was handed the whole table each frame until this stood, so the cost of placing "
         "a scene scaled with the scene rather than with its motion -- and CLAUDE.md's rule is "
         "that the work a declaration causes is proportional to what it CHANGED");
+  std::printf("AND ITS VELOCITY SAYS  %.0f pixel(s) moved, the furthest by %.6g ndc\n",
+              moving, furthest);
+  // THIS SCENE CARRIES A VELOCITY TARGET AND ITS ASSET ANIMATES NOTHING, which is the whole of
+  // what this number says here. `DeclarePlan` used to add `SceneVelocity` only when the glTF
+  // ANIMATED, so the one scene in the tree where things actually move -- a car re-placed nine
+  // rows a frame over a ground ring placed once -- rendered without one, and this number read -1.
+  // The catalogue already says `subjects` writes velocity unconditionally; the output now follows
+  // the catalogue rather than a property of the file.
+  //
+  // WHAT IT DOES NOT SAY, measured rather than assumed: it does not prove the placement row's
+  // PREVIOUS half. With `was = now` forced in `HandPlacements` this case reads the same 57600 px
+  // and the same 0.695012 ndc, because the camera drives too and its motion sets both numbers.
+  // Isolating a placement's own contribution needs a STILL camera over a moving subject, and no
+  // case in this tree has one. That is board:1998's remaining predicate and it is not this case.
+  CHECK(moving > 0.0,
+        "**A SCENE THAT MOVES CARRIES A VELOCITY TARGET, WHETHER OR NOT ITS ASSET ANIMATES**: "
+        "Unreal's base pass writes velocity whenever TAA can run and RAGE keeps the same buffer "
+        "for its own reprojection; neither asks whether the mesh has an animation track. A target "
+        "conditioned on the FILE rather than on the plan leaves the one scene that moves without "
+        "the buffer that describes its motion");
+
   CHECK(std::fabs(perFrame - std::round(perFrame)) < 0.01,
         "and the count is a whole number of rows per frame, so what is being read is rows and not "
         "an average over frames that placed different amounts");

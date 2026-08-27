@@ -22,13 +22,13 @@ namespace outshine::Core {
 namespace {
 
 
-bool DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
+bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
                  const std::vector<std::string> &stages, Render::PlanSpec &declaration,
                  std::string &error) {
   declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
 
-  if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
   if (!stages.empty()) {
+    declaration.Outputs.push_back(Render::Resource::SceneVelocity);
     declaration.Content.clear();
     for (const std::string &named : stages) {
       const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
@@ -45,6 +45,7 @@ bool DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
     declaration.Exposure = Render::Declared<float>(1.0f);
     return true;
   }
+  declaration.Outputs.push_back(Render::Resource::SceneVelocity);
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
   if (sky) { declaration.Content.push_back(Render::Stage::Sky); }
   if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
@@ -187,7 +188,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  if (!DeclarePlan(Held_.File(), Held_.Moves(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
+  if (!DeclarePlan(Held_.File(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
                    Declared_.Stages, declaration, error)) {
     return false;
   }

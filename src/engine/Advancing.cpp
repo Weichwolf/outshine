@@ -144,6 +144,21 @@ void Engine::State::Falls(void) {
 
 void Engine::State::Drew(void) {
   Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
+  {
+    std::vector<float> velocity;
+    if (Picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
+      double moving = 0.0, furthest = 0.0;
+      for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
+        const double across = (double)velocity[at], down = (double)velocity[at + 1];
+        if (across <= -1.0e3 || down <= -1.0e3) { continue; }
+        const double moved = std::sqrt(across * across + down * down);
+        if (moved > 0.0) { moving += 1.0; }
+        if (moved > furthest) { furthest = moved; }
+      }
+      Published.Places("pixels the velocity target says moved", moving, "px");
+      Published.Places("the furthest any of them moved", furthest, "ndc");
+    }
+  }
   Published.Places("stages the compiled plan runs", (double)Picture.Standing->PlanStages(),
                    "stages");
   Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");

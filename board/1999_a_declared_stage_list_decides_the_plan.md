@@ -56,12 +56,23 @@ consulted.
       negative control: `if (false && !stages.empty())` makes the declared list read 5 stages too
       and BOTH checks go red -- the count check and the refusal, because an ignored list is also
       an unchecked one.
-- [ ] The velocity target follows what MOVES, not what animates: a scene whose placements change
-      between frames carries `SceneVelocity`, and `outshine/door/ScoreWhatAMovingSceneResends`
-      reads a non-zero moving-pixel count over the drive where it already counts nine re-sent rows.
-- [ ] board:1998's predicate closes on top of this: the door publishes a velocity number, it reads
-      zero for a still scene and non-zero for the drive, and the negative control is the previous
-      placement row -- with `was = now` the drive reads zero while the picture is unchanged.
+- [x] The velocity target follows the CATALOGUE, not the file. `subjects` declares
+      `SceneVelocity` among its writes unconditionally, so the plan keeps it whenever `subjects`
+      is in the content -- the `if (moves)` that asked whether the glTF ANIMATED is gone, and with
+      it the `moves` parameter, which the compiler then reported as unused.
+      proof: outshine/door/ScoreWhatAMovingSceneResends reads
+      `57600 pixel(s) moved, the furthest by 0.695012 ndc` over the drive, where it read -1
+      before -- the driver's asset carries no animation track; khronos/glTF 444/444.
+      negative control: restoring the condition on `file.Animations()` makes that line read -1
+      and the case goes RED.
+- [ ] **board:1998's predicate needs a STILL CAMERA and this tree has none.** The door now
+      publishes the velocity numbers, but the drive cannot isolate a placement's own contribution:
+      with `was = now` forced in `HandPlacements` the same case reads the same 57600 px and the
+      same 0.695012 ndc, because the camera drives too and its motion sets both. A green negative
+      control is a false proof, so the claim about the previous row was taken OUT of that case
+      rather than left standing. What is needed is a scenario with a fixed eye over a subject
+      whose placement moves -- then the moving-pixel count is the subject's own silhouette and
+      `was = now` drops it to zero.
 
 **The measurement that shows I am wrong**: if making the declared list decide changes any khronos
 picture, the default and the declaration disagree somewhere they must not -- 444/444 is the floor,
