@@ -13,9 +13,13 @@ Everything under `test/` may use `include/` and NOTHING of `src/`.
 **AND THE BENCHMARK DOES NOT HOLD THAT RULE AS WRITTEN.** Unreal keeps low-level tests INSIDE the
 module they test (`Private/Tests/`), compiled as part of it; only public-API tests stand outside.
 That is the same answer at a different address -- a case that tests an internal type is part of
-that module rather than a client of the door. So the rule may be naming the wrong thing: not what
-a case may REACH, but where it LIVES. Either way the current shape is wrong, because these cases
-neither live inside the module nor go through the door.
+that module rather than a client of the door. **DECIDED: the rule names where a case
+LIVES.** A case that tests an internal type belongs in `src/<module>/tests/`, compiled as part of
+that module and free to reach its private headers; a case that tests the DOOR stands under `test/`
+and reaches through `include/` alone. Today's cases do neither -- they sit outside and reach in,
+which is the one shape the benchmark rules out. **And whatever the compiler can decide is a
+`static_assert` rather than either**: layout, size, trait, catalogue completeness and an enum's
+exhaustiveness need no case at all.
 
 **Measured 2026-08-25 at a32c4919: 13 of the 17 declared suites are granted a `-Isrc/...` path
 by `LayerIncludes` (test/run.sh:210-224). Only `harness/wpt/css`, `harness/test262/js`,

@@ -81,6 +81,9 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 - **Private is the DEFAULT** and a wider door justifies itself in the item that widened it. A
   public data member is an invariant nobody can hold. Composition usually; inheritance where a
   stable interface carries shared machinery. `--audit-access` refuses when the count moves
+- **A claim checkable at compile time is a `static_assert`, never a case.** Layout, size,
+  alignment, trait, catalogue completeness, an enum's exhaustiveness: the compiler is a faster and
+  stricter oracle than a suite, and it cannot be skipped, sampled or left unlinked
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std`. `static_assert` and the type system over
   checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance
   views, `std::expected` where a refusal carries its reason
@@ -110,7 +113,8 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 |---|---|
 | `include/` | **the whole door, four headers**: `Outshine.h` the verbs, `Scenario.h` the declaration, `Event.h` the return channel (`Host`, `Argument`, `Measure` — RAGE's `fwEvent`, Unreal's delegate header), `Geometry.h` the 3D value handed both ways — `std::span`/`std::string_view` and no outshine type, so a foreign producer needs nothing of ours. SDL3 is REQUIRED and `Outshine.h` says so by including it: the CLIENT owns the process and calls `SDL_Init`. SDL_GPU is one renderer, not the door |
 | `src/` | the library; `src/assets/` its declared data. **The directory IS the dependency tier and the tier is DECLARED** — `LayerReaches` in `test/run.sh`, enforced by `--audit-layers`, which also refuses a CYCLE between two modules inside one tier |
-| `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora (`khronos/validator/`: 263 cases judged as a REFUSAL against Khronos's report); `harness/` their scorers and the board claims; **`outshine/` is ours**. Everything under `test/` reaches the library through `include/` and nothing of `src/` |
+| `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora (`khronos/validator/`: 263 cases judged as a REFUSAL against Khronos's report); `harness/` their scorers and the board claims; **`outshine/` is ours**. Everything here reaches the library through `include/` and nothing of `src/` — it tests the DOOR |
+| `src/<module>/tests/` | **a low-level case lives inside the module it tests** and compiles as part of it, which is Unreal's `Private/Tests/`. It may reach that module's private headers; nothing else may reach it. A case belongs here when it tests an internal type and outside when it tests the door |
 | `apps/` | the CLIENTS, each a product. **A client is almost no code and its LINE COUNT measures the door**: when a client needs much code the door is the finding, never the client. `apps/driver` is the one integration test and the stakeholder signs it off; `apps/viewer` shows any scenario and becomes one |
 | `Makefile` | build · test · clean. Writes `liboutshine.a` and `libgenerators.a`, the latter's member list DERIVED from the linker's own closure |
 | `board/` | one flat directory of work items (below) |
