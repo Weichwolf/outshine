@@ -17,7 +17,7 @@
 
 #include "Assembly.h"
 #include "Ledger.h"
-#include "BusGraph.h"
+#include "Mixer.h"
 #include "Tables.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
@@ -220,7 +220,8 @@ struct Kept {
   std::optional<TriggerField> Volumes;
   size_t Fired = 0;
   std::optional<TableBook> Tabled;
-  Audio::BusGraph Sounding;
+  Audio::Mixer Sounding;
+  bool Mixing = false;
 };
 
 struct Players {

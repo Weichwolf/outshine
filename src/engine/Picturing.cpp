@@ -185,6 +185,53 @@ bool Engine::State::Stood(void) {
                           Error);
 }
 
+bool Engine::Mixes(std::span<float> stereo, int rate) {
+  if (!S_->Session.Mixing) {
+    if (!S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, rate,
+                                     S_->Error)) {
+      return false;
+    }
+    S_->Session.Mixing = true;
+  }
+
+  std::vector<Audio::Heard> sources;
+  sources.reserve(S_->Session.Declared.Sounds.size());
+  for (const Sound &declared : S_->Session.Declared.Sounds) {
+    Audio::Heard where;
+    where.Id = declared.Id;
+    if (declared.On.empty()) {
+      where.Standing = !declared.Heard.Positional;
+      sources.push_back(where);
+      continue;
+    }
+    const Physics::Rigid *stood = nullptr;
+    if (S_->Ticking.Drove && S_->Session.Declared.Bodies.size() == 1) {
+      stood = &S_->Ticking.Drive.State.Body;
+    } else if (!S_->Ticking.Freestanding.empty()) {
+      stood = &S_->Ticking.Freestanding.front();
+    }
+    if (stood != nullptr) {
+      where.Standing = true;
+      for (int axis = 0; axis < 3; ++axis) {
+        where.AtM[axis] = stood->PositionM[axis];
+        where.VelocityMs[axis] = stood->VelocityMs[axis];
+      }
+    }
+    sources.push_back(where);
+  }
+
+  Audio::Listening ear;
+  if (S_->Picture.Standing) {
+    const Gltf::Viewpoint &eye = S_->Picture.Standing->Aimed();
+    for (int axis = 0; axis < 3; ++axis) {
+      ear.AtM[axis] = eye.EyeM[axis];
+      ear.ForwardXyz[axis] = eye.Forward[axis];
+      ear.RightXyz[axis] = eye.Right[axis];
+    }
+  }
+  return S_->Session.Sounding.Fills(stereo, sources, ear, S_->Error);
+}
+
 bool Engine::RenderTo(Extent frame) {
   if (!S_->Stood()) { return false; }
   if (frame.WidthPx > 0 && frame.HeightPx > 0 &&

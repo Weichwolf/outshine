@@ -45,6 +45,7 @@ public:
   [[nodiscard]] bool RenderTo(Extent frame);
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] bool Pixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] bool Mixes(std::span<float> stereo, int rate);
 
   [[nodiscard]] bool Read(std::string_view path);
   [[nodiscard]] bool Stands(const Geometry &geometry);

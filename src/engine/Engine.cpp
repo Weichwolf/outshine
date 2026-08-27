@@ -38,7 +38,7 @@ bool Engine::Assemble() {
     S_->Session.Tabled.emplace(*std::move(book));
   }
   if (!declared.Buses.empty() || !declared.Sounds.empty()) {
-    if (!S_->Session.Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
+    S_->Session.Mixing = false;
   }
 
   return S_->Routes();

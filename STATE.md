@@ -79,6 +79,7 @@ whose proof this tree does not hold is reported rather than counted.
     bool RenderTo(Extent frame)
     bool Capture(std::string_view path)
     bool Pixels(std::vector<uint8_t> &rgba)
+    bool Mixes(std::span<float> stereo, int rate)
     bool Read(std::string_view path)
     bool Stands(const Geometry &geometry)
     bool Declare(const Scenario &scenario)
@@ -281,7 +282,7 @@ The widest public surfaces.
 | 46 | `src/content/gltf/Subject.h` |
 | 38 | `src/engine/Live.h` |
 | 32 | `include/Scene.h` |
-| 31 | `src/base/format/Xml.h` |
+| 32 | `include/Outshine.h` |
 
 ## Twins
 
