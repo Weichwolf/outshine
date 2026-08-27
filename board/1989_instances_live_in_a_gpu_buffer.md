@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1995
 Depends: 1574
 Area: render
@@ -40,8 +40,15 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
 4. `SameState` drops `ModelSlot`; the draw passes `batch.Draws` and `ModelSlot` as first instance.
    `SDL_DrawGPUIndexedPrimitives` already takes both, pinned at 1 and 0 today
 
-- [ ] the uniform carries `viewProj` and the shader multiplies -- corpus identical,
-      `picture_p99_delta_code` unmoved
+- [x] the uniform carries `viewProj` and the shader multiplies. `S` is now
+      `{viewProj, prevViewProj, model, prevModel, lightFromModel}` -- five matrices, 80 floats,
+      where it was 72 with two dead `float4` anchors board:1990 emptied. The PREVIOUS frame gets
+      the same treatment in the same commit, so the two frames cannot drift apart again.
+      **`subjectDepthOnly.msl` keeps its own minimal `S { float4x4 mvp; }`** and its own uniform,
+      which the gate found by refusing to compile it -- a second binding with a second layout,
+      and it will need the same per-instance read at step 3 rather than being left behind.
+      proof: khronos/glTF/WaterBottle and BoxAnimated 3/3 each, `picture_p99_delta_code` 1
+      against a bound of 6.435, unmoved; gate GREEN in 37s
 - [ ] placements upload as a vertex storage buffer whose rows equal the uniforms they replace
 - [ ] the shader reads its placement per instance
 - [ ] `SameState` drops `ModelSlot` and two identical subjects are ONE draw: board:1574's case

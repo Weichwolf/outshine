@@ -1,5 +1,5 @@
 
-struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; float4x4 model;
+struct S { float4x4 viewProj; float4x4 prevViewProj; float4x4 model; float4x4 prevModel;
            float4x4 lightFromModel; };
 
 struct M { float factor; float cut; float metalness; float roughness;
@@ -109,7 +109,7 @@ struct SFrag {
 #define SUBJECT_MOTION_VARYINGS float4 curClip; float4 prevClip;
 #define SUBJECT_SET_MOTION(o, v, s) \
   (((o).curClip = (o).pos), \
-   ((o).prevClip = (s).prevMvp * float4((v).prevP, 1.0)))
+   ((o).prevClip = (s).prevViewProj * ((s).prevModel * float4((v).prevP, 1.0))))
 #define SUBJECT_SET_VELOCITY(o, in) \
   (o).vel = (in).curClip.xy / (in).curClip.w - (in).prevClip.xy / (in).prevClip.w
 #else

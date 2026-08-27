@@ -144,7 +144,7 @@ public:
   float ShadowNearM() const { return ShadowNearM_; }
 
 private:
-  static constexpr int kUniFloats = 72;
+  static constexpr int kUniFloats = 80;
 
   static constexpr int kSurfaceScalars = 35;
 

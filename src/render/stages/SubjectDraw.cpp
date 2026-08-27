@@ -721,42 +721,24 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     for (int axis = 0; axis < 3; ++axis) {
       carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis];
     }
-    double placed[16];
-    for (int row = 0; row < 4; ++row) {
-      for (int column = 0; column < 4; ++column) {
-        double sum = 0.0;
-        for (int over = 0; over < 4; ++over) {
-          sum += (double)ctx.Mvp16[over * 4 + row] * carried[column * 4 + over];
-        }
-        placed[column * 4 + row] = sum;
-      }
-    }
-    for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
-    for (int i = 0; i < 3; i++) { uniform[16 + i] = 0.0f; }
+    for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
+
     double before[16];
     for (int i = 0; i < 16; i++) { before[i] = model[i]; }
     for (int axis = 0; axis < 3; ++axis) {
       before[12 + axis] += PrevAnchor[axis] + ctx.PrevPreViewTranslation[axis];
     }
-    for (int row = 0; row < 4; ++row) {
-      for (int column = 0; column < 4; ++column) {
-        double sum = 0.0;
-        for (int over = 0; over < 4; ++over) {
-          sum += (double)ctx.PrevMvp16[over * 4 + row] * before[column * 4 + over];
-        }
-        uniform[20 + column * 4 + row] = (float)sum;
-      }
-    }
-    for (int i = 0; i < 3; i++) { uniform[36 + i] = 0.0f; }
+    for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp16[i]; }
+    for (int i = 0; i < 16; i++) { uniform[48 + i] = (float)before[i]; }
 
-    for (int i = 0; i < 16; i++) { uniform[40 + i] = (float)carried[i]; }
+    for (int i = 0; i < 16; i++) { uniform[32 + i] = (float)carried[i]; }
     for (int column = 0; column < 4; ++column) {
       for (int row = 0; row < 4; ++row) {
         double sum = 0.0;
         for (int over = 0; over < 4; ++over) {
           sum += LightFromWorld_[over * 4 + row] * carried[column * 4 + over];
         }
-        uniform[56 + column * 4 + row] = (float)sum;
+        uniform[64 + column * 4 + row] = (float)sum;
       }
     }
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);

@@ -7,7 +7,7 @@ struct NAME##In { float3 p [[attribute(0)]]; float3 emitted [[attribute(2)]]; \
                   SUBJECT_PREV_ATTRIBUTE RUNS }; \
 vertex SOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   SOut o; \
-  o.pos = s.mvp * float4(v.p, 1.0); \
+  o.pos = s.viewProj * (s.model * float4(v.p, 1.0)); \
   o.uv = UV; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
