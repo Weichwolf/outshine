@@ -424,6 +424,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   }
 
   const Xml::Ref instances = root.Child("instances");
+  into.Room = (size_t)root.Child("scene").Num("room", 0.0);
   for (const Xml::Ref one : instances.Children("instance")) {
     Instance made;
     made.Of = one.Attr("of");

@@ -202,6 +202,7 @@ struct Seen {
   Render::Renderer Device;
   std::unique_ptr<Core::Live> Standing;
   Extent Frame{1280, 720};
+  bool Canvas = false;
   Core::Declaration Shown;
   Ui::Typeface Face;
 };

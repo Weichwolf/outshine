@@ -389,6 +389,7 @@ struct Scenario {
   std::vector<Surface> Surfaces;
 
   std::vector<Kind> Kinds;
+  size_t Room = 0;
   std::vector<Instance> Instances;
   std::vector<Region> Regions;
   std::vector<Door> Doors;

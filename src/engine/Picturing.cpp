@@ -171,12 +171,9 @@ bool Engine::State::Composes(void) {
   return true;
 }
 
-// THE PICTURE STANDS WHEN A FRAME IS ASKED FOR. A declaration builds the WORLD with no device --
-// Unreal's LoadMap, RAGE's map stream -- and the canvas is a separate thing a client hands in.
-// Every verb that wants pixels comes through here, so there is one place the picture can begin.
 bool Engine::State::Stood(void) {
   if (Picture.Standing) { return true; }
-  if (Picture.Frame.WidthPx <= 0 || Picture.Frame.HeightPx <= 0) {
+  if (!Picture.Canvas) {
     Error = "no canvas stands, so there is nowhere to draw -- the client hands one in through "
             "DrawsInto";
     return false;

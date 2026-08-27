@@ -29,17 +29,17 @@ int main(void) {
 
   outshine::Engine engine;
   engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{320, 180})) {
-    Unprepared(engine.Error().c_str());
-    return Report();
-  }
 
   outshine::Scenario declared;
   declared.Bodies.push_back(outshine::Body{});
   declared.Bodies.back().Name = "carrier";
+  declared.Room = 8;
 
   const bool declaredStands = engine.Declare(declared) && engine.Assemble();
-  CHECK(declaredStands, ("a scenario with one body assembles: " + engine.Error()).c_str());
+  CHECK(declaredStands,
+        ("**A WORLD STANDS WITH NO DEVICE**: this case never asks for a canvas, and Unreal's "
+         "LoadMap builds a UWorld the same way -- which is what every commandlet and dedicated "
+         "server is: " + engine.Error()).c_str());
   if (!declaredStands) { return Report(); }
 
   outshine::Store &world = engine.Scene();

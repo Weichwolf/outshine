@@ -16,7 +16,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `client` | 1/11 | 9% | [1947](board/1947_a_client_is_almost_no_code.md), [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) | |
 | `corpus` | 3/8 | 38% | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) | |
 | `door` | 7/21 | 33% | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md), [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) | |
-| `gpu-driven` | 1/8 | 13% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) | |
+| `gpu-driven` | 1/13 | 8% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_update_render_and_audio_run_independently.md) | |
 | `layers` | 4/6 | 67% | [1940](board/1940_the_tier_table_is_declared_and_refuses.md) | |
 | `perception` | 1/6 | 17% | [1945](board/1945_a_body_perceives_what_is_around_it.md) | |
 | `render-plan` | 0/7 | 0% | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) | |

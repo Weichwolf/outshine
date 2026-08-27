@@ -242,11 +242,7 @@ bool Engine::Declare(const Scenario &scenario) {
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
-  // THE WORLD STANDS WITHOUT A CANVAS. Unreal's LoadMap builds a UWorld with no renderer -- that
-  // is what every commandlet and dedicated server is -- and RAGE streams the map without the draw
-  // side. So a declaration with nowhere to draw is not a refusal: the picture stands when a frame
-  // is asked for, and Stood() is where that happens.
-  if (S_->Picture.Frame.WidthPx <= 0 || S_->Picture.Frame.HeightPx <= 0) {
+  if (!S_->Picture.Canvas) {
     S_->Session.Declared = scenario;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();

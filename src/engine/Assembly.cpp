@@ -10,7 +10,7 @@ size_t AssembledCapacity(const Scenario &declared) {
     (void)one;
     ++instanced;
   }
-  return declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
+  return declared.Room + declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
          (declared.Routed.Declared ? 2u : 0u) + declared.Kinds.size() + instanced;
 }
 

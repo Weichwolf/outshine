@@ -27,6 +27,7 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
                                bodyFromWorld[8 + axis] * shiftM[2];
   }
 
+  if (!Picture.Standing) { return true; }
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   if (!Picture.Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
   Published.Places("the body, east", body.PositionM[0], "m");
@@ -73,15 +74,11 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
     return true;
   }
   from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
-  Picture.Standing->Eye(from);
+  if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;
 }
 
 bool Engine::Advance() {
-  if (!S_->Picture.Standing) {
-    S_->Error = "no scenario is standing, so there is nothing to advance";
-    return false;
-  }
   if (S_->Ticking.Drove) {
     if (S_->Ticking.Steps >= S_->Ticking.MostSteps) {
       S_->Error = "the drive has taken " + Said((double)S_->Ticking.Steps) +
@@ -110,11 +107,12 @@ bool Engine::Advance() {
     S_->Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   S_->Falls();
-  if (!S_->Ticking.Drove && !S_->Ticking.Freestanding.empty() && S_->Picture.Standing->Stands()) {
+  if (!S_->Ticking.Drove && !S_->Ticking.Freestanding.empty() && S_->Picture.Standing &&
+      S_->Picture.Standing->Stands()) {
     const double unshifted[3] = {0.0, 0.0, 0.0};
     if (!S_->Carries(S_->Ticking.Freestanding.front(), unshifted)) { return false; }
   }
-  if (!S_->Picture.Standing->Advance(S_->Error)) { return false; }
+  if (S_->Picture.Standing && !S_->Picture.Standing->Advance(S_->Error)) { return false; }
   return true;
 }
 
