@@ -87,8 +87,8 @@ int main(void) {
   rig.Mounts[0].Strut.StiffnessNPerM = 90000.0;
   rig.Mounts[0].Strut.DampingNsPerM = 4000.0;
   rig.Mounts[0].Strut.TravelM = 0.15;
-  rig.Mounts[0].SteeredShare = 0.0;
-  rig.Mounts[0].DrivenShare = 1.0;
+  rig.Mounts[0].Steering.Applied.Ratio = 0.0;
+  rig.Mounts[0].Spin.Applied.Ratio = 1.0;
 
   const auto readAt = [&rig](double factor, double askedN) {
     Body body;
@@ -99,7 +99,7 @@ int main(void) {
     under.HeightM = 0.0;
     under.Friction = factor;
     Controls with;
-    with.DriveN = askedN;
+    with.AppliedN = askedN;
     Wrench into;
     rig.HeldSlipRad[0] = 0.0;
     return Bear(rig, body, &under, with, into, 0.01);

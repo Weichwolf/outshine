@@ -155,9 +155,9 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     const double staticShare = armM < 0.0 ? frontLoadShare / frontMounts
                                           : (1.0 - frontLoadShare) / rearMounts;
     mount.Sheds.FrictionAtLoadN = declared.MassKg * gravityMs2 * staticShare;
-    mount.SteeredShare = one.AtM[2] < out.CentreM[2] ? 1.0 : 0.0;
-    mount.DrivenShare = one.AtM[2] > out.CentreM[2] ? 1.0 / driven : 0.0;
-    mount.BrakedShare = staticShare;
+    mount.Steering.Applied.Ratio = one.AtM[2] < out.CentreM[2] ? 1.0 : 0.0;
+    mount.Spin.Applied.Ratio = one.AtM[2] > out.CentreM[2] ? 1.0 / driven : 0.0;
+    mount.Spin.Resisting.Ratio = staticShare;
   }
 
   double leftX = 0.0, rightX = 0.0;

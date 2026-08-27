@@ -48,7 +48,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
       continue;
     }
 
-    const double steerRad = with.SteerRad * mount.SteeredShare;
+    const double steerRad = with.MotionRad * mount.Steering.Applied.Ratio;
     const double aheadBody[3] = {-std::sin(steerRad), 0.0, -std::cos(steerRad)};
     double ahead[3];
     Turn(body.OrientationQ, aheadBody, ahead);
@@ -67,8 +67,8 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
     of.HeldSlipRad[which] =
         Relaxed(mount.Sheds, of.HeldSlipRad[which], rawSlipRad, rolledM);
 
-    double askedAlongN = with.DriveN * mount.DrivenShare;
-    const double brakingN = with.BrakeN * mount.BrakedShare;
+    double askedAlongN = with.AppliedN * mount.Spin.Applied.Ratio;
+    const double brakingN = with.ResistingN * mount.Spin.Resisting.Ratio;
     if (brakingN > 0.0) { askedAlongN -= alongMs >= 0.0 ? brakingN : -brakingN; }
 
     Slip sheds = mount.Sheds;

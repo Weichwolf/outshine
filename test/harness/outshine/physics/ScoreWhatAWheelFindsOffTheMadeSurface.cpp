@@ -134,9 +134,9 @@ private:
     mount.Sheds.FrictionAtLoadN = 3900.0;
     mount.Sheds.LoadFalloff = 0.15;
     mount.Sheds.RelaxationM = 0.4;
-    mount.SteeredShare = which < 2 ? 1.0 : 0.0;
-    mount.DrivenShare = which < 2 ? 0.0 : 0.5;
-    mount.BrakedShare = 0.25;
+    mount.Steering.Applied.Ratio = which < 2 ? 1.0 : 0.0;
+    mount.Spin.Applied.Ratio = which < 2 ? 0.0 : 0.5;
+    mount.Spin.Resisting.Ratio = 0.25;
   }
   return out;
 }

@@ -11,13 +11,22 @@ namespace outshine::Physics {
 
 inline constexpr size_t kMaxMounts = 16;
 
+struct Drive {
+  double Ratio = 0.0;
+};
+
+struct Freedom {
+  bool Motion = false;
+  Drive Applied;
+  Drive Resisting;
+};
+
 struct Mount {
   double AtM[3] = {0.0, 0.0, 0.0};
   Prismatic Strut;
   Slip Sheds;
-  double SteeredShare = 0.0;
-  double DrivenShare = 0.0;
-  double BrakedShare = 0.0;
+  Freedom Steering{true, {}, {}};
+  Freedom Spin{false, {}, {}};
 };
 
 struct Footing {
@@ -28,9 +37,9 @@ struct Footing {
 };
 
 struct Controls {
-  double SteerRad = 0.0;
-  double DriveN = 0.0;
-  double BrakeN = 0.0;
+  double MotionRad = 0.0;
+  double AppliedN = 0.0;
+  double ResistingN = 0.0;
 };
 
 struct Rig {

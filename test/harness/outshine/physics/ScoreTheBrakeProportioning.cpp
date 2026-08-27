@@ -82,7 +82,7 @@ struct Split {
   if (!stood.Stood) { return out; }
   for (size_t which = 0; which < stood.Rig.Count; ++which) {
     const outshine::Physics::Mount &mount = stood.Rig.Mounts[which];
-    (mount.AtM[2] < 0.0 ? out.Front : out.Rear) += mount.BrakedShare;
+    (mount.AtM[2] < 0.0 ? out.Front : out.Rear) += mount.Spin.Resisting.Ratio;
   }
   return out;
 }

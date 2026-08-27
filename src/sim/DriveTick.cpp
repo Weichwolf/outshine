@@ -134,15 +134,15 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
       outshine::Pilot::Drive(stood.Axles, stood.Envelope, asked);
 
   outshine::Physics::Controls controls;
-  controls.SteerRad = command.SteerRad;
-  controls.DriveN = command.DriveN;
-  controls.BrakeN = command.BrakeN;
+  controls.MotionRad = command.SteerRad;
+  controls.AppliedN = command.DriveN;
+  controls.ResistingN = command.BrakeN;
   out.MindSteerRad = command.SteerRad;
   out.WasTaken = taken != nullptr && taken->Has;
   if (out.WasTaken) {
-    controls.SteerRad = taken->SteerRad;
-    controls.DriveN = taken->Throttle * stood.Envelope.DriveN;
-    controls.BrakeN = taken->Brake * stood.Envelope.BrakeN;
+    controls.MotionRad = taken->SteerRad;
+    controls.AppliedN = taken->Throttle * stood.Envelope.DriveN;
+    controls.ResistingN = taken->Brake * stood.Envelope.BrakeN;
   }
 
   outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
@@ -262,7 +262,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     out.LeftEdgeM = here.EdgeM;
     out.LeftAsideM = reins.AsideM;
     out.LeftAcrossM = at.OffsetM;
-    out.LeftSteerRad = controls.SteerRad;
+    out.LeftSteerRad = controls.MotionRad;
     out.LeftKinematicSteerRad = std::atan(stood.Axles.WheelbaseM * at.CurvaturePerM);
     double frontSlip = 0.0, rearSlip = 0.0;
     for (size_t which = 0; which < read.Count && which < 4; ++which) {
