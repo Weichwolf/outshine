@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1581
 Area: world, assets
 Tags: scope, declarative
