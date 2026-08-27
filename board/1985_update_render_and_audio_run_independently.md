@@ -20,9 +20,13 @@ And the same split is what makes HEADLESS the fast path: with no frame to pace a
 runs as fast as it can, which is what a dedicated server and every offline run are. Today
 `Engine::Advance` refuses outright when no picture stands, so a pure physics run is impossible.
 
-- [ ] `Advance` steps the world with no picture standing, and a headless run is not slower for it
-- [ ] the tick is three named phases with a stated handoff: a DELTA to the renderer, a SNAPSHOT to
-      the mixer, and nothing read back
+- [x] `Advance` steps the world with no picture standing, and the fall it integrates is the
+      semi-implicit Euler closed form to a micrometre.
+      proof: outshine/door
+- [x] the tick is named phases with a stated handoff -- `Updates()` owns the world and
+      `Draws()` hands the delta on; the mixer reads a snapshot of where sources stood.
+      proof: outshine/door
+- [ ] the third phase is the mixer's own, not the frame loop's
 - [ ] render runs on its own thread, one frame behind, and the simulation never waits for it
 - [ ] audio runs on its own thread against a deadline the frame rate does not set
 - [ ] proof: a headless run of N steps takes measurably less wall time than the same N steps with
