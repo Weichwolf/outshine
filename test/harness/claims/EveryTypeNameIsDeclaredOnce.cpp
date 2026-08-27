@@ -23,12 +23,20 @@ namespace {
 // carries a private spelling of a type its own subsystems already have -- that is what a module's
 // public header is FOR.
 //
+// TWO KINDS OF REPEAT ARE NOT DUPLICATES AND THE WALK MUST NOT COUNT THEM. A NESTED definition
+// -- `struct Engine::State` -- is one type inside another, not a second `Engine`, so a name
+// carrying `::` is skipped. And a name that belongs to a FORMAT rather than to us may stand in
+// each format that owns it: `Gltf::Node` is glTF's noun and `Ui::Node` is HTML's, and renaming
+// either would make this tree less faithful to the thing it reads. The same holds for Attribute
+// and Value. What is NOT allowed is one of OUR words meaning two things, which is what the rest
+// of this count is.
+//
 // THE COUNT IS DECLARED AND ANY MOVE IS REFUSED, which is the same shape as `--audit-access`. A
 // number that may only fall silently falls back up when nobody is looking; a number that refuses
 // on every move means each name that leaves the list leaves in a commit that says so, and each
 // new one arrives the same way. Both directions are information.
 
-constexpr size_t kTypeNamesTwice = 12;
+constexpr size_t kTypeNamesTwice = 11;
 constexpr size_t kConstantNamesTwice = 1;
 
 [[nodiscard]] std::string Word(const std::string &from, size_t at) {
@@ -42,7 +50,7 @@ constexpr size_t kConstantNamesTwice = 1;
                                                                     size_t skipWords) {
   std::map<std::string, std::set<std::string>> out;
   const std::vector<std::string> hits =
-      Lines(Ask("grep -rnE '" + pattern + "' src/ include/ --include=*.h 2>/dev/null | grep -v ';$'"));
+      Lines(Ask("grep -rnE '" + pattern + "' src/ include/ --include=*.h 2>/dev/null | grep -v ';$' | grep -v '::'"));
   for (const std::string &hit : hits) {
     const size_t colon = hit.find(':');
     if (colon == std::string::npos) { continue; }
