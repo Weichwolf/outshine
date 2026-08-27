@@ -12,7 +12,7 @@ whose proof this tree does not hold is reported rather than counted.
 | area | held | share | tickets | note |
 |---|---|---|---|---|
 | `actors` | 2/7 | 29% | [1944](board/1944_the_engine_knows_bodies_forces_and_control.md) | |
-| `audio` | 6/12 | 50% | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md), [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) | |
+| `audio` | 6/14 | 43% | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md), [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) | |
 | `client` | 1/11 | 9% | [1947](board/1947_a_client_is_almost_no_code.md), [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) | |
 | `corpus` | 3/8 | 38% | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) | |
 | `door` | 7/21 | 33% | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md), [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) | |
@@ -366,6 +366,20 @@ Reaching the library through `include/` alone:
 - `apps/viewer/src`
 - `apps/demo/src`
 - `apps/driver/src`
+
+## Corpora
+
+What each outside oracle judges, from the upstream path every case manifest records.
+The count is cases; the reach is chapters. A wide count over a narrow reach is still narrow.
+
+| corpus | cases | all under | chapters |
+|---|---|---|---|
+| `geographiclib/geodesic` | 1 | *stated against a document, no chapter path* | -- |
+| `khronos/generator` | 34 | `Output/Positive/` | 5 -- Output/Positive/Animation_Skin (12), Output/Positive/Animation_NodeMisc (9), Output/Positive/Animation_Node (6), Output/Positiv... |
+| `khronos/glTF` | 151 | `Models/` | 148 -- Models/Cameras (2), Models/MaterialsVariantsShoe (2), Models/SimpleTexture (2), Models/ABeautifulGame (1), Models/AlphaBlendMod... |
+| `khronos/validator` | 263 | `test/base/data/` | 21 -- test/base/data/mesh (32), test/base/data/glb (28), test/base/data/node (23), test/base/data/buffer (19), test/base/data/image (... |
+| `test262/js` | 813 | `test/language/` | 23 -- test/language/expressions/assignment (109), test/language/statements/if (69), test/language/expressions/greater-than (49), test... |
+| `wpt/css` | 162 | `css/` | 3 -- css/css-flexbox (138), css/css-sizing (19), css/css-overflow (5) |
 
 ## Decided
 

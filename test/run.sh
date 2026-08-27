@@ -934,6 +934,64 @@ StateReach() {
                  END { printf "**%d of %d** declared suite(s) are granted a `-Isrc` path (board:1879).\n\nReaching the library through `include/` alone:\n\n%s", past, all, alone }'
 }
 
+# WHAT AN ORACLE ACTUALLY JUDGES, and it is not the case count. `test262: 813` reads as "the
+# language stands" and the 813 are the EXPRESSION chapters -- I read that number as a capability
+# and built an item on it (board:1982). The upstream path in each manifest's `statedAt` is the
+# vendor's own chapter, so the reach here is theirs and not our naming, and the common prefix says
+# in one line how narrow or wide the slice is.
+StateCorpora() {
+  printf '\n## Corpora\n\nWhat each outside oracle judges, from the upstream path every case manifest records.\nThe count is cases; the reach is chapters. A wide count over a narrow reach is still narrow.\n\n| corpus | cases | all under | chapters |\n|---|---|---|---|\n'
+  find test -name manifest.json -not -path 'test/harness/*' -print0 |
+    xargs -0 awk '
+      FNR == 1 { split(FILENAME, seg, "/"); corpus = seg[2] "/" seg[3]; taken = 0; here[corpus] = 1 }
+      taken { next }
+      /"statedAt"/ {
+        line = $0
+        # A CORPUS WITHOUT A CHAPTER PATH IS STILL A CORPUS. GeographicLib states its criterion
+        # against a DOCUMENT rather than a commit, so no path can be derived -- and dropping it
+        # for that would make this page silent about an oracle the tree runs.
+        if (!match(line, /\/[0-9a-f][0-9a-f]+\//)) { cases[corpus]++; taken = 1; next }
+        rest = substr(line, RSTART + RLENGTH)
+        sub(/".*$/, "", rest)
+        sub(/\/[^\/]*$/, "", rest)
+        if (rest == "") { next }
+        holds[corpus "\t" rest]++
+        cases[corpus]++
+        taken = 1
+      }
+      END {
+        for (k in holds) { printf "%s\t%d\n", k, holds[k] }
+        for (c in cases) { printf "TOTAL\t%s\t%d\n", c, cases[c] }
+      }' > "$BUILD/log/corpus-reach"
+  sort -t"$tab" -k1,1 -k3,3rn "$BUILD/log/corpus-reach" | awk -F'\t' '
+    $1 == "TOTAL" { total[$2] = $3; next }
+    {
+      chapters[$1] = chapters[$1] ", " $2 " (" $3 ")"
+      if (!($1 in shared)) { shared[$1] = $2 }
+      else {
+        was = split(shared[$1], older, "/"); now = split($2, newer, "/")
+        keep = ""
+        for (i = 1; i <= was && i <= now && older[i] == newer[i]; i++) {
+          keep = (keep == "") ? older[i] : keep "/" older[i]
+        }
+        shared[$1] = keep
+      }
+      count[$1]++
+    }
+    END {
+      for (c in total) {
+        line = substr(chapters[c], 3)
+        if (length(line) > 130) { line = substr(line, 1, 127) "..." }
+        if (count[c] == 0) {
+          printf "| `%s` | %d | *stated against a document, no chapter path* | -- |\n", c, total[c]
+          continue
+        }
+        printf "| `%s` | %d | `%s` | %d -- %s |\n", c, total[c],
+               (shared[c] == "" ? "nothing shared" : shared[c] "/"), count[c], line
+      }
+    }' | sort
+}
+
 StateDecided() {
 
   printf '\n## Decided\n\nNamed constants standing as a bare literal, whose origin is elsewhere.\n\n| constants | file |\n|---|---|\n'
@@ -1071,6 +1129,7 @@ if [ "$STATE" = 1 ]; then
   StateAccess
   StateReds
   StateReach
+  StateCorpora
   StateDecided
   exit 0
 fi
