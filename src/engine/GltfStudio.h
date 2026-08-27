@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "DrawList.h"
+#include "Axes.h"
 #include "Subject.h"
 #include "SubjectDraw.h"
 
@@ -18,10 +19,6 @@ class Renderer;
 namespace outshine::Clients {
 
 constexpr double kStudioAnchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
-
-void EcefFromGltf(const double gltf[3], double out[3]);
-
-void PlacedInEcef(const double gltf[16], double out[16]);
 
 struct Studio {
   const Gltf::Subject *Geometry = nullptr;

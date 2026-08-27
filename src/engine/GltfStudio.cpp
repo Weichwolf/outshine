@@ -12,29 +12,12 @@
 
 namespace outshine::Clients {
 
-void EcefFromGltf(const double gltf[3], double out[3]) {
-  out[0] = gltf[1];
-  out[1] = gltf[0];
-  out[2] = -gltf[2];
-}
-
-void PlacedInEcef(const double gltf[16], double out[16]) {
-  constexpr int kAxis[4] = {1, 0, 2, 3};
-  constexpr double kSign[4] = {1.0, 1.0, -1.0, 1.0};
-  for (int column = 0; column < 4; ++column) {
-    for (int row = 0; row < 4; ++row) {
-      out[column * 4 + row] =
-          kSign[row] * gltf[kAxis[column] * 4 + kAxis[row]] * kSign[column];
-    }
-  }
-}
-
 bool Placed(Render::Renderer &renderer, const Studio &studio, std::string &error) {
   const size_t rows = studio.PartPlacement.size();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   double ecef[16];
   for (size_t part = 0; part < rows; ++part) {
-    PlacedInEcef(studio.PartPlacement[part].data(), ecef);
+    Gltf::PlacedInEcef(studio.PartPlacement[part].data(), ecef);
     renderer.MoveSubjectPlacement(part, ecef);
   }
   return true;
@@ -50,7 +33,7 @@ bool Moved(Render::Renderer &renderer, size_t rows, size_t from, size_t to, cons
 namespace {
 
 void Anchored(const double gltf[3], double out[3]) {
-  EcefFromGltf(gltf, out);
+  Gltf::InEcef(gltf, out);
   for (int axis = 0; axis < 3; ++axis) { out[axis] += kStudioAnchorEcefM[axis]; }
 }
 
@@ -253,7 +236,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                    subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
-    EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
+    Gltf::InEcef(&subject.PositionsM()[vertex * 3], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
   }
   VertexRuns runs;
@@ -265,14 +248,14 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   runs.NormalAt = vertices.size();
   for (size_t vertex = 0; vertex * 3 < subject.Normals().size(); ++vertex) {
     double ecef[3];
-    EcefFromGltf(&subject.Normals()[vertex * 3], ecef);
+    Gltf::InEcef(&subject.Normals()[vertex * 3], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
   }
 
   runs.TangentAt = vertices.size();
   for (size_t vertex = 0; vertex * 4 < subject.Tangents().size(); ++vertex) {
     double ecef[3];
-    EcefFromGltf(&subject.Tangents()[vertex * 4], ecef);
+    Gltf::InEcef(&subject.Tangents()[vertex * 4], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
   }
@@ -283,7 +266,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   if (studio.PreviousPositionsM) {
     for (size_t vertex = 0; vertex < studio.PreviousPositionsM->size() / 3; ++vertex) {
       double ecef[3];
-      EcefFromGltf(&(*studio.PreviousPositionsM)[vertex * 3], ecef);
+      Gltf::InEcef(&(*studio.PreviousPositionsM)[vertex * 3], ecef);
       for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     }
   }
@@ -310,7 +293,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     const double gltfDirection[3] = {declared.Direction[0], declared.Direction[1],
                                      declared.Direction[2]};
     double direction[3];
-    EcefFromGltf(gltfDirection, direction);
+    Gltf::InEcef(gltfDirection, direction);
     const double length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
                                     direction[2] * direction[2]);
     if (!(length > 0)) {
@@ -340,9 +323,9 @@ bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::P
   }
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);
-  EcefFromGltf(eye.Forward, forward);
-  EcefFromGltf(eye.Right, right);
-  EcefFromGltf(eye.Up, up);
+  Gltf::InEcef(eye.Forward, forward);
+  Gltf::InEcef(eye.Right, right);
+  Gltf::InEcef(eye.Up, up);
   renderer.SetCameraBasis(position, forward, right, up);
   return true;
 }

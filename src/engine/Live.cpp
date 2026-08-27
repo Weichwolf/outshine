@@ -236,8 +236,8 @@ bool Live::Build(std::string &error) {
                                  std::cos(elevation) * std::cos(bearing)};
     const double upGltf[3] = {0.0, 1.0, 0.0};
     double toSunEngine[3], upEngine[3];
-    EcefFromGltf(toSunGltf, toSunEngine);
-    EcefFromGltf(upGltf, upEngine);
+    Gltf::InEcef(toSunGltf, toSunEngine);
+    Gltf::InEcef(upGltf, upEngine);
     const float toSun[3] = {(float)toSunEngine[0], (float)toSunEngine[1], (float)toSunEngine[2]};
     const float up[3] = {(float)upEngine[0], (float)upEngine[1], (float)upEngine[2]};
 
@@ -639,11 +639,11 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
 
   double ecef[16];
   if (bodyMoved && joined > 0) {
-    PlacedInEcef(body, ecef);
+    Gltf::PlacedInEcef(body, ecef);
     if (!Moved(*Renderer_, parts, 0, joined, ecef, error)) { return false; }
   }
   if (builtMoved && joined < parts) {
-    PlacedInEcef(built, ecef);
+    Gltf::PlacedInEcef(built, ecef);
     if (!Moved(*Renderer_, parts, joined, parts, ecef, error)) { return false; }
   }
   for (int at = 0; at < 16; ++at) {
