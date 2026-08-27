@@ -38,4 +38,17 @@ printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\
   "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
 printf 'the validator, wpt, test262, the render corpus and the claims. A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well; a full verdict is test/run.sh.\n'
+
+# READING STATE.md AFTER A RUN IS A STANDING OBLIGATION, so the gate hands it over rather than
+# trusting me to remember. Step one is `make`, which regenerates STATE.md, so the table below is
+# this run's. What it prints is the WEAKEST measured distance to RAGE and Unreal and every tick
+# whose proof the tree does not hold -- the two places the next item comes from.
+if [ -f STATE.md ]; then
+  printf '\nWeakest against RAGE and Unreal, from this run STATE.md:\n'
+  awk -F'|' '/^\| `/ && $4 ~ /%/ {
+      share = $4; gsub(/[ %]/, "", share)
+      if (share ~ /^[0-9]+$/) { printf "%4d%%  %-14s %s\n", share, $2, $5 }
+    }' STATE.md | sort -n | head -3
+  awk '/^Ticked, but the named proof/ { on = 1 } on && /^- / { print } /^## / { on = 0 }' STATE.md
+fi
 exit $red
