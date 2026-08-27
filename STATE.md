@@ -358,7 +358,7 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**16 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
+**15 of 18** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
