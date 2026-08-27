@@ -92,7 +92,6 @@ struct SubjectPose {
   const float *PrevVerts = nullptr;
   uint32_t VertexCount = 0;
   double Anchor[3] = {0, 0, 0};
-  double PrevAnchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 

@@ -262,12 +262,12 @@ The heaviest files. Headers and sources counted apart.
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1015 | `cpp` | `render/Renderer.cpp` |
+| 1017 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 943 | `h` | `base/spatial/ClusterDag.h` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 813 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| 827 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 694 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **46** | `h` | *the median of 238 header(s)* |
 | **119** | `cpp` | *the median of 158 source(s)* |

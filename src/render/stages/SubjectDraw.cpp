@@ -424,7 +424,11 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   BatchLayout.clear();
   for (int axis = 0; axis < 3; ++axis) {
     Anchor[axis] = mesh.Anchor[axis];
-    PrevAnchor[axis] = mesh.PrevAnchor[axis];
+  }
+  if (ModelStamp_ != Frame_) {
+    const double *const from = ModelStamp_ == 0u ? mesh.Model : Model;
+    for (int part = 0; part < 16; part++) { ModelBefore_[part] = from[part]; }
+    ModelStamp_ = Frame_;
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
   RowsStale_ = true;
@@ -579,14 +583,20 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   for (const DrawBatch &batch : Batches) {
     needed = std::max(needed, (size_t)batch.ModelSlot + 1u);
   }
-  if (!RowsStale_ && Rows_.size() == needed * 16u) { return true; }
+  if (!RowsStale_ && Rows_.size() == needed * 32u) { return true; }
   RowsStale_ = false;
   if (needed == 0) { return true; }
-  Rows_.assign(needed * 16u, 0.0f);
+  Rows_.assign(needed * 32u, 0.0f);
   for (size_t row = 0; row < needed; ++row) {
-    const double *const from =
-        row * 16u + 16u <= Placed_.size() ? Placed_.data() + row * 16u : Model;
-    for (size_t at = 0; at < 16u; ++at) { Rows_[row * 16u + at] = (float)from[at]; }
+    const bool placed = row * 16u + 16u <= Placed_.size();
+    const double *const now = placed ? Placed_.data() + row * 16u : Model;
+    const bool carried = placed ? row < Stamped_.size() && Stamped_[row] != 0u : ModelStamp_ != 0u;
+    const double *const was =
+        !carried ? now : (placed ? Before_.data() + row * 16u : ModelBefore_);
+    for (size_t at = 0; at < 16u; ++at) {
+      Rows_[row * 32u + at] = (float)now[at];
+      Rows_[row * 32u + 16u + at] = (float)was[at];
+    }
   }
   SubjectResidency::Crossing rows[] = {
       {&Resident_.Placed, &Resident_.Held[(size_t)SubjectResidency::Stream::Placements],
@@ -642,7 +652,11 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   }
   for (int axis = 0; axis < 3; ++axis) {
     Anchor[axis] = pose.Anchor[axis];
-    PrevAnchor[axis] = pose.PrevAnchor[axis];
+  }
+  if (ModelStamp_ != Frame_) {
+    const double *const from = ModelStamp_ == 0u ? pose.Model : Model;
+    for (int part = 0; part < 16; part++) { ModelBefore_[part] = from[part]; }
+    ModelStamp_ = Frame_;
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
   RowsStale_ = true;
@@ -728,7 +742,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   const auto place = [this, &ctx, &uniform, &into]() {
     for (int axis = 0; axis < 3; ++axis) {
       uniform[48 + axis] = (float)(Anchor[axis] + ctx.PreViewTranslation[axis]);
-      uniform[52 + axis] = (float)(PrevAnchor[axis] + ctx.PrevPreViewTranslation[axis]);
+      uniform[52 + axis] = (float)(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
     }
     for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
     for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp16[i]; }

@@ -65,6 +65,8 @@ public:
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
       Placed_.clear();
+      Before_.clear();
+      Stamped_.clear();
       return true;
     }
     for (const DrawBatch &batch : Batches) {
@@ -75,15 +77,26 @@ public:
       return false;
     }
     Placed_.resize(rows * 16u, 0.0);
+    Before_.assign(rows * 16u, 0.0);
+    Stamped_.assign(rows, 0u);
     return true;
   }
 
   void MovePlacement(size_t slot, const double model16[16]) {
     if ((slot + 1) * 16u > Placed_.size()) { return; }
+    Before_.resize(Placed_.size(), 0.0);
+    Stamped_.resize(Placed_.size() / 16u, 0u);
+    if (Stamped_[slot] != Frame_) {
+      const double *const carry = Stamped_[slot] == 0u ? model16 : Placed_.data() + slot * 16u;
+      for (size_t at = 0; at < 16u; ++at) { Before_[slot * 16u + at] = carry[at]; }
+      Stamped_[slot] = Frame_;
+    }
     for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model16[at]; }
     ++Moved_;
     RowsStale_ = true;
   }
+
+  void CarryFrame() { ++Frame_; }
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
@@ -97,9 +110,13 @@ public:
     }
     if (models == nullptr || rows == 0) {
       Placed_.clear();
+      Before_.clear();
+      Stamped_.clear();
       return true;
     }
     Placed_.assign(models, models + rows * 16u);
+    Before_ = Placed_;
+    Stamped_.assign(rows, Frame_);
     for (const DrawBatch &batch : Batches) {
       if ((size_t)batch.ModelSlot < rows) { continue; }
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
@@ -231,9 +248,13 @@ private:
   std::vector<SubjectLight> Placed;
   SubjectEnvironment Environment;
   double Anchor[3] = {0, 0, 0};
-  double PrevAnchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   std::vector<double> Placed_;
+  std::vector<double> Before_;
+  std::vector<uint64_t> Stamped_;
+  double ModelBefore_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  uint64_t ModelStamp_ = 0;
+  uint64_t Frame_ = 1;
   std::vector<float> Rows_;
   bool RowsStale_ = false;
   size_t Moved_ = 0;

@@ -4,8 +4,8 @@ struct VOut { float4 pos [[position]]; };
 vertex VOut vsDepth(VIn v [[stage_in]], constant S &s [[buffer(0)]],
                     device const float4x4 *rows [[buffer(1)]], uint iid [[instance_id]]) {
   VOut o;
-  const float4x4 m = float4x4(rows[iid][0], rows[iid][1], rows[iid][2],
-                              rows[iid][3] + float4(s.shift.xyz, 0.0));
+  const float4x4 m = float4x4(rows[2u * iid][0], rows[2u * iid][1], rows[2u * iid][2],
+                              rows[2u * iid][3] + float4(s.shift.xyz, 0.0));
   o.pos = s.lightFromWorld * (m * float4(v.p, 1.0));
   return o;
 }

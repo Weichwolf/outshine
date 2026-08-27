@@ -785,6 +785,8 @@ void Renderer::RenderFrame() {
   if (swapchain != nullptr) { HostSurface_ = Offscreen_; }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Eye_[axis]; }
+  Subjects_.CarryFrame();
+  Glass_.CarryFrame();
 
   MvpCamRel(PrevMvp16_, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
             Jitter_[1], NearM_);

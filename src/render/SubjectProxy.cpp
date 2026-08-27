@@ -431,8 +431,6 @@ bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
   for (int axis = 0; axis < 3; ++axis) {
     mesh.Anchor[axis] = proxy.Anchor()[axis];
-
-    mesh.PrevAnchor[axis] = proxy.Anchor()[axis];
   }
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
@@ -474,7 +472,6 @@ bool Move(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
   pose.VertexCount = (uint32_t)subject.VertexCount();
   for (int axis = 0; axis < 3; ++axis) {
     pose.Anchor[axis] = proxy.Anchor()[axis];
-    pose.PrevAnchor[axis] = proxy.Anchor()[axis];
   }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }
