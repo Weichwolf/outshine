@@ -36,7 +36,7 @@ prints its stations, its widths and its class -- and NOTHING of it is drawn.
 That is this item's first box (*the car drives on the DRAWN surface*) failing at its weakest
 reading: the physics has a road and nobody can see it. Until a carriageway is in the frame, the
 embankment/cutting half of this item cannot be judged from a still, and it is the head of the
-stakeholder's work order (board:1865).
+owner's work order (board:1865).
 
 ## What will be true
 

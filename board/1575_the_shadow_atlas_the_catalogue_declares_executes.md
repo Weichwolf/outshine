@@ -48,4 +48,4 @@ the geometry in the frame.
       (`class LightVisibilityStage {`, src/render/stages/LightVisibilityStage.h:16).
 - [ ] The lit/lee luminance ratio is measured on one hill at low sun, so "the picture reads
       flat" is a number and not an impression.
-- [ ] The sun's cast shadow lands in the driver's still, and the architect sees it.
+- [ ] The sun's cast shadow lands in the driver's still, and the owner sees it.

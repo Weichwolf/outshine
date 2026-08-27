@@ -8,7 +8,7 @@ Tags: measured, picture, driver, lighting
 
 **Benchmark** — Unreal: one opaque lighting path, and a shadow terminator is a bias problem inside it rather than two paths meeting. RAGE: the same. **Both agree** — a surface is lit once.
 
-Measured at bb9472db in the stakeholder's own worktree, chase view, two Munich routes,
+Measured at bb9472db in the owner's own worktree, chase view, two Munich routes,
 `--every --frames 1800 --stills 8`.
 
 ## The step

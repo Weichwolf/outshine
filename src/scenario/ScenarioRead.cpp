@@ -505,6 +505,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Heard.InnerRad = one.Num("innerRad", 0.0);
     made.Heard.OuterRad = one.Num("outerRad", 0.0);
     made.Heard.OuterGain = one.Num("outerGain", 0.0);
+    made.Heard.BlockedGain = one.Num("blockedGain", 1.0);
+    made.Heard.BlockedHz = one.Num("blockedHz", 0.0);
     for (const Xml::Ref unit : one.Children("voice")) {
       Voice makes;
       makes.Id = unit.Attr("id");

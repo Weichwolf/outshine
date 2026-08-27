@@ -172,7 +172,7 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 | `src/` | the library; `src/assets/` its declared data. **The directory IS the dependency tier and the tier is DECLARED** — `LayerReaches` in `test/run.sh`, enforced by `--audit-layers`, which also refuses a CYCLE between two modules inside one tier |
 | `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora (`khronos/validator/`: 263 cases judged as a REFUSAL against Khronos's report); `harness/` their scorers and the board claims; **`outshine/` is ours**. Everything here reaches the library through `include/` and nothing of `src/` — it tests the DOOR |
 | `src/<module>/tests/` | **a low-level case lives inside the module it tests** and compiles as part of it, which is Unreal's `Private/Tests/`. It may reach that module's private headers; nothing else may reach it. A case belongs here when it tests an internal type and outside when it tests the door |
-| `apps/` | the CLIENTS, each a product. **A client is almost no code and its LINE COUNT measures the door**: when a client needs much code the door is the finding, never the client. `apps/driver` is the one integration test and the stakeholder signs it off; `apps/viewer` shows any scenario and becomes one |
+| `apps/` | the CLIENTS, each a product. **A client is almost no code and its LINE COUNT measures the door**: when a client needs much code the door is the finding, never the client. `apps/driver` is the one integration test and its picture is judged on the stills it takes itself; `apps/viewer` shows any scenario and becomes one |
 | `Makefile` | build · test · clean. Writes `liboutshine.a` and `libgenerators.a`, the latter's member list DERIVED from the linker's own closure |
 | `board/` | one flat directory of work items (below) |
 
@@ -544,19 +544,3 @@ classDiagram
 **Diagram colours** — CURRENT: green = correct by current knowledge · amber = uncertain · red =
 provably wrong · grey dashed = absent. TARGET: green = certain · amber = probable. A diagram here
 is an intention, never a description.
-
-## Who else reads this
-
-**TWO reviewers read from OUTSIDE the change**, each against its own brief in `.claude/agents/`,
-each filing findings and neither editing `src/`. I advance, they CORRECT. A finding either files
-becomes work, so it takes nothing on my word — each runs the gate itself and reads the tree, not
-my account of it. Each is started with its brief and NOTHING else; that independence is the only
-thing that makes their findings worth having.
-
-| who | judges | never |
-|---|---|---|
-| **architect** | structure: layering, abstraction, the door, what a scenario can REACH | takes a screenshot, signs off the picture |
-| **stakeholder** | the PICTURE: `apps/driver` as a test drive at Gran Turismo 7's level, on short routes it picks itself | judges architecture |
-
-The asymmetry is standing, not tempo: inside the work I can be wrong and measure my way out
-before the hour is over.

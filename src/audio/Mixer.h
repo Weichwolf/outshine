@@ -16,6 +16,7 @@ struct Heard {
   std::string Id;
   double AtM[3] = {0.0, 0.0, 0.0};
   double VelocityMs[3] = {0.0, 0.0, 0.0};
+  double Blocked = 0.0;
   bool Standing = false;
 };
 

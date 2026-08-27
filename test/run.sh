@@ -1387,7 +1387,7 @@ fi
 # rule, never per edit. kFastGateBoundMs is MEASURED on this machine over the RUN population
 # alone -- the build phases stand BESIDE the bound (board:1735). Re-derived 2026-08-23 over
 # the population the gate ACTUALLY runs in (board:1749): 205 arms including the sanitised
-# hostile-parser layers (board:1743), warm, WITH the hourly reviewer's own worktree gate
+# hostile-parser layers (board:1743), warm, WITH the hourly nudge's own worktree gate
 # building beside it -- the concurrent-nest case this tree mandates every hour, not an idle
 # machine. Measured: 100.1 / 104.1 / 153.9 s of run, worst 153.9 -> the bound is that worst
 # measurement times 1.5 for the machine's own weather = 230000 ms. A cold rebuild does not

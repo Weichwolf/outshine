@@ -23,7 +23,7 @@ namespace {
 // which is what would make this deterministic anywhere, is board:1964's remaining half.
 //
 // The bar is deliberately low and it is the bar that was missing: the drive STARTS, it advances,
-// and it says so. Whether the picture is any good is the stakeholder's judgement and not a number
+// and it says so. Whether the picture is any good is the owner's judgement and not a number
 // this case may invent.
 constexpr int kFrames = 24;
 

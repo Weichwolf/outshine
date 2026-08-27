@@ -7,15 +7,15 @@ Area: client
 
 **Benchmark** — Unreal: an automation test runs from a clean sync. RAGE: builds from a clean branch. **Both agree** — a test that needs a warm machine is a test of the machine.
 
-`apps/driver` is outshine's one integration test and the stakeholder signs the picture off on it.
+`apps/driver` is outshine's one integration test and the picture is judged on the stills the driver takes itself on it.
 It cannot run. `apps/driver/src/f31.scenario` declares `scene.gltf`, and no such file is in the
 tree:
 
     REFUSED scene.gltf: cannot be opened
 
 So the client that CLAUDE.md calls the proof of the door proves nothing from a fresh clone, the
-stakeholder's screenshots come from a fixture only one machine has, and board:1953's own closing
-condition -- *`apps/driver` renders through the rebuilt path and the stakeholder signs it off* --
+owner's screenshots come from a fixture only one machine has, and board:1953's own closing
+condition -- *`apps/driver` renders through the rebuilt path and its picture is judged on the stills it takes itself* --
 cannot be met by anyone reading this repository.
 
 **Both benchmarks ship a runnable scene with the engine.** Unreal's templates open and play on a
@@ -31,4 +31,4 @@ repository nothing to carry.
 
 - [ ] `make && ./build/outshine-driver --headless --frames 60` runs from a clean checkout
 - [ ] the drive it runs is declared in the tree, assets included, and needs no fetch to start
-- [ ] the stakeholder's screenshots come from that drive
+- [ ] the owner's screenshots come from that drive

@@ -4,7 +4,7 @@ Parent: 1573
 Area: apps
 Tags: driver, acceptance, product
 
-# The driver drives at the bar, and the stakeholder signs it off
+# The driver drives at the bar, and its picture is judged on the stills it takes itself
 
 **Benchmark** — Unreal: a producer signs off a build against a look target. RAGE: the same. **Both agree** — the picture is judged by someone who did not build it, on shots they chose.
 
@@ -13,7 +13,7 @@ uses is library, and what the library owes is corpus cases against invariant ora
 judged HERE, on the picture, from what was SEEN by RUNNING the programme.
 
 **The day the driver is a driving simulation at Gran Turismo 7's level in an OSM world and the
-stakeholder accepts it, outshine's integration test has passed.**
+owner accepts it, outshine's integration test has passed.**
 
 ## The ledger -- HEAD bb9472db, own worktree, four runs, 32 stills
 
@@ -67,6 +67,6 @@ car with no shadow on a painted plane with a light-visibility seam across it, un
 
 ## What will be true
 
-- [ ] Every row of the ledger says yes, and the stakeholder writes *ABGENOMMEN* in its report.
+- [ ] Every row of the ledger says yes, and the owner writes *ABGENOMMEN* in its report.
 - [ ] Each still is judged against a PHOTOGRAPH of the place it claims to be, not against its
       own previous version -- a picture that agrees only with itself measures nothing.

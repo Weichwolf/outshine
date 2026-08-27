@@ -11,7 +11,7 @@ Tags: door, driver, measured
 The front door says: **outshine loads a scenario and runs it.** Run exactly that way, it renders
 nothing and says nothing until the third call.
 
-Measured 2026-08-25 at a3ebe3e0, the command the architect's brief prescribes:
+Measured 2026-08-25 at a3ebe3e0, the command the owner's brief prescribes:
 
 ```
 build/outshine-driver --headless --into DIR --assets .../apps-driver-f31

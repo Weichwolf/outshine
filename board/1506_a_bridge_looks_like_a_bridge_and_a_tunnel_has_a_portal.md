@@ -25,4 +25,4 @@ and a wall where no slope fits.
 - [ ] The static plausibility is a number: span against depth, pier spacing against load, and a
       clearance under the deck that a vehicle of the class below could pass.
 - [ ] A still from the seat shows a bridge that reads as a bridge and a portal that reads as a
-      portal, and the architect says so.
+      portal, and the owner says so.

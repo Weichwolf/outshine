@@ -199,6 +199,8 @@ struct Emitter {
   double InnerRad = 0.0;
   double OuterRad = 0.0;
   double OuterGain = 0.0;
+  double BlockedGain = 1.0;
+  double BlockedHz = 0.0;
 };
 
 enum class Makes : uint8_t { Oscillator, Noise, Biquad, Delay, Gain, Shaper, Convolver, Mix };

@@ -153,6 +153,7 @@ struct Mixer::Held {
   std::vector<Sound> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<double> Scratch;
+  std::vector<double> Dulled;
   size_t Voices = 0;
 };
 
@@ -174,6 +175,7 @@ bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, 
   if (!Held_->Routing.Build(buses, declared, error)) { return false; }
   Held_->Declared.assign(declared.begin(), declared.end());
   Held_->State.clear();
+  Held_->Dulled.clear();
   Held_->Voices = 0;
   for (const Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
@@ -192,6 +194,7 @@ bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, 
       }
     }
     Held_->State.emplace_back(one.Graph.size());
+    Held_->Dulled.push_back(0.0);
     Held_->Voices += one.Graph.empty() ? 0 : 1;
   }
   return true;
@@ -219,6 +222,7 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
 
     double gain = Held_->Routing.GainOf(sound.Id);
     double pitch = 1.0;
+    double dullHz = 0.0;
     double leftShare = 0.5, rightShare = 0.5;
     if (standing != nullptr && sound.Heard.Positional) {
       double awayXyz[3], awayM = 0.0;
@@ -234,10 +238,23 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
                                        : 0.0;
       rightShare = 0.5 * (1.0 + along);
       leftShare = 1.0 - rightShare;
+
+      const double blocked = standing->Blocked < 0.0 ? 0.0
+                             : standing->Blocked > 1.0 ? 1.0 : standing->Blocked;
+      gain *= 1.0 + blocked * (sound.Heard.BlockedGain - 1.0);
+      if (sound.Heard.BlockedHz > 0.0 && blocked > 0.0) { dullHz = sound.Heard.BlockedHz; }
     }
     if (!(gain > 0.0)) { continue; }
 
     Voiced(sound, Held_->State[at], pitch, Rate_, Held_->Scratch);
+    if (dullHz > 0.0) {
+      const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / (double)Rate_);
+      double &kept = Held_->Dulled[at];
+      for (double &one : Held_->Scratch) {
+        kept += alpha * (one - kept);
+        one = kept;
+      }
+    }
     for (size_t frame = 0; frame < frames; ++frame) {
       const double one = Held_->Scratch[frame] * gain;
       stereo[frame * 2 + 0] += (float)(one * leftShare);

@@ -34,5 +34,5 @@ the next one at the same price.
 - [x] the own cases were asked ONCE, at the end: `test/outshine` 57 of 57, the drive lays 2.916 km
       and drives it, the three producers are 0 subpixels apart of 16384, and `apps/driver`'s stills
       are BYTE-IDENTICAL to the ones it wrote at 132f07d9^, before this work began
-- [ ] `apps/driver` renders through the rebuilt path and the stakeholder signs it off
+- [ ] `apps/driver` renders through the rebuilt path and its picture is judged on the stills it takes itself
 - [ ] no item outside this parent was closed while it stood

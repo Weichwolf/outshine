@@ -51,7 +51,7 @@ against `Renderer::Executable` counts **ten**:
     irradiance  autoExposure  sun  moon  stars  terrain  buildings  water  models
     ambientOcclusion
 
-That single line answers several of the stakeholder's ledger entries at once and they are ONE
+That single line answers several of the owner's ledger entries at once and they are ONE
 finding, not five: no sun disc in the sky and no moon and no stars (board:1868), an exposure that
 is constant on every route and every frame because `autoExposure` never runs (board:1868 again),
 no terrain, no buildings, no water (board:1936).
@@ -81,7 +81,7 @@ finds them ONLY in `RenderCatalogue.h`. No plan names them, no executor implemen
 `src/render/shaders/` holds 25 files with no `terrain.msl`, `buildings.msl` or `water.msl` among
 them. Three catalogue rows a scenario can select and nothing can run.
 
-That is why the stakeholder's ledger reads *no building on a boulevard walled with them, no tree,
+That is why the owner's ledger reads *no building on a boulevard walled with them, no tree,
 no water where the route crosses the Isar* (board:1936) and *does it cast a contact shadow? NO*
 (board:1575) in the same column: the ground the car stands on is not a stage, so there is nothing
 to receive.

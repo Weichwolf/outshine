@@ -20,7 +20,7 @@ namespace {
 //
 // Why the rule is worth a guard rather than a habit. `State: active` is the ONLY place the board
 // says what has an owner right now. `grep -l '^State: active' board/*.md` is how anyone -- the
-// architect, the stakeholder, the next session after a compaction -- answers "what is being
+// architect, the owner, the next session after a compaction -- answers "what is being
 // worked on". An item that reaches closed without passing through active never appeared in that
 // answer, so a whole piece of work happened where nobody could see it. Two people picking the
 // same item is the failure this prevents, and it costs one commit to avoid.
@@ -29,7 +29,7 @@ namespace {
 // commit's parent. If its header did not say `State: active`, the item skipped the door.
 //
 // A DELETION IS NOT ALWAYS A CLOSURE, and the first version of this claim said it was. Two
-// reviewers filing into the same number block in the same minute renumber one of them, and a
+// sessions filing into the same number block in the same minute renumber one of them, and a
 // renumber is a delete here and an add there -- in two separate commits, so git's own rename
 // detection cannot pair them at any threshold. It fired on `71e5679f` and called a renumber a
 // closure that skipped the door.
@@ -60,7 +60,7 @@ namespace {
 //
 //   RETITLED   the number stays and the title changes -- board:1966, reframed in one commit
 //   RENUMBERED the title stays and the number changes -- board:1932 became 1937 after a number
-//              collision with the stakeholder's worktree
+//              collision with the owner's worktree
 //
 // A rule that watched only the title called the first a closure that skipped `active`; a rule that
 // watched only the number called the second one. A genuine closure refiles NEITHER, so watching
