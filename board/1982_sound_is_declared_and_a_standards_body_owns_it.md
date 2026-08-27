@@ -25,6 +25,22 @@ subsystem whose correctness someone outside this tree certifies.
 - [ ] `KHR_audio_emitter`'s status is READ from Khronos rather than assumed, and the item says
       whether it is ratified, and what the reader must accept
 - [ ] `wpt/webaudio` is fetched and pinned the way `wpt/css` is
+
+**MEASURED, AND THE PATH IS SHORTER THAN IT LOOKS.** WPT's webaudio suite runs `testharness.js`
+against `OfflineAudioContext`, so it needs a JS engine AND the API bound to one -- not a mixer with
+its own interface. This tree already has the engine: `src/base/format/Script` passes **813 of 813**
+test262 cases, and it is there because test262 asked for it. So the distance to a certified audio
+layer is a BINDING -- `OfflineAudioContext`, `AudioNode` and the node set, over the mixer that
+already evaluates those semantics -- rather than an implementation.
+
+That is the same shape as the interface layer's argument and it uses the same machinery: a
+standards body ships the corpus, a script engine we already run executes it, and what we own is
+the DSP underneath.
+
+Until that binding stands, `outshine/audio` proves the FORMULAS at TRUTH grade -- the three Web
+Audio distance models and the classical Doppler ratio, each against the closed form that defines
+it -- and that is agreement with a specification rather than with ourselves, but it is not the
+vendor running its own suite against us.
 - [x] a scenario declares a source as a GRAPH and the engine evaluates it -- oscillator, noise,
       gain, biquad, delay and mix, each reading its inputs by id; convolver and shaper refuse by
       name rather than sounding finished.
