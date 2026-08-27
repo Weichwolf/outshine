@@ -149,10 +149,10 @@ flowchart LR
   sim --> |8| actor_mind
   actor_mind --> |7| actor_path
   engine --> |6| world_generators
+  engine --> |6| scenario
   engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
-  engine --> |5| scenario
   content_gltf --> |5| base_spatial
   world_generators --> |4| base_math
   world_generators --> |4| base_geo
@@ -168,7 +168,7 @@ flowchart LR
   engine --> |3| base_io
   content_shade --> |3| base_math
 ```
-  32 edge(s) drawn, 35 thinner than three includes not drawn
+  32 edge(s) drawn, 36 thinner than three includes not drawn
 
 ## Tiers
 
@@ -249,7 +249,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 - `src/world/generators/Generator.h`
 - `src/world/ground/StructureMesher.h`
 
-41 public data member(s) in a class -- an invariant nobody can hold.
+40 public data member(s) in a class -- an invariant nobody can hold.
 
 | members | header |
 |---|---|

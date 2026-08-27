@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "Assembly.h"
+#include "BusGraph.h"
+#include "Tables.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
 #include "Script.h"
@@ -98,6 +100,8 @@ struct Engine::State {
   std::vector<std::string> Carried;
   std::vector<Scenario> Asleep;
   std::vector<std::string> LayerTrace;
+  std::optional<TableBook> Tabled;
+  Audio::BusGraph Sounding;
   Store Scene;
   Column<Body> Bodies;
   Column<Journey> Drives;
@@ -173,6 +177,9 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
   note(scenario.Bodies.size(), "bodies");
+  note(scenario.Tables.size(), "tables");
+  note(scenario.Buses.size(), "buses");
+  note(scenario.Sounds.size(), "sounds");
   note(scenario.State.size(), "persisted values");
   if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.push_back("a clock"); }
@@ -204,6 +211,13 @@ bool Engine::Assemble() {
                           S_->Error)) {
     return false;
   }
+  auto book = TableBook::Stand(declared.Tables);
+  if (!book) {
+    S_->Error = std::move(book).error();
+    return false;
+  }
+  S_->Tabled.emplace(*std::move(book));
+  if (!S_->Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
 
   return S_->Routes();
 }
