@@ -21,6 +21,9 @@ outshine issues a uniform push per batch, twice per frame.
       proof: outshine/door/ScoreWhatALitSurfaceReads
 ## Which parts of Nanite this tree wants, and the one it does not
 
+Each row below is a PREDICATE further down, or it says where it lives. A table that is only prose
+is a table nobody works.
+
 Nanite is six mechanisms and they are separable. Measured against what stands here:
 
 | mechanism | here | take it? |
@@ -67,7 +70,16 @@ famous design is not refusing the design.
          buffers, but only in the fragment stage (`kSubjectStorageBuffers = 2`, BVH nodes and
          triangles)
       3. `subject.msl` reads `placements[first_instance + instance_id]` and does the multiply --
-         one edit, because all seven vertex arms come from one macro
+         one edit, because all seven vertex arms come from one macro. **And it must settle a
+         collision the two paths hide today**: with placements the anchor shift is added to the
+         model's TRANSLATION; without them it is added to the VERTEX before the model rotates.
+         Those agree only while the model is identity, which it is (`SubjectDraw.h:227`), so the
+         tree has two conventions that happen not to disagree yet:
+
+             R*(p+s)+T = [  8, 101, 3]        the no-placement path
+             R*p+(T+s) = [108,   1, 3]        the placement path
+
+         with R a 90-degree turn. One convention, and the model matrix is where the shift belongs
       4. `SameState` drops `ModelSlot`, and the draw becomes
          `SDL_DrawGPUIndexedPrimitives(pass, IndexCount, batch.Draws, FirstIndex, 0, ModelSlot)`
          -- the signature already carries the instance count and the first instance, both pinned
@@ -76,6 +88,15 @@ famous design is not refusing the design.
       The oracle at the end is board:1574's case unchanged: `two draw 2` becomes `two draw 1`
       while the picture stays identical, and identical is what `linear_channels_differing_between
       _renders` already measures.
+- [ ] CLUSTERS ARE CULLED IN COMPUTE, not on the CPU: frustum, occlusion and the DAG's error
+      bound decide per cluster on the GPU, and the CPU issues no per-cluster work at all. The DAG
+      already carries what the decision needs -- `SelfErr`, `ParentErr` and a bounding sphere per
+      cluster -- so what is missing is the compute stage that reads them
+- [ ] the SUBJECT pass issues ONE indirect draw whose count the GPU wrote, which is the end state
+      the four steps above walk toward
+- [ ] the visibility buffer is DECIDED rather than assumed: writing cluster+triangle and shading
+      later decouples geometry from material, but most of its win is paired with a compute
+      rasteriser this tree refuses. The row says which way and why, or it is not a row
 - [ ] the shadow pass issues ONE indirect draw from the resident instance buffer, not one
       `PushGPUVertexUniformData` per batch (board:1926)
 - [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` stops
