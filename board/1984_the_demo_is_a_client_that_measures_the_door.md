@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1982
 Area: client
 Progress: client
@@ -25,6 +25,18 @@ What it will show, because it cannot be written any other way:
 | that sound to come from the blob | a source bound to an ENTITY (board:1982) |
 | the sound to move with it | spatial mixing (board:1983) |
 
-- [ ] `apps/demo` builds and runs against `include/` alone
+- [x] `apps/demo` builds and runs against `include/` alone -- 194 lines, one translation unit,
+      and it declares its own scenario, mixes its own sound and drives its own frames without
+      naming an outshine header other than the door's.
+      proof: outshine/door/ScoreWhatAHeadlessRunDoes
 - [ ] every line it needs that the door cannot give is a finding filed against the door
-- [ ] its line count stands beside `apps/driver`'s in `STATE.md`
+- [x] its line count stands beside `apps/driver`'s in `STATE.md`. The Clients section counts
+      every program under `apps/` and says what each REACHES -- and the honest column there is
+      whether it LINKS from `liboutshine.a` alone, not whether it compiles, because an
+      include path into `src/` is only one of the two ways past the door.
+
+          | 194 | 1 | apps/demo   | include/ alone
+          | 248 | 1 | apps/driver | include/ alone
+          | 706 | 3 | apps/viewer | does not link from the library alone
+
+      proof: harness/claims/EveryClientIsMeasuredOnThatPage

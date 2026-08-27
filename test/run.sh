@@ -939,6 +939,34 @@ StateReach() {
 # and built an item on it (board:1982). The upstream path in each manifest's `statedAt` is the
 # vendor's own chapter, so the reach here is theirs and not our naming, and the common prefix says
 # in one line how narrow or wide the slice is.
+# A CLIENT'S LINE COUNT IS A MEASUREMENT OF THE DOOR, which is why it is on this page and not in
+# Mass beside `src/`. The two counts mean opposite things: a heavy source under `src/` is a
+# complexity finding about that file, while a heavy client is a finding about the INTERFACE -- the
+# client had to write what the door would not give it. Neither benchmark ships a four-line client
+# (Unreal's samples are content plus a launcher, RAGE's game IS its client), so the number has no
+# outside reference and only its own direction: it must fall.
+StateClients() {
+  printf '\n## Clients\n\nWhat a product costs to write on this engine. A client that needs much code is a\nfinding about the DOOR, never about the client.\n\n| lines | units | client | reaches |\n|---|---|---|---|\n'
+  for clientDir in $(find apps -mindepth 1 -maxdepth 1 -type d | sort); do
+    clientUnits=$(find "$clientDir" -name '*.cpp' -o -name '*.h' | sort)
+    [ -n "$clientUnits" ] || continue
+    clientLines=$(cat $clientUnits | wc -l | tr -d ' ')
+    clientCount=$(printf '%s\n' "$clientUnits" | wc -l | tr -d ' ')
+    # THE HONEST COLUMN IS WHETHER IT LINKS, not whether it compiles. An include path into `src/`
+    # is one way to reach past the door and the LINKER finds the other: a client that needs a
+    # symbol `liboutshine.a` does not export is reaching past it just as surely, and this tree
+    # declares one such client in EXPECT_UNLINKED. Reporting only the include paths would print
+    # "include/ alone" over a standing red.
+    clientReach=$(LayerIncludes "${clientDir#apps/}/src" 2>/dev/null | tr ' ' '\n' | grep -c '^-Isrc' || true)
+    clientStanding='`include/` alone'
+    [ "${clientReach:-0}" = 0 ] || clientStanding="$clientReach path(s) into \`src/\`"
+    for clientRed in $EXPECT_UNLINKED; do
+      case "$clientRed" in "$clientDir"/*) clientStanding="**does not link from the library alone**" ;; esac
+    done
+    printf '| %s | %s | `%s` | %s |\n' "$clientLines" "$clientCount" "$clientDir" "$clientStanding"
+  done
+}
+
 StateCorpora() {
   printf '\n## Corpora\n\nWhat each outside oracle judges, from the upstream path every case manifest records.\nThe count is cases; the reach is chapters. A wide count over a narrow reach is still narrow.\n\n| corpus | cases | all under | chapters |\n|---|---|---|---|\n'
   find test -name manifest.json -not -path 'test/harness/*' -print0 |
@@ -1129,6 +1157,7 @@ if [ "$STATE" = 1 ]; then
   StateAccess
   StateReds
   StateReach
+  StateClients
   StateCorpora
   StateDecided
   exit 0
