@@ -30,7 +30,7 @@
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
-#include "GroundUnderfoot.h"
+#include "GroundSupport.h"
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
 #include "TileGeodesy.h"
@@ -250,7 +250,7 @@ struct Surrounds {
 struct Ticks {
   Sim::DriveProduct Drive;
   std::vector<Physics::Rigid> Freestanding;
-  std::unique_ptr<Sim::GroundUnderfoot> Surface;
+  std::unique_ptr<Sim::GroundSupport> Surface;
   bool Drove = false;
   double OwedS = 0.0;
   size_t Steps = 0;

@@ -11,7 +11,7 @@
 #include "Rig.h"
 #include "HoldLane.h"
 #include "Rigging.h"
-#include "Underfoot.h"
+#include "Support.h"
 
 namespace outshine::Sim {
 
@@ -115,7 +115,7 @@ struct DriveState {
 };
 
 [[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
-                               const Underfoot &beneath, DriveState &drive, double dtS,
+                               const Support &beneath, DriveState &drive, double dtS,
                                const Taken *taken);
 
 }

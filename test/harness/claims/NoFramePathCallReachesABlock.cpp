@@ -26,7 +26,7 @@ namespace {
 //
 // WHAT THIS WALK CANNOT SEE, stated because a guard that hides its blind spot is worse than
 // none: a relocation names a direct call. An INDIRECT call through a vtable carries no symbol,
-// so the walk stops at every virtual boundary. The frame path crosses exactly one -- `Underfoot`
+// so the walk stops at every virtual boundary. The frame path crosses exactly one -- `Support`
 // is virtual so that the sim does not know the world -- and the override the engine installs is
 // therefore named below as a second seed. A seed that matches NOTHING fails this claim by name,
 // because a seed that stopped seeding looks exactly like a path that came up clean.
@@ -37,9 +37,9 @@ struct Seed {
 
 constexpr Seed kSeeds[] = {
     {"Sim9DriveTick", "the physics step: one call integrates one body over one dt"},
-    {"GroundUnderfoot2AtEdd",
+    {"GroundSupport2AtEdd",
      "the one virtual the step crosses -- the ground query the engine installs behind "
-     "`Sim::Underfoot`, which a relocation graph cannot follow from the call site"},
+     "`Sim::Support`, which a relocation graph cannot follow from the call site"},
 };
 
 // Each is forbidden for a reason CLAUDE.md gives, and each is a SUBSTRING of a mangled or C

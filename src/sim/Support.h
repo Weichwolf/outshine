@@ -10,9 +10,9 @@ struct Underneath {
   double Friction = 0.0;
 };
 
-class Underfoot {
+class Support {
 public:
-  virtual ~Underfoot() = default;
+  virtual ~Support() = default;
   [[nodiscard]] virtual Underneath At(double lat, double lon) const = 0;
 };
 

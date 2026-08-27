@@ -50,7 +50,7 @@ constexpr double kRideHeightM = 0.6591;
 // drive that never reported anything. The car starts beyond that mark.
 constexpr double kStartAtM = 60.0;
 
-class Verge final : public outshine::Sim::Underfoot {
+class Verge final : public outshine::Sim::Support {
 public:
   explicit Verge(double friction) : Friction_(friction) {}
 

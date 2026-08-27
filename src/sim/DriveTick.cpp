@@ -35,7 +35,7 @@ double HeadingOf(const outshine::Physics::Rigid &body) {
 }
 }
 
-const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoot &beneath,
+const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support &beneath,
                  DriveState &drive, double dtS, const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;

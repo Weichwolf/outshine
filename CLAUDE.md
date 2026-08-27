@@ -483,14 +483,14 @@ flowchart TD
   Scenario["Scenario XML"] --> Assembly
   ClientCode["client C++"] --> Assembly
   Assembly --> SceneStore["Scene Store — entities · pairs · traits · tags · slots"]
-  SceneStore --> Columns["Columns — vehicle numbers · placements, by handle"]
+  SceneStore --> Columns["Columns — declared numbers · placements, by handle"]
   SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot"]
   SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
   Pathfinding --> Alignment["Alignment — one arc per RUN of same-sign turns; a transition only where curvature reverses"]
-  Alignment --> Line["ReferenceLine — the corridor the wheels stand on"]
+  Alignment --> Line["ReferenceLine — the corridor a contact stands on"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
-  Physics --> Underfoot["UNDERFOOT — what a wheel stands on: height · normal · friction, from the world and never from the corridor"]
-  Underfoot --> WorldC
+  Physics --> Support["SUPPORT — what a CONTACT stands on: height · normal · grip, from the world and never from the corridor"]
+  Support --> WorldC
   SimD --> WorldC["World composition — the scenario declares a sphere, the engine composes its fields"]
   WorldC --> Compositors["Compositors — terrain · ring · cut-fill placement"]
   Line --> Compositors
@@ -503,7 +503,7 @@ flowchart TD
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line,Alignment sure
   class Columns,Compositors,Stages,Entities likely
-  class Underfoot sure
+  class Support sure
 ```
 
 ```mermaid

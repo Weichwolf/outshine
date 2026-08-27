@@ -1,18 +1,18 @@
-#ifndef OUTSHINE_SIM_GROUNDUNDERFOOT_H
-#define OUTSHINE_SIM_GROUNDUNDERFOOT_H
+#ifndef OUTSHINE_SIM_GROUNDSUPPORT_H
+#define OUTSHINE_SIM_GROUNDSUPPORT_H
 
 #include <memory>
 
 #include "ClassStructure.h"
 #include "GroundStack.h"
-#include "Underfoot.h"
+#include "Support.h"
 #include "VegetationTemplates.h"
 
 namespace outshine::Sim {
 
-class GroundUnderfoot final : public Underfoot {
+class GroundSupport final : public Support {
 public:
-  GroundUnderfoot(const Ground::GroundStack &stack, const Ground::VegetationTemplates &templates)
+  GroundSupport(const Ground::GroundStack &stack, const Ground::VegetationTemplates &templates)
       : Stack_(stack), Templates_(templates) {}
 
   [[nodiscard]] Underneath At(double lat, double lon) const override;

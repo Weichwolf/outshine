@@ -1,10 +1,10 @@
-#include "GroundUnderfoot.h"
+#include "GroundSupport.h"
 
 namespace outshine::Sim {
 
-void GroundUnderfoot::Restand() { Held_ = Stack_.Classes().Read(); }
+void GroundSupport::Restand() { Held_ = Stack_.Classes().Read(); }
 
-Underneath GroundUnderfoot::At(double lat, double lon) const {
+Underneath GroundSupport::At(double lat, double lon) const {
   Underneath out;
   const GroundSample sample = Stack_.Ground().Resident(lat, lon);
   if (!sample.TryAslM(&out.HeightAslM)) { return out; }
