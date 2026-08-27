@@ -171,11 +171,25 @@ bool Engine::State::Composes(void) {
   return true;
 }
 
-bool Engine::RenderTo(Extent frame) {
-  if (!S_->Picture.Standing) {
-    S_->Error = "no scenario is standing, so there is nothing to draw";
+// THE PICTURE STANDS WHEN A FRAME IS ASKED FOR. A declaration builds the WORLD with no device --
+// Unreal's LoadMap, RAGE's map stream -- and the canvas is a separate thing a client hands in.
+// Every verb that wants pixels comes through here, so there is one place the picture can begin.
+bool Engine::State::Stood(void) {
+  if (Picture.Standing) { return true; }
+  if (Picture.Frame.WidthPx <= 0 || Picture.Frame.HeightPx <= 0) {
+    Error = "no canvas stands, so there is nowhere to draw -- the client hands one in through "
+            "DrawsInto";
     return false;
   }
+  Core::Declaration wanted = Picture.Shown;
+  wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
+  wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
+  return Core::Live::Open(Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing,
+                          Error);
+}
+
+bool Engine::RenderTo(Extent frame) {
+  if (!S_->Stood()) { return false; }
   if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
       (frame.WidthPx != S_->Picture.Frame.WidthPx || frame.HeightPx != S_->Picture.Frame.HeightPx)) {
     S_->Error = "this engine stands on a " + std::to_string(S_->Picture.Frame.WidthPx) + "x" +
@@ -190,6 +204,7 @@ bool Engine::RenderTo(Extent frame) {
 }
 
 bool Engine::Pixels(std::vector<uint8_t> &rgba) {
+  if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
@@ -200,6 +215,7 @@ bool Engine::Pixels(std::vector<uint8_t> &rgba) {
 }
 
 bool Engine::Capture(std::string_view path) {
+  if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;

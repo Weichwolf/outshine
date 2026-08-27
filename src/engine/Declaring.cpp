@@ -138,12 +138,6 @@ bool Engine::Declare(const Scenario &scenario) {
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return false;
   }
-  if (S_->Picture.Frame.WidthPx <= 0 || S_->Picture.Frame.HeightPx <= 0) {
-    S_->Error =
-        "no canvas stands, so a scenario has nowhere to draw -- the client hands one in through "
-        "DrawsInto before it declares";
-    return false;
-  }
   const Asset *const subject = scenario.Subject();
 
   Core::Declaration declared;
@@ -248,6 +242,16 @@ bool Engine::Declare(const Scenario &scenario) {
   if (S_->Picture.Standing) { wasScrolled = S_->Picture.Standing->Scrolled(); }
   S_->Picture.Standing.reset();
   S_->Picture.Shown = declared;
+  // THE WORLD STANDS WITHOUT A CANVAS. Unreal's LoadMap builds a UWorld with no renderer -- that
+  // is what every commandlet and dedicated server is -- and RAGE streams the map without the draw
+  // side. So a declaration with nowhere to draw is not a refusal: the picture stands when a frame
+  // is asked for, and Stood() is where that happens.
+  if (S_->Picture.Frame.WidthPx <= 0 || S_->Picture.Frame.HeightPx <= 0) {
+    S_->Session.Declared = scenario;
+    S_->Session.Carried = Unacted(scenario);
+    S_->Error.clear();
+    return Generated(scenario);
+  }
   if (!Core::Live::Open(S_->Picture.Device, std::move(declared), &S_->Picture.Face, S_->Picture.Standing, S_->Error)) {
     S_->Picture.Standing.reset();
     return false;

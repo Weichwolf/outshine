@@ -117,6 +117,13 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
   the oracle. That makes audio the SECOND subsystem here whose correctness someone else certifies,
   after the interface. A procedural world settles which of the three ways matters: a generated
   forest, engine or stream cannot ship a wave file, so the graph is the only form that scales
+- **UPDATE · RENDER · AUDIO RUN INDEPENDENTLY, and what passes between them is a SNAPSHOT.** The
+  simulation owns the world and hands the renderer a delta; the renderer draws a frame behind and
+  never reaches back; the mixer reads where sources and the listener stood at the moment it mixes.
+  Two things follow. **Headless is the fast path, not a degraded one**: with no frame to pace
+  against, the simulation runs as fast as it can, which is what a dedicated server and every
+  offline run are — a picture is what makes a run REALTIME. And a subsystem that reads another's
+  live state instead of its snapshot is the defect, because it puts a wait where a handoff belongs
 - **Declarative.** Scenarios declare, the engine behaves. Content = data, engine = verbs; the
   consumer selects from a `constexpr` catalogue and cannot add to it. **A section NOT declared
   decides nothing** — its `Declared` flag is read where the decision is made, and the engine's own
@@ -380,6 +387,32 @@ flowchart TD
   class T2,M2,R2,LV2,SKY2,SUBJ2,CT2,TONE2,OV2,P2,GEO,SUN,MOON,STARS,IR sure
   class AE,AO,TAA2,GLASS2 likely
 ```
+
+## The three threads
+
+```mermaid
+flowchart LR
+  subgraph update["UPDATE — owns the world"]
+    W["bodies · joints · contacts<br/>integration at a FIXED step"]
+  end
+  subgraph render["RENDER — one frame behind"]
+    P["scene proxy<br/>culls · batches · encodes"]
+  end
+  subgraph audio["AUDIO — mixes continuously"]
+    A["source graphs<br/>attenuation · Doppler · occlusion"]
+  end
+  W -->|"delta: what MOVED"| P
+  W -->|"snapshot: where sources and the listener stood"| A
+  P -.->|"never reaches back"| W
+  A -.->|"never reaches back"| W
+
+  classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  class W,P sure
+  class A likely
+```
+
+**Headless runs UPDATE alone and as fast as it can.** A picture is what makes a run realtime.
 
 ## What is public and what is not
 
