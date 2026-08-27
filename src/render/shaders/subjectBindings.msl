@@ -2,6 +2,9 @@
 struct S { float4x4 viewProj; float4x4 prevViewProj; float4x4 model; float4x4 prevModel;
            float4x4 lightFromModel; };
 
+#define SUBJECT_PLACEMENTS device const float4x4 *rows [[buffer(1)]], uint iid [[instance_id]]
+#define SUBJECT_ROW (rows[iid])
+
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
 

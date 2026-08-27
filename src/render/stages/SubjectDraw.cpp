@@ -772,6 +772,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
   SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {Resident_.BvhNodes.Get(), Resident_.BvhTris.Get()};
   SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, occluders, kSubjectStorageBuffers);
+  SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
 
   size_t bound = kPipelines;
   size_t boundSlot = 0;
@@ -832,7 +834,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       place(batch.ModelSlot);
       standing = batch.ModelSlot;
     }
-    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, 0);
+    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0,
+                                 batch.ModelSlot);
   }
 }
 

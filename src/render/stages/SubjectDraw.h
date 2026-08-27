@@ -34,6 +34,7 @@ public:
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *FragmentEntry(SurfaceKind kind, VertexLayout layout);
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
+                                         .VertexStorageBuffers = 1,
                                          .FragmentSamplers = kSubjectImages,
                                          .FragmentUniformBuffers = kSubjectFragmentUniforms,
                                          .FragmentStorageBuffers = kSubjectStorageBuffers};
