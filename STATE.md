@@ -149,11 +149,10 @@ flowchart LR
   sim --> |8| actor_mind
   actor_mind --> |7| actor_path
   engine --> |6| world_generators
-  engine --> |6| scenario
   engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
-  scenario --> |5| base_format
+  engine --> |5| scenario
   content_gltf --> |5| base_spatial
   world_generators --> |4| base_math
   world_generators --> |4| base_geo
@@ -169,7 +168,7 @@ flowchart LR
   engine --> |3| base_io
   content_shade --> |3| base_math
 ```
-  33 edge(s) drawn, 41 thinner than three includes not drawn
+  32 edge(s) drawn, 35 thinner than three includes not drawn
 
 ## Tiers
 
@@ -205,7 +204,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |
 | 955 | `ui/Style.h` |
-| **106** | *the median of 246 unit(s)* |
+| **106** | *the median of 238 unit(s)* |
 
 ## Carpet
 
@@ -233,9 +232,6 @@ Sources no declared suite links, so nothing they hold is proven.
 
   src/audio/BusGraph.cpp
   src/engine/RegionForge.cpp
-  src/scenario/Animation.cpp
-  src/scenario/Mod.cpp
-  src/scenario/Scene.cpp
   src/scenario/Tables.cpp
 
 ## Access
@@ -276,11 +272,8 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/world/data/StarBands.h` |
 | 1 | `src/scene/Register.h` |
 | 1 | `src/scenario/Tables.h` |
-| 1 | `src/scenario/Scene.h` |
 | 1 | `src/scenario/InputMap.h` |
-| 1 | `src/scenario/Fields.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
-| 1 | `src/engine/SceneWeather.h` |
 | 1 | `src/content/gltf/Keyframes.h` |
 | 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
