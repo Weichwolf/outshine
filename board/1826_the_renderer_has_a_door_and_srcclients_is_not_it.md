@@ -6,17 +6,17 @@ Supersedes: 1535, 1543
 
 # The renderer has a door, and `src/engine/` is not it
 
-`src/engine/GltfStudio.{h,cpp}` is the ONLY bridge from geometry to `Renderer`, and it holds
-every convention the renderer requires while publishing none of them: the world is ECEF and a
-mesh carries an anchor near its own geometry (`kStudioAnchorEcefM`, GltfStudio.h:20); a camera
-needs basis AND fov AND near before it sees anything; vertices arrive interleaved at
-layout-dependent offsets; materials, lights and environment go in before placements. Six attempts
-to hand the renderer geometry were made and only two were declarations it could have refused.
+**Half of this closed with board:1972 and the other half stands.** The bridge is
+`src/render/SubjectProxy.{h,cpp}` now, in the tier that may hold it; the anchor is a value the
+engine passes rather than a planet radius wired into a rendering helper; the view left the proxy;
+the proxy has a door and its per-part tables are sized from the subject it stands over; and the
+studio-and-its-scratch double spelling is one value plus one scratch with a stated purpose.
 
-Two shapes underneath say the same thing. `struct Studio {` (GltfStudio.h:26) carries
-`const Gltf::Subject *Geometry = nullptr;` (:27) — ONE pointer, so the picture holds exactly one
-thing and a road and a car cannot stand in it together. And `struct StudioScratch {` (:49)
-beside it is the studio and its scratch as two spellings of one stand-up.
+**What did NOT change: the proxy still holds ONE `const Gltf::Subject *`.** The picture holds
+exactly one thing, so a road and a car cannot stand in it together, and every convention the
+renderer requires is still learned by getting the order right rather than by being refused --
+materials, lights and environment before placements; basis and fov and near before anything is
+seen; vertices interleaved at layout-dependent offsets.
 
 Generated geometry has no entrance at all: whoever has a file builds a subject from it, whoever
 has a generator builds a subject from that, and neither may serialise a GLB to get in.

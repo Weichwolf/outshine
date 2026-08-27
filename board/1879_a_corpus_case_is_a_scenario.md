@@ -10,6 +10,13 @@ not a layout verb, not a parser class — a client declares a scenario and the e
 
 Everything under `test/` may use `include/` and NOTHING of `src/`.
 
+**AND THE BENCHMARK DOES NOT HOLD THAT RULE AS WRITTEN.** Unreal keeps low-level tests INSIDE the
+module they test (`Private/Tests/`), compiled as part of it; only public-API tests stand outside.
+That is the same answer at a different address -- a case that tests an internal type is part of
+that module rather than a client of the door. So the rule may be naming the wrong thing: not what
+a case may REACH, but where it LIVES. Either way the current shape is wrong, because these cases
+neither live inside the module nor go through the door.
+
 **Measured 2026-08-25 at a32c4919: 13 of the 17 declared suites are granted a `-Isrc/...` path
 by `LayerIncludes` (test/run.sh:210-224). Only `harness/wpt/css`, `harness/test262/js`,
 `apps/driver/src` and `apps/viewer/src` reach the library through `include/` alone.** The rule is
