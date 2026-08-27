@@ -139,20 +139,12 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   }
   const std::string source = DepthOnlySource(error);
   if (source.empty()) { return false; }
-  SDL_GPUShaderCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.data());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = "vsDepth";
-  wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
-  wanted.num_samplers = SubjectDraw::DepthOnlyShape.VertexSamplers;
-  wanted.num_uniform_buffers = SubjectDraw::DepthOnlyShape.VertexUniformBuffers;
-  const OwnedShader vertex(device, SDL_CreateGPUShader(device, &wanted));
-  wanted.entrypoint = "fsDepth";
-  wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_samplers = SubjectDraw::DepthOnlyShape.FragmentSamplers;
-  wanted.num_uniform_buffers = SubjectDraw::DepthOnlyShape.FragmentUniformBuffers;
-  const OwnedShader fragment(device, SDL_CreateGPUShader(device, &wanted));
+  const OwnedShader vertex(device, ShaderFrom(device, source, "vsDepth",
+                                              SDL_GPU_SHADERSTAGE_VERTEX,
+                                              SubjectDraw::DepthOnlyShape));
+  const OwnedShader fragment(device, ShaderFrom(device, source, "fsDepth",
+                                                SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                                SubjectDraw::DepthOnlyShape));
   if (!vertex || !fragment) {
     error = std::string("the depth-only shaders were refused: ") + SDL_GetError();
     return false;

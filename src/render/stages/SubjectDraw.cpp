@@ -130,18 +130,7 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
 
 SDL_GPUShader *MakeShader(SDL_GPUDevice *device, std::string_view source, const char *entry,
                           SDL_GPUShaderStage stage) {
-  const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
-  SDL_GPUShaderCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.data());
-  wanted.code_size = source.size();
-  wanted.entrypoint = entry;
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.stage = stage;
-  const DrawShape &shape = SubjectDraw::ShaderShape;
-  wanted.num_samplers = fragment ? shape.FragmentSamplers : shape.VertexSamplers;
-  wanted.num_storage_buffers = fragment ? shape.FragmentStorageBuffers : shape.VertexStorageBuffers;
-  wanted.num_uniform_buffers = fragment ? shape.FragmentUniformBuffers : shape.VertexUniformBuffers;
-  return SDL_CreateGPUShader(device, &wanted);
+  return ShaderFrom(device, source, entry, stage, SubjectDraw::ShaderShape);
 }
 
 }
@@ -584,15 +573,6 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
-// THE INSTANCE BUFFER IS WRITTEN BEFORE THE PASS, NEVER INSIDE IT. SDL_GPU writes a buffer only
-// inside a copy pass, and Encode runs with a render pass already recording -- which is why the
-// placements went through a uniform in the first place. The shift stays in the uniform because
-// BOTH its terms are constant per PASS, so these rows are the raw placements: the anchor never
-// enters them and they survive a camera that moves.
-//
-// ONE SUBJECT IS A TABLE WITH ONE ROW. There is no second path for the unplaced case -- a CPU
-// that branches on how many subjects there are is the term GPU-driven rendering exists to remove,
-// and the branch also left the buffer unallocated, which is a crash rather than a design.
 bool SubjectDraw::HandPlacements(std::string &error) {
   size_t needed = Placed_.size() / 16u;
   for (const DrawBatch &batch : Batches) {

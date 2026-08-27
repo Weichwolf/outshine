@@ -37,21 +37,11 @@ bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTextu
   Temporal = options.Temporal;
   const std::string source = ShaderSource(options, error);
   if (source.empty()) { return false; }
-  SDL_GPUShaderCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
-  wanted.code_size = source.size();
-  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   const DrawShape &shape = options.Temporal ? TemporalShaderShape : ShaderShape;
-  wanted.entrypoint = "vs";
-  wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
-  wanted.num_samplers = shape.VertexSamplers;
-  wanted.num_uniform_buffers = shape.VertexUniformBuffers;
-  const OwnedShader vertex(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
-  wanted.entrypoint = "fs";
-  wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_samplers = shape.FragmentSamplers;
-  wanted.num_uniform_buffers = shape.FragmentUniformBuffers;
-  const OwnedShader fragment(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
+  const OwnedShader vertex(gpu.Device, ShaderFrom(gpu.Device, source, "vs",
+                                                 SDL_GPU_SHADERSTAGE_VERTEX, shape));
+  const OwnedShader fragment(gpu.Device, ShaderFrom(gpu.Device, source, "fs",
+                                                   SDL_GPU_SHADERSTAGE_FRAGMENT, shape));
   if (!vertex || !fragment) {
     error = std::string("the display transfer did not compile: ") + SDL_GetError();
     return false;

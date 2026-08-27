@@ -1,7 +1,10 @@
 #ifndef OUTSHINE_RENDER_STAGES_KERNELSHAPE_H
 #define OUTSHINE_RENDER_STAGES_KERNELSHAPE_H
 
+#include <SDL3/SDL_gpu.h>
+
 #include <cstdint>
+#include <string_view>
 
 namespace outshine::Render {
 
@@ -23,6 +26,22 @@ struct DrawShape {
   uint32_t FragmentUniformBuffers = 0;
   uint32_t FragmentStorageBuffers = 0;
 };
+
+[[nodiscard]] inline SDL_GPUShader *ShaderFrom(SDL_GPUDevice *device, std::string_view source,
+                                               const char *entry, SDL_GPUShaderStage stage,
+                                               const DrawShape &shape) {
+  const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
+  SDL_GPUShaderCreateInfo wanted{};
+  wanted.code = reinterpret_cast<const Uint8 *>(source.data());
+  wanted.code_size = source.size();
+  wanted.entrypoint = entry;
+  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
+  wanted.stage = stage;
+  wanted.num_samplers = fragment ? shape.FragmentSamplers : shape.VertexSamplers;
+  wanted.num_storage_buffers = fragment ? shape.FragmentStorageBuffers : shape.VertexStorageBuffers;
+  wanted.num_uniform_buffers = fragment ? shape.FragmentUniformBuffers : shape.VertexUniformBuffers;
+  return SDL_CreateGPUShader(device, &wanted);
+}
 
 }
 
