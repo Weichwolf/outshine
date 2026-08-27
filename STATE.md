@@ -226,7 +226,7 @@ The heaviest files. Headers and sources counted apart.
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 641 | `cpp` | `scenario/ScenarioRead.cpp` |
+| 651 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **45** | `h` | *the median of 239 header(s)* |
 | **119** | `cpp` | *the median of 157 source(s)* |
 

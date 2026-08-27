@@ -605,6 +605,16 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
         return false;
       }
       does.PeakNm = acts.Num("peakNm", 0.0);
+      does.PeakN = acts.Num("peakN", 0.0);
+      does.Turns = does.PeakN == 0.0;
+      does.AxisXyz[0] = acts.Num("axisX", does.Turns ? 0.0 : 0.0);
+      does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
+      does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
+      if (does.PeakNm != 0.0 && does.PeakN != 0.0) {
+        error = "a drive applies a torque about an axis or a force along one, never both, and "
+                "this one declares peakNm and peakN together";
+        return false;
+      }
       does.Ratio = acts.Num("ratio", 1.0);
       does.CircleM = acts.Num("circleM", 0.0);
       made.Driven.push_back(does);

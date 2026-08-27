@@ -254,7 +254,10 @@ enum class Drives : uint8_t { Effort, Motion };
 struct Drive {
   Drives Does = Drives::Effort;
   bool Opposes = false;
+  bool Turns = true;
+  double AxisXyz[3] = {0.0, 1.0, 0.0};
   double PeakNm = 0.0;
+  double PeakN = 0.0;
   double Ratio = 1.0;
   double CircleM = 0.0;
 };
