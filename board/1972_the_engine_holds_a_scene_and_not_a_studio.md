@@ -52,8 +52,10 @@ public vectors named after the file format that happened to fill it.
 - [x] it has a DOOR: thirteen public data members are private behind `Stands`, `Sees`, `Wears`,
       `Emits`, `Places`, `Lit`, `Around`, and two of the five submission-time checks are gone
       because what they forbade cannot be constructed
-- [ ] the proxy stops holding the VIEW: `Eye`, `EyeStandsInside` and `FramedParts` are a camera,
-      and Unreal keeps that in `FViewInfo` rather than in the primitive's proxy
+- [x] the proxy stops holding the VIEW: `Render::View` carries eye, whether the camera stands
+      inside the subject, and how many parts frame it; `Show`, `Surface`, `Place`, `Move` and
+      `Aim` take it beside the proxy. Unreal keeps this in `FViewInfo` and never in a primitive's
+      proxy, and the tree had it spelled TWICE in `Live` -- the declared eye and the resolved one
 - [x] the placement diff is spelled ONCE and then not at all -- the writer states what it moved
 - [x] `Move` stops touching placements: a pose update is vertices, and a placement is not a vertex
 - [x] no type in `src/engine` is named after a content format, and no namespace there names a

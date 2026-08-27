@@ -24,12 +24,6 @@ void SubjectProxy::Stands(const Gltf::Subject &subject, const double anchorEcefM
   Lights_.clear();
 }
 
-void SubjectProxy::Sees(const Gltf::Placement &eye, bool standsInside, size_t framedParts) {
-  Eye_ = eye;
-  StandsInside_ = standsInside;
-  FramedParts_ = framedParts;
-}
-
 bool SubjectProxy::Wears(std::span<const uint32_t> partSlot,
                          std::span<const SubjectMaterial> slots, std::string &error) {
   if (partSlot.size() != PartPlacement_.size()) {
@@ -213,7 +207,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return true;
 }
 
-[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const Gltf::Subject &subject,
+[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const View &view, const Gltf::Subject &subject,
                                  DrawList &list, std::string &error) {
   list.Clear();
   for (size_t part = 0; part < subject.Parts().size(); ++part) {
@@ -223,7 +217,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     item.Order.Viewport = 0;
     item.Order.Layer = Render::ViewLayer::World;
     item.Order.Surface = proxy.Slots()[slot].State();
-    item.Order.DepthFraction = DepthFraction(subject, where, proxy.Eye());
+    item.Order.DepthFraction = DepthFraction(subject, where, view.Eye);
     item.Order.MaterialSlot = slot;
     item.ModelSlot = (uint32_t)part;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
@@ -347,10 +341,12 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
 
 }
 
-bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
-         const double anchorEcefM[3], std::string &error, bool standsInside, size_t framedParts) {
+bool Aim(Renderer &renderer, const Gltf::Subject &subject, const View &view,
+         const double anchorEcefM[3], std::string &error) {
+  const Gltf::Placement &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }
-  if (!standsInside && !ClearsNearPlane(subject, eye, framedParts, standsInside, error)) {
+  if (!view.StandsInside &&
+      !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {
     return false;
   }
   double position[3], forward[3], right[3], up[3];
@@ -362,8 +358,8 @@ bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement
   return true;
 }
 
-bool Surface(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-             std::string &error) {
+bool Surface(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+             SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
     return false;
@@ -376,19 +372,19 @@ bool Surface(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scra
   return true;
 }
 
-bool Show(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-          std::string &error) {
-  return Surface(renderer, proxy, scratch, error) && Place(renderer, proxy, scratch, error);
+bool Show(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+          SubjectScratch &scratch, std::string &error) {
+  return Surface(renderer, proxy, view, scratch, error) &&
+         Place(renderer, proxy, view, scratch, error);
 }
 
-bool Place(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-          std::string &error) {
+bool Place(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+           SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
     return false;
   }
   const Gltf::Subject &subject = *proxy.Subject();
-  const Gltf::Placement &eye = proxy.Eye();
   if (subject.TriangleCount() == 0) {
     error = "the subject carries no triangle, so there is nothing to stand in the proxy";
     return false;
@@ -401,13 +397,13 @@ bool Place(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratc
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, eye, proxy.Anchor(), error, proxy.StandsInside(), proxy.FramedParts())) {
+  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) {
     return false;
   }
 
   {
     const Heap::Tagged inside("draw-list");
-    if (!BuildDrawList(proxy, subject, scratch.Draws, error)) { return false; }
+    if (!BuildDrawList(proxy, view, subject, scratch.Draws, error)) { return false; }
   }
 
   const Heap::Tagged packing("index-run");
@@ -446,8 +442,8 @@ bool Place(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratc
   return true;
 }
 
-bool Move(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-          std::string &error) {
+bool Move(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+          SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
     return false;
@@ -460,8 +456,7 @@ bool Move(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch
             std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, proxy.Eye(), proxy.Anchor(), error, proxy.StandsInside(),
-           proxy.FramedParts())) {
+  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) {
     return false;
   }
 

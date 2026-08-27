@@ -16,10 +16,15 @@ namespace outshine::Render {
 
 class Renderer;
 
+struct View {
+  Gltf::Placement Eye;
+  bool StandsInside = false;
+  size_t FramedParts = 0;
+};
+
 class SubjectProxy {
 public:
   void Stands(const Gltf::Subject &subject, const double anchorEcefM[3]);
-  void Sees(const Gltf::Placement &eye, bool standsInside, size_t framedParts);
   void Posed(const std::vector<double> *previousPositionsM) { Previous_ = previousPositionsM; }
   [[nodiscard]] bool Wears(std::span<const uint32_t> partSlot,
                            std::span<const SubjectMaterial> slots, std::string &error);
@@ -32,9 +37,6 @@ public:
   [[nodiscard]] size_t Parts() const { return PartPlacement_.size(); }
   [[nodiscard]] size_t Placements() const { return Placed_ ? PartPlacement_.size() : 0; }
   [[nodiscard]] const double *Anchor() const { return AnchorEcefM_; }
-  [[nodiscard]] const Gltf::Placement &Eye() const { return Eye_; }
-  [[nodiscard]] bool StandsInside() const { return StandsInside_; }
-  [[nodiscard]] size_t FramedParts() const { return FramedParts_; }
   [[nodiscard]] const std::array<float, 3> &Emitted(size_t part) const {
     return EmittedRadiance_[part];
   }
@@ -50,9 +52,6 @@ public:
 private:
   double AnchorEcefM_[3] = {0.0, 0.0, 0.0};
   const Gltf::Subject *Subject_ = nullptr;
-  Gltf::Placement Eye_;
-  bool StandsInside_ = false;
-  size_t FramedParts_ = 0;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
   std::vector<std::array<double, 16>> PartPlacement_;
@@ -75,21 +74,20 @@ struct SubjectScratch {
   DrawList Draws;
 };
 
-[[nodiscard]] bool Aim(Renderer &renderer, const Gltf::Subject &subject,
-                       const Gltf::Placement &eye, const double anchorEcefM[3], std::string &error,
-                       bool standsInside = false, size_t framedParts = 0);
+[[nodiscard]] bool Aim(Renderer &renderer, const Gltf::Subject &subject, const View &view,
+                       const double anchorEcefM[3], std::string &error);
 
-[[nodiscard]] bool Show(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-                        std::string &error);
+[[nodiscard]] bool Show(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+                        SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Surface(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-                           std::string &error);
+[[nodiscard]] bool Surface(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+                           SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Place(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-                        std::string &error);
+[[nodiscard]] bool Place(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+                         SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Move(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
-                        std::string &error);
+[[nodiscard]] bool Move(Renderer &renderer, const SubjectProxy &proxy, const View &view,
+                        SubjectScratch &scratch, std::string &error);
 
 }
 #endif

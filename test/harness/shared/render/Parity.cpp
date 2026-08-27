@@ -837,11 +837,16 @@ struct Picture {
   std::vector<float> Velocity;
 };
 
+outshine::Render::View MakeView(const Case &subject) {
+  return outshine::Render::View{subject.Eye, false, 0};
+}
+
 [[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
-                           const outshine::Render::SubjectProxy &studio, Picture &out,
+                           const outshine::Render::SubjectProxy &studio,
+                           const outshine::Render::View &view, Picture &out,
                            std::string &error) {
   outshine::Render::SubjectScratch scratch;
-  if (!outshine::Render::Show(renderer, studio, scratch, error)) { return false; }
+  if (!outshine::Render::Show(renderer, studio, view, scratch, error)) { return false; }
 
   for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
 
@@ -930,7 +935,7 @@ void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy 
   using namespace outshine::Test;
   Picture again;
   std::string trouble;
-  const bool twice = Capture(renderer, studio, again, trouble);
+  const bool twice = Capture(renderer, studio, MakeView(subject), again, trouble);
   CHECK(twice, "the same declaration renders a second time in the same process");
   size_t apart = 0;
   int64_t worst = 0;
@@ -950,7 +955,7 @@ void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy 
     Note("first differing channel, at index", (double)firstAt, "index");
     Note("widest disagreement between two renders", (double)worst, "f32 ulps");
     Picture third;
-    if (Capture(renderer, studio, third, trouble) && third.Linear.size() == picture.Linear.size()) {
+    if (Capture(renderer, studio, MakeView(subject), third, trouble) && third.Linear.size() == picture.Linear.size()) {
       size_t stable = 0;
       for (size_t at = 0; at < third.Linear.size(); ++at) {
         if (third.Linear[at] != picture.Linear[at]) { ++stable; }
@@ -1227,7 +1232,6 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Render::Subjec
       outshine::Render::SubjectProxy other = studio;
       const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
       other.Stands(spelling, anchorEcefM);
-      other.Sees(studio.Eye(), studio.StandsInside(), studio.FramedParts());
       other.Around(studio.Environment());
       for (const outshine::PunctualLight &light : studio.Lights()) { other.Lit(light); }
       std::vector<std::array<float, 3>> emitted;
@@ -1242,7 +1246,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Render::Subjec
         (void)other.Emits(part, emitted[part]);
       }
       built = built && other.Wears(surfaces.PartSlot, surfaces.Slots, trouble);
-      built = built && Capture(renderer, other, again, trouble);
+      built = built && Capture(renderer, other, MakeView(subject), again, trouble);
     }
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
     if (!built) {
@@ -1308,7 +1312,6 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
   studio.Stands(subject.Geometry, anchorEcefM);
   if (subject.Animated()) { studio.Posed(&subject.PreviousGeometry.PositionsM()); }
-  studio.Sees(subject.Eye, false, 0);
   for (size_t part = 0; part < subject.Emitted.size(); ++part) {
     (void)studio.Emits(part, subject.Emitted[part]);
   }
@@ -1376,7 +1379,7 @@ void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy 
       continue;
     }
     double measured = 0;
-    if (!RangeAt(studio.Eye(), subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
+    if (!RangeAt(subject.Eye, subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
                  probe["atPx"][(size_t)1].Int(-1), measured, why)) {
       Refused(where + ": " + why);
       metrics.push_back({name + "_range_error_m", std::nan(""), tolerance, "m", Direction::AtMost});
@@ -2045,7 +2048,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
 
   std::string why;
   Picture picture;
-  const bool rendered = Capture(renderer, studio, picture, why);
+  const bool rendered = Capture(renderer, studio, MakeView(subject), picture, why);
   CHECK(rendered, "outshine rendered the subject and both readbacks landed");
   if (!rendered) {
     Refused(why);
@@ -2400,7 +2403,7 @@ bool ConfiguredCase::PoseAt(int frame, std::string &error) {
 
 bool ConfiguredCase::Draw(outshine::Render::Renderer &renderer, std::string &error) {
   const outshine::Render::SubjectProxy studio = MakeStudio(Held_->Subject);
-  if (!outshine::Render::Show(renderer, studio, Held_->Scratch, error)) { return false; }
+  if (!outshine::Render::Show(renderer, studio, MakeView(Held_->Subject), Held_->Scratch, error)) { return false; }
   renderer.RenderFrame();
   return true;
 }

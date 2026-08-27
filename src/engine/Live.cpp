@@ -261,7 +261,7 @@ bool Live::Build(std::string &error) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
-    if (!Stand(error) || !Render::Surface(*Renderer_, Stood_, Scratch_, error) || !Submit(error)) {
+    if (!Stand(error) || !Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error) || !Submit(error)) {
       return false;
     }
   } else {
@@ -359,8 +359,9 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
 bool Live::Look(std::string &error) {
   Gltf::Placement framed;
   if (HaveEye_) {
-    Stood_.Sees(Eye_, true, Stood_.FramedParts());
-    return Render::Aim(*Renderer_, Geometry_, Stood_.Eye(), Stood_.Anchor(), error, true);
+    Looking_.Eye = Eye_;
+    Looking_.StandsInside = true;
+    return Render::Aim(*Renderer_, Geometry_, Looking_, Stood_.Anchor(), error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -389,15 +390,15 @@ bool Live::Look(std::string &error) {
   for (int axis = 0; axis < 3; ++axis) { framed.Right[axis] = basis[axis]; }
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
-  Stood_.Sees(framed, false, Joined_);
-  return Render::Aim(*Renderer_, Geometry_, Stood_.Eye(), Stood_.Anchor(), error, false, Joined_);
+  Looking_ = {framed, false, Joined_};
+  return Render::Aim(*Renderer_, Geometry_, Looking_, Stood_.Anchor(), error);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
   Stood_.Stands(Geometry_, anchorEcefM);
-  Stood_.Sees(HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_);
+  Looking_ = {HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_};
   SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   if (Moves_) { Stood_.Posed(&PreviousPositionsM_); }
@@ -451,9 +452,9 @@ bool Live::Stand(std::string &error) {
   Stood_.Around(environment);
 
   std::string why;
-  Gltf::Placement eye = Stood_.Eye();
+  Gltf::Placement eye = Looking_.Eye;
   const bool declared = !File_.Cameras().empty() && Gltf::DeclaredPlacement(File_, 0, eye, why);
-  Stood_.Sees(eye, Stood_.StandsInside(), Stood_.FramedParts());
+  Looking_.Eye = eye;
   if (Declared_.Fill > 0.0 || !declared) {
 
     double least[3], most[3];
@@ -472,17 +473,17 @@ bool Live::Stand(std::string &error) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }
-    Stood_.Sees(eye, Stood_.StandsInside(), Stood_.FramedParts());
+    Looking_.Eye = eye;
   }
   return true;
 }
 
 bool Live::Submit(std::string &error) {
   if (!Stoodup_) {
-    Stoodup_ = Render::Place(*Renderer_, Stood_, Scratch_, error);
+    Stoodup_ = Render::Place(*Renderer_, Stood_, Looking_, Scratch_, error);
     return Stoodup_;
   }
-  return Render::Move(*Renderer_, Stood_, Scratch_, error);
+  return Render::Move(*Renderer_, Stood_, Looking_, Scratch_, error);
 }
 
 bool Live::Compose(std::string &error) {

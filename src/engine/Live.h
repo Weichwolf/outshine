@@ -106,7 +106,7 @@ public:
 
   void Eye(const Gltf::Placement &from);
 
-  [[nodiscard]] const Gltf::Placement &Aimed() const { return Stood_.Eye(); }
+  [[nodiscard]] const Gltf::Placement &Aimed() const { return Looking_.Eye; }
 
   void FrameItself() {
     HaveEye_ = false;
@@ -190,6 +190,7 @@ private:
   std::vector<double> Weights_;
   SurfaceTable Table_;
   Render::SubjectProxy Stood_;
+  Render::View Looking_;
   Render::SubjectScratch Scratch_;
   std::vector<Laid> Laid_;
   std::vector<std::vector<Ui::Layout::Scrolled>> Scrolled_;
