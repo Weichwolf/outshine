@@ -28,23 +28,28 @@ namespace {
 // value rather than a bug in the comparison.
 constexpr const char *kTriangleBase64 =
     "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAA"
-    "AAAIA/";
+    "AAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/ZmZmP83MzD7NzEw+AACAP83MTD5mZmY/zczMPgAAgD/NzMw+zcxM"
+    "PmZmZj8AAIA/";
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
       "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0,1]}],"
       "\"nodes\":[{\"mesh\":0,\"name\":\"first\"},"
       "{\"mesh\":0,\"name\":\"second\",\"translation\":[2,0,0]}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
+      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,"
+      "\"TEXCOORD_0\":2,\"COLOR_0\":3},\"material\":0}]}],"
       "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.2,0.1,1.0],"
       "\"metallicFactor\":0.25,\"roughnessFactor\":0.75}}],"
       "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
       "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+      "{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
+      "{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],"
       "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+      "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":24},"
+      "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48}],"
+      "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64,") +
       kTriangleBase64 + "\"}]}";
 }
 
@@ -86,8 +91,10 @@ int main(void) {
   std::printf("THE ROUND TRIP GAVE %zu part(s), %zu vertices, %zu indices, %zu surface(s)\n",
               rebuilt.Parts().size(), rebuilt.VertexCount(), rebuilt.Indices().size(),
               rebuilt.Surfaces().size());
-  std::printf("POSITIONS APART %zu   NORMALS APART %zu\n", Apart(read.PositionsM(),
-              rebuilt.PositionsM()), Apart(read.Normals(), rebuilt.Normals()));
+  std::printf("POSITIONS APART %zu   NORMALS APART %zu   UV APART %zu   COLOURS APART %zu\n",
+              Apart(read.PositionsM(), rebuilt.PositionsM()), Apart(read.Normals(),
+              rebuilt.Normals()), Apart(read.Uv(), rebuilt.Uv()),
+              Apart(read.Colours(), rebuilt.Colours()));
 
   CHECK(read.Parts().size() == 2,
         "the fixture stands TWO parts from one mesh under two nodes, so the round trip below "
@@ -111,8 +118,17 @@ int main(void) {
         "arrives as 0.25 through the value, which is the half of the gap table that closed when "
         "the subject began holding the surfaces it was assembled with");
 
+  CHECK(!read.Uv().empty() && Apart(read.Uv(), rebuilt.Uv()) == 0,
+        "and the uv set crosses whole, which the value could only carry once `Texture(part, uv, "
+        "set)` existed on it -- a middle form without a second uv set would drop one silently");
+  CHECK(!read.Colours().empty() && Apart(read.Colours(), rebuilt.Colours()) == 0,
+        "and so do the vertex colours, which glTF states in [0,1] and the assembler REFUSES "
+        "outside it -- so a round trip that mangled them would be refused rather than quietly "
+        "wrong");
+
   Covers("gltf: what the reader makes can be expressed as the door's one geometry value and "
          "rebuilt from it -- parts, placed vertices, generated normals and material rows survive "
-         "the round trip, so the value is complete for what the reader produces");
+         "the round trip -- parts, placed vertices, generated normals, uv sets, vertex colours "
+         "and material rows -- so the value is complete for what the reader produces");
   return Report();
 }

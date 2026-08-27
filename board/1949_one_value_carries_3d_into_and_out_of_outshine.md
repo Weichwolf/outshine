@@ -47,7 +47,7 @@ streams.
 
 | the reader takes it from a file | the builder can hand it in |
 |---|---|
-| positions, normals, uv0, uv1, tangents, colours, indices | yes |
+| positions, normals, uv0, uv1, tangents, colours, indices | yes -- and PROVEN by the round trip for positions, normals, uv0 and colours |
 | a per-part material INDEX | yes -- an int into a table that does not exist without a file |
 | **the materials themselves** -- base colour, metallic, roughness, emissive, alpha mode, double-sided, every texture slot, and the nine `KHR_materials_*` the reader honours | **no** |
 | **punctual lights** (`KHR_lights_punctual`) | **no** |
@@ -138,8 +138,10 @@ always the wrong repair; so was rewriting 440 lines to find out whether the valu
 the reader makes. A round trip ASKS: read, express, rebuild, and anything the middle form cannot
 carry shows up as a difference rather than as an argument about which fields ought to be there.
 
-What it does not yet cover, and the fixture says so by not carrying them: uv sets, colours,
-supplied tangents, skins, morph targets. Each is a line in the fixture away from being asked.
+The fixture carries POSITION, NORMAL, TEXCOORD_0 and COLOR_0 across two nodes, and every one
+survives: positions, normals, uv and colours all ZERO apart. What it does not yet ask about is
+supplied tangents, skins and morph targets -- the three the reader writes through the packed
+surface -- and each is a line in the fixture away.
 
 **WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
 `Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
