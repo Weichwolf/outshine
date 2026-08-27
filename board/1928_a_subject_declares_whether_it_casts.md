@@ -38,3 +38,21 @@ are the same arm, and an empty stage proves nothing about a flag.
       and only one of them writing an atlas -- and the non-casting one reports `frames the
       subject drew shadowed` unchanged from a previous shadowed frame. Negative control:
       `CastsNoShadow()` removed from `RenderFrame`, and the count grows.
+
+**INHERITED FROM board:1922, WHICH CLOSED WITHOUT IT.** `SubjectDraw::Shadowed_` used to be set
+true by `Renderer::EncodeLightVisibility` and set false by nothing, so a per-frame fact outlived
+every frame after it. `Renderer::RenderFrame` now calls `Subjects_.CastsNoShadow()` where it
+clears `Touched_`, and the repair stands on CONSTRUCTION alone -- no case can reach it.
+
+The arm that would prove it needs a subject that DRAWS and does not CAST, and the declaration
+language cannot say that: `Lit.ShadowRadiusM` only turns shadows ON, and a subject with no
+extent is refused before it stands, correctly, because no camera can be derived from it. That
+is exactly what this item adds, so the proof arrives with the feature.
+
+Measured then: with `CastsNoShadow()` removed the door case still passes, because an EMPTY
+declaration draws no batches and the subject stage never encodes -- the count cannot grow
+whether the flag is cleared or not. An empty stage proves nothing about a per-frame flag.
+
+- [ ] a subject that draws and casts no shadow is declarable, and the frame that draws it
+      reports zero shadowed batches -- which is also the negative control for
+      `SubjectDraw::CastsNoShadow()`

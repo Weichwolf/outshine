@@ -2,7 +2,6 @@ Type: issue
 State: open
 Area: test
 Tags: gate, guard
-Depends: 1898
 
 # Every red the gate can produce has a declaration channel, so no failure is nameless
 

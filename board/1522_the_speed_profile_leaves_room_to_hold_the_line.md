@@ -2,7 +2,6 @@ Type: bug
 State: open
 Parent: 1498
 Area: actor/path
-Depends: 1919
 Tags: instrument, measured
 Supersedes: 1825
 

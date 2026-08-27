@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Parent: 1953
-Depends: 1950, 1574
+Depends: 1574
 Area: render
 
 # The renderer holds a proxy the world updates by delta

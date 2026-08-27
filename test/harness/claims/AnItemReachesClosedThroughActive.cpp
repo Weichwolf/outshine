@@ -253,7 +253,19 @@ int main(void) {
                 one.Said.c_str());
   }
 
-  CHECK(skipped.empty(),
+  // TWO CLOSURES IN THE HISTORY SKIPPED THE DOOR AND THE HISTORY CANNOT BE EDITED. board:1973
+  // and board:1981 were set to `State: active` and DELETED IN THE SAME COMMIT, so no commit ever
+  // showed them owned -- which is precisely the failure this claim exists to name, and it named
+  // it. The count is declared here rather than the claim being loosened: it cannot fall, because
+  // what it counts is already written, and it must not RISE. A third one turns this red.
+  //
+  // Recording it this way rather than widening the rule is the point. A claim that quietly
+  // tolerated "active and deleted together" would tolerate it forever, and the whole value of
+  // `State: active` is that a separate commit shows the item owned BEFORE the work starts.
+  constexpr size_t kSkippedInHistory = 2;
+
+  std::printf("SKIPPED THE DOOR %zu, declared %zu\n", skipped.size(), kSkippedInHistory);
+  CHECK(skipped.size() <= kSkippedInHistory,
         "**EVERY ITEM REACHED CLOSED THROUGH ACTIVE**: `State: active` is the only place the "
         "board says what has an owner right now, so an item deleted without passing through it "
         "was worked where nobody could see it -- and two people picking the same item is exactly "

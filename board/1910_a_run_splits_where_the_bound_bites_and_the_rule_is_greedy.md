@@ -2,7 +2,6 @@ Type: issue
 State: open
 Parent: 1499
 Area: actor/path
-Depends: 1919
 Tags: geometry, alignment
 
 # A run that must split, splits by a rule that is argued
