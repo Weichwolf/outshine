@@ -99,21 +99,34 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
       case goes RED on the push claim while the picture stays identical -- which is the whole
       reason the number is measured rather than looked at
 
-- [ ] **STEP 3 NEEDS A MEASUREMENT FIRST, and it is the one that decides the shape.** The draw is
-      `SDL_DrawGPUIndexedPrimitives(pass, count, 1, first, 0, 0)` -- the last argument is
-      `first_instance`. In Vulkan a shader reads `gl_InstanceIndex` WITH the base folded in; in
-      Metal `[[instance_id]]` starts at zero per draw and the base applies to vertex fetch, not
-      to the id. If SDL_GPU on Metal does not surface the base, the shader cannot derive its row
-      from `first_instance + instance_id` and the slot has to arrive another way -- a per-draw
-      uniform holding the base, which still merges batches because the uniform no longer holds a
-      MATRIX. Measure before writing: a shader that reads `placements[instance_id]` with a base
-      of 1 either draws the second row or the first, and that single observation settles it
-- [ ] the shader reads its placement per instance
+- [x] the placement upload rides with the vertex streams under ONE staging discipline.
+      `HandPlacements` took a `deferred` flag and moved into `HandStreams`, ahead of the stream
+      crossing. It had been submitting IMMEDIATELY from `SubjectProxy`, and a pose stages its
+      vertex writes DEFERRED -- an immediate submit in the middle of that batch is a second
+      command buffer over the same staging, which is how `AnimatedCube` first came back with a
+      frozen picture. The `Placed`/`Moved` door keeps its own immediate flush, because a
+      placement that moves without a pose never reaches `HandStreams`.
+      proof: khronos/glTF 444/444, outshine/door 31/31
+      negative control: crossing the rows with `deferred = false` from inside `HandStreams`
+      freezes every animated case's picture while its silhouette stays correct
+- [ ] **THE PREVIOUS PLACEMENT NEEDS A FRAME BOUNDARY THIS TREE DOES NOT HAVE, and that is the
+      finding.** Attempted and rolled back: the row grows to 32 floats -- current transform then
+      previous -- and `MovePlacement` carries the old value across before overwriting, guarded by
+      a per-slot frame stamp so two moves in one frame cannot lose it. The stamp needs a frame to
+      count, `SubjectDraw::CarryFrame()` was put at the end of `Renderer::RenderFrame`, and the
+      corpus said it is not reached on the path the cases take: `khronos/glTF/AnimatedCube` went
+      from PASS to `velocity_pixels_moving = 97468` against a bound of 0, and 97468 px is exactly
+      that case's covered area -- EVERY covered pixel reported motion, which is what a previous
+      transform frozen at the first move looks like. 62 more animated cases went with it.
+      So the item this becomes is not "add a buffer": it is **one place where a frame ends**, and
+      every render path passes through it. Until that exists, `PrevAnchor` and the previous row
+      cannot be anything but the current ones, and today they are -- `SubjectProxy` assigns
+      `PrevAnchor = Anchor` at both sites and `before[i] = model[i]` in `Encode`, so no rigid
+      motion vector exists in this tree at all. That is a standing gap, not a regression, and it
+      is measured rather than asserted: the layout that would hold the answer is written above.
 - [ ] `SameState` drops `ModelSlot` and two identical subjects are ONE draw: board:1574's case
-      reads `two draw 1` while `linear_channels_differing_between_renders` stays at zero
-- [ ] the PREVIOUS placements move into a buffer too, or TAA loses every rigid motion vector.
-      `S::prevMvp` and `S::prevAnc` are pushed per draw today; a per-instance current row without
-      a per-instance previous row ghosts every moving subject, and it would look like a TAA bug
-      rather than a missing buffer
-- [ ] frame time over `apps/driver` before and after, so a slower result is visible rather than
-      assumed away
+      reads `two draw 1` while `linear_channels_differing_between_renders` stays at zero.
+      **Blocked on board:1993** -- see the correction to step 4 above
+- [ ] frame time over `apps/driver` before and after. **Blocked on board:1457**, which owns the
+      distribution: this tree measures no frame time anywhere, so "before and after" has nothing
+      to read. What IS measured for this step is the uniform push count, and it says 1 against 1

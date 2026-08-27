@@ -561,6 +561,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
       {&Resident_.Prev, &Resident_.Held[(size_t)SubjectResidency::Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
        WritesVelocity ? positionBytes : 0u},
   };
+  if (!HandPlacements(deferred, error)) { return false; }
   if (!Resident_.Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
     Resident_.NIdx = 0;
     return false;
@@ -573,7 +574,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
-bool SubjectDraw::HandPlacements(std::string &error) {
+bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   size_t needed = Placed_.size() / 16u;
   for (const DrawBatch &batch : Batches) {
     needed = std::max(needed, (size_t)batch.ModelSlot + 1u);
@@ -591,7 +592,7 @@ bool SubjectDraw::HandPlacements(std::string &error) {
       {&Resident_.Placed, &Resident_.Held[(size_t)SubjectResidency::Stream::Placements],
        SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Rows_.data(),
        (uint32_t)(Rows_.size() * sizeof(float))}};
-  return Resident_.Cross(rows, 1, false, error);
+  return Resident_.Cross(rows, 1, deferred, error);
 }
 
 bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {

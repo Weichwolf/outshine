@@ -60,7 +60,7 @@ public:
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
-  [[nodiscard]] bool HandPlacements(std::string &error);
+  [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {

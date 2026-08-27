@@ -118,7 +118,7 @@ public:
   }
 
   [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
-    return Subjects_.HandPlacements(error) && (!DrawsGlass_ || Glass_.HandPlacements(error));
+    return Subjects_.HandPlacements(false, error) && (!DrawsGlass_ || Glass_.HandPlacements(false, error));
   }
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
