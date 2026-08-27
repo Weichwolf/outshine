@@ -77,17 +77,12 @@ double Live::Framing() const {
 
 bool Live::Build(std::string &error) {
   if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
-    Geometry_ = Gltf::Subject();
-    File_ = Gltf::Document();
+    Held_.Clears();
     Table_ = SurfaceTable();
     ShadowRadiusStoodM_ = 0.0;
     Joined_ = 0;
     Carrying_ = 0;
-    FileStands_ = false;
     Stoodup_ = false;
-    Moves_ = false;
-    Frames_ = 1;
-    At_ = 0;
     PartBounds_.clear();
     if (Renderer_ != nullptr) {
       std::string ignored;
@@ -102,34 +97,20 @@ bool Live::Build(std::string &error) {
               "dereference";
       return false;
     }
-    Geometry_ = *Declared_.Built;
-    ResolveDeclaredSurface(Geometry_, Declared_.Surfacing.front(), Table_);
+    Held_.Carries(*Declared_.Built);
+    ResolveDeclaredSurface(Held_.Geometry(), Declared_.Surfacing.front(), Table_);
   }
   if (!Declared_.Stands.empty()) {
-    if (!FileStands_) {
-    if (!Declared_.Variant.empty()) { Variant_ = Gltf::VariantSelection(Declared_.Variant); }
-    if (!File_.ReadFile(Declared_.Stands)) {
-      error = File_.Error();
-      return false;
-    }
-    AssetReads_ += 1;
-
-    if (!File_.Animations().empty() && Declared_.Animation == AssetAnimation::Play) {
-      std::vector<int> all((size_t)File_.Animations().size());
-      for (size_t at = 0; at < all.size(); ++at) { all[at] = (int)at; }
-      if (!Gltf::Pose::Build(File_, Span<const int>(all.data(), all.size()), Motion_, error)) {
+    if (!Held_.Stands()) {
+      if (!Held_.Reads(Declared_.Stands, Declared_.Variant, Declared_.Animation, Declared_.Fps,
+                       error)) {
         return false;
       }
-      Moves_ = Motion_.EndS() > 0.0;
-
-      Frames_ = Moves_ ? (int)(Motion_.EndS() * Declared_.Fps + 0.5) : 1;
-      if (Frames_ < 1) { Frames_ = 1; }
-    }
-    FileStands_ = true;
+      AssetReads_ += 1;
     }
     if (!Pose(0, error)) { return false; }
-    ResolveSurfaceTable(File_, Geometry_, true, true, Table_);
-    if (!ResolveFileSurface(File_, Geometry_, ColourFrom::Row, ColourCarrier::Texture, Table_,
+    ResolveSurfaceTable(Held_.File(), Held_.Geometry(), true, true, Table_);
+    if (!ResolveFileSurface(Held_.File(), Held_.Geometry(), ColourFrom::Row, ColourCarrier::Texture, Table_,
                             error)) {
       return false;
     }
@@ -145,29 +126,29 @@ bool Live::Build(std::string &error) {
         }
         Table_.Slots.push_back(joining.Slots.front());
       }
-      const size_t before = Geometry_.Parts().size();
-      if (!Geometry_.Append(*Declared_.Built)) {
-        error = Geometry_.Error();
+      const size_t before = Held_.Geometry().Parts().size();
+      if (!Held_.Geometry().Append(*Declared_.Built)) {
+        error = Held_.Geometry().Error();
         return false;
       }
-      Table_.PartSlot.resize(Geometry_.Parts().size(), base);
-      for (size_t part = before; part < Geometry_.Parts().size(); ++part) {
-        const int wanted = Geometry_.Parts()[part].Material;
+      Table_.PartSlot.resize(Held_.Geometry().Parts().size(), base);
+      for (size_t part = before; part < Held_.Geometry().Parts().size(); ++part) {
+        const int wanted = Held_.Geometry().Parts()[part].Material;
         const uint32_t at = wanted > 0 && (size_t)wanted < Declared_.Surfacing.size()
                                 ? (uint32_t)wanted
                                 : 0u;
         Table_.PartSlot[part] = base + at;
       }
-      Joined_ = Geometry_.Parts().size() - Declared_.Built->Parts().size();
+      Joined_ = Held_.Geometry().Parts().size() - Declared_.Built->Parts().size();
     }
   }
 
-  if (Declared_.Built == nullptr) { Joined_ = Geometry_.Parts().size(); }
+  if (Declared_.Built == nullptr) { Joined_ = Held_.Geometry().Parts().size(); }
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (!(ShadowRadiusStoodM_ > 0.0) && Geometry_.TriangleCount() > 0) {
+  if (!(ShadowRadiusStoodM_ > 0.0) && Held_.Geometry().TriangleCount() > 0) {
     double least[3], most[3];
-    Geometry_.BoundsOf(Joined_, least, most);
+    Held_.Geometry().BoundsOf(Joined_, least, most);
     double across = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
       const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
@@ -177,7 +158,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(File_, Moves_, Declared_.DrawsSky,
+  DeclarePlan(Held_.File(), Held_.Moves(), Declared_.DrawsSky,
               ShadowRadiusStoodM_ > 0.0, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
@@ -228,7 +209,7 @@ bool Live::Build(std::string &error) {
   const double right[3] = {1.0, 0.0, 0.0}, up[3] = {0.0, 1.0, 0.0};
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
-  if (Geometry_.TriangleCount() > 0) {
+  if (Held_.Geometry().TriangleCount() > 0) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
@@ -242,22 +223,7 @@ bool Live::Build(std::string &error) {
 }
 
 bool Live::Pose(int frame, std::string &error) {
-  if (Moves_) {
-
-    const bool first = Geometry_.VertexCount() == 0;
-    if (!first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
-    Motion_.At((double)frame / Declared_.Fps, Locals_, Weights_);
-    if (Geometry_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
-                        Span<const double>(Weights_.data(), Weights_.size()),
-                        Variant_)) {
-      if (first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
-      return true;
-    }
-  } else if (Geometry_.Build(File_, Variant_)) {
-    return true;
-  }
-  error = Geometry_.Error();
-  return false;
+  return Held_.Poses(frame, Declared_.Fps, error);
 }
 
 void Live::Eye(const Gltf::Placement &from) {
@@ -268,13 +234,13 @@ void Live::Eye(const Gltf::Placement &from) {
 
 bool Live::PartVolumes(std::string &error) {
   if (!PartBounds_.empty()) { return true; }
-  const size_t parts = Geometry_.Parts().size();
+  const size_t parts = Held_.Geometry().Parts().size();
   if (parts == 0) { return true; }
   PartBounds_.assign(parts, Volume{});
   const auto fold = [this, parts]() {
-    const std::vector<double> &at = Geometry_.PositionsM();
+    const std::vector<double> &at = Held_.Geometry().PositionsM();
     for (size_t part = 0; part < parts; ++part) {
-      const Gltf::Part &one = Geometry_.Parts()[part];
+      const Gltf::Part &one = Held_.Geometry().Parts()[part];
       Volume &held = PartBounds_[part];
       for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
         const double *const from = at.data() + vertex * 3;
@@ -287,12 +253,12 @@ bool Live::PartVolumes(std::string &error) {
     }
   };
   fold();
-  for (int frame = 0; frame < Frames_; ++frame) {
-    if (frame == At_) { continue; }
+  for (int frame = 0; frame < Held_.Frames(); ++frame) {
+    if (frame == Held_.At()) { continue; }
     if (!Pose(frame, error)) { return false; }
     fold();
   }
-  if (Frames_ > 1 && !Pose(At_, error)) { return false; }
+  if (Held_.Frames() > 1 && !Pose(Held_.At(), error)) { return false; }
   return true;
 }
 
@@ -332,7 +298,7 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
-    return Render::Aim(*Renderer_, Geometry_, Looking_, Stood_.Anchor(), error);
+    return Render::Aim(*Renderer_, Held_.Geometry(), Looking_, Stood_.Anchor(), error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -362,20 +328,20 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Looking_ = {framed, false, Joined_};
-  return Render::Aim(*Renderer_, Geometry_, Looking_, Stood_.Anchor(), error);
+  return Render::Aim(*Renderer_, Held_.Geometry(), Looking_, Stood_.Anchor(), error);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
-  Stood_.Stands(Geometry_, anchorEcefM);
+  Stood_.Stands(Held_.Geometry(), anchorEcefM);
   Looking_ = {HaveEye_ ? Eye_ : Gltf::Placement{}, HaveEye_, Joined_};
   SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
-  if (Moves_) { Stood_.Posed(&PreviousPositionsM_); }
+  if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
 
-  for (const Gltf::PlacedLight &placed : Geometry_.Lights()) {
+  for (const Gltf::PlacedLight &placed : Held_.Geometry().Lights()) {
     Stood_.Lit(placed.Light);
   }
   if (Declared_.KeyLux > 0.0) {
@@ -424,22 +390,22 @@ bool Live::Stand(std::string &error) {
 
   std::string why;
   Gltf::Placement eye = Looking_.Eye;
-  const bool declared = !File_.Cameras().empty() && Gltf::DeclaredPlacement(File_, 0, eye, why);
+  const bool declared = !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, eye, why);
   Looking_.Eye = eye;
   if (Declared_.Fill > 0.0 || !declared) {
 
     double least[3], most[3];
-    Geometry_.BoundsOf(Joined_, least, most);
-    for (int frame = 1; frame < Frames_; ++frame) {
+    Held_.Geometry().BoundsOf(Joined_, least, most);
+    for (int frame = 1; frame < Held_.Frames(); ++frame) {
       if (!Pose(frame, error)) { return false; }
       double posedLeast[3], posedMost[3];
-      Geometry_.BoundsOf(Joined_, posedLeast, posedMost);
+      Held_.Geometry().BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
       }
     }
-    if (Frames_ > 1 && !Pose(0, error)) { return false; }
+    if (Held_.Frames() > 1 && !Pose(0, error)) { return false; }
     if (!Gltf::FramingFor(least, most, eye, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
@@ -546,7 +512,7 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
             "stands where the world put it";
     return false;
   }
-  const size_t parts = Geometry_.Parts().size();
+  const size_t parts = Held_.Geometry().Parts().size();
   if (Stood_.Parts() != parts) {
     error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
@@ -594,11 +560,8 @@ bool Live::Restands(std::string stands, std::string variant, AssetAnimation anim
   Declared_.Variant = std::move(variant);
   Declared_.Animation = animation;
   Declared_.Built = nullptr;
-  FileStands_ = false;
   Stoodup_ = false;
-  Moves_ = false;
-  Frames_ = 1;
-  At_ = 0;
+  Held_.Clears();
   return Build(error);
 }
 
@@ -630,17 +593,17 @@ size_t Live::PlanInits_ = 0;
 bool Live::Advance(std::string &error) {
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
 
-  if (Moves_ && Frames_ > 1) {
-    At_ = (At_ + 1) % Frames_;
+  if (Held_.Moves() && Held_.Frames() > 1) {
+    Held_.Advances(Held_.Frames());
     const size_t beforePose = Heap::LiveBytes();
-    if (!Pose(At_, error)) { return false; }
+    if (!Pose(Held_.At(), error)) { return false; }
     const size_t beforeSubmit = Heap::LiveBytes();
     TookPosing_ = took(beforePose);
     if (!Submit(error)) { return false; }
     TookSubmitting_ = took(beforeSubmit);
   }
 
-  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Geometry_.TriangleCount() > 0;
+  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Held_.Geometry().TriangleCount() > 0;
   if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
   if (orbits || !Aimed_) {
     const size_t beforeAim = Heap::LiveBytes();

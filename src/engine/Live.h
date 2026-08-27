@@ -8,6 +8,7 @@
 
 #include <Scenario.h>
 
+#include "Asset.h"
 #include "Document.h"
 #include "SubjectProxy.h"
 #include "Overlay.h"
@@ -134,12 +135,12 @@ public:
   [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
   [[nodiscard]] static size_t PlanInits() { return PlanInits_; }
 
-  [[nodiscard]] const Gltf::Subject &Shown() const { return Geometry_; }
+  [[nodiscard]] const Gltf::Subject &Shown() const { return Held_.Geometry(); }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
-  [[nodiscard]] int At() const { return At_; }
-  [[nodiscard]] int Frames() const { return Frames_; }
+  [[nodiscard]] int At() const { return Held_.At(); }
+  [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:
   Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font);
@@ -159,9 +160,6 @@ private:
   Declaration Declared_;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::RenderPlan> Plan_;
-  Gltf::Document File_;
-  Gltf::Subject Geometry_;
-  std::vector<double> PreviousPositionsM_;
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
@@ -174,22 +172,15 @@ private:
   };
   std::vector<Volume> PartBounds_;
   [[nodiscard]] bool PartVolumes(std::string &error);
-  Gltf::Pose Motion_;
-  Gltf::VariantSelection Variant_;
-  std::vector<Gltf::Transform> Locals_;
-  std::vector<double> Weights_;
   SurfaceTable Table_;
+  Asset Held_;
   Render::SubjectProxy Stood_;
   Render::View Looking_;
   Render::SubjectScratch Scratch_;
-  bool Moves_ = false;
-  bool FileStands_ = false;
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;
   size_t Carrying_ = 0;
-  int Frames_ = 1;
-  int At_ = 0;
 
   double Around_ = 0.0;
 };

@@ -30,10 +30,12 @@ share a lifetime and a reason to change, and these four share neither.
       surface -- went with it. `Live` keeps three one-line delegations and none of the state.
       `Wheeled` returns whether the scroll moved instead of recomposing itself, so the scroll
       state and the composition are two steps rather than a call back into the owner
-- [ ] the posed asset is its own type: the document, the subject, the animation cursor and the
-      variant selection -- `Frames_`/`At_` are a cursor over a file, not engine state
-- [ ] the sky's three fields reach the renderer through its own door rather than being kept here
-      to be re-pushed
+- [x] the posed asset is its own type: `Core::Asset` in `src/engine/Asset.{h,cpp}` holds the
+      document, the built subject, the animation, the variant selection, the previous pose and
+      the cursor over it, and answers `Reads`, `Poses`, `Clears`, `Advances`. Eleven members
+      leave `Live`
+- [x] the sky's three fields reach the renderer through its own door: `Renderer::SetSkyEye` and
+      `SkyStage::Eye`/`Stands`, so nothing is mirrored engine-side to be replayed
 - [ ] what remains of `Live` coordinates those and holds the submission
 - [ ] proof: khronos/glTF/WaterBottle and khronos/glTF/BoxAnimated stay green through every move,
       and `--audit-layers` stays green

@@ -144,13 +144,13 @@ flowchart LR
   world_generators --> |12| base_spatial
   sim --> |12| world_ground
   engine --> |11| ui
+  engine --> |10| content_gltf
   world_ground --> |9| world_data
   sim --> |8| actor_mind
   actor_mind --> |7| actor_path
   engine --> |6| world_generators
   engine --> |6| scenario
   engine --> |6| render
-  engine --> |6| content_gltf
   sim --> |5| base_spatial
   sim --> |5| actor_body
   scenario --> |5| base_format
@@ -205,7 +205,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |
 | 955 | `ui/Style.h` |
-| **107** | *the median of 245 unit(s)* |
+| **106** | *the median of 246 unit(s)* |
 
 ## Carpet
 
