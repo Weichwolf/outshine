@@ -124,10 +124,6 @@ public:
     return Compose(error);
   }
 
-  static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
-  static size_t AssetReads_;
-  static size_t PlanInits_;
-  Render::PlanSpec PlanDeclared_;
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
   [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }
@@ -143,6 +139,11 @@ public:
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:
+  static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
+  static size_t AssetReads_;
+  static size_t PlanInits_;
+  Render::PlanSpec PlanDeclared_;
+
   Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] double Framing() const;

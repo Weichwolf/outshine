@@ -313,13 +313,12 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 - `src/world/data/WebTileSource.h`
 - `src/world/ground/StructureMesher.h`
 
-40 public data member(s) in a class -- an invariant nobody can hold.
+36 public data member(s) in a class -- an invariant nobody can hold.
 
 | members | header |
 |---|---|
 | 7 | `src/generators/base/ContactMaterial.h` |
 | 5 | `src/generators/draw/TreeMesh.h` |
-| 5 | `src/engine/Live.h` |
 | 3 | `src/generators/draw/TreeFoliage.h` |
 | 3 | `src/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |
@@ -337,6 +336,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/generators/base/FeatureLevel.h` |
 | 1 | `src/generators/base/Cover.h` |
 | 1 | `src/generators/base/Claim.h` |
+| 1 | `src/engine/Live.h` |
 | 1 | `src/content/gltf/Keyframes.h` |
 | 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
