@@ -1,7 +1,6 @@
 Type: bug
 State: open
 Parent: 1953
-Depends: 1963
 Area: client
 
 # The gate runs the integration test it builds

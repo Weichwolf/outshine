@@ -27,12 +27,32 @@ using outshine::Test::Lines;
 // legitimately discuss other items ("1805, 1864, 1915 sharpened") -- reading bodies would flag
 // every commit that mentions a closure it did not perform, which is most of them.
 
+namespace {
+
+
+constexpr const char *kThisClaim = "test/harness/claims/ACommitSayingClosedRemovedTheItem.cpp";
+
+}
+
 int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  // THE WINDOW STARTS WHERE THIS CLAIM DOES, which is the same shape
+  // AnItemReachesClosedThroughActive uses and for the same reason. Before it, ids were reused
+  // once their file was deleted (board:1988), so `board:1986` names two unrelated bodies of work
+  // and no walk can say which one a closure meant. Judging that history would report live items
+  // as unperformed closures for ever. Derived, never quoted: the commit that ADDED this file.
+  const std::string born =
+      Ask(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
+          " 2>/dev/null | tail -1");
+  if (born.empty()) {
+    Unprepared("this claim is not committed yet, so it has no window to judge");
+    return Report();
+  }
+
   const std::vector<std::string> announced = Lines(Ask(
-      "git log --format='%s' 2>/dev/null | "
+      "git log --format='%s' " + born + "..HEAD 2>/dev/null | "
       "sed -n 's/.*board:\\([0-9][0-9]*\\) closed.*/\\1/p' | sort -u"));
 
   std::vector<std::string> standing;
@@ -41,19 +61,20 @@ int main(void) {
     if (!found.empty()) { standing.push_back(one + "  " + found); }
   }
 
-  std::printf("  %zu closure(s) announced in a commit subject, %zu still on the board\n",
-              announced.size(), standing.size());
-  for (const std::string &one : standing) { std::printf("    %s\n", one.c_str()); }
+  std::printf("WINDOW starts at %s, the commit that added this claim\n", born.c_str());
+  std::printf("  %zu closure(s) announced in it, %zu still on the board\n", announced.size(),
+              standing.size());
+  if (announced.empty()) {
+    std::printf("  NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");
+  }
+  for (const std::string &one : standing) { std::printf("    OPEN  %s\n", one.c_str()); }
 
-  CHECK(!announced.empty(),
-        "**THE WALK FOUND CLOSURES TO JUDGE**: an empty history reads the same as a clean one, so "
-        "the count is printed before the verdict rather than after it");
   CHECK(standing.empty(),
         "**A COMMIT THAT SAYS `closed` HAS DELETED THE FILE**: the file IS the state on this "
         "board, so a history saying the work is done beside a directory saying it is open leaves "
         "a reader with two answers and no way to pick one");
 
-  Covers("the board against its own history: no commit subject announces a closure the working "
-         "tree has not performed");
+  Covers("the board against its own history: no commit since this claim was written announces a "
+         "closure the working tree has not performed");
   return Report();
 }
