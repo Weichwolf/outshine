@@ -126,6 +126,21 @@ obstacle measured below. 444 Khronos cases pass with the move.
 That is the shape the merge takes everywhere: a pass the reader owned becomes the PACKER's, and
 both producers get it.
 
+**AND THE VALUE IS PROVEN COMPLETE WITHOUT REWRITING THE READER FIRST.** `Subject::Handed()`
+expresses what the reader produced AS a `Geometry`; assembling that gives a second subject, and the
+two are identical -- 2 parts, 6 vertices, 6 indices, 1 surface, positions and normals ZERO apart,
+and 0.25 metalness arriving as 0.25.
+
+    proof: harness/outshine/content/ScoreWhatARoundTripKeeps
+
+That answers the item's own question the cheap way round. Filling the gap table row by row was
+always the wrong repair; so was rewriting 440 lines to find out whether the value could hold what
+the reader makes. A round trip ASKS: read, express, rebuild, and anything the middle form cannot
+carry shows up as a difference rather than as an argument about which fields ought to be there.
+
+What it does not yet cover, and the fixture says so by not carrying them: uv sets, colours,
+supplied tangents, skins, morph targets. Each is a line in the fixture away from being asked.
+
 **WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
 `Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive
 EMIT into a `Geometry` part is mechanical -- positions, uv sets, colours, normals, tangents,

@@ -2,6 +2,8 @@
 #include "Vec3.h"
 #include "Subject.h"
 
+#include <span>
+
 #include <Geometry.h>
 
 #include <numbers>
@@ -545,7 +547,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   TangentWanted_.clear();
   for (const MaterialRef &declared : document.Materials()) {
     Surfaces_.push_back(declared.Surface);
-    TangentWanted_.push_back(declared.Normal.Texture >= 0 ? 1u : 0u);
+    Surfaces_.back().NeedsTangents = declared.Normal.Texture >= 0;
+    TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
   Undrawn_ = Undrawn();
   bool anyUv = false;
@@ -886,6 +889,52 @@ void Subject::Bound() {
   }
 }
 
+outshine::Geometry Subject::Handed() const {
+  outshine::Geometry out;
+  for (size_t at = 0; at < Surfaces_.size(); ++at) { (void)out.Surface("", Surfaces_[at]); }
+  for (const PlacedLight &lit : Lights_) {
+    double placed[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    for (int axis = 0; axis < 3; ++axis) { placed[12 + axis] = lit.Light.Position[axis]; }
+    (void)out.Lamp(lit.NodeName, lit.Light, placed);
+  }
+  const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
+    std::vector<float> made(many);
+    for (size_t at = 0; at < many; ++at) { made[at] = (float)from[first + at]; }
+    return made;
+  };
+  for (const Part &one : Parts_) {
+    const int made = out.Part(one.NodeName, one.Material);
+    const std::vector<float> positions = floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
+    (void)out.Positions(made, std::span<const float>(positions.data(), positions.size()));
+    if (one.HasNormal && !Normals_.empty()) {
+      const std::vector<float> held = floats(Normals_, one.FirstVertex * 3, one.VertexCount * 3);
+      (void)out.Normals(made, std::span<const float>(held.data(), held.size()));
+    }
+    if (one.HasUv && !Uv_.empty()) {
+      const std::vector<float> held = floats(Uv_, one.FirstVertex * 2, one.VertexCount * 2);
+      (void)out.Texture(made, std::span<const float>(held.data(), held.size()), 0);
+    }
+    if (one.HasUv1 && !Uv1_.empty()) {
+      const std::vector<float> held = floats(Uv1_, one.FirstVertex * 2, one.VertexCount * 2);
+      (void)out.Texture(made, std::span<const float>(held.data(), held.size()), 1);
+    }
+    if (one.HasTangent() && !Tangents_.empty()) {
+      const std::vector<float> held = floats(Tangents_, one.FirstVertex * 4, one.VertexCount * 4);
+      (void)out.Tangents(made, std::span<const float>(held.data(), held.size()));
+    }
+    if (one.HasColour && !Colours_.empty()) {
+      const std::vector<float> held = floats(Colours_, one.FirstVertex * 4, one.VertexCount * 4);
+      (void)out.Colours(made, std::span<const float>(held.data(), held.size()));
+    }
+    std::vector<uint32_t> run(one.IndexCount);
+    for (size_t at = 0; at < one.IndexCount; ++at) {
+      run[at] = (uint32_t)(Indices_[one.FirstIndex + at] - one.FirstVertex);
+    }
+    (void)out.Triangles(made, std::span<const uint32_t>(run.data(), run.size()));
+  }
+  return out;
+}
+
 bool Subject::Assemble(const outshine::Geometry &what) {
   Error_.clear();
   Positions_.clear();
@@ -901,7 +950,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   TangentWanted_.clear();
   for (int surface = 0; surface < what.Surfaces(); ++surface) {
     Surfaces_.push_back(what.SurfaceAt(surface));
-    TangentWanted_.push_back(0u);
+    TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
   for (int lamp = 0; lamp < what.Lamps(); ++lamp) {
     PlacedLight placed;

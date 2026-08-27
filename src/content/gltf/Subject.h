@@ -92,6 +92,8 @@ public:
 
   [[nodiscard]] bool Assemble(const outshine::Geometry &what);
 
+  [[nodiscard]] outshine::Geometry Handed() const;
+
   [[nodiscard]] bool Append(const Subject &other);
 
   [[nodiscard]] const std::string &Error() const { return Error_; }

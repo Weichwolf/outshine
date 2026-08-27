@@ -23,6 +23,8 @@ struct Material {
 
   bool Unlit = false;
 
+  bool NeedsTangents = false;
+
   float SpecularFactor = 1.0f;
   float SpecularColour[3] = {1.0f, 1.0f, 1.0f};
 
