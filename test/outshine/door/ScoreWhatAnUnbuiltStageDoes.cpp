@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "Check.h"
 #include "RenderCatalogue.h"
@@ -8,22 +9,23 @@
 
 namespace {
 
-// A ROW A CONSUMER CAN SELECT AND NOTHING CAN RUN. `RenderCatalogue.h` declares `Stage::Terrain`,
-// `Stage::Buildings` and `Stage::Water` with their resource edges -- each reading `ShadowAtlas`,
-// `IrradianceBuffer` and `CascadeUniform`, so by declaration the ground and the buildings RECEIVE
-// shadow. Measured: those three names appear in `RenderCatalogue.h` and NOWHERE else in `src/`.
-// No executor implements them and `src/render/shaders/` holds no `terrain.msl`, `buildings.msl`
-// or `water.msl` among its twenty-five files.
+// A ROW A CONSUMER CAN SELECT AND NOTHING CAN RUN. The catalogue is the PLAN's vocabulary and it
+// is allowed to run ahead of the device: a row may declare its resource edges before an executor
+// exists. What that costs is a way to find out which rows are still empty, and this case is it.
 //
-// board:1805 called that "a declaration surface with nothing behind it". This case measures what
-// actually happens, because the two possible answers are far apart: a plan that names an unbuilt
-// stage either draws NOTHING and says nothing, or refuses by NAME. It refuses -- `Renderer::Init`
-// walks `Plan_->Order()` and stops at the first stage `ExecutorOf` cannot seat.
+// It does NOT name them. board:1805 counted three by grepping for three names, and board:1990
+// deleted those three, which left this case unable to compile -- a case that fails by failing to
+// BUILD tells a reader nothing about the tree. So every row here is DERIVED: walk the catalogue,
+// keep what `Renderer::Executable` refuses, and the list is whatever it is on the day it runs.
 //
-// So the catalogue offers more than the device can run, and that is not a silent hole. The row is
-// a PROMISE the device checks before it draws a frame, and the case pins both halves: a plan of
-// stages the device seats compiles and stands, and one naming a row nothing implements is refused
-// with the row's own name in the reason.
+// The two possible answers are far apart: a plan naming an unbuilt stage either draws NOTHING and
+// says nothing, or refuses by NAME. It refuses -- `Renderer::Init` walks `Plan_->Order()` and
+// stops at the first stage `ExecutorOf` cannot seat. So the row is a PROMISE the device checks
+// before it draws a frame, and the case pins both halves: a plan of stages the device seats
+// compiles and stands, and one naming a row nothing implements is refused with a row's own name.
+//
+// A derived set that comes back EMPTY makes every check below vacuous, so the case refuses rather
+// than passing on nothing -- the day the last row grows an executor, this case says so out loud.
 constexpr int kFramePx = 32;
 
 [[nodiscard]] outshine::Render::PlanSpec Naming(outshine::Render::Stage extra, bool with) {
@@ -41,23 +43,46 @@ int main(void) {
   using namespace outshine::Render;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const Stage unbuilt[] = {Stage::Terrain, Stage::Buildings, Stage::Water};
-
+  std::vector<Stage> unbuilt;
+  for (size_t at = 0; at < kStageCount; ++at) {
+    if (!Renderer::Executable((Stage)at)) { unbuilt.push_back((Stage)at); }
+  }
+  if (unbuilt.empty()) {
+    Unprepared(
+        "every catalogue row now has an executor, so this case has nothing to measure -- that is "
+        "good news and the case is what must be rewritten, not the tree");
+    return Report();
+  }
+  std::vector<Stage> refusedByTheDevice;
   bool everyRowRefuses = true;
-  bool everyRowCompiles = true;
   for (const Stage row : unbuilt) {
     const bool seated = Renderer::Executable(row);
     auto made = Compiled::Compile(Naming(row, true));
-    everyRowCompiles = everyRowCompiles && made.has_value();
+    if (made) { refusedByTheDevice.push_back(row); }
     std::printf("  %-10s catalogue row, device seats it: %-3s   plan compiles: %s\n",
                 Row(row).Name, seated ? "YES" : "no", made ? "yes" : "no");
     everyRowRefuses = everyRowRefuses && !seated;
   }
 
   CHECK(everyRowRefuses,
-        "the three rows this case is about are still unbuilt -- the day one of them grows an "
-        "executor this check goes RED and the case is what tells you to rewrite it, rather than "
-        "the case quietly passing on a claim that has stopped being true");
+        "every row this case derived is one the device does not seat -- that is how they were "
+        "derived, and the check is here so a `Executable` that starts answering YES to its own "
+        "input is caught rather than trusted");
+  // AN UNBUILT ROW COMES IN TWO KINDS and the old three were all one kind, which is why nobody
+  // saw the split. Naming a row adds it to a minimal plan WITHOUT its producers: for most rows
+  // the graph still closes and the refusal that follows is the DEVICE's, which is the property
+  // this case is about. For a row whose inputs nothing in that plan produces -- `irradiance`
+  // reads what `mediumRadiance` writes -- the GRAPH refuses first and the device is never asked.
+  // Both are correct refusals at different layers, and the device half needs a row of the first
+  // kind, so it is picked from the set that compiled rather than from the front of the list.
+  CHECK(!refusedByTheDevice.empty(),
+        "at least one unbuilt row lands in a plan the graph accepts, so there is something for "
+        "the DEVICE to refuse -- if every unbuilt row were refused by the graph first, this case "
+        "could say nothing about the device at all and would be measuring the compiler twice");
+  if (refusedByTheDevice.empty()) { return Report(); }
+  const Stage anUnbuiltRow = refusedByTheDevice.front();
+  std::printf("THE GRAPH ACCEPTS %zu OF %zu, so the device is asked about %s\n",
+              refusedByTheDevice.size(), unbuilt.size(), Row(anUnbuiltRow).Name);
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared("SDL did not start, so no device can be asked what it seats");
@@ -65,7 +90,7 @@ int main(void) {
   }
 
   Renderer device;
-  auto plain = Compiled::Compile(Naming(Stage::Terrain, false));
+  auto plain = Compiled::Compile(Naming(anUnbuiltRow, false));
   if (!plain) {
     Unprepared(("a plan of seated stages would not compile: " + plain.error()).c_str());
     return Report();
@@ -79,29 +104,27 @@ int main(void) {
     return Report();
   }
 
-  auto withTerrain = Compiled::Compile(Naming(Stage::Terrain, true));
-  if (!withTerrain) {
-    Unprepared(("a plan naming terrain would not compile: " + withTerrain.error()).c_str());
+  auto withUnbuilt = Compiled::Compile(Naming(anUnbuiltRow, true));
+  if (!withUnbuilt) {
+    Unprepared(("a plan naming " + std::string(Row(anUnbuiltRow).Name) + " would not compile: " +
+                withUnbuilt.error())
+                   .c_str());
     return Report();
   }
-  device.Init(kFramePx, kFramePx, *withTerrain);
+  device.Init(kFramePx, kFramePx, *withUnbuilt);
   const bool refused = !device.DeviceUsable();
-  std::printf("A PLAN NAMING terrain     REFUSED: %s\n  %s\n", refused ? "yes" : "NO",
-              device.WhyNot().c_str());
+  std::printf("A PLAN NAMING %-10s REFUSED: %s\n  %s\n", Row(anUnbuiltRow).Name,
+              refused ? "yes" : "NO", device.WhyNot().c_str());
 
-  CHECK(everyRowCompiles,
-        "the PLAN compiles for each of them, so the refusal below is the DEVICE's and not the "
-        "graph's -- the resource edges these rows declare are consistent, and what is missing is "
-        "something to run them");
   CHECK(refused,
         "**A STAGE THE DEVICE CANNOT RUN IS REFUSED BEFORE A FRAME IS DRAWN**: the catalogue "
         "offers more than any one device layer implements, which is what makes a second executor "
         "table possible at all, and a consumer that selects a row nothing seats learns so at "
         "stand-up rather than by looking at an empty picture");
-  // WHICH row it names is not `terrain`, and that is a measurement rather than a disappointment:
-  // asking for terrain pulls `IrradianceBuffer` into the plan, which pulls `Stage::Irradiance`,
-  // which this device does not seat either. board:1805 counted three unbuilt rows by grepping for
-  // three names; the catalogue is walked here and the count is whatever it is.
+  // WHICH row the refusal names need not be the one asked for, and that is a measurement rather than a disappointment:
+  // asking for one row pulls its resource edges into the plan, and those can pull a SECOND
+  // unbuilt row in with them. The refusal is the device's first stop, not the row that was asked
+  // for, and the check below is written to accept any derived row by name.
   size_t unseated = 0;
   std::string named;
   for (size_t at = 0; at < kStageCount; ++at) {
