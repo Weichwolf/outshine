@@ -38,11 +38,26 @@ built on top of it than after.
 - [ ] **THE EVICTION PATH HAS NEVER RUN.** The tile pool's byte budget is 64 MB
       (`TerrainLoader.cpp:28`) and the longest route this tree can drive holds 58, so the loop
       that drops a victim is dead in practice -- disabling it entirely leaves the case above green.
-      The limit is not the budget but the ROUTE: the connected road graph around the declared
-      start refuses a destination much beyond three kilometres ("no chain of ways joins the two
-      ends -- 57780 nodes of 59697 are joined to the start"). So streaming is unproven where it
-      matters, and proving it needs a world wide enough to exceed the budget rather than a smaller
-      budget, which would prove the guard rather than the streaming.
+      The limit is not the budget but the ROUTE -- and **the reason written here was wrong**.
+      It said the connected road graph refuses a destination much beyond three kilometres,
+      citing "no chain of ways joins the two ends -- 57780 nodes of 59697 are joined to the
+      start". That reading could not be tested until board:1987 was fixed, because `--to`
+      replaced the declared coordinate instead of shifting it, so every longer route was
+      driving from the Gulf of Guinea and the refusal it produced said nothing.
+      With the deltas working, the graph ROUTES and the fit refuses:
+
+          --to 0.02,0.0  (4.5 km)  the bend over vertices 40..40 shares its straights with its
+                                   neighbours and what is left carries only 4.769501 m, tighter
+                                   than the 4.901673 m this body can bend to
+          --to 0.05,0.0  (7.5 km)  the bend over vertices 20..20 begins 2.583340 m behind where
+                                   the previous one ends
+
+      So what bounds a route is ALIGNMENT, not the road graph, and the two refusals are
+      different -- a shared straight and an overlap. 4.7695 against 4.9017 m is a margin of
+      13 cm. That is board:1910's and board:1916's ground, and it is what has to give before
+      streaming can be proven at all.
+      Proving streaming still needs a world wide enough to exceed the budget rather than a
+      smaller budget, which would prove the guard rather than the streaming.
       **The headroom has since narrowed and the number is worth carrying**: the coarse level
       above costs about 2.7 MB, so the same two routes now hold 60729536 and 62383200 bytes
       against the 64 MB budget -- 1.6 MB of headroom where there were 5. The ratio the case
