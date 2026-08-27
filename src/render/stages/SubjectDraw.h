@@ -58,6 +58,8 @@ public:
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
+  [[nodiscard]] bool HandPlacements(std::string &error);
+
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
       Placed_.clear();
@@ -78,6 +80,7 @@ public:
     if ((slot + 1) * 16u > Placed_.size()) { return; }
     for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model16[at]; }
     ++Moved_;
+    RowsStale_ = true;
   }
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
@@ -226,6 +229,8 @@ private:
   double PrevAnchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   std::vector<double> Placed_;
+  std::vector<float> Rows_;
+  bool RowsStale_ = false;
   size_t Moved_ = 0;
 
   bool WritesVelocity = false;

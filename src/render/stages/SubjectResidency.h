@@ -15,7 +15,8 @@ namespace outshine::Render {
 
 struct SubjectResidency {
   enum class Stream : uint8_t {
-    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles, Count
+    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles,
+    Placements, Count
   };
 
   struct Crossing {
@@ -38,6 +39,7 @@ struct SubjectResidency {
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
   OwnedBuffer BvhNodes, BvhTris;
+  OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;

@@ -65,7 +65,24 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
       and it will need the same per-instance read at step 3 rather than being left behind.
       proof: khronos/glTF/WaterBottle and BoxAnimated 3/3 each, `picture_p99_delta_code` 1
       against a bound of 6.435, unmoved; gate GREEN in 37s
-- [ ] placements upload as a vertex storage buffer whose rows equal the uniforms they replace
+- [x] placements upload as a vertex storage buffer. `SubjectDraw::HandPlacements` converts
+      `Placed_` to floats and crosses them through `SubjectResidency` -- the same path the BVH
+      streams use -- and `MovePlacement` marks the rows stale so the upload happens once per
+      change rather than once per move. The flush point is `SubjectProxy::Placed`/`Moved`, right
+      after the loop that sets them and BEFORE any pass opens.
+      proof: khronos/glTF/WaterBottle 3/3, `picture_p99_delta_code` at 1 against a bound of
+      6.435, unmoved -- the buffer is written and not yet read, so an unmoved picture is exactly
+      the right result
+
+- [ ] **STEP 3 NEEDS A MEASUREMENT FIRST, and it is the one that decides the shape.** The draw is
+      `SDL_DrawGPUIndexedPrimitives(pass, count, 1, first, 0, 0)` -- the last argument is
+      `first_instance`. In Vulkan a shader reads `gl_InstanceIndex` WITH the base folded in; in
+      Metal `[[instance_id]]` starts at zero per draw and the base applies to vertex fetch, not
+      to the id. If SDL_GPU on Metal does not surface the base, the shader cannot derive its row
+      from `first_instance + instance_id` and the slot has to arrive another way -- a per-draw
+      uniform holding the base, which still merges batches because the uniform no longer holds a
+      MATRIX. Measure before writing: a shader that reads `placements[instance_id]` with a base
+      of 1 either draws the second row or the first, and that single observation settles it
 - [ ] the shader reads its placement per instance
 - [ ] `SameState` drops `ModelSlot` and two identical subjects are ONE draw: board:1574's case
       reads `two draw 1` while `linear_channels_differing_between_renders` stays at zero

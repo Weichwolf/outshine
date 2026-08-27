@@ -117,6 +117,10 @@ public:
     if (DrawsGlass_) { Glass_.MovePlacement(slot, model16); }
   }
 
+  [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
+    return Subjects_.HandPlacements(error) && (!DrawsGlass_ || Glass_.HandPlacements(error));
+  }
+
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
   [[nodiscard]] const double *ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
 

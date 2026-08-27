@@ -58,14 +58,14 @@ bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error) {
     Gltf::PlacedInEcef(proxy.Placement(part).data(), ecef);
     renderer.MoveSubjectPlacement(part, ecef);
   }
-  return true;
+  return renderer.HandSubjectPlacements(error);
 }
 
 bool Moved(Renderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
            std::string &error) {
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
-  return true;
+  return renderer.HandSubjectPlacements(error);
 }
 
 namespace {

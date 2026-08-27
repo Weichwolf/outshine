@@ -583,6 +583,23 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
+// THE INSTANCE BUFFER IS WRITTEN BEFORE THE PASS, NEVER INSIDE IT. SDL_GPU writes a buffer only
+// inside a copy pass, and Encode runs with a render pass already recording -- which is why the
+// placements went through a uniform in the first place. The shift stays in the uniform because it
+// is constant per PASS, so these rows are the raw placements and need no frame context.
+bool SubjectDraw::HandPlacements(std::string &error) {
+  if (!RowsStale_) { return true; }
+  RowsStale_ = false;
+  if (Placed_.empty()) { return true; }
+  Rows_.resize(Placed_.size());
+  for (size_t at = 0; at < Placed_.size(); ++at) { Rows_[at] = (float)Placed_[at]; }
+  SubjectResidency::Crossing rows[] = {
+      {&Resident_.Placed, &Resident_.Held[(size_t)SubjectResidency::Stream::Placements],
+       SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Rows_.data(),
+       (uint32_t)(Rows_.size() * sizeof(float))}};
+  return Resident_.Cross(rows, 1, false, error);
+}
+
 bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
   const auto storage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
