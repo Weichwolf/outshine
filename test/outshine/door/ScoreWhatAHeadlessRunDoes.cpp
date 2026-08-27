@@ -34,7 +34,7 @@ int main(void) {
   falling.Name = "stone";
   falling.MassKg = 1.0;
   falling.Placed = true;
-  falling.AtM[1] = 1000.0;
+  falling.Stands.AtM[1] = 1000.0;
   declared.Bodies.push_back(falling);
 
   if (!engine.Declare(declared) || !engine.Assemble()) {

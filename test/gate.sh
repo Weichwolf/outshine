@@ -37,7 +37,9 @@ printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date 
 printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
   "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
 printf 'the validator, wpt, test262, the render corpus and the claims. A change to SubjectProxy,\n'
-printf 'Live or the renderer wants outshine/door as well; a full verdict is test/run.sh.\n'
+printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
+printf 'because the door cases are the only ones that compile against it. A full verdict is\n'
+printf 'test/run.sh.\n'
 
 # READING STATE.md AFTER A RUN IS A STANDING OBLIGATION, so the gate hands it over rather than
 # trusting me to remember. Step one is `make`, which regenerates STATE.md, so the table below is

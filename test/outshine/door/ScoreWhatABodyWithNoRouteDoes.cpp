@@ -121,7 +121,7 @@ int main(void) {
   crate.InertiaKgM2[1] = 2.0;
   crate.InertiaKgM2[2] = 2.0;
   crate.Placed = true;
-  crate.AtM[1] = kStartUpM;
+  crate.Stands.AtM[1] = kStartUpM;
   stands.Bodies.push_back(crate);
 
   if (!engine.Declare(stands) || !engine.Assemble()) {
