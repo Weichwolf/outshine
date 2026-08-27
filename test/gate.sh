@@ -24,6 +24,7 @@ Step 'khronos static'              sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'            sh test/run.sh khronos/glTF/BoxAnimated
 Step 'the simulation'              sh test/run.sh outshine/physics
 Step 'the content'                 sh test/run.sh outshine/content
+Step 'the mix'                     sh test/run.sh outshine/audio
 Step 'the client drives'           ./build/outshine-driver --headless --offline --frames 8
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"

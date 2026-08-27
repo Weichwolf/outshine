@@ -229,7 +229,7 @@ flowchart LR
   engine --> |3| scene
   content_shade --> |3| base_math
 ```
-  32 edge(s) drawn, 48 thinner than three includes not drawn
+  32 edge(s) drawn, 49 thinner than three includes not drawn
 
 ## Tiers
 
@@ -267,8 +267,8 @@ The heaviest files. Headers and sources counted apart.
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 684 | `cpp` | `scenario/ScenarioRead.cpp` |
-| **45** | `h` | *the median of 237 header(s)* |
-| **119** | `cpp` | *the median of 157 source(s)* |
+| **45** | `h` | *the median of 238 header(s)* |
+| **119** | `cpp` | *the median of 158 source(s)* |
 
 ## Carpet
 
@@ -356,7 +356,7 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**15 of 17** declared suite(s) are granted a `-Isrc` path (board:1879).
+**16 of 18** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
