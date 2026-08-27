@@ -166,11 +166,12 @@ flowchart LR
   render --> |3| render_device
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
+  render_stages --> |3| base_math
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  32 edge(s) drawn, 47 thinner than three includes not drawn
+  33 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 

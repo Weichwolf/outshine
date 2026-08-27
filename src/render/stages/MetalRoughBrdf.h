@@ -9,14 +9,15 @@
 
 #include "ShaderFile.h"
 
+#include "Units.h"
+
 namespace outshine::Render {
 
 constexpr double kDielectricF0 = 0.04;
-constexpr double kBrdfPi = std::numbers::pi;
 
 [[nodiscard]] inline double BrdfDistribution(double nh, double a2) {
   const double denominator = nh * nh * (a2 - 1.0) + 1.0;
-  return a2 / (kBrdfPi * denominator * denominator);
+  return a2 / (kPi * denominator * denominator);
 }
 
 [[nodiscard]] inline double BrdfVisibility(double nl, double nv, double a2) {
@@ -54,7 +55,7 @@ constexpr double kBrdfPi = std::numbers::pi;
   const double dot = fx * fx + fy * fy + fz * fz;
   if (!(dot > 0.0)) { return 0.0; }
   const double w2 = a2 / dot;
-  return a2 * w2 * w2 / kBrdfPi;
+  return a2 * w2 * w2 / kPi;
 }
 
 [[nodiscard]] inline double BrdfAnisotropicVisibility(double nl, double nv, double tv, double bv,
@@ -87,7 +88,7 @@ struct BrdfGeometry {
                                            const std::array<double, 3> &fresnel, double lobe) {
   BrdfTerms terms;
   for (size_t channel = 0; channel < 3; ++channel) {
-    terms.Diffuse[channel] = (1.0 - fresnel[channel]) * diffuseColour[channel] * (1.0 / kBrdfPi);
+    terms.Diffuse[channel] = (1.0 - fresnel[channel]) * diffuseColour[channel] * (1.0 / kPi);
     terms.Specular[channel] = fresnel[channel] * lobe;
   }
   return terms;
@@ -98,7 +99,7 @@ struct BrdfGeometry {
   const double most = std::fmax(std::fmax(fresnel[0], fresnel[1]), fresnel[2]);
   BrdfTerms terms;
   for (size_t channel = 0; channel < 3; ++channel) {
-    terms.Diffuse[channel] = (1.0 - most) * diffuseColour[channel] * (1.0 / kBrdfPi);
+    terms.Diffuse[channel] = (1.0 - most) * diffuseColour[channel] * (1.0 / kPi);
     terms.Specular[channel] = fresnel[channel] * lobe;
   }
   return terms;
@@ -115,7 +116,7 @@ struct BrdfGeometry {
   if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) { return std::string(); }
   char constants[256];
   std::snprintf(constants, sizeof constants,
-                "constant float kPi = %.17g;\n", kBrdfPi);
+                "constant float kPi = %.17g;\n", kPi);
   return std::string(constants) + body;
 }
 

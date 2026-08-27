@@ -10,6 +10,8 @@
 
 #include "ShaderFile.h"
 
+#include "Units.h"
+
 namespace outshine::Render {
 
 inline constexpr int kEnergyQuadrature = 64;
@@ -35,7 +37,7 @@ inline constexpr int kEnergySamples = 2048;
 
     const double cosH = std::sqrt((1.0 - u1) / (1.0 + (a2 - 1.0) * u1));
     const double sinH = std::sqrt(std::fmax(0.0, 1.0 - cosH * cosH));
-    const double phi = 2.0 * kBrdfPi * u2;
+    const double phi = 2.0 * kPi * u2;
     const double hx = sinH * std::cos(phi);
     const double hz = cosH;
 

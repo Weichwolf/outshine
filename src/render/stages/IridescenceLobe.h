@@ -10,6 +10,8 @@
 
 #include "ShaderFile.h"
 
+#include "Units.h"
+
 namespace outshine::Render {
 
 inline constexpr double kOutsideIor = 1.0;
@@ -48,17 +50,17 @@ inline constexpr double kFresnelInverseCeiling = 0.9999;
 
 inline void IridescenceSensitivity(double opdNm, const std::array<double, 3> &shift,
                                    std::array<double, 3> &rgb) {
-  const double phase = 2.0 * kBrdfPi * opdNm * 1.0e-9;
+  const double phase = 2.0 * kPi * opdNm * 1.0e-9;
   std::array<double, 3> xyz{};
   for (int c = 0; c < 3; ++c) {
     xyz[static_cast<std::size_t>(c)] =
         kSensitivityVal[static_cast<std::size_t>(c)] *
-        std::sqrt(2.0 * kBrdfPi * kSensitivityVar[static_cast<std::size_t>(c)]) *
+        std::sqrt(2.0 * kPi * kSensitivityVar[static_cast<std::size_t>(c)]) *
         std::cos(kSensitivityPos[static_cast<std::size_t>(c)] * phase +
                  shift[static_cast<std::size_t>(c)]) *
         std::exp(-phase * phase * kSensitivityVar[static_cast<std::size_t>(c)]);
   }
-  xyz[0] += kSensitivityValX2 * std::sqrt(2.0 * kBrdfPi * kSensitivityVarX2) *
+  xyz[0] += kSensitivityValX2 * std::sqrt(2.0 * kPi * kSensitivityVarX2) *
             std::cos(kSensitivityPosX2 * phase + shift[0]) *
             std::exp(-kSensitivityVarX2 * phase * phase);
   for (double &v : xyz) { v /= kSensitivityNorm; }
@@ -81,8 +83,8 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
 
   const double r12 = IridescenceSchlick(IorToFresnel0(filmIor, outsideIor), cosTheta1);
   const double t121 = 1.0 - r12;
-  const double phi12 = filmIor < outsideIor ? kBrdfPi : 0.0;
-  const double phi21 = kBrdfPi - phi12;
+  const double phi12 = filmIor < outsideIor ? kPi : 0.0;
+  const double phi21 = kPi - phi12;
 
   std::array<double, 3> r23{};
   std::array<double, 3> phi{};
@@ -90,7 +92,7 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
     const std::size_t i = static_cast<std::size_t>(c);
     const double baseIor = Fresnel0ToIor(baseF0[i] + 0.0001);
     r23[i] = IridescenceSchlick(IorToFresnel0(baseIor, filmIor), cosTheta2);
-    phi[i] = phi21 + (baseIor < filmIor ? kBrdfPi : 0.0);
+    phi[i] = phi21 + (baseIor < filmIor ? kPi : 0.0);
   }
 
   const double opd = 2.0 * filmIor * thicknessNm * cosTheta2;

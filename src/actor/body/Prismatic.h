@@ -1,16 +1,11 @@
 #ifndef OUTSHINE_ACTOR_BODY_PRISMATIC_H
 #define OUTSHINE_ACTOR_BODY_PRISMATIC_H
 
+#include <Scenario.h>
+
 namespace outshine::Physics {
 
-struct Prismatic {
-  double ReachM = 0.0;
-  double StiffnessNPerM = 0.0;
-  double DampingNsPerM = 0.0;
-  double TravelM = 0.0;
-  double StopNPerM = 0.0;
-  double LimitN = 0.0;
-};
+using outshine::Prismatic;
 
 struct Reaction {
   bool Touching = false;
