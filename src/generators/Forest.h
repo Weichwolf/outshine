@@ -56,7 +56,7 @@ private:
   enum class Outcome { Placed, NoTemplate, NoSpecies, ZeroDensity, DensityDraw, AboveTreeline,
                        TooSteep, WoodyDraw };
 
-  static Lattice Of(const Region &region);
+  static Lattice Of(const Tile &region);
   [[nodiscard]] Outcome Consider(const Ground &ground, const Lattice &lattice, Cell cell,
                    Body *out) const noexcept;
 

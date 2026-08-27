@@ -9,7 +9,7 @@
 #include "ContactMaterial.h"
 #include "Ground.h"
 #include "OccupancySink.h"
-#include "Region.h"
+#include "Tile.h"
 
 namespace outshine::Generators {
 
@@ -25,8 +25,8 @@ public:
   };
 
   struct Extent {
-    Region Reached;
-    Region Anywhere;
+    Tile Reached;
+    Tile Anywhere;
   };
   RegionPool(const Extent &extent, const Shape &shape);
 

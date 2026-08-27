@@ -173,7 +173,7 @@ private:
   std::vector<Volume> PartBounds_;
   [[nodiscard]] bool PartVolumes(std::string &error);
   SurfaceTable Table_;
-  Asset Held_;
+  Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;
   Render::SubjectScratch Scratch_;

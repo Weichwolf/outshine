@@ -43,7 +43,7 @@ Span<const char *const> Forest::NoteNames() const noexcept {
   return Span<const char *const>(kNames, kNotes);
 }
 
-Forest::Lattice Forest::Of(const Region &region) {
+Forest::Lattice Forest::Of(const Tile &region) {
   Lattice l;
   l.Cols = (int)(region.SpanEm() / kCellM + 0.5);
   l.Rows = (int)(region.SpanNm() / kCellM + 0.5);
@@ -56,7 +56,7 @@ Forest::Lattice Forest::Of(const Region &region) {
 
 Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, Cell cell,
                                  Body *out) const noexcept {
-  const Region &region = ground.Where();
+  const Tile &region = ground.Where();
   const uint64_t index = (uint64_t)cell.J * (uint64_t)lattice.Cols + (uint64_t)cell.I;
   const uint64_t place = region.Seed(index * kStreamsPerCell);
   const double eastM = ((double)cell.I + 0.25 + 0.5 * (double)Unit24(place)) * lattice.Em;

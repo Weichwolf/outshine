@@ -4,7 +4,7 @@
 #include <optional>
 #include <vector>
 
-#include "Region.h"
+#include "Tile.h"
 
 namespace outshine::Generators {
 
@@ -23,11 +23,11 @@ public:
   [[nodiscard]] int Zoom() const { return Zoom_; }
   [[nodiscard]] size_t Count() const { return Offsets_.size(); }
 
-  [[nodiscard]] std::optional<Region> At(size_t i, double lat, double lon) const;
+  [[nodiscard]] std::optional<Tile> At(size_t i, double lat, double lon) const;
 
-  [[nodiscard]] std::optional<Region> Widest(double lat, double lon) const;
+  [[nodiscard]] std::optional<Tile> Widest(double lat, double lon) const;
 
-  [[nodiscard]] Region Broadest() const;
+  [[nodiscard]] Tile Broadest() const;
 
 private:
   struct Offset {

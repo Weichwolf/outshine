@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "GroundSample.h"
-#include "Region.h"
+#include "Tile.h"
 #include "Span.h"
 
 namespace outshine::Generators {
@@ -17,7 +17,7 @@ public:
     GroundSample Height = GroundSample::Waiting();
   };
 
-  static std::shared_ptr<const GroundPatch> Complete(const Region &region, int side,
+  static std::shared_ptr<const GroundPatch> Complete(const Tile &region, int side,
                                                      Span<const Posting> postings);
 
   [[nodiscard]] int Side() const { return Side_; }

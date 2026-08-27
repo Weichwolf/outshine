@@ -9,7 +9,7 @@
 #include "FeatureField.h"
 #include "GroundPatch.h"
 #include "GroundTable.h"
-#include "Region.h"
+#include "Tile.h"
 
 namespace outshine::Generators {
 
@@ -23,9 +23,9 @@ public:
     std::shared_ptr<const GroundTable> Table;
   };
 
-  static std::optional<Ground> Of(const Region &region, const Snapshot &snapshot);
+  static std::optional<Ground> Of(const Tile &region, const Snapshot &snapshot);
 
-  [[nodiscard]] const Region &Where() const noexcept { return Region_; }
+  [[nodiscard]] const Tile &Where() const noexcept { return Region_; }
   [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept {
     return Patch_->HeightAslM(eastM, northM);
   }
@@ -46,9 +46,9 @@ public:
   [[nodiscard]] size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
 private:
-  Ground(const Region &region, const Snapshot &snapshot);
+  Ground(const Tile &region, const Snapshot &snapshot);
 
-  Region Region_;
+  Tile Region_;
   std::shared_ptr<const GroundPatch> Patch_;
   std::shared_ptr<const ClassStructure> Classes_;
   std::shared_ptr<const FeatureField> Features_;

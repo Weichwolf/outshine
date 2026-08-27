@@ -24,7 +24,7 @@ std::shared_ptr<const GroundTable> TableOf(
   return GroundTable::Of(Span<const GroundTable::Row>(table.data(), table.size()));
 }
 
-std::shared_ptr<const FeatureField> FeaturesOver(const Region &region, const Fields &stands) {
+std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Fields &stands) {
   if (stands.Vectors == nullptr || stands.Footprints == nullptr ||
       stands.WaterBodies == nullptr || stands.Ways == nullptr) {
     return nullptr;
@@ -87,7 +87,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Region &region, const Fie
 }
 
 
-Snapped SnapshotOver(const Region &region, const outshine::GroundQuery &heights,
+Snapped SnapshotOver(const Tile &region, const outshine::GroundQuery &heights,
                      const outshine::Ground::ClassField &classes, const Fields &stands,
                      std::shared_ptr<const GroundTable> table, Ground::Snapshot *out) {
   const auto done = [](Snapped how) { return how; };

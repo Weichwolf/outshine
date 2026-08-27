@@ -77,8 +77,6 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
   picks one origin; view, light and every instance transform build against THAT one. A subsystem
   that subtracts its own origin is the defect that costs whoever gets it right, because the next
   one will get it wrong
-- **The world STREAMS by cell, with its content** — ground, structures and actors in and out
-  together. Nothing holds the whole of anything
 - **AN ENGINE KNOWS LAWS AND NO SUBJECTS.** Its vocabulary: **body · joint · degree of freedom ·
   drive · constraint · force · contact · integration**. A vehicle, wheel, tyre, seat, door or
   walker is a SUBJECT — an assembly a scenario builds — and the engine never names one. There is
@@ -103,8 +101,6 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
   here — `FMeshDescription` against `FStaticMeshLODResources` + `FNaniteResources`, with
   `FMeshBatch` a description of a DRAW rather than a third form — and RAGE's `grmGeometry` is the
   cooked form, which is why its file can be mapped rather than parsed
-- **THE INTERFACE IS A DOCUMENT** the scenario names. Markup, style, layout, type and pointer are
-  engine verbs; the panel is CONTENT beside the glTF, never in C++
 - **Declarative.** Scenarios declare, the engine behaves. Content = data, engine = verbs; the
   consumer selects from a `constexpr` catalogue and cannot add to it. **A section NOT declared
   decides nothing** — its `Declared` flag is read where the decision is made, and the engine's own
@@ -120,11 +116,10 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 - **Private is the DEFAULT** and a wider door justifies itself in the item that widened it. A
   public data member is an invariant nobody can hold. Composition usually; inheritance where a
   stable interface carries shared machinery. `--audit-access` refuses when the count moves
-- **A claim checkable at compile time is a `static_assert`, never a case.** Layout, size,
-  alignment, trait, catalogue completeness, an enum's exhaustiveness: the compiler is a faster and
-  stricter oracle than a suite, and it cannot be skipped, sampled or left unlinked
-- **C++23**, `-Wall -Werror -Wpedantic`, one `-std`. `static_assert` and the type system over
-  checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance
+- **C++23**, `-Wall -Werror -Wpedantic`, one `-std`. **What the compiler can decide is a
+  `static_assert`, never a case** — layout, size, trait, catalogue completeness, an enum's
+  exhaustiveness: it is stricter than a suite and cannot be skipped, sampled or left unlinked.
+  The type system over checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance
   views, `std::expected` where a refusal carries its reason
 - **SIMD- and optimisation-friendly**: contiguous, one-width, pointer-free layouts; fast path on
   the hot path; batch over per-item; bounded terms on the frame path — no alloc, lock, disk or

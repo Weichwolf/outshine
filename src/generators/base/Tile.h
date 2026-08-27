@@ -1,18 +1,18 @@
-#ifndef OUTSHINE_GENERATORS_BASE_REGION_H
-#define OUTSHINE_GENERATORS_BASE_REGION_H
+#ifndef OUTSHINE_GENERATORS_BASE_TILE_H
+#define OUTSHINE_GENERATORS_BASE_TILE_H
 
 #include <cstdint>
 
 namespace outshine::Generators {
 
-class Region {
+class Tile {
 public:
-  Region(int zoom, int x, int y);
+  Tile(int zoom, int x, int y);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
   [[nodiscard]] int X() const { return X_; }
   [[nodiscard]] int Y() const { return Y_; }
-  [[nodiscard]] bool Is(const Region &other) const {
+  [[nodiscard]] bool Is(const Tile &other) const {
     return Zoom_ == other.Zoom_ && X_ == other.X_ && Y_ == other.Y_;
   }
 
@@ -33,7 +33,7 @@ public:
 
   void AnchorEcef(double aslM, double out[3]) const;
 
-  static Region Of(int zoom, double lat, double lon);
+  static Tile Of(int zoom, double lat, double lon);
 
 private:
   int Zoom_, X_, Y_;

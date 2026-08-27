@@ -10,7 +10,7 @@
 #include "OsmField.h"
 #include "StreetField.h"
 #include "WaterField.h"
-#include "Region.h"
+#include "Tile.h"
 #include "GroundQuery.h"
 #include "TerrainLoader.h"
 
@@ -27,10 +27,10 @@ struct Fields {
   int WetRow = -1;
 };
 
-[[nodiscard]] std::shared_ptr<const FeatureField> FeaturesOver(const Region &region,
+[[nodiscard]] std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region,
                                                                const Fields &stands);
 
-[[nodiscard]] Snapped SnapshotOver(const Region &region,
+[[nodiscard]] Snapped SnapshotOver(const Tile &region,
                                    const outshine::GroundQuery &heights,
                                    const outshine::Ground::ClassField &classes,
                                    const Fields &stands,

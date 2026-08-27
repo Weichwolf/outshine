@@ -13,7 +13,7 @@
 
 namespace outshine::Core {
 
-class Asset {
+class Posed {
 public:
   void Clears();
   [[nodiscard]] bool Reads(const std::string &path, const std::string &variant,

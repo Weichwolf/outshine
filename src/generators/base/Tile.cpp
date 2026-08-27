@@ -1,4 +1,4 @@
-#include "Region.h"
+#include "Tile.h"
 
 #include <cmath>
 
@@ -27,7 +27,7 @@ double TileLonDeg(int x, int zoom) {
 
 }
 
-Region::Region(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
+Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   Seed_ = Mix(((uint64_t)zoom << 58) ^ ((uint64_t)(uint32_t)x << 29) ^ (uint64_t)(uint32_t)y);
   const double south = TileLatDeg(y + 1, zoom), north = TileLatDeg(y, zoom);
   const double west = TileLonDeg(x, zoom), east = TileLonDeg(x + 1, zoom);
@@ -37,28 +37,28 @@ Region::Region(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   SpanEm_ = (east - west) * kMPerDeg * std::cos(0.5 * (north + south) * kDeg2Rad);
 }
 
-Region Region::Of(int zoom, double lat, double lon) {
+Tile Tile::Of(int zoom, double lat, double lon) {
   const double scale = (double)(1u << (unsigned)zoom);
   const double s = std::sin(lat * kDeg2Rad);
   const int x = (int)std::floor((lon + 180.0) / 360.0 * scale);
   const int y = (int)std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale);
-  return Region(zoom, x, y);
+  return Tile(zoom, x, y);
 }
 
-uint64_t Region::Seed(uint64_t stream) const { return Mix(Seed_ ^ Mix(stream)); }
+uint64_t Tile::Seed(uint64_t stream) const { return Mix(Seed_ ^ Mix(stream)); }
 
-void Region::Enu(double lat, double lon, double *eastM, double *northM) const {
+void Tile::Enu(double lat, double lon, double *eastM, double *northM) const {
   *northM = (lat - AnchorLat_) * kMPerDeg;
   *eastM = Wrap180(lon - AnchorLon_) * kMPerDeg * std::cos(lat * kDeg2Rad);
 }
 
-void Region::Geo(double eastM, double northM, double *lat, double *lon) const {
+void Tile::Geo(double eastM, double northM, double *lat, double *lon) const {
   const double atLat = AnchorLat_ + northM / kMPerDeg;
   *lat = atLat;
   *lon = AnchorLon_ + eastM / (kMPerDeg * std::cos(atLat * kDeg2Rad));
 }
 
-void Region::AnchorEcef(double aslM, double out[3]) const {
+void Tile::AnchorEcef(double aslM, double out[3]) const {
   GeoToEcef(AnchorLat_, AnchorLon_, aslM, out);
 }
 

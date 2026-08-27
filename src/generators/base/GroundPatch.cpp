@@ -12,7 +12,7 @@ double Clamped(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? 
 
 }
 
-std::shared_ptr<const GroundPatch> GroundPatch::Complete(const Region &region, int side,
+std::shared_ptr<const GroundPatch> GroundPatch::Complete(const Tile &region, int side,
                                                          Span<const Posting> postings) {
   if (side < 2 || postings.Size() != (size_t)side * (size_t)side) return nullptr;
   for (const Posting &p : postings)

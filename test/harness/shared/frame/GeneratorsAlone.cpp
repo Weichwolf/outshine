@@ -3,7 +3,7 @@
 
 #include "GroundPatch.h"
 #include "GroundTable.h"
-#include "Region.h"
+#include "Tile.h"
 
 int main(void) {
   using namespace outshine::Generators;
@@ -11,7 +11,7 @@ int main(void) {
   for (size_t at = 0; at < rows.size(); ++at) { rows[at].SlopeMaxDeg = 30.0f + (float)at; }
   const auto table = GroundTable::Of(outshine::Span<const GroundTable::Row>(rows.data(), rows.size()));
 
-  const Region region = Region::Of(14, 48.1372, 11.5756);
+  const Tile region = Tile::Of(14, 48.1372, 11.5756);
   const int side = 9;
   std::vector<GroundPatch::Posting> postings((size_t)side * (size_t)side);
   for (auto &one : postings) { one.Height = outshine::GroundSample::At(500.0); }

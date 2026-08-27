@@ -17,21 +17,21 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
   });
 }
 
-std::optional<Region> Schedule::At(size_t i, double lat, double lon) const {
+std::optional<Tile> Schedule::At(size_t i, double lat, double lon) const {
   if (i >= Offsets_.size()) return std::nullopt;
-  const Region centre = Region::Of(Zoom_, lat, lon);
+  const Tile centre = Tile::Of(Zoom_, lat, lon);
   const int side = 1 << Zoom_;
   const int y = centre.Y() + Offsets_[i].Y;
   if (y < 0 || y >= side) return std::nullopt;
-  return Region(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
+  return Tile(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
 }
 
-Region Schedule::Broadest() const { return Region(Zoom_, 0, 1 << (Zoom_ - 1)); }
+Tile Schedule::Broadest() const { return Tile(Zoom_, 0, 1 << (Zoom_ - 1)); }
 
-std::optional<Region> Schedule::Widest(double lat, double lon) const {
-  std::optional<Region> widest;
+std::optional<Tile> Schedule::Widest(double lat, double lon) const {
+  std::optional<Tile> widest;
   for (size_t i = 0; i < Offsets_.size(); i++) {
-    const std::optional<Region> r = At(i, lat, lon);
+    const std::optional<Tile> r = At(i, lat, lon);
     if (!r) continue;
     if (!widest || r->SpanEm() * r->SpanNm() > widest->SpanEm() * widest->SpanNm()) widest = r;
   }

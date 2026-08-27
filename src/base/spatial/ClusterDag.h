@@ -157,7 +157,7 @@ inline uint32_t Morton(uint32_t x, uint32_t y, uint32_t z) {
   return Part1By2(x) | (Part1By2(y) << 1) | (Part1By2(z) << 2);
 }
 
-struct Mesh {
+struct Clustered {
   std::vector<float> V;
   std::vector<uint32_t> Corner;
   std::vector<uint32_t> Pos;
@@ -184,7 +184,7 @@ struct PosKeyEq {
 };
 
 inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(const float *),
-                 Mesh *m) {
+                 Clustered *m) {
   m->Stride = stride;
   m->V.clear();
   m->Pos.clear();
@@ -237,7 +237,7 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
   m->NPos = (int)(m->PP.size() / 3);
 }
 
-inline void Partition(const Mesh &m, std::span<const uint32_t> tri, int maxTris,
+inline void Partition(const Clustered &m, std::span<const uint32_t> tri, int maxTris,
                       std::vector<uint32_t> *order, std::vector<uint32_t> *starts) {
   const size_t n = tri.size() / 3;
   double lo[3] = {1e300, 1e300, 1e300}, hi[3] = {-1e300, -1e300, -1e300};
@@ -490,7 +490,7 @@ struct Collapse {
   [[nodiscard]] bool operator<(const Collapse &o) const { return Cost > o.Cost; }
 };
 
-inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targetTris,
+inline void SimplifyGroup(const Clustered &m, std::vector<uint32_t> &tri, size_t targetTris,
                           std::span<const uint8_t> sharedPos, Absorb &ab) {
   const size_t n0 = tri.size() / 3;
   if (n0 <= targetTris || n0 == 0) return;
@@ -699,7 +699,7 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
   }
 }
 
-inline void Sphere(const Mesh &m, std::span<const uint32_t> tri, size_t first, size_t count,
+inline void Sphere(const Clustered &m, std::span<const uint32_t> tri, size_t first, size_t count,
                    float ctr[3], float *rad) {
   double c[3] = {0, 0, 0};
   size_t n = 0;
@@ -733,7 +733,7 @@ inline void Sphere(const Mesh &m, std::span<const uint32_t> tri, size_t first, s
   out->BaseTris = nverts / 3;
   out->AllTris = 0;
 
-  dag::Mesh m;
+  dag::Clustered m;
   dag::Weld(soup, nverts, stride, opts.ClassOf, &m);
 
   std::vector<uint32_t> tri(m.Corner.begin(), m.Corner.end());

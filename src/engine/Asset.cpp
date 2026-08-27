@@ -4,7 +4,7 @@
 
 namespace outshine::Core {
 
-void Asset::Clears() {
+void Posed::Clears() {
   Geometry_ = Gltf::Subject();
   File_ = Gltf::Document();
   Read_ = false;
@@ -13,7 +13,7 @@ void Asset::Clears() {
   At_ = 0;
 }
 
-bool Asset::Reads(const std::string &path, const std::string &variant, AssetAnimation animation,
+bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnimation animation,
                   double fps, std::string &error) {
   if (Read_) { return true; }
   if (!variant.empty()) { Variant_ = Gltf::VariantSelection(variant); }
@@ -35,7 +35,7 @@ bool Asset::Reads(const std::string &path, const std::string &variant, AssetAnim
   return true;
 }
 
-bool Asset::Poses(int frame, double fps, std::string &error) {
+bool Posed::Poses(int frame, double fps, std::string &error) {
   if (Moves_) {
     const bool first = Geometry_.VertexCount() == 0;
     if (!first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
