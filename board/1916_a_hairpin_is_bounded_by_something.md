@@ -6,6 +6,8 @@ Tags: measured, geometry, alignment, corner
 
 # A refusal from the fit names the allowance that decided it
 
+**Benchmark** — Neither engine fits arcs to OSM. **The choice is mine** — a refusal that does not name the allowance that decided it cannot be argued with, and every refusal here has to be.
+
 **The fit itself is repaired and `Alignment` is GREEN again.** What is left is what the fit SAYS
 when it refuses, and one degenerate corner that answers zero instead of refusing.
 

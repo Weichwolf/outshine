@@ -6,6 +6,8 @@ Area: render
 
 # The renderer holds a proxy the world updates by delta
 
+**Benchmark** — Unreal: `UWorld` feeds `FScene` through primitive-level DELTAS, so the renderer keeps GPU state across frames. RAGE: `fwEntity` on scene-update lists. **Taking Unreal** — an explicit delta is what makes GPU-side state possible at all.
+
 One world and the rest are views (board:1950) says WHO owns the truth. This says how a view stays
 current, and the answer is not "read the world each frame".
 

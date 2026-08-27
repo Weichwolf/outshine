@@ -3,9 +3,9 @@ State: open
 Area: render
 Tags: picture, plan, driver, measured
 
+# The sky carries its sun, moon and stars, and the exposure is derived
 
 **Benchmark** — Unreal: `SkyAtmosphere` plus `SkyLight`, and exposure from the scene through auto-exposure. RAGE: a timecycle of hand-authored curves driving sky colour and exposure together. **Taking Unreal** — a curve is a look that has to be re-authored per condition; a derived exposure follows whatever the sky actually does.
-# The sky carries its sun, moon and stars, and the exposure is derived
 
 The TARGET render plan draws `sun`, `moon`, `stars` into `SceneHdr` and derives exposure
 through `irradiance -> autoExposure`. CURRENT has none of the five: the plan ends at `sky`,

@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # The engine knows bodies, forces, actuators and control -- and no vehicle
 
+**Benchmark** — Unreal: `FBodyInstance` in the engine, `CVehicle`-equivalents in a plugin. RAGE: `phInst` in physics, `CVehicle` in the game layer. **Both agree** — no vehicle noun inside the engine.
+
 RAGE keeps `CVehicle` in the GAME layer; Unreal keeps wheeled movement in a plugin over a
 component model where a body carries components and a controller possesses a pawn. outshine's
 engine core names `Drive` 29 times and `Vehicle` 6 times in `Engine.cpp` alone.

@@ -4,6 +4,8 @@ Area: architecture
 
 # The refactor to TARGET blocks everything else
 
+**Benchmark** — Unreal and RAGE are the two bodies of evidence; this item IS the rule that TARGET holds the better of them before anything is built on it. **Taking both**, question by question, in the settled table.
+
 **Nothing else is worked while this stands.** Not a feature, not a gap, not a finding either
 reviewer files -- those are recorded and they wait. An item worked on the current architecture is
 work done twice, and the second time is the one that counts.

@@ -4,6 +4,8 @@ Area: harness
 
 # A prepared asset is prepared once
 
+**Benchmark** — Unreal: DDC — an asset is cooked once and the result is keyed and shared. RAGE: the tool chain cooks once. **Both agree** — preparation is not frame work and not per-run work.
+
 `test/run.sh` prepares each corpus case into the system temp directory, and it prepares the SAME
 asset once per suite that names it. Measured while clearing the disk:
 

@@ -6,6 +6,8 @@ Supersedes: 1535, 1543
 
 # The renderer has a door, and `src/engine/` is not it
 
+**Benchmark** — Unreal: `FScene` and `FSceneRenderer` behind a door the world pushes into. RAGE: the draw list is separate from the device. **Taking Unreal** — the renderer's conventions must be refused at the door rather than learned by getting a call order right.
+
 **Half of this closed with board:1972 and the other half stands.** The bridge is
 `src/render/SubjectProxy.{h,cpp}` now, in the tier that may hold it; the anchor is a value the
 engine passes rather than a planet radius wired into a rendering helper; the view left the proxy;

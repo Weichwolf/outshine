@@ -3,9 +3,9 @@ State: open
 Area: generators
 Tags: determinism, content
 
+# The forest's randomness is stable under a new stream and a new species
 
 **Benchmark** — Unreal: PCG seeds are declared per node so a graph is reproducible. RAGE: none published. **Taking Unreal** — a seed is part of the declaration, so adding a species or a stream cannot move what was already placed.
-# The forest's randomness is stable under a new stream and a new species
 
 A region's wood must be a pure function of `(zoom, x, y)` — that is what makes it a place a
 player can return to and a picture an oracle can bound. At HEAD it is a pure function of

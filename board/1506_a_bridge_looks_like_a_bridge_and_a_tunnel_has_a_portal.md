@@ -4,9 +4,9 @@ Parent: 1813
 Area: generators
 Tags: scope, picture
 
+# A bridge looks like a bridge, and a tunnel has a portal
 
 **Benchmark** — Unreal: bridges and tunnels are authored meshes placed on a spline. RAGE: the same, in the map. **Neither reconstructs** — so the reconstruction is ours, and what it owes is the four plausibilities: geometric, physical, static, architectural.
-# A bridge looks like a bridge, and a tunnel has a portal
 
 A raised ribbon of tarmac with nothing under it is geometrically correct and looks like a bug.
 The structures must WORK and LOOK RIGHT: the drive suite decides the first, the eye decides the

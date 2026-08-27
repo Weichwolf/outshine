@@ -3,9 +3,9 @@ State: open
 Area: render
 Tags: shadow, plan, residency
 
+# A plan that drops the shadow stage clears the atlas rather than leaving the last one standing
 
 **Benchmark** — Unreal: RDG will not let a pass read a resource no pass wrote in this graph — the dependency is declared and the compiler of the graph enforces it. RAGE: fixed passes, so the case cannot arise. **Taking Unreal** — a stage that leaves is a dependency that leaves with it.
-# A plan that drops the shadow stage clears the atlas rather than leaving the last one standing
 
 `DeclarePlan` puts `Stage::LightVisibility` in the plan only when the declaration casts
 shadows. When it does not, no pass is begun, so `ShadowAtlas_` keeps whatever the previous

@@ -7,6 +7,8 @@ Tags: geometry, alignment
 
 # A run that must split, splits by a rule that is argued
 
+**Benchmark** — Neither engine fits arcs to derived roads. **The choice is mine** — a split rule that cannot be argued is a magic number with a loop around it.
+
 `Align` groups same-sign turns into one run and fits one arc to it (board:1795). When the arc
 cannot hold every vertex within the declared accuracy, the run is shortened:
 

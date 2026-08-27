@@ -4,9 +4,9 @@ Area: world
 Tags: instrument, perf
 Supersedes: 1501, 1502, 1504, 1518, 1524
 
+# A car drives the planet, and the world's defects are the finding
 
 **Benchmark** — Unreal: a level is authored, so a defect in it is a content bug. RAGE: the same. **Neither faces this** — OSM is a source of shape rather than a specification, so a corner the graph demands is a finding only where it is implausible or geometrically wrong.
-# A car drives the planet, and the world's defects are the finding
 
 The engine has no instrument for its WORLD. The render corpus decides subjects against an
 oracle, the frame suite decides cost, and nothing decides whether the thing built out of OSM is

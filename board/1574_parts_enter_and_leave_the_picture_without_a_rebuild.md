@@ -6,6 +6,8 @@ Depends: 1538, 1867
 
 # Parts enter and leave the picture without a rebuild, and glass is a partition rather than a clone
 
+**Benchmark** — Unreal: `FScene` adds and removes primitives without rebuilding; translucency is its own pass. RAGE: entities enter and leave the draw list. **Both agree** — a part entering must not rebuild the picture.
+
 `SubjectDraw::SetMesh` re-uploads every vertex stream, re-uploads the indices and rebuilds the
 whole CPU triangle BVH on ANY content change, and a drive calls it at every relay — allocation,
 lock, disk and an unbounded block firing on the frame path at once. When the plan holds glass

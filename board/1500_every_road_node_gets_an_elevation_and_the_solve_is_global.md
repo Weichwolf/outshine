@@ -4,9 +4,9 @@ Parent: 1813
 Area: ground
 Tags: scope, osm
 
+# Every road node gets an elevation, and the solve is global
 
 **Benchmark** — Neither engine solves this: both take terrain and roads as AUTHORED, already agreeing. Here the road comes from OSM without a third dimension, so the solve is ours. **The choice is mine**, and the constraint is CLAUDE.md's four plausibilities — a global solve is the only one that can hold continuity across a junction.
-# Every road node gets an elevation, and the solve is global
 
 OSM gives no z to anything: a bridge says `bridge=yes` and `layer=1`, a tunnel says
 `tunnel=yes`, a ramp says `highway=motorway_link` — none says a height, and the DEM knows about

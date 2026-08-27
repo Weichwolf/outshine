@@ -3,9 +3,9 @@ State: open
 Area: ui
 Tags: measured, hot-path, allocation
 
+# No glyph is rastered inside a frame, because the sheet is baked before it
 
 **Benchmark** — Unreal: Slate bakes a font atlas and caches glyphs outside the frame. RAGE: Scaleform keeps a glyph cache. **Both agree** — rasterising a glyph inside a frame is an unbounded term on the frame path.
-# No glyph is rastered inside a frame, because the sheet is baked before it
 
 The text path is REACHED and it is CORRECT on the picture: `outshine-viewer --headless --show
 apps/driver/src/f31.scenario --frames 3` sets "CORPUS", "CASE (1423)", the case list and

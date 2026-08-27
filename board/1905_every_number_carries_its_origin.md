@@ -5,6 +5,8 @@ Tags: measured, magic-number
 
 # Every number carries its origin, and 125 named ones do not
 
+**Benchmark** — Unreal: numbers live in data assets with editor metadata and ranges. RAGE: tunables in data files. **Both agree** — a number's origin travels with it, and a bare literal in code has its reason nowhere.
+
 `--audit-numbers` walks `src/` for named constants whose value is a bare literal that is not 0,
 1, a power of two, a half or a value naming another constant. Those are DECISIONS, and CLAUDE.md
 asks each to carry its origin -- derived, measured or `[SET]` -- with a unit and a population. A

@@ -6,6 +6,8 @@ Parent: 1880
 
 # The scene store passes the door, and Along/Whole go behind it
 
+**Benchmark** — Unreal: `UWorld` is reached through the engine, and its stores are not public data. RAGE: the map is behind the streamer. **Both agree** — the store passes the door as a thing with verbs, never as members.
+
 `Engine::Along()` and `Engine::Whole()` (Outshine.h) spell drive progress at the front door.
 RAGE and Unreal both answer that question through the world, never through the engine object:
 `GetWorld()`, `fwEntityStore`. The TARGET map already says the same -- `Engine +Scene() Store`.

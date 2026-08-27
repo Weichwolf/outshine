@@ -5,6 +5,8 @@ Tags: gate, process, regression
 
 # One bad source fails ONE case, and never the whole gate
 
+**Benchmark** — Unreal: one failing test fails one test. RAGE: the same. **Both agree** — a harness that goes all-red on one bad file hides everything behind it.
+
 **The symptom is gone; the mechanism is not.** Measured 2026-08-25 at 235e3f47: `make` exits 0,
 links `build/liboutshine.a` (163 objects), `build/outshine-driver` and `build/outshine-viewer`,
 and `test/run.sh` runs its 25 claims and the corpora to a trailer. The one file was repaired.

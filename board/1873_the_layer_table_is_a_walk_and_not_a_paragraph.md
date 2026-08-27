@@ -6,6 +6,8 @@ Parent: 1611
 
 # The layer table refuses in the gate, not in a review
 
+**Benchmark** — Unreal: include paths make a layering violation a compile error. RAGE: convention. **Taking Unreal** — a table refused in a review is a table that will be crossed on a busy day.
+
 CLAUDE.md's *"layer may not spell"* table is five prohibitions and **no claim walks any of
 them**. Every breach it has ever caught was caught by a human reading code, which is the
 construction the tree refuses everywhere else.

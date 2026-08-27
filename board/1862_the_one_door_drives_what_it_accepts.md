@@ -6,6 +6,8 @@ Supersedes: 1486, 1488, 1489, 1490, 1491, 1494, 1863
 
 # The one door ADVANCES what it accepts
 
+**Benchmark** — Unreal: a declaration the engine accepts is executed or the load fails. RAGE: the same. **Both agree** — accepting a declaration and doing nothing with it is worse than refusing it.
+
 The drive is through the door: `Engine::Assemble` runs `AssembleDrive` when the scenario declares
 one and refuses by name (src/engine/Engine.cpp:192), `Engine::Advance` ticks it (:715),
 `Engine::Drove()` answers, and the driver links `-Iinclude` alone.

@@ -6,6 +6,8 @@ Tags: driver, paths, shipping, shaders
 
 # The engine finds its shaders and its assets through declared roots, not through the process's working directory
 
+**Benchmark** — Unreal: content roots are declared per project and mounted; nothing resolves relative to the binary. RAGE: packfiles mounted by name. **Both agree** — a root is declared, and a path relative to the executable is a bug waiting for a different working directory.
+
 `apps/driver/src/main.cpp` links `build/liboutshine.a` alone and drives
 `Engine::Read -> Declare -> Assemble -> RenderTo -> Advance`. What it cannot do is start from
 anywhere, and the two refusals are mutually exclusive: the asset resolves relative to the

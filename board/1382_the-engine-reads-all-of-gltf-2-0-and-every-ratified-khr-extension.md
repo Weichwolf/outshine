@@ -6,6 +6,8 @@ Supersedes: 0106, 1387, 1390, 1391, 1393, 1394, 1397, 1405
 
 # The engine reads all of glTF 2.0 and every ratified KHR extension
 
+**Benchmark** — Khronos states the format and ships the corpus and the validator, so the vendor is the oracle. Unreal and RAGE both read many formats and neither reads one COMPLETELY. **Taking the vendor** — this is the one capability someone else can certify.
+
 glTF is the only content surface, so what the engine may assume about content is the whole
 format. [MEASURED] at the Khronos registry: 20 ratified KHR extensions; `kHonouredExtensions`
 (src/content/gltf/Document.cpp) names those whose BEHAVIOUR is built, which is the rule this feature

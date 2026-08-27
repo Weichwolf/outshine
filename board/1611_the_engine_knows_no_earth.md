@@ -6,6 +6,8 @@ Supersedes: 1827
 
 # The engine knows no Earth, and a frame is declared
 
+**Benchmark** — Unreal: `UWorld` knows no planet; a large world is coordinates plus origin rebasing. RAGE: one map, no planet. **Both agree** — the engine knows no Earth. A sphere is a declared frame, and Earth is scenario XML.
+
 A world is a SPHERE with gravity, shaped by height data. Driving and walking EMERGE from
 gravity and surface through the physics — on a smaller sphere you jump higher and drive badly,
 and nothing in the library says so, because it follows. Sky, sun, moon and stars are the

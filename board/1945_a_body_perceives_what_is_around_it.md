@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # A controller perceives what is around it through bounded spatial queries
 
+**Benchmark** — Unreal: perception is a component making bounded queries against the scene. RAGE: the same, per task. **Both agree** — a controller perceives through bounded spatial queries and never by reading the world directly.
+
 Both benchmarks have this and outshine has NONE of it. Unreal: overlap and sweep queries against
 a scene structure, plus AI perception components. RAGE: `phBound` against a broadphase. CLAUDE.md
 names the seam already -- a controller PERCEIVES through *bounded spatial queries: bounds ·

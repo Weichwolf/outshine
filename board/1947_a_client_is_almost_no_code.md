@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # A client is almost no code, and its line count measures the door
 
+**Benchmark** — Unreal: a game project is content plus a launcher. RAGE: a build. **Neither ships a four-line client**, so the line count is this tree's own measure of its door.
+
 Unreal's own sample games are thin over the engine module; the measure both benchmarks pass is
 that a product needs no engine surgery. outshine states the rule in CLAUDE.md and fails it:
 `apps/viewer` is 706 lines across two translation units and does not even LINK from the library

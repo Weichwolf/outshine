@@ -6,6 +6,8 @@ Area: sim
 
 # The simulation steps fixed and the picture interpolates
 
+**Benchmark** — Unreal: variable step with physics substeps. RAGE: **fixed step, replay- and network-exact**, interpolated to the display. **Taking RAGE** — determinism is a mechanism, and nothing else delivers it.
+
 **MEASURED FIRST, AND HALF OF THIS ALREADY STANDS.** `Engine::Advance(elapsedS)` carries an
 accumulator (`OwedS`), a fixed `Motion.StepS`, an arrears cap (`MostStepsInArrears`) and a discard
 when the cap is exceeded, and `Advance()` with no argument is one fixed step and nothing else. The

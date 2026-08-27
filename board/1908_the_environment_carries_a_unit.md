@@ -3,9 +3,9 @@ State: open
 Area: render, scenario
 Tags: measured, lighting, units
 
+# A studio's ambient carries a unit, and it is the key's
 
 **Benchmark** — Neither ships a studio, and neither leaves radiance without a unit: Unreal carries lux and nits through Lumen and exposure, RAGE carries authored intensities. **Taking Unreal** — a number in a physical unit can be checked against the sun; an authored one can only be compared with itself.
-# A studio's ambient carries a unit, and it is the key's
 
 **The sphere half of this item is done and measured** -- a declared sphere with air supplies the
 irradiance every surface under it receives (`MediumSkyIrradiance`, reached the day

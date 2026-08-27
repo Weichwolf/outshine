@@ -5,6 +5,8 @@ Tags: picture
 
 # The road stands twice and one copy is in the sky
 
+**Benchmark** — Unreal and RAGE both draw a road surface once, from one instance. **Neither has this defect** — it is a bug rather than a design question.
+
 `apps/driver --headless --offline --frames 400 --stills 4` writes stills in which one surface is
 drawn TWICE, mirrored about the horizon.
 

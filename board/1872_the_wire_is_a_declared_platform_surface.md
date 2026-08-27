@@ -5,6 +5,8 @@ Tags: architecture, dependencies, door
 
 # The library's platform surface names the wire, and the public header is a door
 
+**Benchmark** — Unreal: platform surface behind `FPlatformProcess` and friends; the public header names the abstraction, not the OS. RAGE: `sys` layer. **Both agree** — the wire is named at one boundary and nowhere else.
+
 4d4981ec put `#include <curl/curl.h>` (src/host/Fetching.cpp:3) inside `src/`. CLAUDE.md's first
 rule says **SDL3 · SDL3_GPU · SDL3_\* are the only platform surface**, and `liboutshine.a` now
 requires libcurl. One of two things is true and neither is written down: either a fetching wire

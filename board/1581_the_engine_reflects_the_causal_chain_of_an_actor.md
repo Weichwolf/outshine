@@ -6,6 +6,8 @@ Supersedes: 1516, 1594
 
 # The engine reflects the causal chain of an actor
 
+**Benchmark** — Unreal: `AController` possesses a pawn and the causal chain is controller -> input -> movement component -> physics. RAGE: `CTask` trees drive a ped or vehicle. **Taking both** — Unreal for the seam (one interface serves a mind and a player) and RAGE for what happens behind it (a task tree decomposes the way the act does).
+
 A car is GEOMETRY; it has FUNCTIONS; PHYSICS hangs off the functions; an INTELLIGENCE acts on
 the functions; the intelligence can SEE in the world and can use NAVIGATION.
 

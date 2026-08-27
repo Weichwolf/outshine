@@ -5,6 +5,8 @@ Tags: measured, map, review
 
 # A red on the map is red for a reason the lines beside it carry
 
+**Benchmark** — Neither engine draws OSM-derived maps. **The choice is mine** — a red on a map that does not carry its reason beside it is a picture, not a finding.
+
 CLAUDE.md's CURRENT render plan marks `GLASS` red and gives this reason:
 
 > `{Stage::SubjectsTransmissive, ...}` (RenderCatalogue.h:268) is a full clone of

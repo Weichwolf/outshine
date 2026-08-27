@@ -4,9 +4,9 @@ Parent: 1890
 Area: render, world
 Tags: measured, picture, medium
 
+# The ground the sky paints and the ground the compositor draws wear one atmosphere
 
 **Benchmark** — Unreal: ONE `FSkyAtmosphereSceneProxy` feeds both the sky dome and the aerial perspective applied to geometry, so a surface and the air above it cannot disagree. RAGE: one timecycle drives both. **Both agree** — one atmosphere, two consumers.
-# The ground the sky paints and the ground the compositor draws wear one atmosphere
 
 Measured through the windscreen at 873f8f65, first person, one frame:
 

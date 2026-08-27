@@ -6,6 +6,8 @@ Tags: driver, acceptance, product
 
 # The driver drives at the bar, and the stakeholder signs it off
 
+**Benchmark** — Unreal: a producer signs off a build against a look target. RAGE: the same. **Both agree** — the picture is judged by someone who did not build it, on shots they chose.
+
 `apps/driver` is outshine's ONE integration test and simultaneously its product. Everything it
 uses is library, and what the library owes is corpus cases against invariant oracles. Emergence is
 judged HERE, on the picture, from what was SEEN by RUNNING the programme.

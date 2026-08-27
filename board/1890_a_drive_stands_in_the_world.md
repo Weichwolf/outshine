@@ -4,9 +4,9 @@ Parent: 1547
 Area: engine, sim, render
 Tags: measured, precision, drive
 
+# A drive stands in the WORLD, and the ground is a compositor's draw item
 
 **Benchmark** — Unreal: the landscape is a primitive in the same scene as everything else, drawn through the same proxy path. RAGE: the map is streamed geometry like any other. **Both agree** — the ground is a draw item, not a special case beside the drawing.
-# A drive stands in the WORLD, and the ground is a compositor's draw item
 
 CLAUDE.md says *one world space*. A drive stands on the CORRIDOR's ENU origin and the ground ring
 is laid about `Patchwork::OriginEcef`. Everything below is measured at a73c6ca5 by running the

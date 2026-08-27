@@ -6,6 +6,8 @@ Tags: measured, threading, tiles
 
 # The waiter the drive actually uses is proven by a case, not by inspection
 
+**Benchmark** — Unreal: automation proves behaviour, not inspection. RAGE: the same. **Both agree** — what a drive actually waits on is a measurement, not a reading of the source.
+
 **Two of this item's three defects are repaid at HEAD and the third is not.** 873f8f65 announced
 this item closed and never deleted the file; that divergence is board:1938's subject, and what
 follows is the residual only.

@@ -6,6 +6,8 @@ Supersedes: 1537
 
 # The world composition path has a consumer
 
+**Benchmark** — Unreal: a system with no consumer is not shipped. RAGE: the same. **Both agree** — a composition path nothing consumes is a capability no declaration reaches, which is this tree's commonest defect.
+
 Four generators are complete, correct and unreachable: `Forest`, `Buildings`, `Water`,
 `Infrastructure`. Nothing outside `src/` walks them, so no drive has ever seen a tree, a
 building or a lake. This is the largest block of present-but-unreachable capability in the tree

@@ -5,6 +5,8 @@ Area: door, sim
 
 # A scenario declares a RIG, and the engine integrates it
 
+**Benchmark** — Unreal: a vehicle is a data asset of constraints and drives that the plugin integrates. RAGE: handling data in the game layer. **Both agree** — the rig is DECLARED and the engine integrates it.
+
 **Filed once on a wrong premise and corrected here.** The first version read: the door carries no
 physics verb, so a client cannot build a vehicle, so the door must gain `AddBody`, `ApplyWrench`
 and `Step`. That is the wrong answer and it would have been a second door for one truth -- an

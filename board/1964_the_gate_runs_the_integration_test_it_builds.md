@@ -6,6 +6,8 @@ Area: client
 
 # The gate runs the integration test it builds
 
+**Benchmark** — Unreal: automation runs the binary it built, in CI. RAGE: the same. **Both agree** — a gate that compiles the client and never runs it proves the compiler.
+
 `test/run.sh` compiles `apps/driver` and never runs it. `NAMED_ONLY="apps"` reserves it for a named
 invocation, and naming it answers:
 

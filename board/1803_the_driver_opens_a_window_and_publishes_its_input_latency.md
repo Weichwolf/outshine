@@ -6,6 +6,8 @@ Tags: driver, instrument
 
 # The driver opens a window and publishes its input latency
 
+**Benchmark** — Unreal: input latency is measured and reported (`stat` and the input pipeline). RAGE: telemetry. **Both agree** — latency is published, not assumed.
+
 Every criterion the product states is a measurement at a RUNNING window — the tangent point
 inside the frame on a hairpin, an instrument reading trial at +/-5 km/h in <= 0.5 s, camera
 stillness at p99 under one pixel of angular change per frame, input to present at p99 <= 50 ms.

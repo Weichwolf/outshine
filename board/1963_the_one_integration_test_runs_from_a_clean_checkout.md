@@ -5,6 +5,8 @@ Area: client
 
 # The one integration test runs from a clean checkout
 
+**Benchmark** — Unreal: an automation test runs from a clean sync. RAGE: builds from a clean branch. **Both agree** — a test that needs a warm machine is a test of the machine.
+
 `apps/driver` is outshine's one integration test and the stakeholder signs the picture off on it.
 It cannot run. `apps/driver/src/f31.scenario` declares `scene.gltf`, and no such file is in the
 tree:

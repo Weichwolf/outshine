@@ -7,6 +7,8 @@ Tags: benchmark, target, owner
 
 # ONE value carries 3D data into and out of outshine, and glTF is one of its file forms
 
+**Benchmark** — Unreal: `FMeshDescription` authored against `FStaticMeshLODResources` + `FNaniteResources` cooked. RAGE: `grmGeometry` cooked, and its file IS that form. **Both agree** — two forms and one cooker; this tree has nine.
+
 Owner's target, arrived at over three exchanges and stated here whole:
 
 - generators do not serialise; they hand back the internal representation (board:1948)

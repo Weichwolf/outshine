@@ -5,6 +5,8 @@ Tags: corpora, measured, spec
 
 # Valid glTF that DRAWS NOTHING is still valid, and the reader says so differently
 
+**Benchmark** — Khronos states this and neither engine does: a valid document that draws nothing is valid. **Taking the vendor** — the validator is the oracle, and the reader must separate "refused" from "stood and drew nothing".
+
 The glTF-Validator corpus is scored and integrated: 263 cases, Khronos's own `.report.json` as
 the oracle, 190 assets it errors on are REFUSED here and that is a real proof. The other 73 are
 red and declared in `EXPECT_FAIL` with their count.

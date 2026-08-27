@@ -5,6 +5,8 @@ Tags: scope, osm, plausibility, measured
 
 # A reconstructed third dimension is plausible four ways
 
+**Benchmark** — Neither engine reconstructs a third dimension: both take bridges and tunnels as authored. **The choice is mine** — geometric, physical, static and architectural plausibility is the bar, because there is no vendor to check it against.
+
 OSM does not carry the third dimension. Bridges, ramps, over- and underpasses, tunnels and every
 other 3D course are RECONSTRUCTED, and what a reconstruction owes is four kinds of plausibility:
 **geometric** (it closes, it is continuous, it does not intersect itself or what it crosses),

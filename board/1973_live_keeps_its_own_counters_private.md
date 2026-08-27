@@ -5,6 +5,8 @@ Area: engine
 
 # `Live` keeps its own counters private
 
+**Benchmark** — Unreal: engine classes keep counters private with accessors. RAGE: the same. **Both agree** — a public data member with a private name is a contradiction the keyword wins.
+
 The corrected access audit (board:1972) shows four public data members with PRIVATE NAMES sitting
 in `class Live`'s public section:
 

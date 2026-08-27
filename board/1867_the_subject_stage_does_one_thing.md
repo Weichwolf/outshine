@@ -5,6 +5,8 @@ Tags: architecture, stage, measured
 
 # The subject stage does one thing, and the other five move out
 
+**Benchmark** — Unreal: one pass does one thing and RDG makes the seams explicit. RAGE: fixed passes with clear jobs. **Both agree** — a stage that does six things has no dependency a graph can read.
+
 `SubjectDraw` is the largest red on both CURRENT maps. Six responsibilities in one class,
 beside the one `Encode` a stage owes:
 

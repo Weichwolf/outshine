@@ -6,6 +6,8 @@ Area: content
 
 # A resource loads by mapping bytes and not by parsing
 
+**Benchmark** — Unreal: import -> DDC -> cooked platform data, still parsed at load. RAGE: **map the bytes, fix the pointers, no parse**. **Taking RAGE** — a load that parses cannot keep up with a camera, and cell streaming is unaffordable without it.
+
 **MEASURED BEFORE BUILDING, AND THE MEASUREMENT SAYS WAIT.** The store holds what was FETCHED, not
 what is USED: a cache entry opens `89 50 4E 47` -- a PNG, 97496 bytes, decoded on every load. So
 the defect this item names is real and present.

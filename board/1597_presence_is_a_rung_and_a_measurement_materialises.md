@@ -5,9 +5,9 @@ Area: core
 Tags: scope, scene, perf
 Supersedes: 1475
 
+# Presence is a rung, and a measurement materialises
 
 **Benchmark** — Unreal: an actor exists or it does not; HLOD stands in for it at range. RAGE: entities have LOD states including a dummy. **Both agree** — presence is a RUNG rather than a boolean, and the coarse rung is what the horizon is made of.
-# Presence is a rung, and a measurement materialises
 
 An engine of this size cannot compute everything always. Determination happens AT MEASUREMENT:
 what is seen, radared, probed or perceived is computed and fixed; the rest is a conserving

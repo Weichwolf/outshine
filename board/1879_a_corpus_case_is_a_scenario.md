@@ -5,6 +5,8 @@ Tags: corpora, door
 
 # A corpus case is a scenario the engine loads and runs
 
+**Benchmark** — Unreal: low-level tests live INSIDE the module (`Private/Tests/`); only public-API tests stand outside. RAGE: unknown. **Taking Unreal** — a case that tests an internal type is part of that module, and one that tests the door goes through it.
+
 **The front door is: outshine loads a scenario and runs it.** Nothing else. Not a script verb,
 not a layout verb, not a parser class — a client declares a scenario and the engine behaves.
 

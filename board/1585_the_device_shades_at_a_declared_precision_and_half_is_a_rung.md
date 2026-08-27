@@ -3,9 +3,9 @@ State: open
 Area: render
 Tags: perf
 
+# The device shades at a declared precision, and half is a rung of the ladder the twin already climbs
 
 **Benchmark** — Unreal: `EShaderPlatform` and feature levels DECLARE what a device shades at; half precision is a declared rung (`min16float`), not something detected at runtime. RAGE: per-platform shader variants. **Taking Unreal** — a declared capability can be refused; a detected one can only be worked around.
-# The device shades at a declared precision, and half is a rung of the ladder the twin already climbs
 
 `ScenePrecision { Half, Float }` is declared (src/render/plan/RenderPlan.h) and `render.precision`
 selects it — and compiling the plan only widens attachment FORMATS. No path makes a kernel

@@ -4,9 +4,9 @@ Area: render
 Tags: perf, oracle
 Supersedes: 1126, 1132
 
+# Every surface texture is sampled through its mip chain, and the filtered normal keeps its energy
 
 **Benchmark** — Unreal: mips are part of the cooked texture and streaming feeds them; a normal map is filtered down the same chain so roughness and normal stay consistent. RAGE: mipmapped textures in the mapped resource, never built at draw. **Both agree** — a mip chain is cooked, not derived per frame.
-# Every surface texture is sampled through its mip chain, and the filtered normal keeps its energy
 
 The chain is built and uploaded and never sampled: the sampler's `max_lod` is left
 zero-initialised, so every fetch clamps to level 0 while `mipmap_mode = LINEAR` selects between

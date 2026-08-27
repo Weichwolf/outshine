@@ -5,6 +5,8 @@ Tags: perf, layering
 
 # Geometry carries its own ladder, and the pool that holds it is a slot table and a ring
 
+**Benchmark** — Unreal: `FStaticMeshLODResources` carries the LOD ladder with the mesh, and pools are typed allocators. RAGE: `rmcDrawable` holds LOD groups. **Both agree** — the ladder belongs to the geometry, and what holds it is a slot table rather than a heap.
+
 `ClusterDag` — clusters, an edge-collapse simplifier over a cost heap, and `DagSelect` choosing
 by projected pixel error — is reached by `src/ground/TilePool` and by nothing else. A glTF
 subject has no ladder, a generated part has none, and the car that most needs one has none.

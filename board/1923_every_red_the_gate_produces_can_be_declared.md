@@ -6,6 +6,8 @@ Depends: 1898
 
 # Every red the gate can produce has a declaration channel, so no failure is nameless
 
+**Benchmark** — Unreal: an expected failure is declared in the automation filter. RAGE: known-issue lists. **Both agree** — a nameless red is a red nobody owns.
+
 `EXPECT_FAIL` declares a standing red per CASE with its count, and the gate turns red the day a
 declared case passes. `EveryProgramStillLinks` produces a different red -- a program that does
 not build or does not answer `--help` -- and had no such channel, so the failure appeared in the

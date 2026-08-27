@@ -5,6 +5,8 @@ Area: render
 
 # The renderer is one class of sixty-one verbs
 
+**Benchmark** — Unreal: `FScene` survives frames, `FSceneRenderer` lives for one, RDG passes declare their resources. RAGE: the draw list is separate from the device. **Taking Unreal** — three lifetimes, three types.
+
 `STATE.md`, Carpet: **`src/render/Renderer.h` carries 61 `[[nodiscard]]`** — the widest public
 surface in the tree, ahead of the glTF document (51) and the glTF subject (46).
 

@@ -5,9 +5,9 @@ Area: render
 Tags: perf, picture
 Supersedes: 1567
 
+# The shadow atlas the catalogue declares executes, and the sun's direction shows on the ground
 
 **Benchmark** — Unreal: a shadow atlas allocated per view from a pool, cascades inside it, the shader picking one. RAGE: cascaded shadow maps over the map. **Both agree** — one atlas, cascades within it.
-# The shadow atlas the catalogue declares executes, and the sun's direction shows on the ground
 
 The atlas renders: a depth-only pass over the subject residency, reverse-Z, the orthographic
 sun texel-snapped in world space so the camera-relative rebase cannot shimmer it — proven by

@@ -5,9 +5,9 @@ Area: world
 Tags: scope, presence
 Supersedes: 1521
 
+# Simulated infrastructure is an engine service the client parameterises
 
 **Benchmark** — Unreal: procedural content is a plugin (PCG) the level parameterises, outside the engine module. RAGE: none. **Taking Unreal** — infrastructure generation is a library the scenario selects from, never an engine verb.
-# Simulated infrastructure is an engine service the client parameterises
 
 Living infrastructure — traffic first — is something outshine DOES, not something a client
 builds. The client declares PARAMETERS (density, mix, a clock curve, per street class, each

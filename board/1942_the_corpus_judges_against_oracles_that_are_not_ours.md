@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # Every case is a scenario against an oracle whose truth does not depend on our design
 
+**Benchmark** — Unreal: automation tests assert against known-good data or physical truth. RAGE: the same. **Both agree** — a case asserting the shape of our own architecture specifies nothing while the architecture moves.
+
 Neither benchmark publishes a comparable gate, so this is the area where outshine is AHEAD and
 the list is about keeping it honest rather than catching up. 1844 cases run against Khronos, WPT,
 test262 and GeographicLib.

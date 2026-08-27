@@ -6,6 +6,8 @@ Supersedes: 1769
 
 # Boundaries and layouts speak C++23
 
+**Benchmark** — Unreal: `TArrayView`, `FStringView` and `TConstArrayView` at read-only boundaries for exactly this reason. RAGE: raw pointer + count. **Taking Unreal** — a view says "I traverse this" in the type, and a `const&` to an owning container says "I might keep it".
+
 Every read-only boundary that takes `const std::vector<T>&` or `const std::string&` takes
 `std::span<const T>` / `std::string_view` instead, and no call site copies into an owning
 container just to traverse. Survey: 98 vector-ref and 76 string-ref boundary parameters remained

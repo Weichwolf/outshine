@@ -7,6 +7,8 @@ Area: sim
 
 # The physics speaks in joints and constraints, and knows no subject
 
+**Benchmark** — Unreal: `FBodyInstance`, `FConstraintInstance` and joint DRIVES in the engine; wheeled movement in a plugin outside it. RAGE: `phBound`, `phConstraint`, `phArticulatedBody` in physics; `CWheel` in the game layer. **Both agree** — the engine holds joints and drives, and a wheel is an assembly above them.
+
 **An engine knows laws and no subjects**, and its whole vocabulary is the one the laws are written
 in: body, joint, degree of freedom, drive, constraint, force, contact, integration. **THE PREMISE THIS ITEM WAS FILED ON WAS WRONG, AND THE TRUTH IS BETTER.** It said the tree has no
 joints at all. It has one, and it was misnamed: `Physics::Contact` carried `ReachM`,

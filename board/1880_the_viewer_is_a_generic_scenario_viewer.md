@@ -5,6 +5,8 @@ Tags: viewer, scenario
 
 # The viewer shows any scenario, and adds nothing to it but its own face
 
+**Benchmark** — Unreal: the editor viewport is a client of the same scene the game uses. RAGE: the map viewer is a tool over the same resources. **Both agree** — a viewer adds nothing to what it shows; it layers its own face over it.
+
 `tools/viewer` moved to `apps/viewer`: it is not development support, it is a PRODUCT — the
 second client outshine has, and the one that proves the door twice over.
 

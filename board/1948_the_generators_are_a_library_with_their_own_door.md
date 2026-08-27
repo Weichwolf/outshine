@@ -7,6 +7,8 @@ Tags: benchmark, target, owner
 
 # The generators are a library with their own door, a registry, and a representation on the way out
 
+**Benchmark** — Unreal: PCG is a plugin with its own registry, outside the engine module. RAGE: none. **Taking Unreal** — a generator library that links without the engine is the only shape that lets another project take it.
+
 Owner's target, three parts, and the third is the one that binds:
 
 1. outshine SHIPS a generator registry -- forest, buildings, water, infrastructure.

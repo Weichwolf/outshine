@@ -6,6 +6,8 @@ Supersedes: 1578, 1593
 
 # The scenario suite reports a frame-time distribution over a moving camera
 
+**Benchmark** — Unreal: `stat unit` and the automation suite report frame time distributions, not means. RAGE: telemetry per frame. **Both agree** — a mean hides the frame that missed, and p50/p95/p99 over a moving camera is what a budget is judged on.
+
 *720p60 on this device* stops being a sentence this repository quotes and starts being a
 distribution it publishes: p50, p95 and p99 of frame time over a moving camera, whether two runs
 of one declaration produced the same pictures, and what residency and memory did across a long

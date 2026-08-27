@@ -6,6 +6,8 @@ Supersedes: 1753
 
 # The UI updates a number without reparsing the world, and its layout is bounded
 
+**Benchmark** — Unreal: UMG rebinds a property without rebuilding the widget tree; invalidation is per widget. RAGE: Scaleform updates a text field. **Both agree** — a number changing must not re-lay the document.
+
 The markup/style/layout tree is the right declarative game UI (flexbox, specificity, UA sheet,
 hit-testing, WPT-scored) and two things stand between it and a HUD at 60 Hz.
 

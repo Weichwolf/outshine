@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # Every module declares what it reaches, and the gate refuses a crossing and a cycle
 
+**Benchmark** — Unreal: `Build.cs` declares public dependencies and include paths enforce them. RAGE: library layering by convention. **Taking Unreal** — the compiler enforcing it is the difference between a boundary and a habit.
+
 Unreal declares this per module in `Build.cs` and the build refuses a dependency nobody declared.
 RAGE separates `rage::` from the game layer by convention and reconstruction says the boundary
 holds. outshine declares 13 tiers in `test/run.sh` and audits them. This is the area where the

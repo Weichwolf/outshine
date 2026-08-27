@@ -7,6 +7,8 @@ Supersedes: 1511
 
 # A vehicle is declared the way JSBSim declares an aircraft, and every number carries its origin
 
+**Benchmark** — Unreal: a wheeled vehicle is a plugin's data asset with engine curves, gearbox and tyre model. RAGE: `CVehicle` handling data in the game layer. **Both agree** on the shape — a vehicle is DECLARED data, not an engine type — and JSBSim is the same shape with a physical vocabulary, which is why it is the model here.
+
 JSBSim is the QUALITY BAR, not a thing to copy: an aircraft is declared in XML — mass and
 balance, an inertia tensor, ground reactions as spring/damper contact points, propulsion,
 aerodynamics as coefficient tables — and the simulator assembles it. No aircraft is hard-coded,

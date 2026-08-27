@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # What the generators build reaches the scene a scenario declares
 
+**Benchmark** — Unreal: PCG output becomes actors in the same world. RAGE: generated content ships in the map. **Both agree** — what a generator builds reaches the scene through the same path authored content does.
+
 Both benchmarks are world-streaming engines first and everything else second: Unreal's World
 Partition streams cells with their actors, RAGE streams its map by node. outshine has the
 generators and no path from them to a picture.

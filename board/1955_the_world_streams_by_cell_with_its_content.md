@@ -5,6 +5,8 @@ Area: world
 
 # The world streams by cell, with its content
 
+**Benchmark** — Unreal: World Partition — cell grid, data layers, HLOD. RAGE: map nodes, IMAP/ITYP, LOD hierarchy. **Both agree** — a non-resident cell is represented COARSER, never by nothing, and the horizon is the proof.
+
 A cell brings its ground, its structures and its actors in and out TOGETHER, and nothing in the
 tree holds the whole of anything.
 

@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # Nothing on the frame path scales with geometry, lights or pixels on the CPU
 
+**Benchmark** — Unreal: the same answer as 1926 for the whole frame path, not only lights. RAGE: per-batch. **Taking Unreal**.
+
 This is the area where the distance to both benchmarks is largest. Unreal drives its passes from
 `FGPUScene`: instances live in GPU buffers, culling runs in compute, and the draw is indirect --
 the CPU issues one call for a pass, not one per batch. Lights are assigned to clusters in a

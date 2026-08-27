@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # The render plan is compiled from a declared graph, and every catalogue row executes
 
+**Benchmark** — Unreal: RDG compiles a graph of passes with declared resources and dependencies, and culls passes nothing reads. RAGE: fixed passes. **Taking Unreal** — a declared graph is what lets a catalogue row be dropped without leaving a reader behind.
+
 Unreal's RDG compiles a pass graph from declared resource reads and writes, and a pass nothing
 reads is culled. outshine has the same shape -- `RenderCatalogue.h` declares stages with their
 reads, writes and contributions, and `RenderPlan::Compile` refuses a content stage nothing

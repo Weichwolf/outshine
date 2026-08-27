@@ -5,6 +5,8 @@ Tags: declaration, shadow
 
 # A subject declares whether it casts a shadow, and one that casts none is expressible
 
+**Benchmark** — Unreal: a primitive declares `bCastDynamicShadow`, and the shadow pass gathers only casters. RAGE: entities flag whether they cast. **Both agree** — casting is DECLARED per subject, and one that casts none is expressible.
+
 Shadows are not optional in the declaration language. `Live::Build` derives
 `ShadowRadiusStoodM_` from the subject's own extent whenever the scenario declares none, and
 `DeclarePlan` puts `Stage::LightVisibility` in the plan whenever that radius is positive. There

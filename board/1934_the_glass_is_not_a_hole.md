@@ -4,9 +4,9 @@ Parent: 1573
 Area: render
 Tags: measured, picture, driver, material
 
+# The car's glass carries a tint, a reflection and the cabin behind it
 
 **Benchmark** — Unreal: translucency in its own pass with refraction and a separate depth sort. RAGE: a vehicle glass shader in the game layer. **Taking Unreal** — a pass the plan declares, so glass is a stage rather than a subject.
-# The car's glass carries a tint, a reflection and the cabin behind it
 
 Chase view, `shots-river-chase/along07.png` at bb9472db, the car filling 230 x 190 px:
 

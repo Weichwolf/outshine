@@ -6,6 +6,8 @@ Tags: benchmark, target
 
 # The door is three headers, and everything a client needs is behind them
 
+**Benchmark** — Unreal: a module's public surface is a handful of headers. RAGE: fw/rage headers per library. **Both agree** — a door is small enough to read, and this one is four headers.
+
 The gap list to RAGE and Unreal for the INTERFACE. Unreal's engine door is a module boundary
 declared in `Build.cs` with `Public/` and `Private/`; RAGE's is `rage::` against the game layer.
 outshine's is `Outshine.h`, `Scenario.h`, `Event.h`. This item is the area's whole target, so it

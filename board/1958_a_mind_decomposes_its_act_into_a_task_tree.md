@@ -5,6 +5,8 @@ Area: actor
 
 # A mind decomposes its act into a task tree
 
+**Benchmark** — Unreal: Behavior Tree with a blackboard, re-deciding from the root each tick. RAGE: **`CTask` tree** — a task owns sub-tasks, yields, and is abandoned as a subtree. **Taking RAGE** — for a physical actor a hierarchical task decomposes the way the act does.
+
 **RAGE wins this row over Unreal and it is the clearest win on the board.** A `CTask` owns
 sub-tasks, runs until it yields, and is abandoned as a whole SUBTREE when the situation changes:
 `drive to X` owns `follow the corridor` owns `keep the lane`, and each level knows only its own

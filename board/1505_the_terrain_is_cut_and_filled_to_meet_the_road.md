@@ -5,9 +5,9 @@ Area: generators
 Tags: scope
 Supersedes: 1529
 
+# The terrain is cut and filled to meet the road, and the road is drawn geometry
 
 **Benchmark** — Unreal: landscape sculpting and road splines are authored together in the editor. RAGE: the map ships cut and filled. **Neither derives it** — the cut and fill is ours because the road is derived, and the item it answers to is geometric plausibility.
-# The terrain is cut and filled to meet the road, and the road is drawn geometry
 
 A road is not laid on the ground; the ground was moved to carry it. Once every node has an
 elevation the road and the DEM disagree almost everywhere — five metres on an embankment, ten

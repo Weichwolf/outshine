@@ -5,6 +5,8 @@ Tags: scope, component-model
 
 # Everything is a component that knows what it CAN, what it MAY, and what it INTERACTS with
 
+**Benchmark** — Unreal: components declare what an actor HAS and gameplay tags declare what it may do. RAGE: entity types plus flags. **Taking Unreal** — a tag is data a scenario can extend; a type is a compile-time list only the engine can grow.
+
 Content is assembled from components by rules — load an asset AS a driveable four-wheel, attach
 a mind, attach an assignment, hand it navigation as a tool — declarable in scenario XML and
 composable in C++ through the SAME calls against the SAME graph.

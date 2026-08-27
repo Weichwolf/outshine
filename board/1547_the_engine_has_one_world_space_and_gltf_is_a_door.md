@@ -5,6 +5,8 @@ Tags: scope, layering
 
 # The engine has ONE world space, and glTF is a door rather than a coordinate system
 
+**Benchmark** — Unreal: one world space, and an importer converts into it at the door. RAGE: one map space. **Both agree** — glTF is a door, never a coordinate system the engine adopts.
+
 Unreal converts Y-up right-handed content into its own world once, at load; RAGE normalises in
 the asset pipeline. **The conversion is a door, not a step in the frame.** Here
 `EcefFromGltf` appears ten times in `src/engine/GltfStudio.cpp` on the RUNTIME path: every

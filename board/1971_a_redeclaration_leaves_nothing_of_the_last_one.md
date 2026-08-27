@@ -5,6 +5,8 @@ Area: engine
 
 # A redeclaration leaves nothing of the last one
 
+**Benchmark** — Unreal: `LoadMap` tears the world down before standing the next one. RAGE: a new map unloads the old. **Both agree** — a redeclaration leaves nothing of the last one standing.
+
 Measured while writing `ScoreWhatThreeProducersAgreeOn`, which stood the same face three ways
 through ONE engine:
 

@@ -5,6 +5,8 @@ Tags: scope, contract
 
 # Every generator is a library emitting the representation the compositor uses
 
+**Benchmark** — Unreal: PCG emits into the same representation authored content uses. RAGE: the tool chain emits the cooked form. **Both agree** — a generator emits the representation the consumer already reads, never a private one.
+
 One in-memory model, not two: a subject loaded from a file and a subject grown by a generator
 are the SAME type, which makes *the compositor never learns what produced a part* structural
 rather than conventional. The pieces exist — `Gltf::Document` and `Gltf::Subject` are the

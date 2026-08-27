@@ -5,6 +5,8 @@ Area: door
 
 # The door holds only structs that earn their place
 
+**Benchmark** — Unreal: a public struct in an engine header is an ABI commitment and is kept small and stable. RAGE: resources are the interface. **Taking Unreal** — a struct in the door earns its place or becomes a handle.
+
 `include/Scenario.h` carries 38 structs. Audited one at a time against RAGE and Unreal, seven do
 not earn their place, worst first.
 

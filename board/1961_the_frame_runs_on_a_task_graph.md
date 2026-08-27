@@ -5,6 +5,8 @@ Area: host
 
 # The frame runs on a task graph
 
+**Benchmark** — Unreal: `FTaskGraph` with explicit dependencies, render and RHI threads. RAGE: `sysTaskManager` with fibers. **Both agree** — explicit dependencies, and 720p60 on four usable cores is unreachable from one thread.
+
 **Both benchmarks agree and neither retrofitted it.** Unreal has `FTaskGraph` with a render thread
 and an RHI thread beside the workers; RAGE has `sysTaskManager` and fibers. Dependencies are
 declared, the graph schedules, and no stage waits on a thread that is doing something unrelated.

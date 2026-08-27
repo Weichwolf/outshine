@@ -5,6 +5,8 @@ Tags: corpora, invariants
 
 # The invariants test/unit asserted are reclaimed from established corpora
 
+**Benchmark** — Unreal and RAGE both rely on internal QA; neither publishes a corpus. **The choice is mine** — an invariant we assert about ourselves proves agreement with ourselves, and a vendor corpus is the only thing that proves more.
+
 `test/unit/` is deleted: 170 cases that asserted the shape of a moving architecture. The owner's
 argument holds — a test specifies only if it stands before the code AND the unit survives, and
 neither is true while TARGET moves. What proves the tree is a client that compiles against

@@ -7,6 +7,8 @@ Depends: 1896, 1965
 
 # The engine knows bodies, forces and control -- never a car
 
+**Benchmark** — The same row as 1944. **Both agree** — the engine names bodies, forces and control, never a car.
+
 **FIRST TWO FIELDS GONE, AND THEY WERE THE REDUNDANT ONES.** `wheelbaseM` and `trackM` stood in
 `struct Vehicle` beside the four contacts that already fixed them: contacts at z = -1.405 and
 +1.405 ARE a 2.810 m wheelbase, contacts at x = +-0.774 ARE a 1.548 m track. `Rigging` derived the

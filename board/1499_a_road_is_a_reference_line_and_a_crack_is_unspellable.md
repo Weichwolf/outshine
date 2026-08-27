@@ -7,6 +7,8 @@ Supersedes: 1531, 1534
 
 # A corridor is a reference line, and a crack is unspellable
 
+**Benchmark** — Unreal: splines with tangent continuity for roads. RAGE: node lists with widths. **Taking Unreal** — a reference line whose curvature is continuous is the only thing that makes a crack unspellable, and a node list cannot state continuity.
+
 Not only roads: a road, a railway, a canal, a runway, a pipeline and a wall are one shape — a
 reference line with a cross-section swept along it. They differ in the profile and in the
 limits, and a railway's limits are the tighter case (gradient under 4 %, radius in the

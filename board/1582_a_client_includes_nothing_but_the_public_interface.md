@@ -6,6 +6,8 @@ Supersedes: 1525, 1619, 1635
 
 # A client includes nothing but `include/outshine/`, and every module's include set is minimal
 
+**Benchmark** — Unreal: a module's `Public/` is the only surface another module may include, enforced by include paths in `Build.cs`. RAGE: fw/rage libraries with their own headers. **Taking Unreal** — the compiler enforcing it is the difference between a boundary and a habit.
+
 The rule is the owner's and the enforcement is the build's: when the include set cannot express
 the breach, the rule needs no reviewer. Today `apps/driver/src` is declared with sixteen
 `-Isrc/...` entries (test/run.sh:195) — the internals wholesale.

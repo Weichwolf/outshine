@@ -8,6 +8,8 @@ Supersedes: 1825
 
 # The speed profile leaves room for the mind to react
 
+**Benchmark** — Unreal: `UPathFollowingComponent` keeps a look-ahead and slows for it. RAGE: the vehicle AI drives a node list with a target speed. **Both agree** — a speed plan that leaves no room to react is a plan the mind cannot follow.
+
 **Reframed under board:1919.** A plan is not a line the car HOLDS -- a car reacts to what is
 under it and around it, and other traffic will be in the way. What the plan owes is not
 adherence but ROOM: a speed at which a mind still has grip left to answer something the plan

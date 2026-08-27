@@ -6,6 +6,8 @@ Tags: performance, shadow, light, measured
 
 # No term on the light and shadow path scales with geometry, lights or pixels on the CPU
 
+**Benchmark** — Unreal: `FGPUScene` holds instances GPU-side, Nanite culls in compute, a pass is ONE indirect draw. RAGE: per-batch draw calls. **Taking Unreal** — no CPU term may scale with geometry or lights.
+
 "Light and shadow are GPU-side" is the intent; it is not measurable as written, because somebody
 has to write the uniform and the plan is a CPU declaration. RAGE and Unreal both keep the SETUP
 on the CPU -- which light, which cascade bounds -- and it is O(lights) and tiny. What they never

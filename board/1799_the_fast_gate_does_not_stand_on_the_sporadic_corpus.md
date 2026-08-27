@@ -5,6 +5,8 @@ Tags: process, claims, measured
 
 # The gate's verdict means what it says
 
+**Benchmark** — Unreal: automation reports pass/fail per test and a red is a red. RAGE: the same. **Both agree** — a gate whose verdict does not mean what it says is worse than no gate.
+
 ## MEASURED at 84115df7, a full `sh test/run.sh` in its own worktree
 
     1844 tests: 1829 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  15 UNPREPARED

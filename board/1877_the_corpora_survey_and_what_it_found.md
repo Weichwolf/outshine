@@ -5,6 +5,8 @@ Tags: corpora, invariants
 
 # The corpora survey names three, and each names a gap it closes
 
+**Benchmark** — Neither engine ships a corpora survey; both rely on internal QA and platform certification. **The choice is mine** — vendor corpora are the only oracles here whose truth does not depend on this design, so which capability each one asserts has to be written down or the coverage claim is a feeling.
+
 `test/CORPORA.md` is the survey: for every capability TARGET demands, which ESTABLISHED corpus
 asserts that problem class, and is it reachable. Two structural findings came out of it that the
 brief did not ask for and that decide how the list is read:

@@ -6,6 +6,8 @@ Tags: door, driver, measured
 
 # Read -> Assemble -> Advance stands a picture, or it refuses at Read
 
+**Benchmark** — Unreal: `LoadMap` fails loudly and the engine stays in a known state. RAGE: a resource that does not map is a refusal. **Both agree** — a declaration that cannot stand refuses at READ, before anything half-built exists.
+
 The front door says: **outshine loads a scenario and runs it.** Run exactly that way, it renders
 nothing and says nothing until the third call.
 

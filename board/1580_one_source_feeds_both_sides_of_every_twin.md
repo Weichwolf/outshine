@@ -5,6 +5,8 @@ Tags: instrument, decision
 
 # One source feeds both sides of every twin
 
+**Benchmark** — Unreal: one source of truth per fact, with derived data keyed off it. RAGE: the resource is the source. **Both agree** — a twin is two spellings, and the second one drifts.
+
 Half of this is repaid: shader source lives as files in the tree (src/render/shaders/, 25 of
 them) -- **with one exception the earlier wording of this item denied.** `src/render/stages/
 Resolve.h:20-56` builds about forty lines of Metal out of C++ string literals: `filmic()`,

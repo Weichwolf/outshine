@@ -5,6 +5,8 @@ Tags: scope
 
 # A scenario declares a whole game, and a client is four lines
 
+**Benchmark** — Unreal: a game is a project of assets plus C++/Blueprint; the "client" is the editor and a launcher. RAGE: a game is a build. **Neither ships a four-line client** — outshine does because its content surface is one format and its declaration is one file, and that is the claim this item holds the door to.
+
 The owner's bar: a complete game is practically four lines of client code and one scenario —
 which may be as small as a Tetris board or as large as Fallout 4. The client says where to
 render, loads the scenario, runs the loop and cleans up; everything else the scenario declares.

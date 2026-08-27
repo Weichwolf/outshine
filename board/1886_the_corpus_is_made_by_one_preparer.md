@@ -5,6 +5,8 @@ Tags: corpora, measured, provenance
 
 # The corpus is made by ONE preparer, and the guard that says so runs
 
+**Benchmark** — Unreal: the DDC has one producer per key. RAGE: one tool chain. **Both agree** — two preparers of one corpus is two truths.
+
 `EveryOracleWasPreparedByThisPreparer` hashes every source under the corpus harness and compares
 it against the `preparerDigest` each case recorded when it was prepared. It did not COMPILE from
 the cut until 9de36ce7 -- `LayerIncludes harness/claims` had lost `-Isrc/core` while `LayerGroups`
