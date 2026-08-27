@@ -92,7 +92,7 @@ private:
 
 struct Engine::State {
   Render::Renderer Device;
-  std::unique_ptr<Clients::Live> Standing;
+  std::unique_ptr<Core::Live> Standing;
   Extent Frame{1280, 720};
   Scenario Declared;
   std::vector<std::string> Carried;
@@ -111,7 +111,7 @@ struct Engine::State {
   Ui::Typeface Face;
   std::optional<ViewBook> Views;
   InputMap Bound;
-  Clients::InputPump Pump;
+  Core::InputPump Pump;
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
   std::vector<Measure> Numbers;
@@ -125,7 +125,7 @@ struct Engine::State {
   std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
   size_t Fired = 0;
-  Clients::Declaration Shown;
+  Core::Declaration Shown;
   double OwedS = 0.0;
   std::string Error;
 
@@ -621,7 +621,7 @@ bool Engine::Handles(const SDL_Event &event) {
                                  -(double)event.wheel.y * S_->Declared.WheelStepPx, S_->Error);
   }
   if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
-    Clients::InputPump::Fired fired[2];
+    Core::InputPump::Fired fired[2];
     const size_t many = S_->Pump.Translate(event, fired);
     if (S_->Offered == nullptr) { return false; }
     bool acted = false;
@@ -669,10 +669,10 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
   for (const Surface &surface : surfaces) { ordered.push_back(&surface); }
   std::stable_sort(ordered.begin(), ordered.end(),
                    [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
-  std::vector<Clients::Shows> laid;
+  std::vector<Core::Shows> laid;
   laid.reserve(ordered.size());
   for (const Surface *surface : ordered) {
-    Clients::Shows shows;
+    Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
     shows.Programme = surface->Programme;
@@ -688,14 +688,14 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
 
 namespace {
 
-[[nodiscard]] bool SameShows(const Clients::Shows &a, const Clients::Shows &b) {
+[[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
   return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
          a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
          a.HeightFrac == b.HeightFrac;
 }
 
-[[nodiscard]] bool SameSurfaces(const std::vector<Clients::Shows> &a,
-                                const std::vector<Clients::Shows> &b) {
+[[nodiscard]] bool SameSurfaces(const std::vector<Core::Shows> &a,
+                                const std::vector<Core::Shows> &b) {
   if (a.size() != b.size()) { return false; }
   for (size_t at = 0; at < a.size(); ++at) {
     if (!SameShows(a[at], b[at])) { return false; }
@@ -703,7 +703,7 @@ namespace {
   return true;
 }
 
-[[nodiscard]] bool SamePicture(const Clients::Declaration &a, const Clients::Declaration &b) {
+[[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
   return a.SurfaceWidthPx == b.SurfaceWidthPx &&
          a.SurfaceHeightPx == b.SurfaceHeightPx && a.Built == b.Built &&
          a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
@@ -717,7 +717,7 @@ namespace {
          a.KeyBearingDeg == b.KeyBearingDeg;
 }
 
-[[nodiscard]] bool SameStand(const Clients::Declaration &a, const Clients::Declaration &b) {
+[[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
   return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
          a.Animation == b.Animation;
 }
@@ -766,7 +766,7 @@ bool Engine::Declare(const Scenario &scenario) {
   }
   const Asset *const subject = scenario.Subject();
 
-  Clients::Declaration declared;
+  Core::Declaration declared;
   declared.SurfaceWidthPx = S_->Frame.WidthPx;
   declared.SurfaceHeightPx = S_->Frame.HeightPx;
   if (subject != nullptr) {
@@ -800,7 +800,7 @@ bool Engine::Declare(const Scenario &scenario) {
   std::stable_sort(ordered.begin(), ordered.end(),
                    [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
   for (const Surface *surface : ordered) {
-    Clients::Shows shows;
+    Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
     shows.Programme = surface->Programme;
@@ -868,7 +868,7 @@ bool Engine::Declare(const Scenario &scenario) {
   if (S_->Standing) { wasScrolled = S_->Standing->Scrolled(); }
   S_->Standing.reset();
   S_->Shown = declared;
-  if (!Clients::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
+  if (!Core::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
     S_->Standing.reset();
     return false;
   }
@@ -1310,7 +1310,7 @@ void Engine::State::Drew(void) {
       Places("texels above the clear", written, "texels");
       Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
     }
-    Places("bytes the frame's drawing left behind", (double)Clients::Live::TookDrawing(),
+    Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
            "bytes");
     Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
     Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");

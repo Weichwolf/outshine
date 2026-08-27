@@ -17,7 +17,7 @@ namespace {
 // change against a streamed map data store. Neither re-declares.
 //
 // So: declaring what already stands must build nothing a second time. The instrument is
-// outshine::Clients::Live::PlanInits(), which counts every time a stand hands a fresh render
+// outshine::Core::Live::PlanInits(), which counts every time a stand hands a fresh render
 // plan to the device -- pipelines, passes and every resource behind them. That count is the
 // whole measurement: a rebuild that re-initialises the plan has thrown away everything the
 // device held, and one that does not has thrown away nothing.
@@ -56,17 +56,17 @@ int main(int argc, char **argv) {
 
   const outshine::Scenario stands = Showing();
 
-  const size_t before = outshine::Clients::Live::PlanInits();
+  const size_t before = outshine::Core::Live::PlanInits();
   if (!engine.Declare(stands)) {
     Unprepared(("nothing stood: " + engine.Error()).c_str());
     return Report();
   }
-  const size_t afterFirst = outshine::Clients::Live::PlanInits();
+  const size_t afterFirst = outshine::Core::Live::PlanInits();
   std::printf("FIRST DECLARATION initialised the plan %zu time(s)\n", afterFirst - before);
   CHECK(afterFirst > before, "the first declaration builds a plan, so there is a stand");
 
   CHECK(engine.Declare(stands), "declaring what already stands is accepted, not refused");
-  const size_t afterSecond = outshine::Clients::Live::PlanInits();
+  const size_t afterSecond = outshine::Core::Live::PlanInits();
   std::printf("SECOND DECLARATION of the SAME scenario initialised the plan %zu further time(s)\n",
               afterSecond - afterFirst);
   CHECK(afterSecond == afterFirst,
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
   page.Where = outshine::Patch{};
   overlaid.Surfaces.push_back(page);
   CHECK(engine.Declare(overlaid), "a scenario that adds only a surface is accepted");
-  const size_t afterOverlay = outshine::Clients::Live::PlanInits();
+  const size_t afterOverlay = outshine::Core::Live::PlanInits();
   std::printf("A SURFACE ADDED over the same picture initialised the plan %zu further time(s)\n",
               afterOverlay - afterSecond);
   CHECK(afterOverlay == afterSecond,

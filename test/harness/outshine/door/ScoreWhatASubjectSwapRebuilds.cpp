@@ -93,22 +93,22 @@ int main(void) {
     return Report();
   }
 
-  const size_t readsBefore = outshine::Clients::Live::AssetReads();
-  const size_t plansBefore = outshine::Clients::Live::PlanInits();
+  const size_t readsBefore = outshine::Core::Live::AssetReads();
+  const size_t plansBefore = outshine::Core::Live::PlanInits();
   if (!engine.Declare(Showing("red.gltf"))) {
     Unprepared(("the first subject did not stand: " + engine.Error()).c_str());
     return Report();
   }
-  const size_t readsFirst = outshine::Clients::Live::AssetReads();
-  const size_t plansFirst = outshine::Clients::Live::PlanInits();
+  const size_t readsFirst = outshine::Core::Live::AssetReads();
+  const size_t plansFirst = outshine::Core::Live::PlanInits();
   std::printf("FIRST SUBJECT read %zu asset(s), initialised %zu plan(s)\n",
               readsFirst - readsBefore, plansFirst - plansBefore);
   CHECK(readsFirst == readsBefore + 1, "the first subject is read exactly once");
   CHECK(plansFirst == plansBefore + 1, "and it builds the one plan the picture needs");
 
   CHECK(engine.Declare(Showing("blue.gltf")), "a different subject in the same picture stands");
-  const size_t readsSwapped = outshine::Clients::Live::AssetReads();
-  const size_t plansSwapped = outshine::Clients::Live::PlanInits();
+  const size_t readsSwapped = outshine::Core::Live::AssetReads();
+  const size_t plansSwapped = outshine::Core::Live::PlanInits();
   std::printf("SWAPPED SUBJECT read %zu further asset(s), initialised %zu further plan(s)\n",
               readsSwapped - readsFirst, plansSwapped - plansFirst);
   CHECK(readsSwapped == readsFirst + 1,
@@ -121,7 +121,7 @@ int main(void) {
         "would cost every pipeline behind it");
 
   CHECK(engine.Declare(Showing("red.gltf")), "and back again");
-  const size_t plansBack = outshine::Clients::Live::PlanInits();
+  const size_t plansBack = outshine::Core::Live::PlanInits();
   std::printf("SWAPPED BACK initialised %zu further plan(s)\n", plansBack - plansSwapped);
   CHECK(plansBack == plansSwapped, "and swapping back rebuilds nothing either");
 

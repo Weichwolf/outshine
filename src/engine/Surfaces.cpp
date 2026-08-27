@@ -1,6 +1,6 @@
 #include "Surfaces.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 namespace {
 
 Render::SubjectWrap WrapOf(Gltf::Wrap wrap) {

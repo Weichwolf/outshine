@@ -10,7 +10,7 @@
 
 #include "Renderer.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 bool Placed(Render::Renderer &renderer, const Studio &studio, std::string &error) {
   const size_t rows = studio.PartPlacement.size();

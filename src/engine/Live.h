@@ -21,7 +21,7 @@
 #include "Subject.h"
 #include "Surfaces.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 struct Shows {
   std::string Markup;

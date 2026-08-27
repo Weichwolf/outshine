@@ -5,7 +5,7 @@
 
 #include "StackProbe.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 namespace {
 
 double MonotonicMs() {

@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 struct Raster {
   int Width = 0;

@@ -20,7 +20,7 @@ public:
                          int height, std::string &error) const {
     if (!Names(name, error)) { return false; }
     std::vector<uint8_t> encoded;
-    if (!outshine::Clients::EncodePng(rgba.data(), width, height, encoded)) {
+    if (!outshine::Core::EncodePng(rgba.data(), width, height, encoded)) {
       error = name + " did not encode as a PNG at " + std::to_string(width) + "x" +
               std::to_string(height);
       return false;

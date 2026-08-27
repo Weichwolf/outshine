@@ -17,7 +17,7 @@
 #include "Framing.h"
 #include "GltfStudio.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 namespace {
 
 void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY,

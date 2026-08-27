@@ -13,7 +13,7 @@
 #include "RegionPool.h"
 #include "Yield.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 class RegionForge {
 public:

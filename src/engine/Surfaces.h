@@ -11,7 +11,7 @@
 #include "Renderer.h"
 #include "Subject.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 struct SurfaceRasters {
   Raster Colour;

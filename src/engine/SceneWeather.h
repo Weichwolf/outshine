@@ -5,7 +5,7 @@
 #include "Stage.h"
 #include "Units.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 class SceneWeather : public ConstantWindWeather {
 public:

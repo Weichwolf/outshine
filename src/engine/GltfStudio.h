@@ -16,7 +16,7 @@ namespace outshine::Render {
 class Renderer;
 }
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 constexpr double kStudioAnchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
 

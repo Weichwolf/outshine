@@ -8,7 +8,7 @@
 
 #include "InputMap.h"
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 class InputPump {
 public:

@@ -4,7 +4,7 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
-namespace outshine::Clients {
+namespace outshine::Core {
 
 namespace {
 

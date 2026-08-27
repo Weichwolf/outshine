@@ -90,7 +90,7 @@ int main(void) {
               table ? templates.TemplateCount() : 0u);
   CHECK(table != nullptr,
         "**THE GROUND TABLE IS BUILT FROM THE SHIPPED TEMPLATES OUTSIDE THE ENGINE**: it was a "
-        "member of `Clients::Sim`, and a member of a class with one consumer is a capability no "
+        "member of `Core::Sim`, and a member of a class with one consumer is a capability no "
         "declaration can reach");
 
   const Region region = Region::Of(kZoom, kLatDeg, kLonDeg);
