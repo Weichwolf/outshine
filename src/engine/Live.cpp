@@ -109,6 +109,16 @@ bool Live::Build(std::string &error) {
       AssetReads_ += 1;
     }
     if (!Pose(0, error)) { return false; }
+    for (const std::string &joining : Declared_.Joins) {
+      Core::Posed arriving;
+      if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Fps, error)) { return false; }
+      if (!arriving.Poses(0, Declared_.Fps, error)) { return false; }
+      AssetReads_ += 1;
+      if (!Held_.Geometry().Append(arriving.Geometry())) {
+        error = "the subject '" + joining + "' would not append onto the one before it";
+        return false;
+      }
+    }
     ResolveSurfaceTable(Held_.File(), Held_.Geometry(), true, true, Table_);
     if (!ResolveFileSurface(Held_.File(), Held_.Geometry(), ColourFrom::Row, ColourCarrier::Texture, Table_,
                             error)) {

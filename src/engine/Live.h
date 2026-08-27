@@ -31,6 +31,7 @@ struct Declaration {
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
 
   std::string Stands;
+  std::vector<std::string> Joins;
 
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};

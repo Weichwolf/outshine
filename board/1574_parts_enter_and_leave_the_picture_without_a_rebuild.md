@@ -102,8 +102,16 @@ primitive and RAGE puts every entity on its node's draw list, so neither has any
 second subject to be dropped FROM. Until the picture can hold two, saying no is the honest half
 of the answer, and accepting a declaration and doing nothing with it is the dishonest one.
 
-- [ ] the picture holds MORE THAN ONE subject, and the refusal above is deleted on the day it
-      does. The proving case is already written to see both ends: it passes when two subjects
-      draw twice the batches of one, and it passes when the engine refuses by name -- so the
-      day the feature lands, the case reads the feature rather than the refusal.
+- [x] the picture holds MORE THAN ONE subject, and the refusal is deleted. `one subject draws 1
+      batch(es), two draw 2` -- the case reads the FEATURE rather than the refusal now, with no
+      edit, exactly as it was written to. Negative control: disabling the append reads
+      `two draw 1`.
+      **The mechanism existed and nothing reached it**: `Gltf::Subject::Append` was complete,
+      tested by `outshine/content/ScoreWhatAnAppendKeeps`, and called by no production code.
+      What was needed was a LIST where `Declaration::Stands` held one path, and the append placed
+      AFTER `Pose(0)` rather than before -- posing rebuilds the geometry from the file and was
+      overwriting the join.
+      **What it costs is now board:1943's**: two identical subjects are two draw calls, because
+      `DrawList::SameState` has `ModelSlot` in the merge key and `DrawBatch::Draws` -- an
+      instance count -- is never raised above 1.
       proof: outshine/door/ScoreWhatASecondSubjectDoes

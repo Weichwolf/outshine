@@ -19,6 +19,42 @@ outshine issues a uniform push per batch, twice per frame.
 - [x] the tone chain is checkable end to end against a closed form, so a factor of two cannot
       hide in it
       proof: outshine/door/ScoreWhatALitSurfaceReads
+## Which parts of Nanite this tree wants, and the one it does not
+
+Nanite is six mechanisms and they are separable. Measured against what stands here:
+
+| mechanism | here | take it? |
+|---|---|---|
+| cluster DAG with self/parent error bounds | `src/base/spatial/ClusterDag.h` -- `SelfErr`, `ParentErr`, bounding sphere per cluster, exactly Nanite's shape. Built for TERRAIN only (`TilePool`) | **yes**, and it must reach subjects |
+| GPU culling of clusters in compute | absent | **yes** -- it is what makes the DAG worth having |
+| persistent instance buffer (`FGPUScene`) | absent; `ModelSlot` is part of the batch key | **yes** -- see the predicate below |
+| ONE indirect draw per pass | absent | **yes** |
+| visibility buffer (write cluster+triangle, shade later) | absent | **partly** -- it decouples geometry from material, but most of its win is paired with the next row |
+| COMPUTE RASTERISER | absent | **NO** |
+
+**Why the compute rasteriser is the one to refuse.** Its reason is sub-pixel triangles: hardware
+rasterises in 2x2 quads, so a triangle smaller than a pixel shades up to four times over, and
+film-scale assets are made of them. That is a real cost for content nobody authored for the
+budget. This engine generates its own geometry and CHOOSES the density -- a cluster DAG whose
+error bound is tuned to 720p never asks the hardware to draw a triangle that small. Paying for a
+second rasteriser to fix a problem the LOD selection already prevents is buying the cure for a
+disease we do not have.
+
+The other five are not Nanite-specific at all -- they are what "GPU-driven" means, and RAGE
+reaches the same place from the other side with its own draw-list culling. Refusing one row of a
+famous design is not refusing the design.
+
+- [ ] the cluster DAG reaches SUBJECTS, not only terrain -- it is built and proven for one and
+      unreachable for the other
+- [ ] **TWO IDENTICAL SUBJECTS COST TWO DRAW CALLS, and the instancing is already declared.**
+      Measured on board:1574's case: `one subject draws 1 batch(es), two draw 2`. `DrawList`
+      merges by `SameState` -- material, layout, kind AND `ModelSlot` -- so two subjects can
+      never merge however identical, because their placement rows differ. And `DrawBatch` already
+      carries `uint32_t Draws = 1`, an instance count that nothing ever raises.
+      Unreal's answer is `FGPUScene`: the model slot is read PER INSTANCE out of a GPU buffer
+      rather than being part of the batch key, so identical meshes merge and `Draws` counts them.
+      That is one change to `SameState` plus a per-instance slot in the shader, and it is the
+      difference between a CPU term that scales with subjects and one that does not.
 - [ ] the shadow pass issues ONE indirect draw from the resident instance buffer, not one
       `PushGPUVertexUniformData` per batch (board:1926)
 - [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` stops

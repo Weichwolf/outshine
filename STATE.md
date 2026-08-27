@@ -16,8 +16,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `client` | 3/11 | 27% | [1947](board/1947_a_client_is_almost_no_code.md), [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) | |
 | `corpus` | 3/8 | 38% | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) | |
 | `door` | 7/21 | 33% | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md), [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) | |
-| `gpu-driven` | 4/16 | 25% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_sim_video_audio_and_io_run_independently.md) | |
-| `layers` | 6/6 | 100% |  | |
+| `gpu-driven` | 4/18 | 22% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_sim_video_audio_and_io_run_independently.md) | |
 | `perception` | 1/6 | 17% | [1945](board/1945_a_body_perceives_what_is_around_it.md) | |
 | `render-plan` | 2/7 | 29% | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) | |
 | `streaming` | 2/17 | 12% | [1946](board/1946_the_generated_world_reaches_the_scene.md), [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) | |
