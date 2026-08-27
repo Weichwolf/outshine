@@ -148,7 +148,6 @@ flowchart LR
   world_ground --> |9| world_data
   sim --> |8| actor_mind
   actor_mind --> |7| actor_path
-  engine --> |6| world_generators
   engine --> |6| scenario
   engine --> |6| render
   sim --> |5| base_spatial
@@ -165,10 +164,9 @@ flowchart LR
   render --> |3| render_device
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
-  engine --> |3| base_io
   content_shade --> |3| base_math
 ```
-  32 edge(s) drawn, 36 thinner than three includes not drawn
+  30 edge(s) drawn, 38 thinner than three includes not drawn
 
 ## Tiers
 
@@ -204,7 +202,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |
 | 955 | `ui/Style.h` |
-| **106** | *the median of 238 unit(s)* |
+| **106** | *the median of 237 unit(s)* |
 
 ## Carpet
 
@@ -230,9 +228,6 @@ Header names that collide.
 
 Sources no declared suite links, so nothing they hold is proven.
 
-  src/audio/BusGraph.cpp
-  src/engine/RegionForge.cpp
-  src/scenario/Tables.cpp
 
 ## Access
 

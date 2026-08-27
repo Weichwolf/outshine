@@ -31,3 +31,8 @@ built on top of it than after.
       matters, and proving it needs a world wide enough to exceed the budget rather than a smaller
       budget, which would prove the guard rather than the streaming.
 - [ ] `apps/driver` drives out of the declared extent and the picture does not break
+- [ ] a cell grows OFF the frame thread, and it does so on `Base::Graph` -- the task graph with
+      explicit dependencies that TARGET takes because RAGE and Unreal agree on it. `RegionForge`
+      was a bespoke thread and condition variable doing this for one caller and reachable from
+      none; it was deleted with board:1975 rather than wired, because a dedicated thread beside a
+      task graph is the shape TARGET already rejected
