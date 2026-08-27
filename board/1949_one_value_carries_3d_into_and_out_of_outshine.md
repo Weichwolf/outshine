@@ -92,6 +92,27 @@ so the correction removes a row rather than adding one. The merge runs: the read
 
 ## What will be true
 
+**MEASURED: NINE INDEPENDENT GEOMETRY REPRESENTATIONS STAND IN THE TREE**, where the benchmark
+holds two.
+
+| where | what it is |
+|---|---|
+| `include/Geometry.h` | the AUTHORED form — the one that is meant to be the only one |
+| `content/gltf/Subject.h` | the reader's, `Positions_` in `double` |
+| `render/SubjectProxy.h` | `SubjectScratch`, packed interleaved floats — the COOKED form |
+| `base/spatial/ClusterDag.h` | the cluster DAG — also the cooked form, and this tree's Nanite |
+| `world/ground/BuildingField.h` · `TileMeshes.h` · `tiles/TerrainGrid.h` | three more |
+| `generators/draw/TreeMesh.h` · `TreePrototype.h` · `generators/Meshed.h` | three more |
+
+Unreal holds `FMeshDescription` (authored) against `FStaticMeshLODResources` +
+`FNaniteResources` (cooked), and `FMeshBatch` is a DRAW's description rather than a third form.
+RAGE ships `grmGeometry` as the cooked form and maps its file rather than parsing it. So the
+target is two forms and one cooker, and seven of the nine here are the cooked form re-invented
+per producer.
+
+`ClusterDag` is NOT one of the duplicates to remove — it is the cooked form's cluster hierarchy
+and the frame path depends on it.
+
 - [x] The value is public and names no format: `include/Geometry.h`. It is a BUILDER, not a struct
       of spans -- publishing `span<const float> PositionsM` froze the vertex layout into the ABI
       and handed out views into the producer's own vectors, valid only while it lived. The storage
@@ -188,6 +209,9 @@ starting: a reader that packs two ways is the second spelling this item exists t
 - [x] The builder carries punctual lights and a placement per part.
       proof: outshine/door/ScoreWhatAHandedLampLights
 - [ ] The builder carries hierarchy, skins, morph targets, variants and TEXTURES.
+- [ ] the nine become two: every producer fills the AUTHORED form, one cooker makes the cooked
+      one, and `ClusterDag` is part of the cooked form rather than a ninth mesh
+- [ ] `geometry` is a tier of its own between `math` and everything that carries shape
 - [ ] A generator fills the same value (board:1948) -- one value, three producers, proven by a
       case that stands the same geometry each way and compares the pictures.
 - [ ] The glTF SERIALISER writes it back out, so the round trip closes: fill, serialise, read,

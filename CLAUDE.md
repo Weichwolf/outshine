@@ -64,6 +64,15 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
   Khronos ships the corpus and the validator, so the distance to "all of it" is a number someone
   else computes. `include/Geometry.h` must carry whatever the reader takes from a FILE, or a
   client's generator is weaker than a file and the interchange claim is false. `EXT_` is out
+- **GEOMETRY HAS TWO FORMS AND NO THIRD**, and the tier chain is **math ← geometry ← everything
+  that carries shape**. The AUTHORED form (`include/Geometry.h`) is what a reader, a generator or
+  a client fills: attribute-general, editable, format-free. The COOKED form is what the renderer
+  consumes: one-width GPU streams plus the CLUSTER DAG that carries LOD and culling
+  (`src/base/spatial/ClusterDag.h` — this tree's Nanite, and essential to the frame path). One
+  cooker turns the first into the second; nothing else may define a mesh. Unreal splits exactly
+  here — `FMeshDescription` against `FStaticMeshLODResources` + `FNaniteResources`, with
+  `FMeshBatch` a description of a DRAW rather than a third form — and RAGE's `grmGeometry` is the
+  cooked form, which is why its file can be mapped rather than parsed
 - **THE INTERFACE IS A DOCUMENT** the scenario names. Markup, style, layout, type and pointer are
   engine verbs; the panel is CONTENT beside the glTF, never in C++
 - **Declarative.** Scenarios declare, the engine behaves. Content = data, engine = verbs; the
