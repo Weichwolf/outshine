@@ -7,6 +7,7 @@
 #include "Check.h"
 #include "Shell.h"
 
+using outshine::Test::Ask;
 using outshine::Test::Lines;
 using outshine::Test::Run;
 
@@ -212,6 +213,26 @@ int main(void) {
         header.find("State: withdrawn") != std::string::npos) {
       closed.push_back(line);
       continue;
+    }
+    // AN EXIT MAY BE STATED IN THE COMMIT INSTEAD OF THE HEADER, and for two of the three it
+    // must be. A REMOVAL -- the item named no step toward an engine at RAGE/Unreal level, or did
+    // not say how -- never had an owner, so there is no active state to pass through. A
+    // WITHDRAWAL says the premise was wrong, which is a thing the commit has to explain anyway.
+    // For both, the header would be a second spelling of what the commit already says, and this
+    // tree forbids second spellings: the commit is the logbook and it is where anyone looks.
+    // What is required is that the exit be DELIBERATE -- the message says which exit and names
+    // the number.
+    {
+      const std::string message = Ask("git log -1 --format=%B " + at);
+      const bool says = message.find("removed") != std::string::npos ||
+                        message.find("REMOVED") != std::string::npos ||
+                        message.find("withdrawn") != std::string::npos ||
+                        message.find("WITHDRAWN") != std::string::npos;
+      const std::string number = line.substr(line.find("board/") + 6, 4);
+      if (says && message.find(number) != std::string::npos) {
+        closed.push_back(line);
+        continue;
+      }
     }
     std::string said = "no State line at all";
     for (const std::string &row : Lines(header)) {

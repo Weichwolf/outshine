@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GENERATORS_WATER_H
-#define OUTSHINE_WORLD_GENERATORS_WATER_H
+#ifndef OUTSHINE_GENERATORS_WATER_H
+#define OUTSHINE_GENERATORS_WATER_H
 
 #include "FeatureField.h"
 #include "Generator.h"

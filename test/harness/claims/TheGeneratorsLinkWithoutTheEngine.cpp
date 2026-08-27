@@ -26,7 +26,7 @@ namespace {
 // from `engine`, `render`, `scenario`, `sim`, `ui`, `audio` or `host`. The tier was already
 // separable and nothing said so, which is how a separation is lost -- one include at a time,
 // with the gate green throughout.
-constexpr const char *kSeed = "src-world-generators";
+constexpr const char *kSeed = "src-generators";
 
 // A tier the generators may reach, with the reason. `world` is their own and `base` reaches
 // nothing, so both are safe for a foreign program to take. Everything else is outshine's own

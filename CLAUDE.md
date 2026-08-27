@@ -129,7 +129,7 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 - **SIMD- and optimisation-friendly**: contiguous, one-width, pointer-free layouts; fast path on
   the hot path; batch over per-item; bounded terms on the frame path — no alloc, lock, disk or
   unbounded block
-- **The code carries NO comments.** `src/`, `include/`, `apps/` and `tools/` hold no `//`, no
+- **The code carries NO comments.** `src/`, `include/` and `apps/` hold no `//`, no
   block, no TODO, no board number: names and structure carry the meaning, a number's origin lives
   in its board item and its commit. Prose may stand in a PROOF — any source carrying `Covers("`
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population. No
@@ -236,10 +236,20 @@ stateDiagram-v2
   active --> open : parked
   open --> withdrawn : the PREMISE was wrong -- the defect is not there
   active --> withdrawn : the same, found while working it
+  open --> removed : it names no step toward the benchmark, or does not say how
   withdrawn --> [*] : the file is DELETED; the commit says what was misread
+  removed --> [*] : the file is DELETED; the commit says `removed` and names the number
 ```
 
-An item leaves two ways and they are not the same. A CLOSURE says a defect was real and is gone,
+An item leaves THREE ways. A REMOVAL needs no active state because nobody worked it: the item
+named no step toward an engine at their level, or did not say how, and a board is not a backlog.
+It must be deliberate — the deleting commit says `removed` and names the number.
+
+A WITHDRAWAL is stated the same way: the commit says `withdrawn`, names the number and says what
+was misread. Only a CLOSURE has to pass through `State: active`, because only a closure had
+someone working it.
+
+The other two are worked, and they are not the same. A CLOSURE says a defect was real and is gone,
 and names the proving test and its negative control. A WITHDRAWAL says the defect was never there
 and names what was misread — a measure that was absent rather than zero, a number read from the
 wrong frame, a capability that turned out reachable. Both states are recorded before the file

@@ -59,7 +59,7 @@ int main(void) {
   for (const auto &entry : std::filesystem::directory_iterator("test")) {
     if (!entry.is_directory()) { continue; }
     const std::string family = entry.path().filename().string();
-    if (family == "harness") { continue; }
+    if (family == "harness" || family == "outshine") { continue; }
     ++families;
     const std::string stem = "test-" + family;
     const bool fetched = HoldsAFetchedSubject(where, stem);

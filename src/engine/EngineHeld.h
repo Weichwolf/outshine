@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_HELD_H
-#define OUTSHINE_ENGINE_HELD_H
+#ifndef OUTSHINE_ENGINE_ENGINEHELD_H
+#define OUTSHINE_ENGINE_ENGINEHELD_H
 
 #include <Outshine.h>
 #include "Fetching.h"
