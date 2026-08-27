@@ -31,6 +31,10 @@ deterministic rather than merely possible.
       SUBJECT asset belongs to this predicate too** (from board:1509): the F31 is a CC-BY-4.0
       model fetched like any other corpus subject, and its attribution has to travel beside it.
       One pinning mechanism, not two -- the corpora already have the shape, a URL and a hash.
+      **And board:1963's second predicate is this one** (inherited on its closure): a clean
+      checkout DRIVES and writes its stills, but the terrain and OSM tiles still arrive from
+      somewhere. What is declared in the tree is the scenario and the subject; what is fetched
+      is the world under it.
 - [x] the run fails the gate when the drive refuses -- moving `scene.gltf` aside turns it red
 - [ ] the drive is its own suite rather than a case borrowing the door's, once a program can be
       one: `NAMED_ONLY="apps"` still answers "no declared suite under apps/driver/src"
