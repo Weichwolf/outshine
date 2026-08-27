@@ -54,10 +54,14 @@ So an authored `Geometry` does NOT carry motion: a shape has no velocity, a plac
 does. What the COOKED form carries is a second position stream, and only for geometry that
 actually deforms.
 
-**This constrains board:1989.** When placements move into a GPU buffer, the PREVIOUS placements
-must move with them -- one buffer of current rows and one of previous, or TAA loses every rigid
-motion vector and the image ghosts. That is easy to forget precisely because it works today
-through a uniform nobody thinks about.
+**This constrains board:1989, and the premise it was written on was wrong.** "It works today
+through a uniform nobody thinks about" was not measured. It does not work today: `Encode` sets
+`before[i] = model[i]` and `SubjectProxy` assigns `PrevAnchor = Anchor` at both sites, so the
+previous transform IS the current one and this tree carries no rigid motion vector at all. What
+moves is the camera and per-vertex `prevP`; a rigid subject that changes place produces none.
+So the previous placements still must move into the buffer with the current ones -- but that is
+adding a capability, not preserving one, and it needs board:1998 first: a frame has to END
+somewhere every render path passes through before "previous" can mean anything.
 
 ## GPU physics: optics yes, mechanics no
 
