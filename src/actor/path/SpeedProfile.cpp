@@ -21,9 +21,9 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   Curvature_.clear();
   StepM_ = 0.0;
   LengthM_ = 0.0;
-  Slowest_ = Standing{};
-  SlowestBound_ = Standing{};
-  Fastest_ = Standing{};
+  Slowest_ = Bound{};
+  SlowestBound_ = Bound{};
+  Fastest_ = Bound{};
   Why_.clear();
   for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
   Bin_.fill(0);

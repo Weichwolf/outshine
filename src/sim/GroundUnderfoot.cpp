@@ -4,8 +4,8 @@ namespace outshine::Sim {
 
 void GroundUnderfoot::Restand() { Held_ = Stack_.Classes().Read(); }
 
-Standing GroundUnderfoot::At(double lat, double lon) const {
-  Standing out;
+Underneath GroundUnderfoot::At(double lat, double lon) const {
+  Underneath out;
   const GroundSample sample = Stack_.Ground().Resident(lat, lon);
   if (!sample.TryAslM(&out.HeightAslM)) { return out; }
   for (int axis = 0; axis < 3; ++axis) { out.NormalM[axis] = sample.NormalM()[axis]; }

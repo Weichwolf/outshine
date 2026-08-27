@@ -6,7 +6,7 @@
 
 namespace outshine::Control {
 
-struct Standing {
+struct Sight {
   const ReferenceLine *Along = nullptr;
   const Pilot::Reins *With = nullptr;
   const Pilot::Placement *At = nullptr;
@@ -17,12 +17,12 @@ struct Standing {
 class HoldsLane final : public Task {
 public:
   [[nodiscard]] const Pilot::Demand &Asked() const { return Asked_; }
-  void Sees(const Standing &now) { Now_ = now; }
+  void Sees(const Sight &now) { Now_ = now; }
 
 private:
   [[nodiscard]] Doing Act(double dtS) override;
 
-  Standing Now_;
+  Sight Now_;
   Pilot::Demand Asked_;
 };
 

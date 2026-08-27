@@ -6,8 +6,8 @@ namespace outshine {
 
 namespace {
 
-Standing Surface(const Placed &on, double alongM, double acrossM, double halfWidthM) {
-  Standing out;
+Astride Surface(const Placed &on, double alongM, double acrossM, double halfWidthM) {
+  Astride out;
   out.AlongM = alongM;
   out.AcrossM = acrossM;
   out.On = halfWidthM <= 0.0 || std::fabs(acrossM) <= halfWidthM;
@@ -32,20 +32,20 @@ Standing Surface(const Placed &on, double alongM, double acrossM, double halfWid
 
 }
 
-Standing Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
+Astride Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
                double nearM, double windowM) {
   double alongM = 0.0;
-  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return Standing(); }
+  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return Astride(); }
   Placed on;
-  if (!over.At(alongM, on)) { return Standing(); }
+  if (!over.At(alongM, on)) { return Astride(); }
   const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
   const double acrossM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
   return Surface(on, alongM, acrossM, halfWidthM);
 }
 
-Standing StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM) {
+Astride StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM) {
   Placed on;
-  if (!over.At(alongM, on)) { return Standing(); }
+  if (!over.At(alongM, on)) { return Astride(); }
   return Surface(on, alongM, acrossM, halfWidthM);
 }
 

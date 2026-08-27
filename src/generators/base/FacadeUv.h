@@ -12,7 +12,7 @@ enum class FacadeStyle : int {
   Outbuilding = 0, House = 1, Terrace = 2, Block = 3, Hall = 4, Tower = 5, Spire = 6
 };
 
-enum class Standing : int { Back = 0, Front = 1, Entrance = 2 };
+enum class Fields : int { Back = 0, Front = 1, Entrance = 2 };
 
 constexpr float kBayCeil = 256.0f;
 constexpr int kStyleCount = 8;
@@ -21,7 +21,7 @@ constexpr float kStoreyCeil = 64.0f;
 constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
 
-inline float FacadeUvX(FacadeStyle style, Standing standing, float bay) {
+inline float FacadeUvX(FacadeStyle style, Fields standing, float bay) {
   return kBayCeil * (float)((int)style + kStyleCount * (int)standing) + bay;
 }
 

@@ -5,19 +5,19 @@ namespace outshine {
 
 class WaterDepth {
 public:
-  enum class State { Dry, Standing, LevelBelowGround };
+  enum class State { Dry, Fields, LevelBelowGround };
 
   static WaterDepth Dry() { return WaterDepth(State::Dry, 0.0); }
 
   static WaterDepth Between(double levelAslM, double groundAslM) {
-    return levelAslM >= groundAslM ? WaterDepth(State::Standing, levelAslM - groundAslM)
+    return levelAslM >= groundAslM ? WaterDepth(State::Fields, levelAslM - groundAslM)
                                    : WaterDepth(State::LevelBelowGround, groundAslM - levelAslM);
   }
 
   [[nodiscard]] State Where() const { return Where_; }
 
   [[nodiscard]] bool TryDepthM(double *out) const {
-    if (Where_ != State::Standing) return false;
+    if (Where_ != State::Fields) return false;
     *out = M_;
     return true;
   }

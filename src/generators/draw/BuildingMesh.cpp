@@ -52,7 +52,7 @@ struct Vtx {
 
 double EavesZ(const BuildingShape &s) { return s.FootM + s.EavesM; }
 
-Vtx Wall(const BuildingShape &s, const Plan2 &p, double z, double bays, Standing stand) {
+Vtx Wall(const BuildingShape &s, const Plan2 &p, double z, double bays, Fields stand) {
   return {p, z, FacadeUvX(StyleOf(s.Use), stand, (float)bays),
           FacadeUvY(s.Ident, (float)((z - s.FootM) / s.FloorM))};
 }
@@ -153,7 +153,7 @@ double BaysOn(double lengthM, double bayM) {
 }
 
 void WallPanel(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double bay0, double bay1,
-               double lowZ, double highZ, Standing stand, Site &site) {
+               double lowZ, double highZ, Fields stand, Site &site) {
   site.Quad(Wall(s, p, lowZ, bay0, stand), Wall(s, q, lowZ, bay1, stand),
             Wall(s, q, highZ, bay1, stand), Wall(s, p, highZ, bay0, stand));
 }
@@ -163,10 +163,10 @@ void FrontWall(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double ba
   const double door = std::floor(0.5 * bays);
   const double t0 = door / bays, t1 = (door + 1.0) / bays;
   const Plan2 a = Along(p, q, t0), b = Along(p, q, t1);
-  if (door > 0.0) WallPanel(s, p, a, 0.0, door, lowZ, highZ, Standing::Front, site);
-  WallPanel(s, a, b, door, door + 1.0, lowZ, highZ, Standing::Entrance, site);
+  if (door > 0.0) WallPanel(s, p, a, 0.0, door, lowZ, highZ, Fields::Front, site);
+  WallPanel(s, a, b, door, door + 1.0, lowZ, highZ, Fields::Entrance, site);
   if (door + 1.0 < bays)
-    WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Standing::Front, site);
+    WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site);
 }
 
 void Walls(const BuildingShape &s, double lowZ, Site &site) {
@@ -182,7 +182,7 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
       continue;
     }
     WallPanel(s, p, q, 0.0, bays, lowZ, topZ,
-              (int)i == s.FrontEdge ? Standing::Entrance : Standing::Back, site);
+              (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back, site);
   }
 }
 
@@ -211,9 +211,9 @@ void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
     const double len = EdgeLength(p, q);
     if (len < 0.05) continue;
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
-    site.Quad(Wall(s, p, eaves, 0.0, Standing::Back), Wall(s, q, eaves, bays, Standing::Back),
-              Wall(s, q, eaves + hq, bays, Standing::Back),
-              Wall(s, p, eaves + hp, 0.0, Standing::Back));
+    site.Quad(Wall(s, p, eaves, 0.0, Fields::Back), Wall(s, q, eaves, bays, Fields::Back),
+              Wall(s, q, eaves + hq, bays, Fields::Back),
+              Wall(s, p, eaves + hp, 0.0, Fields::Back));
   }
 }
 

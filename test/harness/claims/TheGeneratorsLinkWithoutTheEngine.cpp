@@ -28,10 +28,12 @@ namespace {
 // with the gate green throughout.
 constexpr const char *kSeed = "src-generators";
 
-// A tier the generators may reach, with the reason. `world` is their own and `base` reaches
-// nothing, so both are safe for a foreign program to take. Everything else is outshine's own
-// program, and a library that drags it in is not a library.
-constexpr const char *kMayReach[] = {"src-world-", "src-base-"};
+// A tier the generators may reach, with the reason. `generators` is their own -- three layers of
+// it since they became a tier of their own: the vocabulary in `base`, the mesh makers in `draw`,
+// the shipped generators above. `world` carries the ground fields they stand on and `base`
+// reaches nothing, so both are safe for a foreign program to take. Everything else is outshine's
+// own program, and a library that drags it in is not a library.
+constexpr const char *kMayReach[] = {"src-generators-", "src-world-", "src-base-"};
 
 }
 
@@ -104,7 +106,7 @@ int main(void) {
       Run("c++ -std=c++23 -Wall -Werror -Wpedantic -Iinclude -Isrc/base/math -Isrc/base/geo "
           "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
           "-Isrc/content/gltf -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
-          "-Isrc/generators -Isrc/world/data test/harness/shared/frame/GeneratorsAlone.cpp "
+          "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data test/harness/shared/frame/GeneratorsAlone.cpp "
           "build/libgenerators.a -o " + alone + " 2>&1",
           built);
   if (made != 0) { std::printf("%s", built.c_str()); }

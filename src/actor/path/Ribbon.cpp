@@ -65,7 +65,7 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
       return out;
     }
-    const Standing surface = StandAt(along, fromM > toM ? toM : fromM, 0.0, 0.0);
+    const Astride surface = StandAt(along, fromM > toM ? toM : fromM, 0.0, 0.0);
     out.OriginM[0] = first.EastM;
     out.OriginM[1] = surface.HeightM;
     out.OriginM[2] = -first.NorthM;
@@ -80,7 +80,7 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     }
     const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
 
-    Standing stood[kRibbonAcross];
+    Astride stood[kRibbonAcross];
     for (size_t which = 0; which < kRibbonAcross; ++which) {
       stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];
@@ -92,7 +92,7 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       out.AcrossM.push_back((float)acrossAt[which]);
     }
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      const Standing &surface = stood[which];
+      const Astride &surface = stood[which];
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
       Put(out.PositionM, eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],

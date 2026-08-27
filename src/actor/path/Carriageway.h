@@ -5,7 +5,7 @@
 
 namespace outshine {
 
-struct Standing {
+struct Astride {
   bool On = false;
   double AlongM = 0.0;
   double AcrossM = 0.0;
@@ -13,10 +13,10 @@ struct Standing {
   double NormalM[3] = {0.0, 1.0, 0.0};
 };
 
-[[nodiscard]] Standing Stand(const ReferenceLine &over, double eastM, double northM,
+[[nodiscard]] Astride Stand(const ReferenceLine &over, double eastM, double northM,
                              double halfWidthM, double nearM, double windowM);
 
-[[nodiscard]] Standing StandAt(const ReferenceLine &over, double alongM, double acrossM,
+[[nodiscard]] Astride StandAt(const ReferenceLine &over, double alongM, double acrossM,
                                double halfWidthM);
 
 }

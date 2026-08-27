@@ -54,11 +54,11 @@ class Verge final : public outshine::Sim::Underfoot {
 public:
   explicit Verge(double friction) : Friction_(friction) {}
 
-  [[nodiscard]] outshine::Sim::Standing At(double lat, double lon) const override {
+  [[nodiscard]] outshine::Sim::Underneath At(double lat, double lon) const override {
     (void)lat;
     (void)lon;
     ++Asked_;
-    outshine::Sim::Standing out;
+    outshine::Sim::Underneath out;
     out.Known = true;
     out.HeightAslM = 0.0;
     out.Friction = Friction_;

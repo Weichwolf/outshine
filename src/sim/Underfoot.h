@@ -3,7 +3,7 @@
 
 namespace outshine::Sim {
 
-struct Standing {
+struct Underneath {
   bool Known = false;
   double HeightAslM = 0.0;
   double NormalM[3] = {0.0, 1.0, 0.0};
@@ -13,7 +13,7 @@ struct Standing {
 class Underfoot {
 public:
   virtual ~Underfoot() = default;
-  [[nodiscard]] virtual Standing At(double lat, double lon) const = 0;
+  [[nodiscard]] virtual Underneath At(double lat, double lon) const = 0;
 };
 
 }

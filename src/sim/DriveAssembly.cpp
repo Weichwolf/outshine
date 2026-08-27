@@ -294,7 +294,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
     say.Refuse("the corridor does not answer at its own start");
     return false;
   }
-  const outshine::Standing under0 =
+  const outshine::Astride under0 =
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
   say.Number("the fastest the car may move between lane centres",

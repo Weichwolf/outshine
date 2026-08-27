@@ -18,7 +18,7 @@ namespace outshine::Generators {
 
 enum class Snapped { Taken, Waiting, NoGround };
 
-struct Standing {
+struct Fields {
   const outshine::Ground::OsmField *Vectors = nullptr;
   const outshine::Ground::BuildingField *Footprints = nullptr;
   const outshine::Ground::WaterField *WaterBodies = nullptr;
@@ -28,12 +28,12 @@ struct Standing {
 };
 
 [[nodiscard]] std::shared_ptr<const FeatureField> FeaturesOver(const Region &region,
-                                                               const Standing &stands);
+                                                               const Fields &stands);
 
 [[nodiscard]] Snapped SnapshotOver(const Region &region,
                                    const outshine::GroundQuery &heights,
                                    const outshine::Ground::ClassField &classes,
-                                   const Standing &stands,
+                                   const Fields &stands,
                                    std::shared_ptr<const GroundTable> table,
                                    Ground::Snapshot *out);
 

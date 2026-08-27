@@ -120,7 +120,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     }
     if (thereMs < wantedMs) { wantedMs = thereMs; }
   }
-  outshine::Control::Standing sees;
+  outshine::Control::Sight sees;
   sees.Along = &corridor;
   sees.With = &reins;
   sees.At = &at;
@@ -156,7 +156,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
     const double armAcrossM = -std::sin(headingRad) * armEastM + std::cos(headingRad) * armNorthM;
     const double acrossM = at.OffsetM + armAcrossM;
-    const outshine::Standing on = outshine::StandAt(corridor, at.AlongM + armAlongM, acrossM, 0.0);
+    const outshine::Astride on = outshine::StandAt(corridor, at.AlongM + armAlongM, acrossM, 0.0);
     const bool onMade = std::fabs(acrossM) <= edgeM;
     offMade += onMade ? 0u : 1u;
     under[which].Found = true;
@@ -168,7 +168,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     if (!onMade) {
       const double atLat = way.FrameLat - worldM[2] / way.PerLatM;
       const double atLon = way.FrameLon + worldM[0] / way.PerLonM;
-      const Standing ground = beneath.At(atLat, atLon);
+      const Underneath ground = beneath.At(atLat, atLon);
       ++out.GroundAsked;
       if (ground.Known) {
         ++out.GroundAnswered;

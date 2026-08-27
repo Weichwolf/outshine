@@ -48,7 +48,7 @@ public:
   enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, Entry, Traction,
                               Brake, kCount };
 
-  struct Standing {
+  struct Bound {
     double Ms = 0.0;
     double AtM = 0.0;
     Held By = Held::Free;
@@ -57,8 +57,8 @@ public:
   [[nodiscard]] bool Over(const ReferenceLine &along, const Envelope &within, double stepM,
                           double entryMs, std::string &error);
 
-  [[nodiscard]] Standing Slowest() const noexcept { return Slowest_; }
-  [[nodiscard]] Standing Fastest() const noexcept { return Fastest_; }
+  [[nodiscard]] Bound Slowest() const noexcept { return Slowest_; }
+  [[nodiscard]] Bound Fastest() const noexcept { return Fastest_; }
   [[nodiscard]] size_t BoundBy(Held term) const noexcept {
     return (size_t)term < (size_t)Held::kCount ? Bound_[(size_t)term] : 0;
   }
@@ -72,16 +72,16 @@ public:
   [[nodiscard]] double Quantile(double share) const noexcept;
   [[nodiscard]] size_t StationsUnder(double ms) const noexcept;
   [[nodiscard]] double BinMs() const noexcept { return BinMs_; }
-  [[nodiscard]] Standing SlowestBound() const noexcept { return SlowestBound_; }
+  [[nodiscard]] Bound SlowestBound() const noexcept { return SlowestBound_; }
   [[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept {
     return term == Held::Curvature || term == Held::Slip || term == Held::Ramp ||
            term == Held::Climb || term == Held::Crest;
   }
 
 private:
-  Standing Slowest_;
-  Standing SlowestBound_;
-  Standing Fastest_;
+  Bound Slowest_;
+  Bound SlowestBound_;
+  Bound Fastest_;
   size_t Bound_[(size_t)Held::kCount] = {};
 
   static constexpr size_t kSpeedBins = 512;

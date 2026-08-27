@@ -15,7 +15,7 @@ public:
   GroundUnderfoot(const Ground::GroundStack &stack, const Ground::VegetationTemplates &templates)
       : Stack_(stack), Templates_(templates) {}
 
-  [[nodiscard]] Standing At(double lat, double lon) const override;
+  [[nodiscard]] Underneath At(double lat, double lon) const override;
   void Restand();
 
 private:

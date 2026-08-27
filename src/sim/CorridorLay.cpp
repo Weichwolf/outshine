@@ -610,7 +610,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     const SpeedProfile::Held which = (SpeedProfile::Held)term;
     say.Number(SpeedProfile::NameOf(which), (double)profile.BoundBy(which), "stations");
   }
-  const SpeedProfile::Standing bound = profile.SlowestBound();
+  const SpeedProfile::Bound bound = profile.SlowestBound();
   say.Number("the slowest station the road itself holds", bound.Ms * 3.6, "km/h");
   say.Number("where that station is", bound.AtM / 1000.0, "km");
   say.Number(SpeedProfile::NameOf(bound.By), bound.Ms * 3.6, "km/h at that station");
