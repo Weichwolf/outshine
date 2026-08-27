@@ -32,7 +32,7 @@
 #include "Ties.h"
 
 #include "Document.h"
-#include "GltfStudio.h"
+#include "SubjectProxy.h"
 #include "Json.h"
 #include "Log.h"
 #include "Image.h"
@@ -837,10 +837,10 @@ struct Picture {
 };
 
 [[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
-                           const outshine::Core::Studio &studio, Picture &out,
+                           const outshine::Render::SubjectProxy &studio, Picture &out,
                            std::string &error) {
-  outshine::Core::StudioScratch scratch;
-  if (!outshine::Core::Show(renderer, studio, scratch, error)) { return false; }
+  outshine::Render::SubjectScratch scratch;
+  if (!outshine::Render::Show(renderer, studio, scratch, error)) { return false; }
 
   for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
 
@@ -923,7 +923,7 @@ std::vector<uint8_t> Encoded(const RawF32 &oracle) {
   return rgba;
 }
 
-void ScoreDeterminism(const Case &subject, const outshine::Core::Studio &studio,
+void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy &studio,
                       outshine::Render::Renderer &renderer, const Picture &picture,
                       std::vector<Metric> &metrics) {
   using namespace outshine::Test;
@@ -1206,7 +1206,7 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
                      Direction::Reported});
 }
 
-void ScoreAlternateSpellings(const Case &subject, const outshine::Core::Studio &studio,
+void ScoreAlternateSpellings(const Case &subject, const outshine::Render::SubjectProxy &studio,
                              outshine::Render::Renderer &renderer, const Mask &ours,
                              std::vector<Metric> &metrics) {
   const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
@@ -1223,7 +1223,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Core::Studio &
     } else if (!(built = spelling.Build(alternate, subject.Variant))) {
       trouble = spelling.Error();
     } else {
-      outshine::Core::Studio other = studio;
+      outshine::Render::SubjectProxy other = studio;
       other.Geometry = &spelling;
 
       SurfaceTable surfaces;
@@ -1296,8 +1296,8 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
   }
 }
 
-outshine::Core::Studio MakeStudio(const Case &subject) {
-  outshine::Core::Studio studio;
+outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
+  outshine::Render::SubjectProxy studio;
   studio.Geometry = &subject.Geometry;
 
   if (subject.Animated()) { studio.PreviousPositionsM = &subject.PreviousGeometry.PositionsM(); }
@@ -1349,7 +1349,7 @@ outshine::Core::Studio MakeStudio(const Case &subject) {
   return true;
 }
 
-void ScoreDepthProbes(const Case &subject, const outshine::Core::Studio &studio,
+void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy &studio,
                       const std::vector<float> &depth, std::vector<Metric> &metrics) {
   const Json::Ref probes = subject.Manifest.Root()["depthProbes"];
   for (size_t which = 0; which < probes.Size(); ++which) {
@@ -1378,7 +1378,7 @@ void ScoreDepthProbes(const Case &subject, const outshine::Core::Studio &studio,
   }
 }
 
-void NoteWhatTheStudioCarries(const Case &subject, const outshine::Core::Studio &studio) {
+void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::SubjectProxy &studio) {
   if (subject.Lights == SceneLights::FromFile) {
     for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
       outshine::Test::Note(
@@ -2029,7 +2029,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   if (!ReadOracle(subject, frame, oracle, seedApart)) { return FrameVerdict{}; }
   const std::uint64_t oracleDigest = Digest(oracle);
 
-  const outshine::Core::Studio studio = MakeStudio(subject);
+  const outshine::Render::SubjectProxy studio = MakeStudio(subject);
   NoteWhatTheStudioCarries(subject, studio);
 
   std::string why;
@@ -2332,7 +2332,7 @@ int ScoreRenderCase(int argc, char **argv) {
 
 struct ConfiguredCase::Held {
   Case Subject;
-  outshine::Core::StudioScratch Scratch;
+  outshine::Render::SubjectScratch Scratch;
 };
 
 ConfiguredCase::ConfiguredCase() : Held_(std::make_unique<Held>()) {}
@@ -2388,8 +2388,8 @@ bool ConfiguredCase::PoseAt(int frame, std::string &error) {
 }
 
 bool ConfiguredCase::Draw(outshine::Render::Renderer &renderer, std::string &error) {
-  const outshine::Core::Studio studio = MakeStudio(Held_->Subject);
-  if (!outshine::Core::Show(renderer, studio, Held_->Scratch, error)) { return false; }
+  const outshine::Render::SubjectProxy studio = MakeStudio(Held_->Subject);
+  if (!outshine::Render::Show(renderer, studio, Held_->Scratch, error)) { return false; }
   renderer.RenderFrame();
   return true;
 }

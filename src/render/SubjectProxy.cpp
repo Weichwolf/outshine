@@ -1,4 +1,4 @@
-#include "GltfStudio.h"
+#include "SubjectProxy.h"
 
 #include <limits>
 
@@ -10,20 +10,20 @@
 
 #include "Renderer.h"
 
-namespace outshine::Core {
+namespace outshine::Render {
 
-bool Placed(Render::Renderer &renderer, const Studio &studio, std::string &error) {
-  const size_t rows = studio.PartPlacement.size();
+bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error) {
+  const size_t rows = proxy.PartPlacement.size();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   double ecef[16];
   for (size_t part = 0; part < rows; ++part) {
-    Gltf::PlacedInEcef(studio.PartPlacement[part].data(), ecef);
+    Gltf::PlacedInEcef(proxy.PartPlacement[part].data(), ecef);
     renderer.MoveSubjectPlacement(part, ecef);
   }
   return true;
 }
 
-bool Moved(Render::Renderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
+bool Moved(Renderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
            std::string &error) {
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
@@ -32,14 +32,14 @@ bool Moved(Render::Renderer &renderer, size_t rows, size_t from, size_t to, cons
 
 namespace {
 
-void Anchored(const double gltf[3], double out[3]) {
+void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) {
   Gltf::InEcef(gltf, out);
-  for (int axis = 0; axis < 3; ++axis) { out[axis] += kStudioAnchorEcefM[axis]; }
+  for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
 
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
                                    size_t framedParts, bool standsInside, std::string &error) {
-  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Renderer::kNearM;
   double framedLeast[3], framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
   size_t beyond = subject.VertexCount();
@@ -81,7 +81,7 @@ void Anchored(const double gltf[3], double out[3]) {
 
 constexpr double kMagnificationAgreement = 1e-12;
 
-[[nodiscard]] bool SetProjection(Render::Renderer &renderer, const Gltf::Placement &eye,
+[[nodiscard]] bool SetProjection(Renderer &renderer, const Gltf::Placement &eye,
                                  std::string &error) {
   if (eye.Kind == Gltf::CameraKind::Orthographic) {
     if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
@@ -132,45 +132,45 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return (along - eye.ZNearM) / span;
 }
 
-[[nodiscard]] bool Gathers(const Studio &studio) {
-  return !studio.Lights.empty() || studio.Environment.RadianceLinear[0] > 0.0 ||
-         studio.Environment.RadianceLinear[1] > 0.0 || studio.Environment.RadianceLinear[2] > 0.0;
+[[nodiscard]] bool Gathers(const SubjectProxy &proxy) {
+  return !proxy.Lights.empty() || proxy.Environment.RadianceLinear[0] > 0.0 ||
+         proxy.Environment.RadianceLinear[1] > 0.0 || proxy.Environment.RadianceLinear[2] > 0.0;
 }
 
-[[nodiscard]] bool Lit(const Studio &studio, const Gltf::Subject &subject, size_t part) {
-  return subject.Parts()[part].HasNormal && Gathers(studio) &&
-         !studio.Surfaces[studio.PartSurface[part]].Row.Unlit;
+[[nodiscard]] bool Lit(const SubjectProxy &proxy, const Gltf::Subject &subject, size_t part) {
+  return subject.Parts()[part].HasNormal && Gathers(proxy) &&
+         !proxy.Surfaces[proxy.PartSurface[part]].Row.Unlit;
 }
 
-[[nodiscard]] bool Declared(const Studio &studio, const Gltf::Subject &subject,
+[[nodiscard]] bool Agrees(const SubjectProxy &proxy, const Gltf::Subject &subject,
                             std::string &error) {
   const size_t parts = subject.Parts().size();
-  if (studio.EmittedRadiance.size() != parts) {
-    error = "the studio declares " + std::to_string(studio.EmittedRadiance.size()) +
+  if (proxy.EmittedRadiance.size() != parts) {
+    error = "the proxy declares " + std::to_string(proxy.EmittedRadiance.size()) +
             " emitted radiances over a subject of " + std::to_string(parts) +
             " drawn primitives, and every part emits what it was declared to emit";
     return false;
   }
-  if (studio.PartSurface.size() != parts) {
-    error = "the studio declares " + std::to_string(studio.PartSurface.size()) +
+  if (proxy.PartSurface.size() != parts) {
+    error = "the proxy declares " + std::to_string(proxy.PartSurface.size()) +
             " surface slots over a subject of " + std::to_string(parts) + " drawn primitives";
     return false;
   }
-  if (studio.Surfaces.empty()) {
-    error = "the studio declares no surface at all, and every draw binds one";
+  if (proxy.Surfaces.empty()) {
+    error = "the proxy declares no surface at all, and every draw binds one";
     return false;
   }
   for (size_t part = 0; part < parts; ++part) {
-    if (studio.PartSurface[part] >= studio.Surfaces.size()) {
+    if (proxy.PartSurface[part] >= proxy.Surfaces.size()) {
       error = "part " + std::to_string(part) + " names surface slot " +
-              std::to_string(studio.PartSurface[part]) + " over a table of " +
-              std::to_string(studio.Surfaces.size());
+              std::to_string(proxy.PartSurface[part]) + " over a table of " +
+              std::to_string(proxy.Surfaces.size());
       return false;
     }
 
-    if (Gathers(studio) && !subject.Parts()[part].HasNormal &&
-        !studio.Surfaces[studio.PartSurface[part]].Row.Unlit) {
-      error = "the studio declares " + std::to_string(studio.Lights.size()) +
+    if (Gathers(proxy) && !subject.Parts()[part].HasNormal &&
+        !proxy.Surfaces[proxy.PartSurface[part]].Row.Unlit) {
+      error = "the proxy declares " + std::to_string(proxy.Lights.size()) +
               " punctual lights and an environment, and part " + std::to_string(part) + " of node '" +
               subject.Parts()[part].NodeName +
               "' carries no NORMAL, so there is no direction for the cosine -- and nothing here "
@@ -181,30 +181,30 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return true;
 }
 
-[[nodiscard]] bool BuildDrawList(const Studio &studio, const Gltf::Subject &subject,
-                                 Render::DrawList &list, std::string &error) {
+[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const Gltf::Subject &subject,
+                                 DrawList &list, std::string &error) {
   list.Clear();
   for (size_t part = 0; part < subject.Parts().size(); ++part) {
     const Gltf::Part &where = subject.Parts()[part];
-    const uint32_t slot = studio.PartSurface[part];
+    const uint32_t slot = proxy.PartSurface[part];
     Render::DrawItem item;
     item.Order.Viewport = 0;
     item.Order.Layer = Render::ViewLayer::World;
-    item.Order.Surface = studio.Surfaces[slot].State();
-    item.Order.DepthFraction = DepthFraction(subject, where, studio.Eye);
+    item.Order.Surface = proxy.Surfaces[slot].State();
+    item.Order.DepthFraction = DepthFraction(subject, where, proxy.Eye);
     item.Order.MaterialSlot = slot;
     item.ModelSlot = (uint32_t)part;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
 
-    Render::VertexRunsCarried carried;
-    carried.Uv = where.HasUv && studio.Surfaces[slot].ReadsAnyImage();
-    carried.Normal = Lit(studio, subject, part);
+    VertexRunsCarried carried;
+    carried.Uv = where.HasUv && proxy.Surfaces[slot].ReadsAnyImage();
+    carried.Normal = Lit(proxy, subject, part);
 
     carried.Tangent = carried.Normal && carried.Uv && where.HasTangent() &&
-                      studio.Surfaces[slot].Normal.Rgba;
+                      proxy.Surfaces[slot].Normal.Rgba;
 
-    carried.Uv1 = carried.Uv && where.HasUv1 && studio.Surfaces[slot].ReadsSecondUv();
+    carried.Uv1 = carried.Uv && where.HasUv1 && proxy.Surfaces[slot].ReadsSecondUv();
 
     carried.Colour = where.HasColour;
     if (!Render::LayoutOf(carried, item.Layout)) {
@@ -228,7 +228,7 @@ struct VertexRuns {
   size_t PreviousAt = 0;
 };
 
-VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
+VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
   vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Uv1().size() +
@@ -263,10 +263,10 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   runs.ColourAt = vertices.size();
   for (const double component : subject.Colours()) { vertices.push_back((float)component); }
   runs.PreviousAt = vertices.size();
-  if (studio.PreviousPositionsM) {
-    for (size_t vertex = 0; vertex < studio.PreviousPositionsM->size() / 3; ++vertex) {
+  if (proxy.PreviousPositionsM) {
+    for (size_t vertex = 0; vertex < proxy.PreviousPositionsM->size() / 3; ++vertex) {
       double ecef[3];
-      Gltf::InEcef(&(*studio.PreviousPositionsM)[vertex * 3], ecef);
+      Gltf::InEcef(&(*proxy.PreviousPositionsM)[vertex * 3], ecef);
       for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     }
   }
@@ -277,19 +277,19 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     for (size_t vertex = 0; vertex < where.VertexCount; ++vertex) {
       for (size_t channel = 0; channel < 3; ++channel) {
         vertices[runs.EmittedAt + (where.FirstVertex + vertex) * 3 + channel] =
-            studio.EmittedRadiance[part][channel];
+            proxy.EmittedRadiance[part][channel];
       }
     }
   }
   return runs;
 }
 
-[[nodiscard]] bool PlaceLights(const Studio &studio, std::vector<Render::SubjectLight> &out,
+[[nodiscard]] bool PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out,
                                std::string &error) {
   out.clear();
-  out.reserve(studio.Lights.size());
-  for (size_t at = 0; at < studio.Lights.size(); ++at) {
-    const outshine::PunctualLight &declared = studio.Lights[at];
+  out.reserve(proxy.Lights.size());
+  for (size_t at = 0; at < proxy.Lights.size(); ++at) {
+    const outshine::PunctualLight &declared = proxy.Lights[at];
     const double gltfDirection[3] = {declared.Direction[0], declared.Direction[1],
                                      declared.Direction[2]};
     double direction[3];
@@ -300,14 +300,14 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
       error = "light " + std::to_string(at) + " declares a beam of zero length";
       return false;
     }
-    Render::SubjectLight placed;
+    SubjectLight placed;
     placed.Light = declared;
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Direction[axis] = (float)(direction[axis] / length);
     }
     const double gltfPosition[3] = {declared.Position[0], declared.Position[1],
                                     declared.Position[2]};
-    Anchored(gltfPosition, placed.PositionEcefM);
+    Anchored(proxy.AnchorEcefM, gltfPosition, placed.PositionEcefM);
     out.push_back(placed);
   }
   return true;
@@ -315,14 +315,14 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
 
 }
 
-bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
-         std::string &error, bool standsInside, size_t framedParts) {
+bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
+         const double anchorEcefM[3], std::string &error, bool standsInside, size_t framedParts) {
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!standsInside && !ClearsNearPlane(subject, eye, framedParts, standsInside, error)) {
     return false;
   }
   double position[3], forward[3], right[3], up[3];
-  Anchored(eye.EyeM, position);
+  Anchored(anchorEcefM, eye.EyeM, position);
   Gltf::InEcef(eye.Forward, forward);
   Gltf::InEcef(eye.Right, right);
   Gltf::InEcef(eye.Up, up);
@@ -330,66 +330,66 @@ bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::P
   return true;
 }
 
-bool Surface(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+bool Surface(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
              std::string &error) {
-  if (!studio.Geometry) {
-    error = "the studio declares no subject";
+  if (!proxy.Geometry) {
+    error = "the proxy declares no subject";
     return false;
   }
-  if (!Declared(studio, *studio.Geometry, error)) { return false; }
-  if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
-  if (!PlaceLights(studio, scratch.Lights, error)) { return false; }
+  if (!Agrees(proxy, *proxy.Geometry, error)) { return false; }
+  if (!renderer.SetSubjectMaterials(proxy.Surfaces, error)) { return false; }
+  if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
   if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
-  renderer.SetSubjectEnvironment(studio.Environment);
+  renderer.SetSubjectEnvironment(proxy.Environment);
   return true;
 }
 
-bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+bool Show(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
           std::string &error) {
-  return Surface(renderer, studio, scratch, error) && Place(renderer, studio, scratch, error);
+  return Surface(renderer, proxy, scratch, error) && Place(renderer, proxy, scratch, error);
 }
 
-bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+bool Place(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
           std::string &error) {
-  if (!studio.Geometry) {
-    error = "the studio declares no subject";
+  if (!proxy.Geometry) {
+    error = "the proxy declares no subject";
     return false;
   }
-  const Gltf::Subject &subject = *studio.Geometry;
-  const Gltf::Placement &eye = studio.Eye;
+  const Gltf::Subject &subject = *proxy.Geometry;
+  const Gltf::Placement &eye = proxy.Eye;
   if (subject.TriangleCount() == 0) {
-    error = "the subject carries no triangle, so there is nothing to stand in the studio";
+    error = "the subject carries no triangle, so there is nothing to stand in the proxy";
     return false;
   }
-  if (!Declared(studio, subject, error)) { return false; }
-  if (studio.PreviousPositionsM && studio.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
-    error = "the studio's previous pose carries " +
-            std::to_string(studio.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
+  if (!Agrees(proxy, subject, error)) { return false; }
+  if (proxy.PreviousPositionsM && proxy.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
+    error = "the proxy's previous pose carries " +
+            std::to_string(proxy.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
             std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, eye, error, studio.EyeStandsInside, studio.FramedParts)) {
+  if (!Aim(renderer, subject, eye, proxy.AnchorEcefM, error, proxy.EyeStandsInside, proxy.FramedParts)) {
     return false;
   }
 
   {
     const Heap::Tagged inside("draw-list");
-    if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
+    if (!BuildDrawList(proxy, subject, scratch.Draws, error)) { return false; }
   }
 
   const Heap::Tagged packing("index-run");
   scratch.Indices.clear();
   scratch.Indices.reserve(scratch.Draws.IndexCount());
-  for (const Render::IndexRun &run : scratch.Draws.Runs()) {
+  for (const IndexRun &run : scratch.Draws.Runs()) {
     for (uint32_t at = 0; at < run.Count; ++at) {
       scratch.Indices.push_back(subject.Indices()[run.SourceFirst + at]);
     }
   }
   const Heap::Tagged vertices("vertex-pack");
-  const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
+  const VertexRuns runs = PackVertices(proxy, subject, scratch.Vertices);
 
-  Render::SubjectMesh mesh;
+  SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
   mesh.Uv1 = subject.HasUv1() ? scratch.Vertices.data() + runs.Uv1At : nullptr;
@@ -397,45 +397,45 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   mesh.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  mesh.PrevVerts = studio.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  mesh.PrevVerts = proxy.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
   for (int axis = 0; axis < 3; ++axis) {
-    mesh.Anchor[axis] = kStudioAnchorEcefM[axis];
+    mesh.Anchor[axis] = proxy.AnchorEcefM[axis];
 
-    mesh.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
+    mesh.PrevAnchor[axis] = proxy.AnchorEcefM[axis];
   }
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
-  if (!Placed(renderer, studio, error)) { return false; }
+  if (!Placed(renderer, proxy, error)) { return false; }
 
   return true;
 }
 
-bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+bool Move(Renderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch,
           std::string &error) {
-  if (!studio.Geometry) {
-    error = "the studio declares no subject";
+  if (!proxy.Geometry) {
+    error = "the proxy declares no subject";
     return false;
   }
-  const Gltf::Subject &subject = *studio.Geometry;
-  if (!Declared(studio, subject, error)) { return false; }
-  if (studio.PreviousPositionsM && studio.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
-    error = "the studio's previous pose carries " +
-            std::to_string(studio.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
+  const Gltf::Subject &subject = *proxy.Geometry;
+  if (!Agrees(proxy, subject, error)) { return false; }
+  if (proxy.PreviousPositionsM && proxy.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
+    error = "the proxy's previous pose carries " +
+            std::to_string(proxy.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
             std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, studio.Eye, error, studio.EyeStandsInside,
-           studio.FramedParts)) {
+  if (!Aim(renderer, subject, proxy.Eye, proxy.AnchorEcefM, error, proxy.EyeStandsInside,
+           proxy.FramedParts)) {
     return false;
   }
 
   const Heap::Tagged packing("vertex-pack");
-  const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
-  Render::SubjectPose pose;
+  const VertexRuns runs = PackVertices(proxy, subject, scratch.Vertices);
+  SubjectPose pose;
   pose.Verts = scratch.Vertices.data();
   pose.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
   pose.Uv1 = subject.HasUv1() ? scratch.Vertices.data() + runs.Uv1At : nullptr;
@@ -443,11 +443,11 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   pose.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   pose.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
   pose.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  pose.PrevVerts = studio.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  pose.PrevVerts = proxy.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   pose.VertexCount = (uint32_t)subject.VertexCount();
   for (int axis = 0; axis < 3; ++axis) {
-    pose.Anchor[axis] = kStudioAnchorEcefM[axis];
-    pose.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
+    pose.Anchor[axis] = proxy.AnchorEcefM[axis];
+    pose.PrevAnchor[axis] = proxy.AnchorEcefM[axis];
   }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }

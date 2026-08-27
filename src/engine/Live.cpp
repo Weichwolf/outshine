@@ -15,7 +15,8 @@
 #include "Image.h"
 
 #include "Framing.h"
-#include "GltfStudio.h"
+#include "SubjectProxy.h"
+#include "Wgs84.h"
 
 namespace outshine::Core {
 namespace {
@@ -260,7 +261,7 @@ bool Live::Build(std::string &error) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
-    if (!Stand(error) || !Surface(*Renderer_, Stood_, Scratch_, error) || !Submit(error)) {
+    if (!Stand(error) || !Render::Surface(*Renderer_, Stood_, Scratch_, error) || !Submit(error)) {
       return false;
     }
   } else {
@@ -360,7 +361,7 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Stood_.Eye = Eye_;
     Stood_.EyeStandsInside = true;
-    return Aim(*Renderer_, Geometry_, Stood_.Eye, error, true);
+    return Render::Aim(*Renderer_, Geometry_, Stood_.Eye, Stood_.AnchorEcefM, error, true);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -391,11 +392,12 @@ bool Live::Look(std::string &error) {
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Stood_.Eye = framed;
   Stood_.EyeStandsInside = false;
-  return Aim(*Renderer_, Geometry_, Stood_.Eye, error, false, Joined_);
+  return Render::Aim(*Renderer_, Geometry_, Stood_.Eye, Stood_.AnchorEcefM, error, false, Joined_);
 }
 
 bool Live::Stand(std::string &error) {
-  Stood_ = Studio{};
+  Stood_ = Render::SubjectProxy{};
+  Stood_.AnchorEcefM[0] = Data::kWgs84A;
   Stood_.EyeStandsInside = HaveEye_;
   Stood_.FramedParts = Joined_;
   if (HaveEye_) { Stood_.Eye = Eye_; }
@@ -481,10 +483,10 @@ bool Live::Stand(std::string &error) {
 
 bool Live::Submit(std::string &error) {
   if (!Stoodup_) {
-    Stoodup_ = Place(*Renderer_, Stood_, Scratch_, error);
+    Stoodup_ = Render::Place(*Renderer_, Stood_, Scratch_, error);
     return Stoodup_;
   }
-  return Move(*Renderer_, Stood_, Scratch_, error);
+  return Render::Move(*Renderer_, Stood_, Scratch_, error);
 }
 
 bool Live::Compose(std::string &error) {
@@ -640,11 +642,11 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   double ecef[16];
   if (bodyMoved && joined > 0) {
     Gltf::PlacedInEcef(body, ecef);
-    if (!Moved(*Renderer_, parts, 0, joined, ecef, error)) { return false; }
+    if (!Render::Moved(*Renderer_, parts, 0, joined, ecef, error)) { return false; }
   }
   if (builtMoved && joined < parts) {
     Gltf::PlacedInEcef(built, ecef);
-    if (!Moved(*Renderer_, parts, joined, parts, ecef, error)) { return false; }
+    if (!Render::Moved(*Renderer_, parts, joined, parts, ecef, error)) { return false; }
   }
   for (int at = 0; at < 16; ++at) {
     SentBody_[at] = body[at];

@@ -9,7 +9,7 @@
 #include <Scenario.h>
 
 #include "Document.h"
-#include "GltfStudio.h"
+#include "SubjectProxy.h"
 #include "Layout.h"
 #include "Markup.h"
 #include "Paint.h"
@@ -189,8 +189,8 @@ private:
   std::vector<Gltf::Transform> Locals_;
   std::vector<double> Weights_;
   SurfaceTable Table_;
-  Studio Stood_;
-  StudioScratch Scratch_;
+  Render::SubjectProxy Stood_;
+  Render::SubjectScratch Scratch_;
   std::vector<Laid> Laid_;
   std::vector<std::vector<Ui::Layout::Scrolled>> Scrolled_;
   std::vector<Render::OverlayQuad> Quads_;
