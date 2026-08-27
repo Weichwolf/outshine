@@ -108,11 +108,15 @@ struct Asset {
   AssetAnimation Animation = AssetAnimation::Play;
 };
 
+struct Standing {
+  double AtM[3] = {0.0, 0.0, 0.0};
+  double FacingXyzw[4] = {0.0, 0.0, 0.0, 1.0};
+  double ScaleXyz[3] = {1.0, 1.0, 1.0};
+};
+
 struct Placement {
   std::string Asset;
-  double TranslationM[3] = {0.0, 0.0, 0.0};
-  double RotationXyzw[4] = {0.0, 0.0, 0.0, 1.0};
-  double Scale[3] = {1.0, 1.0, 1.0};
+  Standing Stands;
 };
 
 struct Surface {
@@ -152,8 +156,7 @@ struct Instance {
   std::string Of;
   std::string Id;
   std::string In;
-  double TranslationM[3] = {0.0, 0.0, 0.0};
-  double RotationXyzw[4] = {0.0, 0.0, 0.0, 1.0};
+  Standing Stands;
   std::vector<Setting> Attributes;
   std::vector<std::string> Holds;
 };

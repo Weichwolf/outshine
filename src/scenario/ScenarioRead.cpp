@@ -364,10 +364,10 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   for (const Xml::Ref one : placements.Children("place")) {
     Placement made;
     made.Asset = one.Attr("asset");
-    ReadVector(one, "x", "y", "z", made.TranslationM, 3);
-    ReadVector(one, "qx", "qy", "qz", made.RotationXyzw, 3);
-    made.RotationXyzw[3] = one.Num("qw", 1.0);
-    made.Scale[0] = made.Scale[1] = made.Scale[2] = one.Num("scale", 1.0);
+    ReadVector(one, "x", "y", "z", made.Stands.AtM, 3);
+    ReadVector(one, "qx", "qy", "qz", made.Stands.FacingXyzw, 3);
+    made.Stands.FacingXyzw[3] = one.Num("qw", 1.0);
+    made.Stands.ScaleXyz[0] = made.Stands.ScaleXyz[1] = made.Stands.ScaleXyz[2] = one.Num("scale", 1.0);
     into.Placements.push_back(made);
   }
 
@@ -429,9 +429,9 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Of = one.Attr("of");
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
-    ReadVector(one, "x", "y", "z", made.TranslationM, 3);
-    ReadVector(one, "qx", "qy", "qz", made.RotationXyzw, 3);
-    made.RotationXyzw[3] = one.Num("qw", 1.0);
+    ReadVector(one, "x", "y", "z", made.Stands.AtM, 3);
+    ReadVector(one, "qx", "qy", "qz", made.Stands.FacingXyzw, 3);
+    made.Stands.FacingXyzw[3] = one.Num("qw", 1.0);
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
