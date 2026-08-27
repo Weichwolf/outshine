@@ -138,10 +138,15 @@ always the wrong repair; so was rewriting 440 lines to find out whether the valu
 the reader makes. A round trip ASKS: read, express, rebuild, and anything the middle form cannot
 carry shows up as a difference rather than as an argument about which fields ought to be there.
 
-The fixture carries POSITION, NORMAL, TEXCOORD_0 and COLOR_0 across two nodes, and every one
-survives: positions, normals, uv and colours all ZERO apart. What it does not yet ask about is
-supplied tangents, skins and morph targets -- the three the reader writes through the packed
-surface -- and each is a line in the fixture away.
+The fixture carries POSITION, NORMAL, TEXCOORD_0, COLOR_0 and TANGENT across two nodes, and every
+one survives: all ZERO apart. Supplied tangents were expected to fail and did not -- the value
+carries a tangent stream and the reader's supplied path fills it.
+
+**SKINS AND MORPH TARGETS DO NOT CROSS AND DO NOT NEED TO.** The reader BAKES both into the
+vertices it produces, so the posed result crosses; what cannot is the ability to RE-POSE. Joints
+and weights are structure, and this value carries the vertices that structure produced at one pose.
+That is the right boundary for a value whose job is to be handed to a renderer -- one that could
+re-pose would be a second scene graph, which is the thing this item exists to avoid having two of.
 
 **WHAT THE READER'S SHAPE ACTUALLY COSTS, measured before starting rather than discovered halfway.**
 `Subject::Build` is 440 lines and touches the packed arrays 26 times. Redirecting the per-primitive

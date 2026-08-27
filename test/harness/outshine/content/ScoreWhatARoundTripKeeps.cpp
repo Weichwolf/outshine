@@ -29,7 +29,7 @@ namespace {
 constexpr const char *kTriangleBase64 =
     "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAA"
     "AAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/ZmZmP83MzD7NzEw+AACAP83MTD5mZmY/zczMPgAAgD/NzMw+zcxM"
-    "PmZmZj8AAIA/";
+    "PmZmZj8AAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/";
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
@@ -37,19 +37,21 @@ constexpr const char *kTriangleBase64 =
       "\"nodes\":[{\"mesh\":0,\"name\":\"first\"},"
       "{\"mesh\":0,\"name\":\"second\",\"translation\":[2,0,0]}],"
       "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,"
-      "\"TEXCOORD_0\":2,\"COLOR_0\":3},\"material\":0}]}],"
+      "\"TEXCOORD_0\":2,\"COLOR_0\":3,\"TANGENT\":4},\"material\":0}]}],"
       "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.2,0.1,1.0],"
       "\"metallicFactor\":0.25,\"roughnessFactor\":0.75}}],"
       "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
       "\"min\":[0,0,0],\"max\":[1,1,0]},"
       "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
       "{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
-      "{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],"
+      "{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},"
+      "{\"bufferView\":4,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],"
       "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
       "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
       "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":24},"
-      "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48}],"
-      "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64,") +
+      "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},"
+      "{\"buffer\":0,\"byteOffset\":144,\"byteLength\":48}],"
+      "\"buffers\":[{\"byteLength\":192,\"uri\":\"data:application/octet-stream;base64,") +
       kTriangleBase64 + "\"}]}";
 }
 
@@ -121,6 +123,16 @@ int main(void) {
   CHECK(!read.Uv().empty() && Apart(read.Uv(), rebuilt.Uv()) == 0,
         "and the uv set crosses whole, which the value could only carry once `Texture(part, uv, "
         "set)` existed on it -- a middle form without a second uv set would drop one silently");
+  std::printf("TANGENTS APART %zu  (read holds %zu, rebuilt %zu)\n",
+              Apart(read.Tangents(), rebuilt.Tangents()), read.Tangents().size(),
+              rebuilt.Tangents().size());
+  CHECK(!read.Tangents().empty() && Apart(read.Tangents(), rebuilt.Tangents()) == 0,
+        "**AND A SUPPLIED TANGENT BASIS CROSSES**: this was the question expected to answer NO, "
+        "because tangents are one of the three the reader writes through the packed surface "
+        "rather than through a stream. It crosses because the value carries a tangent stream and "
+        "the reader's supplied path fills it -- what does not cross is a GENERATED basis, which "
+        "belongs to the packer and is recomputed on the far side rather than carried");
+
   CHECK(!read.Colours().empty() && Apart(read.Colours(), rebuilt.Colours()) == 0,
         "and so do the vertex colours, which glTF states in [0,1] and the assembler REFUSES "
         "outside it -- so a round trip that mangled them would be refused rather than quietly "
