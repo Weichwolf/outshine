@@ -339,7 +339,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `actors` | 2/7 | 29% | |
 | `client` | 1/8 | 13% | |
 | `corpus` | 3/8 | 38% | |
-| `door` | 5/19 | 26% | 2 tick(s) name no proof this tree holds |
+| `door` | 7/19 | 37% | |
 | `gpu-driven` | 1/8 | 13% | |
 | `layers` | 4/6 | 67% | |
 | `perception` | 1/6 | 17% | |

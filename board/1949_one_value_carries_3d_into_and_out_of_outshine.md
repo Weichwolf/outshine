@@ -168,13 +168,14 @@ starting: a reader that packs two ways is the second spelling this item exists t
       assembling THAT -- so after a read, a subject IS what the one value can carry, and anything
       the value cannot hold is dropped rather than smuggled. 444 Khronos cases pass, which is what
       says nothing is dropped.
-      proof: harness/outshine/content/ScoreWhatARoundTripKeeps and harness/khronos/glTF
+      proof: harness/outshine/content/ScoreWhatARoundTripKeeps
 
       What is inelegant and recorded rather than hidden: the reader still packs, then expresses,
       then the packer packs again -- a double pack at LOAD time, never on the frame path.
       Redirecting the emit to write the `Geometry` directly removes it, and both obstacles that
       made that look like a pipeline restructuring are gone. It is now a redirection.
 - [x] The builder carries materials, and a handed part renders with the material it names.
+      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
       `outshine::Material` already carried the whole PBR row and all nine `KHR_materials_*` -- it
       was on the wrong side of the door, in `src/content/shade/`. It is `include/Material.h` now,
       with `include/PunctualLight.h` beside it, and `Gltf::Subject` HOLDS the surfaces it was
@@ -185,6 +186,7 @@ starting: a reader that packs two ways is the second spelling this item exists t
 - [ ] The stored layout changes in one commit and no client recompiles (board:1954 left this
       standing: the layout moved out of the header, and that it can now MOVE is unproven).
 - [x] The builder carries punctual lights and a placement per part.
+      proof: harness/outshine/door/ScoreWhatAHandedLampLights
 - [ ] The builder carries hierarchy, skins, morph targets, variants and TEXTURES.
 - [ ] A generator fills the same value (board:1948) -- one value, three producers, proven by a
       case that stands the same geometry each way and compares the pictures.
