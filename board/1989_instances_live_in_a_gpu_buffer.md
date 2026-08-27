@@ -34,7 +34,23 @@ So a CPU term scales with the number of subjects, which is exactly what board:19
    the model matrix it ALREADY receives (`S::model`, uniform floats 40..55)
 2. placements upload as a VERTEX storage buffer — the tree uses storage buffers already, but only
    in the fragment stage (`kSubjectStorageBuffers = 2`: BVH nodes and triangles), so the pipeline
-   shape gains a vertex slot
+   shape gains a vertex slot.
+
+   **Two things measured before writing it, both of which change the shape of the step:**
+
+   **The shift is constant per PASS, not per slot.** `Anchor` belongs to the subject and
+   `PreViewTranslation` to the frame, so neither varies across the batches of one pass. It
+   therefore stays in the UNIFORM and the buffer carries the raw placements from `Placed_`. That
+   matters because it means the upload needs no `FrameContext` — which is the difference between
+   uploading before the pass and not being able to.
+
+   **The upload needs a copy pass, and `Encode` is already inside a render pass.** SDL_GPU can
+   only write a buffer inside `SDL_BeginGPUCopyPass`, and `SubjectDraw::Encode(ctx, into)` runs
+   with `into` already recording. The methods that upload today — `SetMesh`, `SetPose`,
+   `HandStreams`, `HandVisibility` — all run BEFORE the pass and have no `ctx`, which is exactly
+   why the placements went through a uniform in the first place. So the step needs a flush point:
+   `Placed_` marks itself dirty on `MovePlacement`, and the renderer drains it where it already
+   opens a copy pass (`Renderer.cpp:759`).
 3. `subject.msl` reads `placements[first_instance + instance_id]` — ONE edit, because all seven
    vertex arms come from one macro
 4. `SameState` drops `ModelSlot`; the draw passes `batch.Draws` and `ModelSlot` as first instance.
