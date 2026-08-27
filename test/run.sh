@@ -331,24 +331,15 @@ LayerExtraSources() {
 # by prefix. Here they are one table, and a source that includes across it refuses. Without this
 # the layering is a convention, and a convention is how src/core became a drawer of 44 headers
 # (board:1902).
+# WHAT A TIER REACHES IS DECLARED BESIDE IT, which is Unreal's `Build.cs`: a module's dependency
+# list sits IN the module, so adding a directory does not mean editing a table at the root that
+# nobody thinks to look at. `src/<tier>/reaches` holds one line of tier names, empty for `base`.
+# A directory with no `reaches` file is REFUSED rather than assumed to reach nothing -- silence
+# and "nothing" are different claims, and the second one has to be written down.
 LayerReaches() {
-  case "$1" in
-    base) printf '%s' "" ;;
-    content) printf '%s' "base" ;;
-    world) printf '%s' "base content" ;;
-    generators) printf '%s' "base content world" ;;
-    actor) printf '%s' "base" ;;
-    render) printf '%s' "base content" ;;
-    scene) printf '%s' "base" ;;
-    scenario) printf '%s' "base content world" ;;
-    ui) printf '%s' "base content" ;;
-    audio) printf '%s' "base" ;;
-    host) printf '%s' "base world" ;;
-    compositor) printf '%s' "base world content" ;;
-    sim) printf '%s' "base world content actor scene" ;;
-    engine) printf '%s' "base content world generators actor render scene scenario sim ui audio host compositor" ;;
-    *) return 1 ;;
-  esac
+  case "$1" in */*|"") return 1 ;; esac
+  [ -f "src/$1/reaches" ] || return 1
+  printf '%s' "$(cat "src/$1/reaches")"
 }
 
 
@@ -1261,15 +1252,25 @@ if [ "$AUDIT_LAYERS" = 1 ]; then
         -e 's|^src/\([^/]*/[^/]*\)/\([^/]*\.h\)$|\2 \1|' \
         -e 's|^src/\([^/]*\)/\([^/]*\.h\)$|\2 \1|' | sort -u > "$byModule"
 
-  # LayerReaches is a shell case, so the permission table is written out ONCE for the walk to read.
-  # A tier the table does not name is not audited -- the same silence the per-source `|| continue`
-  # kept, said in one place instead of once per file.
+  # EVERY TIER DECLARES, AND A DIRECTORY THAT DOES NOT IS A REFUSAL. The reach now lives beside
+  # the module in `src/<tier>/reaches`, so a missing file is a new directory nobody declared --
+  # and skipping it would audit everything EXCEPT the thing just added, which is the exact moment
+  # a layering breaks. Silence and "reaches nothing" are different claims; the second is one line
+  # in a file.
   reachTable=$BUILD/log/tier-reaches
   : > "$reachTable"
+  undeclaredTier=0
   for tier in $(find src -mindepth 1 -maxdepth 1 -type d | sed 's|^src/||' | sort); do
-    tierReaches=$(LayerReaches "$tier") || continue
+    case "$tier" in assets) continue ;; esac
+    if ! tierReaches=$(LayerReaches "$tier"); then
+      printf 'AUDIT src/%s declares no reach -- write src/%s/reaches, empty if it reaches nothing\n' \
+        "$tier" "$tier"
+      undeclaredTier=1
+      continue
+    fi
     printf '%s %s\n' "$tier" "$tierReaches" >> "$reachTable"
   done
+  if [ "$undeclaredTier" = 1 ]; then exit 1; fi
 
   # BOTH JUDGEMENTS READ THE SAME LINE ONCE. The tier crossing and the module cycle are two
   # questions about the same include, and asking them in two walks spent an `awk` per include line
