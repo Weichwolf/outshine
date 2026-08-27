@@ -136,20 +136,26 @@ int main(void) {
   made.Kind = "generated";
   byMaker.Assets.push_back(made);
 
-  // EACH ARM GETS ITS OWN ENGINE, which is not tidiness but the comparison's own requirement: three
-  // producers filling one value must be compared from the same starting state, and an engine that
-  // has already stood something is not that state. The first version reused one engine and the
-  // client and generator arms drew NOTHING -- 0 lit pixels against the file's 169 -- because what
-  // stood before them was still standing in a way the re-declaration did not clear.
+  outshine::Engine shared;
+  shared.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!shared.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+    Unprepared("the device stood no canvas");
+    return Report();
+  }
+  shared.Offers(maker);
+  // ALL THREE ARMS SHARE ONE ENGINE, and that is a second claim rather than tidiness. An earlier
+  // version gave each arm its own, because reusing one left the client and generator arms drawing
+  // NOTHING -- 0 lit pixels against the file's 169 (board:1971). That defect is gone, and a shared
+  // engine now proves MORE than three separate ones: that a redeclaration leaves nothing of the
+  // one before it standing, which is what Unreal's LoadMap and RAGE's map swap both guarantee.
+  //
+  // EQUALITY ALONE WOULD NOT PROVE IT. If a redeclaration cleared nothing, all three arms would
+  // show the FIRST arm's picture and read identical -- the same green this case reports when it
+  // works. So a BLANK declaration stands between the arms and its frame is checked to be empty:
+  // that is what separates "each arm stood anew" from "the first arm never left".
   const auto stoodBy = [&](const outshine::Scenario &declared, const outshine::Geometry *handed,
                            std::vector<uint8_t> &rgba, std::string &why) {
-    outshine::Engine one;
-    one.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-    if (!one.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
-      why = "the device stood no canvas";
-      return false;
-    }
-    one.Offers(maker);
+    outshine::Engine &one = shared;
     if (!one.Declare(declared)) {
       why = one.Error();
       return false;
@@ -179,13 +185,23 @@ int main(void) {
     }
     return many;
   };
-  std::vector<uint8_t> fromFile, fromClient, fromMaker;
+  std::vector<uint8_t> fromFile, fromClient, fromMaker, fromBlank;
   outshine::Geometry byHand;
   Fills(byHand);
   std::string why;
   if (!stoodBy(byFile, nullptr, fromFile, why)) {
     Unprepared(("the file arm did not stand: " + why).c_str());
     return Report();
+  }
+  outshine::Scenario blank = stands;
+  blank.Assets.clear();
+  if (!stoodBy(blank, nullptr, fromBlank, why)) {
+    Unprepared(("the blank declaration did not stand: " + why).c_str());
+    return Report();
+  }
+  double blankBatches = -1.0;
+  for (const outshine::Measure &held : shared.Numbers()) {
+    if (held.What == "batches the picture draws") { blankBatches = held.How; }
   }
   if (!stoodBy(stands, &byHand, fromClient, why)) {
     Unprepared(("the client arm did not stand: " + why).c_str());
@@ -206,6 +222,13 @@ int main(void) {
   std::printf("FILE against GENERATOR  %zu subpixel(s) apart of %zu\n",
               Apart(fromFile, fromMaker), fromFile.size());
 
+  std::printf("A BLANK DECLARATION between them drew %.0f batch(es), lit %zu pixel(s)\n",
+              blankBatches, litOf(fromBlank));
+  CHECK(blankBatches == 0.0 && litOf(fromBlank) == 0,
+        "**A REDECLARATION LEAVES NOTHING OF THE LAST ONE STANDING**: a declaration naming no "
+        "asset draws an empty frame, so each arm below stood anew rather than inheriting what the "
+        "arm before it left. Without this line the three comparisons would read identical whether "
+        "the arms worked or whether the first one simply never left");
   CHECK(!fromFile.empty() && fromFile.size() == fromClient.size() &&
             fromFile.size() == fromMaker.size(),
         "all three arms drew a frame of the same size, so the comparisons below are between "
