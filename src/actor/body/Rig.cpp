@@ -71,8 +71,8 @@ Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &w
     const double brakingN = with.ResistingN * mount.Spin.Resisting.Ratio;
     if (brakingN > 0.0) { askedAlongN -= alongMs >= 0.0 ? brakingN : -brakingN; }
 
-    Slip sheds = mount.Sheds;
-    sheds.Friction *= ground.Friction;
+    Shearing sheds = mount.Sheds;
+    sheds.Grip *= ground.Friction;
     const Shear shed = ShedAt(sheds, against.LoadN, of.HeldSlipRad[which], askedAlongN);
     out.SlipRad[which] = of.HeldSlipRad[which];
     out.RatioOfHold[which] = shed.Ratio;

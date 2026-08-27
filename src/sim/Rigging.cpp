@@ -134,9 +134,9 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     mount.Strut.TravelM = one.Strut.TravelM;
     mount.Strut.StopNPerM = one.Strut.StopNPerM;
     mount.Strut.LimitN = one.Strut.LimitN;
-    mount.Sheds.StiffnessNPerRad = one.Touches.CorneringNPerRad;
+    mount.Sheds.CorneringNPerRad = one.Touches.CorneringNPerRad;
     mount.Sheds.RelaxationM = one.Touches.RelaxationM;
-    mount.Sheds.Friction = one.Touches.Grip;
+    mount.Sheds.Grip = one.Touches.Grip;
     mount.Sheds.LoadFalloff = one.Touches.LoadFalloff;
     const double armM = one.AtM[2] - out.CentreM[2];
     const double staticShare = armM < 0.0 ? frontLoadShare / frontMounts
@@ -176,8 +176,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
         (frontLoadShare / frontMounts > (1.0 - frontLoadShare) / rearMounts
              ? frontLoadShare / frontMounts
              : (1.0 - frontLoadShare) / rearMounts);
-    Physics::Slip planning;
-    planning.Friction = declared.Contacts.front().Touches.Grip;
+    Physics::Shearing planning;
+    planning.Grip = declared.Contacts.front().Touches.Grip;
     planning.LoadFalloff = declared.Contacts.front().Touches.LoadFalloff;
     planning.FrictionAtLoadN = heaviestN;
     out.Envelope.Grip = Physics::FrictionAt(planning, heaviestN);

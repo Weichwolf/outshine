@@ -129,8 +129,8 @@ private:
     mount.Strut.StiffnessNPerM = 90000.0;
     mount.Strut.DampingNsPerM = 5000.0;
     mount.Strut.TravelM = 0.15;
-    mount.Sheds.StiffnessNPerRad = 55000.0;
-    mount.Sheds.Friction = 1.0;
+    mount.Sheds.CorneringNPerRad = 55000.0;
+    mount.Sheds.Grip = 1.0;
     mount.Sheds.FrictionAtLoadN = 3900.0;
     mount.Sheds.LoadFalloff = 0.15;
     mount.Sheds.RelaxationM = 0.4;

@@ -44,10 +44,10 @@ constexpr double kReferenceN = 3900.0;
 constexpr double kFalloff = 0.15;
 constexpr double kCorneringNPerRad = 55000.0;
 
-[[nodiscard]] outshine::Physics::Slip Declared(double falloff) {
-  outshine::Physics::Slip out;
-  out.StiffnessNPerRad = kCorneringNPerRad;
-  out.Friction = kFriction;
+[[nodiscard]] outshine::Physics::Shearing Declared(double falloff) {
+  outshine::Physics::Shearing out;
+  out.CorneringNPerRad = kCorneringNPerRad;
+  out.Grip = kFriction;
   out.FrictionAtLoadN = kReferenceN;
   out.LoadFalloff = falloff;
   return out;
@@ -60,7 +60,7 @@ int main(void) {
   using namespace outshine::Physics;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const Slip tyre = Declared(kFalloff);
+  const Shearing tyre = Declared(kFalloff);
   const double holdN = kFriction * kReferenceN;
 
   // ONE, the slope. At a slip angle small enough that the broken-away fraction is a thousandth,
@@ -144,7 +144,7 @@ int main(void) {
   // And the control on the whole second half: with the falloff undeclared, mu is flat and the
   // pair loses nothing at all.
   {
-    const Slip flat = Declared(0.0);
+    const Shearing flat = Declared(0.0);
     const double load = 2.0 * kReferenceN;
     const double even = FrictionAt(flat, 0.5 * load) * 0.5 * load * 2.0;
     const double leaning =

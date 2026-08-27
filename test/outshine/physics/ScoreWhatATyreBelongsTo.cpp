@@ -87,10 +87,10 @@ int main(void) {
         "and both stand on four mounts, so the mounts compared below are the same mounts");
   if (!(same.Rig.Count == 4 && staggered.Rig.Count == 4)) { return Report(); }
 
-  const double sameFront = same.Rig.Mounts[0].Sheds.Friction;
-  const double sameRear = same.Rig.Mounts[2].Sheds.Friction;
-  const double onFront = staggered.Rig.Mounts[0].Sheds.Friction;
-  const double onRear = staggered.Rig.Mounts[2].Sheds.Friction;
+  const double sameFront = same.Rig.Mounts[0].Sheds.Grip;
+  const double sameRear = same.Rig.Mounts[2].Sheds.Grip;
+  const double onFront = staggered.Rig.Mounts[0].Sheds.Grip;
+  const double onRear = staggered.Rig.Mounts[2].Sheds.Grip;
 
   std::printf("ONE RUBBER ALL ROUND   front %.4f  rear %.4f\n", sameFront, sameRear);
   std::printf("STAGGERED 0.95 / 0.55  front %.4f  rear %.4f\n", onFront, onRear);

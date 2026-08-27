@@ -40,10 +40,10 @@ constexpr double kIceFactor = 0.15;
 constexpr double kLoadN = 3900.0;
 constexpr double kSlipRad = 0.06;
 
-[[nodiscard]] outshine::Physics::Slip Tyre() {
-  outshine::Physics::Slip out;
-  out.StiffnessNPerRad = 55000.0;
-  out.Friction = 0.95;
+[[nodiscard]] outshine::Physics::Shearing Tyre() {
+  outshine::Physics::Shearing out;
+  out.CorneringNPerRad = 55000.0;
+  out.Grip = 0.95;
   out.FrictionAtLoadN = kLoadN;
   out.LoadFalloff = 0.15;
   return out;
@@ -51,8 +51,8 @@ constexpr double kSlipRad = 0.06;
 
 [[nodiscard]] double HeldOn(double factor) {
   using namespace outshine::Physics;
-  Slip on = Tyre();
-  on.Friction *= factor;
+  Shearing on = Tyre();
+  on.Grip *= factor;
   return ShedAt(on, kLoadN, kSlipRad, 0.0).HoldN;
 }
 

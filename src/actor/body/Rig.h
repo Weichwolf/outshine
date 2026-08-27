@@ -24,7 +24,7 @@ struct Freedom {
 struct Mount {
   double AtM[3] = {0.0, 0.0, 0.0};
   Prismatic Strut;
-  Slip Sheds;
+  Shearing Sheds;
   Freedom Steering{true, {}, {}};
   Freedom Spin{false, {}, {}};
 };

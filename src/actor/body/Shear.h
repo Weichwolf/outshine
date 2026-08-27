@@ -3,11 +3,11 @@
 
 namespace outshine::Physics {
 
-struct Slip {
-  double StiffnessNPerRad = 0.0;
+struct Shearing {
+  double CorneringNPerRad = 0.0;
   double AlongStiffnessN = 0.0;
   double RelaxationM = 0.0;
-  double Friction = 0.0;
+  double Grip = 0.0;
   double FrictionAtLoadN = 0.0;
   double LoadFalloff = 0.0;
 };
@@ -21,14 +21,14 @@ struct Shear {
   bool Sliding = false;
 };
 
-[[nodiscard]] Shear ShedAt(const Slip &through, double loadN, double slipRad, double askedAlongN);
+[[nodiscard]] Shear ShedAt(const Shearing &through, double loadN, double slipRad, double askedAlongN);
 
-[[nodiscard]] Shear Shed(const Slip &through, double loadN, double acrossMs, double alongMs,
+[[nodiscard]] Shear Shed(const Shearing &through, double loadN, double acrossMs, double alongMs,
                          double askedAlongN);
 
-[[nodiscard]] double Relaxed(const Slip &through, double wasRad, double isRad, double rolledM);
+[[nodiscard]] double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM);
 
-[[nodiscard]] double FrictionAt(const Slip &through, double loadN);
+[[nodiscard]] double FrictionAt(const Shearing &through, double loadN);
 
 [[nodiscard]] double Brushed(double linearN, double holdN);
 
