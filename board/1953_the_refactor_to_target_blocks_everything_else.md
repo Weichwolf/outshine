@@ -29,5 +29,8 @@ The bug was not hard. The architecture made it hard, and every repair on that ar
 the next one at the same price.
 
 - [ ] the four children stand closed
+- [ ] the drive's trajectory is unchanged and the three-producer frame is bit-identical -- the own
+      cases are asked ONCE, at the end, because during a refactor a green in `harness/outshine/`
+      proves agreement with what the tree already did and a red there is INFORMATION
 - [ ] `apps/driver` renders through the rebuilt path and the stakeholder signs it off
 - [ ] no item outside this parent was closed while it stood

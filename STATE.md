@@ -140,33 +140,33 @@ flowchart LR
   world_generators --> |15| world_ground
   world_ground --> |14| base_io
   sim --> |14| actor_path
+  render --> |13| render_stages
   world_generators --> |12| base_spatial
   sim --> |12| world_ground
-  render --> |12| render_stages
   world_ground --> |9| world_data
   sim --> |8| actor_mind
-  engine --> |7| content_gltf
   actor_mind --> |7| actor_path
   engine --> |6| world_generators
   engine --> |6| ui
   engine --> |6| scenario
+  engine --> |6| content_gltf
   sim --> |5| base_spatial
   sim --> |5| actor_body
   scenario --> |5| base_format
+  engine --> |5| render
   content_gltf --> |5| base_spatial
   world_generators --> |4| base_math
   world_generators --> |4| base_geo
+  render --> |4| base_io
   engine --> |4| scene
-  engine --> |4| render
-  engine --> |4| base_io
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   world_ground --> |3| base_format
   sim --> |3| scene
   render --> |3| render_device
-  render --> |3| base_io
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
+  engine --> |3| base_io
   content_shade --> |3| base_math
 ```
   33 edge(s) drawn, 41 thinner than three includes not drawn
@@ -204,8 +204,8 @@ The heaviest units, against the median of them all.
 | 1141 | `base/format/Script.h` |
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |
-| 967 | `engine/Live.h` |
-| **107** | *the median of 243 unit(s)* |
+| 981 | `engine/Live.h` |
+| **106** | *the median of 244 unit(s)* |
 
 ## Carpet
 
@@ -216,7 +216,7 @@ The widest public surfaces.
 | 61 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
-| 39 | `src/engine/Live.h` |
+| 38 | `src/engine/Live.h` |
 | 34 | `src/scene/Store.h` |
 | 31 | `src/base/format/Xml.h` |
 
@@ -242,10 +242,9 @@ Sources no declared suite links, so nothing they hold is proven.
 
 What stands wider than private. Private is the default and a wider door justifies itself.
 
-8 protected section(s), and inheritance is right where a stable interface carries
+7 protected section(s), and inheritance is right where a stable interface carries
 shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 
-- `src/actor/mind/HoldLane.h`
 - `src/actor/mind/Task.h`
 - `src/world/data/TerrariumDem.h`
 - `src/world/data/VersatilesVector.h`
@@ -254,7 +253,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 - `src/world/generators/Generator.h`
 - `src/world/ground/StructureMesher.h`
 
-49 public data member(s) in a class -- an invariant nobody can hold.
+41 public data member(s) in a class -- an invariant nobody can hold.
 
 | members | header |
 |---|---|
