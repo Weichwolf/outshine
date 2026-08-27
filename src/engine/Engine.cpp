@@ -211,13 +211,17 @@ bool Engine::Assemble() {
                           S_->Error)) {
     return false;
   }
-  auto book = TableBook::Stand(declared.Tables);
-  if (!book) {
-    S_->Error = std::move(book).error();
-    return false;
+  if (!declared.Tables.empty()) {
+    auto book = TableBook::Stand(declared.Tables);
+    if (!book) {
+      S_->Error = std::move(book).error();
+      return false;
+    }
+    S_->Tabled.emplace(*std::move(book));
   }
-  S_->Tabled.emplace(*std::move(book));
-  if (!S_->Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
+  if (!declared.Buses.empty() || !declared.Sounds.empty()) {
+    if (!S_->Sounding.Build(declared.Buses, declared.Sounds, S_->Error)) { return false; }
+  }
 
   return S_->Routes();
 }
