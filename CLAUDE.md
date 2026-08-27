@@ -146,6 +146,9 @@ named, the tier table, the heaviest units, the widest surfaces, colliding header
 sources no suite links, what stands wider than private, what is declared red, which suites reach
 past the door, every named constant standing as a bare literal, and the PROGRESS table.
 
+**After every gate run, read `STATE.md` and name what still departs from RAGE and Unreal.** The
+numbers there are the distance; the board is where the answer goes.
+
 **PROGRESS measures nine areas against RAGE and Unreal, and it is counted from `board/`** —
 where the target already lives, so there is no second list to keep. An item declares
 `Progress: <area>` and its checkboxes are that area's predicates; a ticked one must NAME ITS
