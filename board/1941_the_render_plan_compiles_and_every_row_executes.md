@@ -36,7 +36,7 @@ consumes. The gap is that three declared rows execute NOTHING.
       the base pass and RAGE puts terrain on the same draw list as everything else. Neither has a
       terrain pass. `Stage::Models` went with them for the same reason. board:1991 carries the
       cooker half.
-      proof: the door suite and --audit-layers, unchanged by their removal
+      proof: outshine/door, --audit-layers
 - [ ] a resource a plan stops writing is cleared or declared stale, never left standing
       (board:1922). **MEASURED and larger than it looked**: in the minimal plan above, four
       reads land on a resource the plan does not hold at all -- `subjects` reads an unheld
