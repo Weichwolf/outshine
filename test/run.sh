@@ -953,12 +953,6 @@ if [ "$STATE" = 1 ]; then
     printf 'No item declares a `Progress:` area yet -- the table is EMPTY, not complete.\n'
   fi
 
-  printf '\n## Counts\n\n'
-  printf '- %s source(s) under `src/`, %s of them linked by no suite\n' \
-    "$(find src -name '*.cpp' -not -path 'src/assets/*' | wc -l | tr -d ' ')" "$STRANDED"
-  printf '- %s header(s) in %s module(s) over 13 tier(s)\n' \
-    "$(find src -name '*.h' -not -path 'src/assets/*' | wc -l | tr -d ' ')" \
-    "$(cut -d' ' -f2 "$BUILD/log/module-of-header" | sort -u | wc -l | tr -d ' ')"
   exit 0
 fi
 

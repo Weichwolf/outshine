@@ -339,6 +339,3 @@ whose proof this tree does not hold is reported rather than counted.
 | `perception` | 1/6 | 17% | |
 | `render-plan` | 0/7 | 0% | |
 | `streaming` | 2/17 | 12% | |
-
-## Counts
-

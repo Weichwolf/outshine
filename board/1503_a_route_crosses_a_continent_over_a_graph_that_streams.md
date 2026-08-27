@@ -4,6 +4,8 @@ Parent: 1498
 Area: world
 Tags: scope
 
+
+**Benchmark** — Unreal: World Partition streams cells and a navmesh is built per tile, so a path is found over what is resident plus what the tiles promise. RAGE: map nodes with a hand-authored path graph streamed with them. **Taking Unreal** — a graph derived from the streamed data cannot disagree with what is drawn; an authored one can.
 # A route crosses a continent over a graph that streams
 
 Munich to Hamburg is 800 km and the loaded graph is a few tiles: routing over data that does not

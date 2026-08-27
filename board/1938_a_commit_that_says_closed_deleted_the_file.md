@@ -3,6 +3,8 @@ State: open
 Area: board, test
 Tags: measured, guard, logbook
 
+
+**Benchmark** — Neither engine has a board, so neither answers this. **The choice is mine**: a closure that deletes the file puts what was said in the commit that removed it, which is the only place a reader looks for what happened.
 # A commit whose subject says an item is CLOSED deleted that item's file
 
 CLAUDE.md: *Closing is DELETING the file.* `harness/claims/AnItemReachesClosedThroughActive`

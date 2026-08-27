@@ -4,6 +4,8 @@ Area: render
 Tags: perf, scope, compositor
 Supersedes: 1595
 
+
+**Benchmark** — Unreal: `FMeshBatch` collection, then GPU culling and sorting into one indirect draw. RAGE: a draw list built per frame and sorted. **Taking Unreal** — placing, culling, quantising and batching are stages of one list, and the CPU term for each must not scale with what is in it.
 # The compositor places, culls, quantises and batches — and the ground layer spells no camera
 
 `CLAUDE.md` gives a compositor four verbs and the tree builds two. Measured at HEAD:

@@ -3,6 +3,8 @@ State: open
 Area: sim, actor
 Tags: traffic, perception
 
+
+**Benchmark** — Unreal: `FBodyInstance` bounds and overlap queries answer what space a body occupies. RAGE: `phBound` does. **Both agree** — occupied space is a queryable surface, not something a subject knows about itself.
 # A body's occupied space is a surface any other body can find
 
 A car reacts to what is under it and to what is around it, and the second half does not exist.

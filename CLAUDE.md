@@ -214,6 +214,14 @@ replaced is work done twice, and the second time is the one that counts.
 area, one concrete thing they hold that this tree does not. The numbers there are the distance;
 the board is where the answer goes, and `grep` there first so it lands once.
 
+**EVERY item carries the benchmark and the choice**, in one line near the top:
+
+    **Benchmark** — Unreal: <what it does>. RAGE: <what it does>. **Taking <which>** because <why>.
+
+When neither answers the question, the line says so and says why the choice is mine — and that is
+a candidate row for the settled table. An item without this line is an item whose premise nobody
+checked, and this tree has already paid for two of those.
+
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body. Fields: `Type`
 (feature|task|bug|issue) · `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` ·
 `Regresses` · `Supersedes`. Filename `NNNN_label.md`; the number is identity; no dates. Titles say

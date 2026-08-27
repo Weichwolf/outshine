@@ -3,6 +3,8 @@ State: open
 Area: engine, clients
 Tags: measured, door, frame-path
 
+
+**Benchmark** — Unreal: `Tick` and the render thread are separate, and a headless commandlet ticks without presenting. RAGE: fixed simulation step, interpolation to the display. **Both agree** — stepping and drawing are two verbs and a headless run pays for one.
 # A step and a frame are two verbs, and a headless run pays for one
 
 **Repaired at HEAD; this item holds what is LEFT.** `Live::Advance` called

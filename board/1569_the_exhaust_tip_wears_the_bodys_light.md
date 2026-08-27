@@ -4,6 +4,8 @@ Area: render
 Tags: bug, picture, driver
 Supersedes: 1570
 
+
+**Benchmark** — Unreal: a merged mesh keeps a section per source material. RAGE: `grmModel` keeps a geometry per shader. **Both agree** — joining assets never merges materials; the part keeps the surface its file declared.
 # Every part of a joined asset wears the material its file declares
 
 Two stations of the same class, seen in every chase frame of the F31:

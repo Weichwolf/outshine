@@ -4,6 +4,8 @@ Parent: 1573
 Area: world, generators, compositor
 Tags: picture, driver, measured
 
+
+**Benchmark** — Unreal: World Partition places instances and HLOD stands in for them at range. RAGE: map nodes carry props with LOD. **Both agree** — what stands beside the road is instanced content the cell brings with it.
 # Something stands beside the road: a building, a tree, a water surface
 
 Thirty-two stills at bb9472db, four runs, two Munich routes chosen for exactly this question:

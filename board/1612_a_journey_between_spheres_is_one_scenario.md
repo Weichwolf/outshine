@@ -4,6 +4,8 @@ Parent: 1611
 Area: core
 Tags: scope
 
+
+**Benchmark** — Unreal: one `UWorld` per level and travel between them; large worlds via World Partition and origin rebasing. RAGE: one map. **Taking Unreal** — origin rebasing is the mechanism, and it is the same sentence as this tree's one pre-view translation.
 # A journey between spheres is one scenario
 
 The proof of generality: declare a constant-1g-thrust rocket, board it on Earth, fly to the

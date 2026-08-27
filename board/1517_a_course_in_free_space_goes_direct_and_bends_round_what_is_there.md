@@ -4,6 +4,8 @@ Parent: 1581
 Area: world
 Tags: scope
 
+
+**Benchmark** — Unreal: navmesh for walkers, splines for anything on rails, and free flight is a controller with avoidance. RAGE: nodes for vehicles, navmesh for peds. **Both agree** — free space is not a graph problem; it is direct plus avoidance of what is there.
 # A course in free space goes direct and bends round what is there
 
 In cities people walk on footways, cars drive on roads and trains cannot leave the rails. In a

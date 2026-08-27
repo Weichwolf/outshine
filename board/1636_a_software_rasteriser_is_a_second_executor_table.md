@@ -4,6 +4,8 @@ Area: render
 Tags: backend, wasm
 Depends: 1582
 
+
+**Benchmark** — Unreal: Nanite HAS a software rasteriser, in compute, for triangles smaller than the hardware path is efficient at — so a second rasteriser is not a fallback but a chosen executor. RAGE: none. **Taking Unreal** — the evidence says a second table is legitimate where the first is inefficient, not where it is absent.
 # A software rasteriser is a second executor table
 
 Retro games on the modern engine, and a wasm build without WebGPU, are a wanted target — served

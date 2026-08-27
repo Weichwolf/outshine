@@ -4,6 +4,8 @@ Parent: 1575
 Area: render
 Tags: measured, picture, driver, lighting
 
+
+**Benchmark** — Unreal: one opaque lighting path, and a shadow terminator is a bias problem inside it rather than two paths meeting. RAGE: the same. **Both agree** — a surface is lit once.
 # The ground under the car is ONE lit surface, and no straight terminator crosses it
 
 Measured at bb9472db in the stakeholder's own worktree, chase view, two Munich routes,
