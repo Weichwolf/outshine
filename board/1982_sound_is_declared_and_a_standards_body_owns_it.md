@@ -25,6 +25,12 @@ subsystem whose correctness someone outside this tree certifies.
 - [ ] `KHR_audio_emitter`'s status is READ from Khronos rather than assumed, and the item says
       whether it is ratified, and what the reader must accept
 - [ ] `wpt/webaudio` is fetched and pinned the way `wpt/css` is
-- [ ] a scenario declares a source as a GRAPH and the engine evaluates it
+- [x] a scenario declares a source as a GRAPH and the engine evaluates it -- oscillator, noise,
+      gain, biquad, delay and mix, each reading its inputs by id; convolver and shaper refuse by
+      name rather than sounding finished.
+      proof: outshine/audio
 - [ ] a source binds to an ENTITY and never to a coordinate
-- [ ] the three ways all work: a file, a graph, and a buffer a client fills
+- [x] the declaration says WHICH of the three ways a source comes by, and refuses one that names
+      none of them.
+      proof: outshine/audio
+- [ ] the file way and the buffer way carry sound, not only the graph

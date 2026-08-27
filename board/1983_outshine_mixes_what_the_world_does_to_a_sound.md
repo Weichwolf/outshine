@@ -16,9 +16,12 @@ The engine already holds what this needs and reaches none of it: a `BusGraph` wi
 distance falloff, a store that knows where every entity is, bodies with velocities, and ground and
 structures to occlude and reflect against.
 
-- [ ] distance attenuation follows the DECLARED model, not one hardcoded curve
-- [ ] Doppler from the relative velocity of source and listener, and the shift is a measurement
-      against the closed form rather than a feeling
+- [x] distance attenuation follows the DECLARED model, not one hardcoded curve -- all three Web
+      Audio models, each against the formula that defines it.
+      proof: outshine/audio
+- [x] Doppler from the relative velocity of source and listener, measured against the classical
+      ratio at exactly c/10 so that a sign error lands visibly on 9/10 -- which is what it caught.
+      proof: outshine/audio
 - [ ] occlusion: a source behind geometry is quieter and duller, by a ray the world answers
 - [ ] early reflections off the nearest surfaces, and the room they imply
 - [ ] the mix is handed to the client the way a frame is -- outshine fills a buffer, the client
