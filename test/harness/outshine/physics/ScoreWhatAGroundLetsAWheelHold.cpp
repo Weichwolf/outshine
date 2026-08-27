@@ -83,10 +83,10 @@ int main(void) {
   rig.Mounts[0].AtM[1] = -0.3;
   rig.Mounts[0].AtM[2] = 0.0;
   rig.Mounts[0].Sheds = Tyre();
-  rig.Mounts[0].Touches.ReachM = 0.3;
-  rig.Mounts[0].Touches.StiffnessNPerM = 90000.0;
-  rig.Mounts[0].Touches.DampingNsPerM = 4000.0;
-  rig.Mounts[0].Touches.TravelM = 0.15;
+  rig.Mounts[0].Strut.ReachM = 0.3;
+  rig.Mounts[0].Strut.StiffnessNPerM = 90000.0;
+  rig.Mounts[0].Strut.DampingNsPerM = 4000.0;
+  rig.Mounts[0].Strut.TravelM = 0.15;
   rig.Mounts[0].SteeredShare = 0.0;
   rig.Mounts[0].DrivenShare = 1.0;
 

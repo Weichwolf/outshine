@@ -125,10 +125,10 @@ private:
     mount.AtM[0] = which % 2 == 0 ? -halfTrackM : halfTrackM;
     mount.AtM[1] = -0.35;
     mount.AtM[2] = which < 2 ? -1.3 : 1.3;
-    mount.Touches.ReachM = 0.35;
-    mount.Touches.StiffnessNPerM = 90000.0;
-    mount.Touches.DampingNsPerM = 5000.0;
-    mount.Touches.TravelM = 0.15;
+    mount.Strut.ReachM = 0.35;
+    mount.Strut.StiffnessNPerM = 90000.0;
+    mount.Strut.DampingNsPerM = 5000.0;
+    mount.Strut.TravelM = 0.15;
     mount.Sheds.StiffnessNPerRad = 55000.0;
     mount.Sheds.Friction = 1.0;
     mount.Sheds.FrictionAtLoadN = 3900.0;

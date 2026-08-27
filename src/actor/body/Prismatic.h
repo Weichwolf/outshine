@@ -1,9 +1,9 @@
-#ifndef OUTSHINE_ACTOR_BODY_CONTACT_H
-#define OUTSHINE_ACTOR_BODY_CONTACT_H
+#ifndef OUTSHINE_ACTOR_BODY_PRISMATIC_H
+#define OUTSHINE_ACTOR_BODY_PRISMATIC_H
 
 namespace outshine::Physics {
 
-struct Contact {
+struct Prismatic {
   double ReachM = 0.0;
   double StiffnessNPerM = 0.0;
   double DampingNsPerM = 0.0;
@@ -24,9 +24,9 @@ struct Reaction {
   bool PastLimit = false;
 };
 
-[[nodiscard]] Reaction Press(const Contact &contact, double clearanceM, double closingMs);
+[[nodiscard]] Reaction Press(const Prismatic &joint, double clearanceM, double closingMs);
 
-[[nodiscard]] double PressedForM(const Contact &contact, double loadN);
+[[nodiscard]] double PressedForM(const Prismatic &joint, double loadN);
 
 }
 

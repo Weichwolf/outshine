@@ -34,7 +34,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
 
     const double clearanceM = (worldM[1] - ground.HeightM) * normal[1];
     const double closingMs = -Dot(worldMs, normal);
-    const Reaction against = Press(mount.Touches, clearanceM, closingMs);
+    const Reaction against = Press(mount.Strut, clearanceM, closingMs);
 
     out.Touching[which] = against.Touching;
     out.LoadN[which] = against.LoadN;
@@ -88,7 +88,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
 
     double normalBody[3];
     Unturn(body.OrientationQ, normal, normalBody);
-    const double standOffM = mount.Touches.ReachM - against.PressedM;
+    const double standOffM = mount.Strut.ReachM - against.PressedM;
     double patchM[3];
     for (int axis = 0; axis < 3; ++axis) {
       patchM[axis] = mount.AtM[axis] - normalBody[axis] * standOffM;

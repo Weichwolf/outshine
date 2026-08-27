@@ -4,7 +4,7 @@
 #include <cstddef>
 
 #include "Body.h"
-#include "Contact.h"
+#include "Prismatic.h"
 #include "Shear.h"
 
 namespace outshine::Physics {
@@ -13,7 +13,7 @@ inline constexpr size_t kMaxMounts = 16;
 
 struct Mount {
   double AtM[3] = {0.0, 0.0, 0.0};
-  Contact Touches;
+  Prismatic Strut;
   Slip Sheds;
   double SteeredShare = 0.0;
   double DrivenShare = 0.0;

@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-#include "Contact.h"
+#include "Prismatic.h"
 #include "Carriageway.h"
 #include "Pilot.h"
 #include "Drive.h"

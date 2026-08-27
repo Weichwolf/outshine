@@ -141,12 +141,12 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     for (int axis = 0; axis < 3; ++axis) {
       mount.AtM[axis] = one.AtM[axis] - out.CentreM[axis];
     }
-    mount.Touches.ReachM = one.ReachM;
-    mount.Touches.StiffnessNPerM = one.StiffnessNPerM;
-    mount.Touches.DampingNsPerM = one.DampingNsPerM;
-    mount.Touches.TravelM = one.TravelM;
-    mount.Touches.StopNPerM = one.StopNPerM;
-    mount.Touches.LimitN = one.LimitN;
+    mount.Strut.ReachM = one.ReachM;
+    mount.Strut.StiffnessNPerM = one.StiffnessNPerM;
+    mount.Strut.DampingNsPerM = one.DampingNsPerM;
+    mount.Strut.TravelM = one.TravelM;
+    mount.Strut.StopNPerM = one.StopNPerM;
+    mount.Strut.LimitN = one.LimitN;
     mount.Sheds.StiffnessNPerRad = one.CorneringNPerRad;
     mount.Sheds.RelaxationM = one.RelaxationM;
     mount.Sheds.Friction = one.Grip;
