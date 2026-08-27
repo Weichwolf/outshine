@@ -27,17 +27,18 @@ hold all four, so the struct floated up until it found the one address where its
 legal. `src/scene` reaches `base` and nothing else -- so the tier table already states the
 decomposition, and it needs no invention:
 
-| what `Studio` holds | where it belongs | why |
-|---|---|---|
-| part placements, emitted radiance, part-surface indices, punctual lights | `src/scene` columns by handle | plain values over `base` types; `Column.h` ALREADY EXISTS and nothing reaches it |
-| `Render::SubjectMaterial`, `Render::SubjectEnvironment`, the previous pose | the renderer's own proxy | Unreal's split exactly: the scene holds a surface HANDLE, the renderer holds the material |
-| `Gltf::Subject *` | content, reached by handle | the scene names an asset; it does not point into one |
-| eye, `EyeStandsInside`, `FramedParts` | the camera | framing is optics and not scene state |
-| `EcefFromGltf`, `PlacedInEcef` | `src/content/gltf` | a format's own axis convention |
+**AND THE FIRST DECOMPOSITION IN THIS ITEM WAS WRONG.** It said the per-part tables become
+`src/scene` columns. They do not: placements, emitted radiance, surface slots and lights are what a
+RENDERER must know to draw one subject, not what the world knows about it -- `Live::Carry` proves
+it by writing every part from exactly two world matrices. The world's truth is the body transform;
+the per-part table is the renderer's expansion of it. That is Unreal's split (`UWorld` holds the
+transform, `FPrimitiveSceneProxy` holds what draws), and the tier table permits it exactly:
+`src/render` reaches `base` and `content`, which is all the type needs once the hardcoded planet
+radius becomes a value the engine passes in.
 
-`src/scene/Column.h` and `src/scene/Store.h` are a capability that is COMPLETE and unreachable --
-the dominant defect class in this tree, and here it is the reason a 559-line god struct was
-written beside it.
+`src/scene/Column.h` and `Store.h` remain a COMPLETE capability nothing reaches. That is a real
+finding and it is not this one: entities and their relations are what belongs there, and no
+declaration reaches them yet.
 
 **RAGE and Unreal both settled this and neither settled it this way.** Unreal keeps `FScene` beside
 `UWorld` and the renderer's copy is fed by primitive-level deltas from `FPrimitiveSceneProxy`;
@@ -45,9 +46,16 @@ RAGE keeps the draw-side scene apart from the entity and updates it per entity. 
 renderer's scene is a THING WITH A DOOR that the world pushes into. In neither is it a struct of
 public vectors named after the file format that happened to fill it.
 
-- [ ] `Studio` dissolves: placements, surfaces, lights and environment become the scene's columns
-      behind a door; eye and framing go to the camera; the glTF axis convention goes to `content/`
-- [ ] the placement diff is spelled ONCE and then not at all -- the writer states what it moved
-- [ ] `Move` stops touching placements: a pose update is vertices, and a placement is not a vertex
-- [ ] no type in `src/engine` is named after a content format
+- [x] the god struct leaves the top tier: `src/engine/GltfStudio.{h,cpp}` is
+      `src/render/SubjectProxy.{h,cpp}`, and the planet radius that pinned it there is a value the
+      engine passes in. Proof: `--audit-layers` green with the file under `src/render`
+- [x] it has a DOOR: thirteen public data members are private behind `Stands`, `Sees`, `Wears`,
+      `Emits`, `Places`, `Lit`, `Around`, and two of the five submission-time checks are gone
+      because what they forbade cannot be constructed
+- [ ] the proxy stops holding the VIEW: `Eye`, `EyeStandsInside` and `FramedParts` are a camera,
+      and Unreal keeps that in `FViewInfo` rather than in the primitive's proxy
+- [x] the placement diff is spelled ONCE and then not at all -- the writer states what it moved
+- [x] `Move` stops touching placements: a pose update is vertices, and a placement is not a vertex
+- [x] no type in `src/engine` is named after a content format, and no namespace there names a
+      CLIENT: `outshine::Clients` is `outshine::Core`
 - [ ] proof: the drive's trajectory is unchanged and the three-producer frame is bit-identical
