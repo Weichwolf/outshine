@@ -158,11 +158,11 @@ int main(int argc, char **argv) {
 
   outshine::Scenario declared = engine.Declared();
   if (asked.Routed) {
+    declared.Routed.FromLatDeg += asked.FromLatDeg;
+    declared.Routed.FromLonDeg += asked.FromLonDeg;
+    declared.Routed.ToLatDeg += asked.ToLatDeg;
+    declared.Routed.ToLonDeg += asked.ToLonDeg;
     declared.Routed.Declared = true;
-    declared.Routed.FromLatDeg = asked.FromLatDeg;
-    declared.Routed.FromLonDeg = asked.FromLonDeg;
-    declared.Routed.ToLatDeg = asked.ToLatDeg;
-    declared.Routed.ToLonDeg = asked.ToLonDeg;
   }
   if (!engine.Declare(declared)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
