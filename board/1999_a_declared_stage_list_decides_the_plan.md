@@ -65,14 +65,23 @@ consulted.
       before -- the driver's asset carries no animation track; khronos/glTF 444/444.
       negative control: restoring the condition on `file.Animations()` makes that line read -1
       and the case goes RED.
-- [ ] **board:1998's predicate needs a STILL CAMERA and this tree has none.** The door now
+- [x] the door reads velocity over a FIXED eye, so a number can belong to a subject rather than
+      to a camera. `outshine/door/ScoreWhatAMovedPlacementWrites` declares two subjects differing
+      in one thing -- a node translation track -- and reads `0` against `118` moving pixels.
+      negative control: `pose.PrevVerts = nullptr` drops the moving one to 0 and the case goes RED.
+- [ ] **board:1998's predicate needs a moving PLACEMENT and this tree cannot declare one.** The
       publishes the velocity numbers, but the drive cannot isolate a placement's own contribution:
       with `was = now` forced in `HandPlacements` the same case reads the same 57600 px and the
       same 0.695012 ndc, because the camera drives too and its motion sets both. A green negative
       control is a false proof, so the claim about the previous row was taken OUT of that case
-      rather than left standing. What is needed is a scenario with a fixed eye over a subject
-      whose placement moves -- then the moving-pixel count is the subject's own silhouette and
-      `was = now` drops it to zero.
+      rather than left standing.
+      The fixed-eye case above does not reach it either, and now the reason is measured: the
+      engine bakes node transforms into VERTICES exactly as the harness does, so an animated glTF
+      arrives as moving vertices over a static transform. The ONLY thing in this tree that moves a
+      placement is a BODY, through `Live::Places` -- and declaring a `Scenario::Body` from a door
+      case produced no freestanding body at all ("and how fast it falls" read -1), because a body
+      needs a world to stand in. So the missing case is a scenario that declares GROUND, a fixed
+      eye, and a body that falls in front of it.
 
 **The measurement that shows I am wrong**: if making the declared list decide changes any khronos
 picture, the default and the declaration disagree somewhere they must not -- 444/444 is the floor,

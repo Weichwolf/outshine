@@ -1,0 +1,196 @@
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+#include <SDL3/SDL.h>
+
+#include <Outshine.h>
+#include <Scenario.h>
+
+#include "Check.h"
+
+// A SUBJECT THAT CHANGES PLACE WRITES A VELOCITY, AND A STILL ONE WRITES NONE.
+//
+// Unreal keeps a per-instance PREVIOUS transform in `FGPUScene` and advances it where the frame
+// ends; RAGE double-buffers the same value. Both agree, and the reason is the same in either: TAA
+// reprojects this frame's pixel to where it stood last frame, so a rigid subject whose transform
+// changed and whose previous transform did NOT fetches its history from where it is not.
+//
+// THIS CASE EXISTS BECAUSE THE CORPUS CANNOT REACH THE QUESTION. `harness/shared/render/
+// Parity.cpp` calls `PoseGeometry` and hands the engine BAKED vertices with `prevP`, so even a
+// node-rotation asset like `khronos/glTF/AnimatedCube` arrives as a STATIC transform over moving
+// vertices. Measured: with the previous placement row forced to equal the current one, khronos/
+// glTF stays 444/444 and the driver's own moving-scene case reads the same 57600 px and the same
+// 0.695012 ndc -- because that camera drives too and its motion sets both numbers. Nothing in
+// this tree could tell the two apart.
+//
+// So this case declares the isolation instead of borrowing it: a FIXED eye over two subjects that
+// differ in one thing, a node TRANSLATION track. The moving-pixel count is then the subject's own
+// silhouette and nothing else's, and it is the tree's only door-level proof that the velocity
+// target describes a subject rather than a camera.
+//
+// WHAT IT STILL DOES NOT REACH, measured rather than guessed. It does NOT exercise the placement
+// row's previous half: with that forced to equal the current transform this case reads the same
+// 0 and 118. The engine bakes node transforms into VERTICES exactly as the harness does, so an
+// animated glTF arrives as moving vertices over a static transform and the velocity comes from
+// `prevP`. The only thing in this tree that moves a PLACEMENT is a BODY, through
+// `Live::Places` -- and a body needs a declared world to stand in, which is why declaring one
+// here produced no freestanding body at all and no motion. That case is board:1998's, and it
+// belongs with a scenario that declares ground.
+
+namespace {
+
+constexpr int kFramePx = 64;
+
+constexpr const char *kTriangleBase64 =
+    "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAA"
+    "AAAIA/";
+
+// Two keys a second apart: the node stands at the origin, then one unit east. 32 bytes -- two
+// floats of time, then two VEC3 of translation.
+constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAA=";
+
+[[nodiscard]] std::string Walking(bool moving) {
+  std::string held =
+      std::string("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+                  "\"nodes\":[{\"mesh\":0}],"
+                  "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+                  "\"material\":0}]}],"
+                  "\"materials\":[{\"pbrMetallicRoughness\":"
+                  "{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+                  "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,"
+                  "\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},"
+                  "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+                  "{\"bufferView\":2,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\","
+                  "\"min\":[0],\"max\":[1]},"
+                  "{\"bufferView\":3,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}],");
+  if (moving) {
+    held +=
+        "\"animations\":[{\"samplers\":[{\"input\":2,\"output\":3,\"interpolation\":\"LINEAR\"}],"
+        "\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"translation\"}}]}],";
+  }
+  held +=
+      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+      "{\"buffer\":1,\"byteOffset\":0,\"byteLength\":8},"
+      "{\"buffer\":1,\"byteOffset\":8,\"byteLength\":24}],"
+      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,";
+  held += kTriangleBase64;
+  held += "\"},{\"byteLength\":32,\"uri\":\"data:application/octet-stream;base64,";
+  held += kTrackBase64;
+  held += "\"}]}";
+  return held;
+}
+
+[[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
+  SDL_IOStream *out = SDL_IOFromFile(path.c_str(), "wb");
+  if (out == nullptr) { return false; }
+  const bool wrote = SDL_WriteIO(out, held.data(), held.size()) == held.size();
+  return SDL_CloseIO(out) && wrote;
+}
+
+[[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
+  for (const outshine::Measure &held : engine.Numbers()) {
+    if (held.What == what) { return held.How; }
+  }
+  return -1.0;
+}
+
+[[nodiscard]] outshine::Scenario Naming(const char *uri, bool asABody) {
+  outshine::Scenario stands;
+  stands.Render.Declared = true;
+  stands.Render.Frame = outshine::Extent{kFramePx, kFramePx};
+  stands.Render.Fill = 0.6;
+  stands.Render.Fps = 2.0;
+  stands.Lit.Declared = true;
+  stands.Lit.Key.Lux = 40000.0;
+  stands.Lit.Key.ElevationDeg = 42.0;
+  stands.Lit.Key.BearingDeg = 0.0;
+  outshine::Asset shown;
+  shown.Uri = uri;
+  shown.Kind = "gltf";
+  stands.Assets.push_back(shown);
+  if (asABody) {
+    outshine::Body falls;
+    falls.Name = "falls";
+    falls.Asset = uri;
+    falls.MassKg = 1000.0;
+    falls.WidthM = 1.0;
+    falls.AssetSpanM = 1.0;
+    falls.InertiaKgM2[0] = falls.InertiaKgM2[1] = falls.InertiaKgM2[2] = 100.0;
+    stands.Bodies.push_back(falls);
+  }
+  return stands;
+}
+
+[[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri,
+                                      bool asABody, int steps, std::string &why) {
+  outshine::Engine engine;
+  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+    why = "the device stood no canvas";
+    return -1.0;
+  }
+  if (!engine.Declare(Naming(uri, asABody)) || !engine.Assemble()) {
+    why = engine.Error();
+    return -1.0;
+  }
+  for (int step = 0; step < steps; ++step) {
+    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
+      why = engine.Error();
+      return -1.0;
+    }
+  }
+  return Measured(engine, "pixels the velocity target says moved");
+}
+
+}
+
+int main(void) {
+  using namespace outshine::Test;
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest == nullptr || *nest == 0) {
+    Unprepared("this case writes its subjects into the runner's nest and was given none");
+    return Report();
+  }
+  const std::string under = nest;
+  if (!Wrote(under + "/walks.gltf", Walking(true)) ||
+      !Wrote(under + "/stands.gltf", Walking(false))) {
+    Unprepared("the subjects could not be written into the nest");
+    return Report();
+  }
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    Unprepared("SDL did not start, so nothing can be drawn");
+    return Report();
+  }
+
+  std::string why;
+  const double still = MovingPixelsOver(under, "stands.gltf", false, 3, why);
+  if (still < 0.0) {
+    Unprepared(("the still subject would not stand: " + why).c_str());
+    return Report();
+  }
+  const double walked = MovingPixelsOver(under, "walks.gltf", false, 3, why);
+  if (walked < 0.0) {
+    Unprepared(("the moving subject would not stand: " + why).c_str());
+    return Report();
+  }
+
+  std::printf("A SUBJECT THAT STANDS STILL   %.0f pixel(s) move\n", still);
+  std::printf("ONE THAT MOVES                %.0f pixel(s) move\n", walked);
+
+  CHECK(still == 0.0 && walked > 0.0,
+        "**A SUBJECT THAT MOVES WRITES A VELOCITY AND A STILL ONE WRITES NONE**: the eye does not "
+        "move in either run and the two declarations differ in exactly one thing, so every moving "
+        "pixel here is the subject's own. Unreal's base pass writes velocity for the same reason "
+        "and RAGE keeps the buffer for its own reprojection; a still subject that writes velocity "
+        "hands TAA a history sample from the wrong place, and a moving one that writes none hands "
+        "it the same fault in the other direction");
+
+  Covers("the render: a placement that moves writes a velocity and one that does not writes none, "
+         "measured over a FIXED eye so the number is the subject's motion and nothing else's");
+  return Report();
+}
