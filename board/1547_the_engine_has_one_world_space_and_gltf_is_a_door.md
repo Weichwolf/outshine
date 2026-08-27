@@ -8,11 +8,20 @@ Tags: scope, layering
 **Benchmark** — Unreal: one world space, and an importer converts into it at the door. RAGE: one map space. **Both agree** — glTF is a door, never a coordinate system the engine adopts.
 
 Unreal converts Y-up right-handed content into its own world once, at load; RAGE normalises in
-the asset pipeline. **The conversion is a door, not a step in the frame.** Here
-`EcefFromGltf` appears ten times in `src/engine/GltfStudio.cpp` on the RUNTIME path: every
-vertex, normal, tangent and previous position per upload; every light's direction and position;
-the eye, its forward, its right and its up; and the per-part placements, added the day they
-became the thirteenth thing somebody forgot.
+the asset pipeline. **The conversion is a door, not a step in the frame.**
+
+**RE-MEASURED, because the file this item named no longer exists.** `EcefFromGltf` in
+`src/engine/GltfStudio.cpp` is gone -- the file became `src/render/SubjectProxy.cpp` and the
+call is spelled `Gltf::InEcef` / `Gltf::PlacedInEcef` now. The defect did not go with the
+rename. Fourteen runtime sites:
+
+    src/render/SubjectProxy.cpp   10
+    src/engine/Live.cpp            4
+    src/content/gltf/Axes.{h,cpp}  2 + 2   <- the door itself, where it belongs
+
+Every vertex, normal, tangent and previous position per upload; every light's direction and
+position; the eye with its forward, right and up; and the per-part placements. Ten became
+fourteen while the item waited, which is what an unguarded count does.
 
 Every new thing that enters a picture must remember to convert and the compiler cannot help.
 That is the defect this item makes unspellable.
