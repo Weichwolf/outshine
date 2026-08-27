@@ -103,12 +103,27 @@ and returns Pending -- request now, be told later, which is the pattern. Switchi
 is ONE LINE and it breaks the wait: the mesh job gives up, nothing re-posts it when the bytes
 land, and `MeshAwaited` returns Pending immediately (measured: *entered the wait: NO*).
 
-The missing piece is completion posting the FOLLOW-ON job -- a dependency between two pieces of
-work, which is `Work::Graph`'s question (board:1961) and not a fourth queue. That is why this
-predicate now depends on it rather than being forced through here.
+**THE MISSING PIECE IS A COMPLETION QUEUE, AND LINUX HAS THE SHAPE.** I said this was
+`Work::Graph`'s question and that was wrong on inspection: `Graph::Runs()` is a BATCH -- it runs
+every declared step and returns -- so it schedules a frame, not a long-lived stream of jobs.
+
+The right model is **io_uring**: a submission ring and a COMPLETION ring. The requester puts work
+in one; whoever finishes it puts the result in the other; and the consumer blocks on the
+completion ring for *any* completion rather than on its own request. `epoll` is the same idea one
+level up -- one place to wait, told which of many is ready.
+
+**Two attempts at the chain model both deadlocked, and that is the evidence.** Attempt one:
+`notify_one` across two queues woke an arbitrary waiter, so a compute worker found its own queue
+empty and slept while the carrier never woke -- the driver hung for 600 s. Attempt two: a mesh job
+was parked in a `Waiting_` map keyed by the fetch it needed, and the drop path did not release it,
+so `MeshAwaited` slept out its 5 s bound. Both are the same mistake in different clothes: a
+wake-up CHAIN has a link for every pair, and every link is a chance to lose a notification.
+
+A completion queue has one link. That is why it is the shape to build, and why this predicate is
+not being forced through with a third variation of the same error.
 
 - [ ] a compute worker never blocks on a socket or a disk: `PoolTerrain::Take` requests through
       `TilePool::Bytes` and the fetch's completion posts the mesh job that was waiting on it
-      (needs board:1961's graph, so the dependency is real rather than an excuse)
+      -- built as a COMPLETION QUEUE after io_uring's shape, not as a chain of wake-ups
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared
