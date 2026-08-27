@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Assembly.h"
+#include "TriangleBvh.h"
 #include "Ledger.h"
 #include "Mixer.h"
 #include "Tables.h"
@@ -243,6 +244,7 @@ struct Surrounds {
   Generators::Structures Shipped;
   std::vector<const Generates *> Making;
   size_t GroundTiles = 0;
+  TriangleBvh Blocking;
 };
 
 struct Ticks {
@@ -274,6 +276,8 @@ struct Engine::State {
   [[nodiscard]] bool Updates(void);
   [[nodiscard]] bool Draws(void);
   void Tells(void);
+  void Blocks(const Gltf::Subject &standing);
+  [[nodiscard]] bool Blocked(const double sourceM[3]) const;
   [[nodiscard]] bool Routes(void);
 };
 

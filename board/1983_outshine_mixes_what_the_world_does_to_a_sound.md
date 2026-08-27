@@ -22,7 +22,10 @@ structures to occlude and reflect against.
 - [x] Doppler from the relative velocity of source and listener, measured against the classical
       ratio at exactly c/10 so that a sign error lands visibly on 9/10 -- which is what it caught.
       proof: outshine/audio
-- [ ] occlusion: a source behind geometry is quieter and duller, by a ray the world answers
+- [x] occlusion: a source behind geometry is quieter AND duller, by a declared gain and a declared
+      cutoff -- Unreal's USoundAttenuation carries exactly that pair -- and the ray that measures
+      it is `TriangleBvh::Occludes`, which the shadow path already had.
+      proof: outshine/audio
 - [ ] early reflections off the nearest surfaces, and the room they imply
 - [ ] the mix is handed to the client the way a frame is -- outshine fills a buffer, the client
       owns the device, because the client owns the process

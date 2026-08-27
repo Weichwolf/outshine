@@ -333,6 +333,7 @@ bool Engine::Stands(const Geometry &geometry) {
     S_->Error = handed.Error();
     return false;
   }
+  S_->Blocks(handed);
   if (!S_->Picture.Standing) {
     S_->Picture.Handed = std::move(handed);
     S_->Picture.Carrying = true;

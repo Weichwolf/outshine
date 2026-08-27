@@ -190,6 +190,15 @@ bool Engine::State::Stood(void) {
   return Picture.Standing->Restand(Picture.Handed, 0, Error);
 }
 
+void Engine::State::Blocks(const Gltf::Subject &standing) {
+  const std::vector<double> &positionsM = standing.PositionsM();
+  std::vector<float> corners(positionsM.size());
+  for (size_t at = 0; at < positionsM.size(); ++at) { corners[at] = (float)positionsM[at]; }
+  World.Blocking = TriangleBvh::Over(Span<const float>(corners.data(), corners.size()),
+                                     Span<const uint32_t>(standing.Indices().data(),
+                                                          standing.Indices().size()));
+}
+
 void Engine::State::Tells(void) {
   const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
   std::vector<Audio::Heard> &sources = Session.Sources[next];
@@ -215,6 +224,7 @@ void Engine::State::Tells(void) {
         where.AtM[axis] = stood->PositionM[axis];
         where.VelocityMs[axis] = stood->VelocityMs[axis];
       }
+      where.Blocked = Blocked(where.AtM) ? 1.0 : 0.0;
     }
     sources.push_back(where);
   }
@@ -229,6 +239,24 @@ void Engine::State::Tells(void) {
       ear.RightXyz[axis] = eye.Right[axis];
     }
   }  Session.Told.store(next, std::memory_order_release);
+}
+
+bool Engine::State::Blocked(const double sourceM[3]) const {
+  if (World.Blocking.Empty() || !Picture.Standing) { return false; }
+  const Gltf::Viewpoint &eye = Picture.Standing->Aimed();
+  float fromM[3], along[3];
+  double awayM = 0.0;
+  for (int axis = 0; axis < 3; ++axis) {
+    const double step = sourceM[axis] - eye.EyeM[axis];
+    awayM += step * step;
+  }
+  awayM = std::sqrt(awayM);
+  if (!(awayM > 0.0)) { return false; }
+  for (int axis = 0; axis < 3; ++axis) {
+    fromM[axis] = (float)eye.EyeM[axis];
+    along[axis] = (float)((sourceM[axis] - eye.EyeM[axis]) / awayM);
+  }
+  return World.Blocking.Occludes(fromM, along, 0.01f, (float)awayM);
 }
 
 bool Engine::Mixes(std::span<float> stereo, int rate) {
