@@ -143,17 +143,17 @@ flowchart LR
   render --> |13| render_stages
   world_generators --> |12| base_spatial
   sim --> |12| world_ground
+  engine --> |11| ui
   world_ground --> |9| world_data
   sim --> |8| actor_mind
   actor_mind --> |7| actor_path
   engine --> |6| world_generators
-  engine --> |6| ui
   engine --> |6| scenario
+  engine --> |6| render
   engine --> |6| content_gltf
   sim --> |5| base_spatial
   sim --> |5| actor_body
   scenario --> |5| base_format
-  engine --> |5| render
   content_gltf --> |5| base_spatial
   world_generators --> |4| base_math
   world_generators --> |4| base_geo
@@ -204,8 +204,8 @@ The heaviest units, against the median of them all.
 | 1141 | `base/format/Script.h` |
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1067 | `render/stages/SubjectDraw.h` |
-| 981 | `engine/Live.h` |
-| **106** | *the median of 244 unit(s)* |
+| 955 | `ui/Style.h` |
+| **107** | *the median of 245 unit(s)* |
 
 ## Carpet
 
@@ -259,7 +259,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 |---|---|
 | 7 | `src/world/generators/ContactMaterial.h` |
 | 5 | `src/world/generators/draw/TreeMesh.h` |
-| 4 | `src/engine/Live.h` |
+| 5 | `src/engine/Live.h` |
 | 3 | `src/world/generators/draw/TreeFoliage.h` |
 | 3 | `src/world/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |

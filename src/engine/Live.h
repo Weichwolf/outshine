@@ -10,6 +10,7 @@
 
 #include "Document.h"
 #include "SubjectProxy.h"
+#include "Overlay.h"
 #include "Layout.h"
 #include "Markup.h"
 #include "Paint.h"
@@ -22,14 +23,6 @@
 #include "Surfaces.h"
 
 namespace outshine::Core {
-
-struct Shows {
-  std::string Markup;
-
-  std::string Style;
-  std::string Programme;
-  double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
-};
 
 struct Declaration {
   AssetAnimation Animation = AssetAnimation::Play;
@@ -113,14 +106,20 @@ public:
     Aimed_ = false;
   }
 
-  [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const;
-  [[nodiscard]] bool Wheeled(double xPx, double yPx, double byPx, std::string &error);
+  [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
+    return Over_.Under(xPx, yPx, surface);
+  }
+  [[nodiscard]] bool Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+    bool again = false;
+    Over_.Wheeled(xPx, yPx, byPx, again);
+    return !again || Compose(error);
+  }
   [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
-    return Scrolled_;
+    return Over_.Scrolled();
   }
   [[nodiscard]] bool Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
                               std::string &error) {
-    Scrolled_ = std::move(kept);
+    Over_.Scrolled(std::move(kept));
     return Compose(error);
   }
 
@@ -150,19 +149,13 @@ private:
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
   [[nodiscard]] bool Submit(std::string &error);
-  [[nodiscard]] bool Compose(std::string &error);
-
-  struct Laid {
-    Ui::Markup Tree;
-    Ui::Stylesheet Sheet;
-    Ui::Layout Placed;
-    Ui::Painting Painted;
-    double LeftPx = 0.0, TopPx = 0.0;
-  };
+  [[nodiscard]] bool Compose(std::string &error) {
+    return Over_.Compose(*Renderer_, Declared_.Surfaces, (double)Declared_.SurfaceWidthPx,
+                         (double)Declared_.SurfaceHeightPx, error);
+  }
 
   Render::Renderer *Renderer_ = nullptr;
-  const Ui::Font *Font_ = nullptr;
-  uint64_t Cut_ = 0;
+  Overlay Over_;
   Declaration Declared_;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::RenderPlan> Plan_;
@@ -192,9 +185,6 @@ private:
   Render::SubjectProxy Stood_;
   Render::View Looking_;
   Render::SubjectScratch Scratch_;
-  std::vector<Laid> Laid_;
-  std::vector<std::vector<Ui::Layout::Scrolled>> Scrolled_;
-  std::vector<Render::OverlayQuad> Quads_;
   bool Moves_ = false;
   bool FileStands_ = false;
 
