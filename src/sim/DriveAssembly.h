@@ -6,7 +6,7 @@
 #include "Assembled.h"
 #include "Column.h"
 #include <Scenario.h>
-#include "Store.h"
+#include <Scene.h>
 
 #include "CorridorLay.h"
 #include "DriveTick.h"

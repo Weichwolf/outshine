@@ -351,6 +351,10 @@ bool Engine::Read(std::string_view path) {
   return true;
 }
 
+Store &Engine::Scene(void) { return S_->Cast.Scene; }
+
+const Store &Engine::Scene(void) const { return S_->Cast.Scene; }
+
 const Scenario &Engine::Declared() const { return S_->Session.Declared; }
 
 }

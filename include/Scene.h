@@ -1,10 +1,14 @@
-#ifndef OUTSHINE_SCENE_REGISTER_H
-#define OUTSHINE_SCENE_REGISTER_H
+#ifndef OUTSHINE_SCENE_H
+#define OUTSHINE_SCENE_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <string_view>
 
 namespace outshine {
+
 
 enum class Role : uint8_t { Body, Mind, Tool, Assignment };
 inline constexpr size_t kRoles = 4;
@@ -125,6 +129,73 @@ static_assert(EveryOwnedRelationIsExclusive(),
 inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
-}
 
+struct Entity {
+  uint32_t Index = 0;
+  uint32_t Generation = 0;
+
+  [[nodiscard]] constexpr bool operator==(Entity other) const {
+    return Index == other.Index && Generation == other.Generation;
+  }
+};
+
+inline constexpr Entity kNoEntity{0xFFFFFFFFu, 0};
+inline constexpr size_t kPairsPerEntity = 8;
+inline constexpr size_t kTagsPerEntity = 8;
+inline constexpr size_t kSeatsPerOffer = 4;
+
+enum class Seat : uint8_t { Free, Claimed, Occupied };
+
+class Store {
+public:
+  Store();
+  ~Store();
+  Store(Store &&) noexcept;
+  Store &operator=(Store &&) noexcept;
+  Store(const Store &) = delete;
+  Store &operator=(const Store &) = delete;
+
+  [[nodiscard]] bool Open(size_t capacity);
+
+  [[nodiscard]] Entity Add(Role role);
+  void Remove(Entity of);
+  [[nodiscard]] bool Alive(Entity of) const;
+  [[nodiscard]] Role RoleOf(Entity of) const;
+
+  [[nodiscard]] bool Give(Entity to, Tag tag);
+  [[nodiscard]] bool Has(Entity of, Tag tag) const;
+
+  [[nodiscard]] bool Link(Entity from, Relation how, Entity to);
+  [[nodiscard]] bool Relink(Entity from, Relation how, Entity to);
+  [[nodiscard]] Entity TargetOf(Entity of, Relation how) const;
+  [[nodiscard]] size_t Targets(Entity of, Relation how, Entity into[], size_t room) const;
+
+  [[nodiscard]] size_t Sources(Entity to, Relation how, Entity into[], size_t room) const;
+  [[nodiscard]] size_t Cast(Role role, Entity into[], size_t room) const;
+  [[nodiscard]] size_t Pairs(Relation how, Entity from[], Entity to[], size_t room) const;
+  [[nodiscard]] size_t Bearing(Tag tag, Role role, Entity into[], size_t room) const;
+
+  [[nodiscard]] Entity Instantiate(Entity prefab);
+  [[nodiscard]] Entity CopyOf(Entity instance, Entity prefabChild) const;
+
+  [[nodiscard]] bool Offer(Entity at, Tag activity, size_t seats);
+  [[nodiscard]] size_t Offering(Tag activity, Entity into[], size_t room) const;
+  [[nodiscard]] bool Claim(Entity by, Entity at);
+  [[nodiscard]] bool Use(Entity by, Entity at);
+  [[nodiscard]] bool Release(Entity by, Entity at);
+  [[nodiscard]] Seat SeatOf(Entity by, Entity at) const;
+
+  [[nodiscard]] size_t Capacity() const;
+  [[nodiscard]] std::string_view Error() const;
+
+  [[nodiscard]] size_t Touched() const;
+  void ResetTouched();
+
+
+private:
+  struct Kept;
+  std::unique_ptr<Kept> Kept_;
+};
+
+}
 #endif

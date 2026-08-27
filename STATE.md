@@ -83,6 +83,8 @@ whose proof this tree does not hold is reported rather than counted.
     bool Declare(const Scenario &scenario)
     bool Shows(const std::vector<Surface> &surfaces)
     const Scenario &Declared(void) const
+    Store &Scene(void)
+    const Store &Scene(void) const
     const std::vector<std::string> &Carried(void) const
     const std::vector<Measure> &Numbers(void) const
     bool Assemble()
@@ -150,6 +152,41 @@ whose proof this tree does not hold is reported rather than counted.
     value: Scenario
     const Asset *Subject(void) const
 
+### `Scene.h`
+
+    type: Tag
+    value: TagCatalogue
+    value: RelationRule
+    value: Entity
+    type: Store
+    bool Open(size_t capacity)
+    Entity Add(Role role)
+    void Remove(Entity of)
+    bool Alive(Entity of) const
+    Role RoleOf(Entity of) const
+    bool Give(Entity to, Tag tag)
+    bool Has(Entity of, Tag tag) const
+    bool Link(Entity from, Relation how, Entity to)
+    bool Relink(Entity from, Relation how, Entity to)
+    Entity TargetOf(Entity of, Relation how) const
+    size_t Targets(Entity of, Relation how, Entity into[], size_t room) const
+    size_t Sources(Entity to, Relation how, Entity into[], size_t room) const
+    size_t Cast(Role role, Entity into[], size_t room) const
+    size_t Pairs(Relation how, Entity from[], Entity to[], size_t room) const
+    size_t Bearing(Tag tag, Role role, Entity into[], size_t room) const
+    Entity Instantiate(Entity prefab)
+    Entity CopyOf(Entity instance, Entity prefabChild) const
+    bool Offer(Entity at, Tag activity, size_t seats)
+    size_t Offering(Tag activity, Entity into[], size_t room) const
+    bool Claim(Entity by, Entity at)
+    bool Use(Entity by, Entity at)
+    bool Release(Entity by, Entity at)
+    Seat SeatOf(Entity by, Entity at) const
+    size_t Capacity() const
+    std::string_view Error() const
+    size_t Touched() const
+    void ResetTouched()
+
 ## Shape
 
 Module depends on module, derived from the includes themselves.
@@ -177,20 +214,19 @@ flowchart LR
   sim --> |5| actor_body
   content_gltf --> |5| base_spatial
   render --> |4| base_io
-  engine --> |4| scene
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   world_ground --> |3| base_format
-  sim --> |3| scene
   render --> |3| render_device
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
+  engine --> |3| scene
   content_shade --> |3| base_math
 ```
-  33 edge(s) drawn, 47 thinner than three includes not drawn
+  32 edge(s) drawn, 48 thinner than three includes not drawn
 
 ## Tiers
 
@@ -227,8 +263,8 @@ The heaviest files. Headers and sources counted apart.
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 651 | `cpp` | `scenario/ScenarioRead.cpp` |
-| **45** | `h` | *the median of 239 header(s)* |
+| 667 | `cpp` | `scene/Store.cpp` |
+| **45** | `h` | *the median of 237 header(s)* |
 | **119** | `cpp` | *the median of 157 source(s)* |
 
 ## Carpet
@@ -241,7 +277,7 @@ The widest public surfaces.
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 38 | `src/engine/Live.h` |
-| 34 | `src/scene/Store.h` |
+| 32 | `include/Scene.h` |
 | 31 | `src/base/format/Xml.h` |
 
 ## Twins
@@ -288,7 +324,6 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/world/ground/TerrainLoader.h` |
 | 1 | `src/world/ground/ClassField.h` |
 | 1 | `src/world/data/StarBands.h` |
-| 1 | `src/scene/Register.h` |
 | 1 | `src/scenario/Tables.h` |
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |

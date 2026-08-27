@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "Store.h"
+#include <Scene.h>
 
 namespace outshine {
 

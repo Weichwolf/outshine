@@ -15,6 +15,13 @@ is the work.
 
 ## What done means
 
+**outshine is to be a REFERENCE DESIGN — something a technical university could teach from.** That
+is a harder bar than "correct" and it changes what finishing means: a structural answer has to be
+LEGIBLE, defensible from first principles, and carry its reason where the decision is made. Code
+that works and cannot be explained is unfinished; a number without its derivation is unfinished;
+an abstraction that needs the author present to be understood is unfinished. The reader I am
+writing for is a competent stranger, not myself in a week.
+
 Not "it works". The bar is an answer RAGE or Unreal would recognise as their own, or a better one
 I can defend with a measurement of THIS tree. An engine that renders is not the goal — an engine
 whose every structural answer is the best of the two is, because that is the only definition that
@@ -145,7 +152,7 @@ is reconstruction and carries less. **A measurement of THIS tree outranks both.*
 
 | | |
 |---|---|
-| `include/` | **A header is public only if a client cannot use the engine without it**, and that is the whole rule — the count follows from it and `STATE.md` reports what the count is. Five things a client cannot do without: the VERBS (`Outshine.h`), the DECLARATION it hands in (`Scenario.h`), the CHANNEL answers come back on (`Event.h`, which is RAGE's `fwEvent` slot and Unreal's delegate header), the 3D VALUE it hands both ways (`Geometry.h`, with `Material.h` and `PunctualLight.h` beside it because its verbs take them), and the INTERFACE its own generator implements (`Generate.h`). Anything else standing there is a finding. **`Scenario.h` names geometry and never carries it** — an asset path, a generator kind — which is why it includes none: XML cannot carry a mesh either, and code must be able to build everything XML can |
+| `include/` | **A header is public only if a client cannot use the engine without it**, and that is the whole rule — the count follows from it and `STATE.md` reports what it is. What qualifies: the VERBS (`Outshine.h`), the DECLARATION handed in (`Scenario.h`), the CHANNEL answers come back on (`Event.h` — RAGE's `fwEvent` slot, Unreal's delegate header), the 3D VALUE handed both ways (`Geometry.h`, with `Material.h` and `PunctualLight.h` beside it because its verbs take them), the WORLD it places things in (`Scene.h`), and the INTERFACE a client's generator implements (`Generate.h`). Anything else standing there is a finding |
 | `src/` | the library; `src/assets/` its declared data. **The directory IS the dependency tier and the tier is DECLARED** — `LayerReaches` in `test/run.sh`, enforced by `--audit-layers`, which also refuses a CYCLE between two modules inside one tier |
 | `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora (`khronos/validator/`: 263 cases judged as a REFUSAL against Khronos's report); `harness/` their scorers and the board claims; **`outshine/` is ours**. Everything here reaches the library through `include/` and nothing of `src/` — it tests the DOOR |
 | `src/<module>/tests/` | **a low-level case lives inside the module it tests** and compiles as part of it, which is Unreal's `Private/Tests/`. It may reach that module's private headers; nothing else may reach it. A case belongs here when it tests an internal type and outside when it tests the door |
@@ -363,6 +370,68 @@ flowchart TD
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   class T2,M2,R2,LV2,SKY2,SUBJ2,CT2,TONE2,OV2,P2,GEO,SUN,MOON,STARS,IR sure
   class AE,AO,TAA2,GLASS2 likely
+```
+
+## What is public and what is not
+
+Both benchmarks make the same cut and it is not obvious: the ASSET VALUE and the WORLD are public,
+the RENDERER's own scene never is. A client builds a mesh and places it; how that mesh becomes GPU
+state is the engine's business, and publishing it would freeze the frame path's every decision.
+
+```mermaid
+flowchart LR
+  subgraph public["PUBLIC — include/"]
+    G["Geometry — a mesh value<br/>hand one in, take one back"]
+    S["Store — the world<br/>add · tag · link · claim"]
+    D["Scenario — the declaration"]
+    V["Outshine — the verbs"]
+  end
+  subgraph private["PRIVATE — src/"]
+    P["SubjectProxy — what the renderer draws"]
+    C["ClusterDag — the cooked form, LOD and culling"]
+    R["Renderer — passes, buffers, the device"]
+  end
+  V --> S
+  V --> G
+  D -.->|names| G
+  G -->|cooked into| C --> P --> R
+  S -->|placements| P
+
+  classDef pub fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef pri fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  class G,S,D,V pub
+  class P,C,R pri
+```
+
+| what | Unreal | RAGE | here |
+|---|---|---|---|
+| a mesh value a client builds | `FMeshDescription` → `UStaticMesh` | `grmModel` resource | `Geometry` |
+| the world: add, link, tag, claim | `UWorld` + `SpawnActor`, components, gameplay tags | map entities in the game layer | `Store`, reached by `Engine::Scene()` |
+| the renderer's scene | `FScene` — deliberately not public | the draw list — not public | `Render::SubjectProxy`, internal |
+
+**A public type publishes its VERBS and never its layout.** `Geometry` and `Store` both hold an
+opaque `Kept`, so the storage can change without recompiling a client — which is the difference
+between a door and a struct someone reaches through.
+
+```mermaid
+classDiagram
+  direction LR
+  class Store {
+    +Add(role) Entity
+    +Give(entity, tag) bool
+    +Link(from, relation, to) bool
+    +Instantiate(prefab) Entity
+    +Claim / Use / Release
+    +queries over tags, roles and pairs
+    -Kept: slots, pairs, seats — invisible
+  }
+  class Geometry {
+    +Part(named, material) int
+    +Positions / Normals / Texture / Triangles
+    +Surface(named, material) int
+    +Lamp(named, light, placed) int
+    -Kept: per-part arrays — invisible
+  }
 ```
 
 ## Classes and the door

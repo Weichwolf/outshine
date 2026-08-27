@@ -14,6 +14,7 @@
 #include "Geometry.h"
 
 #include <Event.h>
+#include <Scene.h>
 #include <Scenario.h>
 
 namespace outshine {
@@ -51,6 +52,8 @@ public:
   [[nodiscard]] bool Shows(const std::vector<Surface> &surfaces);
 
   [[nodiscard]] const Scenario &Declared(void) const;
+  [[nodiscard]] Store &Scene(void);
+  [[nodiscard]] const Store &Scene(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
   [[nodiscard]] const std::vector<Measure> &Numbers(void) const;
 

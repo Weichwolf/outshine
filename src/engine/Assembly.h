@@ -9,7 +9,7 @@
 #include <Scenario.h>
 
 #include "Column.h"
-#include "Store.h"
+#include <Scene.h>
 
 namespace outshine {
 
