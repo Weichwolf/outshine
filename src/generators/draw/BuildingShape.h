@@ -9,7 +9,7 @@
 
 namespace outshine::Generators {
 
-struct Plan2 {
+struct En {
   double E = 0.0, N = 0.0;
 };
 
@@ -18,12 +18,12 @@ enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome 
 enum class BuildingUse : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
 
 struct BuildingShape {
-  std::vector<Plan2> Ring;
+  std::vector<En> Ring;
 
   std::vector<uint8_t> Party;
   double AreaM2 = 0.0;
-  Plan2 Centre;
-  Plan2 AxisU;
+  En Centre;
+  En AxisU;
   double HalfUm = 0.0, HalfVm = 0.0;
   double Fill = 0.0;
 
@@ -47,13 +47,13 @@ struct BuildingShape {
   [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
   [[nodiscard]] double TopM() const { return FootM + EavesM + RiseM; }
 
-  [[nodiscard]] Plan2 AxisV() const { return {-AxisU.N, AxisU.E}; }
-  void ToBox(const Plan2 &p, double *u, double *v) const;
-  [[nodiscard]] Plan2 FromBox(double u, double v) const;
+  [[nodiscard]] En AxisV() const { return {-AxisU.N, AxisU.E}; }
+  void ToBox(const En &p, double *u, double *v) const;
+  [[nodiscard]] En FromBox(double u, double v) const;
 };
 
 struct Massing {
-  std::vector<Plan2> Outline;
+  std::vector<En> Outline;
   std::vector<BuildingShape> Parts;
 };
 

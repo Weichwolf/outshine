@@ -7,7 +7,7 @@ namespace outshine::Pilot {
 
 inline constexpr double kSettleS = 1.0;
 
-struct Reins {
+struct Holding {
   double SettleS = 0.0;
   double LeastReachM = 0.0;
   double TightestPerM = 0.0;
@@ -28,10 +28,10 @@ struct Demand {
   bool Saturated = false;
 };
 
-[[nodiscard]] double ReachOf(const Reins &with, double speedMs,
+[[nodiscard]] double ReachOf(const Holding &with, double speedMs,
                             double curvatureRatePerM = 0.0);
 
-[[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Where &at,
+[[nodiscard]] Demand Hold(const ReferenceLine &along, const Holding &with, const Where &at,
                           double speedMs, double wantedMs);
 
 }

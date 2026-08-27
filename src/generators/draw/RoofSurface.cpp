@@ -17,18 +17,18 @@ constexpr double kOnLineM = 1.0e-4;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 
-double TriArea(const Plan2 &a, const Plan2 &b, const Plan2 &c) {
+double TriArea(const En &a, const En &b, const En &c) {
   return 0.5 * std::fabs((b.E - a.E) * (c.N - a.N) - (c.E - a.E) * (b.N - a.N));
 }
 
-void PushTri(std::vector<Plan2> &out, const Plan2 &a, const Plan2 &b, const Plan2 &c) {
+void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   if (TriArea(a, b, c) < kSliverM2) return;
   out.push_back(a);
   out.push_back(b);
   out.push_back(c);
 }
 
-void EarClip(std::span<const Plan2> ring, std::vector<Plan2> &tris) {
+void EarClip(std::span<const En> ring, std::vector<En> &tris) {
   const size_t n = ring.size();
   if (n < 3) return;
   std::vector<uint32_t> poly(n);
@@ -62,8 +62,8 @@ void EarClip(std::span<const Plan2> ring, std::vector<Plan2> &tris) {
   }
 }
 
-void HalfPlane(const Plan2 *t, const double *d, double sign, std::vector<Plan2> &out) {
-  Plan2 poly[4];
+void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) {
+  En poly[4];
   int n = 0;
   for (int i = 0; i < 3; i++) {
     const int j = (i + 1) % 3;
@@ -78,11 +78,11 @@ void HalfPlane(const Plan2 *t, const double *d, double sign, std::vector<Plan2> 
   for (int i = 2; i < n; i++) PushTri(out, poly[0], poly[i - 1], poly[i]);
 }
 
-void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<Plan2> &tris) {
-  std::vector<Plan2> out;
+void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<En> &tris) {
+  std::vector<En> out;
   out.reserve(tris.size() * 2);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-    const Plan2 *t = &tris[i];
+    const En *t = &tris[i];
     double d[3];
     int pos = 0, neg = 0;
     for (int k = 0; k < 3; k++) {
@@ -136,15 +136,15 @@ int CreasesOf(const BuildingShape &s, Line *lines) {
   return 0;
 }
 
-void Refine(std::vector<Plan2> &tris, int passes) {
+void Refine(std::vector<En> &tris, int passes) {
   for (int p = 0; p < passes; p++) {
-    std::vector<Plan2> out;
+    std::vector<En> out;
     out.reserve(tris.size() * 4);
     for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-      const Plan2 a = tris[i], b = tris[i + 1], c = tris[i + 2];
-      const Plan2 ab{0.5 * (a.E + b.E), 0.5 * (a.N + b.N)};
-      const Plan2 bc{0.5 * (b.E + c.E), 0.5 * (b.N + c.N)};
-      const Plan2 ca{0.5 * (c.E + a.E), 0.5 * (c.N + a.N)};
+      const En a = tris[i], b = tris[i + 1], c = tris[i + 2];
+      const En ab{0.5 * (a.E + b.E), 0.5 * (a.N + b.N)};
+      const En bc{0.5 * (b.E + c.E), 0.5 * (b.N + c.N)};
+      const En ca{0.5 * (c.E + a.E), 0.5 * (c.N + a.N)};
       PushTri(out, a, ab, ca);
       PushTri(out, ab, b, bc);
       PushTri(out, ca, bc, c);
@@ -158,7 +158,7 @@ void Refine(std::vector<Plan2> &tris, int passes) {
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
-double RoofSurface::HeightAt(const Plan2 &enu) const noexcept {
+double RoofSurface::HeightAt(const En &enu) const noexcept {
   double u = 0.0, v = 0.0;
   Shape_.ToBox(enu, &u, &v);
   const double hu = Shape_.HalfUm, hv = Shape_.HalfVm, rise = Shape_.RiseM;
@@ -197,11 +197,11 @@ double RoofSurface::HeightAt(const Plan2 &enu) const noexcept {
   return f * rise;
 }
 
-void RoofSurface::Cover(std::span<const Plan2> plan, std::vector<Plan2> &tris) const {
+void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
   EarClip(plan, tris);
   if (tris.size() == first) return;
-  std::vector<Plan2> mine(tris.begin() + (long)first, tris.end());
+  std::vector<En> mine(tris.begin() + (long)first, tris.end());
   tris.resize(first);
 
   Line lines[kMaxCreases];
@@ -211,15 +211,15 @@ void RoofSurface::Cover(std::span<const Plan2> plan, std::vector<Plan2> &tris) c
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-std::vector<Plan2> RoofSurface::Widened(std::span<const Plan2> ring, double byM) {
+std::vector<En> RoofSurface::Widened(std::span<const En> ring, double byM) {
   const size_t n = ring.size();
   if (n < 3 || std::fabs(byM) < 1.0e-3) return {};
-  std::vector<Plan2> out;
+  std::vector<En> out;
   out.reserve(n);
   for (size_t i = 0; i < n; i++) {
-    const Plan2 &p = ring[i];
-    const Plan2 &a = ring[(i + n - 1) % n];
-    const Plan2 &b = ring[(i + 1) % n];
+    const En &p = ring[i];
+    const En &a = ring[(i + n - 1) % n];
+    const En &b = ring[(i + 1) % n];
     const double e0 = p.E - a.E, n0 = p.N - a.N, l0 = std::hypot(e0, n0);
     const double e1 = b.E - p.E, n1 = b.N - p.N, l1 = std::hypot(e1, n1);
     if (l0 < 1.0e-6 || l1 < 1.0e-6) return {};

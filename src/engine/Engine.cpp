@@ -114,7 +114,7 @@ bool Engine::State::Routes(void) {
       World.Wire = std::make_unique<Fetching>(Fetching::Config{});
     }
   }
-  Quietly say;
+  Collecting say;
   const Sim::Provision kept{Session.Under.Cache, Session.Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
   const bool routed = Assembles(declared.Routed.By)(Cast.Scene, Cast.Stood, Cast.Bodies, Cast.Drives, declared.Ground,

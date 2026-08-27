@@ -9,7 +9,7 @@ namespace {
 
 }
 
-double ReachOf(const Reins &with, double speedMs, double curvatureRatePerM) {
+double ReachOf(const Holding &with, double speedMs, double curvatureRatePerM) {
   double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
   const double ramp = std::fabs(curvatureRatePerM);
   if (with.HoldWithinM > 0.0 && ramp > 0.0) {
@@ -20,7 +20,7 @@ double ReachOf(const Reins &with, double speedMs, double curvatureRatePerM) {
   return reachM;
 }
 
-Demand Hold(const ReferenceLine &along, const Reins &with, const Where &at, double speedMs,
+Demand Hold(const ReferenceLine &along, const Holding &with, const Where &at, double speedMs,
             double wantedMs) {
   Demand out;
   out.SpeedMs = wantedMs;

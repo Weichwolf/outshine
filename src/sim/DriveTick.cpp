@@ -45,7 +45,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support 
   auto &rig = drive.Rig;
   auto &body = drive.Body;
   if (!way.Laid()) { return out; }
-  outshine::Pilot::Reins reins;
+  outshine::Pilot::Holding reins;
   reins.SettleS = outshine::Pilot::kSettleS;
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;

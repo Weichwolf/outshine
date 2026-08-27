@@ -41,7 +41,7 @@ bool Engine::Handles(const SDL_Event &event) {
   Script::Program programme;
   const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
   if (!programme.Read(text, S_->Error)) { return false; }
-  ToTheClient answering(S_->Offered);
+  Forwarding answering(S_->Offered);
   if (!programme.Run(answering, S_->Error)) { return false; }
   return answering.Fired();
 }

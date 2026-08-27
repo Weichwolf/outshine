@@ -32,21 +32,29 @@ Where the tree already agrees without copying: `SubjectProxy` against `FPrimitiv
 Every class, struct and header name in `src/` and `include/`, sorted by how wrong it looks.
 Nothing here is a style complaint -- each row is a name that costs a reader something.
 
-**A number in a name, and it is not a number.** `Plan2` (`generators/draw/BuildingShape.h`) is
-`{double E, N}` -- an east/north point. The `2` reads as "the second Plan", and the tree already
-has `Enu {E, N, U}` in `world/ground/tiles/TileGeodesy.h`. That is the no-primitive-twice rule
-broken semantically, where the type-name claim cannot see it: two DIFFERENT words for one idea
-rather than one word for two.
+**A number in a name, and it is not a number.** `Plan2` was `{double E, N}` -- an east/north
+point -- and the `2` read as "the second Plan". It is **`En`** now, which sits beside `Enu` and
+`Ecef` in the tree's own geodesy vocabulary: a reader who knows one reads the other without
+being told.
 
-**Parts of speech that are not nouns.** `Quietly` is a `Sink` that collects numbers instead of
-printing them; `ToTheClient` is a `Script::Host` that forwards calls. An adverb and a
-preposition. Unreal would call the first an output device and the second a bridge; either way a
-type is a thing.
+Looking for a home for it turned up something larger, and it is NOT a rename. `src/base/math/Vec3.h`
+declares no type at all -- it is free functions over `double[3]`, and the door passes raw arrays
+everywhere. That is a deliberate choice (contiguous, one-width, pointer-free) and it is right for
+a boundary. But `TreeVec3 {float X,Y,Z}` and the old `Plan2` were private exceptions to it, so
+the tree has THREE conventions for a small vector where Unreal has `FVector` and RAGE has `Vec3V`.
+Whether outshine should have one named vector type is an architectural question this item does
+not get to settle by renaming things.
 
-**Body parts and tack.** `Footing` (a foot), `Reins` (a horse's), `Astride`, `Gait`, `Wings`.
-`Reins` is `{SettleS, LeastReachM, TightestPerM, HoldWithinM, AsideM}` -- the bounds a pilot
-holds a line within. A riding metaphor for a control law: vivid to whoever wrote it, opaque
-to everyone else, and it names a subject the engine is not supposed to know.
+**Parts of speech that are not nouns.** `Quietly` was a `Sink` collecting numbers instead of
+printing them, and `ToTheClient` a `Script::Host` forwarding calls -- an adverb and a
+preposition. They are **`Collecting`** and **`Forwarding`**: participles, which is the tree's own
+voice, and each says what the thing DOES rather than how it does it.
+
+**Body parts and tack.** `Reins` was `{SettleS, LeastReachM, TightestPerM, HoldWithinM, AsideM}`
+-- the bounds a pilot holds a line within. A riding metaphor for a control law: vivid to whoever
+wrote it, opaque to everyone else, and it named a subject the engine is not supposed to know. It
+is **`Holding`** now, beside the `Hold` it parameterises. Still open: `Footing` (a foot),
+`Astride`, `Gait`, `Wings`.
 
 **Collides with an established meaning.** `Live` is the renderer-side subject holder; in Unreal
 "Live" is Live++ hot reload, so an Unreal reader expects recompilation. `Viewport` needs

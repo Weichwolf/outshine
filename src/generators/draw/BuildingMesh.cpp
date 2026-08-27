@@ -32,7 +32,7 @@ constexpr double kPavementMostM = 24.0;
 constexpr double kFootwayMostM = 5.0;
 
 struct Vtx {
-  Plan2 P;
+  En P;
   double Z = 0.0;
   float U = 0.0f, V = 0.0f;
 };
@@ -52,12 +52,12 @@ struct Vtx {
 
 double EavesZ(const BuildingShape &s) { return s.FootM + s.EavesM; }
 
-Vtx Wall(const BuildingShape &s, const Plan2 &p, double z, double bays, Fields stand) {
+Vtx Wall(const BuildingShape &s, const En &p, double z, double bays, Fields stand) {
   return {p, z, FacadeUvX(StyleOf(s.Use), stand, (float)bays),
           FacadeUvY(s.Ident, (float)((z - s.FootM) / s.FloorM))};
 }
 
-Vtx Face(const BuildingShape &s, const Plan2 &p, double z, Facade kind) {
+Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
   return {p, z, FaceUvX(kind, s.Ident), (float)z};
 }
 
@@ -135,15 +135,15 @@ public:
     SlopeN_ = m[2][3] / m[2][2];
   }
 
-  double At(const Plan2 &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
+  double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
 
 private:
   double Const_ = 0.0, SlopeE_ = 0.0, SlopeN_ = 0.0;
 };
 
-double EdgeLength(const Plan2 &p, const Plan2 &q) { return std::hypot(q.E - p.E, q.N - p.N); }
+double EdgeLength(const En &p, const En &q) { return std::hypot(q.E - p.E, q.N - p.N); }
 
-Plan2 Along(const Plan2 &p, const Plan2 &q, double t) {
+En Along(const En &p, const En &q, double t) {
   return {p.E + (q.E - p.E) * t, p.N + (q.N - p.N) * t};
 }
 
@@ -152,17 +152,17 @@ double BaysOn(double lengthM, double bayM) {
   return std::max(1.0, std::round(lengthM / bayM));
 }
 
-void WallPanel(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double bay0, double bay1,
+void WallPanel(const BuildingShape &s, const En &p, const En &q, double bay0, double bay1,
                double lowZ, double highZ, Fields stand, Site &site) {
   site.Quad(Wall(s, p, lowZ, bay0, stand), Wall(s, q, lowZ, bay1, stand),
             Wall(s, q, highZ, bay1, stand), Wall(s, p, highZ, bay0, stand));
 }
 
-void FrontWall(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double bays, double lowZ,
+void FrontWall(const BuildingShape &s, const En &p, const En &q, double bays, double lowZ,
                double highZ, Site &site) {
   const double door = std::floor(0.5 * bays);
   const double t0 = door / bays, t1 = (door + 1.0) / bays;
-  const Plan2 a = Along(p, q, t0), b = Along(p, q, t1);
+  const En a = Along(p, q, t0), b = Along(p, q, t1);
   if (door > 0.0) WallPanel(s, p, a, 0.0, door, lowZ, highZ, Fields::Front, site);
   WallPanel(s, a, b, door, door + 1.0, lowZ, highZ, Fields::Entrance, site);
   if (door + 1.0 < bays)
@@ -173,7 +173,7 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
   const size_t n = s.Ring.size();
   const double topZ = EavesZ(s);
   for (size_t i = 0; i < n; i++) {
-    const Plan2 &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < 0.05) continue;
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
@@ -187,7 +187,7 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
 }
 
 void Plinth(const BuildingShape &s, double topZ, Site &site) {
-  const std::vector<Plan2> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
+  const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
   if (out.size() != s.Ring.size()) return;
   const size_t n = s.Ring.size();
   const double lowZ = -kSinkM;
@@ -205,7 +205,7 @@ void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
   for (size_t i = 0; i < n; i++) {
-    const Plan2 &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double hp = std::max(roof.HeightAt(p), 0.0), hq = std::max(roof.HeightAt(q), 0.0);
     if (hp < 0.03 && hq < 0.03) continue;
     const double len = EdgeLength(p, q);
@@ -217,9 +217,9 @@ void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   }
 }
 
-void Covering(const BuildingShape &s, const RoofSurface &roof, const std::vector<Plan2> &plan,
+void Covering(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &plan,
               double deckZ, Site &site) {
-  std::vector<Plan2> tris;
+  std::vector<En> tris;
   roof.Cover(plan, tris);
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
@@ -230,7 +230,7 @@ void Covering(const BuildingShape &s, const RoofSurface &roof, const std::vector
   }
 }
 
-void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<Plan2> &wide,
+void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
            Site &site) {
   const size_t n = s.Ring.size();
   if (wide.size() != n) return;
@@ -247,7 +247,7 @@ void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<Pl
   }
 }
 
-void Crown(const BuildingShape &s, const std::vector<Plan2> &inner, const std::vector<Plan2> &out,
+void Crown(const BuildingShape &s, const std::vector<En> &inner, const std::vector<En> &out,
            Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
@@ -270,11 +270,11 @@ void Crown(const BuildingShape &s, const std::vector<Plan2> &inner, const std::v
   }
 }
 
-void Box(Site &site, const BuildingShape &s, const Plan2 &centre, double halfU, double halfV,
+void Box(Site &site, const BuildingShape &s, const En &centre, double halfU, double halfV,
          double lowZ, double highZ, Facade side) {
-  Plan2 c[4];
-  const Plan2 u{s.AxisU.E * halfU, s.AxisU.N * halfU};
-  const Plan2 v{-s.AxisU.N * halfV, s.AxisU.E * halfV};
+  En c[4];
+  const En u{s.AxisU.E * halfU, s.AxisU.N * halfU};
+  const En v{-s.AxisU.N * halfV, s.AxisU.E * halfV};
   c[0] = {centre.E - u.E - v.E, centre.N - u.N - v.N};
   c[1] = {centre.E + u.E - v.E, centre.N + u.N - v.N};
   c[2] = {centre.E + u.E + v.E, centre.N + u.N + v.N};
@@ -297,7 +297,7 @@ void Box(Site &site, const BuildingShape &s, const Plan2 &centre, double halfU, 
 
 void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const double along = (((double)(s.Seed >> 9 & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
-  const Plan2 foot = s.FromBox(along, 0.0);
+  const En foot = s.FromBox(along, 0.0);
   const double eaves = EavesZ(s);
   const double stack = eaves + roof.HeightAt(foot) + kChimneyOverRidgeM;
   Box(site, s, foot, 0.5 * kChimneyWideM, 0.4 * kChimneyWideM, eaves, stack, Facade::Trim);
@@ -307,13 +307,13 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double halfU = std::min(2.6, 0.30 * s.HalfUm), halfV = std::min(1.9, 0.30 * s.HalfVm);
   if (halfU < 0.9 || halfV < 0.7) return;
   const double along = (((double)(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
-  const Plan2 foot = s.FromBox(along, 0.0);
+  const En foot = s.FromBox(along, 0.0);
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
 }
 
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   double highest = 0.0;
-  for (const Plan2 &p : s.Ring) highest = std::max(highest, ground.At(p));
+  for (const En &p : s.Ring) highest = std::max(highest, ground.At(p));
   return highest + kPlinthM;
 }
 
@@ -325,8 +325,8 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   Walls(s, lowZ, site);
 
   if (s.Roof == RoofKind::Flat) {
-    const std::vector<Plan2> inner = RoofSurface::Widened(s.Ring, -kParapetThickM);
-    const std::vector<Plan2> out = RoofSurface::Widened(s.Ring, kCorniceM);
+    const std::vector<En> inner = RoofSurface::Widened(s.Ring, -kParapetThickM);
+    const std::vector<En> out = RoofSurface::Widened(s.Ring, kCorniceM);
     const bool crowned = inner.size() == s.Ring.size() && out.size() == s.Ring.size() &&
                          s.HalfVm > 2.2 && s.RiseM > 0.0;
 
@@ -337,18 +337,18 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     return;
   }
 
-  const std::vector<Plan2> wide = RoofSurface::Widened(s.Ring, s.OverhangM);
+  const std::vector<En> wide = RoofSurface::Widened(s.Ring, s.OverhangM);
   Covering(s, roof, wide.empty() ? s.Ring : wide, EavesZ(s), site);
   Gables(s, roof, site);
   if (!wide.empty()) Eaves(s, roof, wide, site);
   if (WantsChimney(s)) Chimney(s, roof, site);
 }
 
-double StandBack(const Frontage &street, const Plan2 &p) {
+double StandBack(const Frontage &street, const En &p) {
   return (p.E - street.KerbEm) * street.ToStreetE + (p.N - street.KerbNm) * street.ToStreetN;
 }
 
-Plan2 OntoKerb(const Frontage &street, const Plan2 &p, double back) {
+En OntoKerb(const Frontage &street, const En &p, double back) {
   return {p.E - back * street.ToStreetE, p.N - back * street.ToStreetN};
 }
 
@@ -358,7 +358,7 @@ void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground 
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
     if (s.Party[i]) continue;
-    const Plan2 &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double e = q.E - p.E, nn = q.N - p.N, len = std::hypot(e, nn);
     if (len < 1.2) continue;
     if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) continue;
@@ -368,9 +368,9 @@ void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground 
     bp = std::max(bp, -kFootwayMostM);
     bq = std::max(bq, -kFootwayMostM);
 
-    const Plan2 pk = OntoKerb(street, p, bp + kKerbTopM), qk = OntoKerb(street, q, bq + kKerbTopM);
-    const Plan2 pe = OntoKerb(street, p, bp), qe = OntoKerb(street, q, bq);
-    const auto walk = [&](const Plan2 &at) {
+    const En pk = OntoKerb(street, p, bp + kKerbTopM), qk = OntoKerb(street, q, bq + kKerbTopM);
+    const En pe = OntoKerb(street, p, bp), qe = OntoKerb(street, q, bq);
+    const auto walk = [&](const En &at) {
       return std::min(ground.At(at) + kKerbUpM, plinthZ - 0.05);
     };
     const double zp = walk(p), zq = walk(q), zpk = walk(pk), zqk = walk(qk);

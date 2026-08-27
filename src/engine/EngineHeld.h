@@ -44,7 +44,7 @@ inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kMostSaveBytes = 1 << 20;
 
 
-class Quietly : public Sink {
+class Collecting : public Sink {
 public:
   void Number(const char *what, double how, const char *unit) override {
     std::string held = std::string(what) + " = " + Rounded(how);
@@ -112,9 +112,9 @@ private:
   return true;
 }
 
-class ToTheClient final : public Script::Host {
+class Forwarding final : public Script::Host {
 public:
-  explicit ToTheClient(outshine::Host *client) : Client_(client) {}
+  explicit Forwarding(outshine::Host *client) : Client_(client) {}
 
   [[nodiscard]] Script::Value Global(std::string_view name) override {
     for (size_t at = 0; at < Named_.size(); ++at) {

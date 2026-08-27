@@ -26,7 +26,7 @@ bool Engine::State::Composes(void) {
     World.Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
-  Quietly say;
+  Collecting say;
   if (!World.Stack.Opened() &&
       !World.Stack.Open(Session.Under.Cache, Session.Under.Shipped,
                       {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
