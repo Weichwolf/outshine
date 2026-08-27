@@ -1,7 +1,7 @@
 Type: feature
-State: active
+State: open
 Parent: 1953
-Depends: 1955
+Depends: 1955, 1964
 Area: content
 
 # A resource loads by mapping bytes and not by parsing
@@ -20,10 +20,18 @@ each, and the fetch is most of it. At this scale parsing is not what keeps a cam
 building the baker now would be optimising a term measured NOT to bind. That is the same discipline
 board:1926 applied to its indirect draw: read the number first, and let it decide.
 
-What would change the answer, and each is a measurement rather than an opinion: a world wide enough
-to exceed the tile budget (board:1955 -- the eviction path has never run), a tile format costlier
-than PNG, or a camera that outruns the fetch. Until one of those reads differently this item is
-CORRECT and NOT URGENT, and it says so with its numbers rather than waiting to be rediscovered.
+**AND TARGET'S OWN REASON DOES NOT YET APPLY HERE, WHICH IS THE SHARPER FINDING.** TARGET says RAGE
+wins because *a load that parses cannot keep up with a camera*. That is true where the source is
+LOCAL and fast -- a shipped game reading its own disc, which is the case RAGE was built for. Here
+the source is the NETWORK, so the fetch dominates and the parse hides behind it. Zero-parse becomes
+the binding term only once the bytes are already local, which is board:1964's remaining half:
+pinning the tiles by URL and hash so a drive runs offline and deterministically.
+
+PARKED, with the reason named as CLAUDE.md requires: correct, measured, and not yet the term that
+binds. It becomes urgent when any of three readings change -- tiles pinned locally (board:1964), a
+world wide enough to exceed the tile budget (board:1955, whose eviction path has never once run),
+or a format costlier than PNG. Whoever picks it up next argues with the numbers rather than
+rediscovering them.
 
 **RAGE wins this row clearly.** A resource is stored in the layout it will be USED in: the loader
 maps the bytes, fixes the pointers, and the object is live -- no parse, no per-item allocation, no
