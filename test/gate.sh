@@ -31,7 +31,11 @@ Step 'the simulation, content, mix'  sh test/run.sh outshine/physics outshine/co
 Step 'the client drives'            ./build/outshine-driver --headless --offline --frames 8
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"
-printf 'NOT covered here: the engine submission path (outshine/door, 27 cases, ~100s),\n'
+# THE COVERAGE LINE COUNTS RATHER THAN REMEMBERS. It said 27 while the suite held 29, and a
+# stale number in a statement about what is NOT covered is the same defect as a stale number in
+# one about what is.
+printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
+  "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
 printf 'the validator, wpt, test262, the render corpus and the claims. A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well; a full verdict is test/run.sh.\n'
 exit $red

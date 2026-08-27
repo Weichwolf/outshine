@@ -34,7 +34,6 @@ constexpr double kBlockedGain = 0.25;
   outshine::Sound made;
   made.Id = "tone";
   made.Bus = "master";
-  made.FalloffM = 100.0;
   made.Heard.Positional = true;
   made.Heard.By = outshine::Falls::Inverse;
   made.Heard.RefM = 1.0;

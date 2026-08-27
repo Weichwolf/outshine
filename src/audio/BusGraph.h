@@ -24,8 +24,6 @@ public:
   [[nodiscard]] size_t Playing() const { return Voices_; }
 
   [[nodiscard]] double GainOf(std::string_view id) const;
-  [[nodiscard]] double GainAt(std::string_view id, const double sourceM[3],
-                              const double listenerM[3]) const;
 
 private:
   struct Row {
@@ -37,7 +35,6 @@ private:
     std::string Id;
     int Into = -1;
     double Gain = 1.0;
-    double FalloffM = 0.0;
     bool Positional = false;
   };
 

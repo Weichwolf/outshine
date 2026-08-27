@@ -36,7 +36,6 @@ namespace {
   made.Heard.RefM = 10.0;
   made.Heard.MostM = 110.0;
   made.Heard.Rolloff = rolloff;
-  made.FalloffM = 110.0;
   outshine::Voice one;
   one.Id = "osc";
   one.Does = outshine::Makes::Oscillator;

@@ -106,14 +106,14 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
               "', which no bus declares";
       return false;
     }
-    if (sound.Heard.Positional && !(sound.FalloffM > 0.0)) {
+    if (sound.Heard.Positional && !(sound.Heard.RefM > 0.0)) {
       error = "the sound '" + sound.Id +
-              "' is positional and declares no falloffM -- a positional source without a "
+              "' is positional and its refM is not above zero -- a positional source without a "
               "distance is a stereo source wearing a costume";
       return false;
     }
     Sounds_.push_back(
-        Source{sound.Id, into, Linear(sound.GainDb), sound.FalloffM, sound.Heard.Positional});
+        Source{sound.Id, into, Linear(sound.GainDb), sound.Heard.Positional});
   }
   return true;
 }
@@ -143,23 +143,6 @@ double BusGraph::GainOf(std::string_view id) const {
       gain *= Buses_[(size_t)walk].Gain;
     }
     return gain;
-  }
-  return 0.0;
-}
-
-double BusGraph::GainAt(std::string_view id, const double sourceM[3],
-                        const double listenerM[3]) const {
-  for (const Source &sound : Sounds_) {
-    if (sound.Id != id) { continue; }
-    double gain = GainOf(id);
-    if (!sound.Positional) { return gain; }
-    double away = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double gap = sourceM[axis] - listenerM[axis];
-      away += gap * gap;
-    }
-    away = std::sqrt(away);
-    return gain / (1.0 + away / sound.FalloffM);
   }
   return 0.0;
 }

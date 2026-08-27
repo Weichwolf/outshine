@@ -76,7 +76,6 @@ constexpr int kMixFrames = 1024;
   hum.On = "blob";
   hum.Loops = true;
   hum.GainDb = -6.0;
-  hum.FalloffM = 60.0;
   hum.Heard.Positional = true;
   hum.Heard.By = outshine::Falls::Inverse;
   hum.Heard.RefM = 2.0;

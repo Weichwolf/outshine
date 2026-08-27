@@ -222,7 +222,6 @@ struct Sound {
   Emitter Heard;
   bool Loops = false;
   double GainDb = 0.0;
-  double FalloffM = 0.0;
   double SendShare = 0.0;
 };
 

@@ -502,7 +502,6 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Streamed = one.Flag("streamed", false);
     made.Loops = one.Flag("loops", false);
     made.GainDb = one.Num("gainDb", 0.0);
-    made.FalloffM = one.Num("falloffM", 0.0);
     made.Heard.Positional = one.Flag("positional", false);
     const std::string falls = one.Attr("falls");
     made.Heard.By = falls == "linear"        ? Falls::Linear
