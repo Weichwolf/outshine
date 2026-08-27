@@ -220,6 +220,10 @@ int main(void) {
         "Three producers, one value, one picture -- which is the sentence this item is built on, "
         "and three cases proving three producers separately never said it");
 
+  // THE SAME THREE THROUGH ONE ENGINE DO NOT AGREE, and that is board:1971 rather than a hole in
+  // this case. A client that declares twice gets an empty frame from everything after the first
+  // declaration -- measured, not supposed. The reproduction and its numbers live in the item; a
+  // red check here would assert a defect rather than a claim, and this case is about the value.
   Covers("the door: a file, a client and a generator fill the same geometry value and the frame "
          "cannot tell which of them did -- one value, three producers, proven by pixel identity "
          "rather than by three separate cases that happen to work");
