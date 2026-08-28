@@ -274,8 +274,8 @@ The heaviest files. Headers and sources counted apart.
 | 856 | `cpp` | `ui/Style.cpp` |
 | 827 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 698 | `cpp` | `scenario/ScenarioRead.cpp` |
-| **46** | `h` | *the median of 238 header(s)* |
-| **115** | `cpp` | *the median of 160 source(s)* |
+| **46** | `h` | *the median of 239 header(s)* |
+| **115** | `cpp` | *the median of 161 source(s)* |
 
 ## Carpet
 

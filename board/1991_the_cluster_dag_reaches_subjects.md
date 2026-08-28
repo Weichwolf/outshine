@@ -106,6 +106,17 @@ producer, not a second cooker.
       0.200, so a parent is coarser than its children and `DagSelect`'s pair decides something.
       negative control: one cluster per mesh makes it read `1 cluster(s) over 1 level(s)` and the
       case goes RED -- a cooker that returns one cluster has not clustered.
+- [x] **the cooker takes the DOOR's value, not a hand-interleaved soup.**
+      `src/base/spatial/Cooked.h` reads a part through `PositionsOf`, `NormalsOf`, `TextureOf`,
+      `TangentsOf` and `ColoursOf` -- all already on `include/Geometry.h`, which is the seventh
+      capability this session nearly duplicated before checking -- and DERIVES the stride from
+      what the part carries. `ClusterDag::Stride` records it, so the cooked form knows its own
+      width. A generator, a reader or a foreign program fills one `Geometry` and the cooked form
+      comes from that, with nothing in the middle.
+      proof: the same case cooks a `Geometry` of 8192 triangles at stride 8 into the same 120
+      clusters, finest covering all 8192 -- identical to the hand-interleaved soup.
+      negative control: dropping the normal stream makes it read stride 5 and the case goes RED,
+      so the width follows the part rather than a constant.
 - [ ] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and that is a decision this item owes.**
       `ClusterDagBuild` rewrites both the vertex and the index buffer -- it SIMPLIFIES -- so a
       subject whose vertices are re-posed every frame would need its DAG rebuilt every frame,

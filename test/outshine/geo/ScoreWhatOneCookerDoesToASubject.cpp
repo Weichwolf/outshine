@@ -4,6 +4,9 @@
 
 #include "Check.h"
 #include "ClusterDag.h"
+#include "Cooked.h"
+#include "Geometry.h"
+#include "Material.h"
 
 // ONE COOKER, AND IT TAKES A SUBJECT'S OWN ATTRIBUTE SET.
 //
@@ -109,6 +112,44 @@ int main(void) {
         "`DagSelect` keeps a cluster whose own error is under the threshold while its PARENT's is "
         "over, and that pair only decides anything if a parent is coarser than its children. This "
         "is what Karis spends the 2021 talk on and it is why the cut needs no crack repair");
+
+  // AND IT TAKES THE DOOR'S OWN VALUE, not a soup a caller had to interleave by hand. `Cook`
+  // reads a part's streams through `PositionsOf`, `NormalsOf`, `TextureOf`, `TangentsOf` and
+  // `ColoursOf` -- all of them already on `include/Geometry.h` -- and derives the stride from what
+  // the part actually carries, so a mesh with tangents cooks eleven floats wide and one without
+  // cooks eight. `ClusterDag::Stride` records which, so the cooked form knows its own width.
+  outshine::Geometry stood;
+  const int surface = stood.Surface("lattice", outshine::Material{});
+  const int part = stood.Part("lattice", surface);
+  std::vector<float> places, normals, uv;
+  std::vector<uint32_t> run;
+  for (uint32_t vertex = 0; vertex < verts; ++vertex) {
+    const float *const at = soup.data() + (size_t)vertex * kStride;
+    places.insert(places.end(), at, at + 3);
+    uv.insert(uv.end(), at + 3, at + 5);
+    normals.insert(normals.end(), at + 5, at + 8);
+    run.push_back(vertex);
+  }
+  const bool filled = part >= 0 && stood.Positions(part, places) && stood.Texture(part, uv) &&
+                      stood.Normals(part, normals) && stood.Triangles(part, run);
+
+  outshine::CookedPart cooked2;
+  std::string why;
+  const bool tookTheDoor = filled && outshine::Cook(stood, part, opts, cooked2, why);
+  uint32_t doorFinest = 0;
+  for (const outshine::DagCluster &one : cooked2.Dag.Clusters) {
+    if (one.Level == 0) { doorFinest += one.Count / 3u; }
+  }
+  std::printf("AND FROM THE DOOR   stride %d, %zu cluster(s), finest covers %u triangle(s)%s\n",
+              cooked2.Dag.Stride, cooked2.Dag.Clusters.size(), doorFinest,
+              tookTheDoor ? "" : (" -- refused: " + why).c_str());
+
+  CHECK(tookTheDoor && cooked2.Dag.Stride == 8 && doorFinest == verts / 3u,
+        "**AND THE COOKER TAKES THE DOOR'S OWN VALUE**: `Cook` reads a part through the public "
+        "read verbs and derives the stride from what the part carries -- eight floats for "
+        "position, normal and texture. So a generator, a reader or a foreign program fills one "
+        "`Geometry` and the cooked form comes from that, which is CLAUDE.md's tier chain with no "
+        "hand-interleaved soup in the middle");
 
   Covers("the cooker: it takes a subject's own vertex stride, its finest level covers every "
          "triangle handed in, and its error bounds grow with the level -- board:1991's premise, "
