@@ -38,8 +38,25 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
       So `kMaxSubjectLights = 16` is a cap in the one place neither engine caps -- what the whole
       SUBJECT PASS can see. The number is not wrong; its PLACE is. As a per-cell constant 16 is
       plausible and in Unreal's own order of magnitude.
-      What this predicate therefore owes: the constant moves from the pass to the cell, the scene
-      buffer loses its ceiling, and the shadow-caster budget is stated separately.
+      **TAKING RAGE: thousands in the scene, few with shadows.** Three reasons, and the third is
+      the one that decides.
+      *One*, the target. outshine holds 720p60 on five GPU cores over a driven city -- the exact
+      shape RAGE was built for on console hardware of its day. Unreal's froxel grid assumes a GPU
+      with headroom to spend on binning.
+      *Two*, the asymmetry is where the cost is. A light WITHOUT a shadow is a few ALU in the pass;
+      a light WITH one is a render target, a pass and a matrix. RAGE budgets the expensive half by
+      name. Unreal has the same split underneath its grid -- per-light shadow budgets, capped CSM
+      resolution -- it simply does not lead with it.
+      *Three*, and this is the consequence that has to be written down before anyone starts:
+      **RAGE's answer is not "raise the constant", it is "a local light is a VOLUME in a deferred
+      pass".** Only the pixels a light covers pay, which is why thousands cost nothing when they
+      are small. outshine's subject pass is FORWARD -- the shader reads a `lights[]` array in the
+      base pass -- so taking RAGE means local lighting moves to volumes and is deferred. Without
+      that, thousands of lights is O(pixels x lights) and the constant is doing real work by
+      standing there.
+      What this predicate therefore owes: the scene buffer loses its ceiling, local lights become
+      volumes drawn deferred, `kMaxSubjectLights` becomes the budget for what a single volume-less
+      forward draw may still carry, and the SHADOW-caster set is budgeted separately and small.
       **The exact Unreal defaults (grid pixel size, Z slices, culled lights per cell) are to be
       read before they are quoted** -- CLAUDE.md's rule is that a declared number is right before
       it is written, and this item will carry them.
