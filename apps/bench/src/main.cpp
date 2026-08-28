@@ -59,7 +59,13 @@ struct Took {
   }
   engine.Keeps((size_t)asked.Steps);
   if (asked.Scene.empty()) {
-    if (!engine.Read(asked.Scenario) || !engine.Assemble()) {
+    if (!engine.Read(asked.Scenario)) {
+      why = engine.Error();
+      return -1.0;
+    }
+    outshine::Scenario declared = engine.Declared();
+    declared.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
+    if (!engine.Declare(declared) || !engine.Assemble()) {
       why = engine.Error();
       return -1.0;
     }
@@ -137,6 +143,8 @@ int main(int count, char **args) {
     const bool wants = at + 1 < count;
     if (said == "--steps" && wants) {
       asked.Steps = std::strtol(args[++at], nullptr, 10);
+    } else if (said == "--cache" && wants) {
+      asked.Cache = args[++at];
     } else if (said == "--heap") {
       asked.Heap = true;
     } else if (said == "--bodies" && wants) {
@@ -168,6 +176,7 @@ int main(int count, char **args) {
           "  --clip N            which of the file's animations plays (default 0)\n"
           "  --bodies N          declare N freestanding bodies over the scene (default 0)\n"
           "  --heap              what each heap tag takes PER FRAME after the first four\n"
+          "  --cache PATH        where fetched world data is kept (default /tmp/outshine-bench-cache)\n"
           "  --scenario PATH     the declaration to drive (default the driver's f31)\n"
           "  --size WxH          the frame to draw when drawing (default 1280x720)\n"
           "  --online            reach the network; offline by default\n\n"
@@ -276,6 +285,21 @@ int main(int count, char **args) {
               steppedMs / (double)asked.Steps);
   std::printf("THE PICTURE COSTS     %.1f%% of the drawn run\n",
               drawnMs <= 0.0 ? 0.0 : 100.0 * (drawnMs - steppedMs) / drawnMs);
+  if (asked.Heap && drawn.Between > 0) {
+    const std::string under = "heap taken under ";
+    std::printf("\nWHAT THE FRAME TAKES FROM THE HEAP, per step after the first four:\n");
+    for (const outshine::Measure &late : drawn.Rows) {
+      if (late.What.compare(0, under.size(), under) != 0) { continue; }
+      double early = 0.0;
+      for (const outshine::Measure &first : drawn.Early) {
+        if (first.What == late.What) { early = first.How; }
+      }
+      const double perStep = (late.How - early) / (double)drawn.Between;
+      if (perStep <= 0.0) { continue; }
+      std::printf("  HEAP  %-24s %12.1f byte(s) per step over %ld\n",
+                  late.What.c_str() + under.size(), perStep, drawn.Between);
+    }
+  }
   std::printf("\nWHAT EACH STAGE DID AND WHAT IT COST -- power is work over time, so a duration\n"
               "alone is not comparable and a rate is:\n");
   for (const outshine::Measure &held : lastDrawn) {

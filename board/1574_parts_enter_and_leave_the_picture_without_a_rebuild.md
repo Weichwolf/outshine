@@ -68,7 +68,28 @@ store-and-handles ladder IS that design; only the render path cannot receive it.
       proof: harness/khronos/glTF 444/444 -- the corpus draws transmissive scenes and the picture
       does not move, which is the only control that matters when two passes start sharing buffers;
       outshine/door 35/35; gate GREEN.
-- [ ] A relay's frame cost is measured before and after over a declared drive.
+- [x] A relay's frame cost is measured BEFORE, over a declared drive, and the after is what
+      the predicate above has to beat. `apps/bench --steps 48 --heap --cache
+      /tmp/outshine-drive-cache --size 320x180`, over `apps/driver/src/f31.scenario`:
+
+          STEPS                 48
+          WITH A PICTURE        113.9 ms   2.373 ms/step
+          WITHOUT ONE            94.4 ms   1.967 ms/step
+          THE PICTURE COSTS     17.1% of the drawn run
+
+          HEAP  untagged        2 549 600 byte(s) per step
+          HEAP  render-frame        1 328
+          HEAP  subjects               80
+          HEAP  subjectsTransmissive   80
+
+      **2.5 MB a step, and it is not the renderer**: the three render tags together are 1488
+      bytes. The untagged remainder is the relay -- the world re-composed as the drive moves, and
+      `SetMesh` re-uploading every stream on any content change, which is what the predicate above
+      exists to end. The instrument is board:1574's own (`heap taken under <tag>`, differenced by
+      the consumer) and it did not exist when this predicate was written, which is why the
+      predicate had no number for as long as it stood.
+      proof: apps/bench is where a client is measured (`test/gate.sh` names it), and the numbers
+      above are its output verbatim.
 
 ## Measured 2026-08-25, and the first cost bound now holds
 
