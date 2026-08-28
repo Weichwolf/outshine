@@ -13,6 +13,7 @@ namespace outshine::Generators {
 namespace {
 
 constexpr double kSinkM = 0.30;
+constexpr double kThinnestShape = 1.0e-4;
 
 constexpr double kSlabM = 0.20;
 constexpr double kParapetThickM = 0.32;
@@ -75,8 +76,20 @@ public:
     const double e1 = b.P.E - a.P.E, n1 = b.P.N - a.P.N, z1 = b.Z - a.Z;
     const double e2 = c.P.E - a.P.E, n2 = c.P.N - a.P.N, z2 = c.Z - a.Z;
     double nrm[3] = {n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2};
+    // A NEEDLE IS AN ASPECT RATIO, NOT AN AREA. Refusing every triangle under a hundredth of a
+    // square metre took 22 162 triangles out of Rothenburg to remove 5 slivers -- window mullions
+    // and cornices are small AND well-shaped, and a cleaner that eats them is the next defect. What
+    // makes a sliver is area against its own longest edge: an equilateral triangle carries
+    // area / edge^2 = 0.433, and a needle tends to zero whatever its size. Refusing below 1e-4
+    // leaves a triangle 4 000 times thinner than equilateral standing, which no facade needs.
+    // Unreal drops degenerates in its mesh build and RAGE validates at export; neither asks the
+    // renderer to carry them.
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
-    if (len < 1.0e-9) return;
+    if (len < 1.0e-9) { return; }
+    const double e3 = c.P.E - b.P.E, n3 = c.P.N - b.P.N, z3 = c.Z - b.Z;
+    const double longest = std::max({e1 * e1 + n1 * n1 + z1 * z1, e2 * e2 + n2 * n2 + z2 * z2,
+                                     e3 * e3 + n3 * n3 + z3 * z3});
+    if (longest > 0.0 && 0.5 * len < kThinnestShape * longest) { return; }
     for (int c2 = 0; c2 < 3; c2++) nrm[c2] /= len;
     Push(a, nrm);
     Push(b, nrm);

@@ -325,11 +325,57 @@ struct PartOrder {
   std::optional<BuildingUse> Use;
 };
 
+// A RING IS TIDIED BEFORE IT IS MESHED, and the threshold comes from the ring's own area rather
+// than from a constant. An OSM way closes on its first point and carries nodes a metre apart along a
+// straight facade; either makes a triangle of near-zero area, and a fan over such a ring throws a
+// vertex wherever the arithmetic lands. Seen at Rothenburg magnified eight times: long thin slivers
+// out of roof corners, lit as roof surfaces, and roof planes reaching past their building.
+//
+// What is dropped and nothing more: a point on top of its neighbour, and a point whose two edges
+// carry it less than a millionth of the ring's own area off the line between them. A building of
+// 100 m2 therefore keeps every corner that moves the outline by more than 0.0001 m2, which no real
+// facade fails.
+size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
+  if (ring.size() < 3) { return 0; }
+  double least[2] = {ring[0].E, ring[0].N}, most[2] = {ring[0].E, ring[0].N};
+  for (const En &p : ring) {
+    least[0] = std::min(least[0], p.E);
+    least[1] = std::min(least[1], p.N);
+    most[0] = std::max(most[0], p.E);
+    most[1] = std::max(most[1], p.N);
+  }
+  const double across = std::max(most[0] - least[0], most[1] - least[1]);
+  const double flat = std::max(1.0e-6 * across * across, 1.0e-6);
+  const double together = std::max(1.0e-3 * across, 1.0e-3);
+  size_t dropped = 0;
+  bool again = true;
+  while (again && ring.size() > 3) {
+    again = false;
+    for (size_t at = 0; at < ring.size() && ring.size() > 3; ++at) {
+      const size_t before = (at + ring.size() - 1) % ring.size();
+      const size_t after = (at + 1) % ring.size();
+      const double toward[2] = {ring[at].E - ring[before].E, ring[at].N - ring[before].N};
+      const double onward[2] = {ring[after].E - ring[at].E, ring[after].N - ring[at].N};
+      const double reach = std::sqrt(toward[0] * toward[0] + toward[1] * toward[1]);
+      const double turn = std::fabs(toward[0] * onward[1] - toward[1] * onward[0]);
+      if (reach > together && turn > 2.0 * flat) { continue; }
+      ring.erase(ring.begin() + (long)at);
+      if (at < party.size()) { party.erase(party.begin() + (long)at); }
+      ++dropped;
+      again = true;
+      break;
+    }
+  }
+  return dropped;
+}
+
 BuildingShape Finish(Piece piece, const PartOrder &order) {
   BuildingShape s;
   if (piece.P.size() < 3) return s;
   s.Ring = std::move(piece.P);
   s.Party = std::move(piece.Party);
+  s.TidiedAway = TidyRing(s.Ring, s.Party);
+  if (s.Ring.size() < 3) { return BuildingShape{}; }
   const double signed2 = SignedArea(s.Ring);
   if (signed2 < 0.0) {
     std::reverse(s.Ring.begin(), s.Ring.end());

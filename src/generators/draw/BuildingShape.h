@@ -19,6 +19,7 @@ enum class BuildingUse : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tow
 
 struct BuildingShape {
   std::vector<En> Ring;
+  size_t TidiedAway = 0;
 
   std::vector<uint8_t> Party;
   double AreaM2 = 0.0;

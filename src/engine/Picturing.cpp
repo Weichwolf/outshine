@@ -596,6 +596,33 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         (void)inward;
       }
       {
+        // A NEEDLE IS AN AREA AGAINST A LENGTH. A triangle of almost no area whose longest edge runs
+        // metres is a sliver, and it is what the frame shows shooting out of roof corners. Counting
+        // them separates "the roofs are badly meshed" from "one vertex ran away", which the eye
+        // cannot: both look like a bright diagonal line.
+        size_t needles = 0;
+        double longest = 0.0;
+        for (size_t at = 0; at + 8 < raised.size(); at += 9) {
+          const double ax = raised[at], ay = raised[at + 1], az = raised[at + 2];
+          const double bx = raised[at + 3], by = raised[at + 4], bz = raised[at + 5];
+          const double cx = raised[at + 6], cy = raised[at + 7], cz = raised[at + 8];
+          const double ux = bx - ax, uy = by - ay, uz = bz - az;
+          const double vx = cx - ax, vy = cy - ay, vz = cz - az;
+          const double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+          const double area = 0.5 * std::sqrt(nx * nx + ny * ny + nz * nz);
+          const double wx = cx - bx, wy = cy - by, wz = cz - bz;
+          const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
+                                                  vx * vx + vy * vy + vz * vz,
+                                                  wx * wx + wy * wy + wz * wz}));
+          if (area < 0.01 && edge > 5.0) {
+            ++needles;
+            longest = edge > longest ? edge : longest;
+          }
+        }
+        Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
+        Published.Places("buildings: the longest edge one carries", longest, "m");
+      }
+      {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const double up = (double)raised[at * 3 + 1];

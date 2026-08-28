@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1946
 Area: world
 Tags: measured
@@ -44,3 +44,21 @@ What the same measurement did show is the size:
 - [ ] the soup is bounded: a build takes the delta the field already marks, or the field trims what it replaced
 - [ ] every vertex handed over is in the frame of the anchor it is read against, and the anchor's movement is a published number
 - [ ] Shibuya does not mesh 600 MB of buildings to draw a square kilometre of them
+
+
+## AND IT NOW BLOCKS A MEASUREMENT (board:2029)
+
+Rothenburg's building triangle count over three runs of the SAME code: 604 309, 582 147, 601 897 --
+a spread of 3.7 per cent with nothing changed between them. `BuildingField::Build` adds to `Verts_`
+and the telemetry reads `added=3228 total=5140` on a place that holds ONE vector tile, so a tile's
+buildings are meshed more than once and how many times varies with how the restands fall.
+
+That makes board:2029's needle count unusable: 13, then 8, then 760 across changes whose direction
+should have been monotone. A defect cannot be measured against a population that moves on its own,
+so this item now stands ahead of that one.
+
+## The measurement that settles THIS
+
+1. **Run the same place twice and subtract.** The building triangle count must be identical. Today
+   it is not, and that difference is the whole item
+2. `added` against `total` per build: a tile already ingested must add ZERO
