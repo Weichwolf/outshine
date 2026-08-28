@@ -76,6 +76,7 @@ public:
       Placed_.clear();
       return false;
     }
+    if (Placed_.size() == rows * 16u) { return true; }
     Placed_.resize(rows * 16u, 0.0);
     Before_.assign(rows * 16u, 0.0);
     Stamped_.assign(rows, 0u);

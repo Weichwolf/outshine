@@ -254,6 +254,8 @@ struct Event {
 struct View {
   std::string Id;
   std::string Follows;
+  bool Placed = false;
+  Standing Stands;
   std::string Person;
   double OffsetM[3] = {0.0, 0.0, 0.0};
   double DistanceM = 0.0;

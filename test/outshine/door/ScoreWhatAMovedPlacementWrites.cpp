@@ -99,6 +99,40 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return -1.0;
 }
 
+[[nodiscard]] outshine::Scenario Falling(const char *uri) {
+  outshine::Scenario stands;
+  stands.Render.Declared = true;
+  stands.Render.Frame = outshine::Extent{kFramePx, kFramePx};
+  stands.Render.Fill = 0.6;
+  stands.Render.Fps = 4.0;
+  stands.Lit.Declared = true;
+  stands.Lit.Key.Lux = 40000.0;
+  stands.Lit.Key.ElevationDeg = 42.0;
+  outshine::Asset shown;
+  shown.Uri = uri;
+  shown.Kind = "gltf";
+  stands.Assets.push_back(shown);
+
+  outshine::Body falls;
+  falls.Name = "falls";
+  falls.Asset = uri;
+  falls.MassKg = 1000.0;
+  falls.WidthM = 1.0;
+  falls.AssetSpanM = 1.0;
+  falls.InertiaKgM2[0] = falls.InertiaKgM2[1] = falls.InertiaKgM2[2] = 100.0;
+  falls.Placed = true;
+  stands.Bodies.push_back(falls);
+
+  outshine::View watches;
+  watches.Id = "watches";
+  watches.Person = "third";
+  watches.Placed = true;
+  watches.Stands.AtM[2] = 4.0;
+  watches.FovDeg = 60.0;
+  stands.Views.push_back(watches);
+  return stands;
+}
+
 [[nodiscard]] outshine::Scenario Naming(const char *uri) {
   outshine::Scenario stands;
   stands.Render.Declared = true;
@@ -114,6 +148,27 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
   return stands;
+}
+
+[[nodiscard]] double MovingPixelsIn(const std::string &under, const outshine::Scenario &stands,
+                                    int steps, std::string &why) {
+  outshine::Engine engine;
+  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+    why = "the device stood no canvas";
+    return -1.0;
+  }
+  if (!engine.Declare(stands) || !engine.Assemble()) {
+    why = engine.Error();
+    return -1.0;
+  }
+  for (int step = 0; step < steps; ++step) {
+    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
+      why = engine.Error();
+      return -1.0;
+    }
+  }
+  return Measured(engine, "pixels the velocity target says moved");
 }
 
 [[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri, int steps,
@@ -171,8 +226,28 @@ int main(void) {
     return Report();
   }
 
+  std::string fallWhy;
+  const double fell = MovingPixelsIn(under, Falling("stands.gltf"), 3, fallWhy);
+
   std::printf("A SUBJECT THAT STANDS STILL   %.0f pixel(s) move\n", still);
   std::printf("ONE THAT MOVES                %.0f pixel(s) move\n", walked);
+  std::printf("A BODY FALLING PAST A VIEW    %.0f pixel(s) move%s\n", fell,
+              fell < 0.0 ? fallWhy.c_str() : "");
+
+  // A PLACEMENT THAT MOVES WRITES A VELOCITY, and this is the only arrangement in the tree that
+  // can say so. A node track moves VERTICES -- the engine bakes node transforms exactly as
+  // `harness/shared/render/Parity.cpp` does -- so `walked` above is `prevP`'s work and would read
+  // 118 with the placement row's previous half disabled. The only thing that moves a PLACEMENT is
+  // a BODY, and until board:2000 a view could not stand still while one moved: `Carries` computed
+  // the eye FROM the body it carried, so the relative motion was zero by construction.
+  //
+  // Now a view declares a station, a body falls past it, and the number is the body's own.
+  CHECK(fell > 0.0,
+        "**A PLACEMENT THAT MOVES WRITES A VELOCITY**: Unreal keeps a per-instance PREVIOUS "
+        "transform in FGPUScene and RAGE double-buffers the same value, and both do it so TAA can "
+        "reproject this frame's pixel to where it stood last frame. A renderer that reuses the "
+        "CURRENT transform as the previous one sends a moving rigid subject to fetch its history "
+        "from where it is NOT -- which reads as a TAA fault and is a missing row");
 
   CHECK(still == 0.0 && walked > 0.0,
         "**A SUBJECT THAT MOVES WRITES A VELOCITY AND A STILL ONE WRITES NONE**: the eye does not "

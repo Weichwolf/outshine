@@ -48,6 +48,24 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
   if (!Session.Views) { return true; }
 
   const View &seen = Session.Views->Active();
+  if (seen.Placed) {
+    double station[3] = {seen.Stands.AtM[0] + seen.OffsetM[0], seen.Stands.AtM[1] + seen.OffsetM[1],
+                         seen.Stands.AtM[2] + seen.OffsetM[2]};
+    Published.Places("the eye, east", station[0], "m");
+    Published.Places("the eye, up", station[1], "m");
+    Published.Places("the eye, south", station[2], "m");
+    const double *const q = seen.Stands.FacingXyzw;
+    const double ahead[3] = {
+        2.0 * (q[0] * q[2] + q[3] * q[1]),
+        2.0 * (q[1] * q[2] - q[3] * q[0]),
+        -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]))};
+    const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
+    Gltf::Viewpoint standing;
+    if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
+    standing.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
+    if (Picture.Standing) { Picture.Standing->Eye(standing); }
+    return true;
+  }
   const double *const centreM = Ticking.Drive.Stood.CentreM;
   const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
                            seen.OffsetM[2] - centreM[2]};

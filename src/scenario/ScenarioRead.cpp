@@ -580,6 +580,10 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     View made;
     made.Id = one.Attr("id");
     made.Follows = one.Attr("follows");
+    if (Declares(one, "at")) {
+      made.Placed = true;
+      ReadStanding(one.Child("at"), made.Stands);
+    }
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);
     made.RisesBy = one.Num("risesBy", made.RisesBy);

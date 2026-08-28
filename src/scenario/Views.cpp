@@ -20,10 +20,11 @@ std::expected<ViewBook, std::string> ViewBook::Stand(std::span<const View> decla
                                "' is declared twice, and taking it would be a coin toss");
       }
     }
-    if (view.Follows.empty()) {
+    if (view.Follows.empty() && !view.Placed) {
       return std::unexpected("view '" + view.Id +
-                             "' follows nothing -- a camera the client drives frame by frame "
-                             "is the defect this mechanism replaces");
+                             "' neither follows a body nor stands anywhere -- a camera the "
+                             "client drives frame by frame is the defect this mechanism "
+                             "replaces, and a view that STANDS is still declared");
     }
     if (view.Person != "first" && view.Person != "third") {
       return std::unexpected("view '" + view.Id + "' is '" + view.Person +

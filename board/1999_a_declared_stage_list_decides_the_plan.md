@@ -69,7 +69,16 @@ consulted.
       to a camera. `outshine/door/ScoreWhatAMovedPlacementWrites` declares two subjects differing
       in one thing -- a node translation track -- and reads `0` against `118` moving pixels.
       negative control: `pose.PrevVerts = nullptr` drops the moving one to 0 and the case goes RED.
-- [ ] **board:1998's predicate needs a moving PLACEMENT and this tree cannot declare one.** The
+- [x] **closed with board:1998 and board:2000.** A view may now STAND at a declared place instead
+      of following a body, so a falling body can be watched from a fixed point:
+      `outshine/door/ScoreWhatAMovedPlacementWrites` reads `A BODY FALLING PAST A VIEW 91
+      pixel(s) move`, and forcing the placement row's previous half to equal its current one drops
+      that to 0.
+      The last defect on the way was `PlacementRows` resetting `Before_` and `Stamped_` on EVERY
+      call -- it is called once a frame -- so every move looked like a first write and the
+      previous transform was always the current one. It now returns early when the row count is
+      unchanged.
+- [ ] *(superseded, kept for the record)* The
       publishes the velocity numbers, but the drive cannot isolate a placement's own contribution:
       with `was = now` forced in `HandPlacements` the same case reads the same 57600 px and the
       same 0.695012 ndc, because the camera drives too and its motion sets both. A green negative
