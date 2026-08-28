@@ -122,12 +122,10 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
         }
     }
   out->err = err;
-  float skirt = 2.f * err;
-  if (skirt < 5.f) skirt = 5.f;
 
-  int nquad = (gr - 1) * (gc - 1), nedge = 2 * ((gr - 1) + (gc - 1));
+  int nquad = (gr - 1) * (gc - 1);
   ChunkVtx *v =
-      (ChunkVtx *)Heap::Take("terrain tile vertices", ((size_t)nquad + nedge) * 6 * sizeof(ChunkVtx));
+      (ChunkVtx *)Heap::Take("terrain tile vertices", (size_t)nquad * 6 * sizeof(ChunkVtx));
   size_t o = 0;
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
@@ -147,48 +145,6 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
       }
     }
 
-#define W3_SKIRT_EDGE(aj, ai, bj, bi)                                                              \
-  do {                                                                                             \
-    const double *A = pe + ((size_t)(aj) * gc + (ai)) * 3,                                         \
-                 *B = pe + ((size_t)(bj) * gc + (bi)) * 3;                                         \
-    float au = (float)((double)W3_CI(ai) / (double)(C - 1)),                                       \
-          av = (float)((double)W3_RI(aj) / (double)(R - 1));                                       \
-    float bu = (float)((double)W3_CI(bi) / (double)(C - 1)),                                       \
-          bv = (float)((double)W3_RI(bj) / (double)(R - 1));                                       \
-    float Ax = (float)A[0], Ay = (float)A[1], Az = (float)A[2], Bx = (float)B[0],                  \
-          By = (float)B[1], Bz = (float)B[2];                                                      \
-    float Adx = Ax - radial[0] * skirt, Ady = Ay - radial[1] * skirt,                              \
-          Adz = Az - radial[2] * skirt;                                                            \
-    float Bdx = Bx - radial[0] * skirt, Bdy = By - radial[1] * skirt,                              \
-          Bdz = Bz - radial[2] * skirt;                                                            \
-    float P6[6][3] = {{Ax, Ay, Az}, {Bx, By, Bz},    {Bdx, Bdy, Bdz},                              \
-                      {Ax, Ay, Az}, {Bdx, Bdy, Bdz}, {Adx, Ady, Adz}};                             \
-    float U6[6][2] = {{au, av}, {bu, bv}, {bu, bv}, {au, av}, {bu, bv}, {au, av}};                 \
-    for (int k = 0; k < 6; k++) {                                                                  \
-      ChunkVtx *d = &v[o++];                                                                         \
-      d->pos[0] = P6[k][0];                                                                        \
-      d->pos[1] = P6[k][1];                                                                        \
-      d->pos[2] = P6[k][2];                                                                        \
-      d->uv[0] = U6[k][0];                                                                         \
-      d->uv[1] = U6[k][1];                                                                         \
-      d->norm[0] = radial[0];                                                                      \
-      d->norm[1] = radial[1];                                                                      \
-      d->norm[2] = radial[2];                                                                      \
-    }                                                                                              \
-  } while (0)
-  for (int i = 0; i < gc - 1; i++) {
-    W3_SKIRT_EDGE(0, i + 1, 0, i);
-  }
-  for (int i = 0; i < gc - 1; i++) {
-    W3_SKIRT_EDGE(gr - 1, i, gr - 1, i + 1);
-  }
-  for (int j = 0; j < gr - 1; j++) {
-    W3_SKIRT_EDGE(j, 0, j + 1, 0);
-  }
-  for (int j = 0; j < gr - 1; j++) {
-    W3_SKIRT_EDGE(j + 1, gc - 1, j, gc - 1);
-  }
-#undef W3_SKIRT_EDGE
 #undef W3_MH
 #undef W3_RI
 #undef W3_CI

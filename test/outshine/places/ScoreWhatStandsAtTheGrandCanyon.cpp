@@ -143,6 +143,10 @@ int main(void) {
               kPlace, measured("the ring's vertex that sinks furthest below its own altitude"),
               measured("and how far out it lies"), measured("a sphere would sink it by"));
 
+  std::printf("    %s  SEAM: %.0f vertices shared between tiles, widest height disagreement %.2f m\n",
+              kPlace, measured("vertices two tiles put in the same place"),
+              measured("and the widest they disagree on height"));
+
   std::printf("    %s  clusters %.0f held / %.0f drawn, worst error %.1f m -- skirt is twice that\n",
               kPlace, measured("clusters the ring holds"), measured("clusters it drew"),
               measured("the worst error any of them carries"));

@@ -1,6 +1,7 @@
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
+#include <unordered_map>
 #include <chrono>
 
 #include "EngineHeld.h"
@@ -152,6 +153,27 @@ bool Engine::State::Composes(void) {
       sank = below;
       sankAt = std::sqrt(eastM * eastM + northM * northM);
     }
+  }
+  {
+    std::unordered_map<uint64_t, float> met;
+    met.reserve(inFrame.size() / 3);
+    double widest = 0.0;
+    size_t shared = 0;
+    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+      const int64_t east = (int64_t)std::llround((double)inFrame[at] * 4.0);
+      const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
+      const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+      const auto stood = met.find(key);
+      if (stood == met.end()) {
+        met.emplace(key, inFrame[at + 1]);
+        continue;
+      }
+      ++shared;
+      const double apart = std::fabs((double)inFrame[at + 1] - (double)stood->second);
+      if (apart > widest) { widest = apart; }
+    }
+    Published.Places("vertices two tiles put in the same place", (double)shared, "vertices");
+    Published.Places("and the widest they disagree on height", widest, "m");
   }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
   Published.Places("and how far out it lies", sankAt, "m");
