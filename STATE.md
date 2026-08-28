@@ -19,7 +19,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
-| `streaming` | 11/0 | 0% | [1946](board/1946_the_generated_world_reaches_the_scene.md) 11 | -- | |
+| `streaming` | 10/1 | 9% | [1946](board/1946_the_generated_world_reaches_the_scene.md) 10 | -- | |
 
 ## Door -- `include/`
 
@@ -279,6 +279,7 @@ flowchart LR
   render --> |5| base_io
   engine --> |5| base_io
   content_gltf --> |5| base_spatial
+  generators --> |4| generators_draw
   engine --> |4| generators
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
@@ -287,7 +288,6 @@ flowchart LR
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
-  generators --> |3| generators_draw
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
@@ -333,8 +333,8 @@ The heaviest files. Headers and sources counted apart.
 | 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 731 | `cpp` | `engine/Live.cpp` |
-| **46** | `h` | *the median of 241 header(s)* |
-| **115** | `cpp` | *the median of 163 source(s)* |
+| **45** | `h` | *the median of 242 header(s)* |
+| **114** | `cpp` | *the median of 164 source(s)* |
 
 ## Carpet
 

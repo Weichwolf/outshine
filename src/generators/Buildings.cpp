@@ -32,11 +32,33 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
     yield.Count(Footprints);
     const double e = 0.5 * ((double)f.MinEm + (double)f.MaxEm);
     const double n = 0.5 * ((double)f.MinNm + (double)f.MaxNm);
-    yield.Raise(HighestRoofAglM, (double)topAslM - ground.HeightAslM(e, n));
+    const double standsAtM = ground.HeightAslM(e, n);
+    yield.Raise(HighestRoofAglM, (double)topAslM - standsAtM);
+
+    Body body;
+    body.Em = e;
+    body.Nm = n;
+    body.BaseAslM = standsAtM;
+    const double acrossEm = (double)f.MaxEm - (double)f.MinEm;
+    const double acrossNm = (double)f.MaxNm - (double)f.MinNm;
+    body.RadiusM = (float)(0.5 * std::sqrt(acrossEm * acrossEm + acrossNm * acrossNm));
+    body.HeightM = (float)((double)topAslM - standsAtM);
+    body.MassKg = 0.0f;
+    body.YawRad = 0.0f;
+    body.Contact = Contact_;
+    const Claim claim = yield.Place(body);
+    if (claim.Why() == Claim::Outcome::Full) { return; }
   }
 }
 
-uint32_t Buildings::Proposes(double) const noexcept { return 0; }
+uint32_t Buildings::Proposes(double areaM2) const noexcept {
+  // ONE BODY PER FOOTPRINT, and the footprints are what the map holds rather than what a density
+  // predicts -- so the proposal is a bound rather than a distribution. A city block is of the
+  // order of one building per 400 m2 at the dense end, which is what Shibuya reads.
+  constexpr double kDensestM2PerBuilding = 400.0;
+  const double most = areaM2 / kDensestM2PerBuilding;
+  return (uint32_t)(most + 1.0);
+}
 
 const FeatureField::Feature *Buildings::Over(const Ground &ground, double eastM,
                                             double northM) const noexcept {
