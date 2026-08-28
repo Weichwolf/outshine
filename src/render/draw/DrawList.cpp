@@ -8,7 +8,8 @@ namespace {
 
 bool SameState(const DrawBatch &batch, const DrawItem &item) {
   return batch.MaterialSlot == item.Order.MaterialSlot && batch.Layout == item.Layout &&
-         batch.Kind == item.Order.Surface.Kind() && batch.ModelSlot == item.ModelSlot;
+         batch.Kind == item.Order.Surface.Kind() && batch.ModelSlot == item.ModelSlot &&
+         batch.Instances == item.Instances;
 }
 
 }
@@ -69,7 +70,7 @@ void DrawList::Compile() {
       continue;
     }
     Batches_.push_back({draw.FirstIndex, draw.IndexCount, draw.Order.MaterialSlot, draw.Layout,
-                        draw.Order.Surface.Kind(), 1, draw.ModelSlot});
+                        draw.Order.Surface.Kind(), 1, draw.ModelSlot, draw.Instances});
   }
 }
 

@@ -143,6 +143,7 @@ struct DrawItem {
   uint32_t FirstIndex = 0;
 
   uint32_t ModelSlot = 0;
+  uint32_t Instances = 1;
 
   uint32_t Submitted = 0;
 };
@@ -157,6 +158,7 @@ struct DrawBatch {
   uint32_t Draws = 1;
 
   uint32_t ModelSlot = 0;
+  uint32_t Instances = 1;
 };
 
 struct IndexRun {

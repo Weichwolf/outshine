@@ -559,9 +559,10 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     uint32_t surfaces = 0, placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
       spent.Draws += 1u;
-      spent.Triangles += batch.IndexCount / 3u;
+      spent.Triangles += (batch.IndexCount / 3u) * batch.Instances;
       surfaces = batch.MaterialSlot + 1u > surfaces ? batch.MaterialSlot + 1u : surfaces;
-      placements = batch.ModelSlot + 1u > placements ? batch.ModelSlot + 1u : placements;
+      const uint32_t past = batch.ModelSlot + batch.Instances;
+      placements = past > placements ? past : placements;
     }
     spent.Surfaces = surfaces;
     spent.Placements = placements;

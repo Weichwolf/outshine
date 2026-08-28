@@ -18,16 +18,34 @@ void SubjectProxy::Stands(const Gltf::Subject &subject, const double anchorEcefM
   const size_t parts = subject.Parts().size();
   EmittedRadiance_.assign(parts, {0.0f, 0.0f, 0.0f});
   PartSurface_.assign(parts, 0);
+  Instances_ = 1;
   PartPlacement_.assign(parts, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   Placed_ = false;
   Surfaces_.clear();
   Lights_.clear();
 }
 
+bool SubjectProxy::Carries(size_t instances) {
+  if (instances == 0 || Subject_ == nullptr) { return false; }
+  const size_t parts = Parts();
+  if (instances == Instances_) { return true; }
+  std::vector<std::array<double, 16>> moved(parts * instances,
+                                            {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  const size_t kept = instances < Instances_ ? instances : Instances_;
+  for (size_t part = 0; part < parts; ++part) {
+    for (size_t one = 0; one < kept; ++one) {
+      moved[part * instances + one] = PartPlacement_[part * Instances_ + one];
+    }
+  }
+  PartPlacement_.swap(moved);
+  Instances_ = instances;
+  return true;
+}
+
 bool SubjectProxy::Wears(std::span<const uint32_t> partSlot,
                          std::span<const SubjectMaterial> slots, std::string &error) {
-  if (partSlot.size() != PartPlacement_.size()) {
-    error = "the subject proxy stands over " + std::to_string(PartPlacement_.size()) +
+  if (partSlot.size() != Parts()) {
+    error = "the subject proxy stands over " + std::to_string(Parts()) +
             " parts and the surface table names a slot for " + std::to_string(partSlot.size());
     return false;
   }
@@ -43,8 +61,14 @@ bool SubjectProxy::Emits(size_t part, const std::array<float, 3> &radiance) {
 }
 
 bool SubjectProxy::Places(size_t part, const double m16[16]) {
-  if (part >= PartPlacement_.size()) { return false; }
-  for (int at = 0; at < 16; ++at) { PartPlacement_[part][at] = m16[at]; }
+  return Places(part, 0, m16);
+}
+
+bool SubjectProxy::Places(size_t part, size_t instance, const double m16[16]) {
+  if (instance >= Instances_) { return false; }
+  const size_t row = part * Instances_ + instance;
+  if (row >= PartPlacement_.size()) { return false; }
+  for (int at = 0; at < 16; ++at) { PartPlacement_[row][at] = m16[at]; }
   Placed_ = true;
   return true;
 }
@@ -57,6 +81,16 @@ bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error) {
   for (size_t part = 0; part < rows; ++part) {
     Gltf::PlacedInEcef(proxy.Placement(part).data(), ecef);
     renderer.MoveSubjectPlacement(part, ecef);
+  }
+  return renderer.HandSubjectPlacements(error);
+}
+
+bool MovedInstance(Renderer &renderer, size_t rows, size_t instances, size_t instance,
+                   size_t fromPart, size_t toPart, const double ecef[16], std::string &error) {
+  if (instances == 0 || instance >= instances) { return true; }
+  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
+  for (size_t part = fromPart; part < toPart; ++part) {
+    renderer.MoveSubjectPlacement(part * instances + instance, ecef);
   }
   return renderer.HandSubjectPlacements(error);
 }
@@ -219,7 +253,8 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     item.Order.Surface = proxy.Slots()[slot].State();
     item.Order.DepthFraction = DepthFraction(subject, where, view.Eye);
     item.Order.MaterialSlot = slot;
-    item.ModelSlot = (uint32_t)part;
+    item.ModelSlot = (uint32_t)(part * proxy.Instances());
+    item.Instances = (uint32_t)proxy.Instances();
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
 

@@ -76,6 +76,7 @@ public:
                                  const Ui::Font *font, std::unique_ptr<Live> &out,
                                  std::string &error);
 
+  [[nodiscard]] bool Carries(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
   [[nodiscard]] bool Restands(std::string stands, std::string variant, AssetAnimation animation,
                              int clip, std::string &error);
@@ -88,6 +89,8 @@ public:
   void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
   [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
   [[nodiscard]] const double *ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
+  [[nodiscard]] bool Carry(size_t body, const double worldFromBodyM[16], const double built[16],
+                           std::string &error);
   [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],
                            std::string &error);
 
@@ -172,7 +175,7 @@ private:
   Gltf::Viewpoint Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
-  std::array<double, 16> SentBody_;
+  std::vector<std::array<double, 16>> SentBody_;
   std::array<double, 16> SentBuilt_;
   struct Volume {
     bool Empty = true;

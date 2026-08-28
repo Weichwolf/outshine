@@ -375,7 +375,9 @@ bool Live::Stand(std::string &error) {
     if (!Stood_.Places(part, standingM16)) { return false; }
   }
   Looking_ = {HaveEye_ ? Eye_ : Gltf::Viewpoint{}, HaveEye_, Joined_};
-  SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
+  for (std::array<double, 16> &one : SentBody_) {
+    one.fill(std::numeric_limits<double>::quiet_NaN());
+  }
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
@@ -537,12 +539,41 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
   return true;
 }
 
+bool Live::Carries(size_t bodies, std::string &error) {
+  if (bodies == 0) {
+    error = "a picture was asked to carry no bodies at all, and that is a different statement "
+            "from carrying one that has not moved";
+    return false;
+  }
+  const size_t stood = Stood_.Instances();
+  if (!Stood_.Carries(bodies)) {
+    error = "the subject proxy stands over nothing, so it cannot carry " +
+            std::to_string(bodies) + " bodies";
+    return false;
+  }
+  if (stood != bodies && Stoodup_) {
+    Stoodup_ = false;
+    if (!Submit(error)) { return false; }
+  }
+  if (SentBody_.size() != bodies) {
+    std::array<double, 16> unsent;
+    unsent.fill(std::numeric_limits<double>::quiet_NaN());
+    SentBody_.resize(bodies, unsent);
+  }
+  return true;
+}
+
 bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::string &error) {
+  return Carry(0, worldFromBodyM, built, error);
+}
+
+bool Live::Carry(size_t body, const double worldFromBodyM[16], const double built[16],
+                 std::string &error) {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
-  double body[16];
+  double bodyM[16];
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {
-      body[column * 4 + row] =
+      bodyM[column * 4 + row] =
           column < 3 ? worldFromBodyM[column * 4 + row] * perUnit : worldFromBodyM[column * 4 + row];
     }
   }
@@ -558,20 +589,33 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
             ", so nothing standing was built from what is being carried";
     return false;
   }
+  if (SentBody_.empty()) {
+    std::array<double, 16> unsent;
+    unsent.fill(std::numeric_limits<double>::quiet_NaN());
+    SentBody_.resize(1, unsent);
+  }
+  if (body >= SentBody_.size() || body >= Stood_.Instances()) {
+    error = "a body numbered " + std::to_string(body) + " was carried into a picture standing " +
+            std::to_string(Stood_.Instances()) +
+            " deep -- a picture carries the bodies it was told to carry and no others";
+    return false;
+  }
+  const size_t instances = Stood_.Instances();
+  const size_t rows = parts * instances;
   bool bodyMoved = false, builtMoved = false;
-  for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[at] != body[at]; }
+  for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[body][at] != bodyM[at]; }
   for (int at = 0; at < 16 && !builtMoved; ++at) { builtMoved = SentBuilt_[at] != built[at]; }
   if (!bodyMoved && !builtMoved) { return true; }
 
   const size_t joined = Joined_ < parts ? Joined_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
-      if (!Stood_.Places(part, body)) { return false; }
+      if (!Stood_.Places(part, body, bodyM)) { return false; }
     }
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      if (!Stood_.Places(part, built)) { return false; }
+      if (!Stood_.Places(part, body, built)) { return false; }
     }
   }
   PartBounds_.clear();
@@ -579,15 +623,19 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
 
   double ecef[16];
   if (bodyMoved && joined > 0) {
-    Gltf::PlacedInEcef(body, ecef);
-    if (!Render::Moved(*Renderer_, parts, 0, joined, ecef, error)) { return false; }
+    Gltf::PlacedInEcef(bodyM, ecef);
+    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, ecef, error)) {
+      return false;
+    }
   }
   if (builtMoved && joined < parts) {
     Gltf::PlacedInEcef(built, ecef);
-    if (!Render::Moved(*Renderer_, parts, joined, parts, ecef, error)) { return false; }
+    if (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, ecef, error)) {
+      return false;
+    }
   }
   for (int at = 0; at < 16; ++at) {
-    SentBody_[at] = body[at];
+    SentBody_[body][at] = bodyM[at];
     SentBuilt_[at] = built[at];
   }
   return true;

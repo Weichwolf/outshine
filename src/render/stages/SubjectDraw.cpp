@@ -625,7 +625,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   size_t needed = Placed_.size() / 16u;
   for (const DrawBatch &batch : Batches) {
-    needed = std::max(needed, (size_t)batch.ModelSlot + 1u);
+    needed = std::max(needed, (size_t)batch.ModelSlot + (size_t)batch.Instances);
   }
   if (!RowsStale_ && Rows_.size() == needed * 32u) { return true; }
   RowsStale_ = false;
@@ -863,7 +863,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       boundSlot = batch.MaterialSlot;
       slotBound = true;
     }
-    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0,
+    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0,
                                  batch.ModelSlot);
   }
 }

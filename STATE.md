@@ -271,13 +271,13 @@ The heaviest files. Headers and sources counted apart.
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1043 | `cpp` | `render/Renderer.cpp` |
+| 1044 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 871 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 699 | `cpp` | `scenario/ScenarioRead.cpp` |
+| 720 | `cpp` | `engine/Live.cpp` |
 | **46** | `h` | *the median of 241 header(s)* |
 | **115** | `cpp` | *the median of 163 source(s)* |
 
@@ -290,7 +290,7 @@ The widest public surfaces.
 | 64 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
-| 40 | `src/engine/Live.h` |
+| 42 | `src/engine/Live.h` |
 | 32 | `include/Scene.h` |
 | 32 | `include/Outshine.h` |
 

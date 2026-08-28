@@ -102,20 +102,30 @@ primitive and RAGE puts every entity on its node's draw list, so neither has any
 second subject to be dropped FROM. Until the picture can hold two, saying no is the honest half
 of the answer, and accepting a declaration and doing nothing with it is the dishonest one.
 
-- [ ] EVERY freestanding body is carried into the picture, not the first. **MEASURED through the
-      door**, `apps/bench --scene DamagedHelmet --steps 12 --bodies 16`:
-
-          the simulation integrates 16 freestanding bodies
-          subjects   1 draw(s)   1 placement(s)   1 differ
-
-      Sixteen bodies declared, sixteen integrated by `Falls()`, ONE carried. The prose above has
-      named this since the item was filed and no predicate carried it, so the item could never be
-      closed on it -- which is why it is written down here as a box rather than a paragraph.
-      `Engine::State::Draws` calls `Carries(Ticking.Freestanding.front(), ...)` and `Live::Carry`
-      holds ONE `SentBody_`, so the second body has nowhere to be.
-      Unreal: one `FPrimitiveSceneProxy` per primitive and the transform is per-instance in
-      `FGPUScene`. RAGE: every entity on its node's draw list. **Both agree and neither has a
-      first-body case.**
+- [x] EVERY freestanding body is carried into the picture, not the first, and N copies of one
+      mesh cost ONE draw call with N instances. **The before-number, measured through the door**:
+      `apps/bench --scene DamagedHelmet --steps 12 --bodies 16` read `the simulation integrates 16
+      freestanding bodies` beside `1 draw(s) 15452 tri 1 placement(s) 1 differ`. Sixteen declared,
+      sixteen integrated by `Falls()`, ONE carried -- the prose above had named this since the item
+      was filed and no predicate carried it.
+      Unreal: one `FPrimitiveSceneProxy` per primitive, the TRANSFORM per instance in `FGPUScene`,
+      so N copies are one draw over an instance run. RAGE: every entity on its node's draw list,
+      one geometry submitted once with a matrix per entity. **Both agree and neither has a
+      first-body case**, so duplicating the geometry per body -- the other way to make sixteen
+      helmets -- would have been a third answer and is not taken.
+      What it took: `SubjectProxy` gained an INSTANCE dimension (`row = part * instances +
+      instance`, so a part's instances are consecutive and one draw covers them), `DrawBatch` a
+      count, and `Live` a body per instance. **The shader needed nothing** -- it already read
+      `rows[2u * iid]` from `[[instance_id]]`, which Metal counts from `baseInstance`, so the
+      capability was in the tree and only the CPU side had no way to ask for it.
+      Measured after: `1 draw(s) 247232 tri 16 placement(s) 16 differ` at sixteen, `1 draw(s)
+      61808 tri 4 placement(s)` at four -- the call count holds while the triangles multiply.
+      **Three counters were lying and are fixed in the same change**: `Triangles` did not multiply
+      by instances and `Placements` read `ModelSlot + 1`, so the bench would have reported sixteen
+      instances as one body's work. A rate is Arbeit / Zeit and the Arbeit has to be right.
+      proof: outshine/door/ScoreWhatManyBodiesDraw
+      negative control: restoring `Carries(Ticking.Freestanding.front(), ...)` takes it to FAIL --
+      outshine/door 34 PASS 1 FAIL.
 - [x] the picture holds MORE THAN ONE subject, and the refusal is deleted. `one subject draws 1
       batch(es), two draw 2` -- the case reads the FEATURE rather than the refusal now, with no
       edit, exactly as it was written to. Negative control: disabling the append reads

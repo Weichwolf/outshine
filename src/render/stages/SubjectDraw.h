@@ -70,9 +70,10 @@ public:
       return true;
     }
     for (const DrawBatch &batch : Batches) {
-      if ((size_t)batch.ModelSlot < rows) { continue; }
-      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
-              " over a table of " + std::to_string(rows) + " placements";
+      if ((size_t)batch.ModelSlot + (size_t)batch.Instances <= rows) { continue; }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
+              std::to_string(batch.Instances) + " instance(s) over a table of " +
+              std::to_string(rows) + " placements";
       Placed_.clear();
       return false;
     }
@@ -119,9 +120,10 @@ public:
     Before_ = Placed_;
     Stamped_.assign(rows, Frame_);
     for (const DrawBatch &batch : Batches) {
-      if ((size_t)batch.ModelSlot < rows) { continue; }
-      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
-              " over a table of " + std::to_string(rows) + " placements";
+      if ((size_t)batch.ModelSlot + (size_t)batch.Instances <= rows) { continue; }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
+              std::to_string(batch.Instances) + " instance(s) over a table of " +
+              std::to_string(rows) + " placements";
       Placed_.clear();
       return false;
     }

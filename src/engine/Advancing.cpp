@@ -9,6 +9,10 @@ bool Engine::State::Rides(void) {
 }
 
 bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) {
+  return Carries(0, body, shiftM);
+}
+
+bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
@@ -31,7 +35,8 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
 
   if (!Picture.Standing) { return true; }
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  if (!Picture.Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
+  if (!Picture.Standing->Carry(which, bodyFromWorld, stillM, Error)) { return false; }
+  if (which > 0) { return true; }
   Published.Places("the body, east", body.PositionM[0], "m");
   Published.Places("the body, up", body.PositionM[1], "m");
   Published.Places("the body, south", body.PositionM[2], "m");
@@ -139,7 +144,10 @@ bool Engine::State::Draws(void) {
   if (!Ticking.Drove && !Ticking.Freestanding.empty() && Picture.Standing &&
       Picture.Standing->Stands()) {
     const double unshifted[3] = {0.0, 0.0, 0.0};
-    if (!Carries(Ticking.Freestanding.front(), unshifted)) { return false; }
+    if (!Picture.Standing->Carries(Ticking.Freestanding.size(), Error)) { return false; }
+    for (size_t which = 0; which < Ticking.Freestanding.size(); ++which) {
+      if (!Carries(which, Ticking.Freestanding[which], unshifted)) { return false; }
+    }
   }
   if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
   return true;
