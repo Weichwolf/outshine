@@ -44,7 +44,10 @@ chain it needs already exists end to end:
       -> Making::Occupy            -> Yield -> Body placements
       -> the scene's placements
 
-Every arrow in that chain is written. None of them is called.
+Every arrow in that chain is written. **Now the first one is walked**:
+`outshine/geo/ScoreWhatAPlacementGeneratorYields` builds a `Ground`, leases a sink from a
+`RegionPool`, and runs `Forest::Occupy` -- in a suite that links `src/generators` and nothing of
+`src/engine`, which is part 3 of this item in miniature. What remains is the ENGINE calling it.
 
 **And a third door under them is dead too.** `DrawSink` (`src/generators/draw/DrawSink.h`) has
 ZERO implementers, so `DrawSet::Draw` -- the entry to the 29-file `draw/` subtree -- can never be
@@ -162,7 +165,14 @@ that links no `src/engine` source.
 - [ ] `DrawSink` is deleted or implemented -- it is an interface with no implementation and
       `ClusterId` reaches two files, so the instanced-draw half of the tier is a declaration with
       nothing behind it.
-- [ ] A GENERATOR calls it: the meshers need a plan, and a plan needs the snapshot.
+- [x] the placement door is REACHED, without the engine behind it.
+      `outshine/geo/ScoreWhatAPlacementGeneratorYields` walks ground query -> snapshot ->
+      `Ground::Of` -> `RegionPool` lease -> `Yield` -> `Forest::Occupy`, and reads 191 bodies at
+      4.0e-4 stems/m2 against 0 at zero density, into a sink of 4096 it does not saturate.
+      `Ground::Of` had no caller before it; nor did `Occupy` outside `GeneratorSet`.
+      negative control: an empty `Forest::Occupy` body makes it read 0 and the case goes RED.
+- [ ] A GENERATOR calls it from the ENGINE: the meshers need a plan, and a plan needs the
+      snapshot. The case above proves the tier stands alone; this is the arrow into it.
 - [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
       stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
       string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a
