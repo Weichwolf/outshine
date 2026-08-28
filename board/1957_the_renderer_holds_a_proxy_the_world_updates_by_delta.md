@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 1953
 Depends: 1574
 Area: render
@@ -65,3 +65,29 @@ knowledge belongs, and only the second one lets the world stop building the tabl
       nothing else, so the table this would save building is one row long. A delta over one row
       is a line of code, not an architecture, and writing it now would prove nothing and would be
       rewritten the day the picture holds five. board:1574 is where that changes.
+
+## MEASURED over the whole Khronos six, and the delta has no case on this corpus
+
+`apps/bench --all --steps 30`, subject stage, the `differ` column being how many of the placement
+rows the renderer holds carry DISTINCT values:
+
+    scene            placements   differ
+    DamagedHelmet             1        1
+    BrainStem                59        1
+    ABeautifulGame           49        1
+    VirtualCity             167        1
+    Sponza                  103        1
+
+**Every scene reads 1, BrainStem included -- and BrainStem is ANIMATED.** Its motion is in the
+skin palette and the vertices, not in the placement rows: a node transform that a skin drives
+never reaches the table this item is about. So the corpus that measures the renderer cannot
+measure this predicate at all -- the sim moves ZERO rows a frame in all five.
+
+That is the honest reason the delta cannot be closed from here, and it REPLACES the reason
+written above (which said board:1574 had to hold more than one subject first -- 1574 has since
+ticked exactly that, so the old blocker is gone and was never the real one).
+
+What would measure it: a scene where the SIM moves many bodies a tick. `apps/driver` is one and is
+not the tool right now; the other is a synthetic bench scene of N moving bodies, which is what
+`apps/bench` exists to be. Until one of the two stands, a delta built here would be a line of code
+defended by nothing.
