@@ -65,7 +65,20 @@ that never changes belongs in the vertices, which is what a cooker is for.
       `ScoreWhatAMovingSceneResends` timed out. Sizing the ring for the placement rows closed 128
       of those bytes and not the rest, so the interaction between the canonical slot and the
       staging budget is not understood, and a change I cannot explain does not stay in.
-      What the next attempt needs first: WHY a smaller set of named slots makes a frame stage MORE.
+      **The refusal was made to say what it carries, and the numbers do not add up.** It read
+      `stage 864 bytes over the 848` and named nothing; it now names the hand and its crossings,
+      and the second attempt read:
+
+          45056 over 43616 -- 0 already staged and this hand adds 36864
+          (4608 + 4608 + 4608 + 6144 + 3072 + 3072 + 6144 + 4608)
+
+      `wanted = StagingUsed_ + total`, so 45056 must equal 0 + 36864 and does not. The missing
+      **8192 bytes are exactly 64 rows of 32 floats** -- the placement crossing. So `total` counts
+      a crossing the listing does not, and both walk `what[0..count)`. That is the thread the next
+      attempt pulls, and it is a defect in the residency's own accounting rather than in the
+      dedupe: a refusal whose two numbers disagree cannot be trusted to say when to grow the ring.
+      What the next attempt needs first: WHY a smaller set of named slots makes a frame stage MORE
+      -- and the answer starts with that 8192.
 - [ ] Sponza's subject stage draws 25 times where it drew 103, and ABeautifulGame 15 where it drew
       49 -- measured by `apps/bench`, which is where the numbers above came from
 - [ ] a subject that DOES animate is untouched: BrainStem keeps its 59 placements, because a node

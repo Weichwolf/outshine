@@ -96,10 +96,16 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   const uint32_t wanted = StagingUsed_ + total;
   if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
     DropStaged();
+    std::string carrying;
+    for (size_t one = 0; one < count; ++one) {
+      if (what[one].Bytes == 0) { continue; }
+      carrying += (carrying.empty() ? "" : " + ") + std::to_string(what[one].Bytes);
+    }
     error = "this frame's hands stage " + std::to_string(wanted) + " bytes over the " +
             std::to_string(StagingBytes_) +
-            " the residency opened for one full pose -- a second full hand in one frame "
-            "is more than the ring holds";
+            " the residency opened for one full pose -- " + std::to_string(StagingUsed_) +
+            " already staged and this hand adds " + std::to_string(total) + " (" + carrying +
+            "), so a second full hand in one frame is more than the ring holds";
     return false;
   }
   size_t landing = 0;
