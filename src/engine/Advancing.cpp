@@ -69,6 +69,8 @@ bool Engine::State::Watches(void) {
   Gltf::Viewpoint standing;
   if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  standing.ZNearM = Core::Live::NearestStandable();
+  standing.ZFarM = 0.0;
   Picture.Standing->Eye(standing);
   return true;
 }

@@ -621,6 +621,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    (double)Picture.Standing->PartsStanding(), "parts");
   Published.Places("restand: instances it carries",
                    (double)Picture.Standing->InstancesStanding(), "instances");
+  Published.Places("restand: the near plane the renderer stands on",
+                   Picture.Standing->NearStanding(), "m");
   for (size_t part = 0; part < laidGround.Parts().size(); ++part) {
     const Gltf::Part &one = laidGround.Parts()[part];
     Published.Places("restand: subject part " + std::to_string(part) + " first vertex",

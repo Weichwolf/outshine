@@ -112,6 +112,14 @@ public:
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
   [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
+  [[nodiscard]] double NearStanding() const { return (double)Renderer_->NearMetres(); }
+
+  // THE NEAREST A DECLARED CAMERA MAY STAND. A framing near plane is derived from the scene's
+  // radius, which is right for fitting one object in a frame and ruinous for a world: with a ring
+  // reaching 388 km it came out at 1 904 878 m. Reverse-Z writes `near / distance`, so every
+  // surface closer than 1 905 km clamps to the same depth and the depth test stops discriminating
+  // -- which is why distant towers drew and the buildings beside the camera did not.
+  [[nodiscard]] static double NearestStandable() { return (double)Render::Renderer::kNearM; }
   [[nodiscard]] const double *PlacementStanding(size_t part) const {
     return Stood_.Placement(part).data();
   }

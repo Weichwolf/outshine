@@ -433,7 +433,14 @@ bool Live::Stand(std::string &error) {
   Gltf::Viewpoint eye = Looking_.Eye;
   const bool declared = !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, eye, why);
   Looking_.Eye = eye;
-  if (Declared_.Fill > 0.0 || !declared) {
+  // A DECLARED CAMERA IS NOT REFITTED. `Fill` frames a subject when nobody said where to stand; it
+  // may not overrule a client that did. It did: the places declare a view AND a fill, and the
+  // framing derived from the geometry's bounds replaced the declared eye -- carrying with it a near
+  // plane taken from the scene radius, 1 904 878 m over a 388 km ring. Reverse-Z writes
+  // `near / distance`, so every surface nearer than 1 905 km clamped to one depth and the depth
+  // test stopped discriminating: distant towers drew and the buildings beside the camera did not.
+  // Filament's `Camera` is authoritative and its `View` does not refit it; Unreal's is the same.
+  if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
 
     double least[3], most[3];
     Held_.Geometry().BoundsOf(Joined_, least, most);
