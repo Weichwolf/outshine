@@ -102,15 +102,6 @@ constexpr const char *kTracksBase64 =
   if (name) { shown.Clip = clip; }
   stands.Assets.push_back(shown);
 
-  outshine::View watches;
-  watches.Id = "station";
-  watches.Placed = true;
-  watches.Person = "first";
-  watches.Stands.AtM[0] = 1.0;
-  watches.Stands.AtM[1] = 1.0;
-  watches.Stands.AtM[2] = 6.0;
-  watches.FovDeg = 60.0;
-  stands.Views.push_back(watches);
   return stands;
 }
 

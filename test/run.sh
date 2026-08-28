@@ -790,6 +790,37 @@ StateDoor() {
   printf '\n**%d of %d spoken.** A name here is not a rename to make: it is a promise a client\n' \
     "$spoken" "$total"
   printf 'already understands, and the ones marked *not yet* are what board:2016 owes.\n'
+
+  # A VERB IS THE HALF A CLIENT ACTUALLY CALLS, so the door's distance is measured on verbs too.
+  printf '\nAnd the verbs, because a client calls those rather than the types:\n\n'
+  printf '| the verb a client knows | from | here |\n|---|---|---|\n'
+  verbSpoken=0
+  verbTotal=0
+  for pair in \
+    'beginFrame:Filament' 'render:Filament' 'endFrame:Filament' 'readPixels:Filament' \
+    'addEntity:Filament' 'setScene:Filament' 'setCamera:Filament' 'setViewport:Filament' \
+    'lookAt:Filament' 'setProjection:Filament' 'setExposure:Filament' 'flushAndWait:Filament' \
+    'sampleHeight:Cesium' 'LongitudeLatitudeHeight:Cesium'; do
+    verbName=${pair%%:*}
+    verbFrom=${pair##*:}
+    verbTotal=$((verbTotal + 1))
+    if printf '%s' "$doorText" | grep -qi "$verbName"; then
+      printf '| `%s` | %s | yes |\n' "$verbName" "$verbFrom"
+      verbSpoken=$((verbSpoken + 1))
+    else
+      printf '| `%s` | %s | **not yet** |\n' "$verbName" "$verbFrom"
+    fi
+  done
+  printf '\n**%d of %d spoken.**\n' "$verbSpoken" "$verbTotal"
+
+  # THE THIRD SORT, AND WITHOUT IT THIS PAGE WOULD READ 40%% FOR EVER AND MEAN NOTHING. Filament
+  # is a RENDERER: it has no scenario, no simulation, no audio, no store. Those verbs are this
+  # tree's own and are not a debt -- naming them keeps the number above honest.
+  printf '\nOURS BY RIGHT, because Filament is a renderer and does not face the question:\n\n'
+  printf '`Declare` · `Read` · `Assemble` · `Advance` · `Run` · `Mixes` · `Park` · `Resume` ·\n'
+  printf '`Numbers` · `Inspects` — a scenario, a simulation, a mixer and a measure. A client that\n'
+  printf 'knows Filament still has to learn these, and that is the door being HONEST about what\n'
+  printf 'outshine is rather than pretending to be a renderer it is not.\n'
   for header in include/*.h; do
     printf '\n### `%s`\n\n' "${header#include/}"
     sed -n 's|^struct \([A-Za-z]*\) {|value: \1|p; s|^class \([A-Za-z]*\) {|type: \1|p' \
