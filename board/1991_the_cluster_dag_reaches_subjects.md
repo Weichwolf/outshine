@@ -117,17 +117,20 @@ producer, not a second cooker.
       clusters, finest covering all 8192 -- identical to the hand-interleaved soup.
       negative control: dropping the normal stream makes it read stride 5 and the case goes RED,
       so the width follows the part rather than a constant.
-- [ ] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and that is a decision this item owes.**
-      `ClusterDagBuild` rewrites both the vertex and the index buffer -- it SIMPLIFIES -- so a
-      subject whose vertices are re-posed every frame would need its DAG rebuilt every frame,
-      which is a per-frame cost proportional to the mesh. Unreal shipped Nanite for static meshes
-      first for this reason. So the cooked form carries a DAG when the geometry does not deform,
-      and the tier chain is unchanged: one cooker, one cooked form, and the DAG is a part of it
-      that a deforming mesh leaves empty.
-- [x] there is ONE cooker and it is reached once. `TileDagBuild` was already an adapter over
-      `ClusterDagBuild`; the duplicate `Rank::Dag` door that re-implemented it -- with no caller
-      and no input for the seam class it alone offered -- is gone.
-      proof: outshine/geo 8/8 and the gate, unchanged by its removal
+- [x] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and the guard cannot live in the cooker.**
+      The decision stands: `ClusterDagBuild` rewrites both the vertex and the index buffer -- it
+      SIMPLIFIES -- so a subject re-posed every frame would need its DAG rebuilt every frame, a
+      per-frame cost proportional to the mesh. Unreal shipped Nanite for static meshes first for
+      exactly this. The cooked form carries a DAG when the geometry does not deform, and a
+      deforming mesh leaves that part empty.
+      **Measured while trying to put the refusal into `Cook`**: `Geometry` cannot answer the
+      question. It is the snapshot of ONE pose -- the previous positions live in `Gltf::Subject`,
+      not in the door's value -- so no `Cookable(Geometry, part)` can exist, and one written
+      anyway would have been a guard that always says yes. What knows is `Core::Asset::Moves()`,
+      which reads the document's animations, so the refusal belongs where the cooking is asked
+      for and not where it is done. That is a fact about the door worth having: the authored form
+      describes a SHAPE and never a motion, which is the same reason board:1995 gives for a
+      `Geometry` carrying no velocity.
 - [ ] terrain reaches the picture as a GENERATOR's `Geometry` rather than as a mesh the tile pool
       builds on its own -- the remaining half, and now a question about the PRODUCER rather than
       about the cooker
@@ -154,5 +157,12 @@ producer, not a second cooker.
       is the evidence the number is right rather than a guess.
       negative control: the ratio check stood RED-WHEN-FIXED and went red the day it was fixed,
       which is what such a check is for; it now asserts the ratio IS reached.
-- [ ] the cut is per CLUSTER: two subjects at different distances in one frame select different
-      levels, which a per-object ladder cannot do
+- [x] the cut is per CLUSTER, and the sharp form of that is stronger than two subjects: ONE eye
+      over ONE subject selects clusters from more than one level. With the eye at a corner of a
+      32768-triangle lattice it takes **112 clusters at level 0 and 72 at level 1** -- fine where
+      the mesh is near and coarse where it runs away, which a per-object ladder cannot produce at
+      all.
+      proof: outshine/geo/ScoreWhatACutCostsASubject
+      negative control: moving that eye to 1000 km makes the cut take one level only -- 83
+      clusters at level 2 -- and the case goes RED, so the check measures the MIXTURE and not the
+      cut.

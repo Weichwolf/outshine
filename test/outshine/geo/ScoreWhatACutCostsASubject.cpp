@@ -188,6 +188,33 @@ int main(void) {
         "that stopped early. A cut cannot save what the cooker did not remove, which is why this "
         "number bounds everything the frame path could gain");
 
+  // AND THE CUT IS PER CLUSTER, WHICH IS THE WHOLE CLAIM. A per-OBJECT ladder gives one level to
+  // a whole mesh; Nanite's cut gives each cluster its own, so a subject that stretches away from
+  // the camera keeps detail at its near end and drops it at its far one. The eye is put at ONE
+  // corner of the lattice, low down, so the near corner and the far corner of the SAME subject
+  // are at very different distances -- and the levels the cut selects are counted.
+  const double corner[3] = {0.0, 2.0, 0.0};
+  const float up[3] = {0.0f, 1.0f, 0.0f};
+  uint32_t chosen[8] = {};
+  int levelsChosen = 0;
+  for (const outshine::DagCluster &one : cooked.Dag.Clusters) {
+    if (!outshine::DagSelect(one, corner, kFocalPx, kTau, up)) { continue; }
+    if (one.Level < 8) { chosen[one.Level] += 1; }
+  }
+  std::printf("AN EYE AT ONE CORNER selects");
+  for (int level = 0; level < cooked.Dag.Levels && level < 8; ++level) {
+    std::printf(" %u cluster(s) at level %d", chosen[level], level);
+    if (chosen[level] > 0) { ++levelsChosen; }
+  }
+  std::printf("\n");
+
+  CHECK(levelsChosen > 1,
+        "**THE CUT IS PER CLUSTER, NOT PER OBJECT**: one eye, one subject, and the clusters it "
+        "selects come from more than one level -- fine where the mesh is near the camera and "
+        "coarse where it runs away. RAGE picks one LOD model per map entity and cannot do this; "
+        "it is the reason board:1991 takes Unreal, and a car half off-screen paying full price "
+        "for the half nobody sees is what the alternative costs");
+
   Covers("the frame path: a subject cooked by the one cooker draws fewer triangles from further "
          "away and its whole self up close, which is the number board:1991's frame-path surgery "
          "has to beat");
