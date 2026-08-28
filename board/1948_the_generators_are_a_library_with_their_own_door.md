@@ -162,9 +162,16 @@ that links no `src/engine` source.
 - [x] A generator's mesh crosses into the door's value: `Generators::Meshed` de-interleaves an
       eight-float soup into `outshine::Geometry`, field by field and part by part.
       proof: outshine/geo/ScoreWhatAGeneratorHandsBack
-- [ ] `DrawSink` is deleted or implemented -- it is an interface with no implementation and
-      `ClusterId` reaches two files, so the instanced-draw half of the tier is a declaration with
-      nothing behind it.
+- [x] `DrawSink` is IMPLEMENTED, not deleted -- the 29-file `generators/draw/` subtree is where
+      every tree and building mesher lives, so the answer was to reach it. The engine implements
+      the sink and registers `ForestDraw` beside the shipped forest; `DrawSet::Draw` turns each
+      placed body into an `Instance` whose scale is the body's height over the prototype's, which
+      is exactly what board:1989's placement buffer was built to carry.
+      proof: outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies) as 2309
+      instance(s)`; before this, `DrawSink` had zero implementers and nothing outside
+      `generators/draw/` named `DrawSet`, `ForestDraw` or any mesher under it.
+      negative control: dropping the `DrawSet::Add` leaves 2309 bodies and 0 instances, so the
+      check measures the DRAW half and not the placement.
 - [x] the placement door is REACHED, without the engine behind it.
       `outshine/geo/ScoreWhatAPlacementGeneratorYields` walks ground query -> snapshot ->
       `Ground::Of` -> `RegionPool` lease -> `Yield` -> `Forest::Occupy`, and reads 191 bodies at

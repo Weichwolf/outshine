@@ -239,7 +239,7 @@ flowchart LR
   engine --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  34 edge(s) drawn, 47 thinner than three includes not drawn
+  34 edge(s) drawn, 49 thinner than three includes not drawn
 
 ## Tiers
 

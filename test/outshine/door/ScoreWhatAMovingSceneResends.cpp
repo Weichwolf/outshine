@@ -66,7 +66,7 @@ int main(void) {
 
   double rowsAt[2] = {0.0, 0.0};
   double batches = 0.0, moving = 0.0, furthest = 0.0;
-  double ways = 0.0, water = 0.0, prints = 0.0, grown = 0.0, reached = 0.0;
+  double ways = 0.0, water = 0.0, prints = 0.0, grown = 0.0, reached = 0.0, instanced = 0.0;
   for (int half = 0; half < 2; ++half) {
     for (int step = 0; step < kFrames; ++step) {
       if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) { break; }
@@ -79,6 +79,7 @@ int main(void) {
     prints = Measured(engine, "building footprints it holds");
     grown = Measured(engine, "bodies the world's generators placed");
     reached = Measured(engine, "how far the placement chain reached");
+    instanced = Measured(engine, "instances its draw sources made");
     furthest = Measured(engine, "the furthest any of them moved");
   }
 
@@ -127,7 +128,8 @@ int main(void) {
   // caller anywhere and the three derived fields were never populated by anything.
   // `GroundStack` owns them now, beside the class field it already owned, and `Restand` fills
   // them where the camera stands.
-  std::printf("AND ITS GENERATORS PLACED %.0f bod(y|ies), chain reached step %.0f\n", grown, reached);
+  std::printf("AND ITS GENERATORS PLACED %.0f bod(y|ies) as %.0f instance(s), chain step %.0f\n",
+              grown, instanced, reached);
   // A SHIPPED GENERATOR IS RUN BY THE ENGINE, and this number says how far it gets. Unreal's PCG
   // is a plugin the level runs; RAGE has none. `Surrounds` now carries a placement registry
   // beside its `Generates` one, and the forest in it is built from DECLARATION and not from code:
@@ -148,6 +150,19 @@ int main(void) {
         "the placement chain is entered at all: the registry is not empty, the ground table "
         "stands and the vector fields are held, so what stops it is the snapshot and not a "
         "missing part -- a step below 40 means one of those three went away again");
+
+  // AND THE INSTANCED HALF IS REACHED. `DrawSink` had ZERO implementers, so `DrawSet::Draw` --
+  // the entry to the 29-file `generators/draw/` subtree, where every tree and building mesher
+  // lives -- could never be called with a sink to write into, and nothing outside that directory
+  // named any of it. The engine implements the sink now and registers `ForestDraw` beside the
+  // forest, which turns each placed body into an `Instance` whose SCALE is the body's height over
+  // the prototype's. That is the shape an instanced draw needs and it is what board:1989's
+  // placement buffer was built to carry.
+  CHECK(instanced == grown,
+        "**EVERY PLACED BODY BECOMES AN INSTANCE**: Unreal's PCG spawners turn point data into "
+        "static-mesh instances one for one, and RAGE's map entities go on the draw list the same "
+        "way. A body that places and does not instance is a tree the world knows about and the "
+        "picture cannot hold");
 
   CHECK(grown > 0.0,
         "**THE ENGINE RUNS A SHIPPED PLACEMENT GENERATOR OVER ITS OWN WORLD**: Unreal's PCG is a "

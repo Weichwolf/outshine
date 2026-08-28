@@ -5,6 +5,9 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Forest.h"
+#include "DrawSet.h"
+#include "ForestDraw.h"
+#include "GeneratorSet.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Structures.h"
@@ -249,10 +252,14 @@ struct Surrounds {
   std::vector<Generators::Forest::Stem> Stems;
   std::vector<float> TreesPerM2;
   std::unique_ptr<Generators::Forest> Woods;
-  std::vector<const Generators::Making *> Placing;
+  Generators::GeneratorSet Placing;
+  Generators::DrawSet Drawing;
+  std::unique_ptr<Generators::ForestDraw> Woodland;
+  std::vector<Generators::Instance> Instances;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
   size_t Placed = 0;
+  size_t Instanced = 0;
   int Reached = 0;
   TriangleBvh Blocking;
 };

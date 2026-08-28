@@ -3,8 +3,30 @@
 
 namespace outshine {
 
+namespace {
+
+class Instancing final : public Generators::DrawSink {
+public:
+  explicit Instancing(std::vector<Generators::Instance> &into) : Into_(&into) {}
+
+  [[nodiscard]] bool Add(Generators::BodyId, Generators::ClusterId,
+                         const Generators::Instance &instance) noexcept override {
+    if (Full()) { return false; }
+    Into_->push_back(instance);
+    return true;
+  }
+
+  [[nodiscard]] bool Full() const noexcept override { return Into_->size() >= kMostInstances; }
+
+private:
+  static constexpr size_t kMostInstances = 1u << 20;
+  std::vector<Generators::Instance> *Into_;
+};
+
+}
+
 bool Engine::State::Grows(double atLat, double atLon) {
-  if (World.Placed > 0 || World.Placing.empty() || !World.Table ||
+  if (World.Placed > 0 || World.Placing.Count() == 0 || !World.Table ||
       World.Stack.Vectors() == nullptr) {
     return false;
   }
@@ -28,14 +50,24 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   if (!lease) { return false; }
-  for (const Generators::Making *const stood : World.Placing) {
-    std::vector<Generators::Yield::Note> notes(stood->NoteNames().Size());
-    Generators::Yield yield(lease->Sink(), stood->NoteNames(),
-                            Span<Generators::Yield::Note>(notes.data(), notes.size()));
-    stood->Occupy(*over, yield);
-    World.Placed += yield.Placed().Count;
+  std::vector<Generators::Yield> yields;
+  std::vector<std::vector<Generators::Yield::Note>> notes(World.Placing.Count());
+  yields.reserve(World.Placing.Count());
+  for (size_t at = 0; at < World.Placing.Count(); ++at) {
+    const Generators::Making &stood = World.Placing.At(at);
+    notes[at].assign(stood.NoteNames().Size(), Generators::Yield::Note{});
+    yields.emplace_back(lease->Sink(), stood.NoteNames(),
+                        Span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
   }
-  return World.Placed > 0;
+  World.Placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
+  for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
+  if (World.Placed == 0) { return false; }
+  Instancing sink(World.Instances);
+  World.Drawing.Draw(*over, World.Placing,
+                     Span<const Generators::Yield>(yields.data(), yields.size()),
+                     lease->Sink().Placed(), sink);
+  World.Instanced = World.Instances.size();
+  return true;
 }
 
 bool Engine::State::Composes(void) {
@@ -71,7 +103,7 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
-  if (World.Placing.empty() && World.Stack.Vegetated()) {
+  if (World.Placing.Count() == 0 && World.Stack.Vegetated()) {
     const Ground::VegetationTemplates &veg = World.Stack.Vegetation();
     World.TreesPerM2.clear();
     for (size_t row = 0; row < veg.TemplateCount(); ++row) {
@@ -91,7 +123,10 @@ bool Engine::State::Composes(void) {
         World.Woods = std::make_unique<Generators::Forest>(
             Span<const Generators::Forest::Stem>(World.Stems.data(), World.Stems.size()),
             Span<const float>(World.TreesPerM2.data(), World.TreesPerM2.size()), veg.Limit());
-        World.Placing.push_back(World.Woods.get());
+        (void)World.Placing.Add(Generators::Rank{0}, *World.Woods);
+        World.Woodland = std::make_unique<Generators::ForestDraw>(Generators::ClusterId{0},
+                                                                 World.Stems.front().HeightM);
+        (void)World.Drawing.Add(Generators::Rank{0}, *World.Woodland);
       }
     }
     World.Table = Generators::TableOf(veg);
