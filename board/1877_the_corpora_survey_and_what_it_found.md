@@ -94,3 +94,38 @@ gains a fifth and says what it proves.
 
 - [ ] Every suite `test/run.sh` runs has a row in the survey with its grade, including ours.
 - [ ] The survey's method line names a path that exists, and a claim walks it.
+
+## The sky's sixteen constants, given their origin
+
+CORPORA.md's own argument for the Bruneton corpus says citing the reference implementation
+discharges half the debt before a byte is fetched. `src/render/stages/ParticipatingMedium.h`
+carries sixteen floats on the frame path and `grep board/` found none of them. Here they are, and
+where each comes from.
+
+**Source**: E. Bruneton, *Precomputed Atmospheric Scattering* (2008), and the 2017 reference
+implementation `ebruneton/precomputed_atmospheric_scattering`, whose demo states these values in
+per-METRE units at the RGB wavelengths lambda = 680 / 550 / 440 nm. This tree carries them per
+KILOMETRE, so every scattering figure below is the reference value x 1e6 / 1e3, i.e. x 1e3.
+
+| the field | the value | origin |
+|---|---|---|
+| `BottomRadiusKm` | 6360 | reference — the Earth radius the model uses, not WGS84's |
+| `TopRadiusKm` | 6460 | reference — 100 km of atmosphere above it |
+| `RayleighScaleHeightKm` | 8.0 | reference — the exponential density scale |
+| `MieScaleHeightKm` | 1.2 | reference |
+| `RayleighScatteringPerKm` | 0.005802, 0.013558, 0.033100 | reference `5.802e-6, 13.558e-6, 33.1e-6` per m at 680/550/440 nm |
+| `MieScatteringPerKm` | 0.003996 | reference `3.996e-6` per m |
+| `MieExtinctionPerKm` | 0.004440 | reference `4.440e-6` per m — extinction exceeds scattering, the difference is absorption |
+| `OzoneAbsorptionPerKm` | 0.000650, 0.001881, 0.000085 | reference `0.650e-6, 1.881e-6, 0.085e-6` per m |
+| `OzoneCentreKm` / `OzoneHalfWidthKm` | 25 / 15 | reference — the tent profile peaks at 25 km |
+| `MiePhaseG` | 0.8 | reference — Cornette-Shanks asymmetry |
+| `GroundAlbedo` | 0.10, 0.13, 0.07 | **NOT the reference.** Bruneton's demo uses a flat 0.1. These three are this tree's own and carry no derivation — the one number here that the corpus must adjudicate rather than confirm |
+
+**So fifteen of sixteen are cited and one is exposed.** That is the honest split, and it is why the
+corpus is worth fetching rather than optional: `GroundAlbedo` is a free parameter that changes
+every sky the engine draws, and Kider's measured full-day irradiance is what can say whether it is
+right.
+
+- [ ] the sixteen carry their origin where CLAUDE.md puts it -- the item and the commit, since
+      `src/` carries no comments. **Done by the table above**; what remains is the guard: a claim
+      that refuses a NEW undeclared constant in `Medium` rather than trusting the next reader.
