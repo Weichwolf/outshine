@@ -51,3 +51,11 @@ Two things are wrong with it and both are this item's:
       can fail is a quotation.
 - [ ] The store-op derivation (`Stored(resource)`, landed) is MEASURED: the frame-time delta over
       a full declared drive against the standing reference population.
+
+**board:1989 hands this item its measurement.** A GPU-driven change wants a frame time before and
+after, and this tree measures none anywhere -- `Core::Live::Took*` are BYTE counts, not durations.
+So "before and after" has nothing to read and board:1989 closed without it, recording instead the
+CPU term it actually removed: the vertex uniform is pushed once per PASS where it was pushed once
+per model slot, which is once per PART. `outshine/door/ScoreWhatASecondSubjectDoes` reads
+`one subject pushes 1 vertex uniform(s), two push 1` beside `one subject draws 1 batch(es), two
+draw 2`. Until this item stands, that is the only shape of performance claim this tree can defend.

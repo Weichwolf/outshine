@@ -41,3 +41,13 @@ and board:1989 takes the baseline so there is something to compare against.
 - [ ] the subject pass records ONE indirect draw per material class, not one per batch
 - [ ] the CPU's draw-call count over a drive is CONSTANT in the number of subjects -- published
       as a measure so a regression is visible
+
+**board:1989 hands this item its last structural predicate.** `SameState` cannot drop `ModelSlot`
+in the direct path, and the reason is measured: `ModelSlot` is the PART index and every part owns
+its index range, so merging two parts into one batch would issue ONE instance over both ranges and
+give both the first part's placement row. Merging across slots needs a per-draw index offset,
+which is what an indirect draw carries. What board:1989 leaves ready for it: the vertex uniform is
+per PASS and holds nothing per-instance -- `{viewProj, prevViewProj, lightFromWorld, shift,
+prevShift}`, 56 floats, every one a property of the VIEW -- so there is nothing left to thread
+through. The proof it owes is board:1574's: two identical subjects read `two draw 1` while
+`linear_channels_differing_between_renders` stays at zero.
