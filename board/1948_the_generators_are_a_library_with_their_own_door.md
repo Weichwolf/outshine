@@ -26,6 +26,26 @@ and by `apps/viewer`, and by no shipped generator at all. 5887 lines under `src/
 That is CLAUDE.md's own warning made literal: *"counting class names would have scored the world
 generators complete while 6528 lines sat in an archive no declaration reached."*
 
+**TWO DOORS IS THE RIGHT ANSWER, and the benchmark says so** -- this is the row the item was
+missing. Unreal's PCG graph outputs POINT DATA, and separate spawners turn those points into
+static-mesh instances; the point and the mesh are different representations on purpose, because a
+forest is not one mesh and instancing dies the moment you flatten it into one. RAGE has no PCG to
+compare. **Taking Unreal**: `Generates` hands back a `Geometry` -- a PART -- and `Making` hands
+back `Body` placements, which is a point with a radius, a height, a mass, a yaw and a contact
+material. `sizeof(Body) == 48` and it is pointer-free, so it is already the value a foreign caller
+can hold that part 3 demands.
+
+So the defect is NOT that there are two doors. It is that the second has no consumer, and the
+chain it needs already exists end to end:
+
+    World.Stack (heights) + OSM fields
+      -> Generators::SnapshotOver  -> Ground::Snapshot
+      -> Ground::Of                -> Ground
+      -> Making::Occupy            -> Yield -> Body placements
+      -> the scene's placements
+
+Every arrow in that chain is written. None of them is called.
+
 **And a third door under them is dead too.** `DrawSink` (`src/generators/draw/DrawSink.h`) has
 ZERO implementers, so `DrawSet::Draw` -- the entry to the 29-file `draw/` subtree -- can never be
 called with a sink to write into. Nothing outside `src/generators/draw/` names either.
