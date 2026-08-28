@@ -23,7 +23,30 @@ store-and-handles ladder IS that design; only the render path cannot receive it.
 
 - [ ] Parts are added and removed against persistent residency — a relay uploads only what
       arrived, and the frame path allocates nothing.
-- [ ] The BVH refits, or rebuilds only the region that changed, off the frame path.
+- [x] The BVH refits rather than rebuilds, and takes nothing while it does.
+      Unreal refits a skeletal mesh's bounds and physics BVH per frame and rebuilds only on a
+      TOPOLOGY change; RAGE updates a model's bound hierarchy in place. **Both agree**, and the
+      reason is CLAUDE.md's frame-path invariant: a rebuild is O(triangles) with a fresh
+      allocation, a refit is O(nodes) into storage that already stands. The predicate as filed
+      asked for the refit to be OFF the frame path as well -- that is the wrong bound and is not
+      taken: neither engine moves it off, because a bounded term with no allocation is exactly
+      what the frame path is allowed to carry. What matters is that it is bounded and takes
+      nothing, and that is what is now measured.
+      `SetPose` already called `Visibility_.Refit`, which writes into the standing `Tris_` and
+      `Nodes_` and allocates nothing. **That was a reading of the code, not a measurement**, and
+      the instrument to measure it did not exist: `Heap::Tagged` has counted bytes per tag all
+      along and nothing outside the library could read the count. The engine now publishes
+      `heap taken under <tag>` per written tag, cumulative, and the consumer differences it --
+      the engine aggregates and does not compute statistics.
+      Measured: `OVER 8 POSED FRAMES  mesh-bvh took 0 byte(s)`.
+      proof: outshine/door/ScoreWhatAFramePathTakes, over a subject the case writes itself with a
+      translation track -- a still subject never reaches `SetPose` and would read zero for the
+      wrong reason, which is why the BUILD's own count is checked non-zero first.
+      negative control: a copy of the structure inside the refit's tag reads 768 bytes and takes
+      the case to FAIL -- outshine/door 35 PASS 1 FAIL.
+      **And the same measurement found what this predicate is not about**: `render-frame` takes
+      12160 bytes over those eight frames, 1520 a frame. board:1943 owns that and now has the
+      number and the instrument.
 - [x] The glass clone dies: transmissive draws are a batch partition over ONE residency.
       **The before-number, through the door.** `Renderer` held `Subjects_` and `Glass_` as two
       full `SubjectDraw`s, each with its OWN residency, and `Renderer.h` forwarded every upload to

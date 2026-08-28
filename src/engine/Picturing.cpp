@@ -1,3 +1,4 @@
+#include "Heap.h"
 #include <chrono>
 
 #include "EngineHeld.h"
@@ -283,6 +284,11 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
 }
 
 void Engine::State::Tells(void) {
+  for (size_t at = 0; at < Heap::TagCount(); ++at) {
+    const char *const tag = Heap::TagAt(at);
+    if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
+    Published.Places(std::string("heap taken under ") + tag, (double)Heap::TakenAt(at), "bytes");
+  }
   if (Cost.Advance.Count > 0) {
     Published.Places("the step's own time, last", Cost.Advance.LastMs, "ms");
     Published.Places("its least", Cost.Advance.LeastMs, "ms");

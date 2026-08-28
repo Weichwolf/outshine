@@ -30,7 +30,24 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
       being the light budget (board:1926)
 - [ ] the shadow atlas carries cascades and the shader picks one (board:1926)
 - [ ] the shadow centre folds INSTANCE bounds, not every vertex (board:1926)
-- [ ] no query the frame path makes blocks, allocates, locks or touches disk (board:1937)
+- [ ] no query the frame path makes blocks, allocates, locks or touches disk (board:1937).
+      **IT ALLOCATES, AND THE NUMBER IS 1520 BYTES A FRAME.** This predicate had no instrument
+      until board:1574's refit proof needed one: `Heap::Tagged` has counted bytes per named tag
+      since it was written and nothing outside the library could read the count, so "the frame
+      path allocates nothing" was a sentence. The engine publishes every written tag as
+      `heap taken under <tag>`, cumulative, and the CONSUMER differences it across frames.
+      Measured over a posed subject, eight frames:
+
+          mesh-bvh      0 bytes   -- the refit, and board:1574 proves it
+          render-frame  12160 bytes over 8 frames = 1520 a frame
+
+      So the violation is real, it is in the frame recording rather than in the visibility
+      structure, and it is now a number a case can hold to. What it is NOT yet: attributed. 1520
+      bytes is small enough to be one container growing once per frame and large enough to be
+      several, and naming which is the next step -- the tag is `render-frame` and everything
+      inside `Renderer::RenderFrame` shares it.
+      proof: outshine/door/ScoreWhatAFramePathTakes reads the counter; the predicate stays OPEN
+      because the case asserts zero for `mesh-bvh` only.
 - [ ] the frame publishes p50/p95/p99 over a moving camera, not a mean (board:1457)
 - [ ] geometry carries its own detail ladder and the pool holding it is a slot table
       (board:1512)
