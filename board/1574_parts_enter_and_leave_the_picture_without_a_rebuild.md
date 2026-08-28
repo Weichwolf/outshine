@@ -24,8 +24,27 @@ store-and-handles ladder IS that design; only the render path cannot receive it.
 - [ ] Parts are added and removed against persistent residency — a relay uploads only what
       arrived, and the frame path allocates nothing.
 - [ ] The BVH refits, or rebuilds only the region that changed, off the frame path.
-- [ ] The glass clone dies: transmissive draws are a batch partition over ONE residency, and
-      the cloned catalogue row goes with it.
+- [x] The glass clone dies: transmissive draws are a batch partition over ONE residency.
+      **The before-number, through the door.** `Renderer` held `Subjects_` and `Glass_` as two
+      full `SubjectDraw`s, each with its OWN residency, and `Renderer.h` forwarded every upload to
+      both -- `SetMesh`, `SetPose`, `SetMaterials`, the BVH. A new `device bytes` counter on the
+      subject stages read, for ABeautifulGame:
+
+          subjects              173566016 device byte(s)
+          subjectsTransmissive  173566016 device byte(s)
+
+      173.6 MB held twice on an 8 GB device, and the pose re-uploaded twice a frame.
+      Unreal: `FScene` holds ONE copy and the translucency pass draws the mesh batches whose
+      material is translucent, from the same vertex buffers. RAGE: one draw list, passes filter
+      it. **Both agree that a pass is a partition and never a copy.**
+      `Glass_` now BORROWS `Subjects_`'s residency and skips the uploads; its batches, pipelines
+      and uniforms stay its own, because those are what makes it a different pass.
+      After: `subjects 173566016`, `subjectsTransmissive 0` -- and the zero is honest rather than
+      cosmetic, because a borrowing stage owns no bytes and the sum across stages is now the
+      device total instead of double it.
+      proof: harness/khronos/glTF 444/444 -- the corpus draws transmissive scenes and the picture
+      does not move, which is the only control that matters when two passes start sharing buffers;
+      outshine/door 35/35; gate GREEN.
 - [ ] A relay's frame cost is measured before and after over a declared drive.
 
 ## Measured 2026-08-25, and the first cost bound now holds
