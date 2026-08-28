@@ -539,13 +539,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         facing[at * 3 + 2] = (float)(-alongNorth);
         run[at] = (uint32_t)at;
       }
-      // THE SAME WINDING THE RING WEARS. `LayPatchwork`'s indices are swapped a few lines above for
-      // this renderer's facing, and a soup handed over in its own order is culled as backfaces --
-      // drawn, counted, and invisible. 622 596 building triangles reached the frame and none of
-      // them could be seen.
-      for (size_t at = 0; at + 2 < run.size(); at += 3) {
-        std::swap(run[at + 1], run[at + 2]);
-      }
+      // THE BUILDINGS KEEP THEIR OWN WINDING. The swap here was copied from the ring, whose indices
+      // `LayPatchwork` swaps for this renderer's facing -- but that swap belongs to the TILE mesher's
+      // output, and `BuildingMesh` emits its own consistent order from `Site::Tri`, which computes a
+      // normal from the same three vertices it pushes. Swapping it turned every closed body inside
+      // out: roofs floated and walls went missing, which is what a backfacing solid looks like.
+      // Withdrawn -- it was reasoned from the ring rather than measured on a building.
       // BUILDINGS WEAR THEIR OWN SURFACE. `Restand`'s material overload assigns ONE material to
       // every surface, so buildings came out in the ground's exact albedo -- drawn, correctly
       // placed, and indistinguishable from the field they stand in. Lifted 500 m as a control they
