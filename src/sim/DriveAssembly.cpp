@@ -132,6 +132,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
   say.Number("tiles the corridor actually took", (double)field.Tiles().size(), "tiles");
   say.Number("tiles decoded", (double)built, "tiles");
   say.Number("tiles still pending", (double)field.PendingTiles(), "tiles");
+  say.Number("tiles the sources refused", (double)field.RefusedTiles(), "tiles");
   say.Number("layers the server did not send", (double)field.MissingLayers(), "layers");
   say.Number("tiles that would not decode", (double)field.BadTiles(), "tiles");
   say.Number("features read", (double)field.Features().size(), "features");

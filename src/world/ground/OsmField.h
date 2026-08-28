@@ -46,6 +46,7 @@ public:
   [[nodiscard]] long BadTiles() const { return Bad_; }
 
   [[nodiscard]] int PendingTiles() const { return Pending_; }
+  [[nodiscard]] int RefusedTiles() const { return Refused_; }
 
   [[nodiscard]] bool Settled(int x, int y) const;
 
@@ -80,7 +81,7 @@ private:
 
   uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
-  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added);
+  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused);
   void Settle(int x, int y);
 
   std::vector<std::string> Layers_;
@@ -97,6 +98,7 @@ private:
   TilePool::Landing Scratch_;
   int Zoom_;
   int Pending_ = -1;
+  int Refused_ = 0;
   long Missing_ = 0, Bad_ = 0;
 };
 
