@@ -153,12 +153,19 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
 }
 
 bool Engine::State::Updates(void) {
-  if (Ticking.Drove) {
-    const Heap::Tagged restanding("world-restand");
-    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
-    {
-      const Heap::Tagged growing("world-grow");
-      (void)Grows(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+  // THE WORLD RESTANDS WHEREVER IT STANDS, not only where a journey passes. OSM's vectors, the
+  // streets, the footprints and the water are built here, and this block lived inside the drive --
+  // so a scenario that declared a place and no journey got terrain and nothing else on it.
+  if (Ticking.Drove || Session.Declared.Ground.Declared) {
+    const double atLat = Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Lat;
+    const double atLon = Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Lon;
+    if (World.Stack.Opened()) {
+      const Heap::Tagged restanding("world-restand");
+      World.Stack.Restand(atLat, atLon);
+      {
+        const Heap::Tagged growing("world-grow");
+        (void)Grows(atLat, atLon);
+      }
     }
   }
 
