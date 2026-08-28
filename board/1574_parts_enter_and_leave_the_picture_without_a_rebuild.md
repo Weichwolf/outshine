@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: render
 Tags: perf, scope
 Depends: 1538, 1867
@@ -102,6 +102,20 @@ primitive and RAGE puts every entity on its node's draw list, so neither has any
 second subject to be dropped FROM. Until the picture can hold two, saying no is the honest half
 of the answer, and accepting a declaration and doing nothing with it is the dishonest one.
 
+- [ ] EVERY freestanding body is carried into the picture, not the first. **MEASURED through the
+      door**, `apps/bench --scene DamagedHelmet --steps 12 --bodies 16`:
+
+          the simulation integrates 16 freestanding bodies
+          subjects   1 draw(s)   1 placement(s)   1 differ
+
+      Sixteen bodies declared, sixteen integrated by `Falls()`, ONE carried. The prose above has
+      named this since the item was filed and no predicate carried it, so the item could never be
+      closed on it -- which is why it is written down here as a box rather than a paragraph.
+      `Engine::State::Draws` calls `Carries(Ticking.Freestanding.front(), ...)` and `Live::Carry`
+      holds ONE `SentBody_`, so the second body has nowhere to be.
+      Unreal: one `FPrimitiveSceneProxy` per primitive and the transform is per-instance in
+      `FGPUScene`. RAGE: every entity on its node's draw list. **Both agree and neither has a
+      first-body case.**
 - [x] the picture holds MORE THAN ONE subject, and the refusal is deleted. `one subject draws 1
       batch(es), two draw 2` -- the case reads the FEATURE rather than the refusal now, with no
       edit, exactly as it was written to. Negative control: disabling the append reads

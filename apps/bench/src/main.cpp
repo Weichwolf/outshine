@@ -27,6 +27,7 @@ struct Asked {
   long Steps = 240;
   bool All = false;
   int Clip = 0;
+  int Bodies = 0;
 };
 
 struct Took {
@@ -72,7 +73,19 @@ struct Took {
     shown.Kind = "gltf";
     shown.Clip = asked.Clip;
     stands.Assets.push_back(shown);
-    if (!engine.Declare(stands)) {
+    for (int one = 0; one < asked.Bodies; ++one) {
+      outshine::Body falls;
+      falls.Name = "body" + std::to_string(one);
+      falls.Asset = shown.Uri;
+      falls.Placed = true;
+      falls.MassKg = 1000.0;
+      falls.WidthM = 1.0;
+      falls.Stands.AtM[0] = (double)(one % 8) * 2.0;
+      falls.Stands.AtM[1] = 20.0 + (double)one;
+      falls.Stands.AtM[2] = (double)(one / 8) * 2.0;
+      stands.Bodies.push_back(falls);
+    }
+    if (!engine.Declare(stands) || !engine.Assemble()) {
       why = engine.Error();
       return -1.0;
     }
@@ -118,6 +131,8 @@ int main(int count, char **args) {
     const bool wants = at + 1 < count;
     if (said == "--steps" && wants) {
       asked.Steps = std::strtol(args[++at], nullptr, 10);
+    } else if (said == "--bodies" && wants) {
+      asked.Bodies = (int)std::strtol(args[++at], nullptr, 10);
     } else if (said == "--clip" && wants) {
       asked.Clip = (int)std::strtol(args[++at], nullptr, 10);
     } else if (said == "--scene" && wants) {
@@ -143,6 +158,7 @@ int main(int count, char **args) {
           "  --all               bench every one of them in turn\n"
           "  --steps N           fixed steps to take (default 240)\n"
           "  --clip N            which of the file's animations plays (default 0)\n"
+          "  --bodies N          declare N freestanding bodies over the scene (default 0)\n"
           "  --scenario PATH     the declaration to drive (default the driver's f31)\n"
           "  --size WxH          the frame to draw when drawing (default 1280x720)\n"
           "  --online            reach the network; offline by default\n\n"
@@ -183,6 +199,13 @@ int main(int count, char **args) {
       }
       std::printf("%-16s %8.1f ms over %ld step(s)   step p50 %.3f  p95 %.3f  p99 %.3f ms\n",
                   scene.c_str(), withMs, asked.Steps, stood.StepP50, stood.StepP95, stood.StepP99);
+      if (asked.Bodies > 0) {
+        double standing = 0.0;
+        for (const outshine::Measure &held : stood.Rows) {
+          if (held.What == "bodies standing on no route") { standing = held.How; }
+        }
+        std::printf("    the simulation integrates %.0f freestanding bodies\n", standing);
+      }
       for (const outshine::Measure &held : stood.Rows) {
         const std::string what = held.What;
         const size_t took = what.find(", took");
