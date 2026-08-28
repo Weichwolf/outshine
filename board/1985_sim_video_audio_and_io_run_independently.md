@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 1953
 Area: engine
 Progress: gpu-driven
@@ -27,7 +27,15 @@ runs as fast as it can, which is what a dedicated server and every offline run a
       `Draws()` hands the delta on; the mixer reads a snapshot of where sources stood.
       proof: outshine/door
 - [ ] the third phase is the mixer's own, not the frame loop's
-- [ ] render runs on its own thread, one frame behind, and the simulation never waits for it
+- [ ] render runs on its own thread, one frame behind, and the simulation never waits for it.
+      **BLOCKED ON board:1957, and the block is measured rather than assumed.** The sim reaches
+      the renderer through TWENTY-FIVE distinct verbs called directly -- `Eye`, `Carry`,
+      `Scrolled`, `Redeclare`, `Restand` are writes and `SubjectBatchCount`, `Spent`, `Aimed` are
+      READS BACK. Unreal forbids exactly this: nothing crosses as a call, `ENQUEUE_RENDER_COMMAND`
+      puts a lambda on a queue and the game thread keeps its own mirror rather than reading the
+      render thread's. RAGE double-buffers the draw list. Both agree the boundary is
+      ONE-DIRECTIONAL and BUFFERED, and a read-back is the thing that cannot exist.
+      So the thread is not the work. The BOUNDARY is, and board:1957 owns it.
 - [x] the mixer reads a SNAPSHOT and never the live world, so it is callable from the device's
       own thread -- which is where the deadline lives, because the CLIENT owns the process and
       therefore the device. `Updates()` publishes into one of two buffers and releases an index;
