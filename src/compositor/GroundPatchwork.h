@@ -17,6 +17,10 @@ struct Around {
   int Ring = 1;
   int Grid = 33;
   bool Awaited = false;
+  double EyeM[3] = {0.0, 0.0, 0.0};
+  float FocalPx = 0.0f;
+  float Tau = kPixelTau;
+  float Up[3] = {0.0f, 1.0f, 0.0f};
 };
 
 struct Patchwork {
@@ -30,6 +34,8 @@ struct Patchwork {
   size_t Absent = 0;
   size_t Refused = 0;
   double WorstErrM = 0.0;
+  size_t ClustersHeld = 0;
+  size_t ClustersDrawn = 0;
 };
 
 void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,

@@ -41,6 +41,10 @@ bool Engine::State::Composes(void) {
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Ring = 1;
   over.Awaited = true;
+  if (Picture.Frame.HeightPx > 0) {
+    const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
+    over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
+  }
   auto laid = LayPatchwork(World.Stack.Pool(), over);
   if (!laid) {
     Error = laid.error();

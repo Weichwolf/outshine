@@ -99,7 +99,21 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         out.NormalM.push_back(built.Verts[vertex + 6]);
         out.NormalM.push_back(built.Verts[vertex + 7]);
       }
-      for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
+      out.ClustersHeld += built.Clusters.size();
+      if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
+        const double eyeInTile[3] = {over.EyeM[0] - shift[0], over.EyeM[1] - shift[1],
+                                     over.EyeM[2] - shift[2]};
+        for (const DagCluster &cluster : built.Clusters) {
+          if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
+          ++out.ClustersDrawn;
+          for (uint32_t step = 0; step < cluster.Count; ++step) {
+            out.Index.push_back(first + built.Idx[cluster.First + step]);
+          }
+        }
+      } else {
+        out.ClustersDrawn += built.Clusters.size();
+        for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
+      }
       out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
       ++out.Tiles;
     }

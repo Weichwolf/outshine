@@ -73,10 +73,16 @@ producer, not a second cooker.
       gone from `RenderCatalogue.h`. They declared resource edges and executed nothing, so they
       were a declaration surface with a subject's name on it.
       proof: --audit-layers and the door suite, unchanged by their removal
-- [ ] **a cut is SELECTED and read.** `DagSse` gains a caller and the number of clusters a frame
-      draws depends on where the camera stands. This comes FIRST, before either producer is
-      re-routed: a mechanism nothing evaluates cannot be proven correct by giving it a second
-      input, and the cheap half is what makes the expensive half worth having.
+- [x] **a cut is SELECTED and read.** `LayPatchwork` walks the tile's clusters and copies only
+      the indices of those `DagSelect` keeps; `Around` carries the eye, the focal length in
+      pixels and the threshold, and `Picturing.cpp` fills the focal from the frame height and the
+      engine's own 55-degree field. `Patchwork` reports `ClustersHeld` and `ClustersDrawn`, so
+      the selection is a number rather than an effect.
+      proof: outshine/geo/ScoreWhereACutIsChosen -- one tile of three clusters draws 2 of them
+      (4 triangles) from 12 m, 1 of them (2 triangles) from 4000 m, and 3 of them (6 triangles)
+      with no focal length at all.
+      negative control: `DagSelect` forced to `true` makes the far eye draw 3 clusters and the
+      case goes RED on the comparison that matters.
 - [ ] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and that is a decision this item owes.**
       `ClusterDagBuild` rewrites both the vertex and the index buffer -- it SIMPLIFIES -- so a
       subject whose vertices are re-posed every frame would need its DAG rebuilt every frame,
