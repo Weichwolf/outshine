@@ -5,6 +5,7 @@
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"
+#include "BuildingMesh.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Structures.h"
@@ -265,6 +266,7 @@ struct Surrounds {
   size_t Asked = 0;
   double RebuildMs = 0.0;
   bool Grown = false;
+  Generators::BuildingMesh Shaper;
   std::chrono::steady_clock::time_point LaidAt{};
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;

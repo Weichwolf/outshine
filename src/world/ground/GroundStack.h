@@ -45,6 +45,12 @@ public:
 
   [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
   [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
+
+  // THE MESHER COMES FROM ABOVE. `StructureMesher` is declared in this tier and implemented in
+  // `src/generators/`, which this tier may not see, so whoever sits above both installs it. Nothing
+  // did: `BuildingField::Shapes` had no caller and `BuildingField::Verts` had no reader, so every
+  // footprint the world read was meshed by nobody.
+  void ShapesFootprintsWith(const StructureMesher *mesher) { Footprints_.Shapes(mesher); }
   [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
   [[nodiscard]] const StreetField &Ways() const { return Ways_; }
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }

@@ -169,6 +169,14 @@ int main(void) {
               measured("times the terrain was rebuilt"), measured("and how often it was asked about"));
   std::printf("    the last rebuild took %.0f ms; of %d frame(s), advance %.0f ms and render %.0f ms\n",
               measured("and what the last rebuild took"), frames, advancingMs, renderingMs);
+  std::printf("    %.0f building triangle(s) meshed from OSM footprints\n",
+              measured("building triangles the world meshed"));
+  std::printf("    the ring's nearest vertex is %.0f m out at %.0f m up; the eye is %.0f m up\n",
+              measured("the ring's nearest vertex to the frame origin"), measured("and its up"),
+              measured("the eye, up"));
+  std::printf("    buildings from %.0f to %.0f m up, %.0f to %.0f m out\n",
+              measured("buildings stand between"), measured("and"),
+              measured("their nearest vertex lies"), measured("their farthest"));
   std::printf("    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer level\n",
               measured("levels the cascade laid"), measured("tiles it skipped as already covered"),
               measured("tiles that overlap a finer level"));

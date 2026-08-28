@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Progress: streaming
 Area: world
 Tags: benchmark, target
@@ -131,3 +131,38 @@ absent.
 The number that closes this: `instances its draw sources made` and `building footprints it holds`
 converge on the same subject. Today they are 203 against 6 423 and they are not even about the same
 thing.
+
+
+## THE BUILDINGS ARE MESHED, PLACED AND DRAWN -- AND STILL NOT SEEN
+
+Measured at Rothenburg, 400 m above the ground, sun declared at 60 deg:
+
+    building triangles meshed from OSM footprints   622 596
+    triangles reaching the renderer                 840 396   (of which the ring is 217 800)
+    buildings stand between                         329 and 489 m up
+    their vertices lie                              1 to 3 167 m out
+    the ring's nearest vertex                       11 m out at 432 m up
+    the eye                                         830 m up
+
+Every one of those numbers is right. Rothenburg's ground is about 430 m, its valley about 330, and a
+church tower reaches 489. The buildings are inside the frustum, in front of the eye, above the
+terrain under it.
+
+**THE CONTROL THAT PROVED IT.** Lifted 500 m, the whole town appears -- and its shadows fall on the
+ground below with Rothenburg's street plan, its ring road and its market square legible in them. So
+the geometry is correct, the placement is correct, the winding is correct, the shadow pass sees
+them, and the material reaches them.
+
+At their true height they are two red pixels when painted pure red. At +20 m, painted red, nothing.
+At +500 m, a town. The transition sits somewhere between 20 and 500 m, which no number here
+predicts, and that gap is the finding rather than any of the causes ruled out:
+
+- NOT the winding: matched to the ring's, which is swapped for this renderer
+- NOT the material: given their own surface, and pure red shows the same two pixels
+- NOT the placement: east/north/up all measured and all correct
+- NOT missing from the draw: 622 596 of the 840 396 triangles submitted are theirs
+
+## What this item still owes
+
+- [ ] the buildings are visible at their own height, and the number that says so is the transition itself -- at what offset do they emerge, and why is it not zero
+- [ ] whatever the cause, its negative control is the +500 m lift: it must stop being necessary

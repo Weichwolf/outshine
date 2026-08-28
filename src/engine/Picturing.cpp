@@ -135,6 +135,7 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
+  World.Stack.ShapesFootprintsWith(&World.Shaper);
   if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
     std::string why;
     if (!World.Shipping.Stands(World.Stack.Vegetation(),
@@ -465,12 +466,96 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   Geometry ground;
-  const int ringPart = ground.Part("ground", 0);
+  // THE SURFACES ARE DECLARED BEFORE THE PARTS THAT WEAR THEM, and the ground's is first so it
+  // stays surface 0. A part naming a surface index that does not exist yet wears whatever lands
+  // there later.
+  Material bare;
+  {
+    const Render::Medium held;
+    for (int channel = 0; channel < 3; ++channel) {
+      bare.BaseColour[channel] = held.GroundAlbedo[channel];
+    }
+  }
+  const int ringSurface = ground.Surface("ground", bare);
+  const int ringPart = ground.Part("ground", ringSurface);
   (void)ground.Positions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
   (void)ground.Normals(ringPart,
                        std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
   (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
                                                              laid->Index.size()));
+
+  // THE BUILDINGS STAND IN THE SAME GEOMETRY AS THE GROUND, one part beside the ring's. They are
+  // STATIC map data, every one with its own footprint, so there is no prototype to instance -- RAGE
+  // bakes map geometry and Unreal merges static meshes for exactly this case, and instancing wins
+  // only where one shape repeats. `BuildingField` already meshes each footprint into an ECEF soup
+  // relative to its own anchor; nothing had ever installed the mesher or read the result.
+  {
+    const Ground::BuildingField &prints = World.Stack.Footprints();
+    const std::vector<float> &soup = prints.Verts();
+    const double *const anchor = prints.Anchor();
+    if (soup.size() >= kTileVertexFloats * 3) {
+      const size_t vertices = soup.size() / kTileVertexFloats;
+      std::vector<float> raised(vertices * 3), facing(vertices * 3);
+      std::vector<uint32_t> run(vertices);
+      for (size_t at = 0; at < vertices; ++at) {
+        const float *const one = soup.data() + at * kTileVertexFloats;
+        const double held[3] = {anchor[0] + (double)one[0], anchor[1] + (double)one[1],
+                                anchor[2] + (double)one[2]};
+        double eastM = 0.0, upM = 0.0, northM = 0.0;
+        standing.Place(held, &eastM, &upM, &northM);
+        raised[at * 3] = (float)eastM;
+        raised[at * 3 + 1] = (float)upM;
+        raised[at * 3 + 2] = (float)(-northM);
+        const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
+        double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+        standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
+        facing[at * 3] = (float)alongEast;
+        facing[at * 3 + 1] = (float)alongUp;
+        facing[at * 3 + 2] = (float)(-alongNorth);
+        run[at] = (uint32_t)at;
+      }
+      // THE SAME WINDING THE RING WEARS. `LayPatchwork`'s indices are swapped a few lines above for
+      // this renderer's facing, and a soup handed over in its own order is culled as backfaces --
+      // drawn, counted, and invisible. 622 596 building triangles reached the frame and none of
+      // them could be seen.
+      for (size_t at = 0; at + 2 < run.size(); at += 3) {
+        std::swap(run[at + 1], run[at + 2]);
+      }
+      // BUILDINGS WEAR THEIR OWN SURFACE. `Restand`'s material overload assigns ONE material to
+      // every surface, so buildings came out in the ground's exact albedo -- drawn, correctly
+      // placed, and indistinguishable from the field they stand in. Lifted 500 m as a control they
+      // were unmistakable, with Rothenburg's street plan legible in their shadows on the ground.
+      Material walls;
+      walls.BaseColour[0] = 0.62f;
+      walls.BaseColour[1] = 0.60f;
+      walls.BaseColour[2] = 0.56f;
+      walls.Roughness = 0.85f;
+      const int builtSurface = ground.Surface("walls", walls);
+      const int builtPart = ground.Part("buildings", builtSurface);
+      (void)ground.Positions(builtPart, std::span<const float>(raised.data(), raised.size()));
+      (void)ground.Normals(builtPart, std::span<const float>(facing.data(), facing.size()));
+      (void)ground.Triangles(builtPart, std::span<const uint32_t>(run.data(), run.size()));
+      Published.Places("building triangles the world meshed", (double)(vertices / 3), "triangles");
+      {
+        double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
+        for (size_t at = 0; at < vertices; ++at) {
+          const double up = (double)raised[at * 3 + 1];
+          const double east = (double)raised[at * 3], south = (double)raised[at * 3 + 2];
+          const double away = std::sqrt(east * east + south * south);
+          least = up < least ? up : least;
+          most = up > most ? up : most;
+          nearest = away < nearest ? away : nearest;
+          farthest = away > farthest ? away : farthest;
+        }
+        Published.Places("buildings stand between", least, "m up");
+        Published.Places("and", most, "m up");
+        Published.Places("their nearest vertex lies", nearest, "m out");
+        Published.Places("their farthest", farthest, "m out");
+      }
+    } else {
+      Published.Places("building triangles the world meshed", 0.0, "triangles");
+    }
+  }
 
   Gltf::Subject laidGround;
   if (!laidGround.Assemble(ground)) {
@@ -482,6 +567,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   for (int channel = 0; channel < 3; ++channel) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];
   }
+
   const size_t drivenParts = Picture.Standing->Shown().Parts().size();
   if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
   World.GroundTiles = laid->Tiles;

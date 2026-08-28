@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 2017
 Area: world, generators
 
