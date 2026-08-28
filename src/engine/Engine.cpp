@@ -244,7 +244,7 @@ const std::vector<std::string> &Engine::unacted() const { return S_->Session.Car
 const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
 bool Engine::settled(void) const {
-  return S_->World.Pending == 0;
+  return S_->World.Wanted > 0 && S_->World.Bare == 0;
 }
 
 // A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
@@ -252,11 +252,19 @@ bool Engine::settled(void) const {
 // bar rather than guessing. This is the same question in this engine's own terms: of the terrain
 // the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
 double Engine::loadProgress(void) const {
+  // THIS COUNTS THE PICTURE, NOT THE QUEUE, and the reason is a gap the queue cannot close.
+  // `TilePool::Done_` is a one-shot MAILBOX rather than a cache: the walk that builds geometry
+  // consumes each finished tile and drops its key from `Posted_`, so the next walk that asks finds
+  // neither and re-posts it. Every tile therefore reads "pending" again the moment it has been
+  // used, and a fraction taken from the queue answered 0 per cent while 88 of 128 tiles carried
+  // ground. The pool has no notion of RESIDENT, which is what board:2024's delta model has to add.
+  // Until it does, the truthful number is the one a loading bar is FOR: how much of what is drawn
+  // is real ground rather than the bare ellipsoid standing in for it.
   const size_t wanted = S_->World.Wanted;
   if (wanted == 0) { return 1.0; }
-  const size_t missing = S_->World.Pending;
-  if (missing >= wanted) { return 0.0; }
-  return (double)(wanted - missing) / (double)wanted;
+  const size_t bare = S_->World.Bare;
+  if (bare >= wanted) { return 0.0; }
+  return (double)(wanted - bare) / (double)wanted;
 }
 
 // PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the

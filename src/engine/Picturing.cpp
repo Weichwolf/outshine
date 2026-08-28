@@ -138,6 +138,11 @@ bool Engine::State::Asks(void) {
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     over.Levels = 1 + (int)std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0);
   }
+  // THE QUEUE PRIORITISES AROUND THE EYE, and until now it prioritised around a point that never
+  // moved: `TilePool::Focus` had no caller in the whole tree, so `TileDistance` measured from the
+  // pool's construction origin whatever the camera did. Cesium orders its load queue by distance to
+  // the camera for the same reason -- what the viewer is standing in front of is what must arrive.
+  World.Stack.Pool().Focus(over.LatDeg, over.LonDeg);
   auto asked = LayPatchwork(World.Stack.Pool(), over);
   if (!asked) {
     Error = asked.error();
@@ -146,6 +151,8 @@ bool Engine::State::Asks(void) {
   World.Pending = asked->Pending;
   World.Bare = asked->Bare;
   World.Wanted = asked->Tiles;
+  World.AskedPending = asked->Pending;
+  World.AskedWanted = asked->Tiles;
   return true;
 }
 
@@ -218,6 +225,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
     const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32) ^
                           (uint64_t)(int64_t)std::floor(here.Y) ^ ((uint64_t)over.Levels << 56);
+    World.Stack.Pool().Focus(atLat, atLon);
     Around asking = over;
     asking.Asking = true;
     auto sees = LayPatchwork(World.Stack.Pool(), asking);
@@ -228,6 +236,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     World.Pending = sees->Pending;
     World.Bare = sees->Bare;
     World.Wanted = sees->Tiles;
+    World.AskedPending = sees->Pending;
+    World.AskedWanted = sees->Tiles;
     const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
     // BUILDING THE TERRAIN IS A ONE-OFF, AND A STANDING CAMERA HAS NOTHING TO DO. The frame path
     // re-lays for exactly ONE reason: the eye walked into a different tile, so the walk wants a

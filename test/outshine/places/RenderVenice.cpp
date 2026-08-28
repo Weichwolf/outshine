@@ -40,7 +40,7 @@ constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 8.0;
-constexpr double kSightM = 25000.0;
+constexpr double kSightM = 240000.0;
 constexpr double kLatDeg = 45.438;
 constexpr double kLonDeg = 12.3358;
 constexpr double kBearingDeg = 30.0;
@@ -150,6 +150,9 @@ int main(void) {
               measured("the eye, up"),
               measured("the ring's vertex that sinks furthest below its own altitude"),
               measured("and how far out it lies"), measured("a sphere would sink it by"));
+  std::printf("    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer level\n",
+              measured("levels the cascade laid"), measured("tiles it skipped as already covered"),
+              measured("tiles that overlap a finer level"));
   std::printf("    seam: %.0f shared vertices, %.2f m apart in height, %.2f deg apart in normal; "
               "%.0f street(s), %.0f footprint(s), %.0f instanced; kept at %s\n",
               measured("vertices two tiles put in the same place"),

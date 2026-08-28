@@ -55,13 +55,40 @@ The curvature number derives from the same geometry and is stronger, but the ima
 have caught a projection error that the vertex-side one cannot see. It is listed here rather than
 quietly dropped.
 
+## THE BLOCK CASCADE CANNOT NEST, AND THREE MEASUREMENTS SAY SO
+
+Not an opinion about elegance -- three configurations were built and measured at the Grand Canyon
+with 240 km of declared sight, and every one of them is unusable:
+
+    rule                        tiles   skipped   overlapping   seam apart   what the frame shows
+    coverage by rectangle          112        0            24     1495.59 m   coarse through fine
+    coverage by MASK, skip full     99       13            11     1495.59 m   coarse through fine
+    ... and drop on TOUCH           88       24            15        47.54 m   holes of ellipsoid
+    block 6 wide instead of 4      235       17            16         0.01 m   3x the tiles, still over
+
+The cause is arithmetic rather than a bug. Each level snaps to its own zoom's tile grid, and for
+level k's block to sit exactly inside level k+1's inner quarter, every level's origin would have to
+satisfy a parity condition simultaneously -- which no choice of starting origin gives. Widening the
+block does not help: at 6 tiles the overlap is unchanged and the count triples.
+
+So a coarse tile is either drawn through a finer one -- two surfaces 1 495.59 m apart and 100.75 deg
+apart in normal, fighting for the same pixels -- or dropped and leaving a hole. The tree stands on
+DROP-ON-TOUCH, because a visible gap reads as "not loaded" while interpenetration reads as a broken
+engine, and because it takes the seam from 1 495.59 m to 47.54 m.
+
+**A QUADTREE CANNOT PRODUCE EITHER**, and that is the whole argument: it PARTITIONS. A node is
+refined -- its four children drawn -- or it is drawn itself. Never both, never neither. Cesium's
+`Tileset` is exactly this walk, and the 47.54 m residual becomes a screen-space-error threshold
+instead of an accident of two zoom levels sampling the same ground.
+
 ## What will be true
 
 - [ ] terrain is a generator under `src/generators/`, told a place and a sight once and a position thereafter
 - [ ] it answers with a DELTA -- what entered, what left, what changed level -- and says nothing when nothing changed
 - [ ] the cut is by SCREEN-SPACE ERROR against one declared threshold, not by a level table
 - [ ] `Around::Levels`, `kBlockTiles` and `SphereTile` are gone, and the bare ellipsoid survives only as the answer for a node with no resident ancestor
-- [ ] `TilePool::Focus` has a caller -- it has none today, so the queue prioritises around a point that never moves
+- [x] `TilePool::Focus` has a caller. It had none, so `TileDistance` measured from the pool's construction origin whatever the camera did
+- [ ] **the pool holds what it built.** `Done_` is a one-shot MAILBOX, not a cache: the walk that builds geometry consumes each finished tile and drops its key from `Posted_`, so the next walk that asks finds neither and re-posts it. Every tile reads "pending" again the moment it has been used, which is why a progress fraction taken from the queue answered 0 per cent while 88 of 128 tiles carried ground. A generator that answers with CHANGES cannot be built on a mailbox -- it has to know what it already handed over
 
 ## The measurements that would show I am wrong
 

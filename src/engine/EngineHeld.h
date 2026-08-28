@@ -256,6 +256,8 @@ struct Surrounds {
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;
+  size_t AskedPending = 0;
+  size_t AskedWanted = 0;
   uint64_t LaidFrom = 0;
   size_t LaidResident = 0;
   bool EverLaid = false;
