@@ -34,7 +34,7 @@ namespace {
 constexpr const char *kPlace = "Venice";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
-constexpr int kSteps = 8;
+constexpr int kSteps = 60;
 constexpr double kLatDeg = 45.438;
 constexpr double kLonDeg = 12.3358;
 
@@ -116,6 +116,8 @@ int main(void) {
   const double triangles = measured("subjects, triangles");
   const double relief = measured("so the relief it carries");
   const double ways = measured("streets the world holds");
+  const double placed = measured("bodies the world's generators placed");
+  const double instanced = measured("instances its draw sources made");
   const double prints = measured("building footprints it holds");
   const double spans = measured("and the ground it spans, east to west");
   const double adrift = measured("vertices more than 500 m from that average");
@@ -131,8 +133,8 @@ int main(void) {
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = "build/places/Venice.png";
   const bool wrote = engine.saveScreenshot(kept);
-  std::printf("%s  %.0f tile(s), %.0f triangle(s), %.0f m relief over %.0f m, %.0f street(s), %.0f footprint(s), %zu of %zu pixel(s) differ, kept at %s\n",
-              kPlace, tiles, triangles, relief, spans, ways, prints, apart, rgba.size() / 4u,
+  std::printf("%s  %.0f tile(s), %.0f triangle(s), %.0f m relief over %.0f m, %.0f street(s), %.0f footprint(s), %.0f placed, %.0f instanced, %zu of %zu pixel(s) differ, kept at %s\n",
+              kPlace, tiles, triangles, relief, spans, ways, prints, placed, instanced, apart, rgba.size() / 4u,
               wrote ? kept.c_str() : engine.error().c_str());
 
   CHECK(read && apart > 0,
