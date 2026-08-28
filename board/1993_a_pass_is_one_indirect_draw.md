@@ -68,3 +68,33 @@ is invisible, because 167 draws and 0.961 ms both look unremarkable alone.
 
 So this item has its before-number: whatever the indirect draw does to VirtualCity's tri/ms is
 what it is worth, and the other three scenes are the control -- they must not get worse.
+
+## board:2001 tried the shortcut and MEASURED why there is none
+
+The shortcut was: if two parts' placement rows are EQUAL, give them one slot and let the existing
+merge condition do the rest -- no indirect draw needed. Sponza reads `103 placement(s) ... 1
+differ`, so the rows really are equal there, and the shortcut took Sponza to 25 draws and
+ABeautifulGame to 21, exactly their material counts, with khronos/glTF 444/444.
+
+It is still wrong, and the reason is the one this item already states, seen from the other side.
+`SubjectProxy::Places` decides the merge at STAND. `Placed_` is EMPTY at that moment -- measured,
+`placed=0` in both builds -- so every row is the identity fallback and every row is equal. The
+merge therefore collapses everything, and the placements arrive AFTERWARDS, per frame, through
+`MovePlacement`. Sixty-four crates standing in sixty-four places:
+
+    without the dedupe   batches=64  rows=2048 floats  ring opened 51680  door 33/33
+    with the dedupe      batches=1   rows=  32 floats  ring opened 43616  door 30 PASS 2 FAIL
+
+The frame writes 64 rows either way, because rows are sized from `Placed_`. So the merge shrank
+the BUDGET, which is taken from the batches' slot count at stand, and not the DEMAND, which is
+taken from the placements at frame time -- 8064 bytes apart, and the overflow that had no
+explanation for two attempts.
+
+**Unreal never merges on transform equality, and this is why.** A transform is per-INSTANCE data
+living in `FGPUScene`; it changes every frame and is not knowable when the batch is formed.
+`FMeshBatch` merges on STATE -- material, vertex factory -- and never on a value. A merge that
+reads a transform is a merge that reads data which does not exist yet.
+
+So the residual is exactly the per-draw index offset this item already names, and there is no
+cheaper route to it: a draw spanning parts with different transforms needs each vertex to find its
+own row, which is `FGPUScene`'s primitive id in the vertex factory. Nothing before that helps.
