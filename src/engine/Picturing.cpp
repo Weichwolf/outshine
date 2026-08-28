@@ -501,6 +501,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
       Published.Places("buildings: footprints the field holds", (double)prints.Footprints().size(),
                        "footprints");
+      {
+        double least = 1.0e30, most = -1.0e30;
+        size_t within = 0;
+        for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+          const double east = (double)inFrame[at], south = (double)inFrame[at + 2];
+          if (east * east + south * south > 3200.0 * 3200.0) { continue; }
+          const double up = (double)inFrame[at + 1];
+          least = up < least ? up : least;
+          most = up > most ? up : most;
+          ++within;
+        }
+        Published.Places("buildings: the ring within 3.2 km runs from", within > 0 ? least : 0.0,
+                         "m up");
+        Published.Places("buildings: to", within > 0 ? most : 0.0, "m up");
+        Published.Places("buildings: over this many ring vertices", (double)within, "vertices");
+      }
     }
     if (soup.size() >= kTileVertexFloats * 3) {
       const size_t vertices = soup.size() / kTileVertexFloats;
@@ -597,7 +613,35 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   const size_t drivenParts = Picture.Standing->Shown().Parts().size();
+  Published.Places("restand: the carried count the world hands over", (double)drivenParts,
+                   "carried");
+  Published.Places("restand: parts in the geometry", (double)ground.Parts(), "parts");
   if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
+  Published.Places("restand: parts the proxy then stands with",
+                   (double)Picture.Standing->PartsStanding(), "parts");
+  Published.Places("restand: instances it carries",
+                   (double)Picture.Standing->InstancesStanding(), "instances");
+  for (size_t part = 0; part < laidGround.Parts().size(); ++part) {
+    const Gltf::Part &one = laidGround.Parts()[part];
+    Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
+                     (double)one.FirstVertex, "");
+    Published.Places("restand: subject part " + std::to_string(part) + " vertex count",
+                     (double)one.VertexCount, "");
+    Published.Places("restand: subject part " + std::to_string(part) + " first index",
+                     (double)one.FirstIndex, "");
+    Published.Places("restand: subject part " + std::to_string(part) + " index count",
+                     (double)one.IndexCount, "");
+  }
+  for (size_t part = 0; part < Picture.Standing->PartsStanding(); ++part) {
+    const double *const m = Picture.Standing->PlacementStanding(part);
+    if (m == nullptr) { continue; }
+    double most = 0.0;
+    for (int at = 0; at < 16; ++at) { most += std::fabs(m[at]); }
+    Published.Places("restand: part " + std::to_string(part) +
+                         " placement, sum of the absolute terms", most, "");
+    Published.Places("restand: part " + std::to_string(part) + " diagonal",
+                     m[0] + m[5] + m[10] + m[15], "");
+  }
   World.GroundTiles = laid->Tiles;
   Published.Places("tiles the ring laid", (double)laid->Tiles, "tiles");
   Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");

@@ -168,30 +168,45 @@ predicts, and that gap is the finding rather than any of the causes ruled out:
 - [ ] whatever the cause, its negative control is the +500 m lift: it must stop being necessary
 
 
-## THE LAST CANDIDATE STANDING: a second part has no placement row
+## THE BUILDINGS DRAW. SHIBUYA'S SKYLINE STANDS.
 
-`BuildDrawList` sets `item.ModelSlot = part * proxy.Instances()` and the draw passes it as the FIRST
-INSTANCE:
+Tokyo's towers are in `build/places/Shibuya.png` -- the tall spire among them -- so the whole path
+works: OSM footprint, mesh, part, surface, placement, draw, frame. The question is no longer whether
+they draw.
 
-    SDL_DrawGPUIndexedPrimitives(pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0,
-                                 batch.ModelSlot);
+## EIGHT CANDIDATES DEAD, EACH BY A NUMBER
 
-So part 1 -- the buildings -- reads its model matrix from placement row `Instances()`, while part 0
-reads row 0. `Live::Restand(built, carried, error)` takes `carried` from
-`Picture.Standing->Shown().Parts().size()`, the part count of the subject that stood BEFORE this
-one, and hands it on as the instance count. When the ring alone stood there, that is 1 -- so the
-proxy carries one instance, part 1 asks for row 1, and row 1 was never written.
+    a refused part            all three Geometry calls report taken; part 1, surface 1, 2 parts
+    scale                     60 m above ground, where a 12 m building at 100 m covers 45 px
+    the material              own surface; pure red shows the same
+    lighting and shadow       EMISSIVE at 40 000 -- neither can hide it
+    the winding               matched to the ring's, which is swapped for this renderer
+    the anchor                0 m from the render frame's origin
+    an unwritten placement    both parts read identity: sum of absolute terms 4, diagonal 4
+    part ranges               part 1 first vertex 653 400, count 1 867 788, indices offset to match
 
-An unwritten row is a zero matrix, and a zero matrix collapses every vertex of the part onto a
-single point. THAT IS WHAT THE PICTURE SHOWS: painted emissive red, the entire town is ONE red mark.
+    the ring within 3.2 km    318 to 460 m up over 150 738 vertices
+    the buildings             329 to 489 m up, 1 to 3 167 m out
+    the eye                   490 m up, ground 430
 
-## The measurement that settles it, named before the measuring
+The buildings sit INSIDE the ring's own range and their tops reach 29 m above its highest point. So
+they are not buried.
 
-1. **`proxy.Instances()` and the placement row count.** If instances is 1 while the geometry has 2
-   parts, the row part 1 reads does not exist and this is the cause. If instances is already 2 or
-   more, it is not, and this candidate dies like the five before it
-2. **The negative control is the collapse itself.** With the row written, the buildings must stop
-   being one mark and become a town at their own height -- and the +500 m lift must stop being
-   necessary, which is the check this item has carried since the lift first worked
-3. **Why the lift worked anyway** must also come out of it: at +500 m the same collapse should have
-   happened, and it did not. Any answer that explains the collapse but not that is incomplete
+## WHAT IS LEFT, stated as the pattern the numbers show
+
+**Far buildings draw and near ones do not.** Shibuya's towers stand at kilometres while its 91 208
+footprints leave the near field empty; Rothenburg's 5 499 leave it empty at every distance and its
+tallest are 60 m rather than 250. So what separates a drawn building from an absent one is SIZE ON
+SCREEN or DISTANCE, not placement, material, lighting or topology -- every one of those is dead
+above.
+
+## The measurements that would settle it
+
+1. **The near plane.** `SubjectProxy` takes `eye.ZNearM` when it is positive and `Renderer::kNearM`
+   (0.05 m) otherwise. With a ring spanning 388 km a framing-derived near plane could be hundreds of
+   metres, and everything closer would be clipped. Publish it: if it is 0.05 m this dies
+2. **A count, not an impression.** How many building triangles survive to the draw against the
+   622 596 submitted -- if the draw receives all of them, the loss is in the pipeline and not in the
+   list
+3. **The negative control is Shibuya itself.** Whatever the answer, it must leave the skyline
+   standing and put the near buildings beside it

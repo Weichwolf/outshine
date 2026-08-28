@@ -169,11 +169,11 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       // Dropping on touch trades that for a possible sliver of ellipsoid at a block edge, which is
       // the lesser wrong. A QUADTREE cannot produce either, because it partitions: a node is
       // refined or drawn, never both. That is board:2024, and this is the number that argues it.
-      if (covered || touches) {
+      if (covered) {
         ++out.Skipped;
-        if (touches && !covered) { ++out.Overlapped; }
         continue;
       }
+      if (touches) { ++out.Overlapped; }
       if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
       TileBuild built;
       const TileMeshes::Reply said =

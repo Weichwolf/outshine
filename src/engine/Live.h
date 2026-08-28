@@ -110,6 +110,11 @@ public:
   [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
   [[nodiscard]] const Gltf::Viewpoint &Watching() const { return Eye_; }
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
+  [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
+  [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
+  [[nodiscard]] const double *PlacementStanding(size_t part) const {
+    return Stood_.Placement(part).data();
+  }
   [[nodiscard]] bool Watched() const { return HaveEye_; }
 
   void FrameItself() {
