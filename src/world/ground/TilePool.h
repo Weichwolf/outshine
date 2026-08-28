@@ -4,6 +4,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -163,6 +164,7 @@ private:
   std::vector<Job> Carrying_;
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
+  std::deque<uint64_t> Kept_;
 
   long long Posts_ = 0, Repeats_ = 0;
   double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;

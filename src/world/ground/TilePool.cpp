@@ -29,6 +29,8 @@ constexpr int kPollAttempts = 30000;
 
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
+constexpr size_t kMostKept = 1024;
+
 thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
@@ -428,6 +430,14 @@ void TilePool::Carry(void) {
         Posted_.erase(job.Key);
       } else if (Posted_.find(job.Key) != Posted_.end()) {
         Done_[job.Key] = std::move(result);
+        Kept_.push_back(job.Key);
+        while (Kept_.size() > kMostKept) {
+          const uint64_t oldest = Kept_.front();
+          Kept_.pop_front();
+          if (std::find(Kept_.begin(), Kept_.end(), oldest) != Kept_.end()) { continue; }
+          Done_.erase(oldest);
+          Posted_.erase(oldest);
+        }
       }
       const auto parked = Awaiting_.find(job.Key);
       if (parked != Awaiting_.end()) {
@@ -535,6 +545,14 @@ void TilePool::Work(int slot) {
         if (result.State == Reply::Absent || result.State == Reply::Undeclared)
           result.Build = TileBuild{};
         Done_[job.Key] = std::move(result);
+        Kept_.push_back(job.Key);
+        while (Kept_.size() > kMostKept) {
+          const uint64_t oldest = Kept_.front();
+          Kept_.pop_front();
+          if (std::find(Kept_.begin(), Kept_.end(), oldest) != Kept_.end()) { continue; }
+          Done_.erase(oldest);
+          Posted_.erase(oldest);
+        }
         Landed_.notify_all();
       }
     }
@@ -546,14 +564,17 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   std::unique_lock<std::mutex> lock(QueueMutex_);
   const auto done = Done_.find(job.Key);
   if (done != Done_.end()) {
-
     if (done->second.State == Reply::Absent || done->second.State == Reply::Undeclared) {
       out->State = done->second.State;
       return out->State;
     }
-    *out = std::move(done->second);
-    Done_.erase(done);
-    Posted_.erase(job.Key);
+    // A FINISHED TILE STAYS. `Done_` used to be a one-shot MAILBOX: the caller that took a mesh
+    // erased it and dropped its key from `Posted_`, so the very next walk found neither and posted
+    // the job again. Measured, that cost 583 ms of a standing camera's frame -- 128 tiles re-meshed
+    // every frame for a world that had not moved -- and it made any residency question
+    // unanswerable, because every tile read "pending" the moment it had been used. Unreal, RAGE and
+    // Cesium all hold streamed data resident until a budget evicts it; that is what streaming IS.
+    *out = done->second;
     return out->State;
   }
   if (Posted_.insert(job.Key).second) {

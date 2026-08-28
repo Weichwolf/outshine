@@ -244,7 +244,7 @@ const std::vector<std::string> &Engine::unacted() const { return S_->Session.Car
 const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
 bool Engine::settled(void) const {
-  return S_->World.Wanted > 0 && S_->World.Bare == 0;
+  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0;
 }
 
 // A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
@@ -252,19 +252,17 @@ bool Engine::settled(void) const {
 // bar rather than guessing. This is the same question in this engine's own terms: of the terrain
 // the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
 double Engine::loadProgress(void) const {
-  // THIS COUNTS THE PICTURE, NOT THE QUEUE, and the reason is a gap the queue cannot close.
-  // `TilePool::Done_` is a one-shot MAILBOX rather than a cache: the walk that builds geometry
-  // consumes each finished tile and drops its key from `Posted_`, so the next walk that asks finds
-  // neither and re-posts it. Every tile therefore reads "pending" again the moment it has been
-  // used, and a fraction taken from the queue answered 0 per cent while 88 of 128 tiles carried
-  // ground. The pool has no notion of RESIDENT, which is what board:2024's delta model has to add.
-  // Until it does, the truthful number is the one a loading bar is FOR: how much of what is drawn
-  // is real ground rather than the bare ellipsoid standing in for it.
-  const size_t wanted = S_->World.Wanted;
+  // THIS READS THE ASK, and it only became truthful when the pool started HOLDING what it built.
+  // While `Done_` was a one-shot mailbox, a tile read "pending" again the moment it had been used,
+  // so this answered 0 per cent with 88 of 128 tiles carrying ground. It must not read the BUILD
+  // walk's numbers either: that walk does not count bare tiles at all, so `Bare == 0` there is a
+  // fact about the walk rather than about the world, and reading it made `settled()` answer yes
+  // with 35 tiles still pending.
+  const size_t wanted = S_->World.AskedWanted;
   if (wanted == 0) { return 1.0; }
-  const size_t bare = S_->World.Bare;
-  if (bare >= wanted) { return 0.0; }
-  return (double)(wanted - bare) / (double)wanted;
+  const size_t missing = S_->World.AskedPending;
+  if (missing >= wanted) { return 0.0; }
+  return (double)(wanted - missing) / (double)wanted;
 }
 
 // PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the

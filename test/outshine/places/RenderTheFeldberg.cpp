@@ -150,6 +150,9 @@ int main(void) {
               measured("the eye, up"),
               measured("the ring's vertex that sinks furthest below its own altitude"),
               measured("and how far out it lies"), measured("a sphere would sink it by"));
+  std::printf("    %.0f rebuild(s) of the terrain over %.0f walk(s) that asked\n",
+              measured("times the terrain was rebuilt"), measured("and how often it was asked about"));
+  std::printf("    the last rebuild took %.0f ms\n", measured("and what the last rebuild took"));
   std::printf("    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer level\n",
               measured("levels the cascade laid"), measured("tiles it skipped as already covered"),
               measured("tiles that overlap a finer level"));

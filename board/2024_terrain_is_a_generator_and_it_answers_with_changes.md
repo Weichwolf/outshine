@@ -81,6 +81,36 @@ refined -- its four children drawn -- or it is drawn itself. Never both, never n
 `Tileset` is exactly this walk, and the 47.54 m residual becomes a screen-space-error threshold
 instead of an accident of two zoom levels sampling the same ground.
 
+## EACH TILE ONE VBO -- the owner's decision, and the measurement that forces it
+
+**Benchmark** — Unreal: a `ULandscapeComponent` owns its own vertex buffer and only its LOD index
+changes; nothing re-uploads the landscape per frame. Cesium: each loaded tile is its own primitive
+with its own buffers, added and removed as the quadtree walk selects. RAGE: a sector's geometry is
+resident until the sector unloads. **All three agree**, and the owner states the same thing in this
+tree's words: terrain is STATIC GEOMETRY made of LOD tiles, and now and then a tile is replaced or
+its level changes. One mesh instead would force a projected grid and geomorphing to hide the LOD
+switch -- strictly harder for a worse result.
+
+MEASURED at the Grand Canyon, 240 km of sight, 88 tiles, 187 504 triangles, camera standing still:
+
+    to stand the world               1 690 ms
+    one rebuild of the terrain       1 386 ms
+    three frames                     9 416 ms   -- 3 138 ms EACH
+    rebuilds during those frames         1
+    walks that asked                     2
+
+The guard works: two rebuilds, not one per frame. So the 3 138 ms is NOT the rebuild -- subtracting
+the one rebuild inside the loop still leaves about 2.7 s per frame with nothing moving. A monolithic
+`Gltf::Subject` is re-posed and re-uploaded every frame because that is what a subject IS: something
+that can move. Terrain cannot. The owner reports the flightbox version carried 240 km at 60 fps.
+
+## What will be true
+
+- [ ] a terrain tile is its own VBO, uploaded ONCE when it lands and never again while it stands
+- [ ] replacing a tile or changing its level touches that tile's buffer and nothing else
+- [ ] the terrain is not a `Gltf::Subject`: it is static geometry with no pose, no skin and no per-frame upload
+- [ ] a standing camera over 240 km of terrain costs a frame time a 60 fps budget can carry, measured p50/p95/p99 rather than as a mean
+
 ## What will be true
 
 - [ ] terrain is a generator under `src/generators/`, told a place and a sight once and a position thereafter

@@ -261,6 +261,9 @@ struct Surrounds {
   uint64_t LaidFrom = 0;
   size_t LaidResident = 0;
   bool EverLaid = false;
+  size_t Relaid = 0;
+  size_t Asked = 0;
+  double RebuildMs = 0.0;
   std::chrono::steady_clock::time_point LaidAt{};
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;

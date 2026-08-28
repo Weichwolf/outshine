@@ -226,6 +226,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32) ^
                           (uint64_t)(int64_t)std::floor(here.Y) ^ ((uint64_t)over.Levels << 56);
     World.Stack.Pool().Focus(atLat, atLon);
+    ++World.Asked;
     Around asking = over;
     asking.Asking = true;
     auto sees = LayPatchwork(World.Stack.Pool(), asking);
@@ -252,6 +253,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     World.LaidFrom = from;
     World.LaidResident = resident;
     World.EverLaid = true;
+    ++World.Relaid;
+  }
+  const auto rebuildBegan = std::chrono::steady_clock::now();
+  {
   }
 
   auto laid = LayPatchwork(World.Stack.Pool(), over);
@@ -474,6 +479,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
   Published.Places("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
   Published.Places("its key light", Picture.Standing->Standing().KeyLux, "lux");
+  Published.Places("times the terrain was rebuilt", (double)World.Relaid, "rebuilds");
+  World.RebuildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                              rebuildBegan)
+                        .count();
+  Published.Places("and what the last rebuild took", World.RebuildMs, "ms");
+  Published.Places("and how often it was asked about", (double)World.Asked, "walks");
   Published.Places("levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
   Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
   Published.Places("tiles laid bare on the ellipsoid", (double)laid->Bare, "tiles");
