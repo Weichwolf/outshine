@@ -152,6 +152,9 @@ public:
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Resident_; }
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
+
+  [[nodiscard]] uint32_t ColourImages() const;
+  [[nodiscard]] uint32_t Textured() const;
   [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
   [[nodiscard]] const double *AnchorM() const { return Anchor; }
   [[nodiscard]] const double *ModelM() const { return Model; }

@@ -41,6 +41,11 @@ deterministic rather than merely possible.
       through the door, with the engine's counters read rather than a stopwatch held outside it.
       proof: outshine/door/ScoreWhatTheDriveMeasures, and `sh test/gate.sh` naming apps/ among
       what it does NOT cover
+**BOTH REMAINING PREDICATES ARE THE DRIVER'S, AND THE DRIVER IS PARKED.** The owner's direction:
+`apps/driver` is developed further when outshine itself is "done", and until then `apps/bench` is
+the tool, used surgically. So these two wait on that, and they are not a step toward the benchmark
+in the meantime -- a pinned tile set for a client nobody develops buys nothing today.
+
 - [ ] the tiles it needs are pinned and hashed, so the run is offline and deterministic. **The
       SUBJECT asset belongs to this predicate too** (from board:1509): the F31 is a CC-BY-4.0
       model fetched like any other corpus subject, and its attribution has to travel beside it.

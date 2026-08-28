@@ -302,6 +302,10 @@ void Engine::State::Tells(void) {
                        "slots");
       Published.Places(std::string(Row(stage).Name) + ", placements", (double)spent.Placements,
                        "slots");
+      Published.Places(std::string(Row(stage).Name) + ", textured", (double)spent.Textured,
+                       "slots");
+      Published.Places(std::string(Row(stage).Name) + ", colour images", (double)spent.Palettes,
+                       "images");
     }
   }
   if (Cost.Render.Count > 0) {

@@ -565,6 +565,8 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     }
     spent.Surfaces = surfaces;
     spent.Placements = placements;
+    spent.Textured = drew.Textured();
+    spent.Palettes = drew.ColourImages();
   }
 }
 

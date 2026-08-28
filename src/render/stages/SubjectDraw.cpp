@@ -377,6 +377,25 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   Slots.push_back(std::move(slot));
 }
 
+uint32_t SubjectDraw::ColourImages() const {
+  std::vector<SDL_GPUTexture *> distinct;
+  for (const SurfaceSlot &slot : Slots) {
+    SDL_GPUTexture *const colour = slot.Colour.Image.Get();
+    bool seen = false;
+    for (SDL_GPUTexture *const held : distinct) { seen = seen || held == colour; }
+    if (!seen) { distinct.push_back(colour); }
+  }
+  return (uint32_t)distinct.size();
+}
+
+uint32_t SubjectDraw::Textured() const {
+  uint32_t wearing = 0;
+  for (const SurfaceSlot &slot : Slots) {
+    if (slot.Colour.Image.Get() != nullptr) { ++wearing; }
+  }
+  return wearing;
+}
+
 bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
 
   Slots.clear();
