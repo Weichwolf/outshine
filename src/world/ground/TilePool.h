@@ -117,6 +117,7 @@ private:
 
     Data::Address At = Data::Address::Whole(0);
     bool Absent = false;
+    double RefusedUntilMs = 0.0;
     uint64_t Used = 0;
   };
 
@@ -128,6 +129,7 @@ private:
   double TileDistance(int z, uint32_t x, uint32_t y) const;
 
   [[nodiscard]] Reply Lookup(const std::string &key, Landing *out);
+  void RefuseUntil(const std::string &key, double untilMs);
   void Remember(const std::string &key, const uint8_t *data, size_t len, const Data::Address &at,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Request &request, Landing *out);

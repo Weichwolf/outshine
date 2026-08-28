@@ -197,11 +197,17 @@ not being forced through with a third variation of the same error.
       again, asks again, is refused again, parks again -- forever, because nothing remembers that
       this key is refused.
 
-      So the fifth attempt owes one more thing before the park: **a refusal must be remembered**.
-      Not permanently -- `Host::Fetching` already carries `RetryAfterS`, so a refusal is meant to
-      be retried after a delay, and remembering it forever would make one bad minute permanent.
-      The negative cache needs a DEADLINE for refusals, which is a design point this pool does not
-      have and which nothing else in the tree needed until a released job could ask twice.
+      **The third condition is now MET, ahead of the fifth attempt.** `Data::Delivery` carries the
+      retry deadline it was throwing away -- `SourceSet` already computed it from the source's own
+      Retry-After with exponential backoff and dropped it on the floor -- and `TilePool` remembers
+      a refusal until it passes. Not for ever: the deadline is the source's own, so one bad minute
+      does not become a permanent hole.
+      proof: `outshine/geo/ScoreWhenAWaitForATileEnds` asks the same refused key twice and reads
+      `0 transport ask(s) the second time`.
+      negative control: dropping the `RefuseUntil` call makes it read 1 and the case goes RED.
+      That leaves the fifth attempt with all three conditions HELD rather than merely named: the
+      completion carries its outcome, the park is only taken where a carrier exists, and a refusal
+      is remembered with a deadline.
       The pattern across four attempts is worth naming: each one moved the failure somewhere new
       -- deadlock, deadlock, spin, and now a hang only the offline driver sees. The suites that
       go green are not the ones that catch this, and the gate's driver run is.

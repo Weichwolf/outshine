@@ -104,6 +104,33 @@ private:
   bool Released_ = false;
 };
 
+[[nodiscard]] bool Twice(const char *nest, size_t *askedAgain, std::string &why) {
+  outshine::Data::ContentStore::Config keeping;
+  keeping.Directory = std::string(nest) + "/twice-cache";
+  outshine::Data::ContentStore store(keeping);
+  outshine::Data::SourceSet sources(store);
+  const std::span<const outshine::Provider> shipped = outshine::Data::ShippedProviders();
+  if (!outshine::Data::RegisterDeclared(sources, shipped, "src/assets/sky", why)) { return false; }
+  Holding holding;
+  holding.Release();
+
+  outshine::Ground::TilePool::Config config;
+  config.OriginLatDeg = 48.137;
+  config.OriginLonDeg = 11.576;
+  config.Threads = 1;
+  config.ByteBudget = 64u * 1024u * 1024u;
+  config.PollAttempts = 2;
+  outshine::Ground::TilePool pool(config, sources, holding);
+  const outshine::Data::Request request(outshine::Data::DataKind::Elevation,
+                                        outshine::Data::Address::Tile(12, 2185, 1421));
+  outshine::Ground::TilePool::Landing landing;
+  (void)pool.BytesBlocking(request, &landing);
+  const size_t after = holding.Asked();
+  (void)pool.BytesBlocking(request, &landing);
+  *askedAgain = holding.Asked() - after;
+  return true;
+}
+
 [[nodiscard]] bool Ends(int pollAttempts, bool release, const char *nest, bool *entered,
                         double *tookS, size_t *asked, long *onCompute, std::string &why) {
   outshine::Data::ContentStore::Config keeping;
@@ -185,6 +212,26 @@ int main(void) {
   const bool dropped = Ends(3, false, nest, &enteredTwo, &tookTwoS, &askedTwo, &onComputeTwo, why);
   std::printf("  NEVER answered       ended: %s after %.3f s   %zu ask(s)\n",
               dropped ? "yes" : "NO", tookTwoS, askedTwo);
+
+  // ARM THREE: a REFUSAL IS REMEMBERED, and for a while. `Data::Delivery` carries five states and
+  // the pool's negative cache took exactly one of them -- `Vacant`. A `Refused` was thrown away,
+  // so a source that says no is asked again on the very next call, every frame, for ever. Linux
+  // caches a negative dentry with a lifetime, RAGE remembers a missing file for the session, and
+  // Unreal's DDC records a miss; all three remember a NO, because a question asked once is asked
+  // again.
+  //
+  // Not for ever, though: `SourceSet` already computes a retry deadline from the source's own
+  // Retry-After with exponential backoff, and threw it away at the same place. `Delivery` carries
+  // it now and the pool remembers the refusal until it passes.
+  size_t askedThree = 0;
+  const bool refusedTwice = Twice(nest, &askedThree, why);
+  std::printf("  ASKED TWICE AFTER A REFUSAL: %zu transport ask(s) the second time\n", askedThree);
+
+  CHECK(refusedTwice && askedThree == 0,
+        "**A REFUSAL IS REMEMBERED UNTIL ITS DEADLINE**: the same key asked again inside the "
+        "retry window reaches the CACHE and not the transport, so a source that is down is not "
+        "hammered once per frame. It is the third of the three conditions board:1985's completion "
+        "queue needs, and the one that hung the offline driver for seventeen minutes");
 
   CHECK(entered,
         "**THE CALL ENTERS THE WAIT**: with the transport holding its answer the tile cannot have "

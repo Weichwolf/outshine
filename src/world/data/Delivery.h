@@ -30,6 +30,13 @@ public:
   static Delivery Nothing() { return Delivery(State::Vacant); }
   static Delivery NoSource() { return Delivery(State::Undeclared); }
   static Delivery Wire() { return Delivery(State::Refused); }
+  static Delivery WireAfter(double afterMs) {
+    Delivery d(State::Refused);
+    d.AfterMs_ = afterMs > 0.0 ? afterMs : 0.0;
+    return d;
+  }
+
+  [[nodiscard]] double AfterMs() const noexcept { return AfterMs_; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
@@ -43,6 +50,7 @@ private:
   explicit Delivery(State where) : Where_(where) {}
 
   State Where_;
+  double AfterMs_ = 0.0;
   Answer Answer_;
 };
 

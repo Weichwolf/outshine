@@ -143,12 +143,28 @@ size_t TilePool::SchedulerBytes() const {
   return bytes;
 }
 
+void TilePool::RefuseUntil(const std::string &key, double untilMs) {
+  std::lock_guard<std::mutex> lock(CacheMutex_);
+  for (CacheEntry &e : Cache_) {
+    if (e.Key != key) { continue; }
+    e.RefusedUntilMs = untilMs;
+    return;
+  }
+  CacheEntry made;
+  made.Key = key;
+  made.RefusedUntilMs = untilMs;
+  made.Used = ++CacheClock_;
+  Cache_.push_back(std::move(made));
+}
+
 TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
   for (CacheEntry &e : Cache_) {
     if (e.Key != key) continue;
     e.Used = ++CacheClock_;
+    if (e.RefusedUntilMs > Wire_.NowMs()) { return Reply::Refused; }
     if (e.Absent) return Reply::Absent;
+    if (e.Data.empty() && e.RefusedUntilMs > 0.0) { return Reply::Pending; }
     out->Bytes.assign(e.Data.begin(), e.Data.end());
     out->At = e.At;
     return Reply::Ready;
@@ -222,6 +238,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
         reply = Reply::Undeclared;
         break;
       case Data::Delivery::State::Refused:
+        RefuseUntil(key, Wire_.NowMs() + answer.AfterMs());
         Log::Error("world", "tile_refused", {{"request", key}});
         reply = Reply::Refused;
         break;

@@ -133,7 +133,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           std::lock_guard<std::mutex> lock(LedgerMutex_);
           Ledger_.Refused++;
         }
-        return Delivery::Wire();
+        return Delivery::WireAfter(std::fmax(answer.RetryAfterS() * 1000.0, kRetryCapMs));
     }
   }
 }
