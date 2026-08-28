@@ -1100,7 +1100,7 @@ StateProgress() {
       done >> "$progressTally"
   done
 
-  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | held | share | tickets | note |\n|---|---|---|---|---|\n'
+  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | predicates held | share | items | note |\n|---|---|---|---|---|\n'
   if [ -s "$progressTally" ]; then
     sort "$progressTally" | awk '
       { n[$1 " " $2]++; areas[$1] = 1
