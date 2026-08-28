@@ -170,5 +170,22 @@ not being forced through with a third variation of the same error.
       number that pays for it arrives with the next step, not this one.
       Guarded meanwhile: `outshine/geo/ScoreWhenAWaitForATileEnds` now CHECKS the number it had
       only printed. It stands at 1 and 2 and may only fall.
+
+      **FOURTH ATTEMPT: it reached 0 and 0, and hung the driver.** With `Await` in place the park
+      finally worked in the wait case -- `fetches that ran on a COMPUTE worker: 0 and 0`, geo
+      12/12, door 33/33 -- because the completion now CARRIES ITS OUTCOME: a job whose fetch
+      completed goes back on the queue, and a job whose fetch GAVE UP has its own key erased so
+      its caller sees Pending and asks again next round. That is what the third attempt got wrong
+      and why it spun 818 times.
+      One more condition was found and handled: with ZERO carriers nobody serves `Carrying_`, so
+      a parked job waits on a completion that cannot come. `PoolTerrain::Take` blocks as before
+      when the pool carries nothing, and the door suite went green on that.
+      Then the gate hung: `./build/outshine-driver --headless --offline --frames 8` sat for
+      seventeen minutes where it takes seconds. So there is a THIRD condition, in the offline
+      path, that neither the wait case nor the door reaches -- and it is the one to find before a
+      fifth attempt. Rolled back.
+      The pattern across four attempts is worth naming: each one moved the failure somewhere new
+      -- deadlock, deadlock, spin, and now a hang only the offline driver sees. The suites that
+      go green are not the ones that catch this, and the gate's driver run is.
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared

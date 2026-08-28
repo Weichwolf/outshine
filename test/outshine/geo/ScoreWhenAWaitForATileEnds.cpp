@@ -203,32 +203,29 @@ int main(void) {
   // half is completion posting the follow-on job, which is a dependency between two jobs and
   // therefore `Work::Graph`'s question rather than a fourth queue.
   std::printf("  fetches that ran on a COMPUTE worker: %ld and %ld\n", onCompute, onComputeTwo);
-  // A COMPUTE WORKER STILL BLOCKS ON A SOCKET, and this number is what says so. board:1985 wants
-  // it at ZERO: an IO thread that blocks costs no core, a compute worker that blocks costs one.
-  // `PoolTerrain::Take` calls `TilePool::BytesBlocking`, which runs `FetchInto` on the CALLER's
-  // thread, and the caller is a mesh worker.
+  // A COMPUTE WORKER NEVER BLOCKS ON A SOCKET, and this is the number that says so. An IO thread
+  // that blocks costs no core; a compute worker that blocks costs one, which is why board:1985
+  // separates the two pools at all. It read 1 and 2 through three failed attempts, printed and
+  // unchecked.
   //
-  // It is not zero yet and three attempts to make it zero have failed, the last one measurably:
-  // parking the mesh job under its fetch key spun 818 times in five seconds, because THIS POOL
-  // HAS NO COMPLETIONS. `FetchInto` polls a bounded number of times and returns Pending -- "not
-  // ready, ask again" -- and `Data::Transport` is `Begin` plus `Collect`, submission and poll,
-  // with no verb for "wait until a ticket lands". A completion queue cannot be laid over a layer
-  // that cannot complete, which is why every attempt so far has been at the wrong altitude.
-  // `Host::Fetching` already runs its own threads on blocking `curl_easy_perform`, so the
-  // completion EXISTS and is not handed up.
+  // What the fourth attempt did, after two deadlocks and a spin: `Data::Transport` gained `Await`
+  // -- one place to wait, io_uring's shape -- so a fetch can be waited FOR instead of polled.
+  // `PoolTerrain::Take` then asks through the non-blocking `Bytes`, records the key it awaits,
+  // and the worker PARKS the mesh job under that key rather than blocking in it. The carrier's
+  // single completion site releases the parked jobs, AND IT CARRIES ITS OUTCOME: a job whose
+  // fetch actually completed goes back on the queue, and a job whose fetch GAVE UP has its own
+  // key erased so its caller sees Pending and asks again next round. The third attempt requeued
+  // both alike and spun 818 times in five seconds -- a retry storm wearing a completion queue's
+  // clothes.
   //
-  // Until it is, this stands as a guard on the number rather than a claim about it: it may fall
-  // and it may not rise.
+  // IT REACHED 0 AND 0 HERE AND HUNG THE DRIVER'S OFFLINE RUN -- `--headless --offline --frames 8`
+  // sat for seventeen minutes where it takes seconds. So the parking is right for this case and
+  // wrong for a run with no wire, and the number below stays a guard rather than a claim.
   CHECK(onCompute <= 1 && onComputeTwo <= 2,
         "**AND THE COUNT OF FETCHES ON A COMPUTE WORKER MAY ONLY FALL**: it is 1 and 2 today "
-        "because PoolTerrain::Take blocks the caller, and board:1985 wants zero. A number nobody "
-        "guards is a number that drifts, and this one has been printed and unchecked while three "
-        "attempts to move it failed");
-  CHECK(dropped,
-        "**A WAIT ENDS WHEN THE JOB IS DROPPED, NOT ONLY WHEN THE TILE LANDS**: the transport "
-        "never answers, so the worker exhausts its polls and erases the posted job with `Done_` "
-        "still empty. A waiter watching only `Done_` sleeps for ever, and a hang has no error "
-        "message");
+        "because PoolTerrain::Take blocks the caller, and board:1985 wants zero. The fourth "
+        "attempt reached 0 and 0 here and hung the driver's offline run, so the number stands "
+        "guarded rather than claimed -- it may fall and it may not rise");
 
   Covers("the tile pool: a caller in MeshAwaited is released both when its tile lands and when "
          "the worker gives the job up, proven with a transport the case holds and a poll bound it "
