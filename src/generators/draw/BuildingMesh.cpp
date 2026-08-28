@@ -186,11 +186,32 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
   }
 }
 
-void Plinth(const BuildingShape &s, double topZ, Site &site) {
+// HOW FAR A PLINTH REACHES DOWN, derived from the site rather than chosen. A building is placed on
+// the DEM and drawn against the terrain MESH, and those two differ by whatever the mesh's grid
+// missed -- so a 0.30 m sink leaves a gap under anything on a slope. The spread of the ground across
+// the footprint's own ring measures the local gradient over the building's own extent; carrying that
+// same gradient one terrain vertex further is the smallest honest cover, and the vertex spacing at
+// the finest level is about a kilometre over a 33-wide grid, so roughly 31 m. The building's own
+// width is the only length it knows, so the spread is doubled rather than scaled by a grid this tier
+// cannot see.
+double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
+  double lowest = 0.0, highest = 0.0;
+  bool first = true;
+  for (const En &p : s.Ring) {
+    const double at = ground.At(p);
+    if (first) { lowest = highest = at; first = false; continue; }
+    lowest = std::min(lowest, at);
+    highest = std::max(highest, at);
+  }
+  const double spread = highest - lowest;
+  return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
+}
+
+void Plinth(const BuildingShape &s, const Site2Ground &ground, double topZ, Site &site) {
   const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
   if (out.size() != s.Ring.size()) return;
   const size_t n = s.Ring.size();
-  const double lowZ = -kSinkM;
+  const double lowZ = PlinthFootZ(s, ground);
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     if (s.Party[i]) continue;
@@ -321,7 +342,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const RoofSurface roof(s);
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
-  if (s.OnGround()) Plinth(s, plinthZ, site);
+  if (s.OnGround()) Plinth(s, ground, plinthZ, site);
   Walls(s, lowZ, site);
 
   if (s.Roof == RoofKind::Flat) {

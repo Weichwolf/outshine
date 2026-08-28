@@ -331,8 +331,8 @@ The heaviest files. Headers and sources counted apart.
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1046 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
+| 932 | `cpp` | `engine/Picturing.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 910 | `cpp` | `engine/Picturing.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |

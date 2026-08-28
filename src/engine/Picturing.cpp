@@ -574,6 +574,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: parts the geometry holds", (double)ground.Parts(), "parts");
       Published.Places("building triangles the world meshed", (double)(vertices / 3), "triangles");
       {
+        double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0, inward = 0.0;
+        for (size_t at = 0; at + 2 < vertices * 3; at += 3) {
+          const double x = facing[at], y = facing[at + 1], z = facing[at + 2];
+          const double length = std::sqrt(x * x + y * y + z * z);
+          if (!(length > 0.5)) { unlengthed += 1.0; continue; }
+          const double aloft = y / length;
+          if (aloft > 0.5) { up += 1.0; }
+          else if (aloft < -0.5) { down += 1.0; }
+          else { sideways += 1.0; }
+        }
+        // A WALL FACING THE SUN MUST BE LIT. At 60 deg of solar elevation a vertical face turned
+        // toward the sun takes cos(60) = 0.5 of the light against a roof's sin(60) = 0.87, so it
+        // reads about 57 per cent of the roof. Every wall in the frame is black, which is what a
+        // normal pointing INTO the solid does, and this counts them rather than judging by eye.
+        Published.Places("buildings: normals pointing up", up, "normals");
+        Published.Places("buildings: normals pointing DOWN", down, "normals");
+        Published.Places("buildings: normals lying sideways", sideways, "normals");
+        Published.Places("buildings: normals with no length", unlengthed, "normals");
+        Published.Places("buildings: normals in all", (double)vertices, "normals");
+        (void)inward;
+      }
+      {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const double up = (double)raised[at * 3 + 1];
