@@ -123,17 +123,17 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
 
   const auto shot = [&](const outshine::Scenario &stands, const char *named,
                         std::vector<unsigned char> &into) {
-    if (!engine.Declare(stands) || !engine.Advance()) { return false; }
+    if (!engine.declare(stands) || !engine.advance()) { return false; }
     const std::string path = under + "/" + named + ".png";
-    if (!engine.Capture(path)) { return false; }
+    if (!engine.saveScreenshot(path)) { return false; }
     into = Slurped(path);
     return !into.empty();
   };
@@ -149,7 +149,7 @@ int main(void) {
       !shot(Lit(80000.0, 0.40), "scaled", scaled) ||
       !shot(Lit(400.0, 0.20), "keyed", keyed) ||
       !shot(night, "night", nightly)) {
-    Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
 
@@ -182,9 +182,9 @@ int main(void) {
     const size_t at = flat.find(",\"NORMAL\":1");
     if (at != std::string::npos) { flat.erase(at, 11); }
     (void)Wrote(under + "/bare.gltf", flat);
-    const bool stoodBare = engine.Declare(bare);
+    const bool stoodBare = engine.declare(bare);
     std::printf("A SUBJECT WITH NO NORMAL under the same declared light: %s%s\n",
-                stoodBare ? "STOOD" : "REFUSED -- ", stoodBare ? "" : engine.Error().c_str());
+                stoodBare ? "STOOD" : "REFUSED -- ", stoodBare ? "" : engine.error().c_str());
   }
 
   CHECK(plain != nightly,

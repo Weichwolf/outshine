@@ -40,7 +40,7 @@ constexpr int kSteps = 20;
 constexpr const char *kScenario = "apps/driver/src/f31.scenario";
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -55,25 +55,25 @@ struct Held {
 [[nodiscard]] Held Drove(double toLat, double toLon, std::string &why) {
   Held out;
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{320, 180})) {
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;
   }
-  if (!engine.Read(kScenario)) {
-    why = engine.Error();
+  if (!engine.readScenario(kScenario)) {
+    why = engine.error();
     return out;
   }
-  outshine::Scenario declared = engine.Declared();
+  outshine::Scenario declared = engine.declaration();
   declared.Render.Frame = outshine::Extent{320, 180};
   declared.Routed.ToLatDeg = toLat;
   declared.Routed.ToLonDeg = toLon;
-  if (!engine.Declare(declared) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(declared) || !engine.assemble()) {
+    why = engine.error();
     return out;
   }
   for (int step = 0; step < kSteps; ++step) {
-    if (!engine.Advance()) { break; }
+    if (!engine.advance()) { break; }
   }
   out.Bytes = Measured(engine, "bytes the world holds while it drives");
   out.CorridorM = Measured(engine, "how long the corridor is");

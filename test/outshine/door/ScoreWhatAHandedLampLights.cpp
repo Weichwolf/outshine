@@ -66,8 +66,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -79,8 +79,8 @@ int main(void) {
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = 40000.0;
   stands.Lit.Key.ElevationDeg = -80.0;
-  if (!engine.Declare(stands)) {
-    Unprepared(("the scenario would not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands)) {
+    Unprepared(("the scenario would not stand: " + engine.error()).c_str());
     return Report();
   }
 
@@ -104,17 +104,17 @@ int main(void) {
     return geometry.Positions(part, std::span<const float>(kWall, 18)) &&
            geometry.Normals(part, std::span<const float>(kFacing, 18)) &&
            geometry.Triangles(part, std::span<const uint32_t>(kRun, 6)) &&
-           engine.Stands(geometry) && engine.RenderTo(outshine::Extent{}) && engine.Pixels(rgba);
+           engine.setGeometry(geometry) && engine.render(outshine::Extent{}) && engine.readPixels(rgba);
   };
 
   std::vector<uint8_t> dark;
   if (!drawn(false, dark)) {
-    Unprepared(("the wall under no sky would not draw: " + engine.Error()).c_str());
+    Unprepared(("the wall under no sky would not draw: " + engine.error()).c_str());
     return Report();
   }
   std::vector<uint8_t> lamplit;
   if (!drawn(true, lamplit)) {
-    Unprepared(("the wall under a handed lamp would not draw: " + engine.Error()).c_str());
+    Unprepared(("the wall under a handed lamp would not draw: " + engine.error()).c_str());
     return Report();
   }
 

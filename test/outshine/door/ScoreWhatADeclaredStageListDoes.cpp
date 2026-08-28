@@ -61,7 +61,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -106,15 +106,15 @@ int main(void) {
   double staged[2] = {-1.0, -1.0};
   for (int pass = 0; pass < 2; ++pass) {
     outshine::Engine engine;
-    engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-    if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+    engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+    if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
       Unprepared("the device stood no canvas");
       return Report();
     }
     const outshine::Scenario stands =
         pass == 0 ? Naming({}) : Naming({"subjects", "tonemap", "present"});
-    if (!engine.Declare(stands) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      Unprepared(("the declaration would not stand: " + engine.Error()).c_str());
+    if (!engine.declare(stands) || !engine.advance() || !engine.render(outshine::Extent{})) {
+      Unprepared(("the declaration would not stand: " + engine.error()).c_str());
       return Report();
     }
     drawn[pass] = Measured(engine, "batches the picture draws");
@@ -138,9 +138,9 @@ int main(void) {
   std::string refused;
   {
     outshine::Engine engine;
-    engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-    (void)engine.DrawsInto(outshine::Extent{kFramePx, kFramePx});
-    if (!engine.Declare(Naming({"subjects", "terrain", "present"}))) { refused = engine.Error(); }
+    engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+    (void)engine.drawsInto(outshine::Extent{kFramePx, kFramePx});
+    if (!engine.declare(Naming({"subjects", "terrain", "present"}))) { refused = engine.error(); }
   }
   std::printf("AND A NAME THE CATALOGUE DOES NOT HOLD IS REFUSED: %s\n",
               refused.empty() ? "NO" : refused.c_str());

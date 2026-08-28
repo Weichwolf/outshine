@@ -76,8 +76,8 @@ int main(int argc, char **argv) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-refuse-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{64, 64})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-refuse-cache", true});
+  if (!engine.drawsInto(outshine::Extent{64, 64})) {
     Unprepared("the device did not stand a canvas, so nothing can be read into it");
     return Report();
   }
@@ -90,8 +90,8 @@ int main(int argc, char **argv) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  const bool stood = engine.Declare(stands) && engine.Assemble();
-  const std::string why = engine.Error();
+  const bool stood = engine.declare(stands) && engine.assemble();
+  const std::string why = engine.error();
   std::printf("OUTSHINE %s%s%s\n", stood ? "stood" : "refused", stood ? "" : ": ",
               stood ? "" : why.c_str());
 

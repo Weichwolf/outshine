@@ -52,21 +52,21 @@ struct Took {
 
 [[nodiscard]] double Ran(const Asked &asked, bool drawing, Took *took, std::string &why) {
   outshine::Engine engine;
-  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
-  if (!engine.DrawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
-    why = engine.Error();
+  engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
+  if (!engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
+    why = engine.error();
     return -1.0;
   }
-  engine.Keeps((size_t)asked.Steps);
+  engine.keepSamples((size_t)asked.Steps);
   if (asked.Scene.empty()) {
-    if (!engine.Read(asked.Scenario)) {
-      why = engine.Error();
+    if (!engine.readScenario(asked.Scenario)) {
+      why = engine.error();
       return -1.0;
     }
-    outshine::Scenario declared = engine.Declared();
+    outshine::Scenario declared = engine.declaration();
     declared.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
-    if (!engine.Declare(declared) || !engine.Assemble()) {
-      why = engine.Error();
+    if (!engine.declare(declared) || !engine.assemble()) {
+      why = engine.error();
       return -1.0;
     }
   } else {
@@ -94,35 +94,35 @@ struct Took {
       falls.Stands.AtM[2] = (double)(one / 8) * 2.0;
       stands.Bodies.push_back(falls);
     }
-    if (!engine.Declare(stands) || !engine.Assemble()) {
-      why = engine.Error();
+    if (!engine.declare(stands) || !engine.assemble()) {
+      why = engine.error();
       return -1.0;
     }
   }
   const auto began = std::chrono::steady_clock::now();
   long stepped = 0;
   const long settles = asked.Steps > 4 ? 4 : 0;
-  while (stepped < asked.Steps && engine.Advance()) {
+  while (stepped < asked.Steps && engine.advance()) {
     ++stepped;
-    if (drawing && !engine.RenderTo(outshine::Extent{})) {
-      why = engine.Error();
+    if (drawing && !engine.render(outshine::Extent{})) {
+      why = engine.error();
       return -1.0;
     }
-    if (stepped == settles) { took->Early = engine.Numbers(); }
+    if (stepped == settles) { took->Early = engine.measures(); }
   }
   const double tookMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   if (stepped < asked.Steps) {
     why = "the drive stopped after " + std::to_string(stepped) + " of " +
-          std::to_string(asked.Steps) + " steps: " + engine.Error();
+          std::to_string(asked.Steps) + " steps: " + engine.error();
     return -1.0;
   }
   took->WallMs = tookMs;
   took->Between = stepped - settles;
-  took->Rows = engine.Numbers();
+  took->Rows = engine.measures();
   std::vector<double> steps, pictures;
-  engine.StepTimesMs(steps);
-  engine.PictureTimesMs(pictures);
+  engine.stepTimesMs(steps);
+  engine.frameTimesMs(pictures);
   took->Samples = steps.size();
   took->StepP50 = Percentile(steps, 0.50);
   took->StepP95 = Percentile(steps, 0.95);

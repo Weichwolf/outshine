@@ -53,7 +53,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -82,8 +82,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -101,9 +101,9 @@ int main(void) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  if (!engine.Declare(stands) || !engine.Advance() ||
-      !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the caster did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.advance() ||
+      !engine.render(outshine::Extent{})) {
+    Unprepared(("the caster did not stand: " + engine.error()).c_str());
     return Report();
   }
 
@@ -123,7 +123,7 @@ int main(void) {
         "carrying no shadow radius produced until an undeclared radius began deriving itself "
         "from the subject's own extent rather than standing at a struct's zero");
 
-  const bool inspected = engine.Inspects();
+  const bool inspected = engine.inspect();
   CHECK(inspected,
         "the atlas can be READ BACK when asked: the three numbers below cost a GPU->CPU sync, so "
         "board:2007 took them off the frame path and behind a verb -- a case that forgets to ask "
@@ -138,8 +138,8 @@ int main(void) {
 
   outshine::Scenario bare = stands;
   bare.Assets.clear();
-  if (!engine.Declare(bare) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the bare arm did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(bare) || !engine.advance() || !engine.render(outshine::Extent{})) {
+    Unprepared(("the bare arm did not stand: " + engine.error()).c_str());
     return Report();
   }
   const double drawnBare = Measured(engine, "batches the picture draws");

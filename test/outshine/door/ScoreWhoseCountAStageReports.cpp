@@ -74,7 +74,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -122,25 +122,25 @@ int main(void) {
 
   const outshine::Roots roots{under, "src/assets", "/tmp/outshine-door-cache", true};
   outshine::Engine lit, unlit;
-  lit.Under(roots);
-  unlit.Under(roots);
-  if (!lit.DrawsInto(outshine::Extent{kFramePx, kFramePx}) ||
-      !unlit.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  lit.setRoots(roots);
+  unlit.setRoots(roots);
+  if (!lit.drawsInto(outshine::Extent{kFramePx, kFramePx}) ||
+      !unlit.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("two canvases did not stand in one process");
     return Report();
   }
 
-  if (!lit.Declare(Stood("pair.gltf", true)) || !lit.Advance() ||
-      !lit.RenderTo(outshine::Extent{})) {
-    Unprepared(("the lit engine did not stand: " + lit.Error()).c_str());
+  if (!lit.declare(Stood("pair.gltf", true)) || !lit.advance() ||
+      !lit.render(outshine::Extent{})) {
+    Unprepared(("the lit engine did not stand: " + lit.error()).c_str());
     return Report();
   }
   const double litDrew = Measured(lit, "batches the picture draws");
   const double litCast = Measured(lit, "batches the shadow casts");
 
-  if (!unlit.Declare(Stood("lone.gltf", false)) || !unlit.Advance() ||
-      !unlit.RenderTo(outshine::Extent{})) {
-    Unprepared(("the unlit engine did not stand: " + unlit.Error()).c_str());
+  if (!unlit.declare(Stood("lone.gltf", false)) || !unlit.advance() ||
+      !unlit.render(outshine::Extent{})) {
+    Unprepared(("the unlit engine did not stand: " + unlit.error()).c_str());
     return Report();
   }
   const double bareDrew = Measured(unlit, "batches the picture draws");

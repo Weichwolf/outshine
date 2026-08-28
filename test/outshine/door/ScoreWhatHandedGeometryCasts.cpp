@@ -34,7 +34,7 @@ constexpr float kNormals[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 
 constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -52,8 +52,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -69,8 +69,8 @@ int main(void) {
 
   // THE SCENARIO NAMES NO ASSET, which is the arm that broke it: the plan compiled for a subject
   // that was not there, and everything handed in afterwards lived under that plan.
-  if (!engine.Declare(stands)) {
-    Unprepared(("the scenario would not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands)) {
+    Unprepared(("the scenario would not stand: " + engine.error()).c_str());
     return Report();
   }
   const double drewEmpty = Measured(engine, "batches the picture draws");
@@ -85,10 +85,10 @@ int main(void) {
     return Report();
   }
 
-  const bool handed = engine.Stands(geometry);
-  if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.Error().c_str()); }
-  if (handed && !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the device would not draw the handed subject: " + engine.Error()).c_str());
+  const bool handed = engine.setGeometry(geometry);
+  if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.error().c_str()); }
+  if (handed && !engine.render(outshine::Extent{})) {
+    Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());
     return Report();
   }
 

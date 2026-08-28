@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 19/7 | 27% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 5 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
+| `door` | 22/7 | 24% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 8 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -51,6 +51,34 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 
 **9 of 20 spoken.** A name here is not a rename to make: it is a promise a client
 already understands, and the ones marked *not yet* are what board:2016 owes.
+
+And the verbs, because a client calls those rather than the types:
+
+| the verb a client knows | from | here |
+|---|---|---|
+| `beginFrame` | Filament | **not yet** |
+| `render` | Filament | yes |
+| `endFrame` | Filament | **not yet** |
+| `readPixels` | Filament | yes |
+| `addEntity` | Filament | **not yet** |
+| `setScene` | Filament | **not yet** |
+| `setCamera` | Filament | **not yet** |
+| `setViewport` | Filament | **not yet** |
+| `lookAt` | Filament | **not yet** |
+| `setProjection` | Filament | **not yet** |
+| `setExposure` | Filament | **not yet** |
+| `flushAndWait` | Filament | **not yet** |
+| `sampleHeight` | Cesium | **not yet** |
+| `LongitudeLatitudeHeight` | Cesium | **not yet** |
+
+**2 of 14 spoken.**
+
+OURS BY RIGHT, because Filament is a renderer and does not face the question:
+
+`Declare` · `Read` · `Assemble` · `Advance` · `Run` · `Mixes` · `Park` · `Resume` ·
+`Numbers` · `Inspects` — a scenario, a simulation, a mixer and a measure. A client that
+knows Filament still has to learn these, and that is the door being HONEST about what
+outshine is rather than pretending to be a renderer it is not.
 
 ### `Event.h`
 
@@ -102,46 +130,39 @@ already understands, and the ones marked *not yet* are what board:2016 owes.
 
     value: Roots
     type: Engine
-    bool DrawsInto(SDL_Window *presents)
-    void Offers(Host *host)
-    void Offers(const Generates &maker)
-    bool Takes(std::string_view view)
-    bool Handles(const SDL_Event &event)
-    bool DrawsInto(Extent offscreen)
-    void Under(Roots roots)
-    bool RenderTo(Extent frame)
-    bool Capture(std::string_view path)
-    bool Pixels(std::vector<uint8_t> &rgba)
-    bool Inspects(void)
-    bool Mixes(std::span<float> stereo, int rate)
-    bool Read(std::string_view path)
-    bool Stands(const Geometry &geometry)
-    bool Declare(const Scenario &scenario)
-    bool Shows(const std::vector<Surface> &surfaces)
-    const Scenario &Declared(void) const
-    Store &Scene(void)
-    const Store &Scene(void) const
-    const std::vector<std::string> &Carried(void) const
-    const std::vector<Measure> &Numbers(void) const
-    void Keeps(size_t steps)
-    void StepTimesMs(std::vector<double> &out) const
-    void PictureTimesMs(std::vector<double> &out) const
-    bool Assemble()
-    bool Advance()
-    bool Advance(double elapsedS)
-    double StepS(void) const
-    bool Run()
-    bool Park()
-    bool Resume(std::string_view name)
-    bool Discard(std::string_view name)
-    bool Save(std::string_view path) const
-    bool Restore(std::string_view path)
-    std::vector<std::string> Parked(void) const
+    bool drawsInto(SDL_Window *presents)
+    bool setView(std::string_view view)
+    bool handleEvent(const SDL_Event &event)
+    bool drawsInto(Extent offscreen)
+    bool render(Extent frame)
+    bool saveScreenshot(std::string_view path)
+    bool readPixels(std::vector<uint8_t> &rgba)
+    bool inspect(void)
+    bool mix(std::span<float> stereo, int rate)
+    bool readScenario(std::string_view path)
+    bool setGeometry(const Geometry &geometry)
+    bool declare(const Scenario &scenario)
+    bool setSurfaces(const std::vector<Surface> &surfaces)
+    const Scenario &declaration(void) const
+    Store &scene(void)
+    const Store &scene(void) const
+    const std::vector<std::string> &unacted(void) const
+    const std::vector<Measure> &measures(void) const
+    bool assemble()
+    bool advance()
+    bool advance(double elapsedS)
+    double stepSeconds(void) const
+    bool run()
+    bool park()
+    bool resume(std::string_view name)
+    bool discard(std::string_view name)
+    bool save(std::string_view path) const
+    bool restore(std::string_view path)
+    std::vector<std::string> parked(void) const
     bool Standing(void) const
-    const std::string &Error(void) const
-    bool ReadInto(std::string_view path, Scenario &out)
-    bool Generated(const Scenario &scenario)
-    void Ships(void)
+    const std::string &error(void) const
+    bool readScenarioInto(std::string_view path, Scenario &out)
+    bool generated(const Scenario &scenario)
 
 ### `PunctualLight.h`
 

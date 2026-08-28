@@ -74,7 +74,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -103,8 +103,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -122,21 +122,21 @@ int main(void) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  if (!engine.Declare(stands) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the subject did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.advance() || !engine.render(outshine::Extent{})) {
+    Unprepared(("the subject did not stand: " + engine.error()).c_str());
     return Report();
   }
   const double afterFirst = Measured(engine, "placement rows the renderer has been sent");
   const double drawn = Measured(engine, "batches the picture draws");
 
-  if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the second frame did not draw: " + engine.Error()).c_str());
+  if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    Unprepared(("the second frame did not draw: " + engine.error()).c_str());
     return Report();
   }
   const double afterSecond = Measured(engine, "placement rows the renderer has been sent");
 
-  if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the third frame did not draw: " + engine.Error()).c_str());
+  if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    Unprepared(("the third frame did not draw: " + engine.error()).c_str());
     return Report();
   }
   const double afterThird = Measured(engine, "placement rows the renderer has been sent");

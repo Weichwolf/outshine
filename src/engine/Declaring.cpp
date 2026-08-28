@@ -7,7 +7,7 @@
 namespace outshine {
 
 
-bool Engine::Handles(const SDL_Event &event) {
+bool Engine::handleEvent(const SDL_Event &event) {
   if (!S_->Picture.Standing) { return false; }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f, yPx = 0.0f;
@@ -50,7 +50,7 @@ bool Engine::Handles(const SDL_Event &event) {
   return answering.Fired();
 }
 
-bool Engine::Shows(const std::vector<Surface> &surfaces) {
+bool Engine::setSurfaces(const std::vector<Surface> &surfaces) {
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
                 "scenario is declared before its surfaces are exchanged";
@@ -115,13 +115,13 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
          a.Animation == b.Animation && a.Clip == b.Clip;
 }
 
-void Engine::Ships(void) {
+void Engine::ships(void) {
   if (S_->World.Offering.Count() > 0) { return; }
   (void)S_->World.Offering.Offers(S_->World.Shipped);
 }
 
-bool Engine::Declare(const Scenario &scenario) {
-  Ships();
+bool Engine::declare(const Scenario &scenario) {
+  ships();
   const auto offers = [this](const std::string &kind) {
     return S_->World.Offering.Named(kind) != nullptr;
   };
@@ -278,7 +278,7 @@ bool Engine::Declare(const Scenario &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    return Generated(scenario);
+    return generated(scenario);
   }
   if (!Core::Live::Open(S_->Picture.Device, std::move(declared), &S_->Picture.Face, S_->Picture.Standing, S_->Error)) {
     S_->Picture.Standing.reset();
@@ -291,10 +291,10 @@ bool Engine::Declare(const Scenario &scenario) {
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  return Generated(scenario);
+  return generated(scenario);
 }
 
-bool Engine::Generated(const Scenario &scenario) {
+bool Engine::generated(const Scenario &scenario) {
   Ask ask;
   ask.EastM = scenario.Ground.Lon;
   ask.NorthM = scenario.Ground.Lat;
@@ -316,10 +316,10 @@ bool Engine::Generated(const Scenario &scenario) {
   for (const Generator &named : scenario.Generators) {
     if (!asked(named.Kind)) { return false; }
   }
-  return made.Parts() == 0 || Stands(made);
+  return made.Parts() == 0 || setGeometry(made);
 }
 
-bool Engine::ReadInto(std::string_view path, Scenario &out) {
+bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
   const std::string held(path);
   std::string text;
   if (!SlurpFile(held, text, S_->Error)) { return false; }
@@ -353,7 +353,7 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
   return true;
 }
 
-bool Engine::Stands(const Geometry &geometry) {
+bool Engine::setGeometry(const Geometry &geometry) {
   if (!geometry.Whole()) {
     S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
                 "than an empty picture";
@@ -374,9 +374,9 @@ bool Engine::Stands(const Geometry &geometry) {
   return S_->Picture.Standing->Restand(handed, 0, S_->Error);
 }
 
-bool Engine::Read(std::string_view path) {
+bool Engine::readScenario(std::string_view path) {
   Scenario scenario;
-  if (!ReadInto(path, scenario)) { return false; }
+  if (!readScenarioInto(path, scenario)) { return false; }
   S_->Session.Declared = scenario;
   S_->Session.Taken = false;
   S_->Session.Carried = Unacted(scenario);
@@ -385,10 +385,10 @@ bool Engine::Read(std::string_view path) {
   return true;
 }
 
-Store &Engine::Scene(void) { return S_->Cast.Scene; }
+Store &Engine::scene(void) { return S_->Cast.Scene; }
 
-const Store &Engine::Scene(void) const { return S_->Cast.Scene; }
+const Store &Engine::scene(void) const { return S_->Cast.Scene; }
 
-const Scenario &Engine::Declared() const { return S_->Session.Declared; }
+const Scenario &Engine::declaration() const { return S_->Session.Declared; }
 
 }

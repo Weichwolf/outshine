@@ -98,22 +98,22 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
 
   const auto shot = [&](bool sphere, double elevationDeg, std::vector<uint8_t> &into) {
     const outshine::Scenario stands = Stood(sphere, elevationDeg);
-    if (!engine.Declare(stands)) { return false; }
-    return engine.Pixels(into);
+    if (!engine.declare(stands)) { return false; }
+    return engine.readPixels(into);
   };
 
   std::vector<uint8_t> dayLit, nightly, bareDay, bareNight;
   if (!shot(true, 42.0, dayLit) || !shot(true, -80.0, nightly) ||
       !shot(false, 42.0, bareDay) || !shot(false, -80.0, bareNight)) {
-    Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
 

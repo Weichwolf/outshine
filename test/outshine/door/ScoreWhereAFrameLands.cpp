@@ -72,8 +72,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -87,15 +87,15 @@ int main(void) {
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = 40000.0;
   stands.Lit.Key.ElevationDeg = 42.0;
-  if (!engine.Declare(stands) || !engine.Advance()) {
-    Unprepared(("nothing stood to be captured: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.advance()) {
+    Unprepared(("nothing stood to be captured: " + engine.error()).c_str());
     return Report();
   }
 
   const std::string named = deep + "/frame.png";
-  const bool kept = engine.Capture(named);
+  const bool kept = engine.saveScreenshot(named);
   std::printf("  captured into a path three levels deep that did not exist: %s\n",
-              kept ? "kept" : ("REFUSED -- " + engine.Error()).c_str());
+              kept ? "kept" : ("REFUSED -- " + engine.error()).c_str());
   std::printf("  the directory now stands: %s\n",
               std::filesystem::exists(deep) ? "yes" : "no");
   std::printf("  the file carries a png header: %s\n",

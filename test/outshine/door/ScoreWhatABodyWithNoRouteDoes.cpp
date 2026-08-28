@@ -63,7 +63,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return 0.0;
@@ -92,8 +92,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{64, 64})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{64, 64})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -124,12 +124,12 @@ int main(void) {
   crate.Stands.AtM[1] = kStartUpM;
   stands.Bodies.push_back(crate);
 
-  if (!engine.Declare(stands) || !engine.Assemble()) {
-    Unprepared(("the crate did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.assemble()) {
+    Unprepared(("the crate did not stand: " + engine.error()).c_str());
     return Report();
   }
   for (int step = 0; step < kSteps; ++step) {
-    if (!engine.Advance()) { break; }
+    if (!engine.advance()) { break; }
   }
 
   const double standing = Measured(engine, "bodies standing on no route");
@@ -177,8 +177,8 @@ int main(void) {
         "the one integration started from, and the only difference from the closed form is the "
         "scheme's own");
 
-  if (!engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the crate did not draw: " + engine.Error()).c_str());
+  if (!engine.render(outshine::Extent{})) {
+    Unprepared(("the crate did not draw: " + engine.error()).c_str());
     return Report();
   }
   const double meshUpM = Measured(engine, "the mesh it carries, up");
@@ -211,10 +211,10 @@ int main(void) {
   const double centreFirstM = Measured(engine, "its centre, east");
   const double upFirstM = Measured(engine, "the first of them, up");
   for (int step = 0; step < kSteps; ++step) {
-    if (!engine.Advance()) { break; }
+    if (!engine.advance()) { break; }
   }
-  if (!engine.RenderTo(outshine::Extent{})) {
-    Unprepared(("the second frame did not draw: " + engine.Error()).c_str());
+  if (!engine.render(outshine::Extent{})) {
+    Unprepared(("the second frame did not draw: " + engine.error()).c_str());
     return Report();
   }
   const double centreThenM = Measured(engine, "its centre, east");

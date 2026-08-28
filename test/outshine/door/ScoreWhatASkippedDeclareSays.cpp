@@ -44,25 +44,25 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{64, 36})) {
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{64, 36})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
-  if (!engine.Read(kScenario)) {
-    Unprepared(("the declaration would not read: " + engine.Error()).c_str());
+  if (!engine.readScenario(kScenario)) {
+    Unprepared(("the declaration would not read: " + engine.error()).c_str());
     return Report();
   }
 
-  const bool refusedTheSkip = !engine.Assemble();
-  const std::string said = engine.Error();
+  const bool refusedTheSkip = !engine.assemble();
+  const std::string said = engine.error();
   std::printf("READ THEN ASSEMBLED  %s\n", refusedTheSkip ? said.c_str() : "and it was accepted");
 
-  outshine::Scenario declared = engine.Declared();
+  outshine::Scenario declared = engine.declaration();
   declared.Render.Frame = outshine::Extent{64, 36};
-  const bool stoodAfterDeclare = engine.Declare(declared);
+  const bool stoodAfterDeclare = engine.declare(declared);
   std::printf("THEN DECLARED        %s\n",
-              stoodAfterDeclare ? "and the declaration stands" : engine.Error().c_str());
+              stoodAfterDeclare ? "and the declaration stands" : engine.error().c_str());
 
   CHECK(refusedTheSkip,
         "**ASSEMBLE REFUSES A DECLARATION THAT WAS READ AND NEVER DECLARED**: accepting a "

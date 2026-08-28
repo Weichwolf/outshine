@@ -137,12 +137,12 @@ int main(void) {
   byMaker.Assets.push_back(made);
 
   outshine::Engine shared;
-  shared.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!shared.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  shared.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!shared.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
-  shared.Offers(maker);
+  shared.offers(maker);
   // ALL THREE ARMS SHARE ONE ENGINE, and that is a second claim rather than tidiness. An earlier
   // version gave each arm its own, because reusing one left the client and generator arms drawing
   // NOTHING -- 0 lit pixels against the file's 169 (board:1971). That defect is gone, and a shared
@@ -156,16 +156,16 @@ int main(void) {
   const auto stoodBy = [&](const outshine::Scenario &declared, const outshine::Geometry *handed,
                            std::vector<uint8_t> &rgba, std::string &why) {
     outshine::Engine &one = shared;
-    if (!one.Declare(declared)) {
-      why = one.Error();
+    if (!one.declare(declared)) {
+      why = one.error();
       return false;
     }
-    if (handed != nullptr && !one.Stands(*handed)) {
-      why = one.Error();
+    if (handed != nullptr && !one.setGeometry(*handed)) {
+      why = one.error();
       return false;
     }
-    if (!one.RenderTo(outshine::Extent{}) || !one.Pixels(rgba)) {
-      why = one.Error();
+    if (!one.render(outshine::Extent{}) || !one.readPixels(rgba)) {
+      why = one.error();
       return false;
     }
     return true;
@@ -200,7 +200,7 @@ int main(void) {
     return Report();
   }
   double blankBatches = -1.0;
-  for (const outshine::Measure &held : shared.Numbers()) {
+  for (const outshine::Measure &held : shared.measures()) {
     if (held.What == "batches the picture draws") { blankBatches = held.How; }
   }
   if (!stoodBy(stands, &byHand, fromClient, why)) {

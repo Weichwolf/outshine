@@ -108,23 +108,23 @@ constexpr const char *kTracksBase64 =
 [[nodiscard]] bool Drew(const std::string &under, const char *uri, int clip, bool name, int steps,
                         std::vector<uint8_t> &rgba, std::string &why) {
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return false;
   }
-  if (!engine.Declare(Playing(uri, clip, name)) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(Playing(uri, clip, name)) || !engine.assemble()) {
+    why = engine.error();
     return false;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      why = engine.Error();
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      why = engine.error();
       return false;
     }
   }
-  if (!engine.Pixels(rgba)) {
-    why = engine.Error();
+  if (!engine.readPixels(rgba)) {
+    why = engine.error();
     return false;
   }
   return true;

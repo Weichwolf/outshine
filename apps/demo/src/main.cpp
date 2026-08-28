@@ -135,24 +135,24 @@ int main(int argc, char *argv[]) {
   }
 
   outshine::Engine engine;
-  if (!engine.Declare(Declared())) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.declare(Declared())) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
-  if (!engine.Assemble()) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.assemble()) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
-  if (!engine.Stands(Blob())) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.setGeometry(Blob())) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
 
   SDL_Window *window = nullptr;
   if (!headless) {
     window = SDL_CreateWindow("outshine demo", kWidthPx, kHeightPx, 0);
-    if (window == nullptr || !engine.DrawsInto(window)) {
-      std::printf("REFUSED %s\n", engine.Error().c_str());
+    if (window == nullptr || !engine.drawsInto(window)) {
+      std::printf("REFUSED %s\n", engine.error().c_str());
       return 1;
     }
   }
@@ -171,11 +171,11 @@ int main(int argc, char *argv[]) {
       if (event.type == SDL_EVENT_QUIT) { going = false; }
       if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) { going = false; }
     }
-    if (!engine.Advance()) { break; }
-    if (!headless && !engine.RenderTo(outshine::Extent{kWidthPx, kHeightPx})) { break; }
+    if (!engine.advance()) { break; }
+    if (!headless && !engine.render(outshine::Extent{kWidthPx, kHeightPx})) { break; }
     if (speaking == nullptr || SDL_GetAudioStreamQueued(speaking) < kMixRate) {
-      if (!engine.Mixes(stereo, kMixRate)) {
-        std::printf("REFUSED %s\n", engine.Error().c_str());
+      if (!engine.mix(stereo, kMixRate)) {
+        std::printf("REFUSED %s\n", engine.error().c_str());
         break;
       }
       ++mixed;

@@ -28,7 +28,7 @@ constexpr int kFrames = 24;
 constexpr const char *kScenario = "apps/driver/src/f31.scenario";
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -46,20 +46,20 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{320, 180})) {
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  if (!engine.drawsInto(outshine::Extent{320, 180})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
-  if (!engine.Read(kScenario)) {
-    Unprepared(("the declaration would not read: " + engine.Error()).c_str());
+  if (!engine.readScenario(kScenario)) {
+    Unprepared(("the declaration would not read: " + engine.error()).c_str());
     return Report();
   }
-  outshine::Scenario declared = engine.Declared();
+  outshine::Scenario declared = engine.declaration();
   declared.Render.Frame = outshine::Extent{320, 180};
-  if (!engine.Declare(declared) || !engine.Assemble()) {
+  if (!engine.declare(declared) || !engine.assemble()) {
     Unprepared(("the drive needs terrain and OSM tiles and this machine has none cached: " +
-                engine.Error())
+                engine.error())
                    .c_str());
     return Report();
   }
@@ -69,7 +69,7 @@ int main(void) {
   double ways = 0.0, water = 0.0, prints = 0.0, grown = 0.0, reached = 0.0, instanced = 0.0;
   for (int half = 0; half < 2; ++half) {
     for (int step = 0; step < kFrames; ++step) {
-      if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) { break; }
+      if (!engine.advance() || !engine.render(outshine::Extent{})) { break; }
     }
     rowsAt[half] = Measured(engine, "placement rows the renderer has been sent");
     batches = Measured(engine, "batches the picture draws");
@@ -79,7 +79,7 @@ int main(void) {
     grown = Measured(engine, "bodies the world's generators placed");
     reached = Measured(engine, "how far the placement chain reached");
     instanced = Measured(engine, "instances its draw sources made");
-    if (engine.Inspects()) {
+    if (engine.inspect()) {
       moving = Measured(engine, "pixels the velocity target says moved");
       furthest = Measured(engine, "the furthest any of them moved");
     }

@@ -2,7 +2,7 @@
 
 namespace outshine {
 
-bool Engine::Save(std::string_view path) const {
+bool Engine::save(std::string_view path) const {
   if (S_->Session.Declared.State.empty()) {
     S_->Error = "the scenario declares nothing to persist, so a save would be an empty "
                 "promise -- declare <state><persist what=.../></state> first";
@@ -57,7 +57,7 @@ bool Engine::Save(std::string_view path) const {
   return true;
 }
 
-bool Engine::Restore(std::string_view path) {
+bool Engine::restore(std::string_view path) {
   if (!S_->Cast.Stood.Instances.size() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";
@@ -142,7 +142,7 @@ bool Engine::Restore(std::string_view path) {
   return true;
 }
 
-bool Engine::Park() {
+bool Engine::park() {
   if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to park";
     return false;
@@ -170,7 +170,7 @@ bool Engine::Park() {
   return true;
 }
 
-bool Engine::Resume(std::string_view name) {
+bool Engine::resume(std::string_view name) {
   if (S_->Picture.Standing) {
     S_->Error = "a scenario is standing, and Resume stands nothing down -- park it or Discard "
                 "it explicitly first, because state that vanishes on somebody else's call is "
@@ -179,7 +179,7 @@ bool Engine::Resume(std::string_view name) {
   }
   for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
     if (S_->Session.Asleep[at].Named.Name != name) { continue; }
-    if (!Declare(S_->Session.Asleep[at])) { return false; }
+    if (!declare(S_->Session.Asleep[at])) { return false; }
     S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
     return true;
   }
@@ -187,7 +187,7 @@ bool Engine::Resume(std::string_view name) {
   return false;
 }
 
-bool Engine::Discard(std::string_view name) {
+bool Engine::discard(std::string_view name) {
   for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
     if (S_->Session.Asleep[at].Named.Name != name) { continue; }
     S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
@@ -198,7 +198,7 @@ bool Engine::Discard(std::string_view name) {
   return false;
 }
 
-std::vector<std::string> Engine::Parked() const {
+std::vector<std::string> Engine::parked() const {
   std::vector<std::string> names;
   for (const Scenario &asleep : S_->Session.Asleep) { names.push_back(asleep.Named.Name); }
   return names;

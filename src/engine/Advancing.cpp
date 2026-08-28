@@ -210,16 +210,16 @@ bool Engine::State::Draws(void) {
   return true;
 }
 
-void Engine::Keeps(size_t steps) {
+void Engine::keepSamples(size_t steps) {
   S_->Cost.Advance.Keeps(steps);
   S_->Cost.Render.Keeps(steps);
 }
 
-void Engine::StepTimesMs(std::vector<double> &out) const { S_->Cost.Advance.Into(out); }
+void Engine::stepTimesMs(std::vector<double> &out) const { S_->Cost.Advance.Into(out); }
 
-void Engine::PictureTimesMs(std::vector<double> &out) const { S_->Cost.Render.Into(out); }
+void Engine::frameTimesMs(std::vector<double> &out) const { S_->Cost.Render.Into(out); }
 
-bool Engine::Advance() {
+bool Engine::advance() {
   const auto began = std::chrono::steady_clock::now();
   if (!S_->Updates()) { return false; }
   S_->Tells();
@@ -335,26 +335,26 @@ void Engine::State::Inspected(void) {
   }
 }
 
-double Engine::StepS(void) const { return S_->Session.Declared.Motion.StepS; }
+double Engine::stepSeconds(void) const { return S_->Session.Declared.Motion.StepS; }
 
-bool Engine::Advance(double elapsedS) {
+bool Engine::advance(double elapsedS) {
   if (elapsedS > 0.0) { S_->Ticking.OwedS += elapsedS; }
   bool stood = true;
   for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears && S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS; ++step) {
     S_->Ticking.OwedS -= S_->Session.Declared.Motion.StepS;
-    stood = Advance();
+    stood = advance();
     if (!stood) { break; }
   }
   if (S_->Ticking.OwedS > S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) { S_->Ticking.OwedS = 0.0; }
   return stood;
 }
 
-bool Engine::Run() {
+bool Engine::run() {
   if (!S_->Picture.Standing) {
     S_->Error = "no scenario is standing, so there is nothing to run";
     return false;
   }
-  while (Advance()) {
+  while (advance()) {
   }
   return S_->Error.empty();
 }

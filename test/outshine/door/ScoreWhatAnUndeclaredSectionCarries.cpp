@@ -102,17 +102,17 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
 
   const auto shot = [&](const outshine::Scenario &stands, const char *named,
                         std::vector<unsigned char> &into) {
-    if (!engine.Declare(stands) || !engine.Advance()) { return false; }
+    if (!engine.declare(stands) || !engine.advance()) { return false; }
     const std::string path = under + "/" + named + ".png";
-    if (!engine.Capture(path)) { return false; }
+    if (!engine.saveScreenshot(path)) { return false; }
     into = Slurped(path);
     return !into.empty();
   };
@@ -120,7 +120,7 @@ int main(void) {
   std::vector<unsigned char> declared, undeclared;
   if (!shot(Filled(true), "render-declared", declared) ||
       !shot(Filled(false), "render-undeclared", undeclared)) {
-    Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
 

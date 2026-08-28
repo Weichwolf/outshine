@@ -80,8 +80,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -94,8 +94,8 @@ int main(void) {
   for (int step = 0; step < 12; ++step) {
     const double bearing = (double)step * 30.0;
     std::vector<uint8_t> rgba;
-    if (!engine.Declare(Under(bearing)) || !engine.Pixels(rgba)) {
-      Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    if (!engine.declare(Under(bearing)) || !engine.readPixels(rgba)) {
+      Unprepared(("a picture did not come back: " + engine.error()).c_str());
       return Report();
     }
     const Read said = Judged(rgba);

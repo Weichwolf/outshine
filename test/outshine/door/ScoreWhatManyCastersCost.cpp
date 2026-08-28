@@ -84,7 +84,7 @@ private:
 };
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -100,12 +100,12 @@ struct Cost {
   Cost out;
   const Crates makes(many);
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return out;
   }
-  engine.Offers(makes);
+  engine.offers(makes);
 
   outshine::Scenario stands;
   stands.Render.Declared = true;
@@ -119,9 +119,9 @@ struct Cost {
   made.Kind = "generated";
   stands.Assets.push_back(made);
 
-  if (!engine.Declare(stands) || !engine.RenderTo(outshine::Extent{}) ||
-      !engine.RenderTo(outshine::Extent{})) {
-    why = engine.Error();
+  if (!engine.declare(stands) || !engine.render(outshine::Extent{}) ||
+      !engine.render(outshine::Extent{})) {
+    why = engine.error();
     return out;
   }
   out.Batches = Measured(engine, "batches the shadow casts");

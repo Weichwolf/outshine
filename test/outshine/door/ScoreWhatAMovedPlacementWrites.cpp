@@ -146,26 +146,26 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
 [[nodiscard]] double MovingPixelsIn(const std::string &under, const outshine::Scenario &stands,
                                     int steps, std::string &why) {
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return -1.0;
   }
-  if (!engine.Declare(stands) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(stands) || !engine.assemble()) {
+    why = engine.error();
     return -1.0;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      why = engine.Error();
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      why = engine.error();
       return -1.0;
     }
   }
-  if (!engine.Inspects()) {
-    why = engine.Error();
+  if (!engine.inspect()) {
+    why = engine.error();
     return -1.0;
   }
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == "pixels the velocity target says moved") { return held.How; }
   }
   return -1.0;
@@ -174,26 +174,26 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
 [[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri, int steps,
                                       std::string &why) {
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return -1.0;
   }
-  if (!engine.Declare(Naming(uri)) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(Naming(uri)) || !engine.assemble()) {
+    why = engine.error();
     return -1.0;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      why = engine.Error();
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      why = engine.error();
       return -1.0;
     }
   }
-  if (!engine.Inspects()) {
-    why = engine.Error();
+  if (!engine.inspect()) {
+    why = engine.error();
     return -1.0;
   }
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == "pixels the velocity target says moved") { return held.How; }
   }
   return -1.0;

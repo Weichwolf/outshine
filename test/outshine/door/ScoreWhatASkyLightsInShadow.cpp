@@ -126,15 +126,15 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
 
   const auto read = [&](bool sphere, double elevationDeg, double &into) {
     std::vector<uint8_t> rgba;
-    if (!engine.Declare(Turned(sphere, elevationDeg)) || !engine.Pixels(rgba)) { return false; }
+    if (!engine.declare(Turned(sphere, elevationDeg)) || !engine.readPixels(rgba)) { return false; }
     into = Mean(rgba);
     return true;
   };
@@ -142,15 +142,15 @@ int main(void) {
   double high = 0.0, low = 0.0, under_horizon = 0.0, bare = 0.0, litSide = 0.0;
   if (!read(true, 42.0, high) || !read(true, 8.0, low) || !read(true, -80.0, under_horizon) ||
       !read(false, 42.0, bare)) {
-    Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
   {
     outshine::Scenario facing = Turned(true, 42.0);
     facing.Lit.Key.BearingDeg = 0.0;
     std::vector<uint8_t> rgba;
-    if (!engine.Declare(facing) || !engine.Pixels(rgba)) {
-      Unprepared(("the lit side did not come back: " + engine.Error()).c_str());
+    if (!engine.declare(facing) || !engine.readPixels(rgba)) {
+      Unprepared(("the lit side did not come back: " + engine.error()).c_str());
       return Report();
     }
     litSide = Mean(rgba);

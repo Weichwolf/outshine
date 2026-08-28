@@ -388,7 +388,7 @@ bool Engine::State::Blocked(const double sourceM[3]) const {
   return World.Blocking.Occludes(fromM, along, 0.01f, (float)awayM);
 }
 
-bool Engine::Mixes(std::span<float> stereo, int rate) {
+bool Engine::mix(std::span<float> stereo, int rate) {
   if (!S_->Session.Mixing) {
     if (!S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds,
                                      rate, S_->Error)) {
@@ -403,7 +403,7 @@ bool Engine::Mixes(std::span<float> stereo, int rate) {
 
 }
 
-bool Engine::RenderTo(Extent frame) {
+bool Engine::render(Extent frame) {
   if (!S_->Stood()) { return false; }
   if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
       (frame.WidthPx != S_->Picture.Frame.WidthPx || frame.HeightPx != S_->Picture.Frame.HeightPx)) {
@@ -421,7 +421,7 @@ bool Engine::RenderTo(Extent frame) {
   return true;
 }
 
-bool Engine::Inspects(void) {
+bool Engine::inspect(void) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
@@ -432,7 +432,7 @@ bool Engine::Inspects(void) {
   return true;
 }
 
-bool Engine::Pixels(std::vector<uint8_t> &rgba) {
+bool Engine::readPixels(std::vector<uint8_t> &rgba) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
@@ -443,7 +443,7 @@ bool Engine::Pixels(std::vector<uint8_t> &rgba) {
   return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
 }
 
-bool Engine::Capture(std::string_view path) {
+bool Engine::saveScreenshot(std::string_view path) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";

@@ -121,8 +121,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -141,9 +141,9 @@ int main(void) {
   stands.Assets.push_back(shown);
 
   std::vector<uint8_t> fromFile;
-  if (!engine.Declare(stands) || !engine.Advance() ||
-      !engine.RenderTo(outshine::Extent{}) || !engine.Pixels(fromFile)) {
-    Unprepared(("the file arm did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.advance() ||
+      !engine.render(outshine::Extent{}) || !engine.readPixels(fromFile)) {
+    Unprepared(("the file arm did not stand: " + engine.error()).c_str());
     return Report();
   }
 
@@ -161,13 +161,13 @@ int main(void) {
   // this case reported UNPREPARED when `Stands` refused, so the negative control below came back
   // as a red with the wrong NAME -- it read as a missing fixture rather than as the door being
   // broken. Only the file arm's input is a fixture; everything after it is the claim.
-  const bool handed = engine.Stands(geometry);
+  const bool handed = engine.setGeometry(geometry);
   std::vector<uint8_t> fromMemory;
-  if (handed && (!engine.RenderTo(outshine::Extent{}) || !engine.Pixels(fromMemory))) {
-    Unprepared(("the device would not draw the handed subject: " + engine.Error()).c_str());
+  if (handed && (!engine.render(outshine::Extent{}) || !engine.readPixels(fromMemory))) {
+    Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());
     return Report();
   }
-  if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.Error().c_str()); }
+  if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.error().c_str()); }
 
   const size_t apart = Differing(fromFile, fromMemory);
   std::printf("FROM FILE    mean max(RGB) %7.3f\n", Mean(fromFile));

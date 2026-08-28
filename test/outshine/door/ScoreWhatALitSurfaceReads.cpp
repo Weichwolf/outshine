@@ -150,8 +150,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -161,7 +161,7 @@ int main(void) {
                         double &into) {
     const outshine::Scenario stands = Under(elevationDeg, bearingDeg, surface);
     std::vector<uint8_t> rgba;
-    if (!engine.Declare(stands) || !engine.Pixels(rgba)) { return false; }
+    if (!engine.declare(stands) || !engine.readPixels(rgba)) { return false; }
     into = Mean(rgba);
     levelPeak = Peak(rgba);
     return true;
@@ -178,7 +178,7 @@ int main(void) {
   }
   came = came && read(21.0, 0.0, "level.gltf", lower) && read(-80.0, 0.0, "level.gltf", dark);
   if (!came) {
-    Unprepared(("a picture did not come back: " + engine.Error()).c_str());
+    Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
 

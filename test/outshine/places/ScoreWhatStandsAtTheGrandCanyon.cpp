@@ -60,8 +60,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", false});
-  if (!engine.DrawsInto(outshine::Extent{kWidePx, kHighPx})) {
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", false});
+  if (!engine.drawsInto(outshine::Extent{kWidePx, kHighPx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -89,28 +89,28 @@ int main(void) {
   watches.FovDeg = 70.0;
   stands.Views.push_back(watches);
 
-  if (!engine.Declare(stands) || !engine.Assemble()) {
+  if (!engine.declare(stands) || !engine.assemble()) {
     Unprepared((std::string("GrandCanyon needs terrain and OSM tiles and this machine has none "
                             "cached: ") +
-                engine.Error())
+                engine.error())
                    .c_str());
     return Report();
   }
 
   for (int step = 0; step < kSteps; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      Unprepared((std::string("GrandCanyon did not advance: ") + engine.Error()).c_str());
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      Unprepared((std::string("GrandCanyon did not advance: ") + engine.error()).c_str());
       return Report();
     }
   }
 
   const auto measured = [&engine](const char *what) {
-    for (const outshine::Measure &held : engine.Numbers()) {
+    for (const outshine::Measure &held : engine.measures()) {
       if (held.What == what) { return held.How; }
     }
     return 0.0;
   };
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What.find(", took") != std::string::npos || held.What.find("stages") != std::string::npos ||
         held.What.find("passes") != std::string::npos) {
       std::printf("    ROW  %-40s %.3f\n", held.What.c_str(), held.How);
@@ -120,16 +120,16 @@ int main(void) {
   const double triangles = measured("subjects, triangles");
 
   std::vector<uint8_t> rgba;
-  const bool read = engine.Pixels(rgba);
+  const bool read = engine.readPixels(rgba);
   const size_t apart = read ? Colours(rgba) : 0;
 
   std::error_code failed;
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = "build/places/GrandCanyon.png";
-  const bool wrote = engine.Capture(kept);
+  const bool wrote = engine.saveScreenshot(kept);
   std::printf("%s  %.0f tile(s), %.0f triangle(s), %zu of %zu pixel(s) differ, kept at %s\n",
               kPlace, tiles, triangles, apart, rgba.size() / 4u,
-              wrote ? kept.c_str() : engine.Error().c_str());
+              wrote ? kept.c_str() : engine.error().c_str());
 
   CHECK(read && apart > 0,
         "**SOMETHING IS DRAWN**: a declaration the engine accepts and renders as one flat colour "

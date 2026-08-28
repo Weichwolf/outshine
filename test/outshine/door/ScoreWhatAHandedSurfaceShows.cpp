@@ -69,8 +69,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -83,8 +83,8 @@ int main(void) {
   stands.Lit.Key.Lux = 40000.0;
   stands.Lit.Key.ElevationDeg = 42.0;
   stands.Lit.Key.BearingDeg = 0.0;
-  if (!engine.Declare(stands)) {
-    Unprepared(("the scenario would not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands)) {
+    Unprepared(("the scenario would not stand: " + engine.error()).c_str());
     return Report();
   }
 
@@ -99,7 +99,7 @@ int main(void) {
     return geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
            geometry.Normals(part, std::span<const float>(kNormals, 18)) &&
            geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6)) &&
-           engine.Stands(geometry) && engine.RenderTo(outshine::Extent{}) && engine.Pixels(rgba);
+           engine.setGeometry(geometry) && engine.render(outshine::Extent{}) && engine.readPixels(rgba);
   };
 
   constexpr float kRed[4] = {0.80f, 0.05f, 0.05f, 1.0f};
@@ -107,11 +107,11 @@ int main(void) {
 
   std::vector<uint8_t> red, blue;
   if (!drawn(kRed, red)) {
-    Unprepared(("the red arm did not stand: " + engine.Error()).c_str());
+    Unprepared(("the red arm did not stand: " + engine.error()).c_str());
     return Report();
   }
   if (!drawn(kBlue, blue)) {
-    Unprepared(("the blue arm did not stand: " + engine.Error()).c_str());
+    Unprepared(("the blue arm did not stand: " + engine.error()).c_str());
     return Report();
   }
 
@@ -148,11 +148,11 @@ int main(void) {
     const int part = geometry.Part("face", named);
     return geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
            geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6)) &&
-           engine.Stands(geometry) && engine.RenderTo(outshine::Extent{}) && engine.Pixels(rgba);
+           engine.setGeometry(geometry) && engine.render(outshine::Extent{}) && engine.readPixels(rgba);
   };
   std::vector<uint8_t> unfaced;
   const bool stoodBare = bare(unfaced);
-  const std::string whyBare = engine.Error();
+  const std::string whyBare = engine.error();
   const Lit ofBare = stoodBare ? Mean(unfaced) : Lit{0, 0, 0};
   std::printf("STATING NO NORMALS  %s mean r %6.2f  g %6.2f  b %6.2f\n",
               stoodBare ? "        " : "REFUSED,", ofBare.Red, ofBare.Green, ofBare.Blue);

@@ -12,7 +12,7 @@ namespace {
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
-bool Engine::Assemble() {
+bool Engine::assemble() {
   if (!S_->Session.Taken) {
     S_->Error = "a declaration was read and never DECLARED, so this engine holds a scenario it "
                 "was not asked to stand -- Read fills the declaration, Declare hands it over, "
@@ -167,7 +167,7 @@ Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;
 
-bool Engine::DrawsInto(SDL_Window *presents) {
+bool Engine::drawsInto(SDL_Window *presents) {
   if (presents == nullptr) {
     S_->Error = "a window is what DrawsInto presents on, and this one is none -- an engine that "
                 "draws nowhere is declared with an Extent instead";
@@ -185,7 +185,7 @@ bool Engine::DrawsInto(SDL_Window *presents) {
   return true;
 }
 
-bool Engine::DrawsInto(Extent offscreen) {
+bool Engine::drawsInto(Extent offscreen) {
   S_->Picture.Targeted = true;
   const auto standing = S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
   if (!standing) {
@@ -196,7 +196,7 @@ bool Engine::DrawsInto(Extent offscreen) {
   return true;
 }
 
-void Engine::Under(Roots roots) { S_->Session.Under = std::move(roots); }
+void Engine::setRoots(Roots roots) { S_->Session.Under = std::move(roots); }
 
 
 
@@ -210,7 +210,7 @@ namespace {
 
 }
 
-void Engine::Offers(Host *host) { S_->Offered = host; }
+void Engine::offers(Host *host) { S_->Offered = host; }
 
 
 
@@ -223,7 +223,7 @@ namespace {
 }
 
 
-void Engine::Offers(const Generates &maker) { (void)S_->World.Offering.Offers(maker); }
+void Engine::offers(const Generates &maker) { (void)S_->World.Offering.Offers(maker); }
 
 
 
@@ -238,12 +238,12 @@ namespace {
 
 
 
-const std::vector<std::string> &Engine::Carried() const { return S_->Session.Carried; }
+const std::vector<std::string> &Engine::unacted() const { return S_->Session.Carried; }
 
 
-const std::vector<Measure> &Engine::Numbers() const { return S_->Published.Numbers(); }
+const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
-bool Engine::Takes(std::string_view view) {
+bool Engine::setView(std::string_view view) {
   if (!S_->Session.Views) {
     S_->Error = "the scenario declares no views, so there is none to take";
     return false;
@@ -268,6 +268,6 @@ bool Engine::Takes(std::string_view view) {
 
 
 bool Engine::Standing() const { return S_->Picture.Standing != nullptr; }
-const std::string &Engine::Error() const { return S_->Error; }
+const std::string &Engine::error() const { return S_->Error; }
 
 }

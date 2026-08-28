@@ -123,7 +123,7 @@ enum class Reading { Ran, Asked, Wrong };
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return 0.0;
@@ -149,18 +149,18 @@ int main(int argc, char **argv) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
-  if (!engine.DrawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
+  if (!engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
 
-  if (!engine.Read(asked.Scenario)) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.readScenario(asked.Scenario)) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
 
-  outshine::Scenario declared = engine.Declared();
+  outshine::Scenario declared = engine.declaration();
   if (asked.Routed) {
     declared.Routed.FromLatDeg += asked.FromLatDeg;
     declared.Routed.FromLonDeg += asked.FromLonDeg;
@@ -168,8 +168,8 @@ int main(int argc, char **argv) {
     declared.Routed.ToLonDeg += asked.ToLonDeg;
     declared.Routed.Declared = true;
   }
-  if (!engine.Declare(declared)) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.declare(declared)) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
   }
 
@@ -177,9 +177,9 @@ int main(int argc, char **argv) {
               declared.Routed.FromLonDeg, declared.Routed.ToLatDeg, declared.Routed.ToLonDeg,
               asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
-  const bool assembled = engine.Assemble();
-  for (const std::string &said : engine.Carried()) { std::printf("  CARRIES %s\n", said.c_str()); }
-  if (!assembled) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  const bool assembled = engine.assemble();
+  for (const std::string &said : engine.unacted()) { std::printf("  CARRIES %s\n", said.c_str()); }
+  if (!assembled) { std::printf("REFUSED %s\n", engine.error().c_str()); }
   std::printf("%s\n", Measured(engine, "how long the corridor is") > 0.0 ? "ROUTED the declared drive"
                        : assembled     ? "NO DRIVE DECLARED"
                                        : "NO DRIVE -- the picture is what stood without it");
@@ -187,9 +187,9 @@ int main(int argc, char **argv) {
   if (!assembled && !asked.Into.empty()) {
     char named[512];
     std::snprintf(named, sizeof named, "%s/refused.png", asked.Into.c_str());
-    const bool stood = engine.Advance();
-    if (!stood) { std::printf("STILL %s\n", engine.Error().c_str()); }
-    if (engine.Capture(named)) {
+    const bool stood = engine.advance();
+    if (!stood) { std::printf("STILL %s\n", engine.error().c_str()); }
+    if (engine.saveScreenshot(named)) {
       std::printf("KEPT %s -- a failure is loud, and something is always drawn\n", named);
     }
     return 1;
@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
     if (!asked.Into.empty()) {
       char named[512];
       std::snprintf(named, sizeof named, "%s/standing.png", asked.Into.c_str());
-      if (engine.Capture(named)) { std::printf("KEPT %s\n", named); }
+      if (engine.saveScreenshot(named)) { std::printf("KEPT %s\n", named); }
     }
     std::printf(
         "REFUSED a drive that arrives is what ends this loop and this scenario declares none -- "
@@ -212,10 +212,10 @@ int main(int argc, char **argv) {
   const bool draws = asked.Every || !asked.Headless || asked.Render;
   long kept = 0;
   long nextStill = 0;
-  while (engine.Advance()) {
+  while (engine.advance()) {
     ++frames;
-    if (draws && !engine.RenderTo(outshine::Extent{})) {
-      std::printf("REFUSED %s\n", engine.Error().c_str());
+    if (draws && !engine.render(outshine::Extent{})) {
+      std::printf("REFUSED %s\n", engine.error().c_str());
       return 1;
     }
     const double alongM = Measured(engine, "how far along it the body has come");
@@ -229,19 +229,19 @@ int main(int argc, char **argv) {
       ++nextStill;
       char named[512];
       std::snprintf(named, sizeof named, "%s/along%02ld.png", asked.Into.c_str(), nextStill);
-      if (!engine.Capture(named)) {
-        std::printf("REFUSED %s\n", engine.Error().c_str());
+      if (!engine.saveScreenshot(named)) {
+        std::printf("REFUSED %s\n", engine.error().c_str());
         return 1;
       }
       ++kept;
     }
     if (asked.Frames > 0 && frames >= asked.Frames) { break; }
   }
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     std::printf("  MEASURES %s = %.6g %s\n", held.What.c_str(), held.How, held.Unit.c_str());
   }
-  if (!engine.Error().empty()) {
-    std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
+  if (!engine.error().empty()) {
+    std::printf("STOPPED after %ld frames: %s\n", frames, engine.error().c_str());
     return 1;
   }
   SDL_Quit();

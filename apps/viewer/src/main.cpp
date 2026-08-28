@@ -64,10 +64,10 @@ public:
 
   [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
     if (name == "next-view" && Engine_ != nullptr) {
-      const std::vector<outshine::View> &named = Engine_->Declared().Views;
+      const std::vector<outshine::View> &named = Engine_->declaration().Views;
       if (named.size() < 2) { return false; }
       Viewing_ = (Viewing_ + 1) % named.size();
-      return Engine_->Takes(named[Viewing_].Id);
+      return Engine_->setView(named[Viewing_].Id);
     }
     if (name == "select" && args.size() == 1 &&
         args[0].Is == outshine::Argument::Kind::Number) {
@@ -177,23 +177,23 @@ int main(int argc, char **argv) {
     }
   }
   outshine::Engine engine;
-  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+  engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
   const bool standing = window != nullptr
-                            ? engine.DrawsInto(window)
-                            : engine.DrawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
+                            ? engine.drawsInto(window)
+                            : engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
   if (!standing) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+    std::printf("REFUSED %s\n", engine.error().c_str());
     if (window != nullptr) { SDL_DestroyWindow(window); }
     SDL_Quit();
     return 1;
   }
 
-  if (!engine.Read(asked.Scenario)) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
+  if (!engine.readScenario(asked.Scenario)) {
+    std::printf("REFUSED %s\n", engine.error().c_str());
     SDL_Quit();
     return 1;
   }
-  outshine::Scenario showing = engine.Declared();
+  outshine::Scenario showing = engine.declaration();
   const std::vector<outshine::Viewer::Listed> cases =
       outshine::Viewer::Cases(asked.Cases, asked.Prepared);
   Browser browsing{cases, {}, false};
@@ -208,19 +208,19 @@ int main(int argc, char **argv) {
   }
   std::string shownCase;
   std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
-  engine.Offers(&browsing);
+  engine.offers(&browsing);
   browsing.Steers(&engine);
 
   {
     outshine::Scenario stands = showing;
     stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
-    if (!engine.Declare(stands)) {
-      std::printf("REFUSED %s\n", engine.Error().c_str());
+    if (!engine.declare(stands)) {
+      std::printf("REFUSED %s\n", engine.error().c_str());
       SDL_Quit();
       return 1;
     }
   }
-  if (!engine.Assemble()) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  if (!engine.assemble()) { std::printf("REFUSED %s\n", engine.error().c_str()); }
 
   std::printf("SHOWING %s at %dx%d%s\n", asked.Scenario.c_str(), asked.WidthPx, asked.HeightPx,
               asked.Windowed ? "" : ", headless");
@@ -230,10 +230,10 @@ int main(int argc, char **argv) {
   Uint64 wasNs = SDL_GetTicksNS();
   while (!closing) {
     const Uint64 nowNs = SDL_GetTicksNS();
-    const bool advanced = engine.Advance((double)(nowNs - wasNs) * 1.0e-9);
+    const bool advanced = engine.advance((double)(nowNs - wasNs) * 1.0e-9);
     wasNs = nowNs;
     if (!advanced) {
-      browsing.Noted(engine.Error());
+      browsing.Noted(engine.error());
       shownCase.clear();
       showing = outshine::Scenario{};
       showing.Render.Declared = true;
@@ -241,15 +241,15 @@ int main(int argc, char **argv) {
       showing.Render.Fill = 0.15;
       outshine::Scenario alone = showing;
       alone.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
-      if (!engine.Declare(alone) || !engine.Advance()) {
-        std::printf("STOPPED the browser itself did not stand: %s\n", engine.Error().c_str());
+      if (!engine.declare(alone) || !engine.advance()) {
+        std::printf("STOPPED the browser itself did not stand: %s\n", engine.error().c_str());
         break;
       }
     }
     ++frames;
     for (SDL_Event event; SDL_PollEvent(&event);) {
       closing = closing || event.type == SDL_EVENT_QUIT;
-      (void)engine.Handles(event);
+      (void)engine.handleEvent(event);
     }
     if (browsing.Moved()) {
       const outshine::Viewer::Listed *const picked = browsing.Picked();
@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
           browsing.Noted(held.Why);
         } else {
           shownCase = picked->Prepared;
-          engine.Under(outshine::Roots{held.Under, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+          engine.setRoots(outshine::Roots{held.Under, asked.Shipped, "/tmp/outshine-viewer-cache", false});
           stands = outshine::Scenario{};
           stands.Render.Declared = true;
           stands.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
@@ -296,14 +296,14 @@ int main(int argc, char **argv) {
       if (!stood) {
         std::vector<outshine::Surface> over = showing.Surfaces;
         over.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
-        if (!engine.Shows(over)) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+        if (!engine.setSurfaces(over)) { std::printf("REFUSED %s\n", engine.error().c_str()); }
         browsing.Settled();
         continue;
       }
       stands = showing;
       stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
-      if (!engine.Declare(stands)) {
-        browsing.Noted(engine.Error());
+      if (!engine.declare(stands)) {
+        browsing.Noted(engine.error());
         shownCase.clear();
         showing = outshine::Scenario{};
         showing.Render.Declared = true;
@@ -311,20 +311,20 @@ int main(int argc, char **argv) {
         showing.Render.Fill = 0.15;
         outshine::Scenario alone = showing;
         alone.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
-        if (!engine.Declare(alone)) {
-          std::printf("STOPPED the browser itself did not stand: %s\n", engine.Error().c_str());
+        if (!engine.declare(alone)) {
+          std::printf("STOPPED the browser itself did not stand: %s\n", engine.error().c_str());
           break;
         }
-      } else if (!engine.Assemble()) {
-        browsing.Noted(engine.Error());
+      } else if (!engine.assemble()) {
+        browsing.Noted(engine.error());
       }
       browsing.Settled();
     }
     if (!asked.Into.empty()) {
       char named[512];
       std::snprintf(named, sizeof named, "%s/frame%03ld.png", asked.Into.c_str(), frames);
-      if (!engine.Capture(named)) {
-        std::printf("REFUSED %s\n", engine.Error().c_str());
+      if (!engine.saveScreenshot(named)) {
+        std::printf("REFUSED %s\n", engine.error().c_str());
         break;
       }
     }

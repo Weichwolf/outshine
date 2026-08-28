@@ -62,21 +62,21 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
   Counting host;
-  engine.Offers(&host);
-  if (!engine.Declare(Bound())) {
-    Unprepared(("the bound scenario did not stand: " + engine.Error()).c_str());
+  engine.offers(&host);
+  if (!engine.declare(Bound())) {
+    Unprepared(("the bound scenario did not stand: " + engine.error()).c_str());
     return Report();
   }
 
   const SDL_Event down = Keyed(true);
   const SDL_Event up = Keyed(false);
-  const bool tookDown = engine.Handles(down);
-  const bool tookUp = engine.Handles(up);
+  const bool tookDown = engine.handleEvent(down);
+  const bool tookUp = engine.handleEvent(up);
 
   std::printf("THE PRESS was %s, THE RELEASE was %s\n", tookDown ? "taken" : "DROPPED",
               tookUp ? "taken" : "DROPPED");

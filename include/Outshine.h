@@ -35,57 +35,57 @@ public:
   Engine(const Engine &) = delete;
   Engine &operator=(const Engine &) = delete;
 
-  [[nodiscard]] bool DrawsInto(SDL_Window *presents);
-  void Offers(Host *host);
-  void Offers(const Generates &maker);
-  [[nodiscard]] bool Takes(std::string_view view);
-  [[nodiscard]] bool Handles(const SDL_Event &event);
-  [[nodiscard]] bool DrawsInto(Extent offscreen);
-  void Under(Roots roots);
-  [[nodiscard]] bool RenderTo(Extent frame);
-  [[nodiscard]] bool Capture(std::string_view path);
-  [[nodiscard]] bool Pixels(std::vector<uint8_t> &rgba);
-  [[nodiscard]] bool Inspects(void);
-  [[nodiscard]] bool Mixes(std::span<float> stereo, int rate);
+  [[nodiscard]] bool drawsInto(SDL_Window *presents);
+  void offers(Host *host);
+  void offers(const Generates &maker);
+  [[nodiscard]] bool setView(std::string_view view);
+  [[nodiscard]] bool handleEvent(const SDL_Event &event);
+  [[nodiscard]] bool drawsInto(Extent offscreen);
+  void setRoots(Roots roots);
+  [[nodiscard]] bool render(Extent frame);
+  [[nodiscard]] bool saveScreenshot(std::string_view path);
+  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] bool inspect(void);
+  [[nodiscard]] bool mix(std::span<float> stereo, int rate);
 
-  [[nodiscard]] bool Read(std::string_view path);
-  [[nodiscard]] bool Stands(const Geometry &geometry);
-  [[nodiscard]] bool Declare(const Scenario &scenario);
-  [[nodiscard]] bool Shows(const std::vector<Surface> &surfaces);
+  [[nodiscard]] bool readScenario(std::string_view path);
+  [[nodiscard]] bool setGeometry(const Geometry &geometry);
+  [[nodiscard]] bool declare(const Scenario &scenario);
+  [[nodiscard]] bool setSurfaces(const std::vector<Surface> &surfaces);
 
-  [[nodiscard]] const Scenario &Declared(void) const;
-  [[nodiscard]] Store &Scene(void);
-  [[nodiscard]] const Store &Scene(void) const;
-  [[nodiscard]] const std::vector<std::string> &Carried(void) const;
-  [[nodiscard]] const std::vector<Measure> &Numbers(void) const;
+  [[nodiscard]] const Scenario &declaration(void) const;
+  [[nodiscard]] Store &scene(void);
+  [[nodiscard]] const Store &scene(void) const;
+  [[nodiscard]] const std::vector<std::string> &unacted(void) const;
+  [[nodiscard]] const std::vector<Measure> &measures(void) const;
 
-  void Keeps(size_t steps);
-  void StepTimesMs(std::vector<double> &out) const;
-  void PictureTimesMs(std::vector<double> &out) const;
+  void keepSamples(size_t steps);
+  void stepTimesMs(std::vector<double> &out) const;
+  void frameTimesMs(std::vector<double> &out) const;
 
-  [[nodiscard]] bool Assemble();
+  [[nodiscard]] bool assemble();
 
 
-  [[nodiscard]] bool Advance();
-  [[nodiscard]] bool Advance(double elapsedS);
-  [[nodiscard]] double StepS(void) const;
-  [[nodiscard]] bool Run();
+  [[nodiscard]] bool advance();
+  [[nodiscard]] bool advance(double elapsedS);
+  [[nodiscard]] double stepSeconds(void) const;
+  [[nodiscard]] bool run();
 
-  [[nodiscard]] bool Park();
-  [[nodiscard]] bool Resume(std::string_view name);
-  [[nodiscard]] bool Discard(std::string_view name);
-  [[nodiscard]] bool Save(std::string_view path) const;
-  [[nodiscard]] bool Restore(std::string_view path);
-  [[nodiscard]] std::vector<std::string> Parked(void) const;
+  [[nodiscard]] bool park();
+  [[nodiscard]] bool resume(std::string_view name);
+  [[nodiscard]] bool discard(std::string_view name);
+  [[nodiscard]] bool save(std::string_view path) const;
+  [[nodiscard]] bool restore(std::string_view path);
+  [[nodiscard]] std::vector<std::string> parked(void) const;
 
   [[nodiscard]] bool Standing(void) const;
-  [[nodiscard]] const std::string &Error(void) const;
+  [[nodiscard]] const std::string &error(void) const;
 
 private:
   struct State;
-  [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);
-  [[nodiscard]] bool Generated(const Scenario &scenario);
-  void Ships(void);
+  [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);
+  [[nodiscard]] bool generated(const Scenario &scenario);
+  void ships(void);
   std::unique_ptr<State> S_;
 };
 

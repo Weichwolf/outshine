@@ -37,24 +37,24 @@ int main(void) {
   falling.Stands.AtM[1] = 1000.0;
   declared.Bodies.push_back(falling);
 
-  if (!engine.Declare(declared) || !engine.Assemble()) {
-    Unprepared(engine.Error().c_str());
+  if (!engine.declare(declared) || !engine.assemble()) {
+    Unprepared(engine.error().c_str());
     return Report();
   }
 
   constexpr int kSteps = 240;
   int taken = 0;
-  for (; taken < kSteps && engine.Advance(); ++taken) {}
+  for (; taken < kSteps && engine.advance(); ++taken) {}
 
   CHECK(taken == kSteps,
         ("**A WORLD STEPS WITH NO PICTURE**: this case never asks for a canvas, and neither does a "
          "dedicated server or a commandlet. " + std::to_string(taken) + " of " +
-         std::to_string(kSteps) + " steps: " + engine.Error())
+         std::to_string(kSteps) + " steps: " + engine.error())
             .c_str());
   if (taken != kSteps) { return Report(); }
 
   double fell = 0.0, fast = 0.0;
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == "the first of them, up") { fell = held.How; }
     if (held.What == "and how fast it falls") { fast = held.How; }
   }

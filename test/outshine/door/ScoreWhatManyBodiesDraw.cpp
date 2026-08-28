@@ -69,7 +69,7 @@ constexpr const char *kTriangleBase64 =
 }
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return -1.0;
@@ -124,18 +124,18 @@ struct Drew {
 [[nodiscard]] bool Ran(const std::string &under, const std::string &uri, int bodies, Drew &out,
                        std::string &why) {
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return false;
   }
-  if (!engine.Declare(Standing(uri, bodies)) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(Standing(uri, bodies)) || !engine.assemble()) {
+    why = engine.error();
     return false;
   }
   for (int step = 0; step < 6; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      why = engine.Error();
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      why = engine.error();
       return false;
     }
   }

@@ -84,8 +84,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -103,8 +103,8 @@ int main(void) {
   wanted.Kind = "test-slab";
   stands.Generators.push_back(wanted);
 
-  const bool refused = !engine.Declare(stands);
-  const std::string why = engine.Error();
+  const bool refused = !engine.declare(stands);
+  const std::string why = engine.error();
   std::printf("DECLARED, NOBODY OFFERS IT   %s\n", refused ? why.c_str() : "STOOD ANYWAY");
 
   CHECK(refused,
@@ -117,10 +117,10 @@ int main(void) {
         "which line is at fault sends the reader back to the whole file");
 
   Slab slab;
-  engine.Offers(slab);
+  engine.offers(slab);
   std::vector<uint8_t> pixels;
-  if (!engine.Declare(stands) || !engine.RenderTo(outshine::Extent{}) || !engine.Pixels(pixels)) {
-    Unprepared(("the offered generator did not stand: " + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.render(outshine::Extent{}) || !engine.readPixels(pixels)) {
+    Unprepared(("the offered generator did not stand: " + engine.error()).c_str());
     return Report();
   }
   const double green = Green(pixels);
@@ -143,14 +143,14 @@ int main(void) {
   asAsset.Assets.push_back(generated);
 
   std::vector<uint8_t> byAsset;
-  const bool stoodAsAsset = engine.Declare(asAsset) && engine.RenderTo(outshine::Extent{}) &&
-                            engine.Pixels(byAsset);
+  const bool stoodAsAsset = engine.declare(asAsset) && engine.render(outshine::Extent{}) &&
+                            engine.readPixels(byAsset);
   const double asAssetGreen = stoodAsAsset ? Green(byAsset) : -1.0;
 
   outshine::Scenario unknown = asAsset;
   unknown.Assets.front().Uri = "no-such-maker";
-  const bool refusedAsset = !engine.Declare(unknown);
-  const std::string whyAsset = engine.Error();
+  const bool refusedAsset = !engine.declare(unknown);
+  const std::string whyAsset = engine.error();
 
   std::printf("AS A GENERATED ASSET         mean green %.2f\n", asAssetGreen);
   std::printf("NAMING A MAKER NOBODY OFFERS %s\n",
@@ -174,8 +174,8 @@ int main(void) {
   shipped.Assets.push_back(own);
 
   std::vector<uint8_t> byShipped;
-  const bool stoodShipped = engine.Declare(shipped) && engine.RenderTo(outshine::Extent{}) &&
-                            engine.Pixels(byShipped);
+  const bool stoodShipped = engine.declare(shipped) && engine.render(outshine::Extent{}) &&
+                            engine.readPixels(byShipped);
   double redOfShipped = 0.0;
   if (stoodShipped) {
     const size_t many = byShipped.size() / 4;
@@ -183,7 +183,7 @@ int main(void) {
     redOfShipped = many == 0 ? 0.0 : redOfShipped / (double)many;
   }
   std::printf("OUTSHINE'S OWN 'structures'  %s, mean red %.2f\n",
-              stoodShipped ? "stands with nothing offered" : engine.Error().c_str(), redOfShipped);
+              stoodShipped ? "stands with nothing offered" : engine.error().c_str(), redOfShipped);
 
   CHECK(stoodShipped && redOfShipped > 1.0,
         "**AND OUTSHINE SHIPS ONE OF ITS OWN**: a scenario naming `structures` stands without the "

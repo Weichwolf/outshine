@@ -132,7 +132,7 @@ struct Landed {
 };
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == what) { return held.How; }
   }
   return 0.0;
@@ -141,17 +141,17 @@ struct Landed {
 [[nodiscard]] Landed Drove(const outshine::Scenario &declared, std::string &why) {
   Landed out;
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{320, 180})) {
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;
   }
-  if (!engine.Declare(declared) || !engine.Assemble()) {
-    why = engine.Error();
+  if (!engine.declare(declared) || !engine.assemble()) {
+    why = engine.error();
     return out;
   }
   for (int step = 0; step < kSteps; ++step) {
-    if (!engine.Advance()) { break; }
+    if (!engine.advance()) { break; }
   }
   out.EastM = Measured(engine, "the body, east");
   out.UpM = Measured(engine, "the body, up");
@@ -172,12 +172,12 @@ int main(void) {
   }
 
   outshine::Engine reader;
-  reader.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
-  if (!reader.Read(kScenario)) {
-    Unprepared(("the declaration would not read: " + reader.Error()).c_str());
+  reader.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  if (!reader.readScenario(kScenario)) {
+    Unprepared(("the declaration would not read: " + reader.error()).c_str());
     return Report();
   }
-  const outshine::Scenario fromFile = reader.Declared();
+  const outshine::Scenario fromFile = reader.declaration();
 
   std::string why;
   const Landed byFile = Drove(fromFile, why);
@@ -221,10 +221,10 @@ int main(void) {
   outshine::Scenario onFoot = fromFile;
   onFoot.Routed.By = outshine::Travels::Walk;
   outshine::Engine walker;
-  walker.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  walker.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
   const bool refusedWalk =
-      walker.DrawsInto(outshine::Extent{320, 180}) && walker.Declare(onFoot) && !walker.Assemble();
-  const std::string whyWalk = walker.Error();
+      walker.drawsInto(outshine::Extent{320, 180}) && walker.declare(onFoot) && !walker.assemble();
+  const std::string whyWalk = walker.error();
   std::printf("DECLARED BY FOOT  %s\n", refusedWalk ? whyWalk.c_str() : "ASSEMBLED ANYWAY");
 
   CHECK(refusedWalk && whyWalk.find("foot") != std::string::npos,

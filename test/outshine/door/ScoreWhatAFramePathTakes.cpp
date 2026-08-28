@@ -79,7 +79,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAAA
 
 [[nodiscard]] double Taken(const outshine::Engine &engine, const char *tag) {
   const std::string named = std::string("heap taken under ") + tag;
-  for (const outshine::Measure &held : engine.Numbers()) {
+  for (const outshine::Measure &held : engine.measures()) {
     if (held.What == named) { return held.How; }
   }
   return 0.0;
@@ -107,8 +107,8 @@ int main(void) {
     return Report();
   }
   outshine::Engine engine;
-  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
-  if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
+  engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
+  if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
     Unprepared("the device stood no canvas");
     return Report();
   }
@@ -125,15 +125,15 @@ int main(void) {
   shown.Uri = "walks.gltf";
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
-  if (!engine.Declare(stands) || !engine.Assemble()) {
-    Unprepared((std::string("the subject did not stand: ") + engine.Error()).c_str());
+  if (!engine.declare(stands) || !engine.assemble()) {
+    Unprepared((std::string("the subject did not stand: ") + engine.error()).c_str());
     return Report();
   }
 
   // Four steps to get past the first pose, which BUILDS and is allowed to take.
   for (int step = 0; step < 4; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      Unprepared((std::string("the picture did not advance: ") + engine.Error()).c_str());
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      Unprepared((std::string("the picture did not advance: ") + engine.error()).c_str());
       return Report();
     }
   }
@@ -142,8 +142,8 @@ int main(void) {
 
   double moved = 0.0;
   for (int step = 0; step < 8; ++step) {
-    if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
-      Unprepared((std::string("the picture did not advance: ") + engine.Error()).c_str());
+    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+      Unprepared((std::string("the picture did not advance: ") + engine.error()).c_str());
       return Report();
     }
     moved += 1.0;

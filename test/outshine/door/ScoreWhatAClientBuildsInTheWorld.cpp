@@ -28,21 +28,21 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   outshine::Engine engine;
-  engine.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
 
   outshine::Scenario declared;
   declared.Bodies.push_back(outshine::Body{});
   declared.Bodies.back().Name = "carrier";
   declared.Room = 8;
 
-  const bool declaredStands = engine.Declare(declared) && engine.Assemble();
+  const bool declaredStands = engine.declare(declared) && engine.assemble();
   CHECK(declaredStands,
         ("**A WORLD STANDS WITH NO DEVICE**: this case never asks for a canvas, and Unreal's "
          "LoadMap builds a UWorld the same way -- which is what every commandlet and dedicated "
-         "server is: " + engine.Error()).c_str());
+         "server is: " + engine.error()).c_str());
   if (!declaredStands) { return Report(); }
 
-  outshine::Store &world = engine.Scene();
+  outshine::Store &world = engine.scene();
 
   const outshine::Entity body = world.Add(outshine::Role::Body);
   const outshine::Entity mind = world.Add(outshine::Role::Mind);
