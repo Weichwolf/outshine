@@ -138,6 +138,9 @@ outshine is rather than pretending to be a renderer it is not.
     bool saveScreenshot(std::string_view path)
     bool readPixels(std::vector<uint8_t> &rgba)
     bool inspect(void)
+    bool settled(void) const
+    bool preload(double patienceS)
+    double loadProgress(void) const
     bool mix(std::span<float> stereo, int rate)
     bool readScenario(std::string_view path)
     bool setGeometry(const Geometry &geometry)
@@ -346,8 +349,8 @@ The widest public surfaces.
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 45 | `src/engine/Live.h` |
+| 36 | `include/Outshine.h` |
 | 35 | `src/render/stages/SubjectDraw.h` |
-| 33 | `include/Outshine.h` |
 
 ## Twins
 

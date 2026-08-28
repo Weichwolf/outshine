@@ -116,6 +116,69 @@ bool Engine::State::Composes(void) {
     World.Table = Generators::TableOf(World.Stack.Vegetation());
   }
 
+  return Grounds(true);
+}
+
+bool Engine::State::Asks(void) {
+  const Scenario &declared = Session.Declared;
+  const Sim::Corridor &way = Ticking.Drive.Way;
+  const bool overADrive = Ticking.Drove && !way.Fine.empty();
+  if (!declared.Ground.Declared && !overADrive) { return true; }
+  if (!Picture.Standing || !World.Stack.Opened()) { return true; }
+  Around over;
+  over.LatDeg = overADrive ? way.FrameLat : declared.Ground.Lat;
+  over.LonDeg = overADrive ? way.FrameLon : declared.Ground.Lon;
+  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  over.Awaited = false;
+  over.Asking = true;
+  {
+    const double tileSpanM = 40075017.0 *
+                             std::cos(over.LatDeg * std::numbers::pi / 180.0) /
+                             std::ldexp(1.0, over.Zoom);
+    const double nearest = 4.0 * tileSpanM;
+    const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
+    over.Levels = 1 + (int)std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0);
+  }
+  auto asked = LayPatchwork(World.Stack.Pool(), over);
+  if (!asked) {
+    Error = asked.error();
+    return false;
+  }
+  World.Pending = asked->Pending;
+  World.Bare = asked->Bare;
+  World.Wanted = asked->Tiles;
+  return true;
+}
+
+bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
+  const Heap::Tagged laying("world-ground");
+  const Scenario &declared = Session.Declared;
+  const Sim::Corridor &way = Ticking.Drive.Way;
+  const bool overADrive = Ticking.Drove && !way.Fine.empty();
+  if (!declared.Ground.Declared && !overADrive) { return true; }
+  if (!Picture.Standing || !World.Stack.Opened()) { return true; }
+  const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Lat;
+  const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Lon;
+
+  double atLat = anchorLat, atLon = anchorLon;
+  if (Picture.Standing->Watched()) {
+    const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
+    const double *const eye = Picture.Standing->Watching().EyeM;
+    double held[3];
+    for (int axis = 0; axis < 3; ++axis) {
+      held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
+                   eye[1] * anchored.UpEcef()[axis] - eye[2] * anchored.NorthEcef()[axis];
+    }
+    const Ground::Geo above = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+    atLat = above.LatDeg;
+    atLon = above.LonDeg;
+  }
+  Published.Places("the ring centres this far from the world's anchor",
+                   std::hypot((atLat - anchorLat) * 111132.0,
+                              (atLon - anchorLon) * 111320.0 *
+                                  std::cos(anchorLat * std::numbers::pi / 180.0)),
+                   "m");
+
   Around over;
   over.LatDeg = atLat;
   over.LonDeg = atLon;
@@ -145,14 +208,52 @@ bool Engine::State::Composes(void) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
     over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
   }
+  // TWO REASONS TO RE-LAY, AND NO OTHERS: the eye moved into a different tile, so the walk wants a
+  // different set; or the last pass was INCOMPLETE and tiles have since landed. Otherwise the
+  // terrain that stands is the terrain that was asked for, and rebuilding it costs a full
+  // `Gltf::Subject` assemble and a `Restand` for nothing. The old flightbox streamer named the same
+  // two reasons and slept between them; CLAUDE.md names it as the rule that work is proportional to
+  // what CHANGED. Measured before this guard: `advance` spent every frame inside
+  // `Grounds -> Restand -> Live::Stand`.
+  {
+    const Ground::TileFrac here =
+        Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
+    const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32) ^
+                          (uint64_t)(int64_t)std::floor(here.Y) ^ ((uint64_t)over.Levels << 56);
+    Around asking = over;
+    asking.Asking = true;
+    auto sees = LayPatchwork(World.Stack.Pool(), asking);
+    if (!sees) {
+      Error = sees.error();
+      return false;
+    }
+    World.Pending = sees->Pending;
+    World.Bare = sees->Bare;
+    World.Wanted = sees->Tiles;
+    const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
+    // BUILDING THE TERRAIN IS A ONE-OFF, AND A STANDING CAMERA HAS NOTHING TO DO. The frame path
+    // re-lays for exactly ONE reason: the eye walked into a different tile, so the walk wants a
+    // different set. Tiles landing is the OTHER reason to re-lay, and it belongs to whoever is
+    // waiting for them -- `preload` while the world comes in, `Composes` at stand-up -- never to
+    // `advance`. Without that split, a tile arriving on almost every frame during load made
+    // "incomplete" true on every frame, and each one paid a full vertex build, a `Gltf::Subject`
+    // assemble and a `Restand`.
+    const bool elsewhere = from != World.LaidFrom;
+    const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
+    if (World.EverLaid && !elsewhere && !grew) { return true; }
+    World.LaidFrom = from;
+    World.LaidResident = resident;
+    World.EverLaid = true;
+  }
+
   auto laid = LayPatchwork(World.Stack.Pool(), over);
   if (!laid) {
     Error = laid.error();
     return false;
   }
 
-  const double frameLat = overADrive ? way.FrameLat : atLat;
-  const double frameLon = overADrive ? way.FrameLon : atLon;
+  const double frameLat = anchorLat;
+  const double frameLon = anchorLon;
   const TangentFrame standing = TangentFrame::At(frameLat, frameLon);
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
@@ -368,6 +469,9 @@ bool Engine::State::Composes(void) {
   Published.Places("levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
   Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
   Published.Places("tiles laid bare on the ellipsoid", (double)laid->Bare, "tiles");
+  World.Pending = laid->Pending;
+  World.Bare = laid->Bare;
+  World.Wanted = laid->Tiles;
   Published.Places("tiles that overlap a finer level", (double)laid->Overlapped, "tiles");
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");

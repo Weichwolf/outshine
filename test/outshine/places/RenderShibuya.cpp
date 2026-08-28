@@ -38,7 +38,9 @@ namespace {
 constexpr const char *kPlace = "Shibuya";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
-constexpr int kSteps = 60;
+constexpr int kSteps = 2;
+constexpr double kPatienceS = 8.0;
+constexpr double kSightM = 25000.0;
 constexpr double kLatDeg = 35.6595;
 constexpr double kLonDeg = 139.7005;
 constexpr double kBearingDeg = 40.0;
@@ -79,6 +81,7 @@ int main(void) {
   stands.Ground.Lat = kLatDeg;
   stands.Ground.Lon = kLonDeg;
   stands.Ground.PatienceS = 3.0;
+  stands.Ground.SightM = kSightM;
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{kWidePx, kHighPx};
   stands.Render.Fill = 0.6;
@@ -107,14 +110,19 @@ int main(void) {
     return Report();
   }
 
+  // PRELOAD, THEN ONE PICTURE. The engine never blocks on IO, so a client that wants a finished
+  // frame rather than a progressively refining one says so ONCE, bounded in seconds, before it
+  // draws. That is Filament's `flushAndWait` distinction: the wait belongs to the client's call,
+  // never to the frame path.
   const auto stood = std::chrono::steady_clock::now();
-  for (int step = 0; step < kSteps; ++step) {
+  const bool ready = engine.preload(kPatienceS);
+  int frames = 0;
+  for (; frames < kSteps; ++frames) {
     if (!engine.advance() || !engine.render(outshine::Extent{})) {
       Unprepared((std::string(kPlace) + " did not advance: " + engine.error()).c_str());
       return Report();
     }
   }
-
   const auto drew = std::chrono::steady_clock::now();
   const double standingMs =
       std::chrono::duration<double, std::milli>(stood - began).count();
@@ -152,11 +160,14 @@ int main(void) {
 
   std::printf("    THE TIME IS NOT THE PICTURE: %.0f ms to stand the world, %.1f ms to draw %d "
               "frames (%.2f ms each). %.0f tile(s) still pending, %.0f absent, %.0f refused\n",
-              standingMs, drawingMs, kSteps, drawingMs / (double)kSteps,
+              standingMs, drawingMs, frames + 1, drawingMs / (double)(frames + 1),
               measured("tiles it is still waiting for"), measured("tiles the stack does not hold"),
               measured("tiles it refused"));
   std::printf("    %.0f tile(s) stood BARE on the ellipsoid because the ground had not arrived\n",
               measured("tiles laid bare on the ellipsoid"));
+  std::printf("    %s -- loaded %.0f%% of what the view wants, %d frame(s) drawn\n",
+              ready ? "PRELOADED" : "PATIENCE RAN OUT", 100.0 * engine.loadProgress(),
+              frames);
 
   CHECK(wrote,
         "**THERE IS A PICTURE**: the only thing this case refuses on. A place that declares, "

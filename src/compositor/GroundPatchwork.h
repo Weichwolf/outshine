@@ -17,6 +17,7 @@ struct Around {
   int Levels = 1;
   int Grid = 33;
   bool Awaited = false;
+  bool Asking = false;
   double EyeM[3] = {0.0, 0.0, 0.0};
   float FocalPx = 0.0f;
   float Tau = kPixelTau;

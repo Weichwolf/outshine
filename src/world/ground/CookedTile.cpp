@@ -13,26 +13,6 @@ namespace {
 
 constexpr size_t kTileSoupFloats = 8;
 
-[[nodiscard]] bool Filled(const float *soup, int gridverts, Geometry &into) {
-  const int surface = into.Surface("ground", Material{});
-  const int part = into.Part("ground", surface);
-  if (part < 0) { return false; }
-  std::vector<float> places, uv, normals;
-  std::vector<uint32_t> run;
-  places.reserve((size_t)gridverts * 3);
-  uv.reserve((size_t)gridverts * 2);
-  normals.reserve((size_t)gridverts * 3);
-  run.reserve((size_t)gridverts);
-  for (int vertex = 0; vertex < gridverts; ++vertex) {
-    const float *const at = soup + (size_t)vertex * kTileSoupFloats;
-    places.insert(places.end(), at, at + 3);
-    uv.insert(uv.end(), at + 3, at + 5);
-    normals.insert(normals.end(), at + 5, at + 8);
-    run.push_back((uint32_t)vertex);
-  }
-  return into.Positions(part, places) && into.Texture(part, uv) && into.Normals(part, normals) &&
-         into.Triangles(part, run);
-}
 
 }
 
@@ -45,21 +25,17 @@ void CookTile(const float *soup, int nverts, int gridverts, const double origin[
   if (!soup || nverts <= 0) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
-  ClusterDagOpts opts;
-  const double length =
-      std::sqrt(origin[0] * origin[0] + origin[1] * origin[1] + origin[2] * origin[2]);
-  if (length > 1.0) {
-    for (int axis = 0; axis < 3; ++axis) { opts.Up[axis] = (float)(origin[axis] / length); }
-  }
-
-  Geometry stood;
-  CookedPart cooked;
-  std::string why;
-  if (Filled(soup, gridverts, stood) && Cook(stood, 0, opts, cooked, why)) {
-    outVerts = std::move(cooked.Dag.Verts);
-    outIdx = std::move(cooked.Dag.Idx);
-    outClusters = std::move(cooked.Dag.Clusters);
-  } else {
+  // A TERRAIN TILE NEEDS NO CLUSTER DAG, BECAUSE THE PYRAMID IS ALREADY THE LOD. Zoom z-1 IS the
+  // simplified version of zoom z, produced once by whoever made the tiles, so building a
+  // Nanite-style DAG inside each tile at runtime rebuilds a reduction the data already carries.
+  // Nanite builds its DAG OFFLINE at import; Cesium ships quantized-mesh tiles pre-simplified per
+  // level and cuts the quadtree by screen-space error. Neither simplifies terrain at runtime.
+  // Measured, and this is why it is here rather than an opinion: sampling a place mid-load put 572
+  // of the stack samples in `dag::Clustered`, `dag::SimplifyGroup` and `dag::Absorb` -- the whole
+  // CPU cost of standing a world, spent reducing 2 048 triangles per tile down to 8 across every
+  // one of 128 tiles. The DAG belongs to SUBJECTS, which have no natural pyramid; that is exactly
+  // where Nanite uses it.
+  {
     outVerts.assign(soup, soup + (size_t)gridverts * kTileSoupFloats);
     outIdx.resize((size_t)gridverts);
     for (int vertex = 0; vertex < gridverts; ++vertex) { outIdx[(size_t)vertex] = (uint32_t)vertex; }

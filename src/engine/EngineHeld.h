@@ -253,6 +253,13 @@ struct Surrounds {
     Generators::Instance Where;
   };
   std::vector<Standing> Instances;
+  size_t Pending = 0;
+  size_t Bare = 0;
+  size_t Wanted = 0;
+  uint64_t LaidFrom = 0;
+  size_t LaidResident = 0;
+  bool EverLaid = false;
+  std::chrono::steady_clock::time_point LaidAt{};
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
   size_t Placed = 0;
@@ -335,6 +342,8 @@ struct Engine::State {
   void Inspected(void);
   [[nodiscard]] bool Rides(void);
   [[nodiscard]] bool Watches(void);
+  [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
+  [[nodiscard]] bool Asks(void);
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const double shiftM[3]);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]);
   void Falls(void);

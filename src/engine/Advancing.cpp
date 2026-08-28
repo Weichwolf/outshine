@@ -198,7 +198,8 @@ bool Engine::State::Updates(void) {
     Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   Falls();
-  return Watches();
+  if (!Watches()) { return false; }
+  return Grounds(false);
 }
 
 bool Engine::State::Draws(void) {

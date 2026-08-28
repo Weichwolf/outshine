@@ -69,6 +69,7 @@ public:
   void Focus(double latDeg, double lonDeg);
 
   [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
+  [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override;
 
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
 

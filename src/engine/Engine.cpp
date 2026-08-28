@@ -243,6 +243,49 @@ const std::vector<std::string> &Engine::unacted() const { return S_->Session.Car
 
 const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
+bool Engine::settled(void) const {
+  return S_->World.Pending == 0;
+}
+
+// A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
+// `ComputeLoadProgress()` and Unreal answers `GetAsyncLoadPercentage`; both let the client draw the
+// bar rather than guessing. This is the same question in this engine's own terms: of the terrain
+// the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
+double Engine::loadProgress(void) const {
+  const size_t wanted = S_->World.Wanted;
+  if (wanted == 0) { return 1.0; }
+  const size_t missing = S_->World.Pending;
+  if (missing >= wanted) { return 0.0; }
+  return (double)(wanted - missing) / (double)wanted;
+}
+
+// PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the
+// invariant -- so a client that wants a finished picture rather than a progressively refining one
+// asks for it HERE, once, bounded in seconds. Filament spells the same distinction
+// `Renderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides whether
+// to wait on it. Nothing inside advance() or render() ever calls this.
+bool Engine::preload(double patienceS) {
+  const auto began = std::chrono::steady_clock::now();
+  const double bound = patienceS > 0.0 ? patienceS : 0.0;
+  for (;;) {
+    if (!S_->Asks()) { return false; }
+    if (settled()) { return S_->Grounds(true); }
+    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
+      // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;
+      // the refusal says what is still missing. Building only on a full settle meant a place that
+      // loaded 73 per cent of its tiles rendered the bare ellipsoid, because the one call that
+      // turns tiles into geometry never ran.
+      const bool built = S_->Grounds(true);
+      S_->Error = "the world at this place did not become resident within " +
+                  std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) +
+                  " of " + std::to_string(S_->World.Wanted) + " tile(s) still pending" +
+                  (built ? "" : ", and what did arrive would not build");
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+}
+
 bool Engine::setView(std::string_view view) {
   if (!S_->Session.Views) {
     S_->Error = "the scenario declares no views, so there is none to take";

@@ -61,6 +61,53 @@ light, which no item yet claims. But the canyon stands in mid-morning sun and re
 with the terrain lit by ambient alone. That is a lighting defect and it is filed apart, because it
 would still be there over a perfect sphere.
 
+## WHAT I BUILT HERE IS A PLACEHOLDER, AND THE FOUR SAY WHY
+
+Audited against Filament, Cesium, RAGE and Unreal rather than against whether the picture improved.
+Three of the four things in the cascade do not survive that.
+
+**1. A fixed 4x4 block per level is not a screen-space-error cut, and nobody does it that way.**
+Cesium's `Tileset` walks ONE quadtree and refines a node when its geometric error, projected to the
+screen, exceeds `maximumScreenSpaceError` -- one knob, no level table. Unreal's landscape and Nanite
+both cut by screen-space error. RAGE selects a sector's LOD by distance banded against its own
+proxy. So the cascade is a GEOMETRIC approximation of a cut that should be an ERROR cut, and worse:
+this tree ALREADY has an error cut in `DagSelect`, inside a tile. Two LOD mechanisms that do not
+talk to each other is the naive part -- the outer one should not exist. The tile pyramid IS the
+quadtree; `Around::Levels` and `kBlockTiles` are a table standing in for walking it.
+
+**2. `SphereTile` throws away data the tree already holds.** Cesium covers a node whose children
+have not loaded with the node itself -- real terrain, coarser. The old flightbox streamer wrote the
+same rule down: "a chunk that has not arrived is covered by its parent". I substitute a FLAT
+ELLIPSOID PATCH, which is correct in place and curvature and carries no elevation at all. Whenever
+a coarser ancestor is resident, that is strictly worse than what both references do. It is only the
+right answer for the very first frame at a place where NOTHING is resident yet.
+
+**3. The whole terrain is rebuilt every frame.** `Grounds()` re-lays every tile, rebuilds the vertex
+and index arrays, re-assembles a `Gltf::Subject` and calls `Restand` -- per frame. Cesium's
+`updateView` returns a DELTA: what to render, what to load, what to unload. Unreal keeps landscape
+components resident and changes only their LOD. RAGE streams sectors in and out. CLAUDE.md already
+carries the rule -- the work a declaration causes is proportional to what CHANGED -- and a full
+rebuild per frame is the opposite of it.
+
+**What the honest structure is**, and it is one thing rather than three: a quadtree walked from a
+root that covers the declared sight, refining by screen-space error, stopping where children are not
+resident and requesting them, emitting a delta, never blocking. That is Cesium's shape, the old
+flightbox streamer's shape, and it subsumes the cascade, the bare tile and the per-frame rebuild.
+The cascade stays only until it is written, and it stays MEASURED so the replacement has numbers to
+beat: 76-128 tiles, 128-388 km of reach, 1 846 ms to stand, 2.56 ms a frame.
+
+## THERE IS NO RING. THERE IS ONLY STREAMING.
+
+The owner's framing, and it is a NAME question as much as a design one: a game engine is always a
+streamer, and a camera that does not move is the degenerate case of streaming -- not a different
+operation with a different shape. This tree says `LayPatchwork`, `Around::Ring`, "the ring's
+farthest vertex", and every one of those words promises a fixed thing laid once around a fixed
+point. That promise is what let `Composes` lay it a single time at assemble and let nothing re-lay
+it, which is why 128 of 128 tiles stood bare and no elevation could ever land.
+
+So the vocabulary follows the design rather than leading it: when the streamer is real, `ring`
+leaves with it. Renaming it before then would be the blind rename this tree already paid for once.
+
 ## What will be true
 
 - [ ] the render frame is the CAMERA's: one pre-view translation per frame, every terrain vertex a `float` offset from the eye's own ECEF position, rotated by the ENU basis at the eye's lat/lon. The `(void)standing` line is gone and so is every `mPerDeg` term on the terrain path
@@ -70,6 +117,8 @@ would still be there over a perfect sphere.
 - [ ] **the reach is DECLARED, not coded, and its default is 240 km.** The owner's 100 km was a rough figure and the real bound is the geometric one: from height h the horizon is sqrt(2Rh), so 240 km is what an eye at 4 520 m sees, and equally what a 4 000 m peak is visible from at 225 km. `WorldSettings::SightM` carries it and the cascade derives its level count from it -- `1 + ceil(log2(sight / (4 * tileSpan)))` -- so no number in the source decides how far the world goes
 - [ ] the case that states it is the Jura: from the Chasseral at 47.132 N, 7.059 E the Bernese Alps stand 95.4 km away across the Mittelland -- derived from the Jungfrau's coordinates, 66 124 m north and 68 768 m east, bearing 133.9 deg -- and MUST be in frame
 - [ ] a declared camera steers the picture: moving the eye or turning it changes the image
+- [ ] the terrain is re-laid EVERY FRAME around wherever the eye now is, not once around where the scenario was declared -- you can move around the whole world
+- [ ] the client can ask the engine whether it has settled, and take its picture then. The engine never waits; the CLIENT's patience is the client's own
 
 ## The measurements that would show I am wrong
 

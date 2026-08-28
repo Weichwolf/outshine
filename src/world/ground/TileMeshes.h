@@ -28,6 +28,8 @@ public:
 
   [[nodiscard]] virtual Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
                                           TileBuild *out) = 0;
+
+  [[nodiscard]] virtual Reply Wants(int z, uint32_t x, uint32_t y, int grid) = 0;
 };
 
 }

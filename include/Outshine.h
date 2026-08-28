@@ -46,6 +46,9 @@ public:
   [[nodiscard]] bool saveScreenshot(std::string_view path);
   [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] bool inspect(void);
+  [[nodiscard]] bool settled(void) const;
+  [[nodiscard]] bool preload(double patienceS);
+  [[nodiscard]] double loadProgress(void) const;
   [[nodiscard]] bool mix(std::span<float> stereo, int rate);
 
   [[nodiscard]] bool readScenario(std::string_view path);

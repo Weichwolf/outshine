@@ -153,8 +153,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
       TileBuild built;
       const TileMeshes::Reply said =
-          over.Awaited ? tiles.MeshAwaited(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built)
-                       : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+          over.Asking ? tiles.Wants(zoom, (uint32_t)x, (uint32_t)y, over.Grid)
+                      : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
       bool ofTheGround = true;
       if (said == TileMeshes::Reply::Pending) { ++out.Pending; ofTheGround = false; }
       else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
@@ -162,10 +162,20 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         ofTheGround = false;
       } else if (said == TileMeshes::Reply::Refused) { ++out.Refused; ofTheGround = false; }
       if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
-      if (!ofTheGround) {
-        SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
-        ++out.Bare;
+      // BARE COUNTS WHAT WAS LAID, PENDING COUNTS WHAT WAS ASKED FOR. A walk that only asks lays
+      // nothing, so counting both made every missing tile count twice and drove any progress
+      // fraction to zero by construction.
+      if (!ofTheGround && !over.Asking) { ++out.Bare; }
+      // ASKING WALKS AND REQUESTS AND BUILDS NOTHING. `tiles.Mesh` issues the fetch for a tile that
+      // is not resident, so the walk itself is what pulls the world in; assembling vertices while
+      // doing it would rebuild the whole terrain on every poll. A loading bar polls; it must cost
+      // a walk, not a mesh.
+      if (over.Asking) {
+        ++out.Tiles;
+        if (ofTheGround) { standing.push_back({heldX0, heldX1, heldY0, heldY1}); }
+        continue;
       }
+      if (!ofTheGround) { SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built); }
       if (built.Verts.empty() || built.Idx.empty()) { continue; }
 
       if (!anchored) {

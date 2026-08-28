@@ -471,7 +471,17 @@ void TilePool::Work(int slot) {
       size_t best = 0;
       for (size_t i = 1; i < Queue_.size(); i++) {
         const Job &a = Queue_[i], &b = Queue_[best];
-        if (a.Kind < b.Kind || (a.Kind == b.Kind && a.TileDist < b.TileDist)) best = i;
+        // FINER FIRST, THEN NEARER. Sorting by distance alone inverts the priority: a coarse tile
+        // covering hundreds of kilometres is CENTRED on the camera, so it wins against every fine
+        // tile the eye actually resolves -- measured, the Grand Canyon loaded 55 per cent of its
+        // tiles and read 59 m of relief where its rim-to-river drop is over 1 500 m, because what
+        // arrived was the coarse levels. Cesium selects by screen-space error and loads the
+        // selected set nearest-first; the depth in the tree is this cascade's stand-in for that
+        // error, so depth leads and distance breaks the tie.
+        if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
+            (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
+          best = i;
+        }
       }
       job = std::move(Queue_[best]);
       Queue_.erase(Queue_.begin() + (long)best);
@@ -557,6 +567,31 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
     Repeats_++;
   }
   return Reply::Pending;
+}
+
+// WANTS ASKS WITHOUT TAKING. `Poll` CONSUMES a finished result -- it moves it out, erases it from
+// `Done_` and drops the key from `Posted_` -- which is right for a caller that is going to use the
+// mesh and wrong for one that only wants to know whether it has landed. A residency poll built on
+// `Poll` throws away every tile it finds and re-posts the job, so the pool re-parses the same tile
+// forever and never settles. This posts the job if it is unknown and reports what it sees, and it
+// takes nothing.
+TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
+  const uint64_t key = MeshKey(z, x, y);
+  {
+    std::lock_guard<std::mutex> lock(QueueMutex_);
+    const auto done = Done_.find(key);
+    if (done != Done_.end()) { return done->second.State; }
+    if (Posted_.find(key) != Posted_.end()) { return Reply::Pending; }
+  }
+  Job job;
+  job.Kind = Rank::Mesh;
+  job.Z = z;
+  job.X = x;
+  job.Y = y;
+  job.Grid = grid;
+  job.Key = key;
+  Result result;
+  return Poll(std::move(job), &result);
 }
 
 TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) {
