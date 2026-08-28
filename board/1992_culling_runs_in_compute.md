@@ -39,3 +39,41 @@ you; an occlusion test rejects the building behind the building, which is most o
 - [ ] the CPU issues a CONSTANT number of dispatches over a drive, whatever the scene holds
 - [ ] a scene with an occluder draws fewer clusters than the same scene without it -- the number
       that shows the occlusion half works at all
+
+## MEASURED BEFORE A LINE WAS WRITTEN, and the item is smaller and sharper than it was filed
+
+**The culling is already written and it already selects per cluster. It runs on the CPU.**
+`src/compositor/GroundPatchwork.cpp:106` walks every cluster of every tile in the ring, calls
+`DagSelect(cluster, eyeInTile, FocalPx, Tau, Up)` on each, and pushes the surviving indices into a
+CPU vector that is then uploaded. That is exactly the predicate below, on the wrong processor:
+
+    for (const DagCluster &cluster : built.Clusters) {
+      if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
+      ++out.ClustersDrawn;
+      for (uint32_t step = 0; step < cluster.Count; ++step) {
+        out.Index.push_back(first + built.Idx[cluster.First + step]);
+      }
+    }
+
+So this item is not "write a culling algorithm". board:1991 wrote and proved it. It is: **the
+clusters reach the DEVICE, a compute stage runs the selection the CPU runs now, and the CPU stops
+walking them.** That is a much narrower change and it has a reference implementation one directory
+over -- its own.
+
+**Three things measured, each of which moves this item:**
+
+1. **`src/render/` names neither `ClusterDag` nor `DagCluster`, anywhere.** The cooked form stops
+   at the compositor; only the SELECTED indices cross to the device. A compute stage cannot cull
+   what it cannot see, so the first predicate is a residency question before it is a compute one.
+2. **The counters exist and nothing outside the compositor reads them.** `Out::ClustersHeld` and
+   `Out::ClustersDrawn` are computed every frame and no engine code, no door verb and no case
+   reads either. The before/after number this item owes is already being calculated and thrown
+   away -- CLAUDE.md's commonest defect, one more time.
+3. **Only the GROUND is culled per cluster.** The subject path has no cluster selection at all, so
+   "the CPU issues no work per cluster" is trivially true for subjects and false for terrain, and
+   the predicate has to say which it means.
+
+**What the next step is, and it is not the compute stage.** Publish `ClustersHeld` and
+`ClustersDrawn` through the door so this item has its before-number, then move the clusters to the
+device, then dispatch. Building the stage first would leave the win unmeasurable, which is what
+board:1993's `apps/bench` reading exists to prevent.
