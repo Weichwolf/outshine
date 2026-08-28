@@ -139,6 +139,10 @@ int main(void) {
               measured("the ring's nearest vertex to the frame origin"), measured("and its up"),
               measured("its farthest vertex"), measured("and THAT one's up"));
 
+  std::printf("    %s  CURVATURE: farthest sink %.2f m at %.0f m out, a sphere says %.2f m\n",
+              kPlace, measured("the ring's vertex that sinks furthest below its own altitude"),
+              measured("and how far out it lies"), measured("a sphere would sink it by"));
+
   std::printf("    %s  clusters %.0f held / %.0f drawn, worst error %.1f m -- skirt is twice that\n",
               kPlace, measured("clusters the ring holds"), measured("clusters it drew"),
               measured("the worst error any of them carries"));

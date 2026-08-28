@@ -1,5 +1,6 @@
 #include <cmath>
 #include "Heap.h"
+#include "TangentFrame.h"
 #include <chrono>
 
 #include "EngineHeld.h"
@@ -130,24 +131,31 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
-  const Ground::EnuFrame standing = Ground::EnuFrame::At(atLat, atLon);
-  const double perLatM = overADrive ? way.PerLatM : 111132.0;
-  const double perLonM = overADrive ? way.PerLonM
-                                    : 111320.0 * std::cos(atLat * std::numbers::pi / 180.0);
   const double frameLat = overADrive ? way.FrameLat : atLat;
   const double frameLon = overADrive ? way.FrameLon : atLon;
-  (void)standing;
+  const TangentFrame standing = TangentFrame::At(frameLat, frameLon);
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
+  double sank = 0.0, sankAt = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-    const Ground::Ecef held{laid->OriginEcef[0] + (double)laid->PositionM[at],
+    const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
                             laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
                             laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
-    const Ground::Geo where = Ground::EcefToGeoWgs84(held);
-    inFrame[at] = (float)((where.LonDeg - frameLon) * perLonM);
-    inFrame[at + 1] = (float)where.AltM;
-    inFrame[at + 2] = (float)(-(where.LatDeg - frameLat) * perLatM);
+    double eastM = 0.0, upM = 0.0, northM = 0.0;
+    standing.Place(held, &eastM, &upM, &northM);
+    inFrame[at] = (float)eastM;
+    inFrame[at + 1] = (float)upM;
+    inFrame[at + 2] = (float)(-northM);
+    const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+    const double below = where.AltM - upM;
+    if (below > sank) {
+      sank = below;
+      sankAt = std::sqrt(eastM * eastM + northM * northM);
+    }
   }
+  Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
+  Published.Places("and how far out it lies", sankAt, "m");
+  Published.Places("a sphere would sink it by", sankAt * sankAt / (2.0 * Data::kWgs84A), "m");
 
   {
     double nearest = 1.0e30, atUp = 0.0, farthest = 0.0, farUp = 0.0;
@@ -172,22 +180,11 @@ bool Engine::State::Composes(void) {
     for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
       std::swap(laid->Index[at + 1], laid->Index[at + 2]);
     }
-    const double lat = frameLat * std::numbers::pi / 180.0;
-    const double lon = frameLon * std::numbers::pi / 180.0;
-    const double sinLat = std::sin(lat), cosLat = std::cos(lat);
-    const double sinLon = std::sin(lon), cosLon = std::cos(lon);
-    const double east[3] = {-sinLon, cosLon, 0.0};
-    const double north[3] = {-sinLat * cosLon, -sinLat * sinLon, cosLat};
-    const double upward[3] = {cosLat * cosLon, cosLat * sinLon, sinLat};
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
       const double held[3] = {(double)laid->NormalM[at], (double)laid->NormalM[at + 1],
                               (double)laid->NormalM[at + 2]};
       double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
-      for (int axis = 0; axis < 3; ++axis) {
-        alongEast += east[axis] * held[axis];
-        alongUp += upward[axis] * held[axis];
-        alongNorth += north[axis] * held[axis];
-      }
+      standing.Turn(held, &alongEast, &alongUp, &alongNorth);
       laid->NormalM[at] = (float)alongEast;
       laid->NormalM[at + 1] = (float)alongUp;
       laid->NormalM[at + 2] = (float)(-alongNorth);

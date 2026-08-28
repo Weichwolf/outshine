@@ -295,7 +295,7 @@ flowchart LR
   engine --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  37 edge(s) drawn, 47 thinner than three includes not drawn
+  37 edge(s) drawn, 48 thinner than three includes not drawn
 
 ## Tiers
 
@@ -382,11 +382,11 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 |---|---|
 | 7 | `src/generators/base/ContactMaterial.h` |
 | 5 | `src/generators/draw/TreeMesh.h` |
+| 4 | `src/content/shade/TangentFrame.h` |
 | 3 | `src/generators/draw/TreeFoliage.h` |
 | 3 | `src/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |
 | 2 | `src/render/draw/DrawKey.h` |
-| 2 | `src/content/shade/TangentFrame.h` |
 | 1 | `src/world/weather/ConstantWindWeather.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |

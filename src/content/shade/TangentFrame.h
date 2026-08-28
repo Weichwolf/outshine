@@ -18,6 +18,27 @@ public:
   const double *OriginEcef() const { return O_; }
   const double *EastEcef() const { return East_; }
   const double *NorthEcef() const { return North_; }
+  const double *UpEcef() const { return Up_; }
+
+  void Place(const double ecef[3], double *eastM, double *upM, double *northM) const {
+    const double d[3] = {ecef[0] - O_[0], ecef[1] - O_[1], ecef[2] - O_[2]};
+    *eastM = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
+    *upM = d[0] * Up_[0] + d[1] * Up_[1] + d[2] * Up_[2];
+    *northM = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
+  }
+
+  void Place(double latDeg, double lonDeg, double altM, double *eastM, double *upM,
+             double *northM) const {
+    double p[3];
+    GeoToEcef(latDeg, lonDeg, altM, p);
+    Place(p, eastM, upM, northM);
+  }
+
+  void Turn(const double ecef[3], double *eastward, double *upward, double *northward) const {
+    *eastward = ecef[0] * East_[0] + ecef[1] * East_[1] + ecef[2] * East_[2];
+    *upward = ecef[0] * Up_[0] + ecef[1] * Up_[1] + ecef[2] * Up_[2];
+    *northward = ecef[0] * North_[0] + ecef[1] * North_[1] + ecef[2] * North_[2];
+  }
 
   void Project(double latDeg, double lonDeg, double *eastM, double *northM) const {
     double p[3];
@@ -35,12 +56,11 @@ public:
 private:
   TangentFrame(double latDeg, double lonDeg) : Lat_(latDeg), Lon_(lonDeg) {
     GeoToEcef(latDeg, lonDeg, 0.0, O_);
-    double up[3];
-    EnuAxesEcef(latDeg, lonDeg, East_, North_, up);
+    EnuAxesEcef(latDeg, lonDeg, East_, North_, Up_);
   }
 
   double Lat_, Lon_;
-  double O_[3], East_[3], North_[3];
+  double O_[3], East_[3], North_[3], Up_[3];
 };
 
 }
