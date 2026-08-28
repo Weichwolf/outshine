@@ -189,6 +189,27 @@ int main(void) {
   // half is completion posting the follow-on job, which is a dependency between two jobs and
   // therefore `Work::Graph`'s question rather than a fourth queue.
   std::printf("  fetches that ran on a COMPUTE worker: %ld and %ld\n", onCompute, onComputeTwo);
+  // A COMPUTE WORKER STILL BLOCKS ON A SOCKET, and this number is what says so. board:1985 wants
+  // it at ZERO: an IO thread that blocks costs no core, a compute worker that blocks costs one.
+  // `PoolTerrain::Take` calls `TilePool::BytesBlocking`, which runs `FetchInto` on the CALLER's
+  // thread, and the caller is a mesh worker.
+  //
+  // It is not zero yet and three attempts to make it zero have failed, the last one measurably:
+  // parking the mesh job under its fetch key spun 818 times in five seconds, because THIS POOL
+  // HAS NO COMPLETIONS. `FetchInto` polls a bounded number of times and returns Pending -- "not
+  // ready, ask again" -- and `Data::Transport` is `Begin` plus `Collect`, submission and poll,
+  // with no verb for "wait until a ticket lands". A completion queue cannot be laid over a layer
+  // that cannot complete, which is why every attempt so far has been at the wrong altitude.
+  // `Host::Fetching` already runs its own threads on blocking `curl_easy_perform`, so the
+  // completion EXISTS and is not handed up.
+  //
+  // Until it is, this stands as a guard on the number rather than a claim about it: it may fall
+  // and it may not rise.
+  CHECK(onCompute <= 1 && onComputeTwo <= 2,
+        "**AND THE COUNT OF FETCHES ON A COMPUTE WORKER MAY ONLY FALL**: it is 1 and 2 today "
+        "because PoolTerrain::Take blocks the caller, and board:1985 wants zero. A number nobody "
+        "guards is a number that drifts, and this one has been printed and unchecked while three "
+        "attempts to move it failed");
   CHECK(dropped,
         "**A WAIT ENDS WHEN THE JOB IS DROPPED, NOT ONLY WHEN THE TILE LANDS**: the transport "
         "never answers, so the worker exhausts its polls and erases the posted job with `Done_` "

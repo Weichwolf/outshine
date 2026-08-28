@@ -144,10 +144,19 @@ not being forced through with a third variation of the same error.
       The park half may well be right; the requeue half is a busy loop wearing a completion
       queue's clothes.
 
-      What the next attempt must fix, named: a job whose fetch is NOT posted has nothing to wait
-      for and must not be requeued -- it must POST the fetch itself and then park, so every parked
-      job has exactly one completion coming. That is the io_uring invariant this attempt broke:
-      every submission gets a completion, and a job that parks without submitting waits forever
-      or spins.
+      **AND THE ROOT IS ONE LAYER LOWER THAN EVERY ATTEMPT HAS BEEN.** Chased after the rollback:
+      `FetchInto` POLLS -- a bounded number of attempts with a sleep between them -- and returns
+      `Pending` meaning *not ready, ask again*, whereupon `Posted_.erase` takes it out of flight.
+      So a fetch in this pool has no completion to wait for, and `Data::Transport` is why: its
+      verbs are `Begin` and `Collect`, submission and poll, with nothing for *wait until a ticket
+      lands*. **A completion queue cannot be laid over a layer that cannot complete**, which is
+      what all three attempts were doing.
+      The completion EXISTS and is not handed up: `Host::Fetching` runs its own threads on
+      blocking `curl_easy_perform`, so a ticket's answer is known the moment that call returns.
+      So the order is: `Data::Transport` gains the missing verb -- one place to wait, io_uring's
+      own shape -- THEN the pool stops polling, THEN a mesh job can park. Attempted in the other
+      order three times.
+      Guarded meanwhile: `outshine/geo/ScoreWhenAWaitForATileEnds` now CHECKS the number it had
+      only printed. It stands at 1 and 2 and may only fall.
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared
