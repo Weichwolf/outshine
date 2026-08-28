@@ -250,6 +250,30 @@ bool Engine::State::Composes(void) {
   Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
   Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
   Published.Places("tiles it refused", (double)laid->Refused, "tiles");
+  {
+    double least = 1.0e30, most = -1.0e30;
+    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+      const double up = (double)laid->PositionM[at + 1];
+      if (up < least) { least = up; }
+      if (up > most) { most = up; }
+    }
+    double west = 1.0e30, east = -1.0e30, north = 1.0e30, south = -1.0e30;
+    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+      const double alongE = (double)laid->PositionM[at];
+      const double alongS = (double)laid->PositionM[at + 2];
+      if (alongE < west) { west = alongE; }
+      if (alongE > east) { east = alongE; }
+      if (alongS < north) { north = alongS; }
+      if (alongS > south) { south = alongS; }
+    }
+    if (most >= least) {
+      Published.Places("the ring's lowest vertex", least, "m");
+      Published.Places("its highest", most, "m");
+      Published.Places("so the relief it carries", most - least, "m");
+      Published.Places("and the ground it spans, east to west", east - west, "m");
+      Published.Places("north to south", south - north, "m");
+    }
+  }
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");

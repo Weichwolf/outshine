@@ -110,6 +110,8 @@ int main(void) {
   };
   const double tiles = measured("tiles the ring laid");
   const double triangles = measured("subjects, triangles");
+  const double relief = measured("so the relief it carries");
+  const double spans = measured("and the ground it spans, east to west");
 
   std::vector<uint8_t> rgba;
   const bool read = engine.readPixels(rgba);
@@ -119,8 +121,8 @@ int main(void) {
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = "build/places/BlackForest.png";
   const bool wrote = engine.saveScreenshot(kept);
-  std::printf("%s  %.0f tile(s), %.0f triangle(s), %zu of %zu pixel(s) differ, kept at %s\n",
-              kPlace, tiles, triangles, apart, rgba.size() / 4u,
+  std::printf("%s  %.0f tile(s), %.0f triangle(s), %.0f m relief over %.0f m, %zu of %zu pixel(s) differ, kept at %s\n",
+              kPlace, tiles, triangles, relief, spans, apart, rgba.size() / 4u,
               wrote ? kept.c_str() : engine.error().c_str());
 
   CHECK(read && apart > 0,

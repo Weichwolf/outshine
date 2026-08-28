@@ -72,3 +72,32 @@ But "ours" settles the WORD, not the SHAPE, and the shape does not converge on i
 **The measurement**: `STATE.md` counts the spoken names and verbs at every `make`. If the count
 stops moving while this item is active, the rename has stalled and the page says so without anyone
 remembering to check.
+
+## Stage two's first reading, measured rather than guessed
+
+The five places stand, fetch and draw. What they draw is not their place, and the numbers say where
+the fault is NOT:
+
+    GrandCanyon  9 tiles, 18 166 triangles, 3475 m relief over 3659 m, EYE up 2185.8 m
+    Shibuya      9 tiles, 18 642 triangles, 3401 m relief over 3243 m
+    Venice       9 tiles, 13 148 triangles, 2911 m relief over 2911 m
+    BlackForest  9 tiles, 16 356 triangles, 2720 m relief over 2282 m
+    OldTown      9 tiles, 13 404 triangles, 2675 m relief
+
+**The camera is right.** Mather Point stands at about 2 100 m and the eye reads 2 185.8 m -- that is
+`sampleHeight` asking the terrain and adding the sixty metres the case declared. Moving it to
+3 000 m and pitching it to -85 degrees changes the picture by three thousand pixels of nine hundred
+thousand, which is the next thread rather than a camera fault.
+
+**The heights arrive and they are WRONG.** A 3 km patch of Shibuya carries 3 401 m of relief and
+Tokyo is flat; Venice reads 2 911 m at sea level. Either the DEM decode is off, or void samples are
+mapped to an extreme and a handful of spikes own the range. `min` and `max` over the ring cannot
+tell those apart, and the next measurement is a HISTOGRAM rather than a span.
+
+**And the picture is a plane** while the ring says 3 475 m of relief across 3 659 m. Those two
+cannot both be true of the same vertices, so the geometry the subject stage draws is not the
+geometry the compositor measured -- which is the reading stage two starts from.
+
+Written down before the work, so being wrong is visible: I expect the DEM decode to be the fault
+and the spikes to be its symptom. If the histogram comes back smooth and the relief is real, the
+fault is between the compositor and the stage instead, and this paragraph is what I got wrong.
