@@ -161,6 +161,9 @@ void Engine::State::Falls(void) {
 }
 
 void Engine::State::Drew(void) {
+  Published.Places("bodies the world's generators placed", (double)World.Placed,
+                   "bodies");
+  Published.Places("how far the placement chain reached", (double)World.Reached, "steps");
   Published.Places("streets the world holds", (double)World.Stack.Ways().Ways().size(), "ways");
   Published.Places("water surfaces it holds", (double)World.Stack.WaterBodies().Surfaces().size(),
                    "surfaces");

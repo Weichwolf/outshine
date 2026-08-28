@@ -8,7 +8,6 @@
 
 namespace outshine::Ground {
 
-constexpr int kVectorZoom = 14;
 constexpr int kVectorRing = 1;
 
 
@@ -88,7 +87,9 @@ void GroundStack::Restand(double lat, double lon) {
                                   OsmLayerName(OsmLayer::WaterLines),
                                   OsmLayerName(OsmLayer::Streets),
                                   OsmLayerName(OsmLayer::StreetPolygons)};
-    Vectors_ = std::make_unique<OsmField>(kVectorZoom, std::span<const std::string>(layers, 5));
+    const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
+    if (zoom <= 0) { return; }
+    Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers, 5));
   }
   if (Vectors_->Build(*Pool_, lat, lon, kVectorRing) <= 0) { return; }
   WaterBodies_.AnchorAt(Cls_.OriginEcef());

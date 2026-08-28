@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include "Species.h"
 
 namespace outshine {
 
@@ -35,6 +36,32 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
+  if (World.Placing.empty() && World.Stack.Vegetated()) {
+    const Ground::VegetationTemplates &veg = World.Stack.Vegetation();
+    World.TreesPerM2.clear();
+    for (size_t row = 0; row < veg.TemplateCount(); ++row) {
+      World.TreesPerM2.push_back(veg.Rows()[row].Edge[2]);
+    }
+    std::vector<Generators::TreeSpecies> species;
+    std::string why;
+    if (Generators::ReadSpecies((std::string(Session.Under.Shipped) + "/world/species").c_str(),
+                                species, why)) {
+      World.Stems.clear();
+      for (const Generators::TreeSpecies &one : species) {
+        Generators::Forest::Stem stem;
+        stem.HeightM = (double)one.HeightM();
+        World.Stems.push_back(stem);
+      }
+      if (!World.Stems.empty() && !World.TreesPerM2.empty()) {
+        World.Woods = std::make_unique<Generators::Forest>(
+            Span<const Generators::Forest::Stem>(World.Stems.data(), World.Stems.size()),
+            Span<const float>(World.TreesPerM2.data(), World.TreesPerM2.size()), veg.Limit());
+        World.Placing.push_back(World.Woods.get());
+      }
+    }
+    World.Table = Generators::TableOf(veg);
+  }
+
   Around over;
   over.LatDeg = atLat;
   over.LonDeg = atLon;
@@ -45,6 +72,43 @@ bool Engine::State::Composes(void) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
     over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
   }
+  World.Placed = 0;
+  World.Reached = World.Placing.empty() ? 1 : (!World.Table ? 2 : (World.Stack.Vectors() == nullptr ? 3 : 4));
+  if (!World.Placing.empty() && World.Table && World.Stack.Vectors() != nullptr) {
+    const Generators::Tile region =
+        Generators::Tile::Of(World.Stack.Vectors()->Zoom(), atLat, atLon);
+    Generators::Fields stands;
+    stands.Vectors = World.Stack.Vectors();
+    stands.Footprints = &World.Stack.Footprints();
+    stands.WaterBodies = &World.Stack.WaterBodies();
+    stands.Ways = &World.Stack.Ways();
+    Generators::Ground::Snapshot snapshot;
+    const Generators::Snapped how = Generators::SnapshotOver(
+        region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
+    World.Reached = 40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
+                    (snapshot.Features ? 4 : 0);
+    if (how == Generators::Snapped::Taken) {
+      World.Reached = 5;
+      const std::optional<Generators::Ground> over2 = Generators::Ground::Of(region, snapshot);
+      if (over2) {
+        World.Reached = 6;
+        Generators::RegionPool::Shape shape;
+        Generators::RegionPool::Extent extent{over2->Where(), over2->Where()};
+        Generators::RegionPool pool(extent, shape);
+        if (std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over2)) {
+          World.Reached = 7;
+          for (const Generators::Making *const stood : World.Placing) {
+            std::vector<Generators::Yield::Note> notes(stood->NoteNames().Size());
+            Generators::Yield yield(lease->Sink(), stood->NoteNames(),
+                                    Span<Generators::Yield::Note>(notes.data(), notes.size()));
+            stood->Occupy(*over2, yield);
+            World.Placed += yield.Placed().Count;
+          }
+        }
+      }
+    }
+  }
+
   auto laid = LayPatchwork(World.Stack.Pool(), over);
   if (!laid) {
     Error = laid.error();

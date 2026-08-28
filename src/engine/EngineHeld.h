@@ -4,6 +4,9 @@
 #include <Outshine.h>
 #include "Fetching.h"
 #include "HeapProbe.h"
+#include "Forest.h"
+#include "GroundSnapshot.h"
+#include "RegionPool.h"
 #include "Structures.h"
 #include "Unwired.h"
 
@@ -243,7 +246,14 @@ struct Surrounds {
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
   std::vector<const Generates *> Offering;
+  std::vector<Generators::Forest::Stem> Stems;
+  std::vector<float> TreesPerM2;
+  std::unique_ptr<Generators::Forest> Woods;
+  std::vector<const Generators::Making *> Placing;
+  std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
+  size_t Placed = 0;
+  int Reached = 0;
   TriangleBvh Blocking;
 };
 

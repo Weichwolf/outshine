@@ -180,11 +180,21 @@ that links no `src/engine` source.
       proof: outshine/door/ScoreWhatAMovingSceneResends reads `1813 street(s), 3 water
       surface(s), 1849 footprint(s)` over the drive; gate GREEN.
       negative control: dropping the street ingest makes it read 0 and the case goes RED.
-- [ ] A GENERATOR is called from the ENGINE. **What remains, measured.** The world now HOLDS what
-      `FeaturesOver` needs; what is still missing is the registry for the placement door -- the
-      engine's `Surrounds` carries a `Generates` list and nothing for `Making`, so there is no
-      shipped placement generator to run and no `Offers` for one. The old blocker, kept for the
-      record:
+- [x] the engine SHIPS a placement generator and CALLS it. `Surrounds` carries a placement
+      registry beside its `Generates` one, and the forest in it is built from DECLARATION and not
+      from code -- species heights from `src/assets/world/species/`, per-template tree density
+      from `vegetation.json`'s `trees.perM2`, and the treeline from its `alpineLimit`.
+      `Composes` builds a region, a snapshot, a `Ground`, a `RegionPool` lease and a `Yield`, and
+      runs `Occupy` over every registered maker.
+- [ ] **ONE REGION CANNOT SERVE TWO ZOOMS, and that is the last blocker, measured.** The chain
+      above reaches step 40: registry, table and vector fields all stand, and `SnapshotOver`
+      returns with no patch, no classes and no features. `SnapshotOver` takes a SINGLE `Tile`, and
+      this tree serves ground blocks at zoom 12 (`GroundSurface.Z`) while the vector provider's
+      finest is 14 (`VersatilesVector.cpp:17`, against the DEM's 15). A region at the vector zoom
+      finds no resident ground block; a region at the ground zoom finds no settled vector tile.
+      So the remaining question is about the SNAPSHOT's signature and not about the generators:
+      either it takes two regions, or the ground stream serves the vector zoom.
+      The old blocker, kept for the record:
       `SnapshotOver` returns `Taken` only when the patch, the classes AND the features all stand,
       and `FeaturesOver` returns null unless all FOUR vector fields are handed in -- an
       `OsmField`, a `BuildingField`, a `WaterField` and a `StreetField`.
