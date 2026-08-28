@@ -9,17 +9,17 @@ Nine areas against RAGE and Unreal, counted from `board/` where the target alrea
 lives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick
 whose proof this tree does not hold is reported rather than counted.
 
-| area | held | share | tickets | note |
-|---|---|---|---|---|
-| `actors` | 2/7 | 29% | [1944](board/1944_the_engine_knows_bodies_forces_and_control.md) | |
-| `audio` | 6/14 | 43% | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md), [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) | |
-| `client` | 3/11 | 27% | [1947](board/1947_a_client_is_almost_no_code.md), [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) | |
-| `corpus` | 3/8 | 38% | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) | |
-| `door` | 7/21 | 33% | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md), [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) | |
-| `gpu-driven` | 5/15 | 33% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_sim_video_audio_and_io_run_independently.md) | |
-| `perception` | 1/6 | 17% | [1945](board/1945_a_body_perceives_what_is_around_it.md) | |
-| `render-plan` | 3/7 | 43% | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) | |
-| `streaming` | 0/7 | 0% | [1946](board/1946_the_generated_world_reaches_the_scene.md) | |
+| area | predicates open/closed | share | ACTIVE, and how many open | open, and how many | note |
+|---|---|---|---|---|---|
+| `actors` | 5/2 | 29% | -- | [1944](board/1944_the_engine_knows_bodies_forces_and_control.md) 5 | |
+| `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
+| `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
+| `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
+| `door` | 14/7 | 33% | -- | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
+| `gpu-driven` | 10/5 | 33% | [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3 | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7 | |
+| `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
+| `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
+| `streaming` | 7/0 | 0% | -- | [1946](board/1946_the_generated_world_reaches_the_scene.md) 7 | |
 
 ## Door -- `include/`
 

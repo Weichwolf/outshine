@@ -1052,6 +1052,7 @@ StateProgress() {
     slug=$(sed -n 's|^Progress:[ ]*||p' "$item" | head -1)
     [ -n "$slug" ] || continue
     ticket=$(basename "$item")
+    itemState=$(sed -n 's|^State:[ ]*||p' "$item" | head -1)
     awk -F'\t' '
       function flush() {
         if (state == "x") { printf "x\t%s\t%s\n", (proof == "" ? "-" : proof), said }
@@ -1064,7 +1065,7 @@ StateProgress() {
     ' "$item" |
       while IFS="$tab" read -r kind named said; do
         if [ "$kind" = o ]; then
-          printf '%s open %s\n' "$slug" "$ticket"
+          printf '%s open %s %s\n' "$slug" "$ticket" "$itemState"
           continue
         fi
         # A TICK MAY NAME MORE THAN ONE PROOF and every one of them must stand: a predicate held
@@ -1090,9 +1091,9 @@ StateProgress() {
           break
         done
         if [ "$holds" = yes ]; then
-          printf '%s held %s\n' "$slug" "$ticket"
+          printf '%s held %s %s\n' "$slug" "$ticket" "$itemState"
         else
-          printf '%s unproven %s\n' "$slug" "$ticket"
+          printf '%s unproven %s %s\n' "$slug" "$ticket" "$itemState"
           printf -- '- `%s` in [%s](board/%s) names `%s` -- %s\n' \
             "$slug" "${ticket%%_*}" "$ticket" "$named" "$(printf '%s' "$said" | cut -c1-96)" \
             >> "$progressBare"
@@ -1100,11 +1101,15 @@ StateProgress() {
       done >> "$progressTally"
   done
 
-  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | predicates held | share | items | note |\n|---|---|---|---|---|\n'
+  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | predicates open/closed | share | ACTIVE, and how many open | open, and how many | note |\n|---|---|---|---|---|---|\n'
   if [ -s "$progressTally" ]; then
     sort "$progressTally" | awk '
       { n[$1 " " $2]++; areas[$1] = 1
-        if ($2 != "held" && index(waits[$1], $3) == 0) { waits[$1] = waits[$1] " " $3 } }
+        working[$3] = $4
+        if ($2 != "held") {
+          if (index(waits[$1], $3) == 0) { waits[$1] = waits[$1] " " $3 }
+          left[$1 " " $3]++
+        } }
       END {
         for (a in areas) { order[++k] = a }
         for (i = 1; i < k; i++) {
@@ -1117,16 +1122,23 @@ StateProgress() {
           held = n[a " held"] + 0; waiting_n = n[a " open"] + 0; bare = n[a " unproven"] + 0
           total = held + waiting_n + bare
           if (total == 0) { continue }
-          printf "| `%s` | %d/%d | %d%% | ", a, held, total, int(100.0 * held / total + 0.5)
+          printf "| `%s` | %d/%d | %d%% |", a, total - held, held,
+                 int(100.0 * held / total + 0.5)
           split(waits[a], waiting, " ")
-          first = 1
-          for (w = 1; w in waiting; w++) {
-            if (waiting[w] == "") { continue }
-            number = waiting[w]; sub(/_.*$/, "", number)
-            printf "%s[%s](board/%s)", (first ? "" : ", "), number, waiting[w]
-            first = 0
+          for (pass = 1; pass <= 2; pass++) {
+            first = 1
+            for (w = 1; w in waiting; w++) {
+              if (waiting[w] == "") { continue }
+              isActive = (working[waiting[w]] == "active")
+              if ((pass == 1) != isActive) { continue }
+              number = waiting[w]; sub(/_.*$/, "", number)
+              printf "%s[%s](board/%s) %d", (first ? " " : ", "), number, waiting[w],
+                     left[a " " waiting[w]]
+              first = 0
+            }
+            if (first) { printf " --" }
+            printf " |"
           }
-          printf " |"
           if (bare > 0) { printf " %d tick(s) name no proof |", bare }
           else { printf " |" }
           printf "\n"
