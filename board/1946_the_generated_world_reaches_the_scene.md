@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Progress: streaming
 Area: world
 Tags: benchmark, target
