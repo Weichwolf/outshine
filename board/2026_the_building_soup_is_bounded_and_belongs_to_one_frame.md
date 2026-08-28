@@ -21,17 +21,23 @@ The field already carries the answer and nobody uses it: `AddedFirst()` and `Add
 range added by the last build, exactly so a consumer can take a DELTA. Reading `Verts()` whole is
 what makes the size unbounded.
 
-## And it may be the reason the buildings cannot be seen (board:1946)
+## THE ANCHOR HYPOTHESIS IS DEAD, killed by the number this item demanded
 
-Every vertex in `Verts_` is an ECEF offset from `Anchor_`, which is set ONCE by `AnchorAt`. If the
-anchor moves between builds -- and `GroundStack::Restand` re-anchors on the class field's origin --
-then vertices meshed before the move are read against the wrong anchor and land somewhere else
-entirely. That would put most of a town outside the frame while a handful of survivors show as the
-two pixels board:1946 measured.
+It read: vertices meshed before an anchor move would be read against the wrong anchor and land
+elsewhere, leaving a handful of survivors as the two pixels board:1946 measured. The measurement it
+named was the anchor's ECEF against the frame's origin.
 
-**This is a hypothesis and it is NOT yet measured.** The measurement that settles it: the anchor's
-ECEF at each build, and whether it changes. If it never moves, this explains nothing and board:1946
-must look elsewhere.
+    buildings: their anchor lies from the frame's origin    0 m
+
+Zero. The anchor and the render frame's origin coincide exactly, so no vertex is read against the
+wrong point and this explains nothing about board:1946. WITHDRAWN.
+
+What the same measurement did show is the size:
+
+    floats in the soup                14 942 304    = 1 867 788 vertices = 622 596 triangles
+    the field's last delta began at    5 682 768
+    and ran for                        9 259 536    -- 62 per cent of the array, in ONE build
+    footprints the field holds             5 140    -- 121 triangles each
 
 ## What will be true
 

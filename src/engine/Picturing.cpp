@@ -488,6 +488,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const Ground::BuildingField &prints = World.Stack.Footprints();
     const std::vector<float> &soup = prints.Verts();
     const double *const anchor = prints.Anchor();
+    {
+      double away = 0.0;
+      for (int axis = 0; axis < 3; ++axis) {
+        const double step = anchor[axis] - standing.OriginEcef()[axis];
+        away += step * step;
+      }
+      Published.Places("buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
+      Published.Places("buildings: floats in the soup", (double)soup.size(), "floats");
+      Published.Places("buildings: the field's last delta began at", (double)prints.AddedFirst(),
+                       "floats");
+      Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
+      Published.Places("buildings: footprints the field holds", (double)prints.Footprints().size(),
+                       "footprints");
+    }
     if (soup.size() >= kTileVertexFloats * 3) {
       const size_t vertices = soup.size() / kTileVertexFloats;
       std::vector<float> raised(vertices * 3), facing(vertices * 3);
