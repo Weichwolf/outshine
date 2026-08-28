@@ -1069,12 +1069,23 @@ StateProgress() {
         fi
         # A TICK MAY NAME MORE THAN ONE PROOF and every one of them must stand: a predicate held
         # by two cases is held by neither if one is missing, so the comma is a conjunction.
-        holds=yes
-        [ "$named" = - ] && holds=no
+        # A PROOF LINE NAMES ITS CASES AND MAY CARRY WHAT THEY READ (board:2003). A token is a
+        # proof CLAIM when it starts with one of test/'s six suite roots or with --audit; every
+        # other word is the reading and is not a path. `33/33` is prose; `outshine/door` is a
+        # claim. A tick that makes no claim names no proof.
+        holds=no
         for oneProof in $(printf '%s' "$named" | tr ',' ' '); do
-          [ -f "test/$oneProof.cpp" ] && continue
-          [ -d "test/$oneProof" ] && continue
-          case "$oneProof" in --audit*) grep -q -- "$oneProof)" test/run.sh && continue ;; esac
+          case "$oneProof" in
+            geographiclib/*|harness/*|khronos/*|outshine/*|test262/*|wpt/*) ;;
+            --audit*) grep -q -- "$oneProof)" test/run.sh && { holds=yes; continue; }
+                      holds=no; break ;;
+            *) continue ;;
+          esac
+          oneProof=${oneProof%%[!A-Za-z0-9_/.-]*}
+          if [ -f "test/$oneProof.cpp" ] || [ -d "test/$oneProof" ]; then
+            holds=yes
+            continue
+          fi
           holds=no
           break
         done
