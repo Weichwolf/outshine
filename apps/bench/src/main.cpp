@@ -265,6 +265,16 @@ int main(int count, char **args) {
                     placements, palettes, distinct, layouts, bytes);
       }
     }
+    std::printf(
+        "\nWHAT THIS READING DOES NOT COVER. A Khronos scene is ONE authored subject standing\n"
+        "still in front of a fixed eye. It streams nothing, it grows nothing, it holds one\n"
+        "material set and a handful of lights, and its whole geometry is resident before the\n"
+        "first step. The largest here is ABeautifulGame at 1.5 M triangles; Amazon's Bistro is\n"
+        "about 1.9x that in ONE block, and a driven world is larger again in EXTENT -- 14729\n"
+        "streets and 22691 footprints on the corridor this same bench runs without --scene.\n"
+        "So these numbers decide whether a SUBJECT is drawn well. They decide NOTHING about\n"
+        "whether a world is held, and a rate from here quoted about a world is the same mistake\n"
+        "as a green corpus quoted about capacity.\n");
     return refused == 0 ? 0 : 1;
   }
 
@@ -328,6 +338,13 @@ int main(int count, char **args) {
                 named.c_str(), held.How, drew, triangles, triangles / held.How);
   }
 
+  std::printf(
+      "\nWHAT THIS READING DOES NOT COVER. A drive is the EXTENT half: tiles fetched, decoded\n"
+      "and cooked as the corridor moves. It is not DENSE -- the subject stage above draws a\n"
+      "five-figure triangle count where an authored interior is seven. So this decides whether a\n"
+      "world is HELD; --scene decides whether a subject is drawn well; neither decides the other.\n"
+      "Density AT world scale has no case in this tree yet, and until it does no number here\n"
+      "may be quoted as one.\n");
   std::printf("\nTHE ENGINE'S OWN SAMPLES, through the door -- it collects, this counts:\n");
   std::printf("  drawn     %zu step(s)   step p50 %.3f  p95 %.3f  p99 %.3f ms\n", drawn.Samples,
               drawn.StepP50, drawn.StepP95, drawn.StepP99);
