@@ -166,3 +166,32 @@ predicts, and that gap is the finding rather than any of the causes ruled out:
 
 - [ ] the buildings are visible at their own height, and the number that says so is the transition itself -- at what offset do they emerge, and why is it not zero
 - [ ] whatever the cause, its negative control is the +500 m lift: it must stop being necessary
+
+
+## THE LAST CANDIDATE STANDING: a second part has no placement row
+
+`BuildDrawList` sets `item.ModelSlot = part * proxy.Instances()` and the draw passes it as the FIRST
+INSTANCE:
+
+    SDL_DrawGPUIndexedPrimitives(pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0,
+                                 batch.ModelSlot);
+
+So part 1 -- the buildings -- reads its model matrix from placement row `Instances()`, while part 0
+reads row 0. `Live::Restand(built, carried, error)` takes `carried` from
+`Picture.Standing->Shown().Parts().size()`, the part count of the subject that stood BEFORE this
+one, and hands it on as the instance count. When the ring alone stood there, that is 1 -- so the
+proxy carries one instance, part 1 asks for row 1, and row 1 was never written.
+
+An unwritten row is a zero matrix, and a zero matrix collapses every vertex of the part onto a
+single point. THAT IS WHAT THE PICTURE SHOWS: painted emissive red, the entire town is ONE red mark.
+
+## The measurement that settles it, named before the measuring
+
+1. **`proxy.Instances()` and the placement row count.** If instances is 1 while the geometry has 2
+   parts, the row part 1 reads does not exist and this is the cause. If instances is already 2 or
+   more, it is not, and this candidate dies like the five before it
+2. **The negative control is the collapse itself.** With the row written, the buildings must stop
+   being one mark and become a town at their own height -- and the +500 m lift must stop being
+   necessary, which is the check this item has carried since the lift first worked
+3. **Why the lift worked anyway** must also come out of it: at +500 m the same collapse should have
+   happened, and it did not. Any answer that explains the collapse but not that is incomplete
