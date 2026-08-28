@@ -146,45 +146,50 @@ size_t TilePool::SchedulerBytes() const {
 
 void TilePool::RefuseUntil(const std::string &key, double untilMs) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
-  for (CacheEntry &e : Cache_) {
-    if (e.Key != key) { continue; }
-    e.RefusedUntilMs = untilMs;
+  const auto found = CacheAt_.find(key);
+  if (found != CacheAt_.end()) {
+    Cache_[found->second].RefusedUntilMs = untilMs;
     return;
   }
   CacheEntry made;
   made.Key = key;
   made.RefusedUntilMs = untilMs;
   made.Used = ++CacheClock_;
+  CacheAt_.emplace(key, Cache_.size());
   Cache_.push_back(std::move(made));
 }
 
 TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
-  for (CacheEntry &e : Cache_) {
-    if (e.Key != key) continue;
-    e.Used = ++CacheClock_;
-    if (e.RefusedUntilMs > Wire_.NowMs()) { return Reply::Refused; }
-    if (e.Absent) return Reply::Absent;
-    if (e.Data.empty() && e.RefusedUntilMs > 0.0) { return Reply::Pending; }
-    out->Bytes.assign(e.Data.begin(), e.Data.end());
-    out->At = e.At;
-    return Reply::Ready;
-  }
-  return Reply::Pending;
+  const auto found = CacheAt_.find(key);
+  if (found == CacheAt_.end()) { return Reply::Pending; }
+  CacheEntry &e = Cache_[found->second];
+  e.Used = ++CacheClock_;
+  if (e.RefusedUntilMs > 0.0 && e.RefusedUntilMs > Wire_.NowMs()) { return Reply::Refused; }
+  if (e.Absent) return Reply::Absent;
+  if (e.Data.empty() && e.RefusedUntilMs > 0.0) { return Reply::Pending; }
+  out->Bytes.assign(e.Data.begin(), e.Data.end());
+  out->At = e.At;
+  return Reply::Ready;
 }
 
 void TilePool::Remember(const std::string &key, const uint8_t *data, size_t len,
                         const Data::Address &at, bool absent) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
-  for (CacheEntry &e : Cache_)
-    if (e.Key == key) return;
+  if (CacheAt_.find(key) != CacheAt_.end()) { return; }
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
     size_t victim = 0;
     for (size_t i = 1; i < Cache_.size(); i++)
       if (Cache_[i].Used < Cache_[victim].Used) victim = i;
     CacheBytes_ -= Cache_[victim].Data.size();
-    Cache_.erase(Cache_.begin() + (long)victim);
+    CacheAt_.erase(Cache_[victim].Key);
+    const size_t last = Cache_.size() - 1u;
+    if (victim != last) {
+      Cache_[victim] = std::move(Cache_[last]);
+      CacheAt_[Cache_[victim].Key] = victim;
+    }
+    Cache_.pop_back();
     evicted++;
   }
   if (evicted > 0) {
@@ -198,6 +203,7 @@ void TilePool::Remember(const std::string &key, const uint8_t *data, size_t len,
   e.Used = ++CacheClock_;
   if (!absent && len > 0) e.Data.assign(data, data + len);
   CacheBytes_ += e.Data.size();
+  CacheAt_.emplace(key, Cache_.size());
   Cache_.push_back(std::move(e));
 }
 

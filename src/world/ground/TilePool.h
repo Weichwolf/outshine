@@ -10,6 +10,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "ClusterDag.h"
@@ -145,6 +146,7 @@ private:
 
   mutable std::mutex CacheMutex_;
   std::vector<CacheEntry> Cache_;
+  std::unordered_map<std::string, size_t> CacheAt_;
   size_t CacheBytes_ = 0;
   uint64_t CacheClock_ = 0;
 
