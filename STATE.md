@@ -203,14 +203,14 @@ Module depends on module, derived from the includes themselves.
 flowchart LR
   render_stages --> |28| render_device
   world_ground --> |18| base_spatial
-  generators --> |17| generators_base
+  generators --> |18| generators_base
   world_ground --> |14| base_io
   sim --> |14| actor_path
   generators_draw --> |14| generators_base
   render --> |13| render_stages
   sim --> |12| world_ground
+  generators --> |11| world_ground
   engine --> |11| ui
-  generators --> |10| world_ground
   engine --> |10| content_gltf
   world_ground --> |9| world_data
   sim --> |8| actor_mind
@@ -220,9 +220,9 @@ flowchart LR
   engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
-  engine --> |5| generators
   content_gltf --> |5| base_spatial
   render --> |4| base_io
+  engine --> |4| generators
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   world_ground --> |3| base_format
@@ -230,13 +230,14 @@ flowchart LR
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
+  generators --> |3| generators_draw
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| scene
   engine --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  34 edge(s) drawn, 50 thinner than three includes not drawn
+  35 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 
@@ -274,8 +275,8 @@ The heaviest files. Headers and sources counted apart.
 | 856 | `cpp` | `ui/Style.cpp` |
 | 827 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 698 | `cpp` | `scenario/ScenarioRead.cpp` |
-| **46** | `h` | *the median of 239 header(s)* |
-| **115** | `cpp` | *the median of 161 source(s)* |
+| **46** | `h` | *the median of 240 header(s)* |
+| **115** | `cpp` | *the median of 162 source(s)* |
 
 ## Carpet
 

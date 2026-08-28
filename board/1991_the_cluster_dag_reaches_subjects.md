@@ -132,8 +132,25 @@ producer, not a second cooker.
       describes a SHAPE and never a motion, which is the same reason board:1995 gives for a
       `Geometry` carrying no velocity.
 - [ ] terrain reaches the picture as a GENERATOR's `Geometry` rather than as a mesh the tile pool
-      builds on its own -- the remaining half, and now a question about the PRODUCER rather than
-      about the cooker
+      builds on its own -- the remaining half, and a question about the PRODUCER rather than about
+      the cooker. **Sized**: a 64-grid tile is 8192 triangles, 768 KiB of soup, and a 3x3 ring is
+      6.75 MiB; the cook runs once per tile on a worker, not per frame, so a `Geometry` in the
+      middle is affordable. What it is not yet is necessary, and that is the question this
+      predicate still owes.
+
+- [x] **and the engine names no world subject, which it did until this was measured.** The shipped
+      forest wiring put `Forest` into `src/engine` nine times and `Tree` twelve -- my own doing,
+      this session, while quoting the invariant that forbids it. `Generators::Shipping` holds the
+      shipped makers now and the engine holds one of those, so `src/engine` names `Forest` zero
+      times and its five `Tree`s are `Ui::Markup Tree`.
+      Two guards were widened to catch it next time, and both had to be written honestly rather
+      than at zero: `Tree` carries 20, because every one is a DATA STRUCTURE -- sixteen markup and
+      layout, four `TreeNodeBytes` accounting a `std::map` -- and `Building` carries 6, because
+      all six are the PARTICIPLE (`Stage::Building`, `struct Building`) and not a house. A word
+      list cannot tell a noun from a gerund, so the row carries the count and the reason.
+      `Forest`, `Terrain`, `Road`, `River` and `Mountain` stand at 0 and may only fall.
+      And `EveryTypeNameIsDeclaredOnce` caught a collision on the way: my `Generators::Standing`
+      against `Scenario::Standing`. It is `Generators::Shipping`.
 - [x] a subject at distance draws fewer triangles than the same subject up close, MEASURED before
       any frame-path change: a 32768-triangle subject cooked by the one cooker draws all 32768
       from 20 m and 21054 from 6000 m -- 64.3%.

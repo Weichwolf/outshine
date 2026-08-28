@@ -69,6 +69,22 @@ constexpr Forbidden kSubjects[] = {
     {"Chassis", 0, "a body"},
     {"Axle", 0, "a joint between two bodies"},
     {"Pedal", 0, "a control command over time"},
+    {"Forest", 0, "a generator's subject; the engine holds a Making and never what it depicts"},
+    {"Terrain", 0, "the same, and CLAUDE.md's own words: the engine knows no terrain"},
+    {"Building", 6, "NOT a house: all six are the PARTICIPLE -- ClassBuilder's Stage::Building "
+                    "and TriangleBvh's struct Building, which is work in progress. A word list "
+                    "cannot tell a noun from a gerund, so this row carries its measured count and "
+                    "the reason. The house is BuildingField in the DATA tier, which is OSM's own "
+                    "layer name, and src/engine and src/render hold neither"},
+    {"Road", 0, "a corridor is a reference line; a road is what OSM calls one"},
+    {"River", 0, "a ribbon with a width; what it depicts is the generator's business"},
+    {"Mountain", 0, "ground is a height field and a slope, and it has no proper nouns"},
+    {"Tree", 20, "every one is a DATA STRUCTURE and not a subject: sixteen are the markup and "
+                 "layout tree, four are TreeNodeBytes accounting a std::map's nodes. The world's "
+                 "tree belongs to the generators and reaches the engine as a Making -- src/engine "
+                 "named Forest nine times and Tree twelve until this row was written, all of it "
+                 "put there by the shipped-forest wiring and all of it moved to "
+                 "Generators::Shipping"},
     {"Walker", 0, "an assembly; walking is CONTROL over time"},
 };
 

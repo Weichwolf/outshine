@@ -1,5 +1,4 @@
 #include "EngineHeld.h"
-#include "Species.h"
 
 namespace outshine {
 
@@ -26,7 +25,7 @@ private:
 }
 
 bool Engine::State::Grows(double atLat, double atLon) {
-  if (World.Placed > 0 || World.Placing.Count() == 0 || !World.Table ||
+  if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table ||
       World.Stack.Vectors() == nullptr) {
     return false;
   }
@@ -50,20 +49,21 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   if (!lease) { return false; }
+  const Generators::GeneratorSet &placing = World.Shipping.Placing();
   std::vector<Generators::Yield> yields;
-  std::vector<std::vector<Generators::Yield::Note>> notes(World.Placing.Count());
-  yields.reserve(World.Placing.Count());
-  for (size_t at = 0; at < World.Placing.Count(); ++at) {
-    const Generators::Making &stood = World.Placing.At(at);
+  std::vector<std::vector<Generators::Yield::Note>> notes(placing.Count());
+  yields.reserve(placing.Count());
+  for (size_t at = 0; at < placing.Count(); ++at) {
+    const Generators::Making &stood = placing.At(at);
     notes[at].assign(stood.NoteNames().Size(), Generators::Yield::Note{});
     yields.emplace_back(lease->Sink(), stood.NoteNames(),
                         Span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
   }
-  World.Placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
+  placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
   for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
   if (World.Placed == 0) { return false; }
   Instancing sink(World.Instances);
-  World.Drawing.Draw(*over, World.Placing,
+  World.Shipping.Drawing().Draw(*over, placing,
                      Span<const Generators::Yield>(yields.data(), yields.size()),
                      lease->Sink().Placed(), sink);
   World.Instanced = World.Instances.size();
@@ -103,33 +103,13 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
-  if (World.Placing.Count() == 0 && World.Stack.Vegetated()) {
-    const Ground::VegetationTemplates &veg = World.Stack.Vegetation();
-    World.TreesPerM2.clear();
-    for (size_t row = 0; row < veg.TemplateCount(); ++row) {
-      World.TreesPerM2.push_back(veg.Rows()[row].Edge[2]);
-    }
-    std::vector<Generators::TreeSpecies> species;
+  if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
     std::string why;
-    if (Generators::ReadSpecies((std::string(Session.Under.Shipped) + "/world/species").c_str(),
-                                species, why)) {
-      World.Stems.clear();
-      for (const Generators::TreeSpecies &one : species) {
-        Generators::Forest::Stem stem;
-        stem.HeightM = (double)one.HeightM();
-        World.Stems.push_back(stem);
-      }
-      if (!World.Stems.empty() && !World.TreesPerM2.empty()) {
-        World.Woods = std::make_unique<Generators::Forest>(
-            Span<const Generators::Forest::Stem>(World.Stems.data(), World.Stems.size()),
-            Span<const float>(World.TreesPerM2.data(), World.TreesPerM2.size()), veg.Limit());
-        (void)World.Placing.Add(Generators::Rank{0}, *World.Woods);
-        World.Woodland = std::make_unique<Generators::ForestDraw>(Generators::ClusterId{0},
-                                                                 World.Stems.front().HeightM);
-        (void)World.Drawing.Add(Generators::Rank{0}, *World.Woodland);
-      }
+    if (!World.Shipping.Stands(World.Stack.Vegetation(),
+                               std::string(Session.Under.Shipped) + "/world/species", why)) {
+      Session.Carried.push_back("nothing shipped stands: " + why);
     }
-    World.Table = Generators::TableOf(veg);
+    World.Table = Generators::TableOf(World.Stack.Vegetation());
   }
 
   Around over;
