@@ -181,9 +181,27 @@ not being forced through with a third variation of the same error.
       a parked job waits on a completion that cannot come. `PoolTerrain::Take` blocks as before
       when the pool carries nothing, and the door suite went green on that.
       Then the gate hung: `./build/outshine-driver --headless --offline --frames 8` sat for
-      seventeen minutes where it takes seconds. So there is a THIRD condition, in the offline
-      path, that neither the wait case nor the door reaches -- and it is the one to find before a
-      fifth attempt. Rolled back.
+      seventeen minutes where it takes seconds. Rolled back -- **and then the third condition was
+      found, so a fifth attempt has all three in writing.**
+
+      `Data::Delivery` has five states and the negative cache remembers exactly ONE of them:
+
+          Delivered -> Ready       Pending -> ask again
+          Vacant    -> Absent      REMEMBERED
+          Refused   -> Refused     NOT remembered
+          Undeclared               NOT remembered
+
+      `Unwired` -- the `--offline` transport -- answers `Wire::Never()` at once, which becomes
+      **Refused**. Without parking the mesh job simply finished: `Take` returned
+      `TerrainBytes::Wire()` and `RunMesh` handled it. With parking the job is RELEASED, runs
+      again, asks again, is refused again, parks again -- forever, because nothing remembers that
+      this key is refused.
+
+      So the fifth attempt owes one more thing before the park: **a refusal must be remembered**.
+      Not permanently -- `Host::Fetching` already carries `RetryAfterS`, so a refusal is meant to
+      be retried after a delay, and remembering it forever would make one bad minute permanent.
+      The negative cache needs a DEADLINE for refusals, which is a design point this pool does not
+      have and which nothing else in the tree needed until a released job could ask twice.
       The pattern across four attempts is worth naming: each one moved the failure somewhere new
       -- deadlock, deadlock, spin, and now a hang only the offline driver sees. The suites that
       go green are not the ones that catch this, and the gate's driver run is.
