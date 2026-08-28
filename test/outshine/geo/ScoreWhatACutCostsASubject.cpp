@@ -144,23 +144,49 @@ int main(void) {
         "many levels the cooker built and not how the cut is chosen -- a mechanism judged on the "
         "wrong half is a mechanism tuned in the wrong place");
 
-  // AND THE FLOOR IS TOO HIGH, WHICH IS THIS CASE'S REAL FINDING. `ClusterDagOpts::TargetRatio`
-  // is 0.5, so each level should hold half the triangles of the one below it: 32768 -> 16384 ->
-  // 8192. Measured on this mesh it holds 32768 -> 22626 -> 21054, which is 69% and then 93%. The
-  // simplifier is not reaching the ratio it was asked for, and until it does, the whole mechanism
-  // can save at most a third however good the cut is. That is the number board:1991's frame-path
-  // surgery would be judged on, and it says the cooker is where the work is -- not the renderer.
+  // THE SIMPLIFIER REACHES ITS RATIO, and this check used to stand RED-WHEN-FIXED saying it did
+  // not. It went red the day it was fixed, which is what such a check is for.
   //
-  // This check is DECLARED RED-WHEN-FIXED: the day the simplifier reaches its ratio it goes red
-  // and this case is what says so, rather than a saving nobody noticed arriving.
+  // What it cost was one number. `dag::SimplifyGroup` LOCKS every vertex a group shares with
+  // another -- Nanite's boundary lock, without which neighbouring groups crack at the seam -- so
+  // with few clusters per group the locked boundary is large against the interior and only
+  // interior edges collapse. `GroupSize` was 4 where Nanite groups 8 to 32. The sweep below is
+  // what found it and it stays, because it is the evidence the number is right and not a guess:
+  //
+  //   groups of  4  reach 0.69     groups of 16  reach 0.50
+  //   groups of  8  reach 0.61     groups of 32  reach 0.50
+  //
+  // Sixteen is the smallest that reaches the declared ratio, and a larger group costs more locked
+  // work per level for nothing. What it bought: the far cut went from 21054 triangles to 10156,
+  // so the mechanism saves 69% of the mesh where it saved 36%.
   const double reached = byLevel[0] == 0 ? 1.0 : (double)byLevel[1] / (double)byLevel[0];
   std::printf("THE COOKER ASKED FOR %.2f per level AND REACHED %.2f\n", (double)how.TargetRatio,
               reached);
-  CHECK(reached > (double)how.TargetRatio,
-        "**THE SIMPLIFIER DOES NOT REACH ITS DECLARED RATIO**, and this check stands RED-WHEN-"
-        "FIXED to say so out loud. Nanite halves each level and this cooker asks for the same; on "
-        "this mesh it delivers 69%. A cut cannot save what the cooker did not remove, so the "
-        "third that is saved above is a ceiling and not a result");
+
+  // WHY IT FALLS SHORT, measured rather than guessed. `dag::SimplifyGroup` LOCKS every vertex a
+  // group shares with another -- Nanite's boundary lock, without which neighbouring groups crack
+  // at the seam. With `GroupSize` clusters per group the locked boundary is large against the
+  // interior, so only interior edges collapse. If that is the cause, the reached ratio must
+  // improve as groups grow, and if it does not, the cause is elsewhere and this comment is wrong.
+  for (const int size : {4, 8, 16, 32}) {
+    outshine::ClusterDagOpts wider = how;
+    wider.GroupSize = size;
+    outshine::CookedPart other;
+    std::string whyNot;
+    if (!outshine::Cook(stood, 0, wider, other, whyNot)) { continue; }
+    uint32_t base = 0, next = 0;
+    for (const outshine::DagCluster &one : other.Dag.Clusters) {
+      if (one.Level == 0) { base += one.Count / 3u; }
+      if (one.Level == 1) { next += one.Count / 3u; }
+    }
+    std::printf("  groups of %-3d reach %.2f  (%u -> %u over %d level(s))\n", size,
+                base == 0 ? 1.0 : (double)next / (double)base, base, next, other.Dag.Levels);
+  }
+  CHECK(reached <= (double)how.TargetRatio + 0.01,
+        "**THE SIMPLIFIER REACHES ITS DECLARED RATIO**: Nanite halves each level and this cooker "
+        "asks for the same, so a level holding more than half of the one below it is a cooker "
+        "that stopped early. A cut cannot save what the cooker did not remove, which is why this "
+        "number bounds everything the frame path could gain");
 
   Covers("the frame path: a subject cooked by the one cooker draws fewer triangles from further "
          "away and its whole self up close, which is the number board:1991's frame-path surgery "

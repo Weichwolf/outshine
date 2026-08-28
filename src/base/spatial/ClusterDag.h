@@ -63,7 +63,7 @@ struct ClusterDag {
 
 struct ClusterDagOpts {
   int MaxTrisPerCluster = 128;
-  int GroupSize = 4;
+  int GroupSize = 16;
   float TargetRatio = 0.5f;
   int MinLevelTris = 8;
 

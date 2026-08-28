@@ -137,17 +137,22 @@ producer, not a second cooker.
       proof: outshine/geo/ScoreWhatACutCostsASubject
       negative control: the near cut must equal the whole mesh, and a cut that selects nothing
       fails its own check first.
-- [ ] **THE SIMPLIFIER DOES NOT REACH ITS DECLARED RATIO, and this is what the frame-path surgery
-      waits on.** `ClusterDagOpts::TargetRatio` is 0.5, so the levels should hold 32768 -> 16384
-      -> 8192; measured they hold **32768 -> 22626 -> 21054**, which is 69% then 93%. An eye a
-      thousand kilometres away reaches 21054 and no further, so the DAG's own FLOOR bounds the
-      saving at about a third however good the cut is.
-      That redirects this item: cooking subjects into the renderer is surgery on the path 444
-      corpus cases guard, and CLAUDE.md asks for the number that would show it was not worth it.
-      The number is a third, and it is a third because of the COOKER, not the cut. So the
-      simplifier is the work and the renderer is not -- Nanite halves per level and this cooker
-      asks for the same.
-      The check stands RED-WHEN-FIXED: the day the ratio is reached the case goes red and says so,
-      rather than a saving arriving unnoticed.
+- [x] **the simplifier reaches its declared ratio, and one number was the whole of it.**
+      `dag::SimplifyGroup` LOCKS every vertex a group shares with another -- Nanite's boundary
+      lock, without which neighbouring groups crack at the seam -- so with few clusters per group
+      the locked boundary is large against the interior and only interior edges collapse.
+      `GroupSize` was **4** where Nanite groups 8 to 32. Swept:
+
+          groups of  4  reach 0.69      groups of 16  reach 0.50
+          groups of  8  reach 0.61      groups of 32  reach 0.50
+
+      Sixteen is the smallest that reaches the declared ratio; a larger group costs more locked
+      work per level for nothing. The levels now hold **32768 -> 16384 -> 10156** where they held
+      32768 -> 22626 -> 21054, and the far cut draws 31.0% of the near one where it drew 64.3%.
+      The mechanism saves 69% of the mesh where it saved 36%.
+      proof: outshine/geo/ScoreWhatACutCostsASubject, and the sweep stays in the case because it
+      is the evidence the number is right rather than a guess.
+      negative control: the ratio check stood RED-WHEN-FIXED and went red the day it was fixed,
+      which is what such a check is for; it now asserts the ratio IS reached.
 - [ ] the cut is per CLUSTER: two subjects at different distances in one frame select different
       levels, which a per-object ladder cannot do
