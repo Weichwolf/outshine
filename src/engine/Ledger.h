@@ -16,6 +16,10 @@ public:
     Standing_ = Numbers_.size();
   }
 
+  void Places(const std::string &what, double how, const char *unit) {
+    Places(what.c_str(), how, unit);
+  }
+
   void Places(const char *what, double how, const char *unit) {
     for (size_t at = Standing_; at < Numbers_.size(); ++at) {
       if (Numbers_[at].What == what) {

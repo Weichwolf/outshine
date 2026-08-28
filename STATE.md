@@ -96,6 +96,9 @@ Ticked, but the named proof is not in this tree:
     const Store &Scene(void) const
     const std::vector<std::string> &Carried(void) const
     const std::vector<Measure> &Numbers(void) const
+    void Keeps(size_t steps)
+    void StepTimesMs(std::vector<double> &out) const
+    void PictureTimesMs(std::vector<double> &out) const
     bool Assemble()
     bool Advance()
     bool Advance(double elapsedS)
@@ -272,7 +275,7 @@ The heaviest files. Headers and sources counted apart.
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1017 | `cpp` | `render/Renderer.cpp` |
+| 1032 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
@@ -288,7 +291,7 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 63 | `src/render/Renderer.h` |
+| 64 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 40 | `src/engine/Live.h` |
@@ -367,11 +370,12 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**15 of 18** declared suite(s) are granted a `-Isrc` path (board:1879).
+**15 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
 - `apps/viewer/src`
+- `apps/bench/src`
 - `apps/demo/src`
 - `apps/driver/src`
 
@@ -382,8 +386,9 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
+| 244 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
-| 248 | 1 | `apps/driver` | `include/` alone |
+| 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |
 
 ## Corpora

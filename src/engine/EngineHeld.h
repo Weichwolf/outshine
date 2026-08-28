@@ -10,7 +10,6 @@
 #include "Structures.h"
 #include "Unwired.h"
 
-#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <numbers>
@@ -256,6 +255,55 @@ struct Surrounds {
   TriangleBvh Blocking;
 };
 
+struct Spent {
+
+  struct Counter {
+    double LastMs = 0.0;
+    double LeastMs = 0.0;
+    double MostMs = 0.0;
+    uint64_t Count = 0;
+
+    std::vector<double> Kept;
+    size_t At = 0;
+
+    void Took(double ms) {
+      LastMs = ms;
+      LeastMs = Count == 0 || ms < LeastMs ? ms : LeastMs;
+      MostMs = ms > MostMs ? ms : MostMs;
+      ++Count;
+      if (Kept.empty()) { return; }
+      Kept[At] = ms;
+      At = At + 1 == Kept.size() ? 0 : At + 1;
+      Filled_ = Filled_ || At == 0;
+    }
+
+    void Keeps(size_t deep) {
+      Kept.assign(deep, 0.0);
+      At = 0;
+      Filled_ = false;
+    }
+
+    void Into(std::vector<double> &out) const {
+      if (Kept.empty()) {
+        out.clear();
+        return;
+      }
+      if (!Filled_) {
+        out.assign(Kept.begin(), Kept.begin() + (long)At);
+        return;
+      }
+      out.assign(Kept.begin(), Kept.end());
+      if (At != 0) { std::rotate(out.begin(), out.begin() + (long)At, out.end()); }
+    }
+
+   private:
+    bool Filled_ = false;
+  };
+
+  Counter Advance;
+  Counter Render;
+};
+
 struct Ticks {
   Sim::DriveProduct Drive;
   std::vector<Physics::Rigid> Freestanding;
@@ -271,6 +319,7 @@ struct Engine::State {
   Kept Session;
   Players Cast;
   Surrounds World;
+  Spent Cost;
   Ticks Ticking;
   Core::Ledger Published;
   Host *Offered = nullptr;

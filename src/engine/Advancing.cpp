@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "EngineHeld.h"
 
 namespace outshine {
@@ -143,10 +145,23 @@ bool Engine::State::Draws(void) {
   return true;
 }
 
+void Engine::Keeps(size_t steps) {
+  S_->Cost.Advance.Keeps(steps);
+  S_->Cost.Render.Keeps(steps);
+}
+
+void Engine::StepTimesMs(std::vector<double> &out) const { S_->Cost.Advance.Into(out); }
+
+void Engine::PictureTimesMs(std::vector<double> &out) const { S_->Cost.Render.Into(out); }
+
 bool Engine::Advance() {
+  const auto began = std::chrono::steady_clock::now();
   if (!S_->Updates()) { return false; }
   S_->Tells();
-  return S_->Draws();
+  const bool drew = S_->Draws();
+  S_->Cost.Advance.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  return drew;
 }
 
 void Engine::State::Falls(void) {

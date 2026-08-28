@@ -183,6 +183,14 @@ public:
 
   [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
 
+  struct Effort {
+    double TookMs = 0.0;
+    uint32_t Draws = 0;
+    uint32_t Triangles = 0;
+  };
+
+  [[nodiscard]] const Effort &Spent(Stage stage) const { return Spent_[(size_t)stage]; }
+
   [[nodiscard]] size_t SubjectUniformPushes() const {
     return Subjects_.UniformPushes() + Glass_.UniformPushes();
   }
@@ -216,6 +224,8 @@ public:
 
 
 private:
+  Effort Spent_[kStageCount] = {};
+
 
   void Create(Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);

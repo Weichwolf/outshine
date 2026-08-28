@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "EngineHeld.h"
 
 namespace outshine {
@@ -281,6 +283,30 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
 }
 
 void Engine::State::Tells(void) {
+  if (Cost.Advance.Count > 0) {
+    Published.Places("the step's own time, last", Cost.Advance.LastMs, "ms");
+    Published.Places("its least", Cost.Advance.LeastMs, "ms");
+    Published.Places("its most", Cost.Advance.MostMs, "ms");
+    Published.Places("steps taken", (double)Cost.Advance.Count, "steps");
+  }
+  if (Picture.Standing) {
+    for (size_t at = 0; at < Render::kStageCount; ++at) {
+      const Render::Stage stage = (Render::Stage)at;
+      const Render::Renderer::Effort &spent = Picture.Device.Spent(stage);
+      if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
+      Published.Places(std::string(Row(stage).Name) + ", took", spent.TookMs, "ms");
+      Published.Places(std::string(Row(stage).Name) + ", drew", (double)spent.Draws, "draws");
+      Published.Places(std::string(Row(stage).Name) + ", triangles", (double)spent.Triangles,
+                       "triangles");
+    }
+  }
+  if (Cost.Render.Count > 0) {
+    Published.Places("the picture's own time, last", Cost.Render.LastMs, "ms");
+    Published.Places("its least", Cost.Render.LeastMs, "ms");
+    Published.Places("its most", Cost.Render.MostMs, "ms");
+    Published.Places("pictures drawn", (double)Cost.Render.Count, "pictures");
+  }
+
   const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
   std::vector<Audio::Heard> &sources = Session.Sources[next];
   sources.clear();
@@ -365,7 +391,10 @@ bool Engine::RenderTo(Extent frame) {
                 " -- a canvas is declared before a scenario stands on it";
     return false;
   }
+  const auto began = std::chrono::steady_clock::now();
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  S_->Cost.Render.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   S_->Drew();
   return true;
 }

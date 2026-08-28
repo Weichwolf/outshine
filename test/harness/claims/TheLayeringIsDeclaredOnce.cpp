@@ -66,6 +66,7 @@ int main(void) {
         "identity, and UpToDate needs no flag awareness (board:1603)");
 
   CHECK(Sites(runner, "apps/driver/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
+            Sites(runner, "apps/bench/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
             Sites(runner, "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
         "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
         "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "

@@ -1,4 +1,6 @@
 #include "Heap.h"
+#include <chrono>
+
 #include "Renderer.h"
 
 #include <numbers>
@@ -543,7 +545,20 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   }
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
+  const auto began = std::chrono::steady_clock::now();
   (this->*(seat->Encode))(ctx, into);
+  Effort &spent = Spent_[(size_t)stage];
+  spent.TookMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  spent.Draws = 0;
+  spent.Triangles = 0;
+  if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
+    const SubjectDraw &drew = stage == Stage::Subjects ? Subjects_ : Glass_;
+    for (const DrawBatch &batch : drew.Drawn()) {
+      spent.Draws += 1u;
+      spent.Triangles += batch.IndexCount / 3u;
+    }
+  }
 }
 
 void Renderer::EncodeSubjects(const FrameContext &ctx, const PassRecording &into) {

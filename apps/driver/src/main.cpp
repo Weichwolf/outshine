@@ -18,6 +18,7 @@ struct Asked {
   int WidthPx = 1280;
   int HeightPx = 720;
   bool Headless = false;
+  bool Render = false;
   long Frames = 0;
   long Stills = 10;
   bool Every = false;
@@ -48,11 +49,12 @@ void Usage() {
       "  --to LAT,LON        where it ends\n"
       "  --scenario PATH     the declaration to read (default apps/driver/src/f31.scenario)\n"
       "  --size WxH          the frame to render (default 1280x720)\n"
-      "  --headless          render without opening a window\n"
+      "  --headless          open no window; the picture is drawn only with --render\n"
+      "  --render            draw a picture every frame -- the default unless --headless\n"
       "  --frames N          stop after N frames (default: until the drive arrives)\n"
       "  --into DIR          write stills here -- ten of them, evenly along the drive\n"
       "  --stills N          how many (default 10)\n"
-      "  --every             draw EVERY frame, not only the stills -- physics runs a long\n"
+      "  --every             kept for the scripts that pass it; --render says the same\n"
       "                      route fast, graphics runs a short one slowly\n"
       "  --assets DIR        where a scenario's asset URIs resolve (default: beside it)\n"
       "  --shipped DIR       where outshine's own data is (default src/assets)\n"
@@ -74,6 +76,8 @@ enum class Reading { Ran, Asked, Wrong };
       out.Offline = true;
     } else if (said == "--headless") {
       out.Headless = true;
+    } else if (said == "--render") {
+      out.Render = true;
     } else if (said == "--from" && wants) {
       if (!Pair(argv[++at], out.FromLatDeg, out.FromLonDeg)) { return Reading::Wrong; }
       out.Routed = true;
@@ -205,11 +209,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   long frames = 0;
+  const bool draws = asked.Every || !asked.Headless || asked.Render;
   long kept = 0;
   long nextStill = 0;
   while (engine.Advance()) {
     ++frames;
-    if (asked.Every && !engine.RenderTo(outshine::Extent{})) {
+    if (draws && !engine.RenderTo(outshine::Extent{})) {
       std::printf("REFUSED %s\n", engine.Error().c_str());
       return 1;
     }

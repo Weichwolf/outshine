@@ -58,6 +58,10 @@ public:
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
   [[nodiscard]] const std::vector<Measure> &Numbers(void) const;
 
+  void Keeps(size_t steps);
+  void StepTimesMs(std::vector<double> &out) const;
+  void PictureTimesMs(std::vector<double> &out) const;
+
   [[nodiscard]] bool Assemble();
 
 
