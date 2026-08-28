@@ -124,6 +124,30 @@ not being forced through with a third variation of the same error.
 
 - [ ] a compute worker never blocks on a socket or a disk: `PoolTerrain::Take` requests through
       `TilePool::Bytes` and the fetch's completion posts the mesh job that was waiting on it
-      -- built as a COMPLETION QUEUE after io_uring's shape, not as a chain of wake-ups
+      -- built as a COMPLETION QUEUE after io_uring's shape, not as a chain of wake-ups.
+
+      **THIRD ATTEMPT, ROLLED BACK, AND IT FAILED DIFFERENTLY** -- which is worth more than the
+      two before it, because the failure is now specific. Measured: the blocking call is
+      `TilePool::BytesBlocking`, reached from `PoolTerrain::Take` on a COMPUTE worker, and
+      `outshine/geo/ScoreWhenAWaitForATileEnds` already reads `fetches that ran on a COMPUTE
+      worker: 1 and 2` -- it prints the number and does not CHECK it, so the separation has been
+      declared and never held.
+
+      The attempt: `Take` asks through non-blocking `Bytes`, records the fetch key it awaits in a
+      thread-local, and the worker PARKS the mesh job under that key -- under `QueueMutex_`, and
+      only if the fetch is still in `Posted_`, so a fetch that completed first requeues instead of
+      parking. The carrier's one completion site releases the parked jobs into `Queue_`.
+
+      What happened: 818 asks in 5 seconds and `condition_variable wait failed: Invalid argument`.
+      So the requeue arm SPINS -- a mesh job whose fetch is not posted goes straight back on the
+      queue and is picked up again at once -- and something about the wake-up is wrong besides.
+      The park half may well be right; the requeue half is a busy loop wearing a completion
+      queue's clothes.
+
+      What the next attempt must fix, named: a job whose fetch is NOT posted has nothing to wait
+      for and must not be requeued -- it must POST the fetch itself and then park, so every parked
+      job has exactly one completion coming. That is the io_uring invariant this attempt broke:
+      every submission gets a completion, and a job that parks without submitting waits forever
+      or spins.
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared
