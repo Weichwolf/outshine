@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: open
 Progress: gpu-driven
 Area: render
 Tags: measured, benchmark
