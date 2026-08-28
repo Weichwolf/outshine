@@ -55,6 +55,14 @@ They are not authorities to obey; they are the only two bodies of evidence that 
 questions, and both were paid for over a decade of shipping. Ignoring them is not independence,
 it is choosing to learn something twice.
 
+**Two bodies decide, and a third may be CITED.** The table has exactly two columns because a
+column has to be READABLE: Unreal is source, RAGE is reconstruction. Ubisoft's three engines —
+Anvil, Snowdrop, Dunia — are strong where outshine is weak (crowds, vegetation, procedural
+authorship) and none of them can be read, so a column for them would be a vote cast from a slide
+deck. **id Tech 4 is GPL and therefore readable**, so it may stand beside a decision as evidence
+the way a paper does — inside the item, never as a third column. A source that cannot be read
+supports a TECHNIQUE and never decides a STRUCTURE.
+
 ## Before I write
 
 Three questions, answered IN WRITING before a type, a function or a file exists. They land in the
