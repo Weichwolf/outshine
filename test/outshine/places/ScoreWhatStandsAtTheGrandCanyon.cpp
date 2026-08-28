@@ -86,7 +86,8 @@ int main(void) {
   watches.Stands.GlobeAnchor = true;
   watches.Stands.LatitudeDeg = 36.0616;
   watches.Stands.LongitudeDeg = -112.1076;
-  watches.Stands.HeightM = 2150.0;
+  watches.Stands.HeightM = 60.0;
+  watches.Stands.SamplesHeight = true;
   watches.Stands.BearingDeg = 200.0;
   watches.Stands.PitchDeg = -12.0;
   watches.FovDeg = 70.0;

@@ -18,10 +18,29 @@ bool Engine::State::Watches(void) {
                        seen.Stands.AtM[1] + seen.OffsetM[1],
                        seen.Stands.AtM[2] + seen.OffsetM[2]};
   if (seen.Stands.GlobeAnchor) {
+    double heightM = seen.Stands.HeightM;
+    if (seen.Stands.SamplesHeight) {
+      if (!World.Stack.Opened()) {
+        Error = "a view samples the ground's height and no ground stands -- a scenario declares a "
+                "world before anything can be placed on it";
+        return false;
+      }
+      const GroundSample under =
+          World.Stack.Ground().At(seen.Stands.LatitudeDeg, seen.Stands.LongitudeDeg);
+      double aslM = 0.0;
+      if (!under.TryAslM(&aslM)) {
+        Error = "a view samples the ground at " + Said(seen.Stands.LatitudeDeg) + ", " +
+                Said(seen.Stands.LongitudeDeg) +
+                " and the terrain there is not resident -- the height it stands at is not a "
+                "number this engine may invent";
+        return false;
+      }
+      heightM += aslM;
+    }
     const Ground::EnuFrame frame =
         Ground::EnuFrame::At(Session.Declared.Ground.Lat, Session.Declared.Ground.Lon);
     Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{seen.Stands.LongitudeDeg, seen.Stands.LatitudeDeg, seen.Stands.HeightM}, &where)) {
+    if (!frame.TryFromGeo(Ground::Geo{seen.Stands.LongitudeDeg, seen.Stands.LatitudeDeg, heightM}, &where)) {
       Error = "a view stands at " + Said(seen.Stands.LatitudeDeg) + ", " + Said(seen.Stands.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;

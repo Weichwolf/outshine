@@ -1,5 +1,5 @@
 Type: task
-State: active
+State: open
 Area: test
 Tags: corpora, invariants
 

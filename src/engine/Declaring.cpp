@@ -1,4 +1,8 @@
 #include "EngineHeld.h"
+#include "Ephemeris.h"
+#include "CivilTime.h"
+
+#include <ctime>
 
 namespace outshine {
 
@@ -172,6 +176,16 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
     declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
+    if (scenario.Ground.Declared) {
+      int64_t whenS = 0;
+      if (!scenario.Time.Declared || scenario.Time.Start.empty() ||
+          !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
+        whenS = (int64_t)std::time(nullptr);
+      }
+      const Solar sun = SolarAt(scenario.Ground.Lat, scenario.Ground.Lon, (double)whenS);
+      declared.KeyElevationDeg = (double)sun.SunElDeg;
+      declared.KeyBearingDeg = (double)sun.SunAzDeg;
+    }
     for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
     declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;
   }
