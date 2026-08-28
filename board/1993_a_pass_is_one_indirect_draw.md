@@ -51,3 +51,20 @@ per PASS and holds nothing per-instance -- `{viewProj, prevViewProj, lightFromWo
 prevShift}`, 56 floats, every one a property of the VIEW -- so there is nothing left to thread
 through. The proof it owes is board:1574's: two identical subjects read `two draw 1` while
 `linear_channels_differing_between_renders` stays at zero.
+
+**MEASURED, and this item now has a scene that shows why it exists.** `apps/bench --all` over
+Khronos's own, thirty steps each, subject stage only:
+
+    scene            draws   triangles   tri/ms
+    DamagedHelmet        1      15 452   1 015 977
+    ABeautifulGame      49   1 500 224  15 695 511
+    Sponza             103     262 267   1 279 351
+    VirtualCity        167       8 383       8 723
+
+**VirtualCity draws 8383 triangles in 167 draws** -- fifty triangles a draw, and a rate two orders
+of magnitude below every other scene. That is the draw-call-bound case, and it is the one an
+indirect draw is for: the cost is the CALL, not the geometry. Without the rate beside the count it
+is invisible, because 167 draws and 0.961 ms both look unremarkable alone.
+
+So this item has its before-number: whatever the indirect draw does to VirtualCity's tri/ms is
+what it is worth, and the other three scenes are the control -- they must not get worse.
