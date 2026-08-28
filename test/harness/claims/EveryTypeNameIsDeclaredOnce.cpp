@@ -31,12 +31,17 @@ namespace {
 // and Value. What is NOT allowed is one of OUR words meaning two things, which is what the rest
 // of this count is.
 //
+// `Camera` is the ninth and it arrived with the door speaking Filament (board:2016). Filament's
+// noun for a viewpoint is `Camera` and glTF's noun for the object in a document is `camera`, so
+// both spellings are a format's rather than ours -- renaming either would spend a reader's
+// knowledge, which is the thing the rule protects.
+//
 // THE COUNT IS DECLARED AND ANY MOVE IS REFUSED, which is the same shape as `--audit-access`. A
 // number that may only fall silently falls back up when nobody is looking; a number that refuses
 // on every move means each name that leaves the list leaves in a commit that says so, and each
 // new one arrives the same way. Both directions are information.
 
-constexpr size_t kTypeNamesTwice = 8;
+constexpr size_t kTypeNamesTwice = 9;
 constexpr size_t kConstantNamesTwice = 1;
 
 [[nodiscard]] std::string Word(const std::string &from, size_t at) {

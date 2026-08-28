@@ -86,10 +86,10 @@ int main(void) {
   watches.Sees.Stands.GlobeAnchor = true;
   watches.Sees.Stands.LatitudeDeg = 36.0616;
   watches.Sees.Stands.LongitudeDeg = -112.1076;
-  watches.Sees.Stands.HeightM = 60.0;
+  watches.Sees.Stands.HeightM = 2000.0;
   watches.Sees.Stands.SamplesHeight = true;
-  watches.Sees.Stands.BearingDeg = 200.0;
-  watches.Sees.Stands.PitchDeg = -12.0;
+  watches.Sees.Stands.BearingDeg = 330.0;
+  watches.Sees.Stands.PitchDeg = -35.0;
   watches.Sees.FovDeg = 70.0;
   stands.Views.push_back(watches);
 
@@ -130,9 +130,18 @@ int main(void) {
   const double spans = measured("and the ground it spans, east to west");
   const double adrift = measured("vertices more than 500 m from that average");
   const double vertices = measured("out of");
-  std::printf("    %s  spans %.0f / %.0f / %.0f m -- mean %.1f m, %.0f of %.0f vertices more than 500 m from it\n", kPlace, measured("component 0 spans"), measured("component 1 spans"),
-              measured("component 2 spans"),
+  std::printf("    %s  spans %.0f m east, %.0f m north -- mean %.1f m, %.0f of %.0f vertices more than 500 m from it\n", kPlace,
+              measured("and the ground it spans, east to west"), measured("north to south"),
               measured("the height its vertices average"), adrift, vertices);
+
+  std::printf("    %s  eye at %.1f east / %.1f up / %.1f south -- ring nearest %.1f m at %.1f m up, farthest %.1f m at %.1f m up\n",
+              kPlace, measured("the eye, east"), measured("the eye, up"), measured("the eye, south"),
+              measured("the ring's nearest vertex to the frame origin"), measured("and its up"),
+              measured("its farthest vertex"), measured("and THAT one's up"));
+
+  std::printf("    %s  clusters %.0f held / %.0f drawn, worst error %.1f m -- skirt is twice that\n",
+              kPlace, measured("clusters the ring holds"), measured("clusters it drew"),
+              measured("the worst error any of them carries"));
 
   std::vector<uint8_t> rgba;
   const bool read = engine.readPixels(rgba);

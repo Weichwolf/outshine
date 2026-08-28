@@ -44,9 +44,6 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   Made_.push_back(std::move(made));
   Draws_.push_back(std::move(drawn));
 
-  // A BUILDING IS WHAT THE MAP HOLDS, so it ships beside the forest rather than instead of it.
-  // Unreal streams a building as an actor like any other and RAGE carries it on the map node;
-  // neither reads a footprint and places nothing.
   auto built = std::make_unique<Buildings>(ContactMaterial{0});
   auto drawnBuilt = std::make_unique<BuildingDraw>(ClusterId{1}, 1.0);
   if (!Placing_.Add(Rank{1}, *built) || !Drawing_.Add(Rank{1}, *drawnBuilt)) {

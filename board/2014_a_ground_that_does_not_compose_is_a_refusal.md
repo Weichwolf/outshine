@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: open
 Area: engine, door
 Tags: measured
 

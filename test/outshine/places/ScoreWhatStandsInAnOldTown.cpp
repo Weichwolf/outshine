@@ -85,10 +85,10 @@ int main(void) {
   watches.Sees.Stands.GlobeAnchor = true;
   watches.Sees.Stands.LatitudeDeg = 49.3777;
   watches.Sees.Stands.LongitudeDeg = 10.179;
-  watches.Sees.Stands.HeightM = 30.0;
+  watches.Sees.Stands.HeightM = 2000.0;
   watches.Sees.Stands.SamplesHeight = true;
   watches.Sees.Stands.BearingDeg = 70.0;
-  watches.Sees.Stands.PitchDeg = -5.0;
+  watches.Sees.Stands.PitchDeg = -35.0;
   watches.Sees.FovDeg = 70.0;
   stands.Views.push_back(watches);
 

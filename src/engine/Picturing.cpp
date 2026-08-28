@@ -118,7 +118,7 @@ bool Engine::State::Composes(void) {
   over.LatDeg = atLat;
   over.LonDeg = atLon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  over.Ring = 1;
+  over.Ring = 4;
   over.Awaited = true;
   if (Picture.Frame.HeightPx > 0) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
@@ -130,10 +130,6 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
-  // THE RING ARRIVES IN ECEF AND THE PICTURE STANDS IN A LOCAL FRAME, so the conversion is the
-  // ring's own and not the drive's. It lived inside `if (overADrive)` and a scenario that declared
-  // a place and no journey handed the renderer kilometres-away coordinates: measured, the eye at
-  // Mather Point read 2185.8 m up while the ring's three components each spanned kilometres.
   const Ground::EnuFrame standing = Ground::EnuFrame::At(atLat, atLon);
   const double perLatM = overADrive ? way.PerLatM : 111132.0;
   const double perLonM = overADrive ? way.PerLonM
@@ -153,17 +149,24 @@ bool Engine::State::Composes(void) {
     inFrame[at + 2] = (float)(-(where.LatDeg - frameLat) * perLatM);
   }
 
-  if (overADrive) {
-    double nearest = 1.0e30, atUp = 0.0;
+  {
+    double nearest = 1.0e30, atUp = 0.0, farthest = 0.0, farUp = 0.0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const double east = (double)inFrame[at], south = (double)inFrame[at + 2];
       const double away = east * east + south * south;
-      if (away >= nearest) { continue; }
-      nearest = away;
-      atUp = (double)inFrame[at + 1];
+      if (away < nearest) {
+        nearest = away;
+        atUp = (double)inFrame[at + 1];
+      }
+      if (away > farthest) {
+        farthest = away;
+        farUp = (double)inFrame[at + 1];
+      }
     }
     Published.Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
     Published.Places("and its up", atUp, "m");
+    Published.Places("its farthest vertex", std::sqrt(farthest), "m");
+    Published.Places("and THAT one's up", farUp, "m");
   }
   {
     for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
@@ -265,9 +268,9 @@ bool Engine::State::Composes(void) {
       if (up > most) { most = up; }
     }
     double west = 1.0e30, east = -1.0e30, north = 1.0e30, south = -1.0e30;
-    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-      const double alongE = (double)laid->PositionM[at];
-      const double alongS = (double)laid->PositionM[at + 2];
+    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+      const double alongE = (double)inFrame[at];
+      const double alongS = (double)inFrame[at + 2];
       if (alongE < west) { west = alongE; }
       if (alongE > east) { east = alongE; }
       if (alongS < north) { north = alongS; }
@@ -281,27 +284,16 @@ bool Engine::State::Composes(void) {
       Published.Places("north to south", south - north, "m");
       double summed = 0.0;
       size_t counted = 0;
-      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-        summed += (double)laid->PositionM[at + 1];
+      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+        summed += (double)inFrame[at + 1];
         ++counted;
       }
       const double mean = counted > 0 ? summed / (double)counted : 0.0;
       size_t adrift = 0;
-      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-        const double off = (double)laid->PositionM[at + 1] - mean;
+      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+        const double off = (double)inFrame[at + 1] - mean;
         if (off > 500.0 || off < -500.0) { ++adrift; }
       }
-      double least0 = 1.0e30, most0 = -1.0e30, least2 = 1.0e30, most2 = -1.0e30;
-      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-        const double a = (double)laid->PositionM[at], c = (double)laid->PositionM[at + 2];
-        if (a < least0) { least0 = a; }
-        if (a > most0) { most0 = a; }
-        if (c < least2) { least2 = c; }
-        if (c > most2) { most2 = c; }
-      }
-      Published.Places("component 0 spans", most0 - least0, "m");
-      Published.Places("component 1 spans", most - least, "m");
-      Published.Places("component 2 spans", most2 - least2, "m");
       Published.Places("the height its vertices average", mean, "m");
       Published.Places("vertices more than 500 m from that average", (double)adrift, "vertices");
       Published.Places("out of", (double)counted, "vertices");

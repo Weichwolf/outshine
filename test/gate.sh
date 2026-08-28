@@ -36,14 +36,18 @@ printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date 
 # one about what is.
 printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
   "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
-printf 'the validator, wpt, test262, the render corpus and the claims. AND NO apps/ RUNS HERE:\n'
+printf 'the validator, wpt, test262 and the render corpus. AND NO apps/ RUNS HERE:\n'
 printf 'a client is a product, not a check. The one that stood here held this gate for ten\n'
 printf 'minutes when it hung and left three processes behind that poisoned every later run.\n'
 printf 'test/run.sh apps is where a client is run; apps/bench is where one is measured.\n'
 printf 'A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
-printf 'because the door cases are the only ones that compile against it. A full verdict is\n'
-printf 'test/run.sh.\n'
+printf 'because the door cases are the only ones that compile against it.\n'
+printf 'AND ANY CHANGE UNDER src/, include/ OR apps/ WANTS test/run.sh harness/claims: it holds\n'
+printf 'the rules about the SOURCE -- no comment, one spelling per type, no block on the frame\n'
+printf 'path, every board edge landing -- and four of them stood red behind a GREEN gate here\n'
+printf 'because nothing in this list looks at a source file. It costs two minutes, which is why\n'
+printf 'it is named rather than run. A full verdict is test/run.sh.\n'
 
 # READING STATE.md AFTER A RUN IS A STANDING OBLIGATION, so the gate hands it over rather than
 # trusting me to remember. Step one is `make`, which regenerates STATE.md, so the table below is

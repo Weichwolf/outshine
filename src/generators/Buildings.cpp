@@ -52,9 +52,6 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
 }
 
 uint32_t Buildings::Proposes(double areaM2) const noexcept {
-  // ONE BODY PER FOOTPRINT, and the footprints are what the map holds rather than what a density
-  // predicts -- so the proposal is a bound rather than a distribution. A city block is of the
-  // order of one building per 400 m2 at the dense end, which is what Shibuya reads.
   constexpr double kDensestM2PerBuilding = 400.0;
   const double most = areaM2 / kDensestM2PerBuilding;
   return (uint32_t)(most + 1.0);
