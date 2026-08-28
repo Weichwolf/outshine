@@ -31,23 +31,42 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
 - [ ] the shadow atlas carries cascades and the shader picks one (board:1926)
 - [ ] the shadow centre folds INSTANCE bounds, not every vertex (board:1926)
 - [ ] no query the frame path makes blocks, allocates, locks or touches disk (board:1937).
-      **IT ALLOCATES, AND THE NUMBER IS 1520 BYTES A FRAME.** This predicate had no instrument
-      until board:1574's refit proof needed one: `Heap::Tagged` has counted bytes per named tag
-      since it was written and nothing outside the library could read the count, so "the frame
-      path allocates nothing" was a sentence. The engine publishes every written tag as
-      `heap taken under <tag>`, cumulative, and the CONSUMER differences it across frames.
-      Measured over a posed subject, eight frames:
+      **NOTHING STALLS ANY MORE, AND THE ALLOCATION IS 25 TO 28 TIMES SMALLER.**
+      The instrument came first: `Heap::Tagged` had counted bytes per named tag since it was
+      written and nothing outside the library could read the count, so this predicate was a
+      sentence. The engine publishes `heap taken under <tag>` cumulatively and `apps/bench --heap`
+      differences it across frames -- the engine aggregates, the consumer counts.
 
-          mesh-bvh      0 bytes   -- the refit, and board:1574 proves it
-          render-frame  12160 bytes over 8 frames = 1520 a frame
+      **The stalls went with board:2007.** `harness/claims/NoFramePathCallReachesABlock` walks the
+      PICTURE now as well as the simulation, and reaching a `Readback` from it is a refusal.
 
-      So the violation is real, it is in the frame recording rather than in the visibility
-      structure, and it is now a number a case can hold to. What it is NOT yet: attributed. 1520
-      bytes is small enough to be one container growing once per frame and large enough to be
-      several, and naming which is the next step -- the tag is `render-frame` and everything
-      inside `Renderer::RenderFrame` shares it.
-      proof: outshine/door/ScoreWhatAFramePathTakes reads the counter; the predicate stays OPEN
-      because the case asserts zero for `mesh-bvh` only.
+      **The allocation, measured per frame, before and after:**
+
+          scene            before        after      wall over 24 steps
+          DamagedHelmet    43 640 833     1 720      493.7 ms ->  38.4
+          Sponza           45 214 081     1 820      521.9    ->  72.8
+          ABeautifulGame   42 593 809     2 877     2028.7    -> 1860.4
+          VirtualCity      50 700 646   231 820      543.3    ->  92.7
+          Fox                 997 496   265 929        --     ->  10.5
+          BrainStem        66 279 113 6 764 249      685.4    -> 221.3
+
+      Two causes and neither was the renderer. The measures read a render target back on every
+      frame (board:2007). And `Gltf::Subject::Flatten` built a fresh `outshine::Geometry` plus a
+      `std::vector` per part per attribute per frame -- for a POSED subject that is every frame.
+      Unreal poses a skeletal mesh into pre-allocated storage (`FSkeletalMeshObjectCPUSkin`) or
+      not at all (GPU skinning off a matrix palette); RAGE the same. **Neither rebuilds the mesh
+      from its source asset per frame**, so the scratch persists here: `Geometry::Restarts()`
+      keeps the parts and clears them, and every intermediate buffer in `Flatten` is a member.
+      Scratch is not a value, so a copied `Subject` copies none of it.
+
+      **What is left and why it is not zero**: BrainStem still takes 6.76 MB a frame. It is the
+      one scene here whose vertices are SKINNED, and the remaining cost is the per-part `Part`
+      and the vertex-splitting map. The bound CLAUDE.md states is BOUNDED rather than zero, and
+      6.76 MB that does not grow with the frame count is bounded -- but it is not defensible
+      against a matrix palette, which is what the two benchmarks actually do. That is the next
+      step and it is named here rather than ticked.
+      proof: outshine/door/ScoreWhatAFramePathTakes, outshine/door/ScoreWhatManyCastersCost,
+      harness/claims/NoFramePathCallReachesABlock
 - [ ] the frame publishes p50/p95/p99 over a moving camera, not a mean (board:1457)
 - [ ] geometry carries its own detail ladder and the pool holding it is a slot table
       (board:1512)

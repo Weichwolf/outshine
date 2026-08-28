@@ -680,31 +680,34 @@ size_t Live::PlanInits_ = 0;
 
 bool Live::Advance(std::string &error) {
   const Heap::Tagged advancing("live-advance");
-  const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
+  const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
   if (Held_.Moves() && Held_.Frames() > 1) {
     Held_.Advances(Held_.Frames());
-    const size_t beforePose = Heap::LiveBytes();
+    const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       const Heap::Tagged posing("live-pose");
       if (!Pose(Held_.At(), error)) { return false; }
     }
-    const size_t beforeSubmit = Heap::LiveBytes();
-    TookPosing_ = took(beforePose);
+    TookPosing_ = took("live-pose", beforePose);
+    const size_t beforeSubmit = Heap::TakenUnder("live-submit");
     {
       const Heap::Tagged submitting("live-submit");
       if (!Submit(error)) { return false; }
     }
-    TookSubmitting_ = took(beforeSubmit);
+    TookSubmitting_ = took("live-submit", beforeSubmit);
   }
 
   const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Held_.Geometry().TriangleCount() > 0;
   if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
   if (orbits || !Aimed_) {
-    const size_t beforeAim = Heap::LiveBytes();
-    if (!Look(error)) { return false; }
+    const size_t beforeAim = Heap::TakenUnder("live-aim");
+    {
+      const Heap::Tagged aiming("live-aim");
+      if (!Look(error)) { return false; }
+    }
     Aimed_ = true;
-    TookAiming_ = took(beforeAim);
+    TookAiming_ = took("live-aim", beforeAim);
   }
   return true;
 }
@@ -714,11 +717,12 @@ bool Live::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
-  const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
-  const size_t beforeDraw = Heap::LiveBytes();
-  const Heap::Tagged drawing("render-frame");
-  Renderer_->RenderFrame();
-  TookDrawing_ = took(beforeDraw);
+  const size_t beforeDraw = Heap::TakenUnder("render-frame");
+  {
+    const Heap::Tagged drawing("render-frame");
+    Renderer_->RenderFrame();
+  }
+  TookDrawing_ = Heap::TakenUnder("render-frame") - beforeDraw;
   return true;
 }
 

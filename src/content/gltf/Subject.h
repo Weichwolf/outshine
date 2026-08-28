@@ -146,9 +146,6 @@ public:
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 
 private:
-  // SCRATCH IS NOT A VALUE, so copying a subject copies none of it (board:1943). The alternative
-  // was to build a fresh `outshine::Geometry` on every `Flatten`, which for a posed subject is
-  // every frame -- BrainStem measured 23.7 MB a frame that way.
   struct Scratch {
     outshine::Geometry Made;
     std::vector<float> Narrowed;
