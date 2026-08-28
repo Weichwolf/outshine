@@ -214,6 +214,7 @@ struct Seen {
 
 struct Kept {
   Scenario Declared;
+  bool Taken = false;
   std::vector<std::string> Carried;
   std::vector<Scenario> Asleep;
   std::vector<std::string> LayerTrace;

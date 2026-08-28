@@ -252,6 +252,7 @@ bool Engine::Declare(const Scenario &scenario) {
   S_->Picture.Shown = declared;
   if (!S_->Picture.Targeted) {
     S_->Session.Declared = scenario;
+    S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
     return Generated(scenario);
@@ -264,6 +265,7 @@ bool Engine::Declare(const Scenario &scenario) {
     return false;
   }
   S_->Session.Declared = scenario;
+  S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
   return Generated(scenario);
@@ -353,6 +355,7 @@ bool Engine::Read(std::string_view path) {
   Scenario scenario;
   if (!ReadInto(path, scenario)) { return false; }
   S_->Session.Declared = scenario;
+  S_->Session.Taken = false;
   S_->Session.Carried = Unacted(scenario);
   S_->Session.Carried.insert(S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
   S_->Error.clear();

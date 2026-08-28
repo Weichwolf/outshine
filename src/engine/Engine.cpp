@@ -13,6 +13,12 @@ namespace {
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
 bool Engine::Assemble() {
+  if (!S_->Session.Taken) {
+    S_->Error = "a declaration was read and never DECLARED, so this engine holds a scenario it "
+                "was not asked to stand -- Read fills the declaration, Declare hands it over, "
+                "and Assemble builds what Declare stood";
+    return false;
+  }
   const Scenario &declared = S_->Session.Declared;
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
