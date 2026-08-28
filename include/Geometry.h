@@ -21,6 +21,7 @@ public:
   Geometry &operator=(const Geometry &) = delete;
 
   int Part(std::string_view named, int material);
+  void Restarts();
   void Place(int part, const double modelM16[16]);
 
   int Surface(std::string_view named, const Material &surface);

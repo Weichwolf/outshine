@@ -679,15 +679,22 @@ size_t Live::AssetReads_ = 0;
 size_t Live::PlanInits_ = 0;
 
 bool Live::Advance(std::string &error) {
+  const Heap::Tagged advancing("live-advance");
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
 
   if (Held_.Moves() && Held_.Frames() > 1) {
     Held_.Advances(Held_.Frames());
     const size_t beforePose = Heap::LiveBytes();
-    if (!Pose(Held_.At(), error)) { return false; }
+    {
+      const Heap::Tagged posing("live-pose");
+      if (!Pose(Held_.At(), error)) { return false; }
+    }
     const size_t beforeSubmit = Heap::LiveBytes();
     TookPosing_ = took(beforePose);
-    if (!Submit(error)) { return false; }
+    {
+      const Heap::Tagged submitting("live-submit");
+      if (!Submit(error)) { return false; }
+    }
     TookSubmitting_ = took(beforeSubmit);
   }
 

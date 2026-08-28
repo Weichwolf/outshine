@@ -1,3 +1,4 @@
+#include "Heap.h"
 #include "Asset.h"
 
 #include "Span.h"
@@ -34,8 +35,12 @@ bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnim
 bool Posed::Poses(int frame, double fps, std::string &error) {
   if (Moves_) {
     const bool first = Geometry_.VertexCount() == 0;
-    if (!first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
+    if (!first) {
+      const Heap::Tagged copying("pose-previous");
+      PreviousPositionsM_ = Geometry_.PositionsM();
+    }
     Motion_.At((double)frame / fps, Locals_, Weights_);
+    const Heap::Tagged building("pose-build");
     if (Geometry_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                         Span<const double>(Weights_.data(), Weights_.size()), Variant_)) {
       if (first) { PreviousPositionsM_ = Geometry_.PositionsM(); }

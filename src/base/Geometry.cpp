@@ -28,11 +28,12 @@ struct Geometry::Held {
     double PlacedM[16];
   };
   std::vector<Piece> Parts;
+  size_t Live = 0;
   std::vector<Named> Surfaces;
   std::vector<Placed> Lamps;
 
   [[nodiscard]] const Piece *At(int part) const {
-    return part >= 0 && part < (int)Parts.size() ? &Parts[(size_t)part] : nullptr;
+    return part >= 0 && part < (int)Live ? &Parts[(size_t)part] : nullptr;
   }
 };
 
@@ -46,14 +47,31 @@ Geometry::~Geometry() = default;
 Geometry::Geometry(Geometry &&) noexcept = default;
 Geometry &Geometry::operator=(Geometry &&) noexcept = default;
 
+void Geometry::Restarts() {
+  for (size_t at = 0; at < Held_->Live && at < Held_->Parts.size(); ++at) {
+    Geometry::Held::Piece &piece = Held_->Parts[at];
+    piece.Named.clear();
+    piece.PositionsM.clear();
+    piece.Normals.clear();
+    piece.Uv.clear();
+    piece.Uv1.clear();
+    piece.Tangents.clear();
+    piece.Colours.clear();
+    piece.Indices.clear();
+  }
+  Held_->Live = 0;
+  Held_->Surfaces.clear();
+  Held_->Lamps.clear();
+}
+
 int Geometry::Part(std::string_view named, int material) {
-  Geometry::Held::Piece piece;
-  piece.Named = std::string(named);
+  if (Held_->Live == Held_->Parts.size()) { Held_->Parts.emplace_back(); }
+  Geometry::Held::Piece &piece = Held_->Parts[Held_->Live];
+  piece.Named.assign(named.begin(), named.end());
   piece.Material = material;
   const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t at = 0; at < 16u; ++at) { piece.PlacedM[at] = still[at]; }
-  Held_->Parts.push_back(std::move(piece));
-  return (int)Held_->Parts.size() - 1;
+  return (int)Held_->Live++;
 }
 
 namespace {
@@ -66,40 +84,40 @@ namespace {
 }
 
 bool Geometry::Positions(int part, std::span<const float> metres) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || metres.size() % 3 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || metres.size() % 3 != 0) { return false; }
   return Into(Held_->Parts[(size_t)part].PositionsM, metres);
 }
 
 bool Geometry::Normals(int part, std::span<const float> unit) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || unit.size() % 3 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || unit.size() % 3 != 0) { return false; }
   return Into(Held_->Parts[(size_t)part].Normals, unit);
 }
 
 bool Geometry::Texture(int part, std::span<const float> uv, int set) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || uv.size() % 2 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || uv.size() % 2 != 0) { return false; }
   if (set != 0 && set != 1) { return false; }
   Geometry::Held::Piece &piece = Held_->Parts[(size_t)part];
   return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
 }
 
 bool Geometry::Tangents(int part, std::span<const float> xyzw) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || xyzw.size() % 4 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || xyzw.size() % 4 != 0) { return false; }
   return Into(Held_->Parts[(size_t)part].Tangents, xyzw);
 }
 
 bool Geometry::Colours(int part, std::span<const float> rgba) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || rgba.size() % 4 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || rgba.size() % 4 != 0) { return false; }
   return Into(Held_->Parts[(size_t)part].Colours, rgba);
 }
 
 bool Geometry::Triangles(int part, std::span<const uint32_t> indices) {
-  if (part < 0 || part >= (int)Held_->Parts.size() || indices.size() % 3 != 0) { return false; }
+  if (part < 0 || part >= (int)Held_->Live || indices.size() % 3 != 0) { return false; }
   Held_->Parts[(size_t)part].Indices.assign(indices.begin(), indices.end());
   return true;
 }
 
 void Geometry::Place(int part, const double modelM16[16]) {
-  if (part < 0 || part >= (int)Held_->Parts.size()) { return; }
+  if (part < 0 || part >= (int)Held_->Live) { return; }
   for (size_t at = 0; at < 16u; ++at) { Held_->Parts[(size_t)part].PlacedM[at] = modelM16[at]; }
 }
 
@@ -156,7 +174,7 @@ const double *Geometry::PlacementOf(int part) const {
   return piece != nullptr ? piece->PlacedM : still;
 }
 
-int Geometry::Parts() const { return (int)Held_->Parts.size(); }
+int Geometry::Parts() const { return (int)Held_->Live; }
 
 std::string_view Geometry::NameOf(int part) const {
   const Held::Piece *piece = Held_->At(part);

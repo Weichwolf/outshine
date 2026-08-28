@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_GLTF_SUBJECT_H
 #define OUTSHINE_CONTENT_GLTF_SUBJECT_H
 
+#include <Geometry.h>
 #include <span>
 #include <cstdint>
 #include <string>
@@ -145,6 +146,26 @@ public:
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 
 private:
+  // SCRATCH IS NOT A VALUE, so copying a subject copies none of it (board:1943). The alternative
+  // was to build a fresh `outshine::Geometry` on every `Flatten`, which for a posed subject is
+  // every frame -- BrainStem measured 23.7 MB a frame that way.
+  struct Scratch {
+    outshine::Geometry Made;
+    std::vector<float> Narrowed;
+    std::vector<double> Pos, Nor, Uv, Uv1, Col, Tan;
+    std::vector<uint32_t> Idx;
+    std::vector<double> Elements, NodeWeights, Morphed, MorphedNormals, Coordinates, Tints,
+        Directions;
+    std::vector<uint32_t> Run, Loop;
+    std::vector<Transform> Joints, Instances, Skinned;
+    Scratch() = default;
+    ~Scratch() = default;
+    Scratch(const Scratch &) {}
+    Scratch &operator=(const Scratch &) { return *this; }
+    Scratch(Scratch &&) noexcept = default;
+    Scratch &operator=(Scratch &&) noexcept = default;
+  };
+  mutable Scratch Scratch_;
   [[nodiscard]] bool Refuse(std::string why);
 
   [[nodiscard]] bool Flatten(const Document &document, const Transform *pose,

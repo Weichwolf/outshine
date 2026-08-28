@@ -1,3 +1,4 @@
+#include "Heap.h"
 #include "Units.h"
 #include "Vec3.h"
 #include "Subject.h"
@@ -543,7 +544,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Parts_.clear();
   Lights_.clear();
   Undrawn_ = Undrawn();
-  outshine::Geometry made;
+  outshine::Geometry &made = Scratch_.Made;
+  made.Restarts();
   for (const MaterialRef &declared : document.Materials()) {
     Material row = declared.Surface;
     row.NeedsTangents = declared.Normal.Texture >= 0;
@@ -571,8 +573,9 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   std::vector<int> pending(document.Scenes()[(size_t)sceneIndex].Roots.rbegin(),
                            document.Scenes()[(size_t)sceneIndex].Roots.rend());
 
-  std::vector<double> elements;
-  std::vector<uint32_t> run, indices;
+  std::vector<double> &elements = Scratch_.Elements;
+  std::vector<uint32_t> &run = Scratch_.Run;
+  std::vector<uint32_t> &indices = Scratch_.Loop;
   size_t primitives = 0;
   while (!pending.empty()) {
     const int nodeIndex = pending.back();
@@ -626,7 +629,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
     }
 
     const size_t morphCount = document.MorphWeightsCount(nodeIndex);
-    std::vector<double> nodeWeights;
+    std::vector<double> &nodeWeights = Scratch_.NodeWeights;
+    nodeWeights.clear();
     if (morphCount > 0) {
       const std::vector<double> &declared = document.Meshes()[(size_t)node.Mesh].Weights;
       for (size_t at = 0; at < morphCount; ++at) {
@@ -635,7 +639,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       }
     }
 
-    std::vector<Transform> jointMatrices;
+    std::vector<Transform> &jointMatrices = Scratch_.Joints;
+    jointMatrices.clear();
     if (node.Skin >= 0) {
       const Skin &skin = document.Skins()[(size_t)node.Skin];
       jointMatrices.assign(skin.Joints.size(), Transform());
@@ -649,7 +654,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       }
     }
 
-    std::vector<Transform> instances;
+    std::vector<Transform> &instances = Scratch_.Instances;
+    instances.clear();
     if (!InstanceTransforms(document, node, world, instances)) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " instances on an accessor this reader cannot decode: " + document.Error());
@@ -662,8 +668,16 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         part.Material = primitive.MaterialUnder(activeVariant);
         part.FirstVertex = 0;
         part.FirstIndex = 0;
-        std::vector<double> atPos, atNor, atUv, atUv1, atCol, atTan;
-        std::vector<uint32_t> atIdx;
+        std::vector<double> &atPos = Scratch_.Pos, &atNor = Scratch_.Nor, &atUv = Scratch_.Uv,
+                            &atUv1 = Scratch_.Uv1, &atCol = Scratch_.Col, &atTan = Scratch_.Tan;
+        std::vector<uint32_t> &atIdx = Scratch_.Idx;
+        atPos.clear();
+        atNor.clear();
+        atUv.clear();
+        atUv1.clear();
+        atCol.clear();
+        atTan.clear();
+        atIdx.clear();
 
         if (!DrawsASurface(primitive.Mode)) {
           ++Undrawn_.Primitives;
@@ -686,13 +700,15 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         }
         const size_t vertices = elements.size() / 3;
 
-        std::vector<double> morphedPositions;
+        std::vector<double> &morphedPositions = Scratch_.Morphed;
+        morphedPositions.clear();
         if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
                             vertices, morphedPositions)) {
           return false;
         }
         for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
-        std::vector<Transform> skinned;
+        std::vector<Transform> &skinned = Scratch_.Skinned;
+        skinned.clear();
         if (node.Skin >= 0 &&
             !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
                           vertices, skinned)) {
@@ -720,7 +736,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           *set.Any = *set.Any || part.*set.Carried;
           set.Into->assign(vertices * 2, 0.0);
           if (uv < 0) { continue; }
-          std::vector<double> coordinates;
+          std::vector<double> &coordinates = Scratch_.Coordinates;
+          coordinates.clear();
           if (!document.ReadElements(uv, coordinates)) {
             return Refuse(document.Path() + ": " + set.Semantic + " does not decode: " +
                           document.Error());
@@ -747,7 +764,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           if (!VertexColourComponents(document.Accessors()[(size_t)colour], components, why)) {
             return Refuse(document.Path() + ": COLOR_0 " + why);
           }
-          std::vector<double> tints;
+          std::vector<double> &tints = Scratch_.Tints;
+          tints.clear();
           if (!document.ReadElements(colour, tints)) {
             return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
           }
@@ -776,7 +794,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         anyNormal = anyNormal || part.HasNormal;
         atNor.assign(vertices * 3, 0.0);
         if (normal >= 0) {
-          std::vector<double> directions;
+          std::vector<double> &directions = Scratch_.Directions;
+          directions.clear();
           if (!document.ReadElements(normal, directions)) {
             return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
           }
@@ -785,7 +804,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                           std::to_string(directions.size() / 3) + " vectors over " +
                           std::to_string(vertices) + " vertices");
           }
-          std::vector<double> morphedNormals;
+          std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
+          morphedNormals.clear();
           if (!MorphDeltasFor(document, primitive, "NORMAL", nodeWeights.data(), morphCount, 3,
                               vertices, morphedNormals)) {
             return false;
@@ -854,34 +874,19 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         part.VertexCount = atPos.size() / 3;
 
         if (part.IndexCount == 0) { continue; }
-        const auto asFloat = [](const std::vector<double> &from) {
-          std::vector<float> made(from.size());
-          for (size_t at = 0; at < from.size(); ++at) { made[at] = (float)from[at]; }
-          return made;
+        std::vector<float> &narrowed = Scratch_.Narrowed;
+        const auto asFloat = [&narrowed](const std::vector<double> &from) {
+          narrowed.resize(from.size());
+          for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = (float)from[at]; }
+          return std::span<const float>(narrowed.data(), narrowed.size());
         };
         const int emitted = made.Part(part.NodeName, part.Material);
-        const std::vector<float> positions = asFloat(atPos);
-        (void)made.Positions(emitted, std::span<const float>(positions.data(), positions.size()));
-        if (part.HasNormal) {
-          const std::vector<float> held = asFloat(atNor);
-          (void)made.Normals(emitted, std::span<const float>(held.data(), held.size()));
-        }
-        if (part.HasUv) {
-          const std::vector<float> held = asFloat(atUv);
-          (void)made.Texture(emitted, std::span<const float>(held.data(), held.size()), 0);
-        }
-        if (part.HasUv1) {
-          const std::vector<float> held = asFloat(atUv1);
-          (void)made.Texture(emitted, std::span<const float>(held.data(), held.size()), 1);
-        }
-        if (part.HasTangent()) {
-          const std::vector<float> held = asFloat(atTan);
-          (void)made.Tangents(emitted, std::span<const float>(held.data(), held.size()));
-        }
-        if (part.HasColour) {
-          const std::vector<float> held = asFloat(atCol);
-          (void)made.Colours(emitted, std::span<const float>(held.data(), held.size()));
-        }
+        (void)made.Positions(emitted, asFloat(atPos));
+        if (part.HasNormal) { (void)made.Normals(emitted, asFloat(atNor)); }
+        if (part.HasUv) { (void)made.Texture(emitted, asFloat(atUv), 0); }
+        if (part.HasUv1) { (void)made.Texture(emitted, asFloat(atUv1), 1); }
+        if (part.HasTangent()) { (void)made.Tangents(emitted, asFloat(atTan)); }
+        if (part.HasColour) { (void)made.Colours(emitted, asFloat(atCol)); }
         (void)made.Triangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
       }
     }
@@ -895,7 +900,10 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
 
   const std::vector<PlacedLight> lit = Lights_;
   const Undrawn missed = Undrawn_;
-  if (!Assemble(made)) { return false; }
+  {
+    const Heap::Tagged assembling("pose-assemble");
+    if (!Assemble(made)) { return false; }
+  }
   Lights_ = lit;
   Undrawn_ = missed;
   return true;
