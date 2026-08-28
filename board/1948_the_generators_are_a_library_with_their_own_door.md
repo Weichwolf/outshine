@@ -171,8 +171,19 @@ that links no `src/engine` source.
       4.0e-4 stems/m2 against 0 at zero density, into a sink of 4096 it does not saturate.
       `Ground::Of` had no caller before it; nor did `Occupy` outside `GeneratorSet`.
       negative control: an empty `Forest::Occupy` body makes it read 0 and the case goes RED.
-- [ ] A GENERATOR calls it from the ENGINE: the meshers need a plan, and a plan needs the
-      snapshot. The case above proves the tier stands alone; this is the arrow into it.
+- [ ] A GENERATOR is called from the ENGINE. **The blocker has an address, measured.**
+      `SnapshotOver` returns `Taken` only when the patch, the classes AND the features all stand,
+      and `FeaturesOver` returns null unless all FOUR vector fields are handed in -- an
+      `OsmField`, a `BuildingField`, a `WaterField` and a `StreetField`.
+      `Surrounds` (`src/engine/EngineHeld.h:241`) holds a height stack, `Structures` and the
+      `Generates` registry, and **no vector field at all**. The only `OsmField` this tree ever
+      constructs is a LOCAL VARIABLE in `Sim::DriveAssembly` (`src/sim/DriveAssembly.cpp:107`):
+      it is built over the corridor, it lays the road graph, and it is destroyed when the call
+      returns. It carries Streets and StreetPolygons only -- no buildings, no water.
+      So the arrow is not a call that is missing; it is a HOLDER. The world's vector fields have
+      no owner with a lifetime longer than one road-graph build, and until one exists a placement
+      generator in the engine reads the same unmapped ground
+      `outshine/geo/ScoreWhatAPlacementGeneratorYields` hands in by construction.
 - [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
       stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
       string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a
