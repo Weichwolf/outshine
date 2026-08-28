@@ -129,18 +129,27 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
+  // THE RING ARRIVES IN ECEF AND THE PICTURE STANDS IN A LOCAL FRAME, so the conversion is the
+  // ring's own and not the drive's. It lived inside `if (overADrive)` and a scenario that declared
+  // a place and no journey handed the renderer kilometres-away coordinates: measured, the eye at
+  // Mather Point read 2185.8 m up while the ring's three components each spanned kilometres.
+  const Ground::EnuFrame standing = Ground::EnuFrame::At(atLat, atLon);
+  const double perLatM = overADrive ? way.PerLatM : 111132.0;
+  const double perLonM = overADrive ? way.PerLonM
+                                    : 111320.0 * std::cos(atLat * std::numbers::pi / 180.0);
+  const double frameLat = overADrive ? way.FrameLat : atLat;
+  const double frameLon = overADrive ? way.FrameLon : atLon;
+  (void)standing;
   std::vector<float> inFrame;
-  if (overADrive) {
-    inFrame.resize(laid->PositionM.size());
-    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-      const Ground::Ecef held{laid->OriginEcef[0] + (double)laid->PositionM[at],
-                              laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
-                              laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
-      const Ground::Geo where = Ground::EcefToGeoWgs84(held);
-      inFrame[at] = (float)((where.LonDeg - way.FrameLon) * way.PerLonM);
-      inFrame[at + 1] = (float)where.AltM;
-      inFrame[at + 2] = (float)(-(where.LatDeg - way.FrameLat) * way.PerLatM);
-    }
+  inFrame.resize(laid->PositionM.size());
+  for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+    const Ground::Ecef held{laid->OriginEcef[0] + (double)laid->PositionM[at],
+                            laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
+                            laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
+    const Ground::Geo where = Ground::EcefToGeoWgs84(held);
+    inFrame[at] = (float)((where.LonDeg - frameLon) * perLonM);
+    inFrame[at + 1] = (float)where.AltM;
+    inFrame[at + 2] = (float)(-(where.LatDeg - frameLat) * perLatM);
   }
 
   if (overADrive) {
@@ -155,12 +164,12 @@ bool Engine::State::Composes(void) {
     Published.Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
     Published.Places("and its up", atUp, "m");
   }
-  if (overADrive) {
+  {
     for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
       std::swap(laid->Index[at + 1], laid->Index[at + 2]);
     }
-    const double lat = way.FrameLat * std::numbers::pi / 180.0;
-    const double lon = way.FrameLon * std::numbers::pi / 180.0;
+    const double lat = frameLat * std::numbers::pi / 180.0;
+    const double lon = frameLon * std::numbers::pi / 180.0;
     const double sinLat = std::sin(lat), cosLat = std::cos(lat);
     const double sinLon = std::sin(lon), cosLon = std::cos(lon);
     const double east[3] = {-sinLon, cosLon, 0.0};
@@ -224,10 +233,7 @@ bool Engine::State::Composes(void) {
   }
   Geometry ground;
   const int ringPart = ground.Part("ground", 0);
-  (void)ground.Positions(ringPart, overADrive
-                                       ? std::span<const float>(inFrame.data(), inFrame.size())
-                                       : std::span<const float>(laid->PositionM.data(),
-                                                                laid->PositionM.size()));
+  (void)ground.Positions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
   (void)ground.Normals(ringPart,
                        std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
   (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
@@ -252,8 +258,8 @@ bool Engine::State::Composes(void) {
   Published.Places("tiles it refused", (double)laid->Refused, "tiles");
   {
     double least = 1.0e30, most = -1.0e30;
-    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-      const double up = (double)laid->PositionM[at + 1];
+    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+      const double up = (double)inFrame[at + 1];
       if (up < least) { least = up; }
       if (up > most) { most = up; }
     }
@@ -272,6 +278,32 @@ bool Engine::State::Composes(void) {
       Published.Places("so the relief it carries", most - least, "m");
       Published.Places("and the ground it spans, east to west", east - west, "m");
       Published.Places("north to south", south - north, "m");
+      double summed = 0.0;
+      size_t counted = 0;
+      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+        summed += (double)laid->PositionM[at + 1];
+        ++counted;
+      }
+      const double mean = counted > 0 ? summed / (double)counted : 0.0;
+      size_t adrift = 0;
+      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+        const double off = (double)laid->PositionM[at + 1] - mean;
+        if (off > 500.0 || off < -500.0) { ++adrift; }
+      }
+      double least0 = 1.0e30, most0 = -1.0e30, least2 = 1.0e30, most2 = -1.0e30;
+      for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+        const double a = (double)laid->PositionM[at], c = (double)laid->PositionM[at + 2];
+        if (a < least0) { least0 = a; }
+        if (a > most0) { most0 = a; }
+        if (c < least2) { least2 = c; }
+        if (c > most2) { most2 = c; }
+      }
+      Published.Places("component 0 spans", most0 - least0, "m");
+      Published.Places("component 1 spans", most - least, "m");
+      Published.Places("component 2 spans", most2 - least2, "m");
+      Published.Places("the height its vertices average", mean, "m");
+      Published.Places("vertices more than 500 m from that average", (double)adrift, "vertices");
+      Published.Places("out of", (double)counted, "vertices");
     }
   }
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");

@@ -120,6 +120,11 @@ int main(void) {
   const double triangles = measured("subjects, triangles");
   const double relief = measured("so the relief it carries");
   const double spans = measured("and the ground it spans, east to west");
+  const double adrift = measured("vertices more than 500 m from that average");
+  const double vertices = measured("out of");
+  std::printf("    %s  spans %.0f / %.0f / %.0f m -- mean %.1f m, %.0f of %.0f vertices more than 500 m from it\n", kPlace, measured("component 0 spans"), measured("component 1 spans"),
+              measured("component 2 spans"),
+              measured("the height its vertices average"), adrift, vertices);
 
   std::vector<uint8_t> rgba;
   const bool read = engine.readPixels(rgba);
