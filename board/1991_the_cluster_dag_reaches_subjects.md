@@ -131,7 +131,23 @@ producer, not a second cooker.
 - [ ] terrain reaches the picture as a GENERATOR's `Geometry` rather than as a mesh the tile pool
       builds on its own -- the remaining half, and now a question about the PRODUCER rather than
       about the cooker
-- [ ] a subject at distance draws fewer triangles than the same subject up close -- measured over
-      a declared camera move, not asserted
+- [x] a subject at distance draws fewer triangles than the same subject up close, MEASURED before
+      any frame-path change: a 32768-triangle subject cooked by the one cooker draws all 32768
+      from 20 m and 21054 from 6000 m -- 64.3%.
+      proof: outshine/geo/ScoreWhatACutCostsASubject
+      negative control: the near cut must equal the whole mesh, and a cut that selects nothing
+      fails its own check first.
+- [ ] **THE SIMPLIFIER DOES NOT REACH ITS DECLARED RATIO, and this is what the frame-path surgery
+      waits on.** `ClusterDagOpts::TargetRatio` is 0.5, so the levels should hold 32768 -> 16384
+      -> 8192; measured they hold **32768 -> 22626 -> 21054**, which is 69% then 93%. An eye a
+      thousand kilometres away reaches 21054 and no further, so the DAG's own FLOOR bounds the
+      saving at about a third however good the cut is.
+      That redirects this item: cooking subjects into the renderer is surgery on the path 444
+      corpus cases guard, and CLAUDE.md asks for the number that would show it was not worth it.
+      The number is a third, and it is a third because of the COOKER, not the cut. So the
+      simplifier is the work and the renderer is not -- Nanite halves per level and this cooker
+      asks for the same.
+      The check stands RED-WHEN-FIXED: the day the ratio is reached the case goes red and says so,
+      rather than a saving arriving unnoticed.
 - [ ] the cut is per CLUSTER: two subjects at different distances in one frame select different
       levels, which a per-object ladder cannot do
