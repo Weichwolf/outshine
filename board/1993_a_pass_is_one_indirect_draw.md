@@ -98,3 +98,31 @@ reads a transform is a merge that reads data which does not exist yet.
 So the residual is exactly the per-draw index offset this item already names, and there is no
 cheaper route to it: a draw spanning parts with different transforms needs each vertex to find its
 own row, which is `FGPUScene`'s primitive id in the vertex factory. Nothing before that helps.
+
+## THE CEILING ON "ONE DRAW" IS THE DEVICE LAYER, AND IT IS MEASURED
+
+A material is free and a TEXTURE is not, and the difference is why this item says *per material
+class* rather than *per pass*.
+
+**Free**: baseColour, metalness, roughness are a row in a buffer read by ONE shader. `kMaterialSlots`
+is `1 << 24`, so a thousand materials cost a thousand rows and no pipeline change.
+
+**Not free**: `SubjectDraw.cpp:863` calls `SDL_BindGPUFragmentSamplers(into.Pass, 0, images,
+kSubjectImages)` per surface. A rebind breaks the batch. Sponza draws **103 times for 25
+materials**, and this session measured what that rebind costs: sorting MATERIAL before DEPTH took
+the subject stage from 4.19 to 8.09 million tri/ms at an UNCHANGED draw count. The whole win was
+eight bindings happening 25 times instead of 103.
+
+**And SDL_GPU has no bindless.** Its header declares `num_samplers` as a fixed count per shader;
+neither "bindless" nor descriptor indexing appears anywhere in it. A texture cannot be an index
+through this layer, so ONE draw for the frame is not reachable and one per material class is the
+honest ceiling. This item already said so and now carries the reason.
+
+**The question that follows, named rather than answered here.** Metal 4 has argument buffers, so
+the ceiling is SDL's abstraction and not the hardware. Whether a Nanite-class pipeline can be
+finished on a device layer without bindless is a question about the ARCHITECTURE, not about this
+pass, and it is answered before anyone starts here rather than discovered halfway through. The
+measurement that settles it: the draw count this item drives to a constant is bounded below by the
+number of material classes, so the number to compare is `surfaces` -- 25 for Sponza, 15 for
+ABeautifulGame, 167 for VirtualCity. If a scene's material classes alone exceed the budget, no
+amount of indirect drawing saves it and the device layer is the finding.
