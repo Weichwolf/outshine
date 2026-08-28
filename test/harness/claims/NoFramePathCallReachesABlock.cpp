@@ -35,13 +35,24 @@ struct Seed {
   const char *Why;
 };
 
-constexpr Seed kSeeds[] = {
+constexpr Seed kStepSeeds[] = {
     {"Sim9DriveTick", "the physics step: one call integrates one body over one dt"},
     {"GroundSupport2AtEdd",
      "the one virtual the step crosses -- the ground query the engine installs behind "
      "`Sim::Support`, which a relocation graph cannot follow from the call site"},
 };
 
+// THE PICTURE IS THE FRAME PATH TOO, AND IT WAS NEVER WALKED (board:2007). For as long as this
+// claim stood it seeded the SIMULATION and nothing else, so a name promising the frame path had
+// not once looked at the half that draws -- and that half was reading the velocity target back on
+// every frame, 43.6 MB and a device sync, to publish two numbers nobody had asked for.
+constexpr Seed kPictureSeeds[] = {
+    {"Engine8RenderToE", "the picture: one call draws one frame and hands it over"},
+    {"Render8Renderer11RenderFrameEv",
+     "what the picture reaches through `Live::Draw` -- a call the graph does follow, seeded "
+     "anyway so a change to that chain cannot silently unseed it"},
+    {"Engine5State4DrewEv", "what the picture publishes after it draws"},
+};
 // Each is forbidden for a reason CLAUDE.md gives, and each is a SUBSTRING of a mangled or C
 // symbol so that every overload and every instantiation is caught by one entry.
 struct Forbidden {
@@ -49,7 +60,7 @@ struct Forbidden {
   const char *Why;
 };
 
-constexpr Forbidden kForbidden[] = {
+constexpr Forbidden kStepForbidden[] = {
     {"sleep", "an unbounded block: the step waits on something that is not the step"},
     {"nanosleep", "the same, one layer down"},
     {"BytesBlocking", "the tile pool's waiting fetch -- 30000 attempts at 1 ms by declaration"},
@@ -61,6 +72,23 @@ constexpr Forbidden kForbidden[] = {
     {"_pread", "disk"},
 };
 
+// THE PICTURE'S LIST IS SHORTER, AND THAT IS A DECISION RATHER THAN A WEAKENING. Unreal's render
+// thread allocates every frame -- `FMemStack` and `FRDGAllocator` are frame-lifetime linear
+// allocators, and nobody at Epic calls a `new` on that thread a defect. RAGE has frame heaps for
+// the same reason. What NEITHER tolerates is a STALL: a readback, a lock, a disk touch, a sleep.
+// So the picture is held to the blocking terms, and its allocation is bounded by a frame
+// allocator this tree does not have yet -- named in board:1943 rather than asserted here, because
+// a claim that fails for a reason nobody intends to fix teaches the next reader to ignore it.
+constexpr Forbidden kPictureForbidden[] = {
+    {"sleep", "an unbounded block on the path that draws"},
+    {"nanosleep", "the same, one layer down"},
+    {"BytesBlocking", "the tile pool's waiting fetch, reached while drawing"},
+    {"8Readback", "a GPU->CPU readback: the CPU waits on the device, which is the one thing a "
+                  "frame must never do. This is what board:2007 measured -- 43.6 MB and a sync "
+                  "every frame, spent publishing two numbers"},
+    {"_fopen", "disk"},
+    {"_pread", "disk"},
+};
 [[nodiscard]] std::string Demangled(const std::string &symbol) {
   std::string said;
   (void)Run("printf '%s' " + symbol + " | c++filt", said);
@@ -114,64 +142,87 @@ int main(void) {
     ++edgeCount;
   }
 
-  std::set<std::string> seen;
-  std::vector<std::string> queue;
-  std::vector<size_t> seededBy(sizeof kSeeds / sizeof kSeeds[0], 0);
-  for (size_t which = 0; which < sizeof kSeeds / sizeof kSeeds[0]; ++which) {
-    for (const auto &pair : calls) {
-      if (pair.first.find(kSeeds[which].Mangled) == std::string::npos) { continue; }
-      ++seededBy[which];
-      if (seen.insert(pair.first).second) { queue.push_back(pair.first); }
-    }
-  }
+  struct Walk {
+    const char *Name;
+    const Seed *Seeds;
+    size_t SeedCount;
+    const Forbidden *Forbid;
+    size_t ForbidCount;
+    const char *Claim;
+  };
+  const Walk walks[] = {
+      {"the physics step", kStepSeeds, sizeof kStepSeeds / sizeof kStepSeeds[0], kStepForbidden,
+       sizeof kStepForbidden / sizeof kStepForbidden[0],
+       "**NOTHING THE PHYSICS STEP CAN REACH ALLOCATES, LOCKS, TOUCHES DISK OR WAITS**: the bound "
+       "is CLAUDE.md's and it was a sentence until this walk. It was broken in the session that "
+       "quoted it -- a ground query on the tick reached a poll of 30000 attempts at 1 ms, four "
+       "calls down, on a 16.7 ms budget, and no line of the tick mentioned sleeping"},
+      {"the picture", kPictureSeeds, sizeof kPictureSeeds / sizeof kPictureSeeds[0],
+       kPictureForbidden, sizeof kPictureForbidden / sizeof kPictureForbidden[0],
+       "**NOTHING THE PICTURE CAN REACH STALLS**: no readback, no lock, no disk, no sleep. Unreal "
+       "polls FRHIGPUBufferReadback and never waits on it; RAGE double-buffers its timing buffer "
+       "for the same reason. This walk did not exist until board:2007, and the first time it ran "
+       "it found Engine::State::Drew reading the velocity target back on EVERY frame -- 43.6 MB "
+       "and a device sync, spent on two numbers, which is why DamagedHelmet's wall was 20 ms a "
+       "frame against a 0.006 ms step"},
+  };
 
-  bool everySeedTook = true;
-  for (size_t which = 0; which < sizeof kSeeds / sizeof kSeeds[0]; ++which) {
-    std::printf("SEED %-24s matched %zu symbol(s) -- %s\n", kSeeds[which].Mangled,
-                seededBy[which], kSeeds[which].Why);
-    everySeedTook = everySeedTook && seededBy[which] > 0;
-  }
-  CHECK(everySeedTook,
-        "STALE SEED: a seed matched nothing in the archive, so the walk below started from fewer "
-        "places than it declares -- and a seed that stopped seeding looks exactly like a path "
-        "that came up clean");
-  if (!everySeedTook) { return Report(); }
-
-  for (size_t at = 0; at < queue.size(); ++at) {
-    const auto found = calls.find(queue[at]);
-    if (found == calls.end()) { continue; }
-    for (const std::string &to : found->second) {
-      if (seen.insert(to).second) { queue.push_back(to); }
-    }
-  }
-
-  std::vector<std::string> blocking;
-  for (const std::string &symbol : seen) {
-    for (const Forbidden &one : kForbidden) {
-      if (symbol.find(one.Symbol) != std::string::npos) {
-        blocking.push_back(std::string(one.Symbol) + "  via  " + Demangled(symbol));
-        break;
+  for (const Walk &walk : walks) {
+    std::set<std::string> seen;
+    std::vector<std::string> queue;
+    std::vector<size_t> seededBy(walk.SeedCount, 0);
+    for (size_t which = 0; which < walk.SeedCount; ++which) {
+      for (const auto &pair : calls) {
+        if (pair.first.find(walk.Seeds[which].Mangled) == std::string::npos) { continue; }
+        ++seededBy[which];
+        if (seen.insert(pair.first).second) { queue.push_back(pair.first); }
       }
     }
+
+    bool everySeedTook = true;
+    for (size_t which = 0; which < walk.SeedCount; ++which) {
+      std::printf("SEED %-34s matched %zu symbol(s) -- %s\n", walk.Seeds[which].Mangled,
+                  seededBy[which], walk.Seeds[which].Why);
+      everySeedTook = everySeedTook && seededBy[which] > 0;
+    }
+    CHECK(everySeedTook,
+          "STALE SEED: a seed matched nothing in the archive, so the walk below started from "
+          "fewer places than it declares -- and a seed that stopped seeding looks exactly like a "
+          "path that came up clean");
+    if (!everySeedTook) { return Report(); }
+
+    const size_t fromSeeds = queue.size();
+    for (size_t at = 0; at < queue.size(); ++at) {
+      const auto found = calls.find(queue[at]);
+      if (found == calls.end()) { continue; }
+      for (const std::string &to : found->second) {
+        if (seen.insert(to).second) { queue.push_back(to); }
+      }
+    }
+
+    std::vector<std::string> blocking;
+    for (const std::string &symbol : seen) {
+      for (size_t one = 0; one < walk.ForbidCount; ++one) {
+        if (symbol.find(walk.Forbid[one].Symbol) != std::string::npos) {
+          blocking.push_back(std::string(walk.Forbid[one].Symbol) + "  via  " + Demangled(symbol));
+          break;
+        }
+      }
+    }
+
+    std::printf("EDGES %zu over the archive, REACHABLE from %s %zu\n", edgeCount, walk.Name,
+                seen.size());
+    for (const std::string &one : blocking) { std::printf("  BLOCKS  %s\n", one.c_str()); }
+
+    CHECK(seen.size() > fromSeeds && seen.size() > 10,
+          "the walk reached past its own seeds -- a graph that resolves nothing would report no "
+          "block for the same reason an empty one does");
+    CHECK(blocking.empty(), walk.Claim);
   }
 
-  std::printf("EDGES %zu over the archive, REACHABLE from the frame path %zu\n", edgeCount,
-              seen.size());
-  for (const std::string &one : blocking) { std::printf("  BLOCKS  %s\n", one.c_str()); }
-
-  CHECK(seen.size() > queue.size() / 2 && seen.size() > 10,
-        "the walk reached past its own seeds -- a graph that resolves nothing would report no "
-        "block for the same reason an empty one does");
-  CHECK(blocking.empty(),
-        "**NOTHING THE PHYSICS STEP CAN REACH ALLOCATES, LOCKS, TOUCHES DISK OR WAITS**: the "
-        "bound is CLAUDE.md's and it was a sentence until this walk. It was broken in the "
-        "session that quoted it -- a ground query on the tick reached a poll of 30000 attempts "
-        "at 1 ms, four calls down, on a 16.7 ms budget, and no line of the tick mentioned "
-        "sleeping");
-
-  Covers("the frame path: from the physics step and the one virtual it crosses, no symbol the "
-         "LINKER can reach allocates, locks, touches disk or blocks -- walked over the archive's "
-         "own relocations, with the seeds declared and a seed that matches nothing failing by "
-         "name");
+  Covers("the frame path, BOTH HALVES: from the physics step nothing the linker can reach "
+         "allocates, locks, touches disk or blocks; from the picture nothing it can reach STALLS "
+         "-- no readback, no lock, no disk, no sleep. Walked over the archive's own relocations, "
+         "with every seed declared and a seed that matches nothing failing by name");
   return Report();
 }

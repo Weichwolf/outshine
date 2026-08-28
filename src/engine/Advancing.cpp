@@ -201,6 +201,39 @@ void Engine::State::Drew(void) {
   Published.Places("building footprints it holds",
                    (double)World.Stack.Footprints().Footprints().size(), "footprints");
   Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
+  Published.Places("stages the compiled plan runs", (double)Picture.Standing->PlanStages(),
+                   "stages");
+  Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");
+  Published.Places("vertex uniform pushes the subject stages make",
+                   (double)Picture.Device.SubjectUniformPushes(), "pushes");
+  Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");
+  Published.Places("placement rows the renderer has been sent", (double)Picture.Device.SubjectPlacementsMoved(),
+         "rows");
+  Published.Places("frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
+  Published.Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
+         "bytes");
+  Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
+  Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
+}
+
+void Engine::State::Inspected(void) {
+  if (!Picture.Standing) { return; }
+  const Heap::Tagged asking("frame-measures");
+  {
+    std::vector<float> depth;
+    if (Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
+      double least = 1.0e30, most = -1.0e30, written = 0.0;
+      for (const float one : depth) {
+        if ((double)one < least) { least = (double)one; }
+        if ((double)one > most) { most = (double)one; }
+        if (one > 0.0f) { written += 1.0; }
+      }
+      Published.Places("the shadow atlas, least depth", least, "");
+      Published.Places("its most", most, "");
+      Published.Places("texels above the clear", written, "texels");
+      Published.Places("the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
+    }
+  }
   {
     std::vector<float> velocity;
     if (Picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
@@ -216,56 +249,31 @@ void Engine::State::Drew(void) {
       Published.Places("the furthest any of them moved", furthest, "ndc");
     }
   }
-  Published.Places("stages the compiled plan runs", (double)Picture.Standing->PlanStages(),
-                   "stages");
-  Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");
-  Published.Places("vertex uniform pushes the subject stages make",
-                   (double)Picture.Device.SubjectUniformPushes(), "pushes");
-  Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");
-  Published.Places("placement rows the renderer has been sent", (double)Picture.Device.SubjectPlacementsMoved(),
-         "rows");
-  Published.Places("frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
+  Published.Places("the exposure the picture applied", (double)Picture.Device.ExposureApplied(),
+                   "1/(cd/m2)");
   {
-    std::vector<float> depth;
-    if (Ticking.Steps < 2 && Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
-      double least = 1.0e30, most = -1.0e30, written = 0.0;
-      for (const float one : depth) {
-        if ((double)one < least) { least = (double)one; }
-        if ((double)one > most) { most = (double)one; }
-        if (one > 0.0f) { written += 1.0; }
+    std::vector<float> linear;
+    if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
+      double brightest = 0.0;
+      for (size_t at = 0; at + 3 < linear.size(); at += 4) {
+        for (int channel = 0; channel < 3; ++channel) {
+          brightest = (double)linear[at + channel] > brightest ? (double)linear[at + channel]
+                                                               : brightest;
+        }
       }
-      Published.Places("the shadow atlas, least depth", least, "");
-      Published.Places("its most", most, "");
-      Published.Places("texels above the clear", written, "texels");
-      Published.Places("the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
+      Published.Places("the brightest the scene's linear buffer reached", brightest, "");
     }
-    Published.Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
-           "bytes");
-    Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
-    Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
-    if (Ticking.Steps < 2) {
-      Published.Places("the exposure the picture applied", (double)Picture.Device.ExposureApplied(), "1/(cd/m2)");
-      std::vector<float> linear;
-      if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
-        double brightest = 0.0;
-        for (size_t at = 0; at + 3 < linear.size(); at += 4) {
-          for (int channel = 0; channel < 3; ++channel) {
-            brightest = (double)linear[at + channel] > brightest ? (double)linear[at + channel]
-                                                                 : brightest;
-          }
+  }
+  {
+    std::vector<uint8_t> shown;
+    if (Picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
+      double peak = 0.0;
+      for (size_t at = 0; at + 3 < shown.size(); at += 4) {
+        for (int channel = 0; channel < 3; ++channel) {
+          peak = (double)shown[at + channel] > peak ? (double)shown[at + channel] : peak;
         }
-        Published.Places("the brightest the scene's linear buffer reached", brightest, "");
       }
-      std::vector<uint8_t> shown;
-      if (Picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
-        double peak = 0.0;
-        for (size_t at = 0; at + 3 < shown.size(); at += 4) {
-          for (int channel = 0; channel < 3; ++channel) {
-            peak = (double)shown[at + channel] > peak ? (double)shown[at + channel] : peak;
-          }
-        }
-        Published.Places("the brightest the presented frame shows", peak, "of 255");
-      }
+      Published.Places("the brightest the presented frame shows", peak, "of 255");
     }
   }
 }

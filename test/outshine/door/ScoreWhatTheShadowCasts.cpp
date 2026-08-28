@@ -123,6 +123,11 @@ int main(void) {
         "carrying no shadow radius produced until an undeclared radius began deriving itself "
         "from the subject's own extent rather than standing at a struct's zero");
 
+  const bool inspected = engine.Inspects();
+  CHECK(inspected,
+        "the atlas can be READ BACK when asked: the three numbers below cost a GPU->CPU sync, so "
+        "board:2007 took them off the frame path and behind a verb -- a case that forgets to ask "
+        "would read zeros and call them a finding");
   const double least = Measured(engine, "the shadow atlas, least depth");
   const double most = Measured(engine, "its most");
   const double written = Measured(engine, "texels above the clear");

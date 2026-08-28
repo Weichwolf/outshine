@@ -134,6 +134,7 @@ int main(void) {
     if (!engine.Declare(arm) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
       return false;
     }
+    if (!engine.Inspects()) { return false; }
     seen.Least = Measured(engine, "the shadow atlas, least depth");
     seen.Most = Measured(engine, "its most");
     seen.Written = Measured(engine, "texels above the clear");

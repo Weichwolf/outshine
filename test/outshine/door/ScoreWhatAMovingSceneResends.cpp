@@ -73,14 +73,16 @@ int main(void) {
     }
     rowsAt[half] = Measured(engine, "placement rows the renderer has been sent");
     batches = Measured(engine, "batches the picture draws");
-    moving = Measured(engine, "pixels the velocity target says moved");
     ways = Measured(engine, "streets the world holds");
     water = Measured(engine, "water surfaces it holds");
     prints = Measured(engine, "building footprints it holds");
     grown = Measured(engine, "bodies the world's generators placed");
     reached = Measured(engine, "how far the placement chain reached");
     instanced = Measured(engine, "instances its draw sources made");
-    furthest = Measured(engine, "the furthest any of them moved");
+    if (engine.Inspects()) {
+      moving = Measured(engine, "pixels the velocity target says moved");
+      furthest = Measured(engine, "the furthest any of them moved");
+    }
   }
 
   const double perFrame = (rowsAt[1] - rowsAt[0]) / (double)kFrames;

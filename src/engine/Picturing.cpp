@@ -1,3 +1,4 @@
+#include <cmath>
 #include "Heap.h"
 #include <chrono>
 
@@ -416,6 +417,17 @@ bool Engine::RenderTo(Extent frame) {
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   S_->Drew();
+  return true;
+}
+
+bool Engine::Inspects(void) {
+  if (!S_->Stood()) { return false; }
+  if (!S_->Picture.Standing) {
+    S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
+                "anything a readback could tell";
+    return false;
+  }
+  S_->Inspected();
   return true;
 }
 

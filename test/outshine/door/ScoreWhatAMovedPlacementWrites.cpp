@@ -92,13 +92,6 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return SDL_CloseIO(out) && wrote;
 }
 
-[[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
-  for (const outshine::Measure &held : engine.Numbers()) {
-    if (held.What == what) { return held.How; }
-  }
-  return -1.0;
-}
-
 [[nodiscard]] outshine::Scenario Falling(const char *uri) {
   outshine::Scenario stands;
   stands.Render.Declared = true;
@@ -168,7 +161,14 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
       return -1.0;
     }
   }
-  return Measured(engine, "pixels the velocity target says moved");
+  if (!engine.Inspects()) {
+    why = engine.Error();
+    return -1.0;
+  }
+  for (const outshine::Measure &held : engine.Numbers()) {
+    if (held.What == "pixels the velocity target says moved") { return held.How; }
+  }
+  return -1.0;
 }
 
 [[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri, int steps,
@@ -189,7 +189,14 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
       return -1.0;
     }
   }
-  return Measured(engine, "pixels the velocity target says moved");
+  if (!engine.Inspects()) {
+    why = engine.Error();
+    return -1.0;
+  }
+  for (const outshine::Measure &held : engine.Numbers()) {
+    if (held.What == "pixels the velocity target says moved") { return held.How; }
+  }
+  return -1.0;
 }
 
 }
