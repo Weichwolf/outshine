@@ -1,3 +1,4 @@
+#include "Heap.h"
 #include <chrono>
 
 #include "EngineHeld.h"
@@ -188,6 +189,7 @@ void Engine::State::Falls(void) {
 }
 
 void Engine::State::Drew(void) {
+  const Heap::Tagged telling("frame-measures");
   Published.Places("bodies the world's generators placed", (double)World.Placed,
                    "bodies");
   Published.Places("instances its draw sources made", (double)World.Instanced,

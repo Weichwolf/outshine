@@ -226,6 +226,7 @@ flowchart LR
   content_gltf --> |5| base_spatial
   render --> |4| base_io
   engine --> |4| generators
+  engine --> |4| base_io
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   world_ground --> |3| base_format
@@ -238,7 +239,6 @@ flowchart LR
   generators_draw --> |3| base_spatial
   engine --> |3| scene
   engine --> |3| base_spatial
-  engine --> |3| base_io
   content_shade --> |3| base_math
 ```
   36 edge(s) drawn, 46 thinner than three includes not drawn
@@ -383,7 +383,7 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 281 | 1 | `apps/bench` | `include/` alone |
+| 304 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
 | 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |

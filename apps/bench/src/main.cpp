@@ -28,6 +28,7 @@ struct Asked {
   bool All = false;
   int Clip = 0;
   int Bodies = 0;
+  bool Heap = false;
 };
 
 struct Took {
@@ -36,6 +37,8 @@ struct Took {
   double DrawP50 = 0.0, DrawP95 = 0.0, DrawP99 = 0.0;
   size_t Samples = 0;
   std::vector<outshine::Measure> Rows;
+  std::vector<outshine::Measure> Early;
+  long Between = 0;
 };
 
 [[nodiscard]] double Percentile(std::vector<double> held, double part) {
@@ -92,12 +95,14 @@ struct Took {
   }
   const auto began = std::chrono::steady_clock::now();
   long stepped = 0;
+  const long settles = asked.Steps > 4 ? 4 : 0;
   while (stepped < asked.Steps && engine.Advance()) {
     ++stepped;
     if (drawing && !engine.RenderTo(outshine::Extent{})) {
       why = engine.Error();
       return -1.0;
     }
+    if (stepped == settles) { took->Early = engine.Numbers(); }
   }
   const double tookMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
@@ -107,6 +112,7 @@ struct Took {
     return -1.0;
   }
   took->WallMs = tookMs;
+  took->Between = stepped - settles;
   took->Rows = engine.Numbers();
   std::vector<double> steps, pictures;
   engine.StepTimesMs(steps);
@@ -131,6 +137,8 @@ int main(int count, char **args) {
     const bool wants = at + 1 < count;
     if (said == "--steps" && wants) {
       asked.Steps = std::strtol(args[++at], nullptr, 10);
+    } else if (said == "--heap") {
+      asked.Heap = true;
     } else if (said == "--bodies" && wants) {
       asked.Bodies = (int)std::strtol(args[++at], nullptr, 10);
     } else if (said == "--clip" && wants) {
@@ -159,6 +167,7 @@ int main(int count, char **args) {
           "  --steps N           fixed steps to take (default 240)\n"
           "  --clip N            which of the file's animations plays (default 0)\n"
           "  --bodies N          declare N freestanding bodies over the scene (default 0)\n"
+          "  --heap              what each heap tag takes PER FRAME after the first four\n"
           "  --scenario PATH     the declaration to drive (default the driver's f31)\n"
           "  --size WxH          the frame to draw when drawing (default 1280x720)\n"
           "  --online            reach the network; offline by default\n\n"
@@ -199,6 +208,20 @@ int main(int count, char **args) {
       }
       std::printf("%-16s %8.1f ms over %ld step(s)   step p50 %.3f  p95 %.3f  p99 %.3f ms\n",
                   scene.c_str(), withMs, asked.Steps, stood.StepP50, stood.StepP95, stood.StepP99);
+      if (asked.Heap && stood.Between > 0) {
+        const std::string under = "heap taken under ";
+        for (const outshine::Measure &late : stood.Rows) {
+          if (late.What.compare(0, under.size(), under) != 0) { continue; }
+          double early = 0.0;
+          for (const outshine::Measure &first : stood.Early) {
+            if (first.What == late.What) { early = first.How; }
+          }
+          const double perFrame = (late.How - early) / (double)stood.Between;
+          if (perFrame <= 0.0) { continue; }
+          std::printf("    HEAP  %-24s %9.1f byte(s) per frame over %ld\n",
+                      late.What.c_str() + under.size(), perFrame, stood.Between);
+        }
+      }
       if (asked.Bodies > 0) {
         double standing = 0.0;
         for (const outshine::Measure &held : stood.Rows) {
