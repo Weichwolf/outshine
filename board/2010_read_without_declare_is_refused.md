@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: door
 
 # `Assemble()` after `Read()` without `Declare()` is refused, and says which verb is missing
