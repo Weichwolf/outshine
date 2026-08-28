@@ -106,8 +106,12 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
 
 bool Engine::State::Updates(void) {
   if (Ticking.Drove) {
+    const Heap::Tagged restanding("world-restand");
     World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
-    (void)Grows(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+    {
+      const Heap::Tagged growing("world-grow");
+      (void)Grows(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+    }
   }
 
   if (Ticking.Drove) {
@@ -118,6 +122,7 @@ bool Engine::State::Updates(void) {
       return false;
     }
     ++Ticking.Steps;
+    const Heap::Tagged ticking("drive-tick");
     const Sim::Ridden &rode =
         Sim::DriveTick(Ticking.Drive.Way, Ticking.Drive.Stood, *Ticking.Surface, Ticking.Drive.State,
                        Session.Declared.Motion.StepS, nullptr);
@@ -130,7 +135,10 @@ bool Engine::State::Updates(void) {
       Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
       return false;
     }
-    if (!Rides()) { return false; }
+    {
+      const Heap::Tagged riding("drive-ride");
+      if (!Rides()) { return false; }
+    }
   }
   if (Ticking.Drove) {
     Published.Places("how far along it the body has come", Ticking.Drive.State.Tally.ReachedM, "m");
@@ -189,6 +197,7 @@ void Engine::State::Falls(void) {
 }
 
 void Engine::State::Drew(void) {
+  const Heap::Tagged drew("frame-drew");
   const Heap::Tagged telling("frame-measures");
   Published.Places("bodies the world's generators placed", (double)World.Placed,
                    "bodies");

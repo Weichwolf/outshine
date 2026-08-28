@@ -398,6 +398,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
 
 
 void TilePool::Carry(void) {
+  const Heap::Tagged carrying("tile-carrier");
   StackProbe::Enter(StackProbe::Purpose::Tile);
   tCarries = true;
   Landing scratch;
@@ -445,6 +446,7 @@ void TilePool::Carry(void) {
 }
 
 void TilePool::Work(int slot) {
+  const Heap::Tagged working("tile-worker");
   StackProbe::Enter(StackProbe::Purpose::Tile);
   const EnuFrame frame = EnuFrame::At(OriginLatDeg_, OriginLonDeg_);
 

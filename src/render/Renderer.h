@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_RENDERER_H
 #define OUTSHINE_RENDER_RENDERER_H
 
+#include "Heap.h"
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -104,6 +105,7 @@ public:
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
+    const Heap::Tagged relaying("mesh-relay");
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
 

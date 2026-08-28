@@ -225,9 +225,9 @@ flowchart LR
   engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
+  render --> |5| base_io
   engine --> |5| base_io
   content_gltf --> |5| base_spatial
-  render --> |4| base_io
   engine --> |4| generators
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo

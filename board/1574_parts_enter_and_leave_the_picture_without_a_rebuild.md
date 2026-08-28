@@ -23,6 +23,30 @@ store-and-handles ladder IS that design; only the render path cannot receive it.
 
 - [ ] Parts are added and removed against persistent residency — a relay uploads only what
       arrived, and the frame path allocates nothing.
+      **THE CAUSE THIS PREDICATE NAMES IS NOT THE COST, MEASURED.** The item's opening blames
+      `SubjectDraw::SetMesh` re-uploading every stream at every relay. A `mesh-relay` tag around
+      `Renderer::SetSubjectMesh` over a 48-step drive does not appear in the heap table AT ALL --
+      it takes nothing per step. What the drive actually takes, per step:
+
+          world-restand         1 106 280 B      the world re-composed as the drive moves
+          untagged              1 365 596 B      not the main thread -- see below
+          world-grow               60 726 B
+          frame-tells               3 484 B      the measures the frame publishes
+          render-frame              1 328 B
+          subjects / transmissive      80 B each
+          drive-ride                  544 B
+          mesh-relay                    0        the cause this predicate names
+
+      So the relay's cost is the WORLD's, not the renderer's, and a persistent residency for
+      render parts would move a number that is already zero. The predicate stands but its target
+      moves to `GroundStack::Restand`, and board:1946 (`streaming`, 0%) is where that lives.
+
+      **And `untagged` is not a synonym for unattributed**: `Heap::Tagged` keeps its tag in a
+      `thread_local`, so every allocation on a thread that set none lands there. Every phase on
+      the MAIN thread is tagged now -- Updates, Restand, Grows, DriveTick, Rides, Tells, Draws,
+      Drew, RenderFrame -- and `TilePool`'s workers and carriers are tagged too, and none of them
+      accounts for the 1.37 MB. It is a thread none of those cover, and naming it is the next
+      step. A reader who takes `untagged` for `unattributed` will look on the wrong thread.
 - [x] The BVH refits rather than rebuilds, and takes nothing while it does.
       Unreal refits a skeletal mesh's bounds and physics BVH per frame and rebuilds only on a
       TOPOLOGY change; RAGE updates a model's bound hierarchy in place. **Both agree**, and the

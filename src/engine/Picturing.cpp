@@ -75,6 +75,7 @@ bool Engine::State::Grows(double atLat, double atLon) {
 }
 
 bool Engine::State::Composes(void) {
+  const Heap::Tagged composing("world-compose");
   World.GroundTiles = 0;
   if (!Picture.Standing) {
     Error = "nothing stands to compose a world around";
@@ -285,6 +286,7 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
 }
 
 void Engine::State::Tells(void) {
+  const Heap::Tagged telling("frame-tells");
   for (size_t at = 0; at < Heap::TagCount(); ++at) {
     const char *const tag = Heap::TagAt(at);
     if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
