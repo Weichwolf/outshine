@@ -154,6 +154,8 @@ public:
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
   [[nodiscard]] uint32_t ColourImages() const;
+  [[nodiscard]] uint32_t DistinctPlacements() const;
+  [[nodiscard]] uint32_t Layouts() const;
   [[nodiscard]] uint32_t Textured() const;
   [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
   [[nodiscard]] const double *AnchorM() const { return Anchor; }

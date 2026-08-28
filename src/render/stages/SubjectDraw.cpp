@@ -388,6 +388,31 @@ uint32_t SubjectDraw::ColourImages() const {
   return (uint32_t)distinct.size();
 }
 
+uint32_t SubjectDraw::Layouts() const {
+  std::vector<VertexLayout> distinct;
+  for (const DrawBatch &batch : Batches) {
+    bool seen = false;
+    for (const VertexLayout held : distinct) { seen = seen || held == batch.Layout; }
+    if (!seen) { distinct.push_back(batch.Layout); }
+  }
+  return (uint32_t)distinct.size();
+}
+
+uint32_t SubjectDraw::DistinctPlacements() const {
+  const size_t rows = Placed_.size() / 16u;
+  if (rows == 0) { return 0; }
+  uint32_t distinct = 0;
+  for (size_t row = 0; row < rows; ++row) {
+    bool seen = false;
+    for (size_t over = 0; over < row && !seen; ++over) {
+      seen = std::memcmp(Placed_.data() + row * 16u, Placed_.data() + over * 16u,
+                         16u * sizeof(double)) == 0;
+    }
+    if (!seen) { ++distinct; }
+  }
+  return distinct;
+}
+
 uint32_t SubjectDraw::Textured() const {
   uint32_t wearing = 0;
   for (const SurfaceSlot &slot : Slots) {

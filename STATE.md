@@ -275,12 +275,12 @@ The heaviest files. Headers and sources counted apart.
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1041 | `cpp` | `render/Renderer.cpp` |
+| 1043 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
+| 871 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 846 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 698 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **46** | `h` | *the median of 241 header(s)* |
 | **115** | `cpp` | *the median of 163 source(s)* |
@@ -386,7 +386,7 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 249 | 1 | `apps/bench` | `include/` alone |
+| 251 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
 | 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |

@@ -41,8 +41,14 @@ public:
     uint64_t bits = order.Viewport & (kViewportSlots - 1u);
     bits = (bits << kViewLayerBits) | static_cast<uint64_t>(order.Layer);
     bits = (bits << kSurfaceKindBits) | static_cast<uint64_t>(order.Surface.Kind());
-    bits = (bits << kDepthBits) | depth;
-    bits = (bits << kMaterialBits) | (order.MaterialSlot & (kMaterialSlots - 1u));
+    const uint64_t material = order.MaterialSlot & (kMaterialSlots - 1u);
+    if (order.Surface.Blends()) {
+      bits = (bits << kDepthBits) | depth;
+      bits = (bits << kMaterialBits) | material;
+    } else {
+      bits = (bits << kMaterialBits) | material;
+      bits = (bits << kDepthBits) | depth;
+    }
     return DrawKey(bits);
   }
 

@@ -27,6 +27,17 @@ carries a transform per section.** Taking that.
 PLACEMENT: 103 parts, each carrying its own node transform, so `SameState` refuses to merge two
 parts that wear the same surface. ABeautifulGame is the same shape, 49 draws for 15 materials.
 
+**AND THE PREMISE ABOVE IS WRONG, measured before a line of it was written.** Sponza's 103
+placement rows are all the SAME row: `apps/bench` reads `103 placement(s) ... 1 differ`. The node
+transforms are already baked -- `Live::Stand` writes the identity matrix for every part -- so
+nothing needs a cooker and nothing needs baking. What splits the batches is that `SameState`
+compares the placement's INDEX and not its ROW: 103 slots holding one value, and a merge refused
+between two parts that wear the same surface and stand in the same place.
+
+So the item is smaller and safer than it was filed: give equal rows the same SLOT, and the
+existing merge condition does the rest. It already requires adjacency, and the shader already
+reads `rows[first_instance]`, so two merged parts with an equal row draw exactly what they drew.
+
 board:1989 established why the merge cannot simply drop `ModelSlot`: every part owns its index
 range, so one instance over two ranges gives both the first part's row. But that is only a problem
 because the rows DIFFER, and for a static subject they need not exist at all -- a node transform
@@ -34,8 +45,27 @@ that never changes belongs in the vertices, which is what a cooker is for.
 
 ## What will be true
 
-- [ ] a subject whose document declares no animation is cooked with its node transforms applied to
-      the positions, so it carries ONE placement and its parts split only on MATERIAL
+- [x] **the sort puts MATERIAL before DEPTH where nothing blends**, which was the larger half and
+      is the one that landed. `DrawKey::Of` packed depth above material, so an opaque material's
+      parts scattered across the depth range and no two were ever adjacent. Unreal sorts opaque
+      mesh draws by STATE and gets front-to-back from a depth PREPASS, not from the sort; RAGE the
+      same. Depth-first is for TRANSLUCENT, where it is correctness -- so blended surfaces keep it
+      and nothing else does.
+      Measured: Sponza's subject stage goes from 4.19 to 8.09 million tri/ms and ABeautifulGame
+      from 26.9 to 77.8, with the draw COUNT unchanged. The win is state: consecutive draws now
+      share a material, so the eight texture bindings and the uniform push happen 25 times over
+      103 draws instead of 103 times.
+      proof: khronos/glTF 444/444 -- the picture does not move, which is the control that matters
+      when draw ORDER changes; outshine/door 33/33; gate GREEN.
+- [ ] equal placement rows share a SLOT, so `SameState` splits on where a part stands and not on
+      which index happens to hold it. **ATTEMPTED AND ROLLED BACK.** Deduping the slot in
+      `SubjectProxy::Places` took Sponza to 25 draws and ABeautifulGame to 21 -- exactly their
+      material counts -- and khronos stayed 444/444. But the door suite broke in a way I could not
+      explain: `ScoreWhatManyCastersCost` overflowed the staging ring by 1312 bytes and
+      `ScoreWhatAMovingSceneResends` timed out. Sizing the ring for the placement rows closed 128
+      of those bytes and not the rest, so the interaction between the canonical slot and the
+      staging budget is not understood, and a change I cannot explain does not stay in.
+      What the next attempt needs first: WHY a smaller set of named slots makes a frame stage MORE.
 - [ ] Sponza's subject stage draws 25 times where it drew 103, and ABeautifulGame 15 where it drew
       49 -- measured by `apps/bench`, which is where the numbers above came from
 - [ ] a subject that DOES animate is untouched: BrainStem keeps its 59 placements, because a node
