@@ -231,6 +231,10 @@ int main(int count, char **args) {
                       late.What.c_str() + under.size(), perFrame, stood.Between);
         }
       }
+      for (const outshine::Measure &held : stood.Rows) {
+        if (held.What != "clusters the ring holds" && held.What != "clusters it drew") { continue; }
+        std::printf("    %-34s %10.0f\n", held.What.c_str(), held.How);
+      }
       if (asked.Bodies > 0) {
         double standing = 0.0;
         for (const outshine::Measure &held : stood.Rows) {
@@ -285,6 +289,13 @@ int main(int count, char **args) {
               steppedMs / (double)asked.Steps);
   std::printf("THE PICTURE COSTS     %.1f%% of the drawn run\n",
               drawnMs <= 0.0 ? 0.0 : 100.0 * (drawnMs - steppedMs) / drawnMs);
+  for (const outshine::Measure &held : drawn.Rows) {
+    if (held.What != "clusters the ring holds" && held.What != "clusters it drew" &&
+        held.What != "the worst error any of them carries") {
+      continue;
+    }
+    std::printf("  %-38s %12.3f\n", held.What.c_str(), held.How);
+  }
   if (asked.Heap && drawn.Between > 0) {
     const std::string under = "heap taken under ";
     std::printf("\nWHAT THE FRAME TAKES FROM THE HEAP, per step after the first four:\n");

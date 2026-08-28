@@ -254,6 +254,9 @@ bool Engine::State::Composes(void) {
   Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
   Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
   Published.Places("tiles it refused", (double)laid->Refused, "tiles");
+  Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
+  Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
+  Published.Places("the worst error any of them carries", laid->WorstErrM, "m");
   return true;
 }
 
