@@ -5,6 +5,7 @@
 #include "Check.h"
 #include "ClusterDag.h"
 #include "Cooked.h"
+#include "CookedTile.h"
 #include "Geometry.h"
 #include "Material.h"
 
@@ -150,6 +151,37 @@ int main(void) {
         "position, normal and texture. So a generator, a reader or a foreign program fills one "
         "`Geometry` and the cooked form comes from that, which is CLAUDE.md's tier chain with no "
         "hand-interleaved soup in the middle");
+
+  std::vector<float> soup8;
+  soup8.reserve((size_t)verts * 8);
+  for (uint32_t vertex = 0; vertex < verts; ++vertex) {
+    const float *const at = soup.data() + (size_t)vertex * kStride;
+    soup8.insert(soup8.end(), at, at + 8);
+  }
+
+  std::vector<float> tileVerts;
+  std::vector<uint32_t> tileIdx;
+  std::vector<outshine::DagCluster> tileClusters;
+  const double origin[3] = {4160000.0, 850000.0, 4730000.0};
+  const int gridverts = (int)verts - 6;
+  outshine::Ground::CookTile(soup8.data(), (int)verts, gridverts, origin, tileVerts, tileIdx,
+                             tileClusters);
+  uint32_t hem = 0;
+  for (const outshine::DagCluster &one : tileClusters) {
+    if (one.SelfErr == 0.0f && one.ParentErr >= outshine::kDagRootErr && one.Level == 0 &&
+        one.First > 0) {
+      hem = one.Count;
+    }
+  }
+  std::printf("A GROUND TILE       cooks to %zu cluster(s), its skirt of %u index/indices apart\n",
+              tileClusters.size(), hem);
+
+  CHECK(tileClusters.size() > 2 && hem == 6,
+        "**A GROUND TILE GOES THROUGH THE ONE COOKER**: it fills the door's own `Geometry` and is "
+        "cooked like a subject, with the SKIRT appended as a cluster of zero error and a root "
+        "parent so no cut can drop it. Unreal draws Landscape as a primitive in the base pass and "
+        "RAGE puts terrain on the same draw list as everything else; neither has a second cooker, "
+        "and this tree had one named after a subject in the geometry tier");
 
   Covers("the cooker: it takes a subject's own vertex stride, its finest level covers every "
          "triangle handed in, and its error bounds grow with the level -- board:1991's premise, "

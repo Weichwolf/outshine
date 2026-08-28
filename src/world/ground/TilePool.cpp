@@ -1,5 +1,7 @@
 #include "TilePool.h"
 
+#include "CookedTile.h"
+
 #include <numbers>
 #include <chrono>
 #include <cmath>
@@ -336,8 +338,8 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     stage = "grid";
   }
   if (miss == Miss::None) {
-    TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, origin,
-                 out->Build.Verts, out->Build.Idx, out->Build.Clusters);
+    CookTile((const float *)chunk.verts, chunk.nverts, chunk.gridverts, origin,
+             out->Build.Verts, out->Build.Idx, out->Build.Clusters);
     out->Build.ErrM = chunk.err;
     if (out->Build.Verts.empty() || out->Build.Idx.empty() || out->Build.Clusters.empty()) {
       miss = Miss::Refused;

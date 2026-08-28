@@ -202,7 +202,7 @@ Module depends on module, derived from the includes themselves.
 ```mermaid
 flowchart LR
   render_stages --> |28| render_device
-  world_ground --> |18| base_spatial
+  world_ground --> |20| base_spatial
   generators --> |18| generators_base
   world_ground --> |14| base_io
   sim --> |14| actor_path
@@ -270,13 +270,13 @@ The heaviest files. Headers and sources counted apart.
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1017 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 943 | `h` | `base/spatial/ClusterDag.h` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| 886 | `h` | `base/spatial/ClusterDag.h` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 827 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 698 | `cpp` | `scenario/ScenarioRead.cpp` |
-| **46** | `h` | *the median of 240 header(s)* |
-| **115** | `cpp` | *the median of 162 source(s)* |
+| **46** | `h` | *the median of 241 header(s)* |
+| **115** | `cpp` | *the median of 163 source(s)* |
 
 ## Carpet
 

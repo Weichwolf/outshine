@@ -881,63 +881,6 @@ inline void Sphere(const Clustered &m, std::span<const uint32_t> tri, size_t fir
   return !out->Clusters.empty();
 }
 
-inline void TileDagBuild(const float *soup, int nverts, int gridverts, const double origin[3],
-                         std::vector<float> &outVerts, std::vector<uint32_t> &outIdx,
-                         std::vector<DagCluster> &outClusters) {
-  outVerts.clear();
-  outIdx.clear();
-  outClusters.clear();
-  if (!soup || nverts <= 0) return;
-  if (gridverts <= 0 || gridverts > nverts) gridverts = nverts;
-
-  ClusterDag dag;
-  ClusterDagOpts opts;
-
-  {
-    const double l = std::sqrt(origin[0] * origin[0] + origin[1] * origin[1] + origin[2] * origin[2]);
-    if (l > 1.0)
-      for (int a = 0; a < 3; a++) opts.Up[a] = (float)(origin[a] / l);
-  }
-  if (ClusterDagBuild(soup, (uint32_t)gridverts, 8, opts, &dag)) {
-    outVerts = std::move(dag.Verts);
-    outIdx = std::move(dag.Idx);
-    outClusters = std::move(dag.Clusters);
-  } else {
-    outVerts.assign(soup, soup + (size_t)gridverts * 8);
-    outIdx.resize((size_t)gridverts);
-    for (int i = 0; i < gridverts; i++) outIdx[(size_t)i] = (uint32_t)i;
-    DagCluster c{};
-    c.Count = (uint32_t)gridverts;
-    c.ParentErr = kDagRootErr;
-    BoundingSphere(soup, (uint32_t)gridverts, 8, c.SelfCenter, &c.SelfRadius);
-    outClusters.push_back(c);
-  }
-  const int skirt = nverts - gridverts;
-  if (skirt <= 0) return;
-  const uint32_t skirtBase = (uint32_t)(outVerts.size() / 8);
-  DagCluster sc{};
-  sc.First = (uint32_t)outIdx.size();
-  sc.Count = (uint32_t)skirt;
-  sc.SelfErr = 0.0f;
-  sc.ParentErr = kDagRootErr;
-  double c3[3] = {0, 0, 0};
-  for (int i = 0; i < skirt; i++)
-    for (int a = 0; a < 3; a++) c3[a] += soup[(size_t)(gridverts + i) * 8 + (size_t)a];
-  for (int a = 0; a < 3; a++) sc.SelfCenter[a] = (float)(c3[a] / skirt);
-  double r2 = 0.0;
-  for (int i = 0; i < skirt; i++) {
-    double d2 = 0.0;
-    for (int a = 0; a < 3; a++) {
-      const double d = soup[(size_t)(gridverts + i) * 8 + (size_t)a] - (double)sc.SelfCenter[a];
-      d2 += d * d;
-    }
-    r2 = r2 > d2 ? r2 : d2;
-  }
-  sc.SelfRadius = (float)std::sqrt(r2);
-  outVerts.insert(outVerts.end(), soup + (size_t)gridverts * 8, soup + (size_t)nverts * 8);
-  for (int i = 0; i < skirt; i++) outIdx.push_back(skirtBase + (uint32_t)i);
-  outClusters.push_back(sc);
-}
 
 }
 #endif
