@@ -66,6 +66,7 @@ int main(void) {
 
   double rowsAt[2] = {0.0, 0.0};
   double batches = 0.0, moving = 0.0, furthest = 0.0;
+  double ways = 0.0, water = 0.0, prints = 0.0;
   for (int half = 0; half < 2; ++half) {
     for (int step = 0; step < kFrames; ++step) {
       if (!engine.Advance() || !engine.RenderTo(outshine::Extent{})) { break; }
@@ -73,6 +74,9 @@ int main(void) {
     rowsAt[half] = Measured(engine, "placement rows the renderer has been sent");
     batches = Measured(engine, "batches the picture draws");
     moving = Measured(engine, "pixels the velocity target says moved");
+    ways = Measured(engine, "streets the world holds");
+    water = Measured(engine, "water surfaces it holds");
+    prints = Measured(engine, "building footprints it holds");
     furthest = Measured(engine, "the furthest any of them moved");
   }
 
@@ -110,6 +114,22 @@ int main(void) {
         "for its own reprojection; neither asks whether the mesh has an animation track. A target "
         "conditioned on the FILE rather than on the plan leaves the one scene that moves without "
         "the buffer that describes its motion");
+
+  std::printf("AND THE WORLD HOLDS    %.0f street(s), %.0f water surface(s), %.0f footprint(s)\n",
+              ways, water, prints);
+  // THE WORLD'S VECTOR DATA HAS AN OWNER. Unreal's PCG reads a level's own data because the level
+  // owns it for as long as it is loaded; RAGE keeps map data resident per node. Measured before
+  // this: `Surrounds` held a height stack and no vector field at all, and the only `OsmField` the
+  // tree ever built was a LOCAL in `Sim::DriveAssembly` that laid the road graph and died with the
+  // call -- so `BuildingField::Build`, `WaterField::Ingest` and `StreetField::Ingest` had no
+  // caller anywhere and the three derived fields were never populated by anything.
+  // `GroundStack` owns them now, beside the class field it already owned, and `Restand` fills
+  // them where the camera stands.
+  CHECK(ways > 0.0,
+        "**THE WORLD HOLDS ITS OWN VECTOR DATA**: a drive through a city crosses streets, and a "
+        "ground that cannot say so hands every generator an unmapped world. This is what "
+        "`SnapshotOver` needs before it will answer `Taken` at all, so it is the difference "
+        "between a placement generator that reads the world and one that reads nothing");
 
   CHECK(std::fabs(perFrame - std::round(perFrame)) < 0.01,
         "and the count is a whole number of rows per frame, so what is being read is rows and not "

@@ -9,8 +9,14 @@
 #include "DeclaredSources.h"
 #include "TerrainLoader.h"
 #include "SourceDecl.h"
+#include "BuildingField.h"
 #include "ClassField.h"
+#include "GroundMaterials.h"
+#include "OsmField.h"
+#include "StreetField.h"
 #include "TilePool.h"
+#include "VegetationTemplates.h"
+#include "WaterField.h"
 
 namespace outshine {
 class Sink;
@@ -35,9 +41,15 @@ public:
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
-  void Restand(double lat, double lon) {
-    if (Pool_) { Cls_.Update(*Pool_, lat, lon); }
-  }
+
+  [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
+  [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
+  [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
+  [[nodiscard]] const StreetField &Ways() const { return Ways_; }
+  [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
+  [[nodiscard]] bool Vegetated() const { return Vegetated_; }
+
+  void Restand(double lat, double lon);
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
@@ -46,6 +58,13 @@ private:
   std::unique_ptr<TilePool> Pool_;
   std::unique_ptr<GroundStream> Ground_;
   ClassField Cls_;
+  GroundMaterials Materials_;
+  VegetationTemplates Templates_;
+  std::unique_ptr<OsmField> Vectors_;
+  BuildingField Footprints_;
+  WaterField WaterBodies_;
+  StreetField Ways_;
+  bool Vegetated_ = false;
   bool Opened_ = false;
 };
 

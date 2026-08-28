@@ -8,6 +8,10 @@
 
 namespace outshine::Ground {
 
+constexpr int kVectorZoom = 14;
+constexpr int kVectorRing = 1;
+
+
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
                        std::span<const Provider> providers, double focusLat,
                        double focusLon, Data::Transport &wire, Sink &say) {
@@ -41,6 +45,16 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
       outshine::Ground::GroundPoolConfig(focusLat, focusLon), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   Cls_.Open(focusLat, focusLon);
+
+  const std::string assets(assetsDir);
+  Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
+               Templates_.Load((assets + "/world/vegetation.json").c_str(), Materials_);
+  if (Vegetated_) {
+    Cls_.SetVegetation(&Templates_);
+  } else {
+    say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
+                 "with no vegetation and no vector features", assets.c_str()));
+  }
   Opened_ = true;
   return true;
 }
@@ -62,6 +76,26 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
     finest = decl.MaxZoom > finest ? decl.MaxZoom : finest;
   }
   return finest;
+}
+
+void GroundStack::Restand(double lat, double lon) {
+  if (!Pool_) { return; }
+  Cls_.Update(*Pool_, lat, lon);
+  if (!Vegetated_) { return; }
+  if (!Vectors_) {
+    const std::string layers[] = {OsmLayerName(OsmLayer::Buildings),
+                                  OsmLayerName(OsmLayer::WaterPolygons),
+                                  OsmLayerName(OsmLayer::WaterLines),
+                                  OsmLayerName(OsmLayer::Streets),
+                                  OsmLayerName(OsmLayer::StreetPolygons)};
+    Vectors_ = std::make_unique<OsmField>(kVectorZoom, std::span<const std::string>(layers, 5));
+  }
+  if (Vectors_->Build(*Pool_, lat, lon, kVectorRing) <= 0) { return; }
+  WaterBodies_.AnchorAt(Cls_.OriginEcef());
+  Footprints_.AnchorAt(Cls_.OriginEcef());
+  (void)Ways_.Ingest(*Vectors_, Templates_);
+  (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
+  (void)Footprints_.Build(*Ground_, *Vectors_, Span<const WayLine>());
 }
 
 }

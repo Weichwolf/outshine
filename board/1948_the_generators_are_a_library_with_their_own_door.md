@@ -171,7 +171,20 @@ that links no `src/engine` source.
       4.0e-4 stems/m2 against 0 at zero density, into a sink of 4096 it does not saturate.
       `Ground::Of` had no caller before it; nor did `Occupy` outside `GeneratorSet`.
       negative control: an empty `Forest::Occupy` body makes it read 0 and the case goes RED.
-- [ ] A GENERATOR is called from the ENGINE. **The blocker has an address, measured.**
+- [x] **the world's vector data has an OWNER**, which was the blocker. `GroundStack` holds the
+      shipped `GroundMaterials` and `VegetationTemplates`, an `OsmField` over all five layers, and
+      the three derived fields; `Open` loads the tables and hands them to the class field, and
+      `Restand` builds the vectors where the camera stands and ingests them. Before this,
+      `BuildingField::Build`, `WaterField::Ingest` and `StreetField::Ingest` had NO caller
+      anywhere in the tree and the three fields were never populated by anything.
+      proof: outshine/door/ScoreWhatAMovingSceneResends reads `1813 street(s), 3 water
+      surface(s), 1849 footprint(s)` over the drive; gate GREEN.
+      negative control: dropping the street ingest makes it read 0 and the case goes RED.
+- [ ] A GENERATOR is called from the ENGINE. **What remains, measured.** The world now HOLDS what
+      `FeaturesOver` needs; what is still missing is the registry for the placement door -- the
+      engine's `Surrounds` carries a `Generates` list and nothing for `Making`, so there is no
+      shipped placement generator to run and no `Offers` for one. The old blocker, kept for the
+      record:
       `SnapshotOver` returns `Taken` only when the patch, the classes AND the features all stand,
       and `FeaturesOver` returns null unless all FOUR vector fields are handed in -- an
       `OsmField`, a `BuildingField`, a `WaterField` and a `StreetField`.

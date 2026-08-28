@@ -161,6 +161,11 @@ void Engine::State::Falls(void) {
 }
 
 void Engine::State::Drew(void) {
+  Published.Places("streets the world holds", (double)World.Stack.Ways().Ways().size(), "ways");
+  Published.Places("water surfaces it holds", (double)World.Stack.WaterBodies().Surfaces().size(),
+                   "surfaces");
+  Published.Places("building footprints it holds",
+                   (double)World.Stack.Footprints().Footprints().size(), "footprints");
   Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
   {
     std::vector<float> velocity;
