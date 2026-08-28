@@ -163,25 +163,44 @@ int main(void) {
   std::vector<uint32_t> tileIdx;
   std::vector<outshine::DagCluster> tileClusters;
   const double origin[3] = {4160000.0, 850000.0, 4730000.0};
-  const int gridverts = (int)verts - 6;
+  const int gridverts = (int)verts;
   outshine::Ground::CookTile(soup8.data(), (int)verts, gridverts, origin, tileVerts, tileIdx,
                              tileClusters);
-  uint32_t hem = 0;
-  for (const outshine::DagCluster &one : tileClusters) {
-    if (one.SelfErr == 0.0f && one.ParentErr >= outshine::kDagRootErr && one.Level == 0 &&
-        one.First > 0) {
-      hem = one.Count;
-    }
-  }
-  std::printf("A GROUND TILE       cooks to %zu cluster(s), its skirt of %u index/indices apart\n",
-              tileClusters.size(), hem);
+  uint32_t covered = 0;
+  for (const outshine::DagCluster &one : tileClusters) { covered += one.Count; }
+  std::printf("A GROUND TILE       cooks to %zu cluster(s) covering %u index/indices of %zu\n",
+              tileClusters.size(), covered, tileIdx.size());
 
-  CHECK(tileClusters.size() > 2 && hem == 6,
-        "**A GROUND TILE GOES THROUGH THE ONE COOKER**: it fills the door's own `Geometry` and is "
-        "cooked like a subject, with the SKIRT appended as a cluster of zero error and a root "
-        "parent so no cut can drop it. Unreal draws Landscape as a primitive in the base pass and "
-        "RAGE puts terrain on the same draw list as everything else; neither has a second cooker, "
-        "and this tree had one named after a subject in the geometry tier");
+  // THIS CHECK WAS INVERTED, AND TWO MEASUREMENTS INVERTED IT (board:2017).
+  //
+  // It used to assert that a ground tile goes through the cluster cooker like a subject, with a
+  // SKIRT appended as a zero-error cluster. Its stated benchmark was that "Unreal draws Landscape
+  // as a primitive in the base pass and RAGE puts terrain on the same draw list as everything
+  // else". That is a category error: sharing a DRAW LIST is not sharing a SIMPLIFIER. Unreal's
+  // Landscape carries its own heightmap LOD and does not pass through Nanite's cluster builder at
+  // runtime -- Nanite builds its DAG OFFLINE at import. Cesium ships terrain tiles already
+  // simplified per zoom level and cuts the quadtree by screen-space error.
+  //
+  // What the tree measured:
+  //
+  //   1. the runtime DAG was the ENTIRE cost of standing a world. Sampling a place mid-load put
+  //      572 stack samples in `dag::Clustered`, `dag::SimplifyGroup` and `dag::Absorb`, reducing
+  //      2 048 triangles per tile down to 8 across 128 tiles -- to rebuild a reduction the TILE
+  //      PYRAMID already carries, because zoom z-1 IS the simplification of zoom z
+  //   2. the skirt hid NOTHING. Hashing every ring vertex by its east/north to a quarter metre,
+  //      the widest height disagreement between two tiles sharing a point was exactly the skirt's
+  //      own depth at a 1 m skirt, and 0.00 m over 4 832 shared vertices with no skirt at all --
+  //      while 903 of 3 078 clusters were drawn, so the LOD cut was genuinely selective. It cost
+  //      18 per cent of the ring's triangles and carved a black trench along every tile border
+  //
+  // So the ONE COOKER stands and its scope is stated: it is the only cooker, and it cooks
+  // SUBJECTS. A ground tile keeps its grid, because the pyramid is its LOD.
+  CHECK(tileClusters.size() == 1 && covered == tileIdx.size(),
+        "**A GROUND TILE KEEPS ITS GRID**: the pyramid is already the terrain's LOD -- zoom z-1 IS "
+        "the simplification of zoom z -- so a tile cooks to ONE cluster covering every triangle "
+        "handed in, with no simplification and no skirt. Nanite builds its DAG offline at import "
+        "and Cesium ships tiles pre-simplified per level; neither reduces terrain at runtime. The "
+        "negative control is the subject above, which still cooks to many");
 
   Covers("the cooker: it takes a subject's own vertex stride, its finest level covers every "
          "triangle handed in, and its error bounds grow with the level -- board:1991's premise, "

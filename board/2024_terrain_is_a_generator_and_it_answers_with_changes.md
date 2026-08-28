@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 2017
 Area: world, generators
 
@@ -35,6 +35,25 @@ and it is still the wrong shape, for reasons the measurements themselves produce
   every fine tile the eye resolves. Measured: 73 per cent of tiles loaded and 59 m of relief where
   the rim-to-river drop is over 1 500 m. Depth now leads and distance breaks the tie, which is a
   stand-in for the error term rather than the thing itself
+
+## What board:2017 handed over when it closed
+
+2017 closed on its own scope, measured: the frame is the camera's tangent frame (curvature 3.32 m
+at 6.5 km, 1 008.07 m at 113 km, 11 814.26 m at 388 km, each within 0.3 per cent of d^2/2R and each
+reading exactly 0.0 on the plate carree it replaced); the seam closes to 0.00 m over 4 832 shared
+vertices with no skirt; nothing on the terrain path waits on IO; the reach is DECLARED through
+`WorldSettings::SightM`; a declared camera steers the picture; and the Grand Canyon renders 2 508 m
+of relief.
+
+Two of its predicates were NOT met and they are this item's:
+
+- the cut is geometric rather than by screen-space error
+- a re-lay is a full rebuild rather than a delta
+
+One of its measurements was never taken: the horizon's subtended angle read off the rendered image.
+The curvature number derives from the same geometry and is stronger, but the image-side check would
+have caught a projection error that the vertex-side one cannot see. It is listed here rather than
+quietly dropped.
 
 ## What will be true
 

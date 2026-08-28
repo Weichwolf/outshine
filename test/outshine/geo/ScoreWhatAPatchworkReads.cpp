@@ -78,6 +78,11 @@ public:
     return Reply::Ready;
   }
 
+  [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
+    outshine::TileBuild aside;
+    return Mesh(z, x, y, grid, &aside);
+  }
+
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
                                   outshine::TileBuild *out) override {
     return Mesh(z, x, y, grid, out);
@@ -111,6 +116,11 @@ public:
     return One_.Mesh(z, x, y, grid, out);
   }
 
+  [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
+    outshine::TileBuild aside;
+    return Mesh(z, x, y, grid, &aside);
+  }
+
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
                                   outshine::TileBuild *out) override {
     const Reply first = Mesh(z, x, y, grid, out);
@@ -131,7 +141,7 @@ int main(void) {
   over.LatDeg = 48.1372;
   over.LonDeg = 11.5756;
   over.Zoom = 14;
-  over.Ring = 0;
+  over.Levels = 1;
 
   OneTile everywhere;
   const auto laid = outshine::LayPatchwork(everywhere, over);
@@ -163,8 +173,8 @@ int main(void) {
         "the patchwork laid the tile this case handed it, so there is geometry to judge -- a "
         "patch of nothing would satisfy every check below by silence");
 
-  CHECK(vertices == 4,
-        "**A VERTEX LAYOUT IS ONE TRUTH**: the tile hands in FOUR vertices of "
+  CHECK(vertices == 4 * laid->Tiles,
+        "**A VERTEX LAYOUT IS ONE TRUTH**: each tile hands in FOUR vertices of "
         "kTileVertexFloats floats each, and a reader that steps by three reports 5194 where 1948 "
         "stand -- the ratio 8/3 exactly. On the shipped Munich patch that read 746 m of relief "
         "over 815 m of ground");
@@ -204,30 +214,40 @@ int main(void) {
 
   {
     outshine::Around ring = over;
-    ring.Ring = 1;
+    ring.Levels = 2;
     OneTile source;
     Twice polled(source);
-    ring.Awaited = false;
     const auto quick = outshine::LayPatchwork(polled, ring);
     OneTile other;
     Twice awaited(other);
-    ring.Awaited = true;
     const auto whole = outshine::LayPatchwork(awaited, ring);
     const size_t polledTiles = quick ? quick->Tiles : 0;
     const size_t awaitedTiles = whole ? whole->Tiles : 0;
-    std::printf("  a 3 by 3 ring, polled once   %zu of 9 tiles\n", polledTiles);
-    std::printf("  the same ring, awaited       %zu of 9 tiles\n", awaitedTiles);
+    std::printf("  a block, asked without waiting  %zu tile(s)\n", polledTiles);
+    std::printf("  the same block, asked again    %zu tile(s)\n", awaitedTiles);
 
-    CHECK(awaitedTiles == 9,
-          "**A RING IS ASKED FOR IN A WAY THAT LETS IT ARRIVE**: the tiles answer Pending once "
-          "each and Ready after, which is what a pool that meshes on worker threads does, and a "
-          "caller that waits gets all nine. On the shipped network this is 1 of 9 against 9 of 9, "
-          "and the polled number depended on which thread won");
-
-    CHECK(polledTiles < awaitedTiles,
-          "and the control is the flag itself: the identical ring over the identical tiles, asked "
-          "without waiting, comes back with fewer -- so what the check above measures is the wait "
-          "and not the tiles");
+    // THIS CHECK WAS WITHDRAWN AND REPLACED, and the reason is an INVARIANT rather than a number.
+    //
+    // It used to assert that "a caller that waits gets all nine" -- that `Around::Awaited` made
+    // `LayPatchwork` block on `MeshAwaited` until every tile had landed. Waiting is exactly what
+    // board:2017 removed, and it removed it because a stack sample of a stalled place read
+    //
+    //     Engine::assemble -> Composes -> LayPatchwork -> TilePool::MeshAwaited -> __psynch_cvwait
+    //
+    // with every fetch worker parked in `condition_variable::wait`. The main thread waited for the
+    // workers and the workers waited for work: a deadlock, not a delay, and it cost the suite
+    // 122 s per case. CLAUDE.md carries the rule this broke -- four things run independently and
+    // IO is the fourth, because a fetch BLOCKS and a blocking wait on a compute path is a worker
+    // doing nothing while holding a slot. Unreal keeps IO off every compute path with
+    // `FIoDispatcher`; RAGE runs streaming threads beside `sysTaskManager`.
+    //
+    // So the claim is inverted: a block is laid COMPLETE on the first ask, whatever has arrived,
+    // and a tile that has not arrived stands on the bare WGS84 ellipsoid until it does.
+    CHECK(polledTiles == awaitedTiles && polledTiles > 0,
+          "**A BLOCK IS COMPLETE ON THE FIRST ASK**: nothing waits, so asking twice returns the "
+          "same count -- what changes between the two is how many of those tiles carry ground "
+          "rather than the bare ellipsoid. A count that GREW on the second ask would mean the "
+          "first had left holes, which is what a caller would have had to wait for");
   }
 
   {
@@ -236,26 +256,40 @@ int main(void) {
       [[nodiscard]] Reply Mesh(int, uint32_t, uint32_t, int, outshine::TileBuild *) override {
         return Reply::Pending;
       }
-      [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+      [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
+    outshine::TileBuild aside;
+    return Mesh(z, x, y, grid, &aside);
+  }
+
+  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
                                       outshine::TileBuild *out) override {
         return Mesh(z, x, y, grid, out);
       }
     };
     outshine::Around ring = over;
-    ring.Ring = 1;
-    ring.Awaited = true;
+    ring.Levels = 2;
     Never never;
     const auto asked = outshine::LayPatchwork(never, ring);
-    std::printf("  a ring whose tiles never land: %s\n",
-                asked ? "laid" : ("refused -- " + asked.error()).c_str());
+    const size_t bare = asked ? asked->Bare : 0;
+    const size_t tiles = asked ? asked->Tiles : 0;
+    std::printf("  a block whose tiles never land: %s, %zu of %zu bare\n",
+                asked ? "laid" : ("refused -- " + asked.error()).c_str(), bare, tiles);
 
-    CHECK(!asked,
-          "**A WAIT ENDS.** A ring over tiles that never arrive comes BACK -- with a refusal that "
-          "names how many are pending -- rather than holding the caller. `Awaited` says the "
-          "caller will wait for a tile that is COMING, and it may not become a caller that waits "
-          "for one that is not. `TileMeshes::MeshAwaited` is pure virtual for the same reason: an "
-          "implementation that inherits a silent non-waiting default answers a question it was "
-          "never asked");
+    // THIS CHECK WAS INVERTED BY THE SAME INVARIANT (board:2017), and the inversion is the point.
+    //
+    // It used to assert that a ring over tiles that never arrive comes back with a REFUSAL. That
+    // was the right answer while `Awaited` existed, because the alternative was holding the caller
+    // for ever. With nothing waiting, a refusal is now the WRONG answer: a game engine that cannot
+    // reach the network still has to draw the Earth. So every tile that has not arrived stands on
+    // the bare WGS84 ellipsoid -- no elevation, correct curvature, correct place -- and a later
+    // pass replaces it. The old flightbox streamer wrote the same rule down: "a chunk that has not
+    // arrived is covered by its parent and picked up on a later frame, so the world refines
+    // progressively and the frame loop never blocks."
+    CHECK(asked && tiles > 0 && bare == tiles,
+          "**A BLOCK OVER TILES THAT NEVER LAND STILL STANDS**: it comes back complete, with every "
+          "tile on the bare ellipsoid, rather than refusing or holding the caller. The negative "
+          "control is `bare == tiles` -- if any tile claimed ground from a source that hands back "
+          "nothing, the fallback would be inventing terrain rather than standing in for it");
   }
 
   Covers("compositor: a ground patchwork reads a tile at the stride the tile's own layout "

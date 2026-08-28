@@ -47,36 +47,6 @@ void CookTile(const float *soup, int nverts, int gridverts, const double origin[
     outClusters.push_back(whole);
   }
 
-  const int skirt = nverts - gridverts;
-  if (skirt <= 0) { return; }
-  const uint32_t base = (uint32_t)(outVerts.size() / kTileSoupFloats);
-  DagCluster hem{};
-  hem.First = (uint32_t)outIdx.size();
-  hem.Count = (uint32_t)skirt;
-  hem.SelfErr = 0.0f;
-  hem.ParentErr = kDagRootErr;
-  double centre[3] = {0, 0, 0};
-  for (int at = 0; at < skirt; ++at) {
-    for (int axis = 0; axis < 3; ++axis) {
-      centre[axis] += soup[(size_t)(gridverts + at) * kTileSoupFloats + (size_t)axis];
-    }
-  }
-  for (int axis = 0; axis < 3; ++axis) { hem.SelfCenter[axis] = (float)(centre[axis] / skirt); }
-  double furthest = 0.0;
-  for (int at = 0; at < skirt; ++at) {
-    double away = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double step =
-          soup[(size_t)(gridverts + at) * kTileSoupFloats + (size_t)axis] - (double)hem.SelfCenter[axis];
-      away += step * step;
-    }
-    furthest = furthest > away ? furthest : away;
-  }
-  hem.SelfRadius = (float)std::sqrt(furthest);
-  outVerts.insert(outVerts.end(), soup + (size_t)gridverts * kTileSoupFloats,
-                  soup + (size_t)nverts * kTileSoupFloats);
-  for (int at = 0; at < skirt; ++at) { outIdx.push_back(base + (uint32_t)at); }
-  outClusters.push_back(hem);
 }
 
 }

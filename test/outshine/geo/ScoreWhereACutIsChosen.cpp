@@ -77,6 +77,11 @@ public:
     return Reply::Ready;
   }
 
+  [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
+    outshine::TileBuild aside;
+    return Mesh(z, x, y, grid, &aside);
+  }
+
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
                                   outshine::TileBuild *out) override {
     return Mesh(z, x, y, grid, out);
@@ -86,13 +91,16 @@ public:
 [[nodiscard]] outshine::Around Standing(double backM) {
   outshine::Around over;
   over.Zoom = 12;
-  over.Ring = 0;
+  over.Levels = 1;
   over.Grid = 33;
-  over.Awaited = true;
   over.FocalPx = kFocalPx;
-  over.EyeM[0] = 5.0;
-  over.EyeM[1] = backM;
-  over.EyeM[2] = 5.0;
+  // THE EYE IS ABSOLUTE ECEF NOW, not an offset from a shift that never meant that (board:2017).
+  // `LayPatchwork` differences it against each tile's OWN origin, so a caller states where the
+  // camera stands on the Earth and the cut is taken from there. Before, `Around::EyeM` had one
+  // reader and no writer at all, so every cut was taken from {0,0,0}.
+  over.EyeM[0] = 4160000.0 + 5.0;
+  over.EyeM[1] = 850000.0 + backM;
+  over.EyeM[2] = 4730000.0 + 5.0;
   return over;
 }
 
@@ -124,9 +132,12 @@ int main(void) {
   std::printf("AND NO CUT AT ALL    draws %zu of them, %zu triangle(s)\n", whole->ClustersDrawn,
               whole->Index.size() / 3);
 
-  CHECK(whole->ClustersHeld == 3,
-        "the tile hands over the DAG it was built with, so what follows is a cut through three "
-        "clusters rather than a comparison between two empty lists");
+  // THREE CLUSTERS PER TILE, AND `Levels = 1` LAYS A 4x4 BLOCK (board:2017), so the population is
+  // 48. The old `Around::Ring = 0` meant one tile; a cascade level has no such spelling, because
+  // its finest level must cover the area its next level out will skip.
+  CHECK(whole->ClustersHeld == 3 * whole->Tiles && whole->Tiles == 16,
+        "the tiles hand over the DAG they were built with, so what follows is a cut through three "
+        "clusters per tile rather than a comparison between two empty lists");
 
   CHECK(far->Index.size() < near->Index.size(),
         "**THE SAME TILE DRAWS FEWER TRIANGLES FROM FURTHER AWAY**: the cut takes the LEAVES when "

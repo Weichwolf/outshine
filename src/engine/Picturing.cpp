@@ -129,7 +129,6 @@ bool Engine::State::Asks(void) {
   over.LatDeg = overADrive ? way.FrameLat : declared.Ground.Lat;
   over.LonDeg = overADrive ? way.FrameLon : declared.Ground.Lon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  over.Awaited = false;
   over.Asking = true;
   {
     const double tileSpanM = 40075017.0 *
@@ -193,7 +192,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("the sight a scenario declares", wanted, "m");
     Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
   }
-  over.Awaited = false;
   if (!Watches()) { return false; }
   if (Picture.Standing->Watched()) {
     const double *const at = Picture.Standing->Watching().EyeM;
