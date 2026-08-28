@@ -218,10 +218,10 @@ namespace {
 
 
 void Engine::Offers(const Generates &maker) {
-  for (const Generates *const stood : S_->World.Making) {
+  for (const Generates *const stood : S_->World.Offering) {
     if (stood->Kind() == maker.Kind()) { return; }
   }
-  S_->World.Making.push_back(&maker);
+  S_->World.Offering.push_back(&maker);
 }
 
 

@@ -9,6 +9,32 @@ Tags: benchmark, target, owner
 
 **Benchmark** — Unreal: PCG is a plugin with its own registry, outside the engine module. RAGE: none. **Taking Unreal** — a generator library that links without the engine is the only shape that lets another project take it.
 
+## What is measured, and it is worse than "incomplete"
+
+**There are TWO generator doors and the tree reaches one of them.**
+
+| door | what it hands back | implementers | consumers outside `src/generators/` |
+|---|---|---|---|
+| `Generates` (`include/Generate.h`) | a `Geometry` | **1** -- `Structures` | the engine's registry |
+| `Generators::Making` | `Body` PLACEMENTS over a `Ground` | **4** -- Forest, Buildings, Water, Infrastructure | **none** |
+
+So the four generators the owner's target names by name -- forest, buildings, water,
+infrastructure -- implement a door nothing consumes, and the door the engine consults holds one
+generator that is none of them. `Engine::Offers(const Generates &)` is called by four TEST cases
+and by `apps/viewer`, and by no shipped generator at all. 5887 lines under `src/generators/`.
+
+That is CLAUDE.md's own warning made literal: *"counting class names would have scored the world
+generators complete while 6528 lines sat in an archive no declaration reached."*
+
+**And a third door under them is dead too.** `DrawSink` (`src/generators/draw/DrawSink.h`) has
+ZERO implementers, so `DrawSet::Draw` -- the entry to the 29-file `draw/` subtree -- can never be
+called with a sink to write into. Nothing outside `src/generators/draw/` names either.
+
+**A name hid the first row.** `EngineHeld::World.Making` was a `std::vector<const Generates *>`,
+one word away from `Generators::Making`, the placement interface it has nothing to do with. It is
+`World.Offering` now. A reader who greps `Making` was previously handed the registry and the
+interface in one list and could not tell that the four generators reach neither.
+
 Owner's target, three parts, and the third is the one that binds:
 
 1. outshine SHIPS a generator registry -- forest, buildings, water, infrastructure.

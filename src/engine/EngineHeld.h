@@ -242,7 +242,7 @@ struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
-  std::vector<const Generates *> Making;
+  std::vector<const Generates *> Offering;
   size_t GroundTiles = 0;
   TriangleBvh Blocking;
 };
