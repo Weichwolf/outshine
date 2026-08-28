@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Progress: door
 Area: door
 Tags: benchmark, target
