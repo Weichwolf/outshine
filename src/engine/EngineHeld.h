@@ -282,6 +282,7 @@ struct Engine::State {
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const double shiftM[3]);
   void Falls(void);
   [[nodiscard]] bool Composes(void);
+  bool Grows(double atLat, double atLon);
   [[nodiscard]] bool Stood(void);
   [[nodiscard]] bool Updates(void);
   [[nodiscard]] bool Draws(void);

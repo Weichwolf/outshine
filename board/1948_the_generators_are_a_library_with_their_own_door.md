@@ -192,8 +192,13 @@ that links no `src/engine` source.
       this tree serves ground blocks at zoom 12 (`GroundSurface.Z`) while the vector provider's
       finest is 14 (`VersatilesVector.cpp:17`, against the DEM's 15). A region at the vector zoom
       finds no resident ground block; a region at the ground zoom finds no settled vector tile.
+      **Proven by moving it, both ways**: at the vector zoom the patch is MISSING and the vectors
+      read 1813 / 3 / 1849; at the ground zoom the patch STANDS -- step 41 -- and the vectors read
+      0 / 0 / 0. The line responsible is `GroundStream::BlockAt`'s first:
+      `if (z != Surface_.Z) return block;`. And it is not a fetch that has not landed: `Grows`
+      runs every frame and the number never moves.
       So the remaining question is about the SNAPSHOT's signature and not about the generators:
-      either it takes two regions, or the ground stream serves the vector zoom.
+      either it takes two regions, or the ground stream serves more than its own zoom.
       The old blocker, kept for the record:
       `SnapshotOver` returns `Taken` only when the patch, the classes AND the features all stand,
       and `FeaturesOver` returns null unless all FOUR vector fields are handed in -- an

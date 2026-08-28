@@ -64,6 +64,7 @@ private:
   BuildingField Footprints_;
   WaterField WaterBodies_;
   StreetField Ways_;
+  int SurfaceZoom_ = 0;
   bool Vegetated_ = false;
   bool Opened_ = false;
 };

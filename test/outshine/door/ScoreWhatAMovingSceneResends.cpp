@@ -134,14 +134,21 @@ int main(void) {
   // species heights from `src/assets/world/species/`, per-template tree density from
   // `vegetation.json`'s `trees.perM2`, and the treeline from its `alpineLimit`.
   //
-  // MEASURED, and it is the next blocker rather than this case's failure: the chain reaches step
-  // 40 -- the registry stands, the table stands, the vector fields stand, and `SnapshotOver`
-  // returns with NO patch, NO classes and NO features. The cause is one region for two zooms.
-  // `SnapshotOver` takes a single `Tile`, and this tree serves ground blocks at zoom 12
-  // (`GroundSurface.Z`) while the vector provider's finest is 14 (`VersatilesVector.cpp:17`,
-  // against the DEM's 15). A region at the vector zoom finds no resident ground block; a region
-  // at the ground zoom finds no settled vector tile. That is board:1948's remaining predicate and
-  // it is a question about the SNAPSHOT's signature, not about the generators.
+  // MEASURED FROM BOTH SIDES, and it is the next blocker rather than this case's failure. The
+  // chain reaches step 40: the registry stands, the table stands, the vector fields stand, and
+  // `SnapshotOver` returns with no patch, no classes and no features.
+  //
+  // The cause is ONE REGION FOR TWO ZOOMS, and it is `GroundStream::BlockAt`'s first line --
+  // `if (z != Surface_.Z) return block;` -- so the ground stream serves exactly its own zoom and
+  // answers Missing for any other. Both sides were moved to prove it:
+  //
+  //   region at the VECTOR zoom (14)   patch MISSING, vectors 1813 / 3 / 1849
+  //   region at the GROUND zoom (12)   patch STANDS (step 41), vectors 0 / 0 / 0
+  //
+  // Neither zoom serves both, so this is not a fetch that has not landed and not a retry that is
+  // missing -- `Grows` already runs every frame. It is `SnapshotOver`'s signature: it takes ONE
+  // `Tile` for two sources that live at different resolutions. That is board:1948's remaining
+  // predicate, and it is a question about the snapshot and not about the generators.
   CHECK(reached >= 40.0,
         "the placement chain is entered at all: the registry is not empty, the ground table "
         "stands and the vector fields are held, so what stops it is the snapshot and not a "

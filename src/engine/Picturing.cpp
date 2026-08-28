@@ -3,6 +3,41 @@
 
 namespace outshine {
 
+bool Engine::State::Grows(double atLat, double atLon) {
+  if (World.Placed > 0 || World.Placing.empty() || !World.Table ||
+      World.Stack.Vectors() == nullptr) {
+    return false;
+  }
+  const Generators::Tile region =
+      Generators::Tile::Of(World.Stack.Vectors()->Zoom(), atLat, atLon);
+  Generators::Fields stands;
+  stands.Vectors = World.Stack.Vectors();
+  stands.Footprints = &World.Stack.Footprints();
+  stands.WaterBodies = &World.Stack.WaterBodies();
+  stands.Ways = &World.Stack.Ways();
+  Generators::Ground::Snapshot snapshot;
+  const Generators::Snapped how = Generators::SnapshotOver(
+      region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
+  World.Reached = 40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
+                  (snapshot.Features ? 4 : 0);
+  if (how != Generators::Snapped::Taken) { return false; }
+  const std::optional<Generators::Ground> over = Generators::Ground::Of(region, snapshot);
+  if (!over) { return false; }
+  Generators::RegionPool::Shape shape;
+  Generators::RegionPool::Extent extent{over->Where(), over->Where()};
+  Generators::RegionPool pool(extent, shape);
+  std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
+  if (!lease) { return false; }
+  for (const Generators::Making *const stood : World.Placing) {
+    std::vector<Generators::Yield::Note> notes(stood->NoteNames().Size());
+    Generators::Yield yield(lease->Sink(), stood->NoteNames(),
+                            Span<Generators::Yield::Note>(notes.data(), notes.size()));
+    stood->Occupy(*over, yield);
+    World.Placed += yield.Placed().Count;
+  }
+  return World.Placed > 0;
+}
+
 bool Engine::State::Composes(void) {
   World.GroundTiles = 0;
   if (!Picture.Standing) {
@@ -72,43 +107,6 @@ bool Engine::State::Composes(void) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
     over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
   }
-  World.Placed = 0;
-  World.Reached = World.Placing.empty() ? 1 : (!World.Table ? 2 : (World.Stack.Vectors() == nullptr ? 3 : 4));
-  if (!World.Placing.empty() && World.Table && World.Stack.Vectors() != nullptr) {
-    const Generators::Tile region =
-        Generators::Tile::Of(World.Stack.Vectors()->Zoom(), atLat, atLon);
-    Generators::Fields stands;
-    stands.Vectors = World.Stack.Vectors();
-    stands.Footprints = &World.Stack.Footprints();
-    stands.WaterBodies = &World.Stack.WaterBodies();
-    stands.Ways = &World.Stack.Ways();
-    Generators::Ground::Snapshot snapshot;
-    const Generators::Snapped how = Generators::SnapshotOver(
-        region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
-    World.Reached = 40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
-                    (snapshot.Features ? 4 : 0);
-    if (how == Generators::Snapped::Taken) {
-      World.Reached = 5;
-      const std::optional<Generators::Ground> over2 = Generators::Ground::Of(region, snapshot);
-      if (over2) {
-        World.Reached = 6;
-        Generators::RegionPool::Shape shape;
-        Generators::RegionPool::Extent extent{over2->Where(), over2->Where()};
-        Generators::RegionPool pool(extent, shape);
-        if (std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over2)) {
-          World.Reached = 7;
-          for (const Generators::Making *const stood : World.Placing) {
-            std::vector<Generators::Yield::Note> notes(stood->NoteNames().Size());
-            Generators::Yield yield(lease->Sink(), stood->NoteNames(),
-                                    Span<Generators::Yield::Note>(notes.data(), notes.size()));
-            stood->Occupy(*over2, yield);
-            World.Placed += yield.Placed().Count;
-          }
-        }
-      }
-    }
-  }
-
   auto laid = LayPatchwork(World.Stack.Pool(), over);
   if (!laid) {
     Error = laid.error();
