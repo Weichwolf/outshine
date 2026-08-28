@@ -152,7 +152,10 @@ public:
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
 
-  [[nodiscard]] const SubjectResidency &Resident() const { return Resident_; }
+  [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
+  void Shares(SubjectResidency &other) { At_ = &other; }
+  [[nodiscard]] SubjectResidency &Owned() { return Own_; }
+  [[nodiscard]] bool Borrows() const { return At_ != nullptr; }
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
   [[nodiscard]] uint32_t ColourImages() const;
@@ -163,8 +166,9 @@ public:
   [[nodiscard]] const double *AnchorM() const { return Anchor; }
   [[nodiscard]] const double *ModelM() const { return Model; }
 
-  uint32_t VertexCount() const { return Resident_.NVerts; }
-  long TriangleCount() const { return (long)Resident_.NIdx / 3; }
+  [[nodiscard]] uint32_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+  uint32_t VertexCount() const { return Bound().NVerts; }
+  long TriangleCount() const { return (long)Bound().NIdx / 3; }
 
   uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
   uint32_t DrawCount() const;
@@ -212,7 +216,7 @@ private:
   void BindSurface(const SubjectMaterial &material);
 
 public:
-  void FlushCrossings(SDL_GPUCommandBuffer *commands) { Resident_.FlushCrossings(commands); }
+  void FlushCrossings(SDL_GPUCommandBuffer *commands) { Bound().FlushCrossings(commands); }
 
 private:
 
@@ -235,7 +239,10 @@ private:
   std::vector<VertexLayout> BatchLayout;
 
   std::vector<Resource> Colours;
-  SubjectResidency Resident_;
+  SubjectResidency Own_;
+  SubjectResidency *At_ = nullptr;
+  [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
+  [[nodiscard]] const SubjectResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
 
   SDL_GPUTexture *Atlas_ = nullptr;
   SDL_GPUSampler *AtlasSampler_ = nullptr;

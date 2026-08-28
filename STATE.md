@@ -271,11 +271,11 @@ The heaviest files. Headers and sources counted apart.
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1044 | `cpp` | `render/Renderer.cpp` |
+| 1046 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
-| 871 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 720 | `cpp` | `engine/Live.cpp` |
 | **46** | `h` | *the median of 241 header(s)* |
@@ -291,8 +291,8 @@ The widest public surfaces.
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 42 | `src/engine/Live.h` |
+| 35 | `src/render/stages/SubjectDraw.h` |
 | 32 | `include/Scene.h` |
-| 32 | `include/Outshine.h` |
 
 ## Twins
 
@@ -382,7 +382,7 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 279 | 1 | `apps/bench` | `include/` alone |
+| 281 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
 | 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |

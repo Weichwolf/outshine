@@ -306,6 +306,8 @@ void Engine::State::Tells(void) {
                        "slots");
       Published.Places(std::string(Row(stage).Name) + ", colour images", (double)spent.Palettes,
                        "images");
+      Published.Places(std::string(Row(stage).Name) + ", device bytes",
+                       (double)spent.DeviceBytes, "bytes");
       Published.Places(std::string(Row(stage).Name) + ", placements that differ",
                        (double)spent.Distinct, "rows");
       Published.Places(std::string(Row(stage).Name) + ", vertex layouts", (double)spent.Layouts,

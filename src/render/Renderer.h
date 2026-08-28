@@ -185,6 +185,7 @@ public:
 
   struct Effort {
     double TookMs = 0.0;
+    uint32_t DeviceBytes = 0;
     uint32_t Draws = 0;
     uint32_t Triangles = 0;
     uint32_t Surfaces = 0;

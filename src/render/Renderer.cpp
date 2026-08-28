@@ -463,6 +463,7 @@ bool Renderer::ConfigureSubjects(std::string &error) {
 }
 
 bool Renderer::ConfigureGlass(std::string &error) {
+  Glass_.Shares(Subjects_.Owned());
   Glass_.SeeThroughTo(HdrTex_.Get(), Samp_.Get());
   return Glass_.Configure(Handles_, error);
 }
@@ -569,6 +570,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     spent.Textured = drew.Textured();
     spent.Palettes = drew.ColourImages();
     spent.Distinct = drew.DistinctPlacements();
+    spent.DeviceBytes = drew.HeldBytes();
     spent.Layouts = drew.Layouts();
   }
 }

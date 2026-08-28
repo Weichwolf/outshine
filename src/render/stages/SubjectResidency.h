@@ -41,6 +41,11 @@ struct SubjectResidency {
   OwnedBuffer BvhNodes, BvhTris;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
+  [[nodiscard]] uint32_t HeldBytes() const {
+    uint32_t bytes = 0;
+    for (const uint32_t one : Held) { bytes += one; }
+    return bytes;
+  }
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
   bool HasUv1 = false;

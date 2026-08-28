@@ -211,7 +211,7 @@ int main(int count, char **args) {
         const size_t took = what.find(", took");
         if (took == std::string::npos || held.How <= 0.0) { continue; }
         const std::string named = what.substr(0, took);
-        double triangles = 0.0, draws = 0.0, surfaces = 0.0, placements = 0.0, palettes = 0.0, distinct = 0.0, layouts = 0.0;
+        double triangles = 0.0, draws = 0.0, surfaces = 0.0, placements = 0.0, palettes = 0.0, distinct = 0.0, layouts = 0.0, bytes = 0.0;
         for (const outshine::Measure &beside : stood.Rows) {
           if (beside.What == named + ", triangles") { triangles = beside.How; }
           if (beside.What == named + ", drew") { draws = beside.How; }
@@ -219,12 +219,14 @@ int main(int count, char **args) {
           if (beside.What == named + ", placements") { placements = beside.How; }
           if (beside.What == named + ", colour images") { palettes = beside.How; }
           if (beside.What == named + ", placements that differ") { distinct = beside.How; }
+          if (beside.What == named + ", device bytes") { bytes = beside.How; }
           if (beside.What == named + ", vertex layouts") { layouts = beside.How; }
         }
         std::printf("    %-22s %7.3f ms  %5.0f draw(s)  %8.0f tri  %9.0f tri/ms"
-                    "   %4.0f surface(s)  %4.0f placement(s)  %4.0f image(s)  %2.0f differ  %2.0f layout(s)\n",
+                    "   %4.0f surface(s)  %4.0f placement(s)  %4.0f image(s)  %2.0f differ"
+                    "  %2.0f layout(s)  %9.0f device byte(s)\n",
                     named.c_str(), held.How, draws, triangles, triangles / held.How, surfaces,
-                    placements, palettes, distinct, layouts);
+                    placements, palettes, distinct, layouts, bytes);
       }
     }
     return refused == 0 ? 0 : 1;
