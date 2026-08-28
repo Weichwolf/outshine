@@ -23,7 +23,8 @@ bool Engine::Assemble() {
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
     S_->Ticking.Drove = false;
-    return S_->Routes();
+    if (!S_->Routes()) { return false; }
+    return S_->Composes();
   }
   if (!S_->Cast.Scene.Open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
       !S_->Cast.Drives.Open(S_->Cast.Scene) || !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
@@ -154,12 +155,8 @@ bool Engine::State::Routes(void) {
     Ticking.MostSteps = (size_t)(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
     Published.Places("the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
   }
-  if (!Composes()) {
-    Session.Carried.push_back("the ground did not compose: " + Error);
-    Error.clear();
-  } else if (!Rides()) {
-    return false;
-  }
+  if (!Composes()) { return false; }
+  if (!Rides()) { return false; }
   return true;
 }
 

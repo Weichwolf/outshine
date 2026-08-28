@@ -28,6 +28,7 @@ Step 'the tiers and what stands wider'  sh test/run.sh --audit-layers --audit-ac
 Step 'khronos static'               sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'             sh test/run.sh khronos/glTF/BoxAnimated
 Step 'the simulation, content, mix'  sh test/run.sh outshine/physics outshine/content outshine/audio outshine/scenario outshine/geo outshine/fuzz
+Step 'five places on Earth, kept in build/places'  sh test/run.sh outshine/places
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"
 # THE COVERAGE LINE COUNTS RATHER THAN REMEMBERS. It said 27 while the suite held 29, and a

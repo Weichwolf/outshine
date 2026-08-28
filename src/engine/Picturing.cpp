@@ -84,11 +84,7 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
-  if (!declared.Ground.Declared && !overADrive) {
-    Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so there "
-            "is nowhere for a ground to be composed";
-    return false;
-  }
+  if (!declared.Ground.Declared && !overADrive) { return true; }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
   const double atLon = overADrive ? way.FrameLon : declared.Ground.Lon;
   if (!World.Wire) {
