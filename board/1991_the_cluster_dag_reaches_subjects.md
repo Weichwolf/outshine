@@ -36,8 +36,16 @@ nothing is two findings.
 
 ## Why
 
-**The hard part is built and unreachable.** `src/base/spatial/ClusterDag.h` holds exactly Nanite's
-shape:
+**The hard part is built and unreachable, and it is MORE unreachable than this item first said.**
+Measured: `DagSse`, `DagEdgeSq` and `DagCrossFactor` -- the three functions that turn an error
+bound into a decision -- have **ZERO callers** anywhere in `src/`, `apps/` or `test/`. Outside
+`TilePool.cpp`, which builds them, nothing reads `Clusters` at all except the byte accounting.
+So the DAG is built for every terrain tile, stored, measured for memory, and **never used to
+select anything**. This tree's Nanite is not "terrain has it, subjects do not" -- it is a
+mechanism that runs its expensive half and skips its cheap one. CLAUDE.md calls the cluster DAG
+*"this tree's Nanite, and essential to the frame path"*; today it is essential to nothing.
+
+`src/base/spatial/ClusterDag.h` holds exactly Nanite's shape:
 
     struct DagCluster { First, Count; SelfCenter[3], SelfRadius, SelfErr;
                         ParentCenter[3], ParentRadius, ParentErr; Level; };
@@ -65,6 +73,17 @@ producer, not a second cooker.
       gone from `RenderCatalogue.h`. They declared resource edges and executed nothing, so they
       were a declaration surface with a subject's name on it.
       proof: --audit-layers and the door suite, unchanged by their removal
+- [ ] **a cut is SELECTED and read.** `DagSse` gains a caller and the number of clusters a frame
+      draws depends on where the camera stands. This comes FIRST, before either producer is
+      re-routed: a mechanism nothing evaluates cannot be proven correct by giving it a second
+      input, and the cheap half is what makes the expensive half worth having.
+- [ ] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and that is a decision this item owes.**
+      `ClusterDagBuild` rewrites both the vertex and the index buffer -- it SIMPLIFIES -- so a
+      subject whose vertices are re-posed every frame would need its DAG rebuilt every frame,
+      which is a per-frame cost proportional to the mesh. Unreal shipped Nanite for static meshes
+      first for this reason. So the cooked form carries a DAG when the geometry does not deform,
+      and the tier chain is unchanged: one cooker, one cooked form, and the DAG is a part of it
+      that a deforming mesh leaves empty.
 - [ ] terrain reaches the picture as a GENERATOR's `Geometry`, cooked by the one cooker -- not as
       a mesh the tile pool builds on its own
 - [ ] a subject at distance draws fewer triangles than the same subject up close -- measured over
