@@ -335,7 +335,7 @@ The heaviest files. Headers and sources counted apart.
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 731 | `cpp` | `engine/Live.cpp` |
+| 751 | `cpp` | `engine/Picturing.cpp` |
 | **45** | `h` | *the median of 242 header(s)* |
 | **114** | `cpp` | *the median of 164 source(s)* |
 

@@ -244,7 +244,11 @@ const std::vector<std::string> &Engine::unacted() const { return S_->Session.Car
 const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
 bool Engine::settled(void) const {
-  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0;
+  // SETTLED MEANS THE WHOLE PICTURE, NOT ONLY ITS GROUND. Terrain tiles are one half; the OSM
+  // fields the generators grow from are the other, and they arrive on their own schedule. A client
+  // that took its picture when the last tile landed got correct terrain with no buildings and no
+  // streets on it -- measured, six places at `0 instanced` with the snapshot answering Waiting.
+  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown;
 }
 
 // A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
@@ -275,6 +279,15 @@ bool Engine::preload(double patienceS) {
   const double bound = patienceS > 0.0 ? patienceS : 0.0;
   for (;;) {
     if (!S_->Asks()) { return false; }
+    // THE OSM SIDE HAS TO BE DRIVEN TOO. `GroundStack::Restand` is what builds the vector ring and
+    // ingests streets, water and footprints from it, and preload never called it -- so through the
+    // whole wait the terrain arrived and the OSM fields did not move at all. Measured: land classes
+    // and a patch of ground both present, `OSM features` answering 0, one vector tile settled and
+    // it was not the one the region asked for, and every place at `0 instanced`.
+    const double atLat = S_->Session.Declared.Ground.Lat;
+    const double atLon = S_->Session.Declared.Ground.Lon;
+    S_->World.Stack.Restand(atLat, atLon);
+    (void)S_->Grows(atLat, atLon);
     if (settled()) { return S_->Grounds(true); }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;

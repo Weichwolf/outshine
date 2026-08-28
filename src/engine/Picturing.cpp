@@ -31,6 +31,15 @@ private:
 }
 
 bool Engine::State::Grows(double atLat, double atLon) {
+  // A REFUSAL THAT SAYS NOTHING IS THE HARDEST DEFECT TO FIND. This has four preconditions and used
+  // to answer false for any of them without naming which, so `0 placed` at every one of six places
+  // was indistinguishable from `nothing grows here`.
+  Published.Places("generators: bodies already placed", (double)World.Placed, "bodies");
+  Published.Places("generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0,
+                   "yes/no");
+  Published.Places("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
+  Published.Places("generators: vector data stands", World.Stack.Vectors() != nullptr ? 1.0 : 0.0,
+                   "yes/no");
   if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table ||
       World.Stack.Vectors() == nullptr) {
     return false;
@@ -47,13 +56,30 @@ bool Engine::State::Grows(double atLat, double atLon) {
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
   World.Reached = 40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
                   (snapshot.Features ? 4 : 0);
+  Published.Places("generators: the snapshot", (double)(int)how, "0=taken 1=waiting 2=no ground");
+  Published.Places("generators: a patch of ground", snapshot.Patch ? 1.0 : 0.0, "yes/no");
+  Published.Places("generators: land classes", snapshot.Classes ? 1.0 : 0.0, "yes/no");
+  Published.Places("generators: OSM features", snapshot.Features ? 1.0 : 0.0, "yes/no");
+  Published.Places("generators: the region it asks about, x", (double)region.X(), "tile");
+  Published.Places("generators: and y", (double)region.Y(), "tile");
+  Published.Places("generators: at zoom", (double)World.Stack.Vectors()->Zoom(), "z");
+  Published.Places("generators: vector tiles that settled",
+                   (double)World.Stack.Vectors()->Tiles().size(), "tiles");
+  Published.Places("generators: vector tiles it refused",
+                   (double)World.Stack.Vectors()->RefusedTiles(), "tiles");
+  Published.Places("generators: that region is settled",
+                   World.Stack.Vectors()->Settled((int)region.X(), (int)region.Y()) ? 1.0 : 0.0,
+                   "yes/no");
+  World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
   const std::optional<Generators::Ground> over = Generators::Ground::Of(region, snapshot);
+  Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
   if (!over) { return false; }
   Generators::RegionPool::Shape shape;
   Generators::RegionPool::Extent extent{over->Where(), over->Where()};
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
+  Published.Places("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
   if (!lease) { return false; }
   const Generators::GeneratorSet &placing = World.Shipping.Placing();
   std::vector<Generators::Yield> yields;
@@ -67,6 +93,8 @@ bool Engine::State::Grows(double atLat, double atLon) {
   }
   placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
   for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
+  Published.Places("generators: bodies they placed", (double)World.Placed, "bodies");
+  Published.Places("generators: makers that were asked", (double)placing.Count(), "makers");
   if (World.Placed == 0) { return false; }
   Instancing sink(World.Instances);
   World.Shipping.Drawing().Draw(*over, placing,
