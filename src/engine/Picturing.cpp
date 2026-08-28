@@ -10,12 +10,12 @@ namespace {
 
 class Instancing final : public Generators::DrawSink {
 public:
-  explicit Instancing(std::vector<Generators::Instance> &into) : Into_(&into) {}
+  explicit Instancing(std::vector<Surrounds::Standing> &into) : Into_(&into) {}
 
-  [[nodiscard]] bool Add(Generators::BodyId, Generators::ClusterId,
+  [[nodiscard]] bool Add(Generators::BodyId body, Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override {
     if (Full()) { return false; }
-    Into_->push_back(instance);
+    Into_->push_back({body.Index(), (uint32_t)cluster, instance});
     return true;
   }
 
@@ -23,7 +23,7 @@ public:
 
 private:
   static constexpr size_t kMostInstances = 1u << 20;
-  std::vector<Generators::Instance> *Into_;
+  std::vector<Surrounds::Standing> *Into_;
 };
 
 }

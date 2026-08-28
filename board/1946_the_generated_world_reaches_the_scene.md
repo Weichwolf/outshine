@@ -78,7 +78,11 @@ Unreal: `FInstancedStaticMeshComponent` holds a MESH and its per-instance transf
 dictionary index. **Both keep the identity with the transform**, because a transform alone cannot
 be drawn.
 
-- [ ] the sink keeps the body and the cluster it is handed, so an instance says what it is
+- [x] the sink keeps the body and the cluster it is handed, so an instance says what it is.
+      `Surrounds::Standing` carries `{Body, Cluster, Where}` and `Instancing::Add` names both
+      parameters instead of dropping them. Necessary and NOT sufficient, which the item's own
+      control said before the work: the pictures are unchanged because nothing reads the list at
+      all. proof: outshine/places 5 PASS, gate GREEN -- and the picture is the control
 - [ ] the instances reach the picture through the same instanced draw a body uses -- one call, N
       instances, N rows (landed in board:1574)
 - [ ] a place's footprints appear in `build/places/`, judged by eye against the written expectation
@@ -88,3 +92,23 @@ buildings, the sink was not the blocker and the fault is downstream in the draw 
 to watch is `instances its draw sources made` against what a place HOLDS -- Shibuya makes 4 096
 against 91 208 footprints, which is the vegetation budget rather than the buildings, so those two
 numbers should converge on the same subject when this is right.
+
+## And the measurement split one gap into two
+
+Keeping the ids changed no picture, which is what this item wrote down beforehand. What it also
+showed is that the remaining work is TWO things rather than one:
+
+**One, nothing draws the list.** `World.Instances` has a writer and a size-reader and no third
+reader. Drawing it is board:1574's instanced draw -- one call, N instances, N rows -- pointed at a
+geometry the body id names.
+
+**Two, and this is the larger half: the footprints never BECOME instances.** Rothenburg holds 6 423
+footprints and the generators place **203** things. Shibuya holds 91 208 and places 4 096, which is
+`kMostInstances`-shaped rather than building-shaped. So the draw sources are placing vegetation and
+structures from their own tables, and the OSM footprints are handed in as a FIELD that something
+must still turn into bodies. Drawing the list would show trees at a place whose buildings are still
+absent.
+
+The number that closes this: `instances its draw sources made` and `building footprints it holds`
+converge on the same subject. Today they are 203 against 6 423 and they are not even about the same
+thing.

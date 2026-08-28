@@ -247,7 +247,12 @@ struct Surrounds {
   Generators::Structures Shipped;
   Makers Offering;
   Generators::Shipping Shipping;
-  std::vector<Generators::Instance> Instances;
+  struct Standing {
+    uint32_t Body = 0;
+    uint32_t Cluster = 0;
+    Generators::Instance Where;
+  };
+  std::vector<Standing> Instances;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
   size_t Placed = 0;
