@@ -44,6 +44,64 @@ void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t
 
 constexpr long kBlockTiles = 4;
 
+// THE ELLIPSOID IS WHAT STANDS UNTIL THE GROUND ARRIVES. Nothing may block a frame on IO, so a
+// tile that has not been meshed yet is laid as the bare WGS84 surface at that tile's own bounds --
+// no elevation, correct curvature, correct place. A later frame replaces it with the real mesh.
+// The old flightbox streamer covered a missing chunk with its parent for the same reason and wrote
+// the reason down: "a chunk that has not arrived is covered by its parent and picked up on a later
+// frame, so the world refines progressively and the frame loop never blocks".
+void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
+  const int side = grid < 2 ? 2 : grid;
+  const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
+  const Ground::Geo middle{.LonDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
+                           .LatDeg = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg),
+                           .AltM = 0.0};
+  const Ground::Ecef anchor = Ground::GeoToEcefWgs84(middle);
+  out->OriginEcef[0] = anchor.X;
+  out->OriginEcef[1] = anchor.Y;
+  out->OriginEcef[2] = anchor.Z;
+  out->ErrM = 0.0f;
+  out->Clusters.clear();
+  out->Verts.clear();
+  out->Idx.clear();
+  out->Verts.reserve((size_t)side * (size_t)side * kTileVertexFloats);
+  for (int row = 0; row < side; ++row) {
+    const double v = (double)row / (double)(side - 1);
+    for (int column = 0; column < side; ++column) {
+      const double u = (double)column / (double)(side - 1);
+      const Ground::Geo where{
+          .LonDeg = bounds.MinLonDeg + u * (bounds.MaxLonDeg - bounds.MinLonDeg),
+          .LatDeg = bounds.MaxLatDeg + v * (bounds.MinLatDeg - bounds.MaxLatDeg),
+          .AltM = 0.0};
+      const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
+      const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
+      out->Verts.push_back((float)(at.X - anchor.X));
+      out->Verts.push_back((float)(at.Y - anchor.Y));
+      out->Verts.push_back((float)(at.Z - anchor.Z));
+      out->Verts.push_back((float)u);
+      out->Verts.push_back((float)v);
+      out->Verts.push_back((float)(at.X / away));
+      out->Verts.push_back((float)(at.Y / away));
+      out->Verts.push_back((float)(at.Z / away));
+    }
+  }
+  out->Idx.reserve((size_t)(side - 1) * (size_t)(side - 1) * 6u);
+  for (int row = 0; row + 1 < side; ++row) {
+    for (int column = 0; column + 1 < side; ++column) {
+      const uint32_t a = (uint32_t)(row * side + column);
+      const uint32_t b = a + 1;
+      const uint32_t c = a + (uint32_t)side;
+      const uint32_t d = c + 1;
+      out->Idx.push_back(a);
+      out->Idx.push_back(c);
+      out->Idx.push_back(b);
+      out->Idx.push_back(b);
+      out->Idx.push_back(c);
+      out->Idx.push_back(d);
+    }
+  }
+}
+
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
   if (over.Zoom <= 0) {
     return std::unexpected("a patchwork is laid at a declared zoom, and this one asks for " +
@@ -57,7 +115,11 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   Patchwork out;
   bool anchored = false;
 
-  long fineX0 = 0, fineX1 = -1, fineY0 = 0, fineY1 = -1;
+  struct Covered {
+    long X0, X1, Y0, Y1;
+  };
+  std::vector<Covered> laid;
+  laid.reserve((size_t)(over.Levels < 1 ? 1 : over.Levels) * 16u);
   const int levels = over.Levels < 1 ? 1 : over.Levels;
   for (int level = 0; level < levels; ++level) {
     const int zoom = over.Zoom - level;
@@ -67,37 +129,42 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, zoom);
     const long originX = 2 * (long)std::floor(((double)(long)std::floor(at.X) - 1.0) / 2.0);
     const long originY = 2 * (long)std::floor(((double)(long)std::floor(at.Y) - 1.0) / 2.0);
+    std::vector<Covered> standing;
     for (long row = 0; row < kBlockTiles; ++row) {
       for (long column = 0; column < kBlockTiles; ++column) {
       long x = originX + column, y = originY + row;
       const long heldX0 = x * span, heldX1 = heldX0 + span - 1;
       const long heldY0 = y * span, heldY1 = heldY0 + span - 1;
-      if (fineX1 >= fineX0 && heldX0 >= fineX0 && heldX1 <= fineX1 && heldY0 >= fineY0 &&
-          heldY1 <= fineY1) {
+      bool covered = false, touches = false;
+      for (const Covered &one : laid) {
+        if (heldX0 >= one.X0 && heldX1 <= one.X1 && heldY0 >= one.Y0 && heldY1 <= one.Y1) {
+          covered = true;
+          break;
+        }
+        if (heldX1 >= one.X0 && heldX0 <= one.X1 && heldY1 >= one.Y0 && heldY0 <= one.Y1) {
+          touches = true;
+        }
+      }
+      if (covered) {
         ++out.Skipped;
         continue;
       }
-      if (fineX1 >= fineX0 && heldX1 >= fineX0 && heldX0 <= fineX1 && heldY1 >= fineY0 &&
-          heldY0 <= fineY1) {
-        ++out.Overlapped;
-      }
+      if (touches) { ++out.Overlapped; }
       if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
       TileBuild built;
       const TileMeshes::Reply said =
           over.Awaited ? tiles.MeshAwaited(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built)
                        : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
-      if (said == TileMeshes::Reply::Pending) {
-        ++out.Pending;
-        continue;
-      }
-      if (said == TileMeshes::Reply::Absent ||
-          said == TileMeshes::Reply::Undeclared) {
+      bool ofTheGround = true;
+      if (said == TileMeshes::Reply::Pending) { ++out.Pending; ofTheGround = false; }
+      else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
         ++out.Absent;
-        continue;
-      }
-      if (said == TileMeshes::Reply::Refused) {
-        ++out.Refused;
-        continue;
+        ofTheGround = false;
+      } else if (said == TileMeshes::Reply::Refused) { ++out.Refused; ofTheGround = false; }
+      if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
+      if (!ofTheGround) {
+        SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+        ++out.Bare;
       }
       if (built.Verts.empty() || built.Idx.empty()) { continue; }
 
@@ -138,12 +205,11 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       }
       out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
       ++out.Tiles;
+      if (ofTheGround) { standing.push_back({heldX0, heldX1, heldY0, heldY1}); }
       }
     }
-    fineX0 = originX * span;
-    fineX1 = (originX + kBlockTiles) * span - 1;
-    fineY0 = originY * span;
-    fineY1 = (originY + kBlockTiles) * span - 1;
+    for (const Covered &one : standing) { laid.push_back(one); }
+    standing.clear();
     out.ReachTiles = kBlockTiles * span;
     out.CoarsestZoom = zoom;
   }

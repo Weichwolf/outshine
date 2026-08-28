@@ -44,6 +44,7 @@ struct WorldSettings {
   double WindMs = 0.0;
   double CloudCover = 0.0;
   double PatienceS = 30.0;
+  double SightM = 240000.0;
 };
 
 struct Provider {

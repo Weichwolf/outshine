@@ -37,6 +37,7 @@ struct Patchwork {
   size_t ClustersHeld = 0;
   size_t ClustersDrawn = 0;
   size_t Skipped = 0;
+  size_t Bare = 0;
   size_t Overlapped = 0;
   long ReachTiles = 0;
   int CoarsestZoom = 0;

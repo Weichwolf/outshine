@@ -109,6 +109,7 @@ public:
 
   [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
   [[nodiscard]] const Gltf::Viewpoint &Watching() const { return Eye_; }
+  [[nodiscard]] const Declaration &Standing() const { return Declared_; }
   [[nodiscard]] bool Watched() const { return HaveEye_; }
 
   void FrameItself() {

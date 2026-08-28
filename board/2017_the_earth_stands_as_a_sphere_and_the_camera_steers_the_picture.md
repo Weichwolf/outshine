@@ -8,9 +8,21 @@ Tags: measured
 **Benchmark** — Unreal: Cesium for Unreal's `CesiumGeoreference` rotates ECEF into an ENU tangent frame at a declared origin and `FLargeWorldRenderPosition` keeps the render frame camera-relative; the landscape is a quadtree cut by screen-space error. RAGE: a flat local heightfield grid with SLOD proxies outward, because GTA's map is 8 x 8 km and curvature there is under a metre. **Taking Unreal/Cesium** because this world is EARTH: at the ring's present 8.9 km the drop is already 1.55 m, and a place is supposed to look like itself.
 
 STEP ONE OF THREE, and it carries NO ELEVATION. A perfect sphere, tiles laid over it, camera at
-the centre. Height data is 2018 and OSM is 2019. The order is the owner's and the reason is that
-each step has its own visible verdict: a sphere with no heights is either round or it is not, and
-nothing else can be blamed.
+the centre. Height data is 2018 and OSM is 2019.
+
+**THE ORDER IS NOT A BUILD ORDER, IT IS THE RUNTIME ORDER, and that is the owner's correction:**
+render the terrain NOW as a sphere, ASK for elevation and displace when it arrives, ASK for imagery
+and texture when it arrives. Nothing waits. The sphere with no heights is therefore not a test
+scaffold that gets replaced -- it is the FIRST FRAME, and every frame after it is the sphere plus
+whatever has landed.
+
+**NOTHING MAY EVER BLOCK THE ENGINE.** `Around::Awaited` is set true and `LayPatchwork` calls
+`tiles.MeshAwaited`, so the frame waits on the network. CLAUDE.md names this as an invariant --
+four things run independently and IO is the fourth, because a fetch BLOCKS and a blocking wait on
+a compute path is a worker doing nothing while holding a slot -- and the terrain path breaks it.
+The 122 s stalls in `outshine/places` were never a slow fetch: they were the frame path waiting,
+per tile, with the patience bound applied per tile rather than per ring. The owner's word is that
+this was already built correctly once.
 
 ## What is wrong now, measured
 
@@ -52,17 +64,20 @@ would still be there over a perfect sphere.
 ## What will be true
 
 - [ ] the render frame is the CAMERA's: one pre-view translation per frame, every terrain vertex a `float` offset from the eye's own ECEF position, rotated by the ENU basis at the eye's lat/lon. The `(void)standing` line is gone and so is every `mPerDeg` term on the terrain path
-- [ ] tiles are laid on the ellipsoid with no elevation at all: a tile's grid vertex is `GeoToEcef(lon, lat, 0)` and nothing else
+- [ ] a tile that has not arrived is laid on the ELLIPSOID rather than skipped: its grid vertex is `GeoToEcef(lon, lat, 0)` and nothing else, so the ring is complete on the first frame
+- [ ] `Around::Awaited` is gone and no terrain call waits on IO. The picture is drawn from what has landed, and what lands later refines it
 - [ ] the ring reaches the horizon and gets coarser outward -- one zoom per level, constant tile count per level, so the count grows with the LOGARITHM of the reach
-- [ ] **the reach is over 100 km**, and the case that states it is the Jura: from the Chasseral at 47.132 N, 7.059 E, 1607 m, the Bernese Alps stand about 100 km away across the Mittelland and MUST be in frame. This is the owner's own bound and it is what sizes the cascade
+- [ ] **the reach is DECLARED, not coded, and its default is 240 km.** The owner's 100 km was a rough figure and the real bound is the geometric one: from height h the horizon is sqrt(2Rh), so 240 km is what an eye at 4 520 m sees, and equally what a 4 000 m peak is visible from at 225 km. `WorldSettings::SightM` carries it and the cascade derives its level count from it -- `1 + ceil(log2(sight / (4 * tileSpan)))` -- so no number in the source decides how far the world goes
+- [ ] the case that states it is the Jura: from the Chasseral at 47.132 N, 7.059 E the Bernese Alps stand 95.4 km away across the Mittelland -- derived from the Jungfrau's coordinates, 66 124 m north and 68 768 m east, bearing 133.9 deg -- and MUST be in frame
 - [ ] a declared camera steers the picture: moving the eye or turning it changes the image
 
 ## The measurements that would show I am wrong
 
-1. **Curvature is a NUMBER, not an impression.** The ring's farthest vertex must sit below the eye's tangent plane by d^2 / 2R: 1.55 m at 4.45 km, 70.6 m at 30 km, 785 m at 100 km. A flat frame reads 0.0 at every distance -- so this measure has a negative control that goes red on the current tree
-2. **The horizon is where geometry says.** From height h the terrain's far edge must subtend `acos(R / (R + h))` below level: 0.0906 deg at 8 m, 1.434 deg at 2000 m. Read it off the rendered image's horizon row and it must agree within a pixel
-3. **A sphere with no heights has no relief.** With elevation switched off, `so the relief it carries` must read the curvature drop across the ring and NOTHING else. If it reads hundreds of metres, heights are leaking into a step that declared it has none
-4. **The seam closes, and the skirt is what proves it.** Two adjacent tiles' shared edge must agree to the raster's precision, so the skirt can shrink to zero and the picture must NOT change. A skirt that is still load-bearing is a seam that is still open
+1. **THE FIRST FRAME IS INSTANT.** Time the case's `assemble` on a cold cache with the network unreachable: it must stand and draw a sphere in milliseconds. Today it stalls to the runner's 122 s bound, and that number is the negative control
+2. **Curvature is a NUMBER, not an impression.** The ring's farthest vertex must sit below the eye's tangent plane by d^2 / 2R: 1.55 m at 4.45 km, 70.6 m at 30 km, 785 m at 100 km. A flat frame reads 0.0 at every distance -- so this measure has a negative control that goes red on the current tree
+3. **The horizon is where geometry says.** From height h the terrain's far edge must subtend `acos(R / (R + h))` below level: 0.0906 deg at 8 m, 1.434 deg at 2000 m. Read it off the rendered image's horizon row and it must agree within a pixel
+4. **A sphere with no heights has no relief.** With elevation switched off, `so the relief it carries` must read the curvature drop across the ring and NOTHING else. If it reads hundreds of metres, heights are leaking into a step that declared it has none
+5. **The seam closes, and the skirt is what proves it.** Two adjacent tiles' shared edge must agree to the raster's precision, so the skirt can shrink to zero and the picture must NOT change. A skirt that is still load-bearing is a seam that is still open
 
 ## Why a cascade, with the arithmetic
 

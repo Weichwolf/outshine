@@ -120,8 +120,17 @@ bool Engine::State::Composes(void) {
   over.LatDeg = atLat;
   over.LonDeg = atLon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  over.Levels = 6;
-  over.Awaited = true;
+  {
+    const double tileSpanM =
+        40075017.0 * std::cos(atLat * std::numbers::pi / 180.0) / std::ldexp(1.0, over.Zoom);
+    const double nearest = 4.0 * tileSpanM;
+    const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
+    const double doublings = wanted > nearest ? std::log2(wanted / nearest) : 0.0;
+    over.Levels = 1 + (int)std::ceil(doublings);
+    Published.Places("the sight a scenario declares", wanted, "m");
+    Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
+  }
+  over.Awaited = false;
   if (!Watches()) { return false; }
   if (Picture.Standing->Watched()) {
     const double *const at = Picture.Standing->Watching().EyeM;
@@ -353,11 +362,12 @@ bool Engine::State::Composes(void) {
       Published.Places("out of", (double)counted, "vertices");
     }
   }
-  Published.Places("the sun stands this high", Session.Declared.KeyElevationDeg, "deg");
-  Published.Places("and bears", Session.Declared.KeyBearingDeg, "deg");
-  Published.Places("its key light", Session.Declared.KeyLux, "lux");
+  Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
+  Published.Places("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
+  Published.Places("its key light", Picture.Standing->Standing().KeyLux, "lux");
   Published.Places("levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
   Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
+  Published.Places("tiles laid bare on the ellipsoid", (double)laid->Bare, "tiles");
   Published.Places("tiles that overlap a finer level", (double)laid->Overlapped, "tiles");
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
