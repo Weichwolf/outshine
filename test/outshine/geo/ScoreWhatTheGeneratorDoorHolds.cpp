@@ -1,10 +1,14 @@
 #include <cstdio>
+#include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "Check.h"
+#include "Document.h"
 #include "Generate.h"
 #include "Geometry.h"
+#include "Material.h"
 #include "Structures.h"
 
 // THE GENERATOR LIBRARY HAS ITS OWN DOOR, AND THIS PROGRAM STANDS BEHIND IT WITHOUT THE ENGINE.
@@ -32,7 +36,9 @@ public:
   [[nodiscard]] std::string_view Kind() const override { return "slab"; }
 
   [[nodiscard]] bool Make(const outshine::Ask &ask, outshine::Geometry &into) const override {
-    const int part = into.Part("slab", 0);
+    const int surface = into.Surface("slab", outshine::Material{});
+    if (surface < 0) { return false; }
+    const int part = into.Part("slab", surface);
     if (part < 0) { return false; }
     const float half = (float)(ask.ExtentM > 0.0 ? 0.5 * ask.ExtentM : 0.5);
     const float places[12] = {-half, 0.0f, -half, half, 0.0f, -half,
@@ -88,6 +94,31 @@ int main(void) {
         "never a file, which is CLAUDE.md's *universal interface for 3D with outshine* -- a "
         "reader fills one, a generator fills one, a foreign program fills one with no file "
         "anywhere");
+
+  std::vector<uint8_t> glb;
+  std::string why;
+  const bool wrote = outshine::WriteGlb(made, glb, why);
+  std::printf("AND IT SERIALISES TO %zu GLB byte(s)%s\n", glb.size(),
+              wrote ? "" : (" -- refused: " + why).c_str());
+
+  // A SERIALISER SHIPS BESIDE THE LIBRARY, and it was already written. `Gltf::Emit` is a complete
+  // GLB writer and had ZERO callers; `Gltf::Subject::Assemble(const Geometry &)` is the bridge
+  // from the door's value to what it emits, and it had none either. So both halves stood in the
+  // tree with no wire between them -- the sixth capability of that shape this session found.
+  // Nothing on the streaming path calls this: the compositor takes the representation, and the
+  // serialiser is for a caller who wants a FILE.
+  outshine::Gltf::Document read;
+  const bool accepted =
+      wrote && read.Read(outshine::Span<const uint8_t>(glb.data(), glb.size()), "generated.glb");
+  std::printf("AND THE TREE'S OWN READER %s it: %d mesh(es)\n",
+              accepted ? "ACCEPTS" : "refuses", accepted ? (int)read.Meshes().size() : -1);
+
+  CHECK(wrote && accepted && !read.Meshes().empty(),
+        "**A CALLER WHO WANTS A FILE GETS ONE, AND IT IS A DOCUMENT THIS TREE READS**: Unreal's "
+        "PCG can bake its output to an asset and RAGE's tool chain writes its own; a generator "
+        "library whose output can only be handed to one engine is a library that project cannot "
+        "take. Written by `Gltf::Emit` and read back by `Gltf::Document`, so the two halves of "
+        "the format agree with each other rather than only with themselves");
 
   Covers("the generator tier's door: its registry is declared beside its interface, a client's "
          "maker and a shipped one enter the same table, a kind is issued once, and the value that "

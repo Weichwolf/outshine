@@ -174,9 +174,18 @@ that links no `src/engine` source.
       this predicate applied it to the AUTHORED one. Two forms and no third -- the item conflated
       them. What a foreign caller needs is that it can HOLD the value and outlive the generator,
       and a move-only handle gives both; copying it is not a requirement anything named.
-- [ ] A glTF SERIALISER ships beside the library, taking that representation and writing a
-      document. Nothing on the streaming path calls it: the compositor takes the representation,
-      and the serialiser is for a caller who wants a file.
+- [x] a glTF SERIALISER ships beside the library, and it was already WRITTEN. `Gltf::Emit` is a
+      complete GLB writer with ZERO callers, and `Gltf::Subject::Assemble(const Geometry &)` is
+      the bridge from the door's value to what it emits -- it had none either. Both halves stood
+      in the tree with no wire between them, the sixth capability of that shape this session
+      found. `outshine::WriteGlb(Geometry, bytes, error)` is that wire, declared on the generator
+      door and implemented in the generator tier, which `src/generators/reaches` already permits.
+      Nothing on the streaming path calls it: the compositor takes the representation.
+      proof: outshine/geo/ScoreWhatTheGeneratorDoorHolds writes 1052 GLB bytes from a client's
+      generator and `Gltf::Document` reads them back as 1 mesh -- the writer and the reader agree
+      with each other rather than each with itself.
+      negative control: dropping the material span makes it refuse with `part 0 names material 0
+      over a table of 0` and the case goes RED.
 - [x] A generator's mesh crosses into the door's value: `Generators::Meshed` de-interleaves an
       eight-float soup into `outshine::Geometry`, field by field and part by part.
       proof: outshine/geo/ScoreWhatAGeneratorHandsBack

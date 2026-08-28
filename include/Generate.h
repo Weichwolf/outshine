@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "Geometry.h"
 
@@ -29,6 +31,8 @@ public:
 protected:
   Generates() = default;
 };
+
+[[nodiscard]] bool WriteGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error);
 
 class Makers {
 public:
