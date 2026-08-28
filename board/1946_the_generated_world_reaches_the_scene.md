@@ -102,7 +102,26 @@ showed is that the remaining work is TWO things rather than one:
 reader. Drawing it is board:1574's instanced draw -- one call, N instances, N rows -- pointed at a
 geometry the body id names.
 
-**Two, and this is the larger half: the footprints never BECOME instances.** Rothenburg holds 6 423
+**Two, and this is the larger half, now measured to the bottom: NOTHING PLACES A BUILDING.**
+
+    Forest::Proposes          proposes -- the only one
+    Buildings::Proposes       return 0
+    Water::Proposes           return 0
+    Infrastructure::Proposes  return 0
+
+And `Generators::Shipping::Stands` builds exactly one thing: a `Forest` and its `ForestDraw`. So
+every one of the 203 bodies at Rothenburg and 4 096 at Shibuya is a TREE, and the owner's
+instruction for stage two is *without vegetation* -- the one generator that places is the one not
+wanted.
+
+`Buildings::Occupy` walks the footprints, calls `yield.Count(Footprints)`, raises a note about the
+highest roof, and asks for nothing. The footprints are read as GROUND TRUTH for occupancy and roof
+height, never as subjects. That is not a defect to fix but a capability that does not exist, and
+saying so is worth more than another measurement: `BuildingMesh` and `BuildingShape` are written
+and reached only by `Structures::Make`, which answers an `Ask` for one object rather than placing a
+field of them.
+
+**The footprints never BECOME instances.** Rothenburg holds 6 423
 footprints and the generators place **203** things. Shibuya holds 91 208 and places 4 096, which is
 `kMostInstances`-shaped rather than building-shaped. So the draw sources are placing vegetation and
 structures from their own tables, and the OSM footprints are handed in as a FIELD that something
