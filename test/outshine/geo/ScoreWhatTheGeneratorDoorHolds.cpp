@@ -73,6 +73,26 @@ int main(void) {
         "into the same table. A registry that took a kind twice would resolve a declaration by "
         "whichever entry it reached first, which is a coin toss wearing a lookup");
 
+  size_t shippedFound = 0;
+  for (size_t at = 0; at < (size_t)outshine::Ships::kCount; ++at) {
+    if (offering.Named(outshine::kShipped[at]) != nullptr) { ++shippedFound; }
+  }
+  std::printf("AND THE SHIPPED CATALOGUE NAMES %zu kind(s), all %zu of them registered\n",
+              (size_t)outshine::Ships::kCount, shippedFound);
+
+  // THE SHIPPED CATALOGUE IS CLOSED AGAINST A TYPO, and the compiler is what closes it.
+  // `Ships` enumerates what outshine ships and `kShipped` spells each one; a `static_assert` pairs
+  // the two counts and a second refuses a blank or a repeated name. So a shipped kind is not a
+  // string a caller can mistype -- `Structures::Kind()` returns `NameOf(Ships::Structures)` and
+  // nothing else may. A CLIENT's generator is the other half and is deliberately unlike it: it
+  // enters as a VALUE, and its kind is whatever it says, because the catalogue cannot enumerate
+  // what it has never seen. That is Unreal's own split -- built-in factories enumerated, plugin
+  // factories registered.
+  CHECK(shippedFound == (size_t)outshine::Ships::kCount,
+        "**EVERY KIND THE CATALOGUE ENUMERATES IS ACTUALLY REGISTERED**: a catalogue that names a "
+        "generator the registry does not hold is a declaration surface with nothing behind it, "
+        "which is this tree's commonest defect and the one this whole item is about");
+
   const outshine::Generates *const found = offering.Named("slab");
   const outshine::Generates *const missing = offering.Named("nothing-offers-this");
   std::printf("IT RESOLVES 'slab' %s and an unknown kind %s\n",

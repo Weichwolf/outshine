@@ -32,6 +32,31 @@ protected:
   Generates() = default;
 };
 
+enum class Ships { Structures, kCount };
+
+inline constexpr std::string_view kShipped[] = {"structures"};
+
+static_assert(sizeof kShipped / sizeof kShipped[0] == (size_t)Ships::kCount,
+              "every shipped generator the catalogue enumerates carries a name");
+
+[[nodiscard]] constexpr std::string_view NameOf(Ships which) {
+  return kShipped[(size_t)which];
+}
+
+[[nodiscard]] constexpr bool EveryShippedKindIsSpelled() {
+  for (size_t at = 0; at < (size_t)Ships::kCount; ++at) {
+    if (kShipped[at].empty()) { return false; }
+    for (size_t over = at + 1; over < (size_t)Ships::kCount; ++over) {
+      if (kShipped[at] == kShipped[over]) { return false; }
+    }
+  }
+  return true;
+}
+
+static_assert(EveryShippedKindIsSpelled(),
+              "a shipped kind is spelled once and is never empty -- a catalogue that carries a "
+              "blank or a repeat resolves a declaration by whichever entry it reaches first");
+
 [[nodiscard]] bool WriteGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error);
 
 class Makers {

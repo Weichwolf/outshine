@@ -233,14 +233,24 @@ that links no `src/engine` source.
       world holding 14729 streets, 123 water surfaces and 22691 footprints, chain step 47 -- patch,
       classes and features all standing. khronos/glTF 444/444.
       negative control: taking the ancestor block away drops the chain to step 40 and 0 bodies.
-- [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
-      stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
-      string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a
-      `constexpr` catalogue and cannot add to it"*, and it is Unreal's own shape: built-in
-      factories enumerated, plugin factories registered.
-- [ ] The shipped generators are CLIENTS of that door -- they use nothing a third party could
-      not. A client that compiles against the header proves more than any suite, and the shipped
-      ones are the first such client.
+- [x] the registry holds what outshine ships AND what a client registered, and the shipped half
+      is closed by the COMPILER. `Ships` enumerates what outshine ships, `kShipped` spells each
+      one, one `static_assert` pairs the two counts and a second refuses a blank or a repeated
+      name; `Structures::Kind()` returns `NameOf(Ships::Structures)` and no shipped generator may
+      spell its own kind. A client's generator is deliberately unlike it -- it enters as a VALUE
+      and its kind is whatever it says, because a catalogue cannot enumerate what it has never
+      seen. That is Unreal's split exactly: built-in factories enumerated, plugin factories
+      registered.
+      proof: outshine/geo/ScoreWhatTheGeneratorDoorHolds reads `THE SHIPPED CATALOGUE NAMES 1
+      kind(s), all 1 of them registered` beside a client's maker in the same table.
+      negative control: a blank name and a repeated name each fail to COMPILE -- both
+      `static_assert`s were tried and both bit.
+- [x] the shipped generators are CLIENTS of that door. `Structures` implements `Generates` and
+      nothing else, registers through the same `Makers::Offers` a client uses, and is resolved by
+      the same `Named`; the case stands a client's maker beside it in one table and the door
+      cannot tell them apart except by name.
+      proof: outshine/geo/ScoreWhatTheGeneratorDoorHolds -- shipped in, mine in, a repeat refused,
+      both resolved by kind.
 - [ ] Proving case: a program that links the generator objects and NOTHING of `src/engine`,
       `src/render`, `src/scenario` or `src/sim`, fills the input value by hand, registers a
       generator of its own beside a shipped one, and reads the REPRESENTATION back with both

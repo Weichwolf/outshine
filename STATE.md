@@ -19,7 +19,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `gpu-driven` | 4/16 | 25% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_sim_video_audio_and_io_run_independently.md) | |
 | `perception` | 1/6 | 17% | [1945](board/1945_a_body_perceives_what_is_around_it.md) | |
 | `render-plan` | 3/7 | 43% | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) | |
-| `streaming` | 2/19 | 11% | [1946](board/1946_the_generated_world_reaches_the_scene.md), [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) | 6 tick(s) name no proof |
+| `streaming` | 2/19 | 11% | [1946](board/1946_the_generated_world_reaches_the_scene.md), [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) | 7 tick(s) name no proof |
 
 Ticked, but the named proof is not in this tree:
 
@@ -29,6 +29,7 @@ Ticked, but the named proof is not in this tree:
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies) as 2309` -- `DrawSink` is IMPLEMENTED, not deleted -- the 29-file `generators/draw/` subtree is where
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies)` placed over a` -- **ONE REGION, EACH SOURCE AT ITS OWN RESOLUTION.** Unreal and RAGE both sample every
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/geo/ScoreWhatTheGeneratorDoorHolds -- a client's maker and the shipped` -- the generator library's door declares its REGISTRY beside its interface. `include/Generate.h`
+- `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/geo/ScoreWhatTheGeneratorDoorHolds writes 1052 GLB bytes from a client's` -- a glTF SERIALISER ships beside the library, and it was already WRITTEN. `Gltf::Emit` is a
 
 ## Door -- `include/`
 
