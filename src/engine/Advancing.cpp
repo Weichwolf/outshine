@@ -2,11 +2,56 @@
 #include <chrono>
 
 #include "EngineHeld.h"
+#include "TileGeodesy.h"
 
 namespace outshine {
 
 bool Engine::State::Rides(void) {
   return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
+}
+
+bool Engine::State::Watches(void) {
+  if (!Session.Views || !Picture.Standing) { return true; }
+  const View &seen = Session.Views->Active();
+  if (!seen.Placed && !seen.Stands.GlobeAnchor) { return true; }
+  double station[3] = {seen.Stands.AtM[0] + seen.OffsetM[0],
+                       seen.Stands.AtM[1] + seen.OffsetM[1],
+                       seen.Stands.AtM[2] + seen.OffsetM[2]};
+  if (seen.Stands.GlobeAnchor) {
+    const Ground::EnuFrame frame =
+        Ground::EnuFrame::At(Session.Declared.Ground.Lat, Session.Declared.Ground.Lon);
+    Ground::Enu where{};
+    if (!frame.TryFromGeo(Ground::Geo{seen.Stands.LongitudeDeg, seen.Stands.LatitudeDeg, seen.Stands.HeightM}, &where)) {
+      Error = "a view stands at " + Said(seen.Stands.LatitudeDeg) + ", " + Said(seen.Stands.LongitudeDeg) +
+              " and the world's own origin is too polar for a local frame to carry it";
+      return false;
+    }
+    station[0] = where.E + seen.OffsetM[0];
+    station[1] = where.U + seen.OffsetM[1];
+    station[2] = -where.N + seen.OffsetM[2];
+  }
+  Published.Places("the eye, east", station[0], "m");
+  Published.Places("the eye, up", station[1], "m");
+  Published.Places("the eye, south", station[2], "m");
+  double ahead[3];
+  if (seen.Stands.GlobeAnchor) {
+    const double bearing = seen.Stands.BearingDeg * std::numbers::pi / 180.0;
+    const double pitch = seen.Stands.PitchDeg * std::numbers::pi / 180.0;
+    ahead[0] = std::cos(pitch) * std::sin(bearing);
+    ahead[1] = std::sin(pitch);
+    ahead[2] = -std::cos(pitch) * std::cos(bearing);
+  } else {
+    const double *const q = seen.Stands.FacingXyzw;
+    ahead[0] = 2.0 * (q[0] * q[2] + q[3] * q[1]);
+    ahead[1] = 2.0 * (q[1] * q[2] - q[3] * q[0]);
+    ahead[2] = -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
+  }
+  const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
+  Gltf::Viewpoint standing;
+  if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
+  standing.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  Picture.Standing->Eye(standing);
+  return true;
 }
 
 bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) {
@@ -56,24 +101,8 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   if (!Session.Views) { return true; }
 
   const View &seen = Session.Views->Active();
-  if (seen.Placed) {
-    double station[3] = {seen.Stands.AtM[0] + seen.OffsetM[0], seen.Stands.AtM[1] + seen.OffsetM[1],
-                         seen.Stands.AtM[2] + seen.OffsetM[2]};
-    Published.Places("the eye, east", station[0], "m");
-    Published.Places("the eye, up", station[1], "m");
-    Published.Places("the eye, south", station[2], "m");
-    const double *const q = seen.Stands.FacingXyzw;
-    const double ahead[3] = {
-        2.0 * (q[0] * q[2] + q[3] * q[1]),
-        2.0 * (q[1] * q[2] - q[3] * q[0]),
-        -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]))};
-    const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
-    Gltf::Viewpoint standing;
-    if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
-    standing.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
-    if (Picture.Standing) { Picture.Standing->Eye(standing); }
-    return true;
-  }
+  if (seen.Placed) { return Watches(); }
+
   const double *const centreM = Ticking.Drive.Stood.CentreM;
   const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
                            seen.OffsetM[2] - centreM[2]};
@@ -146,7 +175,7 @@ bool Engine::State::Updates(void) {
     Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   Falls();
-  return true;
+  return Watches();
 }
 
 bool Engine::State::Draws(void) {

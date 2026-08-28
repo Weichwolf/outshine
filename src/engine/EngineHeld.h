@@ -329,6 +329,7 @@ struct Engine::State {
   void Drew(void);
   void Inspected(void);
   [[nodiscard]] bool Rides(void);
+  [[nodiscard]] bool Watches(void);
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const double shiftM[3]);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]);
   void Falls(void);

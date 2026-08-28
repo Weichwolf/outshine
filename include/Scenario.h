@@ -113,6 +113,14 @@ struct Standing {
   double AtM[3] = {0.0, 0.0, 0.0};
   double FacingXyzw[4] = {0.0, 0.0, 0.0, 1.0};
   double ScaleXyz[3] = {1.0, 1.0, 1.0};
+
+  bool GlobeAnchor = false;
+  double LongitudeDeg = 0.0;
+  double LatitudeDeg = 0.0;
+  double HeightM = 0.0;
+  bool SamplesHeight = false;
+  double BearingDeg = 0.0;
+  double PitchDeg = 0.0;
 };
 
 struct Placement {

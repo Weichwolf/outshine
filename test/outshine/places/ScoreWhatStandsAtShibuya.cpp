@@ -81,6 +81,18 @@ int main(void) {
   stands.Lit.Key.ElevationDeg = kSunElevationDeg;
   stands.Lit.Key.BearingDeg = kSunBearingDeg;
 
+  outshine::View watches;
+  watches.Id = "station";
+  watches.Person = "first";
+  watches.Stands.GlobeAnchor = true;
+  watches.Stands.LatitudeDeg = 35.6595;
+  watches.Stands.LongitudeDeg = 139.7005;
+  watches.Stands.HeightM = 25.0;
+  watches.Stands.BearingDeg = 40.0;
+  watches.Stands.PitchDeg = -8.0;
+  watches.FovDeg = 70.0;
+  stands.Views.push_back(watches);
+
   if (!engine.Declare(stands) || !engine.Assemble()) {
     Unprepared((std::string("Shibuya needs terrain and OSM tiles and this machine has none "
                             "cached: ") +

@@ -20,7 +20,7 @@ std::expected<ViewBook, std::string> ViewBook::Stand(std::span<const View> decla
                                "' is declared twice, and taking it would be a coin toss");
       }
     }
-    if (view.Follows.empty() && !view.Placed) {
+    if (view.Follows.empty() && !view.Placed && !view.Stands.GlobeAnchor) {
       return std::unexpected("view '" + view.Id +
                              "' neither follows a body nor stands anywhere -- a camera the "
                              "client drives frame by frame is the defect this mechanism "

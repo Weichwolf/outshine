@@ -39,7 +39,7 @@ constexpr int kHighPx = 720;
 constexpr int kSteps = 8;
 constexpr double kLatDeg = 36.0616;
 constexpr double kLonDeg = -112.1076;
-constexpr double kSunElevationDeg = 4.0;
+constexpr double kSunElevationDeg = 55.0;
 constexpr double kSunBearingDeg = 250.0;
 
 [[nodiscard]] size_t Colours(const std::vector<uint8_t> &rgba) {
@@ -80,6 +80,18 @@ int main(void) {
   stands.Lit.Key.ElevationDeg = kSunElevationDeg;
   stands.Lit.Key.BearingDeg = kSunBearingDeg;
 
+  outshine::View watches;
+  watches.Id = "station";
+  watches.Person = "first";
+  watches.Stands.GlobeAnchor = true;
+  watches.Stands.LatitudeDeg = 36.0616;
+  watches.Stands.LongitudeDeg = -112.1076;
+  watches.Stands.HeightM = 2150.0;
+  watches.Stands.BearingDeg = 200.0;
+  watches.Stands.PitchDeg = -12.0;
+  watches.FovDeg = 70.0;
+  stands.Views.push_back(watches);
+
   if (!engine.Declare(stands) || !engine.Assemble()) {
     Unprepared((std::string("GrandCanyon needs terrain and OSM tiles and this machine has none "
                             "cached: ") +
@@ -101,6 +113,12 @@ int main(void) {
     }
     return 0.0;
   };
+  for (const outshine::Measure &held : engine.Numbers()) {
+    if (held.What.find(", took") != std::string::npos || held.What.find("stages") != std::string::npos ||
+        held.What.find("passes") != std::string::npos) {
+      std::printf("    ROW  %-40s %.3f\n", held.What.c_str(), held.How);
+    }
+  }
   const double tiles = measured("tiles the ring laid");
   const double triangles = measured("subjects, triangles");
 

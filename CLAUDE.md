@@ -80,6 +80,25 @@ They are not authorities to obey; they are the only two bodies of evidence that 
 questions, and both were paid for over a decade of shipping. Ignoring them is not independence,
 it is choosing to learn something twice.
 
+**THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** A client's knowledge
+has to transfer, so `include/` uses the names a reader already owns — **Filament** for the renderer
+(`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` · `MaterialInstance` ·
+`TransformManager`) and **Cesium** for the Earth (`Georeference` · `GlobeAnchor` ·
+`LongitudeLatitudeHeight` · `sampleHeight`). Both are Apache 2.0 and both are READABLE, which is
+the same admissibility this page already asks of a source. Filament because it is a RENDERER rather
+than an engine — the exact layer — and because the people who wrote it ship it on phones, which is
+this target's own constraint. Cesium because georeferenced 3D is what it is FOR, and because
+Unreal and Unity users already spell a place its way.
+
+**Not Godot**, and the reason is a rule rather than a preference: its vocabulary is a NODE TREE —
+`Node3D`, `add_child`, `owner` — and a scenario over a store has no such hierarchy. A name is a
+promise, and borrowing those names would promise a shape this engine does not have.
+
+Behind the door the answer is still the better of RAGE and Unreal. **Outward the names a client
+expects; inward the engineering those two paid for.** Where a door name and a motor name disagree,
+the door keeps the client's word and the motor keeps its own — and the translation happens once, at
+the boundary, rather than in the reader's head.
+
 **Two bodies decide, and a third may be CITED.** The table has exactly two columns because a
 column has to be READABLE: Unreal is source, RAGE is reconstruction. Ubisoft's three engines —
 Anvil, Snowdrop, Dunia — are strong where outshine is weak (crowds, vegetation, procedural
