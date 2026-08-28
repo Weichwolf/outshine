@@ -4,51 +4,45 @@ Progress: gpu-driven
 Area: render
 Tags: measured, benchmark
 
-# The sky lights what it stands over, and today it only sets the exposure
+# The sky's irradiance is computed TWICE, and the subject's half is flat
 
-**Benchmark** — Unreal: `SkyLight` captures the sky and delivers it to every surface as an ambient
-term, directional rather than flat; Lumen replaces it with a bounce but the sky term predates it by
-a decade and shipped on far weaker hardware. RAGE: an ambient probe from the sky plus a small set
-of baked terms, again per-direction. **Both agree that the SKY is the cheapest indirect light there
-is and both spend it on surfaces.** Taking that.
+**Benchmark** — Unreal: ONE `SkyLight` captures the sky and every consumer reads that capture --
+the surfaces, the exposure, the reflections. RAGE: one ambient probe, read by everything that needs
+ambient. **Both agree that a quantity is computed once and read many times**, which is also
+CLAUDE.md's own rule that no self-declared primitive stands more than once. Taking that.
 
-## The capability is built, and it reaches the wrong consumer
+## WHAT THIS ITEM SAID FIRST WAS WRONG, and its own control said so
 
-The catalogue runs the full Bruneton chain -- `MediumTransmittance` -> `MediumMultiScatter` ->
-`MediumRadiance` -> `SkyViewLut` -> `Irradiance` -> `IrradianceBuffer`, nineteen rows of it. And:
+It was filed as *"the sky lights only the exposure meter; the subject gets a declared constant"*,
+because `IrradianceBuffer` has exactly one consumer and `SubjectEnvironment` is three doubles. The
+control it wrote down was: *if the picture does not change, the constant was already being set from
+the same irradiance upstream and this item is withdrawn.*
 
-    {Stage::AutoExposure, Provenance::Content, PassKind::Compute, "autoExposure",
-     {Resource::IrradianceBuffer, kNoEdge}, {Resource::Meter, kNoEdge}, {kNoEdge}, kNoFusion},
+It is. `src/engine/Live.cpp:400-428` runs `MediumSkyIrradiance` over the same `Render::Medium`,
+with the same transmittance and multi-scatter closures the GPU chain uses, and ADDS it to
+`environment.RadianceLinear`. The subject is lit by the sky's own irradiance and has been all
+along. **The fifth written-down cause this session to fail its own measurement**, and the reason it
+was caught is that the item stated the measurement before the work started.
 
-`IrradianceBuffer` has exactly ONE consumer and it is the exposure meter. What the subject pass
-gets instead:
+## What is actually wrong, measured
 
-    struct SubjectEnvironment {
-      double RadianceLinear[3] = {0, 0, 0};
-    };
+**One.** The same physical quantity is computed in TWO places: `MediumSkyIrradiance` on the CPU per
+restand for the subject, and the `Irradiance` stage on the GPU for `AutoExposure`. Same model, same
+inputs, two implementations, and nothing holds them to each other. CLAUDE.md forbids exactly this
+and asks for a guard that counts it.
 
-**Three doubles. One colour, for the whole scene, from any direction.** So a physically derived,
-direction-dependent sky irradiance is computed every frame and a flat constant is what lights the
-geometry.
+**Two.** The subject's half is FLAT: `struct SubjectEnvironment { double RadianceLinear[3]; }` --
+one RGB for every normal direction. A wall facing the sun's side of the sky and a wall facing away
+receive the same ambient. Unreal's SkyLight is directional (an SH or cubemap), RAGE's probe is
+directional; neither ships a hemisphere average, because the alley wall is exactly where it shows.
 
-This is the tree's commonest defect once more: a complete capability no declaration reaches --
-except here it is reached, by the one consumer that needed the least of it.
+- [ ] sky irradiance is computed ONCE and both the exposure and the surfaces read that one
+- [ ] a guard counts the implementations of it and refuses a second
+- [ ] the subject's ambient varies with the surface NORMAL rather than being one value per scene
 
-## Why this is the first rung and not a nice-to-have
-
-`AmbientOcclusion` stands in the catalogue, so the tree can DARKEN a crevice. Nothing FILLS it. An
-old-town alley at midday, a canyon's shaded wall, a forest floor -- every one of them is lit almost
-entirely by sky, and every one of them is currently lit by a constant. Reflections (board:2012) and
-bounced light from surfaces are the rungs above; this one is already paid for.
-
-- [ ] the subject pass reads the sky's irradiance per NORMAL DIRECTION rather than a scene constant
-- [ ] `AmbientOcclusion` attenuates that term rather than a flat one, so the crevice darkens
-      against what actually lights it
-- [ ] the cost is measured: the irradiance is already computed, so the delta is the bind and the
-      lookup and nothing else
-
-**The measurement that would show I am wrong**: if the picture does not change, the constant was
-already being set from the same irradiance somewhere upstream and this item is withdrawn. The
-control is a scene lit only by sky -- no key light -- where a flat term and a directional one
-cannot look the same. `khronos/glTF` is the guard: those cases declare their environment, so a
-change here that moves them is a change that is wrong.
+**The measurement that would show I am wrong**: if the CPU and GPU paths already agree to within
+the noise, the duplicate is harmless and only the flatness remains -- that is a case, comparing
+`MediumSkyIrradiance` against a readback of `IrradianceBuffer` for one declared sun elevation.
+Negative control for the third predicate: a scene lit by sky alone, no key light, where a flat term
+and a directional one cannot look the same. `khronos/glTF` guards it -- those cases declare their
+environment, so a change that moves them is wrong.
