@@ -153,6 +153,30 @@ bool Engine::State::Asks(void) {
   World.Wanted = asked->Tiles;
   World.AskedPending = asked->Pending;
   World.AskedWanted = asked->Tiles;
+  {
+    const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
+    Published.Places("mesh jobs the pool finished", (double)kept.MeshTiles, "tiles");
+    Published.Places("mesh jobs it refused", (double)kept.MeshRefused, "tiles");
+    Published.Places("mesh jobs with no tile behind them", (double)kept.MeshAbsent, "tiles");
+    Published.Places("fetches it ran", (double)kept.Fetches, "fetches");
+    Published.Places("fetches it gave up on", (double)kept.FetchGaveUp, "fetches");
+    Published.Places("fetches it refused", (double)kept.FetchRefused, "fetches");
+    Published.Places("jobs it posted", (double)kept.Posts, "jobs");
+    Published.Places("asks that repeated a posted job", (double)kept.Repeats, "asks");
+    Published.Places("megabytes it fetched", kept.FetchedMB, "MB");
+    Published.Places("jobs still outstanding", (double)kept.Outstanding, "jobs");
+    Published.Places("keys with jobs parked behind them", (double)kept.Parked, "keys");
+    Published.Places("jobs parked in all", (double)kept.ParkedJobs, "jobs");
+    Published.Places("results it holds", (double)kept.Held, "results");
+    Published.Places("mesh jobs it dropped and will retry", (double)kept.MeshDropped, "jobs");
+    Published.Places("jobs waiting in the queue", (double)kept.QueueDepth, "jobs");
+  }
+  for (int zoom = 0; zoom < 24; ++zoom) {
+    if (asked->WantedAtZoom[zoom] == 0) { continue; }
+    Published.Places("zoom " + std::to_string(zoom) + " wants " +
+                         std::to_string(asked->WantedAtZoom[zoom]) + " and still waits for",
+                     (double)asked->PendingAtZoom[zoom], "tiles");
+  }
   return true;
 }
 

@@ -41,6 +41,9 @@ struct SubjectResidency {
   OwnedBuffer BvhNodes, BvhTris;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
+  [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }
+  void ForgetStagedCount() { StagedThisFrame_ = 0; }
+
   [[nodiscard]] uint32_t HeldBytes() const {
     uint32_t bytes = 0;
     for (const uint32_t one : Held) { bytes += one; }
@@ -76,6 +79,7 @@ private:
   std::array<OwnedTransfer, kStagingRing> Staging_{};
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;
+  uint32_t StagedThisFrame_ = 0;
   size_t StagingAt_ = 0;
   std::array<Staged, kStagedCrossings> Staged_{};
   size_t StagedCount_ = 0;

@@ -180,7 +180,12 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           over.Asking ? tiles.Wants(zoom, (uint32_t)x, (uint32_t)y, over.Grid)
                       : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
       bool ofTheGround = true;
-      if (said == TileMeshes::Reply::Pending) { ++out.Pending; ofTheGround = false; }
+      if (zoom >= 0 && zoom < 24) { ++out.WantedAtZoom[zoom]; }
+      if (said == TileMeshes::Reply::Pending) {
+        ++out.Pending;
+        if (zoom >= 0 && zoom < 24) { ++out.PendingAtZoom[zoom]; }
+        ofTheGround = false;
+      }
       else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
         ++out.Absent;
         ofTheGround = false;

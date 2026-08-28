@@ -143,6 +143,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
+  StagedThisFrame_ += at;
   return true;
 }
 

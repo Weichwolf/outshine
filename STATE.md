@@ -345,12 +345,12 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 64 | `src/render/Renderer.h` |
+| 65 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
 | 45 | `src/engine/Live.h` |
+| 36 | `src/render/stages/SubjectDraw.h` |
 | 36 | `include/Outshine.h` |
-| 35 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins
 

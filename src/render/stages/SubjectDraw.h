@@ -167,6 +167,8 @@ public:
   [[nodiscard]] const double *ModelM() const { return Model; }
 
   [[nodiscard]] uint32_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+  [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
+  void ForgetStagedCount() { Bound().ForgetStagedCount(); }
   uint32_t VertexCount() const { return Bound().NVerts; }
   long TriangleCount() const { return (long)Bound().NIdx / 3; }
 

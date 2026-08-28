@@ -124,6 +124,12 @@ public:
   }
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
+
+  // BYTES THE CPU HANDED THE GPU. RAGE and Unreal both drive this toward zero on a steady frame:
+  // geometry is resident and only what CHANGED crosses the bus. A number that stays high while
+  // nothing moves is the finding, not the frame time it produces.
+  [[nodiscard]] uint32_t SubjectBytesStaged() const { return Subjects_.StagedBytes(); }
+  void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
   [[nodiscard]] const double *ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {

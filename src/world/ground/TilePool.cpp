@@ -114,10 +114,18 @@ TilePool::Ledger TilePool::Counters() const {
     std::lock_guard<std::mutex> lock(LedgerMutex_);
     out = Ledger_;
   }
+  // THE QUEUE'S OWN STATE IS READ AFTER THE LEDGER IS COPIED, not before. `out = Ledger_` assigns
+  // the WHOLE struct, so anything written into `out` ahead of it is erased -- which is how the
+  // outstanding, parked and held counts all read exactly 0 while the pool plainly held work.
   std::lock_guard<std::mutex> queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
   out.QueueDepth = (long long)Queue_.size();
+  out.Outstanding = (long long)Posted_.size();
+  out.Parked = (long long)Awaiting_.size();
+  out.ParkedJobs = 0;
+  for (const auto &one : Awaiting_) { out.ParkedJobs += (long long)one.second.size(); }
+  out.Held = (long long)Done_.size();
   return out;
 }
 
@@ -503,6 +511,7 @@ void TilePool::Work(int slot) {
     switch (job.Kind) {
       case Rank::Mesh:
         RunMesh(tiles, job, &result);
+        result.Holds = true;
         break;
       case Rank::Fetch:
         result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
@@ -512,6 +521,18 @@ void TilePool::Work(int slot) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
       std::unique_lock<std::mutex> lock(QueueMutex_);
+      // PARKING BEHIND SOMETHING THAT HAS ALREADY LANDED IS A DEADLOCK. A parked job is woken when
+      // the job it waits for RUNS, and a fetch whose result is already in `Done_` will never run
+      // again -- so the mesh waits for ever while the data it needs sits finished a few bytes away.
+      // Measured: 36 keys with 37 jobs parked behind them, an empty queue, nothing outstanding to
+      // do, and 35 of 112 tiles standing bare after 16 s of patience. The pool's own ledger said it
+      // had finished all its work in 892 ms.
+      if (Done_.find(awaited) != Done_.end()) {
+        Queue_.push_back(std::move(job));
+        lock.unlock();
+        Wake_.notify_all();
+        continue;
+      }
       if (Posted_.find(awaited) != Posted_.end()) {
         Awaiting_[awaited].push_back(std::move(job));
         continue;
@@ -536,7 +557,17 @@ void TilePool::Work(int slot) {
       std::lock_guard<std::mutex> lock(QueueMutex_);
 
       if (result.State == Reply::Pending) {
+        // A DEFERRED MESH IS DROPPED AND RETRIED, and nothing bounds that. `RunMesh` answers
+        // Pending when the grid it needs is not stitched yet; if no fetch was requested during the
+        // attempt there is nothing to park behind, so the key leaves `Posted_` and the next ask
+        // posts it again. When the reason for the defer does not clear on its own, that is a retry
+        // loop with no progress -- measured, 79 of 112 tiles ever finished while the pool sat with
+        // an empty queue, nothing posted and nothing parked.
         Posted_.erase(job.Key);
+        {
+          std::lock_guard<std::mutex> ledger(LedgerMutex_);
+          if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
+        }
         Landed_.notify_all();
       }
 
@@ -574,7 +605,29 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
     // every frame for a world that had not moved -- and it made any residency question
     // unanswerable, because every tile read "pending" the moment it had been used. Unreal, RAGE and
     // Cesium all hold streamed data resident until a budget evicts it; that is what streaming IS.
-    *out = done->second;
+    const bool consumed = !done->second.Holds;
+    if (consumed) {
+      *out = std::move(done->second);
+      Done_.erase(done);
+      Posted_.erase(job.Key);
+    } else {
+      *out = done->second;
+    }
+    // A CACHED ANSWER MUST STILL WAKE WHAT WAS WAITING FOR IT. A mesh job that needs a DEM tile is
+    // parked in `Awaiting_[fetchKey]` and resumed when that fetch job RUNS. While `Done_` was a
+    // one-shot mailbox that worked by accident: taking the result erased it, so the next asker
+    // re-posted the fetch, it ran again, and the parked jobs drained. With `Done_` holding results,
+    // the fetch never runs a second time and the parked mesh jobs wait for ever -- measured, 29 to
+    // 34 tiles of 112 stuck Pending across EVERY zoom level, with 0 absent and 0 refused, and
+    // 61 seconds of patience changing nothing.
+    const auto parked = Awaiting_.find(job.Key);
+    if (parked != Awaiting_.end()) {
+      for (Job &held : parked->second) { Queue_.push_back(std::move(held)); }
+      Awaiting_.erase(parked);
+      lock.unlock();
+      Wake_.notify_all();
+    }
+    (void)consumed;
     return out->State;
   }
   if (Posted_.insert(job.Key).second) {

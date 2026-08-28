@@ -42,6 +42,8 @@ public:
     long long FetchRefused = 0, MeshRefused = 0;
 
     long long Posts = 0, Repeats = 0, QueueDepth = 0;
+    long long Outstanding = 0, Parked = 0, ParkedJobs = 0, Held = 0;
+    long long MeshDeferred = 0, MeshDropped = 0;
 
     double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0;
     long FetchOnCompute = 0;
@@ -113,6 +115,11 @@ private:
   struct Result {
     Reply State = Reply::Pending;
     TileBuild Build;
+
+    // ONLY A MESH IS WORTH HOLDING. A fetch result is consumed once by the mesh job that asked for
+    // it, and holding it broke the wake: a mesh parked in `Awaiting_[fetchKey]` is resumed when
+    // that fetch job RUNS, and a cached fetch never runs again.
+    bool Holds = false;
   };
 
   struct CacheEntry {

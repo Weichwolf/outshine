@@ -39,7 +39,7 @@ constexpr const char *kPlace = "Shibuya";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
-constexpr double kPatienceS = 8.0;
+constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 constexpr double kLatDeg = 35.6595;
 constexpr double kLonDeg = 139.7005;
@@ -114,18 +114,29 @@ int main(void) {
   // frame rather than a progressively refining one says so ONCE, bounded in seconds, before it
   // draws. That is Filament's `flushAndWait` distinction: the wait belongs to the client's call,
   // never to the frame path.
-  const auto stood = std::chrono::steady_clock::now();
+  const auto asked = std::chrono::steady_clock::now();
   const bool ready = engine.preload(kPatienceS);
+  const auto stood = std::chrono::steady_clock::now();
   int frames = 0;
+  double advancingMs = 0.0, renderingMs = 0.0;
   for (; frames < kSteps; ++frames) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    const auto beforeStep = std::chrono::steady_clock::now();
+    if (!engine.advance()) {
       Unprepared((std::string(kPlace) + " did not advance: " + engine.error()).c_str());
       return Report();
     }
+    const auto stepped = std::chrono::steady_clock::now();
+    if (!engine.render(outshine::Extent{})) {
+      Unprepared((std::string(kPlace) + " did not render: " + engine.error()).c_str());
+      return Report();
+    }
+    const auto drawn = std::chrono::steady_clock::now();
+    advancingMs += std::chrono::duration<double, std::milli>(stepped - beforeStep).count();
+    renderingMs += std::chrono::duration<double, std::milli>(drawn - stepped).count();
   }
   const auto drew = std::chrono::steady_clock::now();
-  const double standingMs =
-      std::chrono::duration<double, std::milli>(stood - began).count();
+  const double standingMs = std::chrono::duration<double, std::milli>(asked - began).count();
+  const double loadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   const double drawingMs = std::chrono::duration<double, std::milli>(drew - stood).count();
 
   const auto measured = [&engine](const char *what) {
@@ -152,7 +163,8 @@ int main(void) {
               measured("and how far out it lies"), measured("a sphere would sink it by"));
   std::printf("    %.0f rebuild(s) of the terrain over %.0f walk(s) that asked\n",
               measured("times the terrain was rebuilt"), measured("and how often it was asked about"));
-  std::printf("    the last rebuild took %.0f ms\n", measured("and what the last rebuild took"));
+  std::printf("    the last rebuild took %.0f ms; of %d frame(s), advance %.0f ms and render %.0f ms\n",
+              measured("and what the last rebuild took"), frames, advancingMs, renderingMs);
   std::printf("    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer level\n",
               measured("levels the cascade laid"), measured("tiles it skipped as already covered"),
               measured("tiles that overlap a finer level"));
@@ -164,9 +176,13 @@ int main(void) {
               measured("building footprints it holds"), measured("instances its draw sources made"),
               wrote ? kept.c_str() : engine.error().c_str());
 
-  std::printf("    THE TIME IS NOT THE PICTURE: %.0f ms to stand the world, %.1f ms to draw %d "
-              "frames (%.2f ms each). %.0f tile(s) still pending, %.0f absent, %.0f refused\n",
-              standingMs, drawingMs, frames + 1, drawingMs / (double)(frames + 1),
+  // THE THREE ARE SEPARATE AND WERE NOT. This clock used to start BEFORE `preload`, so the
+  // client's own wait for the world to arrive was divided by the frame count and reported as a
+  // frame time: 3 138 ms a frame, on a frame that costs 12. Standing, loading and drawing are
+  // three different questions and a single stopwatch across all three answers none of them.
+  std::printf("    THE TIME IS NOT THE PICTURE: %.0f ms to stand, %.0f ms waiting for the world, "
+              "%.1f ms to draw %d frame(s) (%.2f ms each). %.0f pending, %.0f absent, %.0f refused\n",
+              standingMs, loadingMs, drawingMs, frames, drawingMs / (double)(frames > 0 ? frames : 1),
               measured("tiles it is still waiting for"), measured("tiles the stack does not hold"),
               measured("tiles it refused"));
   std::printf("    %.0f tile(s) stood BARE on the ellipsoid because the ground had not arrived\n",
@@ -174,6 +190,17 @@ int main(void) {
   std::printf("    %s -- loaded %.0f%% of what the view wants, %d frame(s) drawn\n",
               ready ? "PRELOADED" : "PATIENCE RAN OUT", 100.0 * engine.loadProgress(),
               frames);
+
+  for (const outshine::Measure &held : engine.measures()) {
+    if (held.What.rfind("zoom ", 0) == 0 || held.What.rfind("mesh jobs", 0) == 0 ||
+        held.What.rfind("fetches", 0) == 0 || held.What.rfind("jobs it", 0) == 0 ||
+        held.What.rfind("asks that", 0) == 0 || held.What.rfind("megabytes", 0) == 0 ||
+        held.What.rfind("jobs still", 0) == 0 || held.What.rfind("keys with", 0) == 0 ||
+        held.What.rfind("jobs parked", 0) == 0 || held.What.rfind("results it", 0) == 0 ||
+        held.What.rfind("jobs waiting", 0) == 0 || held.What.rfind("mesh jobs it dropped", 0) == 0) {
+      std::printf("    %s: %.0f %s\n", held.What.c_str(), held.How, held.Unit.c_str());
+    }
+  }
 
   CHECK(wrote,
         "**THERE IS A PICTURE**: the only thing this case refuses on. A place that declares, "
