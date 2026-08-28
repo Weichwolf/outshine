@@ -151,11 +151,29 @@ that links no `src/engine` source.
       `engine`, `render`, `scenario`, `sim`, `ui`, `audio` or `host`. A program links that archive
       alone and runs.
       proof: harness/claims/TheGeneratorsLinkWithoutTheEngine
-- [ ] A second public header declares the generator library: the input value, the `Generator`
-      interface, the registry, and the OUTPUT REPRESENTATION as a value.
-- [ ] That representation is pointer-free and one-width, so a foreign caller can hold it, copy it
-      and outlive the generator that made it -- CLAUDE.md's layout rule is what makes it usable
-      across a library boundary at all, not only what makes it fast.
+- [x] the generator library's door declares its REGISTRY beside its interface. `include/Generate.h`
+      already carried the input value (`Ask`) and the interface (`Generates`), and the output
+      representation is `Geometry` -- also already public. What it lacked was the thing that
+      RESOLVES a kind: the registry was a `std::vector<const Generates *>` inside `Engine::State`,
+      so a foreign program could implement the interface and had nowhere to register it. `Makers`
+      is that registry, declared in the same header and implemented in the generator tier; the
+      engine holds one and delegates rather than keeping a second.
+      proof: outshine/geo/ScoreWhatTheGeneratorDoorHolds -- a client's maker and the shipped
+      `structures` enter the same table, a repeat is refused, resolution is by kind, and the maker
+      fills a `Geometry`. The geo suite links `src/generators` and nothing of `src/engine`,
+      `src/render`, `src/scenario` or `src/sim`.
+      negative control: letting `Offers` take a kind twice makes the count read 3 and the case
+      goes RED.
+- [~] **WITHDRAWN: this predicate asks for the opposite of the tree's own invariant.** Measured:
+      `Geometry` is move-only with an opaque `Kept`, and CLAUDE.md says exactly why -- *"a public
+      type publishes its VERBS and never its layout... `Geometry` and `Store` both hold an opaque
+      `Kept`, so the storage can change without recompiling a client, which is the difference
+      between a door and a struct someone reaches through."* Unreal's `UStaticMesh` and RAGE's
+      `grmModel` keep their storage private for the same reason.
+      "Pointer-free and one-width" is CLAUDE.md's rule for the COOKED form and the GPU streams, and
+      this predicate applied it to the AUTHORED one. Two forms and no third -- the item conflated
+      them. What a foreign caller needs is that it can HOLD the value and outlive the generator,
+      and a move-only handle gives both; copying it is not a requirement anything named.
 - [ ] A glTF SERIALISER ships beside the library, taking that representation and writing a
       document. Nothing on the streaming path calls it: the compositor takes the representation,
       and the serialiser is for a caller who wants a file.

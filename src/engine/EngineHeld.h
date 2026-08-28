@@ -248,7 +248,7 @@ struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
-  std::vector<const Generates *> Offering;
+  Makers Offering;
   std::vector<Generators::Forest::Stem> Stems;
   std::vector<float> TreesPerM2;
   std::unique_ptr<Generators::Forest> Woods;

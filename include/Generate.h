@@ -1,7 +1,9 @@
 #ifndef OUTSHINE_GENERATE_H
 #define OUTSHINE_GENERATE_H
 
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string_view>
 
 #include "Geometry.h"
@@ -26,6 +28,25 @@ public:
 
 protected:
   Generates() = default;
+};
+
+class Makers {
+public:
+  [[nodiscard]] bool Offers(const Generates &maker);
+
+  [[nodiscard]] const Generates *Named(std::string_view kind) const;
+  [[nodiscard]] size_t Count() const;
+
+  Makers();
+  ~Makers();
+  Makers(Makers &&) noexcept;
+  Makers &operator=(Makers &&) noexcept;
+  Makers(const Makers &) = delete;
+  Makers &operator=(const Makers &) = delete;
+
+private:
+  struct Kept;
+  std::unique_ptr<Kept> Kept_;
 };
 
 }

@@ -112,17 +112,14 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
 }
 
 void Engine::Ships(void) {
-  if (!S_->World.Offering.empty()) { return; }
-  S_->World.Offering.push_back(&S_->World.Shipped);
+  if (S_->World.Offering.Count() > 0) { return; }
+  (void)S_->World.Offering.Offers(S_->World.Shipped);
 }
 
 bool Engine::Declare(const Scenario &scenario) {
   Ships();
   const auto offers = [this](const std::string &kind) {
-    for (const Generates *const stood : S_->World.Offering) {
-      if (stood->Kind() == kind) { return true; }
-    }
-    return false;
+    return S_->World.Offering.Named(kind) != nullptr;
   };
   for (const Generator &named : scenario.Generators) {
     if (offers(named.Kind)) { continue; }
@@ -279,13 +276,11 @@ bool Engine::Generated(const Scenario &scenario) {
 
   Geometry made;
   const auto asked = [&](const std::string &kind) {
-    for (const Generates *const stood : S_->World.Offering) {
-      if (stood->Kind() != kind) { continue; }
-      if (stood->Make(ask, made)) { return true; }
-      S_->Error = "the generator of kind '" + kind + "' refused to make anything";
-      return false;
-    }
-    return true;
+    const Generates *const stood = S_->World.Offering.Named(kind);
+    if (stood == nullptr) { return true; }
+    if (stood->Make(ask, made)) { return true; }
+    S_->Error = "the generator of kind '" + kind + "' refused to make anything";
+    return false;
   };
 
   for (const Asset &shown : scenario.Assets) {

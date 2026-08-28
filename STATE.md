@@ -19,13 +19,14 @@ whose proof this tree does not hold is reported rather than counted.
 | `gpu-driven` | 4/16 | 25% | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md), [1985](board/1985_sim_video_audio_and_io_run_independently.md) | |
 | `perception` | 1/6 | 17% | [1945](board/1945_a_body_perceives_what_is_around_it.md) | |
 | `render-plan` | 3/7 | 43% | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) | |
-| `streaming` | 2/20 | 10% | [1946](board/1946_the_generated_world_reaches_the_scene.md), [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) | 4 tick(s) name no proof |
+| `streaming` | 2/19 | 11% | [1946](board/1946_the_generated_world_reaches_the_scene.md), [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) | 5 tick(s) name no proof |
 
 Ticked, but the named proof is not in this tree:
 
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `-` -- the engine SHIPS a placement generator and CALLS it. `Surrounds` carries a placement
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `-` -- the placement door is REACHED, without the engine behind it.
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/door/ScoreWhatAMovingSceneResends reads `1813 street(s), 3 water` -- **the world's vector data has an OWNER**, which was the blocker. `GroundStack` holds the
+- `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies) as 2309` -- `DrawSink` is IMPLEMENTED, not deleted -- the 29-file `generators/draw/` subtree is where
 - `streaming` in [1948](board/1948_the_generators_are_a_library_with_their_own_door.md) names `outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies)` placed over a` -- **ONE REGION, EACH SOURCE AT ITS OWN RESOLUTION.** Unreal and RAGE both sample every
 
 ## Door -- `include/`
@@ -41,8 +42,12 @@ Ticked, but the named proof is not in this tree:
 
     value: Ask
     type: Generates
+    type: Makers
     virtual std::string_view Kind() const = 0
     virtual bool Make(const Ask &ask, Geometry &into) const = 0
+    bool Offers(const Generates &maker)
+    const Generates *Named(std::string_view kind) const
+    size_t Count() const
 
 ### `Geometry.h`
 
@@ -278,7 +283,7 @@ The heaviest files. Headers and sources counted apart.
 | 827 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 698 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **46** | `h` | *the median of 238 header(s)* |
-| **119** | `cpp` | *the median of 158 source(s)* |
+| **119** | `cpp` | *the median of 159 source(s)* |
 
 ## Carpet
 
