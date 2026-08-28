@@ -48,3 +48,27 @@ Measured from `include/Outshine.h` and `include/Scenario.h`:
 **The measurement that would show I am wrong:** `apps/demo` is 194 lines and `apps/bench` 339. If
 the rename does not reduce them, the door was not the thing making a client verbose and the item's
 premise was wrong. `test/run.sh` counts both today, so the before-number exists.
+
+## Our own verbs do not align by themselves, and three of four decisions go to Filament
+
+Filament is a RENDERER: it has no scenario, no simulation, no mixer, no store. `Declare` · `Read`
+· `Assemble` · `Advance` · `Run` · `Mixes` · `Park` · `Resume` · `Numbers` · `Inspects` are this
+tree's own by right and are not a debt -- `STATE.md` says so beside the distance table, because
+without that line the page would read forty per cent for ever and mean nothing.
+
+But "ours" settles the WORD, not the SHAPE, and the shape does not converge on its own:
+
+| | Filament | here | taken |
+|---|---|---|---|
+| types | `PascalCase` | `PascalCase` | already the same |
+| methods | `camelCase` -- `beginFrame`, `setScene` | `PascalCase` -- `Declare`, `Advance` | **camelCase AT THE DOOR.** Inside stays PascalCase; the translation happens once at the boundary, which is the rule this item is built on |
+| verb form | imperative, saying what it does to what -- `addEntity(Entity)` | elliptic present -- `Stands(Geometry)`, `Shows(surfaces)` | **the ellipsis goes at the door.** It is the single thing that makes a reader guess, measured: placing one eye cost reading three files because `Stands` and `Placed` say nothing about what they take |
+| refusal | pointers and void, errors reported elsewhere | `[[nodiscard]] bool` + `Error()` | **stays ours**, and with a reason: CLAUDE.md's own rule -- `std::expected` where a refusal carries its reason -- is stronger than Filament's convention, and a door that cannot say WHY is the defect this session fixed four times |
+
+- [ ] the door's methods are `camelCase` and its types `PascalCase`, Filament's split exactly
+- [ ] no door verb is elliptic: each says what it does and to what
+- [ ] a refusal carries its reason, which is `std::expected` rather than Filament's silence
+
+**The measurement**: `STATE.md` counts the spoken names and verbs at every `make`. If the count
+stops moving while this item is active, the rename has stalled and the page says so without anyone
+remembering to check.
