@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Area: architecture
 
 # The refactor to TARGET blocks everything else
@@ -35,4 +35,11 @@ the next one at the same price.
       and drives it, the three producers are 0 subpixels apart of 16384, and `apps/driver`'s stills
       are BYTE-IDENTICAL to the ones it wrote at 132f07d9^, before this work began
 - [ ] `apps/driver` renders through the rebuilt path and its picture is judged on the stills it takes itself
-- [ ] no item outside this parent was closed while it stood
+- [ ] no FEATURE outside this parent was worked while it stood -- a DEFECT found while working
+      one is filed and closed in the same round, which is the other standing rule and not an
+      exception to this one. **The predicate said "no item" and that was wrong**: it forbade
+      exactly the thing the rule beside it requires, and it has been broken every round it stood
+      -- board:2002, 2003, 2004 and 2005 were all found while working a child of this item and all
+      four were closed in the round that found them. A rule broken every time it applies is not a
+      rule, and a refactor that must leave a known defect standing to obey its own process is
+      paying twice for the opposite reason.
