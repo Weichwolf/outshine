@@ -91,8 +91,11 @@ Snapped SnapshotOver(const Tile &region, const outshine::GroundQuery &heights,
                      const outshine::Ground::ClassField &classes, const Fields &stands,
                      std::shared_ptr<const GroundTable> table, Ground::Snapshot *out) {
   const auto done = [](Snapped how) { return how; };
+  const int blockZoom = heights.BlockZoom() > 0 ? heights.BlockZoom() : region.Zoom();
+  const int coarser = region.Zoom() - blockZoom;
   const outshine::Ground::GroundBlock block =
-      heights.BlockAt(region.Zoom(), region.X(), region.Y());
+      coarser > 0 ? heights.BlockAt(blockZoom, region.X() >> coarser, region.Y() >> coarser)
+                  : heights.BlockAt(blockZoom, region.X(), region.Y());
   switch (block.Where()) {
     case outshine::Ground::GroundBlock::State::Pending: return done(Snapped::Waiting);
     case outshine::Ground::GroundBlock::State::Missing: return done(Snapped::NoGround);

@@ -68,6 +68,7 @@ public:
   [[nodiscard]] GroundSample At(double lat, double lon) const override;
   [[nodiscard]] GroundSample Resident(double lat, double lon) const override;
   [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const override;
+  [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 
   [[nodiscard]] double PostM(double latDeg) const override;
 

@@ -91,10 +91,10 @@ void GroundStack::Restand(double lat, double lon) {
     const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
     if (zoom <= 0) { return; }
     Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers, 5));
+    WaterBodies_.AnchorAt(Cls_.OriginEcef());
+    Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Vectors_->Build(*Pool_, lat, lon, kVectorRing) <= 0) { return; }
-  WaterBodies_.AnchorAt(Cls_.OriginEcef());
-  Footprints_.AnchorAt(Cls_.OriginEcef());
   (void)Ways_.Ingest(*Vectors_, Templates_);
   (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
   (void)Footprints_.Build(*Ground_, *Vectors_, Span<const WayLine>());

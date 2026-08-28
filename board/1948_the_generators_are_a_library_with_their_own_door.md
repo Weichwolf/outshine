@@ -186,32 +186,19 @@ that links no `src/engine` source.
       from `vegetation.json`'s `trees.perM2`, and the treeline from its `alpineLimit`.
       `Composes` builds a region, a snapshot, a `Ground`, a `RegionPool` lease and a `Yield`, and
       runs `Occupy` over every registered maker.
-- [ ] **ONE REGION CANNOT SERVE TWO ZOOMS, and that is the last blocker, measured.** The chain
-      above reaches step 40: registry, table and vector fields all stand, and `SnapshotOver`
-      returns with no patch, no classes and no features. `SnapshotOver` takes a SINGLE `Tile`, and
-      this tree serves ground blocks at zoom 12 (`GroundSurface.Z`) while the vector provider's
-      finest is 14 (`VersatilesVector.cpp:17`, against the DEM's 15). A region at the vector zoom
-      finds no resident ground block; a region at the ground zoom finds no settled vector tile.
-      **Proven by moving it, both ways**: at the vector zoom the patch is MISSING and the vectors
-      read 1813 / 3 / 1849; at the ground zoom the patch STANDS -- step 41 -- and the vectors read
-      0 / 0 / 0. The line responsible is `GroundStream::BlockAt`'s first:
-      `if (z != Surface_.Z) return block;`. And it is not a fetch that has not landed: `Grows`
-      runs every frame and the number never moves.
-      So the remaining question is about the SNAPSHOT's signature and not about the generators:
-      either it takes two regions, or the ground stream serves more than its own zoom.
-      The old blocker, kept for the record:
-      `SnapshotOver` returns `Taken` only when the patch, the classes AND the features all stand,
-      and `FeaturesOver` returns null unless all FOUR vector fields are handed in -- an
-      `OsmField`, a `BuildingField`, a `WaterField` and a `StreetField`.
-      `Surrounds` (`src/engine/EngineHeld.h:241`) holds a height stack, `Structures` and the
-      `Generates` registry, and **no vector field at all**. The only `OsmField` this tree ever
-      constructs is a LOCAL VARIABLE in `Sim::DriveAssembly` (`src/sim/DriveAssembly.cpp:107`):
-      it is built over the corridor, it lays the road graph, and it is destroyed when the call
-      returns. It carries Streets and StreetPolygons only -- no buildings, no water.
-      So the arrow is not a call that is missing; it is a HOLDER. The world's vector fields have
-      no owner with a lifetime longer than one road-graph build, and until one exists a placement
-      generator in the engine reads the same unmapped ground
-      `outshine/geo/ScoreWhatAPlacementGeneratorYields` hands in by construction.
+- [x] **ONE REGION, EACH SOURCE AT ITS OWN RESOLUTION.** Unreal and RAGE both sample every
+      streaming source at its own granularity into one working frame; neither forces a tile index
+      on two sources. `GroundQuery` gained `BlockZoom()` and `SnapshotOver` asks the heights for
+      the ANCESTOR block that contains its region, so a region at the vector zoom finds the ground
+      block that covers it. Two more one-shots went with it: `Composes` and `Restand` each ran
+      ONCE, in assembly, against builders that are asynchronous -- the placement chain is
+      `Engine::State::Grows` and both run every frame now. The anchor that `WaterField` and
+      `BuildingField` assert on moved into field SET-UP, where it belongs, because re-anchoring an
+      ingested field is what its assertion is there to catch.
+      proof: outshine/door/ScoreWhatAMovingSceneResends reads `2309 bod(y|ies)` placed over a
+      world holding 14729 streets, 123 water surfaces and 22691 footprints, chain step 47 -- patch,
+      classes and features all standing. khronos/glTF 444/444.
+      negative control: taking the ancestor block away drops the chain to step 40 and 0 bodies.
 - [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
       stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
       string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a

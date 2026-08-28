@@ -97,7 +97,10 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
 }
 
 bool Engine::State::Updates(void) {
-  if (Ticking.Drove) { (void)Grows(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon); }
+  if (Ticking.Drove) {
+    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+    (void)Grows(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+  }
 
   if (Ticking.Drove) {
     if (Ticking.Steps >= Ticking.MostSteps) {

@@ -134,25 +134,29 @@ int main(void) {
   // species heights from `src/assets/world/species/`, per-template tree density from
   // `vegetation.json`'s `trees.perM2`, and the treeline from its `alpineLimit`.
   //
-  // MEASURED FROM BOTH SIDES, and it is the next blocker rather than this case's failure. The
-  // chain reaches step 40: the registry stands, the table stands, the vector fields stand, and
-  // `SnapshotOver` returns with no patch, no classes and no features.
-  //
-  // The cause is ONE REGION FOR TWO ZOOMS, and it is `GroundStream::BlockAt`'s first line --
-  // `if (z != Surface_.Z) return block;` -- so the ground stream serves exactly its own zoom and
-  // answers Missing for any other. Both sides were moved to prove it:
-  //
-  //   region at the VECTOR zoom (14)   patch MISSING, vectors 1813 / 3 / 1849
-  //   region at the GROUND zoom (12)   patch STANDS (step 41), vectors 0 / 0 / 0
-  //
-  // Neither zoom serves both, so this is not a fetch that has not landed and not a retry that is
-  // missing -- `Grows` already runs every frame. It is `SnapshotOver`'s signature: it takes ONE
-  // `Tile` for two sources that live at different resolutions. That is board:1948's remaining
-  // predicate, and it is a question about the snapshot and not about the generators.
+  // MEASURED, AND THREE WRITTEN CAUSES DIED ON THE WAY. `SnapshotOver` takes ONE `Tile` for two
+  // sources at different resolutions: the vector provider's finest is 14 and the ground stream
+  // serves only its own zoom -- `GroundStream::BlockAt` opens with
+  // `if (z != Surface_.Z) return block;`. Both benchmarks sample each streaming source at its own
+  // granularity into one working frame rather than forcing a tile index on both, so `GroundQuery`
+  // gained `BlockZoom()` and the snapshot asks for the ANCESTOR block that contains its region.
+  // Then the classes and the features were still missing, and the reason was the same one twice:
+  // `Composes` and `Restand` each ran ONCE, in assembly, against builders that are asynchronous.
+  // Both are per-frame now, and the anchor two of the fields assert on moved with them -- it
+  // belongs to setting a field up, not to filling it.
   CHECK(reached >= 40.0,
         "the placement chain is entered at all: the registry is not empty, the ground table "
         "stands and the vector fields are held, so what stops it is the snapshot and not a "
         "missing part -- a step below 40 means one of those three went away again");
+
+  CHECK(grown > 0.0,
+        "**THE ENGINE RUNS A SHIPPED PLACEMENT GENERATOR OVER ITS OWN WORLD**: Unreal's PCG is a "
+        "plugin the LEVEL runs and RAGE keeps map data resident per node; in both, what places "
+        "things reads the world the game is standing in. The forest here is built from "
+        "DECLARATION and not from code -- species heights from `src/assets/world/species/`, "
+        "per-template density from `vegetation.json`'s `trees.perM2`, the treeline from its "
+        "`alpineLimit` -- and a generator tier only a test can reach is a library the product "
+        "does not use");
 
   CHECK(ways > 0.0,
         "**THE WORLD HOLDS ITS OWN VECTOR DATA**: a drive through a city crosses streets, and a "
