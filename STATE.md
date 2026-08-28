@@ -31,7 +31,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `Engine` | Filament | yes |
 | `Scene` | Filament | yes |
 | `View` | Filament | yes |
-| `Camera` | Filament | **not yet** |
+| `Camera` | Filament | yes |
 | `Renderer` | Filament | **not yet** |
 | `Material` | Filament | yes |
 | `MaterialInstance` | Filament | **not yet** |
@@ -40,7 +40,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `IndirectLight` | Filament | **not yet** |
 | `LightManager` | Filament | **not yet** |
 | `SwapChain` | Filament | **not yet** |
-| `Viewport` | Filament | **not yet** |
+| `Viewport` | Filament | yes |
 | `RenderableManager` | Filament | **not yet** |
 | `Georeference` | Cesium | **not yet** |
 | `GlobeAnchor` | Cesium | yes |
@@ -49,7 +49,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `HeightM` | Cesium | yes |
 | `SamplesHeight` | Cesium | yes |
 
-**9 of 20 spoken.** A name here is not a rename to make: it is a promise a client
+**11 of 20 spoken.** A name here is not a rename to make: it is a promise a client
 already understands, and the ones marked *not yet* are what board:2016 owes.
 
 And the verbs, because a client calls those rather than the types:
@@ -199,6 +199,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Bus
     value: Table
     value: Event
+    value: Camera
     value: View
     value: Prismatic
     value: Slip

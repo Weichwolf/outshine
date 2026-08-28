@@ -13,24 +13,24 @@ bool Engine::State::Rides(void) {
 bool Engine::State::Watches(void) {
   if (!Session.Views || !Picture.Standing) { return true; }
   const View &seen = Session.Views->Active();
-  if (!seen.Placed && !seen.Stands.GlobeAnchor) { return true; }
-  double station[3] = {seen.Stands.AtM[0] + seen.OffsetM[0],
-                       seen.Stands.AtM[1] + seen.OffsetM[1],
-                       seen.Stands.AtM[2] + seen.OffsetM[2]};
-  if (seen.Stands.GlobeAnchor) {
-    double heightM = seen.Stands.HeightM;
-    if (seen.Stands.SamplesHeight) {
+  if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return true; }
+  double station[3] = {seen.Sees.Stands.AtM[0] + seen.OffsetM[0],
+                       seen.Sees.Stands.AtM[1] + seen.OffsetM[1],
+                       seen.Sees.Stands.AtM[2] + seen.OffsetM[2]};
+  if (seen.Sees.Stands.GlobeAnchor) {
+    double heightM = seen.Sees.Stands.HeightM;
+    if (seen.Sees.Stands.SamplesHeight) {
       if (!World.Stack.Opened()) {
         Error = "a view samples the ground's height and no ground stands -- a scenario declares a "
                 "world before anything can be placed on it";
         return false;
       }
       const GroundSample under =
-          World.Stack.Ground().At(seen.Stands.LatitudeDeg, seen.Stands.LongitudeDeg);
+          World.Stack.Ground().At(seen.Sees.Stands.LatitudeDeg, seen.Sees.Stands.LongitudeDeg);
       double aslM = 0.0;
       if (!under.TryAslM(&aslM)) {
-        Error = "a view samples the ground at " + Said(seen.Stands.LatitudeDeg) + ", " +
-                Said(seen.Stands.LongitudeDeg) +
+        Error = "a view samples the ground at " + Said(seen.Sees.Stands.LatitudeDeg) + ", " +
+                Said(seen.Sees.Stands.LongitudeDeg) +
                 " and the terrain there is not resident -- the height it stands at is not a "
                 "number this engine may invent";
         return false;
@@ -40,8 +40,8 @@ bool Engine::State::Watches(void) {
     const Ground::EnuFrame frame =
         Ground::EnuFrame::At(Session.Declared.Ground.Lat, Session.Declared.Ground.Lon);
     Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{seen.Stands.LongitudeDeg, seen.Stands.LatitudeDeg, heightM}, &where)) {
-      Error = "a view stands at " + Said(seen.Stands.LatitudeDeg) + ", " + Said(seen.Stands.LongitudeDeg) +
+    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.LongitudeDeg, seen.Sees.Stands.LatitudeDeg, heightM}, &where)) {
+      Error = "a view stands at " + Said(seen.Sees.Stands.LatitudeDeg) + ", " + Said(seen.Sees.Stands.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
@@ -53,14 +53,14 @@ bool Engine::State::Watches(void) {
   Published.Places("the eye, up", station[1], "m");
   Published.Places("the eye, south", station[2], "m");
   double ahead[3];
-  if (seen.Stands.GlobeAnchor) {
-    const double bearing = seen.Stands.BearingDeg * std::numbers::pi / 180.0;
-    const double pitch = seen.Stands.PitchDeg * std::numbers::pi / 180.0;
+  if (seen.Sees.Stands.GlobeAnchor) {
+    const double bearing = seen.Sees.Stands.BearingDeg * std::numbers::pi / 180.0;
+    const double pitch = seen.Sees.Stands.PitchDeg * std::numbers::pi / 180.0;
     ahead[0] = std::cos(pitch) * std::sin(bearing);
     ahead[1] = std::sin(pitch);
     ahead[2] = -std::cos(pitch) * std::cos(bearing);
   } else {
-    const double *const q = seen.Stands.FacingXyzw;
+    const double *const q = seen.Sees.Stands.FacingXyzw;
     ahead[0] = 2.0 * (q[0] * q[2] + q[3] * q[1]);
     ahead[1] = 2.0 * (q[1] * q[2] - q[3] * q[0]);
     ahead[2] = -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
@@ -68,7 +68,7 @@ bool Engine::State::Watches(void) {
   const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
   Gltf::Viewpoint standing;
   if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
-  standing.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
   Picture.Standing->Eye(standing);
   return true;
 }
@@ -120,7 +120,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   if (!Session.Views) { return true; }
 
   const View &seen = Session.Views->Active();
-  if (seen.Placed) { return Watches(); }
+  if (seen.Sees.Placed) { return Watches(); }
 
   const double *const centreM = Ticking.Drive.Stood.CentreM;
   const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
@@ -147,7 +147,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   if (!Gltf::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
-  from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
   if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;
 }

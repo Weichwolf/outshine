@@ -77,14 +77,14 @@ int main(void) {
   outshine::View watches;
   watches.Id = "station";
   watches.Person = "first";
-  watches.Stands.GlobeAnchor = true;
-  watches.Stands.LatitudeDeg = 45.438;
-  watches.Stands.LongitudeDeg = 12.3358;
-  watches.Stands.HeightM = 8.0;
-  watches.Stands.SamplesHeight = true;
-  watches.Stands.BearingDeg = 30.0;
-  watches.Stands.PitchDeg = -4.0;
-  watches.FovDeg = 70.0;
+  watches.Sees.Stands.GlobeAnchor = true;
+  watches.Sees.Stands.LatitudeDeg = 45.438;
+  watches.Sees.Stands.LongitudeDeg = 12.3358;
+  watches.Sees.Stands.HeightM = 8.0;
+  watches.Sees.Stands.SamplesHeight = true;
+  watches.Sees.Stands.BearingDeg = 30.0;
+  watches.Sees.Stands.PitchDeg = -4.0;
+  watches.Sees.FovDeg = 70.0;
   stands.Views.push_back(watches);
 
   if (!engine.declare(stands) || !engine.assemble()) {

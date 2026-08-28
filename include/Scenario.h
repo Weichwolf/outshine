@@ -260,17 +260,22 @@ struct Event {
   std::vector<std::string> Carries;
 };
 
-struct View {
-  std::string Id;
-  std::string Follows;
+struct Camera {
   bool Placed = false;
   Standing Stands;
+  double FovDeg = 0.0;
+};
+
+struct View {
+  std::string Id;
+  Camera Sees;
+  Patch Viewport;
+  std::string Follows;
   std::string Person;
   double OffsetM[3] = {0.0, 0.0, 0.0};
   double DistanceM = 0.0;
   double RisesBy = 0.35;
   double PitchLimitDeg = 89.0;
-  double FovDeg = 0.0;
   double TimeScale = 1.0;
 };
 

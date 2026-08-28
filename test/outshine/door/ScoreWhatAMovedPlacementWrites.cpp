@@ -119,9 +119,9 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   outshine::View watches;
   watches.Id = "watches";
   watches.Person = "third";
-  watches.Placed = true;
-  watches.Stands.AtM[2] = 4.0;
-  watches.FovDeg = 60.0;
+  watches.Sees.Placed = true;
+  watches.Sees.Stands.AtM[2] = 4.0;
+  watches.Sees.FovDeg = 60.0;
   stands.Views.push_back(watches);
   return stands;
 }

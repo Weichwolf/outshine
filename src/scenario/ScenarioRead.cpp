@@ -582,8 +582,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Id = one.Attr("id");
     made.Follows = one.Attr("follows");
     if (Declares(one, "at")) {
-      made.Placed = true;
-      ReadStanding(one.Child("at"), made.Stands);
+      made.Sees.Placed = true;
+      ReadStanding(one.Child("at"), made.Sees.Stands);
     }
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);
@@ -592,7 +592,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.OffsetM[0] = one.Num("offsetX", 0.0);
     made.OffsetM[1] = one.Num("offsetY", 0.0);
     made.OffsetM[2] = one.Num("offsetZ", 0.0);
-    made.FovDeg = one.Num("fovDeg", 0.0);
+    made.Sees.FovDeg = one.Num("fovDeg", 0.0);
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
   }

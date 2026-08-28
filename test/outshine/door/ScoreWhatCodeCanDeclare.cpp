@@ -111,7 +111,7 @@ constexpr const char *kScenario = "apps/driver/src/f31.scenario";
   eyes.OffsetM[0] = -0.494;
   eyes.OffsetM[1] = 1.220;
   eyes.OffsetM[2] = 0.003;
-  eyes.FovDeg = 65.0;
+  eyes.Sees.FovDeg = 65.0;
   made.Views.push_back(eyes);
 
   made.Played.Declared = true;

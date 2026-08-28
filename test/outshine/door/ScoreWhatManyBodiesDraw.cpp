@@ -111,12 +111,12 @@ struct Drew {
 
   outshine::View watches;
   watches.Id = "station";
-  watches.Placed = true;
+  watches.Sees.Placed = true;
   watches.Person = "first";
-  watches.Stands.AtM[0] = 20.0;
-  watches.Stands.AtM[1] = 12.0;
-  watches.Stands.AtM[2] = 60.0;
-  watches.FovDeg = 60.0;
+  watches.Sees.Stands.AtM[0] = 20.0;
+  watches.Sees.Stands.AtM[1] = 12.0;
+  watches.Sees.Stands.AtM[2] = 60.0;
+  watches.Sees.FovDeg = 60.0;
   stands.Views.push_back(watches);
   return stands;
 }
