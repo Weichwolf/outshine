@@ -14,7 +14,7 @@ void Posed::Clears() {
 }
 
 bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnimation animation,
-                  double fps, std::string &error) {
+                  int clip, double fps, std::string &error) {
   if (Read_) { return true; }
   if (!variant.empty()) { Variant_ = Gltf::VariantSelection(variant); }
   if (!File_.ReadFile(path)) {
@@ -22,11 +22,7 @@ bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnim
     return false;
   }
   if (!File_.Animations().empty() && animation == AssetAnimation::Play) {
-    std::vector<int> all((size_t)File_.Animations().size());
-    for (size_t at = 0; at < all.size(); ++at) { all[at] = (int)at; }
-    if (!Gltf::Pose::Build(File_, Span<const int>(all.data(), all.size()), Motion_, error)) {
-      return false;
-    }
+    if (!Gltf::Pose::Build(File_, clip, Motion_, error)) { return false; }
     Moves_ = Motion_.EndS() > 0.0;
     Frames_ = Moves_ ? (int)(Motion_.EndS() * fps + 0.5) : 1;
     if (Frames_ < 1) { Frames_ = 1; }

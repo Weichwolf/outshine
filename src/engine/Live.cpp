@@ -122,7 +122,8 @@ bool Live::Build(std::string &error) {
   }
   if (!Declared_.Stands.empty()) {
     if (!Held_.Stands()) {
-      if (!Held_.Reads(Declared_.Stands, Declared_.Variant, Declared_.Animation, Declared_.Fps,
+      if (!Held_.Reads(Declared_.Stands, Declared_.Variant, Declared_.Animation, Declared_.Clip,
+                       Declared_.Fps,
                        error)) {
         return false;
       }
@@ -131,7 +132,9 @@ bool Live::Build(std::string &error) {
     if (!Pose(0, error)) { return false; }
     for (const std::string &joining : Declared_.Joins) {
       Core::Posed arriving;
-      if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Fps, error)) { return false; }
+      if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Clip, Declared_.Fps, error)) {
+        return false;
+      }
       if (!arriving.Poses(0, Declared_.Fps, error)) { return false; }
       AssetReads_ += 1;
       if (!Held_.Geometry().Append(arriving.Geometry())) {
@@ -590,11 +593,12 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   return true;
 }
 
-bool Live::Restands(std::string stands, std::string variant, AssetAnimation animation,
+bool Live::Restands(std::string stands, std::string variant, AssetAnimation animation, int clip,
                     std::string &error) {
   Declared_.Stands = std::move(stands);
   Declared_.Variant = std::move(variant);
   Declared_.Animation = animation;
+  Declared_.Clip = clip;
   Declared_.Built = nullptr;
   Stoodup_ = false;
   Held_.Clears();

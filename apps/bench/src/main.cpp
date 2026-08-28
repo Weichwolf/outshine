@@ -26,6 +26,7 @@ struct Asked {
   int WidthPx = 1280, HeightPx = 720;
   long Steps = 240;
   bool All = false;
+  int Clip = 0;
 };
 
 struct Took {
@@ -69,6 +70,7 @@ struct Took {
     outshine::Asset shown;
     shown.Uri = "scene.gltf";
     shown.Kind = "gltf";
+    shown.Clip = asked.Clip;
     stands.Assets.push_back(shown);
     if (!engine.Declare(stands)) {
       why = engine.Error();
@@ -116,6 +118,8 @@ int main(int count, char **args) {
     const bool wants = at + 1 < count;
     if (said == "--steps" && wants) {
       asked.Steps = std::strtol(args[++at], nullptr, 10);
+    } else if (said == "--clip" && wants) {
+      asked.Clip = (int)std::strtol(args[++at], nullptr, 10);
     } else if (said == "--scene" && wants) {
       asked.Scene = args[++at];
     } else if (said == "--scenario" && wants) {
@@ -138,6 +142,7 @@ int main(int count, char **args) {
           "                      DamagedHelmet Fox BrainStem ABeautifulGame VirtualCity Sponza\n"
           "  --all               bench every one of them in turn\n"
           "  --steps N           fixed steps to take (default 240)\n"
+          "  --clip N            which of the file's animations plays (default 0)\n"
           "  --scenario PATH     the declaration to drive (default the driver's f31)\n"
           "  --size WxH          the frame to draw when drawing (default 1280x720)\n"
           "  --online            reach the network; offline by default\n\n"

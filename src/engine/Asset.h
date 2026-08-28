@@ -17,7 +17,7 @@ class Posed {
 public:
   void Clears();
   [[nodiscard]] bool Reads(const std::string &path, const std::string &variant,
-                           AssetAnimation animation, double fps, std::string &error);
+                           AssetAnimation animation, int clip, double fps, std::string &error);
   [[nodiscard]] bool Poses(int frame, double fps, std::string &error);
   void Carries(const Gltf::Subject &built) { Geometry_ = built; }
 

@@ -16,7 +16,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
 | `door` | 14/7 | 33% | -- | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
-| `gpu-driven` | 10/5 | 33% | [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3 | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7 | |
+| `gpu-driven` | 10/5 | 33% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
 | `streaming` | 7/0 | 0% | -- | [1946](board/1946_the_generated_world_reaches_the_scene.md) 7 | |
@@ -277,7 +277,7 @@ The heaviest files. Headers and sources counted apart.
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 871 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 698 | `cpp` | `scenario/ScenarioRead.cpp` |
+| 699 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **46** | `h` | *the median of 241 header(s)* |
 | **115** | `cpp` | *the median of 163 source(s)* |
 
@@ -382,7 +382,7 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 251 | 1 | `apps/bench` | `include/` alone |
+| 256 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
 | 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |

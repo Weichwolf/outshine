@@ -106,6 +106,7 @@ struct Asset {
   std::string Kind;
   std::string Variant;
   AssetAnimation Animation = AssetAnimation::Play;
+  int Clip = 0;
 };
 
 struct Standing {

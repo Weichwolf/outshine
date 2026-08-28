@@ -27,6 +27,7 @@ namespace outshine::Core {
 
 struct Declaration {
   AssetAnimation Animation = AssetAnimation::Play;
+  int Clip = 0;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
 
@@ -77,7 +78,7 @@ public:
 
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
   [[nodiscard]] bool Restands(std::string stands, std::string variant, AssetAnimation animation,
-                             std::string &error);
+                             int clip, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);

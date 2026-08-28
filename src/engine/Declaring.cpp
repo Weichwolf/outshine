@@ -108,7 +108,7 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
 
 [[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
   return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
-         a.Animation == b.Animation;
+         a.Animation == b.Animation && a.Clip == b.Clip;
 }
 
 void Engine::Ships(void) {
@@ -153,6 +153,7 @@ bool Engine::Declare(const Scenario &scenario) {
     }
     declared.Variant = subject->Variant;
     declared.Animation = subject->Animation;
+    declared.Clip = subject->Clip;
   }
   declared.DrawsSky = scenario.Ground.Declared && scenario.Ground.AirDensityKgM3 > 0.0;
   const Patch whole;
@@ -231,7 +232,7 @@ bool Engine::Declare(const Scenario &scenario) {
   if (S_->Picture.Standing && SamePicture(S_->Picture.Shown, declared)) {
     if (!SameStand(S_->Picture.Shown, declared) &&
         !S_->Picture.Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
-                                S_->Error)) {
+                                declared.Clip, S_->Error)) {
       return false;
     }
     if (!SameSurfaces(S_->Picture.Shown.Surfaces, declared.Surfaces) &&

@@ -353,6 +353,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Digest = one.Attr("digest");
     made.Kind = one.Attr("kind");
     made.Variant = one.Attr("variant");
+    made.Clip = (int)one.Num("clip", 0.0);
     const std::string animation = one.Attr("animation", "play");
     if (animation == "play") {
       made.Animation = AssetAnimation::Play;
