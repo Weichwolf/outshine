@@ -47,16 +47,33 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
       a light WITH one is a render target, a pass and a matrix. RAGE budgets the expensive half by
       name. Unreal has the same split underneath its grid -- per-light shadow budgets, capped CSM
       resolution -- it simply does not lead with it.
-      *Three*, and this is the consequence that has to be written down before anyone starts:
-      **RAGE's answer is not "raise the constant", it is "a local light is a VOLUME in a deferred
-      pass".** Only the pixels a light covers pay, which is why thousands cost nothing when they
-      are small. outshine's subject pass is FORWARD -- the shader reads a `lights[]` array in the
-      base pass -- so taking RAGE means local lighting moves to volumes and is deferred. Without
-      that, thousands of lights is O(pixels x lights) and the constant is doing real work by
-      standing there.
-      What this predicate therefore owes: the scene buffer loses its ceiling, local lights become
-      volumes drawn deferred, `kMaxSubjectLights` becomes the budget for what a single volume-less
-      forward draw may still carry, and the SHADOW-caster set is budgeted separately and small.
+      *Three*, and this is where the first pass at this decision was WRONG and is corrected here.
+      RAGE's answer is not "raise the constant" -- it is "a local light is a VOLUME in a deferred
+      pass", and only the pixels a light covers pay. That is right for RAGE and it is the more
+      expensive answer HERE. outshine's subject pass is FORWARD. Deferred means a G-buffer --
+      normal, albedo, roughness/metalness, depth -- four targets over 921 600 pixels EVERY FRAME,
+      whether the scene holds ten lights or a thousand. On five GPU cores with shared memory
+      bandwidth is the constraint, so that trades a permanent cost for a problem that only appears
+      when many lights stand close together.
+      **Unreal's clustered grid needs no G-buffer.** Forward+ is exactly this: a compute pass, a
+      grid buffer, and a shader that reads the short list of its own cell. The transmission and
+      composite path that already works here is untouched.
+
+      **So the decision takes from BOTH, at two different questions, which is what CLAUDE.md asks
+      for where they differ:**
+
+      | question | taken from | why |
+      |---|---|---|
+      | how many lights may exist, and how does a pixel find them | **Unreal**, clustered grid | outshine is forward; a grid forces no G-buffer, volumes do |
+      | what is expensive, and what is budgeted | **RAGE**, a small separately declared shadow set | the asymmetry is real and belongs named |
+
+      What this predicate therefore owes: the scene buffer loses its ceiling, a compute stage bins
+      lights into cells, `kMaxSubjectLights` becomes the PER-CELL constant (16 is plausible and in
+      Unreal's own order of magnitude), and the SHADOW-caster set is budgeted separately and small.
+
+      **The measurement that would show this wrong**: if a G-buffer's bandwidth at 720p on this
+      device is cheaper than the compute pass plus the per-pixel cell walk. That is measurable and
+      the number decides, not the derivation above.
       **The exact Unreal defaults (grid pixel size, Z slices, culled lights per cell) are to be
       read before they are quoted** -- CLAUDE.md's rule is that a declared number is right before
       it is written, and this item will carry them.
