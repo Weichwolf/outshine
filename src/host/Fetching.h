@@ -34,6 +34,7 @@ public:
   [[nodiscard]] Data::Ticket Begin(const std::string &url) override;
   [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;
   void Cancel(Data::Ticket ticket) override;
+  [[nodiscard]] bool Await(double forMs) override;
 
   [[nodiscard]] int ThreadCount() const { return (int)Threads_.size(); }
 
@@ -53,6 +54,8 @@ private:
   Config Config_;
   std::mutex Mutex_;
   std::condition_variable Wake_;
+  std::condition_variable Landed_;
+  uint64_t Completions_ = 0;
   std::map<uint64_t, Transfer> Transfers_;
   std::vector<uint64_t> Queue_;
   uint64_t NextTicket_ = 1;

@@ -16,6 +16,8 @@
 #include "DeclaredSources.h"
 #include "SourceSet.h"
 #include "TilePool.h"
+#include <condition_variable>
+
 #include "Transport.h"
 
 // A WAIT FOR A TILE ENDS, AND THIS IS THE INSTRUMENT THAT CAN SAY SO.
@@ -73,9 +75,20 @@ public:
 
   void Cancel(outshine::Data::Ticket ticket) override { (void)ticket; }
 
+  [[nodiscard]] bool Await(double forMs) override {
+    std::unique_lock<std::mutex> held(Guard_);
+    const bool stood = Released_;
+    return Landed_.wait_for(held, std::chrono::microseconds((long long)(forMs * 1000.0)),
+                            [this, stood] { return Released_ != stood; }) &&
+           Released_ != stood;
+  }
+
   void Release(void) {
-    std::lock_guard<std::mutex> held(Guard_);
-    Released_ = true;
+    {
+      std::lock_guard<std::mutex> held(Guard_);
+      Released_ = true;
+    }
+    Landed_.notify_all();
   }
 
   [[nodiscard]] size_t Asked(void) {
@@ -85,6 +98,7 @@ public:
 
 private:
   std::mutex Guard_;
+  std::condition_variable Landed_;
   uint64_t Issued_ = 0;
   size_t Asked_ = 0;
   bool Released_ = false;

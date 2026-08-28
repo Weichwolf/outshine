@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_DATA_TRANSPORT_H
 
 #include <chrono>
+#include <thread>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -55,6 +56,11 @@ public:
 
   [[nodiscard]] virtual Wire Collect(Ticket ticket) = 0;
   virtual void Cancel(Ticket ticket) = 0;
+
+  [[nodiscard]] virtual bool Await(double forMs) {
+    std::this_thread::sleep_for(std::chrono::milliseconds((long)(forMs > 0.0 ? forMs : 0.0)));
+    return false;
+  }
 
   [[nodiscard]] virtual double NowMs() {
     return (double)std::chrono::duration_cast<std::chrono::milliseconds>(

@@ -209,7 +209,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
     }
     switch (answer.Where()) {
       case Data::Delivery::State::Pending:
-        std::this_thread::sleep_for(std::chrono::milliseconds(kPollMs));
+        (void)Wire_.Await((double)kPollMs);
         break;
       case Data::Delivery::State::Vacant:
 

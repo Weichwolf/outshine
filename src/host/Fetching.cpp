@@ -92,6 +92,16 @@ void Fetching::Cancel(Data::Ticket ticket) {
   found->second.Cancelled = true;
 }
 
+bool Fetching::Await(double forMs) {
+  std::unique_lock<std::mutex> lock(Mutex_);
+  const uint64_t stood = Completions_;
+  const bool outstanding = !Transfers_.empty();
+  if (!outstanding) { return false; }
+  return Landed_.wait_for(lock, std::chrono::microseconds((long long)(forMs * 1000.0)),
+                          [this, stood] { return Stopping_ || Completions_ != stood; }) &&
+         Completions_ != stood;
+}
+
 void Fetching::Work() {
   CURL *handle = curl_easy_init();
   for (;;) {
@@ -136,6 +146,8 @@ void Fetching::Work() {
       continue;
     }
     found->second.Done = true;
+    ++Completions_;
+    Landed_.notify_all();
     if (result != CURLE_OK) {
       found->second.Unreachable = true;
     } else {

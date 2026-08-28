@@ -156,6 +156,18 @@ not being forced through with a third variation of the same error.
       So the order is: `Data::Transport` gains the missing verb -- one place to wait, io_uring's
       own shape -- THEN the pool stops polling, THEN a mesh job can park. Attempted in the other
       order three times.
+      **The verb is in.** `Transport::Await(forMs)` waits until a ticket lands or the time is up
+      and says which; its default sleeps and says no, so a transport that cannot complete behaves
+      exactly as before. `Host::Fetching` implements it -- its worker threads already know the
+      moment `curl_easy_perform` returns, and now they notify -- and `TilePool::FetchInto` waits
+      on it where it used to `sleep_for(kPollMs)`.
+      **What it does NOT yet prove, stated plainly**: no test in this tree shows a number moving.
+      `ScoreWhenAWaitForATileEnds` reads 0.008 s and 88 asks before and after, because it measures
+      the CALLER's poll loop and its stub transport answers at once; the driver's drive runs on a
+      warm cache and fetches nothing. The gain needs a cold cache and a live network, which no
+      case here has. What WOULD show the change is bad is the same case's wait-end time and the
+      geo suite -- both unchanged, 12/12 -- so this is a shape held without a regression, and the
+      number that pays for it arrives with the next step, not this one.
       Guarded meanwhile: `outshine/geo/ScoreWhenAWaitForATileEnds` now CHECKS the number it had
       only printed. It stands at 1 and 2 and may only fall.
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
