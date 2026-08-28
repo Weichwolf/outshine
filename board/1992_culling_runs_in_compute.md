@@ -77,3 +77,21 @@ over -- its own.
 `ClustersDrawn` through the door so this item has its before-number, then move the clusters to the
 device, then dispatch. Building the stage first would leave the win unmeasurable, which is what
 board:1993's `apps/bench` reading exists to prevent.
+
+## The before-number, and the CPU is already doing the work well
+
+`Engine::State::Composes` publishes them now and `apps/bench` prints them. Over the drive:
+
+    clusters the ring holds     342
+    clusters it drew             83
+
+**So the selection already discards three quarters of the clusters** -- the DAG's cut is working
+and the win a compute stage buys is not "fewer clusters drawn", it is "the CPU stops walking 342
+of them per frame". That is a different claim from the one this item's title suggests, and it is
+the honest one: correctness is not at stake, the CPU term is.
+
+Which sharpens the fourth predicate. `a scene with an occluder draws fewer clusters than the same
+scene without it` is about OCCLUSION and the selection above is about ERROR -- a cluster is cut
+because its screen-space error is small, not because something stands in front of it. There is no
+occlusion culling in this tree at all today, so that predicate is a second feature wearing the
+same item's number, and the HiZ predicate beside it is its real name.
