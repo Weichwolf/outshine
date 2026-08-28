@@ -183,13 +183,17 @@ int main(int count, char **args) {
         const size_t took = what.find(", took");
         if (took == std::string::npos || held.How <= 0.0) { continue; }
         const std::string named = what.substr(0, took);
-        double triangles = 0.0, draws = 0.0;
+        double triangles = 0.0, draws = 0.0, surfaces = 0.0, placements = 0.0;
         for (const outshine::Measure &beside : stood.Rows) {
           if (beside.What == named + ", triangles") { triangles = beside.How; }
           if (beside.What == named + ", drew") { draws = beside.How; }
+          if (beside.What == named + ", surfaces") { surfaces = beside.How; }
+          if (beside.What == named + ", placements") { placements = beside.How; }
         }
-        std::printf("    %-22s %7.3f ms  %5.0f draw(s)  %8.0f tri  %9.0f tri/ms\n", named.c_str(),
-                    held.How, draws, triangles, triangles / held.How);
+        std::printf("    %-22s %7.3f ms  %5.0f draw(s)  %8.0f tri  %9.0f tri/ms"
+                    "   %4.0f surface(s)  %4.0f placement(s)\n",
+                    named.c_str(), held.How, draws, triangles, triangles / held.How, surfaces,
+                    placements);
       }
     }
     return refused == 0 ? 0 : 1;

@@ -187,6 +187,8 @@ public:
     double TookMs = 0.0;
     uint32_t Draws = 0;
     uint32_t Triangles = 0;
+    uint32_t Surfaces = 0;
+    uint32_t Placements = 0;
   };
 
   [[nodiscard]] const Effort &Spent(Stage stage) const { return Spent_[(size_t)stage]; }

@@ -298,6 +298,10 @@ void Engine::State::Tells(void) {
       Published.Places(std::string(Row(stage).Name) + ", drew", (double)spent.Draws, "draws");
       Published.Places(std::string(Row(stage).Name) + ", triangles", (double)spent.Triangles,
                        "triangles");
+      Published.Places(std::string(Row(stage).Name) + ", surfaces", (double)spent.Surfaces,
+                       "slots");
+      Published.Places(std::string(Row(stage).Name) + ", placements", (double)spent.Placements,
+                       "slots");
     }
   }
   if (Cost.Render.Count > 0) {

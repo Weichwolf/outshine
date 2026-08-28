@@ -28,7 +28,6 @@ Step 'the tiers and what stands wider'  sh test/run.sh --audit-layers --audit-ac
 Step 'khronos static'               sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'             sh test/run.sh khronos/glTF/BoxAnimated
 Step 'the simulation, content, mix'  sh test/run.sh outshine/physics outshine/content outshine/audio
-Step 'the client drives'            ./build/outshine-driver --headless --offline --frames 8
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"
 # THE COVERAGE LINE COUNTS RATHER THAN REMEMBERS. It said 27 while the suite held 29, and a
@@ -36,7 +35,11 @@ printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date 
 # one about what is.
 printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
   "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
-printf 'the validator, wpt, test262, the render corpus and the claims. A change to SubjectProxy,\n'
+printf 'the validator, wpt, test262, the render corpus and the claims. AND NO apps/ RUNS HERE:\n'
+printf 'a client is a product, not a check. The one that stood here held this gate for ten\n'
+printf 'minutes when it hung and left three processes behind that poisoned every later run.\n'
+printf 'test/run.sh apps is where a client is run; apps/bench is where one is measured.\n'
+printf 'A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
 printf 'because the door cases are the only ones that compile against it. A full verdict is\n'
 printf 'test/run.sh.\n'

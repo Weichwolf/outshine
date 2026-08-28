@@ -552,12 +552,19 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   spent.Draws = 0;
   spent.Triangles = 0;
+  spent.Surfaces = 0;
+  spent.Placements = 0;
   if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
     const SubjectDraw &drew = stage == Stage::Subjects ? Subjects_ : Glass_;
+    uint32_t surfaces = 0, placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
       spent.Draws += 1u;
       spent.Triangles += batch.IndexCount / 3u;
+      surfaces = batch.MaterialSlot + 1u > surfaces ? batch.MaterialSlot + 1u : surfaces;
+      placements = batch.ModelSlot + 1u > placements ? batch.ModelSlot + 1u : placements;
     }
+    spent.Surfaces = surfaces;
+    spent.Placements = placements;
   }
 }
 
