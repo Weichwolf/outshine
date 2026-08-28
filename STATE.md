@@ -23,6 +23,35 @@ whose proof this tree does not hold is reported rather than counted.
 
 ## Door -- `include/`
 
+The door speaks **Filament** for the renderer and **Cesium** for the Earth
+(CLAUDE.md). What a reader already owns, and whether this door says it yet:
+
+| the name a client knows | from | here |
+|---|---|---|
+| `Engine` | Filament | yes |
+| `Scene` | Filament | yes |
+| `View` | Filament | yes |
+| `Camera` | Filament | **not yet** |
+| `Renderer` | Filament | **not yet** |
+| `Material` | Filament | yes |
+| `MaterialInstance` | Filament | **not yet** |
+| `TransformManager` | Filament | **not yet** |
+| `Skybox` | Filament | **not yet** |
+| `IndirectLight` | Filament | **not yet** |
+| `LightManager` | Filament | **not yet** |
+| `SwapChain` | Filament | **not yet** |
+| `Viewport` | Filament | **not yet** |
+| `RenderableManager` | Filament | **not yet** |
+| `Georeference` | Cesium | **not yet** |
+| `GlobeAnchor` | Cesium | yes |
+| `LongitudeDeg` | Cesium | yes |
+| `LatitudeDeg` | Cesium | yes |
+| `HeightM` | Cesium | yes |
+| `SamplesHeight` | Cesium | yes |
+
+**9 of 20 spoken.** A name here is not a rename to make: it is a promise a client
+already understands, and the ones marked *not yet* are what board:2016 owes.
+
 ### `Event.h`
 
     value: Argument
@@ -244,7 +273,7 @@ flowchart LR
   engine --> |3| base_spatial
   content_shade --> |3| base_math
 ```
-  37 edge(s) drawn, 46 thinner than three includes not drawn
+  37 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 

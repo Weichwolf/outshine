@@ -761,6 +761,35 @@ fi
 # generated page must not carry.
 StateDoor() {
   printf '\n## Door -- `include/`\n'
+  # THE DISTANCE TO FILAMENT AND CESIUM IS A NUMBER THIS PAGE PRINTS (board:2016). CLAUDE.md says
+  # the door speaks their vocabulary; a rename that is remembered rather than measured stalls
+  # halfway. Each row is a name a client already owns and whether include/ carries it yet.
+  printf '\nThe door speaks **Filament** for the renderer and **Cesium** for the Earth\n'
+  printf '(CLAUDE.md). What a reader already owns, and whether this door says it yet:\n\n'
+  printf '| the name a client knows | from | here |\n|---|---|---|\n'
+  doorText=$(cat include/*.h)
+  spoken=0
+  total=0
+  for pair in \
+    'Engine:Filament' 'Scene:Filament' 'View:Filament' 'Camera:Filament' 'Renderer:Filament' \
+    'Material:Filament' 'MaterialInstance:Filament' 'TransformManager:Filament' \
+    'Skybox:Filament' 'IndirectLight:Filament' 'LightManager:Filament' 'SwapChain:Filament' \
+    'Viewport:Filament' 'RenderableManager:Filament' \
+    'Georeference:Cesium' 'GlobeAnchor:Cesium' 'LongitudeDeg:Cesium' 'LatitudeDeg:Cesium' \
+    'HeightM:Cesium' 'SamplesHeight:Cesium'; do
+    doorName=${pair%%:*}
+    doorFrom=${pair##*:}
+    total=$((total + 1))
+    if printf '%s' "$doorText" | grep -q "\\b$doorName\\b"; then
+      printf '| `%s` | %s | yes |\n' "$doorName" "$doorFrom"
+      spoken=$((spoken + 1))
+    else
+      printf '| `%s` | %s | **not yet** |\n' "$doorName" "$doorFrom"
+    fi
+  done
+  printf '\n**%d of %d spoken.** A name here is not a rename to make: it is a promise a client\n' \
+    "$spoken" "$total"
+  printf 'already understands, and the ones marked *not yet* are what board:2016 owes.\n'
   for header in include/*.h; do
     printf '\n### `%s`\n\n' "${header#include/}"
     sed -n 's|^struct \([A-Za-z]*\) {|value: \1|p; s|^class \([A-Za-z]*\) {|type: \1|p' \

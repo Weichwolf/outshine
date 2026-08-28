@@ -24,7 +24,9 @@ bool Engine::Assemble() {
   if (named == 0) {
     S_->Ticking.Drove = false;
     if (!S_->Routes()) { return false; }
-    return S_->Composes();
+    if (!S_->Composes()) { return false; }
+    const bool standsOnAWorld = declared.Ground.Declared || S_->Ticking.Drove;
+    return !standsOnAWorld || S_->Rides();
   }
   if (!S_->Cast.Scene.Open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
       !S_->Cast.Drives.Open(S_->Cast.Scene) || !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
@@ -156,7 +158,8 @@ bool Engine::State::Routes(void) {
     Published.Places("the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
   }
   if (!Composes()) { return false; }
-  if (!Rides()) { return false; }
+  const bool aWorldStands = Session.Declared.Ground.Declared || Ticking.Drove;
+  if (aWorldStands && !Rides()) { return false; }
   return true;
 }
 
