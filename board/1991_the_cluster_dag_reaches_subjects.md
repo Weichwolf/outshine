@@ -57,10 +57,21 @@ property Karis spends most of the talk on. `grep -rln ClusterDag src/*.cpp` find
 Without it, culling in compute (board:1992) has nothing to cull at a useful granularity: it can
 reject a whole subject or keep it, which is what a CPU frustum test already does.
 
-**And the second spelling is the real defect.** `TilePool` builds `TerrainMesh` and its own DAG
-inside the streaming path, so the tree has TWO routes from data to drawable geometry: one for
-terrain and one for everything else. CLAUDE.md allows two FORMS -- authored and cooked -- and no
-third, and two cookers is a third by another name.
+**"The second spelling" was WRONG IN DETAIL and the measurement says how.** `TileDagBuild` does
+not build a second DAG -- it CALLS `ClusterDagBuild`, adding two things a tile needs: the local
+up-vector, derived from the tile's own ECEF origin, and the SKIRT appended as a cluster with zero
+error and a root parent, so a skirt is never simplified away. That is an adapter, not a cooker,
+and the tier chain is intact.
+
+What was actually there was a DEAD DUPLICATE DOOR. `TilePool::Dag(id, soup, nverts, seamAttr,
+out)` posted a `Rank::Dag` job that `RunDag` served with its own copy of the same build-plus-
+fallback, and **no caller anywhere in `src/`, `apps/` or `test/`**. Its one distinguishing feature
+was a seam class -- `kSeam[8]` of `SeamAt<A>`, classifying a vertex by whether attribute A is
+negative -- and nothing in the tree ever writes that sentinel, so the mechanism had no caller AND
+no input. Deleted: the door, the job rank, `RunDag`, `DagKey`, `Job::Soup`, `Job::SeamAttr`, the
+seam pickers and their two ledger counters. `ClusterDagOpts::ClassOf` stays, because a caller with
+a real class function is a thing that can exist; eight pickers over a convention nobody writes
+are not.
 
 ## How
 
@@ -90,8 +101,13 @@ producer, not a second cooker.
       first for this reason. So the cooked form carries a DAG when the geometry does not deform,
       and the tier chain is unchanged: one cooker, one cooked form, and the DAG is a part of it
       that a deforming mesh leaves empty.
-- [ ] terrain reaches the picture as a GENERATOR's `Geometry`, cooked by the one cooker -- not as
-      a mesh the tile pool builds on its own
+- [x] there is ONE cooker and it is reached once. `TileDagBuild` was already an adapter over
+      `ClusterDagBuild`; the duplicate `Rank::Dag` door that re-implemented it -- with no caller
+      and no input for the seam class it alone offered -- is gone.
+      proof: outshine/geo 8/8 and the gate, unchanged by its removal
+- [ ] terrain reaches the picture as a GENERATOR's `Geometry` rather than as a mesh the tile pool
+      builds on its own -- the remaining half, and now a question about the PRODUCER rather than
+      about the cooker
 - [ ] a subject at distance draws fewer triangles than the same subject up close -- measured over
       a declared camera move, not asserted
 - [ ] the cut is per CLUSTER: two subjects at different distances in one frame select different

@@ -32,16 +32,11 @@ uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)
        | ((uint64_t)(x & 0xFFFFFFFu) << 28) | (uint64_t)(y & 0xFFFFFFFu);
 }
-uint64_t DagKey(int id) { return ((uint64_t)2 << 62) | (uint64_t)(uint32_t)id; }
 uint64_t RequestKey(const std::string &key) {
   uint64_t h = 1469598103934665603ull;
   for (char c : key) h = (h ^ (uint64_t)(uint8_t)c) * 1099511628211ull;
   return ((uint64_t)3 << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
-
-template <int A> int SeamAt(const float *v) { return v[A] < 0.0f ? 1 : 0; }
-int (*const kSeam[8])(const float *) = {SeamAt<0>, SeamAt<1>, SeamAt<2>, SeamAt<3>,
-                                        SeamAt<4>, SeamAt<5>, SeamAt<6>, SeamAt<7>};
 
 }
 
@@ -83,7 +78,6 @@ TilePool::~TilePool() {
              {{"meshTiles", l.MeshTiles}, {"meshAbsent", l.MeshAbsent},
               {"meshRefused", l.MeshRefused},
               {"meshCpuMs", l.MeshCpuMs}, {"meshCpuMsPerTile", l.MeshCpuMs / meshes},
-              {"dags", l.Dags}, {"dagMs", l.DagMs},
               {"fetches", l.Fetches}, {"fetchAbsent", l.FetchAbsent},
               {"fetchRefused", l.FetchRefused},
               {"fetchGaveUp", l.FetchGaveUp}, {"fetchMs", l.FetchMs},
@@ -138,7 +132,7 @@ size_t TilePool::DemCacheBytes() const {
 size_t TilePool::SchedulerBytes() const {
   std::lock_guard<std::mutex> lock(QueueMutex_);
   size_t bytes = CapacityBytes(Queue_);
-  for (const Job &j : Queue_) bytes += (j.Ask ? j.Ask->Key().capacity() : 0) + CapacityBytes(j.Soup);
+  for (const Job &j : Queue_) bytes += j.Ask ? j.Ask->Key().capacity() : 0;
   bytes += TreeNodeBytes<uint64_t>(Posted_.size());
   bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
   for (const std::pair<const uint64_t, Result> &d : Done_)
@@ -372,33 +366,6 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   }
 }
 
-void TilePool::RunDag(const Job &job, Result *out) {
-  const uint32_t nverts = (uint32_t)(job.Soup.size() / kTileVertexFloats);
-  if (nverts < 3) {
-    out->State = Reply::Absent;
-    return;
-  }
-  const float *soup = job.Soup.data();
-  ClusterDag dag;
-  ClusterDagOpts opts;
-  if (job.SeamAttr >= 0 && job.SeamAttr < 8) opts.ClassOf = kSeam[job.SeamAttr];
-  if (ClusterDagBuild(soup, nverts, 8, opts, &dag)) {
-    out->Build.Verts = std::move(dag.Verts);
-    out->Build.Idx = std::move(dag.Idx);
-    out->Build.Clusters = std::move(dag.Clusters);
-  } else {
-
-    out->Build.Verts.assign(soup, soup + job.Soup.size());
-    out->Build.Idx.resize(nverts);
-    for (uint32_t i = 0; i < nverts; i++) out->Build.Idx[i] = i;
-    DagCluster c{};
-    c.Count = nverts;
-    c.ParentErr = kDagRootErr;
-    BoundingSphere(soup, nverts, 8, c.SelfCenter, &c.SelfRadius);
-    out->Build.Clusters.push_back(c);
-  }
-  out->State = Reply::Ready;
-}
 
 void TilePool::Carry(void) {
   StackProbe::Enter(StackProbe::Purpose::Tile);
@@ -474,9 +441,6 @@ void TilePool::Work(int slot) {
       case Rank::Mesh:
         RunMesh(tiles, job, &result);
         break;
-      case Rank::Dag:
-        RunDag(job, &result);
-        break;
       case Rank::Fetch:
         result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
         break;
@@ -491,9 +455,6 @@ void TilePool::Work(int slot) {
         Ledger_.MeshTiles++;
         Ledger_.MeshCpuMs += cpuMs;
         if (result.State == Reply::Absent) Ledger_.MeshAbsent++;
-      } else if (job.Kind == Rank::Dag) {
-        Ledger_.Dags++;
-        Ledger_.DagMs += cpuMs;
       }
     }
     StackProbe::Mark();
@@ -585,17 +546,5 @@ bool TilePool::Known(uint64_t key) {
   return Done_.find(key) != Done_.end() || Posted_.find(key) != Posted_.end();
 }
 
-TilePool::Reply TilePool::Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out) {
-  Job job;
-  job.Kind = Rank::Dag;
-  job.Key = DagKey(id);
-  job.SeamAttr = seamAttr;
-
-  if (!Known(job.Key)) job.Soup.assign(soup, soup + (size_t)nverts * kTileVertexFloats);
-  Result result;
-  const Reply state = Poll(std::move(job), &result);
-  if (state == Reply::Ready) *out = std::move(result.Build);
-  return state;
-}
 
 }

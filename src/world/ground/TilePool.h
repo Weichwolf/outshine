@@ -34,14 +34,14 @@ public:
 
   struct Ledger {
 
-    long long MeshTiles = 0, MeshAbsent = 0, Dags = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
+    long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
     long long Evictions = 0;
 
     long long FetchRefused = 0, MeshRefused = 0;
 
     long long Posts = 0, Repeats = 0, QueueDepth = 0;
 
-    double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0, DagMs = 0.0;
+    double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0;
     long FetchOnCompute = 0;
     double FetchedMB = 0.0;
   };
@@ -71,7 +71,6 @@ public:
 
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
 
-  [[nodiscard]] Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
@@ -95,17 +94,16 @@ public:
 
 private:
 
-  enum class Rank { Dag = 0, Fetch = 1, Mesh = 2 };
+  enum class Rank { Fetch = 0, Mesh = 1 };
 
   struct Job {
     Rank Kind = Rank::Mesh;
-    int Z = 0, Grid = 0, SeamAttr = -1;
+    int Z = 0, Grid = 0;
     uint32_t X = 0, Y = 0;
     uint64_t Key = 0;
     double TileDist = 0.0;
 
     std::optional<Data::Request> Ask;
-    std::vector<float> Soup;
   };
 
   struct Result {
@@ -125,7 +123,6 @@ private:
   void Work(int slot);
   void Carry(void);
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
-  void RunDag(const Job &job, Result *out);
   [[nodiscard]] Reply Poll(Job &&job, Result *out);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(int z, uint32_t x, uint32_t y) const;
