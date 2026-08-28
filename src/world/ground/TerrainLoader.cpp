@@ -372,13 +372,14 @@ void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, i
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
 }
 
-TilePool::Config GroundPoolConfig(double lat, double lon, int workers) {
+TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double patienceS) {
   TilePool::Config config;
   config.OriginLatDeg = lat;
   config.OriginLonDeg = lon;
   config.Threads = DerivedThreads(workers);
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;
+  if (patienceS > 0.0) { config.PollAttempts = (int)(patienceS * 1000.0); }
   return config;
 }
 

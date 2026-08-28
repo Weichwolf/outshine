@@ -33,7 +33,8 @@ public:
 
   [[nodiscard]] bool Open(std::string_view cacheDir, std::string_view assetsDir,
                           std::span<const Provider> providers, double focusLat,
-                          double focusLon, Data::Transport &wire, Sink &say);
+                          double focusLon, Data::Transport &wire, Sink &say,
+                          double patienceS = 0.0);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }

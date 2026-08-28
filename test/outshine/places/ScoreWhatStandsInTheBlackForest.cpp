@@ -67,6 +67,10 @@ int main(void) {
   outshine::Scenario stands;
   stands.Ground.Declared = true;
   stands.Ground.Lat = kLatDeg;
+  // A COLD FETCH IS BOUNDED BY THE DECLARATION, not by the runner's axe. WorldSettings carries
+  // PatienceS and nothing here had used it: a place whose tiles are not cached must SAY so in
+  // seconds rather than be killed at 120 and report nothing (board:1778, board:2009).
+  stands.Ground.PatienceS = 3.0;
   stands.Ground.Lon = kLonDeg;
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{kWidePx, kHighPx};

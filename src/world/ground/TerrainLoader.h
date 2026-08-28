@@ -91,7 +91,8 @@ private:
   std::unique_ptr<Held> Held_;
 };
 
-[[nodiscard]] TilePool::Config GroundPoolConfig(double lat, double lon, int workers = 0);
+[[nodiscard]] TilePool::Config GroundPoolConfig(double lat, double lon, int workers = 0,
+                                               double patienceS = 0.0);
 
 }
 

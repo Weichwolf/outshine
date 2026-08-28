@@ -390,6 +390,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/world/weather/ConstantWindWeather.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |
+| 1 | `src/world/ground/GroundStack.h` |
 | 1 | `src/world/ground/ClassField.h` |
 | 1 | `src/world/data/StarBands.h` |
 | 1 | `src/scenario/Tables.h` |

@@ -99,7 +99,8 @@ bool Engine::State::Composes(void) {
   if (!World.Stack.Opened() &&
       !World.Stack.Open(Session.Under.Cache, Session.Under.Shipped,
                       {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                      atLat, atLon, *World.Wire, say)) {
+                      atLat, atLon, *World.Wire, say,
+                      Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }

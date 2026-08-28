@@ -13,7 +13,8 @@ constexpr int kVectorRing = 1;
 
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
                        std::span<const Provider> providers, double focusLat,
-                       double focusLon, Data::Transport &wire, Sink &say) {
+                       double focusLon, Data::Transport &wire, Sink &say,
+                       double patienceS) {
   Close();
   const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
   say.Number("the focus latitude the stack was asked for", focusLat, "deg");
@@ -41,7 +42,7 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   surface.Z = 12;
   surface.Grid = 64;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(
-      outshine::Ground::GroundPoolConfig(focusLat, focusLon), sources, wire);
+      outshine::Ground::GroundPoolConfig(focusLat, focusLon, 0, patienceS), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
   Cls_.Open(focusLat, focusLon);
