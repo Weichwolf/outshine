@@ -26,7 +26,23 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
 
 - [ ] the shadow pass issues ONE indirect draw from the resident instance buffer, not one
       `PushGPUVertexUniformData` per batch (board:1926)
-- [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` stops
+- [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` MOVES
+      rather than stops. **Both benchmarks cap, and both cap somewhere else than this tree does.**
+      Unreal (UE5, deferred + clustered): a compute pass fills a froxel grid and a pixel reads only
+      the lights of ITS cell -- the scene holds thousands, the per-CELL list is short, and that is
+      where the constant lives. Forward+ adds a scene-wide buffer cap on top. RAGE: lights are
+      volumes in the deferred pass with no per-material cap at all, sorted by importance and
+      truncated per frame, with SHADOW casters a separate and much smaller budgeted set.
+      **They agree on the structure**: a scene-wide buffer with no small cap, a culling step that
+      bins into cells, a short per-cell list the shader reads, and shadow casters budgeted apart.
+      So `kMaxSubjectLights = 16` is a cap in the one place neither engine caps -- what the whole
+      SUBJECT PASS can see. The number is not wrong; its PLACE is. As a per-cell constant 16 is
+      plausible and in Unreal's own order of magnitude.
+      What this predicate therefore owes: the constant moves from the pass to the cell, the scene
+      buffer loses its ceiling, and the shadow-caster budget is stated separately.
+      **The exact Unreal defaults (grid pixel size, Z slices, culled lights per cell) are to be
+      read before they are quoted** -- CLAUDE.md's rule is that a declared number is right before
+      it is written, and this item will carry them.
       being the light budget (board:1926)
 - [ ] the shadow atlas carries cascades and the shader picks one (board:1926)
 - [ ] the shadow centre folds INSTANCE bounds, not every vertex (board:1926)
