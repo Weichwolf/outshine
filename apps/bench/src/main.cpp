@@ -328,14 +328,17 @@ int main(int count, char **args) {
     const size_t took = what.find(", took");
     if (took == std::string::npos) { continue; }
     const std::string named = what.substr(0, took);
-    double drew = 0.0, triangles = 0.0;
+    double drew = 0.0, triangles = 0.0, surfaces = 0.0, images = 0.0;
     for (const outshine::Measure &beside : lastDrawn) {
       if (beside.What == named + ", drew") { drew = beside.How; }
       if (beside.What == named + ", triangles") { triangles = beside.How; }
+      if (beside.What == named + ", surfaces") { surfaces = beside.How; }
+      if (beside.What == named + ", colour images") { images = beside.How; }
     }
     if (held.How <= 0.0) { continue; }
-    std::printf("  %-22s %8.3f ms   %5.0f draw(s)  %8.0f triangle(s)   %9.0f tri/ms\n",
-                named.c_str(), held.How, drew, triangles, triangles / held.How);
+    std::printf("  %-22s %8.3f ms   %5.0f draw(s)  %8.0f triangle(s)   %9.0f tri/ms"
+                "  %4.0f surface(s)  %4.0f image(s)\n",
+                named.c_str(), held.How, drew, triangles, triangles / held.How, surfaces, images);
   }
 
   std::printf(

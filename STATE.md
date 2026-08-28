@@ -385,7 +385,7 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 328 | 1 | `apps/bench` | `include/` alone |
+| 359 | 1 | `apps/bench` | `include/` alone |
 | 194 | 1 | `apps/demo` | `include/` alone |
 | 253 | 1 | `apps/driver` | `include/` alone |
 | 706 | 3 | `apps/viewer` | **does not link from the library alone** |

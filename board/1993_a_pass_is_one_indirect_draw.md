@@ -118,6 +118,14 @@ neither "bindless" nor descriptor indexing appears anywhere in it. A texture can
 through this layer, so ONE draw for the frame is not reachable and one per material class is the
 honest ceiling. This item already said so and now carries the reason.
 
+**AND THE CEILING BINDS THE CORPUS, NOT THIS ENGINE'S OWN WORLD.** Measured after the paragraph
+above was written: the driven world holds **4 surfaces and 4 images** over 10 draws. Sponza's 25
+and VirtualCity's 167 are VENDOR assets. outshine is procedural and its materials are parameters,
+so "one indirect draw per material class" is, for its own content, four classes -- which is one
+draw and three. The ceiling bounds how well this engine draws OTHER PEOPLE'S textured assets, and
+CLAUDE.md now says where the budget goes instead: geometry, light and shadow, as close to
+texture-free as the work allows.
+
 **The question that follows, named rather than answered here.** Metal 4 has argument buffers, so
 the ceiling is SDL's abstraction and not the hardware. Whether a Nanite-class pipeline can be
 finished on a device layer without bindless is a question about the ARCHITECTURE, not about this
