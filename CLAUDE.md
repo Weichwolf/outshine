@@ -102,7 +102,12 @@ commit, which is why they cannot be skipped quietly — an empty answer is visib
 2. **Does this already exist here, unreachable?** `grep` first. A complete capability no
    declaration reaches is the commonest defect in this tree, and writing a second one is the worst
    outcome available: now there are two, and neither is right
-3. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
+3. **If it draws, LOOK AT IT before believing any number.** A count needs a hypothesis to mean
+   anything and an image needs none: five cases once passed `more than one colour` on a sky
+   gradient over an empty world, and one glance said so where the counter could not. A case that
+   renders keeps its picture where an eye can reach it, and the expectation is WRITTEN DOWN before
+   the looking so that being wrong is visible rather than rationalised
+4. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
    what it reads if the change is bad. A change with no such number is a guess wearing a commit
    message
 

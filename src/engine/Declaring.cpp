@@ -176,7 +176,16 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
     declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
-    if (scenario.Ground.Declared) {
+    const bool anglePut = scenario.Lit.Key.ElevationDeg != 0.0 || scenario.Lit.Key.BearingDeg != 0.0;
+    if (scenario.Ground.Declared && anglePut && scenario.Time.Declared) {
+      S_->Error = "this scenario declares a clock AND hand-sets the key light to " +
+                  Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
+                  Said(scenario.Lit.Key.BearingDeg) +
+                  " -- over a place on Earth only one of the two can be true, and a sun that does "
+                  "not follow the hour disagrees with its own shadows the moment the clock moves";
+      return false;
+    }
+    if (scenario.Ground.Declared && !anglePut) {
       int64_t whenS = 0;
       if (!scenario.Time.Declared || scenario.Time.Start.empty() ||
           !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {

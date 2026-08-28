@@ -39,8 +39,6 @@ constexpr int kHighPx = 720;
 constexpr int kSteps = 8;
 constexpr double kLatDeg = 36.0616;
 constexpr double kLonDeg = -112.1076;
-constexpr double kSunElevationDeg = 55.0;
-constexpr double kSunBearingDeg = 250.0;
 
 [[nodiscard]] size_t Colours(const std::vector<uint8_t> &rgba) {
   size_t apart = 0;
@@ -77,8 +75,6 @@ int main(void) {
   stands.Render.Fill = 0.6;
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = 40000.0;
-  stands.Lit.Key.ElevationDeg = kSunElevationDeg;
-  stands.Lit.Key.BearingDeg = kSunBearingDeg;
 
   outshine::View watches;
   watches.Id = "station";
