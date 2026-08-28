@@ -90,7 +90,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         const std::lock_guard<std::mutex> ledger(LedgerMutex_);
         ++Ledger_.Refused;
       }
-      return Delivery::Wire();
+      return Delivery::WireAfter(kRetryCapMs);
     }
 
     const SourceDecl &decl = query.Current_->Declaration();

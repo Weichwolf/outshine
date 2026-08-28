@@ -1,7 +1,6 @@
 Type: feature
 State: open
 Parent: 1995
-Depends: 1991
 Area: render
 Tags: benchmark, target, gpu-driven
 

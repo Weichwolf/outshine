@@ -82,6 +82,7 @@ public:
   [[nodiscard]] Reply Bytes(const Data::Request &request, Landing *out);
 
   [[nodiscard]] Reply BytesBlocking(const Data::Request &request, Landing *out);
+  [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
   size_t ByteCacheBytes() const;
 
@@ -165,6 +166,7 @@ private:
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;
   std::vector<std::thread> Carriers_;
+  std::unordered_map<uint64_t, std::vector<Job>> Awaiting_;
 };
 
 }

@@ -265,14 +265,21 @@ int main(void) {
   // both alike and spun 818 times in five seconds -- a retry storm wearing a completion queue's
   // clothes.
   //
-  // IT REACHED 0 AND 0 HERE AND HUNG THE DRIVER'S OFFLINE RUN -- `--headless --offline --frames 8`
-  // sat for seventeen minutes where it takes seconds. So the parking is right for this case and
-  // wrong for a run with no wire, and the number below stays a guard rather than a claim.
-  CHECK(onCompute <= 1 && onComputeTwo <= 2,
-        "**AND THE COUNT OF FETCHES ON A COMPUTE WORKER MAY ONLY FALL**: it is 1 and 2 today "
-        "because PoolTerrain::Take blocks the caller, and board:1985 wants zero. The fourth "
-        "attempt reached 0 and 0 here and hung the driver's offline run, so the number stands "
-        "guarded rather than claimed -- it may fall and it may not rise");
+  // FOUR ATTEMPTS FAILED BEFORE THIS ONE HELD, and each named a condition the next needed:
+  //   1, 2  deadlock -- built over a layer with no completions at all
+  //   3     spun 818 times in 5 s -- the completion did not carry its OUTCOME, so a job whose
+  //         fetch gave up was requeued exactly like one whose fetch landed
+  //   4     hung the offline driver 17 minutes -- a REFUSAL was not remembered, so a released job
+  //         asked the same refused key for ever
+  // The fifth holds all three, and the last one needed a second repair the fourth had missed:
+  // `SourceSet` refuses in TWO places and only one of them carried the retry deadline. A source
+  // that answers but whose bytes cannot be taken is refused just as definitely as one that says
+  // no, and it was handing back a deadline of zero -- a refusal remembered for no time at all.
+  CHECK(onCompute == 0 && onComputeTwo == 0,
+        "**A COMPUTE WORKER NEVER BLOCKS ON A SOCKET OR A DISK**: an IO thread that blocks costs "
+        "no core and a compute worker that blocks costs one, which is why IO threads scale with "
+        "concurrent requests and compute threads with cores, and why the two pools cannot merge. "
+        "This count is the whole of that claim and it may only be zero");
 
   Covers("the tile pool: a caller in MeshAwaited is released both when its tile lands and when "
          "the worker gives the job up, proven with a transport the case holds and a poll bound it "

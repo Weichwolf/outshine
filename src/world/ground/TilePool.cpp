@@ -29,6 +29,7 @@ constexpr int kPollAttempts = 30000;
 
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
+thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)
@@ -296,13 +297,17 @@ class PoolTerrain : public TerrainSource {
   TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
     const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
     TilePool::Landing landing;
-    switch (Pool_.BytesBlocking(request, &landing)) {
+    const TilePool::Reply asked =
+        Pool_.Carries() ? Pool_.Bytes(request, &landing) : Pool_.BytesBlocking(request, &landing);
+    switch (asked) {
       case TilePool::Reply::Ready: return Answered(landing);
       case TilePool::Reply::Absent: return TerrainBytes::Nothing();
 
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
       case TilePool::Reply::Refused: return TerrainBytes::Wire();
-      case TilePool::Reply::Pending: break;
+      case TilePool::Reply::Pending:
+        if (Pool_.Carries()) { tAwaited = RequestKey(request.Key()); }
+        break;
     }
     return TerrainBytes::Waiting();
   }
@@ -417,7 +422,17 @@ void TilePool::Carry(void) {
       } else if (Posted_.find(job.Key) != Posted_.end()) {
         Done_[job.Key] = std::move(result);
       }
+      const auto parked = Awaiting_.find(job.Key);
+      if (parked != Awaiting_.end()) {
+        if (result.State != Reply::Pending) {
+          for (Job &held : parked->second) { Queue_.push_back(std::move(held)); }
+        } else {
+          for (Job &held : parked->second) { Posted_.erase(held.Key); }
+        }
+        Awaiting_.erase(parked);
+      }
       Landed_.notify_all();
+      Wake_.notify_all();
     }
   }
 
@@ -456,6 +471,7 @@ void TilePool::Work(int slot) {
     Result result;
     const double blockedBefore = tFetchBlockedMs;
     const auto t0 = std::chrono::steady_clock::now();
+    tAwaited = 0;
     switch (job.Kind) {
       case Rank::Mesh:
         RunMesh(tiles, job, &result);
@@ -464,6 +480,16 @@ void TilePool::Work(int slot) {
         result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
         break;
     }
+    if (result.State == Reply::Pending && tAwaited != 0) {
+      const uint64_t awaited = tAwaited;
+      tAwaited = 0;
+      std::unique_lock<std::mutex> lock(QueueMutex_);
+      if (Posted_.find(awaited) != Posted_.end()) {
+        Awaiting_[awaited].push_back(std::move(job));
+        continue;
+      }
+    }
+    tAwaited = 0;
     const double spanMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
 

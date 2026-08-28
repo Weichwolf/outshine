@@ -122,94 +122,23 @@ wake-up CHAIN has a link for every pair, and every link is a chance to lose a no
 A completion queue has one link. That is why it is the shape to build, and why this predicate is
 not being forced through with a third variation of the same error.
 
-- [ ] a compute worker never blocks on a socket or a disk: `PoolTerrain::Take` requests through
-      `TilePool::Bytes` and the fetch's completion posts the mesh job that was waiting on it
-      -- built as a COMPLETION QUEUE after io_uring's shape, not as a chain of wake-ups.
+- [x] **a compute worker never blocks on a socket or a disk.** `PoolTerrain::Take` asks through
+      the non-blocking `Bytes`, records the fetch key it awaits, and the worker PARKS the mesh job
+      under that key; the carrier's single completion site releases it. Five attempts, and each
+      failure named the condition the next one needed:
 
-      **THIRD ATTEMPT, ROLLED BACK, AND IT FAILED DIFFERENTLY** -- which is worth more than the
-      two before it, because the failure is now specific. Measured: the blocking call is
-      `TilePool::BytesBlocking`, reached from `PoolTerrain::Take` on a COMPUTE worker, and
-      `outshine/geo/ScoreWhenAWaitForATileEnds` already reads `fetches that ran on a COMPUTE
-      worker: 1 and 2` -- it prints the number and does not CHECK it, so the separation has been
-      declared and never held.
+          1, 2  deadlock  -- built over a layer with no completions at all
+          3     spun 818 times in 5 s -- the completion did not carry its OUTCOME
+          4     hung the offline driver 17 minutes -- a REFUSAL was not remembered
+          5     holds all three, plus the repair the fourth missed: `SourceSet` refuses in TWO
+                places and only one carried the retry deadline. A source that answers but whose
+                bytes cannot be taken is refused just as definitely as one that says no, and it
+                handed back a deadline of zero -- a refusal remembered for no time at all.
 
-      The attempt: `Take` asks through non-blocking `Bytes`, records the fetch key it awaits in a
-      thread-local, and the worker PARKS the mesh job under that key -- under `QueueMutex_`, and
-      only if the fetch is still in `Posted_`, so a fetch that completed first requeues instead of
-      parking. The carrier's one completion site releases the parked jobs into `Queue_`.
-
-      What happened: 818 asks in 5 seconds and `condition_variable wait failed: Invalid argument`.
-      So the requeue arm SPINS -- a mesh job whose fetch is not posted goes straight back on the
-      queue and is picked up again at once -- and something about the wake-up is wrong besides.
-      The park half may well be right; the requeue half is a busy loop wearing a completion
-      queue's clothes.
-
-      **AND THE ROOT IS ONE LAYER LOWER THAN EVERY ATTEMPT HAS BEEN.** Chased after the rollback:
-      `FetchInto` POLLS -- a bounded number of attempts with a sleep between them -- and returns
-      `Pending` meaning *not ready, ask again*, whereupon `Posted_.erase` takes it out of flight.
-      So a fetch in this pool has no completion to wait for, and `Data::Transport` is why: its
-      verbs are `Begin` and `Collect`, submission and poll, with nothing for *wait until a ticket
-      lands*. **A completion queue cannot be laid over a layer that cannot complete**, which is
-      what all three attempts were doing.
-      The completion EXISTS and is not handed up: `Host::Fetching` runs its own threads on
-      blocking `curl_easy_perform`, so a ticket's answer is known the moment that call returns.
-      So the order is: `Data::Transport` gains the missing verb -- one place to wait, io_uring's
-      own shape -- THEN the pool stops polling, THEN a mesh job can park. Attempted in the other
-      order three times.
-      **The verb is in.** `Transport::Await(forMs)` waits until a ticket lands or the time is up
-      and says which; its default sleeps and says no, so a transport that cannot complete behaves
-      exactly as before. `Host::Fetching` implements it -- its worker threads already know the
-      moment `curl_easy_perform` returns, and now they notify -- and `TilePool::FetchInto` waits
-      on it where it used to `sleep_for(kPollMs)`.
-      **What it does NOT yet prove, stated plainly**: no test in this tree shows a number moving.
-      `ScoreWhenAWaitForATileEnds` reads 0.008 s and 88 asks before and after, because it measures
-      the CALLER's poll loop and its stub transport answers at once; the driver's drive runs on a
-      warm cache and fetches nothing. The gain needs a cold cache and a live network, which no
-      case here has. What WOULD show the change is bad is the same case's wait-end time and the
-      geo suite -- both unchanged, 12/12 -- so this is a shape held without a regression, and the
-      number that pays for it arrives with the next step, not this one.
-      Guarded meanwhile: `outshine/geo/ScoreWhenAWaitForATileEnds` now CHECKS the number it had
-      only printed. It stands at 1 and 2 and may only fall.
-
-      **FOURTH ATTEMPT: it reached 0 and 0, and hung the driver.** With `Await` in place the park
-      finally worked in the wait case -- `fetches that ran on a COMPUTE worker: 0 and 0`, geo
-      12/12, door 33/33 -- because the completion now CARRIES ITS OUTCOME: a job whose fetch
-      completed goes back on the queue, and a job whose fetch GAVE UP has its own key erased so
-      its caller sees Pending and asks again next round. That is what the third attempt got wrong
-      and why it spun 818 times.
-      One more condition was found and handled: with ZERO carriers nobody serves `Carrying_`, so
-      a parked job waits on a completion that cannot come. `PoolTerrain::Take` blocks as before
-      when the pool carries nothing, and the door suite went green on that.
-      Then the gate hung: `./build/outshine-driver --headless --offline --frames 8` sat for
-      seventeen minutes where it takes seconds. Rolled back -- **and then the third condition was
-      found, so a fifth attempt has all three in writing.**
-
-      `Data::Delivery` has five states and the negative cache remembers exactly ONE of them:
-
-          Delivered -> Ready       Pending -> ask again
-          Vacant    -> Absent      REMEMBERED
-          Refused   -> Refused     NOT remembered
-          Undeclared               NOT remembered
-
-      `Unwired` -- the `--offline` transport -- answers `Wire::Never()` at once, which becomes
-      **Refused**. Without parking the mesh job simply finished: `Take` returned
-      `TerrainBytes::Wire()` and `RunMesh` handled it. With parking the job is RELEASED, runs
-      again, asks again, is refused again, parks again -- forever, because nothing remembers that
-      this key is refused.
-
-      **The third condition is now MET, ahead of the fifth attempt.** `Data::Delivery` carries the
-      retry deadline it was throwing away -- `SourceSet` already computed it from the source's own
-      Retry-After with exponential backoff and dropped it on the floor -- and `TilePool` remembers
-      a refusal until it passes. Not for ever: the deadline is the source's own, so one bad minute
-      does not become a permanent hole.
-      proof: `outshine/geo/ScoreWhenAWaitForATileEnds` asks the same refused key twice and reads
-      `0 transport ask(s) the second time`.
-      negative control: dropping the `RefuseUntil` call makes it read 1 and the case goes RED.
-      That leaves the fifth attempt with all three conditions HELD rather than merely named: the
-      completion carries its outcome, the park is only taken where a carrier exists, and a refusal
-      is remembered with a deadline.
-      The pattern across four attempts is worth naming: each one moved the failure somewhere new
-      -- deadlock, deadlock, spin, and now a hang only the offline driver sees. The suites that
-      go green are not the ones that catch this, and the gate's driver run is.
-- [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
-      the separation is real rather than declared
+      And one condition that is not a bug but a bound: with ZERO carriers nobody serves
+      `Carrying_`, so `Take` blocks as before. The separation exists where IO threads do.
+      proof: outshine/geo/ScoreWhenAWaitForATileEnds reads `fetches that ran on a COMPUTE worker:
+      0 and 0`; the offline driver finishes 8 frames in seconds where it sat for seventeen
+      minutes; outshine/door 33/33, gate GREEN.
+      negative control: the count is CHECKED at zero now -- it read 1 and 2 through four attempts,
+      printed and unproven.
