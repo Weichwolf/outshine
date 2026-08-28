@@ -48,8 +48,8 @@ constexpr double kLatDeg = 49.3777;
 constexpr double kLonDeg = 10.179;
 constexpr double kBearingDeg = 70.0;
 
-constexpr double kEyeAglM = 400.0;
-constexpr double kPitchDeg = -15.0;
+constexpr double kEyeAglM = 60.0;
+constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr double kSunElevationDeg = 60.0;
 constexpr double kSunBearingDeg = 180.0;
@@ -208,7 +208,7 @@ int main(void) {
         held.What.rfind("asks that", 0) == 0 || held.What.rfind("megabytes", 0) == 0 ||
         held.What.rfind("jobs still", 0) == 0 || held.What.rfind("keys with", 0) == 0 ||
         held.What.rfind("jobs parked", 0) == 0 || held.What.rfind("results it", 0) == 0 ||
-        held.What.rfind("jobs waiting", 0) == 0 || held.What.rfind("mesh jobs it dropped", 0) == 0 || held.What.rfind("generators:", 0) == 0) {
+        held.What.rfind("jobs waiting", 0) == 0 || held.What.rfind("mesh jobs it dropped", 0) == 0 || held.What.rfind("generators:", 0) == 0 || held.What.rfind("buildings:", 0) == 0) {
       std::printf("    %s: %.0f %s\n", held.What.c_str(), held.How, held.Unit.c_str());
     }
   }

@@ -478,11 +478,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   const int ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
-  (void)ground.Positions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
-  (void)ground.Normals(ringPart,
-                       std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
-  (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
-                                                             laid->Index.size()));
 
   // THE BUILDINGS STAND IN THE SAME GEOMETRY AS THE GROUND, one part beside the ring's. They are
   // STATIC map data, every one with its own footprint, so there is no prototype to instance -- RAGE
@@ -532,9 +527,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       walls.Roughness = 0.85f;
       const int builtSurface = ground.Surface("walls", walls);
       const int builtPart = ground.Part("buildings", builtSurface);
-      (void)ground.Positions(builtPart, std::span<const float>(raised.data(), raised.size()));
-      (void)ground.Normals(builtPart, std::span<const float>(facing.data(), facing.size()));
-      (void)ground.Triangles(builtPart, std::span<const uint32_t>(run.data(), run.size()));
+      // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
+      // took the data and every one of them was thrown away with a (void), so a part that was never
+      // made and a soup that was never stored looked exactly like geometry standing in the frame.
+      const bool tookPlaces =
+          builtPart >= 0 &&
+          ground.Positions(builtPart, std::span<const float>(raised.data(), raised.size()));
+      const bool tookFacing =
+          tookPlaces && ground.Normals(builtPart, std::span<const float>(facing.data(), facing.size()));
+      const bool tookRun =
+          tookFacing && ground.Triangles(builtPart, std::span<const uint32_t>(run.data(), run.size()));
+      Published.Places("buildings: the part they were given", (double)builtPart, "index");
+      Published.Places("buildings: their surface", (double)builtSurface, "index");
+      Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
+      Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
+      Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
+      Published.Places("buildings: parts the geometry holds", (double)ground.Parts(), "parts");
       Published.Places("building triangles the world meshed", (double)(vertices / 3), "triangles");
       {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
@@ -556,6 +564,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("building triangles the world meshed", 0.0, "triangles");
     }
   }
+
+  (void)ground.Positions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
+  (void)ground.Normals(ringPart,
+                       std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
+  (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
+                                                             laid->Index.size()));
 
   Gltf::Subject laidGround;
   if (!laidGround.Assemble(ground)) {
