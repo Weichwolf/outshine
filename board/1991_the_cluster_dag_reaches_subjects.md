@@ -94,6 +94,18 @@ producer, not a second cooker.
       with no focal length at all.
       negative control: `DagSelect` forced to `true` makes the far eye draw 3 clusters and the
       case goes RED on the comparison that matters.
+- [x] **the cooker takes a subject's own attribute set, and the premise that it could not was
+      WRONG.** This item was about to be worked on the assumption that `ClusterDagBuild` is fixed
+      at the terrain's eight-float soup and therefore cannot cook a subject carrying up to seven
+      streams. Measured: it takes an arbitrary `stride >= 3`, reads the first three floats as
+      POSITION and welds the rest byte-wise as opaque payload, so uv, normal, tangent and colour
+      ride through untouched. Nothing needs widening; what a subject needs is its streams
+      INTERLEAVED, which is the inverse of what `Generators::Meshed` already does.
+      proof: outshine/geo/ScoreWhatOneCookerDoesToASubject cooks 8192 triangles at stride 11 into
+      120 clusters over 3 levels; the finest level covers all 8192 and the errors run 0.0285 to
+      0.200, so a parent is coarser than its children and `DagSelect`'s pair decides something.
+      negative control: one cluster per mesh makes it read `1 cluster(s) over 1 level(s)` and the
+      case goes RED -- a cooker that returns one cluster has not clustered.
 - [ ] **A DEFORMING SUBJECT KEEPS THE PLAIN STREAMS, and that is a decision this item owes.**
       `ClusterDagBuild` rewrites both the vertex and the index buffer -- it SIMPLIFIES -- so a
       subject whose vertices are re-posed every frame would need its DAG rebuilt every frame,
