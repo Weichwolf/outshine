@@ -33,7 +33,14 @@ constexpr const char *kSeed = "src-generators";
 // the shipped generators above. `world` carries the ground fields they stand on and `base`
 // reaches nothing, so both are safe for a foreign program to take. Everything else is outshine's
 // own program, and a library that drags it in is not a library.
-constexpr const char *kMayReach[] = {"src-generators-", "src-world-", "src-base-"};
+[[nodiscard]] std::vector<std::string> MayReach() {
+  std::vector<std::string> allowed{"src-generators-"};
+  for (const std::string &tier : outshine::Test::Lines(
+           outshine::Test::Ask("tr ' ' '\\n' < src/generators/reaches"))) {
+    if (!tier.empty()) { allowed.push_back("src-" + tier + "-"); }
+  }
+  return allowed;
+}
 
 }
 
@@ -67,6 +74,11 @@ int main(void) {
         "green");
   if (walked != 0 || reached.empty()) { return Report(); }
 
+  const std::vector<std::string> reaches = MayReach();
+  std::printf("src/generators/reaches DECLARES  ");
+  for (const std::string &one : reaches) { std::printf("%s ", one.c_str()); }
+  std::printf("\n");
+
   std::vector<std::string> dragged;
   size_t objects = 0, seeded = 0;
   for (const std::string &line : Lines(reached)) {
@@ -74,8 +86,8 @@ int main(void) {
     ++objects;
     if (line.compare(0, std::string(kSeed).size(), kSeed) == 0) { ++seeded; }
     bool allowed = false;
-    for (const char *prefix : kMayReach) {
-      if (line.compare(0, std::string(prefix).size(), prefix) == 0) { allowed = true; }
+    for (const std::string &prefix : reaches) {
+      if (line.compare(0, prefix.size(), prefix) == 0) { allowed = true; }
     }
     if (!allowed) { dragged.push_back(line); }
   }

@@ -115,6 +115,23 @@ int main(void) {
         "reader fills one, a generator fills one, a foreign program fills one with no file "
         "anywhere");
 
+  outshine::Geometry both;
+  const outshine::Generates *const theirs = offering.Named(outshine::NameOf(outshine::Ships::Structures));
+  const bool mineFilled = found->Make(ask, both);
+  const bool theirsFilled = theirs != nullptr && theirs->Make(ask, both);
+  std::printf("AND ONE VALUE CARRIES BOTH: mine %s, shipped %s, %d part(s)\n",
+              mineFilled ? "in" : "REFUSED", theirsFilled ? "in" : "REFUSED", both.Parts());
+
+  // ONE REPRESENTATION CARRIES BOTH CONTRIBUTIONS. This is what makes the tier a LIBRARY rather
+  // than a set of unrelated makers: a client's generator and a shipped one fill the same value,
+  // in either order, and neither knows the other ran. Unreal's PCG composes point data from
+  // several graph nodes into one output for the same reason.
+  CHECK(mineFilled && theirsFilled && both.Parts() >= 2,
+        "**A CLIENT'S GENERATOR AND A SHIPPED ONE FILL ONE VALUE**: the door hands each of them "
+        "the same `Geometry` and the parts accumulate, so what a caller reads back is the world "
+        "both of them made. A representation that only one maker may touch is not an interchange "
+        "value, it is an output parameter");
+
   std::vector<uint8_t> glb;
   std::string why;
   const bool wrote = outshine::WriteGlb(made, glb, why);
