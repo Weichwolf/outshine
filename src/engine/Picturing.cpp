@@ -120,8 +120,18 @@ bool Engine::State::Composes(void) {
   over.LatDeg = atLat;
   over.LonDeg = atLon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  over.Ring = 4;
+  over.Levels = 6;
   over.Awaited = true;
+  if (!Watches()) { return false; }
+  if (Picture.Standing->Watched()) {
+    const double *const at = Picture.Standing->Watching().EyeM;
+    const TangentFrame eyed = TangentFrame::At(atLat, atLon);
+    for (int axis = 0; axis < 3; ++axis) {
+      over.EyeM[axis] = eyed.OriginEcef()[axis] + at[0] * eyed.EastEcef()[axis] +
+                        at[1] * eyed.UpEcef()[axis] - at[2] * eyed.NorthEcef()[axis];
+      over.Up[axis] = (float)eyed.UpEcef()[axis];
+    }
+  }
   if (Picture.Frame.HeightPx > 0) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
     over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
@@ -156,9 +166,11 @@ bool Engine::State::Composes(void) {
   }
   {
     std::unordered_map<uint64_t, float> met;
+    std::unordered_map<uint64_t, size_t> met2;
     met.reserve(inFrame.size() / 3);
-    double widest = 0.0;
-    size_t shared = 0;
+    met2.reserve(inFrame.size() / 3);
+    double widest = 0.0, leaning = 0.0, leanSum = 0.0;
+    size_t shared = 0, leanCount = 0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const int64_t east = (int64_t)std::llround((double)inFrame[at] * 4.0);
       const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
@@ -166,14 +178,37 @@ bool Engine::State::Composes(void) {
       const auto stood = met.find(key);
       if (stood == met.end()) {
         met.emplace(key, inFrame[at + 1]);
+        met2.emplace(key, at);
         continue;
       }
       ++shared;
       const double apart = std::fabs((double)inFrame[at + 1] - (double)stood->second);
       if (apart > widest) { widest = apart; }
+      if (at + 2 < laid->NormalM.size() && stood->second == inFrame[at + 1]) {
+        const size_t twin = met2[key];
+        double dot = 0.0, one = 0.0, two = 0.0;
+        for (size_t axis = 0; axis < 3; ++axis) {
+          const double a = (double)laid->NormalM[at + axis];
+          const double b = (double)laid->NormalM[twin + axis];
+          dot += a * b;
+          one += a * a;
+          two += b * b;
+        }
+        if (one > 0.0 && two > 0.0) {
+          const double leanDeg =
+              std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) * 180.0 /
+              std::numbers::pi;
+          if (leanDeg > leaning) { leaning = leanDeg; }
+          leanSum += leanDeg;
+          ++leanCount;
+        }
+      }
     }
     Published.Places("vertices two tiles put in the same place", (double)shared, "vertices");
     Published.Places("and the widest they disagree on height", widest, "m");
+    Published.Places("the widest their NORMALS disagree", leaning, "deg");
+    Published.Places("and how far those disagree on average",
+                     leanCount > 0 ? leanSum / (double)leanCount : 0.0, "deg");
   }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
   Published.Places("and how far out it lies", sankAt, "m");
@@ -318,6 +353,12 @@ bool Engine::State::Composes(void) {
       Published.Places("out of", (double)counted, "vertices");
     }
   }
+  Published.Places("the sun stands this high", Session.Declared.KeyElevationDeg, "deg");
+  Published.Places("and bears", Session.Declared.KeyBearingDeg, "deg");
+  Published.Places("its key light", Session.Declared.KeyLux, "lux");
+  Published.Places("levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
+  Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
+  Published.Places("tiles that overlap a finer level", (double)laid->Overlapped, "tiles");
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");

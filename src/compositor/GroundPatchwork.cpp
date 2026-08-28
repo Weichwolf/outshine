@@ -42,29 +42,50 @@ void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t
   }
 }
 
+constexpr long kBlockTiles = 4;
+
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
   if (over.Zoom <= 0) {
     return std::unexpected("a patchwork is laid at a declared zoom, and this one asks for " +
                            std::to_string(over.Zoom));
   }
-  if (over.Ring < 0) {
-    return std::unexpected("a ring reaches out from its centre tile, and this one reaches " +
-                           std::to_string(over.Ring));
+  if (over.Levels < 1) {
+    return std::unexpected("a cascade lays at least its finest level, and this one lays " +
+                           std::to_string(over.Levels));
   }
 
-  const Ground::TileFrac at =
-      Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, over.Zoom);
   Patchwork out;
   bool anchored = false;
 
-  for (long row = -over.Ring; row <= over.Ring; ++row) {
-    for (long column = -over.Ring; column <= over.Ring; ++column) {
-      long x = (long)std::floor(at.X) + column, y = (long)std::floor(at.Y) + row;
-      if (!Ground::WrapTile(over.Zoom, &x, &y)) { continue; }
+  long fineX0 = 0, fineX1 = -1, fineY0 = 0, fineY1 = -1;
+  const int levels = over.Levels < 1 ? 1 : over.Levels;
+  for (int level = 0; level < levels; ++level) {
+    const int zoom = over.Zoom - level;
+    if (zoom < 1) { break; }
+    const long span = 1L << level;
+    const Ground::TileFrac at =
+        Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, zoom);
+    const long originX = 2 * (long)std::floor(((double)(long)std::floor(at.X) - 1.0) / 2.0);
+    const long originY = 2 * (long)std::floor(((double)(long)std::floor(at.Y) - 1.0) / 2.0);
+    for (long row = 0; row < kBlockTiles; ++row) {
+      for (long column = 0; column < kBlockTiles; ++column) {
+      long x = originX + column, y = originY + row;
+      const long heldX0 = x * span, heldX1 = heldX0 + span - 1;
+      const long heldY0 = y * span, heldY1 = heldY0 + span - 1;
+      if (fineX1 >= fineX0 && heldX0 >= fineX0 && heldX1 <= fineX1 && heldY0 >= fineY0 &&
+          heldY1 <= fineY1) {
+        ++out.Skipped;
+        continue;
+      }
+      if (fineX1 >= fineX0 && heldX1 >= fineX0 && heldX0 <= fineX1 && heldY1 >= fineY0 &&
+          heldY0 <= fineY1) {
+        ++out.Overlapped;
+      }
+      if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
       TileBuild built;
       const TileMeshes::Reply said =
-          over.Awaited ? tiles.MeshAwaited(over.Zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built)
-                       : tiles.Mesh(over.Zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+          over.Awaited ? tiles.MeshAwaited(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built)
+                       : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
       if (said == TileMeshes::Reply::Pending) {
         ++out.Pending;
         continue;
@@ -101,8 +122,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       }
       out.ClustersHeld += built.Clusters.size();
       if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
-        const double eyeInTile[3] = {over.EyeM[0] - shift[0], over.EyeM[1] - shift[1],
-                                     over.EyeM[2] - shift[2]};
+        const double eyeInTile[3] = {over.EyeM[0] - built.OriginEcef[0],
+                                     over.EyeM[1] - built.OriginEcef[1],
+                                     over.EyeM[2] - built.OriginEcef[2]};
         for (const DagCluster &cluster : built.Clusters) {
           if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
           ++out.ClustersDrawn;
@@ -116,16 +138,22 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       }
       out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
       ++out.Tiles;
+      }
     }
+    fineX0 = originX * span;
+    fineX1 = (originX + kBlockTiles) * span - 1;
+    fineY0 = originY * span;
+    fineY1 = (originY + kBlockTiles) * span - 1;
+    out.ReachTiles = kBlockTiles * span;
+    out.CoarsestZoom = zoom;
   }
 
   if (out.Tiles == 0) {
     return std::unexpected(
-        "no tile of the " + std::to_string(2 * over.Ring + 1) + " by " +
-        std::to_string(2 * over.Ring + 1) + " ring around " + std::to_string(over.LatDeg) + ", " +
-        std::to_string(over.LonDeg) + " meshed -- " + std::to_string(out.Pending) +
-        " pending, " + std::to_string(out.Absent) + " absent, " + std::to_string(out.Refused) +
-        " refused");
+        "no tile of the " + std::to_string(levels) + "-level cascade around " +
+        std::to_string(over.LatDeg) + ", " + std::to_string(over.LonDeg) + " meshed -- " +
+        std::to_string(out.Pending) + " pending, " + std::to_string(out.Absent) + " absent, " +
+        std::to_string(out.Refused) + " refused");
   }
   return out;
 }

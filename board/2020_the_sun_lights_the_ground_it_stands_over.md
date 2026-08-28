@@ -21,6 +21,34 @@ Two separable defects and the item does not yet say which is which:
 1. the ground takes no directional light from the sun, or takes it at the wrong elevation
 2. the sky's own radiance is wrong at a high sun -- olive is not a colour the atmosphere makes
 
+## Measured, off the rendered frame
+
+Channels sampled from `build/places/GrandCanyon.png` at 10:36 local, sun about 50 deg up:
+
+    where                R     G     B
+    sky, top row        63    73    52
+    terrain             50    72   103   (range 50-74 / 72-98 / 103-113)
+    Medium::GroundAlbedo 0.10  0.13  0.07
+
+TWO SEPARATE DEFECTS, and the numbers separate them.
+
+**The sky wears the GROUND's albedo.** Its channel ORDER is G > R > B, which is the order of
+`GroundAlbedo` and not of any sky. Rayleigh scattering goes as lambda^-4, so a clear sky is
+blue-dominant by a wide margin and no sun elevation, turbidity or exposure can reorder it. The
+ratios agree too: measured G/R = 1.16 and R/B = 1.21 against the albedo's 1.30 and 1.43. Bruneton's
+model does take a ground albedo for its irradiance term; something is letting that term stand for
+the whole view ray.
+
+**The terrain takes no sun.** Its albedo is green-dominant and it renders blue-dominant, so the
+only illuminant reaching it is the sky. A directional term at 50 deg of elevation would swamp that.
+
+Shadows are ACTIVE, not absent: `Live.cpp` falls back to `0.5 * sqrt(across)` when a scenario
+declares no `ShadowRadiusM`, so the plan carries `lightVisibility` and it runs. That fallback is now
+sized by the ring, which the cascade grew to 127 km -- a shadow map covering 127 km across
+`kShadowAtlasPx` has texels hundreds of metres wide. So the shadow is drawn, correct in structure
+and useless in resolution, and it cannot be judged at all while the ground takes no directional
+light. That ordering is why this item is one item: the sun first, the shadow after.
+
 ## The measurements that would show I am wrong
 
 1. **The sun's own numbers first.** `SolarAt(36.0616, -112.1076, now)` must read roughly 50 deg of elevation at 10:36 local. If it reads a few degrees, the defect is in the solar term and not in the renderer, and this item is misfiled

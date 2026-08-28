@@ -108,6 +108,8 @@ public:
   void Eye(const Gltf::Viewpoint &from);
 
   [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
+  [[nodiscard]] const Gltf::Viewpoint &Watching() const { return Eye_; }
+  [[nodiscard]] bool Watched() const { return HaveEye_; }
 
   void FrameItself() {
     HaveEye_ = false;

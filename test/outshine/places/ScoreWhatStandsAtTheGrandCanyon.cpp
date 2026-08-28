@@ -147,6 +147,19 @@ int main(void) {
               kPlace, measured("vertices two tiles put in the same place"),
               measured("and the widest they disagree on height"));
 
+  std::printf("    %s  SUN: %.1f deg high, bearing %.1f deg, %.0f lux\n", kPlace,
+              measured("the sun stands this high"), measured("and bears"),
+              measured("its key light"));
+
+  std::printf("    %s  NORMALS at the seam: widest %.2f deg, mean %.2f deg\n", kPlace,
+              measured("the widest their NORMALS disagree"),
+              measured("and how far those disagree on average"));
+
+  std::printf("    %s  CASCADE: %.0f levels, %.0f tiles skipped as covered, %.0f overlapping a finer level\n",
+              kPlace, measured("levels the cascade laid"),
+              measured("tiles it skipped as already covered"),
+              measured("tiles that overlap a finer level"));
+
   std::printf("    %s  clusters %.0f held / %.0f drawn, worst error %.1f m -- skirt is twice that\n",
               kPlace, measured("clusters the ring holds"), measured("clusters it drew"),
               measured("the worst error any of them carries"));

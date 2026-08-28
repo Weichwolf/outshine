@@ -14,7 +14,7 @@ struct Around {
   double LatDeg = 0.0;
   double LonDeg = 0.0;
   int Zoom = 0;
-  int Ring = 1;
+  int Levels = 1;
   int Grid = 33;
   bool Awaited = false;
   double EyeM[3] = {0.0, 0.0, 0.0};
@@ -36,6 +36,10 @@ struct Patchwork {
   double WorstErrM = 0.0;
   size_t ClustersHeld = 0;
   size_t ClustersDrawn = 0;
+  size_t Skipped = 0;
+  size_t Overlapped = 0;
+  long ReachTiles = 0;
+  int CoarsestZoom = 0;
 };
 
 void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,
