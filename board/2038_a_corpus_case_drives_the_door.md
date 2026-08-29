@@ -345,6 +345,14 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
         the aspect the engine derives it against; `RenderPlan::Fill`, which defaults to 0.9 and
         which the driver never sets. Each is one print of the eye the engine ended up with.
 
+        **`Fill` IS NOT INERT.** Declaring it as 0.0 turned the whole frame BLACK -- mean red
+        0.000000000 -- so it reaches the camera even when an eye is declared, which contradicts
+        the reading of `Look()` that says it is consulted only when none is. That is one clean
+        measurement. The follow-up sweep over 0.9, 0.6 and 1.0 read black for ALL THREE, which
+        means the harness copy had been broken by the edits around the sweep rather than that the
+        values agree: an unreliable reading, discarded rather than reported. Repeat it from a clean
+        assembly -- it is the cheapest of the three suspects to settle.
+
     2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
        slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
        reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
