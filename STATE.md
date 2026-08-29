@@ -479,10 +479,10 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 |---|---|
 | 16 | `src/generators/draw/BuildingShape.cpp` |
 | 16 | `src/generators/draw/BuildingMesh.cpp` |
+| 6 | `src/generators/draw/RoofSurface.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
-| 5 | `src/generators/draw/RoofSurface.cpp` |
 | 4 | `src/world/ground/TerrainLoader.cpp` |
 | 4 | `src/render/stages/SubjectDraw.h` |
 | 4 | `src/actor/path/ReferenceLine.h` |

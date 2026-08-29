@@ -18,6 +18,7 @@ constexpr double kOverhangM = 0.60;
 constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
+constexpr double kWeldM = 0.02;
 
 double TriArea(const En &a, const En &b, const En &c) {
   return 0.5 * std::fabs((b.E - a.E) * (c.N - a.N) - (c.E - a.E) * (b.N - a.N));
@@ -253,7 +254,13 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     const double span = d0 - d1;
     if (std::fabs(span) < kOnLineM) { continue; }
     const double t = d0 / span;
-    if (t > 1.0e-3 && t < 1.0 - 1.0e-3) { at.push_back(t); }
+    // A BREAK IS DROPPED IF IT LANDS WITHIN A WELD OF EITHER END. The tolerance is in METRES, not in
+    // the parameter: a thousandth of a 0.1 m edge is a tenth of a millimetre, and two corners that
+    // close together are ONE corner once positions are welded on a centimetre grid -- so the split
+    // buys a triangle with two corners in one place instead of a seam.
+    const double reach = std::hypot(to.E - from.E, to.N - from.N);
+    const double keepAway = reach > 1.0e-6 ? kWeldM / reach : 1.0;
+    if (t > keepAway && t < 1.0 - keepAway) { at.push_back(t); }
   }
   std::sort(at.begin(), at.end());
   at.erase(std::unique(at.begin(), at.end(),

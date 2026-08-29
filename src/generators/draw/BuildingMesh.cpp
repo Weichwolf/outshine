@@ -422,6 +422,13 @@ void Box(Site &site, const BuildingShape &s, const En &centre, double halfU, dou
   }
   site.Quad(Face(s, c[0], highZ, Facade::Ledge), Face(s, c[1], highZ, Facade::Ledge),
             Face(s, c[2], highZ, Facade::Ledge), Face(s, c[3], highZ, Facade::Ledge));
+  // A BOX IS CLOSED AT BOTH ENDS. A chimney and a roof plant stand THROUGH the surface they rise
+  // from, so their underside is never seen -- and an unseen face is still a boundary edge to a walk
+  // over the triangles, which is what left four holes on every gabled house. Its limit, stated here:
+  // the box and the roof interpenetrate rather than being cut against each other, which closedness
+  // cannot see and no test in this tree yet can.
+  site.Quad(Face(s, c[3], lowZ, Facade::Ledge), Face(s, c[2], lowZ, Facade::Ledge),
+            Face(s, c[1], lowZ, Facade::Ledge), Face(s, c[0], lowZ, Facade::Ledge));
 }
 
 [[nodiscard]] bool WantsChimney(const BuildingShape &s) {
