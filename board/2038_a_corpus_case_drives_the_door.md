@@ -338,6 +338,13 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
            surface identity           0 ->  81      the per-part slot split, unmodelled here
            the case stands            99 ->   0
 
+    1b. THE 306 ARE A COVERAGE DIFFERENCE, so measure the PROJECTION and not the colour. On
+        BoxInterleaved the subject covered 0.0632 of the frame against the old path's 0.1058 --
+        the run written into it was identical to the last digit, so the pixels differ because the
+        SHAPE does. The suspects, none measured: the field of view's round trip through degrees;
+        the aspect the engine derives it against; `RenderPlan::Fill`, which defaults to 0.9 and
+        which the driver never sets. Each is one print of the eye the engine ended up with.
+
     2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
        slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
        reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
