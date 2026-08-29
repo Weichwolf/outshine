@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <expected>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +20,8 @@
 
 namespace outshine {
 
+using Result = std::expected<void, std::string>;
+
 struct Roots {
   std::string Assets;
   std::string Shipped;
@@ -30,9 +33,9 @@ class Engine;
 
 class Renderer {
 public:
-  [[nodiscard]] bool render(Extent frame);
-  [[nodiscard]] bool saveScreenshot(std::string_view path);
-  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] Result render(Extent frame);
+  [[nodiscard]] Result saveScreenshot(std::string_view path);
+  [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
 
 private:
   friend class Engine;
@@ -49,26 +52,26 @@ public:
   Engine(const Engine &) = delete;
   Engine &operator=(const Engine &) = delete;
 
-  [[nodiscard]] bool drawsInto(SDL_Window *presents);
+  [[nodiscard]] Result drawsInto(SDL_Window *presents);
   void offers(Host *host);
   void offers(const Generates &maker);
-  [[nodiscard]] bool setView(std::string_view view);
-  [[nodiscard]] bool handleEvent(const SDL_Event &event);
-  [[nodiscard]] bool drawsInto(Extent offscreen);
+  [[nodiscard]] Result setView(std::string_view view);
+  [[nodiscard]] Result handleEvent(const SDL_Event &event);
+  [[nodiscard]] Result drawsInto(Extent offscreen);
   void setRoots(Roots roots);
   [[nodiscard]] Renderer renderer(void);
-  [[nodiscard]] bool inspect(void);
+  [[nodiscard]] Result inspect(void);
   [[nodiscard]] bool settled(void) const;
-  [[nodiscard]] bool preload(double patienceS);
+  [[nodiscard]] Result preload(double patienceS);
   [[nodiscard]] double loadProgress(void) const;
 
   [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;
-  [[nodiscard]] bool mix(std::span<float> stereo, int rate);
+  [[nodiscard]] Result mix(std::span<float> stereo, int rate);
 
-  [[nodiscard]] bool readScenario(std::string_view path);
-  [[nodiscard]] bool setGeometry(const Geometry &geometry);
-  [[nodiscard]] bool declare(const Scenario &scenario);
-  [[nodiscard]] bool setSurfaces(const std::vector<Surface> &surfaces);
+  [[nodiscard]] Result readScenario(std::string_view path);
+  [[nodiscard]] Result setGeometry(const Geometry &geometry);
+  [[nodiscard]] Result declare(const Scenario &scenario);
+  [[nodiscard]] Result setSurfaces(const std::vector<Surface> &surfaces);
 
   [[nodiscard]] const Scenario &declaration(void) const;
   [[nodiscard]] Scene &scene(void);
@@ -80,18 +83,18 @@ public:
   void stepTimesMs(std::vector<double> &out) const;
   void frameTimesMs(std::vector<double> &out) const;
 
-  [[nodiscard]] bool assemble();
+  [[nodiscard]] Result assemble();
 
-  [[nodiscard]] bool advance();
-  [[nodiscard]] bool advance(double elapsedS);
+  [[nodiscard]] Result advance();
+  [[nodiscard]] Result advance(double elapsedS);
   [[nodiscard]] double stepSeconds(void) const;
-  [[nodiscard]] bool run();
+  [[nodiscard]] Result run();
 
-  [[nodiscard]] bool park();
-  [[nodiscard]] bool resume(std::string_view name);
-  [[nodiscard]] bool discard(std::string_view name);
-  [[nodiscard]] bool save(std::string_view path) const;
-  [[nodiscard]] bool restore(std::string_view path);
+  [[nodiscard]] Result park();
+  [[nodiscard]] Result resume(std::string_view name);
+  [[nodiscard]] Result discard(std::string_view name);
+  [[nodiscard]] Result save(std::string_view path) const;
+  [[nodiscard]] Result restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> parked(void) const;
 
   [[nodiscard]] bool standing(void) const;

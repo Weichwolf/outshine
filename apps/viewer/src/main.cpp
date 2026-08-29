@@ -67,7 +67,7 @@ public:
       const std::vector<outshine::View> &named = Engine_->declaration().Views;
       if (named.size() < 2) { return false; }
       Viewing_ = (Viewing_ + 1) % named.size();
-      return Engine_->setView(named[Viewing_].Id);
+      return Engine_->setView(named[Viewing_].Id).has_value();
     }
     if (name == "select" && args.size() == 1 &&
         args[0].Is == outshine::Argument::Kind::Number) {
@@ -179,11 +179,11 @@ int main(int argc, char **argv) {
   outshine::Engine engine;
   outshine::Renderer renderer = engine.renderer();
   engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
-  const bool standing = window != nullptr
-                            ? engine.drawsInto(window)
-                            : engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
+  const outshine::Result standing =
+      window != nullptr ? engine.drawsInto(window)
+                        : engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
   if (!standing) {
-    std::printf("REFUSED %s\n", engine.error().c_str());
+    std::printf("REFUSED %s\n", standing.error().c_str());
     if (window != nullptr) { SDL_DestroyWindow(window); }
     SDL_Quit();
     return 1;
@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
   Uint64 wasNs = SDL_GetTicksNS();
   while (!closing) {
     const Uint64 nowNs = SDL_GetTicksNS();
-    const bool advanced = engine.advance((double)(nowNs - wasNs) * 1.0e-9);
+    const bool advanced = engine.advance((double)(nowNs - wasNs) * 1.0e-9).has_value();
     wasNs = nowNs;
     if (!advanced) {
       browsing.Noted(engine.error());

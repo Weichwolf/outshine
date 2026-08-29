@@ -182,7 +182,7 @@ int main(void) {
     const size_t at = flat.find(",\"NORMAL\":1");
     if (at != std::string::npos) { flat.erase(at, 11); }
     (void)Wrote(under + "/bare.gltf", flat);
-    const bool stoodBare = engine.declare(bare);
+    const bool stoodBare = engine.declare(bare).has_value();
     std::printf("A SUBJECT WITH NO NORMAL under the same declared light: %s%s\n",
                 stoodBare ? "STOOD" : "REFUSED -- ", stoodBare ? "" : engine.error().c_str());
   }

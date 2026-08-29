@@ -75,8 +75,8 @@ int main(void) {
 
   const SDL_Event down = Keyed(true);
   const SDL_Event up = Keyed(false);
-  const bool tookDown = engine.handleEvent(down);
-  const bool tookUp = engine.handleEvent(up);
+  const bool tookDown = engine.handleEvent(down).has_value();
+  const bool tookUp = engine.handleEvent(up).has_value();
 
   std::printf("THE PRESS was %s, THE RELEASE was %s\n", tookDown ? "taken" : "DROPPED",
               tookUp ? "taken" : "DROPPED");

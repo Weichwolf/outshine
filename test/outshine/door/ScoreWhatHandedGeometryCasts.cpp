@@ -85,7 +85,7 @@ int main(void) {
     return Report();
   }
 
-  const bool handed = engine.setGeometry(geometry);
+  const bool handed = engine.setGeometry(geometry).has_value();
   if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.error().c_str()); }
   if (handed && !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());

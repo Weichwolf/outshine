@@ -161,7 +161,7 @@ int main(void) {
   // this case reported UNPREPARED when `Stands` refused, so the negative control below came back
   // as a red with the wrong NAME -- it read as a missing fixture rather than as the door being
   // broken. Only the file arm's input is a fixture; everything after it is the claim.
-  const bool handed = engine.setGeometry(geometry);
+  const bool handed = engine.setGeometry(geometry).has_value();
   std::vector<uint8_t> fromMemory;
   if (handed && (!engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(fromMemory))) {
     Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());

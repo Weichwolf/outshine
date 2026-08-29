@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
               declared.Routed.FromLonDeg, declared.Routed.ToLatDeg, declared.Routed.ToLonDeg,
               asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
-  const bool assembled = engine.assemble();
+  const bool assembled = engine.assemble().has_value();
   for (const std::string &said : engine.unacted()) { std::printf("  CARRIES %s\n", said.c_str()); }
   if (!assembled) { std::printf("REFUSED %s\n", engine.error().c_str()); }
   std::printf("%s\n", Measured(engine, "how long the corridor is") > 0.0 ? "ROUTED the declared drive"
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
   if (!assembled && !asked.Into.empty()) {
     char named[512];
     std::snprintf(named, sizeof named, "%s/refused.png", asked.Into.c_str());
-    const bool stood = engine.advance();
+    const bool stood = engine.advance().has_value();
     if (!stood) { std::printf("STILL %s\n", engine.error().c_str()); }
     if (renderer.saveScreenshot(named)) {
       std::printf("KEPT %s -- a failure is loud, and something is always drawn\n", named);

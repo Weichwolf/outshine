@@ -93,7 +93,7 @@ int main(void) {
   }
 
   const std::string named = deep + "/frame.png";
-  const bool kept = engine.renderer().saveScreenshot(named);
+  const bool kept = engine.renderer().saveScreenshot(named).has_value();
   std::printf("  captured into a path three levels deep that did not exist: %s\n",
               kept ? "kept" : ("REFUSED -- " + engine.error()).c_str());
   std::printf("  the directory now stands: %s\n",

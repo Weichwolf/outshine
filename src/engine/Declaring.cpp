@@ -7,18 +7,18 @@
 namespace outshine {
 
 
-bool Engine::handleEvent(const SDL_Event &event) {
-  if (!S_->Picture.Standing) { return false; }
+Result Engine::handleEvent(const SDL_Event &event) {
+  if (!S_->Picture.Standing) { return std::unexpected(S_->Error); }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f, yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
-    return S_->Picture.Standing->Wheeled((double)xPx, (double)yPx,
-                                 -(double)event.wheel.y * S_->Session.Declared.WheelStepPx, S_->Error);
+    return (S_->Picture.Standing->Wheeled((double)xPx, (double)yPx,
+                                 -(double)event.wheel.y * S_->Session.Declared.WheelStepPx, S_->Error)) ? Result{} : std::unexpected(S_->Error);
   }
   if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     Core::InputPump::Fired fired[2];
     const size_t many = S_->Session.Pump.Translate(event, fired);
-    if (S_->Offered == nullptr) { return false; }
+    if (S_->Offered == nullptr) { return std::unexpected(S_->Error); }
     bool acted = false;
     for (size_t at = 0; at < many; ++at) {
       const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
@@ -26,38 +26,38 @@ bool Engine::handleEvent(const SDL_Event &event) {
       const Argument value{Argument::Kind::Number, (double)fired[at].Value, {}};
       acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
-    return acted;
+    return (acted) ? Result{} : std::unexpected(S_->Error);
   }
-  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
+  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return std::unexpected(S_->Error); }
 
   size_t surface = 0;
   const Ui::Touched found =
       S_->Picture.Standing->Under((double)event.button.x, (double)event.button.y, surface);
-  if (!found.Held() || found.Action.empty()) { return false; }
+  if (!found.Held() || found.Action.empty()) { return std::unexpected(S_->Error); }
   const std::string &action = found.Action;
   if (S_->Offered == nullptr) {
     S_->Error = "a surface declares the call '" + action +
                 "' and no host was offered to answer it -- the client calls Offers before it "
                 "hands an event in";
-    return false;
+    return std::unexpected(S_->Error);
   }
 
   Script::Program programme;
   const std::string text = S_->Picture.Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
-  if (!programme.Read(text, S_->Error)) { return false; }
+  if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
   Forwarding answering(S_->Offered);
-  if (!programme.Run(answering, S_->Error)) { return false; }
-  return answering.Fired();
+  if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
+  return (answering.Fired()) ? Result{} : std::unexpected(S_->Error);
 }
 
-bool Engine::setSurfaces(const std::vector<Surface> &surfaces) {
+Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
                 "scenario is declared before its surfaces are exchanged";
-    return false;
+    return std::unexpected(S_->Error);
   }
   if (!surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
-    return false;
+    return std::unexpected(S_->Error);
   }
   std::vector<const Surface *> ordered;
   ordered.reserve(surfaces.size());
@@ -78,7 +78,7 @@ bool Engine::setSurfaces(const std::vector<Surface> &surfaces) {
     laid.push_back(std::move(shows));
   }
   S_->Session.Declared.Surfaces = surfaces;
-  return S_->Picture.Standing->Redeclare(std::move(laid), S_->Error);
+  return (S_->Picture.Standing->Redeclare(std::move(laid), S_->Error)) ? Result{} : std::unexpected(S_->Error);
 }
 
 [[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
@@ -120,7 +120,7 @@ void Engine::ships(void) {
   (void)S_->World.Offering.offers(S_->World.Shipped);
 }
 
-bool Engine::declare(const Scenario &scenario) {
+Result Engine::declare(const Scenario &scenario) {
   ships();
   const auto offers = [this](const std::string &kind) {
     return S_->World.Offering.named(kind) != nullptr;
@@ -130,14 +130,14 @@ bool Engine::declare(const Scenario &scenario) {
     S_->Error = "the scenario declares a generator of kind '" + named.Kind +
                 "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
                 "never a line that is counted and dropped";
-    return false;
+    return std::unexpected(S_->Error);
   }
   for (const Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated" || offers(shown.Uri)) { continue; }
     S_->Error = "the scenario stands the generated asset '" + shown.Uri +
                 "' and nothing offers a generator of that kind -- an asset names a generator the "
                 "way a scenario names anything, and a name nobody answers is a refusal";
-    return false;
+    return std::unexpected(S_->Error);
   }
   const Asset *const subject = scenario.subject();
 
@@ -183,7 +183,7 @@ bool Engine::declare(const Scenario &scenario) {
                   Said(scenario.Lit.Key.BearingDeg) +
                   " -- over a place on Earth only one of the two can be true, and a sun that does "
                   "not follow the hour disagrees with its own shadows the moment the clock moves";
-      return false;
+      return std::unexpected(S_->Error);
     }
     if (scenario.Ground.Declared && !anglePut) {
       int64_t whenS = 0;
@@ -216,15 +216,15 @@ bool Engine::declare(const Scenario &scenario) {
     declared.Surfaces.push_back(std::move(shows));
   }
   if (!declared.Surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
-    return false;
+    return std::unexpected(S_->Error);
   }
 
   S_->Session.Pumping = false;
   if (!scenario.Input.empty()) {
-    if (!S_->Session.Bound.Build(scenario.Input, S_->Error)) { return false; }
+    if (!S_->Session.Bound.Build(scenario.Input, S_->Error)) { return std::unexpected(S_->Error); }
     if (!S_->Session.Pump.Open(S_->Session.Bound)) {
       S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
-      return false;
+      return std::unexpected(S_->Error);
     }
     S_->Session.Pumping = true;
   }
@@ -234,7 +234,7 @@ bool Engine::declare(const Scenario &scenario) {
     auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);
     if (!stood) {
       S_->Error = stood.error();
-      return false;
+      return std::unexpected(S_->Error);
     }
     S_->Session.Volumes.emplace(std::move(*stood));
   }
@@ -247,7 +247,7 @@ bool Engine::declare(const Scenario &scenario) {
     auto stood = ViewBook::Stand(scenario.Views, starting);
     if (!stood) {
       S_->Error = stood.error();
-      return false;
+      return std::unexpected(S_->Error);
     }
     S_->Session.Views.emplace(std::move(*stood));
   }
@@ -256,17 +256,17 @@ bool Engine::declare(const Scenario &scenario) {
     if (!SameStand(S_->Picture.Shown, declared) &&
         !S_->Picture.Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
                                 declared.Clip, S_->Error)) {
-      return false;
+      return std::unexpected(S_->Error);
     }
     if (!SameSurfaces(S_->Picture.Shown.Surfaces, declared.Surfaces) &&
         !S_->Picture.Standing->Redeclare(declared.Surfaces, S_->Error)) {
-      return false;
+      return std::unexpected(S_->Error);
     }
     S_->Picture.Shown = std::move(declared);
     S_->Session.Declared = scenario;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    return true;
+    return {};
   }
 
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
@@ -278,20 +278,20 @@ bool Engine::declare(const Scenario &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    return generated(scenario);
+    return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
   }
   if (!Core::Live::Open(S_->Picture.Device, std::move(declared), &S_->Picture.Face, S_->Picture.Standing, S_->Error)) {
     S_->Picture.Standing.reset();
-    return false;
+    return std::unexpected(S_->Error);
   }
   if (!wasScrolled.empty() && !S_->Picture.Standing->Scrolled(std::move(wasScrolled), S_->Error)) {
-    return false;
+    return std::unexpected(S_->Error);
   }
   S_->Session.Declared = scenario;
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  return generated(scenario);
+  return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
 }
 
 bool Engine::generated(const Scenario &scenario) {
@@ -353,36 +353,36 @@ bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
   return true;
 }
 
-bool Engine::setGeometry(const Geometry &geometry) {
+Result Engine::setGeometry(const Geometry &geometry) {
   if (!geometry.wellFormed()) {
     S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
                 "than an empty picture";
-    return false;
+    return std::unexpected(S_->Error);
   }
   Gltf::Subject handed;
   if (!handed.Assemble(geometry)) {
     S_->Error = handed.Error();
-    return false;
+    return std::unexpected(S_->Error);
   }
   S_->Blocks(handed);
   if (!S_->Picture.Standing) {
     S_->Picture.Handed = std::move(handed);
     S_->Picture.Carrying = true;
     S_->Error.clear();
-    return true;
+    return {};
   }
-  return S_->Picture.Standing->Restand(handed, 0, S_->Error);
+  return (S_->Picture.Standing->Restand(handed, 0, S_->Error)) ? Result{} : std::unexpected(S_->Error);
 }
 
-bool Engine::readScenario(std::string_view path) {
+Result Engine::readScenario(std::string_view path) {
   Scenario scenario;
-  if (!readScenarioInto(path, scenario)) { return false; }
+  if (!readScenarioInto(path, scenario)) { return std::unexpected(S_->Error); }
   S_->Session.Declared = scenario;
   S_->Session.Taken = false;
   S_->Session.Carried = Unacted(scenario);
   S_->Session.Carried.insert(S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
   S_->Error.clear();
-  return true;
+  return {};
 }
 
 Scene &Engine::scene(void) { return S_->Cast.Scene; }

@@ -1270,18 +1270,18 @@ bool Engine::State::Blocked(const double sourceM[3]) const {
   return World.Blocking.Occludes(fromM, along, 0.01f, (float)awayM);
 }
 
-bool Engine::mix(std::span<float> stereo, int rate) {
+Result Engine::mix(std::span<float> stereo, int rate) {
   if (!S_->Session.Mixing) {
     if (!S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds,
                                      rate, S_->Error)) {
-      return false;
+      return std::unexpected(S_->Error);
     }
     S_->Session.Mixing = true;
     S_->Tells();
   }
   const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
-  return S_->Session.Sounding.Fills(stereo, S_->Session.Sources[told],
-                                    S_->Session.Ear[told], S_->Error);
+  return (S_->Session.Sounding.Fills(stereo, S_->Session.Sources[told],
+                                    S_->Session.Ear[told], S_->Error)) ? Result{} : std::unexpected(S_->Error);
 
 }
 
@@ -1303,15 +1303,15 @@ bool Engine::render(Extent frame) {
   return true;
 }
 
-bool Engine::inspect(void) {
-  if (!S_->Stood()) { return false; }
+Result Engine::inspect(void) {
+  if (!S_->Stood()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
                 "anything a readback could tell";
-    return false;
+    return std::unexpected(S_->Error);
   }
   S_->Inspected();
-  return true;
+  return {};
 }
 
 bool Engine::readPixels(std::vector<uint8_t> &rgba) {

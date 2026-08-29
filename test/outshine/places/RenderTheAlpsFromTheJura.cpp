@@ -119,7 +119,7 @@ int main(void) {
   // draws. That is Filament's `flushAndWait` distinction: the wait belongs to the client's call,
   // never to the frame path.
   const auto asked = std::chrono::steady_clock::now();
-  const bool ready = engine.preload(kPatienceS);
+  const bool ready = engine.preload(kPatienceS).has_value();
   const auto stood = std::chrono::steady_clock::now();
   int frames = 0;
   double advancingMs = 0.0, renderingMs = 0.0;
@@ -153,7 +153,7 @@ int main(void) {
   std::error_code failed;
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = std::string("build/places/") + kPlace + ".png";
-  const bool wrote = engine.renderer().saveScreenshot(kept);
+  const bool wrote = engine.renderer().saveScreenshot(kept).has_value();
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
               kPlace, measured("tiles the ring laid"), measured("levels the cascade laid"),

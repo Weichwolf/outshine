@@ -131,6 +131,41 @@ int main(void) {
         "is the failure mode this door exists to end -- and it is the negative control for the "
         "claim above, which would pass on any implementation at all if nothing were ever refused");
 
+  // A REFUSAL CARRIES ITS REASON, and carries it ON the return value rather than beside it. The
+  // door used to answer `bool` and keep the reason in `Engine::error()`, which is last-write-wins:
+  // two refusals in a row and the first reason is gone. `std::expected<void, std::string>` is
+  // CLAUDE.md's own rule and it is stricter than Filament's convention, which reports nothing.
+  //
+  // The measurement is dynamic on purpose. Counting `return std::unexpected(S_->Error)` sites whose
+  // method never assigns `S_->Error` reads 3 of 65 -- and all three are wrong, because the reason
+  // was set by a CALLEE the static walk cannot see. That is this tree's named "a measure that
+  // cannot see" trap, so the reasons are DRIVEN here instead of counted.
+  Engine door;
+  const Result tooEarly = door.assemble();
+  const Result noSuchView = door.setView("a view no scenario declares");
+  const Result noSuchFile = door.readScenario("/does/not/exist/at/all.json");
+  const Result noSuchSave = door.restore("/does/not/exist/at/all.save");
+  const Result noSuchPark = door.resume("nothing was ever parked under this name");
+  const Result refusals[] = {tooEarly, noSuchView, noSuchFile, noSuchSave, noSuchPark};
+  size_t silent = 0;
+  for (const Result &one : refusals) {
+    if (one.has_value() || one.error().empty()) { ++silent; }
+  }
+  std::printf("  five refusals driven, %zu of them silent; first reason: %.60s\n", silent,
+              tooEarly.has_value() ? "(ACCEPTED)" : tooEarly.error().c_str());
+  CHECK(silent == 0,
+        "**A REFUSAL CARRIES ITS REASON ON THE RETURN VALUE**: `Engine::error()` beside a `bool` is "
+        "last-write-wins, so a client that makes two calls before looking gets one reason for two "
+        "failures and no way to tell which. A door that cannot say WHY is the defect this session "
+        "fixed four times by hand");
+
+  const Result accepted = door.declare(Scenario{});
+  std::printf("  an accepted call: %s\n", accepted ? "no error carried" : accepted.error().c_str());
+  CHECK(accepted.has_value(),
+        "**THE CONTROL: AN ACCEPTED CALL CARRIES NO REASON**. Without it the claim above passes on "
+        "an engine that refuses EVERYTHING with a stock string, which is not a door that explains "
+        "itself -- it is a door that is shut");
+
   Covers("board:2016 -- the door speaks Filament and Cesium, and speaks each word ONCE");
   return Report();
 }

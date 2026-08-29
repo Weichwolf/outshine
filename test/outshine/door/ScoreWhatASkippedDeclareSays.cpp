@@ -60,7 +60,7 @@ int main(void) {
 
   outshine::Scenario declared = engine.declaration();
   declared.Render.Frame = outshine::Extent{64, 36};
-  const bool stoodAfterDeclare = engine.declare(declared);
+  const bool stoodAfterDeclare = engine.declare(declared).has_value();
   std::printf("THEN DECLARED        %s\n",
               stoodAfterDeclare ? "and the declaration stands" : engine.error().c_str());
 

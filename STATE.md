@@ -145,39 +145,39 @@ outshine is rather than pretending to be a renderer it is not.
     value: Roots
     type: Renderer
     type: Engine
-    bool render(Extent frame)
-    bool saveScreenshot(std::string_view path)
-    bool readPixels(std::vector<uint8_t> &rgba)
-    bool drawsInto(SDL_Window *presents)
-    bool setView(std::string_view view)
-    bool handleEvent(const SDL_Event &event)
-    bool drawsInto(Extent offscreen)
+    Result render(Extent frame)
+    Result saveScreenshot(std::string_view path)
+    Result readPixels(std::vector<uint8_t> &rgba)
+    Result drawsInto(SDL_Window *presents)
+    Result setView(std::string_view view)
+    Result handleEvent(const SDL_Event &event)
+    Result drawsInto(Extent offscreen)
     Renderer renderer(void)
-    bool inspect(void)
+    Result inspect(void)
     bool settled(void) const
-    bool preload(double patienceS)
+    Result preload(double patienceS)
     double loadProgress(void) const
     bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const
-    bool mix(std::span<float> stereo, int rate)
-    bool readScenario(std::string_view path)
-    bool setGeometry(const Geometry &geometry)
-    bool declare(const Scenario &scenario)
-    bool setSurfaces(const std::vector<Surface> &surfaces)
+    Result mix(std::span<float> stereo, int rate)
+    Result readScenario(std::string_view path)
+    Result setGeometry(const Geometry &geometry)
+    Result declare(const Scenario &scenario)
+    Result setSurfaces(const std::vector<Surface> &surfaces)
     const Scenario &declaration(void) const
     Scene &scene(void)
     const Scene &scene(void) const
     const std::vector<std::string> &unacted(void) const
     const std::vector<Measure> &measures(void) const
-    bool assemble()
-    bool advance()
-    bool advance(double elapsedS)
+    Result assemble()
+    Result advance()
+    Result advance(double elapsedS)
     double stepSeconds(void) const
-    bool run()
-    bool park()
-    bool resume(std::string_view name)
-    bool discard(std::string_view name)
-    bool save(std::string_view path) const
-    bool restore(std::string_view path)
+    Result run()
+    Result park()
+    Result resume(std::string_view name)
+    Result discard(std::string_view name)
+    Result save(std::string_view path) const
+    Result restore(std::string_view path)
     std::vector<std::string> parked(void) const
     bool standing(void) const
     const std::string &error(void) const
