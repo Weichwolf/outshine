@@ -7,6 +7,45 @@ Tags: benchmark, target, owner
 
 # ONE value carries 3D data into and out of outshine, and glTF is one of its file forms
 
+
+## THE HIP'S HOLES ARE A SCALE DEFECT, and two derivations died proving it
+
+A square footprint with a hip roof opens, and the sweep now holds the cases that say so. Height,
+pitch, use and eaves overhang are all ruled OUT by measurement -- towers of one height over rising
+footprints, and one footprint over two heights:
+
+    footprint   6     7     8  |   9    10    11  m
+    d (ridge/2) 5.07  5.92  6.76|  7.61  8.45  9.30 mm
+    triangles   70    70    70 |  64    64    64
+    holes        0     0     0 |   6     6     6
+
+Height is irrelevant: 6 m at 42 m and at 55 m are both clean, 11 m at 42 m and at 55 m both break.
+The overhang is 0.42 m on every one of them, including the clean ones. The break is between a
+footprint of 8 and 9 m and the bigger building has FEWER triangles, which is the signature of
+triangles being DROPPED rather than never built.
+
+**A square house, 9 by 9 m, was missing from the sweep and reproduces the tower exactly** -- 6 holes,
+4 flat and 2 upright. It also reached `house/hip`, a seventh architecture the sweep had never built.
+
+**TWO HYPOTHESES DIED HERE, and both were arithmetically clean:**
+
+The first said the hip's two parallel diagonals are 10 to 20 mm apart in that band, so `Deduped`
+calls them two lines while `ClipHalf` goes on snapping cuts within `kWeldM` onto the corner. The
+predicted boundary -- `d * sqrt(2) = kSamePointM`, so d = 7.07 mm, a footprint of 8.37 m -- lands
+within 4 per cent of the measured break between 8 and 9 m. **It is a coincidence.** Widening
+`Deduped` to `kWeldM` changed NOTHING, and a probe at a tolerance of 1.0 m -- which merges five
+crease lines into three -- produced byte-identical output: 64 triangles, 6 holes.
+
+The second said the toolchain might not be rebuilding what I changed. A destructive probe answers
+that: with `CreasesUncounted` returning ZERO creases for a hip, both cases drop to 44 triangles and
+0 holes. The tree is honest and the creases are the cause.
+
+**So: the creases cause it, their COUNT does not matter, and the effect scales with the footprint.**
+That leaves the handling of crease CROSSINGS, where `BreaksAlong` drops a crossing within an
+absolute `kWeldM` of an edge end while the edge itself grows with the building -- the one term in
+the pipeline that is absolute against a geometry that scales. Not yet measured, and named here so
+the next probe is a counter rather than a third derivation.
+
 **Benchmark** — Unreal: `FMeshDescription` authored against `FStaticMeshLODResources` + `FNaniteResources` cooked. RAGE: `grmGeometry` cooked, and its file IS that form. **Both agree** — two forms and one cooker; this tree has nine.
 
 Owner's target, arrived at over three exchanges and stated here whole:

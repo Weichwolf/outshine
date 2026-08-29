@@ -238,11 +238,18 @@ int main(void) {
   const std::vector<Footprint> asked = {
       {"a shed, 4 by 3 m", Box(lat, lon, 4.0, 3.0), 2.6},
       {"a house, 12 by 9 m", Box(lat, lon, 12.0, 9.0), 7.5},
+      {"a square house, 9 by 9 m", Box(lat, lon, 9.0, 9.0), 7.5},
       {"a terrace, 40 by 8 m", Box(lat, lon, 40.0, 8.0), 9.0},
       {"a block, 30 by 24 m", Box(lat, lon, 30.0, 24.0), 18.0},
       {"a hall, 70 by 45 m", Box(lat, lon, 70.0, 45.0), 11.0},
       {"a tower, 11 by 11 m", Box(lat, lon, 11.0, 11.0), 42.0},
       {"a spire, 6 by 6 m", Box(lat, lon, 6.0, 6.0), 55.0},
+      {"a slim tower, 6 by 6 m", Box(lat, lon, 6.0, 6.0), 42.0},
+      {"a 7 m tower", Box(lat, lon, 7.0, 7.0), 42.0},
+      {"an 8 m tower", Box(lat, lon, 8.0, 8.0), 42.0},
+      {"a 9 m tower", Box(lat, lon, 9.0, 9.0), 42.0},
+      {"a 10 m tower", Box(lat, lon, 10.0, 10.0), 42.0},
+      {"a broad spire, 11 by 11 m", Box(lat, lon, 11.0, 11.0), 55.0},
       {"a long hall, 120 by 30 m", Box(lat, lon, 120.0, 30.0), 14.0},
       {"a slab, 60 by 16 m", Box(lat, lon, 60.0, 16.0), 26.0},
   };
@@ -258,10 +265,12 @@ int main(void) {
         MassOf(Span<const double>(one.RingLatLon.data(), one.RingLatLon.size()), one.HeightM, true,
                street);
     std::string architecture;
-    double halfU = 0.0, halfV = 0.0, overhang = 0.0, rise = 0.0;
+    double halfU = 0.0, halfV = 0.0, overhang = 0.0, rise = 0.0, juts = 0.0, breaks = 0.0;
     for (const BuildingShape &part : massed.Parts) {
       halfU = part.HalfUm; halfV = part.HalfVm; overhang = part.FootM + part.EavesM;
       rise = part.RiseM;
+      juts = part.OverhangM;
+      breaks = part.BreakRiseM;
       if (!architecture.empty()) { architecture += " + "; }
       architecture += std::string(Named(part.Use)) + "/" + Named(part.Roof);
       reached[std::string(Named(part.Use)) + "/" + Named(part.Roof)] += 1;
@@ -294,9 +303,9 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
-                said.Degenerate, halfU - halfV, overhang, rise, said.FlatHoles,
+                said.Degenerate, halfU - halfV, overhang, rise, juts, breaks, said.FlatHoles,
                 said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ);
   }
 
