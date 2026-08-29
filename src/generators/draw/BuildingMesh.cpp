@@ -228,7 +228,6 @@ void Plinth(const BuildingShape &s, const Site2Ground &ground, double topZ, Site
   const double lowZ = PlinthFootZ(s, ground);
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    if (s.Party[i]) continue;
     site.Quad(Face(s, out[i], lowZ, Facade::Plinth), Face(s, out[j], lowZ, Facade::Plinth),
               Face(s, out[j], topZ, Facade::Plinth), Face(s, out[i], topZ, Facade::Plinth));
     site.Quad(Face(s, out[i], topZ, Facade::Ledge), Face(s, out[j], topZ, Facade::Ledge),
