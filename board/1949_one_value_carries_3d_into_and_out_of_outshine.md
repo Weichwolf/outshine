@@ -93,6 +93,16 @@ The per-edge `Widened` is kept because it is correct and its default is the old 
 missing is that `BreaksBoth` and `RefinedLike` have to be told the same thing. That is the item's
 "topology is OWNED" guarantee and it is one change, not two.
 
+**AND KEEPING IT CLOSED THE LONG HALL, which nothing predicted.** The old guard read
+
+    const double miter = byM / (0.5 * len * len);
+    if (std::fabs(miter) > 4.0 * std::fabs(byM)) return {};
+
+`miter` is a MULTIPLIER and `4 * byM` is a LENGTH -- the test compares two different units, and
+where it fired wrongly `Widened` returned an EMPTY ring, the roof was silently built on the
+unwidened one, and the surfaces beside it no longer met. The exact solve compares the offset's real
+length instead. The long hall goes 10 hole edges to 0 and the sweep's total 22 to 12.
+
 ## AND IT UNCOVERED THE NEXT ONE RATHER THAN REMOVING SIX
 
 A 16 m square tower was clean before because this defect never let the sweep reach it. It now reads
