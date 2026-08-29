@@ -1199,6 +1199,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
   Published.Places("rebuild: of that, walking it into the proxy",
                    Picture.Standing->BuildMs(), "ms");
+  Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
+  Published.Places("rebuild: standing and submitting INSIDE Build",
+                   Picture.Standing->InsideMs(), "ms");
+  Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
+  Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: settling placements and lights",
                    Picture.Standing->StandMs(), "ms");
   Published.Places("rebuild: and the streams to the device",

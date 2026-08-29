@@ -83,6 +83,10 @@ public:
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
+  [[nodiscard]] double CarryMs() const { return CarryMs_; }
+  [[nodiscard]] double ResolveMs() const { return ResolveMs_; }
+  [[nodiscard]] double BoundsMs() const { return BoundsMs_; }
+  [[nodiscard]] double InsideMs() const { return InsideMs_; }
   [[nodiscard]] double StandMs() const { return StandMs_; }
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
@@ -220,6 +224,7 @@ private:
   Render::SubjectScratch Scratch_;
 
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
+  double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0;
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;

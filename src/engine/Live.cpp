@@ -121,8 +121,16 @@ bool Live::Build(std::string &error) {
               "dereference";
       return false;
     }
+    // FOUR CANDIDATES UNDER ONE PHASE, and guessing between them has cost three rounds today.
+    const auto tookFrom = std::chrono::steady_clock::now();
     Held_.Carries(*Declared_.Built);
+    CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
+                   .count();
+    const auto resolvedFrom = std::chrono::steady_clock::now();
     ResolveDeclaredSurface(Held_.Assembled(), Declared_.Surfacing.front(), Table_);
+    ResolveMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
+            .count();
   }
   if (!Declared_.Stands.empty()) {
     if (!Held_.Stands()) {
@@ -185,7 +193,11 @@ bool Live::Build(std::string &error) {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (!(ShadowRadiusStoodM_ > 0.0) && Held_.Assembled().TriangleCount() > 0) {
     double least[3], most[3];
+    const auto boundedFrom = std::chrono::steady_clock::now();
     Held_.Assembled().BoundsOf(Joined_, least, most);
+    BoundsMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
+            .count();
     double across = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
       const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
@@ -252,9 +264,13 @@ bool Live::Build(std::string &error) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
+    const auto insideFrom = std::chrono::steady_clock::now();
     if (!Stand(error) || !Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error) || !Submit(error)) {
       return false;
     }
+    InsideMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
+            .count();
   } else {
     Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
   }
@@ -454,7 +470,11 @@ bool Live::Stand(std::string &error) {
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
 
     double least[3], most[3];
+    const auto boundedFrom = std::chrono::steady_clock::now();
     Held_.Assembled().BoundsOf(Joined_, least, most);
+    BoundsMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
+            .count();
     for (int frame = 1; frame < Held_.Frames(); ++frame) {
       if (!Pose(frame, error)) { return false; }
       double posedLeast[3], posedMost[3];
@@ -700,12 +720,22 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &w
   Carrying_ = 0;
   Declared_.Surfacing = wore;
   if (!stood) { return false; }
+  // `Build` HAS ALREADY STOOD AND SUBMITTED, and doing it again here cost a third of the rebuild.
+  // The tail that stood here read
+  //
+  //     Joined_ = carried;  if (!Stand(error)) return false;  return Submit(error);
+  //
+  // and neither line changed anything: `Build` sets `Joined_ = Carrying_` itself and `Carrying_` is
+  // `carried` when it runs, and restoring `Declared_.Surfacing` above does not re-resolve the
+  // surface table, so the second pass ran on the same state as the first. It was also the LESSER
+  // pass -- `Build`'s own tail sets the picture region and lays the surface, which this never did.
+  //
+  // MEASURED on Shibuya before removing it: standing and submitting inside `Build` 13 844 ms, then
+  // 773 + 8 265 ms doing it again, out of a 24 163 ms hand-over.
   Joined_ = carried;
-  if (!Stand(error)) { return false; }
-  StandMs_ = since();
-  const bool handed = Submit(error);
-  SubmitMs_ = since();
-  return handed;
+  StandMs_ = 0.0;
+  SubmitMs_ = 0.0;
+  return true;
 }
 
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
