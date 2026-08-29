@@ -96,7 +96,7 @@ bool Live::Open(Render::SceneRenderer &renderer, Declaration declaration, const 
 }
 
 double Live::Framing() const {
-  return Declared_.Fill > 0.0 ? Declared_.Fill : Gltf::kFramingFill;
+  return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
 }
 
 namespace {

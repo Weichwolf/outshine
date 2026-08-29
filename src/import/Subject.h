@@ -46,7 +46,7 @@ struct Viewpoint {
 };
 
 [[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out,
-                              double fill = kFramingFill);
+                              double fill = Render::kFramingFill);
 
 [[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out,
                                      std::string &error);
@@ -141,7 +141,7 @@ public:
   void CentreM(double out[3]) const;
 
   [[nodiscard]]
-  [[nodiscard]] bool Frame(Viewpoint &out, double fill = kFramingFill) const;
+  [[nodiscard]] bool Frame(Viewpoint &out, double fill = Render::kFramingFill) const;
 
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 

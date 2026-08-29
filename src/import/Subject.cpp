@@ -1201,20 +1201,20 @@ bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, doub
   double centre[3];
   for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
 
-  const double azimuth = kFramingAzimuthDeg * kPi / 180.0;
-  const double elevation = kFramingElevationDeg * kPi / 180.0;
+  const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
+  const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
 
   double toEye[3] = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
                      std::cos(elevation) * std::sin(azimuth)};
 
-  const double yfov = 2.0 * std::atan(kFramingSensorHalfHeightMm / kFramingFocalLengthMm);
-  const double distance = radius / std::sin(0.5 * yfov) / (fill > 0 ? fill : kFramingFill);
+  const double yfov = 2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
+  const double distance = radius / std::sin(0.5 * yfov) / (fill > 0 ? fill : Render::kFramingFill);
   double eye[3];
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
 
   if (!Viewpoint::LookAt(eye, centre, 0.0, out)) { return false; }
   out.YfovRad = yfov;
-  const double floor = radius * kFramingNearFloorFraction;
+  const double floor = radius * Render::kFramingNearFloorFraction;
   out.ZNearM = (distance - radius > floor) ? distance - radius : floor;
   out.ZFarM = distance + radius;
   return true;

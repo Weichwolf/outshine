@@ -285,10 +285,10 @@ flowchart LR
   sim --> |12| world_ground
   generators --> |11| world_ground
   engine --> |11| ui
-  engine --> |10| import
   world_ground --> |9| world_data
+  engine --> |9| render
+  engine --> |9| import
   sim --> |8| actor_mind
-  engine --> |8| render
   generators_base --> |7| base_spatial
   actor_mind --> |7| actor_path
   engine --> |6| scenario
@@ -313,7 +313,7 @@ flowchart LR
   engine --> |3| content_shade
   engine --> |3| base_spatial
 ```
-  37 edge(s) drawn, 46 thinner than three includes not drawn
+  37 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 
@@ -482,7 +482,7 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 |---|---|
 | 17 | `src/generators/draw/BuildingMesh.cpp` |
 | 16 | `src/generators/draw/BuildingShape.cpp` |
-| 6 | `src/import/Framing.h` |
+| 6 | `src/render/Framing.h` |
 | 6 | `src/generators/draw/RoofSurface.cpp` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
