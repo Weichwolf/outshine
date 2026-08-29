@@ -96,38 +96,71 @@ because its screen-space error is small, not because something stands in front o
 occlusion culling in this tree at all today, so that predicate is a second feature wearing the
 same item's number, and the HiZ predicate beside it is its real name.
 
-## RE-MEASURED, and both halves of the item's premise are stale
+## RE-MEASURED, and the item was asking about the wrong geometry
 
-**1. The terrain has no DAG to cull, BY DESIGN, and the code says so.** `CookTile` carries a written
-argument against building one: the tile pyramid IS the LOD, zoom z-1 is the simplification of zoom z,
-Nanite builds its DAG offline and Cesium ships pre-simplified tiles -- and sampling a place mid-load
-put 572 stack samples inside `dag::Clustered`, `dag::SimplifyGroup` and `dag::Absorb`, reducing 2 048
-triangles per tile to 8 across 128 tiles. So one cluster per tile, deliberately:
+**THE ENGINE MAY NOT KNOW "TERRAIN".** board:1995 already decided it -- *terrain is as much a subject
+as car* -- and a first pass at this item wrote a terrain exception anyway, on the strength of
+`CookTile`'s comment that a tile needs no DAG because the pyramid is already the LOD. That argument
+is TRUE and it is the PRODUCER's to make, never the engine's to know. Geometry in, picture out.
 
-    place          clusters held   drawn   whole index list   list the CPU selected
-    Jura                    100     100            653 400                 653 400
-    Rothenburg              100     100            653 400                 653 400
-    Central Park            100     100            653 400                 653 400
-    Shibuya                  88      88            574 992                 574 992
+**AND THE TERRAIN MESH IS THE SMALL PART.** What the cluster count was measuring is a hundredth of
+what stands on a block:
 
-6 534 indices per tile in a single cluster. The item's "342 held, 83 drawn" predates that removal and
-is struck.
+    place        terrain clusters   streets   footprints   instances   sitting on them
+    Rothenburg               100      2 159        5 499       3 242          10 900
+    Shibuya                   88     12 480       69 014       2 078          83 572
 
-**2. `DagSelect` is called in exactly ONE file — `GroundPatchwork.cpp` — and the subject path calls
-it nowhere.** So there is no per-cluster culling anywhere that decides anything: the ground's is a
-no-op by construction and the subjects have none.
+Four places read 100/100, 100/100, 100/100 and 88/88 clusters held and drawn -- one per tile, every
+one kept. From that a first pass concluded "there is nothing to cull", which is true of the GROUND
+and false of the frame: 83 572 objects at Shibuya never enter the cluster path at all. The buildings
+arrive as ONE part of 812 079 triangles, the streets as another, the water as a third.
 
-**3. AND THE COOKER NOTHING REACHES.** `outshine::Cook(Geometry, part, ClusterDagOpts, ...)` is
-board:1991's landed work -- one cooker, one cooked form, the cut chosen per cluster. Its only callers
-in the whole tree are two CASES: `geo/ScoreWhatACutCostsASubject` and
-`geo/ScoreWhatOneCookerDoesToASubject`. No engine code calls it. The subject path flattens geometry
-into a `SubjectScratch` per frame and uploads it whole.
+**So the item's question was aimed at the hundredth that does not matter.** That is why the numbers
+looked like a dead end and were not one.
 
-So this item cannot be worked in the order it was written. A compute stage culling one cluster per
-tile is a dispatch to decide nothing, and there are no subject clusters to cull at all.
+## Does everything go through the DAG, and may something opt out
 
-- [ ] the engine COOKS its subjects — `Cook` reaches the subject path and a proxy holds clusters,
-      which is board:1991's own work becoming reachable rather than new work
-- [ ] `DagSelect` runs on the subject path, on the CPU first, so the before-number is real and
-      belongs to the thing being moved
-- [ ] only then the compute stage, whose win is the CPU no longer walking clusters that MATTER
+**Benchmark** — Unreal: `bEnableNanite` is a per-ASSET opt-in decided at build; a mesh that does not
+take it carries an AUTHORED LOD chain and the base pass draws it. RAGE: every drawable has an LOD
+chain and small props share `slod` tiers; the chain is authored rather than derived. **They agree on
+the shape and it is the answer to the question**: the CUT is per-GEOMETRY and DECLARED, never
+per-category and known by the engine.
+
+**Taking that**, which gives the form:
+
+    Cut::Built   the engine builds a cluster DAG. The default, and Nanite's opt-in read the other
+                 way round -- a producer that says nothing gets one
+    Cut::Given   the producer supplies the levels and their errors. A terrain tile says this and its
+                 reason is exactly `CookTile`'s: zoom z-1 IS the simplification of zoom z, made once
+                 by whoever made the tiles. Cesium's quantized-mesh is literally this
+
+One selection then reads one cluster table whose rows came from either source. **And a tile's cluster
+must carry its PARENT TILE's error instead of `kDagRootErr`** -- with that, the same cut that chooses
+between DAG levels chooses between ZOOM levels, and the cascade stops being a second mechanism
+deciding the same thing. Today the cascade picks zooms and `DagSelect` picks clusters: two routes,
+which is what board:1995 exists to forbid.
+
+## What is measured and stands
+
+**`DagSelect` is called in exactly ONE file**, `GroundPatchwork.cpp`. The subject path calls it
+nowhere.
+
+**`outshine::Cook` is reached by NOTHING.** board:1991's landed cooker -- one cooker, one cooked
+form, the cut chosen per cluster -- has two callers in the whole tree and both are cases:
+`geo/ScoreWhatACutCostsASubject` and `geo/ScoreWhatOneCookerDoesToASubject`. The subject path
+flattens geometry into a `SubjectScratch` per frame and uploads it whole. That is this tree's named
+commonest defect standing between board:1991 and this item.
+
+The item's own "342 held, 83 drawn" predates the runtime DAG's removal from `CookTile` and is struck.
+
+- [ ] a `Geometry` DECLARES where its cut comes from, `Built` or `Given`, and the engine names no
+      category
+- [ ] the engine COOKS what says `Built` -- `Cook` reaches the subject path, which is board:1991's
+      work becoming reachable rather than new work
+- [ ] a tile's cluster carries its PARENT TILE's error, so one selection covers the pyramid and the
+      cascade stops being a second route
+- [ ] the OSM structures and the vegetation go through it too: 10 900 objects at Rothenburg and
+      83 572 at Shibuya, against 100 and 88 terrain clusters
+- [ ] `DagSelect` runs on all of it on the CPU first, so the before-number belongs to the thing being
+      moved
+- [ ] only then the compute stage
