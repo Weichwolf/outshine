@@ -890,6 +890,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          (double)Generators::BuildingMesh::RaisedTaken(), "buildings");
         Published.Places("buildings: reduced to a hull box",
                          (double)Generators::BuildingMesh::BoxesTaken(), "buildings");
+        Published.Places("buildings: past even a BOX's pixel budget",
+                         (double)Generators::BuildingMesh::OverBudgetTaken(), "buildings");
         Published.Places("buildings: meshed with NO pixel scale declared",
                          (double)Generators::BuildingMesh::UnscaledTaken(), "buildings");
         Published.Places("buildings: the farthest one meshed lies",

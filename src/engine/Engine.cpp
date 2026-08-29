@@ -267,6 +267,8 @@ Result Renderer::render(Extent frame) {
 Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->error());
 }
+int Renderer::settleFrames(void) const { return Of_->S_->Picture.Device.SettleFrames(); }
+
 Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
   return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->error());
 }

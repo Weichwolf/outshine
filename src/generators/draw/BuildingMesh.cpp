@@ -20,6 +20,7 @@ std::atomic<size_t> gRaised{0};
 std::atomic<size_t> gFarthestM{0};
 std::atomic<size_t> gBoxes{0};
 std::atomic<size_t> gUnscaled{0};
+std::atomic<size_t> gOverBudget{0};
 }
 
 size_t BuildingMesh::BuriedTaken() { return gBuried.exchange(0u); }
@@ -28,6 +29,7 @@ size_t BuildingMesh::RaisedTaken() { return gRaised.exchange(0u); }
 size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
 size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
 size_t BuildingMesh::UnscaledTaken() { return gUnscaled.exchange(0u); }
+size_t BuildingMesh::OverBudgetTaken() { return gOverBudget.exchange(0u); }
 
 
 namespace {
@@ -658,6 +660,30 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
 constexpr double kRoofRiseM = 3.0;
 constexpr double kResolvedPx = 2.0;
 
+// AND A SECOND BOUND, WHICH IS THE ONE THAT WAS MISSING. The test above asks whether a level's
+// FEATURE can be seen. It never asked whether the level's TRIANGLES fit the pixels the building
+// covers -- so full architecture stood out to 1037 m, where a ten-metre building covers 6.7 pixels,
+// and put 262 triangles on them. Thirty-nine triangles a pixel.
+//
+// A building of height h and silhouette width w at distance d covers about f^2 h w / d^2 pixels, so
+// a level costing T triangles is admissible only while T <= that:
+//
+//     d <= f * sqrt(h * w / T)
+//
+// For a 10 by 15 m house: full architecture (T = 262) to 523 m, a box (T = 12) to 2446 m. This is
+// Nanite's invariant stated as a rule the GENERATOR can obey -- never build more geometry than the
+// screen can show -- and it is the bound that answers 31 M vertices for a 0.92 M pixel frame.
+//
+// The two bounds are both necessary and neither implies the other: the feature test says the detail
+// would be invisible, the triangle test says it would not fit. The reach is the SMALLER of them.
+constexpr double kArchitectureTris = 262.0;
+constexpr double kBoxTris = 12.0;
+
+[[nodiscard]] double FitsInPixelsM(double focalPx, double heightM, double widthM, double tris) {
+  if (heightM <= 0.0 || widthM <= 0.0 || tris <= 0.0) { return 0.0; }
+  return focalPx * std::sqrt(heightM * widthM / tris);
+}
+
 [[nodiscard]] double ArchitectureReachM(double focalPx) {
   return focalPx * kRoofRiseM / kResolvedPx;
 }
@@ -716,7 +742,26 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   }
   const double focalPx = site.FocalPx();
   if (focalPx > 0.0) {
-    if (outM > ArchitectureReachM(focalPx)) {
+    double leastE = 1.0e300, mostE = -1.0e300, leastN = 1.0e300, mostN = -1.0e300;
+    for (const En &p : s.Ring) {
+      leastE = std::min(leastE, p.E); mostE = std::max(mostE, p.E);
+      leastN = std::min(leastN, p.N); mostN = std::max(mostN, p.N);
+    }
+    const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
+    const double highM = s.TopM() - PlinthFootZ(s, ground);
+    const double asDetailed =
+        std::min(ArchitectureReachM(focalPx), FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
+    // WHERE EVEN A BOX IS TOO MUCH, counted rather than claimed. Twelve triangles stop fitting at
+    // f * sqrt(h w / 12) -- 2446 m for a ten-by-fifteen house -- and there is no level below the
+    // box in this tree. Dropping the building is not it: a building under a pixel still darkens the
+    // pixel it is under, and dropping it is how a town stops being a town. Nor is dropping the
+    // box's FLOOR, which looks free because it is buried and is not: it is what keeps the solid
+    // closed, and `geo/ScoreWhetherEveryBuildingIsASolid` walks exactly that. So what belongs here
+    // is the merged level, and this counter is what says how much it would be worth.
+    if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {
+      gOverBudget.fetch_add(1u, std::memory_order_relaxed);
+    }
+    if (outM > asDetailed) {
       gBoxes.fetch_add(1u, std::memory_order_relaxed);
       Box(s, Hull(s.Ring), ground, site);
       return;

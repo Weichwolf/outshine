@@ -50,7 +50,7 @@ namespace Placed {
 
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
-constexpr int kSteps = 2;
+
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 constexpr double kEyeAglM = 60.0;
@@ -149,7 +149,12 @@ inline int RenderPlace(const Place &place) {
   const auto stood = std::chrono::steady_clock::now();
   int frames = 0;
   double advancingMs = 0.0, renderingMs = 0.0;
-  for (; frames < kSteps; ++frames) {
+  // AS MANY FRAMES AS THE PLAN SAYS IT NEEDS. Two frames of a temporal resolve is two samples of a
+  // sequence eight long, so every edge in every picture this directory has ever kept was as aliased
+  // as no antialiasing at all -- and the number that fixes it was computed by the plan and read by
+  // nobody.
+  const int settle = engine.renderer().settleFrames();
+  for (; frames < settle; ++frames) {
     const auto beforeStep = std::chrono::steady_clock::now();
     if (!engine.advance()) {
       Unprepared((std::string(place.Name) + " did not advance: " + engine.error()).c_str());
@@ -257,6 +262,53 @@ inline int RenderPlace(const Place &place) {
         held.What.rfind("restand:", 0) == 0) {
       std::printf("    %s: %.0f %s\n", held.What.c_str(), held.How, held.Unit.c_str());
     }
+  }
+
+  // A PICTURE OF NOTHING PASSED THIS CASE FOR MONTHS, and the guard beside this one -- the bare-tile
+  // count -- did not catch it: Shibuya meshed 6.1 M building triangles, reported 0 bare tiles, and
+  // kept a 49 KB frame of flat green under a gradient sky. The case only ever asked whether a FILE
+  // was written.
+  //
+  // THE ORACLE NEEDS NO TASTE AND NO INVENTED NUMBER. A bare ellipsoid under a sky is a VERTICAL
+  // gradient, and a vertical gradient has exactly ZERO horizontal variation by construction. Every
+  // edge a building, a street or a hillside puts in the frame has some. So the mean absolute
+  // difference between horizontally adjacent pixels over the lower half of the picture separates
+  // the two, and the separation is structural rather than a taste: quantisation alone gives under
+  // 1/255 per step, so a bar of ONE unit is already an order of magnitude above the noise floor and
+  // an order below any real edge.
+  //
+  // It only bites when geometry was actually meshed, which is what makes it a CONTRADICTION between
+  // two measurements rather than a judgement about how the picture looks: triangles were built and
+  // the frame does not contain them.
+  double alongRows = 0.0;
+  size_t steps = 0;
+  std::vector<uint8_t> pixels;
+  const bool read = engine.renderer().readPixels(pixels).has_value();
+  if (read && pixels.size() >= (size_t)kWidePx * (size_t)kHighPx * 4u) {
+    for (int y = kHighPx / 2; y < kHighPx; ++y) {
+      for (int x = 1; x < kWidePx; ++x) {
+        const size_t at = ((size_t)y * (size_t)kWidePx + (size_t)x) * 4u;
+        for (int c = 0; c < 3; ++c) {
+          const int here = pixels[at + (size_t)c], left = pixels[at - 4u + (size_t)c];
+          alongRows += here > left ? here - left : left - here;
+          ++steps;
+        }
+      }
+    }
+  }
+  const double flatness = steps > 0 ? alongRows / (double)steps : 0.0;
+  const double meshed = measured("building triangles the world meshed");
+  std::printf("    the picture varies by %.3f of 255 along its rows, over %.0f meshed building "
+              "triangle(s)\n", flatness, meshed);
+  if (meshed > 0.0 && read && flatness < 1.0) {
+    char why[320];
+    std::snprintf(why, sizeof why,
+                  "%s meshed %.0f building triangle(s) and its picture varies by %.3f of 255 along "
+                  "its rows -- a vertical gradient varies by zero, so the frame holds the sky and "
+                  "the ground and NONE of the geometry that was built for it",
+                  place.Name, meshed, flatness);
+    Unprepared(why);
+    return Report();
   }
 
   CHECK(wrote,

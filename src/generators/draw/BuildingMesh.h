@@ -19,6 +19,7 @@ public:
   [[nodiscard]] static size_t FarthestMTaken();
   [[nodiscard]] static size_t BoxesTaken();
   [[nodiscard]] static size_t UnscaledTaken();
+  [[nodiscard]] static size_t OverBudgetTaken();
 
   void Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept override;
 };

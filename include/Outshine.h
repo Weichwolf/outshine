@@ -58,6 +58,13 @@ public:
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
 
+  // HOW MANY FRAMES THIS PLAN NEEDS BEFORE IT IS SHOWING WHAT IT MEANS TO SHOW. A temporal resolve
+  // gathers its samples over TIME -- the projection is jittered by a sub-pixel offset each frame and
+  // the history is reprojected and blended -- so a still camera converges only because the SAMPLE
+  // moves, and one frame of it is one sample. The plan already computes the number and nothing has
+  // ever asked: `kTemporalSettleFrames` is 128, and a client taking a single picture drew two.
+  [[nodiscard]] int settleFrames(void) const;
+
 private:
   friend class Engine;
   explicit Renderer(Engine &of) : Of_(&of) {}
