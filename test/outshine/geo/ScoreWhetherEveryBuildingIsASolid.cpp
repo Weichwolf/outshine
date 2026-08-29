@@ -86,6 +86,7 @@ struct Verdict {
   size_t Overused = 0;
   size_t Reversed = 0;
   double VolumeM3 = 0.0;
+  double HoleLowZ = 0.0, HoleHighZ = 0.0;
 
   [[nodiscard]] bool Whole(void) const {
     return Triangles > 0 && Degenerate == 0 && Holes == 0 && Overused == 0 && Reversed == 0 &&
@@ -93,7 +94,7 @@ struct Verdict {
   }
 };
 
-[[nodiscard]] Verdict Judge(const std::vector<float> &soup) {
+[[nodiscard]] Verdict Judge(const std::vector<float> &soup, const double up[3]) {
   Verdict out;
   const size_t corners = soup.size() / kSoupStride;
   std::unordered_map<uint64_t, uint32_t> seenAt;
@@ -146,9 +147,25 @@ struct Verdict {
       facing[key] += ahead ? 1 : -1;
     }
   }
+  bool anyHole = false;
   for (const auto &edge : facing) {
     const int walked = std::abs(edge.second);
-    if (walked == 1) { ++out.Holes; }
+    if (walked != 1) { continue; }
+    ++out.Holes;
+    const double *pa = &at[(size_t)edge.first.first * 3];
+    const double *pb = &at[(size_t)edge.first.second * 3];
+    const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
+    const double zb = pb[0] * up[0] + pb[1] * up[1] + pb[2] * up[2];
+    const double low = za < zb ? za : zb;
+    const double high = za < zb ? zb : za;
+    if (!anyHole) {
+      out.HoleLowZ = low;
+      out.HoleHighZ = high;
+      anyHole = true;
+      continue;
+    }
+    if (low < out.HoleLowZ) { out.HoleLowZ = low; }
+    if (high > out.HoleHighZ) { out.HoleHighZ = high; }
   }
   std::map<std::pair<uint32_t, uint32_t>, int> counted;
   for (size_t tri = 0; tri + 2 < welded.size(); tri += 3) {
@@ -233,16 +250,19 @@ int main(void) {
     std::vector<float> soup;
     grows.Mesh(plan, soup);
 
-    const Verdict said = Judge(soup);
+    const double reach = std::sqrt(anchorEcef[0] * anchorEcef[0] + anchorEcef[1] * anchorEcef[1] +
+                                   anchorEcef[2] * anchorEcef[2]);
+    const double up[3] = {anchorEcef[0] / reach, anchorEcef[1] / reach, anchorEcef[2] / reach};
+    const Verdict said = Judge(soup, up);
     holesInAll += said.Holes;
     reversedInAll += said.Reversed;
     degenerateInAll += said.Degenerate;
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-24s %-28s %7zu tri  %6zu holes  %5zu flipped  %5zu degenerate  %10.1f m3\n",
+    std::printf("%-24s %-24s %6zu tri %5zu holes %4zu flip %4zu degen  spanning %6.2f m of height\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Reversed,
-                said.Degenerate, said.VolumeM3);
+                said.Degenerate, said.HoleHighZ - said.HoleLowZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());
