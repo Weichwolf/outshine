@@ -90,6 +90,7 @@ struct Verdict {
   double HoleLowZ = 0.0, HoleHighZ = 0.0;
   double FlipLowZ = 0.0, FlipHighZ = 0.0;
   double BaseZ = 0.0, TopZ = 0.0;
+  size_t FlatHoles = 0, UprightHoles = 0;
 
   [[nodiscard]] bool Whole(void) const {
     return Triangles > 0 && Degenerate == 0 && Holes == 0 && Overused == 0 && Reversed == 0 &&
@@ -161,6 +162,13 @@ struct Verdict {
     const int walked = std::abs(edge.second);
     if (walked != 1) { continue; }
     ++out.Holes;
+    {
+      const double *qa = &at[(size_t)edge.first.first * 3];
+      const double *qb = &at[(size_t)edge.first.second * 3];
+      const double ha = qa[0] * up[0] + qa[1] * up[1] + qa[2] * up[2];
+      const double hb = qb[0] * up[0] + qb[1] * up[1] + qb[2] * up[2];
+      if (std::fabs(ha - hb) < 0.01) { ++out.FlatHoles; } else { ++out.UprightHoles; }
+    }
     const double *pa = &at[(size_t)edge.first.first * 3];
     const double *pb = &at[(size_t)edge.first.second * 3];
     const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
@@ -286,10 +294,10 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  halfU %6.2f halfV %6.2f d %+8.5f over %4.2f rise %6.2f  holes at %6.2f..%6.2f\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
-                said.Degenerate, halfU, halfV, halfU - halfV, overhang, rise,
-                said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ);
+                said.Degenerate, halfU - halfV, overhang, rise, said.FlatHoles,
+                said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());
