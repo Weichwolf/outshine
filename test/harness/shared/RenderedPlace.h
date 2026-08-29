@@ -273,9 +273,10 @@ inline int RenderPlace(const Place &place) {
   // gradient, and a vertical gradient has exactly ZERO horizontal variation by construction. Every
   // edge a building, a street or a hillside puts in the frame has some. So the mean absolute
   // difference between horizontally adjacent pixels over the lower half of the picture separates
-  // the two, and the separation is structural rather than a taste: quantisation alone gives under
-  // 1/255 per step, so a bar of ONE unit is already an order of magnitude above the noise floor and
-  // an order below any real edge.
+  // the two, and the separation is structural rather than a taste. MEASURED at the bar of ONE unit:
+  // the bare frame reads 0.719 and the five that hold their place read 2.343 to 3.629, so the gap is
+  // a factor of 3.3 -- not the order of magnitude a first draft of this comment claimed. Wide enough
+  // to separate them and narrow enough that the number is quoted here rather than assumed.
   //
   // It only bites when geometry was actually meshed, which is what makes it a CONTRADICTION between
   // two measurements rather than a judgement about how the picture looks: triangles were built and
