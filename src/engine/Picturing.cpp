@@ -1,3 +1,4 @@
+#include <bit>
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
@@ -731,6 +732,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (const auto &one : edges) {
           if (one.second == 1) { ++open; }
           else if (one.second > 2) { ++overused; }
+        }
+        {
+          std::unordered_map<uint64_t, uint32_t> whole;
+          size_t exact = 0;
+          const size_t corners = raised.size() / 3;
+          for (size_t one = 0; one < corners; ++one) {
+            uint64_t key = 1469598103934665603ull;
+            for (size_t part = 0; part < 3; ++part) {
+              const uint32_t bits = std::bit_cast<uint32_t>(raised[one * 3 + part]);
+              key = (key ^ bits) * 1099511628211ull;
+            }
+            for (size_t part = 0; part < 3; ++part) {
+              const uint32_t bits = std::bit_cast<uint32_t>(facing[one * 3 + part]);
+              key = (key ^ bits) * 1099511628211ull;
+            }
+            if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
+            ++exact;
+          }
+          Published.Places("solid: building corners identical in POSITION AND NORMAL", (double)exact,
+                           "corners");
+          Published.Places("solid: and how many distinct ones remain", (double)whole.size(),
+                           "corners");
         }
         Published.Places("solid: building vertices welded away as coincident", (double)coincident,
                          "vertices");

@@ -338,7 +338,7 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
-| 1438 | `cpp` | `engine/Picturing.cpp` |
+| 1461 | `cpp` | `engine/Picturing.cpp` |
 | 1269 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
@@ -477,8 +477,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 
 | constants | file |
 |---|---|
-| 17 | `src/generators/draw/BuildingMesh.cpp` |
 | 16 | `src/generators/draw/BuildingShape.cpp` |
+| 15 | `src/generators/draw/BuildingMesh.cpp` |
 | 6 | `src/generators/draw/RoofSurface.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |

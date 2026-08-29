@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <atomic>
+#include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "BuildingShape.h"
@@ -23,8 +25,6 @@ size_t BuildingMesh::DeepestBuriedMmTaken() { return gDeepestMm.exchange(0u); }
 namespace {
 
 constexpr double kSinkM = 0.30;
-constexpr double kThinnestM2 = 0.01;
-constexpr double kLongestNeedleM = 5.0;
 
 constexpr double kSlabM = 0.20;
 constexpr double kParapetThickM = 0.32;
@@ -86,28 +86,87 @@ public:
 
   [[nodiscard]] double ReachM() const { return ReachM_; }
 
-  void Tri(const Vtx &a, const Vtx &b, const Vtx &c) {
+  // THE GENERATOR OWNS ITS OWN TOPOLOGY. Positions are welded on the same centimetre grid everything
+  // else in this tree uses, so two corners meant to be one corner ARE one index -- and a shared edge
+  // is then a shared edge rather than something a walk has to rediscover afterwards by welding a
+  // soup. Unreal's `FMeshDescription` keeps vertices, edges and triangles apart for exactly this
+  // reason and splits RENDER vertices by normal and UV on top; the soup below is that split, derived
+  // from the topology instead of standing in for it.
+  //
+  // NOTHING IS DISCARDED. The only triangle that goes is one whose corners are not three distinct
+  // indices, and that one costs no edge: its edges are a self-loop and a pair that cancel. A needle
+  // and a sliver are BAD GEOMETRY and are the generator's to stop making, never the emitter's to
+  // quietly drop -- dropping one takes three edges out of the walk and can hide the very hole it
+  // sits beside.
+  // SNAPPED, NOT WELDED, and the difference is the whole point. Welding merges positions that have
+  // already drifted apart; snapping stops them drifting. Every corner is quantised to a MILLIMETRE
+  // as it is emitted, so two corners that mean to be one corner are bit-identical -- the index table
+  // below is then bookkeeping over positions that already agree, rather than a repair that has to
+  // guess how far apart is still "the same".
+  //
+  // A millimetre is chosen against the two things that bound it: it is far below anything a frame
+  // can show at any distance a building is drawn from, and far above the float noise of the
+  // arithmetic that produced it -- a ring widened, split and interpolated three times lands within
+  // microns of itself, never within millimetres.
+  [[nodiscard]] static Vtx Snapped(const Vtx &v) {
+    Vtx out = v;
+    out.P.E = std::round(v.P.E * 1000.0) / 1000.0;
+    out.P.N = std::round(v.P.N * 1000.0) / 1000.0;
+    out.Z = std::round(v.Z * 1000.0) / 1000.0;
+    return out;
+  }
+
+  [[nodiscard]] uint32_t Index(const Vtx &v) {
+    const int64_t ce = (int64_t)std::llround(v.P.E * 1000.0);
+    const int64_t cn = (int64_t)std::llround(v.P.N * 1000.0);
+    const int64_t cz = (int64_t)std::llround(v.Z * 1000.0);
+    const uint64_t key =
+        (uint64_t)(ce * 73856093LL) ^ (uint64_t)(cn * 19349663LL) ^ (uint64_t)(cz * 83492791LL);
+    const auto found = Welded_.find(key);
+    if (found != Welded_.end()) { return found->second; }
+    const uint32_t made = (uint32_t)Welded_.size();
+    Welded_.emplace(key, made);
+    return made;
+  }
+
+  void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
+    const Vtx a = Snapped(given0), b = Snapped(given1), c = Snapped(given2);
+    const uint32_t ia = Index(a), ib = Index(b), ic = Index(c);
+    if (ia == ib || ib == ic || ic == ia) { return; }
     const double e1 = b.P.E - a.P.E, n1 = b.P.N - a.P.N, z1 = b.Z - a.Z;
     const double e2 = c.P.E - a.P.E, n2 = c.P.N - a.P.N, z2 = c.Z - a.Z;
     double nrm[3] = {n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2};
-    // A NEEDLE IS THIN AND LONG, AND BOTH HALVES MATTER. Refusing on AREA alone took 22 162
-    // triangles out of Rothenburg to remove 5 slivers, because window mullions and cornices are
-    // small and perfectly well-shaped. Refusing on the ASPECT RATIO alone left 760 standing,
-    // because a triangle of 0.009 m2 with a 6 m edge is 2.5e-4 -- above any ratio loose enough to
-    // spare a mullion. What the eye actually sees is a bright line: almost no area, carrying metres.
-    // So both conditions, and they are the same two the instrument counts by, taken from the frame
-    // rather than from a formula. Unreal drops degenerates in its mesh build and RAGE validates at
-    // export; neither asks the renderer to carry them.
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
-    if (len < 1.0e-9) { return; }
-    const double e3 = c.P.E - b.P.E, n3 = c.P.N - b.P.N, z3 = c.Z - b.Z;
-    const double longest = std::max({e1 * e1 + n1 * n1 + z1 * z1, e2 * e2 + n2 * n2 + z2 * z2,
-                                     e3 * e3 + n3 * n3 + z3 * z3});
-    if (0.5 * len < kThinnestM2 && longest > kLongestNeedleM * kLongestNeedleM) { return; }
+    if (len < 1.0e-12) { return; }
+    Face_.push_back(ia);
+    Face_.push_back(ib);
+    Face_.push_back(ic);
     for (int c2 = 0; c2 < 3; c2++) nrm[c2] /= len;
     Push(a, nrm);
     Push(b, nrm);
     Push(c, nrm);
+  }
+
+  // WHAT THE SHELL IT JUST BUILT IS, answered by the generator about itself rather than by a test
+  // about its output. An edge on one face is a hole; on more than two it is not a surface; walked
+  // twice the same way it is locally inside out.
+  void Judged(size_t *open, size_t *overused, size_t *reversed) const {
+    std::map<std::pair<uint32_t, uint32_t>, int> walked;
+    std::map<std::pair<uint32_t, uint32_t>, int> counted;
+    for (size_t at = 0; at + 2 < Face_.size(); at += 3) {
+      for (int side = 0; side < 3; ++side) {
+        const uint32_t from = Face_[at + (size_t)side], to = Face_[at + (size_t)((side + 1) % 3)];
+        const bool ahead = from < to;
+        const std::pair<uint32_t, uint32_t> key{ahead ? from : to, ahead ? to : from};
+        walked[key] += ahead ? 1 : -1;
+        counted[key] += 1;
+      }
+    }
+    for (const auto &edge : counted) {
+      if (edge.second == 1) { ++*open; }
+      else if (edge.second > 2) { ++*overused; }
+      else if (walked.at(edge.first) != 0) { ++*reversed; }
+    }
   }
 
   void Quad(const Vtx &a, const Vtx &b, const Vtx &c, const Vtx &d) {
@@ -126,6 +185,8 @@ private:
   }
 
   std::vector<float> &Soup_;
+  std::unordered_map<uint64_t, uint32_t> Welded_;
+  std::vector<uint32_t> Face_;
   double Origin_[3], East_[3], North_[3], Up_[3];
   double ReachM_ = 0.0;
 };
