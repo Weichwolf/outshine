@@ -76,14 +76,22 @@ the normal. Written down so the next round starts past them rather than in them:
    uniform across all three arms, which means the handed quad is not reaching `shadeRow` at all and
    every number above is background
 
-**So the door path and the ground path do not agree, and until that is settled a case here would
-pin the wrong behaviour.** The ground path is measured and right: `Picturing` publishes sky
+**AND THAT CAUSE DID NOT SURVIVE EITHER, which is why it is corrected here rather than left standing.**
+`outshine/door/ScoreWhatAHandedSurfaceShows` PASSES and its whole claim is that a handed material's
+colour reaches the picture -- so a handed `Geometry` plainly does reach `shadeRow`. The difference
+between that case and mine is one line: to get a sky at all I declared `Ground.Declared`, and that
+stands a WORLD. The framing then keys on the world rather than on the 4 m quad, so the quad is a few
+pixels and every mean above is background. The confound is the scenario, not the render path.
+
+**The door path and the ground path are not shown to disagree; the case was simply not measuring the
+quad.** The ground path is measured and right: `Picturing` publishes sky
 (348, 696, 1553) and bounce (1063, 1309, 674) cd/m2, the derivation checks by hand to 1 per cent,
 and the frame shows sunlit walls turning light where they were sky-blue. That is evidence; it is not
 a proof, and this item does not claim a tick it has not earned.
 
-- [ ] why a handed `Geometry` does not reach `shadeRow`, which makes any door-level lighting case
-      unsound -- and is very likely a defect worth more than this item
+- [ ] a door-level lighting case needs a SKY without a WORLD, or a framing that keys on the handed
+      geometry when both stand. Today `Ground.Declared` buys the sky and costs the framing, and
+      there is no third way to ask for one without the other -- which is itself a door finding
 - [ ] `Render.Exposure` reaches the frame
 - [ ] the item's own second control, never run: the ground's mean luminance rises and falls with the
       sun's declared elevation
