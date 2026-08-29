@@ -222,6 +222,10 @@ bool Engine::State::Asks(void) {
 
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
+  // WHERE THE FORTY SECONDS GO. One clock stood over this whole function, so a rebuild could be
+  // named slow and never located. The phases are the ground ring, the buildings, the streets and
+  // water, the assembly into one subject, and the upload.
+  auto phaseAt = std::chrono::steady_clock::now();
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
@@ -681,6 +685,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tiles.Roughness = 0.72f;
       const MaterialInstance wallSurface = ground.addSurface("walls", walls);
       const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
+  Published.Places("rebuild: the ground ring took", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(), "ms");
+  phaseAt = std::chrono::steady_clock::now();
       const int builtPart = ground.addPart("walls", wallSurface);
       const int roofPart = ground.addPart("roofs", roofSurface);
       // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
@@ -1172,6 +1178,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   Gltf::Subject laidGround;
+  Published.Places("rebuild: and the buildings, streets and water took", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(), "ms");
+  phaseAt = std::chrono::steady_clock::now();
   if (!laidGround.Assemble(ground)) {
     Error = laidGround.Error();
     return false;
@@ -1186,7 +1194,21 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("restand: the carried count the world hands over", (double)drivenParts,
                    "carried");
   Published.Places("restand: parts in the geometry", (double)ground.parts(), "parts");
+  Published.Places("rebuild: and assembling one subject took", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(), "ms");
+  phaseAt = std::chrono::steady_clock::now();
   if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
+  Published.Places("rebuild: of that, walking it into the proxy",
+                   Picture.Standing->BuildMs(), "ms");
+  Published.Places("rebuild: settling placements and lights",
+                   Picture.Standing->StandMs(), "ms");
+  Published.Places("rebuild: and the streams to the device",
+                   Picture.Standing->SubmitMs(), "ms");
+  Published.Places("rebuild: and handing it to the device took",
+                   std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                             phaseAt)
+                       .count(),
+                   "ms");
+  phaseAt = std::chrono::steady_clock::now();
   Published.Places("restand: parts the proxy then stands with",
                    (double)Picture.Standing->PartsStanding(), "parts");
   Published.Places("restand: instances it carries",

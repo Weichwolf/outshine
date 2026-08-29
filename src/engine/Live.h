@@ -82,6 +82,10 @@ public:
                              int clip, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
+  [[nodiscard]] double BuildMs() const { return BuildMs_; }
+  [[nodiscard]] double StandMs() const { return StandMs_; }
+  [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
+
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
                              std::string &error);
@@ -214,6 +218,8 @@ private:
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;
   Render::SubjectScratch Scratch_;
+
+  double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;

@@ -1,3 +1,4 @@
+#include <chrono>
 #include "Live.h"
 
 #include <limits>
@@ -682,13 +683,29 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &w
   Declared_.Built = &built;
   Stoodup_ = false;
   Carrying_ = carried;
+  // THREE STEPS UNDER ONE NAME, and the rebuild's clock could not tell them apart: BUILD walks the
+  // subject into the proxy's own arrays, STAND settles the placements and lights, SUBMIT hands the
+  // streams to the device. 25 of Shibuya's 40 seconds are spent here and the phase that holds them
+  // has to be nameable before it can be answered.
+  auto phaseAt = std::chrono::steady_clock::now();
+  const auto since = [&phaseAt]() {
+    const double ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    phaseAt = std::chrono::steady_clock::now();
+    return ms;
+  };
   const bool stood = Build(error);
+  BuildMs_ = since();
   Carrying_ = 0;
   Declared_.Surfacing = wore;
   if (!stood) { return false; }
   Joined_ = carried;
   if (!Stand(error)) { return false; }
-  return Submit(error);
+  StandMs_ = since();
+  const bool handed = Submit(error);
+  SubmitMs_ = since();
+  return handed;
 }
 
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
