@@ -6,7 +6,7 @@
 namespace outshine::Core {
 
 void Posed::Clears() {
-  Geometry_ = Gltf::Subject();
+  Assembled_ = Gltf::Subject();
   File_ = Gltf::Document();
   Read_ = false;
   Moves_ = false;
@@ -34,22 +34,22 @@ bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnim
 
 bool Posed::Poses(int frame, double fps, std::string &error) {
   if (Moves_) {
-    const bool first = Geometry_.VertexCount() == 0;
+    const bool first = Assembled_.VertexCount() == 0;
     if (!first) {
       const Heap::Tagged copying("pose-previous");
-      PreviousPositionsM_ = Geometry_.PositionsM();
+      PreviousPositionsM_ = Assembled_.PositionsM();
     }
     Motion_.At((double)frame / fps, Locals_, Weights_);
     const Heap::Tagged building("pose-build");
-    if (Geometry_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
+    if (Assembled_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                         Span<const double>(Weights_.data(), Weights_.size()), Variant_)) {
-      if (first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
+      if (first) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       return true;
     }
-  } else if (Geometry_.Build(File_, Variant_)) {
+  } else if (Assembled_.Build(File_, Variant_)) {
     return true;
   }
-  error = Geometry_.Error();
+  error = Assembled_.Error();
   return false;
 }
 

@@ -33,19 +33,28 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   THE WHOLE MITTELLAND, AND THE ALPS BEHIND IT, from the HOTEL WEISSENSTEIN on the Jura ridge at
-//   47.2537 N 7.4231 E. The bearing is taken on the JUNGFRAU at 46.5367 N 7.9626 E -- 152.75 deg and
-//   89.6 km, derived from the two coordinates rather than chosen: north 111 132 m/deg, east
-//   111 320 m/deg times cos of the mean latitude, atan2 of the two.
+//   SOLOTHURN WITH THE ALPS BEHIND IT, and the two are on ONE bearing rather than two.
 //
-//   So the frame should read in four depths: the ridge falling away in the first kilometre,
-//   SOLOTHURN on the Aare about 10 km out and a little to the left of centre, the Mittelland's
-//   farmland and towns carrying the middle distance for fifty kilometres, and the BERNESE ALPS
-//   standing pale along the horizon at 80 to 100 km. This is the set's test of DEPTH: nothing else
-//   in it asks a frame to hold four scales at once.
+//   THE STANDPOINT IS DERIVED FROM THE TARGETS, not chosen and then aimed. The line from the
+//   JUNGFRAU at 46.5367 N 7.9626 E to SOLOTHURN at 47.2079 N 7.5371 E runs at 336.53 deg; carried
+//   5 km past the town it reaches 47.2492 N 7.5108 E, on the Jura's south flank. Looking back down
+//   that line at 156.53 deg puts Solothurn 5.0 km ahead and the Jungfrau 86.3 km beyond it -- the
+//   SAME bearing, so the range stands behind the town rather than beside it.
 //
-//   If the Alps are the same green as the plain, the air is costing nothing. If the horizon is flat,
-//   the ring is not reaching them. If Solothurn is a green patch, the OSM footprints did not arrive.
+//   FOUR EARLIER FRAMINGS FAILED AND EACH FAILED DIFFERENTLY, which is why the standpoint is
+//   computed now instead of picked. From the Hotel Weissenstein aimed at the Jungfrau the town falls
+//   outside a 55 deg frame; aimed at the town the range does; due south the ridge's own crest fills
+//   it; and a hundred metres of extra height clears the crest but not the next Jura fold. Two
+//   targets 32 deg apart cannot both sit in a 55 deg frame from a standpoint that is not on their
+//   line. Putting the eye ON the line makes the angle zero.
+//
+//   So the frame should read in four depths: the flank falling away in the first kilometres,
+//   SOLOTHURN on the Aare at 5 km a little below centre, the MITTELLAND carrying the middle distance
+//   for fifty, and the BERNESE ALPS pale along the horizon at eighty-six. This is the set's test of
+//   DEPTH: nothing else in it asks a frame to hold four scales at once.
+//
+//   If the Alps are the same green as the plain, the air is costing nothing. If Solothurn is a green
+//   patch, the OSM footprints did not reach the ring.
 
 namespace {
 
@@ -55,9 +64,9 @@ constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
-constexpr double kLatDeg = 47.2537;
-constexpr double kLonDeg = 7.4231;
-constexpr double kBearingDeg = 152.75;
+constexpr double kLatDeg = 47.2492;
+constexpr double kLonDeg = 7.5108;
+constexpr double kBearingDeg = 156.53;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;

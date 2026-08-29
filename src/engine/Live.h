@@ -166,7 +166,7 @@ public:
 
   [[nodiscard]] size_t PlanPasses() const { return Plan_ ? Plan_->Passes().size() : 0u; }
 
-  [[nodiscard]] const Gltf::Subject &Shown() const { return Held_.Geometry(); }
+  [[nodiscard]] const Gltf::Subject &Shown() const { return Held_.Assembled(); }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 

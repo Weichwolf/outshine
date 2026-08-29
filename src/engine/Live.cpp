@@ -121,7 +121,7 @@ bool Live::Build(std::string &error) {
       return false;
     }
     Held_.Carries(*Declared_.Built);
-    ResolveDeclaredSurface(Held_.Geometry(), Declared_.Surfacing.front(), Table_);
+    ResolveDeclaredSurface(Held_.Assembled(), Declared_.Surfacing.front(), Table_);
   }
   if (!Declared_.Stands.empty()) {
     if (!Held_.Stands()) {
@@ -140,13 +140,13 @@ bool Live::Build(std::string &error) {
       }
       if (!arriving.Poses(0, Declared_.Fps, error)) { return false; }
       AssetReads_ += 1;
-      if (!Held_.Geometry().Append(arriving.Geometry())) {
+      if (!Held_.Assembled().Append(arriving.Assembled())) {
         error = "the subject '" + joining + "' would not append onto the one before it";
         return false;
       }
     }
-    ResolveSurfaceTable(Held_.File(), Held_.Geometry(), true, true, Table_);
-    if (!ResolveFileSurface(Held_.File(), Held_.Geometry(), ColourFrom::Row, ColourCarrier::Texture, Table_,
+    ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
+    if (!ResolveFileSurface(Held_.File(), Held_.Assembled(), ColourFrom::Row, ColourCarrier::Texture, Table_,
                             error)) {
       return false;
     }
@@ -162,29 +162,29 @@ bool Live::Build(std::string &error) {
         }
         Table_.Slots.push_back(joining.Slots.front());
       }
-      const size_t before = Held_.Geometry().Parts().size();
-      if (!Held_.Geometry().Append(*Declared_.Built)) {
-        error = Held_.Geometry().Error();
+      const size_t before = Held_.Assembled().Parts().size();
+      if (!Held_.Assembled().Append(*Declared_.Built)) {
+        error = Held_.Assembled().Error();
         return false;
       }
-      Table_.PartSlot.resize(Held_.Geometry().Parts().size(), base);
-      for (size_t part = before; part < Held_.Geometry().Parts().size(); ++part) {
-        const int wanted = Held_.Geometry().Parts()[part].Material;
+      Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
+      for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
+        const int wanted = Held_.Assembled().Parts()[part].Material;
         const uint32_t at = wanted > 0 && (size_t)wanted < Declared_.Surfacing.size()
                                 ? (uint32_t)wanted
                                 : 0u;
         Table_.PartSlot[part] = base + at;
       }
-      Joined_ = Held_.Geometry().Parts().size() - Declared_.Built->Parts().size();
+      Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
     }
   }
 
-  if (Declared_.Built == nullptr) { Joined_ = Held_.Geometry().Parts().size(); }
+  if (Declared_.Built == nullptr) { Joined_ = Held_.Assembled().Parts().size(); }
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (!(ShadowRadiusStoodM_ > 0.0) && Held_.Geometry().TriangleCount() > 0) {
+  if (!(ShadowRadiusStoodM_ > 0.0) && Held_.Assembled().TriangleCount() > 0) {
     double least[3], most[3];
-    Held_.Geometry().BoundsOf(Joined_, least, most);
+    Held_.Assembled().BoundsOf(Joined_, least, most);
     double across = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
       const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
@@ -247,7 +247,7 @@ bool Live::Build(std::string &error) {
   const double right[3] = {1.0, 0.0, 0.0}, up[3] = {0.0, 1.0, 0.0};
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
-  if (Held_.Geometry().TriangleCount() > 0) {
+  if (Held_.Assembled().TriangleCount() > 0) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
@@ -272,13 +272,13 @@ void Live::Eye(const Gltf::Viewpoint &from) {
 
 bool Live::PartVolumes(std::string &error) {
   if (!PartBounds_.empty()) { return true; }
-  const size_t parts = Held_.Geometry().Parts().size();
+  const size_t parts = Held_.Assembled().Parts().size();
   if (parts == 0) { return true; }
   PartBounds_.assign(parts, Volume{});
   const auto fold = [this, parts]() {
-    const std::vector<double> &at = Held_.Geometry().PositionsM();
+    const std::vector<double> &at = Held_.Assembled().PositionsM();
     for (size_t part = 0; part < parts; ++part) {
-      const Gltf::Part &one = Held_.Geometry().Parts()[part];
+      const Gltf::Part &one = Held_.Assembled().Parts()[part];
       Volume &held = PartBounds_[part];
       for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
         const double *const from = at.data() + vertex * 3;
@@ -336,7 +336,7 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
-    return Render::Aim(*Renderer_, Held_.Geometry(), Looking_, Stood_.Anchor(), error);
+    return Render::Aim(*Renderer_, Held_.Assembled(), Looking_, Stood_.Anchor(), error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -366,13 +366,13 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Looking_ = {framed, false, Joined_};
-  return Render::Aim(*Renderer_, Held_.Geometry(), Looking_, Stood_.Anchor(), error);
+  return Render::Aim(*Renderer_, Held_.Assembled(), Looking_, Stood_.Anchor(), error);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
-  Stood_.Stands(Held_.Geometry(), anchorEcefM);
+  Stood_.Stands(Held_.Assembled(), anchorEcefM);
   const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }
@@ -385,7 +385,7 @@ bool Live::Stand(std::string &error) {
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
 
-  for (const Gltf::PlacedLight &placed : Held_.Geometry().Lights()) {
+  for (const Gltf::PlacedLight &placed : Held_.Assembled().Lights()) {
     Stood_.Lit(placed.Light);
   }
   if (Declared_.KeyLux > 0.0) {
@@ -453,11 +453,11 @@ bool Live::Stand(std::string &error) {
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
 
     double least[3], most[3];
-    Held_.Geometry().BoundsOf(Joined_, least, most);
+    Held_.Assembled().BoundsOf(Joined_, least, most);
     for (int frame = 1; frame < Held_.Frames(); ++frame) {
       if (!Pose(frame, error)) { return false; }
       double posedLeast[3], posedMost[3];
-      Held_.Geometry().BoundsOf(Joined_, posedLeast, posedMost);
+      Held_.Assembled().BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
@@ -599,7 +599,7 @@ bool Live::Carry(size_t body, const double worldFromBodyM[16], const double buil
             "stands where the world put it";
     return false;
   }
-  const size_t parts = Held_.Geometry().Parts().size();
+  const size_t parts = Held_.Assembled().Parts().size();
   if (Stood_.Parts() != parts) {
     error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
@@ -715,7 +715,7 @@ bool Live::Advance(std::string &error) {
     TookSubmitting_ = took("live-submit", beforeSubmit);
   }
 
-  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Held_.Geometry().TriangleCount() > 0;
+  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Held_.Assembled().TriangleCount() > 0;
   if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
   if (orbits || !Aimed_) {
     const size_t beforeAim = Heap::TakenUnder("live-aim");

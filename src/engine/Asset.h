@@ -19,11 +19,18 @@ public:
   [[nodiscard]] bool Reads(const std::string &path, const std::string &variant,
                            AssetAnimation animation, int clip, double fps, std::string &error);
   [[nodiscard]] bool Poses(int frame, double fps, std::string &error);
-  void Carries(const Gltf::Subject &built) { Geometry_ = built; }
+  void Carries(const Gltf::Subject &built) { Assembled_ = built; }
 
   [[nodiscard]] const Gltf::Document &File() const { return File_; }
-  [[nodiscard]] const Gltf::Subject &Geometry() const { return Geometry_; }
-  [[nodiscard]] Gltf::Subject &Geometry() { return Geometry_; }
+  // A NAME IS A PROMISE AND THIS ONE BROKE IT. It read `Geometry()` and returns a `Gltf::Subject`,
+  // which is the ASSEMBLED form -- one flat buffer with parts as ranges and the pose already baked --
+  // and NOT the door's `outshine::Geometry`, which owns per-part vectors and is what an author
+  // fills. Two different types, one of the two names, on the accessor every engine file reaches
+  // through. An hour of this session went into working out why a cooker taking a `Geometry` could
+  // not be wired to a path that appeared to carry one; it does not, and now it does not say so
+  // either.
+  [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
+  [[nodiscard]] Gltf::Subject &Assembled() { return Assembled_; }
   [[nodiscard]] const std::vector<double> &Previous() const { return PreviousPositionsM_; }
   [[nodiscard]] bool Moves() const { return Moves_; }
   [[nodiscard]] bool Stands() const { return Read_; }
@@ -33,7 +40,7 @@ public:
 
 private:
   Gltf::Document File_;
-  Gltf::Subject Geometry_;
+  Gltf::Subject Assembled_;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
