@@ -1205,6 +1205,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
+  Published.Places("rebuild: first vertex in, x", Render::FirstInAt(0), "m");
+  Published.Places("rebuild: first vertex in, y", Render::FirstInAt(1), "m");
+  Published.Places("rebuild: first vertex in, z", Render::FirstInAt(2), "m");
+  Published.Places("rebuild: and out, x", Render::FirstOutAt(0), "m");
+  Published.Places("rebuild: and out, y", Render::FirstOutAt(1), "m");
+  Published.Places("rebuild: and out, z", Render::FirstOutAt(2), "m");
   Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
   Published.Places("rebuild: uploads the residency made",
                    (double)Render::SubjectResidency::UploadsTaken(), "uploads");

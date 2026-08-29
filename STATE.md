@@ -341,7 +341,7 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
-| 1534 | `cpp` | `engine/Picturing.cpp` |
+| 1540 | `cpp` | `engine/Picturing.cpp` |
 | 1288 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |

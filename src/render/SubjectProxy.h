@@ -93,6 +93,8 @@ struct SubjectScratch {
                            SubjectScratch &scratch, std::string &error);
 
 [[nodiscard]] [[nodiscard]] double PackedMs();
+[[nodiscard]] double FirstInAt(int axis);
+[[nodiscard]] double FirstOutAt(int axis);
 [[nodiscard]] double HandedMs();
 
 bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,

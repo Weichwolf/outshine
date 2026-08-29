@@ -291,6 +291,9 @@ struct VertexRuns {
   size_t PreviousAt = 0;
 };
 
+std::atomic<double> gFirstIn[3] = {};
+std::atomic<double> gFirstOut[3] = {};
+
 VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
@@ -300,6 +303,17 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     Gltf::InEcef(&subject.PositionsM()[vertex * 3], ecef);
+    // ONE KNOWN VERTEX, EITHER SIDE. Three readings of this conversion cannot all be true: the
+    // generator writes plain ECEF component order, `InEcef` is a real swap `(x,y,z) -> (y,x,-z)`,
+    // and the picture is correct. Making it the identity moved no building -- Manhattan's bright
+    // cluster stayed on the left, and a swap is a MIRROR. Nine hypotheses died in one session from
+    // reasoning off a picture instead of measuring the thing, so the thing is measured.
+    if (vertex == 0) {
+      for (int axis = 0; axis < 3; ++axis) {
+        gFirstIn[axis].store(subject.PositionsM()[axis], std::memory_order_relaxed);
+        gFirstOut[axis].store(ecef[axis], std::memory_order_relaxed);
+      }
+    }
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
   }
   VertexRuns runs;
@@ -423,6 +437,8 @@ std::atomic<double> gPackMs{0.0};
 std::atomic<double> gHandMs{0.0};
 
 double PackedMs() { return gPackMs.load(std::memory_order_relaxed); }
+double FirstInAt(int axis) { return gFirstIn[axis].load(std::memory_order_relaxed); }
+double FirstOutAt(int axis) { return gFirstOut[axis].load(std::memory_order_relaxed); }
 double HandedMs() { return gHandMs.load(std::memory_order_relaxed); }
 
 bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
