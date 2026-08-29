@@ -608,6 +608,19 @@ bool Live::Stand(std::string &error) {
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
+  for (size_t part = 0; part < Table_.PartSlot.size(); ++part) {
+    const uint32_t slot = Table_.PartSlot[part];
+    if (slot >= Table_.Slots.size()) { continue; }
+    const Material &row = Table_.Slots[slot].Row;
+    const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
+    std::array<float, 3> radiance{};
+    for (int channel = 0; channel < 3; ++channel) {
+      radiance[(size_t)channel] = emits ? row.Emission[channel]
+                                        : row.BaseColour[channel] *
+                                              (float)Declared_.IndirectLight[channel];
+    }
+    (void)Stood_.Emits(part, radiance);
+  }
 
   for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
   if (Declared_.KeyLux > 0.0) {
