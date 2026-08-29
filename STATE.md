@@ -285,7 +285,7 @@ flowchart LR
   sim --> |12| world_ground
   generators --> |11| world_ground
   engine --> |11| ui
-  engine --> |10| content_gltf
+  engine --> |10| import
   world_ground --> |9| world_data
   sim --> |8| actor_mind
   engine --> |8| render
@@ -295,8 +295,8 @@ flowchart LR
   sim --> |5| base_spatial
   sim --> |5| actor_body
   render --> |5| base_io
+  import --> |5| base_spatial
   engine --> |5| base_io
-  content_gltf --> |5| base_spatial
   generators --> |4| generators_draw
   engine --> |4| generators
   world_ground --> |3| content_shade
@@ -312,7 +312,7 @@ flowchart LR
   engine --> |3| scene
   engine --> |3| base_spatial
 ```
-  36 edge(s) drawn, 48 thinner than three includes not drawn
+  36 edge(s) drawn, 47 thinner than three includes not drawn
 
 ## Tiers
 
@@ -332,7 +332,7 @@ What each directory under `src/` may include. `--audit-layers` refuses a crossin
 | `host` | base world |
 | `compositor` | base world content |
 | `sim` | base world content actor scene |
-| `engine` | base content world generators actor render scene scenario sim ui audio host compositor |
+| `engine` | base content import world generators actor render scene scenario sim ui audio host compositor |
 
 ## Mass
 
@@ -340,9 +340,9 @@ The heaviest files. Headers and sources counted apart.
 
 | lines | kind | file |
 |---|---|---|
-| 1891 | `cpp` | `content/gltf/Document.cpp` |
+| 1891 | `cpp` | `import/Document.cpp` |
 | 1540 | `cpp` | `engine/Picturing.cpp` |
-| 1288 | `cpp` | `content/gltf/Subject.cpp` |
+| 1288 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
@@ -361,8 +361,8 @@ The widest public surfaces.
 |---|---|
 | 66 | `src/render/SceneRenderer.h` |
 | 59 | `src/engine/Live.h` |
-| 51 | `src/content/gltf/Document.h` |
-| 46 | `src/content/gltf/Subject.h` |
+| 51 | `src/import/Document.h` |
+| 46 | `src/import/Subject.h` |
 | 45 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 
@@ -411,13 +411,13 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/scenario/Tables.h` |
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
+| 1 | `src/import/Keyframes.h` |
 | 1 | `src/generators/draw/TreeRandom.h` |
 | 1 | `src/generators/draw/RoofSurface.h` |
 | 1 | `src/generators/base/FeatureLevel.h` |
 | 1 | `src/generators/base/Cover.h` |
 | 1 | `src/generators/base/Claim.h` |
 | 1 | `src/engine/Live.h` |
-| 1 | `src/content/gltf/Keyframes.h` |
 | 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
 | 1 | `src/base/io/StackProbe.h` |
@@ -481,8 +481,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 |---|---|
 | 17 | `src/generators/draw/BuildingMesh.cpp` |
 | 16 | `src/generators/draw/BuildingShape.cpp` |
+| 6 | `src/import/Framing.h` |
 | 6 | `src/generators/draw/RoofSurface.cpp` |
-| 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
 | 4 | `src/world/ground/TerrainLoader.cpp` |

@@ -10,8 +10,6 @@
 #include <vector>
 
 #include "DrawList.h"
-#include "Axes.h"
-#include "Subject.h"
 #include "SubjectDraw.h"
 
 namespace outshine::Render {

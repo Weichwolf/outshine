@@ -67,7 +67,7 @@ int main(void) {
       if (now > one.Standing) { ++rose; }
     }
   }
-  std::printf("  %zu spellings of Gltf:: stand outside src/content/gltf/\n", whole);
+  std::printf("  %zu spellings of Gltf:: stand outside src/import/\n", whole);
 
   CHECK(rose == 0,
         "**ONLY THE IMPORTER SPELLS GLTF**: an interchange format is a door rather than an inward "
@@ -76,7 +76,7 @@ int main(void) {
         "Gltf:: has that format's decisions -- its axes, its storage widths -- reaching into work "
         "that never involved a file, and this count may fall but never rise");
 
-  Covers("where the glTF namespace is spelled: outside src/content/gltf/ the count may only fall, "
+  Covers("where the glTF namespace is spelled: outside src/import/ the count may only fall, "
          "so the importer's own vocabulary stops at its door -- it does NOT judge whether a glTF "
          "concept travels inward under another name");
   return Report();
