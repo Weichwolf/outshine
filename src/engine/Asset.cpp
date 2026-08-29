@@ -7,6 +7,8 @@ namespace outshine::Core {
 
 void Posed::Clears() {
   Assembled_ = Gltf::Subject();
+  Built_.clear();
+  HoldsBuilt_ = false;
   File_ = Gltf::Document();
   Read_ = false;
   Moves_ = false;

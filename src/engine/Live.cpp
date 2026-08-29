@@ -1,6 +1,7 @@
 #include <chrono>
 #include "Live.h"
 
+#include "Shaped.h"
 #include "Surfaces.h"
 
 #include <limits>
@@ -111,44 +112,82 @@ namespace {
 // dependency costs no bytes. The importer knows the engine; the engine hands the renderer a view;
 // the renderer never learns what file anything came from -- which is Unreal's arrow (the glTF
 // importer is a module depending on the engine) and RAGE's (tools depend on the runtime).
-Render::Shape Shaped(const Gltf::Subject &from, std::vector<Render::ShapePart> &parts) {
-  parts.clear();
-  parts.reserve(from.Parts().size());
-  for (const Gltf::Part &one : from.Parts()) {
+// THE WORLD'S PRODUCER NEEDS NO CONVERSION AT ALL. A `Geometry` already holds float per part in
+// the layout the device binds, so the shape's parts VIEW it and only the indices are joined --
+// uint32_t on both sides, a copy with an offset rather than a reshaping. This is the whole point
+// of the goal: `Assemble` widened 28 M vertices to double so that `PackVertices` could narrow them
+// back, and neither pass had a reader that wanted double.
+Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
+  into.Clear();
+  const int parts = from.parts();
+  size_t wholeIndices = 0;
+  for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
+  into.Indices.reserve(wholeIndices);
+  for (int surface = 0; surface < from.surfaces(); ++surface) {
+    into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
+  }
+  for (int lamp = 0; lamp < from.lamps(); ++lamp) {
+    PunctualLight standing = from.lampAt(lamp);
+    const double *const at = from.lampPlacementOf(lamp);
+    for (int axis = 0; axis < 3; ++axis) { standing.Position[axis] = (float)at[12 + axis]; }
+    into.Lamps.push_back(standing);
+  }
+
+  into.Parts.reserve((size_t)parts);
+  size_t firstVertex = 0;
+  size_t firstIndex = 0;
+  for (int part = 0; part < parts; ++part) {
     Render::ShapePart made;
-    made.Name = one.NodeName;
-    made.Material = one.Material;
-    made.HasUv = one.HasUv;
-    made.HasUv1 = one.HasUv1;
-    made.HasNormal = one.HasNormal;
-    made.HasColour = one.HasColour;
-    made.HasTangent = one.HasTangent();
-    made.FirstVertex = one.FirstVertex;
-    made.VertexCount = one.VertexCount;
-    made.FirstIndex = one.FirstIndex;
-    made.IndexCount = one.IndexCount;
-    parts.push_back(made);
+    made.Name = from.nameOf(part);
+    made.Material = from.materialOf(part).index();
+    made.PositionsM = from.positionsOf(part);
+    made.Normals = from.normalsOf(part);
+    made.Tangents = from.tangentsOf(part);
+    made.Uv = from.textureOf(part, 0);
+    made.Uv1 = from.textureOf(part, 1);
+    made.Colours = from.coloursOf(part);
+    made.HasUv = !made.Uv.empty();
+    made.HasUv1 = !made.Uv1.empty();
+    made.HasNormal = !made.Normals.empty();
+    made.HasColour = !made.Colours.empty();
+    made.HasTangent = !made.Tangents.empty();
+    made.VertexCount = made.PositionsM.size() / 3;
+    made.FirstVertex = firstVertex;
+    const std::span<const uint32_t> order = from.trianglesOf(part);
+    made.FirstIndex = firstIndex;
+    made.IndexCount = order.size();
+    for (const uint32_t index : order) { into.Indices.push_back((uint32_t)firstVertex + index); }
+    firstVertex += made.VertexCount;
+    firstIndex += order.size();
+    into.Parts.push_back(made);
   }
   Render::Shape out;
-  out.Parts = parts;
-  out.Surfaces = from.Surfaces();
-  out.PositionsM = from.PositionsM();
-  out.Normals = from.Normals();
-  out.Tangents = from.Tangents();
-  out.Uv = from.Uv();
-  out.Uv1 = from.Uv1();
-  out.Colours = from.Colours();
-  out.Indices = from.Indices();
-  out.CarriesUv = from.HasUv();
-  out.CarriesUv1 = from.HasUv1();
-  out.CarriesNormal = from.HasNormal();
-  out.CarriesTangent = from.HasTangent();
-  out.CarriesColour = from.HasColour();
+  out.Parts = into.Parts;
+  out.Surfaces = into.Surfaces;
+  out.Lamps = into.Lamps;
+  out.Indices = into.Indices;
+  for (const Render::ShapePart &one : into.Parts) {
+    out.CarriesUv = out.CarriesUv || one.HasUv;
+    out.CarriesUv1 = out.CarriesUv1 || one.HasUv1;
+    out.CarriesNormal = out.CarriesNormal || one.HasNormal;
+    out.CarriesTangent = out.CarriesTangent || one.HasTangent;
+    out.CarriesColour = out.CarriesColour || one.HasColour;
+  }
   return out;
 }
 
+
+
+// ONE SHAPE, ONE STORE, ONE PRODUCER. Five call sites used to build a temporary over the SAME
+// buffer, so each one silently invalidated the spans the standing shape was holding. The shape is
+// built here and nowhere else, and which producer fills it is the only question left.
+void Live::Reshape() {
+  Shaped_ = Held_.HoldsBuilt() ? Shaped(Held_.Built(), ShapeParts_)
+                               : Gltf::Shaped(Held_.Assembled(), ShapeParts_);
+}
+
 bool Live::Build(std::string &error) {
-  if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
+  if (Declared_.Built == nullptr && !Held_.HoldsBuilt() && Declared_.Stands.empty()) {
     Held_.Clears();
     Table_ = Render::SurfaceTable();
     ShadowRadiusStoodM_ = 0.0;
@@ -162,7 +201,7 @@ bool Live::Build(std::string &error) {
       (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
     }
   }
-  if (Declared_.Built != nullptr && Declared_.Stands.empty()) {
+  if ((Declared_.Built != nullptr || Held_.HoldsBuilt()) && Declared_.Stands.empty()) {
     if (Declared_.Surfacing.empty()) {
       error = "the declaration carries a built subject and no surface -- a body without a "
               "material cannot be resolved, and an empty list is a refusal, not a "
@@ -171,11 +210,12 @@ bool Live::Build(std::string &error) {
     }
     // FOUR CANDIDATES UNDER ONE PHASE, and guessing between them has cost three rounds today.
     const auto tookFrom = std::chrono::steady_clock::now();
-    Held_.Carries(*Declared_.Built);
+    if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
     CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
                    .count();
     const auto resolvedFrom = std::chrono::steady_clock::now();
-    Render::ResolveDeclaredSurface(Shaped(Held_.Assembled(), ShapeParts_), Declared_.Surfacing.front(), Table_);
+    Reshape();
+    Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
     ResolveMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
             .count();
@@ -211,7 +251,9 @@ bool Live::Build(std::string &error) {
       const uint32_t base = (uint32_t)Table_.Slots.size();
       for (const Material &declaredSurface : Declared_.Surfacing) {
         Render::SurfaceTable joining;
-        Render::ResolveDeclaredSurface(Shaped(*Declared_.Built, ShapeParts_), declaredSurface, joining);
+        Render::ShapeStore joiningParts;
+        Render::ResolveDeclaredSurface(Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface,
+                                       joining);
         if (joining.Slots.empty()) {
           error = "a declared surface for the built geometry resolved to no slot, so the parts "
                   "joining this picture would name a surface that is not there";
@@ -236,13 +278,14 @@ bool Live::Build(std::string &error) {
     }
   }
 
-  if (Declared_.Built == nullptr) { Joined_ = Held_.Assembled().Parts().size(); }
+  if (!Held_.HoldsBuilt()) { Reshape(); }
+  if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (!(ShadowRadiusStoodM_ > 0.0) && Held_.Assembled().TriangleCount() > 0) {
+  if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
     double least[3], most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Held_.Assembled().BoundsOf(Joined_, least, most);
+    Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
@@ -315,7 +358,7 @@ bool Live::Build(std::string &error) {
   const double right[3] = {1.0, 0.0, 0.0}, up[3] = {0.0, 1.0, 0.0};
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
-  if (Held_.Assembled().TriangleCount() > 0) {
+  if (Shaped_.TriangleCount() > 0) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
@@ -346,8 +389,24 @@ bool Live::Build(std::string &error) {
   return Compose(error);
 }
 
+// A POSE MOVES THE VERTICES, SO THE SHAPE FOLLOWS IT IN THE SAME CALL. The shape narrows a
+// document's doubles into its own store, so it is a COPY of the posed positions rather than a view
+// of them, and an animation that re-poses without re-shaping draws the frame it was standing on
+// before. This is what the five throwaway shapes were buying, and it costs one line to buy it once.
+// A POSE MOVES THE VERTICES, SO THE ONE SHAPE FOLLOWS IT HERE. There is exactly one shape and the
+// proxy stands on it; a pose that changed the carrier without re-forming it would draw the frame
+// before. That this costs a re-form at all is board:2037:  REBUILDS the carrier from the
+// document every frame, which neither Unreal (a fixed FStaticMeshRenderData with a pose buffer)
+// nor RAGE (a fixed grmGeometry with crSkeleton matrices) does.
+// A POSE MOVES THE VERTICES, SO THE ONE SHAPE FOLLOWS IT HERE. There is exactly one shape and the
+// proxy stands on it, so a pose that changed the carrier without re-forming it would draw the
+// frame before. That this costs a re-form AT ALL is board:2037's finding: `Poses` rebuilds the
+// carrier from the document every frame, which neither Unreal (a fixed FStaticMeshRenderData with
+// its own pose buffer) nor RAGE (a fixed grmGeometry with crSkeleton matrices) does.
 bool Live::Pose(int frame, std::string &error) {
-  return Held_.Poses(frame, Declared_.Fps, error);
+  if (!Held_.Poses(frame, Declared_.Fps, error)) { return false; }
+  Reshape();
+  return true;
 }
 
 void Live::Eye(const Render::Viewpoint &from) {
@@ -358,16 +417,16 @@ void Live::Eye(const Render::Viewpoint &from) {
 
 bool Live::PartVolumes(std::string &error) {
   if (!PartBounds_.empty()) { return true; }
-  const size_t parts = Held_.Assembled().Parts().size();
+  const size_t parts = Shaped_.Parts.size();
   if (parts == 0) { return true; }
   PartBounds_.assign(parts, Volume{});
   const auto fold = [this, parts]() {
-    const std::vector<double> &at = Held_.Assembled().PositionsM();
     for (size_t part = 0; part < parts; ++part) {
-      const Gltf::Part &one = Held_.Assembled().Parts()[part];
+      const Render::ShapePart &one = Shaped_.Parts[part];
       Volume &held = PartBounds_[part];
-      for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
-        const double *const from = at.data() + vertex * 3;
+      for (size_t vertex = 0; vertex < one.VertexCount && (vertex + 1) * 3 <= one.PositionsM.size();
+           ++vertex) {
+        const float *const from = one.PositionsM.data() + vertex * 3;
         for (int axis = 0; axis < 3; ++axis) {
           if (held.Empty || from[axis] < held.LeastM[axis]) { held.LeastM[axis] = from[axis]; }
           if (held.Empty || from[axis] > held.MostM[axis]) { held.MostM[axis] = from[axis]; }
@@ -422,7 +481,9 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
-    return Render::Aim(*Renderer_, Shaped(Held_.Assembled(), ShapeParts_), Looking_, Stood_.Anchor(), error);
+    Render::ShapeStore aiming;
+    return Render::Aim(*Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(),
+                       error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -454,13 +515,19 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Looking_ = {framed, false, Joined_};
-  return Render::Aim(*Renderer_, Shaped(Held_.Assembled(), ShapeParts_), Looking_, Stood_.Anchor(), error);
+  // AIMING READS THE POSE THAT IS STANDING RIGHT NOW, which is not always the one the proxy stood
+  // with: `Poses` rebuilds the carrier from the document and drops whatever was APPENDED onto it,
+  // so refreshing the shared shape here would leave the proxy standing over three parts while its
+  // surface table names nine. Its own store, and the standing shape is left alone.
+  Render::ShapeStore aiming;
+  return Render::Aim(*Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(),
+                     error);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
-  Shaped_ = Shaped(Held_.Assembled(), ShapeParts_);
+  Reshape();
   Stood_.Stands(Shaped_, anchorEcefM);
   const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
@@ -474,9 +541,7 @@ bool Live::Stand(std::string &error) {
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
 
-  for (const Gltf::PlacedLight &placed : Held_.Assembled().Lights()) {
-    Stood_.Lit(placed.Light);
-  }
+  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
   if (Declared_.KeyLux > 0.0) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
@@ -546,14 +611,14 @@ bool Live::Stand(std::string &error) {
 
     double least[3], most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Held_.Assembled().BoundsOf(Joined_, least, most);
+    Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int frame = 1; frame < Held_.Frames(); ++frame) {
       if (!Pose(frame, error)) { return false; }
       double posedLeast[3], posedMost[3];
-      Held_.Assembled().BoundsOf(Joined_, posedLeast, posedMost);
+      Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
@@ -697,7 +762,7 @@ bool Live::Carry(size_t body, const double worldFromBodyM[16], const double buil
             "stands where the world put it";
     return false;
   }
-  const size_t parts = Held_.Assembled().Parts().size();
+  const size_t parts = Shaped_.Parts.size();
   if (Stood_.Parts() != parts) {
     error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
@@ -772,6 +837,26 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &erro
   return Restand(built, carried, Declared_.Surfacing.front(), error);
 }
 
+bool Live::Restand(outshine::Geometry &&built, size_t carried, const Material &wearing,
+                   std::string &error) {
+  Aimed_ = false;
+  const std::vector<Material> wore = std::move(Declared_.Surfacing);
+  Declared_.Surfacing.assign(1u, wearing);
+  Declared_.Built = nullptr;
+  Held_.Carries(std::move(built));
+  Stoodup_ = false;
+  Carrying_ = carried;
+  auto phaseAt = std::chrono::steady_clock::now();
+  const bool stood = Build(error);
+  BuildMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+                 .count();
+  StandMs_ = 0.0;
+  SubmitMs_ = 0.0;
+  Carrying_ = 0;
+  Declared_.Surfacing = wore;
+  return stood;
+}
+
 bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
                    std::string &error) {
   Aimed_ = false;
@@ -837,7 +922,7 @@ bool Live::Advance(std::string &error) {
     TookSubmitting_ = took("live-submit", beforeSubmit);
   }
 
-  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Held_.Assembled().TriangleCount() > 0;
+  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
   if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
   if (orbits || !Aimed_) {
     const size_t beforeAim = Heap::TakenUnder("live-aim");

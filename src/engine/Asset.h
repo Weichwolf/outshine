@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <Geometry.h>
 #include <Scenario.h>
 
 #include "Document.h"
@@ -20,6 +21,18 @@ public:
                            AssetAnimation animation, int clip, double fps, std::string &error);
   [[nodiscard]] bool Poses(int frame, double fps, std::string &error);
   void Carries(const Gltf::Subject &built) { Assembled_ = built; }
+
+  // THE WORLD'S GEOMETRY IS MOVED IN, NEVER COPIED. A scenario's ground is the door's own
+  // `Geometry` -- float per part, which is what the device binds -- and the engine used to widen
+  // it into a `Gltf::Subject` and then narrow it back. Taking OWNERSHIP is what makes the copy
+  // unnecessary: the producer builds it, hands it over, and the parts of the render shape view it
+  // in place for as long as it stands.
+  void Carries(outshine::Geometry &&built) {
+    Built_ = std::move(built);
+    HoldsBuilt_ = true;
+  }
+  [[nodiscard]] bool HoldsBuilt() const { return HoldsBuilt_; }
+  [[nodiscard]] const outshine::Geometry &Built() const { return Built_; }
 
   [[nodiscard]] const Gltf::Document &File() const { return File_; }
   // A NAME IS A PROMISE AND THIS ONE BROKE IT. It read `Geometry()` and returns a `Gltf::Subject`,
@@ -41,6 +54,8 @@ public:
 private:
   Gltf::Document File_;
   Gltf::Subject Assembled_;
+  outshine::Geometry Built_;
+  bool HoldsBuilt_ = false;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;

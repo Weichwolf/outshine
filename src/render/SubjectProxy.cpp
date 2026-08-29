@@ -137,18 +137,25 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
     }
   }
   if (!first && least > plane) { return true; }
-  for (size_t vertex = 0; vertex < beyond; ++vertex) {
-    double along = 0;
-    for (int axis = 0; axis < 3; ++axis) {
-      along += (subject.PositionsM[vertex * 3 + (size_t)axis] - eye.EyeM[axis]) * eye.Forward[axis];
-    }
-    if (along <= plane) {
-      error = "vertex " + std::to_string(vertex) + " of the " + std::to_string(beyond) +
-              " that " + std::to_string(framedParts) + " framed part(s) of " +
-              std::to_string(subject.Parts.size()) + " carry sits " + std::to_string(along) +
-              " m along the view axis, inside the near plane of " + std::to_string(plane) +
-              " m this placement declares";
-      return false;
+  for (const ShapePart &one : subject.Parts) {
+    if (one.FirstVertex >= beyond) { break; }
+    for (size_t within = 0;
+         within < one.VertexCount && (within + 1) * 3 <= one.PositionsM.size(); ++within) {
+      const size_t vertex = one.FirstVertex + within;
+      if (vertex >= beyond) { break; }
+      double along = 0;
+      for (int axis = 0; axis < 3; ++axis) {
+        along += ((double)one.PositionsM[within * 3 + (size_t)axis] - eye.EyeM[axis]) *
+                 eye.Forward[axis];
+      }
+      if (along <= plane) {
+        error = "vertex " + std::to_string(vertex) + " of the " + std::to_string(beyond) +
+                " that " + std::to_string(framedParts) + " framed part(s) of " +
+                std::to_string(subject.Parts.size()) + " carry sits " + std::to_string(along) +
+                " m along the view axis, inside the near plane of " + std::to_string(plane) +
+                " m this placement declares";
+        return false;
+      }
     }
   }
   return true;
@@ -187,13 +194,15 @@ constexpr double kMagnificationAgreement = 1e-12;
 double DepthFraction(const Shape &subject, const ShapePart &part,
                      const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
+  if (part.PositionsM.size() < 3) { return 0.0; }
   double low[3], high[3];
   for (int axis = 0; axis < 3; ++axis) {
-    low[axis] = high[axis] = subject.PositionsM[part.FirstVertex * 3 + (size_t)axis];
+    low[axis] = high[axis] = (double)part.PositionsM[(size_t)axis];
   }
-  for (size_t vertex = 1; vertex < part.VertexCount; ++vertex) {
+  for (size_t vertex = 1; vertex < part.VertexCount && (vertex + 1) * 3 <= part.PositionsM.size();
+       ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const double value = subject.PositionsM[(part.FirstVertex + vertex) * 3 + (size_t)axis];
+      const double value = (double)part.PositionsM[vertex * 3 + (size_t)axis];
       if (value < low[axis]) { low[axis] = value; }
       if (value > high[axis]) { high[axis] = value; }
     }
@@ -298,55 +307,48 @@ std::atomic<double> gFirstOut[3] = {};
 VertexRuns PackVertices(const SubjectProxy &proxy, const Shape &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
-  vertices.reserve(subject.PositionsM.size() + subject.Uv.size() + subject.Uv1.size() +
-                   subject.Normals.size() + subject.Tangents.size() + subject.Colours.size() +
-                   subject.VertexCount() * 3);
-  for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
-    double ecef[3];
-    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.PositionsM[vertex * 3 + axis]; }
-    // ONE KNOWN VERTEX, EITHER SIDE. Three readings of this conversion cannot all be true: the
-    // generator writes plain ECEF component order, `InEcef` is a real swap `(x,y,z) -> (y,x,-z)`,
-    // and the picture is correct. Making it the identity moved no building -- Manhattan's bright
-    // cluster stayed on the left, and a swap is a MIRROR. Nine hypotheses died in one session from
-    // reasoning off a picture instead of measuring the thing, so the thing is measured.
-    if (vertex == 0) {
-      for (int axis = 0; axis < 3; ++axis) {
-        gFirstIn[axis].store(subject.PositionsM[axis], std::memory_order_relaxed);
-        gFirstOut[axis].store(ecef[axis], std::memory_order_relaxed);
+  size_t whole = subject.VertexCount() * 6;
+  for (const ShapePart &one : subject.Parts) {
+    whole += one.Uv.size() + one.Uv1.size() + one.Normals.size() + one.Tangents.size() +
+             one.Colours.size();
+  }
+  vertices.reserve(whole);
+  const auto run = [&subject, &vertices](std::span<const float> ShapePart::*channel, size_t wide) {
+    const size_t at = vertices.size();
+    for (const ShapePart &one : subject.Parts) {
+      const std::span<const float> held = one.*channel;
+      if (held.size() >= one.VertexCount * wide) {
+        for (size_t value = 0; value < one.VertexCount * wide; ++value) {
+          vertices.push_back(held[value]);
+        }
+      } else {
+        vertices.resize(vertices.size() + one.VertexCount * wide, 0.0f);
       }
     }
-    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+    return at;
+  };
+  (void)run(&ShapePart::PositionsM, 3);
+  if (!subject.Parts.empty() && subject.Parts.front().PositionsM.size() >= 3) {
+    for (int axis = 0; axis < 3; ++axis) {
+      const double at = (double)subject.Parts.front().PositionsM[(size_t)axis];
+      gFirstIn[axis].store(at, std::memory_order_relaxed);
+      gFirstOut[axis].store(at, std::memory_order_relaxed);
+    }
   }
+  // A RUN COVERS EVERY VERTEX OR IT COVERS NONE. The device addresses a channel by vertex id, so
+  // a part that declares no UV still occupies its slice of the UV run -- concatenating only the
+  // parts that carry one shifts every later part onto its neighbour's coordinates, and the shader
+  // reads past the end of the last. `Assemble` used to pad while it widened; the padding is the
+  // half of it that was doing real work.
   VertexRuns runs;
-  runs.UvAt = vertices.size();
-  for (const double coordinate : subject.Uv) { vertices.push_back((float)coordinate); }
-  runs.Uv1At = vertices.size();
-  for (const double coordinate : subject.Uv1) { vertices.push_back((float)coordinate); }
-
-  runs.NormalAt = vertices.size();
-  for (size_t vertex = 0; vertex * 3 < subject.Normals.size(); ++vertex) {
-    double ecef[3];
-    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.Normals[vertex * 3 + axis]; }
-    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
-  }
-
-  runs.TangentAt = vertices.size();
-  for (size_t vertex = 0; vertex * 4 < subject.Tangents.size(); ++vertex) {
-    double ecef[3];
-    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.Tangents[vertex * 4 + axis]; }
-    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
-    vertices.push_back((float)subject.Tangents[vertex * 4 + 3]);
-  }
-
-  runs.ColourAt = vertices.size();
-  for (const double component : subject.Colours) { vertices.push_back((float)component); }
+  runs.UvAt = run(&ShapePart::Uv, 2);
+  runs.Uv1At = run(&ShapePart::Uv1, 2);
+  runs.NormalAt = run(&ShapePart::Normals, 3);
+  runs.TangentAt = run(&ShapePart::Tangents, 4);
+  runs.ColourAt = run(&ShapePart::Colours, 4);
   runs.PreviousAt = vertices.size();
   if (proxy.Previous()) {
-    for (size_t vertex = 0; vertex < proxy.Previous()->size() / 3; ++vertex) {
-      double ecef[3];
-      for (int axis = 0; axis < 3; ++axis) { ecef[axis] = (*proxy.Previous())[vertex * 3 + axis]; }
-      for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
-    }
+    for (const double component : *proxy.Previous()) { vertices.push_back((float)component); }
   }
   runs.EmittedAt = vertices.size();
   vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);

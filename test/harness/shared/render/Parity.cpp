@@ -14,6 +14,7 @@
 #include "Check.h"
 
 #include "RenderCase.h"
+#include "Shaped.h"
 #include "Surfaces.h"
 #include "Surfacing.h"
 
@@ -53,11 +54,11 @@ using namespace outshine::Render::Parity;
 
 namespace {
 using outshine::Render::SurfaceTable;
-using outshine::Core::SurfaceRasters;
+using outshine::Render::SurfaceRasters;
 using outshine::Gltf::ResolveSurfaceTable;
 using outshine::Gltf::ResolveFileSurface;
-using outshine::Core::ColourFrom;
-using outshine::Core::ColourCarrier;
+using outshine::Render::ColourFrom;
+using outshine::Render::ColourCarrier;
 
 enum class SceneLights { None, FromFile, DeclaredSun };
 
@@ -68,6 +69,17 @@ struct Case {
   Json Manifest;
   Document File;
   Subject Geometry;
+
+  // THE RENDERER'S OWN VIEW OF THAT GEOMETRY, AND ITS STORE. The proxy holds a POINTER to the
+  // shape it stands on, so both have to outlive it -- and a `Case` is what outlives everything
+  // here. Re-forming is what a re-posed subject means, so this is a method rather than a field
+  // filled once.
+  mutable outshine::Render::ShapeStore Store;
+  mutable outshine::Render::Shape Shape;
+  const outshine::Render::Shape &Shaped() const {
+    Shape = outshine::Gltf::Shaped(Geometry, Store);
+    return Shape;
+  }
   Viewpoint Eye;
   Viewport Frame;
   Acceptance Accepted;
@@ -293,7 +305,7 @@ public:
     subject.CameraSource = "manifest";
 
     if (declared["projection"].StrEquals("orthographic")) {
-      subject.Eye.Kind = outshine::Gltf::CameraKind::Orthographic;
+      subject.Eye.Kind = outshine::Render::CameraKind::Orthographic;
       subject.Eye.YMagM = declared["yMagM"].Num(0.0);
 
       subject.Eye.XMagM = subject.Eye.YMagM * subject.Frame.Aspect();
@@ -1232,7 +1244,9 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Render::Subjec
     } else {
       outshine::Render::SubjectProxy other = studio;
       const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
-      other.Stands(spelling, anchorEcefM);
+      outshine::Render::ShapeStore spelt;
+      const outshine::Render::Shape spelledOut = outshine::Gltf::Shaped(spelling, spelt);
+      other.Stands(spelledOut, anchorEcefM);
       other.Around(studio.IndirectLight());
       for (const outshine::PunctualLight &light : studio.Lights()) { other.Lit(light); }
       std::vector<std::array<float, 3>> emitted;
@@ -1311,7 +1325,7 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
 outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   outshine::Render::SubjectProxy studio;
   const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
-  studio.Stands(subject.Geometry, anchorEcefM);
+  studio.Stands(subject.Shaped(), anchorEcefM);
   if (subject.Animated()) { studio.Posed(&subject.PreviousGeometry.PositionsM()); }
   for (size_t part = 0; part < subject.Emitted.size(); ++part) {
     (void)studio.Emits(part, subject.Emitted[part]);
@@ -1338,7 +1352,7 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
 [[nodiscard]] bool RangeAt(const outshine::Gltf::Viewpoint &eye, const outshine::Gltf::Viewport &frame,
                            const std::vector<float> &depth, int column, int row, double &out,
                            std::string &error) {
-  if (eye.Kind != outshine::Gltf::CameraKind::Perspective) {
+  if (eye.Kind != outshine::Render::CameraKind::Perspective) {
     error = "a depth probe states a range along a view ray, and this case's camera is orthographic";
     return false;
   }
@@ -1923,7 +1937,7 @@ struct Motion {
   using namespace outshine::Test;
   if (frame == 0) { return Motion{true, 0}; }
   Transform clip;
-  if (!subject.Eye.Clip(subject.Frame.Aspect(), clip)) {
+  if (!outshine::Gltf::ClipOf(subject.Eye, subject.Frame.Aspect(), clip)) {
     CHECK(false, "the resolved camera yields a projection, so the motion is measurable in pixels");
     return Motion{false, 0};
   }
@@ -2100,7 +2114,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
   const Routing routing{ours, theirs, routedBySurface};
 
   Transform clip;
-  const bool projects = subject.Eye.Clip(subject.Frame.Aspect(), clip);
+  const bool projects = outshine::Gltf::ClipOf(subject.Eye, subject.Frame.Aspect(), clip);
   CHECK(projects, "the resolved camera yields a projection");
   if (projects) {
     const EdgeSet edges = Silhouette(subject.Geometry, clip, subject.Frame);

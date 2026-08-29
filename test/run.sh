@@ -223,7 +223,7 @@ LayerIncludes() {
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
     apps/bench/src) printf '%s' "-Iinclude" ;;
-    apps/demo/src | apps/driver/src) printf '%s' "-Iinclude" ;;
+    apps/demo/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
   esac
 }
@@ -231,7 +231,7 @@ LayerIncludes() {
 LayerToolchain() {
   case "$1" in
     harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/door | outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    apps/demo/src | apps/driver/src | apps/bench/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    apps/demo/src | apps/bench/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -260,7 +260,7 @@ LayerLink() {
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
     harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/door | outshine/places | outshine/client | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
-    apps/demo/src | apps/driver/src | apps/bench/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    apps/demo/src | apps/bench/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
@@ -280,7 +280,7 @@ LayerGroups() {
     outshine/door) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    apps/demo/src | apps/driver/src | apps/bench/src) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/host src/compositor src/generators/base src/generators src/generators/draw src/sim src/scene src/engine/Assembly.cpp" ;;
+    apps/demo/src | apps/bench/src) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/host src/compositor src/generators/base src/generators src/generators/draw src/sim src/scene src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -304,7 +304,6 @@ LayerCases() {
 Programs() {
   case "$1" in
     apps/demo/src) printf '%s' "the demo's entry point" ;;
-    apps/driver/src) printf '%s' "the driver's entry point" ;;
     apps/bench/src) printf '%s' "the bench's entry point" ;;
     apps/viewer/src) printf '%s' "the viewer's entry point" ;;
     *) return 1 ;;
@@ -1652,8 +1651,7 @@ fi
 # AUDITS -- they answer a question somebody asked, and they run when named.
 # board:1876: test/unit is gone -- it asserted the shape of a moving architecture. What runs by
 # default is what is INVARIANT: the established corpora, whose truth does not depend on our
-# design. tools and apps run by name; apps/driver is the integration test and the architect's
-# subject.
+# design. tools and apps run by name.
 NAMED_ONLY="apps"
 FAST_GATE=no
 kFastGateBoundMs=230000

@@ -1177,26 +1177,21 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
-  Gltf::Subject laidGround;
   Published.Places("rebuild: and the buildings, streets and water took", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(), "ms");
   phaseAt = std::chrono::steady_clock::now();
-  if (!laidGround.Assemble(ground)) {
-    Error = laidGround.Error();
-    return false;
-  }
   const Render::Medium air;
   Material wearing;
   for (int channel = 0; channel < 3; ++channel) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];
   }
 
-  const size_t drivenParts = Picture.Standing->Shown().Parts().size();
+  const size_t drivenParts = Picture.Standing->Shown().Parts.size();
   Published.Places("restand: the carried count the world hands over", (double)drivenParts,
                    "carried");
   Published.Places("restand: parts in the geometry", (double)ground.parts(), "parts");
   Published.Places("rebuild: and assembling one subject took", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(), "ms");
   phaseAt = std::chrono::steady_clock::now();
-  if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
+  if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
   Published.Places("rebuild: of that, walking it into the proxy",
                    Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
@@ -1237,8 +1232,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    (double)Picture.Standing->InstancesStanding(), "instances");
   Published.Places("restand: the near plane the renderer stands on",
                    Picture.Standing->NearStanding(), "m");
-  for (size_t part = 0; part < laidGround.Parts().size(); ++part) {
-    const Gltf::Part &one = laidGround.Parts()[part];
+  for (size_t part = 0; part < Picture.Standing->Shown().Parts.size(); ++part) {
+    const Render::ShapePart &one = Picture.Standing->Shown().Parts[part];
     Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
                      (double)one.FirstVertex, "");
     Published.Places("restand: subject part " + std::to_string(part) + " vertex count",

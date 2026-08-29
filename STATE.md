@@ -297,6 +297,7 @@ flowchart LR
   render --> |5| base_io
   import --> |5| base_spatial
   engine --> |5| base_io
+  import_surface --> |4| import
   generators --> |4| generators_draw
   engine --> |4| generators
   world_ground --> |3| content_shade
@@ -307,7 +308,6 @@ flowchart LR
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
   import --> |3| render
-  import_surface --> |3| import
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
@@ -343,17 +343,17 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1540 | `cpp` | `engine/Picturing.cpp` |
+| 1535 | `cpp` | `engine/Picturing.cpp` |
 | 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
+| 955 | `cpp` | `engine/Live.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
-| 870 | `cpp` | `engine/Live.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| **46** | `h` | *the median of 240 header(s)* |
-| **114** | `cpp` | *the median of 166 source(s)* |
+| **46** | `h` | *the median of 241 header(s)* |
+| **114** | `cpp` | *the median of 167 source(s)* |
 
 ## Carpet
 
@@ -362,7 +362,7 @@ The widest public surfaces.
 | `[[nodiscard]]` | header |
 |---|---|
 | 66 | `src/render/SceneRenderer.h` |
-| 59 | `src/engine/Live.h` |
+| 60 | `src/engine/Live.h` |
 | 51 | `src/import/Document.h` |
 | 45 | `src/import/Subject.h` |
 | 45 | `include/Outshine.h` |
@@ -440,14 +440,13 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**16 of 20** declared suite(s) are granted a `-Isrc` path (board:1879).
+**16 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
 - `apps/viewer/src`
 - `apps/bench/src`
 - `apps/demo/src`
-- `apps/driver/src`
 
 ## Clients
 
@@ -458,7 +457,6 @@ finding about the DOOR, never about the client.
 |---|---|---|---|
 | 360 | 1 | `apps/bench` | `include/` alone |
 | 195 | 1 | `apps/demo` | `include/` alone |
-| 254 | 1 | `apps/driver` | `include/` alone |
 | 707 | 3 | `apps/viewer` | **does not link from the library alone** |
 
 ## Corpora

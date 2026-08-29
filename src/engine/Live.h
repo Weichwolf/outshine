@@ -93,6 +93,9 @@ public:
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
+  void Reshape();
+  [[nodiscard]] bool Restand(outshine::Geometry &&built, size_t carried, const Material &wearing,
+                             std::string &error);
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
                              std::string &error);
 
@@ -176,7 +179,7 @@ public:
 
   [[nodiscard]] size_t PlanPasses() const { return Plan_ ? Plan_->Passes().size() : 0u; }
 
-  [[nodiscard]] const Gltf::Subject &Shown() const { return Held_.Assembled(); }
+  [[nodiscard]] const Render::Shape &Shown() const { return Shaped_; }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
@@ -225,7 +228,7 @@ private:
   Render::Eye Looking_;
   Render::SubjectScratch Scratch_;
 
-  std::vector<Render::ShapePart> ShapeParts_;
+  Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
