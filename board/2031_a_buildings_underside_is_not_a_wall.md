@@ -47,3 +47,33 @@ lighting change did not cause this; it made it legible.**
   finding and not the split
 - **A cap that is removed must not open a hole.** Count fragments where the sky is visible THROUGH a
   building after the change; it must stay at zero
+
+## The soup is the disease, and welding is not the cure
+
+**Benchmark** — Unreal: a static mesh is an INDEXED mesh. The build welds by position and then SPLITS
+render vertices where a normal or a UV differs, so the topology stays shared while the shading does
+not. `FMeshDescription` carries vertices, edges and triangles as three separate things for exactly
+this reason. RAGE: the same at export. **They agree, so the matter is closed**: the topology is one
+thing, the render attributes are another, and a shared edge is shared whatever the two faces beside
+it want to shade like.
+
+MEASURED at Rothenburg: **2 055 586 of 2 511 000 emitted vertices are exact duplicates** — 82 per
+cent. The generator pushes 8 floats per triangle corner into a flat soup and nothing in the tree ever
+relates one corner to another. Closedness is therefore not a property the generator HAS; it is
+something a walk reconstructs afterwards by welding on a centimetre grid, and that walk lives in a
+test rather than in the engine.
+
+That is why every defect this item has closed took a bisect to find. Five builders each wrote their
+own polyline along one footprint edge, and nothing could notice they disagreed until a walk welded
+them and counted. With a shared topology none of those five defects could have existed.
+
+**Welding the soup is NOT the answer** and the reason is exact: a position where a wall meets a roof
+legitimately carries two different normals and two different UVs, so welding by position alone
+destroys the shading. That is what the soup is FOR. The answer is the split Unreal and RAGE both
+make — positions and faces welded, render attributes per corner, derived from the topology at the
+end rather than instead of it.
+
+- [ ] `Site` builds a welded position table and an index buffer, and the soup is DERIVED from it
+- [ ] the generator answers `Closed()` itself, so a hole is a refusal at build time rather than a
+      number a test finds later
+- [ ] `PushTri`'s degeneracy test becomes unnecessary: two corners at one position are one index
