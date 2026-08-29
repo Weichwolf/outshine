@@ -112,6 +112,51 @@ static_assert(VertexLayoutsIndexThemselves(),
   return Holds(AttributesOf(layout), VertexAttribute::Colour);
 }
 
+// THE RUNS THE DEVICE BINDS, DECLARED ONCE. The pipeline's vertex-buffer descriptions and the packer
+// that fills them each built this order and these widths BY HAND, in two files, with nothing to
+// notice if they drifted apart -- and a drift there is not a wrong picture, it is a shader reading
+// one attribute's bytes as another's. This tree's own rule applies: what the compiler can decide is
+// a `static_assert`, never a case.
+//
+// PLANAR RATHER THAN INTERLEAVED, and the reason is the depth and shadow passes: they read POSITION
+// alone, which costs 12 bytes a vertex from its own run and 32 from an interleaved one. Unreal
+// splits `FPositionVertexBuffer` from `FStaticMeshVertexBuffer` for exactly that, and RAGE's
+// `grmGeometry` keeps its channels apart too. They agree, so the layout is settled and the PRODUCER
+// is what has to write it.
+struct VertexRun {
+  uint32_t Floats = 0;
+  uint32_t Location = 0;
+};
+
+inline constexpr uint32_t kMostVertexRuns = 7;
+
+[[nodiscard]] constexpr uint32_t RunsOf(VertexLayout layout, bool writesVelocity,
+                                        VertexRun *out) {
+  uint32_t n = 0;
+  out[n++] = VertexRun{3, 0};
+  if (CarriesUv(layout)) { out[n++] = VertexRun{2, 1}; }
+  if (CarriesUv1(layout)) { out[n++] = VertexRun{2, 6}; }
+  out[n++] = VertexRun{3, CarriesNormal(layout) ? 3u : 2u};
+  if (CarriesTangent(layout)) { out[n++] = VertexRun{4, 4}; }
+  if (CarriesColour(layout)) { out[n++] = VertexRun{4, 7}; }
+  if (writesVelocity) { out[n++] = VertexRun{3, 5}; }
+  return n;
+}
+
+[[nodiscard]] constexpr uint32_t RichestRunCount() {
+  uint32_t most = 0;
+  for (const VertexLayoutRow &row : kVertexLayouts) {
+    VertexRun runs[16] = {};
+    const uint32_t n = RunsOf(row.Layout, true, runs);
+    most = n > most ? n : most;
+  }
+  return most;
+}
+
+static_assert(RichestRunCount() == kMostVertexRuns,
+              "the richest vertex layout fills a different number of runs than the pipeline "
+              "declares room for, so one of the two was changed without the other");
+
 struct VertexRunsCarried {
   bool Uv = false;
   bool Uv1 = false;

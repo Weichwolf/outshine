@@ -85,44 +85,23 @@ SDL_GPUVertexAttribute At(uint32_t location, uint32_t slot, SDL_GPUVertexElement
   return attribute;
 }
 
+// BUILT FROM THE ONE DECLARATION rather than beside it. This function and `PackVertices` each used
+// to spell the run order and the widths out by hand; now `RunsOf` says it once and a `static_assert`
+// holds the count. A drift here is not a wrong picture, it is a shader reading one attribute's bytes
+// as another's, which is why it belongs to the compiler.
+SDL_GPUVertexElementFormat FormatOf(uint32_t floats) {
+  return floats == 2   ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2
+         : floats == 4 ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4
+                       : SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+}
+
 VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
-  const bool textured = CarriesUv(layout);
-  const bool lit = CarriesNormal(layout);
-  const bool mapped = CarriesTangent(layout);
+  VertexRun runs[kMostVertexRuns] = {};
+  const uint32_t count = RunsOf(layout, writesVelocity, runs);
   VertexShape shape;
-  shape.Buffers[shape.Count] = Run(shape.Count, 3);
-  shape.Attributes[shape.Count] = At(0, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3);
-  ++shape.Count;
-  if (textured) {
-    shape.Buffers[shape.Count] = Run(shape.Count, 2);
-    shape.Attributes[shape.Count] = At(1, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2);
-    ++shape.Count;
-  }
-
-  if (CarriesUv1(layout)) {
-    shape.Buffers[shape.Count] = Run(shape.Count, 2);
-    shape.Attributes[shape.Count] = At(6, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2);
-    ++shape.Count;
-  }
-
-  shape.Buffers[shape.Count] = Run(shape.Count, 3);
-  shape.Attributes[shape.Count] = At(lit ? 3 : 2, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3);
-  ++shape.Count;
-  if (mapped) {
-    shape.Buffers[shape.Count] = Run(shape.Count, 4);
-    shape.Attributes[shape.Count] = At(4, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4);
-    ++shape.Count;
-  }
-
-  if (CarriesColour(layout)) {
-    shape.Buffers[shape.Count] = Run(shape.Count, 4);
-    shape.Attributes[shape.Count] = At(7, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4);
-    ++shape.Count;
-  }
-
-  if (writesVelocity) {
-    shape.Buffers[shape.Count] = Run(shape.Count, 3);
-    shape.Attributes[shape.Count] = At(5, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3);
+  for (uint32_t at = 0; at < count; ++at) {
+    shape.Buffers[at] = Run(at, runs[at].Floats);
+    shape.Attributes[at] = At(runs[at].Location, at, FormatOf(runs[at].Floats));
     ++shape.Count;
   }
   return shape;
