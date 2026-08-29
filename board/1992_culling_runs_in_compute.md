@@ -178,6 +178,28 @@ The item's own "342 held, 83 drawn" predates the runtime DAG's removal from `Coo
 
 - [ ] a `Geometry` DECLARES where its cut comes from, `Built` or `Given`, and the engine names no
       category
+
+## THE TEST, in the owner's own words: a terrain tile is a very large OSM roof
+
+That is the whole predicate and it is falsifiable by grep. If a tile and a roof are the same thing to
+the code below the `Geometry` seam, there is no terrain concept left; if any path names them apart,
+there is one.
+
+MEASURED, and they are already closer than the argument suggested. BOTH end up as parts of one
+`Geometry`:
+
+    src/engine/Picturing.cpp:571   ground.addPart("ground", ringSurface)
+    src/engine/Picturing.cpp:675   ground.addPart("roofs",  roofSurface)
+
+Two calls, one function, no branch. So the seam is honoured where the geometry crosses it. **What
+differs is on the other side of it**: a tile arrives carrying `std::vector<DagCluster>` --
+`TileMeshes.h:16` and `Patchwork` -- which the compositor consumes and throws away, and a roof
+carries none at all. Neither is culled per cluster in the end, so today the asymmetry costs nothing;
+it is the shape that is wrong, and it is the shape this item has to fix.
+
+A roof is a small geometry with no cut and a tile is a large one whose cut dies in the compositor.
+When both take `Cut::Built` or `Cut::Given` and one selection reads one table, the sentence above
+stops being a target and becomes a description.
 - [ ] the engine COOKS what says `Built` -- `Cook` reaches the subject path, which is board:1991's
       work becoming reachable rather than new work
 - [ ] the generators deliver BY DISTANCE and the DAG cuts BY SCREEN ERROR, in that order, and
