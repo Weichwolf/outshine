@@ -81,6 +81,23 @@ in its own words: "`Cook` takes an `outshine::Geometry` and the whole subject pa
 `Gltf::Subject` ... the two values have to become one first". With glTF as an import path rather
 than the inward language there is one value, and the cooker has something to cook.
 
+**AN ATTEMPT AT STEP 2 THAT MADE IT WORSE, and the ordering lesson it paid for.** `Render::Shape`
+was given float spans on the reasoning that "one narrowing at the boundary replaces a widening and a
+narrowing". It replaces neither: the widening is in `Assemble`, because `Gltf::Subject` stores
+double, and nothing there was touched -- so the tree ran WIDEN, then NARROW, then COPY. Three
+passes where there were two.
+
+    Shibuya       30.1 s -> 36.9 s
+    Central Park   9.9 s -> 10.5 s
+
+Reverted, and the pictures came back to 1.176 and 1.898. The claim was written into a comment before
+it was measured and died in one run.
+
+**SO THE ORDER IS FIXED AND IT IS NOT THE ONE ABOVE.** The world path must stop crossing on the
+importer's carrier FIRST -- that is where the widening lives. Only then does making the streams
+float remove a pass instead of adding one, and only then can `Shape` be a pure view: today
+`Geometry` holds its spans PER PART, and concatenating them is exactly what `Assemble` costs.
+
 **The order, smallest and provable first**, because a rewrite that lands half-done is worse than the
 copy it replaces:
 
