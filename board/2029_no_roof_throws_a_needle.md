@@ -96,3 +96,34 @@ Its guard is `n * n + 8` iterations, so a ring of 512 points may also simply run
 1. **Count the bail-outs.** If `EarClip` never hits `if (!cut) return;` at any of the five places,
    the open faces come from somewhere else and this is misfiled. That number does not exist today,
    which is the whole point
+
+
+## THE CLIPPER GIVES UP, AND IT IS NOT THE SLIVERS EITHER
+
+The count the item asked for now exists, and it is not zero:
+
+    roofs the clipper could not cover    Rothenburg 7    Shibuya 173    Venice 168
+
+So `EarClip` really does bail, and those roofs really were half-drawn. They are refused whole now and
+counted, which is 56 triangles fewer at Rothenburg. **The crop is unchanged.** The bail-outs are a
+real defect and they are not this one.
+
+## FOUR HYPOTHESES DEAD, AND WHAT THE SLIVERS LOOK LIKE
+
+    the fan                     EarClip is a proper ear clipper
+    thinness (area)             counted to 8 while the crop stood still
+    reach (309 m)               Rothenburg's town wall is one 2.5 km way; a long wall is a long triangle
+    the clipper's bail-outs     counted, refused, crop unchanged
+
+Seen rather than counted: they are STRAIGHT, BRIGHT and ROOF-COLOURED, and they cross neighbouring
+roofs and the ground. That is what a roof plane standing nearly VERTICAL looks like -- edge-on it
+is a line, and it is lit as a roof because it is one. Not a degenerate triangle: a well-formed
+surface in the wrong plane.
+
+## The measurement that would show I am wrong
+
+1. **The pitch of every roof plane.** A roof triangle whose normal lies more than, say, 70 deg off
+   vertical is standing on its edge. Count them, and their footprints. If that count is zero the
+   slivers are something else again and the fifth hypothesis dies with the first four
+2. **The eye stays the control.** Every instrument in this item has agreed with itself and disagreed
+   with the frame at least once, so no number closes it without the crop

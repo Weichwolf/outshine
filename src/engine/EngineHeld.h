@@ -6,6 +6,7 @@
 #include "HeapProbe.h"
 #include "Shipped.h"
 #include "BuildingMesh.h"
+#include "RoofSurface.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "Structures.h"

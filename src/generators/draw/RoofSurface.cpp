@@ -28,9 +28,13 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   out.push_back(c);
 }
 
-void EarClip(std::span<const En> ring, std::vector<En> &tris) {
+// A CLIPPER THAT CANNOT FINISH SAYS SO. It used to `return` on failing to find an ear and leave the
+// polygon HALF triangulated -- some ears cut, the rest of the surface simply absent, nothing counted
+// and nothing said. That is the open roof faces the owner saw. Unreal fails an asset's build when a
+// polygon will not triangulate and RAGE refuses at export; neither hands back half a surface.
+[[nodiscard]] bool EarClip(std::span<const En> ring, std::vector<En> &tris) {
   const size_t n = ring.size();
-  if (n < 3) return;
+  if (n < 3) { return false; }
   std::vector<uint32_t> poly(n);
   for (size_t i = 0; i < n; i++) poly[i] = (uint32_t)i;
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
@@ -58,8 +62,9 @@ void EarClip(std::span<const En> ring, std::vector<En> &tris) {
       cut = true;
       break;
     }
-    if (!cut) return;
+    if (!cut) { return false; }
   }
+  return poly.size() <= 2;
 }
 
 void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) {
@@ -199,8 +204,14 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
-  EarClip(plan, tris);
-  if (tris.size() == first) return;
+  if (!EarClip(plan, tris)) {
+    // WHAT CANNOT BE COVERED WHOLE IS NOT COVERED AT ALL. A partial cover is a roof with a hole in
+    // it that no number reports; a refusal is one the count below can see.
+    tris.resize(first);
+    RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
+    return;
+  }
+  if (tris.size() == first) { return; }
   std::vector<En> mine(tris.begin() + (long)first, tris.end());
   tris.resize(first);
 
