@@ -1,6 +1,8 @@
 #include <chrono>
 #include "Live.h"
 
+#include "Surfaces.h"
+
 #include <limits>
 
 #include <algorithm>
@@ -148,7 +150,7 @@ Render::Shape Shaped(const Gltf::Subject &from, std::vector<Render::ShapePart> &
 bool Live::Build(std::string &error) {
   if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
     Held_.Clears();
-    Table_ = SurfaceTable();
+    Table_ = Render::SurfaceTable();
     ShadowRadiusStoodM_ = 0.0;
     Joined_ = 0;
     Carrying_ = 0;
@@ -173,7 +175,7 @@ bool Live::Build(std::string &error) {
     CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
                    .count();
     const auto resolvedFrom = std::chrono::steady_clock::now();
-    ResolveDeclaredSurface(Shaped(Held_.Assembled(), ShapeParts_), Declared_.Surfacing.front(), Table_);
+    Render::ResolveDeclaredSurface(Shaped(Held_.Assembled(), ShapeParts_), Declared_.Surfacing.front(), Table_);
     ResolveMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
             .count();
@@ -200,16 +202,16 @@ bool Live::Build(std::string &error) {
         return false;
       }
     }
-    ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
-    if (!ResolveFileSurface(Held_.File(), Held_.Assembled(), ColourFrom::Row, ColourCarrier::Texture, Table_,
+    Gltf::ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
+    if (!Gltf::ResolveFileSurface(Held_.File(), Held_.Assembled(), Render::ColourFrom::Row, Render::ColourCarrier::Texture, Table_,
                             error)) {
       return false;
     }
     if (Declared_.Built != nullptr) {
       const uint32_t base = (uint32_t)Table_.Slots.size();
       for (const Material &declaredSurface : Declared_.Surfacing) {
-        SurfaceTable joining;
-        ResolveDeclaredSurface(Shaped(*Declared_.Built, ShapeParts_), declaredSurface, joining);
+        Render::SurfaceTable joining;
+        Render::ResolveDeclaredSurface(Shaped(*Declared_.Built, ShapeParts_), declaredSurface, joining);
         if (joining.Slots.empty()) {
           error = "a declared surface for the built geometry resolved to no slot, so the parts "
                   "joining this picture would name a surface that is not there";

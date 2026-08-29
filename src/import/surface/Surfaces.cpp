@@ -1,30 +1,35 @@
 #include "Surfaces.h"
 
-namespace outshine::Core {
+#include "Image.h"
+#include "Variant.h"
+
+namespace outshine::Gltf {
 namespace {
 
-Render::SubjectWrap WrapOf(Gltf::Wrap wrap) {
+namespace {
+
+Render::SubjectWrap WrapOf(Wrap wrap) {
   switch (wrap) {
-    case Gltf::Wrap::ClampToEdge: return Render::SubjectWrap::ClampToEdge;
-    case Gltf::Wrap::MirroredRepeat: return Render::SubjectWrap::MirroredRepeat;
-    case Gltf::Wrap::Repeat: return Render::SubjectWrap::Repeat;
+    case Wrap::ClampToEdge: return Render::SubjectWrap::ClampToEdge;
+    case Wrap::MirroredRepeat: return Render::SubjectWrap::MirroredRepeat;
+    case Wrap::Repeat: return Render::SubjectWrap::Repeat;
   }
   return Render::SubjectWrap::Repeat;
 }
 
-[[nodiscard]] bool ReadSocketImage(const Gltf::Document &file, const Gltf::MaterialRef &material,
-                                   const Gltf::TextureRef &declared, const char *socket,
-                                   Gltf::CarriedUvSets carried,
-                                   Raster &raster,
+[[nodiscard]] bool ReadSocketImage(const Document &file, const MaterialRef &material,
+                                   const TextureRef &declared, const char *socket,
+                                   CarriedUvSets carried,
+                                   Core::Raster &raster,
                                    Render::SubjectTexture &bound, std::string &error) {
   if (!declared.Declared()) { return true; }
 
   std::string why;
-  if (!Gltf::UvSetOf(declared, carried, socket, bound.Set, why)) {
+  if (!UvSetOf(declared, carried, socket, bound.Set, why)) {
     error = std::string("material '") + material.Name + "' " + why;
     return false;
   }
-  const Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
+  const Texture &texture = file.Textures()[(size_t)declared.Texture];
   std::vector<uint8_t> encoded;
   if (!file.ImageBytes(texture.Source, encoded)) {
     error = std::string("material '") + material.Name + "' names " + socket + " image " +
@@ -42,18 +47,18 @@ Render::SubjectWrap WrapOf(Gltf::Wrap wrap) {
 
   bound.Uv = declared.Transform;
   if (texture.Sampler >= 0) {
-    const Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+    const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
     bound.WrapU = WrapOf(sampler.WrapS);
     bound.WrapV = WrapOf(sampler.WrapT);
-    bound.Magnify = sampler.Mag == Gltf::Filter::Nearest
+    bound.Magnify = sampler.Mag == Filter::Nearest
         ? Render::SubjectFilter::Nearest
         : Render::SubjectFilter::Linear;
-    bound.Minify = sampler.Min == Gltf::Filter::Nearest
+    bound.Minify = sampler.Min == Filter::Nearest
         ? Render::SubjectFilter::Nearest
         : Render::SubjectFilter::Linear;
-    bound.Mip = sampler.Mip == Gltf::MipFilter::None
+    bound.Mip = sampler.Mip == MipFilter::None
         ? Render::SubjectMip::None
-        : (sampler.Mip == Gltf::MipFilter::Nearest
+        : (sampler.Mip == MipFilter::Nearest
                ? Render::SubjectMip::Nearest
                : Render::SubjectMip::Linear);
   }
@@ -62,46 +67,10 @@ Render::SubjectWrap WrapOf(Gltf::Wrap wrap) {
 
 }
 
-void ResolveDeclaredSurface(const Render::Shape &geometry, const Material &row,
-                            SurfaceTable &out) {
-  out.Slots.clear();
-  out.Material.clear();
-  out.PartSlot.clear();
-  out.Decoded.clear();
-
-  out.PartSlot.assign(geometry.Parts.size(), 0u);
-  if (geometry.Surfaces.empty()) {
-    Render::SubjectMaterial slot;
-    slot.Row = row;
-    out.Slots.push_back(slot);
-    out.Decoded.push_back(SurfaceRasters());
-    out.Material.push_back(0);
-    return;
-  }
-  for (size_t part = 0; part < geometry.Parts.size(); ++part) {
-    const int material = geometry.Parts[part].Material;
-    size_t slot = out.Material.size();
-    for (size_t at = 0; at < out.Material.size(); ++at) {
-      if (out.Material[at] == material) {
-        slot = at;
-        break;
-      }
-    }
-    if (slot == out.Material.size()) {
-      Render::SubjectMaterial surface;
-      surface.Row = material >= 0 && (size_t)material < geometry.Surfaces.size()
-                        ? geometry.Surfaces[(size_t)material]
-                        : row;
-      out.Slots.push_back(surface);
-      out.Decoded.push_back(SurfaceRasters());
-      out.Material.push_back(material);
-    }
-    out.PartSlot[part] = (uint32_t)slot;
-  }
 }
 
-void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geometry, bool carriesTransmission,
-                         bool ownMaterials, SurfaceTable &out) {
+void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool carriesTransmission,
+                         bool ownMaterials, Render::SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
   out.Decoded.clear();
@@ -117,7 +86,7 @@ void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geomet
     }
     if (slot == out.Material.size()) {
       Render::SubjectMaterial surface;
-      surface.Row = Gltf::DefaultMaterial();
+      surface.Row = DefaultMaterial();
       if (material >= 0 && (size_t)material < geometry.Surfaces().size()) {
 
         surface.Row = geometry.Surfaces()[(size_t)material];
@@ -135,22 +104,22 @@ void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geomet
   }
 }
 
-[[nodiscard]] bool ResolveFileSurface(const Gltf::Document &file, const Gltf::Subject &geometry,
-                                      ColourFrom channel, ColourCarrier carrier,
-                                      SurfaceTable &table, std::string &error) {
-  table.Decoded.assign(table.Slots.size(), SurfaceRasters{});
-  const char *socket = channel == ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
+[[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
+                                      Render::ColourFrom channel, Render::ColourCarrier carrier,
+                                      Render::SurfaceTable &table, std::string &error) {
+  table.Decoded.assign(table.Slots.size(), Render::SurfaceRasters{});
+  const char *socket = channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
 
-  const Gltf::CarriedUvSets carried = geometry.HasUv1()
-      ? Gltf::CarriedUvSets::Both
-      : Gltf::CarriedUvSets::FirstOnly;
+  const CarriedUvSets carried = geometry.HasUv1()
+      ? CarriedUvSets::Both
+      : CarriedUvSets::FirstOnly;
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
     if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-    const Gltf::MaterialRef &material = file.Materials()[(size_t)index];
-    const Gltf::TextureRef &declared =
-        channel == ColourFrom::Emissive ? material.Emissive : material.BaseColour;
+    const MaterialRef &material = file.Materials()[(size_t)index];
+    const TextureRef &declared =
+        channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
     if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
         material.BaseColour.Texture != declared.Texture) {
       error = std::string("material '") + material.Name + "' is not OPAQUE, takes its colour from " +
@@ -163,11 +132,11 @@ void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geomet
     if (!declared.Declared()) { continue; }
     Render::SubjectTexture &base = table.Slots[slot].Colour;
     std::string why;
-    if (!Gltf::UvSetOf(declared, carried, socket, base.Set, why)) {
+    if (!UvSetOf(declared, carried, socket, base.Set, why)) {
       error = std::string("material '") + material.Name + "' " + why;
       return false;
     }
-    const Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
+    const Texture &texture = file.Textures()[(size_t)declared.Texture];
     std::vector<uint8_t> encoded;
     if (!file.ImageBytes(texture.Source, encoded)) {
       error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
@@ -186,34 +155,34 @@ void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geomet
 
     base.Uv = declared.Transform;
     if (texture.Sampler >= 0) {
-      const Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+      const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
       base.WrapU = WrapOf(sampler.WrapS);
       base.WrapV = WrapOf(sampler.WrapT);
-      base.Magnify = sampler.Mag == Gltf::Filter::Nearest
+      base.Magnify = sampler.Mag == Filter::Nearest
           ? Render::SubjectFilter::Nearest
           : Render::SubjectFilter::Linear;
-      base.Minify = sampler.Min == Gltf::Filter::Nearest
+      base.Minify = sampler.Min == Filter::Nearest
           ? Render::SubjectFilter::Nearest
           : Render::SubjectFilter::Linear;
-      base.Mip = sampler.Mip == Gltf::MipFilter::None
+      base.Mip = sampler.Mip == MipFilter::None
           ? Render::SubjectMip::None
-          : (sampler.Mip == Gltf::MipFilter::Nearest
+          : (sampler.Mip == MipFilter::Nearest
                  ? Render::SubjectMip::Nearest
                  : Render::SubjectMip::Linear);
     }
     ++textured;
   }
 
-  if (channel == ColourFrom::Row) {
+  if (channel == Render::ColourFrom::Row) {
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = table.Material[slot];
       if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-      const Gltf::MaterialRef &material = file.Materials()[(size_t)index];
+      const MaterialRef &material = file.Materials()[(size_t)index];
       table.Slots[slot].NormalScale = (float)material.NormalScale;
       const struct {
-        const Gltf::TextureRef &Declared;
+        const TextureRef &Declared;
         const char *Socket;
-        Raster &Into;
+        Core::Raster &Into;
         Render::SubjectTexture &Bound;
       } maps[] = {
           {material.Normal, "normalTexture", table.Decoded[slot].Normal, table.Slots[slot].Normal},
@@ -235,19 +204,19 @@ void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geomet
     }
   }
 
-  if (channel != ColourFrom::Row && carrier == ColourCarrier::Texture && textured == 0) {
+  if (channel != Render::ColourFrom::Row && carrier == Render::ColourCarrier::Texture && textured == 0) {
     error = std::string("the declaration hands the surface to the file's ") + socket +
             " and no material of it declares one";
     return false;
   }
-  if (carrier != ColourCarrier::Texture && textured > 0) {
+  if (carrier != Render::ColourCarrier::Texture && textured > 0) {
     error = std::string("the declaration says the appearance is not the ") + socket + " IMAGE and " +
             std::to_string(textured) + " material(s) of the file declare an image on that socket, "
             "which this case would then be sampling instead";
     return false;
   }
 
-  if (carrier == ColourCarrier::VertexColour && !geometry.HasColour()) {
+  if (carrier == Render::ColourCarrier::VertexColour && !geometry.HasColour()) {
     error = "the declaration says the appearance is carried by COLOR_0 and no primitive of the subject "
             "declares one";
     return false;

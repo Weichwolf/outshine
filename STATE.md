@@ -278,18 +278,18 @@ flowchart LR
   render_stages --> |31| render_device
   world_ground --> |19| base_spatial
   generators --> |18| generators_base
+  render --> |15| render_stages
   world_ground --> |14| base_io
   sim --> |14| actor_path
-  render --> |14| render_stages
   generators_draw --> |14| generators_base
   sim --> |12| world_ground
   generators --> |11| world_ground
   engine --> |11| ui
   world_ground --> |9| world_data
-  engine --> |9| render
-  engine --> |9| import
   sim --> |8| actor_mind
+  engine --> |8| render
   generators_base --> |7| base_spatial
+  engine --> |7| import
   actor_mind --> |7| actor_path
   engine --> |6| scenario
   sim --> |5| base_spatial
@@ -307,14 +307,14 @@ flowchart LR
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
   import --> |3| render
+  import_surface --> |3| import
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
   engine --> |3| scene
-  engine --> |3| content_shade
   engine --> |3| base_spatial
 ```
-  38 edge(s) drawn, 46 thinner than three includes not drawn
+  38 edge(s) drawn, 51 thinner than three includes not drawn
 
 ## Tiers
 
@@ -350,10 +350,10 @@ The heaviest files. Headers and sources counted apart.
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
-| 868 | `cpp` | `engine/Live.cpp` |
+| 870 | `cpp` | `engine/Live.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| **47** | `h` | *the median of 239 header(s)* |
-| **115** | `cpp` | *the median of 165 source(s)* |
+| **46** | `h` | *the median of 240 header(s)* |
+| **114** | `cpp` | *the median of 166 source(s)* |
 
 ## Carpet
 

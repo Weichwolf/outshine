@@ -15,6 +15,7 @@
 
 #include "RenderCase.h"
 #include "Surfaces.h"
+#include "Surfacing.h"
 
 #include "Acceptance.h"
 #include "Attribution.h"
@@ -51,10 +52,10 @@ using outshine::Gltf::Viewport;
 using namespace outshine::Render::Parity;
 
 namespace {
-using outshine::Core::SurfaceTable;
+using outshine::Render::SurfaceTable;
 using outshine::Core::SurfaceRasters;
-using outshine::Core::ResolveSurfaceTable;
-using outshine::Core::ResolveFileSurface;
+using outshine::Gltf::ResolveSurfaceTable;
+using outshine::Gltf::ResolveFileSurface;
 using outshine::Core::ColourFrom;
 using outshine::Core::ColourCarrier;
 

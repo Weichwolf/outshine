@@ -22,7 +22,7 @@
 #include "Style.h"
 #include "Material.h"
 #include "Subject.h"
-#include "Surfaces.h"
+#include "Surfacing.h"
 
 namespace outshine::Core {
 
@@ -219,7 +219,7 @@ private:
   };
   std::vector<Volume> PartBounds_;
   [[nodiscard]] bool PartVolumes(std::string &error);
-  SurfaceTable Table_;
+  Render::SurfaceTable Table_;
   Posed Held_;
   Render::SubjectProxy Stood_;
   Render::Eye Looking_;

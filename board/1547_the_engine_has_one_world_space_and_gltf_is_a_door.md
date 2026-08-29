@@ -58,16 +58,35 @@ is the owner's correction -- the importer knows the engine -- put into the build
 count somebody maintains. The fence found two dead includes the moment it went up: `Axes.h` and
 `Subject.h` in `SubjectProxy.h`, left over from the axis conversions.
 
-**AND IT BLOCKED THE NEXT MOVE FOR A GOOD REASON.** `src/engine/Surfaces.cpp` carries 32 of the 84
-remaining spellings in two functions that take a `Gltf::Document` -- genuinely import work. Moving
-them behind the door fails to compile, because they produce a `SurfaceTable`, which holds `Raster`
-from `src/content/shade/Image.h` and is used by `Live` alone. **It is an ENGINE type**, so an importer
-producing it would have to reach the engine, and the engine already reaches the importer: a cycle,
-and the audit refuses it.
+**AND IT WAS SAID TO BLOCK THE NEXT MOVE. THAT WAS WRONG, AND THE ERROR IS THE USEFUL PART.** This
+item held that the engine's own `Surfaces.cpp` and its 32 spellings could not move behind the door, because the
+two functions produce a `SurfaceTable`, and *"it is an ENGINE type, so an importer producing it would
+have to reach the engine ... a cycle, and the audit refuses it"*. So the resolution was to be a
+HANDOVER of neutral descriptions rather than a file move.
 
-So the resolution is not a file move. **The importer hands over a NEUTRAL description** -- the door's
-own `Material` rows and the images -- and the engine builds its own table from that. That is a
-handover, and it is what makes the remaining 32 leave without the engine learning a file format.
+Measured instead of reasoned about, `SurfaceTable` names four things: `Render::SubjectMaterial`
+(render), `Raster` (`src/content/shade`), the door's `Material`, and `int`. **Not one of them is
+the engine.** It was an engine type by RESIDENCE -- it sat in `src/engine/` and in namespace
+`Core` -- and residence is not dependency. Moving it to `src/render/Surfacing.h`, which the importer
+already reaches, dissolved the cycle that was never there, and the two functions went to
+`src/import/surface/Surfaces.cpp` unchanged.
+
+    src/engine  79 -> 43 spellings, src/render 0, the six places' pictures unmoved to three decimals
+
+**AND THE MOVE FOUND ITS OWN BOUNDARY.** Put beside the document reader in `src/import/`, the two
+functions dragged `Image.cpp` and SDL3_image into every suite that links the importer -- `outshine/
+content` and `outshine/fuzz` parse glTF and have no business owning an image decoder. Eighteen cases
+went BUILD before the shape was right. So the bridge stands in `src/import/surface/`, which only a
+suite that renders sweeps, and the reader stays as light as it was. The rule this measured: **a
+tier's door is what its clients must link, not what its author finds convenient.** The same run also
+showed that `src/content/shade` was being swept as a SOURCE by suites that wanted only its headers,
+which is why they were asking a parse case to link SDL3 at all.
+
+The handover design is still owed, and it is board:1949's -- a generator and an importer reaching
+the engine the same way. But it was not what unblocked this, and the cycle was never the obstacle.
+**A cause written in an item is a hypothesis; this one stood for a round without anyone asking the
+compiler.** `Raster` living in namespace `Core` while its file lives in `content` is the same defect
+one layer down and is filed as its own item.
 
 ## RE-MEASURED AGAIN, and the framing correction widens what this item owns
 
@@ -78,7 +97,7 @@ a file was involved.
 
 MEASURED, `Gltf::` outside `src/import/`:
 
-    src/engine/Surfaces.cpp      32
+    engine Surfaces.cpp          32   <- now src/import/surface/Surfaces.cpp + src/render/Surfacing.cpp
     src/render/SubjectProxy.cpp  27   <- the renderer knowing a FILE FORMAT
     src/engine/Live.cpp          18
     src/engine/Asset.h           10
