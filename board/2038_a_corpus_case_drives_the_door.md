@@ -188,6 +188,26 @@ carries none -- measured, `LAMPS file=0`. So something in the engine's own path 
 where the old harness left it dark, and THAT is the colour difference. Finding what is the next
 round's first line, and it is now a one-line read rather than an argument.
 
+**THE VARIANT IS NOW RIGHT AND THE MECHANISM IS FULLY UNDERSTOOD.** Three things had to hold at
+once and had only ever been tried one at a time:
+
+  1. no ambient unless the case is shaded by lights -- otherwise `Gathers` is true, `Lit` is true,
+     and every draw takes a LIT variant. Measured: 8 draws on layout 4 and one on layout 6.
+  2. the emitted radiance said per NODE, which needs the node key and the per-part slot.
+  3. `Live` filling the per-part run from `Material::Emission`, because nothing ever filled it.
+
+With all three: **9 draws on layout 1** -- `PositionUv`, the flat textured variant, which is what
+the oracle rendered. `subject.msl:76` is exact about what it then computes:
+
+    o.col = float4(in.emitted * SUBJECT_COLOUR_TAP(...).rgb * in.colour.rgb, 1.0)
+
+so the per-part run is a TINT the texture is multiplied by, not a radiance added to it -- and
+`ResolveEmission`'s `baseColour x ambient` is exactly such a tint. The mechanism is closed.
+
+The value is not: the picture reads 219 codes where the tint should make it match. That is now a
+question about ONE number reaching ONE uniform, with the variant, the shader line and the quantity
+all named -- which is a different kind of question from the five that died before it.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
