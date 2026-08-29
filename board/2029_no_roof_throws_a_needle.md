@@ -31,20 +31,36 @@ facade.
 3. **And the eye.** The same crop at the same magnification, with no slivers. A count that reaches zero while the picture still shows them means the measure is not seeing what I am
 
 
-## BLOCKED BY board:2026, and the numbers say so
+## THE POPULATION HOLDS STILL, AND board:2026's BLOCK WAS MY OWN ERROR
 
-    ring tidied           604 309 triangles    13 needles
-    area cutoff 0.01 m2   582 147              8
-    aspect cutoff 1e-4    601 897              760
+Rothenburg run twice on identical code: 601 897 triangles, 5 140 footprints, 5 vector tiles --
+IDENTICAL. The three numbers that looked like drift (604 309, 582 147, 601 897) came from three
+different CODE states, not three runs. I compared apples with oranges and blamed the fruit. board:2026
+stands on its own merits and blocks nothing here.
 
-The third line is not a regression in the cut -- it is the population moving. The same place run
-three times with unchanged code gives 604 309, 582 147 and 601 897 triangles, because
-`BuildingField::Verts_` grows by a variable number of rebuilds. Until board:2026 bounds it, a needle
-count cannot be compared with itself.
+## THE FIRST INSTRUMENT COULD NOT SEE WHAT THE FRAME SHOWS
 
-**The aspect cut STAYS**, and its justification is geometric rather than measured: a needle is
-area against its own longest edge, an equilateral triangle carries 0.433 and a sliver tends to zero
-whatever its size, so refusing below 1e-4 leaves a triangle 4 000 times thinner than equilateral
-standing. The area cutoff it replaced took 22 162 triangles out of Rothenburg to remove 5 slivers --
-window mullions and cornices are small AND well-shaped, and a cleaner that eats them is the next
-defect. No tick is claimed for either until the count holds still.
+It counted a needle as area under 0.01 m2 with an edge over 5 m, and drove that to 8 -- while the
+crop at eight times magnification shows the slivers UNCHANGED. Measured off the frame: they are
+under a pixel wide and about fifty long, so on the order of 0.15 m by 7.5 m -- about 0.56 m2, fifty
+times the area that instrument refuses. It was measuring a different thing and reporting success.
+
+## WHAT THEY ACTUALLY ARE: REACH
+
+    triangles reaching over 20 m     15 920
+    the furthest any reaches            309 m
+
+A 309 m triangle in a town of 10 m houses belongs to no building. Thinness was never the mark; span
+is. The slivers in the crop run diagonally ACROSS other buildings and the ground, which is what a
+triangle built from two different rings looks like.
+
+## What will be true
+
+- [ ] no triangle a building hands over spans further than the footprint it belongs to
+- [ ] the count over 20 m falls to what the town's genuinely large structures explain -- a church, a barn, a terrace meshed as one -- and the furthest is one of those rather than 309 m
+- [ ] the crop at eight times magnification shows no diagonal crossing a neighbour
+
+## The measurements that would show I am wrong
+
+1. **Span against the footprint's own extent**, not against a constant. A triangle wider than the ring it came from is the defect; a 40 m barn is not
+2. **The eye is the control the counters failed.** The same crop at the same magnification. A count that reaches zero while the picture still shows them means the measure is not seeing what I am -- which is exactly what happened to the first one

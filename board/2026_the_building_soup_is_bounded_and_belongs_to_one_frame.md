@@ -46,19 +46,16 @@ What the same measurement did show is the size:
 - [ ] Shibuya does not mesh 600 MB of buildings to draw a square kilometre of them
 
 
-## AND IT NOW BLOCKS A MEASUREMENT (board:2029)
+## IT BLOCKS NOTHING -- THAT CLAIM WAS MINE AND IT WAS WRONG
 
-Rothenburg's building triangle count over three runs of the SAME code: 604 309, 582 147, 601 897 --
-a spread of 3.7 per cent with nothing changed between them. `BuildingField::Build` adds to `Verts_`
-and the telemetry reads `added=3228 total=5140` on a place that holds ONE vector tile, so a tile's
-buildings are meshed more than once and how many times varies with how the restands fall.
+I wrote that Rothenburg's triangle count moved between runs of the same code: 604 309, 582 147,
+601 897. Run properly, twice, on ONE code state it reads 601 897 both times, with 5 140 footprints
+and 5 vector tiles. Those three numbers came from three different code states -- the ring tidy, an
+area cutoff, an aspect cutoff -- and I compared them as though the code had stood still. Withdrawn.
 
-That makes board:2029's needle count unusable: 13, then 8, then 760 across changes whose direction
-should have been monotone. A defect cannot be measured against a population that moves on its own,
-so this item now stands ahead of that one.
+`added=3228 total=5140` is not duplication either: the vector ring is 3 x 3, five of its tiles
+settled, and 5 140 is their sum. `TileWatermark` takes each tile once.
 
-## The measurement that settles THIS
-
-1. **Run the same place twice and subtract.** The building triangle count must be identical. Today
-   it is not, and that difference is the whole item
-2. `added` against `total` per build: a tile already ingested must add ZERO
+What remains true and worth the item: `Verts_` is never trimmed, so it holds every tile the field has
+ever ingested for as long as the field lives. At Shibuya that is 5.8 million triangles. The bound is
+still owed; the drift was not.

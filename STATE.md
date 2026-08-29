@@ -19,7 +19,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
-| `streaming` | 12/1 | 8% | [1946](board/1946_the_generated_world_reaches_the_scene.md) 12 | -- | |
+| `streaming` | 12/1 | 8% | -- | [1946](board/1946_the_generated_world_reaches_the_scene.md) 12 | |
 
 ## Door -- `include/`
 
@@ -331,7 +331,7 @@ The heaviest files. Headers and sources counted apart.
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1046 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 959 | `cpp` | `engine/Picturing.cpp` |
+| 989 | `cpp` | `engine/Picturing.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
@@ -467,7 +467,7 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 | constants | file |
 |---|---|
 | 16 | `src/generators/draw/BuildingShape.cpp` |
-| 15 | `src/generators/draw/BuildingMesh.cpp` |
+| 16 | `src/generators/draw/BuildingMesh.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |

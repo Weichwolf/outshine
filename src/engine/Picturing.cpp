@@ -501,6 +501,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
       Published.Places("buildings: footprints the field holds", (double)prints.Footprints().size(),
                        "footprints");
+      if (World.Stack.Vectors() != nullptr) {
+        Published.Places("buildings: vector tiles the field settled",
+                         (double)World.Stack.Vectors()->Tiles().size(), "tiles");
+        Published.Places("buildings: OSM features it holds",
+                         (double)World.Stack.Vectors()->Features().size(), "features");
+      }
       {
         double least = 1.0e30, most = -1.0e30;
         size_t within = 0;
@@ -621,6 +627,30 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
         Published.Places("buildings: the longest edge one carries", longest, "m");
+        // AND A SECOND CENSUS, because the first could not see what the frame shows. The slivers
+        // magnified eight times are under a pixel wide and about fifty long -- on the order of
+        // 0.15 m by 7.5 m, so 0.56 m2, which is fifty times the area the count above refuses. What
+        // marks them is not thinness but REACH: a triangle running 20 m belongs to no house in this
+        // town, and a facade panel or a roof plane never spans that.
+        size_t reaching = 0;
+        double furthest = 0.0;
+        for (size_t at = 0; at + 8 < raised.size(); at += 9) {
+          const double ax = raised[at], ay = raised[at + 1], az = raised[at + 2];
+          const double bx = raised[at + 3], by = raised[at + 4], bz = raised[at + 5];
+          const double cx = raised[at + 6], cy = raised[at + 7], cz = raised[at + 8];
+          const double ux = bx - ax, uy = by - ay, uz = bz - az;
+          const double vx = cx - ax, vy = cy - ay, vz = cz - az;
+          const double wx = cx - bx, wy = cy - by, wz = cz - bz;
+          const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
+                                                  vx * vx + vy * vy + vz * vz,
+                                                  wx * wx + wy * wy + wz * wz}));
+          if (edge > 20.0) {
+            ++reaching;
+            furthest = edge > furthest ? edge : furthest;
+          }
+        }
+        Published.Places("buildings: triangles reaching over 20 m", (double)reaching, "triangles");
+        Published.Places("buildings: the furthest any reaches", furthest, "m");
       }
       {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
