@@ -138,6 +138,21 @@ ways this could have been wrong: the indirect light reaches and is not the carri
 run and the material row are not one quantity; and an unlit base colour cannot carry a textured
 surface. What is left is one question with one place to look.
 
+**AND THE SHADER ANSWERS IT.** The two quantities feed two different VARIANTS:
+
+    src/render/shaders/subject.msl:36        o.col = float4(in.emitted * in.colour.rgb, 1.0)
+    src/render/shaders/subjectLitTextured.msl:3   surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb
+
+The per-part run drives the FLAT variant -- emitted times the vertex colour, no texture, no light.
+The material's emissive drives the textured ones, modulated by an emissive MAP. They were never
+one quantity and could not be: one is what a surface IS, the other is what a surface ADDS.
+
+So the last 43 codes are a question about which VARIANT this case's draws take, and a case whose
+appearance is `factor x ambient` with no lighting is asking for the flat one. The door's way to say
+that is the layout a draw is given, which `LayoutOf` decides from what the part carries and what
+its surface reads -- and no client can state it today. That is the last door word this conversion
+needs, and unlike the four before it, it is not a field that was already there and unread.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
