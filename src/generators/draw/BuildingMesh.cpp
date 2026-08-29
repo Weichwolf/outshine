@@ -16,7 +16,6 @@ namespace outshine::Generators {
 namespace {
 std::atomic<size_t> gBuried{0};
 std::atomic<size_t> gDeepestMm{0};
-std::atomic<size_t> gPrisms{0};
 std::atomic<size_t> gRaised{0};
 std::atomic<size_t> gFarthestM{0};
 std::atomic<size_t> gBoxes{0};
@@ -25,7 +24,6 @@ std::atomic<size_t> gUnscaled{0};
 
 size_t BuildingMesh::BuriedTaken() { return gBuried.exchange(0u); }
 size_t BuildingMesh::DeepestBuriedMmTaken() { return gDeepestMm.exchange(0u); }
-size_t BuildingMesh::PrismsTaken() { return gPrisms.exchange(0u); }
 size_t BuildingMesh::RaisedTaken() { return gRaised.exchange(0u); }
 size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
 size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
@@ -658,16 +656,10 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
 // THERE IS NO LEVEL BELOW THE BOX. A building under a pixel still darkens the pixel it is under, and
 // dropping it is exactly how a town stops being a town.
 constexpr double kRoofRiseM = 3.0;
-constexpr double kShortestEdgeM = 2.0;
 constexpr double kResolvedPx = 2.0;
-constexpr double kSeenPx = 1.0;
 
 [[nodiscard]] double ArchitectureReachM(double focalPx) {
   return focalPx * kRoofRiseM / kResolvedPx;
-}
-
-[[nodiscard]] double FootprintReachM(double focalPx) {
-  return focalPx * kShortestEdgeM / kResolvedPx;
 }
 
 // THE MINIMUM-AREA ENCLOSING RECTANGLE, not an axis-aligned one: a building at 40 degrees to the
@@ -711,32 +703,12 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, const Site2Ground 
     site.Quad(Face(s, ring[i], lowZ, Facade::Wall), Face(s, ring[j], lowZ, Facade::Wall),
               Face(s, ring[j], topZ, Facade::Wall), Face(s, ring[i], topZ, Facade::Wall));
   }
-  site.Quad(Face(s, ring[3], topZ, Facade::RoofFlat), Face(s, ring[2], topZ, Facade::RoofFlat),
-            Face(s, ring[1], topZ, Facade::RoofFlat), Face(s, ring[0], topZ, Facade::RoofFlat));
-  site.Quad(Face(s, ring[0], lowZ, Facade::Wall), Face(s, ring[1], lowZ, Facade::Wall),
-            Face(s, ring[2], lowZ, Facade::Wall), Face(s, ring[3], lowZ, Facade::Wall));
-}
-
-void Prism(const BuildingShape &s, const RoofSurface &roof, const Site2Ground &ground, Site &site) {
-  const size_t n = s.Ring.size();
-  const double lowZ = PlinthFootZ(s, ground);
-  const double topZ = s.TopM();
-  for (size_t i = 0; i < n; i++) {
-    const size_t j = (i + 1) % n;
-    site.Quad(Face(s, s.Ring[i], lowZ, Facade::Wall), Face(s, s.Ring[j], lowZ, Facade::Wall),
-              Face(s, s.Ring[j], topZ, Facade::Wall), Face(s, s.Ring[i], topZ, Facade::Wall));
-  }
-  std::vector<En> tris;
-  roof.Cover(s.Ring, tris);
-  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-    site.Tri(Face(s, tris[i], topZ, Facade::RoofFlat), Face(s, tris[i + 1], topZ, Facade::RoofFlat),
-             Face(s, tris[i + 2], topZ, Facade::RoofFlat));
-  }
-  Floor(s, s.Ring, lowZ, site);
+  site.Quad(Face(s, ring[0], topZ, Facade::RoofFlat), Face(s, ring[1], topZ, Facade::RoofFlat),
+            Face(s, ring[2], topZ, Facade::RoofFlat), Face(s, ring[3], topZ, Facade::RoofFlat));
+  Floor(s, ring, lowZ, site);
 }
 
 void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
-  const RoofSurface roof(s);
   const double outM = site.ReachM();
   const size_t whole = (size_t)outM;
   for (size_t seen = gFarthestM.load(); whole > seen;) {
@@ -753,6 +725,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     gUnscaled.fetch_add(1u, std::memory_order_relaxed);
   }
   gRaised.fetch_add(1u, std::memory_order_relaxed);
+  const RoofSurface roof(s);
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);

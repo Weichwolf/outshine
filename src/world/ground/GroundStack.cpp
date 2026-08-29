@@ -9,6 +9,14 @@
 
 namespace outshine::Ground {
 
+// HOW FAR THE VECTOR DATA REACHES, derived rather than set. With the far level of detail a building
+// of height h is still worth drawing while it covers one pixel, which is `focalPx * h` metres away
+// -- 691.5 * 10 = 6.9 km for an ordinary ten-metre house at 720 rows over 55 degrees. A z14 tile is
+// 40075017 / 2^14 = 2446 m at the equator and 1660 m at 47 degrees north, so a ring of 3 reaches
+// 5.8 km: the largest whole number of tiles that stays inside the distance at which a house stops
+// being a pixel. It stood at 1, which reached 2.5 km -- and every place but one stands INSIDE its
+// own town and never noticed. The Jura stands 4.9 km from Solothurn and showed the farms of the
+// plain with no town in them.
 constexpr int kVectorRing = 3;
 
 

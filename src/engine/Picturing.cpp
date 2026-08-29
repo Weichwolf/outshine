@@ -888,8 +888,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          (double)Generators::BuildingMesh::BuriedTaken(), "buildings");
         Published.Places("buildings: raised with full architecture",
                          (double)Generators::BuildingMesh::RaisedTaken(), "buildings");
-        Published.Places("buildings: reduced to a far prism",
-                         (double)Generators::BuildingMesh::PrismsTaken(), "buildings");
         Published.Places("buildings: reduced to a hull box",
                          (double)Generators::BuildingMesh::BoxesTaken(), "buildings");
         Published.Places("buildings: meshed with NO pixel scale declared",
