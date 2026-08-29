@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 1953
 Area: render
 Tags: benchmark, target, gpu-driven
