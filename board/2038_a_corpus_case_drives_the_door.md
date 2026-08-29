@@ -326,8 +326,12 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
        difference all along, and `disagreement_p99_px` reads 0.000 only on AlphaBlendModeTest --
        whose camera comes from its manifest. The next round measures the projection on a case
        whose camera does NOT: `derived` from the provenance, or the file's own.
-    2. run the FIVE representatives, not one:
-       AlphaBlendModeTest, TextureCoordinateTest, BoomBox, BoxInterleaved, MeshoptCubeTest
+    2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
+       slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
+       reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
+       larger anecdote. The failure is UNIFORM -- 121 of 148 base cases and 242 of 296 variants,
+       82 per cent in both -- so there is no family to chase, and the next round runs the whole
+       444 after each change and reads the COUNT, which is 12 minutes and the only honest number.
     3. read the LINEAR mean, not the delta -- a ratio names a factor, a distance names nothing
     4. rebuild ALL 168 objects after any change to a struct in `include/`, or the crash will look
        like the feature's fault
