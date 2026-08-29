@@ -8,6 +8,31 @@ Tags: benchmark, target, owner
 # ONE value carries 3D data into and out of outshine, and glTF is one of its file forms
 
 
+## ONE PATH FOR BOTH, AND THE GENERATORS ALREADY WALK IT
+
+The owner's rule, and it settles how the remaining glTF spellings leave the engine: **a generator
+must be able to hand over MATERIAL too, so it is the same path for a generator and for an importer.**
+
+That path exists and is the door's own: `Geometry::addSurface(name, Material)` returns a
+`MaterialInstance`, and `Material` is declared in `include/Material.h`. A generator builds its
+surfaces that way today.
+
+**So the importer walks it too.** Reading a glTF file means filling a `Geometry` -- its parts, its
+positions, its surfaces -- exactly as a generator fills one. Then there is no "generator path" and
+"import path": there is ONE, and the engine builds its table from what arrives without knowing who
+sent it.
+
+This is what unblocks the 32 spellings in `Surfaces.cpp`. They cannot MOVE behind the door, because
+they produce a `SurfaceTable` that is an engine type -- an importer producing it would need the
+engine, and the engine already reaches the importer. But they do not need to move: they need to stop
+existing as a second way in. `ResolveDeclaredSurface` -- which takes a declared `Material` and knows
+no file -- is what both producers should be resolved by.
+
+**Benchmark** — Unreal: an imported material becomes a UMaterialInstance, the same asset an authored
+one produces, and the renderer cannot tell them apart. RAGE: every importer lands in the same cooked
+shader parameters. **They agree, and it is the same sentence**: an importer is a producer, not a
+second kind of source.
+
 ## THE FRAMING THIS ITEM CARRIED IS WITHDRAWN: glTF IS AN IMPORT PATH, NOT THE INTERNAL VALUE
 
 Written into this item earlier: "our standard asset format is glTF and generators are dynamic glTF

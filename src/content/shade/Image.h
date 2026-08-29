@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_IMAGE_H
-#define OUTSHINE_ENGINE_IMAGE_H
+#ifndef OUTSHINE_CONTENT_SHADE_IMAGE_H
+#define OUTSHINE_CONTENT_SHADE_IMAGE_H
 
 #include <cstdint>
 #include <vector>

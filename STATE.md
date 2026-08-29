@@ -310,9 +310,10 @@ flowchart LR
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
   engine --> |3| scene
+  engine --> |3| content_shade
   engine --> |3| base_spatial
 ```
-  36 edge(s) drawn, 47 thinner than three includes not drawn
+  37 edge(s) drawn, 46 thinner than three includes not drawn
 
 ## Tiers
 
