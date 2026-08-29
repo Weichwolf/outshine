@@ -23,6 +23,13 @@ public:
 
   void Cover(std::span<const En> plan, std::vector<En> &tris) const;
 
+  // WHERE THE ROOF BREAKS ACROSS ONE EDGE OF THE FOOTPRINT, as parameters in (0, 1) along it,
+  // sorted. `Cover` splits the covering along exactly these lines, so anything that has to meet the
+  // covering's boundary -- a gable, a soffit -- has to break at the same places or its edges cannot
+  // pair with it. A ridge lies on the MIDLINE of a gable end, never at its corners, which is why
+  // reading the two corner heights saw nothing to build there.
+  void BreaksAlong(const En &from, const En &to, std::vector<double> &at) const;
+
   static std::vector<En> Widened(std::span<const En> ring, double byM);
 
 private:

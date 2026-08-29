@@ -183,9 +183,50 @@ void FrontWall(const BuildingShape &s, const En &p, const En &q, double bays, do
     WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site);
 }
 
-void Walls(const BuildingShape &s, double lowZ, Site &site) {
+// THE WALL HEAD IS BROKEN WHERE THE ROOF IS. One quad from corner to corner leaves an edge that the
+// gable above it -- broken at the ridge -- has no matching edge for, so a wall that meets its own
+// gable perfectly along a straight line still reads as a hole to a walk over the triangles.
+// ONE SUBDIVISION FOR FOUR BUILDERS. Wall, gable, soffit and covering all end on the same seam, and
+// a seam pairs only if both sides carry the SAME vertices. The roof breaks a footprint edge at one
+// set of places and the overhung edge outside it at another -- the offset moves the crossing -- so
+// every builder takes the UNION of the two, and the covering is handed a ring already carrying it.
+void BreaksBoth(const RoofSurface &roof, const En &p, const En &q, const En &wp, const En &wq,
+                bool overhung, std::vector<double> &at) {
+  std::vector<double> other;
+  roof.BreaksAlong(p, q, at);
+  if (overhung) {
+    roof.BreaksAlong(wp, wq, other);
+    at.insert(at.end(), other.begin(), other.end());
+    std::sort(at.begin(), at.end());
+    at.erase(std::unique(at.begin(), at.end(),
+                         [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
+             at.end());
+  }
+}
+
+std::vector<En> Refined(std::span<const En> ring, const std::vector<En> &wide,
+                        const RoofSurface &roof, bool takeWide) {
+  const size_t n = ring.size();
+  const bool overhung = wide.size() == n;
+  std::vector<En> out;
+  std::vector<double> at;
+  for (size_t i = 0; i < n; i++) {
+    const size_t j = (i + 1) % n;
+    BreaksBoth(roof, ring[i], ring[j], overhung ? wide[i] : ring[i], overhung ? wide[j] : ring[j],
+               overhung, at);
+    const En &from = takeWide && overhung ? wide[i] : ring[i];
+    const En &to = takeWide && overhung ? wide[j] : ring[j];
+    out.push_back(from);
+    for (double t : at) { out.push_back(Along(from, to, t)); }
+  }
+  return out;
+}
+
+void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
+           double lowZ, Site &site) {
   const size_t n = s.Ring.size();
   const double topZ = EavesZ(s);
+  std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
@@ -195,8 +236,16 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
-    WallPanel(s, p, q, 0.0, bays, lowZ, topZ,
-              (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back, site);
+    const bool overhung = wide.size() == n;
+    BreaksBoth(roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung,
+               breaks);
+    double was = 0.0;
+    for (size_t step = 0; step <= breaks.size(); ++step) {
+      const double now = step < breaks.size() ? breaks[step] : 1.0;
+      WallPanel(s, Along(p, q, was), Along(p, q, now), bays * was, bays * now, lowZ, topZ,
+                (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back, site);
+      was = now;
+    }
   }
 }
 
@@ -221,17 +270,32 @@ double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
 
-void Plinth(const BuildingShape &s, const Site2Ground &ground, double topZ, Site &site) {
+// THE LEDGE MEETS THE WALL, so it breaks where the wall breaks. Its inner edge is the wall's foot,
+// and a single corner-to-corner edge cannot pair with a foot the roof has already broken at the
+// ridge -- which is why holes stood at the BOTTOM of a building whose defect was at the top.
+void Plinth(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
+            const Site2Ground &ground, double topZ, Site &site) {
   const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
   if (out.size() != s.Ring.size()) return;
   const size_t n = s.Ring.size();
   const double lowZ = PlinthFootZ(s, ground);
+  const bool overhung = wide.size() == n;
+  std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    site.Quad(Face(s, out[i], lowZ, Facade::Plinth), Face(s, out[j], lowZ, Facade::Plinth),
-              Face(s, out[j], topZ, Facade::Plinth), Face(s, out[i], topZ, Facade::Plinth));
-    site.Quad(Face(s, out[i], topZ, Facade::Ledge), Face(s, out[j], topZ, Facade::Ledge),
-              Face(s, s.Ring[j], topZ, Facade::Ledge), Face(s, s.Ring[i], topZ, Facade::Ledge));
+    BreaksBoth(roof, s.Ring[i], s.Ring[j], overhung ? wide[i] : s.Ring[i],
+               overhung ? wide[j] : s.Ring[j], overhung, breaks);
+    double was = 0.0;
+    for (size_t step = 0; step <= breaks.size(); ++step) {
+      const double now = step < breaks.size() ? breaks[step] : 1.0;
+      const En oa = Along(out[i], out[j], was), ob = Along(out[i], out[j], now);
+      const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
+      was = now;
+      site.Quad(Face(s, oa, lowZ, Facade::Plinth), Face(s, ob, lowZ, Facade::Plinth),
+                Face(s, ob, topZ, Facade::Plinth), Face(s, oa, topZ, Facade::Plinth));
+      site.Quad(Face(s, oa, topZ, Facade::Ledge), Face(s, ob, topZ, Facade::Ledge),
+                Face(s, rb, topZ, Facade::Ledge), Face(s, ra, topZ, Facade::Ledge));
+    }
   }
 }
 
@@ -250,19 +314,34 @@ void Floor(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
   }
 }
 
-void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
+// THE GABLE FOLLOWS THE ROOF, NOT ITS CORNERS. Reading only the two ends saw nothing to build on a
+// rectangle whose ridge runs along its long axis: all four corners sit at eaves height, so every
+// edge was skipped and the roof rose over an open end. The edge is broken where the covering is
+// broken, so the two boundaries pair.
+void Gables(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
+            Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
+  std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
-    const double hp = std::max(roof.HeightAt(p), 0.0), hq = std::max(roof.HeightAt(q), 0.0);
-    if (hp < 0.03 && hq < 0.03) continue;
     const double len = EdgeLength(p, q);
     if (len < 0.05) continue;
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
-    site.Quad(Wall(s, p, eaves, 0.0, Fields::Back), Wall(s, q, eaves, bays, Fields::Back),
-              Wall(s, q, eaves + hq, bays, Fields::Back),
-              Wall(s, p, eaves + hp, 0.0, Fields::Back));
+    const bool overhung = wide.size() == n;
+    BreaksBoth(roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung,
+               breaks);
+    double was = 0.0;
+    for (size_t step = 0; step <= breaks.size(); ++step) {
+      const double now = step < breaks.size() ? breaks[step] : 1.0;
+      const En a = Along(p, q, was), b = Along(p, q, now);
+      const double ha = std::max(roof.HeightAt(a), 0.0), hb = std::max(roof.HeightAt(b), 0.0);
+      was = now;
+      if (ha < 0.03 && hb < 0.03) continue;
+      site.Quad(Wall(s, a, eaves, 0.0, Fields::Back), Wall(s, b, eaves, bays, Fields::Back),
+                Wall(s, b, eaves + hb, bays, Fields::Back),
+                Wall(s, a, eaves + ha, 0.0, Fields::Back));
+    }
   }
 }
 
@@ -284,15 +363,23 @@ void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
   const size_t n = s.Ring.size();
   if (wide.size() != n) return;
   const double eaves = EavesZ(s);
+  std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    const double zi = eaves + roof.HeightAt(wide[i]), zj = eaves + roof.HeightAt(wide[j]);
-    const double ri = eaves + roof.HeightAt(s.Ring[i]), rj = eaves + roof.HeightAt(s.Ring[j]);
-    site.Quad(Face(s, s.Ring[i], ri, Facade::Soffit), Face(s, s.Ring[j], rj, Facade::Soffit),
-              Face(s, wide[j], zj, Facade::Soffit), Face(s, wide[i], zi, Facade::Soffit));
-    site.Quad(Face(s, wide[i], zi, Facade::Trim), Face(s, wide[j], zj, Facade::Trim),
-              Face(s, wide[j], zj + kSlabM, Facade::Trim), Face(s, wide[i], zi + kSlabM,
-                                                                Facade::Trim));
+    BreaksBoth(roof, s.Ring[i], s.Ring[j], wide[i], wide[j], true, breaks);
+    double was = 0.0;
+    for (size_t step = 0; step <= breaks.size(); ++step) {
+      const double now = step < breaks.size() ? breaks[step] : 1.0;
+      const En wa = Along(wide[i], wide[j], was), wb = Along(wide[i], wide[j], now);
+      const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
+      was = now;
+      const double za = eaves + roof.HeightAt(wa), zb = eaves + roof.HeightAt(wb);
+      const double rza = eaves + roof.HeightAt(ra), rzb = eaves + roof.HeightAt(rb);
+      site.Quad(Face(s, ra, rza, Facade::Soffit), Face(s, rb, rzb, Facade::Soffit),
+                Face(s, wb, zb, Facade::Soffit), Face(s, wa, za, Facade::Soffit));
+      site.Quad(Face(s, wa, za, Facade::Trim), Face(s, wb, zb, Facade::Trim),
+                Face(s, wb, zb + kSlabM, Facade::Trim), Face(s, wa, za + kSlabM, Facade::Trim));
+    }
   }
 }
 
@@ -370,14 +457,16 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const RoofSurface roof(s);
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
+  const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
   if (s.OnGround()) {
-    Plinth(s, ground, plinthZ, site);
-    const std::vector<En> foot = RoofSurface::Widened(s.Ring, kPlinthProudM);
-    Floor(s, roof, foot.size() == s.Ring.size() ? foot : s.Ring, PlinthFootZ(s, ground), site);
+    Plinth(s, roof, overhang, ground, plinthZ, site);
+    const std::vector<En> foot =
+        Refined(RoofSurface::Widened(s.Ring, kPlinthProudM), overhang, roof, false);
+    Floor(s, roof, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
     Floor(s, roof, s.Ring, lowZ, site);
   }
-  Walls(s, lowZ, site);
+  Walls(s, roof, RoofSurface::Widened(s.Ring, s.OverhangM), lowZ, site);
 
   if (s.Roof == RoofKind::Flat) {
     const std::vector<En> inner = RoofSurface::Widened(s.Ring, -kParapetThickM);
@@ -393,8 +482,9 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   }
 
   const std::vector<En> wide = RoofSurface::Widened(s.Ring, s.OverhangM);
-  Covering(s, roof, wide.empty() ? s.Ring : wide, EavesZ(s), site);
-  Gables(s, roof, site);
+  const std::vector<En> covered = Refined(s.Ring, wide, roof, true);
+  Covering(s, roof, covered.empty() ? s.Ring : covered, EavesZ(s), site);
+  Gables(s, roof, wide, site);
   if (!wide.empty()) Eaves(s, roof, wide, site);
   if (WantsChimney(s)) Chimney(s, roof, site);
 }

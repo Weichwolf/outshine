@@ -239,6 +239,28 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
   return f * rise;
 }
 
+void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
+  at.clear();
+  Line lines[kMaxCreases];
+  const int n = CreasesOf(Shape_, lines);
+  double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
+  Shape_.ToBox(from, &u0, &v0);
+  Shape_.ToBox(to, &u1, &v1);
+  for (int i = 0; i < n; i++) {
+    const double d0 = lines[i].A * u0 + lines[i].B * v0 - lines[i].C;
+    const double d1 = lines[i].A * u1 + lines[i].B * v1 - lines[i].C;
+    if ((d0 > kOnLineM && d1 > kOnLineM) || (d0 < -kOnLineM && d1 < -kOnLineM)) { continue; }
+    const double span = d0 - d1;
+    if (std::fabs(span) < kOnLineM) { continue; }
+    const double t = d0 / span;
+    if (t > 1.0e-3 && t < 1.0 - 1.0e-3) { at.push_back(t); }
+  }
+  std::sort(at.begin(), at.end());
+  at.erase(std::unique(at.begin(), at.end(),
+                       [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
+           at.end());
+}
+
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
   if (!EarClip(plan, tris)) {
