@@ -121,6 +121,23 @@ the material row are not the same quantity said twice, and which one the oracle 
 is still the open question -- but "they are one thing" is now a dead answer rather than a plausible
 one, and that is worth more than the guess was.
 
+**AND A THIRD READING DIED THE SAME WAY.** The case is flat-shaded, so the door's word looked like
+`Material::Unlit` with the radiance as the base colour. Measured:
+
+    emission per node                      50 codes
+    unlit + base colour per node          177 codes -- the value with NO override at all
+
+`Unlit` and `BaseColour` change nothing here, and the reason is visible in the case: its materials
+carry a baseColorTexture, and a TEXTURE beats the factor. So the flat radiance can only arrive as
+`Emission`, which is where the 50 comes from -- and what closes the last 43 is how the oracle
+combines that emission with the texture it is standing on. That is the next measurement, and it is
+a question about the SHADER rather than about the door.
+
+WHAT THE THREE DEAD READINGS ARE WORTH. They cost one session and they remove three of the four
+ways this could have been wrong: the indirect light reaches and is not the carrier; the per-part
+run and the material row are not one quantity; and an unlit base colour cannot carry a textured
+surface. What is left is one question with one place to look.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
