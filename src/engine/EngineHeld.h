@@ -266,6 +266,7 @@ struct Surrounds {
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;
+  size_t Rebuilds = 0;
   bool Grown = false;
   Generators::BuildingMesh Shaper;
   std::chrono::steady_clock::time_point LaidAt{};

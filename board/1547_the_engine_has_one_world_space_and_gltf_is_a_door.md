@@ -26,6 +26,32 @@ fourteen while the item waited, which is what an unguarded count does.
 Every new thing that enters a picture must remember to convert and the compiler cannot help.
 That is the defect this item makes unspellable.
 
+## RE-MEASURED AGAIN, and the framing correction widens what this item owns
+
+This item counted the AXIS CONVERSIONS. The owner's correction to board:1949 makes the scope the
+whole namespace: glTF is an IMPORT PATH, so `Gltf::` belongs behind `src/content/gltf/` and nowhere
+else -- the importer reads a document and hands over the internal value, and past that nobody knows
+a file was involved.
+
+MEASURED, `Gltf::` outside `src/content/gltf/`:
+
+    src/engine/Surfaces.cpp      32
+    src/render/SubjectProxy.cpp  27   <- the renderer knowing a FILE FORMAT
+    src/engine/Live.cpp          18
+    src/engine/Asset.h           10
+    ten more files               42
+    -------------------------------
+    129 in 14 files
+
+**The renderer is the sharpest of these.** board:1995 already refuses a SUBJECT noun in
+`src/render/`; a file format is the same defect one step worse, and the guard that holds the first
+does not know the second word.
+
+The item's own warning has come true twice over -- it wrote "ten became fourteen while the item
+waited, which is what an unguarded count does", and the wider count is 129. So the guard comes
+BEFORE the removal: a claim beside `TheRendererNamesNoSubject`, walking for `Gltf::` outside the
+importer, with a declared number that may only fall.
+
 ## What will be true
 
 - [ ] The conversion happens ONCE, at the reader's door, and no runtime path spells a glTF
