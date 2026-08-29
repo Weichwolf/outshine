@@ -19,6 +19,12 @@
 // of packing on Shibuya and doubled the footprint in between. A file format's storage decision,
 // applied to geometry that never came from a file.
 //
+// AND IT COUNTS PROSE AS WELL AS CODE, which is deliberate and has a cost worth knowing: a comment
+// that names the importer's types keeps a tier's count above zero even after the code is clean. It
+// is left that way because the alternative -- teaching the count to skip comments -- is a parser,
+// and a guard that needs a parser is a guard that can be wrong quietly. Rewording a comment is
+// cheap; a wrong count is not.
+//
 // WHAT THIS CLAIM DOES NOT DECIDE. It counts a SPELLING, not a dependency: a tier may still read a
 // glTF file through the importer's own door, and this says nothing about whether it should. It also
 // cannot see a glTF concept wearing another name -- an axis convention, a double where a float
@@ -37,7 +43,7 @@ struct Tier {
 };
 
 constexpr Tier kTiers[] = {
-    {"src/engine", 95}, {"src/render", 34}, {"src/generators", 6}, {"src/base", 1},
+    {"src/engine", 93}, {"src/render", 28}, {"src/generators", 6}, {"src/base", 1},
     {"src/scene", 0},   {"src/scenario", 0}, {"src/sim", 0},       {"src/world", 0},
     {"src/compositor", 0}, {"src/ui", 0},   {"src/host", 0},       {"src/audio", 0},
     {"include", 0},     {"apps", 0},

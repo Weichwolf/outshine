@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
 #define OUTSHINE_RENDER_SUBJECTPROXY_H
 
+#include "Viewing.h"
 #include <array>
 #include <cstdint>
 #include <span>
@@ -17,7 +18,7 @@ namespace outshine::Render {
 class SceneRenderer;
 
 struct Eye {
-  Gltf::Viewpoint Eye;
+  Viewpoint Eye;
   bool StandsInside = false;
   size_t FramedParts = 0;
 };

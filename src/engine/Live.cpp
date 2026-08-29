@@ -99,6 +99,35 @@ double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Gltf::kFramingFill;
 }
 
+namespace {
+
+// THE ENGINE IS THE BOUNDARY, so the conversion stands here and nowhere deeper. `src/render/` now
+// carries its own `Viewpoint` and knows no glTF name; what still produces a glTF one is the
+// importer, in two places that are not the same kind of thing:
+//
+//   `Gltf::DeclaredPlacement` reads a camera NODE out of a file, which is a genuinely glTF thing
+//   `Gltf::FramingFor` fits a camera to a bounding box, which is geometry wearing the wrong
+//   namespace and belongs in the render tier -- named here rather than moved in the same step
+Render::Viewpoint Seen(const Gltf::Viewpoint &from) {
+  Render::Viewpoint out;
+  for (int axis = 0; axis < 3; ++axis) {
+    out.EyeM[axis] = from.EyeM[axis];
+    out.Forward[axis] = from.Forward[axis];
+    out.Right[axis] = from.Right[axis];
+    out.Up[axis] = from.Up[axis];
+  }
+  out.Kind = from.Kind == Gltf::CameraKind::Orthographic ? Render::CameraKind::Orthographic
+                                                         : Render::CameraKind::Perspective;
+  out.YfovRad = from.YfovRad;
+  out.XMagM = from.XMagM;
+  out.YMagM = from.YMagM;
+  out.ZNearM = from.ZNearM;
+  out.ZFarM = from.ZFarM;
+  return out;
+}
+
+}
+
 bool Live::Build(std::string &error) {
   if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
     Held_.Clears();
@@ -295,7 +324,7 @@ bool Live::Pose(int frame, std::string &error) {
   return Held_.Poses(frame, Declared_.Fps, error);
 }
 
-void Live::Eye(const Gltf::Viewpoint &from) {
+void Live::Eye(const Render::Viewpoint &from) {
   Eye_ = from;
   HaveEye_ = true;
   Aimed_ = false;
@@ -363,7 +392,7 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
 }
 
 bool Live::Look(std::string &error) {
-  Gltf::Viewpoint framed;
+  Render::Viewpoint framed;
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
@@ -371,10 +400,12 @@ bool Live::Look(std::string &error) {
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
-  if (!Gltf::FramingFor(least, most, framed, Framing())) {
+  Gltf::Viewpoint fromFile;
+  if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
+  framed = Seen(fromFile);
   const double centre[3] = {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5,
                             (least[2] + most[2]) * 0.5};
   const double turn = Around_ * std::numbers::pi / 180.0;
@@ -408,7 +439,7 @@ bool Live::Stand(std::string &error) {
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }
   }
-  Looking_ = {HaveEye_ ? Eye_ : Gltf::Viewpoint{}, HaveEye_, Joined_};
+  Looking_ = {HaveEye_ ? Eye_ : Render::Viewpoint{}, HaveEye_, Joined_};
   for (std::array<double, 16> &one : SentBody_) {
     one.fill(std::numeric_limits<double>::quiet_NaN());
   }
@@ -471,8 +502,11 @@ bool Live::Stand(std::string &error) {
   Stood_.Around(environment);
 
   std::string why;
-  Gltf::Viewpoint eye = Looking_.Eye;
-  const bool declared = !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, eye, why);
+  Render::Viewpoint eye = Looking_.Eye;
+  Gltf::Viewpoint placed;
+  const bool declared =
+      !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, placed, why);
+  if (declared) { eye = Seen(placed); }
   Looking_.Eye = eye;
   // A DECLARED CAMERA IS NOT REFITTED. `Fill` frames a subject when nobody said where to stand; it
   // may not overrule a client that did. It did: the places declare a view AND a fill, and the
@@ -499,10 +533,12 @@ bool Live::Stand(std::string &error) {
       }
     }
     if (Held_.Frames() > 1 && !Pose(0, error)) { return false; }
-    if (!Gltf::FramingFor(least, most, eye, Framing())) {
+    Gltf::Viewpoint fitted;
+    if (!Gltf::FramingFor(least, most, fitted, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }
+    eye = Seen(fitted);
     Looking_.Eye = eye;
   }
   return true;

@@ -66,8 +66,8 @@ bool Engine::State::Watches(void) {
     ahead[2] = -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
   }
   const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
-  Gltf::Viewpoint standing;
-  if (!Gltf::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
+  Render::Viewpoint standing;
+  if (!Render::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
   standing.ZNearM = Core::Live::NearestStandable();
   standing.ZFarM = 0.0;
@@ -145,8 +145,8 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   Published.Places("the eye, east", eye[0], "m");
   Published.Places("the eye, up", eye[1], "m");
   Published.Places("the eye, south", eye[2], "m");
-  Gltf::Viewpoint from;
-  if (!Gltf::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
+  Render::Viewpoint from;
+  if (!Render::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
   from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;

@@ -111,7 +111,7 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
   for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
 
-[[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Viewpoint &eye,
+[[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Viewpoint &eye,
                                    size_t framedParts, bool standsInside, std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)SceneRenderer::kNearM;
   double framedLeast[3], framedMost[3];
@@ -155,9 +155,9 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
 
 constexpr double kMagnificationAgreement = 1e-12;
 
-[[nodiscard]] bool SetProjection(SceneRenderer &renderer, const Gltf::Viewpoint &eye,
+[[nodiscard]] bool SetProjection(SceneRenderer &renderer, const Viewpoint &eye,
                                  std::string &error) {
-  if (eye.Kind == Gltf::CameraKind::Orthographic) {
+  if (eye.Kind == CameraKind::Orthographic) {
     if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
       error = "the placement is orthographic and declares no magnification";
       return false;
@@ -184,7 +184,7 @@ constexpr double kMagnificationAgreement = 1e-12;
 }
 
 double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
-                     const Gltf::Viewpoint &eye) {
+                     const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   double low[3], high[3];
   for (int axis = 0; axis < 3; ++axis) {
@@ -380,7 +380,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
 
 bool Aim(SceneRenderer &renderer, const Gltf::Subject &subject, const Eye &view,
          const double anchorEcefM[3], std::string &error) {
-  const Gltf::Viewpoint &eye = view.Eye;
+  const Viewpoint &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!view.StandsInside &&
       !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {

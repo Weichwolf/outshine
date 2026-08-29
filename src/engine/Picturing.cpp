@@ -1438,7 +1438,7 @@ void Engine::State::Tells(void) {
   Audio::Listening &ear = Session.Ear[next];
   ear = Audio::Listening{};
   if (Picture.Standing) {
-    const Gltf::Viewpoint &eye = Picture.Standing->Aimed();
+    const Render::Viewpoint &eye = Picture.Standing->Aimed();
     for (int axis = 0; axis < 3; ++axis) {
       ear.AtM[axis] = eye.EyeM[axis];
       ear.ForwardXyz[axis] = eye.Forward[axis];
@@ -1449,7 +1449,7 @@ void Engine::State::Tells(void) {
 
 bool Engine::State::Blocked(const double sourceM[3]) const {
   if (World.Blocking.Empty() || !Picture.Standing) { return false; }
-  const Gltf::Viewpoint &eye = Picture.Standing->Aimed();
+  const Render::Viewpoint &eye = Picture.Standing->Aimed();
   float fromM[3], along[3];
   double awayM = 0.0;
   for (int axis = 0; axis < 3; ++axis) {

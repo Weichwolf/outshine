@@ -20,6 +20,8 @@ public:
   [[nodiscard]] static size_t BoxesTaken();
   [[nodiscard]] static size_t UnscaledTaken();
   [[nodiscard]] static size_t FootlessTaken();
+  [[nodiscard]] static size_t PlinthStepsTaken();
+  [[nodiscard]] static size_t FloorRimTaken();
   [[nodiscard]] static size_t OverBudgetTaken();
 
   void Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept override;

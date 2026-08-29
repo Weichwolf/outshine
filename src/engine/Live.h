@@ -114,10 +114,10 @@ public:
   [[nodiscard]] bool Advance(std::string &error);
   [[nodiscard]] bool Draw(std::string &error);
 
-  void Eye(const Gltf::Viewpoint &from);
+  void Eye(const Render::Viewpoint &from);
 
-  [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
-  [[nodiscard]] const Gltf::Viewpoint &Watching() const { return Eye_; }
+  [[nodiscard]] const Render::Viewpoint &Aimed() const { return Looking_.Eye; }
+  [[nodiscard]] const Render::Viewpoint &Watching() const { return Eye_; }
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
 
   void Grounding(const double albedo[3]) {
@@ -206,7 +206,7 @@ private:
   double GroundAlbedo_[3] = {0.10, 0.13, 0.07};
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
-  Gltf::Viewpoint Eye_;
+  Render::Viewpoint Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
   std::vector<std::array<double, 16>> SentBody_;

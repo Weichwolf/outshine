@@ -21,6 +21,8 @@ std::atomic<size_t> gFarthestM{0};
 std::atomic<size_t> gBoxes{0};
 std::atomic<size_t> gUnscaled{0};
 std::atomic<size_t> gFootless{0};
+std::atomic<size_t> gPlinthSteps{0};
+std::atomic<size_t> gFloorRim{0};
 std::atomic<size_t> gOverBudget{0};
 }
 
@@ -31,6 +33,8 @@ size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
 size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
 size_t BuildingMesh::UnscaledTaken() { return gUnscaled.exchange(0u); }
 size_t BuildingMesh::FootlessTaken() { return gFootless.exchange(0u); }
+size_t BuildingMesh::PlinthStepsTaken() { return gPlinthSteps.exchange(0u); }
+size_t BuildingMesh::FloorRimTaken() { return gFloorRim.exchange(0u); }
 size_t BuildingMesh::OverBudgetTaken() { return gOverBudget.exchange(0u); }
 
 
@@ -431,6 +435,7 @@ void Plinth(const BuildingShape &s, const RoofSurface &roof, const std::vector<E
       const En oa = Along(out[i], out[j], was), ob = Along(out[i], out[j], now);
       const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
       was = now;
+      gPlinthSteps.fetch_add(1u, std::memory_order_relaxed);
       site.Quad(Face(s, oa, lowZ, Facade::Plinth), Face(s, ob, lowZ, Facade::Plinth),
                 Face(s, ob, topZ, Facade::Plinth), Face(s, oa, topZ, Facade::Plinth));
       site.Quad(Face(s, oa, topZ, Facade::Ledge), Face(s, ob, topZ, Facade::Ledge),
@@ -797,6 +802,11 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     // the two would meet as one long edge against two short ones. Counted rather than assumed, and
     // it reads 0 for every case in the sweep -- so that is not where the terrace's three edges are.
     if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
+    // THE WALL'S FOOT AND THE FLOOR'S RIM ARE THE SAME LINE OR THEY ARE A SEAM. The plinth emits one
+    // quad per subdivided segment and the floor is filled over `foot`; if the two counts differ, one
+    // carries a break the other does not, and three collinear hole edges are exactly what that looks
+    // like from the outside.
+    gFloorRim.fetch_add(foot.empty() ? s.Ring.size() : foot.size(), std::memory_order_relaxed);
     Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
     Floor(s, s.Ring, lowZ, site);

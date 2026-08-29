@@ -347,11 +347,11 @@ The heaviest files. Headers and sources counted apart.
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 880 | `cpp` | `generators/draw/BuildingMesh.cpp` |
+| 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 855 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| **47** | `h` | *the median of 237 header(s)* |
-| **115** | `cpp` | *the median of 164 source(s)* |
+| **46** | `h` | *the median of 238 header(s)* |
+| **115** | `cpp` | *the median of 165 source(s)* |
 
 ## Carpet
 
