@@ -146,6 +146,13 @@ inline int RenderPlace(const Place &place) {
                                   })
                          .has_value();
   std::printf("\n");
+  // THE WAIT AND THE BUILD ARE TWO DIFFERENT COSTS AND ONE STOPWATCH HID IT. `preload` reports its
+  // progress on every wake and then, on the wake that settles, BUILDS the world inside the same
+  // return statement -- so the reporter's last elapsed is the streaming alone and the clock around
+  // the call is streaming plus building. Measured on Shibuya: 3.5 s of stream and 48.7 s of build,
+  // at a wire that was doing 90 to 786 Mbit/s. The load is not IO bound and reading one number
+  // would have said it was.
+  const double streamedS = last.ElapsedS;
   const auto stood = std::chrono::steady_clock::now();
   int frames = 0;
   double advancingMs = 0.0, renderingMs = 0.0;
@@ -235,6 +242,8 @@ inline int RenderPlace(const Place &place) {
               measured("tiles it refused"));
   std::printf("    %.0f tile(s) stood BARE on the ellipsoid because the ground had not arrived\n",
               measured("tiles laid bare on the ellipsoid"));
+  std::printf("    of that wait, %.1f s STREAMED and %.1f s BUILT the world from what arrived\n",
+              streamedS, loadingMs / 1000.0 - streamedS);
   std::printf("    %s -- loaded %.0f%% of what the view wants, %d frame(s) drawn\n",
               ready ? "PRELOADED" : "PATIENCE RAN OUT", 100.0 * engine.loadProgress(),
               frames);
