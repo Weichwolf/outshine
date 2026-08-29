@@ -104,3 +104,178 @@ Cooked CookClusters(std::span<const float> positionsM, std::span<const uint32_t>
 }
 
 }
+
+namespace outshine {
+namespace {
+
+struct Cell {
+  int At[3] = {0, 0, 0};
+  [[nodiscard]] bool operator==(const Cell &other) const {
+    return At[0] == other.At[0] && At[1] == other.At[1] && At[2] == other.At[2];
+  }
+};
+
+struct CellHash {
+  [[nodiscard]] size_t operator()(const Cell &of) const {
+    return (size_t)(of.At[0] * 73856093) ^ (size_t)(of.At[1] * 19349663) ^
+           (size_t)(of.At[2] * 83492791);
+  }
+};
+
+}
+
+Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices,
+               uint32_t mostTriangles, uint32_t mostLevels) {
+  Cooked out = CookClusters(positionsM, indices, mostTriangles);
+  out.PositionsM.assign(positionsM.begin(), positionsM.end());
+  out.FirstOwnVertex = (uint32_t)(positionsM.size() / 3);
+  if (out.Clusters.empty() || mostLevels == 0) { return out; }
+
+  std::vector<uint32_t> coarseIndex(out.Index.begin(), out.Index.end());
+  size_t firstOfLevel = 0;
+  for (uint32_t level = 1; level <= mostLevels; ++level) {
+    if (coarseIndex.size() < 3) { break; }
+
+    // THE CELL COMES FROM THE MESH'S OWN SPACING, NOT FROM ITS EXTENT. A cell smaller than the
+    // distance between neighbouring vertices collapses nothing -- measured: a 16 m grid of 289
+    // vertices with a cell of extent/256 = 0.125 m put every vertex in a cell of its own, made 289
+    // representatives out of 289 and stated an error of zero. For a SURFACE of V vertices spanning
+    // W, the mean spacing is about W / sqrt(V), and a cell of twice that merges roughly a 2x2 block
+    // -- which is the factor of two in triangles a level is supposed to be.
+    //
+    // THE CELL DOUBLES WITH EVERY LEVEL, so the error doubles with it, and a level is a factor of
+    // two in what it may cost on screen -- the ratio Nanite's groups halve their triangles by.
+    float least[3] = {out.PositionsM[0], out.PositionsM[1], out.PositionsM[2]};
+    float most[3] = {least[0], least[1], least[2]};
+    for (const uint32_t index : coarseIndex) {
+      for (int axis = 0; axis < 3; ++axis) {
+        const float held = out.PositionsM[(size_t)index * 3 + (size_t)axis];
+        least[axis] = held < least[axis] ? held : least[axis];
+        most[axis] = held > most[axis] ? held : most[axis];
+      }
+    }
+    float widest = 0.0f;
+    for (int axis = 0; axis < 3; ++axis) {
+      const float span = most[axis] - least[axis];
+      widest = span > widest ? span : widest;
+    }
+    if (!(widest > 0.0f)) { break; }
+    std::vector<uint32_t> distinct(coarseIndex.begin(), coarseIndex.end());
+    std::sort(distinct.begin(), distinct.end());
+    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    const double spacingM = (double)widest / std::sqrt((double)(distinct.size() > 1 ? distinct.size() : 2));
+    const float cellM = (float)(spacingM * 2.0) * (float)(1u << (level - 1));
+
+    std::unordered_map<Cell, uint32_t, CellHash> stood;
+    std::vector<uint32_t> standsFor(coarseIndex.size(), 0u);
+    const uint32_t firstMade = (uint32_t)(out.PositionsM.size() / 3);
+    std::vector<double> summed;
+    std::vector<uint32_t> counted;
+    for (size_t at = 0; at < coarseIndex.size(); ++at) {
+      const uint32_t index = coarseIndex[at];
+      Cell where;
+      for (int axis = 0; axis < 3; ++axis) {
+        where.At[axis] =
+            (int)std::floor((out.PositionsM[(size_t)index * 3 + (size_t)axis] - least[axis]) / cellM);
+      }
+      auto found = stood.find(where);
+      if (found == stood.end()) {
+        found = stood.emplace(where, (uint32_t)counted.size()).first;
+        counted.push_back(0u);
+        summed.insert(summed.end(), {0.0, 0.0, 0.0});
+      }
+      const uint32_t slot = found->second;
+      standsFor[at] = slot;
+      for (int axis = 0; axis < 3; ++axis) {
+        summed[(size_t)slot * 3 + (size_t)axis] += out.PositionsM[(size_t)index * 3 + (size_t)axis];
+      }
+      counted[slot] += 1u;
+    }
+    for (size_t slot = 0; slot < counted.size(); ++slot) {
+      for (int axis = 0; axis < 3; ++axis) {
+        out.PositionsM.push_back(
+            (float)(summed[slot * 3 + (size_t)axis] / (double)(counted[slot] > 0 ? counted[slot] : 1)));
+      }
+    }
+
+    // THE ERROR IS MEASURED, NOT ASSUMED: the furthest any vertex moved to reach its
+    // representative. That is a BOUND on what this level misrepresents, and it is what the level
+    // below hands upward as its parent error.
+    double worst = 0.0;
+    for (size_t at = 0; at < coarseIndex.size(); ++at) {
+      const uint32_t index = coarseIndex[at];
+      const uint32_t made = firstMade + standsFor[at];
+      double away = 0.0;
+      for (int axis = 0; axis < 3; ++axis) {
+        const double held = (double)out.PositionsM[(size_t)index * 3 + (size_t)axis] -
+                            (double)out.PositionsM[(size_t)made * 3 + (size_t)axis];
+        away += held * held;
+      }
+      const double moved = std::sqrt(away);
+      worst = moved > worst ? moved : worst;
+    }
+
+    std::vector<uint32_t> kept;
+    kept.reserve(coarseIndex.size());
+    for (size_t triangle = 0; triangle + 2 < coarseIndex.size(); triangle += 3) {
+      const uint32_t a = firstMade + standsFor[triangle];
+      const uint32_t b = firstMade + standsFor[triangle + 1];
+      const uint32_t c = firstMade + standsFor[triangle + 2];
+      if (a == b || b == c || a == c) { continue; }
+      kept.insert(kept.end(), {a, b, c});
+    }
+    if (kept.empty()) { break; }
+
+    const Cooked above = CookClusters(out.PositionsM, kept, mostTriangles);
+    if (above.Clusters.empty()) { break; }
+
+    // EVERY CLUSTER OF THE LEVEL BELOW TAKES THIS LEVEL AS ITS PARENT. A group-per-parent is what
+    // Nanite does and it is finer; one parent for the level is coarser and it is TRUE, which is
+    // the property `DagSelect` needs -- a parent error that is too large keeps a child that could
+    // have been dropped, and one that is too small drops a child that was still needed.
+    float wholeCentre[3] = {0.0f, 0.0f, 0.0f};
+    float wholeRadius = 0.0f;
+    {
+      float low[3], high[3];
+      for (int axis = 0; axis < 3; ++axis) {
+        low[axis] = out.PositionsM[(size_t)kept[0] * 3 + (size_t)axis];
+        high[axis] = low[axis];
+      }
+      for (const uint32_t index : kept) {
+        for (int axis = 0; axis < 3; ++axis) {
+          const float held = out.PositionsM[(size_t)index * 3 + (size_t)axis];
+          low[axis] = held < low[axis] ? held : low[axis];
+          high[axis] = held > high[axis] ? held : high[axis];
+        }
+      }
+      double radius = 0.0;
+      for (int axis = 0; axis < 3; ++axis) {
+        wholeCentre[axis] = 0.5f * (low[axis] + high[axis]);
+        const double half = 0.5 * ((double)high[axis] - (double)low[axis]);
+        radius += half * half;
+      }
+      wholeRadius = (float)std::sqrt(radius);
+    }
+    for (size_t at = firstOfLevel; at < out.Clusters.size(); ++at) {
+      DagCluster &child = out.Clusters[at];
+      for (int axis = 0; axis < 3; ++axis) { child.ParentCenter[axis] = wholeCentre[axis]; }
+      child.ParentRadius = wholeRadius;
+      child.ParentErr = (float)worst;
+    }
+
+    firstOfLevel = out.Clusters.size();
+    const uint32_t rebase = (uint32_t)out.Index.size();
+    for (const DagCluster &one : above.Clusters) {
+      DagCluster carried = one;
+      carried.First = rebase + one.First;
+      carried.Level = (uint8_t)level;
+      carried.SelfErr = (float)worst;
+      out.Clusters.push_back(carried);
+    }
+    out.Index.insert(out.Index.end(), above.Index.begin(), above.Index.end());
+    coarseIndex = above.Index;
+  }
+  return out;
+}
+
+}

@@ -93,7 +93,59 @@ int main(void) {
         "that sphere, so one that does not contain what it stands for rejects geometry that was on "
         "screen -- and a sphere is the only thing a compute cull has to go on");
 
+  // AND THE DAG ON TOP OF THAT CUT. A parent error is a BOUND on what the coarser level
+  // misrepresents, and `DagSelect` trusts it in both directions: too large keeps a cluster that
+  // could have been dropped, too small drops one that was still needed. So the claim is that the
+  // number the cooker states is not smaller than the displacement it actually caused.
+  const outshine::Cooked dag = outshine::CookDag(positions, indices, kMostTriangles, 1);
+  size_t leaves = 0, above = 0;
+  float statedErrM = 0.0f;
+  for (const outshine::DagCluster &cluster : dag.Clusters) {
+    if (cluster.Level == 0) {
+      ++leaves;
+      statedErrM = cluster.ParentErr;
+    } else {
+      ++above;
+    }
+  }
+  Note("clusters at the leaves", (double)leaves, "clusters");
+  Note("clusters one level above", (double)above, "clusters");
+  Note("the parent error they were given", (double)statedErrM, "m");
+  Note("vertices the cooker made for that level",
+       (double)(dag.PositionsM.size() / 3 - dag.FirstOwnVertex), "vertices");
+
+  CHECK(above > 0 && statedErrM > 0.0f && statedErrM < outshine::kDagRootErr,
+        "**A DAG HAS A LEVEL ABOVE ITS LEAVES, AND THE LEAVES KNOW ITS ERROR**: without one, "
+        "`DagSelect`'s parent test passes for every cluster at every distance and the cut is a "
+        "list -- enough to cull with, not enough to choose a level with");
+
+  double worstMovedM = 0.0;
+  for (const outshine::DagCluster &cluster : dag.Clusters) {
+    if (cluster.Level != 0) { continue; }
+    for (uint32_t step = 0; step < cluster.Count; ++step) {
+      const uint32_t index = dag.Index[cluster.First + step];
+      double nearest = 1.0e300;
+      for (size_t made = dag.FirstOwnVertex; made * 3 + 2 < dag.PositionsM.size(); ++made) {
+        double away = 0.0;
+        for (int axis = 0; axis < 3; ++axis) {
+          const double held = (double)dag.PositionsM[(size_t)index * 3 + (size_t)axis] -
+                              (double)dag.PositionsM[made * 3 + (size_t)axis];
+          away += held * held;
+        }
+        if (away < nearest) { nearest = away; }
+      }
+      const double moved = std::sqrt(nearest);
+      if (moved > worstMovedM) { worstMovedM = moved; }
+    }
+  }
+  Note("the furthest a leaf vertex sits from the nearest vertex the level above made", worstMovedM,
+       "m");
+  CHECK(worstMovedM <= (double)statedErrM + 1.0e-4,
+        "**AND THE STATED ERROR IS NOT SMALLER THAN THE DISPLACEMENT IT CAUSED**: a bound that "
+        "under-reports is worse than no bound, because the selection believes it and drops a "
+        "cluster whose replacement is further off than it was told");
+
   Covers("the cooker's cut: every triangle lands in exactly one cluster with its winding intact, "
-         "and every cluster's bounding sphere contains the vertices it was measured over");
+         "and every cluster's bounding sphere contains the vertices it was measured over; and its DAG: a level stands above the leaves and the parent error it states bounds the displacement that level actually caused");
   return Report();
 }

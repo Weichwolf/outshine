@@ -31,6 +31,13 @@ namespace outshine {
 struct Cooked {
   std::vector<DagCluster> Clusters;
   std::vector<uint32_t> Index;
+
+  // THE COARSER LEVELS' OWN VERTICES, APPENDED AFTER THE INPUT'S. Level 0 indexes the positions it
+  // was handed; every level above indexes vertices this cooker MADE, so they have to travel with
+  // it. `FirstOwnVertex` is where the input stops and the cooker's own begin, which is what a
+  // caller needs to upload one buffer instead of two.
+  std::vector<float> PositionsM;
+  uint32_t FirstOwnVertex = 0;
 };
 
 // THE CUT IS BY LOCALITY AND NOTHING CLEVERER, and the reason is that the next stage does not need
@@ -44,6 +51,23 @@ struct Cooked {
 // not depend on the cut being GOOD, which is what makes it a fair test of a cut that will change.
 [[nodiscard]] Cooked CookClusters(std::span<const float> positionsM,
                                   std::span<const uint32_t> indices, uint32_t mostTriangles);
+
+// THE PARENT ERROR IS WHAT MAKES IT A DAG RATHER THAN A LIST. `DagSelect` keeps a cluster when its
+// OWN error is small enough on screen and its PARENT's is not -- so without a coarser level every
+// cluster's parent error is the root and every cluster draws, whatever the distance. That is the
+// flat cut, and it is enough to cull with and not enough to choose a level with.
+//
+// THE SIMPLIFIER IS VERTEX CLUSTERING ON A GRID, and it is chosen for a reason a quadric cannot
+// match here: its error is a BOUND rather than an estimate. Collapse every vertex in a cell to one
+// representative and the displacement of any vertex is at most the distance to that representative,
+// which this measures exactly and hands to the parent as its error. Unreal's Nanite uses quadric
+// edge collapse over a cluster GROUP and gets a better triangle for the same error; that is the
+// better answer and it is the one to take when this has a measurement to beat. A bound that is
+// stated and true beats an estimate that is better and unproven, and the item says which is which.
+//
+// `mostLevels` counts the coarser levels ABOVE the leaves. One is a DAG; zero is `CookClusters`.
+[[nodiscard]] Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices,
+                             uint32_t mostTriangles, uint32_t mostLevels);
 
 }
 #endif
