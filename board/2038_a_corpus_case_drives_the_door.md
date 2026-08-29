@@ -153,6 +153,24 @@ that is the layout a draw is given, which `LayoutOf` decides from what the part 
 its surface reads -- and no client can state it today. That is the last door word this conversion
 needs, and unlike the four before it, it is not a field that was already there and unread.
 
+**AND THE FIFTH READING DIED TOO, WHICH IS WHERE THIS STOPS BEING GUESSWORK.** `Unlit` IS read --
+`Lit()` turns a draw flat when its surface carries it -- so the chain looked closed: unlit picks
+the flat variant, the flat variant reads the per-part run, and `Live` fills that run from the
+material's emission for unlit surfaces only. Measured:
+
+    emission per node, no unlit               50 codes
+    emission per node PLUS unlit             177 codes
+
+And the picture refuses the story outright: `Lit()` also requires lights or an indirect radiance,
+and this case declares NEITHER, so the flat variant was already being chosen before `Unlit` was
+touched -- yet the picture shows the file's TEXTURE, which `subject.msl:36` does not read at all.
+So the draws are not taking the variant the code says they should.
+
+**THE NEXT MEASUREMENT IS WHICH VARIANT EACH DRAW ACTUALLY TAKES**, read out of the compiled draw
+list rather than reasoned from `LayoutOf`. Five readings of the colour are now closed and every one
+of them was a story about WHAT to say; this is the first about what the engine DOES, and it is the
+only kind left that can be true.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
