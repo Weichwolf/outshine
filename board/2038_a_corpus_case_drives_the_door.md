@@ -262,6 +262,35 @@ different one of the three decisions -- and running four cases costs four second
 that made one case cheap was built in this item; using it on ONE case was the mistake, not the
 instrument.
 
+## THE SAMPLE THE NEXT ROUND RUNS, AND WHY IT IS FIVE
+
+The corpus has five KINDS of case, counted from the manifests:
+
+    emission-per-material        107   AlphaBlendModeTest
+    emission-by-material-index    13   MeshoptCubeTest
+    emission                      10   TextureCoordinateTest
+    metal-rough                    9   BoomBox          -- the LIT ones
+    diffuse                        6   BoxInterleaved
+
+One representative of each costs about twenty seconds together. Measured against the three-part fix
+tuned on the first of them:
+
+    AlphaBlendModeTest      31 checks, 0 failures
+    TextureCoordinateTest   31 checks, 0 failures
+    BoomBox                 30 checks, 1 -- picture_p99_delta_code 29 codes, layout 6, LIT
+    BoxInterleaved          27 checks, 1 -- picture_p99_delta_code 57 codes, layout 0, mean 0.000
+    MeshoptCubeTest         33 checks, 2 -- velocity, and the animated grid
+
+**BoxInterleaved is BLACK**: mean red 0.000 over the whole frame, because a flat draw's emitted run
+is never filled and `subject.msl` draws `emitted * colour`. That is an engine defect the corpus was
+hiding, not a harness one -- the old harness filled the run itself and so never asked the engine to.
+
+The general rule that follows -- a flat draw emits its EMISSION, or its BASE COLOUR under the
+scene's ambient -- was written and measured, and it does not close it either: AlphaBlendModeTest
+regresses to 1 failure and the other four stand where they were. So the rule is not yet right, and
+the next round tunes it against ALL FIVE rather than against one, which is the whole lesson of this
+one.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
