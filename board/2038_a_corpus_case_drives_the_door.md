@@ -87,6 +87,28 @@ NODE key beside its material key -- and the attempt crashed, because giving one 
 means growing `SurfaceTable` under a proxy that is already standing on it. The table has to support
 a per-part slot properly rather than have one appended to it.
 
+**THE PER-PART SLOT WORKS AND IT IS NOT THE WHOLE ANSWER.** Written and measured rather than
+guessed: a `Node` key on `SurfaceOverride`, and a slot split per overridden part in the surface
+table. With the emitted radiance said per node the colour goes
+
+    picture_p99_delta_code   177 codes  ->  50 codes   (bound 6.44)
+
+so the mechanism is right and something else carries the rest. `SubjectProxy::Emits(part, rgb)` and
+`Material::Emission` are not the same quantity -- one is a per-part radiance the shader adds, the
+other a material's emissive factor -- and which of the two the oracle was rendered with is the next
+measurement rather than a guess.
+
+**TWO CRASHES PAID FOR ONE RULE.** Splitting a slot per part means pushing into `SurfaceTable`, and
+a `SubjectMaterial` holds RAW POINTERS into `Decoded` -- `Colour.Rgba` is
+`Decoded[slot].Colour.Rgba.data()`. Growing that vector leaves every slot in the table pointing at
+freed memory, which is a `std::length_error` several frames away from its cause. Reserving the
+worst case first is the only version that is safe rather than lucky. The first attempt also called
+`Reshape()` inside the same loop, re-forming the shape under the proxy that points into it.
+
+Neither the `Node` key nor the slot split is in the tree, and the reason is this item's own rule: a
+door field nothing reads is the defect. They land in the round that closes the colour, together
+with the conversion that reads them.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
