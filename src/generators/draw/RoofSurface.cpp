@@ -240,6 +240,16 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
   return f * rise;
 }
 
+bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
+  const size_t first = tris.size();
+  if (!EarClip(plan, tris)) {
+    tris.resize(first);
+    RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
+    return false;
+  }
+  return true;
+}
+
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
   Line lines[kMaxCreases];

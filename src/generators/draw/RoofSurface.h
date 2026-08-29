@@ -30,6 +30,12 @@ public:
   // reading the two corner heights saw nothing to build there.
   void BreaksAlong(const En &from, const En &to, std::vector<double> &at) const;
 
+  // A FLAT LID IS NOT A ROOF. `Cover` splits what it triangulates along the roof's crease lines,
+  // which is right for a covering and wrong for a floor: the creases are taken in BOX coordinates,
+  // so on a ring offset from the footprint they cross at a different place and the lid's boundary
+  // stops matching the wall standing on it.
+  static bool Fill(std::span<const En> plan, std::vector<En> &tris);
+
   static std::vector<En> Widened(std::span<const En> ring, double byM);
 
 private:

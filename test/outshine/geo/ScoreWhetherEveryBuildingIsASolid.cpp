@@ -88,6 +88,7 @@ struct Verdict {
   double VolumeM3 = 0.0;
   double HoleLowZ = 0.0, HoleHighZ = 0.0;
   double FlipLowZ = 0.0, FlipHighZ = 0.0;
+  double BaseZ = 0.0, TopZ = 0.0;
 
   [[nodiscard]] bool Whole(void) const {
     return Triangles > 0 && Degenerate == 0 && Holes == 0 && Overused == 0 && Reversed == 0 &&
@@ -125,6 +126,12 @@ struct Verdict {
     welded.push_back(made);
   }
 
+  for (size_t one = 0; one * 3 + 2 < at.size(); ++one) {
+    const double z = at[one * 3] * up[0] + at[one * 3 + 1] * up[1] + at[one * 3 + 2] * up[2];
+    if (one == 0) { out.BaseZ = out.TopZ = z; continue; }
+    if (z < out.BaseZ) { out.BaseZ = z; }
+    if (z > out.TopZ) { out.TopZ = z; }
+  }
   std::map<std::pair<uint32_t, uint32_t>, int> facing;
   for (size_t tri = 0; tri + 2 < welded.size(); tri += 3) {
     const uint32_t corner[3] = {welded[tri], welded[tri + 1], welded[tri + 2]};
@@ -271,10 +278,11 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-24s %-22s %5zu tri %4zu hole %4zu flip %4zu deg  holes %5.2f m  flips %5.2f m\n",
+    std::printf("%-22s %-20s %5zu tri %4zu hole %4zu flip %4zu deg  holes at %6.2f..%6.2f of %6.2f m  flips at %6.2f..%6.2f\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Reversed,
-                said.Degenerate, said.HoleHighZ - said.HoleLowZ,
-                said.FlipHighZ - said.FlipLowZ);
+                said.Degenerate, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
+                said.TopZ - said.BaseZ, said.FlipLowZ - said.BaseZ,
+                said.FlipHighZ - said.BaseZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());

@@ -208,6 +208,28 @@ void BreaksBoth(const RoofSurface &roof, const En &p, const En &q, const En &wp,
   }
 }
 
+// THE PARAMETERS COME FROM THE FOOTPRINT, WHATEVER RING IS BEING EMITTED. A plinth ring is the
+// footprint pushed out by 9 cm, so breaking IT against the overhang lands the split about 10 cm from
+// where breaking the footprint does -- and a floor and the plinth wall standing on it then meet along
+// two polylines that agree everywhere except at the splits. Sixteen holes in a ten centimetre band
+// at the very bottom of a building whose defect I had assumed was in its roof.
+std::vector<En> RefinedLike(std::span<const En> along, const std::vector<En> &wide,
+                            std::span<const En> emit, const RoofSurface &roof) {
+  const size_t n = along.size();
+  const bool overhung = wide.size() == n;
+  std::vector<En> out;
+  std::vector<double> at;
+  if (emit.size() != n) { return out; }
+  for (size_t i = 0; i < n; i++) {
+    const size_t j = (i + 1) % n;
+    BreaksBoth(roof, along[i], along[j], overhung ? wide[i] : along[i],
+               overhung ? wide[j] : along[j], overhung, at);
+    out.push_back(emit[i]);
+    for (double t : at) { out.push_back(Along(emit[i], emit[j], t)); }
+  }
+  return out;
+}
+
 std::vector<En> Refined(std::span<const En> ring, const std::vector<En> &wide,
                         const RoofSurface &roof, bool takeWide) {
   const size_t n = ring.size();
@@ -307,10 +329,9 @@ void Plinth(const BuildingShape &s, const RoofSurface &roof, const std::vector<E
 // the moment it does. The ring is the plinth's outer one where a plinth stands, so the floor meets
 // the lowest wall the part actually has, and it is wound the other way round from a roof because its
 // outward direction is DOWN.
-void Floor(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &ring,
-           double atZ, Site &site) {
+void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site &site) {
   std::vector<En> tris;
-  roof.Cover(ring, tris);
+  (void)RoofSurface::Fill(ring, tris);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth), Face(s, tris[i + 1], atZ, Facade::Plinth),
              Face(s, tris[i], atZ, Facade::Plinth));
@@ -491,7 +512,7 @@ void Prism(const BuildingShape &s, const RoofSurface &roof, const Site2Ground &g
     site.Tri(Face(s, tris[i], topZ, Facade::RoofFlat), Face(s, tris[i + 1], topZ, Facade::RoofFlat),
              Face(s, tris[i + 2], topZ, Facade::RoofFlat));
   }
-  Floor(s, roof, s.Ring, lowZ, site);
+  Floor(s, s.Ring, lowZ, site);
 }
 
 void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
@@ -517,11 +538,11 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
                                                    : EavesZ(s) + s.RiseM;
   if (s.OnGround()) {
     Plinth(s, roof, overhang, ground, plinthZ, site);
-    const std::vector<En> foot =
-        Refined(RoofSurface::Widened(s.Ring, kPlinthProudM), overhang, roof, false);
-    Floor(s, roof, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
+    const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
+    const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
+    Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
-    Floor(s, roof, s.Ring, lowZ, site);
+    Floor(s, s.Ring, lowZ, site);
   }
   Walls(s, roof, overhang, lowZ, wallTopZ, site);
 
