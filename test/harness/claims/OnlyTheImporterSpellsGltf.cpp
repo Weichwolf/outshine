@@ -43,7 +43,7 @@ struct Tier {
 };
 
 constexpr Tier kTiers[] = {
-    {"src/engine", 86}, {"src/render", 0}, {"src/generators", 6}, {"src/base", 1},
+    {"src/engine", 86}, {"src/render", 0}, {"src/generators", 0}, {"src/base", 0},
     {"src/scene", 0},   {"src/scenario", 0}, {"src/sim", 0},       {"src/world", 0},
     {"src/compositor", 0}, {"src/ui", 0},   {"src/host", 0},       {"src/audio", 0},
     {"include", 0},     {"apps", 0},

@@ -112,7 +112,8 @@ inline double DagEdgeSq(double errM, float fPx, float tau) {
 // WHAT THE CUT NEEDS AND NOTHING MORE. A DAG BUILDER stood here -- `ClusterDagBuild` and a `dag::`
 // namespace of quadrics, clustering, group simplification and absorption, 770 lines of it -- and
 // nothing in the engine reached any of it. It was written for board:1991, cooked nothing, and took
-// an `outshine::Geometry` while every path that would have used it carries a `Gltf::Subject`.
+// an `outshine::Geometry` while every path that would have used it carried the importer's own
+// carrier instead.
 //
 // Deleted rather than kept for later, which is this page's own rule: a capability no declaration
 // reaches is the commonest defect here, and one kept because it might be wanted is the same defect
