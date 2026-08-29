@@ -35,14 +35,16 @@ Measured from `include/Outshine.h` and `include/Scenario.h`:
 
 ## What will be true
 
-- [ ] a `Camera` is a thing of its own with a projection, and a `View` binds a scene, a camera and
-      a viewport -- Filament's split, which is what makes a camera placeable without a body
-- [ ] a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
-      body, view, instance, volume -- rather than three metres in an unnamed frame
-- [ ] `sampleHeight` puts a thing on the TERRAIN, because a client asks for ground level and does
-      not compute it
-- [ ] the door's verbs are Filament's where Filament has one, and this tree's only where it does
-      not -- each exception named in this item with its reason
+- [x] a `Camera` is a thing of its own with a projection, and a `View` binds a scene, a camera and
+      a viewport -- Filament's split. PROVEN by the five places, which put an eye on the Chasseral
+      with no body under it, and whose negative control is the failure that filed this line: a
+      camera could not be placed without one
+- [x] a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
+      it sits on `Standing`, which body, view, instance and placement all carry
+- [x] `sampleHeight` puts a thing on the TERRAIN. MEASURED at Mather Point: a view asked for ground
+      level and the eye stood at 2 185.8 m, which is the rim
+- [x] the door's verbs are Filament's where Filament has one, and this tree's only where it does
+      not -- each exception named below with its reason
 - [ ] `apps/demo`'s line count FALLS, because a client that already knows Filament writes less
 
 **The measurement that would show I am wrong:** `apps/demo` is 194 lines and `apps/bench` 339. If
@@ -101,3 +103,34 @@ geometry the compositor measured -- which is the reading stage two starts from.
 Written down before the work, so being wrong is visible: I expect the DEM decode to be the fault
 and the spikes to be its symptom. If the histogram comes back smooth and the relief is real, the
 fault is between the compositor and the stage instead, and this paragraph is what I got wrong.
+
+
+## THE VERB TABLE, and every exception carries its reason
+
+Filament is four objects -- `Engine`, `SwapChain`, `Renderer`, `View` -- where this door is ONE. That
+is the source of most exceptions below and it is a deliberate difference rather than an oversight: a
+client here declares a scenario and asks for a frame, and does not assemble a render graph.
+
+| this door | Filament / Cesium | verdict |
+|---|---|---|
+| `render(Extent)` | `Renderer::render(View*)` | FILAMENT'S. The view is the active one rather than an argument, because views are DECLARED here and named |
+| `scene()` -> `Scene` | `Scene` | FILAMENT'S, and it was `Store` until this round |
+| `readPixels(vector)` | `Renderer::readPixels` | FILAMENT'S |
+| `Camera` / `View` | `Camera` / `View` | FILAMENT'S split |
+| `Material` | `Material` / `MaterialInstance` | FILAMENT'S first half. We have no instance layer yet, and until a material is shared between subjects there is nothing for one to instance |
+| `Lighting::IndirectLight[3]` | `IndirectLight` | FILAMENT'S, this round. It was `Environment`, which is nobody's word |
+| `Lighting::Key` | `LightManager` directional | OURS, and the reason is that a `LightManager` manages MANY lights on entities; one declared key light needs no manager. When a scenario declares a second light this becomes Filament's |
+| `Standing.GlobeAnchor` etc | `GlobeAnchor`, `LongitudeLatitudeHeight` | CESIUM'S |
+| `SamplesHeight` | `sampleHeight` | CESIUM'S, spelled as this door spells a field |
+| `loadProgress()` | `Cesium3DTileset::ComputeLoadProgress` | CESIUM'S |
+| `drawsInto(window)` / `(extent)` | `Engine::createSwapChain` | OURS. Filament splits Engine, SwapChain and Renderer into three objects; naming this `createSwapChain` would promise an object model this door does not have |
+| `setView(name)` | pass a `View*` to `render` | OURS. A view is DECLARED and named here, so it is selected by its name rather than held by a client |
+| `preload(patienceS)` / `settled()` | `Renderer::flushAndWait` | OURS. Filament waits for the GPU; this waits for the EARTH, which is a different thing to name |
+| `declare` / `assemble` / `advance` / `run` / `park` / `resume` / `save` / `restore` / `discard` | none | OURS. Filament is a renderer and has no scenario and no simulation |
+| `setSurfaces` / `offers(Host*)` / `mix` / `measures` / `unacted` / `inspect` | none | OURS. Overlay, host, audio and instrumentation are outside a renderer's vocabulary |
+
+## What the item still owes
+
+- [ ] `apps/demo`'s line count. 194 before the door work, 170 now -- down 12 per cent, so the premise
+      holds, but the item claimed a FALL and one client is not a measurement. `apps/bench` went
+      339 to 343

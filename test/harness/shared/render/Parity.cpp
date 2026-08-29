@@ -1232,7 +1232,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Render::Subjec
       outshine::Render::SubjectProxy other = studio;
       const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
       other.Stands(spelling, anchorEcefM);
-      other.Around(studio.Environment());
+      other.Around(studio.IndirectLight());
       for (const outshine::PunctualLight &light : studio.Lights()) { other.Lit(light); }
       std::vector<std::array<float, 3>> emitted;
       SurfaceTable surfaces;

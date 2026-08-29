@@ -52,7 +52,7 @@ struct Declaration {
   double PictureLeftFrac = 0.0, PictureTopFrac = 0.0;
   double PictureWidthFrac = 0.0, PictureHeightFrac = 0.0;
 
-  double Environment[3] = {0.0, 0.0, 0.0};
+  double IndirectLight[3] = {0.0, 0.0, 0.0};
   double KeyLux = 0.0;
 
   double Exposure = 0.0;

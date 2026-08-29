@@ -399,7 +399,7 @@ bool Live::Stand(std::string &error) {
   }
   Render::SubjectEnvironment environment;
   for (int channel = 0; channel < 3; ++channel) {
-    environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
+    environment.RadianceLinear[channel] = (float)Declared_.IndirectLight[channel];
   }
   if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
 

@@ -103,8 +103,8 @@ bool Engine::setSurfaces(const std::vector<Surface> &surfaces) {
          a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
          a.PictureLeftFrac == b.PictureLeftFrac && a.PictureTopFrac == b.PictureTopFrac &&
          a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
-         a.Environment[0] == b.Environment[0] && a.Environment[1] == b.Environment[1] &&
-         a.Environment[2] == b.Environment[2] && a.KeyLux == b.KeyLux &&
+         a.IndirectLight[0] == b.IndirectLight[0] && a.IndirectLight[1] == b.IndirectLight[1] &&
+         a.IndirectLight[2] == b.IndirectLight[2] && a.KeyLux == b.KeyLux &&
          a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky && a.Stages == b.Stages &&
          a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
          a.KeyBearingDeg == b.KeyBearingDeg;
@@ -195,7 +195,7 @@ bool Engine::declare(const Scenario &scenario) {
       declared.KeyElevationDeg = (double)sun.SunElDeg;
       declared.KeyBearingDeg = (double)sun.SunAzDeg;
     }
-    for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
+    for (int at = 0; at < 3; ++at) { declared.IndirectLight[at] = scenario.Lit.IndirectLight[at]; }
     declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;
   }
 

@@ -71,7 +71,7 @@ constexpr const char *kTriangleBase64 =
   made.Lit.Key.Lux = 40000.0;
   made.Lit.Key.ElevationDeg = 42.0;
   made.Lit.Key.BearingDeg = 0.0;
-  for (int at = 0; at < 3; ++at) { made.Lit.Environment[at] = 0.20; }
+  for (int at = 0; at < 3; ++at) { made.Lit.IndirectLight[at] = 0.20; }
   outshine::Asset shown;
   shown.Uri = "subject.gltf";
   shown.Kind = "gltf";

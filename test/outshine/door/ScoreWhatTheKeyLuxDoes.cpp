@@ -21,11 +21,11 @@ namespace {
 // the tonemapper is
 //
 //   from the key          KeyLux * Exposure       = 2.5 / 1.2, independent of KeyLux
-//   from the environment  Environment * Exposure  = 2.5 * Environment / (1.2 * KeyLux)
+//   from the environment  IndirectLight * Exposure  = 2.5 * IndirectLight / (1.2 * KeyLux)
 //
 // Two consequences follow and both are testable at the pixel:
 //
-//   scaling KeyLux and Environment TOGETHER changes nothing at all
+//   scaling KeyLux and IndirectLight TOGETHER changes nothing at all
 //   scaling KeyLux alone changes only the fill, and DARKENS it
 //
 // which is to say KeyLux is not a brightness. It is the reciprocal of the fill ratio, and a
@@ -92,7 +92,7 @@ constexpr const char *kTriangleBase64 =
   made.Lit.Key.Lux = keyLux;
   made.Lit.Key.ElevationDeg = 42.0;
   made.Lit.Key.BearingDeg = 0.0;
-  for (int at = 0; at < 3; ++at) { made.Lit.Environment[at] = environment; }
+  for (int at = 0; at < 3; ++at) { made.Lit.IndirectLight[at] = environment; }
   outshine::Asset shown;
   shown.Uri = "subject.gltf";
   shown.Kind = "gltf";

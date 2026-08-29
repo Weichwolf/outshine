@@ -147,7 +147,7 @@ public:
 
   [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
 
-  void SetEnvironment(const SubjectEnvironment &environment) { Environment = environment; }
+  void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
@@ -263,7 +263,7 @@ private:
 
   float ShadowNearM_ = 0.0f;
   std::vector<SubjectLight> Placed;
-  SubjectEnvironment Environment;
+  SubjectEnvironment IndirectLight;
   double Anchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   std::vector<double> Placed_;

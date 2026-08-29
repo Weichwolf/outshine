@@ -221,9 +221,9 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   }
   const Xml::Ref environment = from.Child("environment");
   if (environment.Valid()) {
-    into.Lit.Environment[0] = environment.Num("r", into.Lit.Environment[0]);
-    into.Lit.Environment[1] = environment.Num("g", into.Lit.Environment[1]);
-    into.Lit.Environment[2] = environment.Num("b", into.Lit.Environment[2]);
+    into.Lit.IndirectLight[0] = environment.Num("r", into.Lit.IndirectLight[0]);
+    into.Lit.IndirectLight[1] = environment.Num("g", into.Lit.IndirectLight[1]);
+    into.Lit.IndirectLight[2] = environment.Num("b", into.Lit.IndirectLight[2]);
   }
 }
 

@@ -271,9 +271,9 @@ int main(int argc, char **argv) {
           stands.Lit.Key.Lux = 40000.0;
           stands.Lit.Key.ElevationDeg = 42.0;
           stands.Lit.Key.BearingDeg = 150.0;
-          stands.Lit.Environment[0] = 0.20;
-          stands.Lit.Environment[1] = 0.22;
-          stands.Lit.Environment[2] = 0.26;
+          stands.Lit.IndirectLight[0] = 0.20;
+          stands.Lit.IndirectLight[1] = 0.22;
+          stands.Lit.IndirectLight[2] = 0.26;
           stands.Render.Picture =
               outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
           if (!held.Uri.empty()) {

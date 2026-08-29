@@ -95,7 +95,7 @@ struct RenderPlan {
 struct Lighting {
   bool Declared = false;
   Light Key;
-  double Environment[3] = {0.0, 0.0, 0.0};
+  double IndirectLight[3] = {0.0, 0.0, 0.0};
   double ShadowRadiusM = 0.0;
 };
 

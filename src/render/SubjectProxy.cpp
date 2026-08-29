@@ -205,8 +205,8 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
 }
 
 [[nodiscard]] bool Gathers(const SubjectProxy &proxy) {
-  return !proxy.Lights().empty() || proxy.Environment().RadianceLinear[0] > 0.0 ||
-         proxy.Environment().RadianceLinear[1] > 0.0 || proxy.Environment().RadianceLinear[2] > 0.0;
+  return !proxy.Lights().empty() || proxy.IndirectLight().RadianceLinear[0] > 0.0 ||
+         proxy.IndirectLight().RadianceLinear[1] > 0.0 || proxy.IndirectLight().RadianceLinear[2] > 0.0;
 }
 
 [[nodiscard]] bool Lit(const SubjectProxy &proxy, const Gltf::Subject &subject, size_t part) {
@@ -403,7 +403,7 @@ bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
   if (!renderer.SetSubjectMaterials(proxy.Slots(), error)) { return false; }
   if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
   if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
-  renderer.SetSubjectEnvironment(proxy.Environment());
+  renderer.SetSubjectEnvironment(proxy.IndirectLight());
   return true;
 }
 

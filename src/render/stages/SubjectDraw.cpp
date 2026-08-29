@@ -746,7 +746,7 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
   packed[2] = Shadowed_ ? 1.0f : 0.0f;
   packed[3] = 1.0f / (float)kShadowAtlasPx;
   for (int channel = 0; channel < 3; ++channel) {
-    packed[4 + channel] = (float)Environment.RadianceLinear[channel];
+    packed[4 + channel] = (float)IndirectLight.RadianceLinear[channel];
   }
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;

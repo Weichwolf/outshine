@@ -37,7 +37,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `MaterialInstance` | Filament | **not yet** |
 | `TransformManager` | Filament | **not yet** |
 | `Skybox` | Filament | **not yet** |
-| `IndirectLight` | Filament | **not yet** |
+| `IndirectLight` | Filament | yes |
 | `LightManager` | Filament | **not yet** |
 | `SwapChain` | Filament | **not yet** |
 | `Viewport` | Filament | yes |
@@ -49,7 +49,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `HeightM` | Cesium | yes |
 | `SamplesHeight` | Cesium | yes |
 
-**11 of 20 spoken.** A name here is not a rename to make: it is a promise a client
+**12 of 20 spoken.** A name here is not a rename to make: it is a promise a client
 already understands, and the ones marked *not yet* are what board:2016 owes.
 
 And the verbs, because a client calls those rather than the types:

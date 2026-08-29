@@ -50,7 +50,7 @@ public:
   [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
   [[nodiscard]] const std::vector<double> *Previous() const { return Previous_; }
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
-  [[nodiscard]] const SubjectEnvironment &Environment() const { return Environment_; }
+  [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
 
 private:
   double AnchorEcefM_[3] = {0.0, 0.0, 0.0};
