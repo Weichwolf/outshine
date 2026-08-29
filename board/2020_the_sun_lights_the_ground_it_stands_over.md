@@ -92,6 +92,9 @@ a proof, and this item does not claim a tick it has not earned.
 - [ ] a door-level lighting case needs a SKY without a WORLD, or a framing that keys on the handed
       geometry when both stand. Today `Ground.Declared` buys the sky and costs the framing, and
       there is no third way to ask for one without the other -- which is itself a door finding
-- [ ] `Render.Exposure` reaches the frame
-- [ ] the item's own second control, never run: the ground's mean luminance rises and falls with the
-      sun's declared elevation
+- [x] `Render.Exposure` reaches the frame -- it was parsed and read by NOTHING; `Declaring` never
+      copied it into the live declaration, so `Live` saw 0 and always derived one from the key
+      light. Proven in `places/ScoreWhichWaysTheSunMovesTheGround` with its own control
+- [x] the item's own second control, RUN at last: the ground's mean luminance rises with the sun's
+      declared elevation -- 22.08 at 5 deg, 38.70 at 30, 74.28 at 75, and the sky moves with it
+      (34.91 to 58.49). `places/ScoreWhichWaysTheSunMovesTheGround`, five checks and two controls

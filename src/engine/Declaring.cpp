@@ -167,6 +167,7 @@ Result Engine::declare(const Scenario &scenario) {
     declared.Fill = scenario.Render.Fill;
     declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
     declared.Stages = scenario.Render.Stages;
+    declared.Exposure = scenario.Render.Exposure > 0.0 ? scenario.Render.Exposure : 0.0;
   }
   declared.PictureLeftFrac = picture.LeftFrac;
   declared.PictureTopFrac = picture.TopFrac;

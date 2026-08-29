@@ -95,7 +95,7 @@ struct RenderPlan {
   std::vector<std::string> Outputs;
   std::vector<std::string> Stages;
   std::string Transfer;
-  double Exposure = 1.0;
+  double Exposure = 0.0;
   std::string Precision;
 };
 
