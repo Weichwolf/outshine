@@ -353,6 +353,17 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
         values agree: an unreliable reading, discarded rather than reported. Repeat it from a clean
         assembly -- it is the cheapest of the three suspects to settle.
 
+    1c. VERIFY THE ASSEMBLY BEFORE MEASURING IT. Reassembling the conversion by hand -- engine
+        pieces, driver, harness -- has produced a broken build or a broken result FOUR times in
+        this item, and three of those were read as data before anyone noticed. The fix is one
+        line: render a case whose value is known and refuse to proceed unless it matches.
+
+            expected  BoxInterleaved  LINEAR mean-red = 0.002571654
+            reading it as 0.000000000 means the assembly is wrong, not the engine
+
+        It caught the fifth attempt immediately, which is the first time in this item that a
+        tangled assembly cost a minute instead of a round.
+
     2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
        slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
        reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
