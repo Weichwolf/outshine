@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_DOCUMENT_H
-#define OUTSHINE_CONTENT_GLTF_DOCUMENT_H
+#ifndef OUTSHINE_IMPORT_DOCUMENT_H
+#define OUTSHINE_IMPORT_DOCUMENT_H
 
 #include <string_view>
 #include <cstdint>

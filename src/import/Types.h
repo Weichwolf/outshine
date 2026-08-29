@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_TYPES_H
-#define OUTSHINE_CONTENT_GLTF_TYPES_H
+#ifndef OUTSHINE_IMPORT_TYPES_H
+#define OUTSHINE_IMPORT_TYPES_H
 
 #include <cstddef>
 #include <cstdint>

@@ -322,7 +322,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double
   return out;
 }
 
-std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
+std::expected<Laid, Refusal> LayAligned(std::span<const double> eastNorthM,
                                               const Aligned &aligned, ReferenceLine &into) {
   const size_t points = eastNorthM.size() / 2;
   if (points < 2) {
@@ -408,7 +408,7 @@ std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
   from.HeadingRad = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
   std::string error;
   if (!into.Lay(from, along, error)) { return std::unexpected(Refusal{error}); }
-  Laying said;
+  Laid said;
   said.LengthM = into.LengthM();
   for (const Segment &one : along) { said.Straights += one.Shape == Curve::Straight ? 1u : 0u; }
   return said;

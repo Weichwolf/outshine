@@ -139,7 +139,7 @@ inline int RenderPlace(const Place &place) {
                                     std::printf(
                                         "\r    loading  terrain %zu/%zu  osm %zu/%zu  %zu in flight"
                                         "  %.1f MB  %.0f Mbit/s  %.0f ms/fetch  %.1f s   ",
-                                        how.TerrainArrived, how.TerrainWanted, how.VectorArrived,
+                                        how.GroundArrived, how.GroundWanted, how.VectorArrived,
                                         how.VectorWanted, how.Outstanding, how.FetchedMB,
                                         how.Megabits, how.MeanFetchMs, how.ElapsedS);
                                     std::fflush(stdout);

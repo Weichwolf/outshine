@@ -403,7 +403,7 @@ bool Subject::FlatNormalsFor(Part &part) {
   return true;
 }
 
-bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
+bool ViewpointLookAtGONE(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Normalise(forward)) { return false; }
   const double worldUp[3] = {0, 1, 0};
@@ -424,30 +424,34 @@ bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRa
   return true;
 }
 
-bool Viewpoint::View(Transform &out) const {
+bool ViewOf(const Viewpoint &from, Transform &out) {
   Transform world;
   for (int axis = 0; axis < 3; ++axis) {
-    world.M[axis] = Right[axis];
-    world.M[4 + axis] = Up[axis];
-    world.M[8 + axis] = -Forward[axis];
-    world.M[12 + axis] = EyeM[axis];
+    world.M[axis] = from.Right[axis];
+    world.M[4 + axis] = from.Up[axis];
+    world.M[8 + axis] = -from.Forward[axis];
+    world.M[12 + axis] = from.EyeM[axis];
   }
   world.M[3] = world.M[7] = world.M[11] = 0;
   world.M[15] = 1;
   return world.Inverse(out);
 }
 
-bool Viewpoint::Clip(double viewportAspect, Transform &out) const {
+bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out) {
   Camera lens;
-  lens.Kind = Kind;
-  lens.YfovRad = YfovRad;
-  lens.XMagM = XMagM;
-  lens.YMagM = YMagM;
-  lens.ZNearM = ZNearM;
-  lens.ZFarM = ZFarM;
+  // THE FILE'S CAMERA KIND AND THE RENDERER'S ARE TWO ENUMS, and this is a real conversion rather
+  // than the redundant one it replaced: `Camera` is a glTF NODE, `Render::CameraKind` is what the
+  // renderer projects with. One crosses the door; the other lives behind it.
+  lens.Kind = from.Kind == Render::CameraKind::Orthographic ? CameraKind::Orthographic
+                                                            : CameraKind::Perspective;
+  lens.YfovRad = from.YfovRad;
+  lens.XMagM = from.XMagM;
+  lens.YMagM = from.YMagM;
+  lens.ZNearM = from.ZNearM;
+  lens.ZFarM = from.ZFarM;
   Transform projection, view;
   if (!lens.Projection(viewportAspect, projection)) { return false; }
-  if (!View(view)) { return false; }
+  if (!ViewOf(from, view)) { return false; }
   out = projection * view;
   return true;
 }
@@ -1258,7 +1262,8 @@ bool DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out
             std::to_string(cameraIndex) + " and its basis has collapsed";
     return false;
   }
-  out.Kind = lens.Kind;
+  out.Kind = lens.Kind == CameraKind::Orthographic ? Render::CameraKind::Orthographic
+                                                   : Render::CameraKind::Perspective;
   out.YfovRad = lens.YfovRad;
   out.XMagM = lens.XMagM;
   out.YMagM = lens.YMagM;

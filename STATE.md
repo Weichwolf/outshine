@@ -306,6 +306,7 @@ flowchart LR
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
+  import --> |3| render
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
@@ -313,7 +314,7 @@ flowchart LR
   engine --> |3| content_shade
   engine --> |3| base_spatial
 ```
-  37 edge(s) drawn, 47 thinner than three includes not drawn
+  38 edge(s) drawn, 46 thinner than three includes not drawn
 
 ## Tiers
 
@@ -343,16 +344,16 @@ The heaviest files. Headers and sources counted apart.
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
 | 1540 | `cpp` | `engine/Picturing.cpp` |
-| 1288 | `cpp` | `import/Subject.cpp` |
+| 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 892 | `cpp` | `engine/Live.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
+| 868 | `cpp` | `engine/Live.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | **47** | `h` | *the median of 239 header(s)* |
-| **114** | `cpp` | *the median of 166 source(s)* |
+| **115** | `cpp` | *the median of 165 source(s)* |
 
 ## Carpet
 
@@ -363,7 +364,7 @@ The widest public surfaces.
 | 66 | `src/render/SceneRenderer.h` |
 | 59 | `src/engine/Live.h` |
 | 51 | `src/import/Document.h` |
-| 46 | `src/import/Subject.h` |
+| 45 | `src/import/Subject.h` |
 | 45 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 

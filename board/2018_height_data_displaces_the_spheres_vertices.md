@@ -1,6 +1,5 @@
 Type: feature
 State: open
-Parent: 2017
 Area: world
 Tags: measured
 

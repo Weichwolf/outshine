@@ -41,11 +41,17 @@ using outshine::Test::Lines;
 // the files. That is the instrument working: the rename would otherwise have left paths into
 // nothing and nobody would have looked. It also refuses a SILENT fall, which is why this comment
 // exists -- the number cannot move without someone writing down why.
+//
+// 18 -> 16 with the door speaking Filament: `include/outshine/Register.h` and `src/scene/Register.h`
+// both became `include/Scene.h`, `src/engine/Image.h` moved to `src/content/shade/`, and board:1949's
+// storage never was a header -- `Geometry::Held` stands in `src/base/Geometry.cpp`. board:1968 also
+// named `tags::DoesSteer`, which the catalogue no longer spells; it is `tags::Does`. A path repair
+// that leaves the symbol wrong repairs the instrument and not the item.
 
 namespace {
 
 // What the board held when this claim was written. It may only fall.
-constexpr size_t kCitationsIntoNothing = 18;
+constexpr size_t kCitationsIntoNothing = 16;
 
 }
 

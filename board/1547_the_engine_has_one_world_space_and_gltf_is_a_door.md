@@ -17,7 +17,7 @@ rename. Fourteen runtime sites:
 
     src/render/SubjectProxy.cpp   10
     src/engine/Live.cpp            4
-    src/content/gltf/Axes.{h,cpp}  2 + 2   <- the door itself, where it belongs
+    src/import/Axes.{h,cpp}  2 + 2   <- the door itself, where it belongs
 
 Every vertex, normal, tangent and previous position per upload; every light's direction and
 position; the eye with its forward, right and up; and the per-part placements. Ten became
@@ -52,7 +52,7 @@ the thing itself.
 
 ## THE TIERS TURNED, AND THE NEXT MOVE IS A HANDOVER RATHER THAN A MOVE
 
-`src/content/gltf/` is `src/import/` now, a tier of its own reaching `base content render`, and
+`src/import/` is `src/import/` now, a tier of its own reaching `base content render`, and
 `--audit-layers` holds it: the render tier CANNOT name the importer any more, whoever wants to. That
 is the owner's correction -- the importer knows the engine -- put into the build rather than into a
 count somebody maintains. The fence found two dead includes the moment it went up: `Axes.h` and
@@ -61,7 +61,7 @@ count somebody maintains. The fence found two dead includes the moment it went u
 **AND IT BLOCKED THE NEXT MOVE FOR A GOOD REASON.** `src/engine/Surfaces.cpp` carries 32 of the 84
 remaining spellings in two functions that take a `Gltf::Document` -- genuinely import work. Moving
 them behind the door fails to compile, because they produce a `SurfaceTable`, which holds `Raster`
-from `src/engine/Image.h` and is used by `Live` alone. **It is an ENGINE type**, so an importer
+from `src/content/shade/Image.h` and is used by `Live` alone. **It is an ENGINE type**, so an importer
 producing it would have to reach the engine, and the engine already reaches the importer: a cycle,
 and the audit refuses it.
 
@@ -72,11 +72,11 @@ handover, and it is what makes the remaining 32 leave without the engine learnin
 ## RE-MEASURED AGAIN, and the framing correction widens what this item owns
 
 This item counted the AXIS CONVERSIONS. The owner's correction to board:1949 makes the scope the
-whole namespace: glTF is an IMPORT PATH, so `Gltf::` belongs behind `src/content/gltf/` and nowhere
+whole namespace: glTF is an IMPORT PATH, so `Gltf::` belongs behind `src/import/` and nowhere
 else -- the importer reads a document and hands over the internal value, and past that nobody knows
 a file was involved.
 
-MEASURED, `Gltf::` outside `src/content/gltf/`:
+MEASURED, `Gltf::` outside `src/import/`:
 
     src/engine/Surfaces.cpp      32
     src/render/SubjectProxy.cpp  27   <- the renderer knowing a FILE FORMAT

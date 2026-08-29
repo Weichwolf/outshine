@@ -340,7 +340,7 @@ generator is weaker than a file and the interchange claim is false."
 
 ## The value already exists, and it is named after a format
 
-`Gltf::Subject` (`src/content/gltf/Subject.h`) owns positions, uv, uv1, normals, tangents,
+`Gltf::Subject` (`src/import/Subject.h`) owns positions, uv, uv1, normals, tangents,
 colours, indices and parts, and assembles from `Gltf::Piece` -- a non-owning VIEW of the same
 fields. That is exactly an interchange value: the view to hand data in, the owning form to hold
 it.
@@ -391,7 +391,7 @@ chain produces one `rmcDrawable` and nothing else exists to drift from.
 
 Stated wrongly here first, and the correction is the useful part. The claim was that `Subject`'s
 `double` positions merely widen the file's float32 and carry no information, because the reader
-does not bake node transforms. **It does bake them**: `src/content/gltf/Subject.cpp:694` runs
+does not bake node transforms. **It does bake them**: `src/import/Subject.cpp:694` runs
 `place.At(vertex).Point(local, global)` -- the node's world transform AND the skin -- in double,
 and stores the result. So the doubles are the output of a double-precision chain, not a widening.
 
@@ -418,7 +418,7 @@ holds two.
 | where | what it is |
 |---|---|
 | `include/Geometry.h` | the AUTHORED form — the one that is meant to be the only one |
-| `content/gltf/Subject.h` | the reader's, `Positions_` in `double` |
+| `import/Subject.h` | the reader's, `Positions_` in `double` |
 | `render/SubjectProxy.h` | `SubjectScratch`, packed interleaved floats — the COOKED form |
 | `base/spatial/ClusterDag.h` | the cluster DAG — also the cooked form, and this tree's Nanite |
 | `world/ground/BuildingField.h` · `TileMeshes.h` · `tiles/TerrainGrid.h` | three more |
@@ -436,7 +436,7 @@ and the frame path depends on it.
 - [x] The value is public and names no format: `include/Geometry.h`. It is a BUILDER, not a struct
       of spans -- publishing `span<const float> PositionsM` froze the vertex layout into the ABI
       and handed out views into the producer's own vectors, valid only while it lived. The storage
-      moved to `src/base/GeometryHeld.h` and stays free.
+      moved to `src/base/Geometry.cpp` and stays free.
       proof: outshine/door/ScoreWhatAClientHandsIn
 - [ ] The OWNING form is public too -- a caller can take one back, not only hand one in.
 - [ ] Its name says what it is, not how it is stored. `Gltf::Subject` becomes the format's READER

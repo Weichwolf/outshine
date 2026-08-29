@@ -1,6 +1,7 @@
-#ifndef OUTSHINE_CONTENT_GLTF_SUBJECT_H
-#define OUTSHINE_CONTENT_GLTF_SUBJECT_H
+#ifndef OUTSHINE_IMPORT_SUBJECT_H
+#define OUTSHINE_IMPORT_SUBJECT_H
 
+#include "Viewing.h"
 #include <Geometry.h>
 #include <span>
 #include <cstdint>
@@ -24,26 +25,18 @@ namespace outshine::Gltf {
 class Document;
 struct Primitive;
 
-struct Viewpoint {
-  double EyeM[3] = {0, 0, 0};
-  double Forward[3] = {0, 0, -1};
-  double Right[3] = {1, 0, 0};
-  double Up[3] = {0, 1, 0};
+// THE CAMERA IS THE RENDERER'S, and the importer names it rather than declaring a second one. Both
+// held the same eight numbers and the same LookAt; `EveryTypeNameIsDeclaredOnce` caught the
+// duplicate the moment it appeared, which is what that claim is for -- a word meaning two things is
+// a word nobody can read, even when the two things are identical.
+//
+// `View` and `Clip` stay HERE as free functions because they answer in `Transform`, which is the
+// importer's own matrix type. The camera crossed the tier; its glTF-shaped output did not.
+using Viewpoint = Render::Viewpoint;
 
-  CameraKind Kind = CameraKind::Perspective;
-  double YfovRad = 0;
-  double XMagM = 0;
-  double YMagM = 0;
-  double ZNearM = 0;
-  double ZFarM = 0;
+[[nodiscard]] bool ViewOf(const Viewpoint &from, Transform &out);
 
-  [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], double rollRad,
-                                   Viewpoint &out);
-
-  [[nodiscard]] bool View(Transform &out) const;
-
-  [[nodiscard]] bool Clip(double viewportAspect, Transform &out) const;
-};
+[[nodiscard]] bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out);
 
 [[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out,
                               double fill = Render::kFramingFill);

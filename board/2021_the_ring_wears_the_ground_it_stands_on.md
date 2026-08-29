@@ -1,6 +1,5 @@
 Type: feature
 State: open
-Parent: 2017
 Area: world, render
 
 # The ring wears the ground it stands on

@@ -5,7 +5,7 @@ Area: world
 
 # What OSM does not carry, the ground supplies
 
-**Benchmark** — Unreal: an actor placed on a landscape traces down to it and takes that Z. Cesium: `sampleHeightMostDetailed` answers the height of the tileset that is actually loaded, not of the source raster. **Taking Cesium** -- the height that matters is the one the terrain DRAWS, because that is the surface a viewer sees a building stand on.
+**Benchmark** — Unreal: an actor placed on a landscape traces down to it and takes that Z -- the surface traced is the one rendered. RAGE: nothing is placed at runtime, because a map entity's Z is baked at export; the runtime's downward probe (`WorldProbe`, against a `phBound`) answers the COLLISION surface, which is a coarser body than the drawn mesh and may sit a metre off it. **Taking Unreal** -- and the reason is that this tree HAS no export step to bake into, so the height has to be right at the moment of drawing, against the surface that is drawn. RAGE's answer is right for a world authored offline and says nothing about one generated on arrival. Cited beside it: Cesium's `sampleHeightMostDetailed` answers the height of the tileset actually loaded rather than of the source raster, which is the same distinction this item is about.
 
 **The owner's words:** OSM knows no height. The buildings must be laid on the landscape, and so must
 the streets and rails.

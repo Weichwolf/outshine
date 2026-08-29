@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_EMIT_H
-#define OUTSHINE_CONTENT_GLTF_EMIT_H
+#ifndef OUTSHINE_IMPORT_EMIT_H
+#define OUTSHINE_IMPORT_EMIT_H
 
 #include <cstdint>
 #include <string>

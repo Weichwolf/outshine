@@ -6,7 +6,7 @@ Tags: measured
 
 # The building soup is bounded, and every vertex in it belongs to one frame
 
-**Benchmark** — Unreal: streamed geometry is owned by the cell that streamed it and goes when the cell goes. Cesium: a tile's buffers are freed when the tile unloads. **They agree**, so the matter is closed: geometry belongs to the thing that brought it and is bounded by it.
+**Benchmark** — Unreal: streamed geometry is owned by the cell that streamed it and goes when the cell goes. RAGE: a drawable lives in the streaming heap under the `strIndex` of the map sector that requested it, and `CStreaming`'s eviction frees it with that sector -- geometry has no lifetime of its own. **They agree**, so the matter is closed: geometry belongs to the thing that brought it and is bounded by it. Cesium is cited rather than counted: a tile's buffers are freed when the tile unloads, which is the same rule under a third name.
 
 MEASURED, from the telemetry the places now attach:
 

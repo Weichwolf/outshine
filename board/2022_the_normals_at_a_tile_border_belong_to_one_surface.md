@@ -1,6 +1,5 @@
 Type: bug
 State: open
-Parent: 2017
 Area: world, render
 Tags: measured
 

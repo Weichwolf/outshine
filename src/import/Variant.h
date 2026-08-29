@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_VARIANT_H
-#define OUTSHINE_CONTENT_GLTF_VARIANT_H
+#ifndef OUTSHINE_IMPORT_VARIANT_H
+#define OUTSHINE_IMPORT_VARIANT_H
 
 #include <optional>
 #include <string>

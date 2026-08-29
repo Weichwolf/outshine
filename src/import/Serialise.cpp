@@ -2,7 +2,7 @@
 // `geo/ScoreWhatTheGeneratorDoorHolds` proves it -- but its BODY speaks glTF, and it stood in
 // `src/generators/`, which put six spellings of the importer's namespace in the tier whose job is to
 // GROW things. Import and export are the same door seen from two sides; the rule that keeps one
-// behind `src/content/gltf/` keeps the other.
+// behind `src/import/` keeps the other.
 
 #include "Generate.h"
 

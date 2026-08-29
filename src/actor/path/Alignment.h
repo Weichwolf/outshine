@@ -48,7 +48,7 @@ struct Aligned {
   double WorstAwayM = 0.0;
 };
 
-struct Laying {
+struct Laid {
   size_t Straights = 0;
   double LengthM = 0.0;
 };
@@ -60,7 +60,7 @@ struct Laying {
                                                         double withinM, double tightestM,
                                                         std::span<const double> withinAtM = {});
 
-[[nodiscard]] std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
+[[nodiscard]] std::expected<Laid, Refusal> LayAligned(std::span<const double> eastNorthM,
                                                             const Aligned &aligned,
                                                             ReferenceLine &into);
 

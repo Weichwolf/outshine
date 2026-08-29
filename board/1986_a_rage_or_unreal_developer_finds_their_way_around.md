@@ -58,7 +58,7 @@ is **`Holding`** now, beside the `Hold` it parameterises. Still open: `Footing` 
 
 **Collides with an established meaning.** `Live` is the renderer-side subject holder; in Unreal
 "Live" is Live++ hot reload, so an Unreal reader expects recompilation. `Viewport` needs
-checking against `FViewport`. `Transform` (`content/gltf/Transform.h`) sits beside `Standing`
+checking against `FViewport`. `Transform` (`import/Transform.h`) sits beside `Standing`
 in the door -- two names for a placement, which is board:1980's other half.
 
 **Says nothing.** `Types`, `State`, `Kind`, `Where`, `Value`, `Table`, `Section`, `Page`,

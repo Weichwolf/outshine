@@ -29,7 +29,7 @@ using Result = std::expected<void, std::string>;
 // delivered, and how long a fetch took on average. A client that blocks on `preload` cannot poll for
 // them, so `preload` hands them over on every wake.
 struct Loading {
-  size_t TerrainWanted = 0, TerrainArrived = 0;
+  size_t GroundWanted = 0, GroundArrived = 0;
   size_t VectorWanted = 0, VectorArrived = 0;
   size_t Outstanding = 0;
   double FetchedMB = 0.0;
@@ -38,8 +38,8 @@ struct Loading {
   double ElapsedS = 0.0;
 
   [[nodiscard]] double share(void) const {
-    const size_t wants = TerrainWanted + VectorWanted;
-    return wants == 0 ? 1.0 : (double)(TerrainArrived + VectorArrived) / (double)wants;
+    const size_t wants = GroundWanted + VectorWanted;
+    return wants == 0 ? 1.0 : (double)(GroundArrived + VectorArrived) / (double)wants;
   }
 };
 

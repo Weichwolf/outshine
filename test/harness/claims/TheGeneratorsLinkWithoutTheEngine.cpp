@@ -117,7 +117,7 @@ int main(void) {
   const int made =
       Run("c++ -std=c++23 -Wall -Werror -Wpedantic -Iinclude -Isrc/base/math -Isrc/base/geo "
           "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
-          "-Isrc/content/gltf -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
+          "-Isrc/import -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
           "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data test/harness/shared/frame/GeneratorsAlone.cpp "
           "build/libgenerators.a -o " + alone + " 2>&1",
           built);

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_AXES_H
-#define OUTSHINE_CONTENT_GLTF_AXES_H
+#ifndef OUTSHINE_IMPORT_AXES_H
+#define OUTSHINE_IMPORT_AXES_H
 
 namespace outshine::Gltf {
 

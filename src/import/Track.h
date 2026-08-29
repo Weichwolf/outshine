@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_TRACK_H
-#define OUTSHINE_CONTENT_GLTF_TRACK_H
+#ifndef OUTSHINE_IMPORT_TRACK_H
+#define OUTSHINE_IMPORT_TRACK_H
 
 #include <span>
 #include <cstddef>

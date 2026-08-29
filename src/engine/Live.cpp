@@ -101,30 +101,6 @@ double Live::Framing() const {
 
 namespace {
 
-// THE ENGINE IS THE BOUNDARY, so the conversion stands here and nowhere deeper. `src/render/` now
-// carries its own `Viewpoint` and knows no glTF name; what still produces a glTF one is the
-// importer, in two places that are not the same kind of thing:
-//
-//   `Gltf::DeclaredPlacement` reads a camera NODE out of a file, which is a genuinely glTF thing
-//   `Gltf::FramingFor` fits a camera to a bounding box, which is geometry wearing the wrong
-//   namespace and belongs in the render tier -- named here rather than moved in the same step
-Render::Viewpoint Seen(const Gltf::Viewpoint &from) {
-  Render::Viewpoint out;
-  for (int axis = 0; axis < 3; ++axis) {
-    out.EyeM[axis] = from.EyeM[axis];
-    out.Forward[axis] = from.Forward[axis];
-    out.Right[axis] = from.Right[axis];
-    out.Up[axis] = from.Up[axis];
-  }
-  out.Kind = from.Kind == Gltf::CameraKind::Orthographic ? Render::CameraKind::Orthographic
-                                                         : Render::CameraKind::Perspective;
-  out.YfovRad = from.YfovRad;
-  out.XMagM = from.XMagM;
-  out.YMagM = from.YMagM;
-  out.ZNearM = from.ZNearM;
-  out.ZFarM = from.ZFarM;
-  return out;
-}
 
 }
 
@@ -453,7 +429,7 @@ bool Live::Look(std::string &error) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
-  framed = Seen(fromFile);
+  framed = fromFile;
   const double centre[3] = {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5,
                             (least[2] + most[2]) * 0.5};
   const double turn = Around_ * std::numbers::pi / 180.0;
@@ -555,7 +531,7 @@ bool Live::Stand(std::string &error) {
   Gltf::Viewpoint placed;
   const bool declared =
       !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, placed, why);
-  if (declared) { eye = Seen(placed); }
+  if (declared) { eye = placed; }
   Looking_.Eye = eye;
   // A DECLARED CAMERA IS NOT REFITTED. `Fill` frames a subject when nobody said where to stand; it
   // may not overrule a client that did. It did: the places declare a view AND a fill, and the
@@ -587,7 +563,7 @@ bool Live::Stand(std::string &error) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }
-    eye = Seen(fitted);
+    eye = fitted;
     Looking_.Eye = eye;
   }
   return true;

@@ -48,7 +48,7 @@ through `include/` alone, is the shape it should have had.
 | `outshine/fuzz` (2) | `Document.h`, `Subject.h` | read this glTF and tell me whether it was refused, and why |
 
 And `test/run.sh` is where the rule is being paid off: three include sets were added at
-`test/run.sh:200-202` that hand `-Isrc/content/gltf`, `-Isrc/sim`, `-Isrc/engine` and eleven more
+`test/run.sh:200-202` that hand `-Isrc/import`, `-Isrc/sim`, `-Isrc/engine` and eleven more
 straight to the new groups. Widening the runner is not reaching through the door; it is
 deciding not to.
 
@@ -73,7 +73,7 @@ bookkeeping, EXR comparison. It may not carry engine internals to get there.
 ## What the measurement already says
 
 A Khronos manifest declares exactly what a scenario declares: a glTF subject, a frame, and a
-CAMERA that is derived from the framing rule the engine itself carries (`src/content/gltf/Framing.h`) --
+CAMERA that is derived from the framing rule the engine itself carries (`src/render/Framing.h`) --
 the manifest quotes it so the runner can refuse a mismatch rather than trust one. `RenderPlan`
 holds `Frame` and `Fill`; that is the same rule. **So a Khronos case needs no new grammar: it is
 an asset plus a frame plus a fill.**

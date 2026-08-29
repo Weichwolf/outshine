@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_POSE_H
-#define OUTSHINE_CONTENT_GLTF_POSE_H
+#ifndef OUTSHINE_IMPORT_POSE_H
+#define OUTSHINE_IMPORT_POSE_H
 
 #include <memory>
 #include <string>

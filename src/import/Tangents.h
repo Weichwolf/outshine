@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_GLTF_TANGENTS_H
-#define OUTSHINE_CONTENT_GLTF_TANGENTS_H
+#ifndef OUTSHINE_IMPORT_TANGENTS_H
+#define OUTSHINE_IMPORT_TANGENTS_H
 
 #include <cstdint>
 #include <string>

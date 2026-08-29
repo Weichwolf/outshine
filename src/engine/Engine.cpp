@@ -244,7 +244,7 @@ const std::vector<std::string> &Engine::unacted() const { return S_->Session.Car
 const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
 
 bool Engine::settled(void) const {
-  // SETTLED MEANS THE WHOLE PICTURE, NOT ONLY ITS GROUND. Terrain tiles are one half; the OSM
+  // SETTLED MEANS THE WHOLE PICTURE, NOT ONLY ITS GROUND. Ground tiles are one half; the OSM
   // fields the generators grow from are the other, and they arrive on their own schedule. A client
   // that took its picture when the last tile landed got correct terrain with no buildings and no
   // streets on it -- measured, six places at `0 instanced` with the snapshot answering Waiting.
@@ -319,8 +319,8 @@ constexpr double kMostWaitS = 0.05;
 
 Loading Engine::loading(void) const {
   Loading said;
-  said.TerrainWanted = S_->World.AskedWanted;
-  said.TerrainArrived =
+  said.GroundWanted = S_->World.AskedWanted;
+  said.GroundArrived =
       S_->World.AskedWanted >= S_->World.AskedPending ? S_->World.AskedWanted - S_->World.AskedPending : 0;
   if (!S_->World.Stack.Opened()) { return said; }
   if (const Ground::OsmField *vectors = S_->World.Stack.Vectors()) {
@@ -365,7 +365,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (settled()) { return (S_->Grounds(true)) ? Result{} : std::unexpected(S_->Error); }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;
-      // the refusal says what is still missing. Building only on a full settle meant a place that
+      // the refusal says what is still missing. Standing only on a full settle meant a place that
       // loaded 73 per cent of its tiles rendered the bare ellipsoid, because the one call that
       // turns tiles into geometry never ran.
       const bool built = S_->Grounds(true);
