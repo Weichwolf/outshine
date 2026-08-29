@@ -25,12 +25,20 @@ constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 constexpr double kWeldM = 0.02;
 
-double TriArea(const En &a, const En &b, const En &c) {
-  return 0.5 * std::fabs((b.E - a.E) * (c.N - a.N) - (c.E - a.E) * (b.N - a.N));
-}
-
+// A TRIANGLE GOES ONLY IF IT IS DEGENERATE, not merely thin. Refusing on AREA drops pieces a split
+// legitimately produced, and a piece missing from a split is a HOLE -- the tower's roof was open over
+// seven metres because of it. Two corners within the weld tolerance ARE one corner, so such a
+// triangle carries no edge anything else can pair with and its absence costs nothing. A thin
+// triangle has a poor normal, which is a shading question and a smaller one than a hole.
+//
+// This was tried once BEFORE the crease tolerance was fixed and made things worse -- 62 holes to 96
+// across the nine cases -- because back then the splits were still manufacturing slivers faster than
+// keeping them could help. Order mattered.
 void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
-  if (TriArea(a, b, c) < kSliverM2) return;
+  const double ab = (a.E - b.E) * (a.E - b.E) + (a.N - b.N) * (a.N - b.N);
+  const double bc = (b.E - c.E) * (b.E - c.E) + (b.N - c.N) * (b.N - c.N);
+  const double ca = (c.E - a.E) * (c.E - a.E) + (c.N - a.N) * (c.N - a.N);
+  if (ab < kSliverM2 || bc < kSliverM2 || ca < kSliverM2) { return; }
   out.push_back(a);
   out.push_back(b);
   out.push_back(c);
@@ -93,8 +101,19 @@ void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) 
     if (di >= -kOnLineM && n < 4) { poly[n++] = t[i]; }
     if ((di > kOnLineM && dj < -kOnLineM) || (di < -kOnLineM && dj > kOnLineM)) {
       if (n >= 4) { break; }
+      // A CUT LANDS ON A CORNER OR CLEAR OF IT, never a hair beside one. Left free, the crossing
+      // point can fall a fraction of a millimetre from `t[i]` and the piece it cuts off is a sliver
+      // that something downstream then has to decide about -- and every such decision is wrong,
+      // because dropping it opens a hole and keeping it carries no surface. Snapped to the corner
+      // there is nothing to decide: the clip degenerates cleanly and the degenerate is the ONE case
+      // where removing a triangle changes no edge.
       const double f = di / (di - dj);
-      poly[n++] = {t[i].E + (t[j].E - t[i].E) * f, t[i].N + (t[j].N - t[i].N) * f};
+      En cut{t[i].E + (t[j].E - t[i].E) * f, t[i].N + (t[j].N - t[i].N) * f};
+      const double toI = std::hypot(cut.E - t[i].E, cut.N - t[i].N);
+      const double toJ = std::hypot(cut.E - t[j].E, cut.N - t[j].N);
+      if (toI < kOnLineM) { cut = t[i]; }
+      else if (toJ < kOnLineM) { cut = t[j]; }
+      poly[n++] = cut;
     }
   }
   for (int i = 2; i < n; i++) { PushTri(out, poly[0], poly[i - 1], poly[i]); }

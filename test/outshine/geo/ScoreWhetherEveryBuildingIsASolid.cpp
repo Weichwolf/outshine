@@ -8,6 +8,7 @@
 #include "BuildingMesh.h"
 #include "TileGeodesy.h"
 #include "BuildingShape.h"
+#include "RoofSurface.h"
 #include "Check.h"
 #include "StructureMesher.h"
 
@@ -265,8 +266,12 @@ int main(void) {
     plan.HeightM = one.HeightM;
     plan.HeightMeasured = true;
     plan.Street = street;
+    (void)RoofSurface::UnclippedTaken();
+    (void)RoofSurface::OutsideTaken();
     std::vector<float> soup;
     grows.Mesh(plan, soup);
+    const size_t unclipped = RoofSurface::UnclippedTaken();
+    const size_t outside = RoofSurface::OutsideTaken();
 
     const double reach = std::sqrt(anchorEcef[0] * anchorEcef[0] + anchorEcef[1] * anchorEcef[1] +
                                    anchorEcef[2] * anchorEcef[2]);
@@ -278,9 +283,9 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-20s %5zu tri %4zu hole %4zu over %4zu flip %4zu deg  holes at %6.2f..%6.2f of %6.2f m\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu flip %4zu deg %4zu unclipped %4zu outside  holes at %6.2f..%6.2f of %6.2f\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
-                said.Reversed, said.Degenerate, said.HoleLowZ - said.BaseZ,
+                said.Reversed, said.Degenerate, unclipped, outside, said.HoleLowZ - said.BaseZ,
                 said.HoleHighZ - said.BaseZ, said.TopZ - said.BaseZ);
   }
 
