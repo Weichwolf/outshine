@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -91,6 +92,11 @@ struct Verdict {
   double FlipLowZ = 0.0, FlipHighZ = 0.0;
   double BaseZ = 0.0, TopZ = 0.0;
   size_t FlatHoles = 0, UprightHoles = 0;
+  // THE HOLE EDGES THEMSELVES, so a count stops being the only thing this instrument can say. Three
+  // flat edges at one height is the boundary of ONE missing triangle, and which triangle it is can
+  // only be read from where its sides actually run.
+  std::vector<std::array<double, 6>> HoleEdges;
+  std::vector<std::pair<uint32_t, uint32_t>> HoleKinds;
 
   [[nodiscard]] bool Whole(void) const {
     return Triangles > 0 && Degenerate == 0 && Holes == 0 && Overused == 0 && Reversed == 0 &&
@@ -106,6 +112,10 @@ struct Verdict {
   welded.reserve(corners);
   std::vector<double> at;
   at.reserve(corners * 3);
+  // WHICH SURFACES MEET AT A VERTEX, kept as a bitmask of `Facade` kinds. A hole edge is a seam
+  // between two surfaces and the count alone cannot say WHICH two; the soup carries the answer in
+  // its U coordinate, where `FaceUvX` writes -(kind + 16 * ident).
+  std::vector<uint32_t> kindsAt;
   for (size_t one = 0; one < corners; ++one) {
     const double x = (double)soup[one * kSoupStride];
     const double y = (double)soup[one * kSoupStride + 1];
@@ -115,9 +125,11 @@ struct Verdict {
     const int64_t cz = (int64_t)std::llround(z * 100.0);
     const uint64_t key =
         (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^ (uint64_t)(cz * 83492791LL);
+    const int kind = ((int)std::llround(-(double)soup[one * kSoupStride + 3])) % 16;
     const auto found = seenAt.find(key);
     if (found != seenAt.end()) {
       welded.push_back(found->second);
+      if (kind >= 0 && kind < 16) { kindsAt[found->second] |= 1u << kind; }
       continue;
     }
     const uint32_t made = (uint32_t)(at.size() / 3);
@@ -126,6 +138,7 @@ struct Verdict {
     at.push_back(y);
     at.push_back(z);
     welded.push_back(made);
+    kindsAt.push_back(kind >= 0 && kind < 16 ? 1u << kind : 0u);
   }
 
   for (size_t one = 0; one * 3 + 2 < at.size(); ++one) {
@@ -171,6 +184,10 @@ struct Verdict {
     }
     const double *pa = &at[(size_t)edge.first.first * 3];
     const double *pb = &at[(size_t)edge.first.second * 3];
+    if (out.HoleEdges.size() < 12) {
+      out.HoleEdges.push_back({pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]});
+      out.HoleKinds.push_back({kindsAt[edge.first.first], kindsAt[edge.first.second]});
+    }
     const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
     const double zb = pb[0] * up[0] + pb[1] * up[1] + pb[2] * up[2];
     const double low = za < zb ? za : zb;
@@ -204,6 +221,10 @@ struct Verdict {
     ++out.Reversed;
     const double *pa = &at[(size_t)edge.first.first * 3];
     const double *pb = &at[(size_t)edge.first.second * 3];
+    if (out.HoleEdges.size() < 12) {
+      out.HoleEdges.push_back({pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]});
+      out.HoleKinds.push_back({kindsAt[edge.first.first], kindsAt[edge.first.second]});
+    }
     const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
     const double zb = pb[0] * up[0] + pb[1] * up[1] + pb[2] * up[2];
     const double low = za < zb ? za : zb, high = za < zb ? zb : za;
@@ -299,8 +320,11 @@ int main(void) {
     const size_t kept = RoofSurface::BreaksKeptTaken();
     const size_t dropped = RoofSurface::BreaksDroppedTaken();
     const size_t merged = RoofSurface::BreaksMergedTaken();
-    (void)RoofSurface::UnclippedTaken();
-    (void)RoofSurface::OutsideTaken();
+    // WHETHER THE CLIPPER GOT A SURFACE OUT AT ALL. `Fill` rolls its triangles back and counts one
+    // here when the ear clip cannot finish, so a floor or a roof can be MISSING ENTIRELY -- and this
+    // case read the counter only to clear it, which is the same as not having it.
+    const size_t unclipped = RoofSurface::UnclippedTaken();
+    const size_t outside = RoofSurface::OutsideTaken();
 
     const double reach = std::sqrt(anchorEcef[0] * anchorEcef[0] + anchorEcef[1] * anchorEcef[1] +
                                    anchorEcef[2] * anchorEcef[2]);
@@ -312,11 +336,47 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged %2zu unclipped %2zu outside\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
                 said.Degenerate, halfU - halfV, overhang, rise, juts, breaks, said.FlatHoles,
                 said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
-                kept, dropped, merged);
+                kept, dropped, merged, unclipped, outside);
+    if (said.Holes > 0 && said.Holes <= 8) {
+      double mid[3] = {0.0, 0.0, 0.0};
+      for (size_t v = 0; v + 2 < soup.size(); v += 8) {
+        mid[0] += soup[v]; mid[1] += soup[v + 1]; mid[2] += soup[v + 2];
+      }
+      const double count = (double)(soup.size() / 8);
+      for (int c = 0; c < 3; ++c) { mid[c] = count > 0.0 ? mid[c] / count : 0.0; }
+      static const char *kNamed[16] = {"wall", "pitch", "flat", "soffit", "ledge", "trim",
+                                       "metal", "parapet", "plinth", "kerb", "pavement",
+                                       "?", "?", "?", "?", "?"};
+      const auto surfaces = [&](uint32_t mask) {
+        std::string named;
+        for (int k = 0; k < 16; ++k) {
+          if ((mask >> k) & 1u) { named += (named.empty() ? "" : "+") + std::string(kNamed[k]); }
+        }
+        return named.empty() ? std::string("-") : named;
+      };
+      size_t which = 0;
+      for (const std::array<double, 6> &e : said.HoleEdges) {
+        const double ha = e[0] * up[0] + e[1] * up[1] + e[2] * up[2] - said.BaseZ;
+        const double hb = e[3] * up[0] + e[4] * up[1] + e[5] * up[2] - said.BaseZ;
+        const double len = std::sqrt((e[0] - e[3]) * (e[0] - e[3]) + (e[1] - e[4]) * (e[1] - e[4]) +
+                                     (e[2] - e[5]) * (e[2] - e[5]));
+        const double ra = std::sqrt((e[0] - mid[0]) * (e[0] - mid[0]) +
+                                    (e[1] - mid[1]) * (e[1] - mid[1]) +
+                                    (e[2] - mid[2]) * (e[2] - mid[2]));
+        const double rb = std::sqrt((e[3] - mid[0]) * (e[3] - mid[0]) +
+                                    (e[4] - mid[1]) * (e[4] - mid[1]) +
+                                    (e[5] - mid[2]) * (e[5] - mid[2]));
+        std::printf("        hole edge %6.3f m long, ends %6.2f and %6.2f up, %6.2f and %6.2f from "
+                    "the middle   %s | %s\n", len, ha, hb, ra, rb,
+                    surfaces(said.HoleKinds[which].first).c_str(),
+                    surfaces(said.HoleKinds[which].second).c_str());
+        ++which;
+      }
+    }
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());

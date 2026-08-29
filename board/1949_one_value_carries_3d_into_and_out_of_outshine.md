@@ -69,6 +69,36 @@ neighbours keep the vertices it loses.
     broad spire 11x11 64 tri 6 holes  70 tri 0 holes
     terrace / long hall / slab        unchanged, as predicted
 
+## WHAT THE REMAINING TWELVE EDGES ARE, located rather than counted
+
+The instrument now reports each hole edge's length, the height of its ends, their distance from the
+building's middle, and WHICH SURFACES meet there -- decoded from the soup's own U coordinate, where
+`FaceUvX` writes `-(kind + 16 * ident)`. Two different defects, not one:
+
+**Terrace and slab -- a T-junction inside the plinth.** Three edges of 4.090, 8.180 and 4.090 m,
+and 4.090 + 4.090 = 8.180 EXACTLY: the three points are collinear and the missing triangle has zero
+area. Both ends carry only `plinth`. The 8.18 m is the part's 8.00 m edge plus twice the 0.09 m
+plinth proud, so it is the widened plinth ring, subdivided at the gable ridge crossing on one side
+and whole on the other. The slab is the same shape at 1.185 + 0.374 = 1.559 m.
+
+**The 16 m tower -- the pitch does not close against the trim.** Three edges of about 16.6 m running
+from the ridge at 42.53 m down to the eaves at 30.95 m, `pitch | pitch+trim`, plus two 28 mm edges
+along the eaves. A different seam in a different place, and its 12 overused edges belong to it.
+
+**SIX HYPOTHESES HAVE NOW DIED ON THESE TWELVE EDGES**, every one of them measured rather than
+stacked on the last: party-wall flags, crease deduplication, crease crossings, the hip diagonals'
+spacing (whose predicted break landed within 4 per cent of the real one and was still the wrong
+cause), the ear clip producing a degenerate ear at a collinear point (`EarClip` requires a strictly
+positive area, so it never cuts one), and the ear clip FAILING outright -- `Fill` counts that in
+`Unclipped_` and the count is 0 for every case in the sweep. The case had been reading that counter
+only to clear it, which is the same as not having it.
+
+**What the measure cannot see, and it is the judge's own turn to be measured.** `Judge` welds on a
+CENTIMETRE grid while the mesher snaps on a MILLIMETRE one, and its key is an XOR of three products
+with no position check behind it -- two distinct points can collide into one vertex and no line of
+this instrument would notice. Before the last edges are chased, that has to be sound, or the thing
+being chased may be the ruler.
+
 ## THE PARTY EDGE MUST NOT WIDEN, AND SAYING SO IS NOT ENOUGH
 
 A terrace house has no eaves overhang into its neighbour and no plinth under their wall, and
