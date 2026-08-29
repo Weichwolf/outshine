@@ -454,8 +454,13 @@ void Crown(const BuildingShape &s, const std::vector<En> &inner, const std::vect
     const size_t j = (i + 1) % n;
     site.Quad(Face(s, out[i], band, Facade::Ledge), Face(s, out[j], band, Facade::Ledge),
               Face(s, out[j], lo, Facade::Ledge), Face(s, out[i], lo, Facade::Ledge));
-    site.Quad(Face(s, s.Ring[i], band, Facade::Soffit), Face(s, out[i], band, Facade::Soffit),
-              Face(s, out[j], band, Facade::Soffit), Face(s, s.Ring[j], band, Facade::Soffit));
+    // THE CORNICE'S UNDERSIDE FACES DOWN and its top faces up, so the two walk the same loop in
+    // OPPOSITE senses. They walked it the same way -- `out[i], out[j], Ring[j], Ring[i]` above is
+    // this loop rotated by one, not reversed -- which is a shell that is closed and locally inside
+    // out, and no hole count can see that. The first attempt at this reversed the TOP instead and
+    // the reversed-edge count went 16 to 24, which is how the right one of the two was found.
+    site.Quad(Face(s, s.Ring[j], band, Facade::Soffit), Face(s, out[j], band, Facade::Soffit),
+              Face(s, out[i], band, Facade::Soffit), Face(s, s.Ring[i], band, Facade::Soffit));
     site.Quad(Face(s, out[i], lo, Facade::Ledge), Face(s, out[j], lo, Facade::Ledge),
               Face(s, s.Ring[j], lo, Facade::Ledge), Face(s, s.Ring[i], lo, Facade::Ledge));
 
@@ -463,8 +468,10 @@ void Crown(const BuildingShape &s, const std::vector<En> &inner, const std::vect
               Face(s, s.Ring[j], hi, Facade::Parapet), Face(s, s.Ring[i], hi, Facade::Parapet));
     site.Quad(Face(s, inner[j], lo, Facade::Parapet), Face(s, inner[i], lo, Facade::Parapet),
               Face(s, inner[i], hi, Facade::Parapet), Face(s, inner[j], hi, Facade::Parapet));
-    site.Quad(Face(s, inner[i], hi, Facade::Ledge), Face(s, inner[j], hi, Facade::Ledge),
-              Face(s, s.Ring[j], hi, Facade::Ledge), Face(s, s.Ring[i], hi, Facade::Ledge));
+    // THE COPING SHARES ITS OUTER EDGE WITH THE PARAPET'S OUTER FACE, which reaches `hi` walking
+    // `Ring[j] -> Ring[i]`. Walking it the same way here is a seam traversed twice in one direction.
+    site.Quad(Face(s, s.Ring[i], hi, Facade::Ledge), Face(s, s.Ring[j], hi, Facade::Ledge),
+              Face(s, inner[j], hi, Facade::Ledge), Face(s, inner[i], hi, Facade::Ledge));
   }
 }
 
@@ -602,7 +609,10 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   Walls(s, roof, overhang, lowZ, wallTopZ, site);
 
   if (s.Roof == RoofKind::Flat) {
-    const double deckZ = crowned ? EavesZ(s) : EavesZ(s) + s.RiseM;
+    // THE DECK MEETS THE PARAPET'S INNER FOOT. `Covering` lays its surface a slab's thickness above
+    // the height it is handed, and the parapet's inner face starts at the eaves -- so handing it the
+    // eaves left the deck floating `kSlabM` above the wall meant to hold it, all the way round.
+    const double deckZ = crowned ? EavesZ(s) - kSlabM : EavesZ(s) + s.RiseM;
     Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
     if (crowned) Crown(s, crownInner, crownOut, site);
     RoofPlant(s, deckZ, site);
