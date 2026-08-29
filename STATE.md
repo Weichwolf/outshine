@@ -347,8 +347,8 @@ The heaviest files. Headers and sources counted apart.
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| 880 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 876 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 875 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | **47** | `h` | *the median of 237 header(s)* |
 | **115** | `cpp` | *the median of 164 source(s)* |

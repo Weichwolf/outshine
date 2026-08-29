@@ -792,7 +792,12 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     Plinth(s, roof, overhang, ground, plinthZ, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
-    // PROBE
+    // A SILENT FALLBACK IS HOW A SEAM OPENS. The plinth's wall walks the ring SUBDIVIDED at every
+    // crease crossing; if `foot` came back empty the floor would take the UNDIVIDED ring instead and
+    // the two would meet as one long edge against two short ones. Counted rather than assumed, and
+    // it reads 0 for every case in the sweep -- so that is not where the terrace's three edges are.
+    if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
+    Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
     Floor(s, s.Ring, lowZ, site);
   }
