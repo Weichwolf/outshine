@@ -476,6 +476,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       bare.BaseColour[channel] = held.GroundAlbedo[channel];
     }
   }
+  constexpr double kSteepestRoof = 0.5;
   const int ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
 
@@ -555,25 +556,68 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       // every surface, so buildings came out in the ground's exact albedo -- drawn, correctly
       // placed, and indistinguishable from the field they stand in. Lifted 500 m as a control they
       // were unmistakable, with Rothenburg's street plan legible in their shadows on the ground.
+      // A ROOF IS NOT A WALL, and one material for both is why a thin eave board reads as a stripe
+      // rather than as part of a roof. OSM carries no material, so the ENGINE's default stands --
+      // that is the declared-not-coded rule, not an exception to it: a scenario that names one
+      // overrules this, and none does yet.
+      //
+      // The split is by the face's OWN NORMAL rather than by a class channel the soup does not
+      // carry: a face whose normal stands within 60 degrees of vertical is a roof, everything else is
+      // a wall. 60 rather than 40 because a steep gable is pitched 45 and a mansard's lower slope
+      // steeper still -- at 40 they came out white, which the frame showed plainly. A roof pitched
+      // past 60 is a wall by any reading. That is
+      // the same thing a shader would have to decide without extra data, and it costs no format
+      // change. Its limit, stated where it is made: a flat roof's parapet band and a dormer cheek
+      // are walls by this rule, and a very shallow shed roof is one too.
       Material walls;
-      walls.BaseColour[0] = 0.62f;
-      walls.BaseColour[1] = 0.60f;
-      walls.BaseColour[2] = 0.56f;
-      walls.Roughness = 0.85f;
-      const int builtSurface = ground.Surface("walls", walls);
-      const int builtPart = ground.Part("buildings", builtSurface);
+      walls.BaseColour[0] = 0.74f;
+      walls.BaseColour[1] = 0.71f;
+      walls.BaseColour[2] = 0.65f;
+      walls.Roughness = 0.88f;
+      Material tiles;
+      tiles.BaseColour[0] = 0.42f;
+      tiles.BaseColour[1] = 0.20f;
+      tiles.BaseColour[2] = 0.14f;
+      tiles.Roughness = 0.72f;
+      const int wallSurface = ground.Surface("walls", walls);
+      const int roofSurface = ground.Surface("roofs", tiles);
+      const int builtPart = ground.Part("walls", wallSurface);
+      const int roofPart = ground.Part("roofs", roofSurface);
       // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
       // took the data and every one of them was thrown away with a (void), so a part that was never
       // made and a soup that was never stored looked exactly like geometry standing in the frame.
+      std::vector<float> roofPlaces, roofFacing, wallPlaces, wallFacing;
+      std::vector<uint32_t> roofRun, wallRun;
+      for (size_t at = 0; at + 8 < raised.size(); at += 9) {
+        double aloft = 0.0;
+        for (size_t corner = 0; corner < 3; ++corner) { aloft += facing[at + corner * 3 + 1]; }
+        const bool roofing = aloft > 3.0 * kSteepestRoof;
+        std::vector<float> &places = roofing ? roofPlaces : wallPlaces;
+        std::vector<float> &turned = roofing ? roofFacing : wallFacing;
+        std::vector<uint32_t> &order = roofing ? roofRun : wallRun;
+        for (size_t one = 0; one < 9; ++one) {
+          places.push_back(raised[at + one]);
+          turned.push_back(facing[at + one]);
+        }
+        for (size_t one = 0; one < 3; ++one) { order.push_back((uint32_t)(order.size())); }
+      }
+      Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
+      Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
       const bool tookPlaces =
-          builtPart >= 0 &&
-          ground.Positions(builtPart, std::span<const float>(raised.data(), raised.size()));
+          builtPart >= 0 && roofPart >= 0 &&
+          ground.Positions(builtPart, std::span<const float>(wallPlaces.data(), wallPlaces.size())) &&
+          ground.Positions(roofPart, std::span<const float>(roofPlaces.data(), roofPlaces.size()));
       const bool tookFacing =
-          tookPlaces && ground.Normals(builtPart, std::span<const float>(facing.data(), facing.size()));
+          tookPlaces &&
+          ground.Normals(builtPart, std::span<const float>(wallFacing.data(), wallFacing.size())) &&
+          ground.Normals(roofPart, std::span<const float>(roofFacing.data(), roofFacing.size()));
       const bool tookRun =
-          tookFacing && ground.Triangles(builtPart, std::span<const uint32_t>(run.data(), run.size()));
+          tookFacing &&
+          ground.Triangles(builtPart, std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
+          ground.Triangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
       Published.Places("buildings: the part they were given", (double)builtPart, "index");
-      Published.Places("buildings: their surface", (double)builtSurface, "index");
+      Published.Places("buildings: the wall surface", (double)wallSurface, "index");
+      Published.Places("buildings: the roof surface", (double)roofSurface, "index");
       Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
