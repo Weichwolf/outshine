@@ -309,7 +309,10 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
 ## THE NEXT ROUND'S FIRST FOUR LINES, so it starts from a measurement and not from a memory
 
     1. find where 1.674 scales the frame -- the same factor for a lit case and a flat one, so it
-       is applied after both variants and before the readback
+       is applied after both variants and before the readback. NOT the readback target: the alias
+       chain is identical on both paths --
+           sceneLinear -> sceneAerial -> sceneComposited -> sceneHdr,  2 passes, 2 stages
+       so both read the same texture and the difference is in what was written into it
     2. run the FIVE representatives, not one:
        AlphaBlendModeTest, TextureCoordinateTest, BoomBox, BoxInterleaved, MeshoptCubeTest
     3. read the LINEAR mean, not the delta -- a ratio names a factor, a distance names nothing
