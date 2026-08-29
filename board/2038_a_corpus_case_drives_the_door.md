@@ -208,6 +208,21 @@ The value is not: the picture reads 219 codes where the tint should make it matc
 question about ONE number reaching ONE uniform, with the variant, the shader line and the quantity
 all named -- which is a different kind of question from the five that died before it.
 
+**AND THE PICTURE I WAS LOOKING AT IS NOT THE PICTURE BEING SCORED.** Run with the OLD harness and
+clean objects, this case reads `picture_p99_delta_code = 1` and passes all 31 checks -- and the
+`1-outshine.png` it writes beside itself is PURE MAGENTA. The metric compares the LINEAR readback
+against the EXR oracle; the PNG comes from somewhere else and, on this path, from nothing at all.
+
+So every visual reading in this item -- "too dark", "the framing matches", "the texture is there"
+-- was of an artefact the score does not use. The NUMBERS stand, because they came from the metric.
+The pictures were a second opinion nobody had checked, which is CLAUDE.md's own trap: *ask what the
+measure cannot see before trusting the number it produced*, applied to the picture rather than to
+the count.
+
+**A CASE THAT WRITES A PICTURE MUST WRITE THE ONE IT WAS SCORED ON**, or the instruction to LOOK at
+it is worse than no instruction: it invites a confident reading of the wrong thing. That is its own
+finding and it is filed as board:2040.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
