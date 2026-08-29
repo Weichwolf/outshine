@@ -410,25 +410,45 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-std::vector<En> RoofSurface::Widened(std::span<const En> ring, double byM) {
+// A PARTY EDGE DOES NOT MOVE, and every offset in this file used to move it. A terrace house has no
+// eaves overhang into its neighbour and no plinth jutting under their wall -- so widening a part's
+// ring uniformly pushes its roof through the wall it shares, and the two neighbours then cover the
+// same strip twice. The offset is therefore PER EDGE: zero where the edge is shared, `byM` where it
+// is not, and the corner between them is the exact intersection of the two offset lines rather than
+// a mitre of one distance.
+//
+// For a corner p with adjacent edges (a,p) and (p,b), outward normals N0 and N1 and offsets d0 and
+// d1, the moved corner is p + y where y.N0 = d0 and y.N1 = d1 -- a 2x2 solve, exact. When d0 == d1
+// it reduces to the mitre that stood here.
+std::vector<En> RoofSurface::Widened(std::span<const En> ring, double byM,
+                                     std::span<const uint8_t> held) {
   const size_t n = ring.size();
   if (n < 3 || std::fabs(byM) < 1.0e-3) return {};
   std::vector<En> out;
   out.reserve(n);
   for (size_t i = 0; i < n; i++) {
+    const size_t before = (i + n - 1) % n;
     const En &p = ring[i];
-    const En &a = ring[(i + n - 1) % n];
+    const En &a = ring[before];
     const En &b = ring[(i + 1) % n];
     const double e0 = p.E - a.E, n0 = p.N - a.N, l0 = std::hypot(e0, n0);
     const double e1 = b.E - p.E, n1 = b.N - p.N, l1 = std::hypot(e1, n1);
     if (l0 < 1.0e-6 || l1 < 1.0e-6) return {};
 
-    const double ox = (n0 / l0 + n1 / l1), oy = -(e0 / l0 + e1 / l1);
-    const double len = std::hypot(ox, oy);
-    if (len < 0.35) return {};
-    const double miter = byM / (0.5 * len * len);
-    if (std::fabs(miter) > 4.0 * std::fabs(byM)) return {};
-    out.push_back({p.E + ox * miter, p.N + oy * miter});
+    const double a0 = n0 / l0, b0 = -e0 / l0;
+    const double a1 = n1 / l1, b1 = -e1 / l1;
+    const double d0 = before < held.size() && held[before] ? 0.0 : byM;
+    const double d1 = i < held.size() && held[i] ? 0.0 : byM;
+    const double det = a0 * b1 - b0 * a1;
+    if (std::fabs(det) < 1.0e-6) {
+      if (std::fabs(d0 - d1) > 1.0e-9) { return {}; }
+      out.push_back({p.E + a0 * d0, p.N + b0 * d0});
+      continue;
+    }
+    const double yE = (d0 * b1 - d1 * b0) / det;
+    const double yN = (a0 * d1 - a1 * d0) / det;
+    if (std::hypot(yE, yN) > 4.0 * std::fabs(byM)) return {};
+    out.push_back({p.E + yE, p.N + yN});
   }
   return out;
 }

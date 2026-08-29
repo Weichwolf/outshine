@@ -412,6 +412,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
 | 1 | `src/generators/draw/TreeRandom.h` |
+| 1 | `src/generators/draw/RoofSurface.h` |
 | 1 | `src/generators/base/FeatureLevel.h` |
 | 1 | `src/generators/base/Cover.h` |
 | 1 | `src/generators/base/Claim.h` |

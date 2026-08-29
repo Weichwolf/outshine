@@ -69,6 +69,30 @@ neighbours keep the vertices it loses.
     broad spire 11x11 64 tri 6 holes  70 tri 0 holes
     terrace / long hall / slab        unchanged, as predicted
 
+## THE PARTY EDGE MUST NOT WIDEN, AND SAYING SO IS NOT ENOUGH
+
+A terrace house has no eaves overhang into its neighbour and no plinth under their wall, and
+`Widened` moved every vertex by one mitred distance -- so each part's roof was pushed THROUGH the
+wall it shares and the two neighbours covered the same strip twice. `Widened` now takes a per-edge
+mask and solves the corner exactly (`y.N0 = d0`, `y.N1 = d1`, a 2x2 solve that reduces to the old
+mitre when the two offsets are equal; a 90 degree corner gives (byM, byM), checked by hand).
+
+**MEASURED, and it is much worse rather than better:**
+
+    case         before            after
+    terrace       3 holes  8 over   3 holes  20 over
+    long hall    10 holes  8 over  64 holes  24 over
+    slab          3 holes 30 over 156 holes 115 over
+
+Reverted. The geometry is right and the introduction is not: every builder BEHIND the offset --
+the soffit, the trim, the covering -- subdivides against the breaks of the UNWIDENED ring and
+assumes a uniform offset, so the moment the ring changes shape at a party corner they stop meeting
+in the same points. Trading 46 overused edges for 229 holes is not a step toward a closed solid.
+
+The per-edge `Widened` is kept because it is correct and its default is the old behaviour; what is
+missing is that `BreaksBoth` and `RefinedLike` have to be told the same thing. That is the item's
+"topology is OWNED" guarantee and it is one change, not two.
+
 ## AND IT UNCOVERED THE NEXT ONE RATHER THAN REMOVING SIX
 
 A 16 m square tower was clean before because this defect never let the sweep reach it. It now reads

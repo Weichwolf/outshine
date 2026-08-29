@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <atomic>
+#include <cstdint>
 #include <span>
 
 #include "BuildingShape.h"
@@ -44,7 +45,8 @@ public:
   // stops matching the wall standing on it.
   static bool Fill(std::span<const En> plan, std::vector<En> &tris);
 
-  static std::vector<En> Widened(std::span<const En> ring, double byM);
+  static std::vector<En> Widened(std::span<const En> ring, double byM,
+                                 std::span<const uint8_t> held = {});
 
 private:
   inline static std::atomic<size_t> Unclipped_{0};
