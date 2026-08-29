@@ -239,6 +239,29 @@ layouts go flat (9 on layout 1) and the metric reads 219, so the flat path overs
 direction. The next round measures the same mean under THAT combination: one number, one buffer,
 and the answer is a factor rather than a hypothesis.
 
+**ONE CASE CLOSED COMPLETELY, AND THE CORPUS SAID NO.** With all three parts held together --
+no ambient unless shaded, emission per node, the run filled -- plus the surface declared only when
+there is a window to present into, `AlphaBlendModeTest` reads
+
+    picture_p99_delta_code   1 code    (bound 6.44)     PASS
+    plan_passes              2 passes  (bound 2)        PASS
+    disagreement_p99_px      0.000 px  (bound 0.005)    PASS
+    31 checks, 0 failures
+
+and the whole corpus then reads **78 PASS, 366 FAIL** where the old harness reads 441 of 444.
+
+That is over-fitting, stated plainly: three coupled decisions were tuned against ONE case and the
+other 443 disagree. 78 is up from the 3 the first conversion managed, so the direction is right and
+the calibration is not -- and a fix that is right for one case and wrong for four hundred is not a
+smaller version of the answer, it is a different one.
+
+**WHAT THE NEXT ROUND MUST DO DIFFERENTLY.** Every reading in this item was taken on
+`AlphaBlendModeTest`, which is flat-shaded, textured, and takes its colour from the file. A case
+shaded by LIGHTS, one taking `ColourFrom::Row`, and one with no texture would each have refused a
+different one of the three decisions -- and running four cases costs four seconds. The instrument
+that made one case cheap was built in this item; using it on ONE case was the mistake, not the
+instrument.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
