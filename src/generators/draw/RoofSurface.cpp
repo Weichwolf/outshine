@@ -145,7 +145,38 @@ void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<En> &
   tris.swap(out);
 }
 
+// A CREASE STATED TWICE IS NOT TWO CREASES. A hip's four diagonals are `{1, -1, +-d}` and
+// `{1, 1, +-d}` where `d` is the footprint's own asymmetry -- so on a SQUARE plan `d` is zero and
+// each pair collapses onto one line. Splitting a triangulation twice along the same line hands the
+// second pass triangles that already have a vertex exactly on it, and the half-plane clip then
+// drops pieces: the tower and the spire were open over their whole roof and closed outright with the
+// diagonals removed, which is how this was found.
+int Deduped(Line *lines, int n) {
+  int kept = 0;
+  for (int i = 0; i < n; i++) {
+    const double reach = std::hypot(lines[i].A, lines[i].B);
+    if (reach < 1.0e-9) { continue; }
+    const Line unit{lines[i].A / reach, lines[i].B / reach, lines[i].C / reach};
+    bool seen = false;
+    for (int j = 0; j < kept && !seen; j++) {
+      const double same = std::fabs(unit.A - lines[j].A) + std::fabs(unit.B - lines[j].B) +
+                          std::fabs(unit.C - lines[j].C);
+      const double flipped = std::fabs(unit.A + lines[j].A) + std::fabs(unit.B + lines[j].B) +
+                             std::fabs(unit.C + lines[j].C);
+      seen = same < 1.0e-6 || flipped < 1.0e-6;
+    }
+    if (!seen) { lines[kept++] = unit; }
+  }
+  return kept;
+}
+
+int CreasesUncounted(const BuildingShape &s, Line *lines);
+
 int CreasesOf(const BuildingShape &s, Line *lines) {
+  return Deduped(lines, CreasesUncounted(s, lines));
+}
+
+int CreasesUncounted(const BuildingShape &s, Line *lines) {
   const double d = s.HalfUm - s.HalfVm;
   switch (s.Roof) {
     case RoofKind::Flat:

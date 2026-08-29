@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 #include <vector>
 
 #include "BuildingShape.h"
@@ -9,6 +10,15 @@
 #include "RoofSurface.h"
 
 namespace outshine::Generators {
+
+namespace {
+std::atomic<size_t> gBuried{0};
+std::atomic<size_t> gDeepestMm{0};
+}
+
+size_t BuildingMesh::BuriedTaken() { return gBuried.exchange(0u); }
+size_t BuildingMesh::DeepestBuriedMmTaken() { return gDeepestMm.exchange(0u); }
+
 
 namespace {
 
@@ -274,6 +284,40 @@ void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
   }
 }
 
+// A BUILDING SITS ON THE HIGHEST GROUND UNDER ITS FOOTPRINT, and the ground has to be SAMPLED to
+// know where that is. Reading the ring's CORNERS alone misses any rise between them -- a footprint
+// spanning a crest touches its highest point in the middle of an edge, not at an end -- and the
+// building then stands below ground along that stretch. Sampled every 2 m, which is finer than the
+// terrain mesh's own grid at any zoom that reaches a building, so the walk cannot step over a rise
+// the mesh actually carries.
+//
+// Its limit, stated here: the samples are on the RING, so a rise strictly INSIDE a large footprint
+// is still invisible. That is the same question as board:2028's, and a proper answer is a ray query
+// against the drawn mesh rather than a denser walk.
+constexpr double kGroundStepM = 2.0;
+
+void SampleGround(const BuildingShape &s, const Site2Ground &ground, double *lowest,
+                  double *highest) {
+  bool first = true;
+  const size_t n = s.Ring.size();
+  for (size_t i = 0; i < n; i++) {
+    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const double len = EdgeLength(p, q);
+    const int steps = 1 + (int)(len / kGroundStepM);
+    for (int step = 0; step < steps; ++step) {
+      const double at = ground.At(Along(p, q, (double)step / (double)steps));
+      if (first) {
+        *lowest = *highest = at;
+        first = false;
+        continue;
+      }
+      if (at < *lowest) { *lowest = at; }
+      if (at > *highest) { *highest = at; }
+    }
+  }
+  if (first) { *lowest = *highest = 0.0; }
+}
+
 // HOW FAR A PLINTH REACHES DOWN, derived from the site rather than chosen. A building is placed on
 // the DEM and drawn against the terrain MESH, and those two differ by whatever the mesh's grid
 // missed -- so a 0.30 m sink leaves a gap under anything on a slope. The spread of the ground across
@@ -284,13 +328,7 @@ void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
 // cannot see.
 double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
-  bool first = true;
-  for (const En &p : s.Ring) {
-    const double at = ground.At(p);
-    if (first) { lowest = highest = at; first = false; continue; }
-    lowest = std::min(lowest, at);
-    highest = std::max(highest, at);
-  }
+  SampleGround(s, ground, &lowest, &highest);
   const double spread = highest - lowest;
   return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
@@ -479,9 +517,26 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
 }
 
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
-  double highest = 0.0;
-  for (const En &p : s.Ring) highest = std::max(highest, ground.At(p));
-  return highest + kPlinthM;
+  double lowest = 0.0, highest = 0.0;
+  SampleGround(s, ground, &lowest, &highest);
+  const double seat = highest + kPlinthM;
+  // THE MEASURE HAS TO ASK SOMEWHERE THE SEATING DID NOT LOOK, or it cannot fire. A first version
+  // compared the ring's own corners against a maximum taken over those same corners: zero by
+  // construction, and a count that always reads zero says nothing about a building being buried.
+  // These points are INSIDE the footprint, which is exactly the ground `SampleGround` cannot see.
+  double deepest = 0.0;
+  for (int step = 0; step < 5; ++step) {
+    const double u = ((double)(step % 3) - 1.0) * 0.5 * s.HalfUm;
+    const double v = ((double)(step / 3) - 0.5) * 0.5 * s.HalfVm;
+    deepest = std::max(deepest, ground.At(s.FromBox(u, v)) - seat);
+  }
+  if (deepest > 0.0) {
+    gBuried.fetch_add(1u, std::memory_order_relaxed);
+    const size_t mm = (size_t)(deepest * 1000.0);
+    size_t was = gDeepestMm.load(std::memory_order_relaxed);
+    while (mm > was && !gDeepestMm.compare_exchange_weak(was, mm)) {}
+  }
+  return seat;
 }
 
 // HOW FAR A BUILDING KEEPS ITS ARCHITECTURE, derived from the lens rather than chosen. At 720 px

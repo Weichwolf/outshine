@@ -851,6 +851,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          (double)Generators::RoofSurface::UnclippedTaken(), "roofs");
         Published.Places("buildings: roof triangles with a vertex outside their footprint",
                          (double)Generators::RoofSurface::OutsideTaken(), "triangles");
+        Published.Places("buildings: seated BELOW the ground they stand on",
+                         (double)Generators::BuildingMesh::BuriedTaken(), "buildings");
+        Published.Places("buildings: and the deepest of them is buried by",
+                         (double)Generators::BuildingMesh::DeepestBuriedMmTaken(), "mm");
       }
       {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
