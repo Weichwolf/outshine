@@ -98,6 +98,13 @@ public:
 
   int InFlightCap() const { return (int)Threads_.size(); }
 
+  // A CLIENT'S WAIT IS A WAIT, NOT A SAMPLE. `Engine::preload` slept 20 ms and asked again, which
+  // is polling -- and this tree's own IO invariant is that a worker is NOTIFIED rather than polling.
+  // Unreal blocks on the outstanding-request count in `BlockTillAllRequestsFinished` and RAGE on
+  // `sysIpcSignalSema` in `LoadAllRequestedObjects`; both wake on a completion, and this is that
+  // completion. It answers false when the deadline passed with nothing landing.
+  [[nodiscard]] bool AwaitLanding(double seconds);
+
 private:
 
   enum class Rank { Fetch = 0, Mesh = 1 };

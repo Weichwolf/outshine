@@ -129,7 +129,7 @@ bool Engine::State::Routes(void) {
   const bool routed = Assembles(declared.Routed.By)(Cast.Scene, Cast.Stood, Cast.Bodies, Cast.Drives, declared.Ground,
                                                     World.Stack, *World.Wire, kept, say, Ticking.Drive);
   if (routed) {
-    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon);
+    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon, Ground::kStreamBudgetMs);
     Ticking.Surface = std::make_unique<Sim::GroundSupport>(World.Stack, Ticking.Drive.Surfaces);
     Ticking.Surface->Restand();
   }
@@ -248,7 +248,13 @@ bool Engine::settled(void) const {
   // fields the generators grow from are the other, and they arrive on their own schedule. A client
   // that took its picture when the last tile landed got correct terrain with no buildings and no
   // streets on it -- measured, six places at `0 instanced` with the snapshot answering Waiting.
-  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown;
+  // AND THE OSM SIDE HAS TO HAVE DRAINED, not merely started. `Grown` is `Snapped::Taken` for the
+  // ONE region under the anchor, which says nothing about whether the vector ring finished or
+  // whether the three fields ingested what it decoded. Measured on the Jura: 100 per cent reported
+  // over 9 settled tiles of a 49-tile ring, and the picture came out with the farms of the plain
+  // and no town.
+  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
+         S_->World.Stack.Ingested();
 }
 
 // A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
@@ -304,8 +310,40 @@ double Engine::loadProgress(void) const {
 // asks for it HERE, once, bounded in seconds. Filament spells the same distinction
 // `SceneRenderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides whether
 // to wait on it. Nothing inside advance() or render() ever calls this.
-Result Engine::preload(double patienceS) {
+// A CEILING ON ONE WAIT, NOT ON THE WAITING. The signal fires on every landing, so this bounds only
+// how long a wake is missed by -- the decode of an already-cached ring raises no landing at all, and
+// without a ceiling that ring would wait out the whole patience with its bytes already in hand.
+constexpr double kMostWaitS = 0.05;
+
+Loading Engine::loading(void) const {
+  Loading said;
+  said.TerrainWanted = S_->World.AskedWanted;
+  said.TerrainArrived =
+      S_->World.AskedWanted >= S_->World.AskedPending ? S_->World.AskedWanted - S_->World.AskedPending : 0;
+  if (!S_->World.Stack.Opened()) { return said; }
+  if (const Ground::OsmField *vectors = S_->World.Stack.Vectors()) {
+    said.VectorArrived = vectors->Tiles().size();
+    const int pending = vectors->PendingTiles();
+    said.VectorWanted = said.VectorArrived + (pending > 0 ? (size_t)pending : 0);
+  }
+  const Ground::TilePool::Ledger counted = S_->World.Stack.Pool().Counters();
+  said.Outstanding = counted.Outstanding > 0 ? (size_t)counted.Outstanding : 0;
+  said.FetchedMB = counted.FetchedMB;
+  said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / (double)counted.Posts : 0.0;
+  return said;
+}
+
+Result Engine::preload(double patienceS) { return preload(patienceS, {}); }
+
+Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
   const auto began = std::chrono::steady_clock::now();
+  const auto say = [&](void) {
+    if (!tell) { return; }
+    Loading said = loading();
+    said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * 8.0 / said.ElapsedS : 0.0;
+    tell(said);
+  };
   const double bound = patienceS > 0.0 ? patienceS : 0.0;
   for (;;) {
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
@@ -316,8 +354,12 @@ Result Engine::preload(double patienceS) {
     // it was not the one the region asked for, and every place at `0 instanced`.
     const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
     const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;
-    S_->World.Stack.Restand(atLat, atLon);
+    // UNBOUNDED HERE, BECAUSE THIS IS THE WAIT ITSELF. A budget belongs to the frame path, which is
+    // a different caller with a different obligation; throttling the client's explicit blocking
+    // load only makes the wait longer without making any frame cheaper.
+    S_->World.Stack.Restand(atLat, atLon, 0.0);
     (void)S_->Grows(atLat, atLon);
+    say();
     if (settled()) { return (S_->Grounds(true)) ? Result{} : std::unexpected(S_->Error); }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;
@@ -331,7 +373,9 @@ Result Engine::preload(double patienceS) {
                   (built ? "" : ", and what did arrive would not build");
       return std::unexpected(S_->Error);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    const double leftS =
+        bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    (void)S_->World.Stack.Pool().AwaitLanding(leftS < kMostWaitS ? leftS : kMostWaitS);
   }
 }
 

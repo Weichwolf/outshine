@@ -40,6 +40,12 @@ public:
     return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Mark_.Done(field.Features());
+  }
+
+  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+
 private:
   std::vector<Way> Ways_;
   TileRanges ByTile_;

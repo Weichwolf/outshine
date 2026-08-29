@@ -160,7 +160,7 @@ bool Engine::State::Updates(void) {
     const double atLon = Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
-      World.Stack.Restand(atLat, atLon);
+      World.Stack.Restand(atLat, atLon, Ground::kStreamBudgetMs);
       {
         const Heap::Tagged growing("world-grow");
         (void)Grows(atLat, atLon);

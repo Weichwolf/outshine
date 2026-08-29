@@ -54,6 +54,26 @@ A publish/subscribe bus is the wrong instrument for THIS question and the reason
 
 The scenario's declared `Event`s are a different thing and are already stood up by `TriggerField::Stand`; nothing here touches them.
 
+## The rate is a BOUND, not a gate
+
+The owner's link does 50 Mbit/s in theory, so that number tells engine-bound from link-bound and
+nothing else: a rate has no negative control, it is faster or slower and never wrong, so it is
+quoted here and never entered into a case. Measured on Central Park: 23 Mbit/s over 11.5 s before
+the ingest loop was unblocked, 48 Mbit/s over 5.6 s after -- which says the engine had been the
+bottleneck and now the link is.
+
+What IS provable stands beside it and has a control: **a ring already in the cache fetches nothing
+over the wire**, so `FetchedMB` attributable to the network is zero and the load is disk-bound. The
+negative control is emptying the cache, which must turn it red.
+
+## Still unexplained, and named rather than assumed
+
+- `456 in flight` reported while terrain reads 128/128 and the vector ring 49/49. Either
+  `Ledger::Outstanding` counts something other than what the view is waiting on, or requests keep
+  being posted for tiles nothing wants. It is an instrument reading nobody has yet defended
+- Central Park renders flat green and blue. Its ring settles and its terrain arrives, so the cause
+  is downstream of the stream and does not belong to this item until measured
+
 ## What would show this wrong
 
 `vector tiles that settled` equal to the full ring, every field's watermark done, and Solothurn standing in `build/places/Jura.png` -- and if the town is still absent with the ring proven full, the cause is the mesher and not the stream.

@@ -1,3 +1,4 @@
+#include <chrono>
 #include "OsmField.h"
 
 #include "Capacity.h"
@@ -31,7 +32,19 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   return id;
 }
 
-int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles) {
+// EVERY UNSETTLED TILE IN THE RING GETS ITS REQUEST, EVERY CALL. What stood here capped the work at
+// ONE tile per call -- and the cap sat in front of `Bytes`, so the remaining tiles were not merely
+// left undecoded, their fetches were never ISSUED. `TilePool` already fetches on a thread pool with
+// its own in-flight cap, so the cap here was throttling the one stage that was already parallel: a
+// ring of 49 tiles took 49 calls just to ask for 49 files. Measured on the Jura, ring 3: 9 of 49
+// tiles settled, and `preload` answering 100 per cent over the other 40.
+//
+// A COUNT IS NOT A BUDGET. One tile per call is bound to how often somebody calls, which is not a
+// quantity the frame path cares about -- at 0.3 ms a tile it wastes the frame and at 40 ms it has
+// already overrun. The expensive stage is `Accept`, which parses the vector tile, so THAT is what
+// carries a budget, and the budget is milliseconds. A non-positive budget means unbounded, which is
+// what `preload` passes: it is the client's explicit blocking wait and not the frame path.
+int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs) {
   uint32_t cx = 0, cy = 0;
   Pending_ = 0;
   Refused_ = 0;
@@ -43,7 +56,7 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles) {
 
   const long n = 1L << Zoom_;
   int added = 0;
-  bool decoded = false;
+  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++)
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
@@ -52,14 +65,16 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles) {
       const uint64_t key = TileKey((int)tx, (int)ty);
       if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) continue;
 
-      if (decoded) { Pending_++; continue; }
+      const double spentMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
+      const bool mayDecode = budgetMs <= 0.0 || spentMs < budgetMs;
       bool refused = false;
-      if (!AddTile(tiles, (int)tx, (int)ty, added, refused)) {
+      if (!AddTile(tiles, (int)tx, (int)ty, added, refused, mayDecode)) {
         if (refused) { Refused_++; } else { Pending_++; }
         continue;
       }
       Settle((int)tx, (int)ty);
-      decoded = true;
     }
 
   return added;
@@ -88,7 +103,8 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return std::span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
 }
 
-bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused) {
+bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused,
+                      bool mayDecode) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
@@ -97,6 +113,7 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refuse
   if (reply == TilePool::Reply::Pending || refused) return false;
 
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) return true;
+  if (!mayDecode) return false;
   added += Accept(tx, ty, Scratch_.Bytes);
   return true;
 }

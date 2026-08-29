@@ -55,6 +55,12 @@ public:
            ByTile_.HeapBytes();
   }
 
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Mark_.Done(field.Features());
+  }
+
+  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+
 private:
 
   static GroundSample RingBase(const GroundQuery &ground, const OsmField &field,

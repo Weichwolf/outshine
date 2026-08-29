@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 14/7 | 33% | [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6 | |
+| `door` | 14/7 | 33% | -- | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -133,6 +133,7 @@ outshine is rather than pretending to be a renderer it is not.
 
 ### `Outshine.h`
 
+    value: Loading
     value: Roots
     type: Renderer
     type: Engine
@@ -147,6 +148,8 @@ outshine is rather than pretending to be a renderer it is not.
     Result inspect(void)
     bool settled(void) const
     Result preload(double patienceS)
+    Result preload(double patienceS, const std::function<void(const Loading &)> &tell)
+    Loading loading(void) const
     double loadProgress(void) const
     bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const
     Result mix(std::span<float> stereo, int rate)
@@ -347,7 +350,7 @@ The heaviest files. Headers and sources counted apart.
 | 856 | `cpp` | `ui/Style.cpp` |
 | 748 | `cpp` | `engine/Live.cpp` |
 | **47** | `h` | *the median of 237 header(s)* |
-| **114** | `cpp` | *the median of 164 source(s)* |
+| **115** | `cpp` | *the median of 164 source(s)* |
 
 ## Carpet
 
@@ -359,7 +362,7 @@ The widest public surfaces.
 | 51 | `src/engine/Live.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
-| 41 | `include/Outshine.h` |
+| 44 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins

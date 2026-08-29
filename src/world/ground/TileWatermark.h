@@ -37,7 +37,10 @@ public:
     return next;
   }
 
-  void Take(uint32_t tile) { Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile); }
+  [[nodiscard]] size_t Takes() const { return Takes_; }
+
+  void Take(uint32_t tile) {
+    Takes_++; Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile); }
 
   void Advance(std::span<const OsmField::Feature> feats) {
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
@@ -59,6 +62,7 @@ private:
 
   std::vector<uint32_t> Ahead_;
   size_t Mark_ = 0;
+  size_t Takes_ = 0;
   int Deferrals_ = 0;
 };
 

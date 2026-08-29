@@ -36,7 +36,8 @@ public:
 
   OsmField(int zoom, std::span<const std::string> layers);
 
-  [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles);
+  [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles,
+                          double budgetMs);
 
   [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
@@ -81,7 +82,7 @@ private:
 
   uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
-  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused);
+  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode);
   void Settle(int x, int y);
 
   std::vector<std::string> Layers_;

@@ -5,6 +5,7 @@
 #include <memory>
 #include <span>
 #include <expected>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,26 @@
 namespace outshine {
 
 using Result = std::expected<void, std::string>;
+
+// WHAT A WAIT LOOKS LIKE WHILE IT IS STILL WAITING. Cesium answers `ComputeLoadProgress()` and
+// Unreal `GetAsyncLoadPercentage`, both a single share, and a single share cannot say WHY a load is
+// slow. These are the quantities that can: how much of each kind arrived, what the wire actually
+// delivered, and how long a fetch took on average. A client that blocks on `preload` cannot poll for
+// them, so `preload` hands them over on every wake.
+struct Loading {
+  size_t TerrainWanted = 0, TerrainArrived = 0;
+  size_t VectorWanted = 0, VectorArrived = 0;
+  size_t Outstanding = 0;
+  double FetchedMB = 0.0;
+  double Megabits = 0.0;
+  double MeanFetchMs = 0.0;
+  double ElapsedS = 0.0;
+
+  [[nodiscard]] double share(void) const {
+    const size_t wants = TerrainWanted + VectorWanted;
+    return wants == 0 ? 1.0 : (double)(TerrainArrived + VectorArrived) / (double)wants;
+  }
+};
 
 struct Roots {
   std::string Assets;
@@ -63,6 +84,8 @@ public:
   [[nodiscard]] Result inspect(void);
   [[nodiscard]] bool settled(void) const;
   [[nodiscard]] Result preload(double patienceS);
+  [[nodiscard]] Result preload(double patienceS, const std::function<void(const Loading &)> &tell);
+  [[nodiscard]] Loading loading(void) const;
   [[nodiscard]] double loadProgress(void) const;
 
   [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;

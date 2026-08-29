@@ -1,3 +1,4 @@
+#include <chrono>
 #include "GroundStack.h"
 
 #include <cmath>
@@ -79,9 +80,9 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
   return finest;
 }
 
-void GroundStack::Restand(double lat, double lon) {
+void GroundStack::Restand(double lat, double lon, double budgetMs) {
   if (!Pool_) { return; }
-  Cls_.Update(*Pool_, lat, lon);
+  Cls_.Update(*Pool_, lat, lon, budgetMs);
   if (!Vegetated_) { return; }
   if (!Vectors_) {
     const std::string layers[] = {OsmLayerName(OsmLayer::Buildings),
@@ -95,10 +96,53 @@ void GroundStack::Restand(double lat, double lon) {
     WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
-  if (Vectors_->Build(*Pool_, lat, lon, kVectorRing) <= 0) { return; }
-  (void)Ways_.Ingest(*Vectors_, Templates_);
-  (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
-  (void)Footprints_.Build(*Ground_, *Vectors_, Span<const WayLine>());
+  // DECODING AND INGESTING ARE TWO PUMPS AND NEITHER GATES THE OTHER. What stood here returned
+  // early unless the decoder had produced features THIS call, so the moment the ring was fully
+  // decoded the three fields stopped being fed and their watermarks froze wherever they stood.
+  // Measured on the Jura: 5 of a 9-tile ring settled and the building field holding 159 footprints
+  // while the world carried 983.
+  (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
+  // THE LOOP ENDS ON NO PROGRESS, NOT ON DONE. A footprint tile is consumable only once the ground
+  // under it has resolved -- `TileWatermark::Ask` DEFERS the rest -- so a round can legitimately
+  // take nothing while the watermark is still short of the end. Waiting for `Drained()` therefore
+  // spins forever exactly when the terrain is behind the vectors, which is most of a cold load.
+  // What the loop is entitled to is every tile that is consumable NOW; the deferred ones are the
+  // next call's, and the terrain arriving is what makes them consumable.
+  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
+  for (;;) {
+    const size_t before = Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() +
+                          Footprints_.IngestedTiles();
+    (void)Ways_.Ingest(*Vectors_, Templates_);
+    (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
+    (void)Footprints_.Build(*Ground_, *Vectors_, Span<const WayLine>());
+    const size_t after = Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() +
+                         Footprints_.IngestedTiles();
+    if (after == before || Drained()) { break; }
+    if (budgetMs > 0.0 &&
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count() >= budgetMs) {
+      break;
+    }
+  }
+}
+
+// DRAINED IS AN EMPTY QUEUE, which is the question Unreal's `BlockTillAllRequestsFinished` and
+// RAGE's `LoadAllRequestedObjects` both answer. `TileWatermark::Done` already existed on all three
+// fields and was asked by nobody, so readiness was decided by the terrain alone.
+// TWO QUESTIONS, AND CONFLATING THEM LIVE-LOCKS. DRAINED asks only whether the fields have taken up
+// what the decoder has already produced -- it is the loop's condition, and it must be reachable
+// while tiles are still in flight. INGESTED is readiness and adds the one the loop must not wait on:
+// that nothing is outstanding. Asking for both in the drain loop spins forever, because during a
+// load there is always something pending.
+bool GroundStack::Drained() const {
+  if (!Vegetated_ || !Vectors_) { return true; }
+  return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_) &&
+         Footprints_.Ingested(*Vectors_);
+}
+
+bool GroundStack::Ingested() const {
+  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  return Vectors_->PendingTiles() <= 0 && Drained();
 }
 
 }

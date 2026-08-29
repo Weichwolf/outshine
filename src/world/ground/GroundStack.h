@@ -24,6 +24,13 @@ class Sink;
 
 namespace outshine::Ground {
 
+// WHAT THE FRAME MAY SPEND ON THE STREAM, and it is a DURATION rather than a count of tiles. A
+// count is bound to how often somebody calls, which is not a quantity a frame budget is made of: at
+// 0.3 ms a tile it leaves the frame idle and at 40 ms it has already overrun. [SET] at 2.0 ms --
+// 12 per cent of the 16.7 ms a 60 Hz frame owns -- pending a measurement of the decode's own cost
+// on this target. `preload` passes 0.0, which means unbounded, because it IS the wait.
+constexpr double kStreamBudgetMs = 2.0;
+
 class GroundStack {
 public:
   GroundStack() = default;
@@ -60,7 +67,9 @@ public:
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  void Restand(double lat, double lon);
+  void Restand(double lat, double lon, double budgetMs);
+  [[nodiscard]] bool Drained() const;
+  [[nodiscard]] bool Ingested() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:

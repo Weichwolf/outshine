@@ -696,6 +696,13 @@ TilePool::Reply TilePool::MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
   return Mesh(z, x, y, grid, out);
 }
 
+bool TilePool::AwaitLanding(double seconds) {
+  if (seconds <= 0.0) { return false; }
+  std::unique_lock<std::mutex> lock(QueueMutex_);
+  return Landed_.wait_for(lock, std::chrono::duration<double>(seconds)) ==
+         std::cv_status::no_timeout;
+}
+
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
   const uint64_t key = MeshKey(z, x, y);
   std::lock_guard<std::mutex> lock(QueueMutex_);

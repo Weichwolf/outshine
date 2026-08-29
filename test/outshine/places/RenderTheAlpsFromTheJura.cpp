@@ -138,7 +138,27 @@ int main(void) {
   // draws. That is Filament's `flushAndWait` distinction: the wait belongs to the client's call,
   // never to the frame path.
   const auto asked = std::chrono::steady_clock::now();
-  const bool ready = engine.preload(kPatienceS).has_value();
+  // A WAIT THE OPERATOR CAN SEE. The load throttled itself for months behind a green PRELOADED and
+  // nobody could tell, because one share is a number without a rate beside it. The bar to hold: at
+  // least 50 Mbit/s off the wire, and a ring already in the cache costs no wait at all.
+  outshine::Loading last;
+  const bool ready = engine
+                         .preload(kPatienceS,
+                                  [&](const outshine::Loading &how) {
+                                    if (how.ElapsedS - last.ElapsedS < 0.25 && how.share() < 1.0) {
+                                      return;
+                                    }
+                                    last = how;
+                                    std::printf(
+                                        "\r    loading  terrain %zu/%zu  osm %zu/%zu  %zu in flight"
+                                        "  %.1f MB  %.0f Mbit/s  %.0f ms/fetch  %.1f s   ",
+                                        how.TerrainArrived, how.TerrainWanted, how.VectorArrived,
+                                        how.VectorWanted, how.Outstanding, how.FetchedMB,
+                                        how.Megabits, how.MeanFetchMs, how.ElapsedS);
+                                    std::fflush(stdout);
+                                  })
+                         .has_value();
+  std::printf("\n");
   const auto stood = std::chrono::steady_clock::now();
   int frames = 0;
   double advancingMs = 0.0, renderingMs = 0.0;

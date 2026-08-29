@@ -55,6 +55,12 @@ public:
   long OutlierCount() const { return Outliers_; }
   int Deferrals() const { return Mark_.Deferrals(); }
 
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Mark_.Done(field.Features());
+  }
+
+  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+
 private:
 
   [[nodiscard]] bool TileGroundResolved(const GroundQuery &ground, const OsmField &field,

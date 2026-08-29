@@ -23,7 +23,7 @@ public:
   void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
   void Open(double lat, double lon);
 
-  void Update(TilePool &tiles, double camLat, double camLon);
+  void Update(TilePool &tiles, double camLat, double camLon, double budgetMs);
 
   std::shared_ptr<const ClassStructure> Read() const {
     std::lock_guard<std::mutex> lk(Mu_);
