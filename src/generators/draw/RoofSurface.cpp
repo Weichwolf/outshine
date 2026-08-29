@@ -13,7 +13,12 @@ struct Line {
   double A = 0.0, B = 0.0, C = 0.0;
 };
 
-constexpr double kOnLineM = 1.0e-4;
+// A CREASE'S TOLERANCE IS THE WELD'S. At a tenth of a millimetre a split point landing just beside a
+// corner still counts as a crossing, and the piece it cuts off is a sliver that `PushTri` then drops
+// -- so the tidying and the splitting fight, and the surface ends up with a hole where a crease
+// grazed a corner. A centimetre is what positions are welded at, so below it two points ARE one
+// point and there is nothing to cut.
+constexpr double kOnLineM = 0.01;
 constexpr double kOverhangM = 0.60;
 constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
