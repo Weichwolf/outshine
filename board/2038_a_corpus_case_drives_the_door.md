@@ -308,11 +308,16 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
 
 ## THE NEXT ROUND'S FIRST FOUR LINES, so it starts from a measurement and not from a memory
 
-    1. find where 1.674 scales the frame -- the same factor for a lit case and a flat one, so it
-       is applied after both variants and before the readback. NOT the readback target: the alias
-       chain is identical on both paths --
-           sceneLinear -> sceneAerial -> sceneComposited -> sceneHdr,  2 passes, 2 stages
-       so both read the same texture and the difference is in what was written into it
+    1. 1.674 IS NOT A COLOUR, IT IS A COVERAGE. The run written into the frame is IDENTICAL on
+       both paths -- BoxInterleaved's emitted radiance is 0.040700871 and `slotBase x world` is
+       0.8 x 0.050876088 = 0.040700870, exact to the last digit. Dividing each path's mean by it
+       leaves the fraction of the frame the subject covers:
+           old  0.004304506 / 0.0407009 = 0.1058
+           door 0.002571654 / 0.0407009 = 0.0632
+       The subject is drawn SMALLER through the door. `picture_p99_delta_code` was reading a size
+       difference all along, and `disagreement_p99_px` reads 0.000 only on AlphaBlendModeTest --
+       whose camera comes from its manifest. The next round measures the projection on a case
+       whose camera does NOT: `derived` from the provenance, or the file's own.
     2. run the FIVE representatives, not one:
        AlphaBlendModeTest, TextureCoordinateTest, BoomBox, BoxInterleaved, MeshoptCubeTest
     3. read the LINEAR mean, not the delta -- a ratio names a factor, a distance names nothing
