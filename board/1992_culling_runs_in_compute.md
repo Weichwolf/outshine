@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 1995
 Area: render
 Tags: benchmark, target, gpu-driven
@@ -201,7 +201,12 @@ A roof is a small geometry with no cut and a tile is a large one whose cut dies 
 When both take `Cut::Built` or `Cut::Given` and one selection reads one table, the sentence above
 stops being a target and becomes a description.
 - [ ] the engine COOKS what says `Built` -- `Cook` reaches the subject path, which is board:1991's
-      work becoming reachable rather than new work
+      work becoming reachable rather than new work. **BLOCKED ON board:1949, and the reason is
+      exact**: `Cook` takes an `outshine::Geometry` and the whole subject path carries a
+      `Gltf::Subject`. `Live::Shown()` returns one and `Held_.Geometry()` -- a method whose NAME says
+      Geometry -- returns one too. So the cooker is not merely unwired, it takes a value that never
+      appears on the path it would have to cook. Giving it a second overload would be the second
+      entrance board:1995 forbids, so the two values have to become one first
 - [ ] the generators deliver BY DISTANCE and the DAG cuts BY SCREEN ERROR, in that order, and
       neither is asked to do the other's job
 - [ ] the OSM structures and the vegetation go through it too: 10 900 objects at Rothenburg and
