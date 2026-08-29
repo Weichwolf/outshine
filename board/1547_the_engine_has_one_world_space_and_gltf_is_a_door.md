@@ -26,6 +26,30 @@ fourteen while the item waited, which is what an unguarded count does.
 Every new thing that enters a picture must remember to convert and the compiler cannot help.
 That is the defect this item makes unspellable.
 
+## THE CONVERSION ITSELF IS UNRESOLVED, and the probe is what says so
+
+Before the nine `Gltf::InEcef` calls can leave `src/render/`, it has to be known what they DO, and
+reading does not settle it. `Site::Push` writes plain ECEF component order --
+`Origin_[c] + P.E * East_[c] + P.N * North_[c] + Z * Up_[c]` for c = 0,1,2 -- while `PackVertices`
+applies `InEcef`, which is `(x,y,z) -> (y,x,-z)`: a real swap, and an involution. Both cannot be
+true of a correct picture.
+
+**PROBE, and the pictures were LOOKED AT rather than scored.** `InEcef` made the identity:
+
+    Rothenburg    1.948 -> 1.951    a correct town either way
+    Central Park  1.194 -> 1.176    SAME composition -- bright towers left, dark right,
+                                    the same structure in the same place
+    Shibuya       1.960 -> 1.898
+
+A swap of x and y is a MIRROR, and a mirror puts Manhattan's bright cluster on the other side. It
+does not move. So POSITIONS are unaffected while the statistics shift by fractions, which fits the
+conversion mattering for NORMALS -- `PackVertices` applies it to those as well.
+
+Three observations that cannot all hold, and no image separates them. **The next step is an
+instrument, not a tenth hypothesis**: print one known vertex either side of the conversion. Nine
+have died in one session, every one from reasoning off a picture or a count instead of measuring
+the thing itself.
+
 ## RE-MEASURED AGAIN, and the framing correction widens what this item owns
 
 This item counted the AXIS CONVERSIONS. The owner's correction to board:1949 makes the scope the
