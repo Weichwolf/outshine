@@ -324,6 +324,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
   double sank = 0.0, sankAt = 0.0;
+  double tallest = -1.0e9, lowest = 1.0e9, tallestOut = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
     const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
                             laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
@@ -339,7 +340,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       sank = below;
       sankAt = std::sqrt(eastM * eastM + northM * northM);
     }
+    if (where.AltM > tallest) {
+      tallest = where.AltM;
+      tallestOut = std::sqrt(eastM * eastM + northM * northM);
+    }
+    if (where.AltM < lowest) { lowest = where.AltM; }
   }
+  Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", tallest, "m");
+  Published.Places("relief: and how far out it lies", tallestOut, "m");
+  Published.Places("relief: the ring's lowest vertex above the ellipsoid", lowest, "m");
+  Published.Places("relief: so the true relief, with the sphere taken out", tallest - lowest, "m");
   {
     std::unordered_map<uint64_t, float> met;
     std::unordered_map<uint64_t, size_t> met2;
