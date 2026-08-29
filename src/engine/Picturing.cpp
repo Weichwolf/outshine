@@ -1310,7 +1310,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   // so far rather than what changed since the last one -- so the bytes the residency moves are the
   // sum over all of them. board:1995 and board:2026 both state the rule this breaks: a mutation
   // costs what CHANGED.
-  Published.Places("times the world was rebuilt whole", (double)World.Rebuilds, "rebuilds");
+  Published.Places("rebuild: times the world was built WHOLE", (double)World.Rebuilds, "rebuilds");
   Published.Places("and how often it was asked about", (double)World.Asked, "walks");
   Published.Places("levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
   Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
