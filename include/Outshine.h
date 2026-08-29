@@ -49,6 +49,16 @@ public:
   [[nodiscard]] bool settled(void) const;
   [[nodiscard]] bool preload(double patienceS);
   [[nodiscard]] double loadProgress(void) const;
+
+  // THE GROUND AT A PLACE, ASKED. Cesium answers `sampleHeightMostDetailed` and Unreal traces down
+  // onto the landscape; in both a client ASKS for ground level and never computes it. The goal this
+  // door is measured against names the case: put a player at GPS coordinates on the ground. Doing
+  // that used to mean declaring a view with `SamplesHeight` and reading a measure back, which is a
+  // client guessing at an engine's insides.
+  //
+  // It refuses rather than answering zero when the terrain there is not resident, because a height
+  // this engine does not have is not a number it may invent.
+  [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;
   [[nodiscard]] bool mix(std::span<float> stereo, int rate);
 
   [[nodiscard]] bool readScenario(std::string_view path);

@@ -75,10 +75,10 @@ And the verbs, because a client calls those rather than the types:
 | `setProjection` | Filament | **not yet** |
 | `setExposure` | Filament | **not yet** |
 | `flushAndWait` | Filament | **not yet** |
-| `sampleHeight` | Cesium | **not yet** |
+| `sampleHeight` | Cesium | yes |
 | `LongitudeLatitudeHeight` | Cesium | yes |
 
-**3 of 14 spoken.**
+**4 of 14 spoken.**
 
 OURS BY RIGHT, because Filament is a renderer and does not face the question:
 
@@ -148,6 +148,7 @@ outshine is rather than pretending to be a renderer it is not.
     bool settled(void) const
     bool preload(double patienceS)
     double loadProgress(void) const
+    bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const
     bool mix(std::span<float> stereo, int rate)
     bool readScenario(std::string_view path)
     bool setGeometry(const Geometry &geometry)
@@ -358,8 +359,8 @@ The widest public surfaces.
 | 51 | `src/content/gltf/Document.h` |
 | 50 | `src/engine/Live.h` |
 | 46 | `src/content/gltf/Subject.h` |
+| 37 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
-| 36 | `include/Outshine.h` |
 
 ## Twins
 

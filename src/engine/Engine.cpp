@@ -255,6 +255,24 @@ bool Engine::settled(void) const {
 // `ComputeLoadProgress()` and Unreal answers `GetAsyncLoadPercentage`; both let the client draw the
 // bar rather than guessing. This is the same question in this engine's own terms: of the terrain
 // the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
+bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {
+  if (!S_->World.Stack.Opened()) {
+    S_->Error = "a height was asked for at " + std::to_string(latitudeDeg) + ", " +
+                std::to_string(longitudeDeg) +
+                " and no world stands -- a scenario declares one before anything can be placed on it";
+    return false;
+  }
+  double aslM = 0.0;
+  if (!S_->World.Stack.Ground().At(latitudeDeg, longitudeDeg).TryAslM(&aslM)) {
+    S_->Error = "the terrain at " + std::to_string(latitudeDeg) + ", " +
+                std::to_string(longitudeDeg) +
+                " is not resident, so the height there is not a number this engine may invent";
+    return false;
+  }
+  heightM = aslM;
+  return true;
+}
+
 double Engine::loadProgress(void) const {
   // THIS READS THE ASK, and it only became truthful when the pool started HOLDING what it built.
   // While `Done_` was a one-shot mailbox, a tile read "pending" again the moment it had been used,

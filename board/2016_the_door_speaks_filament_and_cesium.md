@@ -41,8 +41,11 @@ Measured from `include/Outshine.h` and `include/Scenario.h`:
       camera could not be placed without one
 - [x] a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
       it sits on `Standing`, which body, view, instance and placement all carry
-- [x] `sampleHeight` puts a thing on the TERRAIN. MEASURED at Mather Point: a view asked for ground
-      level and the eye stood at 2 185.8 m, which is the rim
+- [x] `sampleHeight` puts a thing on the TERRAIN, and it is a VERB on the door rather than a flag on
+      a declaration. `Engine::sampleHeight(lat, lon, out)` reads 2 125.8 m at Mather Point and
+      REFUSES before a world stands, which is its own negative control: a door answering 0.0 there
+      would satisfy the positive check by accident. Proven by
+      `test/outshine/door/ScoreWhatTheGroundAnswers`
 - [x] the door's verbs are Filament's where Filament has one, and this tree's only where it does
       not -- each exception named below with its reason
 - [ ] `apps/demo`'s line count FALLS, because a client that already knows Filament writes less
@@ -147,6 +150,7 @@ client here declares a scenario and asks for a frame, and does not assemble a re
     IndirectLight              1
     LongitudeLatitudeHeight    2
     Georeference               2
+    sampleHeight               1
 
 NINE OF TWELVE STAND. The three at zero are the same exception written three ways and it is one
 sentence: **Filament is four objects where this door is one.** `Renderer` is a separate object there
