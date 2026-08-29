@@ -292,8 +292,13 @@ std::vector<En> ClipHalf(const BuildingShape &shape, std::span<const En> poly, c
     if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
       const double f = da / (da - db);
       En cut{a.E + (b.E - a.E) * f, a.N + (b.N - a.N) * f};
-      if (std::hypot(cut.E - a.E, cut.N - a.N) < kOnLineM) { cut = a; }
-      else if (std::hypot(cut.E - b.E, cut.N - b.N) < kOnLineM) { cut = b; }
+      // THE SNAP USES THE SAME NUMBER AS `BreaksAlong`, not the on-line epsilon. A crossing within
+      // `kWeldM` of a corner is DROPPED there -- so if it is merely snapped here at a smaller
+      // tolerance, the covering gains a vertex the soffit and trim beside it never got, and the seam
+      // between them is one vertex out. Two thresholds answering the same question is how the hip's
+      // eaves opened three centimetres above the trim.
+      if (std::hypot(cut.E - a.E, cut.N - a.N) < kWeldM) { cut = a; }
+      else if (std::hypot(cut.E - b.E, cut.N - b.N) < kWeldM) { cut = b; }
       out.push_back(cut);
     }
   }
