@@ -306,6 +306,20 @@ the narrowest the question has ever been, and it is narrow because the readings 
 a ratio between them rather than distances from an oracle. Every earlier round asked "what is
 wrong"; this one asks "where is 1.674 applied", which has an answer that can be searched for.
 
+## THE NEXT ROUND'S FIRST FOUR LINES, so it starts from a measurement and not from a memory
+
+    1. find where 1.674 scales the frame -- the same factor for a lit case and a flat one, so it
+       is applied after both variants and before the readback
+    2. run the FIVE representatives, not one:
+       AlphaBlendModeTest, TextureCoordinateTest, BoomBox, BoxInterleaved, MeshoptCubeTest
+    3. read the LINEAR mean, not the delta -- a ratio names a factor, a distance names nothing
+    4. rebuild ALL 168 objects after any change to a struct in `include/`, or the crash will look
+       like the feature's fault
+
+The converted harness is at `scratchpad/Parity-durch-die-tuer.cpp`. It needs, and the tree does not
+yet carry: `SurfaceOverride::Node`, the per-part slot split in `Live::Build`, and the harness's own
+model of that split.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
