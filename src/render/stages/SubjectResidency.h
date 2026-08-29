@@ -14,6 +14,14 @@
 namespace outshine::Render {
 
 struct SubjectResidency {
+  // WHAT THE RESIDENCY DID PER REBUILD, since the last read. 89 per cent of the hand-over is spent
+  // here and a duration alone cannot say whether the answer is fewer calls, a persistent staging
+  // buffer, or a layout that needs no copy.
+  [[nodiscard]] static size_t UploadsTaken();
+  [[nodiscard]] static size_t UploadMBTaken();
+  [[nodiscard]] static size_t BuffersMadeTaken();
+  [[nodiscard]] static size_t StagingMadeTaken();
+
   enum class Stream : uint8_t {
     Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles,
     Placements, Count

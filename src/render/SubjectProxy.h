@@ -91,7 +91,10 @@ struct SubjectScratch {
 [[nodiscard]] bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                            SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
+[[nodiscard]] [[nodiscard]] double PackedMs();
+[[nodiscard]] double HandedMs();
+
+bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                          SubjectScratch &scratch, std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,

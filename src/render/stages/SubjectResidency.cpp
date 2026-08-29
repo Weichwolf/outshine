@@ -1,3 +1,4 @@
+#include <atomic>
 #include "SubjectResidency.h"
 
 #include <cmath>
@@ -31,17 +32,35 @@ constexpr bool kChainIsReadable = false;
 
 }
 
+// WHAT THE RESIDENCY ACTUALLY DOES PER REBUILD, counted rather than reasoned about. 89 per cent of
+// Shibuya's hand-over is spent below this line and the shape of the cost -- how many uploads, how
+// many bytes, how many fresh buffers -- decides whether the answer is fewer calls, a persistent
+// staging buffer, or a layout that needs no copy at all.
+std::atomic<size_t> gUploads{0};
+std::atomic<size_t> gUploadBytes{0};
+std::atomic<size_t> gBuffersMade{0};
+std::atomic<size_t> gStagingMade{0};
+
+size_t SubjectResidency::UploadsTaken() { return gUploads.exchange(0u); }
+size_t SubjectResidency::UploadMBTaken() { return gUploadBytes.exchange(0u) / 1000000u; }
+size_t SubjectResidency::BuffersMadeTaken() { return gBuffersMade.exchange(0u); }
+size_t SubjectResidency::StagingMadeTaken() { return gStagingMade.exchange(0u); }
+
 OwnedBuffer SubjectResidency::Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes) {
   SDL_GPUBufferCreateInfo wantedBuffer{};
   wantedBuffer.usage = usage;
   wantedBuffer.size = bytes;
   OwnedBuffer buffer(Device, SDL_CreateGPUBuffer(Device, &wantedBuffer));
+  gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
   if (!buffer) { return buffer; }
 
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
   SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+  gUploads.fetch_add(1u, std::memory_order_relaxed);
+  gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
   if (!staging) {
     buffer.Reset();
     return buffer;
@@ -80,6 +99,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
       wanted.usage = one.Usage;
       wanted.size = one.Bytes;
       *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
+      gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
       if (!*one.Into) {
         *one.Held = 0;
         error = std::string("a vertex stream found no room on the device: ") + SDL_GetError();
@@ -152,6 +172,9 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
   OwnedTransfer once(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+  gUploads.fetch_add(1u, std::memory_order_relaxed);
+  gUploadBytes.fetch_add(total, std::memory_order_relaxed);
   if (!once) {
     error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
     return false;
@@ -274,6 +297,9 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;
     SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+  gUploads.fetch_add(1u, std::memory_order_relaxed);
+  gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
     void *const mappedLevel = SDL_MapGPUTransferBuffer(Device, staging, false);
     if (mappedLevel == nullptr) {
       SDL_ReleaseGPUTransferBuffer(Device, staging);

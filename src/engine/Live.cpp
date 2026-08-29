@@ -264,10 +264,24 @@ bool Live::Build(std::string &error) {
 
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
-    const auto insideFrom = std::chrono::steady_clock::now();
-    if (!Stand(error) || !Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error) || !Submit(error)) {
-      return false;
-    }
+    auto insideFrom = std::chrono::steady_clock::now();
+    const auto sinceInside = [&insideFrom]() {
+      const double ms =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
+              .count();
+      insideFrom = std::chrono::steady_clock::now();
+      return ms;
+    };
+    const auto wholeFrom = std::chrono::steady_clock::now();
+    if (!Stand(error)) { return false; }
+    StandMs_ = sinceInside();
+    if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) { return false; }
+    SurfaceMs_ = sinceInside();
+    if (!Submit(error)) { return false; }
+    SubmitMs_ = sinceInside();
+    InsideMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
+            .count();
     InsideMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
             .count();
@@ -733,8 +747,6 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &w
   // MEASURED on Shibuya before removing it: standing and submitting inside `Build` 13 844 ms, then
   // 773 + 8 265 ms doing it again, out of a 24 163 ms hand-over.
   Joined_ = carried;
-  StandMs_ = 0.0;
-  SubmitMs_ = 0.0;
   return true;
 }
 

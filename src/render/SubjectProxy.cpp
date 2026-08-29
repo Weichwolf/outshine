@@ -1,3 +1,5 @@
+#include <atomic>
+#include <chrono>
 #include "SubjectProxy.h"
 
 #include <limits>
@@ -413,6 +415,16 @@ bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
          Place(renderer, proxy, view, scratch, error);
 }
 
+// PACKING AND HANDING OVER ARE TWO COSTS AND ONE NAME COVERED BOTH. `PackVertices` de-interleaves
+// the subject into the scratch -- CPU work that a matching layout would delete -- and
+// `SetSubjectMesh` is the device's own. 13.7 s of Shibuya's rebuild is the pair, and which of them
+// holds it decides whether the answer is a layout or a driver.
+std::atomic<double> gPackMs{0.0};
+std::atomic<double> gHandMs{0.0};
+
+double PackedMs() { return gPackMs.load(std::memory_order_relaxed); }
+double HandedMs() { return gHandMs.load(std::memory_order_relaxed); }
+
 bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
            SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
@@ -450,7 +462,12 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
     }
   }
   const Heap::Tagged vertices("vertex-pack");
+  const auto packedFrom = std::chrono::steady_clock::now();
   const VertexRuns runs = PackVertices(proxy, subject, scratch.Vertices);
+  gPackMs.store(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packedFrom)
+          .count(),
+      std::memory_order_relaxed);
 
   SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
@@ -469,7 +486,12 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   }
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
+  const auto handedFrom = std::chrono::steady_clock::now();
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
+  gHandMs.store(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
+          .count(),
+      std::memory_order_relaxed);
   if (!Placed(renderer, proxy, error)) { return false; }
 
   return true;

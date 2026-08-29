@@ -87,6 +87,7 @@ public:
   [[nodiscard]] double ResolveMs() const { return ResolveMs_; }
   [[nodiscard]] double BoundsMs() const { return BoundsMs_; }
   [[nodiscard]] double InsideMs() const { return InsideMs_; }
+  [[nodiscard]] double SurfaceMs() const { return SurfaceMs_; }
   [[nodiscard]] double StandMs() const { return StandMs_; }
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
@@ -224,7 +225,7 @@ private:
   Render::SubjectScratch Scratch_;
 
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
-  double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0;
+  double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;

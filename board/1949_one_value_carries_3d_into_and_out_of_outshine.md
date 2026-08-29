@@ -8,6 +8,31 @@ Tags: benchmark, target, owner
 # ONE value carries 3D data into and out of outshine, and glTF is one of its file forms
 
 
+## THE OWNER'S RULE, and it decides the layout question this item has been circling
+
+**A generator must deliver data the rest of the pipeline does not have to change.** Not "deliver it
+efficiently" -- deliver it in the form the device binds, so that nothing between the two reshapes
+it. A copy that exists only because two stages disagree about a layout is not a cost to optimise,
+it is a decision nobody made.
+
+MEASURED, and the chain is four representations of one thing:
+
+    Site soup (8 floats interleaved: position, uv, normal)
+      -> Geometry parts
+      -> Gltf::Subject
+      -> PackVertices, which DE-INTERLEAVES into separate runs
+      -> the residency's upload
+
+`PackVertices` exists for exactly one reason: the generator writes interleaved and the renderer
+binds separate streams. On Shibuya that disagreement costs 2 708 ms of pure copying, and the upload
+that follows carries 900 MB that were already in memory in a valid form. Under the rule the answer
+is not a faster pack -- it is that the pack STOPS EXISTING, and the upload points at what the
+generator wrote.
+
+That is this item's own sentence read strictly: ONE value carries 3D in and out, and a value that
+has to be re-laid on the way is more than one.
+
+
 ## THE HIP'S HOLES ARE A SCALE DEFECT, and two derivations died proving it
 
 A square footprint with a hip roof opens, and the sweep now holds the cases that say so. Height,

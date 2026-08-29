@@ -1204,6 +1204,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    Picture.Standing->InsideMs(), "ms");
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
+  Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
+  Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
+  Published.Places("rebuild: uploads the residency made",
+                   (double)Render::SubjectResidency::UploadsTaken(), "uploads");
+  Published.Places("rebuild: megabytes they carried",
+                   (double)Render::SubjectResidency::UploadMBTaken(), "MB");
+  Published.Places("rebuild: device buffers created",
+                   (double)Render::SubjectResidency::BuffersMadeTaken(), "buffers");
+  Published.Places("rebuild: staging buffers created",
+                   (double)Render::SubjectResidency::StagingMadeTaken(), "buffers");
+  Published.Places("rebuild: laying the surface", Picture.Standing->SurfaceMs(), "ms");
   Published.Places("rebuild: settling placements and lights",
                    Picture.Standing->StandMs(), "ms");
   Published.Places("rebuild: and the streams to the device",
