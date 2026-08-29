@@ -64,3 +64,35 @@ triangle built from two different rings looks like.
 
 1. **Span against the footprint's own extent**, not against a constant. A triangle wider than the ring it came from is the defect; a 40 m barn is not
 2. **The eye is the control the counters failed.** The same crop at the same magnification. A count that reaches zero while the picture still shows them means the measure is not seeing what I am -- which is exactly what happened to the first one
+
+
+## A THIRD HYPOTHESIS DEAD, AND A REAL DEFECT FOUND BESIDE IT
+
+The fan is not the cause: `RoofSurface::EarClip` is a proper ear clipper, not a fan, so a concave
+footprint is triangulated correctly. And a 309 m triangle turns out to be EXPLICABLE -- `Walls`
+raises a quad per ring edge, and Rothenburg's town wall is one closed way of about 2.5 km, so a
+309 m wall segment is a 309 m triangle and belongs there. The reach census names real geometry as
+often as it names a defect, which is what its own page must say.
+
+**What the clipper does when it cannot find an ear is the defect:**
+
+    if (!cut) return;
+
+It stops and leaves the polygon PARTIALLY triangulated -- some ears cut, the rest of the surface
+simply absent. Nothing counts it and nothing says so. That is the open faces the owner saw, and it
+is a silent refusal of exactly the kind this tree keeps finding: `Grows()` had eight of them,
+`Geometry` had three thrown away with a `(void)`.
+
+Its guard is `n * n + 8` iterations, so a ring of 512 points may also simply run out.
+
+## What will be true
+
+- [ ] a clipper that cannot finish SAYS SO, and the count of surfaces it left open is published
+- [ ] a footprint whose ring it cannot clip is refused whole rather than half-drawn
+- [ ] the count is zero at all five places, or the rings that defeat it are named
+
+## The measurement that would show I am wrong
+
+1. **Count the bail-outs.** If `EarClip` never hits `if (!cut) return;` at any of the five places,
+   the open faces come from somewhere else and this is misfiled. That number does not exist today,
+   which is the whole point
