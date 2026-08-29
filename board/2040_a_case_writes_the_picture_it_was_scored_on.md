@@ -15,8 +15,14 @@ MEASURED, on `khronos/glTF/AlphaBlendModeTest` with the harness the tree carries
     picture_p99_delta_code = 1 code, 31 checks, 0 failures       -- the case PASSES
     1-outshine.png beside it                                     -- pure magenta
 
-The score compares the LINEAR readback against the EXR oracle. The PNG is written from a different
-buffer and on this path carries nothing. So a reader who follows CLAUDE.md's own rule -- *if it
+NAMED EXACTLY, because "a different buffer" is not a finding until it has a name:
+
+    the metric   `ComparePicture(scored, oracle, ...)` where `scored` is derived from
+                 `picture.Linear` -- the scene-referred float readback
+    the PNG      written from `picture.Rgba` -- the DISPLAYED byte readback
+
+Two readbacks, two buffers, one filename. On the path that passes, `Rgba` carries the clear colour
+and nothing else, and the case still scores 1 code because its `Linear` is right. So a reader who follows CLAUDE.md's own rule -- *if it
 draws, LOOK AT IT before believing any number* -- looks at a picture that had no part in the
 verdict, and reads it with confidence.
 
