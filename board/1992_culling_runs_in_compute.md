@@ -95,3 +95,39 @@ scene without it` is about OCCLUSION and the selection above is about ERROR -- a
 because its screen-space error is small, not because something stands in front of it. There is no
 occlusion culling in this tree at all today, so that predicate is a second feature wearing the
 same item's number, and the HiZ predicate beside it is its real name.
+
+## RE-MEASURED, and both halves of the item's premise are stale
+
+**1. The terrain has no DAG to cull, BY DESIGN, and the code says so.** `CookTile` carries a written
+argument against building one: the tile pyramid IS the LOD, zoom z-1 is the simplification of zoom z,
+Nanite builds its DAG offline and Cesium ships pre-simplified tiles -- and sampling a place mid-load
+put 572 stack samples inside `dag::Clustered`, `dag::SimplifyGroup` and `dag::Absorb`, reducing 2 048
+triangles per tile to 8 across 128 tiles. So one cluster per tile, deliberately:
+
+    place          clusters held   drawn   whole index list   list the CPU selected
+    Jura                    100     100            653 400                 653 400
+    Rothenburg              100     100            653 400                 653 400
+    Central Park            100     100            653 400                 653 400
+    Shibuya                  88      88            574 992                 574 992
+
+6 534 indices per tile in a single cluster. The item's "342 held, 83 drawn" predates that removal and
+is struck.
+
+**2. `DagSelect` is called in exactly ONE file — `GroundPatchwork.cpp` — and the subject path calls
+it nowhere.** So there is no per-cluster culling anywhere that decides anything: the ground's is a
+no-op by construction and the subjects have none.
+
+**3. AND THE COOKER NOTHING REACHES.** `outshine::Cook(Geometry, part, ClusterDagOpts, ...)` is
+board:1991's landed work -- one cooker, one cooked form, the cut chosen per cluster. Its only callers
+in the whole tree are two CASES: `geo/ScoreWhatACutCostsASubject` and
+`geo/ScoreWhatOneCookerDoesToASubject`. No engine code calls it. The subject path flattens geometry
+into a `SubjectScratch` per frame and uploads it whole.
+
+So this item cannot be worked in the order it was written. A compute stage culling one cluster per
+tile is a dispatch to decide nothing, and there are no subject clusters to cull at all.
+
+- [ ] the engine COOKS its subjects — `Cook` reaches the subject path and a proxy holds clusters,
+      which is board:1991's own work becoming reachable rather than new work
+- [ ] `DagSelect` runs on the subject path, on the CPU first, so the before-number is real and
+      belongs to the thing being moved
+- [ ] only then the compute stage, whose win is the CPU no longer walking clusters that MATTER
