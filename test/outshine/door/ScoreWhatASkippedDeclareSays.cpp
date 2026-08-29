@@ -30,7 +30,7 @@
 
 namespace {
 
-constexpr const char *kScenario = "apps/driver/src/f31.scenario";
+constexpr const char *kScenario = "src/assets/drive/f31.scenario";
 
 }
 
@@ -44,7 +44,7 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{64, 36})) {
     Unprepared("the device stood no canvas");
     return Report();

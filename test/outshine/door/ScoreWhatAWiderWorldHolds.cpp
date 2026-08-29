@@ -37,7 +37,7 @@ namespace {
 // The drive needs terrain and OSM tiles, so this runs OFFLINE and reports UNPREPARED rather than
 // red on a machine that has never driven. Pinning them is board:1964's remaining half.
 constexpr int kSteps = 20;
-constexpr const char *kScenario = "apps/driver/src/f31.scenario";
+constexpr const char *kScenario = "src/assets/drive/f31.scenario";
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
   for (const outshine::Measure &held : engine.measures()) {
@@ -55,7 +55,7 @@ struct Held {
 [[nodiscard]] Held Drove(double toLat, double toLon, std::string &why) {
   Held out;
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;

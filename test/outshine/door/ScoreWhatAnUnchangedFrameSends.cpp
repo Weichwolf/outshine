@@ -38,7 +38,7 @@ namespace {
 // The per-frame rebuild is real and it is on the DRIVE path: `Engine`'s tick calls
 // `Live::Carry(bodyFromWorld, ...)`, which rebuilds every row from the body's transform and hands
 // the lot over. A drive needs a vehicle asset and a route, which no case here stands, so that half
-// is owed to `apps/driver` -- CLAUDE.md's one integration test -- and board:1957 stays open until
+// is owed to the drive path itself -- and board:1957 stays open until
 // it is paid.
 //
 // What this case does prove is worth keeping and is stated as what it is: a frame that changes
@@ -160,6 +160,6 @@ int main(void) {
         "separates `FScene` from `UWorld` and feeds it deltas");
 
   Covers("the render: on the path a standing subject takes, a frame that changes nothing re-places "
-         "nothing -- the drive path's own proof is owed to apps/driver and board:1957");
+         "nothing -- the drive path's own proof is owed to a drive that moves and board:1957");
   return Report();
 }

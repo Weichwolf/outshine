@@ -228,7 +228,7 @@ board item. Under *every number carries its origin*, those constants are undecla
 | Waymo Open Motion, nuScenes | Waymo / Motional | research terms | TRUTH about trajectories | pose and velocity from sensor fusion, with no control inputs and no measured tyre forces. Nothing behind the trajectory is known | wrong quantity |
 | CARLA logs | CARLA | MIT | SNAPSHOT | throttle, brake and steer alongside trajectory — but CARLA is PhysX, so this checks agreement with another engine's opinion | same category error as Chrono |
 
-**Verdict.** Tyre models, contacts and vehicle response have no invariant corpus. `apps/driver`
+**Verdict.** Tyre models, contacts and vehicle response have no invariant corpus. the drive path
 plus the architect's screenshot is the only instrument, and saying otherwise would be a wish.
 
 ## 12 · Spatial audio

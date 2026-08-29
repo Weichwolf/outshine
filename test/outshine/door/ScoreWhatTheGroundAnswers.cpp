@@ -47,7 +47,7 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
 
   double before = 0.0;
   const bool answeredEarly = engine.sampleHeight(kRimLatDeg, kRimLonDeg, before);

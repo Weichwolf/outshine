@@ -318,6 +318,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
     if (World.EverLaid && !elsewhere && !grew) { return true; }
+    Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
+    Published.Places("rebuild: tiles resident when it did", (double)resident, "tiles");
+    Published.Places("rebuild: and resident the time before", (double)World.LaidResident, "tiles");
     World.LaidFrom = from;
     World.LaidResident = resident;
     World.EverLaid = true;

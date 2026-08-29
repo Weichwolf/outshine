@@ -22,7 +22,7 @@ namespace {
 // `Read` would pass a field census and fail a drive.
 //
 // So the oracle is the drive itself. The same route is declared twice -- once by reading
-// `apps/driver/src/f31.scenario`, once by building the same `Scenario` in C++ -- and both are
+// `src/assets/drive/f31.scenario`, once by building the same `Scenario` in C++ -- and both are
 // advanced the same number of fixed steps from the same start. A body integrated from identical
 // declarations lands in the identical place, to the digit, because nothing in between is allowed
 // to depend on where the declaration came from.
@@ -34,7 +34,7 @@ namespace {
 // The drive needs terrain and OSM tiles. It runs offline and reports UNPREPARED rather than red on
 // a machine that has never driven, which is the same bargain the corpora make.
 constexpr int kSteps = 24;
-constexpr const char *kScenario = "apps/driver/src/f31.scenario";
+constexpr const char *kScenario = "src/assets/drive/f31.scenario";
 
 [[nodiscard]] outshine::Contact Standing(const char *at, double xM, double zM, double reachM,
                                          double stiffness, double damping) {
@@ -141,7 +141,7 @@ struct Landed {
 [[nodiscard]] Landed Drove(const outshine::Scenario &declared, std::string &why) {
   Landed out;
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;
@@ -172,7 +172,7 @@ int main(void) {
   }
 
   outshine::Engine reader;
-  reader.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  reader.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!reader.readScenario(kScenario)) {
     Unprepared(("the declaration would not read: " + reader.error()).c_str());
     return Report();
@@ -221,7 +221,7 @@ int main(void) {
   outshine::Scenario onFoot = fromFile;
   onFoot.Routed.By = outshine::Travels::Walk;
   outshine::Engine walker;
-  walker.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  walker.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   const bool refusedWalk =
       walker.drawsInto(outshine::Extent{320, 180}) && walker.declare(onFoot) && !walker.assemble();
   const std::string whyWalk = walker.error();

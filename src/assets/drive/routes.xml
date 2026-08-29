@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<routes name="one hundred real routes" version="1">
+
+  <route id="0" stratum="control" from="synthetic" to="synthetic"
+         why="the negative control -- a road this engine built, smooth by construction"/>
+  <route id="1" stratum="reference" from="Munich" to="Hamburg"
+         fromLat="48.137" fromLon="11.576" toLat="53.551" toLon="9.993"
+         why="800 km of the best-tagged data on earth -- if this does not drive, no stratum matters"/>
+
+  <!-- untagged structure: galleries, tunnels and bridges OSM does not always mark -->
+  <route id="10" stratum="structure" from="Airolo" to="Goeschenen"        fromLat="46.528" fromLon="8.612"  toLat="46.665" toLon="8.590"  why="Gotthard, galleries and portals in sequence"/>
+  <route id="11" stratum="structure" from="Andermatt" to="Gletsch"        fromLat="46.634" fromLon="8.594"  toLat="46.563" toLon="8.362"  why="Furka, avalanche galleries above 2000 m"/>
+  <route id="12" stratum="structure" from="Bourg-St-Pierre" to="Aosta"    fromLat="45.951" fromLon="7.204"  toLat="45.735" toLon="7.313"  why="Grand St Bernard, a border tunnel with approaches on both sides"/>
+  <route id="13" stratum="structure" from="Geiranger" to="Aandalsnes"     fromLat="62.101" fromLon="7.206"  toLat="62.567" toLon="7.687"  why="Norwegian fjord road, tunnels alternating with shelf"/>
+  <route id="14" stratum="structure" from="Laerdal" to="Aurland"          fromLat="61.101" fromLon="7.478"  toLat="60.906" toLon="7.190"  why="the 24.5 km Laerdal tunnel, the longest road tunnel there is"/>
+  <route id="15" stratum="structure" from="Takayama" to="Matsumoto"       fromLat="36.140" fromLon="137.252" toLat="36.238" toLon="137.972" why="Japanese mountain expressway, tunnel after tunnel"/>
+  <route id="16" stratum="structure" from="Chamonix" to="Courmayeur"      fromLat="45.923" fromLon="6.869"  toLat="45.792" toLon="6.969"  why="Mont Blanc, a tunnel under 4000 m of rock"/>
+  <route id="17" stratum="structure" from="Innsbruck" to="Sterzing"       fromLat="47.269" fromLon="11.392" toLat="46.894" toLon="11.433" why="Brenner, viaducts over a valley floor"/>
+  <route id="18" stratum="structure" from="Aalesund" to="Molde"           fromLat="62.472" fromLon="6.155"  toLat="62.737" toLon="7.159"  why="Atlanterhavsveien, bridges between islands"/>
+  <route id="19" stratum="structure" from="Visp" to="Taesch"              fromLat="46.294" fromLon="7.881"  toLat="46.068" toLon="7.779"  why="a valley road cut into rock the whole way"/>
+
+  <!-- stacked junction: several carriageways over one another -->
+  <route id="20" stratum="stacked" from="Inglewood" to="Downtown Los Angeles" fromLat="33.930" fromLon="-118.331" toLat="34.052" toLon="-118.244" why="four-level interchanges, the densest stacking built"/>
+  <route id="21" stratum="stacked" from="Hongqiao" to="the Bund"          fromLat="31.194" fromLon="121.336" toLat="31.240" toLon="121.490" why="Yan'an elevated over a surface grid"/>
+  <route id="22" stratum="stacked" from="Sutton Coldfield" to="Birmingham" fromLat="52.563" fromLon="-1.824" toLat="52.480" toLon="-1.903" why="Gravelly Hill, five levels over a canal and a river"/>
+  <route id="23" stratum="stacked" from="Haneda" to="Shinjuku"            fromLat="35.549" fromLon="139.780" toLat="35.690" toLon="139.700" why="Shuto expressway, elevated over water and rail"/>
+  <route id="24" stratum="stacked" from="Katy" to="Houston"               fromLat="29.786" fromLon="-95.824" toLat="29.760" toLon="-95.363" why="26 lanes at the widest point, with frontage roads beside"/>
+  <route id="25" stratum="stacked" from="Jebel Ali" to="Deira"            fromLat="25.011" fromLon="55.111" toLat="25.271" toLon="55.317" why="Sheikh Zayed Road, interchanges every few kilometres"/>
+  <route id="26" stratum="stacked" from="Suvarnabhumi" to="Siam"          fromLat="13.690" fromLon="100.750" toLat="13.746" toLon="100.534" why="tollway stacked over surface road over canal"/>
+  <route id="27" stratum="stacked" from="Incheon Airport" to="Gangnam"    fromLat="37.460" fromLon="126.441" toLat="37.498" toLon="127.028" why="a bridge approach into a river-side elevated network"/>
+  <route id="28" stratum="stacked" from="Versailles" to="Montreuil"       fromLat="48.804" fromLon="2.130"  toLat="48.862" toLon="2.443"  why="Peripherique and A86, ring over ring"/>
+  <route id="29" stratum="stacked" from="Guarulhos" to="Pinheiros"        fromLat="-23.432" fromLon="-46.469" toLat="-23.567" toLon="-46.702" why="Marginal Tiete, expressway beside and over a river"/>
+
+  <!-- hairpin geometry: the tightest curvature a road carries -->
+  <route id="30" stratum="hairpin" from="Bormio" to="Prato allo Stelvio"  fromLat="46.467" fromLon="10.372" toLat="46.617" toLon="10.598" why="Stelvio, 48 numbered hairpins"/>
+  <route id="31" stratum="hairpin" from="Aandalsnes" to="Valldal"         fromLat="62.567" fromLon="7.687"  toLat="62.302" toLon="7.249"  why="Trollstigen, 11 hairpins on a 9 % grade"/>
+  <route id="32" stratum="hairpin" from="Zhangjiajie" to="Tianmen"        fromLat="29.128" fromLon="110.479" toLat="29.048" toLon="110.479" why="99 bends in 11 km"/>
+  <route id="33" stratum="hairpin" from="Curtea de Arges" to="Cartisoara" fromLat="45.140" fromLon="24.677" toLat="45.712" toLon="24.583" why="Transfagarasan, hairpins on both sides of a tunnel"/>
+  <route id="34" stratum="hairpin" from="Bormio" to="Ponte di Legno"      fromLat="46.467" fromLon="10.372" toLat="46.259" toLon="10.510" why="Gavia, single-track with no barrier"/>
+  <route id="35" stratum="hairpin" from="Los Gatos" to="Santa Cruz"       fromLat="37.227" fromLon="-121.974" toLat="36.974" toLon="-122.031" why="a fast divided highway with a tight radius on it"/>
+  <route id="36" stratum="hairpin" from="Sospel" to="La Bollene-Vesubie"  fromLat="43.877" fromLon="7.447"  toLat="43.992" toLon="7.352"  why="Col de Turini, a rally stage in the public network"/>
+  <route id="37" stratum="hairpin" from="Odawara" to="Hakone"             fromLat="35.256" fromLon="139.152" toLat="35.232" toLon="139.026" why="a toll road built entirely of curves"/>
+  <route id="38" stratum="hairpin" from="Los Andes" to="Mendoza"          fromLat="-32.834" fromLon="-70.598" toLat="-32.890" toLon="-68.844" why="Los Caracoles, 29 hairpins at 3000 m"/>
+  <route id="39" stratum="hairpin" from="Lauro Mueller" to="Bom Jardim da Serra" fromLat="-28.391" fromLon="-49.395" toLat="-28.339" toLon="-49.628" why="Serra do Rio do Rastro, 1400 m of climb in 12 km"/>
+
+  <!-- very long straight: numerical drift over distance -->
+  <route id="40" stratum="straight" from="Norseman" to="Ceduna"           fromLat="-32.196" fromLon="121.779" toLat="-32.127" toLon="133.673" why="the Eyre Highway, 146 km without a bend"/>
+  <route id="41" stratum="straight" from="Perito Moreno" to="Bajo Caracoles" fromLat="-46.588" fromLon="-70.930" toLat="-47.449" toLon="-70.929" why="Ruta 40, ripio and nothing else for 130 km"/>
+  <route id="42" stratum="straight" from="Fallon" to="Ely"                fromLat="39.473" fromLon="-118.777" toLat="39.247" toLon="-114.888" why="US-50 across the Great Basin, basin and range repeated"/>
+  <route id="43" stratum="straight" from="Tamanrasset" to="In Salah"      fromLat="22.785" fromLon="5.528"  toLat="27.194" toLon="2.481"  why="Trans-Sahara, 650 km of near-straight desert"/>
+  <route id="44" stratum="straight" from="Riyadh" to="Buraydah"           fromLat="24.713" fromLon="46.675" toLat="26.326" toLon="43.975" why="a modern desert motorway with long tangents"/>
+  <route id="45" stratum="straight" from="Goodland" to="Salina"           fromLat="39.351" fromLon="-101.710" toLat="38.840" toLon="-97.611" why="the Kansas grid, section lines every mile"/>
+  <route id="46" stratum="straight" from="Ceduna" to="Port Augusta"       fromLat="-32.127" fromLon="133.673" toLat="-32.492" toLon="137.766" why="Nullarbor east, 470 km with four bends"/>
+  <route id="47" stratum="straight" from="Aktobe" to="Aral"               fromLat="50.284" fromLon="57.167" toLat="46.799" toLon="61.663" why="Kazakh steppe, a road resurfaced across an old alignment"/>
+  <route id="48" stratum="straight" from="Santa Rosa" to="Buenos Aires"   fromLat="-36.620" fromLon="-64.290" toLat="-34.603" toLon="-58.382" why="Ruta 5, pampa with almost no relief"/>
+  <route id="49" stratum="straight" from="Alice Springs" to="Tennant Creek" fromLat="-23.698" fromLon="133.881" toLat="-19.649" toLon="134.190" why="the Stuart Highway, 500 km through the centre"/>
+
+  <!-- extreme elevation: the solve's range and the drivetrain's gradient limit -->
+  <route id="50" stratum="elevation" from="Leh" to="Nubra"                fromLat="34.164" fromLon="77.585" toLat="34.680" toLon="77.554" why="Khardung La, over 5300 m"/>
+  <route id="51" stratum="elevation" from="Lima" to="La Oroya"            fromLat="-12.046" fromLon="-77.043" toLat="-11.524" toLon="-75.902" why="Ticlio, sea level to 4818 m in 130 km"/>
+  <route id="52" stratum="elevation" from="Susques" to="San Pedro de Atacama" fromLat="-23.404" fromLon="-66.366" toLat="-22.911" toLon="-68.200" why="Paso de Jama, a high plateau crossing at 4300 m"/>
+  <route id="53" stratum="elevation" from="Furnace Creek" to="Beatty"     fromLat="36.459" fromLon="-116.867" toLat="36.908" toLon="-116.758" why="Death Valley, below sea level to 1200 m"/>
+  <route id="54" stratum="elevation" from="Jerusalem" to="Ein Bokek"      fromLat="31.779" fromLon="35.222" toLat="31.201" toLon="35.363" why="800 m above to 400 m below sea level"/>
+  <route id="55" stratum="elevation" from="Idaho Springs" to="Mount Evans" fromLat="39.742" fromLon="-105.514" toLat="39.588" toLon="-105.643" why="the highest paved road in North America"/>
+  <route id="56" stratum="elevation" from="Kangding" to="Litang"          fromLat="30.052" fromLon="101.964" toLat="29.996" toLon="100.269" why="Sichuan-Tibet, four passes over 4000 m in a row"/>
+  <route id="57" stratum="elevation" from="Ollantaytambo" to="Santa Maria" fromLat="-13.258" fromLon="-72.263" toLat="-12.869" toLon="-72.549" why="Abra Malaga, 4300 m down to 1200 m of cloud forest"/>
+  <route id="58" stratum="elevation" from="Bruck" to="Heiligenblut"       fromLat="47.286" fromLon="12.819" toLat="47.028" toLon="12.840" why="Grossglockner, a built alpine road with declared grades"/>
+  <route id="59" stratum="elevation" from="Kabul" to="Pul-e-Khumri"       fromLat="34.526" fromLon="69.178" toLat="35.946" toLon="68.706" why="Salang, a 3400 m tunnel with galleries either side"/>
+
+  <!-- high latitude: Mercator distortion and metres per degree -->
+  <route id="60" stratum="latitude" from="Tromsoe" to="Alta"              fromLat="69.649" fromLon="18.956" toLat="69.969" toLon="23.271" why="70 N, where a degree of longitude is 38 km"/>
+  <route id="61" stratum="latitude" from="Ushuaia" to="Rio Grande"        fromLat="-54.802" fromLon="-68.303" toLat="-53.786" toLon="-67.710" why="the southernmost road network there is"/>
+  <route id="62" stratum="latitude" from="Reykjavik" to="Akureyri"        fromLat="64.147" fromLon="-21.942" toLat="65.683" toLon="-18.089" why="65 N with single-lane tunnels and bridges"/>
+  <route id="63" stratum="latitude" from="Rovaniemi" to="Inari"           fromLat="66.503" fromLon="25.730" toLat="68.905" toLon="27.028" why="the arctic circle to 69 N on one road"/>
+  <route id="64" stratum="latitude" from="Murmansk" to="Kandalaksha"      fromLat="68.970" fromLon="33.075" toLat="67.157" toLon="32.412" why="69 N, and sparse tagging on top of it"/>
+  <route id="65" stratum="latitude" from="Longyearbyen" to="Bjoerndalen"  fromLat="78.223" fromLon="15.628" toLat="78.222" toLon="15.336" why="78 N, the highest latitude with a public road"/>
+  <route id="66" stratum="latitude" from="Nuuk" to="Qinngorput"           fromLat="64.175" fromLon="-51.738" toLat="64.163" toLon="-51.653" why="a network with no connection to any other"/>
+  <route id="67" stratum="latitude" from="Fairbanks" to="Deadhorse"       fromLat="64.838" fromLon="-147.716" toLat="70.201" toLon="-148.459" why="the Dalton Highway, 666 km of gravel to 70 N"/>
+  <route id="68" stratum="latitude" from="Yellowknife" to="Behchoko"      fromLat="62.454" fromLon="-114.372" toLat="62.803" toLon="-116.046" why="subarctic road built over permafrost"/>
+  <route id="69" stratum="latitude" from="Bodoe" to="Narvik"              fromLat="67.280" fromLon="14.404" toLat="68.438" toLon="17.427" why="67 to 68 N with ferries in the middle"/>
+
+  <!-- antimeridian: longitude wrap, a whole class of silent defect -->
+  <route id="70" stratum="antimeridian" from="Taveuni north" to="Taveuni south" fromLat="-16.734" fromLon="179.968" toLat="-16.852" toLon="-179.883" why="the 180th meridian runs through the island"/>
+  <route id="71" stratum="antimeridian" from="Suva" to="Nadi"            fromLat="-18.141" fromLon="178.442" toLat="-17.798" toLon="177.416" why="just west of 180, where a wrap is nearly right"/>
+  <route id="72" stratum="antimeridian" from="Anadyr" to="Ugolnye Kopi"  fromLat="64.732" fromLon="177.507" toLat="64.735" toLon="177.741" why="Chukotka at 177 E with 179 E next door"/>
+  <route id="73" stratum="antimeridian" from="Wellington" to="Napier"    fromLat="-41.286" fromLon="174.776" toLat="-39.493" toLon="176.912" why="175 to 177 E, the approach to the wrap"/>
+  <route id="74" stratum="antimeridian" from="Gisborne" to="Napier"      fromLat="-38.663" fromLon="178.018" toLat="-39.493" toLon="176.912" why="178 E, the easternmost road on the mainland"/>
+  <route id="75" stratum="antimeridian" from="Nukualofa" to="Kolovai"    fromLat="-21.139" fromLon="-175.204" toLat="-21.100" toLon="-175.350" why="175 W, one degree the other side"/>
+  <route id="76" stratum="antimeridian" from="Apia" to="Faleolo"         fromLat="-13.833" fromLon="-171.765" toLat="-13.830" toLon="-172.008" why="a country that moved across the date line"/>
+  <route id="77" stratum="antimeridian" from="Nome" to="Council"         fromLat="64.501" fromLon="-165.406" toLat="64.895" toLon="-163.674" why="165 W, isolated and sparsely tagged"/>
+  <route id="78" stratum="antimeridian" from="Petropavlovsk" to="Yelizovo" fromLat="53.024" fromLon="158.650" toLat="53.187" toLon="158.386" why="158 E, a network with no land route out"/>
+  <route id="79" stratum="antimeridian" from="Funafuti" to="Fongafale"   fromLat="-8.521" fromLon="179.196" toLat="-8.491" toLon="179.129" why="179 E, a road one atoll wide"/>
+
+  <!-- sparse tagging: inference where OSM says almost nothing -->
+  <route id="80" stratum="sparse" from="Ouagadougou" to="Bobo-Dioulasso" fromLat="12.371" fromLon="-1.520" toLat="11.178" toLon="-4.297" why="a national trunk road with few attributes on it"/>
+  <route id="81" stratum="sparse" from="Ulaanbaatar" to="Kharkhorin"     fromLat="47.886" fromLon="106.906" toLat="47.194" toLon="102.823" why="steppe tracks where the road is a suggestion"/>
+  <route id="82" stratum="sparse" from="Bamako" to="Segou"               fromLat="12.639" fromLon="-8.003" toLat="13.438" toLon="-6.266" why="Sahel, surface and width almost never tagged"/>
+  <route id="83" stratum="sparse" from="Juba" to="Bor"                   fromLat="4.859"  fromLon="31.582" toLat="6.211"  toLon="31.559" why="a road that exists in OSM and barely on the ground"/>
+  <route id="84" stratum="sparse" from="Antananarivo" to="Toamasina"     fromLat="-18.879" fromLon="47.508" toLat="-18.149" toLon="49.402" why="RN2, hills with no elevation tags at all"/>
+  <route id="85" stratum="sparse" from="Manaus" to="Presidente Figueiredo" fromLat="-3.119" fromLon="-60.021" toLat="-2.032" toLon="-60.025" why="Amazon, canopy that defeats the elevation source"/>
+  <route id="86" stratum="sparse" from="Kinshasa" to="Kikwit"            fromLat="-4.322" fromLon="15.307" toLat="-5.038" toLon="18.818" why="500 km with long stretches mapped from imagery alone"/>
+  <route id="87" stratum="sparse" from="Nouakchott" to="Nouadhibou"      fromLat="18.079" fromLon="-15.978" toLat="20.941" toLon="-17.037" why="a coastal desert road beside a railway and nothing else"/>
+  <route id="88" stratum="sparse" from="Lhasa" to="Shigatse"             fromLat="29.652" fromLon="91.140" toLat="29.267" toLon="88.881" why="high plateau, sparse tags and 4000 m throughout"/>
+  <route id="89" stratum="sparse" from="Port Moresby" to="Kerema"        fromLat="-9.443" fromLon="147.180" toLat="-7.963" toLon="145.778" why="a road with river crossings that may or may not be bridged"/>
+
+  <!-- dense urban: junction density and very short segments -->
+  <route id="90" stratum="urban" from="Battery Park" to="Harlem"         fromLat="40.703" fromLon="-74.017" toLat="40.811" toLon="-73.946" why="a grid with a junction every 80 m"/>
+  <route id="91" stratum="urban" from="Shibuya" to="Asakusa"             fromLat="40.659" fromLon="139.701" toLat="35.712" toLon="139.797" why="the densest addressable network there is"/>
+  <route id="92" stratum="urban" from="Hradcany" to="Vinohrady"          fromLat="50.089" fromLon="14.399" toLat="50.077" toLon="14.451" why="medieval streets with no consistent width"/>
+  <route id="93" stratum="urban" from="Sants" to="Sagrada Familia"       fromLat="41.379" fromLon="2.140"  toLat="41.404" toLon="2.174"  why="the Eixample, chamfered corners on every block"/>
+  <route id="94" stratum="urban" from="Giza" to="Heliopolis"             fromLat="30.013" fromLon="31.211" toLat="30.088" toLon="31.324" why="flyovers over a dense surface grid"/>
+  <route id="95" stratum="urban" from="Colaba" to="Andheri"              fromLat="18.906" fromLon="72.815" toLat="19.119" toLon="72.847" why="a sea link, an elevated road and a colonial grid in one route"/>
+  <route id="96" stratum="urban" from="Sultanahmet" to="Levent"          fromLat="41.008" fromLon="28.978" toLat="41.078" toLon="29.011" why="two continents and a bridge between them"/>
+  <route id="97" stratum="urban" from="Mestre" to="Marghera"             fromLat="45.493" fromLon="12.243" toLat="45.470" toLon="12.222" why="a mainland network that ends at a lagoon"/>
+  <route id="98" stratum="urban" from="Zocalo" to="Santa Fe"             fromLat="19.433" fromLon="-99.133" toLat="19.360" toLon="-99.260" why="2200 m altitude with a 400 m climb across the city"/>
+  <route id="99" stratum="urban" from="Victoria Island" to="Ikeja"       fromLat="6.428"  fromLon="3.421"  toLat="6.601"  toLon="3.342"  why="bridges over a lagoon into an unplanned grid"/>
+
+  <!-- discontinuous network: what OSM connects that no road spans -->
+  <route id="100" stratum="discontinuous" from="Bergen" to="Stavanger"   fromLat="60.392" fromLon="5.324"  toLat="58.970" toLon="5.733"  why="fjord ferries as part of the through route"/>
+  <route id="101" stratum="discontinuous" from="Igoumenitsa" to="Corfu"  fromLat="39.503" fromLon="20.266" toLat="39.624" toLon="19.921" why="a route that only exists by boat"/>
+  <route id="102" stratum="discontinuous" from="Helsingoer" to="Helsingborg" fromLat="56.033" fromLon="12.614" toLat="56.046" toLon="12.694" why="a 4 km crossing between two countries"/>
+  <route id="103" stratum="discontinuous" from="Puttgarden" to="Roedby"  fromLat="54.503" fromLon="11.222" toLat="54.654" toLon="11.353" why="a rail ferry carrying road traffic"/>
+  <route id="104" stratum="discontinuous" from="Dover" to="Calais"       fromLat="51.128" fromLon="1.313"  toLat="50.951" toLon="1.858"  why="left-hand traffic on one side and right on the other"/>
+  <route id="105" stratum="discontinuous" from="Nanaimo" to="Vancouver"  fromLat="49.166" fromLon="-123.940" toLat="49.283" toLon="-123.121" why="an island network and a mainland one, joined by ferry"/>
+  <route id="106" stratum="discontinuous" from="Palermo" to="Villa San Giovanni" fromLat="38.116" fromLon="13.361" toLat="38.219" toLon="15.637" why="a motorway that ends at a strait"/>
+  <route id="107" stratum="discontinuous" from="Piraeus" to="Chania"     fromLat="37.942" fromLon="23.647" toLat="35.512" toLon="24.018" why="270 km of open sea inside one route"/>
+  <route id="108" stratum="discontinuous" from="Kagoshima" to="Sakurajima" fromLat="31.596" fromLon="130.557" toLat="31.583" toLon="130.657" why="a 15 minute ferry onto an active volcano"/>
+  <route id="109" stratum="discontinuous" from="Wellington" to="Picton"  fromLat="-41.286" fromLon="174.776" toLat="-41.291" toLon="173.988" why="the strait between two islands of one country"/>
+
+</routes>

@@ -84,7 +84,7 @@ int main(void) {
 
   outshine::Engine engine;
   engine.setRoots(
-      outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", false});
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
   if (!engine.drawsInto(outshine::Extent{kWidePx, kHighPx})) {
     Unprepared("the device stood no canvas");
     return Report();

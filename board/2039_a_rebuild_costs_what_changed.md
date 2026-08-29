@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: engine, world
 Tags: measured
 
@@ -23,6 +23,29 @@ A guard already stops a rebuild that would change NOTHING -- `World.EverLaid && 
 !grew` -- and that guard is why a standing camera pays nothing per frame. What it does not do is
 make the rebuild PROPORTIONAL: one tile arriving re-meshes every resident tile, re-packs every
 stream and re-uploads 2468 MB.
+
+**RE-MEASURED, AND THE FIRST READING WAS THE WRONG ONE.** "2 rebuilds" reads like a world built
+twice; instrumenting the TRIGGER says otherwise:
+
+    rebuild: the eye walked into another tile      0 yes/no
+    rebuild: tiles resident when it did          112 tiles
+    rebuild: and resident the time before          0 tiles
+
+Both rebuilds come from `grew`, not from movement, and the last one took the world from 0 to 112
+tiles -- that is the ONE real build. The other is the empty one at stand-up. **A standing place
+builds its world once, and this item buys it nothing.** `preload` calls `Grounds` once at settle
+rather than per arrival, which board:1941 already fixed.
+
+So the cost this item names is real but it is the DRIVE's, not the place's: the eye crossing into
+another tile sets `elsewhere` and re-meshes the whole ring, which is a 19 s stall in a world that
+is supposed to be moving. **The places cannot see it and there is no instrument here that can.**
+Writing the optimisation before the instrument would be optimising against a guess, which is what
+this page refuses everywhere else.
+
+- [ ] An instrument that MOVES: a camera walking a city until it crosses tile borders, reporting
+      the stall at each crossing. `apps/bench` drives and is the place for it -- and a rate is
+      BOUNDED there rather than turned into a tick
+- [ ] Only then the cut below, and each line of it quotes the number it beat
 
 **THIS IS THE LAST OPEN PIECE OF THE FORM GOAL**, and the three before it are done: no `Gltf::` in
 `src/render/`, the device layout declared once in `RunsOf` with a `static_assert`, and every

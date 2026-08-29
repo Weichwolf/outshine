@@ -18,8 +18,8 @@ constexpr const char *kScenes[] = {"DamagedHelmet", "Fox",         "BrainStem",
 
 struct Asked {
   std::string Scene;
-  std::string Scenario = "apps/driver/src/f31.scenario";
-  std::string Assets = "apps/driver/src";
+  std::string Scenario = "src/assets/drive/f31.scenario";
+  std::string Assets = "src/assets/drive";
   std::string Shipped = "src/assets";
   std::string Cache = "/tmp/outshine-bench-cache";
   bool Offline = true;

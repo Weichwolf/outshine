@@ -80,7 +80,7 @@ inline int RenderPlace(const Place &place) {
   outshine::LogSinkScope listening(&telling);
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
   if (!engine.drawsInto(outshine::Extent{kWidePx, kHighPx})) {
     Unprepared("the device stood no canvas");
     return Report();

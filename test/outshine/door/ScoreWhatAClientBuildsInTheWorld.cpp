@@ -28,7 +28,7 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
 
   outshine::Scenario declared;
   declared.Bodies.push_back(outshine::Body{});

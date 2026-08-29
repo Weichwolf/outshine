@@ -118,7 +118,7 @@ SCENARIO_ASSETS = (
                   "2014-bmw-3-series-f31-71746440f98d48ca9ea41ceeaa3504c7",
         "credit": 'This work is based on "2014 BMW 3 Series (F31)" by DisneyCars, '
                   "licensed under CC-BY-4.0",
-        "declaredBy": "apps/driver/src/f31.scenario",
+        "declaredBy": "src/assets/drive/f31.scenario",
         "files": {
             "scene.gltf": "c60068fcd0f8c25e73225cd3725a422fca46c00a2a68ca481988a6680cc5fb1d",
             "scene.bin": "be46e9c11f5b7f16a2cc01a3a96b92394bff04ed3742a8974de2f9bc093ba453",

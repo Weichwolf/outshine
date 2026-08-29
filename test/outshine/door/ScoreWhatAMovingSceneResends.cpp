@@ -25,7 +25,7 @@ namespace {
 // not what exists -- and the two differ here by the ring, which is drawn every frame and placed
 // once.
 constexpr int kFrames = 24;
-constexpr const char *kScenario = "apps/driver/src/f31.scenario";
+constexpr const char *kScenario = "src/assets/drive/f31.scenario";
 
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
   for (const outshine::Measure &held : engine.measures()) {
@@ -46,7 +46,7 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     Unprepared("the device stood no canvas");
     return Report();
