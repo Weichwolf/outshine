@@ -71,7 +71,10 @@ public:
     GeoToEcef(lat, lon, plan.BaseAslM, origin);
     EnuAxesEcef(lat, lon, East_, North_, Up_);
     for (int c = 0; c < 3; c++) Origin_[c] = origin[c] - plan.AnchorEcef[c];
+    ReachM_ = std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
   }
+
+  [[nodiscard]] double ReachM() const { return ReachM_; }
 
   void Tri(const Vtx &a, const Vtx &b, const Vtx &c) {
     const double e1 = b.P.E - a.P.E, n1 = b.P.N - a.P.N, z1 = b.Z - a.Z;
@@ -114,6 +117,7 @@ private:
 
   std::vector<float> &Soup_;
   double Origin_[3], East_[3], North_[3], Up_[3];
+  double ReachM_ = 0.0;
 };
 
 class Site2Ground {
@@ -223,9 +227,8 @@ std::vector<En> Refined(std::span<const En> ring, const std::vector<En> &wide,
 }
 
 void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
-           double lowZ, Site &site) {
+           double lowZ, double topZ, Site &site) {
   const size_t n = s.Ring.size();
-  const double topZ = EavesZ(s);
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
@@ -460,11 +463,58 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   return highest + kPlinthM;
 }
 
+// HOW FAR A BUILDING KEEPS ITS ARCHITECTURE, derived from the lens rather than chosen. At 720 px
+// over 55 degrees a pixel is 0.076 deg, so a feature of size `w` covers one pixel at
+// `w / tan(0.076 deg)` = w / 1.33e-3. A gable, a chimney or an eaves band is of the order of a metre,
+// so all of them are inside ONE pixel beyond about 750 m; a whole 27 m building still covers 20 px
+// at 20 km. Past the near bound a footprint therefore becomes a plain extruded prism -- the mass a
+// skyline is read by -- and everything the eye could not resolve stops being meshed.
+//
+// This is Unreal's HLOD and RAGE's distant-building proxy, and it is the answer the owner named. It
+// is not a cut: the building is still there, still closed, still the right height. What it loses is
+// detail no pixel was carrying. At Shibuya the full path meshed 12.9 M triangles and 313 MB of
+// vertices from ONE vector tile, and the terrain never got a core to build on.
+constexpr double kArchitectureReachM = 1200.0;
+
+void Prism(const BuildingShape &s, const RoofSurface &roof, const Site2Ground &ground, Site &site) {
+  const size_t n = s.Ring.size();
+  const double lowZ = PlinthFootZ(s, ground);
+  const double topZ = s.TopM();
+  for (size_t i = 0; i < n; i++) {
+    const size_t j = (i + 1) % n;
+    site.Quad(Face(s, s.Ring[i], lowZ, Facade::Wall), Face(s, s.Ring[j], lowZ, Facade::Wall),
+              Face(s, s.Ring[j], topZ, Facade::Wall), Face(s, s.Ring[i], topZ, Facade::Wall));
+  }
+  std::vector<En> tris;
+  roof.Cover(s.Ring, tris);
+  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    site.Tri(Face(s, tris[i], topZ, Facade::RoofFlat), Face(s, tris[i + 1], topZ, Facade::RoofFlat),
+             Face(s, tris[i + 2], topZ, Facade::RoofFlat));
+  }
+  Floor(s, roof, s.Ring, lowZ, site);
+}
+
 void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const RoofSurface roof(s);
+  if (site.ReachM() > kArchitectureReachM) {
+    Prism(s, roof, ground, site);
+    return;
+  }
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
+  // WHERE THE WALL STOPS IS THE ROOF'S TO SAY. A parapet's cornice juts out from the wall head, so
+  // the wall ends at the cornice's UNDERSIDE and the ledge above it belongs to the crown -- ending
+  // it level with the deck instead put three surfaces on one edge, which is not a surface at all.
+  // A flat roof with no crown carries its deck `RiseM` above the eaves, and a wall stopping at the
+  // eaves leaves exactly that much open.
+  const std::vector<En> crownInner = RoofSurface::Widened(s.Ring, -kParapetThickM);
+  const std::vector<En> crownOut = RoofSurface::Widened(s.Ring, kCorniceM);
+  const bool crowned = s.Roof == RoofKind::Flat && crownInner.size() == s.Ring.size() &&
+                       crownOut.size() == s.Ring.size() && s.HalfVm > 2.2 && s.RiseM > 0.0;
+  const double wallTopZ = s.Roof != RoofKind::Flat ? EavesZ(s)
+                          : crowned                ? EavesZ(s) - 0.34
+                                                   : EavesZ(s) + s.RiseM;
   if (s.OnGround()) {
     Plinth(s, roof, overhang, ground, plinthZ, site);
     const std::vector<En> foot =
@@ -473,17 +523,12 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   } else {
     Floor(s, roof, s.Ring, lowZ, site);
   }
-  Walls(s, roof, RoofSurface::Widened(s.Ring, s.OverhangM), lowZ, site);
+  Walls(s, roof, overhang, lowZ, wallTopZ, site);
 
   if (s.Roof == RoofKind::Flat) {
-    const std::vector<En> inner = RoofSurface::Widened(s.Ring, -kParapetThickM);
-    const std::vector<En> out = RoofSurface::Widened(s.Ring, kCorniceM);
-    const bool crowned = inner.size() == s.Ring.size() && out.size() == s.Ring.size() &&
-                         s.HalfVm > 2.2 && s.RiseM > 0.0;
-
     const double deckZ = crowned ? EavesZ(s) : EavesZ(s) + s.RiseM;
-    Covering(s, roof, crowned ? inner : s.Ring, deckZ, site);
-    if (crowned) Crown(s, inner, out, site);
+    Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
+    if (crowned) Crown(s, crownInner, crownOut, site);
     RoofPlant(s, deckZ, site);
     return;
   }

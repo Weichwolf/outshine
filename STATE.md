@@ -477,8 +477,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 
 | constants | file |
 |---|---|
+| 17 | `src/generators/draw/BuildingMesh.cpp` |
 | 16 | `src/generators/draw/BuildingShape.cpp` |
-| 16 | `src/generators/draw/BuildingMesh.cpp` |
 | 6 | `src/generators/draw/RoofSurface.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |

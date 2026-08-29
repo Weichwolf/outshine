@@ -238,7 +238,7 @@ int main(void) {
     }
 
     const outshine::Ground::Ecef anchor =
-        outshine::Ground::GeoToEcefWgs84(outshine::Ground::Geo{lat, lon, 0.0});
+        outshine::Ground::GeoToEcefWgs84(outshine::Ground::Geo{lon, lat, 0.0});
     const double anchorEcef[3] = {anchor.X, anchor.Y, anchor.Z};
     StructurePlan plan;
     plan.AnchorEcef = anchorEcef;
