@@ -91,6 +91,9 @@ private:
   size_t StagingAt_ = 0;
   std::array<Staged, kStagedCrossings> Staged_{};
   size_t StagedCount_ = 0;
+
+  OwnedTransfer Bulk_;
+  uint32_t BulkBytes_ = 0;
 };
 
 }

@@ -171,15 +171,26 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   SDL_GPUTransferBufferCreateInfo room{};
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
-  OwnedTransfer once(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+  // THE STAGING BUFFER STAYS. It was created and destroyed on EVERY upload -- 35 of them in one of
+  // Shibuya's rebuilds, each sized to the whole hand-over -- so the rebuild paid for hundreds of
+  // megabytes of allocation and first-touch page faults that the previous upload had already paid
+  // for. It is grown when a bigger hand arrives and never shrunk.
+  //
+  // MAPPED WITH CYCLE, which is the whole reason reuse is safe: SDL renames the buffer when the GPU
+  // may still be reading the last contents, so the write does not wait on the copy before it.
+  // Mapping a REUSED buffer without cycling is a stall dressed as a memcpy.
+  if (BulkBytes_ < total || !Bulk_) {
+    Bulk_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+    BulkBytes_ = Bulk_ ? total : 0u;
+    gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+  }
   gUploads.fetch_add(1u, std::memory_order_relaxed);
   gUploadBytes.fetch_add(total, std::memory_order_relaxed);
-  if (!once) {
+  if (!Bulk_) {
     error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
     return false;
   }
-  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, once.Get(), false));
+  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Bulk_.Get(), true));
   if (mapped == nullptr) {
     error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();
     return false;
@@ -190,14 +201,14 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
     std::memcpy(mapped + at, what[one].From, what[one].Bytes);
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
-  SDL_UnmapGPUTransferBuffer(Device, once.Get());
+  SDL_UnmapGPUTransferBuffer(Device, Bulk_.Get());
 
   SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    const SDL_GPUTransferBufferLocation source{once.Get(), at};
+    const SDL_GPUTransferBufferLocation source{Bulk_.Get(), at};
     const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     at = (at + what[one].Bytes + 15u) & ~15u;
