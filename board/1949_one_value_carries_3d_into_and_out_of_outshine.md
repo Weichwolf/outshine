@@ -8,6 +8,35 @@ Tags: benchmark, target, owner
 # ONE value carries 3D data into and out of outshine, and glTF is one of its file forms
 
 
+## THE FRAMING THIS ITEM CARRIED IS WITHDRAWN: glTF IS AN IMPORT PATH, NOT THE INTERNAL VALUE
+
+Written into this item earlier: "our standard asset format is glTF and generators are dynamic glTF
+suppliers -- outshine is a glTF assembler". **That is wrong, and the measurement is what refutes
+it.** `Gltf::Subject` as the value everything crosses on is precisely what forces the reshaping
+between the producer and the device:
+
+    Site soup, 8 floats interleaved  ->  Gltf::Subject  ->  PackVertices de-interleaves  ->  upload
+
+2 708 ms of pure copying on Shibuya, and 3 374 MB moved for a world holding about 900 MB. Not a slow
+copy -- a copy that a decision created.
+
+**THE CORRECTED SHAPE.** glTF gets an IMPORT PATH like any other producer, and every producer --
+importer and generator alike -- delivers data in the form the RENDERER binds, preferably in SDL3's
+own types:
+
+    glTF importer  --\
+    OSM, terrain,     >--  the layout the device binds  -->  device
+    vegetation     --/
+
+**Benchmark** — Unreal: the glTF importer is an EDITOR path that produces the same cooked buffers a
+native asset produces; nothing at runtime carries a glTF shape. RAGE: every importer lands in
+`grmGeometry`, and the file format it came from is gone by then. **They agree, and neither carries an
+interchange format inward.** Taking that.
+
+This does not weaken the item's title -- ONE value still carries 3D in and out. It corrects WHICH
+value: not the one a file happens to use, but the one the device reads. A value that has to be
+re-laid on the way is more than one, and glTF's layout is not the device's.
+
 ## THE OWNER'S RULE, and it decides the layout question this item has been circling
 
 **A generator must deliver data the rest of the pipeline does not have to change.** Not "deliver it

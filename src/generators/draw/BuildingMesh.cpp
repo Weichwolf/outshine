@@ -790,7 +790,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     Plinth(s, roof, overhang, ground, plinthZ, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
-    Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
+    // PROBE
   } else {
     Floor(s, s.Ring, lowZ, site);
   }
