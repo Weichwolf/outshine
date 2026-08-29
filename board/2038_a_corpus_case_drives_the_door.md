@@ -291,6 +291,21 @@ regresses to 1 failure and the other four stand where they were. So the rule is 
 the next round tunes it against ALL FIVE rather than against one, which is the whole lesson of this
 one.
 
+**AND THE REMAINING DIFFERENCE IS ONE GLOBAL FACTOR.** Mean red in the buffer the metric reads,
+old path against door path, on two cases of DIFFERENT kinds:
+
+    BoomBox         lit      0.003953406  ->  0.002363626     ratio 1.673
+    BoxInterleaved  flat     0.004304506  ->  0.002571654     ratio 1.674
+
+The same number for a LIT case and a FLAT one. That is not a shading difference -- those two take
+different variants and different code paths -- it is a scale applied after both. The plan's exposure
+is 1.0 on both sides, so it is not that either.
+
+**THAT IS WHAT THE NEXT ROUND LOOKS FOR: one factor of 1.674, applied to the whole frame.** It is
+the narrowest the question has ever been, and it is narrow because the readings are QUANTITIES with
+a ratio between them rather than distances from an oracle. Every earlier round asked "what is
+wrong"; this one asks "where is 1.674 applied", which has an answer that can be searched for.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
