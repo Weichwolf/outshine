@@ -5,7 +5,6 @@
 #include <Geometry.h>
 #include <Material.h>
 
-#include "Cooked.h"
 
 namespace outshine::Ground {
 

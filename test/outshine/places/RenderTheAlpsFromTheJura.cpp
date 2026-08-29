@@ -33,14 +33,19 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   The eye stands on the WEISSENSTEIN, the Jura ridge at 47.2537 N 7.4231 E, and looks down its
-//   south face. SOLOTHURN lies 10.0 km away on a bearing of 120.57 deg -- both derived from the two
-//   coordinates rather than chosen: north 111 132 m/deg, east 111 320 m/deg times cos of the mean
-//   latitude, and atan2 of the two. So the frame should hold, in this order and at these depths:
-//   the ridge falling away in the first kilometre, the Aare plain, the town on it as a patch of
-//   roofs and streets about a fifth of the way up the frame, and the ALPS behind it at 60 to 100 km
-//   standing pale against the sky. If the town is not there the OSM footprints did not reach the
-//   ring; if the Alps are the same green as the plain, the air is not costing anything.
+//   THE WHOLE MITTELLAND, AND THE ALPS BEHIND IT, from the HOTEL WEISSENSTEIN on the Jura ridge at
+//   47.2537 N 7.4231 E. The bearing is taken on the JUNGFRAU at 46.5367 N 7.9626 E -- 152.75 deg and
+//   89.6 km, derived from the two coordinates rather than chosen: north 111 132 m/deg, east
+//   111 320 m/deg times cos of the mean latitude, atan2 of the two.
+//
+//   So the frame should read in four depths: the ridge falling away in the first kilometre,
+//   SOLOTHURN on the Aare about 10 km out and a little to the left of centre, the Mittelland's
+//   farmland and towns carrying the middle distance for fifty kilometres, and the BERNESE ALPS
+//   standing pale along the horizon at 80 to 100 km. This is the set's test of DEPTH: nothing else
+//   in it asks a frame to hold four scales at once.
+//
+//   If the Alps are the same green as the plain, the air is costing nothing. If the horizon is flat,
+//   the ring is not reaching them. If Solothurn is a green patch, the OSM footprints did not arrive.
 
 namespace {
 
@@ -52,7 +57,7 @@ constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 constexpr double kLatDeg = 47.2537;
 constexpr double kLonDeg = 7.4231;
-constexpr double kBearingDeg = 120.57;
+constexpr double kBearingDeg = 152.75;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;

@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 14/7 | 33% | -- | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
+| `door` | 14/7 | 33% | [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6 | |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -272,7 +272,7 @@ Module depends on module, derived from the includes themselves.
 ```mermaid
 flowchart LR
   render_stages --> |31| render_device
-  world_ground --> |20| base_spatial
+  world_ground --> |19| base_spatial
   generators --> |18| generators_base
   world_ground --> |14| base_io
   sim --> |14| actor_path
@@ -307,9 +307,8 @@ flowchart LR
   engine --> |3| world_ground
   engine --> |3| scene
   engine --> |3| base_spatial
-  content_shade --> |3| base_math
 ```
-  37 edge(s) drawn, 49 thinner than three includes not drawn
+  36 edge(s) drawn, 49 thinner than three includes not drawn
 
 ## Tiers
 
@@ -344,11 +343,11 @@ The heaviest files. Headers and sources counted apart.
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 886 | `h` | `base/spatial/ClusterDag.h` |
 | 876 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| **46** | `h` | *the median of 243 header(s)* |
-| **114** | `cpp` | *the median of 165 source(s)* |
+| 748 | `cpp` | `engine/Live.cpp` |
+| **47** | `h` | *the median of 237 header(s)* |
+| **114** | `cpp` | *the median of 164 source(s)* |
 
 ## Carpet
 
@@ -390,7 +389,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 - `src/world/data/WebTileSource.h`
 - `src/world/ground/StructureMesher.h`
 
-36 public data member(s) in a class -- an invariant nobody can hold.
+35 public data member(s) in a class -- an invariant nobody can hold.
 
 | members | header |
 |---|---|
@@ -399,9 +398,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 4 | `src/content/shade/TangentFrame.h` |
 | 3 | `src/generators/draw/TreeFoliage.h` |
 | 3 | `src/generators/draw/LeafAngleDistribution.h` |
-| 2 | `src/world/ground/EyeColumn.h` |
 | 2 | `src/render/draw/DrawKey.h` |
-| 1 | `src/world/weather/ConstantWindWeather.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |
 | 1 | `src/world/ground/GroundStack.h` |
