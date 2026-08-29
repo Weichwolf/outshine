@@ -109,6 +109,18 @@ Neither the `Node` key nor the slot split is in the tree, and the reason is this
 door field nothing reads is the defect. They land in the round that closes the colour, together
 with the conversion that reads them.
 
+**AND ONE MORE HYPOTHESIS DIED.** `Live` never calls `SubjectProxy::Emits`, so the per-part emitted
+run is always zero in the engine's own path -- a capability no declaration reaches. The obvious
+reading was that `Material::Emission` should fill it, making the two quantities one. Measured:
+
+    emission per node, run left alone     50 codes
+    emission per node, run filled from it 177 codes
+
+Filling it made the picture WORSE, back to the value it has with no override at all. So the run and
+the material row are not the same quantity said twice, and which one the oracle was rendered with
+is still the open question -- but "they are one thing" is now a dead answer rather than a plausible
+one, and that is worth more than the guess was.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
