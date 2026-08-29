@@ -194,9 +194,13 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.Origin.RadiusM = from.Num("radiusM", into.Ground.Origin.RadiusM);
   into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
   into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
-  into.Ground.WindDeg = from.Num("windDeg", into.Ground.WindDeg);
-  into.Ground.WindMs = from.Num("windMs", into.Ground.WindMs);
-  into.Ground.CloudCover = from.Num("cloudCover", into.Ground.CloudCover);
+  into.Ground.Sky.WindDeg = from.Num("windDeg", into.Ground.Sky.WindDeg);
+  into.Ground.Sky.WindMs = from.Num("windMs", into.Ground.Sky.WindMs);
+  into.Ground.Sky.CloudCover = from.Num("cloudCover", into.Ground.Sky.CloudCover);
+  into.Ground.Sky.CloudLow = from.Num("cloudLow", into.Ground.Sky.CloudLow);
+  into.Ground.Sky.CloudMid = from.Num("cloudMid", into.Ground.Sky.CloudMid);
+  into.Ground.Sky.CloudHigh = from.Num("cloudHigh", into.Ground.Sky.CloudHigh);
+  into.Ground.Sky.CloudBaseAglM = from.Num("cloudBaseAglM", into.Ground.Sky.CloudBaseAglM);
   into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
 }
 
@@ -260,6 +264,8 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
     into.Time.Declared = true;
     into.Time.Start = clock.Attr("start", into.Time.Start.c_str());
     into.Time.Rate = clock.Num("rate", into.Time.Rate);
+    into.Time.Live = std::string(clock.Attr("live", into.Time.Live ? "yes" : "no")) == "yes" ||
+                     into.Time.Start.empty();
   }
 
   const Xml::Ref player = root.Child("player");

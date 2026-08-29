@@ -226,6 +226,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Identity
     value: Layer
     value: Georeference
+    value: Weather
     value: WorldSettings
     value: Provider
     value: Setting
@@ -234,6 +235,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Patch
     value: RenderPlan
     value: Lighting
+    value: SurfaceOverride
     value: Asset
     value: LongitudeLatitudeHeight
     value: Standing
@@ -381,8 +383,8 @@ The heaviest files. Headers and sources counted apart.
 | 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
+| 1030 | `cpp` | `engine/Live.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 1005 | `cpp` | `engine/Live.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 875 | `cpp` | `render/stages/SubjectDraw.cpp` |

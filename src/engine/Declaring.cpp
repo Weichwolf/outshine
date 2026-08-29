@@ -156,6 +156,7 @@ Result Engine::declare(const Scenario &scenario) {
       declared.Joins.push_back(Beneath(S_->Session.Under.Assets, shown.Uri));
     }
     declared.Variant = subject->Variant;
+    declared.Overriding = subject->Surfaces;
     declared.Animation = subject->Animation;
     declared.Clip = subject->Clip;
   }
@@ -187,9 +188,19 @@ Result Engine::declare(const Scenario &scenario) {
       return std::unexpected(S_->Error);
     }
     if (scenario.Ground.Declared && !anglePut) {
+      // LIVE IS THE MACHINE'S OWN CLOCK AND IT IS NOW SAYABLE. A stated `Start` wins over it when
+      // both are given, because an instant is more specific than "now" and a client that names one
+      // wants the same picture tomorrow. Undeclared still means live, so nothing that stood before
+      // this moves -- what changed is that a client can now SAY which of the two it meant.
       int64_t whenS = 0;
-      if (!scenario.Time.Declared || scenario.Time.Start.empty() ||
-          !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
+      const bool live = !scenario.Time.Declared || scenario.Time.Live;
+      if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
+        if (!live && scenario.Time.Declared) {
+          S_->Error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
+                      "'" + scenario.Time.Start + "' is not an ISO 8601 UTC time, and a sky has to "
+                      "stand at some hour";
+          return std::unexpected(S_->Error);
+        }
         whenS = (int64_t)std::time(nullptr);
       }
       const Solar sun = SolarAt(scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);

@@ -41,6 +41,10 @@ struct Declaration {
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
+  // WHAT A CLIENT SAID THE FILE'S OWN SURFACES ARE, matched by the name the file states. Empty is
+  // the ordinary case and means the file's materials stand as they were written.
+  std::vector<SurfaceOverride> Overriding;
+
   std::string Variant;
 
   double MetresPerUnit = 1.0;

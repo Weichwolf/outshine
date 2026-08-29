@@ -247,6 +247,31 @@ bool Live::Build(std::string &error) {
                             error)) {
       return false;
     }
+    // THE FILE'S MATERIALS ARE A DEFAULT, NOT A FACT. A client rendering somebody else's asset
+    // against a reference states what the surfaces ARE; 107 of the 148 Khronos cases do exactly
+    // that, and before this the only way to say it was to reach past the door. Matched by NAME
+    // because that is what a file states and a manifest quotes -- an index moves when the file is
+    // re-exported and a name does not.
+    if (!Declared_.Overriding.empty()) {
+      size_t took = 0;
+      for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
+        const int index = Table_.Material[slot];
+        if (index < 0 || (size_t)index >= Held_.File().Materials().size()) { continue; }
+        const std::string &named = Held_.File().Materials()[(size_t)index].Name;
+        for (const SurfaceOverride &said : Declared_.Overriding) {
+          if (said.Named != named) { continue; }
+          Table_.Slots[slot].Row = said.Row;
+          ++took;
+          break;
+        }
+      }
+      if (took == 0) {
+        error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
+                " surface(s) of '" + Declared_.Stands + "' and the file carries none of those "
+                "names -- a surface declared onto nothing changes no pixel and says it did";
+        return false;
+      }
+    }
     if (Declared_.Built != nullptr) {
       const uint32_t base = (uint32_t)Table_.Slots.size();
       for (const Material &declaredSurface : Declared_.Surfacing) {

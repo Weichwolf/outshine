@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "Material.h"
+
 namespace outshine {
 
 struct Extent {
@@ -42,20 +44,34 @@ struct Georeference {
   double RadiusM = 6371008.8;
 };
 
+// WHAT A CLIENT DECLARES INSTEAD OF A SKY. There is no picture to hand in, so these are the two
+// things that decide what the sky looks like: WHEN it is, which puts the sun, the moon and the
+// stars, and WHAT THE WEATHER IS, which decides how their light arrives. Both belong to the door
+// because without them a client can only take whatever the engine happened to default to.
+//
+// The sun's ELEVATION and BEARING are not here and must not be: they are computed from the place
+// and the hour, and a scenario that declares both a clock and a hand-set sun is REFUSED, because
+// over a place on Earth only one of the two can be true.
+struct Weather {
+  double CloudCover = 0.0;
+  double CloudLow = 0.0, CloudMid = 0.0, CloudHigh = 0.0;
+  double CloudBaseAglM = 0.0;
+  double WindDeg = 0.0;
+  double WindMs = 0.0;
+};
+
 // THERE IS NO SKYBOX HERE AND THAT IS THE BETTER ANSWER, not a missing one. Filament's `Skybox` is
 // an image or a colour a scene shows where nothing else does; this engine's sun, moon and stars are
 // REAL -- they stand where the georeference and the clock put them, and the sky is computed from
 // that and the weather. A client hands in no picture of the sky because there is nothing it could
 // hand in that would agree with its own shadows the moment the clock moves. What it declares is
-// the weather, and `CloudCover` below is that.
+// the weather, and `Weather` above is that.
 struct WorldSettings {
   bool Declared = false;
   Georeference Origin;
   double GravityMs2 = 9.80665;
   double AirDensityKgM3 = 1.2250;
-  double WindDeg = 0.0;
-  double WindMs = 0.0;
-  double CloudCover = 0.0;
+  Weather Sky;
   double PatienceS = 30.0;
   double SightM = 240000.0;
 };
@@ -114,6 +130,20 @@ struct Lighting {
 
 enum class AssetAnimation { Play, Ignore, Driven };
 
+// WHAT A SURFACE OF SOMEBODY ELSE'S FILE IS, SAID BY THE CLIENT THAT LOADS IT. Unreal overrides a
+// component's material per slot (`SetMaterial`); Filament hands out a `MaterialInstance` per
+// primitive and lets a client set its parameters. **They agree** that the file's own materials are
+// a DEFAULT rather than a fact, and a client that renders another party's asset against a
+// reference has to be able to say what the surfaces are -- 107 of the 148 Khronos cases here do
+// exactly that, and before this they could only do it by reaching past the door.
+//
+// The match is by NAME because that is what a file states and what a manifest quotes; an index
+// moves when the file is re-exported and a name does not.
+struct SurfaceOverride {
+  std::string Named;
+  Material Row;
+};
+
 struct Asset {
   std::string Uri;
   std::string Digest;
@@ -121,6 +151,8 @@ struct Asset {
   std::string Variant;
   AssetAnimation Animation = AssetAnimation::Play;
   int Clip = 0;
+
+  std::vector<SurfaceOverride> Surfaces;
 };
 
 // A PLACE ON THE EARTH, spelled the way Cesium spells it. Three loose doubles said the same thing
@@ -485,8 +517,18 @@ struct PhysicsSettings {
   int MostStepsInArrears = 8;
 };
 
+// WHEN IT IS, AND WHETHER THAT KEEPS MOVING. `Live` is the CLOCK OF THE MACHINE: the scene stands
+// at the real hour and goes on standing there as it passes, which is what a client wants when it
+// is showing a place rather than reproducing a picture. `Start` is one stated instant in ISO 8601
+// UTC, which is what a client wants when the picture has to be the SAME one tomorrow.
+//
+// UNDECLARED USED TO MEAN LIVE AND NOBODY COULD SAY SO. The engine fell back to `std::time` when a
+// clock was absent, so real time was reachable only by leaving something out -- and a default is
+// not an answer a client can state, argue with, or read back. Both are now sayable and the
+// fallback is unchanged, so nothing that stood before moves.
 struct Clock {
   bool Declared = false;
+  bool Live = false;
   std::string Start;
   double Rate = 1.0;
 };
