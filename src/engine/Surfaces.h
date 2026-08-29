@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_SURFACES_H
 #define OUTSHINE_ENGINE_SURFACES_H
 
+#include "Shape.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -37,7 +38,8 @@ enum class ColourCarrier { Texture, Factor, VertexColour };
 void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geometry,
                          bool carriesTransmission, bool ownMaterials, SurfaceTable &out);
 
-void ResolveDeclaredSurface(const Gltf::Subject &geometry, const Material &row, SurfaceTable &out);
+void ResolveDeclaredSurface(const Render::Shape &geometry, const Material &row,
+                            SurfaceTable &out);
 
 [[nodiscard]] bool ResolveFileSurface(const Gltf::Document &file, const Gltf::Subject &geometry,
                                       ColourFrom channel, ColourCarrier carrier, SurfaceTable &table,

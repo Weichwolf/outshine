@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+
+#include <Material.h>
 #include <string_view>
 
 namespace outshine::Render {
@@ -49,6 +51,12 @@ struct Shape {
   std::span<const double> Uv1;
   std::span<const double> Colours;
   std::span<const uint32_t> Indices;
+
+  // THE SURFACE ROWS THE PARTS INDEX INTO. `Material` is the DOOR's type -- a generator declares
+  // one through `addSurface` and a file's importer resolves one into the same row -- so carrying
+  // them here costs the render side nothing and lets the surface resolution stop naming the
+  // importer's carrier for a part count it could have had from anywhere.
+  std::span<const Material> Surfaces;
 
   bool CarriesUv = false;
   bool CarriesUv1 = false;

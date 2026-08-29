@@ -153,6 +153,7 @@ Render::Shape Shaped(const Gltf::Subject &from, std::vector<Render::ShapePart> &
   }
   Render::Shape out;
   out.Parts = parts;
+  out.Surfaces = from.Surfaces();
   out.PositionsM = from.PositionsM();
   out.Normals = from.Normals();
   out.Tangents = from.Tangents();
@@ -196,7 +197,7 @@ bool Live::Build(std::string &error) {
     CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
                    .count();
     const auto resolvedFrom = std::chrono::steady_clock::now();
-    ResolveDeclaredSurface(Held_.Assembled(), Declared_.Surfacing.front(), Table_);
+    ResolveDeclaredSurface(Shaped(Held_.Assembled(), ShapeParts_), Declared_.Surfacing.front(), Table_);
     ResolveMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
             .count();
@@ -232,7 +233,7 @@ bool Live::Build(std::string &error) {
       const uint32_t base = (uint32_t)Table_.Slots.size();
       for (const Material &declaredSurface : Declared_.Surfacing) {
         SurfaceTable joining;
-        ResolveDeclaredSurface(*Declared_.Built, declaredSurface, joining);
+        ResolveDeclaredSurface(Shaped(*Declared_.Built, ShapeParts_), declaredSurface, joining);
         if (joining.Slots.empty()) {
           error = "a declared surface for the built geometry resolved to no slot, so the parts "
                   "joining this picture would name a surface that is not there";

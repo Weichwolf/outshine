@@ -288,8 +288,8 @@ flowchart LR
   engine --> |10| content_gltf
   world_ground --> |9| world_data
   sim --> |8| actor_mind
+  engine --> |8| render
   generators_base --> |7| base_spatial
-  engine --> |7| render
   actor_mind --> |7| actor_path
   engine --> |6| scenario
   sim --> |5| base_spatial
@@ -347,7 +347,7 @@ The heaviest files. Headers and sources counted apart.
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 891 | `cpp` | `engine/Live.cpp` |
+| 892 | `cpp` | `engine/Live.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | **47** | `h` | *the median of 239 header(s)* |
