@@ -80,7 +80,7 @@ struct Compositor {
 struct Patch {
   double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
 
-  [[nodiscard]] bool Whole(void) const {
+  [[nodiscard]] bool whole(void) const {
     return LeftFrac == 0.0 && TopFrac == 0.0 && WidthFrac == 1.0 && HeightFrac == 1.0;
   }
 };
@@ -356,21 +356,21 @@ struct Body {
   double FrontalM2 = 0.0;
   std::vector<Slot> Slots;
 
-  [[nodiscard]] const Drive *Can(Drives does) const {
+  [[nodiscard]] const Drive *can(Drives does) const {
     for (const Drive &one : Driven) {
       if (one.Does == does) { return &one; }
     }
     return nullptr;
   }
 
-  [[nodiscard]] const Drive *Efforts(bool opposing) const {
+  [[nodiscard]] const Drive *efforts(bool opposing) const {
     for (const Drive &one : Driven) {
       if (one.Does == Drives::Effort && one.Opposes == opposing) { return &one; }
     }
     return nullptr;
   }
 
-  [[nodiscard]] double SpanM() const {
+  [[nodiscard]] double spanM() const {
     double aheadM = 0.0, behindM = 0.0;
     int ahead = 0, behind = 0;
     for (const Contact &one : Contacts) {
@@ -387,7 +387,7 @@ struct Body {
                : 0.0;
   }
 
-  [[nodiscard]] double AcrossM() const {
+  [[nodiscard]] double acrossM() const {
     double leastM = 0.0, mostM = 0.0;
     for (const Contact &one : Contacts) {
       leastM = one.AtM[0] < leastM ? one.AtM[0] : leastM;
@@ -474,7 +474,7 @@ struct Scenario {
   double WheelStepPx = 48.0;
   std::vector<Persisted> State;
 
-  [[nodiscard]] const Asset *Subject(void) const;
+  [[nodiscard]] const Asset *subject(void) const;
 };
 
 }

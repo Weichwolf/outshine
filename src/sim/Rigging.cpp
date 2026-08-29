@@ -55,7 +55,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     out.SeatM[axis] = declared.Slots.empty() ? 0.0 : declared.Slots.front().AtM[axis];
   }
 
-  out.Axles.WheelbaseM = declared.SpanM();
+  out.Axles.WheelbaseM = declared.spanM();
   if (!(out.Axles.WheelbaseM > 0.0)) {
     Refuse(out, "the body '" + declared.Name +
                     "' has no wheelbase: its contacts stand on one side of the centre of "
@@ -147,8 +147,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     mount.Spin.Resisting.Ratio = staticShare;
   }
 
-  const double acrossM = declared.AcrossM();
-  const Drive *const steers = declared.Can(Drives::Motion);
+  const double acrossM = declared.acrossM();
+  const Drive *const steers = declared.can(Drives::Motion);
   const double circleM = steers != nullptr ? steers->CircleM : 0.0;
   if (!(circleM > acrossM)) {
     Refuse(out, "a steering lock is what a turning circle MEANS, and this body declares a circle "
@@ -184,8 +184,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  const Drive *const drives = declared.Efforts(false);
-  const Drive *const brakes = declared.Efforts(true);
+  const Drive *const drives = declared.efforts(false);
+  const Drive *const brakes = declared.efforts(true);
   out.Envelope.DriveN = drives == nullptr ? 0.0
                                           : drives->PeakNm * drives->Ratio /
                                                 declared.Contacts.front().Touches.RadiusM;

@@ -18,7 +18,7 @@ struct Argument {
 class Host {
 public:
   virtual ~Host() = default;
-  [[nodiscard]] virtual bool Calls(std::string_view name, std::span<const Argument> args) = 0;
+  [[nodiscard]] virtual bool calls(std::string_view name, std::span<const Argument> args) = 0;
 };
 
 struct Measure {

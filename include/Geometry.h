@@ -33,45 +33,45 @@ public:
   Geometry(const Geometry &) = delete;
   Geometry &operator=(const Geometry &) = delete;
 
-  int Part(std::string_view named, MaterialInstance material);
-  void Restarts();
+  int addPart(std::string_view named, MaterialInstance material);
+  void clear();
 
   [[nodiscard]] TransformManager transforms(void);
 
-  [[nodiscard]] MaterialInstance Surface(std::string_view named, const Material &surface);
-  int Lamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);
+  [[nodiscard]] MaterialInstance addSurface(std::string_view named, const Material &surface);
+  int addLamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);
 
-  bool Positions(int part, std::span<const float> metres);
-  bool Normals(int part, std::span<const float> unit);
-  bool Texture(int part, std::span<const float> uv, int set = 0);
-  bool Tangents(int part, std::span<const float> xyzw);
-  bool Colours(int part, std::span<const float> rgba);
-  bool Triangles(int part, std::span<const uint32_t> indices);
+  bool setPositions(int part, std::span<const float> metres);
+  bool setNormals(int part, std::span<const float> unit);
+  bool setTexture(int part, std::span<const float> uv, int set = 0);
+  bool setTangents(int part, std::span<const float> xyzw);
+  bool setColours(int part, std::span<const float> rgba);
+  bool setTriangles(int part, std::span<const uint32_t> indices);
 
-  [[nodiscard]] int Parts() const;
-  [[nodiscard]] std::string_view NameOf(int part) const;
-  [[nodiscard]] MaterialInstance MaterialOf(int part) const;
+  [[nodiscard]] int parts() const;
+  [[nodiscard]] std::string_view nameOf(int part) const;
+  [[nodiscard]] MaterialInstance materialOf(int part) const;
 
-  [[nodiscard]] int Surfaces() const;
-  [[nodiscard]] std::string_view SurfaceNameOf(int surface) const;
-  [[nodiscard]] const Material &SurfaceAt(MaterialInstance surface) const;
+  [[nodiscard]] int surfaces() const;
+  [[nodiscard]] std::string_view surfaceNameOf(int surface) const;
+  [[nodiscard]] const Material &surfaceAt(MaterialInstance surface) const;
 
-  [[nodiscard]] int Lamps() const;
-  [[nodiscard]] std::string_view LampNameOf(int lamp) const;
-  [[nodiscard]] const PunctualLight &LampAt(int lamp) const;
-  [[nodiscard]] const double *LampPlacementOf(int lamp) const;
-  [[nodiscard]] std::span<const float> PositionsOf(int part) const;
-  [[nodiscard]] std::span<const float> NormalsOf(int part) const;
-  [[nodiscard]] std::span<const float> TextureOf(int part, int set = 0) const;
-  [[nodiscard]] std::span<const float> TangentsOf(int part) const;
-  [[nodiscard]] std::span<const float> ColoursOf(int part) const;
-  [[nodiscard]] std::span<const uint32_t> TrianglesOf(int part) const;
-  [[nodiscard]] bool Whole() const;
+  [[nodiscard]] int lamps() const;
+  [[nodiscard]] std::string_view lampNameOf(int lamp) const;
+  [[nodiscard]] const PunctualLight &lampAt(int lamp) const;
+  [[nodiscard]] const double *lampPlacementOf(int lamp) const;
+  [[nodiscard]] std::span<const float> positionsOf(int part) const;
+  [[nodiscard]] std::span<const float> normalsOf(int part) const;
+  [[nodiscard]] std::span<const float> textureOf(int part, int set = 0) const;
+  [[nodiscard]] std::span<const float> tangentsOf(int part) const;
+  [[nodiscard]] std::span<const float> coloursOf(int part) const;
+  [[nodiscard]] std::span<const uint32_t> trianglesOf(int part) const;
+  [[nodiscard]] bool wellFormed() const;
 
 private:
   friend class TransformManager;
-  void Place(int part, const double modelM16[16]);
-  [[nodiscard]] const double *PlacementOf(int part) const;
+  void place(int part, const double modelM16[16]);
+  [[nodiscard]] const double *placementOf(int part) const;
 
   struct Held;
   std::unique_ptr<Held> Held_;

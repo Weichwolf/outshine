@@ -19,8 +19,8 @@ class Tag {
 public:
   constexpr Tag() = default;
 
-  [[nodiscard]] constexpr uint32_t Value() const { return Value_; }
-  [[nodiscard]] constexpr bool Within(Tag parent) const {
+  [[nodiscard]] constexpr uint32_t value() const { return Value_; }
+  [[nodiscard]] constexpr bool within(Tag parent) const {
     uint32_t mask = 0xFFFFFFFFu;
     for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8) {
       mask <<= 8;
@@ -39,7 +39,7 @@ struct TagCatalogue {
   static constexpr Tag Does{0x01000000};
   static constexpr Tag Offers{0x02000000};
 
-  [[nodiscard]] static constexpr Tag Under(Tag family, uint32_t ordinal) {
+  [[nodiscard]] static constexpr Tag under(Tag family, uint32_t ordinal) {
     return Tag(family.Value_ | ((ordinal & 0xFFu) << 16));
   }
 };
@@ -49,10 +49,10 @@ inline constexpr Tag Does = TagCatalogue::Does;
 inline constexpr Tag Offers = TagCatalogue::Offers;
 }
 
-static_assert(TagCatalogue::Under(tags::Does, 1).Within(tags::Does) &&
-                  !tags::Does.Within(TagCatalogue::Under(tags::Does, 1)),
+static_assert(TagCatalogue::under(tags::Does, 1).within(tags::Does) &&
+                  !tags::Does.within(TagCatalogue::under(tags::Does, 1)),
               "a tag is within its family and never the other way round");
-static_assert(!TagCatalogue::Under(tags::Does, 1).Within(tags::Offers),
+static_assert(!TagCatalogue::under(tags::Does, 1).within(tags::Offers),
               "and a family holds only its own");
 
 enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
@@ -155,41 +155,41 @@ public:
   Scene(const Scene &) = delete;
   Scene &operator=(const Scene &) = delete;
 
-  [[nodiscard]] bool Open(size_t capacity);
+  [[nodiscard]] bool open(size_t capacity);
 
-  [[nodiscard]] Entity Add(Role role);
-  void Remove(Entity of);
-  [[nodiscard]] bool Alive(Entity of) const;
-  [[nodiscard]] Role RoleOf(Entity of) const;
+  [[nodiscard]] Entity addEntity(Role role);
+  void remove(Entity of);
+  [[nodiscard]] bool alive(Entity of) const;
+  [[nodiscard]] Role roleOf(Entity of) const;
 
-  [[nodiscard]] bool Give(Entity to, Tag tag);
-  [[nodiscard]] bool Has(Entity of, Tag tag) const;
+  [[nodiscard]] bool giveTag(Entity to, Tag tag);
+  [[nodiscard]] bool hasTag(Entity of, Tag tag) const;
 
-  [[nodiscard]] bool Link(Entity from, Relation how, Entity to);
-  [[nodiscard]] bool Relink(Entity from, Relation how, Entity to);
-  [[nodiscard]] Entity TargetOf(Entity of, Relation how) const;
-  [[nodiscard]] size_t Targets(Entity of, Relation how, Entity into[], size_t room) const;
+  [[nodiscard]] bool link(Entity from, Relation how, Entity to);
+  [[nodiscard]] bool relink(Entity from, Relation how, Entity to);
+  [[nodiscard]] Entity targetOf(Entity of, Relation how) const;
+  [[nodiscard]] size_t targets(Entity of, Relation how, Entity into[], size_t room) const;
 
-  [[nodiscard]] size_t Sources(Entity to, Relation how, Entity into[], size_t room) const;
-  [[nodiscard]] size_t Cast(Role role, Entity into[], size_t room) const;
-  [[nodiscard]] size_t Pairs(Relation how, Entity from[], Entity to[], size_t room) const;
-  [[nodiscard]] size_t Bearing(Tag tag, Role role, Entity into[], size_t room) const;
+  [[nodiscard]] size_t sources(Entity to, Relation how, Entity into[], size_t room) const;
+  [[nodiscard]] size_t entitiesWithRole(Role role, Entity into[], size_t room) const;
+  [[nodiscard]] size_t linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const;
+  [[nodiscard]] size_t entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const;
 
-  [[nodiscard]] Entity Instantiate(Entity prefab);
-  [[nodiscard]] Entity CopyOf(Entity instance, Entity prefabChild) const;
+  [[nodiscard]] Entity instantiate(Entity prefab);
+  [[nodiscard]] Entity copyOf(Entity instance, Entity prefabChild) const;
 
-  [[nodiscard]] bool Offer(Entity at, Tag activity, size_t seats);
-  [[nodiscard]] size_t Offering(Tag activity, Entity into[], size_t room) const;
-  [[nodiscard]] bool Claim(Entity by, Entity at);
-  [[nodiscard]] bool Use(Entity by, Entity at);
-  [[nodiscard]] bool Release(Entity by, Entity at);
-  [[nodiscard]] Seat SeatOf(Entity by, Entity at) const;
+  [[nodiscard]] bool offerSeats(Entity at, Tag activity, size_t seats);
+  [[nodiscard]] size_t entitiesOffering(Tag activity, Entity into[], size_t room) const;
+  [[nodiscard]] bool claimSeat(Entity by, Entity at);
+  [[nodiscard]] bool takeSeat(Entity by, Entity at);
+  [[nodiscard]] bool releaseSeat(Entity by, Entity at);
+  [[nodiscard]] Seat seatOf(Entity by, Entity at) const;
 
-  [[nodiscard]] size_t Capacity() const;
-  [[nodiscard]] std::string_view Error() const;
+  [[nodiscard]] size_t capacity() const;
+  [[nodiscard]] std::string_view error() const;
 
-  [[nodiscard]] size_t Touched() const;
-  void ResetTouched();
+  [[nodiscard]] size_t touched() const;
+  void resetTouched();
 
 
 private:

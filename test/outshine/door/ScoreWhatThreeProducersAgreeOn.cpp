@@ -68,17 +68,17 @@ void Fills(outshine::Geometry &into) {
   row.BaseColour[2] = 0.15f;
   row.Metalness = 0.0f;
   row.Roughness = 0.85f;
-  const outshine::MaterialInstance named = into.Surface("clay", row);
-  const int part = into.Part("face", named);
-  (void)into.Positions(part, std::span<const float>(kPositions, 9));
-  (void)into.Normals(part, std::span<const float>(kNormals, 9));
-  (void)into.Triangles(part, std::span<const uint32_t>(kIndices, 3));
+  const outshine::MaterialInstance named = into.addSurface("clay", row);
+  const int part = into.addPart("face", named);
+  (void)into.setPositions(part, std::span<const float>(kPositions, 9));
+  (void)into.setNormals(part, std::span<const float>(kNormals, 9));
+  (void)into.setTriangles(part, std::span<const uint32_t>(kIndices, 3));
 }
 
 class Makes final : public outshine::Generates {
 public:
-  [[nodiscard]] std::string_view Kind() const override { return "one-face"; }
-  [[nodiscard]] bool Make(const outshine::Ask &, outshine::Geometry &into) const override {
+  [[nodiscard]] std::string_view kind() const override { return "one-face"; }
+  [[nodiscard]] bool make(const outshine::Ask &, outshine::Geometry &into) const override {
     Fills(into);
     return true;
   }

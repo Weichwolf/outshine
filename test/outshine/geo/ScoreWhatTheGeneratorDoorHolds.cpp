@@ -33,19 +33,19 @@ namespace {
 
 class Slab final : public outshine::Generates {
 public:
-  [[nodiscard]] std::string_view Kind() const override { return "slab"; }
+  [[nodiscard]] std::string_view kind() const override { return "slab"; }
 
-  [[nodiscard]] bool Make(const outshine::Ask &ask, outshine::Geometry &into) const override {
-    const outshine::MaterialInstance surface = into.Surface("slab", outshine::Material{});
-    if (!surface.Bound()) { return false; }
-    const int part = into.Part("slab", surface);
+  [[nodiscard]] bool make(const outshine::Ask &ask, outshine::Geometry &into) const override {
+    const outshine::MaterialInstance surface = into.addSurface("slab", outshine::Material{});
+    if (!surface.bound()) { return false; }
+    const int part = into.addPart("slab", surface);
     if (part < 0) { return false; }
     const float half = (float)(ask.ExtentM > 0.0 ? 0.5 * ask.ExtentM : 0.5);
     const float places[12] = {-half, 0.0f, -half, half, 0.0f, -half,
                               half,  0.0f, half,  -half, 0.0f, half};
     const uint32_t triangles[6] = {0, 1, 2, 0, 2, 3};
-    return into.Positions(part, std::span<const float>(places, 12)) &&
-           into.Triangles(part, std::span<const uint32_t>(triangles, 6));
+    return into.setPositions(part, std::span<const float>(places, 12)) &&
+           into.setTriangles(part, std::span<const uint32_t>(triangles, 6));
   }
 };
 
@@ -59,15 +59,15 @@ int main(void) {
   const outshine::Generators::Structures shipped;
   const Slab mine;
 
-  const bool tookShipped = offering.Offers(shipped);
-  const bool tookMine = offering.Offers(mine);
-  const bool refusedTwice = !offering.Offers(shipped);
+  const bool tookShipped = offering.offers(shipped);
+  const bool tookMine = offering.offers(mine);
+  const bool refusedTwice = !offering.offers(shipped);
 
   std::printf("THE DOOR'S REGISTRY HOLDS  %zu maker(s): shipped %s, mine %s, a repeat %s\n",
-              offering.Count(), tookShipped ? "in" : "REFUSED", tookMine ? "in" : "REFUSED",
+              offering.count(), tookShipped ? "in" : "REFUSED", tookMine ? "in" : "REFUSED",
               refusedTwice ? "refused" : "TAKEN AGAIN");
 
-  CHECK(tookShipped && tookMine && refusedTwice && offering.Count() == 2,
+  CHECK(tookShipped && tookMine && refusedTwice && offering.count() == 2,
         "**A CLIENT'S GENERATOR ENTERS THE SAME REGISTRY AS A SHIPPED ONE, AND A KIND IS "
         "ISSUED ONCE**: Unreal enumerates its built-in factories and registers plugin factories "
         "into the same table. A registry that took a kind twice would resolve a declaration by "
@@ -75,7 +75,7 @@ int main(void) {
 
   size_t shippedFound = 0;
   for (size_t at = 0; at < (size_t)outshine::Ships::kCount; ++at) {
-    if (offering.Named(outshine::kShipped[at]) != nullptr) { ++shippedFound; }
+    if (offering.named(outshine::kShipped[at]) != nullptr) { ++shippedFound; }
   }
   std::printf("AND THE SHIPPED CATALOGUE NAMES %zu kind(s), all %zu of them registered\n",
               (size_t)outshine::Ships::kCount, shippedFound);
@@ -83,7 +83,7 @@ int main(void) {
   // THE SHIPPED CATALOGUE IS CLOSED AGAINST A TYPO, and the compiler is what closes it.
   // `Ships` enumerates what outshine ships and `kShipped` spells each one; a `static_assert` pairs
   // the two counts and a second refuses a blank or a repeated name. So a shipped kind is not a
-  // string a caller can mistype -- `Structures::Kind()` returns `NameOf(Ships::Structures)` and
+  // string a caller can mistype -- `Structures::Kind()` returns `nameOf(Ships::Structures)` and
   // nothing else may. A CLIENT's generator is the other half and is deliberately unlike it: it
   // enters as a VALUE, and its kind is whatever it says, because the catalogue cannot enumerate
   // what it has never seen. That is Unreal's own split -- built-in factories enumerated, plugin
@@ -93,8 +93,8 @@ int main(void) {
         "generator the registry does not hold is a declaration surface with nothing behind it, "
         "which is this tree's commonest defect and the one this whole item is about");
 
-  const outshine::Generates *const found = offering.Named("slab");
-  const outshine::Generates *const missing = offering.Named("nothing-offers-this");
+  const outshine::Generates *const found = offering.named("slab");
+  const outshine::Generates *const missing = offering.named("nothing-offers-this");
   std::printf("IT RESOLVES 'slab' %s and an unknown kind %s\n",
               found ? "to a maker" : "to NOTHING", missing ? "TO A MAKER" : "to nothing");
 
@@ -105,28 +105,28 @@ int main(void) {
   outshine::Ask ask;
   ask.ExtentM = 4.0;
   outshine::Geometry made;
-  const bool stood = found->Make(ask, made);
+  const bool stood = found->make(ask, made);
   std::printf("AND THE MAKER FILLS THE DOOR'S VALUE: %s, %d part(s)\n", stood ? "yes" : "no",
-              stood ? made.Parts() : -1);
+              stood ? made.parts() : -1);
 
-  CHECK(stood && made.Parts() == 1,
+  CHECK(stood && made.parts() == 1,
         "**AND WHAT COMES BACK IS THE DOOR'S OWN VALUE**: a generator hands back a `Geometry` and "
         "never a file, which is CLAUDE.md's *universal interface for 3D with outshine* -- a "
         "reader fills one, a generator fills one, a foreign program fills one with no file "
         "anywhere");
 
   outshine::Geometry both;
-  const outshine::Generates *const theirs = offering.Named(outshine::NameOf(outshine::Ships::Structures));
-  const bool mineFilled = found->Make(ask, both);
-  const bool theirsFilled = theirs != nullptr && theirs->Make(ask, both);
+  const outshine::Generates *const theirs = offering.named(outshine::nameOf(outshine::Ships::Structures));
+  const bool mineFilled = found->make(ask, both);
+  const bool theirsFilled = theirs != nullptr && theirs->make(ask, both);
   std::printf("AND ONE VALUE CARRIES BOTH: mine %s, shipped %s, %d part(s)\n",
-              mineFilled ? "in" : "REFUSED", theirsFilled ? "in" : "REFUSED", both.Parts());
+              mineFilled ? "in" : "REFUSED", theirsFilled ? "in" : "REFUSED", both.parts());
 
   // ONE REPRESENTATION CARRIES BOTH CONTRIBUTIONS. This is what makes the tier a LIBRARY rather
   // than a set of unrelated makers: a client's generator and a shipped one fill the same value,
   // in either order, and neither knows the other ran. Unreal's PCG composes point data from
   // several graph nodes into one output for the same reason.
-  CHECK(mineFilled && theirsFilled && both.Parts() >= 2,
+  CHECK(mineFilled && theirsFilled && both.parts() >= 2,
         "**A CLIENT'S GENERATOR AND A SHIPPED ONE FILL ONE VALUE**: the door hands each of them "
         "the same `Geometry` and the parts accumulate, so what a caller reads back is the world "
         "both of them made. A representation that only one maker may touch is not an interchange "
@@ -134,7 +134,7 @@ int main(void) {
 
   std::vector<uint8_t> glb;
   std::string why;
-  const bool wrote = outshine::WriteGlb(made, glb, why);
+  const bool wrote = outshine::writeGlb(made, glb, why);
   std::printf("AND IT SERIALISES TO %zu GLB byte(s)%s\n", glb.size(),
               wrote ? "" : (" -- refused: " + why).c_str());
 

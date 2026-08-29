@@ -545,11 +545,11 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Lights_.clear();
   Undrawn_ = Undrawn();
   outshine::Geometry &made = Scratch_.Made;
-  made.Restarts();
+  made.clear();
   for (const MaterialRef &declared : document.Materials()) {
     Material row = declared.Surface;
     row.NeedsTangents = declared.Normal.Texture >= 0;
-    (void)made.Surface("", row);
+    (void)made.addSurface("", row);
   }
   bool anyUv = false;
   bool anyUv1 = false;
@@ -880,20 +880,20 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = (float)from[at]; }
           return std::span<const float>(narrowed.data(), narrowed.size());
         };
-        const int emitted = made.Part(part.NodeName, MaterialInstance(part.Material));
-        (void)made.Positions(emitted, asFloat(atPos));
-        if (part.HasNormal) { (void)made.Normals(emitted, asFloat(atNor)); }
-        if (part.HasUv) { (void)made.Texture(emitted, asFloat(atUv), 0); }
-        if (part.HasUv1) { (void)made.Texture(emitted, asFloat(atUv1), 1); }
-        if (part.HasTangent()) { (void)made.Tangents(emitted, asFloat(atTan)); }
-        if (part.HasColour) { (void)made.Colours(emitted, asFloat(atCol)); }
-        (void)made.Triangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
+        const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
+        (void)made.setPositions(emitted, asFloat(atPos));
+        if (part.HasNormal) { (void)made.setNormals(emitted, asFloat(atNor)); }
+        if (part.HasUv) { (void)made.setTexture(emitted, asFloat(atUv), 0); }
+        if (part.HasUv1) { (void)made.setTexture(emitted, asFloat(atUv1), 1); }
+        if (part.HasTangent()) { (void)made.setTangents(emitted, asFloat(atTan)); }
+        if (part.HasColour) { (void)made.setColours(emitted, asFloat(atCol)); }
+        (void)made.setTriangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
       }
     }
 
   }
 
-  if (made.Parts() == 0) {
+  if (made.parts() == 0) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
   }
@@ -924,11 +924,11 @@ void Subject::Bound() {
 
 outshine::Geometry Subject::Handed() const {
   outshine::Geometry out;
-  for (size_t at = 0; at < Surfaces_.size(); ++at) { (void)out.Surface("", Surfaces_[at]); }
+  for (size_t at = 0; at < Surfaces_.size(); ++at) { (void)out.addSurface("", Surfaces_[at]); }
   for (const PlacedLight &lit : Lights_) {
     double placed[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     for (int axis = 0; axis < 3; ++axis) { placed[12 + axis] = lit.Light.Position[axis]; }
-    (void)out.Lamp(lit.NodeName, lit.Light, placed);
+    (void)out.addLamp(lit.NodeName, lit.Light, placed);
   }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
     std::vector<float> made(many);
@@ -936,34 +936,34 @@ outshine::Geometry Subject::Handed() const {
     return made;
   };
   for (const Part &one : Parts_) {
-    const int made = out.Part(one.NodeName, MaterialInstance(one.Material));
+    const int made = out.addPart(one.NodeName, MaterialInstance(one.Material));
     const std::vector<float> positions = floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
-    (void)out.Positions(made, std::span<const float>(positions.data(), positions.size()));
+    (void)out.setPositions(made, std::span<const float>(positions.data(), positions.size()));
     if (one.HasNormal && !Normals_.empty()) {
       const std::vector<float> held = floats(Normals_, one.FirstVertex * 3, one.VertexCount * 3);
-      (void)out.Normals(made, std::span<const float>(held.data(), held.size()));
+      (void)out.setNormals(made, std::span<const float>(held.data(), held.size()));
     }
     if (one.HasUv && !Uv_.empty()) {
       const std::vector<float> held = floats(Uv_, one.FirstVertex * 2, one.VertexCount * 2);
-      (void)out.Texture(made, std::span<const float>(held.data(), held.size()), 0);
+      (void)out.setTexture(made, std::span<const float>(held.data(), held.size()), 0);
     }
     if (one.HasUv1 && !Uv1_.empty()) {
       const std::vector<float> held = floats(Uv1_, one.FirstVertex * 2, one.VertexCount * 2);
-      (void)out.Texture(made, std::span<const float>(held.data(), held.size()), 1);
+      (void)out.setTexture(made, std::span<const float>(held.data(), held.size()), 1);
     }
     if (one.HasTangent() && !Tangents_.empty()) {
       const std::vector<float> held = floats(Tangents_, one.FirstVertex * 4, one.VertexCount * 4);
-      (void)out.Tangents(made, std::span<const float>(held.data(), held.size()));
+      (void)out.setTangents(made, std::span<const float>(held.data(), held.size()));
     }
     if (one.HasColour && !Colours_.empty()) {
       const std::vector<float> held = floats(Colours_, one.FirstVertex * 4, one.VertexCount * 4);
-      (void)out.Colours(made, std::span<const float>(held.data(), held.size()));
+      (void)out.setColours(made, std::span<const float>(held.data(), held.size()));
     }
     std::vector<uint32_t> run(one.IndexCount);
     for (size_t at = 0; at < one.IndexCount; ++at) {
       run[at] = (uint32_t)(Indices_[one.FirstIndex + at] - one.FirstVertex);
     }
-    (void)out.Triangles(made, std::span<const uint32_t>(run.data(), run.size()));
+    (void)out.setTriangles(made, std::span<const uint32_t>(run.data(), run.size()));
   }
   return out;
 }
@@ -981,20 +981,20 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Lights_.clear();
   Surfaces_.clear();
   TangentWanted_.clear();
-  for (int surface = 0; surface < what.Surfaces(); ++surface) {
-    Surfaces_.push_back(what.SurfaceAt(MaterialInstance(surface)));
+  for (int surface = 0; surface < what.surfaces(); ++surface) {
+    Surfaces_.push_back(what.surfaceAt(MaterialInstance(surface)));
     TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
-  for (int lamp = 0; lamp < what.Lamps(); ++lamp) {
+  for (int lamp = 0; lamp < what.lamps(); ++lamp) {
     PlacedLight placed;
-    placed.NodeName = std::string(what.LampNameOf(lamp));
+    placed.NodeName = std::string(what.lampNameOf(lamp));
     placed.LightName = placed.NodeName;
-    placed.Light = what.LampAt(lamp);
-    const double *const at = what.LampPlacementOf(lamp);
+    placed.Light = what.lampAt(lamp);
+    const double *const at = what.lampPlacementOf(lamp);
     for (int axis = 0; axis < 3; ++axis) { placed.Light.Position[axis] = (float)at[12 + axis]; }
     Lights_.push_back(std::move(placed));
   }
-  if (what.Parts() == 0) {
+  if (what.parts() == 0) {
     return Refuse("an assembly of no piece draws nothing, and a subject with no triangle is not one");
   }
 
@@ -1003,15 +1003,15 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   bool anyNormal = false;
   bool anyTangent = false;
   bool anyColour = false;
-  for (size_t index = 0; index < (size_t)what.Parts(); ++index) {
+  for (size_t index = 0; index < (size_t)what.parts(); ++index) {
     const int slot = (int)index;
-    const std::span<const float> pPos = what.PositionsOf(slot);
-    const std::span<const float> pNormals = what.NormalsOf(slot);
-    const std::span<const float> pUv = what.TextureOf(slot, 0);
-    const std::span<const float> pUv1 = what.TextureOf(slot, 1);
-    const std::span<const float> pTangents = what.TangentsOf(slot);
-    const std::span<const float> pColours = what.ColoursOf(slot);
-    const std::span<const uint32_t> pIndices = what.TrianglesOf(slot);
+    const std::span<const float> pPos = what.positionsOf(slot);
+    const std::span<const float> pNormals = what.normalsOf(slot);
+    const std::span<const float> pUv = what.textureOf(slot, 0);
+    const std::span<const float> pUv1 = what.textureOf(slot, 1);
+    const std::span<const float> pTangents = what.tangentsOf(slot);
+    const std::span<const float> pColours = what.coloursOf(slot);
+    const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
     const std::string where = "assembled piece " + std::to_string(index);
     if (pPos.empty() || (pPos.size() % 3) != 0) {
       return Refuse(where + " states " + std::to_string(pPos.size()) +
@@ -1022,8 +1022,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
       return Refuse(where + " states " + std::to_string(pIndices.size()) +
                     " indices, which is not a whole run of triangles");
     }
-    if (what.MaterialOf(slot).Index() < -1) {
-      return Refuse(where + " names material " + std::to_string(what.MaterialOf(slot).Index()) +
+    if (what.materialOf(slot).index() < -1) {
+      return Refuse(where + " names material " + std::to_string(what.materialOf(slot).index()) +
                     ", and -1 is the only spelling of naming none");
     }
     std::string why;
@@ -1044,8 +1044,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     }
 
     Part part;
-    part.NodeName = std::string(what.NameOf(slot));
-    part.Material = what.MaterialOf(slot).Index();
+    part.NodeName = std::string(what.nameOf(slot));
+    part.Material = what.materialOf(slot).index();
     part.FirstVertex = VertexCount();
     part.FirstIndex = Indices_.size();
     part.VertexCount = vertices;

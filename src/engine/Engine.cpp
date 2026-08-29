@@ -28,7 +28,7 @@ bool Engine::assemble() {
     const bool standsOnAWorld = S_->Ticking.Drove;
     return !standsOnAWorld || S_->Rides();
   }
-  if (!S_->Cast.Scene.Open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
+  if (!S_->Cast.Scene.open(named) || !S_->Cast.Bodies.Open(S_->Cast.Scene) ||
       !S_->Cast.Drives.Open(S_->Cast.Scene) || !S_->Cast.Kinds.Open(S_->Cast.Scene)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
@@ -223,7 +223,7 @@ namespace {
 }
 
 
-void Engine::offers(const Generates &maker) { (void)S_->World.Offering.Offers(maker); }
+void Engine::offers(const Generates &maker) { (void)S_->World.Offering.offers(maker); }
 
 
 
@@ -353,7 +353,7 @@ bool Engine::setView(std::string_view view) {
 
 
 
-bool Engine::Standing() const { return S_->Picture.Standing != nullptr; }
+bool Engine::standing() const { return S_->Picture.Standing != nullptr; }
 const std::string &Engine::error() const { return S_->Error; }
 
 }

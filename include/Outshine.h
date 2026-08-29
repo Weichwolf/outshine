@@ -94,7 +94,7 @@ public:
   [[nodiscard]] bool restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> parked(void) const;
 
-  [[nodiscard]] bool Standing(void) const;
+  [[nodiscard]] bool standing(void) const;
   [[nodiscard]] const std::string &error(void) const;
 
 private:

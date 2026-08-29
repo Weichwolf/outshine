@@ -5,7 +5,7 @@
 
 namespace outshine {
 
-bool WriteGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error) {
+bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error) {
   Gltf::Subject stood;
   if (!stood.Assemble(what)) {
     error = stood.Error().empty() ? "the geometry would not assemble into a subject"

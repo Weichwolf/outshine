@@ -36,9 +36,9 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
     run[vertex] = (uint32_t)vertex;
   }
 
-  const int part = Held_.Part(std::move(named), material);
-  return Held_.Positions(part, positionsM) && Held_.Texture(part, uv) &&
-         Held_.Normals(part, normalM) && Held_.Triangles(part, run);
+  const int part = Held_.addPart(std::move(named), material);
+  return Held_.setPositions(part, positionsM) && Held_.setTexture(part, uv) &&
+         Held_.setNormals(part, normalM) && Held_.setTriangles(part, run);
 }
 
 }

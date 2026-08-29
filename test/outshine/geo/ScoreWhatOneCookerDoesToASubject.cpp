@@ -120,8 +120,8 @@ int main(void) {
   // the part actually carries, so a mesh with tangents cooks eleven floats wide and one without
   // cooks eight. `ClusterDag::Stride` records which, so the cooked form knows its own width.
   outshine::Geometry stood;
-  const outshine::MaterialInstance surface = stood.Surface("lattice", outshine::Material{});
-  const int part = stood.Part("lattice", surface);
+  const outshine::MaterialInstance surface = stood.addSurface("lattice", outshine::Material{});
+  const int part = stood.addPart("lattice", surface);
   std::vector<float> places, normals, uv;
   std::vector<uint32_t> run;
   for (uint32_t vertex = 0; vertex < verts; ++vertex) {
@@ -131,8 +131,8 @@ int main(void) {
     normals.insert(normals.end(), at + 5, at + 8);
     run.push_back(vertex);
   }
-  const bool filled = part >= 0 && stood.Positions(part, places) && stood.Texture(part, uv) &&
-                      stood.Normals(part, normals) && stood.Triangles(part, run);
+  const bool filled = part >= 0 && stood.setPositions(part, places) && stood.setTexture(part, uv) &&
+                      stood.setNormals(part, normals) && stood.setTriangles(part, run);
 
   outshine::CookedPart cooked2;
   std::string why;

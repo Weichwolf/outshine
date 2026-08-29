@@ -22,7 +22,7 @@ constexpr int kFramePx = 64;
 
 class Counting : public outshine::Host {
 public:
-  [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
+  [[nodiscard]] bool calls(std::string_view name, std::span<const outshine::Argument> args) override {
     Named.emplace_back(name);
     Values.push_back(args.empty() ? -1.0 : args[0].Number);
     return true;

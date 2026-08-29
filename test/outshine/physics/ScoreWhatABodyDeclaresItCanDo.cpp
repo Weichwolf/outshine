@@ -97,24 +97,24 @@ int main(void) {
   if (!(asRuns.Stood && asStalls.Stood && asTowed.Stood)) { return Report(); }
 
   std::printf("DECLARES DRIVE 400 Nm   can drive %s   drive force %9.2f N\n",
-              running.Efforts(false) != nullptr ? "yes" : "no ",
+              running.efforts(false) != nullptr ? "yes" : "no ",
               asRuns.Envelope.DriveN);
   std::printf("DECLARES DRIVE   0 Nm   can drive %s   drive force %9.2f N\n",
-              stalled.Efforts(false) != nullptr ? "yes" : "no ",
+              stalled.efforts(false) != nullptr ? "yes" : "no ",
               asStalls.Envelope.DriveN);
   std::printf("DECLARES NO DRIVE       can drive %s   drive force %9.2f N\n",
-              towed.Efforts(false) != nullptr ? "yes" : "no ",
+              towed.efforts(false) != nullptr ? "yes" : "no ",
               asTowed.Envelope.DriveN);
 
   CHECK(asRuns.Envelope.DriveN > 0.0,
         "a body that declares a drive and states a torque produces a force, so the two readings "
         "below are distinctions and not an envelope that is empty for everyone");
-  CHECK(stalled.Efforts(false) != nullptr && asStalls.Envelope.DriveN == 0.0,
+  CHECK(stalled.efforts(false) != nullptr && asStalls.Envelope.DriveN == 0.0,
         "**A BODY CAN HAVE A DRIVE AND PRODUCE NOTHING**: a dead engine is a body WITH a drive "
         "delivering no torque, and the old shape -- `drives = PeakTorqueNm > 0 && FinalDrive > "
         "0` -- called it a body with no drive at all. A capability guessed from a magnitude is "
         "wrong exactly here, and this is the case that separates them");
-  CHECK(towed.Efforts(false) == nullptr && asTowed.Envelope.DriveN == 0.0,
+  CHECK(towed.efforts(false) == nullptr && asTowed.Envelope.DriveN == 0.0,
         "and a body that declares NO drive has none -- a trailer, which is the other half of the "
         "distinction and stands as a rig rather than being refused for lacking an engine");
   CHECK(asRuns.Axles.SteerLimitRad > 0.0 && asRuns.Envelope.BrakeN > 0.0,

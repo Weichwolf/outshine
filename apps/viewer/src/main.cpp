@@ -62,7 +62,7 @@ public:
 
   void Steers(outshine::Engine *engine) { Engine_ = engine; }
 
-  [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
+  [[nodiscard]] bool calls(std::string_view name, std::span<const outshine::Argument> args) override {
     if (name == "next-view" && Engine_ != nullptr) {
       const std::vector<outshine::View> &named = Engine_->declaration().Views;
       if (named.size() < 2) { return false; }
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
     for (size_t at = 0; at < shown.size(); ++at) {
       if (cases[(size_t)shown[at]].Name != asked.Case) { continue; }
       const outshine::Argument picked{outshine::Argument::Kind::Number, (double)at, {}};
-      (void)browsing.Calls("select", std::span<const outshine::Argument>(&picked, 1));
+      (void)browsing.calls("select", std::span<const outshine::Argument>(&picked, 1));
       break;
     }
   }

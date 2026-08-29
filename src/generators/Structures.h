@@ -7,8 +7,8 @@ namespace outshine::Generators {
 
 class Structures final : public Generates {
 public:
-  [[nodiscard]] std::string_view Kind() const override { return NameOf(Ships::Structures); }
-  [[nodiscard]] bool Make(const Ask &ask, Geometry &into) const override;
+  [[nodiscard]] std::string_view kind() const override { return nameOf(Ships::Structures); }
+  [[nodiscard]] bool make(const Ask &ask, Geometry &into) const override;
 };
 
 }

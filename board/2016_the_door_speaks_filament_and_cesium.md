@@ -48,7 +48,15 @@ Measured from `include/Outshine.h` and `include/Scenario.h`:
       `test/outshine/door/ScoreWhatTheGroundAnswers`
 - [x] the door's verbs are Filament's where Filament has one, and this tree's only where it does
       not -- each exception named below with its reason
-- [ ] `apps/demo`'s line count FALLS, because a client that already knows Filament writes less
+- [~] ~~`apps/demo`'s line count FALLS, because a client that already knows Filament writes less~~
+      **WITHDRAWN, and the withdrawal is the finding.** Naming a thing that had no name COSTS a line:
+      `Renderer renderer = engine.renderer();` is Filament's own shape and every client that draws
+      pays it once -- demo 194->195, bench 359->360, driver 253->254, viewer 338->339. The earlier
+      reading this item carried (demo 194->170, bench 339->343) does not reproduce; it stood over
+      three different code states, which is the same defect board:2026 was withdrawn for. A door is
+      judged by whether a client has to GUESS, and a line count cannot see that -- it is a rate, and
+      a rate has no negative control. `outshine/door/ScoreWhichWordsTheDoorSpeaks` is what replaced
+      it, and it asserts REACHABILITY, which a grep over the header could never see
 
 **The measurement that would show I am wrong:** `apps/demo` is 194 lines and `apps/bench` 339. If
 the rename does not reduce them, the door was not the thing making a client verbose and the item's
@@ -134,9 +142,10 @@ client here declares a scenario and asks for a frame, and does not assemble a re
 
 ## What the item still owes
 
-- [ ] `apps/demo`'s line count. 194 before the door work, 170 now -- down 12 per cent, so the premise
-      holds, but the item claimed a FALL and one client is not a measurement. `apps/bench` went
-      339 to 343
+- [x] all twelve door words are SPOKEN and each is REACHABLE, proven by
+      `test/outshine/door/ScoreWhichWordsTheDoorSpeaks` with two detector controls. `Renderer`,
+      `MaterialInstance` and `TransformManager` landed: the last two existed already as an unnamed
+      `int` and as a capability with ZERO callers
 
 
 ## THE NAME COUNT, measured in `include/` rather than claimed
@@ -192,5 +201,4 @@ until then the name would promise a mutability the declaration model refuses.
 
 ## What the item still owes
 
-- [ ] `apps/bench` went 339 to 343. One client falling 12 per cent and another rising by four is not
-      a measurement, and the item claimed a FALL
+- [x] the line-count premise, withdrawn above with its replacement measurement

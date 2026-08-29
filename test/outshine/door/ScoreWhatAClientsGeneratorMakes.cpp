@@ -45,20 +45,20 @@ constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
 
 class Slab final : public outshine::Generates {
 public:
-  [[nodiscard]] std::string_view Kind() const override { return "test-slab"; }
+  [[nodiscard]] std::string_view kind() const override { return "test-slab"; }
 
-  [[nodiscard]] bool Make(const outshine::Ask &ask, outshine::Geometry &into) const override {
+  [[nodiscard]] bool make(const outshine::Ask &ask, outshine::Geometry &into) const override {
     Asked = ask;
     outshine::Material surface;
     surface.BaseColour[0] = 0.05f;
     surface.BaseColour[1] = 0.75f;
     surface.BaseColour[2] = 0.05f;
     surface.Roughness = 0.9f;
-    const outshine::MaterialInstance named = into.Surface("slab", surface);
-    const int part = into.Part("slab", named);
-    return into.Positions(part, std::span<const float>(kPositions, 18)) &&
-           into.Normals(part, std::span<const float>(kNormals, 18)) &&
-           into.Triangles(part, std::span<const uint32_t>(kIndices, 6));
+    const outshine::MaterialInstance named = into.addSurface("slab", surface);
+    const int part = into.addPart("slab", named);
+    return into.setPositions(part, std::span<const float>(kPositions, 18)) &&
+           into.setNormals(part, std::span<const float>(kNormals, 18)) &&
+           into.setTriangles(part, std::span<const uint32_t>(kIndices, 6));
   }
 
   mutable outshine::Ask Asked;

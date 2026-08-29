@@ -146,7 +146,7 @@ public:
       }
     }
     Fired_ = true;
-    return Client_->Calls(Named_[which], handed);
+    return Client_->calls(Named_[which], handed);
   }
 
   [[nodiscard]] bool Fired() const { return Fired_; }

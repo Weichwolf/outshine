@@ -68,8 +68,8 @@ public:
   MaterialInstance(void) = default;
   explicit MaterialInstance(int at) : At_(at) {}
 
-  [[nodiscard]] bool Bound(void) const { return At_ >= 0; }
-  [[nodiscard]] int Index(void) const { return At_; }
+  [[nodiscard]] bool bound(void) const { return At_ >= 0; }
+  [[nodiscard]] int index(void) const { return At_; }
   [[nodiscard]] bool operator==(const MaterialInstance &) const = default;
 
 private:

@@ -35,8 +35,8 @@ constexpr float kTau = outshine::kPixelTau;
 
 [[nodiscard]] outshine::Geometry Lattice() {
   outshine::Geometry stood;
-  const outshine::MaterialInstance surface = stood.Surface("lattice", outshine::Material{});
-  const int part = stood.Part("lattice", surface);
+  const outshine::MaterialInstance surface = stood.addSurface("lattice", outshine::Material{});
+  const int part = stood.addPart("lattice", surface);
   std::vector<float> places, normals;
   std::vector<uint32_t> run;
   const auto push = [&](float e, float n) {
@@ -60,8 +60,8 @@ constexpr float kTau = outshine::kPixelTau;
       push(e, n + 1.0f);
     }
   }
-  if (part < 0 || !stood.Positions(part, places) || !stood.Normals(part, normals) ||
-      !stood.Triangles(part, run)) {
+  if (part < 0 || !stood.setPositions(part, places) || !stood.setNormals(part, normals) ||
+      !stood.setTriangles(part, run)) {
     return outshine::Geometry();
   }
   return stood;
@@ -84,7 +84,7 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   const outshine::Geometry stood = Lattice();
-  if (stood.Parts() != 1) {
+  if (stood.parts() != 1) {
     Unprepared("the lattice would not fill a geometry");
     return Report();
   }
@@ -98,7 +98,7 @@ int main(void) {
     return Report();
   }
 
-  const uint32_t whole = (uint32_t)(stood.TrianglesOf(0).size() / 3);
+  const uint32_t whole = (uint32_t)(stood.trianglesOf(0).size() / 3);
   const uint32_t close = TrianglesAt(cooked, 20.0);
   const uint32_t afar = TrianglesAt(cooked, 6000.0);
 

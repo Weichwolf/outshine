@@ -9,7 +9,7 @@
 
 namespace outshine {
 
-const Asset *Scenario::Subject() const {
+const Asset *Scenario::subject() const {
   for (const Asset &asset : Assets) {
     if (asset.Kind == "gltf") { return &asset; }
   }

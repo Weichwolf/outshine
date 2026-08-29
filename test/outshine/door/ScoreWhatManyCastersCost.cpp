@@ -48,15 +48,15 @@ class Crates final : public outshine::Generates {
 public:
   explicit Crates(int many) : Many_(many) {}
 
-  [[nodiscard]] std::string_view Kind() const override { return "crates"; }
+  [[nodiscard]] std::string_view kind() const override { return "crates"; }
 
-  [[nodiscard]] bool Make(const outshine::Ask &, outshine::Geometry &into) const override {
+  [[nodiscard]] bool make(const outshine::Ask &, outshine::Geometry &into) const override {
     outshine::Material grey;
     grey.BaseColour[0] = 0.6f;
     grey.BaseColour[1] = 0.6f;
     grey.BaseColour[2] = 0.6f;
     grey.Roughness = 0.9f;
-    const outshine::MaterialInstance named = into.Surface("crate", grey);
+    const outshine::MaterialInstance named = into.addSurface("crate", grey);
     for (int at = 0; at < Many_; ++at) {
       const float acrossM = 0.35f;
       const float alongM = (float)((at % 8) - 4) * 1.1f;
@@ -69,10 +69,10 @@ public:
                               alongM - acrossM, upM + acrossM, 0.0f};
       constexpr float facing[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
       constexpr uint32_t run[6] = {0, 1, 2, 3, 4, 5};
-      const int part = into.Part("crate", named);
-      if (!into.Positions(part, std::span<const float>(face, 18)) ||
-          !into.Normals(part, std::span<const float>(facing, 18)) ||
-          !into.Triangles(part, std::span<const uint32_t>(run, 6))) {
+      const int part = into.addPart("crate", named);
+      if (!into.setPositions(part, std::span<const float>(face, 18)) ||
+          !into.setNormals(part, std::span<const float>(facing, 18)) ||
+          !into.setTriangles(part, std::span<const uint32_t>(run, 6))) {
         return false;
       }
     }

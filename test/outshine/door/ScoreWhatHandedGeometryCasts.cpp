@@ -76,10 +76,10 @@ int main(void) {
   const double drewEmpty = Measured(engine, "batches the picture draws");
 
   outshine::Geometry geometry;
-  const int part = geometry.Part("handed", outshine::MaterialInstance(0));
-  const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
-                      geometry.Normals(part, std::span<const float>(kNormals, 18)) &&
-                      geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6));
+  const int part = geometry.addPart("handed", outshine::MaterialInstance(0));
+  const bool filled = geometry.setPositions(part, std::span<const float>(kPositions, 18)) &&
+                      geometry.setNormals(part, std::span<const float>(kNormals, 18)) &&
+                      geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 6));
   if (!filled) {
     Unprepared("the builder refused the fixture, so there is nothing to hand in");
     return Report();

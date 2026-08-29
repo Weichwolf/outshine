@@ -54,7 +54,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   }
   const outshine::Journey *driveTo = driven.Get(cast.Assignment);
   const bool assigned =
-      driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
+      driveTo != nullptr && scene.targetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
   if (!assigned) { say.Refuse("the mind carries no assignment"); }
   if (!assigned) { return false; }
   const double fromLatDeg = driveTo->FromLatDeg;

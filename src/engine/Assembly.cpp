@@ -48,9 +48,9 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
       error = "the kind '" + kind.Name + "' is declared twice, and a default has one spelling";
       return false;
     }
-    const Entity prefab = into.Add(Role::Body);
-    if (!into.Alive(prefab)) {
-      error = into.Error();
+    const Entity prefab = into.addEntity(Role::Body);
+    if (!into.alive(prefab)) {
+      error = into.error();
       return false;
     }
     if (!kind.Inherits.empty()) {
@@ -61,8 +61,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
                 "cycle cannot even be spelled";
         return false;
       }
-      if (!into.Link(prefab, Relation::IsA, parent)) {
-        error = into.Error();
+      if (!into.link(prefab, Relation::IsA, parent)) {
+        error = into.error();
         return false;
       }
     }
@@ -72,9 +72,9 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
                 "declaration that names nothing";
         return false;
       }
-      const Tag doing = TagCatalogue::Under(tags::Does, Interned(out.TagNames, capability));
-      if (!into.Give(prefab, doing)) {
-        error = into.Error();
+      const Tag doing = TagCatalogue::under(tags::Does, Interned(out.TagNames, capability));
+      if (!into.giveTag(prefab, doing)) {
+        error = into.error();
         return false;
       }
     }
@@ -102,9 +102,9 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
               "', which no kind declares";
       return false;
     }
-    const Entity stood = into.Instantiate(prefab);
-    if (!into.Alive(stood)) {
-      error = into.Error();
+    const Entity stood = into.instantiate(prefab);
+    if (!into.alive(stood)) {
+      error = into.error();
       return false;
     }
     Traits resolved;
@@ -115,7 +115,7 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
       Entity at = prefab;
       for (; !(at == kNoEntity) && depth < kDeepest; ++depth) {
         chain[depth] = at;
-        at = into.TargetOf(at, Relation::IsA);
+        at = into.targetOf(at, Relation::IsA);
       }
       if (!(at == kNoEntity)) {
         error = "the kind chain under '" + instance.Of + "' is deeper than " +
@@ -163,8 +163,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
                 "', which nothing declares";
         return false;
       }
-      if (!into.Link(held, Relation::HeldBy, holder)) {
-        error = into.Error();
+      if (!into.link(held, Relation::HeldBy, holder)) {
+        error = into.error();
         return false;
       }
     }
@@ -176,25 +176,25 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
         return false;
       }
       const Entity self = out.InstanceNamed(instance.Id);
-      if (!into.Link(self, Relation::HeldBy, room)) {
-        error = into.Error();
+      if (!into.link(self, Relation::HeldBy, room)) {
+        error = into.error();
         return false;
       }
     }
   }
 
   for (const Body &declaredBody : declared.Bodies) {
-    const Entity body = into.Add(Role::Body);
-    if (!into.Alive(body)) {
-      error = into.Error();
+    const Entity body = into.addEntity(Role::Body);
+    if (!into.alive(body)) {
+      error = into.error();
       return false;
     }
     for (const Drive &does : declaredBody.Driven) {
       const char *const named = does.Does == Drives::Motion ? "steer"
                                                              : (does.Opposes ? "torque-opposing"
                                                                              : "torque");
-      if (!into.Give(body, TagCatalogue::Under(tags::Does, Interned(out.TagNames, named)))) {
-        error = into.Error();
+      if (!into.giveTag(body, TagCatalogue::under(tags::Does, Interned(out.TagNames, named)))) {
+        error = into.error();
         return false;
       }
     }
@@ -212,10 +212,10 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
       error = "the player is '" + declared.Played.Is + "', which no body declares";
       return false;
     }
-    out.PlayerMind = into.Add(Role::Mind);
-    if (!into.Alive(out.PlayerMind) ||
-        !into.Link(out.PlayerBody, Relation::DrivenBy, out.PlayerMind)) {
-      error = into.Error();
+    out.PlayerMind = into.addEntity(Role::Mind);
+    if (!into.alive(out.PlayerMind) ||
+        !into.link(out.PlayerBody, Relation::DrivenBy, out.PlayerMind)) {
+      error = into.error();
       return false;
     }
   }
@@ -228,17 +228,17 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
               "nothing";
       return false;
     }
-    if (!into.Alive(out.PlayerMind)) {
+    if (!into.alive(out.PlayerMind)) {
       error = "a drive is declared and no mind stands to take it -- declare a player";
       return false;
     }
-    out.Nav = into.Add(Role::Tool);
-    out.Assignment = into.Add(Role::Assignment);
-    if (!into.Alive(out.Nav) || !into.Alive(out.Assignment) ||
-        !into.Link(out.PlayerMind, Relation::Uses, out.Nav) ||
-        !into.Link(out.PlayerMind, Relation::Assigned, out.Assignment) ||
+    out.Nav = into.addEntity(Role::Tool);
+    out.Assignment = into.addEntity(Role::Assignment);
+    if (!into.alive(out.Nav) || !into.alive(out.Assignment) ||
+        !into.link(out.PlayerMind, Relation::Uses, out.Nav) ||
+        !into.link(out.PlayerMind, Relation::Assigned, out.Assignment) ||
         !driven.Put(out.Assignment, declared.Routed)) {
-      error = into.Error().empty() ? "the drive's numbers found no column seat" : into.Error();
+      error = into.error().empty() ? "the drive's numbers found no column seat" : into.error();
       return false;
     }
   }

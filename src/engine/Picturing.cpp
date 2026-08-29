@@ -534,8 +534,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!tinted.empty()) {
     for (int channel = 0; channel < 3; ++channel) { bare.BaseColour[channel] = 1.0f; }
   }
-  const MaterialInstance ringSurface = ground.Surface("ground", bare);
-  const int ringPart = ground.Part("ground", ringSurface);
+  const MaterialInstance ringSurface = ground.addSurface("ground", bare);
+  const int ringPart = ground.addPart("ground", ringSurface);
 
   // THE BUILDINGS STAND IN THE SAME GEOMETRY AS THE GROUND, one part beside the ring's. They are
   // STATIC map data, every one with its own footprint, so there is no prototype to instance -- RAGE
@@ -636,10 +636,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tiles.BaseColour[1] = 0.20f;
       tiles.BaseColour[2] = 0.14f;
       tiles.Roughness = 0.72f;
-      const MaterialInstance wallSurface = ground.Surface("walls", walls);
-      const MaterialInstance roofSurface = ground.Surface("roofs", tiles);
-      const int builtPart = ground.Part("walls", wallSurface);
-      const int roofPart = ground.Part("roofs", roofSurface);
+      const MaterialInstance wallSurface = ground.addSurface("walls", walls);
+      const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
+      const int builtPart = ground.addPart("walls", wallSurface);
+      const int roofPart = ground.addPart("roofs", roofSurface);
       // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
       // took the data and every one of them was thrown away with a (void), so a part that was never
       // made and a soup that was never stored looked exactly like geometry standing in the frame.
@@ -662,23 +662,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
       const bool tookPlaces =
           builtPart >= 0 && roofPart >= 0 &&
-          ground.Positions(builtPart, std::span<const float>(wallPlaces.data(), wallPlaces.size())) &&
-          ground.Positions(roofPart, std::span<const float>(roofPlaces.data(), roofPlaces.size()));
+          ground.setPositions(builtPart, std::span<const float>(wallPlaces.data(), wallPlaces.size())) &&
+          ground.setPositions(roofPart, std::span<const float>(roofPlaces.data(), roofPlaces.size()));
       const bool tookFacing =
           tookPlaces &&
-          ground.Normals(builtPart, std::span<const float>(wallFacing.data(), wallFacing.size())) &&
-          ground.Normals(roofPart, std::span<const float>(roofFacing.data(), roofFacing.size()));
+          ground.setNormals(builtPart, std::span<const float>(wallFacing.data(), wallFacing.size())) &&
+          ground.setNormals(roofPart, std::span<const float>(roofFacing.data(), roofFacing.size()));
       const bool tookRun =
           tookFacing &&
-          ground.Triangles(builtPart, std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
-          ground.Triangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
+          ground.setTriangles(builtPart, std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
+          ground.setTriangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
       Published.Places("buildings: the part they were given", (double)builtPart, "index");
-      Published.Places("buildings: the wall surface", (double)wallSurface.Index(), "index");
-      Published.Places("buildings: the roof surface", (double)roofSurface.Index(), "index");
+      Published.Places("buildings: the wall surface", (double)wallSurface.index(), "index");
+      Published.Places("buildings: the roof surface", (double)roofSurface.index(), "index");
       Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
-      Published.Places("buildings: parts the geometry holds", (double)ground.Parts(), "parts");
+      Published.Places("buildings: parts the geometry holds", (double)ground.parts(), "parts");
       Published.Places("building triangles the world meshed", (double)(vertices / 3), "triangles");
       {
         double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0, inward = 0.0;
@@ -778,13 +778,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
-  (void)ground.Positions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
-  (void)ground.Normals(ringPart,
+  (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
+  (void)ground.setNormals(ringPart,
                        std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
-  (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
+  (void)ground.setTriangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
                                                              laid->Index.size()));
   if (!tinted.empty()) {
-    (void)ground.Colours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
+    (void)ground.setColours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
   }
 
   // THE HEIGHT OF THE GROUND THAT IS DRAWN, not of the raster behind it. Cesium answers
@@ -955,17 +955,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tarmac.BaseColour[1] = 0.16f;
       tarmac.BaseColour[2] = 0.17f;
       tarmac.Roughness = 0.92f;
-      const MaterialInstance paved = ground.Surface("streets", tarmac);
-      const int pavedPart = ground.Part("streets", paved);
+      const MaterialInstance paved = ground.addSurface("streets", tarmac);
+      const int pavedPart = ground.addPart("streets", paved);
       const bool tookPaving =
           pavedPart >= 0 &&
-          ground.Positions(pavedPart, std::span<const float>(places.data(), places.size())) &&
-          ground.Normals(pavedPart, std::span<const float>(facing.data(), facing.size())) &&
-          ground.Triangles(pavedPart, std::span<const uint32_t>(order.data(), order.size()));
-      Published.Places("streets: the surface they were given", (double)paved.Index(), "index");
+          ground.setPositions(pavedPart, std::span<const float>(places.data(), places.size())) &&
+          ground.setNormals(pavedPart, std::span<const float>(facing.data(), facing.size())) &&
+          ground.setTriangles(pavedPart, std::span<const uint32_t>(order.data(), order.size()));
+      Published.Places("streets: the surface they were given", (double)paved.index(), "index");
       Published.Places("streets: the part they were given", (double)pavedPart, "index");
       Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
-      Published.Places("streets: parts the geometry now holds", (double)ground.Parts(), "parts");
+      Published.Places("streets: parts the geometry now holds", (double)ground.parts(), "parts");
     }
   }
 
@@ -1018,13 +1018,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       lagoon.BaseColour[2] = 0.16f;
       lagoon.Roughness = 0.14f;
       lagoon.DoubleSided = true;
-      const MaterialInstance wetSurface = ground.Surface("water", lagoon);
-      const int wetPart = ground.Part("water", wetSurface);
+      const MaterialInstance wetSurface = ground.addSurface("water", lagoon);
+      const int wetPart = ground.addPart("water", wetSurface);
       const bool tookWater =
           wetPart >= 0 &&
-          ground.Positions(wetPart, std::span<const float>(places.data(), places.size())) &&
-          ground.Normals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
-          ground.Triangles(wetPart, std::span<const uint32_t>(order.data(), order.size()));
+          ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
+          ground.setNormals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
+          ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size()));
       Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
     }
   }
@@ -1043,7 +1043,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const size_t drivenParts = Picture.Standing->Shown().Parts().size();
   Published.Places("restand: the carried count the world hands over", (double)drivenParts,
                    "carried");
-  Published.Places("restand: parts in the geometry", (double)ground.Parts(), "parts");
+  Published.Places("restand: parts in the geometry", (double)ground.parts(), "parts");
   if (!Picture.Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
   Published.Places("restand: parts the proxy then stands with",
                    (double)Picture.Standing->PartsStanding(), "parts");

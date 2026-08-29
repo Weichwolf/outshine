@@ -48,7 +48,7 @@ constexpr Seed kStepSeeds[] = {
 // every frame, 43.6 MB and a device sync, to publish two numbers nobody had asked for.
 constexpr Seed kPictureSeeds[] = {
     {"Engine6renderENS_6ExtentE", "the picture: one call draws one frame and hands it over"},
-    {"Render8Renderer11RenderFrameEv",
+    {"Render13SceneRenderer11RenderFrameEv",
      "what the picture reaches through `Live::Draw` -- a call the graph does follow, seeded "
      "anyway so a change to that chain cannot silently unseed it"},
     {"Engine5State4DrewEv", "what the picture publishes after it draws"},

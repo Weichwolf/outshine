@@ -6,8 +6,8 @@ namespace outshine {
 
 bool Cook(const Geometry &what, int part, const ClusterDagOpts &how, CookedPart &into,
           std::string &error) {
-  const std::span<const float> places = what.PositionsOf(part);
-  const std::span<const uint32_t> triangles = what.TrianglesOf(part);
+  const std::span<const float> places = what.positionsOf(part);
+  const std::span<const uint32_t> triangles = what.trianglesOf(part);
   if (places.empty() || triangles.size() < 3 || triangles.size() % 3 != 0) {
     error = "part " + std::to_string(part) + " carries " + std::to_string(places.size() / 3) +
             " vertex/vertices and " + std::to_string(triangles.size()) +
@@ -15,10 +15,10 @@ bool Cook(const Geometry &what, int part, const ClusterDagOpts &how, CookedPart 
     return false;
   }
 
-  const std::span<const float> normals = what.NormalsOf(part);
-  const std::span<const float> texture = what.TextureOf(part, 0);
-  const std::span<const float> tangents = what.TangentsOf(part);
-  const std::span<const float> colours = what.ColoursOf(part);
+  const std::span<const float> normals = what.normalsOf(part);
+  const std::span<const float> texture = what.textureOf(part, 0);
+  const std::span<const float> tangents = what.tangentsOf(part);
+  const std::span<const float> colours = what.coloursOf(part);
   const size_t vertices = places.size() / 3;
 
   into.HasNormals = normals.size() == vertices * 3;

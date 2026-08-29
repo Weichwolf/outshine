@@ -94,11 +94,11 @@ int main(void) {
     for (int at = 0; at < 4; ++at) { surface.BaseColour[at] = colour[at]; }
     surface.Metalness = 0.0f;
     surface.Roughness = 0.9f;
-    const outshine::MaterialInstance named = geometry.Surface("stated", surface);
-    const int part = geometry.Part("face", named);
-    return geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
-           geometry.Normals(part, std::span<const float>(kNormals, 18)) &&
-           geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6)) &&
+    const outshine::MaterialInstance named = geometry.addSurface("stated", surface);
+    const int part = geometry.addPart("face", named);
+    return geometry.setPositions(part, std::span<const float>(kPositions, 18)) &&
+           geometry.setNormals(part, std::span<const float>(kNormals, 18)) &&
+           geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 6)) &&
            engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
   };
 
@@ -144,10 +144,10 @@ int main(void) {
     outshine::Material surface;
     for (int at = 0; at < 4; ++at) { surface.BaseColour[at] = kRed[at]; }
     surface.Roughness = 0.9f;
-    const outshine::MaterialInstance named = geometry.Surface("stated", surface);
-    const int part = geometry.Part("face", named);
-    return geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
-           geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6)) &&
+    const outshine::MaterialInstance named = geometry.addSurface("stated", surface);
+    const int part = geometry.addPart("face", named);
+    return geometry.setPositions(part, std::span<const float>(kPositions, 18)) &&
+           geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 6)) &&
            engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
   };
   std::vector<uint8_t> unfaced;

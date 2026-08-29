@@ -148,10 +148,10 @@ int main(void) {
   }
 
   outshine::Geometry geometry;
-  const int part = geometry.Part("handed", outshine::MaterialInstance(0));
-  const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 9)) &&
-                      geometry.Normals(part, std::span<const float>(kNormals, 9)) &&
-                      geometry.Triangles(part, std::span<const uint32_t>(kIndices, 3));
+  const int part = geometry.addPart("handed", outshine::MaterialInstance(0));
+  const bool filled = geometry.setPositions(part, std::span<const float>(kPositions, 9)) &&
+                      geometry.setNormals(part, std::span<const float>(kNormals, 9)) &&
+                      geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 3));
   if (!filled) {
     Unprepared("the builder refused the fixture, so there is nothing to hand in");
     return Report();

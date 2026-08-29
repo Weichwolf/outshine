@@ -13,19 +13,19 @@ Makers::~Makers() = default;
 Makers::Makers(Makers &&) noexcept = default;
 Makers &Makers::operator=(Makers &&) noexcept = default;
 
-bool Makers::Offers(const Generates &maker) {
-  if (Named(maker.Kind()) != nullptr) { return false; }
+bool Makers::offers(const Generates &maker) {
+  if (named(maker.kind()) != nullptr) { return false; }
   Kept_->Held.push_back(&maker);
   return true;
 }
 
-const Generates *Makers::Named(std::string_view kind) const {
+const Generates *Makers::named(std::string_view kind) const {
   for (const Generates *const stood : Kept_->Held) {
-    if (stood->Kind() == kind) { return stood; }
+    if (stood->kind() == kind) { return stood; }
   }
   return nullptr;
 }
 
-size_t Makers::Count() const { return Kept_->Held.size(); }
+size_t Makers::count() const { return Kept_->Held.size(); }
 
 }

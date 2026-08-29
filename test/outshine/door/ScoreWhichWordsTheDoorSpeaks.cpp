@@ -50,11 +50,11 @@ template <typename E>
 concept HandsOverARenderer = requires(E &e) { e.renderer(); };
 
 template <typename G>
-concept TakesABareIntAsMaterial = requires(G &g) { g.Part("part", 3); };
+concept TakesABareIntAsMaterial = requires(G &g) { g.addPart("part", 3); };
 
 template <typename G>
 concept TakesAMaterialInstance =
-    requires(G &g, outshine::MaterialInstance bound) { g.Part("part", bound); };
+    requires(G &g, outshine::MaterialInstance bound) { g.addPart("part", bound); };
 
 }
 
@@ -94,7 +94,7 @@ int main(void) {
 
   // TOLD APART. Both were `int` until this round, so `Part(name, someOtherIndex)` compiled and
   // meant something wrong. The control is the second assertion.
-  std::printf("  Geometry::Part takes a bare int: %s   a outshine::MaterialInstance: %s\n",
+  std::printf("  Geometry::addPart takes a bare int: %s   a outshine::MaterialInstance: %s\n",
               TakesABareIntAsMaterial<Geometry> ? "YES" : "no",
               TakesAMaterialInstance<Geometry> ? "YES" : "no");
   CHECK(TakesAMaterialInstance<Geometry>,
@@ -109,17 +109,17 @@ int main(void) {
   // is exercised at all. The refusal is the negative control and it is what the old `void Place`
   // could not give: it returned silently on a part that does not exist.
   Geometry made;
-  const outshine::MaterialInstance surface = made.Surface("plain", Material{});
-  const int part = made.Part("one", surface);
+  const outshine::MaterialInstance surface = made.addSurface("plain", Material{});
+  const int part = made.addPart("one", surface);
   const double shifted[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 12.5, -3.25, 7.0, 1};
   TransformManager transforms = made.transforms();
   const bool set = transforms.setTransform(part, shifted);
   const double *read = transforms.getTransform(part);
   const bool same = read != nullptr && read[12] == 12.5 && read[13] == -3.25 && read[14] == 7.0;
   const bool refused = !transforms.setTransform(-1, shifted);
-  const bool alsoRefused = !transforms.setTransform(made.Parts(), shifted);
+  const bool alsoRefused = !transforms.setTransform(made.parts(), shifted);
   std::printf("  transform set %s, read back %s, part -1 %s, part %d %s\n", set ? "yes" : "NO",
-              same ? "yes" : "NO", refused ? "refused" : "TOOK", made.Parts(),
+              same ? "yes" : "NO", refused ? "refused" : "TOOK", made.parts(),
               alsoRefused ? "refused" : "TOOK");
   CHECK(set && same,
         "**A TRANSFORM SET THROUGH THE MANAGER IS THE TRANSFORM READ BACK**: the capability has "

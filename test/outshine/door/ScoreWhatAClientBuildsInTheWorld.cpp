@@ -44,28 +44,28 @@ int main(void) {
 
   outshine::Scene &world = engine.scene();
 
-  const outshine::Entity body = world.Add(outshine::Role::Body);
-  const outshine::Entity mind = world.Add(outshine::Role::Mind);
-  const bool made = world.Alive(body) && world.Alive(mind);
+  const outshine::Entity body = world.addEntity(outshine::Role::Body);
+  const outshine::Entity mind = world.addEntity(outshine::Role::Mind);
+  const bool made = world.alive(body) && world.alive(mind);
   CHECK(made, "**A CLIENT MAKES ENTITIES THROUGH THE DOOR**: `Engine::Scene()` hands back the "
               "world, and the world hands back handles -- which is Unreal's UWorld and RAGE's "
               "entity store reached the way both engines reach them");
 
-  const bool tagged = world.Give(body, outshine::TagCatalogue::Under(outshine::tags::Does, 1));
+  const bool tagged = world.giveTag(body, outshine::TagCatalogue::under(outshine::tags::Does, 1));
   CHECK(tagged, "and marks what one CAN do, from a catalogue a typo cannot enter");
 
-  const bool linked = world.Link(body, outshine::Relation::DrivenBy, mind);
+  const bool linked = world.link(body, outshine::Relation::DrivenBy, mind);
   CHECK(linked, ("and links a body to the mind that drives it: " +
-                 std::string(world.Error())).c_str());
+                 std::string(world.error())).c_str());
 
-  const outshine::Entity found = world.TargetOf(body, outshine::Relation::DrivenBy);
+  const outshine::Entity found = world.targetOf(body, outshine::Relation::DrivenBy);
   CHECK(found == mind, "and reads the link back -- so the graph answers, rather than only "
                        "accepting");
 
-  const outshine::Entity tool = world.Add(outshine::Role::Tool);
-  const bool refused = !world.Link(body, outshine::Relation::DrivenBy, tool);
+  const outshine::Entity tool = world.addEntity(outshine::Role::Tool);
+  const bool refused = !world.link(body, outshine::Relation::DrivenBy, tool);
   std::printf("A TOOL DRIVING A BODY  refused: %s   %s\n", refused ? "yes" : "NO",
-              std::string(world.Error()).c_str());
+              std::string(world.error()).c_str());
   CHECK(refused, "**AND THE WORLD REFUSES WHAT ITS RULES FORBID**: DrivenBy targets a MIND, and a "
                  "graph that accepts anything is a dictionary rather than a world. The rule is "
                  "`constexpr` beside the relation, so it cannot drift from what the store does");

@@ -21,9 +21,9 @@ constexpr int kMixFrames = 1024;
   lit.BaseColour[2] = 0.95f;
   lit.Roughness = 0.35f;
   lit.Metalness = 0.1f;
-  const outshine::MaterialInstance wears = made.Surface("blob", lit);
+  const outshine::MaterialInstance wears = made.addSurface("blob", lit);
 
-  const int part = made.Part("blob", wears);
+  const int part = made.addPart("blob", wears);
   std::vector<float> positionsM, normals;
   std::vector<uint32_t> triangles;
   constexpr int kRings = 24, kSegments = 48;
@@ -46,9 +46,9 @@ constexpr int kMixFrames = 1024;
       triangles.insert(triangles.end(), {at + 1u, below, below + 1u});
     }
   }
-  (void)made.Positions(part, positionsM);
-  (void)made.Normals(part, normals);
-  (void)made.Triangles(part, triangles);
+  (void)made.setPositions(part, positionsM);
+  (void)made.setNormals(part, normals);
+  (void)made.setTriangles(part, triangles);
   return made;
 }
 

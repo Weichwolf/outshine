@@ -24,7 +24,7 @@ constexpr double kMetresPerDegree = 111320.0;
 
 }
 
-bool Structures::Make(const Ask &ask, Geometry &into) const {
+bool Structures::make(const Ask &ask, Geometry &into) const {
   const double sideM = ask.ExtentM > 0.0 && ask.ExtentM < 200.0 ? ask.ExtentM : 12.0;
   const double halfDeg = 0.5 * sideM / kMetresPerDegree;
   const double lat = ask.NorthM;
@@ -51,22 +51,22 @@ bool Structures::Make(const Ask &ask, Geometry &into) const {
   Meshed made;
   if (!made.Take("structure", MaterialInstance(0), soup.data(), soup.size())) { return false; }
   Geometry stood = made.Handed();
-  if (stood.Parts() == 0) { return false; }
+  if (stood.parts() == 0) { return false; }
 
   Material walls;
   walls.BaseColour[0] = 0.62f;
   walls.BaseColour[1] = 0.60f;
   walls.BaseColour[2] = 0.56f;
   walls.Roughness = 0.85f;
-  const MaterialInstance named = into.Surface("walls", walls);
-  for (int part = 0; part < stood.Parts(); ++part) {
-    const int here = into.Part("structure", named);
-    if (!into.Positions(here, stood.PositionsOf(part)) ||
-        !into.Triangles(here, stood.TrianglesOf(part))) {
+  const MaterialInstance named = into.addSurface("walls", walls);
+  for (int part = 0; part < stood.parts(); ++part) {
+    const int here = into.addPart("structure", named);
+    if (!into.setPositions(here, stood.positionsOf(part)) ||
+        !into.setTriangles(here, stood.trianglesOf(part))) {
       return false;
     }
-    if (!stood.NormalsOf(part).empty()) { (void)into.Normals(here, stood.NormalsOf(part)); }
-    if (!stood.TextureOf(part).empty()) { (void)into.Texture(here, stood.TextureOf(part)); }
+    if (!stood.normalsOf(part).empty()) { (void)into.setNormals(here, stood.normalsOf(part)); }
+    if (!stood.textureOf(part).empty()) { (void)into.setTexture(here, stood.textureOf(part)); }
   }
   return true;
 }

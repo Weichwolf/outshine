@@ -14,16 +14,16 @@ template <class Value>
 class Column {
 public:
   [[nodiscard]] bool Open(const Scene &of) {
-    if (of.Capacity() == 0) { return false; }
+    if (of.capacity() == 0) { return false; }
     Bound_ = &of;
-    Values_.assign(of.Capacity(), Value{});
-    Generations_.assign(of.Capacity(), 0);
-    Held_.assign(of.Capacity(), 0);
+    Values_.assign(of.capacity(), Value{});
+    Generations_.assign(of.capacity(), 0);
+    Held_.assign(of.capacity(), 0);
     return true;
   }
 
   [[nodiscard]] bool Put(Entity of, const Value &value) {
-    if (Bound_ == nullptr || !Bound_->Alive(of) || of.Index >= Values_.size()) { return false; }
+    if (Bound_ == nullptr || !Bound_->alive(of) || of.Index >= Values_.size()) { return false; }
     Values_[of.Index] = value;
     Generations_[of.Index] = of.Generation;
     Held_[of.Index] = 1;
@@ -31,7 +31,7 @@ public:
   }
 
   [[nodiscard]] const Value *Get(Entity of) const {
-    if (Bound_ == nullptr || !Bound_->Alive(of) || of.Index >= Values_.size()) { return nullptr; }
+    if (Bound_ == nullptr || !Bound_->alive(of) || of.Index >= Values_.size()) { return nullptr; }
     if (Held_[of.Index] == 0 || Generations_[of.Index] != of.Generation) { return nullptr; }
     return &Values_[of.Index];
   }
@@ -48,7 +48,7 @@ public:
     for (uint32_t at = 0; at < (uint32_t)Values_.size(); ++at) {
       if (Held_[at] == 0) { continue; }
       const Entity of{at, Generations_[at]};
-      if (!Bound_->Alive(of)) { continue; }
+      if (!Bound_->alive(of)) { continue; }
       fn(of, Values_[at]);
     }
   }

@@ -24,7 +24,7 @@ bool Engine::handleEvent(const SDL_Event &event) {
       const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
       if (named == nullptr) { continue; }
       const Argument value{Argument::Kind::Number, (double)fired[at].Value, {}};
-      acted = S_->Offered->Calls(*named, std::span<const Argument>(&value, 1)) || acted;
+      acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
     return acted;
   }
@@ -116,14 +116,14 @@ bool Engine::setSurfaces(const std::vector<Surface> &surfaces) {
 }
 
 void Engine::ships(void) {
-  if (S_->World.Offering.Count() > 0) { return; }
-  (void)S_->World.Offering.Offers(S_->World.Shipped);
+  if (S_->World.Offering.count() > 0) { return; }
+  (void)S_->World.Offering.offers(S_->World.Shipped);
 }
 
 bool Engine::declare(const Scenario &scenario) {
   ships();
   const auto offers = [this](const std::string &kind) {
-    return S_->World.Offering.Named(kind) != nullptr;
+    return S_->World.Offering.named(kind) != nullptr;
   };
   for (const Generator &named : scenario.Generators) {
     if (offers(named.Kind)) { continue; }
@@ -139,7 +139,7 @@ bool Engine::declare(const Scenario &scenario) {
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return false;
   }
-  const Asset *const subject = scenario.Subject();
+  const Asset *const subject = scenario.subject();
 
   Core::Declaration declared;
   declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
@@ -302,9 +302,9 @@ bool Engine::generated(const Scenario &scenario) {
 
   Geometry made;
   const auto asked = [&](const std::string &kind) {
-    const Generates *const stood = S_->World.Offering.Named(kind);
+    const Generates *const stood = S_->World.Offering.named(kind);
     if (stood == nullptr) { return true; }
-    if (stood->Make(ask, made)) { return true; }
+    if (stood->make(ask, made)) { return true; }
     S_->Error = "the generator of kind '" + kind + "' refused to make anything";
     return false;
   };
@@ -316,7 +316,7 @@ bool Engine::generated(const Scenario &scenario) {
   for (const Generator &named : scenario.Generators) {
     if (!asked(named.Kind)) { return false; }
   }
-  return made.Parts() == 0 || setGeometry(made);
+  return made.parts() == 0 || setGeometry(made);
 }
 
 bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
@@ -354,7 +354,7 @@ bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
 }
 
 bool Engine::setGeometry(const Geometry &geometry) {
-  if (!geometry.Whole()) {
+  if (!geometry.wellFormed()) {
     S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
                 "than an empty picture";
     return false;

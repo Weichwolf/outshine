@@ -91,19 +91,19 @@ int main(void) {
     chalk.BaseColour[1] = 0.9f;
     chalk.BaseColour[2] = 0.9f;
     chalk.Roughness = 0.9f;
-    const outshine::MaterialInstance named = geometry.Surface("chalk", chalk);
-    const int part = geometry.Part("wall", named);
+    const outshine::MaterialInstance named = geometry.addSurface("chalk", chalk);
+    const int part = geometry.addPart("wall", named);
     if (withLamp) {
       outshine::PunctualLight lamp;
       lamp.Kind = outshine::LightKind::Point;
       lamp.Intensity = 8000.0f;
       lamp.RangeM = 40.0f;
       const double placed[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.0, 0.0, 3.0, 1};
-      (void)geometry.Lamp("lamp", lamp, placed);
+      (void)geometry.addLamp("lamp", lamp, placed);
     }
-    return geometry.Positions(part, std::span<const float>(kWall, 18)) &&
-           geometry.Normals(part, std::span<const float>(kFacing, 18)) &&
-           geometry.Triangles(part, std::span<const uint32_t>(kRun, 6)) &&
+    return geometry.setPositions(part, std::span<const float>(kWall, 18)) &&
+           geometry.setNormals(part, std::span<const float>(kFacing, 18)) &&
+           geometry.setTriangles(part, std::span<const uint32_t>(kRun, 6)) &&
            engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
   };
 

@@ -58,28 +58,28 @@ int main(void) {
   if (!took) { return Report(); }
 
   const outshine::Geometry handed = meshed.Handed();
-  CHECK((size_t)handed.Parts() == 1 && handed.PositionsOf(0).size() == kVertices * 3 &&
-            handed.TextureOf(0).size() == kVertices * 2 &&
-            handed.NormalsOf(0).size() == kVertices * 3 &&
-            handed.TrianglesOf(0).size() == kVertices,
+  CHECK((size_t)handed.parts() == 1 && handed.positionsOf(0).size() == kVertices * 3 &&
+            handed.textureOf(0).size() == kVertices * 2 &&
+            handed.normalsOf(0).size() == kVertices * 3 &&
+            handed.trianglesOf(0).size() == kVertices,
         "and the counts come out at the right arity: three floats a position, two a UV, three a "
         "normal, one index a vertex");
-  if (handed.Parts() == 0) { return Report(); }
+  if (handed.parts() == 0) { return Report(); }
 
   bool everyFieldLanded = true;
   for (size_t vertex = 0; vertex < kVertices; ++vertex) {
     const float which = (float)vertex;
     everyFieldLanded = everyFieldLanded &&
-                       handed.PositionsOf(0)[vertex * 3] == 100.0f + which &&
-                       handed.PositionsOf(0)[vertex * 3 + 1] == 200.0f + which &&
-                       handed.PositionsOf(0)[vertex * 3 + 2] == 300.0f + which &&
-                       handed.TextureOf(0)[vertex * 2] == 0.1f * which &&
-                       handed.TextureOf(0)[vertex * 2 + 1] == 0.2f * which &&
-                       handed.TrianglesOf(0)[vertex] == (uint32_t)vertex;
+                       handed.positionsOf(0)[vertex * 3] == 100.0f + which &&
+                       handed.positionsOf(0)[vertex * 3 + 1] == 200.0f + which &&
+                       handed.positionsOf(0)[vertex * 3 + 2] == 300.0f + which &&
+                       handed.textureOf(0)[vertex * 2] == 0.1f * which &&
+                       handed.textureOf(0)[vertex * 2 + 1] == 0.2f * which &&
+                       handed.trianglesOf(0)[vertex] == (uint32_t)vertex;
   }
   std::printf("FIRST POSITION %.1f %.1f %.1f   FIRST UV %.2f %.2f\n",
-              handed.PositionsOf(0)[0], handed.PositionsOf(0)[1],
-              handed.PositionsOf(0)[2], handed.TextureOf(0)[0], handed.TextureOf(0)[1]);
+              handed.positionsOf(0)[0], handed.positionsOf(0)[1],
+              handed.positionsOf(0)[2], handed.textureOf(0)[0], handed.textureOf(0)[1]);
   CHECK(everyFieldLanded,
         "**EVERY FIELD LANDS IN ITS OWN ARRAY, IN ORDER**: a soup is interleaved and the value is "
         "not, so the crossing is a de-interleave and a stride read one float wide puts a normal "
@@ -107,10 +107,10 @@ int main(void) {
   (void)both.Take("second", outshine::MaterialInstance(2), soup.data(), kFloats);
   const outshine::Geometry two = both.Handed();
   std::printf("TWO PARTS  indices %u..%u then %u..%u\n",
-              (size_t)two.Parts() > 1 ? two.TrianglesOf(0).front() : 0u,
-              (size_t)two.Parts() > 1 ? two.TrianglesOf(0).back() : 0u,
-              (size_t)two.Parts() > 1 ? two.TrianglesOf(1).front() : 0u,
-              (size_t)two.Parts() > 1 ? two.TrianglesOf(1).back() : 0u);
+              (size_t)two.parts() > 1 ? two.trianglesOf(0).front() : 0u,
+              (size_t)two.parts() > 1 ? two.trianglesOf(0).back() : 0u,
+              (size_t)two.parts() > 1 ? two.trianglesOf(1).front() : 0u,
+              (size_t)two.parts() > 1 ? two.trianglesOf(1).back() : 0u);
   // THIS CHECK ASSERTED THE DEFECT AND HAD TO BE RESPECIFIED, which is the one thing a failing case
   // is ever allowed to do. It required a second part's indices to CONTINUE where the first's ended,
   // on the reasoning that the handed value carries one vertex array and a part is a reach into it.
@@ -126,7 +126,7 @@ int main(void) {
   // reading of the format in which a primitive indexes another primitive's vertices. `Whole()` now
   // refuses any index at or past the part's vertex count, which is the check whose absence let the
   // wrong rule stand long enough to be written down here.
-  CHECK((size_t)two.Parts() == 2 && two.TrianglesOf(1).front() == 0u,
+  CHECK((size_t)two.parts() == 2 && two.trianglesOf(1).front() == 0u,
         "and a second part's indices address the SECOND part's positions, from zero: a part hands "
         "out its own vertices, so an index that continued from the first part's count would point "
         "past the end of the very span it describes");

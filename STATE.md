@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 24/7 | 23% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 10 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | 4 tick(s) name no proof |
+| `door` | 23/7 | 23% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 9 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | 6 tick(s) name no proof |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -26,7 +26,9 @@ Ticked, but the named proof is not in this tree:
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- `sampleHeight` puts a thing on the TERRAIN, and it is a VERB on the door rather than a flag on
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a `Camera` is a thing of its own with a projection, and a `View` binds a scene, a camera and
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- all twelve door words are SPOKEN and each is REACHABLE, proven by
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- the door's verbs are Filament's where Filament has one, and this tree's only where it does
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- the line-count premise, withdrawn above with its replacement measurement
 
 ## Door -- `include/`
 
@@ -67,7 +69,7 @@ And the verbs, because a client calls those rather than the types:
 | `render` | Filament | yes |
 | `endFrame` | Filament | **not yet** |
 | `readPixels` | Filament | yes |
-| `addEntity` | Filament | **not yet** |
+| `addEntity` | Filament | yes |
 | `setScene` | Filament | **not yet** |
 | `setCamera` | Filament | **not yet** |
 | `setViewport` | Filament | **not yet** |
@@ -78,7 +80,7 @@ And the verbs, because a client calls those rather than the types:
 | `sampleHeight` | Cesium | yes |
 | `LongitudeLatitudeHeight` | Cesium | yes |
 
-**4 of 14 spoken.**
+**5 of 14 spoken.**
 
 OURS BY RIGHT, because Filament is a renderer and does not face the question:
 
@@ -92,18 +94,18 @@ outshine is rather than pretending to be a renderer it is not.
     value: Argument
     type: Host
     value: Measure
-    virtual bool Calls(std::string_view name, std::span<const Argument> args) = 0
+    virtual bool calls(std::string_view name, std::span<const Argument> args) = 0
 
 ### `Generate.h`
 
     value: Ask
     type: Generates
     type: Makers
-    virtual std::string_view Kind() const = 0
-    virtual bool Make(const Ask &ask, Geometry &into) const = 0
-    bool Offers(const Generates &maker)
-    const Generates *Named(std::string_view kind) const
-    size_t Count() const
+    virtual std::string_view kind() const = 0
+    virtual bool make(const Ask &ask, Geometry &into) const = 0
+    bool offers(const Generates &maker)
+    const Generates *named(std::string_view kind) const
+    size_t count() const
 
 ### `Geometry.h`
 
@@ -111,28 +113,26 @@ outshine is rather than pretending to be a renderer it is not.
     type: Geometry
     bool setTransform(int part, const double modelM16[16])
     const double *getTransform(int part) const
-    void Restarts()
     TransformManager transforms(void)
-    MaterialInstance Surface(std::string_view named, const Material &surface)
-    int Parts() const
-    std::string_view NameOf(int part) const
-    MaterialInstance MaterialOf(int part) const
-    int Surfaces() const
-    std::string_view SurfaceNameOf(int surface) const
-    const Material &SurfaceAt(MaterialInstance surface) const
-    int Lamps() const
-    std::string_view LampNameOf(int lamp) const
-    const PunctualLight &LampAt(int lamp) const
-    const double *LampPlacementOf(int lamp) const
-    std::span<const float> PositionsOf(int part) const
-    std::span<const float> NormalsOf(int part) const
-    std::span<const float> TextureOf(int part, int set = 0) const
-    std::span<const float> TangentsOf(int part) const
-    std::span<const float> ColoursOf(int part) const
-    std::span<const uint32_t> TrianglesOf(int part) const
-    bool Whole() const
-    void Place(int part, const double modelM16[16])
-    const double *PlacementOf(int part) const
+    MaterialInstance addSurface(std::string_view named, const Material &surface)
+    int parts() const
+    std::string_view nameOf(int part) const
+    MaterialInstance materialOf(int part) const
+    int surfaces() const
+    std::string_view surfaceNameOf(int surface) const
+    const Material &surfaceAt(MaterialInstance surface) const
+    int lamps() const
+    std::string_view lampNameOf(int lamp) const
+    const PunctualLight &lampAt(int lamp) const
+    const double *lampPlacementOf(int lamp) const
+    std::span<const float> positionsOf(int part) const
+    std::span<const float> normalsOf(int part) const
+    std::span<const float> textureOf(int part, int set = 0) const
+    std::span<const float> tangentsOf(int part) const
+    std::span<const float> coloursOf(int part) const
+    std::span<const uint32_t> trianglesOf(int part) const
+    bool wellFormed() const
+    const double *placementOf(int part) const
 
 ### `Material.h`
 
@@ -179,7 +179,7 @@ outshine is rather than pretending to be a renderer it is not.
     bool save(std::string_view path) const
     bool restore(std::string_view path)
     std::vector<std::string> parked(void) const
-    bool Standing(void) const
+    bool standing(void) const
     const std::string &error(void) const
     bool render(Extent frame)
     bool saveScreenshot(std::string_view path)
@@ -239,7 +239,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Binding
     value: Persisted
     value: Scenario
-    const Asset *Subject(void) const
+    const Asset *subject(void) const
 
 ### `Scene.h`
 
@@ -248,33 +248,31 @@ outshine is rather than pretending to be a renderer it is not.
     value: RelationRule
     value: Entity
     type: Scene
-    bool Open(size_t capacity)
-    Entity Add(Role role)
-    void Remove(Entity of)
-    bool Alive(Entity of) const
-    Role RoleOf(Entity of) const
-    bool Give(Entity to, Tag tag)
-    bool Has(Entity of, Tag tag) const
-    bool Link(Entity from, Relation how, Entity to)
-    bool Relink(Entity from, Relation how, Entity to)
-    Entity TargetOf(Entity of, Relation how) const
-    size_t Targets(Entity of, Relation how, Entity into[], size_t room) const
-    size_t Sources(Entity to, Relation how, Entity into[], size_t room) const
-    size_t Cast(Role role, Entity into[], size_t room) const
-    size_t Pairs(Relation how, Entity from[], Entity to[], size_t room) const
-    size_t Bearing(Tag tag, Role role, Entity into[], size_t room) const
-    Entity Instantiate(Entity prefab)
-    Entity CopyOf(Entity instance, Entity prefabChild) const
-    bool Offer(Entity at, Tag activity, size_t seats)
-    size_t Offering(Tag activity, Entity into[], size_t room) const
-    bool Claim(Entity by, Entity at)
-    bool Use(Entity by, Entity at)
-    bool Release(Entity by, Entity at)
-    Seat SeatOf(Entity by, Entity at) const
-    size_t Capacity() const
-    std::string_view Error() const
-    size_t Touched() const
-    void ResetTouched()
+    bool open(size_t capacity)
+    Entity addEntity(Role role)
+    bool alive(Entity of) const
+    Role roleOf(Entity of) const
+    bool giveTag(Entity to, Tag tag)
+    bool hasTag(Entity of, Tag tag) const
+    bool link(Entity from, Relation how, Entity to)
+    bool relink(Entity from, Relation how, Entity to)
+    Entity targetOf(Entity of, Relation how) const
+    size_t targets(Entity of, Relation how, Entity into[], size_t room) const
+    size_t sources(Entity to, Relation how, Entity into[], size_t room) const
+    size_t entitiesWithRole(Role role, Entity into[], size_t room) const
+    size_t linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const
+    size_t entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const
+    Entity instantiate(Entity prefab)
+    Entity copyOf(Entity instance, Entity prefabChild) const
+    bool offerSeats(Entity at, Tag activity, size_t seats)
+    size_t entitiesOffering(Tag activity, Entity into[], size_t room) const
+    bool claimSeat(Entity by, Entity at)
+    bool takeSeat(Entity by, Entity at)
+    bool releaseSeat(Entity by, Entity at)
+    Seat seatOf(Entity by, Entity at) const
+    size_t capacity() const
+    std::string_view error() const
+    size_t touched() const
 
 ## Shape
 
