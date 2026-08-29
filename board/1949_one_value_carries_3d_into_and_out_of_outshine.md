@@ -45,10 +45,36 @@ Shibuya's rebuild this round:
 | goes | because | measured today |
 |---|---|---|
 | `PackVertices` | the producer already writes the device's layout | 2 708 ms and a 900 MB copy |
+| the float -> double -> float round trip | nothing reads the width that is added | see below |
 | `Assemble`, Geometry -> Gltf::Subject | there is no second internal form to reach | 2 437 ms |
 | `SubjectScratch` | nothing left to flatten INTO | the target of that copy |
 | 3.7x the bytes moved | each reshaping wrote its own | 3 374 MB for ~900 MB of data |
 | `SubjectResidency`'s staging ring | `SDL_MapGPUTransferBuffer`'s `cycle` is the mechanism | the owner's SDL3 rule |
+
+## AND IT IS NOT A LAYOUT PROBLEM, IT IS A WIDENING NOBODY USES
+
+Read in the tree rather than reasoned about. The generator writes float:
+
+    Soup_.push_back((float)(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
+
+`Geometry::setPositions` takes `std::span<const float>` and keeps float. Then
+`Subject::Assemble` widens every one of them:
+
+    for (const float component : pPos) { Positions_.push_back((double)component); }
+
+and `PackVertices` narrows every one of them back:
+
+    Gltf::InEcef(&subject.PositionsM()[vertex * 3], ecef);
+    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+
+**float -> double -> float, for positions, normals, tangents, uvs and colours, over 28 M vertices.**
+The precision the double offers was already gone at the moment of widening -- nothing between the
+two ever holds a value the float could not. It costs the 2 437 ms of assembly and the 2 708 ms of
+packing measured this round, and it DOUBLES the footprint in between, which is where 3 374 MB of
+movement for about 900 MB of data comes from.
+
+This is what the withdrawn framing bought: an interchange format's storage decision, carried inward,
+applied to geometry that never came from a file.
 
 **AND IT UNBLOCKS board:1992.** That item is not untouched work -- it is stopped on exactly this,
 in its own words: "`Cook` takes an `outshine::Geometry` and the whole subject path carries a
