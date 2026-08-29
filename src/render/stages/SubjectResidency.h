@@ -33,6 +33,15 @@ struct SubjectResidency {
     SDL_GPUBufferUsageFlags Usage = 0;
     const void *From = nullptr;
     uint32_t Bytes = 0;
+
+    // A STREAM THAT WRITES ITSELF INTO THE MAPPING RATHER THAN BEING COPIED INTO IT. `From` says
+    // "these bytes are over there"; `Writes` says "the memory is yours to fill". SDL hands back a
+    // mapped transfer buffer either way, and a producer that already holds float in the device's
+    // layout has no reason to assemble a second copy first.
+    void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
+    const void *Carrying = nullptr;
+
+    [[nodiscard]] bool Stands() const { return From != nullptr || Writes != nullptr; }
   };
 
   struct BoundImage {

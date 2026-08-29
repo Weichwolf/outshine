@@ -89,7 +89,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   uint32_t total = 0;
   for (size_t at = 0; at < count; ++at) {
     Crossing &one = what[at];
-    if (one.Bytes == 0 || one.From == nullptr) {
+    if (one.Bytes == 0 || !one.Stands()) {
       one.Into->Reset();
       *one.Held = 0;
       continue;
@@ -149,15 +149,20 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   }
   uint32_t at = StagingUsed_;
   for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
+    if (what[one].Writes != nullptr) {
+      what[one].Writes(what[one].Carrying, reinterpret_cast<float *>(mapped + at),
+                       what[one].Bytes / (uint32_t)sizeof(float));
+    } else {
+      std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    }
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   SDL_UnmapGPUTransferBuffer(Device, Staging_[StagingAt_].Get());
 
   at = StagingUsed_;
   for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
     Staged_[StagedCount_++] =
         Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_[StagingAt_].Get()};
     at = (at + what[one].Bytes + 15u) & ~15u;
@@ -197,8 +202,13 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   }
   uint32_t at = 0;
   for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
+    if (what[one].Writes != nullptr) {
+      what[one].Writes(what[one].Carrying, reinterpret_cast<float *>(mapped + at),
+                       what[one].Bytes / (uint32_t)sizeof(float));
+    } else {
+      std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    }
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   SDL_UnmapGPUTransferBuffer(Device, Bulk_.Get());
@@ -207,7 +217,7 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
   for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{Bulk_.Get(), at};
     const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);

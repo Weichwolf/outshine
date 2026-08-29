@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
 
 #include <cstdint>
+#include <span>
 
 #include "PunctualLight.h"
 #include "UvTransform.h"
@@ -79,19 +80,41 @@ struct SubjectMaterial {
   }
 };
 
+// A STREAM THAT WRITES ITSELF INTO THE DEVICE'S OWN MAPPING. A pointer says "copy these bytes
+// from over there"; a writer says "you hold the memory, fill it". The producer's data is already
+// float and already in the device's layout, so the only work left was CONCATENATING the parts into
+// one run -- and SDL's mapped transfer buffer is as good a place to concatenate into as a vector
+// of ours, minus the vector. On Shibuya that vector is 900 MB and the copy out of it is 1932 ms.
+//
+// The writer is a plain function pointer and an opaque context because the thing that can pack a
+// channel knows both the shape and the proxy, and the stage that owns the mapping must know
+// neither -- `src/render/stages/` does not name `SubjectProxy` and this keeps it that way.
+struct SubjectStream {
+  const float *From = nullptr;
+  void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
+  const void *Carrying = nullptr;
+
+  [[nodiscard]] bool Stands() const { return From != nullptr || Writes != nullptr; }
+};
+
 struct SubjectPose {
-  const float *Verts = nullptr;
-  const float *Uv = nullptr;
+  SubjectStream Verts;
 
-  const float *Uv1 = nullptr;
-  const float *Normals = nullptr;
+  // THE POSITIONS, CONTIGUOUS, FOR THE WORK THAT HAPPENS ON THIS SIDE. The visibility structure is
+  // built and refitted on the CPU and wants one run it can index; every other channel goes from
+  // the producer's spans into the device's mapping and is never assembled here at all.
+  std::span<const float> Positions;
+  SubjectStream Uv;
 
-  const float *Tangents = nullptr;
+  SubjectStream Uv1;
+  SubjectStream Normals;
 
-  const float *Colours = nullptr;
-  const float *Emitted = nullptr;
+  SubjectStream Tangents;
 
-  const float *PrevVerts = nullptr;
+  SubjectStream Colours;
+  SubjectStream Emitted;
+
+  SubjectStream PrevVerts;
   uint32_t VertexCount = 0;
   double Anchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};

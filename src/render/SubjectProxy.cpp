@@ -291,77 +291,64 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
   return true;
 }
 
-struct VertexRuns {
-  size_t UvAt = 0;
-  size_t Uv1At = 0;
-  size_t NormalAt = 0;
-  size_t TangentAt = 0;
-  size_t ColourAt = 0;
-  size_t EmittedAt = 0;
-  size_t PreviousAt = 0;
+// EACH CHANNEL PACKS ITSELF INTO THE MAPPING THE DEVICE HANDED BACK, so no buffer of ours stands
+// between the producer and the transfer buffer. A pointer says "copy these bytes from over there";
+// a writer says "you hold the memory, fill it". On Shibuya the buffer that stood here was 900 MB
+// and copying out of it cost 1932 ms.
+//
+// A RUN COVERS EVERY VERTEX OR IT COVERS NONE. The device addresses a channel by vertex id, so a
+// part declaring no UV still occupies its slice of the UV run -- packing only the parts that carry
+// one shifts every later part onto its neighbour's coordinates. `Assemble` used to pad while it
+// widened, and the padding was the half of it doing real work.
+struct ChannelPack {
+  const Shape *From = nullptr;
+  std::span<const float> ShapePart::*Channel = nullptr;
+  uint32_t Wide = 0;
 };
 
-std::atomic<double> gFirstIn[3] = {};
-std::atomic<double> gFirstOut[3] = {};
+void PackChannel(const void *carrying, float *into, uint32_t floats) {
+  const ChannelPack &what = *static_cast<const ChannelPack *>(carrying);
+  uint32_t at = 0;
+  for (const ShapePart &one : what.From->Parts) {
+    const std::span<const float> held = one.*what.Channel;
+    const uint32_t want = (uint32_t)(one.VertexCount * what.Wide);
+    if (at + want > floats) { break; }
+    if (held.size() >= (size_t)one.VertexCount * what.Wide) {
+      std::memcpy(into + at, held.data(), (size_t)want * sizeof(float));
+    } else {
+      std::memset(into + at, 0, (size_t)want * sizeof(float));
+    }
+    at += want;
+  }
+  if (at < floats) { std::memset(into + at, 0, (size_t)(floats - at) * sizeof(float)); }
+}
 
-VertexRuns PackVertices(const SubjectProxy &proxy, const Shape &subject,
-                        std::vector<float> &vertices) {
-  vertices.clear();
-  size_t whole = subject.VertexCount() * 6;
-  for (const ShapePart &one : subject.Parts) {
-    whole += one.Uv.size() + one.Uv1.size() + one.Normals.size() + one.Tangents.size() +
-             one.Colours.size();
-  }
-  vertices.reserve(whole);
-  const auto run = [&subject, &vertices](std::span<const float> ShapePart::*channel, size_t wide) {
-    const size_t at = vertices.size();
-    for (const ShapePart &one : subject.Parts) {
-      const std::span<const float> held = one.*channel;
-      if (held.size() >= one.VertexCount * wide) {
-        for (size_t value = 0; value < one.VertexCount * wide; ++value) {
-          vertices.push_back(held[value]);
-        }
-      } else {
-        vertices.resize(vertices.size() + one.VertexCount * wide, 0.0f);
-      }
-    }
-    return at;
-  };
-  (void)run(&ShapePart::PositionsM, 3);
-  if (!subject.Parts.empty() && subject.Parts.front().PositionsM.size() >= 3) {
-    for (int axis = 0; axis < 3; ++axis) {
-      const double at = (double)subject.Parts.front().PositionsM[(size_t)axis];
-      gFirstIn[axis].store(at, std::memory_order_relaxed);
-      gFirstOut[axis].store(at, std::memory_order_relaxed);
+struct EmitPack {
+  const Shape *From = nullptr;
+  const SubjectProxy *Proxy = nullptr;
+};
+
+void PackEmitted(const void *carrying, float *into, uint32_t floats) {
+  const EmitPack &what = *static_cast<const EmitPack *>(carrying);
+  uint32_t at = 0;
+  for (size_t part = 0; part < what.From->Parts.size(); ++part) {
+    const ShapePart &one = what.From->Parts[part];
+    const std::array<float, 3> &radiance = what.Proxy->Emitted(part);
+    for (size_t vertex = 0; vertex < one.VertexCount && at + 3u <= floats; ++vertex) {
+      into[at + 0] = radiance[0];
+      into[at + 1] = radiance[1];
+      into[at + 2] = radiance[2];
+      at += 3u;
     }
   }
-  // A RUN COVERS EVERY VERTEX OR IT COVERS NONE. The device addresses a channel by vertex id, so
-  // a part that declares no UV still occupies its slice of the UV run -- concatenating only the
-  // parts that carry one shifts every later part onto its neighbour's coordinates, and the shader
-  // reads past the end of the last. `Assemble` used to pad while it widened; the padding is the
-  // half of it that was doing real work.
-  VertexRuns runs;
-  runs.UvAt = run(&ShapePart::Uv, 2);
-  runs.Uv1At = run(&ShapePart::Uv1, 2);
-  runs.NormalAt = run(&ShapePart::Normals, 3);
-  runs.TangentAt = run(&ShapePart::Tangents, 4);
-  runs.ColourAt = run(&ShapePart::Colours, 4);
-  runs.PreviousAt = vertices.size();
-  if (proxy.Previous()) {
-    for (const double component : *proxy.Previous()) { vertices.push_back((float)component); }
-  }
-  runs.EmittedAt = vertices.size();
-  vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);
-  for (size_t part = 0; part < subject.Parts.size(); ++part) {
-    const ShapePart &where = subject.Parts[part];
-    for (size_t vertex = 0; vertex < where.VertexCount; ++vertex) {
-      for (size_t channel = 0; channel < 3; ++channel) {
-        vertices[runs.EmittedAt + (where.FirstVertex + vertex) * 3 + channel] =
-            proxy.Emitted(part)[channel];
-      }
-    }
-  }
-  return runs;
+  if (at < floats) { std::memset(into + at, 0, (size_t)(floats - at) * sizeof(float)); }
+}
+
+void PackPrevious(const void *carrying, float *into, uint32_t floats) {
+  const std::vector<double> &held = *static_cast<const std::vector<double> *>(carrying);
+  const uint32_t many = held.size() < floats ? (uint32_t)held.size() : floats;
+  for (uint32_t at = 0; at < many; ++at) { into[at] = (float)held[at]; }
+  if (many < floats) { std::memset(into + many, 0, (size_t)(floats - many) * sizeof(float)); }
 }
 
 [[nodiscard]] bool PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out,
@@ -442,8 +429,6 @@ std::atomic<double> gPackMs{0.0};
 std::atomic<double> gHandMs{0.0};
 
 double PackedMs() { return gPackMs.load(std::memory_order_relaxed); }
-double FirstInAt(int axis) { return gFirstIn[axis].load(std::memory_order_relaxed); }
-double FirstOutAt(int axis) { return gFirstOut[axis].load(std::memory_order_relaxed); }
 double HandedMs() { return gHandMs.load(std::memory_order_relaxed); }
 
 bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
@@ -482,23 +467,28 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
       scratch.Indices.push_back(subject.Indices[run.SourceFirst + at]);
     }
   }
-  const Heap::Tagged vertices("vertex-pack");
-  const auto packedFrom = std::chrono::steady_clock::now();
-  const VertexRuns runs = PackVertices(proxy, subject, scratch.Vertices);
-  gPackMs.store(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packedFrom)
-          .count(),
-      std::memory_order_relaxed);
+  gPackMs.store(0.0, std::memory_order_relaxed);
 
   SubjectMesh mesh;
-  mesh.Verts = scratch.Vertices.data();
-  mesh.Uv = subject.CarriesUv ? scratch.Vertices.data() + runs.UvAt : nullptr;
-  mesh.Uv1 = subject.CarriesUv1 ? scratch.Vertices.data() + runs.Uv1At : nullptr;
-  mesh.Normals = subject.CarriesNormal ? scratch.Vertices.data() + runs.NormalAt : nullptr;
-  mesh.Tangents = subject.CarriesTangent ? scratch.Vertices.data() + runs.TangentAt : nullptr;
-  mesh.Colours = subject.CarriesColour ? scratch.Vertices.data() + runs.ColourAt : nullptr;
-  mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  mesh.PrevVerts = proxy.Previous() ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  const ChannelPack positions{&subject, &ShapePart::PositionsM, 3};
+  const ChannelPack uv{&subject, &ShapePart::Uv, 2};
+  const ChannelPack uv1{&subject, &ShapePart::Uv1, 2};
+  const ChannelPack normals{&subject, &ShapePart::Normals, 3};
+  const ChannelPack tangents{&subject, &ShapePart::Tangents, 4};
+  const ChannelPack colours{&subject, &ShapePart::Colours, 4};
+  const EmitPack emitted{&subject, &proxy};
+
+  mesh.Verts = SubjectStream{nullptr, PackChannel, &positions};
+  if (subject.CarriesUv) { mesh.Uv = SubjectStream{nullptr, PackChannel, &uv}; }
+  if (subject.CarriesUv1) { mesh.Uv1 = SubjectStream{nullptr, PackChannel, &uv1}; }
+  if (subject.CarriesNormal) { mesh.Normals = SubjectStream{nullptr, PackChannel, &normals}; }
+  if (subject.CarriesTangent) { mesh.Tangents = SubjectStream{nullptr, PackChannel, &tangents}; }
+  if (subject.CarriesColour) { mesh.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
+  mesh.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
+  scratch.Vertices.resize(subject.VertexCount() * 3u);
+  PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
+  mesh.Positions = scratch.Vertices;
+  if (proxy.Previous()) { mesh.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
@@ -536,17 +526,26 @@ bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
     return false;
   }
 
-  const Heap::Tagged packing("vertex-pack");
-  const VertexRuns runs = PackVertices(proxy, subject, scratch.Vertices);
   SubjectPose pose;
-  pose.Verts = scratch.Vertices.data();
-  pose.Uv = subject.CarriesUv ? scratch.Vertices.data() + runs.UvAt : nullptr;
-  pose.Uv1 = subject.CarriesUv1 ? scratch.Vertices.data() + runs.Uv1At : nullptr;
-  pose.Normals = subject.CarriesNormal ? scratch.Vertices.data() + runs.NormalAt : nullptr;
-  pose.Tangents = subject.CarriesTangent ? scratch.Vertices.data() + runs.TangentAt : nullptr;
-  pose.Colours = subject.CarriesColour ? scratch.Vertices.data() + runs.ColourAt : nullptr;
-  pose.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  pose.PrevVerts = proxy.Previous() ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  const ChannelPack positions{&subject, &ShapePart::PositionsM, 3};
+  const ChannelPack uv{&subject, &ShapePart::Uv, 2};
+  const ChannelPack uv1{&subject, &ShapePart::Uv1, 2};
+  const ChannelPack normals{&subject, &ShapePart::Normals, 3};
+  const ChannelPack tangents{&subject, &ShapePart::Tangents, 4};
+  const ChannelPack colours{&subject, &ShapePart::Colours, 4};
+  const EmitPack emitted{&subject, &proxy};
+
+  pose.Verts = SubjectStream{nullptr, PackChannel, &positions};
+  if (subject.CarriesUv) { pose.Uv = SubjectStream{nullptr, PackChannel, &uv}; }
+  if (subject.CarriesUv1) { pose.Uv1 = SubjectStream{nullptr, PackChannel, &uv1}; }
+  if (subject.CarriesNormal) { pose.Normals = SubjectStream{nullptr, PackChannel, &normals}; }
+  if (subject.CarriesTangent) { pose.Tangents = SubjectStream{nullptr, PackChannel, &tangents}; }
+  if (subject.CarriesColour) { pose.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
+  pose.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
+  scratch.Vertices.resize(subject.VertexCount() * 3u);
+  PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
+  pose.Positions = scratch.Vertices;
+  if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
   pose.VertexCount = (uint32_t)subject.VertexCount();
   for (int axis = 0; axis < 3; ++axis) {
     pose.Anchor[axis] = proxy.Anchor()[axis];

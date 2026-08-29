@@ -438,11 +438,11 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   Bound().DropStaged();
   Bound().NVerts = mesh.VertexCount;
   Bound().NIdx = mesh.IndexCount;
-  Bound().HasUv = mesh.Uv != nullptr;
-  Bound().HasUv1 = mesh.Uv1 != nullptr;
-  Bound().HasNormal = mesh.Normals != nullptr;
-  Bound().HasTangent = mesh.Tangents != nullptr;
-  Bound().HasColour = mesh.Colours != nullptr;
+  Bound().HasUv = mesh.Uv.Stands();
+  Bound().HasUv1 = mesh.Uv1.Stands();
+  Bound().HasNormal = mesh.Normals.Stands();
+  Bound().HasTangent = mesh.Tangents.Stands();
+  Bound().HasColour = mesh.Colours.Stands();
   Batches.clear();
   BatchLayout.clear();
   for (int axis = 0; axis < 3; ++axis) {
@@ -467,10 +467,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   {
     const char *missing = nullptr;
-    if (!mesh.Verts) { missing = "position run"; }
+    if (!mesh.Verts.Stands()) { missing = "position run"; }
     else if (!mesh.Indices) { missing = "index run"; }
     else if (!mesh.Draws) { missing = "draw list"; }
-    else if (!mesh.Emitted) { missing = "emitted-radiance run"; }
+    else if (!mesh.Emitted.Stands()) { missing = "emitted-radiance run"; }
     if (missing != nullptr) {
       error = std::string("the mesh declares ") + std::to_string(mesh.VertexCount) +
               " vertices and " + std::to_string(mesh.IndexCount) + " indices but carries no " +
@@ -481,7 +481,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     }
   }
 
-  if (mesh.PrevVerts != nullptr && !WritesVelocity) {
+  if (mesh.PrevVerts.Stands() && !WritesVelocity) {
     Bound().NIdx = 0;
     error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
             "would reach no shader";
@@ -551,7 +551,11 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   {
     const Heap::Tagged building("mesh-bvh");
 
-    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Verts, (size_t)Bound().NVerts * 3u),
+    // THE VISIBILITY STRUCTURE IS CPU WORK AND WANTS THE POSITIONS CONTIGUOUS, which is the one
+    // reason a run of them still stands in memory of ours. It is THREE floats a vertex rather than
+    // the nineteen the whole intermediate used to be, and every other channel now goes from the
+    // producer's own spans into the device's mapping without stopping anywhere.
+    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Positions.data(), mesh.Positions.size()),
                                     Span<const uint32_t>(mesh.Indices, (size_t)Bound().NIdx));
   }
   if (Visibility_.Empty()) {
@@ -572,23 +576,39 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   const uint32_t positionBytes = Bound().NVerts * 3u * (uint32_t)sizeof(float);
   const uint32_t pairBytes = Bound().NVerts * 2u * (uint32_t)sizeof(float);
   const uint32_t quadBytes = Bound().NVerts * 4u * (uint32_t)sizeof(float);
-  const float *const previousPose = pose.PrevVerts != nullptr ? pose.PrevVerts : pose.Verts;
-  const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
+  const SubjectStream &previousPose = pose.PrevVerts.Stands() ? pose.PrevVerts : pose.Verts;
+  const auto crossing = [](OwnedBuffer *into, uint32_t *held, const SubjectStream &stream,
+                                 bool carried, uint32_t bytes) {
+    SubjectResidency::Crossing made;
+    made.Into = into;
+    made.Held = held;
+    made.Usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+    made.Bytes = carried ? bytes : 0u;
+    if (carried) {
+      made.From = stream.From;
+      made.Writes = stream.Writes;
+      made.Carrying = stream.Carrying;
+    }
+    return made;
+  };
 
   SubjectResidency::Crossing streams[] = {
-      {&Bound().Vtx, &Bound().Held[(size_t)SubjectResidency::Stream::Vertex], vertex, pose.Verts, positionBytes},
-      {&Bound().Emit, &Bound().Held[(size_t)SubjectResidency::Stream::Emitted], vertex, pose.Emitted, positionBytes},
-      {&Bound().Nrm, &Bound().Held[(size_t)SubjectResidency::Stream::Normal], vertex, Bound().HasNormal ? pose.Normals : nullptr,
-       Bound().HasNormal ? positionBytes : 0u},
-      {&Bound().Tan, &Bound().Held[(size_t)SubjectResidency::Stream::Tangent], vertex, Bound().HasTangent ? pose.Tangents : nullptr,
-       Bound().HasTangent ? quadBytes : 0u},
-      {&Bound().Uv, &Bound().Held[(size_t)SubjectResidency::Stream::Uv], vertex, Bound().HasUv ? pose.Uv : nullptr, Bound().HasUv ? pairBytes : 0u},
-      {&Bound().Uv1, &Bound().Held[(size_t)SubjectResidency::Stream::Uv1], vertex, Bound().HasUv1 ? pose.Uv1 : nullptr,
-       Bound().HasUv1 ? pairBytes : 0u},
-      {&Bound().Col, &Bound().Held[(size_t)SubjectResidency::Stream::Colour], vertex, Bound().HasColour ? pose.Colours : nullptr,
-       Bound().HasColour ? quadBytes : 0u},
-      {&Bound().Prev, &Bound().Held[(size_t)SubjectResidency::Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
-       WritesVelocity ? positionBytes : 0u},
+      crossing(&Bound().Vtx, &Bound().Held[(size_t)SubjectResidency::Stream::Vertex], pose.Verts,
+               true, positionBytes),
+      crossing(&Bound().Emit, &Bound().Held[(size_t)SubjectResidency::Stream::Emitted],
+               pose.Emitted, true, positionBytes),
+      crossing(&Bound().Nrm, &Bound().Held[(size_t)SubjectResidency::Stream::Normal], pose.Normals,
+               Bound().HasNormal, positionBytes),
+      crossing(&Bound().Tan, &Bound().Held[(size_t)SubjectResidency::Stream::Tangent],
+               pose.Tangents, Bound().HasTangent, quadBytes),
+      crossing(&Bound().Uv, &Bound().Held[(size_t)SubjectResidency::Stream::Uv], pose.Uv,
+               Bound().HasUv, pairBytes),
+      crossing(&Bound().Uv1, &Bound().Held[(size_t)SubjectResidency::Stream::Uv1], pose.Uv1,
+               Bound().HasUv1, pairBytes),
+      crossing(&Bound().Col, &Bound().Held[(size_t)SubjectResidency::Stream::Colour], pose.Colours,
+               Bound().HasColour, quadBytes),
+      crossing(&Bound().Prev, &Bound().Held[(size_t)SubjectResidency::Stream::Previous],
+               previousPose, WritesVelocity, positionBytes),
   };
   if (!HandPlacements(deferred, error)) { return false; }
   if (!Bound().Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
@@ -672,7 +692,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
             std::to_string(Bound().NVerts) + ", so it is a different body rather than the same one moved";
     return false;
   }
-  if (!pose.Verts || !pose.Emitted) {
+  if (!pose.Verts.Stands() || !pose.Emitted.Stands()) {
     error = "a pose arrived without positions or emitted radiance, which every draw binds";
     return false;
   }
@@ -692,7 +712,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   }
   {
     const Heap::Tagged refitting("mesh-bvh");
-    if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)Bound().NVerts * 3u))) {
+    if (!Visibility_.Refit(Span<const float>(pose.Positions.data(), pose.Positions.size()))) {
       Bound().DropStaged();
       error = "the subject's visibility structure did not refit to this pose";
       return false;
