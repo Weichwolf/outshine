@@ -314,6 +314,14 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
        leaves the fraction of the frame the subject covers:
            old  0.004304506 / 0.0407009 = 0.1058
            door 0.002571654 / 0.0407009 = 0.0632
+       Two things the driver never passed were found and are part of that: the ROLL (an eye and a
+       look-at point say nothing about which way is up) and the ORTHOGRAPHIC projection (a case
+       declaring one was drawn in perspective, the largest coverage difference available). Adding
+       both measured WORSE on all five -- and the reading was CONFOUNDED: the engine in the tree
+       carries only the flat-draw rule, not the per-part slot split, so the node overrides those
+       cases depend on were being declared and dropped. A measurement taken against an incomplete
+       baseline says nothing, and this one was taken three times before that was noticed.
+
        The subject is drawn SMALLER through the door. `picture_p99_delta_code` was reading a size
        difference all along, and `disagreement_p99_px` reads 0.000 only on AlphaBlendModeTest --
        whose camera comes from its manifest. The next round measures the projection on a case
