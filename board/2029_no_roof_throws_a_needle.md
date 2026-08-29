@@ -127,3 +127,33 @@ surface in the wrong plane.
    slivers are something else again and the fifth hypothesis dies with the first four
 2. **The eye stays the control.** Every instrument in this item has agreed with itself and disagreed
    with the frame at least once, so no number closes it without the crop
+
+
+## FIVE HYPOTHESES DEAD. AT TWICE THE RESOLUTION THEY ARE SURFACES.
+
+    the fan                    EarClip is a proper ear clipper, not a fan
+    thinness by area           counted down to 8 while the crop stood still
+    reach at 309 m             Rothenburg's town wall is one 2.5 km way -- a long wall IS a long triangle
+    the clipper's bail-outs    7 / 173 / 168 counted and refused; crop unchanged
+    ALIASING                   the renderer runs at SAMPLECOUNT_1 with no MSAA and a TAA jitter that
+                               has nothing to accumulate over two frames, so sub-pixel geometry
+                               aliasing was the obvious answer -- and rendering the same frame at
+                               2560 x 1440 does not remove them. They get WIDER
+
+At double resolution they resolve into real thin roof SURFACES: they have width, they run along
+ridges, and they reach OUT PAST THE FOOTPRINT they belong to. Not slivers, not artefacts -- roof
+planes placed outside their own building.
+
+## The measurement that settles it
+
+1. **A roof vertex outside its own ring.** For every roof triangle, whether each of its three
+   vertices lies inside the footprint polygon it was meshed from. That count is the defect, and it
+   is zero for a correct roof by definition
+2. **The negative control is the walls.** They are built from the same ring and must read zero
+   already; if they do not, the test is wrong rather than the roofs
+
+## What is NOT the finding, and the tree should not forget it
+
+The renderer has no anti-aliasing at all -- `SDL_GPU_SAMPLECOUNT_1` everywhere, and `Jitter_` exists
+for a TAA that nothing accumulates. That is a real gap against both references, and it is filed
+where it belongs rather than here, because this defect survives at twice the pixels.
