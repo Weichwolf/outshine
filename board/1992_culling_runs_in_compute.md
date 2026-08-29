@@ -134,11 +134,34 @@ per-category and known by the engine.
                  reason is exactly `CookTile`'s: zoom z-1 IS the simplification of zoom z, made once
                  by whoever made the tiles. Cesium's quantized-mesh is literally this
 
-One selection then reads one cluster table whose rows came from either source. **And a tile's cluster
-must carry its PARENT TILE's error instead of `kDagRootErr`** -- with that, the same cut that chooses
-between DAG levels chooses between ZOOM levels, and the cascade stops being a second mechanism
-deciding the same thing. Today the cascade picks zooms and `DagSelect` picks clusters: two routes,
-which is what board:1995 exists to forbid.
+One selection then reads one cluster table whose rows came from either source.
+
+## TWO DECISIONS, IN ORDER, AND THEY ARE NOT THE SAME ONE
+
+    generators (terrain, osm, vegetation)  ->  DAG  ->  render
+    deliver geometry BY DISTANCE               by SCREEN ERROR
+
+**A paragraph here proposed merging them and it was wrong.** It said a tile's cluster should carry
+its PARENT TILE's error instead of `kDagRootErr`, so that one cut would choose between zoom levels as
+well as between DAG levels and the cascade would stop being a second mechanism. That pulls a
+PRODUCER's decision below the seam -- the same category error as letting the engine know "terrain",
+mirrored.
+
+They answer different questions and neither can do the other's:
+
+  **DISTANCE decides what EXISTS.** Which zoom of tile is streamed, whether a footprint is full
+  architecture or a prism or part of a block mass, whether a plant is a mesh or a card. It bounds
+  the work before any geometry is built, and it is an IO and memory question. Over a 240 km ring
+  nothing else can bound it: streaming the finest tile everywhere so the DAG can cut it is the one
+  answer that is certainly unaffordable.
+
+  **SCREEN ERROR decides what is DRAWN.** Given the geometry that arrived, which clusters of it
+  reach the raster. It is a bandwidth and fill question and it cannot reach back and un-stream
+  anything.
+
+So the cascade is stage one and `DagSelect` is stage two, and board:1995's "one route" means one
+route from `Geometry` to pixel -- not one decision. The distance tier sits ABOVE the seam with the
+generators, exactly where the parent's own diagram puts it.
 
 ## What is measured and stands
 
@@ -157,8 +180,8 @@ The item's own "342 held, 83 drawn" predates the runtime DAG's removal from `Coo
       category
 - [ ] the engine COOKS what says `Built` -- `Cook` reaches the subject path, which is board:1991's
       work becoming reachable rather than new work
-- [ ] a tile's cluster carries its PARENT TILE's error, so one selection covers the pyramid and the
-      cascade stops being a second route
+- [ ] the generators deliver BY DISTANCE and the DAG cuts BY SCREEN ERROR, in that order, and
+      neither is asked to do the other's job
 - [ ] the OSM structures and the vegetation go through it too: 10 900 objects at Rothenburg and
       83 572 at Shibuya, against 100 and 88 terrain clusters
 - [ ] `DagSelect` runs on all of it on the CPU first, so the before-number belongs to the thing being
