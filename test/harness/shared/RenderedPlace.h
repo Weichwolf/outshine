@@ -290,6 +290,48 @@ inline int RenderPlace(const Place &place) {
   // It only bites when geometry was actually meshed, which is what makes it a CONTRADICTION between
   // two measurements rather than a judgement about how the picture looks: triangles were built and
   // the frame does not contain them.
+  // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar of 1.0 is a number nobody checked.
+  // A bare ellipsoid under a sky IS a vertical gradient, so the statistic is run first over a
+  // gradient built here -- if THAT does not come in far under the bar, the bar separates nothing and
+  // every green below it is worthless. Measured on the real thing for comparison: a Shibuya frame
+  // that meshed 9.7 M triangles and drew none of them read 0.719, and the five places that do show
+  // their place read 1.789 to 2.883.
+  const auto varyingAcross = [](const std::vector<uint8_t> &rgba, int wide, int high) {
+    double sum = 0.0;
+    size_t steps = 0;
+    for (int y = 0; y < high; ++y) {
+      for (int x = 1; x < wide; ++x) {
+        const size_t at = ((size_t)y * (size_t)wide + (size_t)x) * 4u;
+        for (int c = 0; c < 3; ++c) {
+          const int here = rgba[at + (size_t)c], left = rgba[at - 4u + (size_t)c];
+          sum += here > left ? here - left : left - here;
+          ++steps;
+        }
+      }
+    }
+    return steps > 0 ? sum / (double)steps : 0.0;
+  };
+  {
+    std::vector<uint8_t> gradient((size_t)kWidePx * (size_t)kHighPx * 4u, 255u);
+    for (int y = 0; y < kHighPx; ++y) {
+      const uint8_t shade = (uint8_t)(255 * y / (kHighPx - 1));
+      for (int x = 0; x < kWidePx; ++x) {
+        const size_t at = ((size_t)y * (size_t)kWidePx + (size_t)x) * 4u;
+        gradient[at] = shade;
+        gradient[at + 1] = shade;
+        gradient[at + 2] = (uint8_t)(255 - shade);
+      }
+    }
+    const double flatGradient = varyingAcross(gradient, kWidePx, kHighPx);
+    std::printf("    control: a bare vertical gradient varies by %.3f of 255 along its rows\n",
+                flatGradient);
+    CHECK(flatGradient < 0.5,
+          "**THE BLANK-FRAME BAR SEPARATES SOMETHING**: the negative control for the measure beside "
+          "it. A picture of nothing is a vertical gradient and a vertical gradient has no horizontal "
+          "variation at all, so this has to read far below the bar of 1.0 that a real frame is held "
+          "to -- and if a future measure lets a gradient through, this goes red before a place does");
+  }
+
   double alongRows = 0.0;
   size_t steps = 0;
   std::vector<uint8_t> pixels;
