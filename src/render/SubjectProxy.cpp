@@ -81,7 +81,7 @@ bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &err
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   double ecef[16];
   for (size_t part = 0; part < rows; ++part) {
-    Gltf::PlacedInEcef(proxy.Placement(part).data(), ecef);
+    for (int at = 0; at < 16; ++at) { ecef[at] = proxy.Placement(part).data()[at]; }
     renderer.MoveSubjectPlacement(part, ecef);
   }
   return renderer.HandSubjectPlacements(error);
@@ -107,7 +107,7 @@ bool Moved(SceneRenderer &renderer, size_t rows, size_t from, size_t to, const d
 namespace {
 
 void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) {
-  Gltf::InEcef(gltf, out);
+  for (int axis = 0; axis < 3; ++axis) { out[axis] = gltf[axis]; }
   for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
 
@@ -302,7 +302,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
                    subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
-    Gltf::InEcef(&subject.PositionsM()[vertex * 3], ecef);
+    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.PositionsM()[vertex * 3 + axis]; }
     // ONE KNOWN VERTEX, EITHER SIDE. Three readings of this conversion cannot all be true: the
     // generator writes plain ECEF component order, `InEcef` is a real swap `(x,y,z) -> (y,x,-z)`,
     // and the picture is correct. Making it the identity moved no building -- Manhattan's bright
@@ -325,14 +325,14 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
   runs.NormalAt = vertices.size();
   for (size_t vertex = 0; vertex * 3 < subject.Normals().size(); ++vertex) {
     double ecef[3];
-    Gltf::InEcef(&subject.Normals()[vertex * 3], ecef);
+    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.Normals()[vertex * 3 + axis]; }
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
   }
 
   runs.TangentAt = vertices.size();
   for (size_t vertex = 0; vertex * 4 < subject.Tangents().size(); ++vertex) {
     double ecef[3];
-    Gltf::InEcef(&subject.Tangents()[vertex * 4], ecef);
+    for (int axis = 0; axis < 3; ++axis) { ecef[axis] = subject.Tangents()[vertex * 4 + axis]; }
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
   }
@@ -343,7 +343,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
   if (proxy.Previous()) {
     for (size_t vertex = 0; vertex < proxy.Previous()->size() / 3; ++vertex) {
       double ecef[3];
-      Gltf::InEcef(&(*proxy.Previous())[vertex * 3], ecef);
+      for (int axis = 0; axis < 3; ++axis) { ecef[axis] = (*proxy.Previous())[vertex * 3 + axis]; }
       for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     }
   }
@@ -370,7 +370,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
     const double gltfDirection[3] = {declared.Direction[0], declared.Direction[1],
                                      declared.Direction[2]};
     double direction[3];
-    Gltf::InEcef(gltfDirection, direction);
+    for (int axis = 0; axis < 3; ++axis) { direction[axis] = gltfDirection[axis]; }
     const double length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
                                     direction[2] * direction[2]);
     if (!(length > 0)) {
@@ -402,9 +402,11 @@ bool Aim(SceneRenderer &renderer, const Gltf::Subject &subject, const Eye &view,
   }
   double position[3], forward[3], right[3], up[3];
   Anchored(anchorEcefM, eye.EyeM, position);
-  Gltf::InEcef(eye.Forward, forward);
-  Gltf::InEcef(eye.Right, right);
-  Gltf::InEcef(eye.Up, up);
+  for (int axis = 0; axis < 3; ++axis) {
+    forward[axis] = eye.Forward[axis];
+    right[axis] = eye.Right[axis];
+    up[axis] = eye.Up[axis];
+  }
   renderer.SetCameraBasis(position, forward, right, up);
   return true;
 }

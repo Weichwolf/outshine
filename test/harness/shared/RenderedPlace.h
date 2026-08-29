@@ -300,6 +300,14 @@ inline int RenderPlace(const Place &place) {
   // It only bites when geometry was actually meshed, which is what makes it a CONTRADICTION between
   // two measurements rather than a judgement about how the picture looks: triangles were built and
   // the frame does not contain them.
+  // AND WHAT IT MUST NEVER BE USED FOR. This number separates a PICTURE from NO PICTURE and nothing
+  // else. Between two frames that both show their place it decides nothing, and reading a shift in
+  // it as a regression is how a real repair gets reverted: the axis swap that ran over the NORMALS
+  // was removed, this statistic moved by hundredths, and the walls came out correctly lit -- the
+  // owner saw it, the number could not. While architectural defects are being corrected a changed
+  // picture is as likely to be a REPAIR as a fault, so the eye decides and nothing is reverted on a
+  // drift in this figure.
+  //
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar of 1.0 is a number nobody checked.
   // A bare ellipsoid under a sky IS a vertical gradient, so the statistic is run first over a
   // gradient built here -- if THAT does not come in far under the bar, the bar separates nothing and

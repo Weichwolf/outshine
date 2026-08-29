@@ -270,14 +270,21 @@ bool Live::Build(std::string &error) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
-    const double toSunGltf[3] = {std::cos(elevation) * std::sin(bearing), std::sin(elevation),
-                                 std::cos(elevation) * std::cos(bearing)};
-    const double upGltf[3] = {0.0, 1.0, 0.0};
-    double toSunEngine[3], upEngine[3];
-    Gltf::InEcef(toSunGltf, toSunEngine);
-    Gltf::InEcef(upGltf, upEngine);
-    const float toSun[3] = {(float)toSunEngine[0], (float)toSunEngine[1], (float)toSunEngine[2]};
-    const float up[3] = {(float)upEngine[0], (float)upEngine[1], (float)upEngine[2]};
+    // ONE FRAME, and it is the one the PRODUCERS write. A swap mapped a producer frame onto a
+    // device frame and every vector went through it together -- positions, normals, tangents,
+    // previous positions, placements, the light and the eye -- so the mapping was a relabelling
+    // that cost 28 M vertices a rebuild. Measured with one known vertex either side: (-2006, 426,
+    // -2111) in, (426, -2006, 2111) out, exactly (x,y,z) -> (y,x,-z).
+    //
+    // THE OWNER LOOKED AND THE WALLS ARE RIGHT NOW. The flatness statistic beside this moved when
+    // the swap went, and I read that as a regression and reverted -- wrongly: that statistic is a
+    // BLANK-frame guard and says on its own page that it does not judge how a picture looks. Two
+    // non-blank frames are outside what it can decide, and the eye is the oracle this directory
+    // exists for.
+    const float toSun[3] = {(float)(std::cos(elevation) * std::sin(bearing)),
+                            (float)std::sin(elevation),
+                            (float)(std::cos(elevation) * std::cos(bearing))};
+    const float up[3] = {0.0f, 1.0f, 0.0f};
 
     Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
     if (ShadowRadiusStoodM_ > 0.0) {
@@ -711,13 +718,13 @@ bool Live::Carry(size_t body, const double worldFromBodyM[16], const double buil
 
   double ecef[16];
   if (bodyMoved && joined > 0) {
-    Gltf::PlacedInEcef(bodyM, ecef);
+    for (int at = 0; at < 16; ++at) { ecef[at] = bodyM[at]; }
     if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, ecef, error)) {
       return false;
     }
   }
   if (builtMoved && joined < parts) {
-    Gltf::PlacedInEcef(built, ecef);
+    for (int at = 0; at < 16; ++at) { ecef[at] = built[at]; }
     if (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, ecef, error)) {
       return false;
     }
