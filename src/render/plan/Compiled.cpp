@@ -131,6 +131,17 @@ std::optional<Stage> Compiled::StageByName(std::string_view name) {
   return std::nullopt;
 }
 
+// A RESOURCE IS NAMED THE SAME WAY A STAGE IS, and for the same reason: a declaration that asks
+// for a picture the catalogue does not hold is a typo that would otherwise drop a buffer silently
+// and leave a client reading zeros. The catalogue already carries the name; nothing but the lookup
+// was missing, which is why `RenderPlan::Outputs` stood in the door unread.
+std::optional<Resource> Compiled::ResourceByName(std::string_view name) {
+  for (size_t at = 0; at < (size_t)Resource::kCount; ++at) {
+    if (name == kResources[at].Name) { return static_cast<Resource>(at); }
+  }
+  return std::nullopt;
+}
+
 std::expected<std::shared_ptr<const Compiled>, std::string> Compiled::Compile(
     const PlanSpec &spec) {
   std::shared_ptr<const Compiled> made;

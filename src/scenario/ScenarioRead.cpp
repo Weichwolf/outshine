@@ -220,6 +220,10 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
   for (const Xml::Ref output : from.Children("output")) {
     into.Render.Outputs.push_back(output.Attr("name"));
   }
+  if (Declares(from, "keep")) { into.Render.Outputs.clear(); }
+  for (const Xml::Ref keep : from.Children("keep")) {
+    into.Render.Outputs.push_back(keep.Attr("name"));
+  }
   for (const Xml::Ref stage : from.Children("stage")) {
     into.Render.Stages.push_back(stage.Attr("name"));
   }

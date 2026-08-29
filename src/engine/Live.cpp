@@ -27,9 +27,22 @@ namespace {
 
 
 bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
-                 const std::vector<std::string> &stages, Render::PlanSpec &declaration,
-                 std::string &error) {
+                 const std::vector<std::string> &stages, const std::vector<std::string> &outputs,
+                 Render::PlanSpec &declaration, std::string &error) {
   declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
+  for (const std::string &named : outputs) {
+    const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
+    if (!row) {
+      error = "the declaration asks the frame to keep '" + named +
+              "', and the catalogue holds no picture by that name -- an output list is checked "
+              "against the catalogue because a typo that silently drops a buffer leaves a client "
+              "reading zeros and calling them a measurement";
+      return false;
+    }
+    bool already = false;
+    for (const Render::Resource held : declaration.Outputs) { already = already || held == *row; }
+    if (!already) { declaration.Outputs.push_back(*row); }
+  }
 
   if (!stages.empty()) {
     declaration.Outputs.push_back(Render::Resource::SceneVelocity);
@@ -324,7 +337,7 @@ bool Live::Build(std::string &error) {
 
   Render::PlanSpec declaration;
   if (!DeclarePlan(Held_.File(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
-                   Declared_.Stages, declaration, error)) {
+                   Declared_.Stages, Declared_.Outputs, declaration, error)) {
     return false;
   }
   if (Declared_.Exposure > 0.0) {

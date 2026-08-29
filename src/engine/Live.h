@@ -38,6 +38,11 @@ struct Declaration {
 
   std::vector<std::string> Stages;
 
+  // THE PICTURES A CLIENT ASKS THE FRAME TO KEEP, beyond the one it displays. A conformance case
+  // states a claim about the DEPTH or the SHADING NORMAL and has to be able to ask for them; a
+  // client that asks for nothing gets what the plan needs and no more, which is the fast path.
+  std::vector<std::string> Outputs;
+
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 

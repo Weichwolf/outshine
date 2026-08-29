@@ -61,6 +61,7 @@ public:
   [[nodiscard]] static std::expected<std::shared_ptr<const Compiled>, std::string> Compile(
       const PlanSpec &spec);
   [[nodiscard]] static std::optional<Stage> StageByName(std::string_view name);
+  [[nodiscard]] static std::optional<Resource> ResourceByName(std::string_view name);
 
 private:
   [[nodiscard]] static bool CompileInto(const PlanSpec &spec,
