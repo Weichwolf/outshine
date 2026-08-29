@@ -166,3 +166,31 @@ TWO LANDED THIS ROUND, and both are Cesium's word for something the door already
 - `Georeference` -- `WorldSettings` fused a place on the Earth with gravity, air density, wind and a
   streaming patience. Only the place is a georeference, and separating it is what makes the name
   honest rather than decorative. 40 sites across 16 files
+
+
+## THE THREE THAT DO NOT STAND, AND WHAT WOULD MAKE EACH LAND
+
+The exception is not "we chose not to" -- each has a condition, and when it is met the name lands.
+Left open so a later round can act rather than re-argue.
+
+**`Renderer`.** Filament's owns the frame loop, and a client writes
+`renderer->render(view)`. Here `Engine::render` does it. Adding the object would make every call
+`engine.renderer().render(...)`, and THIS ITEM'S OWN MEASUREMENT is whether a client writes LESS --
+`apps/demo` fell 194 to 170 through the door work. A `Renderer` that only lengthens every render
+call fails that measurement, so the exception stands on the item's own number rather than on taste.
+**It lands when there is a second render target**, because then a client genuinely has to say which
+one, and the object stops being ceremony.
+
+**`MaterialInstance`.** Filament's is a per-object override of a shared material. Every surface here
+carries its own `Material`, so there is nothing shared to instance and nothing to override.
+**It lands when two subjects share one material** and one of them needs to differ.
+
+**`TransformManager`.** Filament's moves transforms on entities at runtime. Here a placement is
+DECLARED and moving a thing is a re-declaration -- which is the engine's own invariant, not an
+oversight. **It lands if a client is ever given a runtime handle to move one placed thing**, and
+until then the name would promise a mutability the declaration model refuses.
+
+## What the item still owes
+
+- [ ] `apps/bench` went 339 to 343. One client falling 12 per cent and another rising by four is not
+      a measurement, and the item claimed a FALL
