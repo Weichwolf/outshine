@@ -140,9 +140,13 @@ bool GroundStack::Drained() const {
          Footprints_.Ingested(*Vectors_);
 }
 
+// AND THE LAND CLASSES COUNT. `ClassField::Complete` was written, is exactly this question for the
+// two class tiers, and had NO CALLER -- the second readiness predicate in this tier that existed and
+// was asked by nobody. So whether a place was classified when its picture was taken was timing, and
+// the ground came out uniform green in one run and carrying fields and forest in the next.
 bool GroundStack::Ingested() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
-  return Vectors_->PendingTiles() <= 0 && Drained();
+  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
 }
