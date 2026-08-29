@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
 #define OUTSHINE_RENDER_SUBJECTPROXY_H
 
+#include "Shape.h"
 #include "Viewing.h"
 #include <array>
 #include <cstdint>
@@ -25,7 +26,7 @@ struct Eye {
 
 class SubjectProxy {
 public:
-  void Stands(const Gltf::Subject &subject, const double anchorEcefM[3]);
+  void Stands(const Shape &subject, const double anchorEcefM[3]);
   void Posed(const std::vector<double> *previousPositionsM) { Previous_ = previousPositionsM; }
   [[nodiscard]] bool Wears(std::span<const uint32_t> partSlot,
                            std::span<const SubjectMaterial> slots, std::string &error);
@@ -36,7 +37,7 @@ public:
   void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }
   void Around(const SubjectEnvironment &environment) { Environment_ = environment; }
 
-  [[nodiscard]] const Gltf::Subject *Subject() const { return Subject_; }
+  [[nodiscard]] const Shape *Shaped() const { return Shape_; }
   [[nodiscard]] size_t Parts() const { return Instances_ == 0 ? 0 : PartPlacement_.size() / Instances_; }
   [[nodiscard]] size_t Instances() const { return Instances_; }
   [[nodiscard]] size_t Placements() const { return Placed_ ? PartPlacement_.size() : 0; }
@@ -55,7 +56,7 @@ public:
 
 private:
   double AnchorEcefM_[3] = {0.0, 0.0, 0.0};
-  const Gltf::Subject *Subject_ = nullptr;
+  const Shape *Shape_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
   std::vector<std::array<double, 16>> PartPlacement_;
@@ -83,7 +84,7 @@ struct SubjectScratch {
   DrawList Draws;
 };
 
-[[nodiscard]] bool Aim(SceneRenderer &renderer, const Gltf::Subject &subject, const Eye &view,
+[[nodiscard]] bool Aim(SceneRenderer &renderer, const Shape &subject, const Eye &view,
                        const double anchorEcefM[3], std::string &error);
 
 [[nodiscard]] bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,

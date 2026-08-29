@@ -128,6 +128,46 @@ Render::Viewpoint Seen(const Gltf::Viewpoint &from) {
 
 }
 
+// THE ENGINE FILLS THE VIEW THE RENDERER READS. `src/render/` no longer names the importer's
+// carrier: it takes a `Render::Shape`, which is spans over whatever is held, so inverting the
+// dependency costs no bytes. The importer knows the engine; the engine hands the renderer a view;
+// the renderer never learns what file anything came from -- which is Unreal's arrow (the glTF
+// importer is a module depending on the engine) and RAGE's (tools depend on the runtime).
+Render::Shape Shaped(const Gltf::Subject &from, std::vector<Render::ShapePart> &parts) {
+  parts.clear();
+  parts.reserve(from.Parts().size());
+  for (const Gltf::Part &one : from.Parts()) {
+    Render::ShapePart made;
+    made.Name = one.NodeName;
+    made.Material = one.Material;
+    made.HasUv = one.HasUv;
+    made.HasUv1 = one.HasUv1;
+    made.HasNormal = one.HasNormal;
+    made.HasColour = one.HasColour;
+    made.HasTangent = one.HasTangent();
+    made.FirstVertex = one.FirstVertex;
+    made.VertexCount = one.VertexCount;
+    made.FirstIndex = one.FirstIndex;
+    made.IndexCount = one.IndexCount;
+    parts.push_back(made);
+  }
+  Render::Shape out;
+  out.Parts = parts;
+  out.PositionsM = from.PositionsM();
+  out.Normals = from.Normals();
+  out.Tangents = from.Tangents();
+  out.Uv = from.Uv();
+  out.Uv1 = from.Uv1();
+  out.Colours = from.Colours();
+  out.Indices = from.Indices();
+  out.CarriesUv = from.HasUv();
+  out.CarriesUv1 = from.HasUv1();
+  out.CarriesNormal = from.HasNormal();
+  out.CarriesTangent = from.HasTangent();
+  out.CarriesColour = from.HasColour();
+  return out;
+}
+
 bool Live::Build(std::string &error) {
   if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
     Held_.Clears();
@@ -403,7 +443,7 @@ bool Live::Look(std::string &error) {
   if (HaveEye_) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
-    return Render::Aim(*Renderer_, Held_.Assembled(), Looking_, Stood_.Anchor(), error);
+    return Render::Aim(*Renderer_, Shaped(Held_.Assembled(), ShapeParts_), Looking_, Stood_.Anchor(), error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -435,13 +475,14 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Looking_ = {framed, false, Joined_};
-  return Render::Aim(*Renderer_, Held_.Assembled(), Looking_, Stood_.Anchor(), error);
+  return Render::Aim(*Renderer_, Shaped(Held_.Assembled(), ShapeParts_), Looking_, Stood_.Anchor(), error);
 }
 
 bool Live::Stand(std::string &error) {
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
-  Stood_.Stands(Held_.Assembled(), anchorEcefM);
+  Shaped_ = Shaped(Held_.Assembled(), ShapeParts_);
+  Stood_.Stands(Shaped_, anchorEcefM);
   const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }

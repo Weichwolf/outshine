@@ -289,9 +289,9 @@ flowchart LR
   world_ground --> |9| world_data
   sim --> |8| actor_mind
   generators_base --> |7| base_spatial
+  engine --> |7| render
   actor_mind --> |7| actor_path
   engine --> |6| scenario
-  engine --> |6| render
   sim --> |5| base_spatial
   sim --> |5| actor_body
   render --> |5| base_io
@@ -347,11 +347,11 @@ The heaviest files. Headers and sources counted apart.
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| 891 | `cpp` | `engine/Live.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| 855 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| **46** | `h` | *the median of 238 header(s)* |
-| **115** | `cpp` | *the median of 165 source(s)* |
+| **47** | `h` | *the median of 239 header(s)* |
+| **114** | `cpp` | *the median of 166 source(s)* |
 
 ## Carpet
 

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_LIVE_H
 #define OUTSHINE_ENGINE_LIVE_H
 
+#include "Shape.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -224,6 +225,8 @@ private:
   Render::Eye Looking_;
   Render::SubjectScratch Scratch_;
 
+  std::vector<Render::ShapePart> ShapeParts_;
+  Render::Shape Shaped_;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
