@@ -122,6 +122,8 @@ const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
     {Stage::SubjectsTransmissive, &SceneRenderer::ConfigureGlass, &SceneRenderer::EncodeGlass},
     {Stage::CompositeTransmission, &SceneRenderer::ConfigureCompositeTransmission,
      &SceneRenderer::EncodeCompositeTransmission},
+    {Stage::AerialPerspective, &SceneRenderer::ConfigureAerialPerspective,
+     &SceneRenderer::EncodeAerialPerspective},
     {Stage::TemporalResolve, &SceneRenderer::ConfigureTemporalResolve, nullptr},
     {Stage::Tonemap, &SceneRenderer::ConfigureTonemap, &SceneRenderer::EncodeTonemap},
     {Stage::Overlay, &SceneRenderer::ConfigureOverlay, &SceneRenderer::EncodeOverlay},
@@ -288,6 +290,7 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::SceneHdr: HdrTex_ = target(resource, colour); return;
     case Resource::SceneTransmissive: TransmissiveTex_ = target(resource, colour); return;
     case Resource::SceneComposited: CompositedTex_ = target(resource, colour); return;
+    case Resource::SceneAerial: AerialTex_ = target(resource, colour); return;
     case Resource::SceneVelocity: VelTex_ = target(resource, colour); return;
     case Resource::SceneShadingNormal: ShadingNormalTex_ = target(resource, colour); return;
     case Resource::SceneSurfaceIdentity: SurfaceIdentityTex_ = target(resource, colour); return;
@@ -372,6 +375,7 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::SceneHdr: return HdrTex_.Get();
     case Resource::SceneTransmissive: return TransmissiveTex_.Get();
     case Resource::SceneComposited: return CompositedTex_.Get();
+    case Resource::SceneAerial: return AerialTex_.Get();
     case Resource::SceneVelocity: return VelTex_.Get();
     case Resource::SceneShadingNormal: return ShadingNormalTex_.Get();
     case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex_.Get();
@@ -489,7 +493,7 @@ bool SceneRenderer::ConfigurePresent(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureTonemap(std::string &error) {
-  return Tonemap_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneComposited)),
+  return Tonemap_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneLinear)),
                             DepthTex_.Get(), Samp_.Get(),
                             FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
 }
@@ -511,6 +515,12 @@ bool SceneRenderer::ConfigureMediumRadiance(std::string &error) {
 bool SceneRenderer::ConfigureSky(std::string &error) {
   return Sky_.Configure(Handles_, SkyViewLut_.Get(), TransmittanceLut_.Get(), LutSamp_.Get(),
                         error);
+}
+
+bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
+  return Aerial_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneComposited)),
+                           DepthTex_.Get(), SkyViewLut_.Get(), TransmittanceLut_.Get(), Samp_.Get(),
+                           LutSamp_.Get(), FormatOf(Plan_->Format(Resource::SceneAerial)), error);
 }
 
 bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
@@ -591,7 +601,7 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx, const P
 }
 
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
-  Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneComposited)));
+  Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneLinear)));
   const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
   Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta,
                         HistoryHeld_);
@@ -635,6 +645,21 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
   Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
+}
+
+void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
+  Picture(true, into);
+  const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
+  const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
+  float right[3], up[3], fwd[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    right[axis] = (float)Right_[axis];
+    up[axis] = (float)Up_[axis];
+    fwd[axis] = (float)Fwd_[axis];
+  }
+  Aerial_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
+  Aerial_.SetNear(NearMetres());
+  Aerial_.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {

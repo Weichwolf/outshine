@@ -24,6 +24,7 @@ enum class Resource {
   SceneSurfaceIdentity,
   SceneTransmissive,
   SceneComposited,
+  SceneAerial,
   AoBuffer,
   SceneLinear,
 
@@ -38,6 +39,7 @@ enum class Resource {
 
     case Resource::SceneHdr:
     case Resource::SceneTransmissive:
+    case Resource::SceneAerial:
     case Resource::SceneComposited:
     case Resource::SceneLinear:
       return true;
@@ -81,6 +83,7 @@ enum class Stage {
   Subjects,
   SubjectsTransmissive,
   CompositeTransmission,
+  AerialPerspective,
   AmbientOcclusion,
   TemporalResolve,
   Tonemap,
@@ -199,10 +202,12 @@ inline constexpr ResourceRow kResources[] = {
 
     {Resource::SceneComposited, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneHdr,
      TexelFormat::Rgba16Float, "sceneComposited"},
+    {Resource::SceneAerial, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneComposited,
+     TexelFormat::Rgba16Float, "sceneAerial"},
     {Resource::AoBuffer, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::R8Unorm, "aoBuffer"},
 
-    {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneComposited,
+    {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneAerial,
      TexelFormat::Rgba16Float, "sceneLinear"},
     {Resource::OverlayAtlas, ResourceKind::Given, FallbackKind::None, kNoEdge, TexelFormat::Handle,
      "overlayAtlas"},
@@ -253,11 +258,16 @@ inline constexpr StageRow kStages[] = {
     {Stage::CompositeTransmission, Provenance::Content, PassKind::Raster, "compositeTransmission",
      {Resource::SceneHdr, Resource::SceneTransmissive, Resource::LinearSampler, kNoEdge},
      {Resource::SceneComposited, kNoEdge}, {kNoEdge}, kNoFusion},
+    {Stage::AerialPerspective, Provenance::Content, PassKind::Raster, "aerialPerspective",
+     {Resource::SceneComposited, Resource::SceneDepth, Resource::SkyViewLut,
+      Resource::TransmittanceLut, Resource::LinearSampler, Resource::LutSampler,
+      Resource::AtmosphereUniform, kNoEdge},
+     {Resource::SceneAerial, kNoEdge}, {kNoEdge}, kNoFusion},
     {Stage::AmbientOcclusion, Provenance::Content, PassKind::Raster, "ambientOcclusion",
      {Resource::SceneDepth, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
      {Resource::AoBuffer, kNoEdge}, kNoFusion},
     {Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",
-     {Resource::SceneComposited, Resource::SceneVelocity, Resource::SceneDepth, Resource::LinearSampler,
+     {Resource::SceneAerial, Resource::SceneVelocity, Resource::SceneDepth, Resource::LinearSampler,
       Resource::AtmosphereUniform, kNoEdge},
      {Resource::SceneLinear, kNoEdge}, {kNoEdge}, Stage::Tonemap},
     {Stage::Tonemap, Provenance::Machinery, PassKind::Raster, "tonemap",

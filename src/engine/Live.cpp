@@ -47,7 +47,10 @@ bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
   }
   declaration.Outputs.push_back(Render::Resource::SceneVelocity);
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
-  if (sky) { declaration.Content.push_back(Render::Stage::Sky); }
+  if (sky) {
+    declaration.Content.push_back(Render::Stage::Sky);
+    declaration.Content.push_back(Render::Stage::AerialPerspective);
+  }
   if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
   bool carriesGlass = false;
   for (const Gltf::MaterialRef &material : file.Materials()) {

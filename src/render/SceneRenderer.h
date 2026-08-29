@@ -22,6 +22,7 @@
 #include "stages/PresentStage.h"
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
+#include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
 #include "stages/MediumRadianceStage.h"
@@ -166,6 +167,7 @@ public:
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
     Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
+    Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
 
   void SetSkyEye(float eyeHeightM) {
@@ -173,6 +175,7 @@ public:
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
     Sky_.Eye(Medium_, eyeHeightM);
+    Aerial_.Eye(Medium_, eyeHeightM);
   }
 
   [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return SkyViewLut_.Get(); }
@@ -266,6 +269,7 @@ private:
   [[nodiscard]] bool ConfigureMediumMultiScatter(std::string &error);
   [[nodiscard]] bool ConfigureMediumRadiance(std::string &error);
   [[nodiscard]] bool ConfigureSky(std::string &error);
+  [[nodiscard]] bool ConfigureAerialPerspective(std::string &error);
   [[nodiscard]] bool ConfigureLightVisibility(std::string &error);
   void EncodeSubjects(const FrameContext &ctx, const PassRecording &into);
   void EncodeGlass(const FrameContext &ctx, const PassRecording &into);
@@ -277,6 +281,7 @@ private:
   void EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into);
   void EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into);
   void EncodeSky(const FrameContext &ctx, const PassRecording &into);
+  void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
   bool Touched_[kResourceCount] = {};
@@ -303,7 +308,7 @@ private:
   OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;
   OwnedTexture ShadowAtlas_;
 
-  OwnedTexture TransmissiveTex_, CompositedTex_;
+  OwnedTexture TransmissiveTex_, CompositedTex_, AerialTex_;
 
   OwnedTexture ShadingNormalTex_;
 
@@ -315,6 +320,7 @@ private:
 
   bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
+  AerialPerspectiveStage Aerial_;
   TonemapStage Tonemap_;
   MediumTransmittanceStage MediumTransmittance_;
   MediumMultiScatterStage MultiScatter_;

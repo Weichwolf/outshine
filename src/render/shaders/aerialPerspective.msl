@@ -1,0 +1,113 @@
+
+struct Pushed {
+  float4 right;
+  float4 up;
+  float4 fwd;
+  float4 worldUp;
+  float4 sunDir;
+  float2 tanHalf;
+  float illuminance;
+  float eyeRadiusKm;
+  float nearM;
+  float pad0;
+  float pad1;
+  float pad2;
+  Medium air;
+};
+
+struct VOut { float4 pos [[position]]; float2 ndc; };
+
+vertex VOut vs(uint i [[vertex_id]]) {
+  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
+  VOut o;
+  o.pos = float4(corner[i], 0.0, 1.0);
+  o.ndc = corner[i];
+  return o;
+}
+
+static inline float3 skyViewAt(texture2d<float> skyView, sampler lut, float3 dir, float3 worldUp,
+                               float3 sunDir, float radiusKm, float bottomRadiusKm) {
+  float cosView = dot(dir, worldUp);
+  float3 side = cross(worldUp, dir);
+  float sideLength = length(side);
+  float lightViewCos = 1.0;
+  if (sideLength > 1.0e-5) {
+    side = side / sideLength;
+    float3 forward = normalize(cross(side, worldUp));
+    float2 onPlane = normalize(float2(dot(sunDir, forward), dot(sunDir, side)));
+    lightViewCos = onPlane.x;
+  }
+  float toHorizon = sqrt(max(0.0, radiusKm * radiusKm - bottomRadiusKm * bottomRadiusKm));
+  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
+  float zenithToHorizon = OUTSHINE_PI - beta;
+  // THE LOOKUP IS CLAMPED TO THE HORIZON. Below it the table holds radiance along a ray that ends
+  // on the ground, which carries a surface albedo and is not the in-scatter of a segment through the
+  // air. A ray slanting a few degrees down passes through the same air as the horizontal one beside
+  // it, so the horizon's own radiance is the honest stand-in. Its limit, stated where it is made: a
+  // steeply downward view from altitude gets more in-scatter than it should.
+  float angle = min(acos(clamp(cosView, -1.0, 1.0)), zenithToHorizon);
+  float widthPx = float(skyView.get_width());
+  float heightPx = float(skyView.get_height());
+  float coord = angle / zenithToHorizon;
+  coord = 1.0 - sqrt(max(0.0, 1.0 - coord));
+  float v = coord * 0.5;
+  float u = sqrt(max(0.0, -lightViewCos * 0.5 + 0.5));
+  u = (u + 0.5 / widthPx) * (widthPx / (widthPx + 1.0));
+  v = (v + 0.5 / heightPx) * (heightPx / (heightPx + 1.0));
+  return skyView.sample(lut, float2(u, v), level(0.0)).rgb;
+}
+
+fragment float4 fs(VOut in [[stage_in]],
+                   texture2d<float> scene [[texture(0)]], sampler sceneSampler [[sampler(0)]],
+                   texture2d<float> depth [[texture(1)]], sampler depthSampler [[sampler(1)]],
+                   texture2d<float> skyView [[texture(2)]], sampler lut [[sampler(2)]],
+                   texture2d<float> veil [[texture(3)]], sampler veilSampler [[sampler(3)]],
+                   constant Pushed &pushed [[buffer(0)]]) {
+  uint2 px = uint2(in.pos.xy);
+  float4 lit = scene.read(px);
+  float written = depth.read(px).r;
+
+  // REVERSE-Z WITH AN INFINITE FAR PLANE writes `near / distance`, so a fragment nothing drew
+  // carries 0 and the sky already stands there -- it went through the atmosphere on its own way and
+  // must not be sent through it twice.
+  if (written <= 0.0) { return lit; }
+
+  float3 dir = normalize(pushed.fwd.xyz + in.ndc.x * pushed.tanHalf.x * pushed.right.xyz +
+                         in.ndc.y * pushed.tanHalf.y * pushed.up.xyz);
+  float alongView = pushed.nearM / max(written, 1.0e-9);
+  float reachKm = alongView * 0.001 / max(1.0e-6, dot(dir, normalize(pushed.fwd.xyz)));
+
+  float radiusKm = pushed.eyeRadiusKm;
+  float cosZenith = dot(dir, pushed.worldUp.xyz);
+  float endRadiusKm =
+      sqrt(max(pushed.air.BottomRadiusKm * pushed.air.BottomRadiusKm,
+               radiusKm * radiusKm + reachKm * reachKm + 2.0 * radiusKm * reachKm * cosZenith));
+  float endCosZenith = clamp((radiusKm * cosZenith + reachKm) / endRadiusKm, -1.0, 1.0);
+
+  // BRUNETON'S RATIO. The lookup holds transmittance from a point to the TOP of the atmosphere, so
+  // the transmittance of a SEGMENT is the quotient of its two ends -- taken in the order that keeps
+  // it below one, which is what the sign of the view's zenith angle decides.
+  float3 through;
+  if (cosZenith > 0.0) {
+    float3 atEye = veil.sample(veilSampler, mediumTransmittanceUv(pushed.air, radiusKm, cosZenith),
+                               level(0.0)).rgb;
+    float3 atEnd = veil.sample(veilSampler,
+                               mediumTransmittanceUv(pushed.air, endRadiusKm, endCosZenith),
+                               level(0.0)).rgb;
+    through = clamp(atEye / max(atEnd, float3(1.0e-6)), float3(0.0), float3(1.0));
+  } else {
+    float3 atEye = veil.sample(veilSampler, mediumTransmittanceUv(pushed.air, radiusKm, -cosZenith),
+                               level(0.0)).rgb;
+    float3 atEnd = veil.sample(veilSampler,
+                               mediumTransmittanceUv(pushed.air, endRadiusKm, -endCosZenith),
+                               level(0.0)).rgb;
+    through = clamp(atEnd / max(atEye, float3(1.0e-6)), float3(0.0), float3(1.0));
+  }
+
+  float3 inscattered =
+      skyViewAt(skyView, lut, dir, pushed.worldUp.xyz, normalize(pushed.sunDir.xyz), radiusKm,
+                pushed.air.BottomRadiusKm) *
+      pushed.illuminance;
+
+  return float4(lit.rgb * through + inscattered * (1.0 - through), lit.a);
+}

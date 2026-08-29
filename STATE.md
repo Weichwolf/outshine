@@ -271,13 +271,13 @@ Module depends on module, derived from the includes themselves.
 
 ```mermaid
 flowchart LR
-  render_stages --> |28| render_device
+  render_stages --> |31| render_device
   world_ground --> |20| base_spatial
   generators --> |18| generators_base
   world_ground --> |14| base_io
   sim --> |14| actor_path
+  render --> |14| render_stages
   generators_draw --> |14| generators_base
-  render --> |13| render_stages
   sim --> |12| world_ground
   generators --> |11| world_ground
   engine --> |11| ui
@@ -341,14 +341,14 @@ The heaviest files. Headers and sources counted apart.
 | 1381 | `cpp` | `engine/Picturing.cpp` |
 | 1269 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1046 | `cpp` | `render/SceneRenderer.cpp` |
+| 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 876 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
-| **45** | `h` | *the median of 242 header(s)* |
-| **114** | `cpp` | *the median of 164 source(s)* |
+| **46** | `h` | *the median of 243 header(s)* |
+| **114** | `cpp` | *the median of 165 source(s)* |
 
 ## Carpet
 
@@ -356,7 +356,7 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 65 | `src/render/SceneRenderer.h` |
+| 66 | `src/render/SceneRenderer.h` |
 | 51 | `src/engine/Live.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 46 | `src/content/gltf/Subject.h` |
