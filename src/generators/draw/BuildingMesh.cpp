@@ -236,6 +236,21 @@ void Plinth(const BuildingShape &s, const Site2Ground &ground, double topZ, Site
   }
 }
 
+// A SOLID IS CLOSED AT THE BOTTOM TOO. Without this the base ring is an open boundary and the
+// terrain is what stops you seeing inside -- which holds until the terrain slopes, and stops holding
+// the moment it does. The ring is the plinth's outer one where a plinth stands, so the floor meets
+// the lowest wall the part actually has, and it is wound the other way round from a roof because its
+// outward direction is DOWN.
+void Floor(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &ring,
+           double atZ, Site &site) {
+  std::vector<En> tris;
+  roof.Cover(ring, tris);
+  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth), Face(s, tris[i + 1], atZ, Facade::Plinth),
+             Face(s, tris[i], atZ, Facade::Plinth));
+  }
+}
+
 void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
@@ -356,7 +371,13 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const RoofSurface roof(s);
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
-  if (s.OnGround()) Plinth(s, ground, plinthZ, site);
+  if (s.OnGround()) {
+    Plinth(s, ground, plinthZ, site);
+    const std::vector<En> foot = RoofSurface::Widened(s.Ring, kPlinthProudM);
+    Floor(s, roof, foot.size() == s.Ring.size() ? foot : s.Ring, PlinthFootZ(s, ground), site);
+  } else {
+    Floor(s, roof, s.Ring, lowZ, site);
+  }
   Walls(s, lowZ, site);
 
   if (s.Roof == RoofKind::Flat) {
