@@ -37,7 +37,7 @@ struct M { float factor; float cut; float metalness; float roughness;
 
 struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
 
-struct Lights { float4 count; float4 environment; Light items[16]; };
+struct Lights { float4 count; float4 environment; float4 bounced; float4 up; Light items[16]; };
 
 #define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
     device const BvhNode *bvhNodes [[buffer(2)]], device const BvhTri *bvhTris [[buffer(3)]], \

@@ -422,9 +422,16 @@ bool Live::Stand(std::string &error) {
     float skylight[3];
     Render::MediumSkyIrradiance(medium, medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
                                 cosSun, toSun, secondOrder, skylight);
+    float sunReach[3];
+    toSun(medium.BottomRadiusKm + Render::kMediumGroundLiftKm, cosSun, sunReach);
+    const float straightDown = cosSun > 0.0f ? cosSun : 0.0f;
     for (int channel = 0; channel < 3; ++channel) {
       environment.RadianceLinear[channel] +=
           skylight[channel] / std::numbers::pi_v<float> * Declared_.KeyLux;
+      const float onTheGround =
+          (float)Declared_.KeyLux * (straightDown * sunReach[channel] + skylight[channel]);
+      environment.GroundLinear[channel] +=
+          (float)GroundAlbedo_[channel] * onTheGround / std::numbers::pi_v<float>;
     }
   }
   Stood_.Around(environment);

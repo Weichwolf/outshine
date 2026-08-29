@@ -192,7 +192,7 @@ private:
 
   static constexpr int kLightVec4s = 4;
 
-  static constexpr int kLightFloats = 8 + 4 * kLightVec4s * (int)kMaxSubjectLights;
+  static constexpr int kLightFloats = 16 + 4 * kLightVec4s * (int)kMaxSubjectLights;
 
   struct SurfaceSlot {
     SubjectResidency::BoundImage Colour;

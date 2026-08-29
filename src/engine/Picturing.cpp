@@ -422,6 +422,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         tinted[one * 4 + 3] = 1.0f;
       }
     }
+    if (!tinted.empty()) {
+      double wornSum[3] = {0.0, 0.0, 0.0};
+      const size_t worn = tinted.size() / 4;
+      for (size_t one = 0; one < worn; ++one) {
+        for (int channel = 0; channel < 3; ++channel) {
+          wornSum[channel] += (double)tinted[one * 4 + (size_t)channel];
+        }
+      }
+      const double wornMean[3] = {wornSum[0] / (double)worn, wornSum[1] / (double)worn,
+                                  wornSum[2] / (double)worn};
+      Picture.Standing->Grounding(wornMean);
+      Published.Places("lighting: the ground it bounces off, red", 1000.0 * wornMean[0], "albedo/1000");
+      Published.Places("lighting: green", 1000.0 * wornMean[1], "albedo/1000");
+      Published.Places("lighting: blue", 1000.0 * wornMean[2], "albedo/1000");
+    }
+    const Render::SubjectEnvironment &lighting = Picture.Standing->AmbientStanding();
+    Published.Places("lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
+    Published.Places("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");
+    Published.Places("lighting: sky blue", lighting.RadianceLinear[2], "cd/m2");
+    Published.Places("lighting: the ground's bounced radiance, red", lighting.GroundLinear[0], "cd/m2");
+    Published.Places("lighting: bounce green", lighting.GroundLinear[1], "cd/m2");
+    Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
     Published.Places("the ring's vertices a land class names", (double)named, "vertices");
     Published.Places("out of, for a class", (double)(inFrame.size() / 3), "vertices");
   }
@@ -660,6 +682,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
       Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
       Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
+      {
+        size_t upright = 0, facingDown = 0;
+        for (size_t one = 0; one + 2 < wallFacing.size(); one += 3) {
+          const double aloft = (double)wallFacing[one + 1];
+          if (aloft < -0.5) { ++facingDown; }
+          else if (aloft > -0.5 && aloft < 0.5) { ++upright; }
+        }
+        Published.Places("buildings: wall normals standing upright", (double)upright, "normals");
+        Published.Places("buildings: wall normals facing DOWN", (double)facingDown, "normals");
+      }
       const bool tookPlaces =
           builtPart >= 0 && roofPart >= 0 &&
           ground.setPositions(builtPart, std::span<const float>(wallPlaces.data(), wallPlaces.size())) &&

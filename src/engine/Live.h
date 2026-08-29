@@ -110,6 +110,14 @@ public:
   [[nodiscard]] const Gltf::Viewpoint &Aimed() const { return Looking_.Eye; }
   [[nodiscard]] const Gltf::Viewpoint &Watching() const { return Eye_; }
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
+
+  void Grounding(const double albedo[3]) {
+    for (int channel = 0; channel < 3; ++channel) { GroundAlbedo_[channel] = albedo[channel]; }
+  }
+  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
+    return Stood_.IndirectLight();
+  }
+
   [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
   [[nodiscard]] double NearStanding() const { return (double)Renderer_->NearMetres(); }
@@ -186,6 +194,7 @@ private:
   Render::SceneRenderer *Renderer_ = nullptr;
   Overlay Over_;
   Declaration Declared_;
+  double GroundAlbedo_[3] = {0.10, 0.13, 0.07};
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
   Gltf::Viewpoint Eye_;

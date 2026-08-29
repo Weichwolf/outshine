@@ -17,6 +17,8 @@ struct SubjectLight {
 
 struct SubjectEnvironment {
   double RadianceLinear[3] = {0, 0, 0};
+  double GroundLinear[3] = {0, 0, 0};
+  double UpUnit[3] = {0, 1, 0};
 };
 
 constexpr size_t kMaxSubjectLights = 16;

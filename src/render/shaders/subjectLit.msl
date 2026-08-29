@@ -155,7 +155,9 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
   const float nvClamped = clamp(nv, 0.0, 1.0);
 
   const float3 specularEnvironment = brdfFresnel(f0, f90, nvClamped);
-  sum = sum + lights.environment.rgb * (diffuseColour + specularEnvironment);
+  const float skyShare = clamp(dot(n, lights.up.xyz) * 0.5 + 0.5, 0.0, 1.0);
+  const float3 ambient = mix(lights.bounced.rgb, lights.environment.rgb, skyShare);
+  sum = sum + ambient * (diffuseColour + specularEnvironment);
   return sum + emitted;
 }
 
