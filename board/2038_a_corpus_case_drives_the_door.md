@@ -63,6 +63,32 @@ Half of it the door already answers and the harness reaches past anyway, which i
 the file was written against the internals and never revisited. The other half is real and is what
 this item buys.
 
+## WHERE THE CONVERSION STANDS, MEASURED ON ONE CASE
+
+Driving `AlphaBlendModeTest` alone -- seconds rather than the suite's 23 minutes -- took the
+converted harness from every case failing to one metric:
+
+    disagreement_p99_px          104.74 px  ->  0.000 px   (bound 0.005)   the GEOMETRY is exact
+    plan_passes                       3     ->      2      when the surface is not declared
+    picture_p99_delta_code           177     ->    177     (bound 6.44)    the COLOUR is not
+
+THE COLOUR IS CARRIED BY PER-PART EMITTED RADIANCE AND THE DOOR CANNOT SAY IT. The old harness
+wrote it straight into the proxy -- `studio.Emits(part, rgb)` -- one radiance per PART. A
+`SurfaceOverride` is keyed by the file's MATERIAL name, so two parts sharing a material cannot
+differ, and this case's five quads share one. Measured three ways:
+
+    indirect light set to 1.0 everywhere      177 -> 52    it reaches, and it is not the carrier
+    indirect light as the old path set it     177 -> 219   the old path set NONE for this case
+    per-node override attempted                            std::length_error, see below
+
+Unreal overrides a material per COMPONENT SLOT and Filament hands out a `MaterialInstance` per
+PRIMITIVE. **They agree** that the key is the part, not the material. So `SurfaceOverride` needs a
+NODE key beside its material key -- and the attempt crashed, because giving one part its own slot
+means growing `SurfaceTable` under a proxy that is already standing on it. The table has to support
+a per-part slot properly rather than have one appended to it.
+
+That is the next round's work, and it is the last thing between this conversion and the tree.
+
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
       alone, and the driving part of it fits on a screen
 - [ ] The scoring stays as long as it needs to be: an EXR oracle, a p99 delta and an acceptance
