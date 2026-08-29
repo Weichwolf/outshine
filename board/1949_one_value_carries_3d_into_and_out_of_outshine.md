@@ -20,6 +20,35 @@ The third sentence is the one that changes the shape. The value is not "what a g
 generator fills it. A foreign program fills it directly, with no file anywhere. The compositor
 consumes it. The serialiser writes it out. One value, many producers, many consumers.
 
+## COUNTED, and the benchmark line is exactly right: two forms, and this tree has eight
+
+**Benchmark** — Unreal: `FMeshDescription` to author, `FStaticMeshRenderData` to draw, one cooker
+between them. RAGE: `grmGeometry` cooked, and the file IS that form. **Both agree on TWO**, so the
+number is the finding rather than the existence of a second one.
+
+Every type in this tree that OWNS or VIEWS vertex data, with how many vertex-carrying fields each
+declares:
+
+    form                          fields   what it is for
+    include/Geometry.h             10      the DOOR. Parts, spans, materials, lamps, transforms
+    Gltf::Subject                  17      the owning form. Doubles, plus morphs and animation
+    Patchwork                       5      the ground ring, already flattened and CPU-culled
+    TileBuild                       1      one tile: Verts, Idx, Clusters
+    BuildingField                   4      the OSM soup and its footprints
+    SubjectScratch                  4      packed per frame for the upload
+    ClusterDag                      1      the cooked cut
+    Meshed                          0      a wrapper that fills a `Geometry` from a soup
+
+Eight, and `Meshed` is the only one that is honestly a helper. The other seven each hold vertices in
+their own layout, and geometry is copied between them on the way from a producer to a pixel.
+
+**Two of them are the right two.** `Geometry` authors and something cooked draws. The other five are
+the defect, and each one exists because a producer had nowhere to put its output: the ground built a
+`Patchwork`, the tiles a `TileBuild`, the OSM a `BuildingField`, the renderer a `SubjectScratch`.
+None of them could hand back a `Geometry` because `Geometry` could not carry what they hold -- which
+is this item's own line, "`include/Geometry.h` must therefore carry whatever a FILE can carry, or a
+generator is weaker than a file and the interchange claim is false."
+
 ## The value already exists, and it is named after a format
 
 `Gltf::Subject` (`src/content/gltf/Subject.h`) owns positions, uv, uv1, normals, tangents,
