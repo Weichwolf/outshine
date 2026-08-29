@@ -95,42 +95,6 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return poly.size() <= 2;
 }
 
-// THE BOUND IS CHECKED BEFORE EACH WRITE, not after both of them. `if (n >= 4) break;` stood at the
-// END of the iteration, so a pass that began with n == 3 wrote poly[3] on the vertex test and
-// poly[4] on the crossing test -- one element PAST a four-element stack array, beside `n` and `d`
-// themselves. Undefined behaviour that can put a vertex anywhere, which is what the frame shows:
-// 14 331 roof triangles at Rothenburg carry a vertex more than 0.60 m outside their own footprint,
-// against a cornice that legitimately overhangs by 0.16 m.
-//
-// A triangle clipped by a half-plane cannot yield more than four points, so the array is the right
-// size and the guard was in the wrong place rather than the number being wrong.
-void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) {
-  En poly[4];
-  int n = 0;
-  for (int i = 0; i < 3 && n < 4; i++) {
-    const int j = (i + 1) % 3;
-    const double di = d[i] * sign, dj = d[j] * sign;
-    if (di >= -kOnLineM && n < 4) { poly[n++] = t[i]; }
-    if ((di > kOnLineM && dj < -kOnLineM) || (di < -kOnLineM && dj > kOnLineM)) {
-      if (n >= 4) { break; }
-      // A CUT LANDS ON A CORNER OR CLEAR OF IT, never a hair beside one. Left free, the crossing
-      // point can fall a fraction of a millimetre from `t[i]` and the piece it cuts off is a sliver
-      // that something downstream then has to decide about -- and every such decision is wrong,
-      // because dropping it opens a hole and keeping it carries no surface. Snapped to the corner
-      // there is nothing to decide: the clip degenerates cleanly and the degenerate is the ONE case
-      // where removing a triangle changes no edge.
-      const double f = di / (di - dj);
-      En cut{t[i].E + (t[j].E - t[i].E) * f, t[i].N + (t[j].N - t[i].N) * f};
-      const double toI = std::hypot(cut.E - t[i].E, cut.N - t[i].N);
-      const double toJ = std::hypot(cut.E - t[j].E, cut.N - t[j].N);
-      if (toI < kOnLineM) { cut = t[i]; }
-      else if (toJ < kOnLineM) { cut = t[j]; }
-      poly[n++] = cut;
-    }
-  }
-  for (int i = 2; i < n; i++) { PushTri(out, poly[0], poly[i - 1], poly[i]); }
-}
-
 // CROSSING NUMBER, with a margin. A cornice overhangs by design, so a vertex is outside only when it
 // clears the ring by more than that.
 [[nodiscard]] bool Inside(const std::vector<En> &ring, const En &p, double marginM) {
@@ -157,29 +121,6 @@ void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) 
   return nearest <= marginM * marginM;
 }
 
-void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<En> &tris) {
-  std::vector<En> out;
-  out.reserve(tris.size() * 2);
-  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-    const En *t = &tris[i];
-    double d[3];
-    int pos = 0, neg = 0;
-    for (int k = 0; k < 3; k++) {
-      double u = 0.0, v = 0.0;
-      shape.ToBox(t[k], &u, &v);
-      d[k] = line.A * u + line.B * v - line.C;
-      if (d[k] > kOnLineM) pos++;
-      if (d[k] < -kOnLineM) neg++;
-    }
-    if (pos == 0 || neg == 0) {
-      PushTri(out, t[0], t[1], t[2]);
-      continue;
-    }
-    HalfPlane(t, d, 1.0, out);
-    HalfPlane(t, d, -1.0, out);
-  }
-  tris.swap(out);
-}
 
 // A CREASE STATED TWICE IS NOT TWO CREASES. A hip's four diagonals are `{1, -1, +-d}` and
 // `{1, 1, +-d}` where `d` is the footprint's own asymmetry -- so on a SQUARE plan `d` is zero and
@@ -317,6 +258,41 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
   return true;
 }
 
+// CUT THE POLYGON, THEN TRIANGULATE. Splitting an already-triangulated surface is a REPAIR: each
+// triangle is clipped on its own and the pieces have to agree afterwards, which they do until two
+// creases stack and one of them grazes a corner. Cutting the POLYGON first makes the crease a cell
+// BOUNDARY -- the two cells either side of it are built from the same two endpoints, so they cannot
+// disagree about where it runs. Every crease that opened a roof in this tree opened it at a stacked
+// split, and there are no stacked splits here: a cell is cut, and its halves are cut again, and
+// nothing is ever triangulated until the arrangement is finished.
+//
+// Sutherland-Hodgman, which is exact against a half plane. Its limit, stated where it is used: on a
+// CONCAVE cell it can lay a zero-width bridge across a notch. A footprint is concave often enough
+// that this has to be measured rather than assumed, and the measurement is Rothenburg's hole count.
+std::vector<En> ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
+                         double sign) {
+  std::vector<En> out;
+  const size_t n = poly.size();
+  out.reserve(n + 2);
+  for (size_t i = 0; i < n; i++) {
+    const En &a = poly[i], &b = poly[(i + 1) % n];
+    double ua = 0.0, va = 0.0, ub = 0.0, vb = 0.0;
+    shape.ToBox(a, &ua, &va);
+    shape.ToBox(b, &ub, &vb);
+    const double da = (line.A * ua + line.B * va - line.C) * sign;
+    const double db = (line.A * ub + line.B * vb - line.C) * sign;
+    if (da >= -kOnLineM) { out.push_back(a); }
+    if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
+      const double f = da / (da - db);
+      En cut{a.E + (b.E - a.E) * f, a.N + (b.N - a.N) * f};
+      if (std::hypot(cut.E - a.E, cut.N - a.N) < kOnLineM) { cut = a; }
+      else if (std::hypot(cut.E - b.E, cut.N - b.N) < kOnLineM) { cut = b; }
+      out.push_back(cut);
+    }
+  }
+  return out;
+}
+
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
   Line lines[kMaxCreases];
@@ -347,20 +323,40 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
-  if (!EarClip(plan, tris)) {
-    // WHAT CANNOT BE COVERED WHOLE IS NOT COVERED AT ALL. A partial cover is a roof with a hole in
-    // it that no number reports; a refusal is one the count below can see.
-    tris.resize(first);
-    RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
-    return;
-  }
-  if (tris.size() == first) { return; }
-  std::vector<En> mine(tris.begin() + (long)first, tris.end());
-  tris.resize(first);
 
+  // THE ARRANGEMENT COMES FIRST AND THE TRIANGLES COME LAST. The polygon is cut by each crease in
+  // turn, so a crease is a cell BOUNDARY built from the same two endpoints on both sides; only when
+  // no cut is left does anything get triangulated.
   Line lines[kMaxCreases];
   const int n = CreasesOf(Shape_, lines);
-  for (int i = 0; i < n; i++) SplitByLine(Shape_, lines[i], mine);
+  std::vector<std::vector<En>> cells;
+  cells.emplace_back(plan.begin(), plan.end());
+  for (int i = 0; i < n; i++) {
+    std::vector<std::vector<En>> next;
+    for (const std::vector<En> &cell : cells) {
+      std::vector<En> above = ClipHalf(Shape_, cell, lines[i], 1.0);
+      std::vector<En> below = ClipHalf(Shape_, cell, lines[i], -1.0);
+      if (above.size() >= 3 && below.size() >= 3) {
+        next.push_back(std::move(above));
+        next.push_back(std::move(below));
+        continue;
+      }
+      next.push_back(cell);
+    }
+    cells.swap(next);
+  }
+
+  std::vector<En> mine;
+  for (const std::vector<En> &cell : cells) {
+    if (!EarClip(cell, mine)) {
+      // WHAT CANNOT BE COVERED WHOLE IS NOT COVERED AT ALL. A partial cover is a roof with a hole in
+      // it that no number reports; a refusal is one the count below can see.
+      tris.resize(first);
+      RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
+      return;
+    }
+  }
+  if (mine.empty()) { return; }
   if (Shape_.Roof == RoofKind::Dome) Refine(mine, 4);
   // A ROOF VERTEX BELONGS INSIDE THE FOOTPRINT IT COVERS. Five explanations for the bright diagonals
   // across Rothenburg died in turn -- a fan, thin area, long reach, the clipper's bail-outs, and
