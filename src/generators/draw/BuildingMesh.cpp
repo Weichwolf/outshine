@@ -16,10 +16,20 @@ namespace outshine::Generators {
 namespace {
 std::atomic<size_t> gBuried{0};
 std::atomic<size_t> gDeepestMm{0};
+std::atomic<size_t> gPrisms{0};
+std::atomic<size_t> gRaised{0};
+std::atomic<size_t> gFarthestM{0};
+std::atomic<size_t> gBoxes{0};
+std::atomic<size_t> gUnscaled{0};
 }
 
 size_t BuildingMesh::BuriedTaken() { return gBuried.exchange(0u); }
 size_t BuildingMesh::DeepestBuriedMmTaken() { return gDeepestMm.exchange(0u); }
+size_t BuildingMesh::PrismsTaken() { return gPrisms.exchange(0u); }
+size_t BuildingMesh::RaisedTaken() { return gRaised.exchange(0u); }
+size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
+size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
+size_t BuildingMesh::UnscaledTaken() { return gUnscaled.exchange(0u); }
 
 
 namespace {
@@ -82,9 +92,12 @@ public:
     EnuAxesEcef(lat, lon, East_, North_, Up_);
     for (int c = 0; c < 3; c++) Origin_[c] = origin[c] - plan.AnchorEcef[c];
     ReachM_ = std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
+    FocalPx_ = plan.FocalPx;
   }
 
   [[nodiscard]] double ReachM() const { return ReachM_; }
+
+  [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
   // THE GENERATOR OWNS ITS OWN TOPOLOGY. Positions are welded on the same centimetre grid everything
   // else in this tree uses, so two corners meant to be one corner ARE one index -- and a shared edge
@@ -189,6 +202,7 @@ private:
   std::vector<uint32_t> Face_;
   double Origin_[3], East_[3], North_[3], Up_[3];
   double ReachM_ = 0.0;
+  double FocalPx_ = 0.0;
 };
 
 class Site2Ground {
@@ -618,7 +632,90 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
 // is not a cut: the building is still there, still closed, still the right height. What it loses is
 // detail no pixel was carrying. At Shibuya the full path meshed 12.9 M triangles and 313 MB of
 // vertices from ONE vector tile, and the terrain never got a core to build on.
-constexpr double kArchitectureReachM = 1200.0;
+// WHERE THE DETAIL STOPS PAYING, DERIVED FROM THE OPTICS AND NOT SET. A feature of h metres at d
+// metres covers `focalPx * h / d` pixels, with focalPx = H / (2 tan(fov/2)) -- 691.5 px at 720 rows
+// over 55 degrees. Below TWO pixels a feature is not merely wasted, it ALIASES, so two pixels is
+// where a level stops being worth building.
+//
+// A LEVEL IS BOUNDED BY THE SILHOUETTE IT ADDS, not by the smallest ornament riding on it. Getting
+// that wrong once cost Rothenburg every roof in the town: the cornice is 0.30 m and dies at 104 m,
+// so gating ARCHITECTURE on the cornice meant no building anywhere was ever built with a roof.
+//
+//   what a level adds        size    holds 2 px to
+//   roof SHAPE (the rise)    3.0 m       1037 m
+//   footprint corners        2.0 m        692 m
+//   cornice, plinth, bays    0.3 m        104 m
+//
+// AND THOSE ARE TWO AXES, NOT ONE -- which is the answer to "are three levels enough". Footprint
+// fidelity dies at 692 m and roof shape not until 1037 m, so a FLAT roof on a TRUE footprint is
+// never the right trade: there is no band in which it wins. The level that belongs in that gap is
+// its mirror -- a shaped roof over a HULL footprint -- and it is not built here, so the ornament
+// rides along with the roof to 1037 m and the box takes over beyond it. RAGE carries High/Med/Low/
+// Vlow inside a drawable and then SLOD1..4 of merged sectors on top; Unreal carries 4 to 8 mesh LODs
+// and HLOD clusters over them, and Nanite drops discrete levels entirely for a cluster cut at a
+// constant screen error. More than three, and for this reason.
+//
+// THERE IS NO LEVEL BELOW THE BOX. A building under a pixel still darkens the pixel it is under, and
+// dropping it is exactly how a town stops being a town.
+constexpr double kRoofRiseM = 3.0;
+constexpr double kShortestEdgeM = 2.0;
+constexpr double kResolvedPx = 2.0;
+constexpr double kSeenPx = 1.0;
+
+[[nodiscard]] double ArchitectureReachM(double focalPx) {
+  return focalPx * kRoofRiseM / kResolvedPx;
+}
+
+[[nodiscard]] double FootprintReachM(double focalPx) {
+  return focalPx * kShortestEdgeM / kResolvedPx;
+}
+
+// THE MINIMUM-AREA ENCLOSING RECTANGLE, not an axis-aligned one: a building at 40 degrees to the
+// grid would otherwise gain a silhouette half again its own width, and a silhouette is the only
+// thing this level still carries. A minimum-area rectangle always has a side collinear with a hull
+// edge, so trying every ring edge finds it -- the ring is a superset of its hull and n is small.
+[[nodiscard]] std::vector<En> Hull(const std::vector<En> &ring) {
+  const size_t n = ring.size();
+  double bestArea = 1.0e300;
+  double axE = 1.0, axN = 0.0, minU = 0.0, maxU = 0.0, minV = 0.0, maxV = 0.0;
+  for (size_t i = 0; i < n; i++) {
+    const En &a = ring[i], &b = ring[(i + 1) % n];
+    const double dE = b.E - a.E, dN = b.N - a.N;
+    const double len = std::hypot(dE, dN);
+    if (len < 1.0e-6) { continue; }
+    const double uE = dE / len, uN = dN / len;
+    double loU = 1.0e300, hiU = -1.0e300, loV = 1.0e300, hiV = -1.0e300;
+    for (const En &p : ring) {
+      const double u = p.E * uE + p.N * uN, v = -p.E * uN + p.N * uE;
+      loU = std::min(loU, u); hiU = std::max(hiU, u);
+      loV = std::min(loV, v); hiV = std::max(hiV, v);
+    }
+    const double area = (hiU - loU) * (hiV - loV);
+    if (area < bestArea) {
+      bestArea = area;
+      axE = uE; axN = uN; minU = loU; maxU = hiU; minV = loV; maxV = hiV;
+    }
+  }
+  const auto at = [&](double u, double v) {
+    return En{u * axE - v * axN, u * axN + v * axE};
+  };
+  return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
+}
+
+void Box(const BuildingShape &s, const std::vector<En> &ring, const Site2Ground &ground,
+         Site &site) {
+  const double lowZ = PlinthFootZ(s, ground);
+  const double topZ = s.TopM();
+  for (size_t i = 0; i < 4; i++) {
+    const size_t j = (i + 1) % 4;
+    site.Quad(Face(s, ring[i], lowZ, Facade::Wall), Face(s, ring[j], lowZ, Facade::Wall),
+              Face(s, ring[j], topZ, Facade::Wall), Face(s, ring[i], topZ, Facade::Wall));
+  }
+  site.Quad(Face(s, ring[3], topZ, Facade::RoofFlat), Face(s, ring[2], topZ, Facade::RoofFlat),
+            Face(s, ring[1], topZ, Facade::RoofFlat), Face(s, ring[0], topZ, Facade::RoofFlat));
+  site.Quad(Face(s, ring[0], lowZ, Facade::Wall), Face(s, ring[1], lowZ, Facade::Wall),
+            Face(s, ring[2], lowZ, Facade::Wall), Face(s, ring[3], lowZ, Facade::Wall));
+}
 
 void Prism(const BuildingShape &s, const RoofSurface &roof, const Site2Ground &ground, Site &site) {
   const size_t n = s.Ring.size();
@@ -640,10 +737,22 @@ void Prism(const BuildingShape &s, const RoofSurface &roof, const Site2Ground &g
 
 void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const RoofSurface roof(s);
-  if (site.ReachM() > kArchitectureReachM) {
-    Prism(s, roof, ground, site);
-    return;
+  const double outM = site.ReachM();
+  const size_t whole = (size_t)outM;
+  for (size_t seen = gFarthestM.load(); whole > seen;) {
+    if (gFarthestM.compare_exchange_weak(seen, whole)) { break; }
   }
+  const double focalPx = site.FocalPx();
+  if (focalPx > 0.0) {
+    if (outM > ArchitectureReachM(focalPx)) {
+      gBoxes.fetch_add(1u, std::memory_order_relaxed);
+      Box(s, Hull(s.Ring), ground, site);
+      return;
+    }
+  } else {
+    gUnscaled.fetch_add(1u, std::memory_order_relaxed);
+  }
+  gRaised.fetch_add(1u, std::memory_order_relaxed);
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);

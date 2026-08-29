@@ -29,6 +29,8 @@ public:
     Frontage Street;
   };
 
+  void SeenWith(double focalPx) { FocalPx_ = focalPx; }
+
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
   void AnchorAt(const double ecef[3]);
@@ -74,6 +76,7 @@ private:
   std::vector<float> Verts_;
   TileRanges ByTile_;
   TileWatermark Mark_;
+  double FocalPx_ = 0.0;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
 
   std::vector<double> Corners_;

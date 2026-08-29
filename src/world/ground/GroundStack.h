@@ -62,6 +62,12 @@ public:
   // did: `BuildingField::Shapes` had no caller and `BuildingField::Verts` had no reader, so every
   // footprint the world read was meshed by nobody.
   void ShapesFootprintsWith(const StructureMesher *mesher) { Footprints_.Shapes(mesher); }
+
+  // THE FOCAL LENGTH THE FOOTPRINTS ARE MESHED FOR. A level of detail is a number of PIXELS, so the
+  // generator cannot choose one without knowing how many pixels a metre is worth. It is declared
+  // once with the frame and the lens rather than sampled per frame, because a level that changed
+  // with the camera would remesh the world every time the view turned.
+  void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
   [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
   [[nodiscard]] const StreetField &Ways() const { return Ways_; }
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }

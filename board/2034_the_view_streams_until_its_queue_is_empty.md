@@ -74,6 +74,16 @@ negative control is emptying the cache, which must turn it red.
 - Central Park renders flat green and blue. Its ring settles and its terrain arrives, so the cause
   is downstream of the stream and does not belong to this item until measured
 
+## The standing bar for `places/`, set by the owner
+
+`places/` is the optimisation reference, and it carries two numbers rather than a feeling:
+
+    a lot of world loaded in ONE SECOND, and a frame drawn in under 16 ms
+
+Both are already printed: the load line reports elapsed seconds, bytes, rate and mean fetch latency,
+and each case reports `%.2f ms each` over its frames. Neither is a gate -- a rate has no negative
+control -- and both bound what any change here has to beat.
+
 ## What would show this wrong
 
 `vector tiles that settled` equal to the full ring, every field's watermark done, and Solothurn standing in `build/places/Jura.png` -- and if the town is still absent with the ring proven full, the cause is the mesher and not the stream.

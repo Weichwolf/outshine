@@ -15,6 +15,11 @@ public:
   [[nodiscard]] static size_t BuriedTaken();
   // AND THE DEEPEST ANY OF THEM IS BURIED, in millimetres, since the last read.
   [[nodiscard]] static size_t DeepestBuriedMmTaken();
+  [[nodiscard]] static size_t PrismsTaken();
+  [[nodiscard]] static size_t RaisedTaken();
+  [[nodiscard]] static size_t FarthestMTaken();
+  [[nodiscard]] static size_t BoxesTaken();
+  [[nodiscard]] static size_t UnscaledTaken();
 
   void Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept override;
 };

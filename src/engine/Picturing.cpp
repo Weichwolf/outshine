@@ -137,6 +137,16 @@ bool Engine::State::Composes(void) {
   }
 
   World.Stack.ShapesFootprintsWith(&World.Shaper);
+  {
+    const double fovDeg = Session.Declared.Views.empty() || Session.Declared.Views.front().Sees.FovDeg <= 0.0
+                              ? 55.0
+                              : Session.Declared.Views.front().Sees.FovDeg;
+    const double highPx = Session.Declared.Render.Frame.HeightPx > 0
+                              ? (double)Session.Declared.Render.Frame.HeightPx
+                              : 720.0;
+    World.Stack.SeeFootprintsWith(highPx /
+                                  (2.0 * std::tan(fovDeg * std::numbers::pi / 360.0)));
+  }
   if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
     std::string why;
     if (!World.Shipping.Stands(World.Stack.Vegetation(),
@@ -876,6 +886,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          (double)Generators::RoofSurface::OutsideTaken(), "triangles");
         Published.Places("buildings: seated BELOW the ground they stand on",
                          (double)Generators::BuildingMesh::BuriedTaken(), "buildings");
+        Published.Places("buildings: raised with full architecture",
+                         (double)Generators::BuildingMesh::RaisedTaken(), "buildings");
+        Published.Places("buildings: reduced to a far prism",
+                         (double)Generators::BuildingMesh::PrismsTaken(), "buildings");
+        Published.Places("buildings: reduced to a hull box",
+                         (double)Generators::BuildingMesh::BoxesTaken(), "buildings");
+        Published.Places("buildings: meshed with NO pixel scale declared",
+                         (double)Generators::BuildingMesh::UnscaledTaken(), "buildings");
+        Published.Places("buildings: the farthest one meshed lies",
+                         (double)Generators::BuildingMesh::FarthestMTaken(), "m out");
         Published.Places("buildings: and the deepest of them is buried by",
                          (double)Generators::BuildingMesh::DeepestBuriedMmTaken(), "mm");
       }

@@ -256,6 +256,7 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.HeightMeasured = f.Source == HeightSource::Osm;
   plan.Street = f.Street;
   plan.AnchorEcef = Anchor_;
+  plan.FocalPx = FocalPx_;
   Mesher_->Mesh(plan, Verts_);
 }
 
