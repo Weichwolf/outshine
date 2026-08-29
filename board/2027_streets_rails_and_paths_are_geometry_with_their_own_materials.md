@@ -17,8 +17,10 @@ had until `BuildingField::Shapes` was given a mesher.
 
 ## What will be true
 
-- [ ] a way becomes a ribbon: a cross-section profile swept along its centreline, with its own material per class -- carriageway, rail, footway
-- [ ] the ribbon follows the LANDSCAPE along its whole length, sampled from the ground that is DRAWN rather than from the raw DEM, because OSM carries no height
+- [x] a way becomes a ribbon: swept along its centreline at the way's own declared half width, with its own material. 1 867 ways at Rothenburg, 5 refused, 15 828 triangles
+- [ ] the profile carries a KERB, a camber and a verge -- it is a flat band today, which is the simplest honest cross-section and not the finished one
+- [ ] rails and footways get their own profile and material rather than the carriageway's
+- [ ] the ribbon follows the LANDSCAPE along its whole length, sampled from the ground that is DRAWN rather than from the raw DEM. MEASURED over 31 275 road vertices at Rothenburg: the drawn ground stands over a road by under a metre on average and by 11 m at worst, and that tail is a grid cell's own relief on a slope rather than a constant error. The ribbon rides 1 m today, which covers the town and does not pretend to cover the hillside -- board:2028 owns the real answer
 - [ ] a junction does not leave a hole or a fold
 - [ ] the profile is DECLARED, not coded: a scenario states widths and materials, and the engine's default stands where it does not
 

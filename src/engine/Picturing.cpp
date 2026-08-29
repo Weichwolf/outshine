@@ -477,6 +477,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   constexpr double kSteepestRoof = 0.5;
+  // A ROAD SITS ON THE GROUND AND MUST NOT FIGHT IT. The terrain mesh samples the DEM on a grid, so
+  // a ribbon taking DEM heights sinks wherever the grid missed. Fifteen centimetres is a road's own
+  // build-up over its base -- the smallest lift that is a real thing rather than a fudge -- and the
+  // item records that it is not enough on a slope.
+  // HOW HIGH A ROAD RIDES OVER THE DEM IT TOOK ITS HEIGHT FROM, and the number is measured. The
+  // terrain MESH samples the same DEM on a grid, so the two disagree by whatever the grid missed:
+  // over 31 275 road vertices at Rothenburg the average is under a metre and the worst case is 11 m,
+  // and that tail is a 20 m grid cell's own relief on a slope rather than a constant error. One
+  // metre therefore covers the town and does not pretend to cover the hillside -- board:2028 owns
+  // the real answer, which is to ask the DRAWN surface rather than the raster behind it.
+  constexpr double kRoadAboveM = 1.0;
+  constexpr double kGapGridM = 20.0;
   const int ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
 
@@ -726,6 +738,146 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                        std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
   (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
                                                              laid->Index.size()));
+
+  // STREETS ARE GEOMETRY: a profile swept along the centreline, with its own material. Unreal sweeps
+  // a spline mesh along a road spline; RAGE authors road geometry with its own shaders. Neither
+  // paints a stripe on the terrain, and OSM carries no height, so each vertex asks the ground where
+  // it stands (board:2027, board:2028).
+  //
+  // The profile is a flat band of the way's own declared half width. That is the simplest honest
+  // cross-section and it is where a kerb, a camber and a verge go later; the item says so.
+  {
+    const Ground::StreetField &ways = World.Stack.Ways();
+    const Ground::OsmField *const vectors = World.Stack.Vectors();
+    std::vector<float> places, facing;
+    std::vector<uint32_t> order;
+    size_t laidWays = 0, refusedWays = 0;
+    if (vectors != nullptr) {
+      const std::span<const double> points = vectors->Points();
+      for (const Ground::StreetField::Way &lane : ways.Ways()) {
+        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
+            !(lane.HalfWidthM > 0.0f)) {
+          ++refusedWays;
+          continue;
+        }
+        bool whole = true;
+        std::vector<double> left, right;
+        left.reserve(lane.PointCount * 3);
+        right.reserve(lane.PointCount * 3);
+        for (uint32_t step = 0; step < lane.PointCount && whole; ++step) {
+          const size_t at = ((size_t)lane.FirstPoint + step) * 2;
+          if (at + 1 >= points.size()) { whole = false; break; }
+          const double lat = points[at], lon = points[at + 1];
+          const uint32_t before = step == 0 ? step : step - 1;
+          const uint32_t after = step + 1 < lane.PointCount ? step + 1 : step;
+          const size_t from = ((size_t)lane.FirstPoint + before) * 2;
+          const size_t to = ((size_t)lane.FirstPoint + after) * 2;
+          if (to + 1 >= points.size()) { whole = false; break; }
+          const double perLat = 111132.0;
+          const double perLon = 111320.0 * std::cos(lat * std::numbers::pi / 180.0);
+          double alongE = (points[to + 1] - points[from + 1]) * perLon;
+          double alongN = (points[to] - points[from]) * perLat;
+          const double run = std::sqrt(alongE * alongE + alongN * alongN);
+          if (!(run > 1.0e-6)) { whole = false; break; }
+          alongE /= run;
+          alongN /= run;
+          const double halfM = (double)lane.HalfWidthM;
+          const double offLat = -alongE * halfM / perLat, offLon = alongN * halfM / perLon;
+          double aslM = 0.0;
+          if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { whole = false; break; }
+          left.insert(left.end(), {lat + offLat, lon + offLon, aslM});
+          right.insert(right.end(), {lat - offLat, lon - offLon, aslM});
+        }
+        if (!whole || left.size() < 6) {
+          ++refusedWays;
+          continue;
+        }
+        ++laidWays;
+        const auto lay = [&](const double *from, double raise) {
+          double eastM = 0.0, upM = 0.0, northM = 0.0;
+          standing.Place(from[0], from[1], from[2] + raise, &eastM, &upM, &northM);
+          places.push_back((float)eastM);
+          places.push_back((float)upM);
+          places.push_back((float)(-northM));
+          facing.push_back(0.0f);
+          facing.push_back(1.0f);
+          facing.push_back(0.0f);
+          order.push_back((uint32_t)(order.size()));
+        };
+        for (size_t step = 0; step + 1 < left.size() / 3; ++step) {
+          const double *const l0 = left.data() + step * 3;
+          const double *const r0 = right.data() + step * 3;
+          const double *const l1 = left.data() + (step + 1) * 3;
+          const double *const r1 = right.data() + (step + 1) * 3;
+          // THE WINDING IS THE ONE THIS RENDERER FACES, found by making the material double-sided
+          // and watching the ribbons appear -- then set here and the crutch removed. A road is a
+          // solid surface and double-sided is the answer that stops asking the question.
+          lay(l0, kRoadAboveM);
+          lay(r1, kRoadAboveM);
+          lay(r0, kRoadAboveM);
+          lay(l0, kRoadAboveM);
+          lay(l1, kRoadAboveM);
+          lay(r1, kRoadAboveM);
+        }
+      }
+    }
+    // HOW FAR THE DEM AND THE DRAWN GROUND DISAGREE, measured rather than guessed. A road takes its
+    // height from the DEM and is drawn against the terrain MESH, which samples that same DEM on a
+    // grid -- so the gap is whatever the grid missed, and it is the number that decides the lift.
+    // board:2028 says the right answer is to ask the DRAWN surface; this says how wrong the DEM is
+    // until that exists.
+    {
+      std::unordered_map<uint64_t, float> highest;
+      highest.reserve(inFrame.size() / 3);
+      for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+        const int64_t east = (int64_t)std::llround((double)inFrame[at] / kGapGridM);
+        const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] / kGapGridM);
+        const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+        const auto stood = highest.find(key);
+        if (stood == highest.end() || inFrame[at + 1] > stood->second) {
+          highest[key] = inFrame[at + 1];
+        }
+      }
+      double deepest = 0.0, summed = 0.0;
+      size_t compared = 0;
+      for (size_t at = 0; at + 2 < places.size(); at += 3) {
+        const int64_t east = (int64_t)std::llround((double)places[at] / kGapGridM);
+        const int64_t south = (int64_t)std::llround((double)places[at + 2] / kGapGridM);
+        const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+        const auto stood = highest.find(key);
+        if (stood == highest.end()) { continue; }
+        const double under = (double)stood->second - (double)places[at + 1];
+        ++compared;
+        summed += under > 0.0 ? under : 0.0;
+        deepest = under > deepest ? under : deepest;
+      }
+      Published.Places("streets: the deepest the ground stands over one", deepest, "m");
+      Published.Places("streets: how far on average", compared > 0 ? summed / (double)compared : 0.0,
+                       "m");
+      Published.Places("streets: vertices compared", (double)compared, "vertices");
+    }
+    Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
+    Published.Places("streets: ways it refused", (double)refusedWays, "ways");
+    Published.Places("streets: triangles", (double)(order.size() / 3), "triangles");
+    if (order.size() >= 3) {
+      Material tarmac;
+      tarmac.BaseColour[0] = 0.16f;
+      tarmac.BaseColour[1] = 0.16f;
+      tarmac.BaseColour[2] = 0.17f;
+      tarmac.Roughness = 0.92f;
+      const int paved = ground.Surface("streets", tarmac);
+      const int pavedPart = ground.Part("streets", paved);
+      const bool tookPaving =
+          pavedPart >= 0 &&
+          ground.Positions(pavedPart, std::span<const float>(places.data(), places.size())) &&
+          ground.Normals(pavedPart, std::span<const float>(facing.data(), facing.size())) &&
+          ground.Triangles(pavedPart, std::span<const uint32_t>(order.data(), order.size()));
+      Published.Places("streets: the surface they were given", (double)paved, "index");
+      Published.Places("streets: the part they were given", (double)pavedPart, "index");
+      Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
+      Published.Places("streets: parts the geometry now holds", (double)ground.Parts(), "parts");
+    }
+  }
 
   Gltf::Subject laidGround;
   if (!laidGround.Assemble(ground)) {
