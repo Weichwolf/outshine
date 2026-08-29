@@ -82,8 +82,8 @@ int main(void) {
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{kFramePx, kFramePx};
   stands.Ground.Declared = true;
-  stands.Ground.Lat = 48.1372;
-  stands.Ground.Lon = 11.5756;
+  stands.Ground.Origin.LatitudeDeg = 48.1372;
+  stands.Ground.Origin.LongitudeDeg = 11.5756;
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = 40000.0;
   stands.Lit.Key.ElevationDeg = 42.0;

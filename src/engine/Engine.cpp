@@ -284,8 +284,8 @@ bool Engine::preload(double patienceS) {
     // whole wait the terrain arrived and the OSM fields did not move at all. Measured: land classes
     // and a patch of ground both present, `OSM features` answering 0, one vector tile settled and
     // it was not the one the region asked for, and every place at `0 instanced`.
-    const double atLat = S_->Session.Declared.Ground.Lat;
-    const double atLon = S_->Session.Declared.Ground.Lon;
+    const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
+    const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;
     S_->World.Stack.Restand(atLat, atLon);
     (void)S_->Grows(atLat, atLon);
     if (settled()) { return S_->Grounds(true); }

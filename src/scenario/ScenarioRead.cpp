@@ -177,9 +177,9 @@ void ReadStanding(const Xml::Ref &from, Standing &into) {
 void ReadWorld(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
-  into.Ground.Lat = from.Num("lat", into.Ground.Lat);
-  into.Ground.Lon = from.Num("lon", into.Ground.Lon);
-  into.Ground.RadiusM = from.Num("radiusM", into.Ground.RadiusM);
+  into.Ground.Origin.LatitudeDeg = from.Num("lat", into.Ground.Origin.LatitudeDeg);
+  into.Ground.Origin.LongitudeDeg = from.Num("lon", into.Ground.Origin.LongitudeDeg);
+  into.Ground.Origin.RadiusM = from.Num("radiusM", into.Ground.Origin.RadiusM);
   into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
   into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
   into.Ground.WindDeg = from.Num("windDeg", into.Ground.WindDeg);

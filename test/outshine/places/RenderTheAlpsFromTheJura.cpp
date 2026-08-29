@@ -82,8 +82,8 @@ int main(void) {
 
   outshine::Scenario stands;
   stands.Ground.Declared = true;
-  stands.Ground.Lat = kLatDeg;
-  stands.Ground.Lon = kLonDeg;
+  stands.Ground.Origin.LatitudeDeg = kLatDeg;
+  stands.Ground.Origin.LongitudeDeg = kLonDeg;
   stands.Ground.PatienceS = 3.0;
   stands.Ground.SightM = kSightM;
   stands.Render.Declared = true;
@@ -98,9 +98,9 @@ int main(void) {
   watches.Id = "station";
   watches.Person = "first";
   watches.Sees.Stands.GlobeAnchor = true;
-  watches.Sees.Stands.LatitudeDeg = kLatDeg;
-  watches.Sees.Stands.LongitudeDeg = kLonDeg;
-  watches.Sees.Stands.HeightM = kEyeAglM;
+  watches.Sees.Stands.Geodetic.LatitudeDeg = kLatDeg;
+  watches.Sees.Stands.Geodetic.LongitudeDeg = kLonDeg;
+  watches.Sees.Stands.Geodetic.HeightM = kEyeAglM;
   watches.Sees.Stands.SamplesHeight = true;
   watches.Sees.Stands.BearingDeg = kBearingDeg;
   watches.Sees.Stands.PitchDeg = kPitchDeg;

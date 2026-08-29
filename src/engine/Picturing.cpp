@@ -115,8 +115,8 @@ bool Engine::State::Composes(void) {
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (!declared.Ground.Declared && !overADrive) { return true; }
-  const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
-  const double atLon = overADrive ? way.FrameLon : declared.Ground.Lon;
+  const double atLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
+  const double atLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
   if (!World.Wire) {
     if (Session.Under.Offline) {
       Error = "the ground is FETCHED and the engine was declared offline";
@@ -155,8 +155,8 @@ bool Engine::State::Asks(void) {
   if (!declared.Ground.Declared && !overADrive) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over;
-  over.LatDeg = overADrive ? way.FrameLat : declared.Ground.Lat;
-  over.LonDeg = overADrive ? way.FrameLon : declared.Ground.Lon;
+  over.LatDeg = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
+  over.LonDeg = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Asking = true;
   {
@@ -216,8 +216,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (!declared.Ground.Declared && !overADrive) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
-  const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Lat;
-  const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Lon;
+  const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
+  const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
 
   double atLat = anchorLat, atLon = anchorLon;
   if (Picture.Standing->Watched()) {

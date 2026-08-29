@@ -66,7 +66,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   auto &corridor = out.Way.Line;
   auto &stood = out.Stood;
 
-  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.RadiusM);
+  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.Origin.RadiusM);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
   say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
@@ -159,7 +159,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   stack.SetVegetation(&widths);
 
   const double quantumM = outshine::Ground::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
-  Network roads(1.05 * quantumM, world.RadiusM);
+  Network roads(1.05 * quantumM, world.Origin.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
   out.Found.StreetsAbsent = reaped.StreetsAbsent;
@@ -269,7 +269,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
   if (!Sim::LayCorridor(route, stack.Ground(), out.Car, stood, quantumM, tightestM,
-                        middleLat, world.RadiusM, say, out.Way, error)) {
+                        middleLat, world.Origin.RadiusM, say, out.Way, error)) {
     return false;
   }
 

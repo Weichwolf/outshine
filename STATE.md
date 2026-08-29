@@ -15,11 +15,18 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 22/7 | 24% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 8 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
+| `door` | 23/7 | 23% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 9 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | 4 tick(s) name no proof |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
 | `streaming` | 12/1 | 8% | -- | [1946](board/1946_the_generated_world_reaches_the_scene.md) 12 | |
+
+Ticked, but the named proof is not in this tree:
+
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- `sampleHeight` puts a thing on the TERRAIN. MEASURED at Mather Point: a view asked for ground
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a `Camera` is a thing of its own with a projection, and a `View` binds a scene, a camera and
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- the door's verbs are Filament's where Filament has one, and this tree's only where it does
 
 ## Door -- `include/`
 
@@ -42,14 +49,14 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `SwapChain` | Filament | **not yet** |
 | `Viewport` | Filament | yes |
 | `RenderableManager` | Filament | **not yet** |
-| `Georeference` | Cesium | **not yet** |
+| `Georeference` | Cesium | yes |
 | `GlobeAnchor` | Cesium | yes |
 | `LongitudeDeg` | Cesium | yes |
 | `LatitudeDeg` | Cesium | yes |
 | `HeightM` | Cesium | yes |
 | `SamplesHeight` | Cesium | yes |
 
-**12 of 20 spoken.** A name here is not a rename to make: it is a promise a client
+**13 of 20 spoken.** A name here is not a rename to make: it is a promise a client
 already understands, and the ones marked *not yet* are what board:2016 owes.
 
 And the verbs, because a client calls those rather than the types:
@@ -69,9 +76,9 @@ And the verbs, because a client calls those rather than the types:
 | `setExposure` | Filament | **not yet** |
 | `flushAndWait` | Filament | **not yet** |
 | `sampleHeight` | Cesium | **not yet** |
-| `LongitudeLatitudeHeight` | Cesium | **not yet** |
+| `LongitudeLatitudeHeight` | Cesium | yes |
 
-**2 of 14 spoken.**
+**3 of 14 spoken.**
 
 OURS BY RIGHT, because Filament is a renderer and does not face the question:
 
@@ -177,6 +184,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Light
     value: Identity
     value: Layer
+    value: Georeference
     value: WorldSettings
     value: Provider
     value: Setting
@@ -186,6 +194,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: RenderPlan
     value: Lighting
     value: Asset
+    value: LongitudeLatitudeHeight
     value: Standing
     value: Placement
     value: Surface

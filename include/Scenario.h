@@ -33,11 +33,18 @@ struct Layer {
   std::string Set;
 };
 
+// WHERE ON THE EARTH THE SCENE STANDS, and Cesium's word for it. A `WorldSettings` that also carries
+// gravity, air density, wind and a streaming patience is not a georeference; this is the part that
+// is, and separating it is why the name can be used honestly at all.
+struct Georeference {
+  double LatitudeDeg = 0.0;
+  double LongitudeDeg = 0.0;
+  double RadiusM = 6371008.8;
+};
+
 struct WorldSettings {
   bool Declared = false;
-  double Lat = 0.0;
-  double Lon = 0.0;
-  double RadiusM = 6371008.8;
+  Georeference Origin;
   double GravityMs2 = 9.80665;
   double AirDensityKgM3 = 1.2250;
   double WindDeg = 0.0;
@@ -110,15 +117,22 @@ struct Asset {
   int Clip = 0;
 };
 
+// A PLACE ON THE EARTH, spelled the way Cesium spells it. Three loose doubles said the same thing
+// and named nothing: a reader who has used Cesium for Unreal already owns this word, and a reader
+// who has not can see from it that the numbers belong together.
+struct LongitudeLatitudeHeight {
+  double LongitudeDeg = 0.0;
+  double LatitudeDeg = 0.0;
+  double HeightM = 0.0;
+};
+
 struct Standing {
   double AtM[3] = {0.0, 0.0, 0.0};
   double FacingXyzw[4] = {0.0, 0.0, 0.0, 1.0};
   double ScaleXyz[3] = {1.0, 1.0, 1.0};
 
   bool GlobeAnchor = false;
-  double LongitudeDeg = 0.0;
-  double LatitudeDeg = 0.0;
-  double HeightM = 0.0;
+  LongitudeLatitudeHeight Geodetic;
   bool SamplesHeight = false;
   double BearingDeg = 0.0;
   double PitchDeg = 0.0;

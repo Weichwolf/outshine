@@ -18,7 +18,7 @@ bool Engine::State::Watches(void) {
                        seen.Sees.Stands.AtM[1] + seen.OffsetM[1],
                        seen.Sees.Stands.AtM[2] + seen.OffsetM[2]};
   if (seen.Sees.Stands.GlobeAnchor) {
-    double heightM = seen.Sees.Stands.HeightM;
+    double heightM = seen.Sees.Stands.Geodetic.HeightM;
     if (seen.Sees.Stands.SamplesHeight) {
       if (!World.Stack.Opened()) {
         Error = "a view samples the ground's height and no ground stands -- a scenario declares a "
@@ -26,11 +26,11 @@ bool Engine::State::Watches(void) {
         return false;
       }
       const GroundSample under =
-          World.Stack.Ground().At(seen.Sees.Stands.LatitudeDeg, seen.Sees.Stands.LongitudeDeg);
+          World.Stack.Ground().At(seen.Sees.Stands.Geodetic.LatitudeDeg, seen.Sees.Stands.Geodetic.LongitudeDeg);
       double aslM = 0.0;
       if (!under.TryAslM(&aslM)) {
-        Error = "a view samples the ground at " + Said(seen.Sees.Stands.LatitudeDeg) + ", " +
-                Said(seen.Sees.Stands.LongitudeDeg) +
+        Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
+                Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
                 " and the terrain there is not resident -- the height it stands at is not a "
                 "number this engine may invent";
         return false;
@@ -38,10 +38,10 @@ bool Engine::State::Watches(void) {
       heightM += aslM;
     }
     const Ground::EnuFrame frame =
-        Ground::EnuFrame::At(Session.Declared.Ground.Lat, Session.Declared.Ground.Lon);
+        Ground::EnuFrame::At(Session.Declared.Ground.Origin.LatitudeDeg, Session.Declared.Ground.Origin.LongitudeDeg);
     Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.LongitudeDeg, seen.Sees.Stands.LatitudeDeg, heightM}, &where)) {
-      Error = "a view stands at " + Said(seen.Sees.Stands.LatitudeDeg) + ", " + Said(seen.Sees.Stands.LongitudeDeg) +
+    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.Geodetic.LongitudeDeg, seen.Sees.Stands.Geodetic.LatitudeDeg, heightM}, &where)) {
+      Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " + Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
@@ -156,8 +156,8 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
 
 bool Engine::State::Updates(void) {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
-    const double atLat = Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Lat;
-    const double atLon = Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Lon;
+    const double atLat = Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
+    const double atLon = Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
       World.Stack.Restand(atLat, atLon);

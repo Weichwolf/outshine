@@ -191,7 +191,7 @@ bool Engine::declare(const Scenario &scenario) {
           !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
         whenS = (int64_t)std::time(nullptr);
       }
-      const Solar sun = SolarAt(scenario.Ground.Lat, scenario.Ground.Lon, (double)whenS);
+      const Solar sun = SolarAt(scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);
       declared.KeyElevationDeg = (double)sun.SunElDeg;
       declared.KeyBearingDeg = (double)sun.SunAzDeg;
     }
@@ -296,9 +296,9 @@ bool Engine::declare(const Scenario &scenario) {
 
 bool Engine::generated(const Scenario &scenario) {
   Ask ask;
-  ask.EastM = scenario.Ground.Lon;
-  ask.NorthM = scenario.Ground.Lat;
-  ask.ExtentM = scenario.Ground.RadiusM;
+  ask.EastM = scenario.Ground.Origin.LongitudeDeg;
+  ask.NorthM = scenario.Ground.Origin.LatitudeDeg;
+  ask.ExtentM = scenario.Ground.Origin.RadiusM;
 
   Geometry made;
   const auto asked = [&](const std::string &kind) {

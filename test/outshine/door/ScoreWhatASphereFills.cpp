@@ -80,8 +80,8 @@ struct Read {
   made.Lit.Key.BearingDeg = 150.0;
   if (withASphere) {
     made.Ground.Declared = true;
-    made.Ground.Lat = 48.1372;
-    made.Ground.Lon = 11.5756;
+    made.Ground.Origin.LatitudeDeg = 48.1372;
+    made.Ground.Origin.LongitudeDeg = 11.5756;
   }
   return made;
 }

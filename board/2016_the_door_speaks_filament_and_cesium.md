@@ -134,3 +134,31 @@ client here declares a scenario and asks for a frame, and does not assemble a re
 - [ ] `apps/demo`'s line count. 194 before the door work, 170 now -- down 12 per cent, so the premise
       holds, but the item claimed a FALL and one client is not a measurement. `apps/bench` went
       339 to 343
+
+
+## THE NAME COUNT, measured in `include/` rather than claimed
+
+    Engine                    11        Renderer                   0
+    Scene                     14        MaterialInstance           0
+    View                       3        TransformManager           0
+    Camera                     2
+    Material                   6
+    GlobeAnchor                1
+    IndirectLight              1
+    LongitudeLatitudeHeight    2
+    Georeference               2
+
+NINE OF TWELVE STAND. The three at zero are the same exception written three ways and it is one
+sentence: **Filament is four objects where this door is one.** `Renderer` is a separate object there
+that a client binds to a `SwapChain` and a `View`; here `Engine` renders, and adding the name without
+the object would promise a model that does not exist. `MaterialInstance` has nothing to instance
+until a material is shared between subjects. `TransformManager` manages transforms on entities, and
+placements here live on the declaration.
+
+TWO LANDED THIS ROUND, and both are Cesium's word for something the door already had loose:
+
+- `LongitudeLatitudeHeight` -- longitude, latitude and height were three unrelated doubles inside
+  `Standing`. 61 sites across 11 files
+- `Georeference` -- `WorldSettings` fused a place on the Earth with gravity, air density, wind and a
+  streaming patience. Only the place is a georeference, and separating it is what makes the name
+  honest rather than decorative. 40 sites across 16 files
