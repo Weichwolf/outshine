@@ -153,8 +153,13 @@ inline int RenderPlace(const Place &place) {
   // sequence eight long, so every edge in every picture this directory has ever kept was as aliased
   // as no antialiasing at all -- and the number that fixes it was computed by the plan and read by
   // nobody.
+  // AND NEVER FEWER THAN TWO, which is not a rounder number but a property of the instruments: the
+  // measures are published at advance time and report the frame BEFORE the one being published, so
+  // a case that draws once reports `subjects, triangles 0` for a picture full of triangles. Six of
+  // them read exactly that for one measurement.
   const int settle = engine.renderer().settleFrames();
-  for (; frames < settle; ++frames) {
+  const int wanted = settle > 2 ? settle : 2;
+  for (; frames < wanted; ++frames) {
     const auto beforeStep = std::chrono::steady_clock::now();
     if (!engine.advance()) {
       Unprepared((std::string(place.Name) + " did not advance: " + engine.error()).c_str());

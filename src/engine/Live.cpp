@@ -46,18 +46,7 @@ bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
     return true;
   }
   declaration.Outputs.push_back(Render::Resource::SceneVelocity);
-  // AND THE TEMPORAL RESOLVE, which was built, jittered, given a settle count -- and put in no plan
-  // the engine ever built. `SceneVelocity` is already in the outputs above and nothing read it.
-  // Unreal makes a temporal AA the default method and Filament ships one it leaves off; TAKING
-  // UNREAL, because this is one full-screen pass against the only aliasing nothing else here
-  // removes, and its velocity buffer is already being paid for.
-  //
-  // Its limit, stated where it is turned on: board:1995 measured that a RIGID subject carries no
-  // previous transform in this tree -- `PrevAnchor = Anchor` at both sites -- so a rigid thing that
-  // MOVES will ghost. A still camera over a still world, which is what `places/` is, reprojects
-  // exactly and the resolve is pure supersampling over the jitter sequence.
-  declaration.Content = {Render::Stage::Subjects, Render::Stage::TemporalResolve,
-                         Render::Stage::Overlay};
+  declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
   if (sky) {
     declaration.Content.push_back(Render::Stage::Sky);
     declaration.Content.push_back(Render::Stage::AerialPerspective);

@@ -16,6 +16,37 @@ Found while chasing board:2029's roof slivers, which it turned out NOT to explai
 2 560 x 1 440 shows them wider rather than gone. So this item stands on its own and is filed
 separately rather than folded into a defect it does not cause.
 
+## RE-MEASURED, and the stage is BUILT rather than intended -- it diverges
+
+"Nothing accumulates it" was half right. `Stage::TemporalResolve` stands in the catalogue, reads
+`SceneAerial`, `SceneVelocity` and `SceneDepth` and writes `SceneLinear`; `SceneVelocity` is already
+in the default outputs; `RenderFrame` advances a Halton (2,3) jitter over a period of 8; and
+`Compiled` computes `SettleFrames_ = 1 + kTemporalSettleFrames` with `kTemporalSettleFrames = 128`.
+`SceneRenderer::SettleFrames()` returns it and had NO CALLER. So the resolve is written, wired and
+costed, and the ONE thing missing was that `Live.cpp`'s default content list never names it:
+
+    declaration.Content = {Stage::Subjects, Stage::Overlay};   (+ Sky, AerialPerspective, shadows)
+
+**TURNING IT ON BLOWS THE FRAME OUT, and the picture is the evidence.** With the stage declared and
+the places drawing the 129 frames the plan asks for, every one of the six comes back with the sky at
+pure white and the ground at pure black, the horizon silhouette crisp between them -- `varies by
+0.000 of 255` on the flatness instrument, which is saturation rather than emptiness. Reverted rather
+than left half-on.
+
+Two candidates, neither yet measured, and they are separable:
+
+- **the history feedback diverges.** Over 129 frames a blend weight at or above 1 saturates exactly
+  this way -- bright to white, dark to black -- and at the two frames the places drew before, it
+  would not have shown
+- **the exposure falls to neutral.** `Stage::AutoExposure` is also `Provenance::Content` and is
+  ALSO absent from the default list, so `Resource::Meter` takes its `FallbackKind::Neutral`. Without
+  the resolve the tonemap took its exposure from the declared uniform and the picture was right, so
+  this alone does not explain it -- but the two stages are the only Content stages the engine never
+  declares, which is not a coincidence worth ignoring
+
+**The measurement that separates them**: draw ONE frame with the resolve declared. If it is already
+saturated, the exposure is the cause; if it is correct and degrades over frames, the feedback is.
+
 ## What will be true
 
 - [ ] a frame is anti-aliased, and which technique is a decision written down with its reason
