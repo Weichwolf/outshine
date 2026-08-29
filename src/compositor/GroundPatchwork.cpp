@@ -113,6 +113,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
 
   Patchwork out;
+  // THE CLUSTER TABLE IS EYE-RELATIVE, because a cluster centre is a float and an absolute ECEF
+  // position at 6.4e6 m resolves to about half a metre in one. Precision has ONE boundary in this
+  // engine and it is the camera; a table meant for the device crosses it here rather than there.
+  for (int axis = 0; axis < 3; ++axis) { out.ClusterEyeM[axis] = over.EyeM[axis]; }
   bool anchored = false;
 
   // COVERAGE IS A MASK, NOT A LIST OF RECTANGLES. A coarse tile is covered by FOUR finer ones and
@@ -227,6 +231,21 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         out.NormalM.push_back(built.Verts[vertex + 7]);
       }
       out.ClustersHeld += built.Clusters.size();
+      // THE WHOLE CUT, CARRIED. Every cluster is rebased onto one index list for the ring, so a
+      // reader on the device sees a flat table and one buffer rather than a tile's worth of each.
+      const uint32_t rebase = (uint32_t)out.AllIndex.size();
+      for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
+      for (const DagCluster &cluster : built.Clusters) {
+        DagCluster carried = cluster;
+        carried.First = rebase + cluster.First;
+        for (int axis = 0; axis < 3; ++axis) {
+          carried.SelfCenter[axis] = (float)((double)cluster.SelfCenter[axis] +
+                                             built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+          carried.ParentCenter[axis] = (float)((double)cluster.ParentCenter[axis] +
+                                               built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+        }
+        out.Clusters.push_back(carried);
+      }
       if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
         const double eyeInTile[3] = {over.EyeM[0] - built.OriginEcef[0],
                                      over.EyeM[1] - built.OriginEcef[1],

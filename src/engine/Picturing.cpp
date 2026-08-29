@@ -1256,6 +1256,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("tiles that overlap a finer level", (double)laid->Overlapped, "tiles");
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
+  Published.Places("cull: clusters carried for the device", (double)laid->Clusters.size(),
+                   "clusters");
+  Published.Places("cull: the whole index list they cut from", (double)laid->AllIndex.size(),
+                   "indices");
+  Published.Places("cull: against the list the CPU selected", (double)laid->Index.size(),
+                   "indices");
+  Published.Places("cull: clusters the ring holds", (double)laid->ClustersHeld, "clusters");
+  Published.Places("cull: clusters the CPU drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");
   return true;
 }
