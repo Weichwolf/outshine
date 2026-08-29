@@ -41,6 +41,10 @@ public:
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
+  // THE ALBEDO EACH LAND CLASS DECLARES. Twenty of them are loaded from
+  // `world/ground-materials.json` at every start and nothing outside this tier could read them, so
+  // a desert and a meadow came out the same green.
+  [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
 
   [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }

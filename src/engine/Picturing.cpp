@@ -386,6 +386,45 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("and how far those disagree on average",
                      leanCount > 0 ? leanSum / (double)leanCount : 0.0, "deg");
   }
+  // THE GROUND WEARS THE CLASS IT IS. One flat `GroundAlbedo` painted a continent, so the Grand
+  // Canyon's desert came out the same green as a Bavarian meadow. The tree already loads twenty land
+  // classes with an albedo each and already knows which one stands at a point -- `ClassField` and
+  // `GroundMaterials` -- and nothing joined them to the picture.
+  //
+  // The colour rides on the VERTEX rather than on a surface, because a class boundary runs through a
+  // triangle and splitting the ring per class would multiply the parts by twenty. Unreal blends
+  // landscape layers per vertex and per texel for the same reason; Cesium tints its terrain from an
+  // overlay. Neither draws one colour over a continent.
+  std::vector<float> tinted;
+  {
+    const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
+    const Ground::GroundMaterials &wearing = World.Stack.Materials();
+    const Render::Medium fallback;
+    size_t named = 0;
+    if (classes && wearing.Ready()) {
+      tinted.resize((inFrame.size() / 3) * 4);
+      for (size_t at = 0, one = 0; at + 2 < laid->PositionM.size(); at += 3, ++one) {
+        const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
+                                laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
+                                laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
+        const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+        double edgeM = 0.0;
+        int second = -1;
+        const int which = World.Stack.Classes().ClassAt(*classes, where.LatDeg, where.LonDeg,
+                                                        &edgeM, &second);
+        const bool stands = which >= 0 && (size_t)which < wearing.Count();
+        if (stands) { ++named; }
+        const Ground::GroundMaterials::Material &wore =
+            wearing.At(stands ? (size_t)which : 0);
+        tinted[one * 4] = stands ? wore.Albedo[0] : (float)fallback.GroundAlbedo[0];
+        tinted[one * 4 + 1] = stands ? wore.Albedo[1] : (float)fallback.GroundAlbedo[1];
+        tinted[one * 4 + 2] = stands ? wore.Albedo[2] : (float)fallback.GroundAlbedo[2];
+        tinted[one * 4 + 3] = 1.0f;
+      }
+    }
+    Published.Places("the ring's vertices a land class names", (double)named, "vertices");
+    Published.Places("out of, for a class", (double)(inFrame.size() / 3), "vertices");
+  }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
   Published.Places("and how far out it lies", sankAt, "m");
   Published.Places("a sphere would sink it by", sankAt * sankAt / (2.0 * Data::kWgs84A), "m");
@@ -490,6 +529,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kRoadAboveM = 1.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
+  // THE BASE IS WHITE SO THE VERTEX COLOUR CARRIES. A base colour multiplies the vertex one, and
+  // the ring's albedo now comes from the class each vertex stands in.
+  if (!tinted.empty()) {
+    for (int channel = 0; channel < 3; ++channel) { bare.BaseColour[channel] = 1.0f; }
+  }
   const int ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
 
@@ -739,6 +783,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                        std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
   (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
                                                              laid->Index.size()));
+  if (!tinted.empty()) {
+    (void)ground.Colours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
+  }
 
   // THE HEIGHT OF THE GROUND THAT IS DRAWN, not of the raster behind it. Cesium answers
   // `sampleHeightMostDetailed` from the tileset that is LOADED for exactly this reason: a building or

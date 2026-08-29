@@ -46,3 +46,26 @@ invariant rather than an exception to it.
 
 1. **The flat constant is visible as a constant.** Sample the rendered ring at twenty scattered points: today their hue is identical and only the shading differs. Any answer to this item must break that
 2. **A per-tile gain is not cosmetic.** The old shader carried one because the low-zoom composite is measurably darker than the orthophoto; if imagery lands without it, the far field must read darker than the near field at the same sun angle, and that is the number
+
+
+## THE LAND CLASSES ARE WIRED, AND THEY ARE NOT ENOUGH -- MEASURED
+
+Twenty land classes with an albedo each are loaded at every start from
+`world/ground-materials.json`, and `ClassField` already knows which one stands at a point. Nothing
+outside that tier could read them, so one flat `GroundAlbedo` painted a continent. They are joined
+to the ring now as a VERTEX colour -- per vertex rather than per surface, because a class boundary
+runs through a triangle and splitting the ring per class would multiply its parts by twenty. Unreal
+blends landscape layers per vertex and per texel for the same reason.
+
+    ring vertices a land class names
+    Rothenburg   131 820 of 653 400    20 per cent
+    Venice        50 442 of 653 400     7.7
+    Grand Canyon   1 998 of 574 992     0.35
+
+That settles what the classes CAN do: OSM land use covers a fifth of a German town's ring and
+essentially nothing of a canyon. The Grand Canyon's desert stays green because there is no polygon
+over it to say otherwise, and no amount of wiring changes that.
+
+**So imagery is not a preference here, it is the only answer for wilderness**, which is what the
+owner already decided. The classes remain worth their wiring where they do cover -- a town's fields,
+water margins and woods -- and they are the fallback where imagery has not arrived.
