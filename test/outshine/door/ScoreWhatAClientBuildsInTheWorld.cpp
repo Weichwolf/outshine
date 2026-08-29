@@ -11,17 +11,17 @@
 // This tree had the mesh value public and the world not, so a client could hand geometry in and
 // then had no way to say what stood where or what was linked to what.
 //
-// This case reaches `Store` through `include/` alone -- no `src/` path is on its include line --
+// This case reaches `Scene` through `include/` alone -- no `src/` path is on its include line --
 // and does the four things a world is for: make an entity, mark what it can, link two of them,
 // and read the link back. Then it asks the store to break its own rule, because a graph that
 // accepts anything is a dictionary rather than a world.
 //
-// THE NEGATIVE CONTROL IS THE COMPILER. `Store` publishes verbs and an opaque `Kept`, so a case
+// THE NEGATIVE CONTROL IS THE COMPILER. `Scene` publishes verbs and an opaque `Kept`, so a case
 // cannot name a slot, a pair or a seat: the layout is not merely private, it is ABSENT from the
 // translation unit. The commented line below is the control -- restoring it does not fail this
 // case, it fails the BUILD, which is the strongest refusal a door can give.
 //
-//   const size_t slots = store.Slots_.size();   // does not compile: Store has no such member
+//   const size_t slots = store.Slots_.size();   // does not compile: Scene has no such member
 
 int main(void) {
   using namespace outshine::Test;
@@ -42,7 +42,7 @@ int main(void) {
          "server is: " + engine.error()).c_str());
   if (!declaredStands) { return Report(); }
 
-  outshine::Store &world = engine.scene();
+  outshine::Scene &world = engine.scene();
 
   const outshine::Entity body = world.Add(outshine::Role::Body);
   const outshine::Entity mind = world.Add(outshine::Role::Mind);

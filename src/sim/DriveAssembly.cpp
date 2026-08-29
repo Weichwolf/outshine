@@ -39,7 +39,7 @@ constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
 }
 
-bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body> &bodies,
+bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body> &bodies,
                    const Column<Journey> &driven, const WorldSettings &world,
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {

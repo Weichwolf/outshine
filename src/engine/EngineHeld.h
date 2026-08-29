@@ -236,7 +236,7 @@ struct Kept {
 };
 
 struct Players {
-  Store Scene;
+  Scene Scene;
   Column<Body> Bodies;
   Column<Journey> Drives;
   Column<Traits> Kinds;

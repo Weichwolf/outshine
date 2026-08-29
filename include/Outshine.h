@@ -57,8 +57,8 @@ public:
   [[nodiscard]] bool setSurfaces(const std::vector<Surface> &surfaces);
 
   [[nodiscard]] const Scenario &declaration(void) const;
-  [[nodiscard]] Store &scene(void);
-  [[nodiscard]] const Store &scene(void) const;
+  [[nodiscard]] Scene &scene(void);
+  [[nodiscard]] const Scene &scene(void) const;
   [[nodiscard]] const std::vector<std::string> &unacted(void) const;
   [[nodiscard]] const std::vector<Measure> &measures(void) const;
 

@@ -146,14 +146,14 @@ inline constexpr size_t kSeatsPerOffer = 4;
 
 enum class Seat : uint8_t { Free, Claimed, Occupied };
 
-class Store {
+class Scene {
 public:
-  Store();
-  ~Store();
-  Store(Store &&) noexcept;
-  Store &operator=(Store &&) noexcept;
-  Store(const Store &) = delete;
-  Store &operator=(const Store &) = delete;
+  Scene();
+  ~Scene();
+  Scene(Scene &&) noexcept;
+  Scene &operator=(Scene &&) noexcept;
+  Scene(const Scene &) = delete;
+  Scene &operator=(const Scene &) = delete;
 
   [[nodiscard]] bool Open(size_t capacity);
 

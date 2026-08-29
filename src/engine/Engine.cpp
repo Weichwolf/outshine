@@ -55,7 +55,7 @@ bool Engine::assemble() {
 
 namespace {
 
-using Assembler = bool (*)(const Store &, const Assembled &, const Column<Body> &,
+using Assembler = bool (*)(const Scene &, const Assembled &, const Column<Body> &,
                            const Column<Journey> &, const WorldSettings &, Ground::GroundStack &,
                            Data::Transport &, const Sim::Provision &, Sink &, Sim::DriveProduct &);
 

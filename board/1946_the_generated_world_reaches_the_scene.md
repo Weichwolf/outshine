@@ -210,3 +210,28 @@ above.
    list
 3. **The negative control is Shibuya itself.** Whatever the answer, it must leave the skyline
    standing and put the near buildings beside it
+
+
+## THE DRIVE PLACES NOTHING, AND A TIMEOUT HAD BEEN HIDING IT
+
+`outshine/door/ScoreWhatAMovingSceneResends` timed out at 122 s for the whole of this session's
+start and now runs to completion in 6.4 s -- board:2024's deadlock fix is what let it finish. It
+FAILS, on its own check:
+
+    CHECK(grown > 0.0)   -- the bodies the generators placed over the world a drive moves through
+
+Zero. The places grow a world -- 3 242 instances at Rothenburg, streets, water -- and a DRIVE grows
+nothing. A red that a timeout was hiding is worth more than the timeout was, and it is not a
+regression: the case has no green in this session's history to regress from.
+
+Its own diagnosis is already wired: `Grows()` publishes all eight of its refusal reasons now, and
+none of them appear in this case's log at all -- so `Grows` is not merely refusing, it is not being
+REACHED on the drive path. The restand block that calls it stands behind
+`Ticking.Drove || Session.Declared.Ground.Declared`.
+
+## The measurement that settles it
+
+1. **Which of the eight reasons the drive gives.** If `Grows` is reached, one of them fires and names
+   the cause. If none appears, the call site is the defect and not the function
+2. **The negative control is a place.** The same eight numbers read sensibly at Rothenburg, so the
+   instrument works and the difference is the path

@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: open
 Parent: 1946
 Area: world
 Tags: measured

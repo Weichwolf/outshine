@@ -13,7 +13,7 @@ namespace outshine {
 template <class Value>
 class Column {
 public:
-  [[nodiscard]] bool Open(const Store &of) {
+  [[nodiscard]] bool Open(const Scene &of) {
     if (of.Capacity() == 0) { return false; }
     Bound_ = &of;
     Values_.assign(of.Capacity(), Value{});
@@ -54,7 +54,7 @@ public:
   }
 
 private:
-  const Store *Bound_ = nullptr;
+  const Scene *Bound_ = nullptr;
   std::vector<Value> Values_;
   std::vector<uint32_t> Generations_;
   std::vector<uint8_t> Held_;

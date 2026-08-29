@@ -59,7 +59,7 @@ struct DriveProduct {
   bool Ready = false;
 };
 
-[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,
+[[nodiscard]] bool AssembleDrive(const Scene &scene, const Assembled &cast,
                                  const Column<Body> &bodies, const Column<Journey> &driven,
                                  const WorldSettings &world, Ground::GroundStack &stack,
                                  Data::Transport &wire, const Provision &kept, Sink &say,

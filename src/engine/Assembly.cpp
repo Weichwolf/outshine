@@ -38,7 +38,7 @@ namespace {
 
 }
 
-bool Assemble(const Scenario &declared, Store &into, Column<Body> &bodies,
+bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
               Column<Journey> &driven, Column<Traits> &traits, Assembled &out,
               std::string &error) {
   out = Assembled{};
