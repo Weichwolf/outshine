@@ -115,6 +115,20 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
+  // A DECLARED VIEW STANDS WHEN THE SCENARIO STANDS, WORLD OR NO WORLD. `Watches` used to run only
+  // inside the ground's own composition, so a scenario without a world -- which is every
+  // conformance case, and every client drawing a subject against a reference -- declared a camera
+  // that never reached the renderer, and the engine drew its own FITTED one instead. The picture
+  // was of the right subject from the wrong place and nothing said so.
+  // A VIEW THAT NEEDS NO GROUND STANDS HERE, and one that samples the ground waits for it. The aim
+  // used to be applied only inside the ground's own composition, so a scenario WITHOUT a world --
+  // every conformance case, and anyone drawing a subject against a reference -- declared a camera
+  // that never reached the renderer and got the engine's fitted one instead. Applying it
+  // unconditionally is the other error: a view that samples a height refuses while no tile has
+  // landed, and that refusal turned every place UNPREPARED. Measured, both ways.
+  if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
+    return false;
+  }
   if (!declared.Ground.Declared && !overADrive) { return true; }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
   const double atLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;

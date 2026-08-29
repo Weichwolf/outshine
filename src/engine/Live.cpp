@@ -26,9 +26,16 @@ namespace outshine::Core {
 namespace {
 
 
-bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
+bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows, bool presents,
                  const std::vector<std::string> &stages, const std::vector<std::string> &outputs,
                  Render::PlanSpec &declaration, std::string &error) {
+  // THE SURFACE STAYS DECLARED EVEN HEADLESS, and the attempt to drop it is written down because
+  // the reasoning was right and the place was wrong. A present pass for a window that does not
+  // exist is waste -- measured, one of the two passes a still frame runs. But the READBACK reads
+  // the resolved surface, so dropping it left the frame magenta: nothing drawn, nothing to read.
+  // Removing the pass means moving the readback to `FrameTex` first, which is board:2038's next
+  // measurement rather than a line here.
+  (void)presents;
   declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
   for (const std::string &named : outputs) {
     const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
@@ -45,7 +52,10 @@ bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
   }
 
   if (!stages.empty()) {
-    declaration.Outputs.push_back(Render::Resource::SceneVelocity);
+    // A PICTURE NOBODY ASKED FOR COSTS A PASS. Velocity was added to every staged plan whether the
+    // declaration wanted it or not, which is one attachment and one pass on a case that renders a
+    // still. `Outputs` is now read, so a client that wants it says so.
+
     declaration.Content.clear();
     for (const std::string &named : stages) {
       const std::optional<Render::Stage> row = Render::Compiled::StageByName(named);
@@ -337,7 +347,27 @@ bool Live::Build(std::string &error) {
 
   Render::PlanSpec declaration;
   if (!DeclarePlan(Held_.File(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
-                   Declared_.Stages, Declared_.Outputs, declaration, error)) {
+                   Renderer_ != nullptr && Renderer_->Presents(), Declared_.Stages,
+                   Declared_.Outputs, declaration, error)) {
+    return false;
+  }
+  if (Declared_.Transfer == "linear") {
+    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Linear);
+  } else if (Declared_.Transfer == "filmic") {
+    declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
+  } else if (!Declared_.Transfer.empty()) {
+    error = "the declaration transfers the frame as '" + Declared_.Transfer +
+            "', and this engine has two: linear and filmic";
+    return false;
+  }
+  if (Declared_.Precision == "float") {
+    declaration.Precision =
+        Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Float);
+  } else if (Declared_.Precision == "half") {
+    declaration.Precision = Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Half);
+  } else if (!Declared_.Precision.empty()) {
+    error = "the declaration carries the scene at '" + Declared_.Precision +
+            "' precision, and this engine has two: half and float";
     return false;
   }
   if (Declared_.Exposure > 0.0) {
@@ -1028,6 +1058,15 @@ bool Live::Draw(std::string &error) {
   if (Renderer_ == nullptr) {
     error = "no device stands, so there is nothing to draw with";
     return false;
+  }
+  // A DECLARED CAMERA APPLIES WHEN THE FRAME IS DRAWN, NOT WHEN TIME PASSES. The aim stood only in
+  // `Advance`, so a client that declared a viewpoint and asked for ONE still picture -- which is
+  // every conformance case, and anyone rendering a subject against a reference -- got the engine's
+  // own fitted camera and no word about it. Measured: moving the declared eye ten metres changed
+  // the picture by nothing at all.
+  if (!Aimed_) {
+    if (!Look(error)) { return false; }
+    Aimed_ = true;
   }
   const size_t beforeDraw = Heap::TakenUnder("render-frame");
   {

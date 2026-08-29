@@ -43,6 +43,12 @@ struct Declaration {
   // client that asks for nothing gets what the plan needs and no more, which is the fast path.
   std::vector<std::string> Outputs;
 
+  // HOW THE FRAME IS TRANSFERRED TO THE DISPLAY, and how much precision the scene carries. Both
+  // stood in the door as strings and neither was read, so a client asking for a LINEAR frame got
+  // the filmic curve and a picture 177 code values away from the one it declared.
+  std::string Transfer;
+  std::string Precision;
+
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
