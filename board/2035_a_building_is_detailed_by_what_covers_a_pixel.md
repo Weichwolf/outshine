@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Parent: 1953
 Area: generators, render
 Tags: benchmark, measured
@@ -59,6 +59,28 @@ is the only thing that level still carries.
 
 Neighbour, not duplicate: board:2026 owns that `Verts_` is never trimmed, which is who OWNS the
 geometry. This item owns how much detail is in it.
+
+## PARKED, and the measurement that parks it
+
+Central Park draws in 47.6 ms against a 16 ms frame. Where it goes, measured:
+
+    of 2 frames, advance 4 ms and render 91 ms          -> 2 ms CPU, 45.5 ms render
+    5401580 triangles, of which 4906106 are buildings   -> 91 per cent
+    5401580 / 921600 pixels                             -> 5.86 triangles per PIXEL
+    cull: the whole index list they cut from   653400 indices
+    cull: against the list the CPU selected    653400 indices
+
+The cut selects everything, and those 100 clusters are the TERRAIN -- the buildings
+are a separate soup drawn whole and never enter the cluster route at all. That is board:1995
+verbatim, and no level of detail inside this item can answer it: the box level works as designed at
+12 triangles a part, and the cost is that there are 272295 of them.
+
+**THE AGGREGATION TIER IS WITHDRAWN FROM THIS ITEM.** Worked through: a carpet of 2 px cells over a
+z14 tile at the aggregation distance costs about 55000 triangles against about 60000 for that tile's
+own buildings -- no win. What RAGE's SLOD actually is, is a BAKED decimated merge, and that is the
+thing Unreal replaced with Nanite because a DAG cut does it better at runtime and per cluster.
+Building it now would be building what the DAG deletes. The remaining levels here -- the middle one
+and the ornament one -- are cheap and stand; the far field belongs to board:1992/1993/1995.
 
 ## What would show this wrong
 
