@@ -136,11 +136,18 @@ int Deduped(Line *lines, int n) {
     const Line unit{lines[i].A / reach, lines[i].B / reach, lines[i].C / reach};
     bool seen = false;
     for (int j = 0; j < kept && !seen; j++) {
+      // THE SAME TOLERANCE AS EVERYTHING ELSE THAT ASKS "IS THIS THE SAME PLACE". It was a
+      // MICROMETRE, and a hip's diagonals are `{1, +-1, +-d}` where `d` is the footprint's own
+      // asymmetry -- so on a plan that is square to within a fraction of a millimetre, which is what
+      // an 11 m box becomes after a trip through latitude and longitude, each pair is two DISTINCT
+      // lines a millimetre apart instead of one. Cutting a cell twice a millimetre apart leaves a
+      // sliver between them, and a sliver between two cuts is a hole. Below the weld tolerance two
+      // lines ARE one line, for the same reason two points are one point.
       const double same = std::fabs(unit.A - lines[j].A) + std::fabs(unit.B - lines[j].B) +
                           std::fabs(unit.C - lines[j].C);
       const double flipped = std::fabs(unit.A + lines[j].A) + std::fabs(unit.B + lines[j].B) +
                              std::fabs(unit.C + lines[j].C);
-      seen = same < 1.0e-6 || flipped < 1.0e-6;
+      seen = same < kSamePointM || flipped < kSamePointM;
     }
     if (!seen) { lines[kept++] = unit; }
   }

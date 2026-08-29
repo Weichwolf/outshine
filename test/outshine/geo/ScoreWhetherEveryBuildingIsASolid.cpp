@@ -250,7 +250,10 @@ int main(void) {
         MassOf(Span<const double>(one.RingLatLon.data(), one.RingLatLon.size()), one.HeightM, true,
                street);
     std::string architecture;
+    double halfU = 0.0, halfV = 0.0, overhang = 0.0, rise = 0.0;
     for (const BuildingShape &part : massed.Parts) {
+      halfU = part.HalfUm; halfV = part.HalfVm; overhang = part.FootM + part.EavesM;
+      rise = part.RiseM;
       if (!architecture.empty()) { architecture += " + "; }
       architecture += std::string(Named(part.Use)) + "/" + Named(part.Roof);
       reached[std::string(Named(part.Use)) + "/" + Named(part.Roof)] += 1;
@@ -270,8 +273,8 @@ int main(void) {
     (void)RoofSurface::OutsideTaken();
     std::vector<float> soup;
     grows.Mesh(plan, soup);
-    const size_t unclipped = RoofSurface::UnclippedTaken();
-    const size_t outside = RoofSurface::OutsideTaken();
+    (void)RoofSurface::UnclippedTaken();
+    (void)RoofSurface::OutsideTaken();
 
     const double reach = std::sqrt(anchorEcef[0] * anchorEcef[0] + anchorEcef[1] * anchorEcef[1] +
                                    anchorEcef[2] * anchorEcef[2]);
@@ -283,10 +286,10 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu flip %4zu deg %4zu unclipped %4zu outside  holes at %6.2f..%6.2f of %6.2f\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  halfU %6.2f halfV %6.2f d %+8.5f over %4.2f rise %6.2f  holes at %6.2f..%6.2f\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
-                said.Reversed, said.Degenerate, unclipped, outside, said.HoleLowZ - said.BaseZ,
-                said.HoleHighZ - said.BaseZ, said.TopZ - said.BaseZ);
+                said.Degenerate, halfU, halfV, halfU - halfV, overhang, rise,
+                said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());
