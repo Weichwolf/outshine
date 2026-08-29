@@ -690,6 +690,59 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         for (size_t one = 0; one < 3; ++one) { order.push_back((uint32_t)(order.size())); }
       }
+      {
+        std::unordered_map<uint64_t, uint32_t> seenAt;
+        std::vector<uint32_t> welded;
+        welded.reserve(raised.size() / 3);
+        size_t coincident = 0;
+        for (size_t one = 0; one + 2 < raised.size(); one += 3) {
+          const int64_t cx = (int64_t)std::llround((double)raised[one] * 100.0);
+          const int64_t cy = (int64_t)std::llround((double)raised[one + 1] * 100.0);
+          const int64_t cz = (int64_t)std::llround((double)raised[one + 2] * 100.0);
+          const uint64_t key = (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^
+                               (uint64_t)(cz * 83492791LL);
+          const auto found = seenAt.find(key);
+          if (found == seenAt.end()) {
+            const uint32_t made = (uint32_t)seenAt.size();
+            seenAt.emplace(key, made);
+            welded.push_back(made);
+          } else {
+            ++coincident;
+            welded.push_back(found->second);
+          }
+        }
+        std::unordered_map<uint64_t, int> edges;
+        size_t degenerate = 0;
+        for (size_t tri = 0; tri + 2 < welded.size(); tri += 3) {
+          const uint32_t corner[3] = {welded[tri], welded[tri + 1], welded[tri + 2]};
+          if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
+            ++degenerate;
+            continue;
+          }
+          for (int side = 0; side < 3; ++side) {
+            const uint32_t from = corner[side];
+            const uint32_t to = corner[(side + 1) % 3];
+            const uint64_t low = from < to ? from : to;
+            const uint64_t high = from < to ? to : from;
+            edges[(low << 32) | high] += 1;
+          }
+        }
+        size_t open = 0, overused = 0;
+        for (const auto &one : edges) {
+          if (one.second == 1) { ++open; }
+          else if (one.second > 2) { ++overused; }
+        }
+        Published.Places("solid: building vertices welded away as coincident", (double)coincident,
+                         "vertices");
+        Published.Places("solid: building vertices standing apart", (double)seenAt.size(),
+                         "vertices");
+        Published.Places("solid: building triangles with two corners in one place",
+                         (double)degenerate, "triangles");
+        Published.Places("solid: building edges on ONE triangle, so a HOLE", (double)open, "edges");
+        Published.Places("solid: building edges on MORE than two, so not a surface",
+                         (double)overused, "edges");
+        Published.Places("solid: building edges in all", (double)edges.size(), "edges");
+      }
       Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
       Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
       {
