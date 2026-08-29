@@ -922,6 +922,66 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
+  // WATER IS GEOMETRY, drawn at the level its own shore gives it. Unreal draws a water body as a
+  // mesh with a water material; RAGE the same. Neither leaves a lake as terrain-coloured ground, and
+  // Venice's lagoon read GREEN in every frame until now (board:2012).
+  //
+  // The surface is a flat lid over the ring at `LevelM`, ear-clipped the way a roof is. What it is
+  // NOT: no reflection, no refraction, no wave normal, no motion -- board:2012 owns those and this
+  // is the geometry they will need.
+  {
+    const Ground::WaterField &wet = World.Stack.WaterBodies();
+    const Ground::OsmField *const vectors = World.Stack.Vectors();
+    std::vector<float> places, facing;
+    std::vector<uint32_t> order;
+    size_t lidsLaid = 0, lidsRefused = 0;
+    if (vectors != nullptr) {
+      const std::span<const double> points = vectors->Points();
+      for (const Ground::WaterField::Surface &lake : wet.Surfaces()) {
+        if (lake.PointCount < 3) { ++lidsRefused; continue; }
+        const size_t last = ((size_t)lake.FirstPoint + lake.PointCount) * 2;
+        if (last > points.size()) { ++lidsRefused; continue; }
+        const size_t began = places.size();
+        bool whole = true;
+        for (uint32_t step = 1; step + 1 < lake.PointCount && whole; ++step) {
+          const uint32_t corners[3] = {0u, step, step + 1u};
+          for (const uint32_t corner : corners) {
+            const size_t at = ((size_t)lake.FirstPoint + corner) * 2;
+            double eastM = 0.0, upM = 0.0, northM = 0.0;
+            standing.Place(points[at], points[at + 1], (double)lake.LevelM, &eastM, &upM, &northM);
+            places.push_back((float)eastM);
+            places.push_back((float)upM);
+            places.push_back((float)(-northM));
+            facing.push_back(0.0f);
+            facing.push_back(1.0f);
+            facing.push_back(0.0f);
+            order.push_back((uint32_t)(order.size()));
+          }
+        }
+        if (places.size() > began) { ++lidsLaid; } else { ++lidsRefused; }
+      }
+    }
+    Published.Places("water: surfaces laid", (double)lidsLaid, "surfaces");
+    Published.Places("water: surfaces refused", (double)lidsRefused, "surfaces");
+    Published.Places("water: triangles", (double)(order.size() / 3), "triangles");
+    if (order.size() >= 3) {
+      Material lagoon;
+      lagoon.BaseColour[0] = 0.05f;
+      lagoon.BaseColour[1] = 0.11f;
+      lagoon.BaseColour[2] = 0.16f;
+      lagoon.Roughness = 0.14f;
+      lagoon.DoubleSided = true;
+      const int wetSurface = ground.Surface("water", lagoon);
+      const int wetPart = ground.Part("water", wetSurface);
+      const bool tookWater =
+          wetPart >= 0 &&
+          ground.Positions(wetPart, std::span<const float>(places.data(), places.size())) &&
+          ground.Normals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
+          ground.Triangles(wetPart, std::span<const uint32_t>(order.data(), order.size()));
+      Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
+    }
+  }
+
   Gltf::Subject laidGround;
   if (!laidGround.Assemble(ground)) {
     Error = laidGround.Error();

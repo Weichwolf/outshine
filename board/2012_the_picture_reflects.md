@@ -42,3 +42,20 @@ pass's colour is built and proven. A screen-space reflection is that shape.
 frame than the atmosphere does, the ladder's first rung is the wrong one on this hardware and the
 probe becomes the primary rather than the fallback. `apps/bench`'s stage table already prints what
 each stage costs, so the comparison is one run.
+
+
+## THE WATER IS DRAWN NOW, AND THIS ITEM'S SUBJECT IS WHAT IT DOES NOT DO
+
+A water surface is geometry at last: a flat lid over its own ring at the level its shore gives it,
+231 surfaces and 5 975 triangles at Venice, and the Giudecca reads as water where the lagoon was
+terrain-green in every frame before. The history recorded the gap twice -- "WaterStage: Wasser ist
+Geometrie -- gezeichnet, Lage noch nicht belegt" and "WaterField: der Pegel kommt vom Ufer, nicht vom
+Hang -- noch zeichnet ihn nichts" -- and it is now drawn, so this item is not about existence any
+more.
+
+What it still has NO part of, stated so the next reader is not misled by a blue surface: no planar
+reflection, no refraction through it, no wave normal, no motion. It is a lid, and it is the geometry
+those will need.
+
+MEASURED and honest about its edge: only the water inside the loaded vector ring is laid, so
+Venice's far lagoon is still terrain-green. That is the vector ring's reach, not this item's.
