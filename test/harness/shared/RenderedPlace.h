@@ -277,8 +277,12 @@ inline int RenderPlace(const Place &place) {
   // THE ORACLE NEEDS NO TASTE AND NO INVENTED NUMBER. A bare ellipsoid under a sky is a VERTICAL
   // gradient, and a vertical gradient has exactly ZERO horizontal variation by construction. Every
   // edge a building, a street or a hillside puts in the frame has some. So the mean absolute
-  // difference between horizontally adjacent pixels over the lower half of the picture separates
-  // the two, and the separation is structural rather than a taste. MEASURED at the bar of ONE unit:
+  // difference between horizontally adjacent pixels over the WHOLE picture separates the two, and
+  // the separation is structural rather than a taste. Over the LOWER HALF it does not: Central Park
+  // reads 0.719 across a real Manhattan skyline, because the camera looks over a park and every
+  // building in the frame stands ABOVE the horizon. Both halves of a bare frame -- the sky's
+  // gradient and the flat ground -- carry zero horizontal variation, so taking the whole frame
+  // dilutes nothing and misses nothing. MEASURED at the bar of ONE unit:
   // the bare frame reads 0.719 and the five that hold their place read 2.343 to 3.629, so the gap is
   // a factor of 3.3 -- not the order of magnitude a first draft of this comment claimed. Wide enough
   // to separate them and narrow enough that the number is quoted here rather than assumed.
@@ -291,7 +295,7 @@ inline int RenderPlace(const Place &place) {
   std::vector<uint8_t> pixels;
   const bool read = engine.renderer().readPixels(pixels).has_value();
   if (read && pixels.size() >= (size_t)kWidePx * (size_t)kHighPx * 4u) {
-    for (int y = kHighPx / 2; y < kHighPx; ++y) {
+    for (int y = 0; y < kHighPx; ++y) {
       for (int x = 1; x < kWidePx; ++x) {
         const size_t at = ((size_t)y * (size_t)kWidePx + (size_t)x) * 4u;
         for (int c = 0; c < 3; ++c) {

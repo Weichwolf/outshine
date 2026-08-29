@@ -82,6 +82,33 @@ thing Unreal replaced with Nanite because a DAG cut does it better at runtime an
 Building it now would be building what the DAG deletes. The remaining levels here -- the middle one
 and the ornament one -- are cheap and stand; the far field belongs to board:1992/1993/1995.
 
+## MEASURED WITH THE PIXEL BOUND IN, and five of six hold the owner's frame
+
+    place          triangles    ms/frame   varies by
+    Rothenburg       592 804        0.90       1.951
+    Heidelberg     1 360 726        1.01       2.286
+    Venice         1 541 982        1.39       1.789
+    Jura             759 099        1.61       1.866
+    Central Park   4 393 020       15.69       1.161
+    Shibuya        9 428 074       41.42       1.949
+
+Central Park went 47.6 -> 15.69 ms on the triangle-fits-the-pixels bound alone, and its picture is
+Manhattan's skyline over the park. Shibuya is the one place over 16 ms, at 9.4 M triangles.
+
+## Two weaknesses in the instruments, stated rather than left to be found
+
+**The blank-frame guard's negative control has NOT been re-measured.** The 0.000 readings that
+justify the bar of 1.0 were taken over the LOWER HALF of the frame; the measure now runs over the
+whole frame, because Central Park read 0.719 across a real skyline -- the camera looks over a park
+and every building stands ABOVE the horizon. The bar has not been re-derived against a bare frame
+under the new measure, and Central Park clears it by 16 per cent. Thin, and unproven at the bottom.
+
+**A frame time from two frames is not a frame time.** The cases average over exactly the frames they
+draw and the first carries every warm-up cost: two consecutive runs of the same tree gave Central
+Park 15.69 and 37.79 ms and Shibuya 41.42 and 33.49. Any claim about 16 ms rests on a number with
+that much spread in it, so the settle count has to become a real frame count before this item can
+say it holds.
+
 ## What would show this wrong
 
 A place whose picture is visibly poorer at the same vertex count, or a level whose threshold is
