@@ -18,12 +18,24 @@ struct Line {
 // -- so the tidying and the splitting fight, and the surface ends up with a hole where a crease
 // grazed a corner. A centimetre is what positions are welded at, so below it two points ARE one
 // point and there is nothing to cut.
-constexpr double kOnLineM = 0.01;
+// ONE TOLERANCE, USED BY EVERYTHING THAT ASKS "IS THIS THE SAME POINT". It was three different
+// numbers -- a millimetre where positions are snapped, a centimetre for a crease, two centimetres
+// for a break -- so a point could be the same point to one step of the pipeline and a different one
+// to the next, and a seam opened exactly there. A crease crossing dropped because it lay within
+// 2 cm of a corner still got cut at 1 cm by the clipper, and the piece between the two answers had
+// no partner.
+constexpr double kSamePointM = 0.01;
+// AND THIS ONE IS NOT THE SAME NUMBER, measured rather than assumed. Setting it to kSamePointM --
+// which is what tidiness wants -- took the tower from 14 holes to 8 and the SPIRE from 0 to 14. Two
+// tolerances that ought to be one are being played against each other here, and matching them by
+// hand is fitting rather than engineering. board:1949 is the answer: one subdivision decided ONCE
+// and shared, instead of several approximations tuned to agree.
+constexpr double kWeldM = 0.02;
+constexpr double kOnLineM = kSamePointM;
 constexpr double kOverhangM = 0.60;
 constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
-constexpr double kWeldM = 0.02;
 
 // A TRIANGLE GOES ONLY IF IT IS DEGENERATE, not merely thin. Refusing on AREA drops pieces a split
 // legitimately produced, and a piece missing from a split is a HOLE -- the tower's roof was open over
