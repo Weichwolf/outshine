@@ -326,6 +326,18 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
        difference all along, and `disagreement_p99_px` reads 0.000 only on AlphaBlendModeTest --
        whose camera comes from its manifest. The next round measures the projection on a case
        whose camera does NOT: `derived` from the provenance, or the file's own.
+    0. EVERY CASE NOW STANDS AND RENDERS THROUGH THE DOOR. "the case stands through the door"
+       fell from 99 failures to ZERO when the transmissive passes stopped being gated on the
+       CASE's bounce count -- the engine refuses a plan whose surface is a thin transmissive sheet
+       and whose passes do not draw it, and rightly. The 99 moved into the picture metrics, so the
+       PASS count did not change and the threshold did: 444 of 444 declare, assemble, aim and draw
+       through `include/` alone. What is left is agreement, not capability.
+
+           picture_p99_delta_code   234 -> 306
+           plan_passes                0 ->  96      the transmissive plans run more passes
+           surface identity           0 ->  81      the per-part slot split, unmodelled here
+           the case stands            99 ->   0
+
     2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
        slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
        reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
