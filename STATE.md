@@ -331,7 +331,7 @@ The heaviest files. Headers and sources counted apart.
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1046 | `cpp` | `render/Renderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 991 | `cpp` | `engine/Picturing.cpp` |
+| 993 | `cpp` | `engine/Picturing.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
 | 874 | `cpp` | `render/stages/SubjectDraw.cpp` |
@@ -471,8 +471,8 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 | 6 | `src/content/gltf/Framing.h` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
+| 5 | `src/generators/draw/RoofSurface.cpp` |
 | 4 | `src/world/ground/TerrainLoader.cpp` |
 | 4 | `src/render/stages/SubjectDraw.h` |
 | 4 | `src/actor/path/ReferenceLine.h` |
 | 3 | `src/world/ground/WaterField.cpp` |
-| 3 | `src/world/ground/BuildingField.cpp` |

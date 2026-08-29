@@ -14,6 +14,8 @@ public:
   // ROOFS THAT COULD NOT BE COVERED, since the last read. A silent partial triangulation is what
   // this exists to make visible; the reader takes it and clears it.
   [[nodiscard]] static size_t UnclippedTaken() { return Unclipped_.exchange(0u); }
+  // ROOF TRIANGLES WITH A VERTEX OUTSIDE THEIR OWN FOOTPRINT, since the last read.
+  [[nodiscard]] static size_t OutsideTaken() { return Outside_.exchange(0u); }
 
   explicit RoofSurface(const BuildingShape &shape);
 
@@ -25,6 +27,7 @@ public:
 
 private:
   inline static std::atomic<size_t> Unclipped_{0};
+  inline static std::atomic<size_t> Outside_{0};
   const BuildingShape &Shape_;
 };
 

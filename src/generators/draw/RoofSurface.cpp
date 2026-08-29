@@ -14,6 +14,8 @@ struct Line {
 };
 
 constexpr double kOnLineM = 1.0e-4;
+constexpr double kOverhangM = 0.60;
+constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 
@@ -67,20 +69,55 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return poly.size() <= 2;
 }
 
+// THE BOUND IS CHECKED BEFORE EACH WRITE, not after both of them. `if (n >= 4) break;` stood at the
+// END of the iteration, so a pass that began with n == 3 wrote poly[3] on the vertex test and
+// poly[4] on the crossing test -- one element PAST a four-element stack array, beside `n` and `d`
+// themselves. Undefined behaviour that can put a vertex anywhere, which is what the frame shows:
+// 14 331 roof triangles at Rothenburg carry a vertex more than 0.60 m outside their own footprint,
+// against a cornice that legitimately overhangs by 0.16 m.
+//
+// A triangle clipped by a half-plane cannot yield more than four points, so the array is the right
+// size and the guard was in the wrong place rather than the number being wrong.
 void HalfPlane(const En *t, const double *d, double sign, std::vector<En> &out) {
   En poly[4];
   int n = 0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3 && n < 4; i++) {
     const int j = (i + 1) % 3;
     const double di = d[i] * sign, dj = d[j] * sign;
-    if (di >= -kOnLineM) poly[n++] = t[i];
+    if (di >= -kOnLineM && n < 4) { poly[n++] = t[i]; }
     if ((di > kOnLineM && dj < -kOnLineM) || (di < -kOnLineM && dj > kOnLineM)) {
+      if (n >= 4) { break; }
       const double f = di / (di - dj);
       poly[n++] = {t[i].E + (t[j].E - t[i].E) * f, t[i].N + (t[j].N - t[i].N) * f};
     }
-    if (n >= 4) break;
   }
-  for (int i = 2; i < n; i++) PushTri(out, poly[0], poly[i - 1], poly[i]);
+  for (int i = 2; i < n; i++) { PushTri(out, poly[0], poly[i - 1], poly[i]); }
+}
+
+// CROSSING NUMBER, with a margin. A cornice overhangs by design, so a vertex is outside only when it
+// clears the ring by more than that.
+[[nodiscard]] bool Inside(const std::vector<En> &ring, const En &p, double marginM) {
+  const size_t n = ring.size();
+  if (n < 3) { return true; }
+  bool in = false;
+  for (size_t i = 0, j = n - 1; i < n; j = i++) {
+    const bool straddles = (ring[i].N > p.N) != (ring[j].N > p.N);
+    if (!straddles) { continue; }
+    const double at = (ring[j].E - ring[i].E) * (p.N - ring[i].N) / (ring[j].N - ring[i].N) +
+                      ring[i].E;
+    if (p.E < at) { in = !in; }
+  }
+  if (in) { return true; }
+  double nearest = 1.0e30;
+  for (size_t i = 0, j = n - 1; i < n; j = i++) {
+    const double ex = ring[j].E - ring[i].E, ny = ring[j].N - ring[i].N;
+    const double run = ex * ex + ny * ny;
+    double along = run > 0.0 ? ((p.E - ring[i].E) * ex + (p.N - ring[i].N) * ny) / run : 0.0;
+    along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
+    const double dx = p.E - (ring[i].E + along * ex), dy = p.N - (ring[i].N + along * ny);
+    nearest = std::min(nearest, dx * dx + dy * dy);
+  }
+  return nearest <= marginM * marginM;
 }
 
 void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<En> &tris) {
@@ -219,6 +256,27 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const int n = CreasesOf(Shape_, lines);
   for (int i = 0; i < n; i++) SplitByLine(Shape_, lines[i], mine);
   if (Shape_.Roof == RoofKind::Dome) Refine(mine, 4);
+  // A ROOF VERTEX BELONGS INSIDE THE FOOTPRINT IT COVERS. Five explanations for the bright diagonals
+  // across Rothenburg died in turn -- a fan, thin area, long reach, the clipper's bail-outs, and
+  // aliasing, the last of them at twice the resolution where the slivers got WIDER rather than
+  // vanishing. At that size they resolve into real thin roof surfaces reaching out past the building
+  // they belong to, so this is the question that can only answer yes or no. The crossing number is
+  // taken in the same E/N the ring is given in, and a vertex a hand's breadth outside is tolerated
+  // because a cornice legitimately overhangs.
+  for (size_t at = 0; at + 2 < mine.size(); at += 3) {
+    for (size_t corner = 0; corner < 3; ++corner) {
+      // THE MARGIN IS THE MITER LIMIT, not a hand's breadth. A pitched roof covers a ring WIDENED
+      // by the building's own overhang, and `Widened` allows a corner to travel up to four times
+      // that before it refuses -- so a legitimate eave corner stands `4 * OverhangM` outside the
+      // footprint. A fixed 0.60 m counted those as defects: 14 331 at Rothenburg against overhangs
+      // of 0.25 and 0.42 m, whose corners reach 1.00 and 1.68 m.
+      const double reach = 4.0 * std::max({Shape_.OverhangM, kCorniceM, kOverhangM});
+      if (!Inside(Shape_.Ring, mine[at + corner], reach)) {
+        Outside_.fetch_add(1u, std::memory_order_relaxed);
+        break;
+      }
+    }
+  }
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 

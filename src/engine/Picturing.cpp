@@ -653,6 +653,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("buildings: the furthest any reaches", furthest, "m");
         Published.Places("buildings: roofs the clipper could not cover",
                          (double)Generators::RoofSurface::UnclippedTaken(), "roofs");
+        Published.Places("buildings: roof triangles with a vertex outside their footprint",
+                         (double)Generators::RoofSurface::OutsideTaken(), "triangles");
       }
       {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
