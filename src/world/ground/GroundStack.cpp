@@ -8,7 +8,7 @@
 
 namespace outshine::Ground {
 
-constexpr int kVectorRing = 1;
+constexpr int kVectorRing = 3;
 
 
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
