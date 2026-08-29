@@ -208,6 +208,23 @@ int main(void) {
               ready ? "PRELOADED" : "PATIENCE RAN OUT", 100.0 * engine.loadProgress(),
               frames);
 
+  // A PICTURE OF NOTHING IS NOT A PICTURE. This case scores nothing and refuses only when it cannot
+  // get a frame out -- and that let a flat green plane through as a PASS while 112 tiles stood bare
+  // on the ellipsoid because the ground never arrived. The place then renders at sea level, every
+  // building with it, and the frame says "outshine gets everything wrong" when what happened is that
+  // the world did not come. A bare tile is the loudest thing this case can see and it now says so.
+  const double bare = measured("tiles laid bare on the ellipsoid");
+  if (bare > 0.0) {
+    char why[256];
+    std::snprintf(why, sizeof why,
+                  "%s stood %.0f tile(s) BARE on the ellipsoid -- the elevation never arrived, so "
+                  "the ground and everything on it is drawn at sea level. The picture is of the "
+                  "streaming, not of the place",
+                  kPlace, bare);
+    Unprepared(why);
+    return Report();
+  }
+
   for (const outshine::Measure &held : engine.measures()) {
     if (held.What.rfind("zoom ", 0) == 0 || held.What.rfind("mesh jobs", 0) == 0 ||
         held.What.rfind("fetches", 0) == 0 || held.What.rfind("jobs it", 0) == 0 ||
