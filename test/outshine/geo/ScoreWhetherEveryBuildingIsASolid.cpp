@@ -323,6 +323,7 @@ int main(void) {
     // WHETHER THE CLIPPER GOT A SURFACE OUT AT ALL. `Fill` rolls its triangles back and counts one
     // here when the ear clip cannot finish, so a floor or a roof can be MISSING ENTIRELY -- and this
     // case read the counter only to clear it, which is the same as not having it.
+    const size_t footless = BuildingMesh::FootlessTaken();
     const size_t unclipped = RoofSurface::UnclippedTaken();
     const size_t outside = RoofSurface::OutsideTaken();
 
@@ -336,11 +337,11 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged %2zu unclipped %2zu outside\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged %2zu unclipped %2zu outside %2zu footless\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
                 said.Degenerate, halfU - halfV, overhang, rise, juts, breaks, said.FlatHoles,
                 said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
-                kept, dropped, merged, unclipped, outside);
+                kept, dropped, merged, unclipped, outside, footless);
     if (said.Holes > 0 && said.Holes <= 8) {
       double mid[3] = {0.0, 0.0, 0.0};
       for (size_t v = 0; v + 2 < soup.size(); v += 8) {

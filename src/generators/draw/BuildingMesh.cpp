@@ -20,6 +20,7 @@ std::atomic<size_t> gRaised{0};
 std::atomic<size_t> gFarthestM{0};
 std::atomic<size_t> gBoxes{0};
 std::atomic<size_t> gUnscaled{0};
+std::atomic<size_t> gFootless{0};
 std::atomic<size_t> gOverBudget{0};
 }
 
@@ -29,6 +30,7 @@ size_t BuildingMesh::RaisedTaken() { return gRaised.exchange(0u); }
 size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
 size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
 size_t BuildingMesh::UnscaledTaken() { return gUnscaled.exchange(0u); }
+size_t BuildingMesh::FootlessTaken() { return gFootless.exchange(0u); }
 size_t BuildingMesh::OverBudgetTaken() { return gOverBudget.exchange(0u); }
 
 

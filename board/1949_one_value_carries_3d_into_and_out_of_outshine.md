@@ -37,6 +37,36 @@ This does not weaken the item's title -- ONE value still carries 3D in and out. 
 value: not the one a file happens to use, but the one the device reads. A value that has to be
 re-laid on the way is more than one, and glTF's layout is not the device's.
 
+## WHAT THE CORRECTION DELETES, and every line carries what it costs today
+
+The framing withdrawn above was holding up machinery that has no other reason to exist. Measured on
+Shibuya's rebuild this round:
+
+| goes | because | measured today |
+|---|---|---|
+| `PackVertices` | the producer already writes the device's layout | 2 708 ms and a 900 MB copy |
+| `Assemble`, Geometry -> Gltf::Subject | there is no second internal form to reach | 2 437 ms |
+| `SubjectScratch` | nothing left to flatten INTO | the target of that copy |
+| 3.7x the bytes moved | each reshaping wrote its own | 3 374 MB for ~900 MB of data |
+| `SubjectResidency`'s staging ring | `SDL_MapGPUTransferBuffer`'s `cycle` is the mechanism | the owner's SDL3 rule |
+
+**AND IT UNBLOCKS board:1992.** That item is not untouched work -- it is stopped on exactly this,
+in its own words: "`Cook` takes an `outshine::Geometry` and the whole subject path carries a
+`Gltf::Subject` ... the two values have to become one first". With glTF as an import path rather
+than the inward language there is one value, and the cooker has something to cook.
+
+**The order, smallest and provable first**, because a rewrite that lands half-done is worse than the
+copy it replaces:
+
+1. the producers' vertex layout is DECLARED once and matches what the pipeline binds -- a written
+   layout with a `static_assert`, before a byte moves
+2. `PackVertices` becomes a no-op for producers that already agree, and the case that shows it is
+   the rebuild's own phase clock falling to zero there
+3. the glTF importer writes that layout instead of `Gltf::Subject`, which is where the interchange
+   format stops travelling inward
+4. `Assemble` and `SubjectScratch` go when nothing reads them -- and the audit that finds an
+   unreached capability is the one that says so
+
 ## THE OWNER'S RULE, and it decides the layout question this item has been circling
 
 **A generator must deliver data the rest of the pipeline does not have to change.** Not "deliver it
