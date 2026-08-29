@@ -142,6 +142,14 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   constraint, force, contact, integration — and a car, a wheel, a seat or a door is a SUBJECT a
   scenario assembles. Generators are the exception and the reason is exact: a tree grower's whole
   job is to make one concrete thing
+- **WHERE SDL3 SUPPLIES THE STRUCTURE OR THE FUNCTION, IT IS THE ONE USED.** SDL3 is a hard
+  dependency rather than a choice, so a second mechanism beside one it already carries is not
+  insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII
+  handle over an SDL type is ownership and stays; a scheme that re-decides what SDL already decides
+  is a finding. Measured example: `SubjectResidency` keeps a ring of transfer buffers with its own
+  index, depth and overflow refusal, and `SDL_MapGPUTransferBuffer`'s `cycle` flag already renames a
+  buffer the GPU may still be reading -- the driver knows whether the last copy has finished and the
+  ring only guesses at a depth
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population. No
   magic numbers; calibration measures, never decides
 - **A failure is loud.** Accepting a declaration and doing nothing with it is worse than refusing
