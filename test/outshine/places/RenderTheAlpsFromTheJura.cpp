@@ -33,9 +33,14 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   THE DRAW DISTANCE, stated as a place. From the Chasseral the Jungfrau is 66 124 m north and
-//   68 768 m east -- bearing 133.9 deg, 95.4 km -- derived from their coordinates rather than
-//   chosen. A single square of tiles at one zoom would need 200 tiles across to carry that.
+//   The eye stands on the WEISSENSTEIN, the Jura ridge at 47.2537 N 7.4231 E, and looks down its
+//   south face. SOLOTHURN lies 10.0 km away on a bearing of 120.57 deg -- both derived from the two
+//   coordinates rather than chosen: north 111 132 m/deg, east 111 320 m/deg times cos of the mean
+//   latitude, and atan2 of the two. So the frame should hold, in this order and at these depths:
+//   the ridge falling away in the first kilometre, the Aare plain, the town on it as a patch of
+//   roofs and streets about a fifth of the way up the frame, and the ALPS behind it at 60 to 100 km
+//   standing pale against the sky. If the town is not there the OSM footprints did not reach the
+//   ring; if the Alps are the same green as the plain, the air is not costing anything.
 
 namespace {
 
@@ -45,9 +50,9 @@ constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
-constexpr double kLatDeg = 47.132;
-constexpr double kLonDeg = 7.059;
-constexpr double kBearingDeg = 133.9;
+constexpr double kLatDeg = 47.2537;
+constexpr double kLonDeg = 7.4231;
+constexpr double kBearingDeg = 120.57;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;

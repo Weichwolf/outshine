@@ -33,20 +33,31 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   Rounded hills, 846 m of relief, and only 185 footprints. Whatever this place shows is TERRAIN,
-//   because there is almost nothing else here to show.
+//   BURG HOHENZOLLERN, seen from the ZELLER HORN -- the spur opposite it, which is where every
+//   photograph of the castle is taken from. Eye at 48.3305 N 8.9520 E, castle at 48.3236 N
+//   8.9678 E, so the bearing is 123.25 deg and the distance 1 398 m, both derived from the two
+//   coordinates rather than chosen. The castle sits at about 855 m on its own cone, the spur at
+//   about 960 m, so the eye looks slightly DOWN at it across a wooded saddle.
+//
+//   At 1.4 km and 0.076 deg per pixel a 50 m keep covers about 27 pixels, so this is the one place
+//   in the set where a single BUILDING has to carry the picture rather than a skyline. If the
+//   castle is absent the OSM footprints did not reach the ring; if it is a flat slab, the roof
+//   geometry is the finding.
+//
+//   It stands on the Swabian Alb rather than in the Black Forest, and the case says so rather than
+//   keeping the older, wronger label: this set is named for what it SHOWS.
 
 namespace {
 
-constexpr const char *kPlace = "BlackForest";
+constexpr const char *kPlace = "Hohenzollern";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
-constexpr double kLatDeg = 47.8736;
-constexpr double kLonDeg = 8.0044;
-constexpr double kBearingDeg = 90.0;
+constexpr double kLatDeg = 48.3305;
+constexpr double kLonDeg = 8.9520;
+constexpr double kBearingDeg = 123.25;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;

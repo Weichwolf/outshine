@@ -46,7 +46,7 @@ constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 constexpr double kLatDeg = 36.0616;
 constexpr double kLonDeg = -112.1076;
-constexpr double kBearingDeg = 330.0;
+constexpr double kBearingDeg = 0.0;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;
