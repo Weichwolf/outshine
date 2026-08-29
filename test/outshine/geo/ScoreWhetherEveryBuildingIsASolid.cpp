@@ -278,11 +278,10 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-20s %5zu tri %4zu hole %4zu flip %4zu deg  holes at %6.2f..%6.2f of %6.2f m  flips at %6.2f..%6.2f\n",
-                one.What, architecture.c_str(), said.Triangles, said.Holes, said.Reversed,
-                said.Degenerate, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
-                said.TopZ - said.BaseZ, said.FlipLowZ - said.BaseZ,
-                said.FlipHighZ - said.BaseZ);
+    std::printf("%-22s %-20s %5zu tri %4zu hole %4zu over %4zu flip %4zu deg  holes at %6.2f..%6.2f of %6.2f m\n",
+                one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
+                said.Reversed, said.Degenerate, said.HoleLowZ - said.BaseZ,
+                said.HoleHighZ - said.BaseZ, said.TopZ - said.BaseZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());
