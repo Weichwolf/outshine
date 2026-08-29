@@ -33,20 +33,31 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   Mather Point looking north across the gorge. The rim stands at 2 138 m and the Colorado at
-//   about 760 m, so the near field must FALL AWAY, not run flat to the horizon.
+//   CENTRAL PARK DOWN ITS OWN LENGTH, with Midtown standing at the end of it. Eye above the HARLEM
+//   MEER at the park's north end, 40.7968 N 73.9520 W, looking at Columbus Circle at its south-west
+//   corner, 40.7681 N 73.9819 W -- bearing 218.32 deg, 4 065 m, both derived from the two
+//   coordinates rather than chosen.
+//
+//   So the frame should hold the park as a dark green corridor about 800 m wide, the wall of
+//   Fifth Avenue and Central Park West closing it on both sides, and the Midtown towers rising
+//   BEYOND its far end at four kilometres. This is the one place in the set where the picture is
+//   made by building HEIGHT rather than by terrain: Manhattan's relief is about 30 m and its
+//   skyline is 300.
+//
+//   If the towers are all one height the OSM `height` tag is not reaching the generator; if the park
+//   is the same colour as the streets, the land classes are not.
 
 namespace {
 
-constexpr const char *kPlace = "GrandCanyon";
+constexpr const char *kPlace = "CentralPark";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
-constexpr double kLatDeg = 36.0616;
-constexpr double kLonDeg = -112.1076;
-constexpr double kBearingDeg = 0.0;
+constexpr double kLatDeg = 40.7968;
+constexpr double kLonDeg = -73.9520;
+constexpr double kBearingDeg = 218.32;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;

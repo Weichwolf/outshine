@@ -33,31 +33,31 @@
 // pictures incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
-//   BURG HOHENZOLLERN, seen from the ZELLER HORN -- the spur opposite it, which is where every
-//   photograph of the castle is taken from. Eye at 48.3305 N 8.9520 E, castle at 48.3236 N
-//   8.9678 E, so the bearing is 123.25 deg and the distance 1 398 m, both derived from the two
-//   coordinates rather than chosen. The castle sits at about 855 m on its own cone, the spur at
-//   about 960 m, so the eye looks slightly DOWN at it across a wooded saddle.
+//   HEIDELBERG AND ITS CASTLE IN ONE FRAME, from the PHILOSOPHENWEG on the north bank of the Neckar
+//   -- which is where the view is taken from and why it is the view. Eye at 49.4147 N 8.6968 E,
+//   Schloss Heidelberg at 49.4106 N 8.7156 E, so the bearing is 108.50 deg and the distance 1 436 m,
+//   both derived from the two coordinates rather than chosen.
 //
-//   At 1.4 km and 0.076 deg per pixel a 50 m keep covers about 27 pixels, so this is the one place
-//   in the set where a single BUILDING has to carry the picture rather than a skyline. If the
-//   castle is absent the OSM footprints did not reach the ring; if it is a flat slab, the roof
-//   geometry is the finding.
+//   The old town lies BETWEEN them, on the far bank, so the frame should read in three depths: the
+//   Neckar and the Alte Bruecke in the first half kilometre, the dense red roofs of the Altstadt
+//   behind it, and the castle's red sandstone ruin on the Koenigstuhl's flank above them. The castle
+//   is about 80 m higher than the town and 1.4 km out, so it sits a little above the middle of the
+//   frame rather than on the horizon.
 //
-//   It stands on the Swabian Alb rather than in the Black Forest, and the case says so rather than
-//   keeping the older, wronger label: this set is named for what it SHOWS.
+//   If the Altstadt is a green slope the OSM footprints did not reach the ring; if the castle is
+//   missing while the town is not, it is the provider's `buildings` layer and not this engine.
 
 namespace {
 
-constexpr const char *kPlace = "Hohenzollern";
+constexpr const char *kPlace = "Heidelberg";
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr int kSteps = 2;
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
-constexpr double kLatDeg = 48.3305;
-constexpr double kLonDeg = 8.9520;
-constexpr double kBearingDeg = 123.25;
+constexpr double kLatDeg = 49.4147;
+constexpr double kLonDeg = 8.6968;
+constexpr double kBearingDeg = 108.50;
 
 constexpr double kEyeAglM = 60.0;
 constexpr double kPitchDeg = -6.0;
