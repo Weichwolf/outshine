@@ -122,20 +122,20 @@ int main(void) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  if (!engine.declare(stands) || !engine.advance() || !engine.render(outshine::Extent{})) {
+  if (!engine.declare(stands) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the subject did not stand: " + engine.error()).c_str());
     return Report();
   }
   const double afterFirst = Measured(engine, "placement rows the renderer has been sent");
   const double drawn = Measured(engine, "batches the picture draws");
 
-  if (!engine.advance() || !engine.render(outshine::Extent{})) {
+  if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the second frame did not draw: " + engine.error()).c_str());
     return Report();
   }
   const double afterSecond = Measured(engine, "placement rows the renderer has been sent");
 
-  if (!engine.advance() || !engine.render(outshine::Extent{})) {
+  if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the third frame did not draw: " + engine.error()).c_str());
     return Report();
   }

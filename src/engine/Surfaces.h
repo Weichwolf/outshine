@@ -8,7 +8,7 @@
 #include "Document.h"
 #include "Material.h"
 #include "Image.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 #include "Subject.h"
 
 namespace outshine::Core {

@@ -129,7 +129,7 @@ int main(void) {
       return Report();
     }
     const auto stepped = std::chrono::steady_clock::now();
-    if (!engine.render(outshine::Extent{})) {
+    if (!engine.renderer().render(outshine::Extent{})) {
       Unprepared((std::string(kPlace) + " did not render: " + engine.error()).c_str());
       return Report();
     }
@@ -152,7 +152,7 @@ int main(void) {
   std::error_code failed;
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = std::string("build/places/") + kPlace + ".png";
-  const bool wrote = engine.saveScreenshot(kept);
+  const bool wrote = engine.renderer().saveScreenshot(kept);
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
               kPlace, measured("tiles the ring laid"), measured("levels the cascade laid"),

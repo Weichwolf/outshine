@@ -119,7 +119,7 @@ int main(void) {
     }
     const outshine::Scenario stands =
         pass == 0 ? Naming({"one.gltf"}) : Naming({"one.gltf", "two.gltf"});
-    if (!engine.declare(stands) || !engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.declare(stands) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       if (pass == 1) {
         refused = engine.error();
         break;

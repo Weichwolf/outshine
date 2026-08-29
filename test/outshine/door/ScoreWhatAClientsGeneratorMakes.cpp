@@ -54,7 +54,7 @@ public:
     surface.BaseColour[1] = 0.75f;
     surface.BaseColour[2] = 0.05f;
     surface.Roughness = 0.9f;
-    const int named = into.Surface("slab", surface);
+    const outshine::MaterialInstance named = into.Surface("slab", surface);
     const int part = into.Part("slab", named);
     return into.Positions(part, std::span<const float>(kPositions, 18)) &&
            into.Normals(part, std::span<const float>(kNormals, 18)) &&
@@ -119,7 +119,7 @@ int main(void) {
   Slab slab;
   engine.offers(slab);
   std::vector<uint8_t> pixels;
-  if (!engine.declare(stands) || !engine.render(outshine::Extent{}) || !engine.readPixels(pixels)) {
+  if (!engine.declare(stands) || !engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(pixels)) {
     Unprepared(("the offered generator did not stand: " + engine.error()).c_str());
     return Report();
   }
@@ -143,8 +143,8 @@ int main(void) {
   asAsset.Assets.push_back(generated);
 
   std::vector<uint8_t> byAsset;
-  const bool stoodAsAsset = engine.declare(asAsset) && engine.render(outshine::Extent{}) &&
-                            engine.readPixels(byAsset);
+  const bool stoodAsAsset = engine.declare(asAsset) && engine.renderer().render(outshine::Extent{}) &&
+                            engine.renderer().readPixels(byAsset);
   const double asAssetGreen = stoodAsAsset ? Green(byAsset) : -1.0;
 
   outshine::Scenario unknown = asAsset;
@@ -174,8 +174,8 @@ int main(void) {
   shipped.Assets.push_back(own);
 
   std::vector<uint8_t> byShipped;
-  const bool stoodShipped = engine.declare(shipped) && engine.render(outshine::Extent{}) &&
-                            engine.readPixels(byShipped);
+  const bool stoodShipped = engine.declare(shipped) && engine.renderer().render(outshine::Extent{}) &&
+                            engine.renderer().readPixels(byShipped);
   double redOfShipped = 0.0;
   if (stoodShipped) {
     const size_t many = byShipped.size() / 4;

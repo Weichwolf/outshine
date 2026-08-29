@@ -52,6 +52,7 @@ struct Took {
 
 [[nodiscard]] double Ran(const Asked &asked, bool drawing, Took *took, std::string &why) {
   outshine::Engine engine;
+  outshine::Renderer renderer = engine.renderer();
   engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
   if (!engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
     why = engine.error();
@@ -104,7 +105,7 @@ struct Took {
   const long settles = asked.Steps > 4 ? 4 : 0;
   while (stepped < asked.Steps && engine.advance()) {
     ++stepped;
-    if (drawing && !engine.render(outshine::Extent{})) {
+    if (drawing && !renderer.render(outshine::Extent{})) {
       why = engine.error();
       return -1.0;
     }

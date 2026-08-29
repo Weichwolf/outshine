@@ -67,7 +67,7 @@ bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows,
 
 }
 
-Live::Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font)
+Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   Over_.Faces(font);
 }
@@ -81,7 +81,7 @@ Live::~Live() {
   Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
 }
 
-bool Live::Open(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font,
+bool Live::Open(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font,
                 std::unique_ptr<Live> &out, std::string &error) {
 
   out.reset();

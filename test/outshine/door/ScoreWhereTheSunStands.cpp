@@ -94,7 +94,7 @@ int main(void) {
   for (int step = 0; step < 12; ++step) {
     const double bearing = (double)step * 30.0;
     std::vector<uint8_t> rgba;
-    if (!engine.declare(Under(bearing)) || !engine.readPixels(rgba)) {
+    if (!engine.declare(Under(bearing)) || !engine.renderer().readPixels(rgba)) {
       Unprepared(("a picture did not come back: " + engine.error()).c_str());
       return Report();
     }

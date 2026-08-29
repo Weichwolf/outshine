@@ -26,6 +26,20 @@ struct Roots {
   bool Offline = false;
 };
 
+class Engine;
+
+class Renderer {
+public:
+  [[nodiscard]] bool render(Extent frame);
+  [[nodiscard]] bool saveScreenshot(std::string_view path);
+  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+
+private:
+  friend class Engine;
+  explicit Renderer(Engine &of) : Of_(&of) {}
+  Engine *Of_ = nullptr;
+};
+
 class Engine {
 public:
   Engine();
@@ -42,22 +56,12 @@ public:
   [[nodiscard]] bool handleEvent(const SDL_Event &event);
   [[nodiscard]] bool drawsInto(Extent offscreen);
   void setRoots(Roots roots);
-  [[nodiscard]] bool render(Extent frame);
-  [[nodiscard]] bool saveScreenshot(std::string_view path);
-  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] Renderer renderer(void);
   [[nodiscard]] bool inspect(void);
   [[nodiscard]] bool settled(void) const;
   [[nodiscard]] bool preload(double patienceS);
   [[nodiscard]] double loadProgress(void) const;
 
-  // THE GROUND AT A PLACE, ASKED. Cesium answers `sampleHeightMostDetailed` and Unreal traces down
-  // onto the landscape; in both a client ASKS for ground level and never computes it. The goal this
-  // door is measured against names the case: put a player at GPS coordinates on the ground. Doing
-  // that used to mean declaring a view with `SamplesHeight` and reading a measure back, which is a
-  // client guessing at an engine's insides.
-  //
-  // It refuses rather than answering zero when the terrain there is not resident, because a height
-  // this engine does not have is not a number it may invent.
   [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;
   [[nodiscard]] bool mix(std::span<float> stereo, int rate);
 
@@ -78,7 +82,6 @@ public:
 
   [[nodiscard]] bool assemble();
 
-
   [[nodiscard]] bool advance();
   [[nodiscard]] bool advance(double elapsedS);
   [[nodiscard]] double stepSeconds(void) const;
@@ -95,6 +98,11 @@ public:
   [[nodiscard]] const std::string &error(void) const;
 
 private:
+  friend class Renderer;
+  [[nodiscard]] bool render(Extent frame);
+  [[nodiscard]] bool saveScreenshot(std::string_view path);
+  [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+
   struct State;
   [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);
   [[nodiscard]] bool generated(const Scenario &scenario);

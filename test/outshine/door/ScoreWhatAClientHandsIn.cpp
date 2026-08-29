@@ -142,13 +142,13 @@ int main(void) {
 
   std::vector<uint8_t> fromFile;
   if (!engine.declare(stands) || !engine.advance() ||
-      !engine.render(outshine::Extent{}) || !engine.readPixels(fromFile)) {
+      !engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(fromFile)) {
     Unprepared(("the file arm did not stand: " + engine.error()).c_str());
     return Report();
   }
 
   outshine::Geometry geometry;
-  const int part = geometry.Part("handed", 0);
+  const int part = geometry.Part("handed", outshine::MaterialInstance(0));
   const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 9)) &&
                       geometry.Normals(part, std::span<const float>(kNormals, 9)) &&
                       geometry.Triangles(part, std::span<const uint32_t>(kIndices, 3));
@@ -163,7 +163,7 @@ int main(void) {
   // broken. Only the file arm's input is a fixture; everything after it is the claim.
   const bool handed = engine.setGeometry(geometry);
   std::vector<uint8_t> fromMemory;
-  if (handed && (!engine.render(outshine::Extent{}) || !engine.readPixels(fromMemory))) {
+  if (handed && (!engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(fromMemory))) {
     Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());
     return Report();
   }

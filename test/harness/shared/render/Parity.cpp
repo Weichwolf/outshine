@@ -39,7 +39,7 @@
 #include "Image.h"
 #include "Pose.h"
 #include "Compiled.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 #include "Subject.h"
 
 using outshine::Json;
@@ -841,7 +841,7 @@ outshine::Render::Eye MakeView(const Case &subject) {
   return outshine::Render::Eye{subject.Eye, false, 0};
 }
 
-[[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
+[[nodiscard]] bool Capture(outshine::Render::SceneRenderer &renderer,
                            const outshine::Render::SubjectProxy &studio,
                            const outshine::Render::Eye &view, Picture &out,
                            std::string &error) {
@@ -930,7 +930,7 @@ std::vector<uint8_t> Encoded(const RawF32 &oracle) {
 }
 
 void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy &studio,
-                      outshine::Render::Renderer &renderer, const Picture &picture,
+                      outshine::Render::SceneRenderer &renderer, const Picture &picture,
                       std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   Picture again;
@@ -1079,7 +1079,7 @@ void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
   return true;
 }
 
-Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
+Prepared Prepare(Case &subject, outshine::Render::SceneRenderer &renderer) {
   using namespace outshine::Test;
   std::string why;
   const bool declared = ReadManifest(subject, why);
@@ -1213,7 +1213,7 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
 }
 
 void ScoreAlternateSpellings(const Case &subject, const outshine::Render::SubjectProxy &studio,
-                             outshine::Render::Renderer &renderer, const Mask &ours,
+                             outshine::Render::SceneRenderer &renderer, const Mask &ours,
                              std::vector<Metric> &metrics) {
   const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
   for (size_t which = 0; which < identical.Size(); ++which) {
@@ -1358,7 +1358,7 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   const double down = downNdc * halfHeight;
   const double secant = std::sqrt(across * across + down * down + 1.0);
 
-  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)outshine::Render::Renderer::kNearM;
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)outshine::Render::SceneRenderer::kNearM;
   out = plane / (double)depth[at] * secant;
   return true;
 }
@@ -2035,7 +2035,7 @@ struct FrameVerdict {
   std::uint64_t OracleDigest = 0;
 };
 
-FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int frame) {
+FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer, int frame) {
   using namespace outshine::Test;
 
   RawF32 oracle;
@@ -2245,7 +2245,7 @@ int ScoreRenderCase(int argc, char **argv) {
   if (subject.Directory.empty()) { return Report(); }
   std::printf("CASE %s\n", subject.Directory.c_str());
 
-  outshine::Render::Renderer renderer;
+  outshine::Render::SceneRenderer renderer;
   if (Prepare(subject, renderer) == Prepared::No) {
     std::printf("VERDICT NOTHING-TO-COMPARE\n");
     return Report();
@@ -2365,7 +2365,7 @@ bool ConfiguredCase::Declines(void) const {
   return Held_->Subject.Criterion == CriterionKind::LimitsProbe;
 }
 
-bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &error,
+bool ConfiguredCase::Start(outshine::Render::SceneRenderer &renderer, std::string &error,
                            const std::vector<outshine::Render::Stage> &alsoContent, int surfaceW,
                            int surfaceH) {
   outshine::Render::PlanSpec declaration;
@@ -2401,7 +2401,7 @@ bool ConfiguredCase::PoseAt(int frame, std::string &error) {
   return PoseGeometry(Held_->Subject, frame, error);
 }
 
-bool ConfiguredCase::Draw(outshine::Render::Renderer &renderer, std::string &error) {
+bool ConfiguredCase::Draw(outshine::Render::SceneRenderer &renderer, std::string &error) {
   const outshine::Render::SubjectProxy studio = MakeStudio(Held_->Subject);
   if (!outshine::Render::Show(renderer, studio, MakeView(Held_->Subject), Held_->Scratch, error)) { return false; }
   renderer.RenderFrame();

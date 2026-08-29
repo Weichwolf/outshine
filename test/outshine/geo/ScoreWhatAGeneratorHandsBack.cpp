@@ -51,7 +51,7 @@ int main(void) {
 
   const std::vector<float> soup = Soup();
   Meshed meshed;
-  const bool took = meshed.Take("a wall", 3, soup.data(), soup.size());
+  const bool took = meshed.Take("a wall", outshine::MaterialInstance(3), soup.data(), soup.size());
   std::printf("TOOK %s   parts %zu\n", took ? "yes" : meshed.Error().c_str(), meshed.Parts());
   CHECK(took && meshed.Parts() == 1,
         "a soup of whole triangles at the declared stride is taken as one part");
@@ -88,7 +88,7 @@ int main(void) {
         "one nobody sees");
 
   Meshed second;
-  const bool tooShort = second.Take("half a vertex", 0, soup.data(), kFloats - 1);
+  const bool tooShort = second.Take("half a vertex", outshine::MaterialInstance(0), soup.data(), kFloats - 1);
   std::printf("A PARTIAL VERTEX  %s -- %s\n", tooShort ? "TAKEN" : "refused",
               second.Error().c_str());
   CHECK(!tooShort,
@@ -97,14 +97,14 @@ int main(void) {
 
   Meshed third;
   const bool notTriangles =
-      third.Take("two vertices", 0, soup.data(), 2 * kSoupFloatsPerVertex);
+      third.Take("two vertices", outshine::MaterialInstance(0), soup.data(), 2 * kSoupFloatsPerVertex);
   CHECK(!notTriangles,
         "and neither is a whole number of vertices that is not a whole number of triangles -- a "
         "soup carries its own topology and two thirds of a triangle is not one");
 
   Meshed both;
-  (void)both.Take("first", 1, soup.data(), kFloats);
-  (void)both.Take("second", 2, soup.data(), kFloats);
+  (void)both.Take("first", outshine::MaterialInstance(1), soup.data(), kFloats);
+  (void)both.Take("second", outshine::MaterialInstance(2), soup.data(), kFloats);
   const outshine::Geometry two = both.Handed();
   std::printf("TWO PARTS  indices %u..%u then %u..%u\n",
               (size_t)two.Parts() > 1 ? two.TrianglesOf(0).front() : 0u,

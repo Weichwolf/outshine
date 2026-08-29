@@ -68,7 +68,7 @@ void Fills(outshine::Geometry &into) {
   row.BaseColour[2] = 0.15f;
   row.Metalness = 0.0f;
   row.Roughness = 0.85f;
-  const int named = into.Surface("clay", row);
+  const outshine::MaterialInstance named = into.Surface("clay", row);
   const int part = into.Part("face", named);
   (void)into.Positions(part, std::span<const float>(kPositions, 9));
   (void)into.Normals(part, std::span<const float>(kNormals, 9));
@@ -164,7 +164,7 @@ int main(void) {
       why = one.error();
       return false;
     }
-    if (!one.render(outshine::Extent{}) || !one.readPixels(rgba)) {
+    if (!one.renderer().render(outshine::Extent{}) || !one.renderer().readPixels(rgba)) {
       why = one.error();
       return false;
     }

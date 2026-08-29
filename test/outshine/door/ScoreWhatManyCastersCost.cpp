@@ -56,7 +56,7 @@ public:
     grey.BaseColour[1] = 0.6f;
     grey.BaseColour[2] = 0.6f;
     grey.Roughness = 0.9f;
-    const int named = into.Surface("crate", grey);
+    const outshine::MaterialInstance named = into.Surface("crate", grey);
     for (int at = 0; at < Many_; ++at) {
       const float acrossM = 0.35f;
       const float alongM = (float)((at % 8) - 4) * 1.1f;
@@ -119,8 +119,8 @@ struct Cost {
   made.Kind = "generated";
   stands.Assets.push_back(made);
 
-  if (!engine.declare(stands) || !engine.render(outshine::Extent{}) ||
-      !engine.render(outshine::Extent{})) {
+  if (!engine.declare(stands) || !engine.renderer().render(outshine::Extent{}) ||
+      !engine.renderer().render(outshine::Extent{})) {
     why = engine.error();
     return out;
   }

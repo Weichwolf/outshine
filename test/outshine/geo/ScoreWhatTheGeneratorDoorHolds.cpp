@@ -36,8 +36,8 @@ public:
   [[nodiscard]] std::string_view Kind() const override { return "slab"; }
 
   [[nodiscard]] bool Make(const outshine::Ask &ask, outshine::Geometry &into) const override {
-    const int surface = into.Surface("slab", outshine::Material{});
-    if (surface < 0) { return false; }
+    const outshine::MaterialInstance surface = into.Surface("slab", outshine::Material{});
+    if (!surface.Bound()) { return false; }
     const int part = into.Part("slab", surface);
     if (part < 0) { return false; }
     const float half = (float)(ask.ExtentM > 0.0 ? 0.5 * ask.ExtentM : 0.5);

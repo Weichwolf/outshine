@@ -17,7 +17,7 @@
 #include "Paint.h"
 #include "Pointer.h"
 #include "Pose.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 #include "Style.h"
 #include "Material.h"
 #include "Subject.h"
@@ -72,7 +72,7 @@ public:
   Live(const Live &) = delete;
   Live &operator=(const Live &) = delete;
 
-  [[nodiscard]] static bool Open(Render::Renderer &renderer, Declaration declaration,
+  [[nodiscard]] static bool Open(Render::SceneRenderer &renderer, Declaration declaration,
                                  const Ui::Font *font, std::unique_ptr<Live> &out,
                                  std::string &error);
 
@@ -119,7 +119,7 @@ public:
   // reaching 388 km it came out at 1 904 878 m. Reverse-Z writes `near / distance`, so every
   // surface closer than 1 905 km clamps to the same depth and the depth test stops discriminating
   // -- which is why distant towers drew and the buildings beside the camera did not.
-  [[nodiscard]] static double NearestStandable() { return (double)Render::Renderer::kNearM; }
+  [[nodiscard]] static double NearestStandable() { return (double)Render::SceneRenderer::kNearM; }
   [[nodiscard]] const double *PlacementStanding(size_t part) const {
     return Stood_.Placement(part).data();
   }
@@ -171,7 +171,7 @@ private:
   static size_t PlanInits_;
   Render::PlanSpec PlanDeclared_;
 
-  Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font);
+  Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(int frame, std::string &error);
@@ -183,7 +183,7 @@ private:
                          (double)Declared_.SurfaceHeightPx, error);
   }
 
-  Render::Renderer *Renderer_ = nullptr;
+  Render::SceneRenderer *Renderer_ = nullptr;
   Overlay Over_;
   Declaration Declared_;
   double ShadowRadiusStoodM_ = 0.0;

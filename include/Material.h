@@ -63,6 +63,19 @@ inline float DielectricF90(const Material &material) {
   return material.Ior == 0.0f ? 0.0f : material.SpecularFactor;
 }
 
+class MaterialInstance {
+public:
+  MaterialInstance(void) = default;
+  explicit MaterialInstance(int at) : At_(at) {}
+
+  [[nodiscard]] bool Bound(void) const { return At_ >= 0; }
+  [[nodiscard]] int Index(void) const { return At_; }
+  [[nodiscard]] bool operator==(const MaterialInstance &) const = default;
+
+private:
+  int At_ = -1;
+};
+
 constexpr int kMaterialRowFloats = 20;
 
 }

@@ -64,11 +64,11 @@ void Geometry::Restarts() {
   Held_->Lamps.clear();
 }
 
-int Geometry::Part(std::string_view named, int material) {
+int Geometry::Part(std::string_view named, MaterialInstance material) {
   if (Held_->Live == Held_->Parts.size()) { Held_->Parts.emplace_back(); }
   Geometry::Held::Piece &piece = Held_->Parts[Held_->Live];
   piece.Named.assign(named.begin(), named.end());
-  piece.Material = material;
+  piece.Material = material.Index();
   const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t at = 0; at < 16u; ++at) { piece.PlacedM[at] = still[at]; }
   return (int)Held_->Live++;
@@ -116,14 +116,24 @@ bool Geometry::Triangles(int part, std::span<const uint32_t> indices) {
   return true;
 }
 
+bool TransformManager::setTransform(int part, const double modelM16[16]) {
+  if (part < 0 || part >= Of_->Parts()) { return false; }
+  Of_->Place(part, modelM16);
+  return true;
+}
+
+const double *TransformManager::getTransform(int part) const { return Of_->PlacementOf(part); }
+
+TransformManager Geometry::transforms(void) { return TransformManager(*this); }
+
 void Geometry::Place(int part, const double modelM16[16]) {
   if (part < 0 || part >= (int)Held_->Live) { return; }
   for (size_t at = 0; at < 16u; ++at) { Held_->Parts[(size_t)part].PlacedM[at] = modelM16[at]; }
 }
 
-int Geometry::Surface(std::string_view named, const Material &surface) {
+MaterialInstance Geometry::Surface(std::string_view named, const Material &surface) {
   Held_->Surfaces.push_back(Geometry::Held::Named{std::string(named), surface});
-  return (int)Held_->Surfaces.size() - 1;
+  return MaterialInstance((int)Held_->Surfaces.size() - 1);
 }
 
 int Geometry::Lamp(std::string_view named, const PunctualLight &light, const double placedM16[16]) {
@@ -143,11 +153,10 @@ std::string_view Geometry::SurfaceNameOf(int surface) const {
              : std::string_view();
 }
 
-const Material &Geometry::SurfaceAt(int surface) const {
+const Material &Geometry::SurfaceAt(MaterialInstance surface) const {
   static const Material plain;
-  return surface >= 0 && surface < (int)Held_->Surfaces.size()
-             ? Held_->Surfaces[(size_t)surface].Surface
-             : plain;
+  const int at = surface.Index();
+  return at >= 0 && at < (int)Held_->Surfaces.size() ? Held_->Surfaces[(size_t)at].Surface : plain;
 }
 
 int Geometry::Lamps() const { return (int)Held_->Lamps.size(); }
@@ -181,9 +190,9 @@ std::string_view Geometry::NameOf(int part) const {
   return piece != nullptr ? std::string_view(piece->Named) : std::string_view();
 }
 
-int Geometry::MaterialOf(int part) const {
+MaterialInstance Geometry::MaterialOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? piece->Material : -1;
+  return MaterialInstance(piece != nullptr ? piece->Material : -1);
 }
 
 std::span<const float> Geometry::PositionsOf(int part) const {

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_RENDERER_H
-#define OUTSHINE_RENDER_RENDERER_H
+#ifndef OUTSHINE_RENDER_SCENERENDERER_H
+#define OUTSHINE_RENDER_SCENERENDERER_H
 
 #include "Heap.h"
 #include <span>
@@ -32,7 +32,7 @@
 
 namespace outshine::Render {
 
-class Renderer {
+class SceneRenderer {
 public:
 
   void Init(int width, int height, std::shared_ptr<const Compiled> plan);
@@ -67,10 +67,10 @@ public:
   void RenderFrame();
   [[nodiscard]] bool Drew() const { return Submitted_; }
 
-  ~Renderer() { WaitForGpu(); }
-  Renderer() = default;
-  Renderer(const Renderer &) = delete;
-  Renderer &operator=(const Renderer &) = delete;
+  ~SceneRenderer() { WaitForGpu(); }
+  SceneRenderer() = default;
+  SceneRenderer(const SceneRenderer &) = delete;
+  SceneRenderer &operator=(const SceneRenderer &) = delete;
 
   void WaitForGpu();
 
@@ -248,8 +248,8 @@ private:
 
   struct Executor {
     Stage Named;
-    bool (Renderer::*Configure)(std::string &error);
-    void (Renderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
+    bool (SceneRenderer::*Configure)(std::string &error);
+    void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
   };
   static const Executor kExecutors[];
   static const size_t kExecutorCount;

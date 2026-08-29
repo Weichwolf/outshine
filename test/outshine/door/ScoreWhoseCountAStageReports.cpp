@@ -131,7 +131,7 @@ int main(void) {
   }
 
   if (!lit.declare(Stood("pair.gltf", true)) || !lit.advance() ||
-      !lit.render(outshine::Extent{})) {
+      !lit.renderer().render(outshine::Extent{})) {
     Unprepared(("the lit engine did not stand: " + lit.error()).c_str());
     return Report();
   }
@@ -139,7 +139,7 @@ int main(void) {
   const double litCast = Measured(lit, "batches the shadow casts");
 
   if (!unlit.declare(Stood("lone.gltf", false)) || !unlit.advance() ||
-      !unlit.render(outshine::Extent{})) {
+      !unlit.renderer().render(outshine::Extent{})) {
     Unprepared(("the unlit engine did not stand: " + unlit.error()).c_str());
     return Report();
   }

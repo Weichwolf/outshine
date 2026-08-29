@@ -36,7 +36,7 @@ int main(void) {
   // THREAD-LOCAL and the next SDL call overwrites it, so a fault the DEVICE reported and did
   // not copy has lost the one thing the caller could not have worked out from its own
   // arguments. A fault the caller caused -- a null window, an extent of nothing -- says itself.
-  const std::string source = Slurp("src/render/Renderer.cpp");
+  const std::string source = Slurp("src/render/SceneRenderer.cpp");
   CHECK(source.size() > 1000, "the renderer's body was read, so this walk judges the code");
 
   std::vector<std::string> silent;
@@ -66,7 +66,7 @@ int main(void) {
                         said.find("refused by the device") != std::string::npos ||
                         said.find("device refused") != std::string::npos;
     if (device && !caused) {
-      silent.push_back("Renderer.cpp:" + std::to_string(LineOf(source, at)) +
+      silent.push_back("SceneRenderer.cpp:" + std::to_string(LineOf(source, at)) +
                        " refuses with what the DEVICE said and keeps none of it");
     }
   }

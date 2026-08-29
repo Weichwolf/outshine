@@ -36,7 +36,7 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
 
 }
 
-bool Overlay::Compose(Render::Renderer &renderer, std::span<const Shows> surfaces,
+bool Overlay::Compose(Render::SceneRenderer &renderer, std::span<const Shows> surfaces,
                       double surfaceWidthPx, double surfaceHeightPx, std::string &error) {
   Laid_.clear();
   Quads_.clear();

@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
   }
 
   outshine::Engine engine;
+  outshine::Renderer renderer = engine.renderer();
   engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
   if (!engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
     std::printf("REFUSED %s\n", engine.error().c_str());
@@ -189,7 +190,7 @@ int main(int argc, char **argv) {
     std::snprintf(named, sizeof named, "%s/refused.png", asked.Into.c_str());
     const bool stood = engine.advance();
     if (!stood) { std::printf("STILL %s\n", engine.error().c_str()); }
-    if (engine.saveScreenshot(named)) {
+    if (renderer.saveScreenshot(named)) {
       std::printf("KEPT %s -- a failure is loud, and something is always drawn\n", named);
     }
     return 1;
@@ -201,7 +202,7 @@ int main(int argc, char **argv) {
     if (!asked.Into.empty()) {
       char named[512];
       std::snprintf(named, sizeof named, "%s/standing.png", asked.Into.c_str());
-      if (engine.saveScreenshot(named)) { std::printf("KEPT %s\n", named); }
+      if (renderer.saveScreenshot(named)) { std::printf("KEPT %s\n", named); }
     }
     std::printf(
         "REFUSED a drive that arrives is what ends this loop and this scenario declares none -- "
@@ -214,7 +215,7 @@ int main(int argc, char **argv) {
   long nextStill = 0;
   while (engine.advance()) {
     ++frames;
-    if (draws && !engine.render(outshine::Extent{})) {
+    if (draws && !renderer.render(outshine::Extent{})) {
       std::printf("REFUSED %s\n", engine.error().c_str());
       return 1;
     }
@@ -229,7 +230,7 @@ int main(int argc, char **argv) {
       ++nextStill;
       char named[512];
       std::snprintf(named, sizeof named, "%s/along%02ld.png", asked.Into.c_str(), nextStill);
-      if (!engine.saveScreenshot(named)) {
+      if (!renderer.saveScreenshot(named)) {
         std::printf("REFUSED %s\n", engine.error().c_str());
         return 1;
       }

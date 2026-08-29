@@ -26,7 +26,7 @@ what both benchmarks do; Unreal runs translucency after the base pass and sample
 exactly this.
 
 What IS true of the pair is that one class encodes both -- `Renderer::EncodeGlass`
-(Renderer.cpp:120) drives the same `SubjectDraw`. One stage class, two passes, two targets. That
+(SceneRenderer.cpp:120) drives the same `SubjectDraw`. One stage class, two passes, two targets. That
 is composition, not a clone.
 
 `TheMapCitesLinesThatSayWhatItClaims` passes on this row because the quoted TEXT is present at

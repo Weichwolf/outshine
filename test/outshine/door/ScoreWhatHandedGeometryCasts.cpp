@@ -76,7 +76,7 @@ int main(void) {
   const double drewEmpty = Measured(engine, "batches the picture draws");
 
   outshine::Geometry geometry;
-  const int part = geometry.Part("handed", 0);
+  const int part = geometry.Part("handed", outshine::MaterialInstance(0));
   const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
                       geometry.Normals(part, std::span<const float>(kNormals, 18)) &&
                       geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6));
@@ -87,7 +87,7 @@ int main(void) {
 
   const bool handed = engine.setGeometry(geometry);
   if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.error().c_str()); }
-  if (handed && !engine.render(outshine::Extent{})) {
+  if (handed && !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());
     return Report();
   }

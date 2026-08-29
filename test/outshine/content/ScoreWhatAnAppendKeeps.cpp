@@ -25,7 +25,7 @@ void Facing(outshine::Geometry &into, const char *named, int material) {
   constexpr float kFace[9] = {0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f, 0.0f, 0.0f, (float)kUnitM,
                               0.0f};
   constexpr uint32_t kRun[3] = {0, 1, 2};
-  const int part = into.Part(named, material);
+  const int part = into.Part(named, outshine::MaterialInstance(material));
   (void)into.Positions(part, std::span<const float>(kFace, 9));
   (void)into.Triangles(part, std::span<const uint32_t>(kRun, 3));
 }

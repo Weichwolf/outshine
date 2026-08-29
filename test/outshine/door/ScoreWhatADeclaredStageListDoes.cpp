@@ -113,7 +113,7 @@ int main(void) {
     }
     const outshine::Scenario stands =
         pass == 0 ? Naming({}) : Naming({"subjects", "tonemap", "present"});
-    if (!engine.declare(stands) || !engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.declare(stands) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       Unprepared(("the declaration would not stand: " + engine.error()).c_str());
       return Report();
     }

@@ -4,7 +4,7 @@
 
 namespace outshine::Generators {
 
-bool Meshed::Take(std::string named, int material, const float *soup, size_t floats) {
+bool Meshed::Take(std::string named, MaterialInstance material, const float *soup, size_t floats) {
   if (soup == nullptr || floats == 0) {
     Error_ = "a part of no vertices is a refusal, not an empty mesh";
     return false;

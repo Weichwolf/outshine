@@ -161,7 +161,7 @@ int main(void) {
                         double &into) {
     const outshine::Scenario stands = Under(elevationDeg, bearingDeg, surface);
     std::vector<uint8_t> rgba;
-    if (!engine.declare(stands) || !engine.readPixels(rgba)) { return false; }
+    if (!engine.declare(stands) || !engine.renderer().readPixels(rgba)) { return false; }
     into = Mean(rgba);
     levelPeak = Peak(rgba);
     return true;

@@ -880,7 +880,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = (float)from[at]; }
           return std::span<const float>(narrowed.data(), narrowed.size());
         };
-        const int emitted = made.Part(part.NodeName, part.Material);
+        const int emitted = made.Part(part.NodeName, MaterialInstance(part.Material));
         (void)made.Positions(emitted, asFloat(atPos));
         if (part.HasNormal) { (void)made.Normals(emitted, asFloat(atNor)); }
         if (part.HasUv) { (void)made.Texture(emitted, asFloat(atUv), 0); }
@@ -936,7 +936,7 @@ outshine::Geometry Subject::Handed() const {
     return made;
   };
   for (const Part &one : Parts_) {
-    const int made = out.Part(one.NodeName, one.Material);
+    const int made = out.Part(one.NodeName, MaterialInstance(one.Material));
     const std::vector<float> positions = floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
     (void)out.Positions(made, std::span<const float>(positions.data(), positions.size()));
     if (one.HasNormal && !Normals_.empty()) {
@@ -982,7 +982,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Surfaces_.clear();
   TangentWanted_.clear();
   for (int surface = 0; surface < what.Surfaces(); ++surface) {
-    Surfaces_.push_back(what.SurfaceAt(surface));
+    Surfaces_.push_back(what.SurfaceAt(MaterialInstance(surface)));
     TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
   for (int lamp = 0; lamp < what.Lamps(); ++lamp) {
@@ -1022,8 +1022,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
       return Refuse(where + " states " + std::to_string(pIndices.size()) +
                     " indices, which is not a whole run of triangles");
     }
-    if (what.MaterialOf(slot) < -1) {
-      return Refuse(where + " names material " + std::to_string(what.MaterialOf(slot)) +
+    if (what.MaterialOf(slot).Index() < -1) {
+      return Refuse(where + " names material " + std::to_string(what.MaterialOf(slot).Index()) +
                     ", and -1 is the only spelling of naming none");
     }
     std::string why;
@@ -1045,7 +1045,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
     Part part;
     part.NodeName = std::string(what.NameOf(slot));
-    part.Material = what.MaterialOf(slot);
+    part.Material = what.MaterialOf(slot).Index();
     part.FirstVertex = VertexCount();
     part.FirstIndex = Indices_.size();
     part.VertexCount = vertices;

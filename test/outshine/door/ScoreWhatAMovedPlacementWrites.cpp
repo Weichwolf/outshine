@@ -156,7 +156,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
     return -1.0;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       why = engine.error();
       return -1.0;
     }
@@ -184,7 +184,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
     return -1.0;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       why = engine.error();
       return -1.0;
     }

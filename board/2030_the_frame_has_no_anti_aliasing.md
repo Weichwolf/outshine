@@ -7,7 +7,7 @@ Tags: measured
 
 **Benchmark** — Unreal: TAA, and TSR since 5.0, on by default; MSAA remains for forward paths. RAGE: MSAA on the deferred pass, later TAA. **They agree**, so the matter is closed: a shipped frame is anti-aliased, and sub-pixel geometry is the case it exists for.
 
-MEASURED, in the tree rather than assumed: every pipeline in `Renderer.cpp` is built with
+MEASURED, in the tree rather than assumed: every pipeline in `SceneRenderer.cpp` is built with
 `SDL_GPU_SAMPLECOUNT_1` -- three call sites, no exception. `Renderer` carries `Jitter_` and
 `PrevJitter_`, and `MvpCamRel` applies the jitter to the projection, so a TAA was intended; nothing
 accumulates it, and the places draw two frames.

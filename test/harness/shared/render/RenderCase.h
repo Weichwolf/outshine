@@ -8,7 +8,7 @@
 #include "RenderCatalogue.h"
 
 namespace outshine::Render {
-class Renderer;
+class SceneRenderer;
 }
 
 [[nodiscard]] int ScoreRenderCase(int argc, char **argv);
@@ -22,7 +22,7 @@ public:
 
   [[nodiscard]] bool Read(const std::string &directory, std::string &error);
 
-  [[nodiscard]] bool Start(outshine::Render::Renderer &renderer, std::string &error,
+  [[nodiscard]] bool Start(outshine::Render::SceneRenderer &renderer, std::string &error,
                            const std::vector<outshine::Render::Stage> &alsoContent = {},
                            int surfaceW = 0, int surfaceH = 0);
 
@@ -30,7 +30,7 @@ public:
 
   [[nodiscard]] bool PoseAt(int frame, std::string &error);
 
-  [[nodiscard]] bool Draw(outshine::Render::Renderer &renderer, std::string &error);
+  [[nodiscard]] bool Draw(outshine::Render::SceneRenderer &renderer, std::string &error);
 
   [[nodiscard]] int Frames(void) const;
   [[nodiscard]] double Fps(void) const;

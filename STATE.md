@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 23/7 | 23% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 9 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | 4 tick(s) name no proof |
+| `door` | 24/7 | 23% | [2016](board/2016_the_door_speaks_filament_and_cesium.md) 10 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | 4 tick(s) name no proof |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -23,7 +23,7 @@ whose proof this tree does not hold is reported rather than counted.
 
 Ticked, but the named proof is not in this tree:
 
-- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- `sampleHeight` puts a thing on the TERRAIN. MEASURED at Mather Point: a view asked for ground
+- `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- `sampleHeight` puts a thing on the TERRAIN, and it is a VERB on the door rather than a flag on
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a `Camera` is a thing of its own with a projection, and a `View` binds a scene, a camera and
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- a placement is a `GlobeAnchor` with `LongitudeLatitudeHeight` wherever anything is placed --
 - `door` in [2016](board/2016_the_door_speaks_filament_and_cesium.md) names `-` -- the door's verbs are Filament's where Filament has one, and this tree's only where it does
@@ -39,10 +39,10 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `Scene` | Filament | yes |
 | `View` | Filament | yes |
 | `Camera` | Filament | yes |
-| `Renderer` | Filament | **not yet** |
+| `Renderer` | Filament | yes |
 | `Material` | Filament | yes |
-| `MaterialInstance` | Filament | **not yet** |
-| `TransformManager` | Filament | **not yet** |
+| `MaterialInstance` | Filament | yes |
+| `TransformManager` | Filament | yes |
 | `Skybox` | Filament | **not yet** |
 | `IndirectLight` | Filament | yes |
 | `LightManager` | Filament | **not yet** |
@@ -56,7 +56,7 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `HeightM` | Cesium | yes |
 | `SamplesHeight` | Cesium | yes |
 
-**13 of 20 spoken.** A name here is not a rename to make: it is a promise a client
+**16 of 20 spoken.** A name here is not a rename to make: it is a promise a client
 already understands, and the ones marked *not yet* are what board:2016 owes.
 
 And the verbs, because a client calls those rather than the types:
@@ -107,16 +107,19 @@ outshine is rather than pretending to be a renderer it is not.
 
 ### `Geometry.h`
 
+    type: TransformManager
     type: Geometry
+    bool setTransform(int part, const double modelM16[16])
+    const double *getTransform(int part) const
     void Restarts()
-    void Place(int part, const double modelM16[16])
+    TransformManager transforms(void)
+    MaterialInstance Surface(std::string_view named, const Material &surface)
     int Parts() const
     std::string_view NameOf(int part) const
-    int MaterialOf(int part) const
-    const double *PlacementOf(int part) const
+    MaterialInstance MaterialOf(int part) const
     int Surfaces() const
     std::string_view SurfaceNameOf(int surface) const
-    const Material &SurfaceAt(int surface) const
+    const Material &SurfaceAt(MaterialInstance surface) const
     int Lamps() const
     std::string_view LampNameOf(int lamp) const
     const PunctualLight &LampAt(int lamp) const
@@ -128,22 +131,28 @@ outshine is rather than pretending to be a renderer it is not.
     std::span<const float> ColoursOf(int part) const
     std::span<const uint32_t> TrianglesOf(int part) const
     bool Whole() const
+    void Place(int part, const double modelM16[16])
+    const double *PlacementOf(int part) const
 
 ### `Material.h`
 
     value: Material
+    type: MaterialInstance
+    bool operator==(const MaterialInstance &) const = default
 
 ### `Outshine.h`
 
     value: Roots
+    type: Renderer
     type: Engine
+    bool render(Extent frame)
+    bool saveScreenshot(std::string_view path)
+    bool readPixels(std::vector<uint8_t> &rgba)
     bool drawsInto(SDL_Window *presents)
     bool setView(std::string_view view)
     bool handleEvent(const SDL_Event &event)
     bool drawsInto(Extent offscreen)
-    bool render(Extent frame)
-    bool saveScreenshot(std::string_view path)
-    bool readPixels(std::vector<uint8_t> &rgba)
+    Renderer renderer(void)
     bool inspect(void)
     bool settled(void) const
     bool preload(double patienceS)
@@ -172,6 +181,9 @@ outshine is rather than pretending to be a renderer it is not.
     std::vector<std::string> parked(void) const
     bool Standing(void) const
     const std::string &error(void) const
+    bool render(Extent frame)
+    bool saveScreenshot(std::string_view path)
+    bool readPixels(std::vector<uint8_t> &rgba)
     bool readScenarioInto(std::string_view path, Scenario &out)
     bool generated(const Scenario &scenario)
 
@@ -340,7 +352,7 @@ The heaviest files. Headers and sources counted apart.
 | 1339 | `cpp` | `engine/Picturing.cpp` |
 | 1269 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1046 | `cpp` | `render/Renderer.cpp` |
+| 1046 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 886 | `h` | `base/spatial/ClusterDag.h` |
@@ -355,11 +367,11 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 65 | `src/render/Renderer.h` |
+| 65 | `src/render/SceneRenderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 50 | `src/engine/Live.h` |
 | 46 | `src/content/gltf/Subject.h` |
-| 37 | `include/Outshine.h` |
+| 41 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins
@@ -451,10 +463,10 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 359 | 1 | `apps/bench` | `include/` alone |
-| 194 | 1 | `apps/demo` | `include/` alone |
-| 253 | 1 | `apps/driver` | `include/` alone |
-| 706 | 3 | `apps/viewer` | **does not link from the library alone** |
+| 360 | 1 | `apps/bench` | `include/` alone |
+| 195 | 1 | `apps/demo` | `include/` alone |
+| 254 | 1 | `apps/driver` | `include/` alone |
+| 707 | 3 | `apps/viewer` | **does not link from the library alone** |
 
 ## Corpora
 

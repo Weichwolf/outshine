@@ -102,7 +102,7 @@ int main(void) {
   stands.Assets.push_back(shown);
 
   if (!engine.declare(stands) || !engine.advance() ||
-      !engine.render(outshine::Extent{})) {
+      !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the caster did not stand: " + engine.error()).c_str());
     return Report();
   }
@@ -138,7 +138,7 @@ int main(void) {
 
   outshine::Scenario bare = stands;
   bare.Assets.clear();
-  if (!engine.declare(bare) || !engine.advance() || !engine.render(outshine::Extent{})) {
+  if (!engine.declare(bare) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the bare arm did not stand: " + engine.error()).c_str());
     return Report();
   }

@@ -131,7 +131,7 @@ int main(void) {
   const auto standAt = [&](double fill, Seen &seen) {
     outshine::Scenario arm = stands;
     arm.Render.Fill = fill;
-    if (!engine.declare(arm) || !engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.declare(arm) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       return false;
     }
     if (!engine.inspect()) { return false; }

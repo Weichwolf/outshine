@@ -10,7 +10,7 @@
 #include "Markup.h"
 #include "Paint.h"
 #include "Pointer.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 #include "Style.h"
 
 namespace outshine::Core {
@@ -28,7 +28,7 @@ public:
   void Faces(const Ui::Font *font) { Font_ = font; }
   [[nodiscard]] const Ui::Font *Face() const { return Font_; }
 
-  [[nodiscard]] bool Compose(Render::Renderer &renderer, std::span<const Shows> surfaces,
+  [[nodiscard]] bool Compose(Render::SceneRenderer &renderer, std::span<const Shows> surfaces,
                              double surfaceWidthPx, double surfaceHeightPx, std::string &error);
 
   void Wheeled(double xPx, double yPx, double byPx, bool &again);

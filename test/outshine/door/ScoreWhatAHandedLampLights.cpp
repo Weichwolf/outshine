@@ -91,7 +91,7 @@ int main(void) {
     chalk.BaseColour[1] = 0.9f;
     chalk.BaseColour[2] = 0.9f;
     chalk.Roughness = 0.9f;
-    const int named = geometry.Surface("chalk", chalk);
+    const outshine::MaterialInstance named = geometry.Surface("chalk", chalk);
     const int part = geometry.Part("wall", named);
     if (withLamp) {
       outshine::PunctualLight lamp;
@@ -104,7 +104,7 @@ int main(void) {
     return geometry.Positions(part, std::span<const float>(kWall, 18)) &&
            geometry.Normals(part, std::span<const float>(kFacing, 18)) &&
            geometry.Triangles(part, std::span<const uint32_t>(kRun, 6)) &&
-           engine.setGeometry(geometry) && engine.render(outshine::Extent{}) && engine.readPixels(rgba);
+           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
   };
 
   std::vector<uint8_t> dark;

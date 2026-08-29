@@ -21,7 +21,7 @@ constexpr int kMixFrames = 1024;
   lit.BaseColour[2] = 0.95f;
   lit.Roughness = 0.35f;
   lit.Metalness = 0.1f;
-  const int wears = made.Surface("blob", lit);
+  const outshine::MaterialInstance wears = made.Surface("blob", lit);
 
   const int part = made.Part("blob", wears);
   std::vector<float> positionsM, normals;
@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
   }
 
   outshine::Engine engine;
+  outshine::Renderer renderer = engine.renderer();
   if (!engine.declare(Declared())) {
     std::printf("REFUSED %s\n", engine.error().c_str());
     return 1;
@@ -172,7 +173,7 @@ int main(int argc, char *argv[]) {
       if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) { going = false; }
     }
     if (!engine.advance()) { break; }
-    if (!headless && !engine.render(outshine::Extent{kWidthPx, kHeightPx})) { break; }
+    if (!headless && !renderer.render(outshine::Extent{kWidthPx, kHeightPx})) { break; }
     if (speaking == nullptr || SDL_GetAudioStreamQueued(speaking) < kMixRate) {
       if (!engine.mix(stereo, kMixRate)) {
         std::printf("REFUSED %s\n", engine.error().c_str());

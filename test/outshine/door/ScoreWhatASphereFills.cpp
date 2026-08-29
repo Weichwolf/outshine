@@ -107,7 +107,7 @@ int main(void) {
   const auto shot = [&](bool sphere, double elevationDeg, std::vector<uint8_t> &into) {
     const outshine::Scenario stands = Stood(sphere, elevationDeg);
     if (!engine.declare(stands)) { return false; }
-    return engine.readPixels(into);
+    return engine.renderer().readPixels(into);
   };
 
   std::vector<uint8_t> dayLit, nightly, bareDay, bareNight;

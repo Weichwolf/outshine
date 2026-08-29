@@ -38,7 +38,7 @@
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
 #include "TileGeodesy.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 #include "ScenarioRead.h"
 
 
@@ -204,7 +204,7 @@ inline std::vector<std::string> Unacted(const Scenario &scenario) {
 }
 
 struct Seen {
-  Render::Renderer Device;
+  Render::SceneRenderer Device;
   std::unique_ptr<Core::Live> Standing;
   Extent Frame{1280, 720};
   bool Targeted = false;

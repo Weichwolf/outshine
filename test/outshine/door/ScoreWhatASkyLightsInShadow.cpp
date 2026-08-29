@@ -134,7 +134,7 @@ int main(void) {
 
   const auto read = [&](bool sphere, double elevationDeg, double &into) {
     std::vector<uint8_t> rgba;
-    if (!engine.declare(Turned(sphere, elevationDeg)) || !engine.readPixels(rgba)) { return false; }
+    if (!engine.declare(Turned(sphere, elevationDeg)) || !engine.renderer().readPixels(rgba)) { return false; }
     into = Mean(rgba);
     return true;
   };
@@ -149,7 +149,7 @@ int main(void) {
     outshine::Scenario facing = Turned(true, 42.0);
     facing.Lit.Key.BearingDeg = 0.0;
     std::vector<uint8_t> rgba;
-    if (!engine.declare(facing) || !engine.readPixels(rgba)) {
+    if (!engine.declare(facing) || !engine.renderer().readPixels(rgba)) {
       Unprepared(("the lit side did not come back: " + engine.error()).c_str());
       return Report();
     }

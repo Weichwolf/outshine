@@ -5,7 +5,7 @@
 #include "Check.h"
 #include "RenderCatalogue.h"
 #include "Compiled.h"
-#include "Renderer.h"
+#include "SceneRenderer.h"
 
 namespace {
 
@@ -16,10 +16,10 @@ namespace {
 // It does NOT name them. board:1805 counted three by grepping for three names, and board:1990
 // deleted those three, which left this case unable to compile -- a case that fails by failing to
 // BUILD tells a reader nothing about the tree. So every row here is DERIVED: walk the catalogue,
-// keep what `Renderer::Executable` refuses, and the list is whatever it is on the day it runs.
+// keep what `SceneRenderer::Executable` refuses, and the list is whatever it is on the day it runs.
 //
 // The two possible answers are far apart: a plan naming an unbuilt stage either draws NOTHING and
-// says nothing, or refuses by NAME. It refuses -- `Renderer::Init` walks `Plan_->Order()` and
+// says nothing, or refuses by NAME. It refuses -- `SceneRenderer::Init` walks `Plan_->Order()` and
 // stops at the first stage `ExecutorOf` cannot seat. So the row is a PROMISE the device checks
 // before it draws a frame, and the case pins both halves: a plan of stages the device seats
 // compiles and stands, and one naming a row nothing implements is refused with a row's own name.
@@ -45,7 +45,7 @@ int main(void) {
 
   std::vector<Stage> unbuilt;
   for (size_t at = 0; at < kStageCount; ++at) {
-    if (!Renderer::Executable((Stage)at)) { unbuilt.push_back((Stage)at); }
+    if (!SceneRenderer::Executable((Stage)at)) { unbuilt.push_back((Stage)at); }
   }
   if (unbuilt.empty()) {
     Unprepared(
@@ -56,7 +56,7 @@ int main(void) {
   std::vector<Stage> refusedByTheDevice;
   bool everyRowRefuses = true;
   for (const Stage row : unbuilt) {
-    const bool seated = Renderer::Executable(row);
+    const bool seated = SceneRenderer::Executable(row);
     auto made = Compiled::Compile(Naming(row, true));
     if (made) { refusedByTheDevice.push_back(row); }
     std::printf("  %-10s catalogue row, device seats it: %-3s   plan compiles: %s\n",
@@ -89,7 +89,7 @@ int main(void) {
     return Report();
   }
 
-  Renderer device;
+  SceneRenderer device;
   auto plain = Compiled::Compile(Naming(anUnbuiltRow, false));
   if (!plain) {
     Unprepared(("a plan of seated stages would not compile: " + plain.error()).c_str());
@@ -129,7 +129,7 @@ int main(void) {
   std::string named;
   for (size_t at = 0; at < kStageCount; ++at) {
     const Stage row = (Stage)at;
-    if (Renderer::Executable(row)) { continue; }
+    if (SceneRenderer::Executable(row)) { continue; }
     ++unseated;
     named += std::string(named.empty() ? "" : " ") + Row(row).Name;
   }
@@ -138,7 +138,7 @@ int main(void) {
   bool namesOne = false;
   for (size_t at = 0; at < kStageCount; ++at) {
     const Stage row = (Stage)at;
-    if (Renderer::Executable(row)) { continue; }
+    if (SceneRenderer::Executable(row)) { continue; }
     if (device.WhyNot().find(Row(row).Name) != std::string::npos) { namesOne = true; }
   }
   CHECK(namesOne,

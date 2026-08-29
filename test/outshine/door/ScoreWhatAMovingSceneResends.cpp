@@ -69,7 +69,7 @@ int main(void) {
   double ways = 0.0, water = 0.0, prints = 0.0, grown = 0.0, reached = 0.0, instanced = 0.0;
   for (int half = 0; half < 2; ++half) {
     for (int step = 0; step < kFrames; ++step) {
-      if (!engine.advance() || !engine.render(outshine::Extent{})) { break; }
+      if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) { break; }
     }
     rowsAt[half] = Measured(engine, "placement rows the renderer has been sent");
     batches = Measured(engine, "batches the picture draws");

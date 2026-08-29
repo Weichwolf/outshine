@@ -35,7 +35,7 @@ constexpr float kTau = outshine::kPixelTau;
 
 [[nodiscard]] outshine::Geometry Lattice() {
   outshine::Geometry stood;
-  const int surface = stood.Surface("lattice", outshine::Material{});
+  const outshine::MaterialInstance surface = stood.Surface("lattice", outshine::Material{});
   const int part = stood.Part("lattice", surface);
   std::vector<float> places, normals;
   std::vector<uint32_t> run;

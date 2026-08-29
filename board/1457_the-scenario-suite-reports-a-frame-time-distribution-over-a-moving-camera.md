@@ -18,7 +18,7 @@ frames against a declared ceiling; no sanitiser is in the path.
 **The blocker this item carried is gone, and it left an instrument nobody reads.** At
 35829990 `Renderer::DrawsInto` takes the first present mode the device offers that does not
 queue -- MAILBOX, then IMMEDIATE, then VSYNC -- and refuses by name if it takes none
-(src/render/Renderer.cpp:968-985). `[[nodiscard]] bool Queued() const` (src/render/Renderer.h:81)
+(src/render/SceneRenderer.cpp:968-985). `[[nodiscard]] bool Queued() const` (src/render/SceneRenderer.h:81)
 says which it got.
 
 Two things are wrong with it and both are this item's:
@@ -27,7 +27,7 @@ Two things are wrong with it and both are this item's:
   else. A distribution that does not print the mode it was taken under is the state this item
   was opened to end.
 - **It answers for a swapchain that does not exist.** `SDL_GPUPresentMode Presenting_ =
-  SDL_GPU_PRESENTMODE_VSYNC;` (Renderer.h:235) is the default, and the offscreen path never
+  SDL_GPU_PRESENTMODE_VSYNC;` (SceneRenderer.h:235) is the default, and the offscreen path never
   assigns it, so an offscreen renderer -- every headless run in the tree -- reports `Queued() ==
   true`. A number that answers where it was never measured is worse than no number.
 

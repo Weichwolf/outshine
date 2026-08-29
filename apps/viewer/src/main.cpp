@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
     }
   }
   outshine::Engine engine;
+  outshine::Renderer renderer = engine.renderer();
   engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
   const bool standing = window != nullptr
                             ? engine.drawsInto(window)
@@ -323,7 +324,7 @@ int main(int argc, char **argv) {
     if (!asked.Into.empty()) {
       char named[512];
       std::snprintf(named, sizeof named, "%s/frame%03ld.png", asked.Into.c_str(), frames);
-      if (!engine.saveScreenshot(named)) {
+      if (!renderer.saveScreenshot(named)) {
         std::printf("REFUSED %s\n", engine.error().c_str());
         break;
       }

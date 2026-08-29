@@ -49,7 +49,7 @@ bool Structures::Make(const Ask &ask, Geometry &into) const {
   if (soup.empty()) { return false; }
 
   Meshed made;
-  if (!made.Take("structure", 0, soup.data(), soup.size())) { return false; }
+  if (!made.Take("structure", MaterialInstance(0), soup.data(), soup.size())) { return false; }
   Geometry stood = made.Handed();
   if (stood.Parts() == 0) { return false; }
 
@@ -58,7 +58,7 @@ bool Structures::Make(const Ask &ask, Geometry &into) const {
   walls.BaseColour[1] = 0.60f;
   walls.BaseColour[2] = 0.56f;
   walls.Roughness = 0.85f;
-  const int named = into.Surface("walls", walls);
+  const MaterialInstance named = into.Surface("walls", walls);
   for (int part = 0; part < stood.Parts(); ++part) {
     const int here = into.Part("structure", named);
     if (!into.Positions(here, stood.PositionsOf(part)) ||

@@ -14,7 +14,7 @@
 
 namespace outshine::Render {
 
-class Renderer;
+class SceneRenderer;
 
 struct Eye {
   Gltf::Viewpoint Eye;
@@ -66,12 +66,12 @@ private:
   SubjectEnvironment Environment_;
 };
 
-[[nodiscard]] bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error);
+[[nodiscard]] bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error);
 
-[[nodiscard]] bool Moved(Renderer &renderer, size_t rows, size_t from, size_t to,
+[[nodiscard]] bool Moved(SceneRenderer &renderer, size_t rows, size_t from, size_t to,
                          const double ecef[16], std::string &error);
 
-[[nodiscard]] bool MovedInstance(Renderer &renderer, size_t rows, size_t instances, size_t instance,
+[[nodiscard]] bool MovedInstance(SceneRenderer &renderer, size_t rows, size_t instances, size_t instance,
                                  size_t fromPart, size_t toPart, const double ecef[16],
                                  std::string &error);
 
@@ -82,19 +82,19 @@ struct SubjectScratch {
   DrawList Draws;
 };
 
-[[nodiscard]] bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Eye &view,
+[[nodiscard]] bool Aim(SceneRenderer &renderer, const Gltf::Subject &subject, const Eye &view,
                        const double anchorEcefM[3], std::string &error);
 
-[[nodiscard]] bool Show(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+[[nodiscard]] bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                         SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+[[nodiscard]] bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                            SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+[[nodiscard]] bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                          SubjectScratch &scratch, std::string &error);
 
-[[nodiscard]] bool Move(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+[[nodiscard]] bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
                         SubjectScratch &scratch, std::string &error);
 
 }

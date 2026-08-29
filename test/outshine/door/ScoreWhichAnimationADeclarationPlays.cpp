@@ -118,12 +118,12 @@ constexpr const char *kTracksBase64 =
     return false;
   }
   for (int step = 0; step < steps; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       why = engine.error();
       return false;
     }
   }
-  if (!engine.readPixels(rgba)) {
+  if (!engine.renderer().readPixels(rgba)) {
     why = engine.error();
     return false;
   }

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <string>
 
-#include "Renderer.h"
+#include "SceneRenderer.h"
 
 namespace outshine::Render {
 
@@ -74,7 +74,7 @@ bool SubjectProxy::Places(size_t part, size_t instance, const double m16[16]) {
 }
 
 
-bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error) {
+bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error) {
   const size_t rows = proxy.Placements();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   double ecef[16];
@@ -85,7 +85,7 @@ bool Placed(Renderer &renderer, const SubjectProxy &proxy, std::string &error) {
   return renderer.HandSubjectPlacements(error);
 }
 
-bool MovedInstance(Renderer &renderer, size_t rows, size_t instances, size_t instance,
+bool MovedInstance(SceneRenderer &renderer, size_t rows, size_t instances, size_t instance,
                    size_t fromPart, size_t toPart, const double ecef[16], std::string &error) {
   if (instances == 0 || instance >= instances) { return true; }
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
@@ -95,7 +95,7 @@ bool MovedInstance(Renderer &renderer, size_t rows, size_t instances, size_t ins
   return renderer.HandSubjectPlacements(error);
 }
 
-bool Moved(Renderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
+bool Moved(SceneRenderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
            std::string &error) {
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
@@ -111,7 +111,7 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
 
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Viewpoint &eye,
                                    size_t framedParts, bool standsInside, std::string &error) {
-  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Renderer::kNearM;
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)SceneRenderer::kNearM;
   double framedLeast[3], framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
   size_t beyond = subject.VertexCount();
@@ -153,7 +153,7 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
 
 constexpr double kMagnificationAgreement = 1e-12;
 
-[[nodiscard]] bool SetProjection(Renderer &renderer, const Gltf::Viewpoint &eye,
+[[nodiscard]] bool SetProjection(SceneRenderer &renderer, const Gltf::Viewpoint &eye,
                                  std::string &error) {
   if (eye.Kind == Gltf::CameraKind::Orthographic) {
     if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
@@ -376,7 +376,7 @@ VertexRuns PackVertices(const SubjectProxy &proxy, const Gltf::Subject &subject,
 
 }
 
-bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Eye &view,
+bool Aim(SceneRenderer &renderer, const Gltf::Subject &subject, const Eye &view,
          const double anchorEcefM[3], std::string &error) {
   const Gltf::Viewpoint &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }
@@ -393,7 +393,7 @@ bool Aim(Renderer &renderer, const Gltf::Subject &subject, const Eye &view,
   return true;
 }
 
-bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
              SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
@@ -407,13 +407,13 @@ bool Surface(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
   return true;
 }
 
-bool Show(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
           SubjectScratch &scratch, std::string &error) {
   return Surface(renderer, proxy, view, scratch, error) &&
          Place(renderer, proxy, view, scratch, error);
 }
 
-bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
            SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";
@@ -475,7 +475,7 @@ bool Place(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
   return true;
 }
 
-bool Move(Renderer &renderer, const SubjectProxy &proxy, const Eye &view,
+bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
           SubjectScratch &scratch, std::string &error) {
   if (!proxy.Subject()) {
     error = "the proxy declares no subject";

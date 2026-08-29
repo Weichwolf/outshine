@@ -534,7 +534,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!tinted.empty()) {
     for (int channel = 0; channel < 3; ++channel) { bare.BaseColour[channel] = 1.0f; }
   }
-  const int ringSurface = ground.Surface("ground", bare);
+  const MaterialInstance ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
 
   // THE BUILDINGS STAND IN THE SAME GEOMETRY AS THE GROUND, one part beside the ring's. They are
@@ -636,8 +636,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tiles.BaseColour[1] = 0.20f;
       tiles.BaseColour[2] = 0.14f;
       tiles.Roughness = 0.72f;
-      const int wallSurface = ground.Surface("walls", walls);
-      const int roofSurface = ground.Surface("roofs", tiles);
+      const MaterialInstance wallSurface = ground.Surface("walls", walls);
+      const MaterialInstance roofSurface = ground.Surface("roofs", tiles);
       const int builtPart = ground.Part("walls", wallSurface);
       const int roofPart = ground.Part("roofs", roofSurface);
       // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
@@ -673,8 +673,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ground.Triangles(builtPart, std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
           ground.Triangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
       Published.Places("buildings: the part they were given", (double)builtPart, "index");
-      Published.Places("buildings: the wall surface", (double)wallSurface, "index");
-      Published.Places("buildings: the roof surface", (double)roofSurface, "index");
+      Published.Places("buildings: the wall surface", (double)wallSurface.Index(), "index");
+      Published.Places("buildings: the roof surface", (double)roofSurface.Index(), "index");
       Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
@@ -955,14 +955,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tarmac.BaseColour[1] = 0.16f;
       tarmac.BaseColour[2] = 0.17f;
       tarmac.Roughness = 0.92f;
-      const int paved = ground.Surface("streets", tarmac);
+      const MaterialInstance paved = ground.Surface("streets", tarmac);
       const int pavedPart = ground.Part("streets", paved);
       const bool tookPaving =
           pavedPart >= 0 &&
           ground.Positions(pavedPart, std::span<const float>(places.data(), places.size())) &&
           ground.Normals(pavedPart, std::span<const float>(facing.data(), facing.size())) &&
           ground.Triangles(pavedPart, std::span<const uint32_t>(order.data(), order.size()));
-      Published.Places("streets: the surface they were given", (double)paved, "index");
+      Published.Places("streets: the surface they were given", (double)paved.Index(), "index");
       Published.Places("streets: the part they were given", (double)pavedPart, "index");
       Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
       Published.Places("streets: parts the geometry now holds", (double)ground.Parts(), "parts");
@@ -1018,7 +1018,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       lagoon.BaseColour[2] = 0.16f;
       lagoon.Roughness = 0.14f;
       lagoon.DoubleSided = true;
-      const int wetSurface = ground.Surface("water", lagoon);
+      const MaterialInstance wetSurface = ground.Surface("water", lagoon);
       const int wetPart = ground.Part("water", wetSurface);
       const bool tookWater =
           wetPart >= 0 &&
@@ -1182,7 +1182,7 @@ void Engine::State::Tells(void) {
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {
       const Render::Stage stage = (Render::Stage)at;
-      const Render::Renderer::Effort &spent = Picture.Device.Spent(stage);
+      const Render::SceneRenderer::Effort &spent = Picture.Device.Spent(stage);
       if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
       Published.Places(std::string(Row(stage).Name) + ", took", spent.TookMs, "ms");
       Published.Places(std::string(Row(stage).Name) + ", drew", (double)spent.Draws, "draws");

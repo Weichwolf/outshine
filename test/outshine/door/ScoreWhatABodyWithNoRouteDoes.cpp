@@ -177,7 +177,7 @@ int main(void) {
         "the one integration started from, and the only difference from the closed form is the "
         "scheme's own");
 
-  if (!engine.render(outshine::Extent{})) {
+  if (!engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the crate did not draw: " + engine.error()).c_str());
     return Report();
   }
@@ -213,7 +213,7 @@ int main(void) {
   for (int step = 0; step < kSteps; ++step) {
     if (!engine.advance()) { break; }
   }
-  if (!engine.render(outshine::Extent{})) {
+  if (!engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the second frame did not draw: " + engine.error()).c_str());
     return Report();
   }

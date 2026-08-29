@@ -255,6 +255,12 @@ bool Engine::settled(void) const {
 // `ComputeLoadProgress()` and Unreal answers `GetAsyncLoadPercentage`; both let the client draw the
 // bar rather than guessing. This is the same question in this engine's own terms: of the terrain
 // the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
+bool Renderer::render(Extent frame) { return Of_->render(frame); }
+bool Renderer::saveScreenshot(std::string_view path) { return Of_->saveScreenshot(path); }
+bool Renderer::readPixels(std::vector<uint8_t> &rgba) { return Of_->readPixels(rgba); }
+
+Renderer Engine::renderer(void) { return Renderer(*this); }
+
 bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {
   if (!S_->World.Stack.Opened()) {
     S_->Error = "a height was asked for at " + std::to_string(latitudeDeg) + ", " +
@@ -290,7 +296,7 @@ double Engine::loadProgress(void) const {
 // PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the
 // invariant -- so a client that wants a finished picture rather than a progressively refining one
 // asks for it HERE, once, bounded in seconds. Filament spells the same distinction
-// `Renderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides whether
+// `SceneRenderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides whether
 // to wait on it. Nothing inside advance() or render() ever calls this.
 bool Engine::preload(double patienceS) {
   const auto began = std::chrono::steady_clock::now();

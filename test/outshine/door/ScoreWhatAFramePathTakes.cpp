@@ -132,7 +132,7 @@ int main(void) {
 
   // Four steps to get past the first pose, which BUILDS and is allowed to take.
   for (int step = 0; step < 4; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       Unprepared((std::string("the picture did not advance: ") + engine.error()).c_str());
       return Report();
     }
@@ -142,7 +142,7 @@ int main(void) {
 
   double moved = 0.0;
   for (int step = 0; step < 8; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       Unprepared((std::string("the picture did not advance: ") + engine.error()).c_str());
       return Report();
     }

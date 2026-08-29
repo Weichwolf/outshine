@@ -133,7 +133,7 @@ int main(void) {
                         std::vector<unsigned char> &into) {
     if (!engine.declare(stands) || !engine.advance()) { return false; }
     const std::string path = under + "/" + named + ".png";
-    if (!engine.saveScreenshot(path)) { return false; }
+    if (!engine.renderer().saveScreenshot(path)) { return false; }
     into = Slurped(path);
     return !into.empty();
   };

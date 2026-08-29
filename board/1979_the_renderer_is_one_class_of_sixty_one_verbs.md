@@ -7,7 +7,7 @@ Area: render
 
 **Benchmark** — Unreal: `FScene` survives frames, `FSceneRenderer` lives for one, RDG passes declare their resources. RAGE: the draw list is separate from the device. **Taking Unreal** — three lifetimes, three types.
 
-`STATE.md`, Carpet: **`src/render/Renderer.h` carries 61 `[[nodiscard]]`** — the widest public
+`STATE.md`, Carpet: **`src/render/SceneRenderer.h` carries 61 `[[nodiscard]]`** — the widest public
 surface in the tree, ahead of the glTF document (51) and the glTF subject (46).
 
 **Unreal splits exactly this into three things with three lifetimes.** `FScene` holds what
@@ -25,4 +25,4 @@ a 61-verb door is where that comes from — order is the only structure a flat s
 
 - [ ] what survives a frame and what does not are different types
 - [ ] a pass declares its resources; adding one does not widen the renderer's door
-- [ ] `STATE.md`'s Carpet no longer names `Renderer.h` first
+- [ ] `STATE.md`'s Carpet no longer names `SceneRenderer.h` first

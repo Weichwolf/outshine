@@ -11,6 +11,19 @@
 
 namespace outshine {
 
+class Geometry;
+
+class TransformManager {
+public:
+  [[nodiscard]] bool setTransform(int part, const double modelM16[16]);
+  [[nodiscard]] const double *getTransform(int part) const;
+
+private:
+  friend class Geometry;
+  explicit TransformManager(Geometry &of) : Of_(&of) {}
+  Geometry *Of_ = nullptr;
+};
+
 class Geometry {
 public:
   Geometry();
@@ -20,11 +33,12 @@ public:
   Geometry(const Geometry &) = delete;
   Geometry &operator=(const Geometry &) = delete;
 
-  int Part(std::string_view named, int material);
+  int Part(std::string_view named, MaterialInstance material);
   void Restarts();
-  void Place(int part, const double modelM16[16]);
 
-  int Surface(std::string_view named, const Material &surface);
+  [[nodiscard]] TransformManager transforms(void);
+
+  [[nodiscard]] MaterialInstance Surface(std::string_view named, const Material &surface);
   int Lamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);
 
   bool Positions(int part, std::span<const float> metres);
@@ -36,12 +50,11 @@ public:
 
   [[nodiscard]] int Parts() const;
   [[nodiscard]] std::string_view NameOf(int part) const;
-  [[nodiscard]] int MaterialOf(int part) const;
-  [[nodiscard]] const double *PlacementOf(int part) const;
+  [[nodiscard]] MaterialInstance MaterialOf(int part) const;
 
   [[nodiscard]] int Surfaces() const;
   [[nodiscard]] std::string_view SurfaceNameOf(int surface) const;
-  [[nodiscard]] const Material &SurfaceAt(int surface) const;
+  [[nodiscard]] const Material &SurfaceAt(MaterialInstance surface) const;
 
   [[nodiscard]] int Lamps() const;
   [[nodiscard]] std::string_view LampNameOf(int lamp) const;
@@ -56,6 +69,10 @@ public:
   [[nodiscard]] bool Whole() const;
 
 private:
+  friend class TransformManager;
+  void Place(int part, const double modelM16[16]);
+  [[nodiscard]] const double *PlacementOf(int part) const;
+
   struct Held;
   std::unique_ptr<Held> Held_;
 };

@@ -134,7 +134,7 @@ struct Drew {
     return false;
   }
   for (int step = 0; step < 6; ++step) {
-    if (!engine.advance() || !engine.render(outshine::Extent{})) {
+    if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) {
       why = engine.error();
       return false;
     }
