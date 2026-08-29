@@ -171,6 +171,23 @@ list rather than reasoned from `LayoutOf`. Five readings of the colour are now c
 of them was a story about WHAT to say; this is the first about what the engine DOES, and it is the
 only kind left that can be true.
 
+**THE INSTRUMENT NOW EXISTS AND IT ANSWERED ON THE FIRST READING.** `SubjectBatchesTaking(layout)`
+counts the draws that took each vertex layout, and `Engine::render` publishes one row per layout
+the frame actually used. On this case:
+
+    draws taking vertex layout 4 = 8      PositionNormalUv
+    draws taking vertex layout 6 = 1      PositionNormalUvTangent
+
+Every draw takes a LIT, TEXTURED variant. Not one takes the flat one. So the whole line of
+reasoning about `Unlit` and the emitted run was about a variant this case never uses -- and it took
+a measurement to see, because `LayoutOf`'s inputs are three predicates deep.
+
+**AND THAT IS ONLY POSSIBLE IF THE PROXY GATHERS LIGHT.** `Lit()` needs `Gathers(proxy)`, which
+needs a punctual light or a non-zero indirect radiance. The case declares neither, and the file
+carries none -- measured, `LAMPS file=0`. So something in the engine's own path lights this subject
+where the old harness left it dark, and THAT is the colour difference. Finding what is the next
+round's first line, and it is now a one-line read rather than an argument.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`

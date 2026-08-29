@@ -379,7 +379,7 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1599 | `cpp` | `engine/Picturing.cpp` |
+| 1607 | `cpp` | `engine/Picturing.cpp` |
 | 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1082 | `cpp` | `engine/Live.cpp` |
@@ -397,7 +397,7 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 67 | `src/render/SceneRenderer.h` |
+| 68 | `src/render/SceneRenderer.h` |
 | 63 | `src/engine/Live.h` |
 | 58 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |

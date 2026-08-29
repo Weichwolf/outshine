@@ -196,6 +196,17 @@ public:
   }
   [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
 
+  // WHICH VERTEX LAYOUT EACH BATCH TOOK, which decides which SHADER VARIANT drew it. Nothing could
+  // read this, so a picture that disagreed with a reference could be argued about for a session
+  // without anyone checking whether the draw took the variant the code says it takes -- which is
+  // exactly what happened. A number that decides a picture and cannot be read is a number that
+  // gets reasoned about instead of measured.
+  [[nodiscard]] uint32_t SubjectBatchesTaking(VertexLayout layout) const {
+    uint32_t many = 0;
+    for (const DrawBatch &batch : Subjects_.Drawn()) { many += batch.Layout == layout ? 1u : 0u; }
+    return many;
+  }
+
   [[nodiscard]] size_t ShadowCastCount() const { return Shadow_.CastBatches(); }
 
   [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
