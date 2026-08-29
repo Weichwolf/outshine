@@ -65,8 +65,11 @@ int main(void) {
         "library build of the same source can never share an artefact -- the path IS the flag "
         "identity, and UpToDate needs no flag awareness (board:1603)");
 
-  CHECK(Sites(runner, "apps/driver/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
-            Sites(runner, "apps/bench/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
+  // THE DRIVER CLIENT WAS THE THIRD PROGRAMME HERE AND IT IS GONE, deleted at the owner's word.
+  // A claim keeps counting what stands, so it counts two -- and the door proof is not weaker for
+  // it: board:2038 puts the CORPUS harness on the same footing, and a conformance case driving
+  // include/ alone proves more about the door than any one app ever did.
+  CHECK(Sites(runner, "apps/bench/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
             Sites(runner, "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
         "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
         "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "

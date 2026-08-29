@@ -39,7 +39,7 @@ picture.
 | `bool Engine::Assemble() {` (:139) | the scene store, and the drive | no |
 | `bool Engine::Advance() {` (:535) | `if (!S_->Standing) { ... "no scenario is standing" }` | refuses |
 
-`apps/driver/src/main.cpp:126` calls `Read`, and `Declare` only when `--from/--to` were given
+`the driver client (deleted):126` calls `Read`, and `Declare` only when `--from/--to` were given
 (:138). Without a route override the product cannot produce one frame. That is the whole of the
 zero-still result, and it is not the route search: the route search is a different, later defect
 (board:1862).

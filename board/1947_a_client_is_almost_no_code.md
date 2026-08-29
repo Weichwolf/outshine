@@ -17,7 +17,7 @@ alone, which is declared in `EXPECT_UNLINKED`.
       proof: --audit-link
 - [ ] `apps/viewer/src/main.cpp` links from `liboutshine.a` and its entry point ALONE -- no
       `parts/` of its own (board:1898, board:1923's EXPECT_UNLINKED line goes with it)
-- [ ] `apps/viewer` under 120 lines and `apps/driver` under 100 (board:1898)
+- [ ] `apps/viewer` under 120 lines and the driver client (deleted) under 100 (board:1898)
 - [ ] the door offers an asset-SWAP verb, so a client does not re-declare a scenario to change
       one subject (board:1898)
 - [ ] shipped default lighting is a catalogue selection, so a client that wants a lit scene need

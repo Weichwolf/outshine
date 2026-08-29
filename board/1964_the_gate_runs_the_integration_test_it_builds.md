@@ -7,10 +7,10 @@ Area: client
 
 **Benchmark** — Unreal: automation runs the binary it built, in CI. RAGE: the same. **Both agree** — a gate that compiles the client and never runs it proves the compiler.
 
-`test/run.sh` compiles `apps/driver` and never runs it. `NAMED_ONLY="apps"` reserves it for a named
+`test/run.sh` compiles the driver client (deleted) and never runs it. `NAMED_ONLY="apps"` reserves it for a named
 invocation, and naming it answers:
 
-    run.sh: no declared suite under apps/driver/src
+    run.sh: no declared suite under the driver client (deleted)
 
 -- because a program is not a suite. So the one thing CLAUDE.md calls outshine's integration test
 is only ever type-checked, and board:1963 stood for however long it stood without any gate noticing
@@ -42,7 +42,7 @@ deterministic rather than merely possible.
       proof: outshine/door/ScoreWhatTheDriveMeasures, and `sh test/gate.sh` naming apps/ among
       what it does NOT cover
 **BOTH REMAINING PREDICATES ARE THE DRIVER'S, AND THE DRIVER IS PARKED.** The owner's direction:
-`apps/driver` is developed further when outshine itself is "done", and until then `apps/bench` is
+the driver client (deleted) is developed further when outshine itself is "done", and until then `apps/bench` is
 the tool, used surgically. So these two wait on that, and they are not a step toward the benchmark
 in the meantime -- a pinned tile set for a client nobody develops buys nothing today.
 
@@ -56,4 +56,4 @@ in the meantime -- a pinned tile set for a client nobody develops buys nothing t
       is the world under it.
 - [x] the run fails the gate when the drive refuses -- moving `scene.gltf` aside turns it red
 - [ ] the drive is its own suite rather than a case borrowing the door's, once a program can be
-      one: `NAMED_ONLY="apps"` still answers "no declared suite under apps/driver/src"
+      one: `NAMED_ONLY="apps"` still answers "no declared suite under the driver client (deleted)"

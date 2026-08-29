@@ -36,6 +36,6 @@ Measure the G-buffer's bandwidth over a drive: bytes written per frame by the ge
 what fraction of the frame budget that is on this device. If it is small, the answer is no and
 this item closes as a decision rather than a build.
 
-- [ ] the geometry pass's per-frame write bandwidth is measured over `apps/driver`
+- [ ] the geometry pass's per-frame write bandwidth is measured over the driver client (deleted)
 - [ ] the row is written into CLAUDE.md's settled table with its number -- taken or refused, and
       an item that ends in a REFUSAL is closed the same as one that ends in code

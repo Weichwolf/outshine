@@ -29,7 +29,7 @@ surfaces, water, infrastructure. `RegionForge` is held only by `Clients::Sim`, a
       Moved here from board:1574, whose own measurement sent it: that item blamed
       `SubjectDraw::SetMesh` for re-uploading every stream at every relay, and a `mesh-relay` tag
       over a 48-step drive reads ZERO -- the renderer costs nothing per step. What the drive
-      takes, per step, over `apps/driver/src/f31.scenario` at 320x180:
+      takes, per step, over `the driver client (deleted)/f31.scenario` at 320x180:
 
           world-restand         1 106 280 B      GroundStack::Restand
           untagged              1 365 596 B      a thread no tag covers yet

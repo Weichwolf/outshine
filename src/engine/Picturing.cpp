@@ -1521,6 +1521,17 @@ bool Engine::readPixels(std::vector<uint8_t> &rgba) {
   return S_->Picture.Standing->ReadPixels(rgba, S_->Error);
 }
 
+bool Engine::readPixels(Buffer which, std::vector<float> &out) {
+  if (!S_->Stood()) { return false; }
+  if (!S_->Picture.Standing) {
+    S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
+    return false;
+  }
+  S_->Picture.Device.WantsPixels();
+  if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
+  return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
+}
+
 bool Engine::saveScreenshot(std::string_view path) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {

@@ -275,10 +275,22 @@ struct Event {
   std::vector<std::string> Carries;
 };
 
+// FILAMENT'S CAMERA CARRIES ITS OWN PROJECTION -- `setProjection(fov, aspect, near, far)` and
+// `lookAt(eye, centre, up)` -- and a declaration that states a clip range or an aim point means it.
+// Unreal's `FMinimalViewInfo` is the same three: a location, a rotation and a projection. The
+// engine's own defaults stand where a field is left at zero, which is what an UNDECLARED section
+// means everywhere else on this page.
 struct Camera {
   bool Placed = false;
   Standing Stands;
   double FovDeg = 0.0;
+
+  double NearM = 0.0;
+  double FarM = 0.0;
+
+  bool LooksAt = false;
+  double LookAtM[3] = {0.0, 0.0, 0.0};
+  double RollRad = 0.0;
 };
 
 struct View {

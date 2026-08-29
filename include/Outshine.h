@@ -52,11 +52,24 @@ struct Roots {
 
 class Engine;
 
+// WHICH PICTURE A FRAME IS READ FROM. `Colour` is the displayed one and comes back as bytes;
+// every other name is scene-referred and comes back as float, because a linear value quantised to
+// 8 bits is no longer the value that was computed.
+//
+// NEITHER ENGINE ANSWERS THIS ONE THE SAME WAY, so the choice is stated here. Filament reads a
+// render target through one verb with a pixel FORMAT and offers no second picture; Unreal offers
+// many under "buffer visualisation" and no single read. Taking Filament's ONE VERB with Unreal's
+// NAMED PICTURES: a client asks the same question and says which picture it is about. The list is
+// what a conformance harness has to see to state a claim about a frame -- a linear delta against
+// an oracle, a depth probe, a shading normal -- and it is not a debug menu.
+enum class Buffer { Colour, Linear, Depth, ShadingNormal, SurfaceIdentity, Velocity };
+
 class Renderer {
 public:
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 
   // HOW MANY FRAMES THIS PLAN NEEDS BEFORE IT IS SHOWING WHAT IT MEANS TO SHOW. A temporal resolve
   // gathers its samples over TIME -- the projection is jittered by a sub-pixel offset each frame and
@@ -135,6 +148,7 @@ private:
   [[nodiscard]] bool render(Extent frame);
   [[nodiscard]] bool saveScreenshot(std::string_view path);
   [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] bool readPixels(Buffer which, std::vector<float> &out);
 
   struct State;
   [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);

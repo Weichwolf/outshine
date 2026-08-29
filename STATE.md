@@ -15,7 +15,7 @@ whose proof this tree does not hold is reported rather than counted.
 | `audio` | 8/6 | 43% | -- | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md) 6, [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) 2 | |
 | `client` | 8/3 | 27% | -- | [1947](board/1947_a_client_is_almost_no_code.md) 7, [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) 1 | |
 | `corpus` | 5/3 | 38% | -- | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) 5 | |
-| `door` | 14/7 | 33% | [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6 | |
+| `door` | 14/7 | 33% | -- | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md) 6, [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) 8 | |
 | `gpu-driven` | 17/5 | 23% | -- | [1943](board/1943_no_cpu_term_scales_on_the_frame_path.md) 7, [1985](board/1985_sim_video_audio_and_io_run_independently.md) 3, [2012](board/2012_the_picture_reflects.md) 4, [2013](board/2013_the_sky_lights_what_it_stands_over.md) 3 | |
 | `perception` | 5/1 | 17% | -- | [1945](board/1945_a_body_perceives_what_is_around_it.md) 5 | |
 | `render-plan` | 4/3 | 43% | -- | [1941](board/1941_the_render_plan_compiles_and_every_row_executes.md) 4 | |
@@ -64,14 +64,14 @@ And the verbs, because a client calls those rather than the types:
 | `setScene` | Filament | **not yet** |
 | `setCamera` | Filament | **not yet** |
 | `setViewport` | Filament | **not yet** |
-| `lookAt` | Filament | **not yet** |
-| `setProjection` | Filament | **not yet** |
+| `lookAt` | Filament | yes |
+| `setProjection` | Filament | yes |
 | `setExposure` | Filament | **not yet** |
 | `flushAndWait` | Filament | **not yet** |
 | `sampleHeight` | Cesium | yes |
 | `LongitudeLatitudeHeight` | Cesium | yes |
 
-**5 of 14 spoken.**
+**7 of 14 spoken.**
 
 OURS BY RIGHT, because Filament is a renderer and does not face the question:
 
@@ -140,6 +140,7 @@ outshine is rather than pretending to be a renderer it is not.
     Result render(Extent frame)
     Result saveScreenshot(std::string_view path)
     Result readPixels(std::vector<uint8_t> &rgba)
+    Result readPixels(Buffer which, std::vector<float> &out)
     int settleFrames(void) const
     Result drawsInto(SDL_Window *presents)
     Result setView(std::string_view view)
@@ -179,6 +180,7 @@ outshine is rather than pretending to be a renderer it is not.
     bool render(Extent frame)
     bool saveScreenshot(std::string_view path)
     bool readPixels(std::vector<uint8_t> &rgba)
+    bool readPixels(Buffer which, std::vector<float> &out)
     bool readScenarioInto(std::string_view path, Scenario &out)
     bool generated(const Scenario &scenario)
 
@@ -343,12 +345,12 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1535 | `cpp` | `engine/Picturing.cpp` |
+| 1546 | `cpp` | `engine/Picturing.cpp` |
 | 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 955 | `cpp` | `engine/Live.cpp` |
+| 984 | `cpp` | `engine/Live.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
@@ -362,10 +364,10 @@ The widest public surfaces.
 | `[[nodiscard]]` | header |
 |---|---|
 | 66 | `src/render/SceneRenderer.h` |
-| 60 | `src/engine/Live.h` |
+| 61 | `src/engine/Live.h` |
 | 51 | `src/import/Document.h` |
+| 47 | `include/Outshine.h` |
 | 45 | `src/import/Subject.h` |
-| 45 | `include/Outshine.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins

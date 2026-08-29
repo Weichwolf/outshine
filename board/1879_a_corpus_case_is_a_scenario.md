@@ -25,7 +25,7 @@ exhaustiveness need no case at all.
 
 **Measured 2026-08-25 at a32c4919: 13 of the 17 declared suites are granted a `-Isrc/...` path
 by `LayerIncludes` (test/run.sh:210-224). Only `harness/wpt/css`, `harness/test262/js`,
-`apps/driver/src` and `apps/viewer/src` reach the library through `include/` alone.** The rule is
+the driver client (deleted) and `apps/viewer/src` reach the library through `include/` alone.** The rule is
 not eroding at the edges; it is the default way a case gets written, and STATE.md does not print
 the number (board:1907).
 

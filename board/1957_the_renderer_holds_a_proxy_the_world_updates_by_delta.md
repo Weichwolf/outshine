@@ -27,7 +27,7 @@ declaration causes is proportional to what it CHANGED.
 So a declared subject that merely sits there never re-placed, and a negative control that forced
 every row to re-send left `ScoreWhatAnUnchangedFrameSends` green. The per-frame rebuild is real
 and it is the drive's, which is the path that matters for the frame budget and the one no case
-here can stand -- a drive needs a vehicle asset and a route. That proof is owed to `apps/driver`.
+here can stand -- a drive needs a vehicle asset and a route. That proof is owed to the driver client (deleted).
 
 What landed: the renderer KEEPS `Placed_` across frames and gains `PlacementRows` and
 `MovePlacement`, both callers send only rows whose sixteen doubles differ from what they last
@@ -86,7 +86,7 @@ That is the honest reason the delta cannot be closed from here, and it REPLACES 
 written above (which said board:1574 had to hold more than one subject first -- 1574 has since
 ticked exactly that, so the old blocker is gone and was never the real one).
 
-What would measure it: a scene where the SIM moves many bodies a tick. `apps/driver` is one and is
+What would measure it: a scene where the SIM moves many bodies a tick. the driver client (deleted) is one and is
 not the tool right now; the other is a synthetic bench scene of N moving bodies, which is what
 `apps/bench` exists to be. Until one of the two stands, a delta built here would be a line of code
 defended by nothing.

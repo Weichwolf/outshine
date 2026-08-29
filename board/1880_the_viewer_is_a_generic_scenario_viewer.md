@@ -29,10 +29,10 @@ scenario and the door really is two headers.
 **It builds, it links and IT PAINTS.**
 
 ```
-build/outshine-viewer --headless --show apps/driver/src/f31.scenario \
+build/outshine-viewer --headless --show the driver client (deleted)/f31.scenario \
   --assets .../apps-driver-f31 --frames 3 --into DIR
   BROWSING 1423 case(s) under test
-  SHOWING apps/driver/src/f31.scenario at 1280x720, headless
+  SHOWING the driver client (deleted)/f31.scenario at 1280x720, headless
   SHOWED 3 frame(s)
 ```
 

@@ -12,7 +12,7 @@ links `build/liboutshine.a` (163 objects), `build/outshine-driver` and `build/ou
 and `test/run.sh` runs its 25 claims and the corpora to a trailer. The one file was repaired.
 
 The three occurrences that filed this item were an UNDECLARED layer
-(`tools/host/DelayedTransport.cpp` at 1af2c00b), a NEW entry point (`apps/driver/src/main.cpp`)
+(`tools/host/DelayedTransport.cpp` at 1af2c00b), a NEW entry point (the driver client (deleted at the owner's word))
 and a source that did not COMPILE (`apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8`, a
 missing `Check.h`). Each time the fix was the file, and each time the gate went silent again the
 next time some other file broke -- because nothing in `test/run.sh` turns an unbuildable source

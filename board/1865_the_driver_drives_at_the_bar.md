@@ -8,7 +8,7 @@ Tags: driver, acceptance, product
 
 **Benchmark** — Unreal: a producer signs off a build against a look target. RAGE: the same. **Both agree** — the picture is judged by someone who did not build it, on shots they chose.
 
-`apps/driver` is outshine's ONE integration test and simultaneously its product. Everything it
+the driver client (deleted) is outshine's ONE integration test and simultaneously its product. Everything it
 uses is library, and what the library owes is corpus cases against invariant oracles. Emergence is
 judged HERE, on the picture, from what was SEEN by RUNNING the programme.
 
@@ -39,7 +39,7 @@ Two routes chosen to ask different questions, each driven in first person and in
 | is there a sun? | **judged by consequence: NO** | no disc reachable by any route the driver offers, and neither of its consequences is present -- no highlight on the paint, no cast shadow on the ground (board:1868, 1575) |
 | how bright is the frame? | **peak 130 of 255 first person, 149 chase** | exposure a constant 5.20833e-05 1/(cd/m2) on BOTH routes regardless of content. Nothing in any of 32 stills reaches white |
 | what does the picture do at one km it does not do at another? | **it changes its ground by 15x** | same clock, flat route, 400 m apart |
-| does a key move the car? | **NO** | `apps/driver` offers no `Host` (board:1803) |
+| does a key move the car? | **NO** | the driver client (deleted) offers no `Host` (board:1803) |
 | can the acceptance command choose the view? | **NO** | `--help` offers no view flag; the declared `chase` view was reachable only by copying the scenario and editing it. Half of every declared still is unlit cabin |
 
 Two of the five routes chosen refused to lay a corridor: `48.1392,11.5875 -> 48.1368,11.5965`

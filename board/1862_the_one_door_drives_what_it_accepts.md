@@ -45,7 +45,7 @@ work with and nothing else, and board:1894 has the defect the weld already carri
 | declared | it stands | what the door does with it, at 817ea333 |
 |---|---|---|
 | `Views` | `ViewBook` | **advanced** — `Engine::Rides` (Engine.cpp:820-822) takes the active view every tick and the camera follows it |
-| `Input` | `InputMap` + `InputPump` | **translated and handed to the client.** `Engine::Acts` is gone at 35829990; the pump translates (`:419-420`) and `Host::Calls` carries the declared name (`:428`), so the engine names no action of its own. `apps/driver` offers no host, so its four driving bindings still reach nothing (board:1803) |
+| `Input` | `InputMap` + `InputPump` | **translated and handed to the client.** `Engine::Acts` is gone at 35829990; the pump translates (`:419-420`) and `Host::Calls` carries the declared name (`:428`), so the engine names no action of its own. the driver client (deleted) offers no host, so its four driving bindings still reach nothing (board:1803) |
 | `Volumes`/`Events` | `TriggerField` | **probed and never fires** — board:1891 has the measurement |
 | `Tables` | `TableBook` | no host reads one |
 | `Sounds`/`Buses` | `BusGraph` | no reference outside its own two files |
@@ -56,7 +56,7 @@ A declaration the engine ACCEPTS and does not execute is worse than one it refus
 
 - [x] `Engine::Assemble` lays the DRIVE the scenario declares, or refuses it by name.
 - [ ] The ten stills are spaced by DISTANCE along the route, not by frame. The spacing is
-      `alongM * Stills >= (nextStill + 1) * routeM` (apps/driver/src/main.cpp:196-198) and it
+      `alongM * Stills >= (nextStill + 1) * routeM` (the driver client (deleted):196-198) and it
       is off by one at BOTH ends: the tenth still needs `alongM >= routeM`, which a drive that
       stops inside its arrival tolerance never reaches -- 302 m declared, 282 m driven, NINE
       stills -- and the first fires only at a tenth of the route, so the start of the drive is
@@ -69,7 +69,7 @@ A declaration the engine ACCEPTS and does not execute is worse than one it refus
       quantum. 20158 settled of 45248 is the measurement to beat.
 - [ ] Every other row of the table is reached from `src/`, once, through the door — or refused
       by name at assembly.
-- [ ] `apps/driver` with NO arguments writes ten stills of the ROAD and consecutive ones DIFFER.
+- [ ] the driver client (deleted) with NO arguments writes ten stills of the ROAD and consecutive ones DIFFER.
       At 817ea333 it writes one `refused.png`. A 302 m `--from`/`--to` variant routes and keeps
       NINE — nine, not ten, over a route the door was asked for ten of.
 - [x] An ACTION carries its effect in the declaration. The engine names no action of its own.

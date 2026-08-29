@@ -273,6 +273,10 @@ Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
   return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->error());
 }
 
+Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
+  return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->error());
+}
+
 Renderer Engine::renderer(void) { return Renderer(*this); }
 
 bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {

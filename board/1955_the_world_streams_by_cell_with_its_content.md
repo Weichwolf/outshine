@@ -64,7 +64,7 @@ built on top of it than after.
       checks moved from 1.012 to 1.027 and stands. Widening `kCoarseSlots` would cross the
       budget and fire the eviction path for the first time, and that is NOT the way to prove
       it: spending memory to reach a guard proves the guard.
-- [ ] `apps/driver` drives out of the declared extent and the picture does not break
+- [ ] the driver client (deleted) drives out of the declared extent and the picture does not break
 - [ ] a cell grows OFF the frame thread, and it does so on `Base::Graph` -- the task graph with
       explicit dependencies that TARGET takes because RAGE and Unreal agree on it. `RegionForge`
       was a bespoke thread and condition variable doing this for one caller and reachable from

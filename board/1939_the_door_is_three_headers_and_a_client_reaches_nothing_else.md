@@ -20,7 +20,7 @@ happens to be open.
       proof: outshine/door/ScoreWhatAnUndeclaredSectionCarries
 - [x] a declaration that names nothing stands nothing -- parts enter AND leave
       proof: outshine/door/ScoreWhatTheShadowCasts
-- [ ] every verb the door offers is REACHED by `apps/driver`; a verb no client calls is a verb
+- [ ] every verb the door offers is REACHED by the driver client (deleted); a verb no client calls is a verb
       nobody has checked (`Takes`, `Offers` stand uncalled today)
 - [ ] `Along()` and `Whole()` go behind `Scene()` -- a drive's odometer is not a door verb
 - [ ] the door ADVANCES what it accepts: a scenario written against an older door still stands,

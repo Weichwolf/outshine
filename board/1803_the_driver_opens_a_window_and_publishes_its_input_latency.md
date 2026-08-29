@@ -20,7 +20,7 @@ declared action's NAME to `Host::Calls` (:428), where the client decides what it
 engine offers `Takes(view)` and `Views()` (include/Outshine.h:48-49) so a client can act on a
 view without the engine knowing what for, and `apps/viewer` answers `next-view` through them.
 
-What is left is the other half. `apps/driver` offers NO host at all, so
+What is left is the other half. the driver client (deleted) offers NO host at all, so
 `if (S_->Offered == nullptr) { return false; }` (src/engine/Engine.cpp:433) drops every key
 before it is translated, and the four bindings `f31.scenario` declares -- `throttle`, `brake`,
 `steer-left`, `steer-right` -- reach nothing. There is also no window to press a key in: the
@@ -35,12 +35,12 @@ it is a latch, and no case in the tree presses a key and lets it go.
 
 ## What will be true
 
-- [ ] `apps/driver` opens a real window and drives it with the declared `InputMap` through
+- [ ] the driver client (deleted) opens a real window and drives it with the declared `InputMap` through
       `InputPump` — the same bindings the scenario declares, no second spelling (board:1862).
 - [x] The engine names no action of its own. The pump translates and `Host::Calls` carries the
       declared name to the client (src/engine/Engine.cpp:428).
 - [ ] A key moves the car. `throttle`, `brake`, `steer-left` and `steer-right` reach the pilot's
-      seat as a driver INPUT that overrides the plan, through a host `apps/driver` offers.
+      seat as a driver INPUT that overrides the plan, through a host the driver client (deleted) offers.
 - [ ] The case publishes input-to-present as p50/p95/p99, named as PIPELINE latency rather than
       photon latency, because a photon measurement needs a high-speed camera and the tree has
       none.

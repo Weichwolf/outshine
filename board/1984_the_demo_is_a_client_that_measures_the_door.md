@@ -30,13 +30,13 @@ What it will show, because it cannot be written any other way:
       naming an outshine header other than the door's.
       proof: outshine/door/ScoreWhatAHeadlessRunDoes
 - [ ] every line it needs that the door cannot give is a finding filed against the door
-- [x] its line count stands beside `apps/driver`'s in `STATE.md`. The Clients section counts
+- [x] its line count stands beside the driver client (deleted)'s in `STATE.md`. The Clients section counts
       every program under `apps/` and says what each REACHES -- and the honest column there is
       whether it LINKS from `liboutshine.a` alone, not whether it compiles, because an
       include path into `src/` is only one of the two ways past the door.
 
           | 194 | 1 | apps/demo   | include/ alone
-          | 248 | 1 | apps/driver | include/ alone
+          | 248 | 1 | the driver client (deleted) | include/ alone
           | 706 | 3 | apps/viewer | does not link from the library alone
 
       proof: harness/claims/EveryClientIsMeasuredOnThatPage

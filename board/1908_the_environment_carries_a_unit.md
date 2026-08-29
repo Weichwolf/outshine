@@ -24,7 +24,7 @@ the two are summed after one exposure divides both:
     ambient  = 0.06   * Exposure     = 3.125e-06   = 0.80 of 255 in sRGB
 
 So a studio scenario's ambient is off by five orders of magnitude unless its author happens to
-write the number in lux, and nothing in the declaration says to. `apps/driver/src/f31.scenario`
+write the number in lux, and nothing in the declaration says to. `the driver client (deleted)/f31.scenario`
 carried `r="0.06" g="0.07" b="0.09"` and removing it changed the picture by nothing measurable:
 mean max(RGB) 47.19 with, 47.19 without.
 

@@ -31,7 +31,7 @@ handling and layout data read at load; Unreal's Chaos vehicle is a component tre
 editor, and its wheels are `UChaosVehicleWheel` ASSETS. Neither writes a vehicle as engine C++, and
 neither exposes a raw solver API to do it either.
 
-Once this stands, `apps/driver`'s vehicle is a declaration in `apps/driver/src/` rather than
+Once this stands, the driver client (deleted)'s vehicle is a declaration in `the driver client (deleted)/` rather than
 `src/sim/`'s 1879 lines, of which `Rigging` alone carries 44 vehicle words. What stays in the
 engine is what has none: `GroundUnderfoot`, the query for what a wheel stands on.
 
@@ -39,4 +39,4 @@ engine is what has none: `GroundUnderfoot`, the query for what a wheel stands on
 - [ ] a scenario declares a drive on a degree of freedom: target, limit, ratio
 - [ ] the engine integrates a rig it did not have to be told the shape of, proven by a case that
       declares something that is not a car -- a door, or an arm -- and moves it
-- [ ] `apps/driver`'s vehicle is declared, and the vehicle half of `src/sim` is gone
+- [ ] the driver client (deleted)'s vehicle is declared, and the vehicle half of `src/sim` is gone

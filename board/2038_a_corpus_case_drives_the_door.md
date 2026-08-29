@@ -41,6 +41,28 @@ THREE CONSEQUENCES, ALL MEASURED TODAY:
 - The parity oracle therefore states that the RENDER INTERNALS agree with Khronos, not that
   outshine does. Whether the engine's own submission path draws these files at all is untested.
 
+## WHAT THE HARNESS REACHES FOR, AND WHAT THE DOOR ANSWERS
+
+Measured by listing every internal call the file makes. This is the door's shopping list, and each
+row is a benchmark question rather than a wish.
+
+| the harness reaches | the door today | the name it should wear |
+|---|---|---|
+| `ReadSceneLinear` | nothing -- `readPixels` is 8-bit sRGB | Filament's `readPixels` takes a pixel FORMAT, so a float one is the same verb |
+| `ReadDepth` | nothing | the same verb, naming the depth attachment |
+| `ReadShadingNormal` · `ReadSurfaceIdentity` · `ReadSceneVelocity` | nothing | Unreal's buffer-visualisation targets, named |
+| `SubjectDrawCount` · `SubjectBatchCount` | nothing | Unreal keeps them in `FSceneRenderer`'s stats; Filament has none. **Ours**, and the reason is that board:1943's whole claim is a draw count |
+| camera: orthographic, near, far | `Camera{Placed, Stands, FovDeg}` | Filament's `Camera::setProjection(Projection, ...)` carries kind, near and far |
+| `studio.Around` · `IndirectLight` | `Lighting::IndirectLight` -- **already there** | Filament `Scene::setIndirectLight` |
+| `studio.Lit` · `Lights` | `Lighting::Key` -- **already there** | Filament `Scene::addEntity` |
+| `studio.Emits` | `Material::Emissive` -- **already there** | |
+| `studio.Posed` | a scenario's animation -- **already there** | |
+| `renderer.Init` · `DeviceUsable` · `RenderFrame` · `SettleFrames` | `Engine::renderer()`, `render`, `settleFrames` -- **already there** | |
+
+Half of it the door already answers and the harness reaches past anyway, which is its own finding:
+the file was written against the internals and never revisited. The other half is real and is what
+this item buys.
+
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
       alone, and the driving part of it fits on a screen
 - [ ] The scoring stays as long as it needs to be: an EXR oracle, a p99 delta and an acceptance

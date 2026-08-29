@@ -9,11 +9,11 @@ Supersedes: 1525, 1619, 1635
 **Benchmark** — Unreal: a module's `Public/` is the only surface another module may include, enforced by include paths in `Build.cs`. RAGE: fw/rage libraries with their own headers. **Taking Unreal** — the compiler enforcing it is the difference between a boundary and a habit.
 
 The rule is the owner's and the enforcement is the build's: when the include set cannot express
-the breach, the rule needs no reviewer. Today `apps/driver/src` is declared with sixteen
+the breach, the rule needs no reviewer. Today the driver client (deleted) is declared with sixteen
 `-Isrc/...` entries (test/run.sh:195) — the internals wholesale.
 
 **Measured 2026-08-25 at 1af2c00b**: the SOURCE now obeys the rule and the BUILD does not.
-`apps/driver/src/main.cpp` includes `<outshine/Outshine.h>` and `<outshine/Fetching.h>` and
+the driver client (deleted at the owner's word) includes `<outshine/Outshine.h>` and `<outshine/Fetching.h>` and
 nothing else, but test/run.sh:195 still opens `-Itools/host` beside the sixteen `-Isrc/...`,
 so the door the driver walked through by hand is one `#include` away from being left open again.
 

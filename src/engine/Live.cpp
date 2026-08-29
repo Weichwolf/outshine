@@ -676,6 +676,35 @@ bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
   return true;
 }
 
+bool Live::ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error) {
+  if (Renderer_ == nullptr || !Renderer_->Drew()) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  Render::ReadState state = Render::ReadState::Failed;
+  switch (which) {
+    case outshine::Buffer::Colour:
+      error = "the displayed picture is read as bytes, not as scene-referred float";
+      return false;
+    case outshine::Buffer::Linear: state = Renderer_->ReadSceneLinear(out); break;
+    case outshine::Buffer::Depth: state = Renderer_->ReadDepth(out); break;
+    case outshine::Buffer::ShadingNormal: state = Renderer_->ReadShadingNormal(out); break;
+    case outshine::Buffer::SurfaceIdentity: state = Renderer_->ReadSurfaceIdentity(out); break;
+    case outshine::Buffer::Velocity:
+      if (!Renderer_->Plan().Holds(Render::Resource::SceneVelocity)) {
+        error = "this plan carries no velocity, so no frame of it has one to read";
+        return false;
+      }
+      state = Renderer_->ReadSceneVelocity(out);
+      break;
+  }
+  if (state != Render::ReadState::Ready) {
+    error = "the frame did not come back from the device";
+    return false;
+  }
+  return true;
+}
+
 bool Live::Screenshot(const std::string &path, std::string &error) {
   if (Renderer_ == nullptr || !Renderer_->Drew()) {
     error = "nothing has been drawn yet, so there is no frame to write";

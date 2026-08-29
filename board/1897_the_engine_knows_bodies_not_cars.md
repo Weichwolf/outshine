@@ -87,7 +87,7 @@ The order this is done in:
 3. DONE -- `Along()` and `Whole()` are gone from the door. They were drive-specific verbs that a
    client had to call to learn a route's progress, so the door promised a JOURNEY to anyone who
    read it. They are measures now, on the return channel `include/Event.h` already provides:
-   `how long the corridor is` and `how far along it the body has come`. `apps/driver` reads them
+   `how long the corridor is` and `how far along it the body has come`. the driver client (deleted) reads them
    like any other number and lost nothing.
 4. RE-READ AND REDIRECTED. A `Column` is opened AGAINST the store -- `Bodies.Open(Scene)` -- so it
    is the store's sidecar and not the assembler's; the engine holds handles to them and nothing

@@ -34,7 +34,7 @@ before the code moves, not during it.
 
 **What would show this was wrong**: if the argument-buffer round trip costs more than the draws
 it replaces at this scene size, then a 720p engine with tens of subjects does not need what an
-engine with tens of thousands does. Frame time over `apps/driver` before and after is the number,
+engine with tens of thousands does. Frame time over the driver client (deleted) before and after is the number,
 and board:1989 takes the baseline so there is something to compare against.
 
 - [ ] the culling stage writes an indirect argument buffer

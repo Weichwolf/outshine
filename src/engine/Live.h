@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <Outshine.h>
 #include <Scenario.h>
 
 #include "Asset.h"
@@ -110,6 +111,8 @@ public:
   [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
 
   [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);
+
+  [[nodiscard]] bool ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error);
 
   [[nodiscard]] bool PlacedBounds(double least[3], double most[3], std::string &error);
 

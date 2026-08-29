@@ -3,7 +3,7 @@ State: open
 Area: apps, scenario
 Tags: scope, driver, product
 
-# apps/driver is a Test Drive game: worldwide, declarative, and the camera sits in the seat
+# the driver client (deleted) is a Test Drive game: worldwide, declarative, and the camera sits in the seat
 
 **Benchmark** — Unreal: a sample project is content plus a launcher. RAGE: the game IS the client. **Neither ships a declarative test drive**, so the shape is this tree's own — and its line count is the measure of the door it stands on.
 
@@ -21,7 +21,7 @@ The owner's direction, and it outranks the rest of this board:
   is a gap.
 
 The draw is not the race, it is the PLACE: the Gotthard, the Stelvio, the Nullarbor — layers
-`apps/driver/src/routes.xml` already names. What is timeless in Test Drive (1987): the cockpit
+`the driver client (deleted)/routes.xml` already names. What is timeless in Test Drive (1987): the cockpit
 as the only view, the public road instead of the circuit, speed as transgression, and the car as
 an object one inhabits. Not rebuilt: lives and a score, police as a random spawn, engine damage
 on a wrong gear.

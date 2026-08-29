@@ -65,12 +65,15 @@ bool Engine::State::Watches(void) {
     ahead[1] = 2.0 * (q[1] * q[2] - q[3] * q[0]);
     ahead[2] = -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
   }
-  const double onto[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
+  const double aimed[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
+  const double onto[3] = {seen.Sees.LooksAt ? seen.Sees.LookAtM[0] : aimed[0],
+                          seen.Sees.LooksAt ? seen.Sees.LookAtM[1] : aimed[1],
+                          seen.Sees.LooksAt ? seen.Sees.LookAtM[2] : aimed[2]};
   Render::Viewpoint standing;
-  if (!Render::Viewpoint::LookAt(station, onto, 0.0, standing)) { return true; }
+  if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.RollRad, standing)) { return true; }
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
-  standing.ZNearM = Core::Live::NearestStandable();
-  standing.ZFarM = 0.0;
+  standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
+  standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
   Picture.Standing->Eye(standing);
   return true;
 }

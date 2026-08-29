@@ -107,7 +107,7 @@ its list. A guard is only as good as the words it knows, so this one names the r
       proof: harness/claims/TheRendererNamesNoSubject
 - [ ] the six children land in order: 1990 (one convention) · 1989 (instances) · 1991 (one
       cooker) · 1992 (culling) · 1993 (indirect draw) · 1994 (visibility buffer, decided)
-- [ ] `apps/driver`'s frame time is taken BEFORE the first of them, so "faster" is a measurement
+- [ ] the driver client (deleted)'s frame time is taken BEFORE the first of them, so "faster" is a measurement
       rather than a hope
 - [ ] every producer of 3D hands back a `Geometry` and there is no second entrance: the glTF
       reader, every generator, a scenario's declaration and a client's own code
