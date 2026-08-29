@@ -1492,6 +1492,16 @@ bool Engine::render(Extent frame) {
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  // WHAT THE FRAME COST, PUBLISHED WHERE A CLIENT CAN READ IT. These stood only inside the
+  // renderer, so the one harness that had to state a claim about them reached past the door for
+  // them -- and board:1943's whole claim IS a draw count, so a client that cannot read one cannot
+  // hold this engine to it. Unreal keeps them in FSceneRenderer's stats and Filament keeps none;
+  // this is ours, and the reason is written where the door is.
+  S_->Published.Places("subject draws", (double)S_->Picture.Device.SubjectDrawCount(), "draws");
+  S_->Published.Places("subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(),
+                       "calls");
+  S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");
+  S_->Published.Places("shadow ray near", (double)S_->Picture.Device.ShadowRayNearM(), "m");
   S_->Drew();
   return true;
 }

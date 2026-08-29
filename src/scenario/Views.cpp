@@ -26,9 +26,13 @@ std::expected<ViewBook, std::string> ViewBook::Stand(std::span<const View> decla
                              "client drives frame by frame is the defect this mechanism "
                              "replaces, and a view that STANDS is still declared");
     }
-    if (view.Person != "first" && view.Person != "third") {
-      return std::unexpected("view '" + view.Id + "' is '" + view.Person +
-                             "'-person, and this engine declares first and third");
+    // FIRST OR THIRD PERSON IS HOW A CAMERA STANDS TO A BODY IT FOLLOWS, so a view that FOLLOWS
+    // one has to say which. A view that STANDS -- placed, or anchored to the globe -- follows
+    // nothing and the question does not arise; demanding an answer to it turned every corpus case
+    // away at the door, because a conformance camera is placed by the case and follows no body.
+    if (!view.Follows.empty() && view.Person != "first" && view.Person != "third") {
+      return std::unexpected("view '" + view.Id + "' follows '" + view.Follows + "' as '" +
+                             view.Person + "'-person, and this engine declares first and third");
     }
     if (!(view.TimeScale > 0.0)) {
       return std::unexpected("view '" + view.Id + "' declares timeScale " +

@@ -74,6 +74,11 @@ bool Engine::State::Watches(void) {
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
+  if (seen.Sees.Orthographic) {
+    standing.Kind = Render::CameraKind::Orthographic;
+    standing.YMagM = seen.Sees.YMagM;
+    standing.XMagM = seen.Sees.XMagM > 0.0 ? seen.Sees.XMagM : seen.Sees.YMagM;
+  }
   Picture.Standing->Eye(standing);
   return true;
 }

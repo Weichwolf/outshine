@@ -326,12 +326,29 @@ struct Camera {
   double NearM = 0.0;
   double FarM = 0.0;
 
+  // GLTF HAS TWO CAMERAS AND SO DOES FILAMENT: a perspective one stating a field of view, and an
+  // orthographic one stating how many metres the frame spans. A door that carried only the first
+  // could not express half of what a file declares, and a conformance case that renders an
+  // orthographic asset against a reference has no way to say so.
+  bool Orthographic = false;
+  double XMagM = 0.0, YMagM = 0.0;
+
   // FILAMENT'S CAMERA IS GIVEN ITS PROJECTION AS ONE CALL -- a field of view, a near and a far --
   // and a client that knows that reaches for the verb rather than for three fields. Here it says
   // the same thing into a declaration, which is the tree's own shape: the engine still behaves
   // rather than obeys, and a section left undeclared keeps the engine's own default.
   void setProjection(double fovDeg, double nearM, double farM) {
+    Orthographic = false;
     FovDeg = fovDeg;
+    NearM = nearM;
+    FarM = farM;
+  }
+
+  void setProjection(double leftM, double rightM, double bottomM, double topM, double nearM,
+                     double farM) {
+    Orthographic = true;
+    XMagM = 0.5 * (rightM - leftM);
+    YMagM = 0.5 * (topM - bottomM);
     NearM = nearM;
     FarM = farM;
   }
