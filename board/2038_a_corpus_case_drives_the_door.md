@@ -223,6 +223,22 @@ the count.
 it is worse than no instruction: it invites a confident reading of the wrong thing. That is its own
 finding and it is filed as board:2040.
 
+**THE RATIO, MEASURED IN THE BUFFER THE METRIC ACTUALLY READS.** Mean red over the whole frame:
+
+    the old path, flat        0.023480137     picture_p99_delta_code = 1 code, PASS
+    the door path, lit        0.000848601     picture_p99_delta_code = 177 codes
+
+**27.7x darker**, and the same run says why in the same breath: 8 draws on layout 4 and one on
+layout 6, which are LIT variants, where the old path draws flat. A Lambertian shade divides its
+irradiance by pi and spreads it over a cosine; a flat tint does not. That is the whole of the
+difference, and it is now a number rather than an impression -- the impressions were all of `Rgba`,
+which nothing scores (board:2040).
+
+With the three-part fix -- no ambient unless shaded, emission per node, the run filled -- the
+layouts go flat (9 on layout 1) and the metric reads 219, so the flat path overshoots in the other
+direction. The next round measures the same mean under THAT combination: one number, one buffer,
+and the answer is a factor rather than a hypothesis.
+
 That is the next round's work, and it is the last thing between this conversion and the tree.
 
 - [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
