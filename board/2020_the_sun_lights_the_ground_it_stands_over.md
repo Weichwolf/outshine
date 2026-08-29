@@ -54,3 +54,36 @@ light. That ordering is why this item is one item: the sun first, the shadow aft
 1. **The sun's own numbers first.** `SolarAt(36.0616, -112.1076, now)` must read roughly 50 deg of elevation at 10:36 local. If it reads a few degrees, the defect is in the solar term and not in the renderer, and this item is misfiled
 2. **The negative control is the terminator.** Render the same place at declared 06:00, 12:00 and 22:00 local: the ground's mean luminance must rise and fall with the sun's elevation. If all three match, nothing about the sun reaches the ground
 3. **The sky at a high sun is BLUE at the zenith.** Sample the frame's top row: at 50 deg of solar elevation the zenith must be blue-dominant. Olive means the green channel outruns the blue, which the Bruneton fit cannot do for a clear sky
+
+## What the item still owes: a PROOF at the door, and why three attempts did not earn one
+
+The hemispherical ambient stands and its inputs are published and hand-checkable. What it does NOT
+yet have is a case, and the honest reason is that every attempt so far measured the VIEW rather than
+the normal. Written down so the next round starts past them rather than in them:
+
+1. **A horizontal quad, sun 60 deg up, normals turned up then down.** The framing put the eye BELOW
+   the face and a double-sided surface turns its normal toward the viewer, so the arm labelled "up"
+   was shaded as one pointing down. The case reported the exact opposite of what it claimed and its
+   own "something was drawn" guard is what caught it
+2. **The quad moved into the view plane, sun on the horizon due east** so `n.l` is exactly zero for
+   both arms and only the indirect term can separate them. Sound in principle: the control held
+   (two same-way faces agreed to 0.000) and turning the normal moved the picture. But the frame is
+   nearly black at a horizon sun, and `Render.Exposure` did not reach the frame at all -- a separate
+   finding, and one this item is not the place for
+3. **The lux declared ten times a midday sun**, which a ratio is invariant to. Now the arms separate:
+   up (0.44, 0.44, 0.44), down (1.11, 0.89, 1.33). The DOWN face is bluer and brighter, which is
+   backwards -- the sky is the upper half. A diagnostic returning `skyShare` as a colour came back
+   uniform across all three arms, which means the handed quad is not reaching `shadeRow` at all and
+   every number above is background
+
+**So the door path and the ground path do not agree, and until that is settled a case here would
+pin the wrong behaviour.** The ground path is measured and right: `Picturing` publishes sky
+(348, 696, 1553) and bounce (1063, 1309, 674) cd/m2, the derivation checks by hand to 1 per cent,
+and the frame shows sunlit walls turning light where they were sky-blue. That is evidence; it is not
+a proof, and this item does not claim a tick it has not earned.
+
+- [ ] why a handed `Geometry` does not reach `shadeRow`, which makes any door-level lighting case
+      unsound -- and is very likely a defect worth more than this item
+- [ ] `Render.Exposure` reaches the frame
+- [ ] the item's own second control, never run: the ground's mean luminance rises and falls with the
+      sun's declared elevation
