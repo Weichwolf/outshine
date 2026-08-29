@@ -22,8 +22,9 @@ symptom.
 
 ## What will be true
 
-- [ ] a footprint's base is the height of the terrain that is DRAWN beneath it, at the level that terrain is drawn at
-- [ ] the same holds for a way's centreline along its whole length
+- [ ] a footprint's base is the height of the terrain that is DRAWN beneath it. The buildings cover the same gap with a PLINTH instead -- derived from the footprint's own ground spread -- which works and costs geometry a drape would not
+- [x] a way's centreline asks the ground that is DRAWN at every vertex. Measured at Rothenburg: the drawn ground stood over a road by 11 m at worst and under a metre on average; it now stands over none, and the street network is visible near and far
+- [ ] the query is a RAY against the mesh rather than a grid cell's high point -- the stand-in's error is a cell's own relief, and the cell is the tile grid's 32 m
 - [ ] when the terrain's level changes under a standing building, the building moves with it
 
 ## The measurements that would show I am wrong

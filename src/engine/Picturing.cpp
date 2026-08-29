@@ -489,6 +489,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   // the real answer, which is to ask the DRAWN surface rather than the raster behind it.
   constexpr double kRoadAboveM = 1.0;
   constexpr double kGapGridM = 20.0;
+  constexpr double kDrapeGridM = 32.0;
   const int ringSurface = ground.Surface("ground", bare);
   const int ringPart = ground.Part("ground", ringSurface);
 
@@ -739,6 +740,47 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
                                                              laid->Index.size()));
 
+  // THE HEIGHT OF THE GROUND THAT IS DRAWN, not of the raster behind it. Cesium answers
+  // `sampleHeightMostDetailed` from the tileset that is LOADED for exactly this reason: a building or
+  // a road placed on the raster sinks into or floats over the surface a viewer actually sees, by
+  // whatever the terrain mesh's grid missed. Measured at Rothenburg over 31 275 road vertices, that
+  // was under a metre on average and 11 m at worst.
+  //
+  // This is a coarse stand-in for a ray against the mesh and it says so: one cell per `kDrapeGridM`,
+  // holding the HIGHEST ring vertex in it, so a draped thing rests on the local high point rather
+  // than cutting through it. Its error is a cell's own relief, which is why the cell is the tile
+  // grid's own spacing rather than a rounder number (board:2028).
+  std::unordered_map<uint64_t, float> drawnGround;
+  {
+    drawnGround.reserve(inFrame.size() / 3);
+    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+      const int64_t east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
+      const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
+      const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+      const auto stood = drawnGround.find(key);
+      if (stood == drawnGround.end() || inFrame[at + 1] > stood->second) {
+        drawnGround[key] = inFrame[at + 1];
+      }
+    }
+  }
+  const auto drapedOver = [&drawnGround](double eastM, double southM, double fallback) {
+    const int64_t east = (int64_t)std::llround(eastM / kDrapeGridM);
+    const int64_t south = (int64_t)std::llround(southM / kDrapeGridM);
+    double highest = fallback;
+    bool found = false;
+    for (int64_t dy = -1; dy <= 1; ++dy) {
+      for (int64_t dx = -1; dx <= 1; ++dx) {
+        const uint64_t key = ((uint64_t)(east + dx + 0x20000000) << 32) |
+                             (uint64_t)(south + dy + 0x20000000);
+        const auto stood = drawnGround.find(key);
+        if (stood == drawnGround.end()) { continue; }
+        if (!found || (double)stood->second > highest) { highest = (double)stood->second; }
+        found = true;
+      }
+    }
+    return highest;
+  };
+
   // STREETS ARE GEOMETRY: a profile swept along the centreline, with its own material. Unreal sweeps
   // a spline mesh along a road spline; RAGE authors road geometry with its own shaders. Neither
   // paints a stripe on the terrain, and OSM carries no height, so each vertex asks the ground where
@@ -795,9 +837,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         ++laidWays;
         const auto lay = [&](const double *from, double raise) {
           double eastM = 0.0, upM = 0.0, northM = 0.0;
-          standing.Place(from[0], from[1], from[2] + raise, &eastM, &upM, &northM);
+          standing.Place(from[0], from[1], from[2], &eastM, &upM, &northM);
+          const double onDrawn = drapedOver(eastM, -northM, upM);
           places.push_back((float)eastM);
-          places.push_back((float)upM);
+          places.push_back((float)(onDrawn + raise));
           places.push_back((float)(-northM));
           facing.push_back(0.0f);
           facing.push_back(1.0f);
