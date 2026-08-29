@@ -40,11 +40,45 @@ The second said the toolchain might not be rebuilding what I changed. A destruct
 that: with `CreasesUncounted` returning ZERO creases for a hip, both cases drop to 44 triangles and
 0 holes. The tree is honest and the creases are the cause.
 
-**So: the creases cause it, their COUNT does not matter, and the effect scales with the footprint.**
-That leaves the handling of crease CROSSINGS, where `BreaksAlong` drops a crossing within an
-absolute `kWeldM` of an edge end while the edge itself grows with the building -- the one term in
-the pipeline that is absolute against a geometry that scales. Not yet measured, and named here so
-the next probe is a counter rather than a third derivation.
+**A THIRD HYPOTHESIS DIED TO THE COUNTER IT ASKED FOR.** Crease crossings are not it either:
+
+    footprint      6    7    8  |   9   10   11
+    breaks kept   24   24   24  |  24   24   24
+    breaks dropped 96   96   96  | 144  144  144
+    holes           0    0    0  |   6    6    6
+
+The KEPT set is identical everywhere, and widening the dedupe took the broken cases from 144
+dropped to 72 -- FEWER than the clean ones -- with the holes unmoved. More dropped crossings do not
+mean holes, and the crossings that survive are the same crossings.
+
+## FOUND, AND IT IS TWO THRESHOLDS INSIDE ONE FUNCTION
+
+For a near-square plan `halfU - halfV = d`, so the hip line `{1,-1,d}` passes EXACTLY through two
+opposite corners and its partner `{1,-1,-d}` passes `d * sqrt(2)` away from them -- 9.56 mm at an
+8 m footprint, 10.76 mm at 9 m. `ClipHalf` asks "is this corner ON the line" with `kOnLineM`, which
+was `kSamePointM` = 10 mm, and then asks "is this cut THE corner" with `kWeldM` = 20 mm, four lines
+below in the same function. Between the two the corner is beside the line for the clip and on the
+corner for the snap, the cell between them is cut out by one step and collapsed by the next, and its
+neighbours keep the vertices it loses.
+
+`kOnLineM = kWeldM` -- one question, one number. MEASURED, and the six triangles come back:
+
+    case              before          after
+    square house 9x9  76 tri 6 holes  82 tri 0 holes
+    9, 10, 11 m tower 64 tri 6 holes  70 tri 0 holes
+    broad spire 11x11 64 tri 6 holes  70 tri 0 holes
+    terrace / long hall / slab        unchanged, as predicted
+
+## AND IT UNCOVERED THE NEXT ONE RATHER THAN REMOVING SIX
+
+A 16 m square tower was clean before because this defect never let the sweep reach it. It now reads
+126 tri, **6 holes and 12 OVERUSED edges**, 2 flat and 4 upright, over a band 11.6 m tall -- where
+the old defect was 4 flat and 2 upright in a 4 cm band. A different defect wearing the same count.
+So the honest arithmetic is 6 closed and 6 uncovered, and the total stands at 22.
+
+A 20 m and a 28 m square are `tower/flat` with no creases at all, which is why they are clean and
+why they are not evidence about hips. They reached an EIGHTH architecture the sweep had never
+built.
 
 **Benchmark** — Unreal: `FMeshDescription` authored against `FStaticMeshLODResources` + `FNaniteResources` cooked. RAGE: `grmGeometry` cooked, and its file IS that form. **Both agree** — two forms and one cooker; this tree has nine.
 

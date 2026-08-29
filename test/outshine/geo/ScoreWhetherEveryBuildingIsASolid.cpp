@@ -249,6 +249,9 @@ int main(void) {
       {"an 8 m tower", Box(lat, lon, 8.0, 8.0), 42.0},
       {"a 9 m tower", Box(lat, lon, 9.0, 9.0), 42.0},
       {"a 10 m tower", Box(lat, lon, 10.0, 10.0), 42.0},
+      {"a 16 m tower", Box(lat, lon, 16.0, 16.0), 42.0},
+      {"a 20 m tower", Box(lat, lon, 20.0, 20.0), 42.0},
+      {"a 28 m tower", Box(lat, lon, 28.0, 28.0), 42.0},
       {"a broad spire, 11 by 11 m", Box(lat, lon, 11.0, 11.0), 55.0},
       {"a long hall, 120 by 30 m", Box(lat, lon, 120.0, 30.0), 14.0},
       {"a slab, 60 by 16 m", Box(lat, lon, 60.0, 16.0), 26.0},
@@ -286,10 +289,16 @@ int main(void) {
     plan.HeightM = one.HeightM;
     plan.HeightMeasured = true;
     plan.Street = street;
+    (void)RoofSurface::BreaksKeptTaken();
+    (void)RoofSurface::BreaksDroppedTaken();
+    (void)RoofSurface::BreaksMergedTaken();
     (void)RoofSurface::UnclippedTaken();
     (void)RoofSurface::OutsideTaken();
     std::vector<float> soup;
     grows.Mesh(plan, soup);
+    const size_t kept = RoofSurface::BreaksKeptTaken();
+    const size_t dropped = RoofSurface::BreaksDroppedTaken();
+    const size_t merged = RoofSurface::BreaksMergedTaken();
     (void)RoofSurface::UnclippedTaken();
     (void)RoofSurface::OutsideTaken();
 
@@ -303,10 +312,11 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f\n",
+    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
                 said.Degenerate, halfU - halfV, overhang, rise, juts, breaks, said.FlatHoles,
-                said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ);
+                said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
+                kept, dropped, merged);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());

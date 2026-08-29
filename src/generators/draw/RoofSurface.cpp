@@ -1,3 +1,4 @@
+#include <atomic>
 #include "RoofSurface.h"
 
 #include <span>
@@ -24,6 +25,10 @@ struct Line {
 // to the next, and a seam opened exactly there. A crease crossing dropped because it lay within
 // 2 cm of a corner still got cut at 1 cm by the clipper, and the piece between the two answers had
 // no partner.
+std::atomic<size_t> gBreaksKept{0};
+std::atomic<size_t> gBreaksDropped{0};
+std::atomic<size_t> gBreaksMerged{0};
+
 constexpr double kSamePointM = 0.01;
 // AND THIS ONE IS NOT THE SAME NUMBER, measured rather than assumed. Setting it to kSamePointM --
 // which is what tidiness wants -- took the tower from 14 holes to 8 and the SPIRE from 0 to 14. Two
@@ -31,7 +36,7 @@ constexpr double kSamePointM = 0.01;
 // hand is fitting rather than engineering. board:1949 is the answer: one subdivision decided ONCE
 // and shared, instead of several approximations tuned to agree.
 constexpr double kWeldM = 0.02;
-constexpr double kOnLineM = kSamePointM;
+constexpr double kOnLineM = kWeldM;
 constexpr double kOverhangM = 0.60;
 constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
@@ -305,6 +310,10 @@ std::vector<En> ClipHalf(const BuildingShape &shape, std::span<const En> poly, c
   return out;
 }
 
+size_t RoofSurface::BreaksKeptTaken() { return gBreaksKept.exchange(0u); }
+size_t RoofSurface::BreaksDroppedTaken() { return gBreaksDropped.exchange(0u); }
+size_t RoofSurface::BreaksMergedTaken() { return gBreaksMerged.exchange(0u); }
+
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
   Line lines[kMaxCreases];
@@ -325,12 +334,19 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     // buys a triangle with two corners in one place instead of a seam.
     const double reach = std::hypot(to.E - from.E, to.N - from.N);
     const double keepAway = reach > 1.0e-6 ? kWeldM / reach : 1.0;
-    if (t > keepAway && t < 1.0 - keepAway) { at.push_back(t); }
+    if (t > keepAway && t < 1.0 - keepAway) {
+      at.push_back(t);
+      gBreaksKept.fetch_add(1u, std::memory_order_relaxed);
+    } else {
+      gBreaksDropped.fetch_add(1u, std::memory_order_relaxed);
+    }
   }
   std::sort(at.begin(), at.end());
+  const size_t before = at.size();
   at.erase(std::unique(at.begin(), at.end(),
                        [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
            at.end());
+  gBreaksMerged.fetch_add(before - at.size(), std::memory_order_relaxed);
 }
 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
