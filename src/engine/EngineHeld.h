@@ -208,6 +208,7 @@ struct Seen {
   std::unique_ptr<Core::Live> Standing;
   Extent Frame{1280, 720};
   bool Targeted = false;
+  bool FrameOpen = false;
   Core::Declaration Shown;
   Ui::Typeface Face;
   Gltf::Subject Handed;

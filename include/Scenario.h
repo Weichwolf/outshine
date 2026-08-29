@@ -42,6 +42,12 @@ struct Georeference {
   double RadiusM = 6371008.8;
 };
 
+// THERE IS NO SKYBOX HERE AND THAT IS THE BETTER ANSWER, not a missing one. Filament's `Skybox` is
+// an image or a colour a scene shows where nothing else does; this engine's sun, moon and stars are
+// REAL -- they stand where the georeference and the clock put them, and the sky is computed from
+// that and the weather. A client hands in no picture of the sky because there is nothing it could
+// hand in that would agree with its own shadows the moment the clock moves. What it declares is
+// the weather, and `CloudCover` below is that.
 struct WorldSettings {
   bool Declared = false;
   Georeference Origin;
@@ -288,15 +294,57 @@ struct Camera {
   double NearM = 0.0;
   double FarM = 0.0;
 
+  // FILAMENT'S CAMERA IS GIVEN ITS PROJECTION AS ONE CALL -- a field of view, a near and a far --
+  // and a client that knows that reaches for the verb rather than for three fields. Here it says
+  // the same thing into a declaration, which is the tree's own shape: the engine still behaves
+  // rather than obeys, and a section left undeclared keeps the engine's own default.
+  void setProjection(double fovDeg, double nearM, double farM) {
+    FovDeg = fovDeg;
+    NearM = nearM;
+    FarM = farM;
+  }
+
   bool LooksAt = false;
   double LookAtM[3] = {0.0, 0.0, 0.0};
   double RollRad = 0.0;
+
+  // FILAMENT'S CAMERA TAKES A PHOTOGRAPHIC EXPOSURE -- aperture in f-stops, shutter in seconds,
+  // sensitivity in ISO -- and computes the scale from them, because those three are what a
+  // photographer knows and a bare multiplier is not. The engine keeps the multiplier (`Exposure`
+  // in the render section) and this DERIVES it, so a scenario may say either and they cannot
+  // disagree: the derivation is the standard one, EV = log2(N^2 / t) - log2(S / 100).
+  double ApertureFStops = 0.0;
+  double ShutterS = 0.0;
+  double SensitivityIso = 0.0;
+
+  [[nodiscard]] bool exposed(void) const {
+    return ApertureFStops > 0.0 && ShutterS > 0.0 && SensitivityIso > 0.0;
+  }
+
+  void setExposure(double apertureFStops, double shutterS, double sensitivityIso) {
+    ApertureFStops = apertureFStops;
+    ShutterS = shutterS;
+    SensitivityIso = sensitivityIso;
+  }
+
+  [[nodiscard]] double exposureScale(void) const;
 };
 
+// FILAMENT'S VIEW IS SET WITH VERBS -- `setCamera`, `setViewport`, `setScene` -- because its scene
+// is assembled by calls. Here a scenario DECLARES, so the same three names stand on the same three
+// fields and mean "say what this view is". A reader who knows Filament reaches for the verb and
+// finds it; the engine still behaves rather than obeys, which is this tree's own rule.
 struct View {
   std::string Id;
   Camera Sees;
   Patch Viewport;
+
+  void setCamera(const Camera &sees) { Sees = sees; }
+  void setViewport(const Patch &over) { Viewport = over; }
+  void setScene(std::string named) { In = std::move(named); }
+  [[nodiscard]] const std::string &scene(void) const { return In; }
+
+  std::string In;
   std::string Follows;
   std::string Person;
   double OffsetM[3] = {0.0, 0.0, 0.0};

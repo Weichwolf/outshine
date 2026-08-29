@@ -81,6 +81,12 @@ public:
 
   void WantsPixels();
   [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
+
+  // WHETHER THIS DEVICE HAS A WINDOW TO SHOW A FRAME IN. Headless is the fast path rather than a
+  // degraded one, so the answer is a fact about the target and never a complaint about it.
+  [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
+
+  void Settle() { SDL_WaitForGPUIdle(Device_.Get()); }
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);

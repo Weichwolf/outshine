@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: test, door
 Tags: measured
 

@@ -108,6 +108,9 @@ public:
   [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],
                            std::string &error);
 
+  [[nodiscard]] bool Present(std::string &error);
+  [[nodiscard]] bool Settle(std::string &error);
+
   [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
 
   [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);

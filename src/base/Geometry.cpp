@@ -125,6 +125,45 @@ bool TransformManager::setTransform(int part, const double modelM16[16]) {
 const double *TransformManager::getTransform(int part) const { return Of_->placementOf(part); }
 
 TransformManager Geometry::transforms(void) { return TransformManager(*this); }
+LightManager Geometry::lights(void) { return LightManager(*this); }
+RenderableManager Geometry::renderables(void) { return RenderableManager(*this); }
+
+int LightManager::count(void) const { return Of_->lamps(); }
+const PunctualLight &LightManager::getLight(int lamp) const { return Of_->lampAt(lamp); }
+std::string_view LightManager::nameOf(int lamp) const { return Of_->lampNameOf(lamp); }
+const double *LightManager::getTransform(int lamp) const { return Of_->lampPlacementOf(lamp); }
+
+bool LightManager::setLight(int lamp, const PunctualLight &light) {
+  if (lamp < 0 || lamp >= Of_->lamps()) { return false; }
+  Of_->relight(lamp, light);
+  return true;
+}
+
+int RenderableManager::count(void) const { return Of_->parts(); }
+std::string_view RenderableManager::nameOf(int part) const { return Of_->nameOf(part); }
+MaterialInstance RenderableManager::getMaterial(int part) const { return Of_->materialOf(part); }
+size_t RenderableManager::vertexCount(int part) const { return Of_->positionsOf(part).size() / 3; }
+size_t RenderableManager::triangleCount(int part) const { return Of_->trianglesOf(part).size() / 3; }
+
+bool RenderableManager::setMaterial(int part, MaterialInstance surface) {
+  if (part < 0 || part >= Of_->parts() || !surface.bound() ||
+      surface.index() >= Of_->surfaces()) {
+    return false;
+  }
+  Of_->resurface(part, surface);
+  return true;
+}
+
+
+void Geometry::relight(int lamp, const PunctualLight &light) {
+  if (lamp < 0 || lamp >= (int)Held_->Lamps.size()) { return; }
+  Held_->Lamps[(size_t)lamp].Light = light;
+}
+
+void Geometry::resurface(int part, MaterialInstance surface) {
+  if (part < 0 || part >= (int)Held_->Live) { return; }
+  Held_->Parts[(size_t)part].Material = surface.index();
+}
 
 void Geometry::place(int part, const double modelM16[16]) {
   if (part < 0 || part >= (int)Held_->Live) { return; }

@@ -1529,6 +1529,38 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
   return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
 }
 
+Extent Engine::canvas(void) const { return S_->Picture.Frame; }
+
+bool Engine::presenting(void) const { return S_->Picture.Device.Presents(); }
+
+// A FRAME IS OPEN OR IT IS NOT, and `render` between the two draws without presenting. Filament's
+// `beginFrame` answers false when the frame should be DROPPED; here the only reason to drop one is
+// that nothing stands to be drawn, which is a refusal rather than a skip and says so.
+bool Engine::beginFrame(void) {
+  if (!S_->Stood()) { return false; }
+  if (!S_->Picture.Standing) {
+    S_->Error = "a frame is begun over a scenario, and none stands";
+    return false;
+  }
+  S_->Picture.FrameOpen = true;
+  return true;
+}
+
+bool Engine::endFrame(void) {
+  if (!S_->Picture.FrameOpen) {
+    S_->Error = "a frame was ended that was never begun";
+    return false;
+  }
+  S_->Picture.FrameOpen = false;
+  if (!S_->Picture.Standing) { return true; }
+  return S_->Picture.Standing->Present(S_->Error);
+}
+
+bool Engine::flushAndWait(void) {
+  if (!S_->Picture.Standing) { return true; }
+  return S_->Picture.Standing->Settle(S_->Error);
+}
+
 bool Engine::saveScreenshot(std::string_view path) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {

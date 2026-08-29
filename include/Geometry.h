@@ -24,6 +24,40 @@ private:
   Geometry *Of_ = nullptr;
 };
 
+// FILAMENT MANAGES ITS COMPONENTS BY KIND -- a `TransformManager` for placements, a
+// `LightManager` for lights, a `RenderableManager` for what draws -- and a client reaches for the
+// manager rather than for the entity. `TransformManager` above already has that shape here, so
+// these two are the same shape over the same `Geometry`: a name a reader owns, a handle that
+// carries nothing, and the storage staying where it was.
+class LightManager {
+public:
+  [[nodiscard]] int count(void) const;
+  [[nodiscard]] const PunctualLight &getLight(int lamp) const;
+  [[nodiscard]] bool setLight(int lamp, const PunctualLight &light);
+  [[nodiscard]] std::string_view nameOf(int lamp) const;
+  [[nodiscard]] const double *getTransform(int lamp) const;
+
+private:
+  friend class Geometry;
+  explicit LightManager(Geometry &of) : Of_(&of) {}
+  Geometry *Of_ = nullptr;
+};
+
+class RenderableManager {
+public:
+  [[nodiscard]] int count(void) const;
+  [[nodiscard]] std::string_view nameOf(int part) const;
+  [[nodiscard]] MaterialInstance getMaterial(int part) const;
+  [[nodiscard]] bool setMaterial(int part, MaterialInstance surface);
+  [[nodiscard]] size_t vertexCount(int part) const;
+  [[nodiscard]] size_t triangleCount(int part) const;
+
+private:
+  friend class Geometry;
+  explicit RenderableManager(Geometry &of) : Of_(&of) {}
+  Geometry *Of_ = nullptr;
+};
+
 class Geometry {
 public:
   Geometry();
@@ -37,6 +71,8 @@ public:
   void clear();
 
   [[nodiscard]] TransformManager transforms(void);
+  [[nodiscard]] LightManager lights(void);
+  [[nodiscard]] RenderableManager renderables(void);
 
   [[nodiscard]] MaterialInstance addSurface(std::string_view named, const Material &surface);
   int addLamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);
@@ -70,7 +106,11 @@ public:
 
 private:
   friend class TransformManager;
+  friend class LightManager;
+  friend class RenderableManager;
   void place(int part, const double modelM16[16]);
+  void relight(int lamp, const PunctualLight &light);
+  void resurface(int part, MaterialInstance surface);
   [[nodiscard]] const double *placementOf(int part) const;
 
   struct Held;

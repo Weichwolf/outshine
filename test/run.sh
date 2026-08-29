@@ -766,13 +766,18 @@ StateDoor() {
   printf '\nThe door speaks **Filament** for the renderer and **Cesium** for the Earth\n'
   printf '(CLAUDE.md). What a reader already owns, and whether this door says it yet:\n\n'
   printf '| the name a client knows | from | here |\n|---|---|---|\n'
-  doorText=$(cat include/*.h)
+  # A NAME COUNTS WHEN IT IS DECLARED, NEVER WHEN IT IS MENTIONED. This read the door with its
+  # COMMENTS in it, so writing "there is no Skybox here and that is the better answer" made the
+  # table say the door speaks Skybox. Measured the moment it happened: 16 of 20 became 20 of 20
+  # with no type added. The prose is stripped before the count, which is the only way a generated
+  # page cannot lie about the tree.
+  doorText=$(sed 's|//.*||' include/*.h)
   spoken=0
   total=0
   for pair in \
     'Engine:Filament' 'Scene:Filament' 'View:Filament' 'Camera:Filament' 'Renderer:Filament' \
     'Material:Filament' 'MaterialInstance:Filament' 'TransformManager:Filament' \
-    'Skybox:Filament' 'IndirectLight:Filament' 'LightManager:Filament' 'SwapChain:Filament' \
+    'IndirectLight:Filament' 'LightManager:Filament' 'SwapChain:Filament' \
     'Viewport:Filament' 'RenderableManager:Filament' \
     'Georeference:Cesium' 'GlobeAnchor:Cesium' 'LongitudeDeg:Cesium' 'LatitudeDeg:Cesium' \
     'HeightM:Cesium' 'SamplesHeight:Cesium'; do
@@ -786,9 +791,14 @@ StateDoor() {
       printf '| `%s` | %s | **not yet** |\n' "$doorName" "$doorFrom"
     fi
   done
-  printf '\n**%d of %d spoken.** A name here is not a rename to make: it is a promise a client\n' \
+  printf '| `Skybox` | Filament | **no, and on purpose** |\n'
+  printf '\n**%d of %d spoken, and one refused.** A name here is not a rename to make: it is a\n' \
     "$spoken" "$total"
-  printf 'already understands, and the ones marked *not yet* are what board:2016 owes.\n'
+  printf 'promise a client already understands. `Skybox` is the refusal: Filament shows an image or\n'
+  printf 'a colour where nothing else stands, and this sky is COMPUTED -- the sun, the moon and the\n'
+  printf 'stars stand where the georeference and the clock put them. A picture handed in would\n'
+  printf 'disagree with its own shadows the moment the clock moved, so a client declares the\n'
+  printf 'WEATHER and never the sky. The ones marked *not yet*, if any, are what board:2016 owes.\n'
 
   # A VERB IS THE HALF A CLIENT ACTUALLY CALLS, so the door's distance is measured on verbs too.
   printf '\nAnd the verbs, because a client calls those rather than the types:\n\n'

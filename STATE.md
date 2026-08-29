@@ -36,42 +36,46 @@ The door speaks **Filament** for the renderer and **Cesium** for the Earth
 | `Material` | Filament | yes |
 | `MaterialInstance` | Filament | yes |
 | `TransformManager` | Filament | yes |
-| `Skybox` | Filament | **not yet** |
 | `IndirectLight` | Filament | yes |
-| `LightManager` | Filament | **not yet** |
-| `SwapChain` | Filament | **not yet** |
+| `LightManager` | Filament | yes |
+| `SwapChain` | Filament | yes |
 | `Viewport` | Filament | yes |
-| `RenderableManager` | Filament | **not yet** |
+| `RenderableManager` | Filament | yes |
 | `Georeference` | Cesium | yes |
 | `GlobeAnchor` | Cesium | yes |
 | `LongitudeDeg` | Cesium | yes |
 | `LatitudeDeg` | Cesium | yes |
 | `HeightM` | Cesium | yes |
 | `SamplesHeight` | Cesium | yes |
+| `Skybox` | Filament | **no, and on purpose** |
 
-**16 of 20 spoken.** A name here is not a rename to make: it is a promise a client
-already understands, and the ones marked *not yet* are what board:2016 owes.
+**19 of 19 spoken, and one refused.** A name here is not a rename to make: it is a
+promise a client already understands. `Skybox` is the refusal: Filament shows an image or
+a colour where nothing else stands, and this sky is COMPUTED -- the sun, the moon and the
+stars stand where the georeference and the clock put them. A picture handed in would
+disagree with its own shadows the moment the clock moved, so a client declares the
+WEATHER and never the sky. The ones marked *not yet*, if any, are what board:2016 owes.
 
 And the verbs, because a client calls those rather than the types:
 
 | the verb a client knows | from | here |
 |---|---|---|
-| `beginFrame` | Filament | **not yet** |
+| `beginFrame` | Filament | yes |
 | `render` | Filament | yes |
-| `endFrame` | Filament | **not yet** |
+| `endFrame` | Filament | yes |
 | `readPixels` | Filament | yes |
 | `addEntity` | Filament | yes |
-| `setScene` | Filament | **not yet** |
-| `setCamera` | Filament | **not yet** |
-| `setViewport` | Filament | **not yet** |
+| `setScene` | Filament | yes |
+| `setCamera` | Filament | yes |
+| `setViewport` | Filament | yes |
 | `lookAt` | Filament | yes |
 | `setProjection` | Filament | yes |
-| `setExposure` | Filament | **not yet** |
-| `flushAndWait` | Filament | **not yet** |
+| `setExposure` | Filament | yes |
+| `flushAndWait` | Filament | yes |
 | `sampleHeight` | Cesium | yes |
 | `LongitudeLatitudeHeight` | Cesium | yes |
 
-**7 of 14 spoken.**
+**14 of 14 spoken.**
 
 OURS BY RIGHT, because Filament is a renderer and does not face the question:
 
@@ -101,10 +105,25 @@ outshine is rather than pretending to be a renderer it is not.
 ### `Geometry.h`
 
     type: TransformManager
+    type: LightManager
+    type: RenderableManager
     type: Geometry
     bool setTransform(int part, const double modelM16[16])
     const double *getTransform(int part) const
+    int count(void) const
+    const PunctualLight &getLight(int lamp) const
+    bool setLight(int lamp, const PunctualLight &light)
+    std::string_view nameOf(int lamp) const
+    const double *getTransform(int lamp) const
+    int count(void) const
+    std::string_view nameOf(int part) const
+    MaterialInstance getMaterial(int part) const
+    bool setMaterial(int part, MaterialInstance surface)
+    size_t vertexCount(int part) const
+    size_t triangleCount(int part) const
     TransformManager transforms(void)
+    LightManager lights(void)
+    RenderableManager renderables(void)
     MaterialInstance addSurface(std::string_view named, const Material &surface)
     int parts() const
     std::string_view nameOf(int part) const
@@ -135,8 +154,14 @@ outshine is rather than pretending to be a renderer it is not.
 
     value: Loading
     value: Roots
+    type: SwapChain
     type: Renderer
     type: Engine
+    Extent extent(void) const
+    bool presents(void) const
+    Result beginFrame(SwapChain &into)
+    Result endFrame(void)
+    Result flushAndWait(void)
     Result render(Extent frame)
     Result saveScreenshot(std::string_view path)
     Result readPixels(std::vector<uint8_t> &rgba)
@@ -147,6 +172,7 @@ outshine is rather than pretending to be a renderer it is not.
     Result handleEvent(const SDL_Event &event)
     Result drawsInto(Extent offscreen)
     Renderer renderer(void)
+    SwapChain swapChain(void)
     Result inspect(void)
     bool settled(void) const
     Result preload(double patienceS)
@@ -181,6 +207,11 @@ outshine is rather than pretending to be a renderer it is not.
     bool saveScreenshot(std::string_view path)
     bool readPixels(std::vector<uint8_t> &rgba)
     bool readPixels(Buffer which, std::vector<float> &out)
+    bool beginFrame(void)
+    bool endFrame(void)
+    bool flushAndWait(void)
+    Extent canvas(void) const
+    bool presenting(void) const
     bool readScenarioInto(std::string_view path, Scenario &out)
     bool generated(const Scenario &scenario)
 
@@ -236,6 +267,7 @@ outshine is rather than pretending to be a renderer it is not.
     value: Binding
     value: Persisted
     value: Scenario
+    double exposureScale(void) const
     const Asset *subject(void) const
 
 ### `Scene.h`
@@ -345,12 +377,12 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1543 | `cpp` | `engine/Picturing.cpp` |
+| 1575 | `cpp` | `engine/Picturing.cpp` |
 | 1293 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1071 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
-| 984 | `cpp` | `engine/Live.cpp` |
+| 1005 | `cpp` | `engine/Live.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 875 | `cpp` | `render/stages/SubjectDraw.cpp` |
@@ -363,10 +395,10 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 66 | `src/render/SceneRenderer.h` |
-| 61 | `src/engine/Live.h` |
+| 67 | `src/render/SceneRenderer.h` |
+| 63 | `src/engine/Live.h` |
+| 58 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |
-| 47 | `include/Outshine.h` |
 | 45 | `src/import/Subject.h` |
 | 36 | `src/render/stages/SubjectDraw.h` |
 

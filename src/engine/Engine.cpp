@@ -278,6 +278,26 @@ Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
 }
 
 Renderer Engine::renderer(void) { return Renderer(*this); }
+SwapChain Engine::swapChain(void) { return SwapChain(*this); }
+
+Extent SwapChain::extent(void) const { return Of_->canvas(); }
+bool SwapChain::presents(void) const { return Of_->presenting(); }
+
+Result Renderer::beginFrame(SwapChain &into) {
+  if (into.extent().WidthPx <= 0 || into.extent().HeightPx <= 0) {
+    return std::unexpected(std::string("a frame is begun against a canvas and this one is "
+                                       "0x0 -- drawsInto declares it before a frame opens"));
+  }
+  return Of_->beginFrame() ? Result{} : std::unexpected(Of_->error());
+}
+
+Result Renderer::endFrame(void) {
+  return Of_->endFrame() ? Result{} : std::unexpected(Of_->error());
+}
+
+Result Renderer::flushAndWait(void) {
+  return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->error());
+}
 
 bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {
   if (!S_->World.Stack.Opened()) {

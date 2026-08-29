@@ -705,6 +705,27 @@ bool Live::ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::stri
   return true;
 }
 
+// PRESENTING IS THE HALF OF A FRAME THAT REACHES A SCREEN, and headless has no such half. A
+// bracket that ends without a window has still ended a frame -- the picture is drawn and readable
+// -- so this answers TRUE rather than refusing, and `Presents` is where a client asks which it is.
+bool Live::Present(std::string &error) {
+  if (Renderer_ == nullptr) {
+    error = "a frame was ended on an engine that carries no device";
+    return false;
+  }
+  if (!Renderer_->Presents()) { return true; }
+  return Draw(error);
+}
+
+bool Live::Settle(std::string &error) {
+  if (Renderer_ == nullptr) {
+    error = "there is no device to wait for";
+    return false;
+  }
+  Renderer_->Settle();
+  return true;
+}
+
 bool Live::Screenshot(const std::string &path, std::string &error) {
   if (Renderer_ == nullptr || !Renderer_->Drew()) {
     error = "nothing has been drawn yet, so there is no frame to write";

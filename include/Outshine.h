@@ -64,8 +64,37 @@ class Engine;
 // an oracle, a depth probe, a shading normal -- and it is not a debug menu.
 enum class Buffer { Colour, Linear, Depth, ShadingNormal, SurfaceIdentity, Velocity };
 
+// FILAMENT'S SWAPCHAIN IS THE SURFACE A RENDERER DRAWS INTO, and a client names it because a
+// frame is bracketed against one. Here `drawsInto` already makes it -- a window or an offscreen
+// canvas -- and this is the handle that says WHICH, so `beginFrame` has something to be about.
+// It carries no resources of its own: the engine owns the target and this is a name for it, the
+// same shape `TransformManager` already has over a `Geometry`.
+class SwapChain {
+public:
+  [[nodiscard]] Extent extent(void) const;
+  [[nodiscard]] bool presents(void) const;
+
+private:
+  friend class Engine;
+  explicit SwapChain(Engine &of) : Of_(&of) {}
+  Engine *Of_ = nullptr;
+};
+
 class Renderer {
 public:
+  // A FRAME IS BRACKETED SO THAT MORE THAN ONE VIEW CAN STAND IN IT. Filament's `beginFrame`
+  // answers FALSE when the frame should be dropped -- the device is not ready, or the pacer says
+  // skip -- and a client that ignores that draws into nothing. `render` alone is the one-view
+  // shorthand and brackets itself; between a `beginFrame` and an `endFrame` it draws without
+  // presenting, which is what lets a client compose several.
+  [[nodiscard]] Result beginFrame(SwapChain &into);
+  [[nodiscard]] Result endFrame(void);
+
+  // EVERYTHING THE DEVICE STILL OWES, FINISHED. Filament's `flushAndWait` is what a client calls
+  // before reading a resource back or before tearing down, and it is the only honest way to time
+  // GPU work from the CPU: without it a clock measures how fast commands were QUEUED.
+  [[nodiscard]] Result flushAndWait(void);
+
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
@@ -101,6 +130,7 @@ public:
   [[nodiscard]] Result drawsInto(Extent offscreen);
   void setRoots(Roots roots);
   [[nodiscard]] Renderer renderer(void);
+  [[nodiscard]] SwapChain swapChain(void);
   [[nodiscard]] Result inspect(void);
   [[nodiscard]] bool settled(void) const;
   [[nodiscard]] Result preload(double patienceS);
@@ -149,7 +179,13 @@ private:
   [[nodiscard]] bool saveScreenshot(std::string_view path);
   [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] bool readPixels(Buffer which, std::vector<float> &out);
+  [[nodiscard]] bool beginFrame(void);
+  [[nodiscard]] bool endFrame(void);
+  [[nodiscard]] bool flushAndWait(void);
+  [[nodiscard]] Extent canvas(void) const;
+  [[nodiscard]] bool presenting(void) const;
 
+  friend class SwapChain;
   struct State;
   [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);
   [[nodiscard]] bool generated(const Scenario &scenario);
