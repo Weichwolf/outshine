@@ -87,6 +87,7 @@ struct Verdict {
   size_t Reversed = 0;
   double VolumeM3 = 0.0;
   double HoleLowZ = 0.0, HoleHighZ = 0.0;
+  double FlipLowZ = 0.0, FlipHighZ = 0.0;
 
   [[nodiscard]] bool Whole(void) const {
     return Triangles > 0 && Degenerate == 0 && Holes == 0 && Overused == 0 && Reversed == 0 &&
@@ -181,8 +182,18 @@ struct Verdict {
   for (const auto &edge : counted) {
     if (edge.second > 2) { ++out.Overused; }
   }
+  bool anyFlip = false;
   for (const auto &edge : facing) {
-    if (counted[edge.first] == 2 && edge.second != 0) { ++out.Reversed; }
+    if (counted[edge.first] != 2 || edge.second == 0) { continue; }
+    ++out.Reversed;
+    const double *pa = &at[(size_t)edge.first.first * 3];
+    const double *pb = &at[(size_t)edge.first.second * 3];
+    const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
+    const double zb = pb[0] * up[0] + pb[1] * up[1] + pb[2] * up[2];
+    const double low = za < zb ? za : zb, high = za < zb ? zb : za;
+    if (!anyFlip) { out.FlipLowZ = low; out.FlipHighZ = high; anyFlip = true; continue; }
+    if (low < out.FlipLowZ) { out.FlipLowZ = low; }
+    if (high > out.FlipHighZ) { out.FlipHighZ = high; }
   }
   return out;
 }
@@ -260,9 +271,10 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-24s %-24s %6zu tri %5zu holes %4zu flip %4zu degen  spanning %6.2f m of height\n",
+    std::printf("%-24s %-22s %5zu tri %4zu hole %4zu flip %4zu deg  holes %5.2f m  flips %5.2f m\n",
                 one.What, architecture.c_str(), said.Triangles, said.Holes, said.Reversed,
-                said.Degenerate, said.HoleHighZ - said.HoleLowZ);
+                said.Degenerate, said.HoleHighZ - said.HoleLowZ,
+                said.FlipHighZ - said.FlipLowZ);
   }
 
   std::printf("\n%zu of %zu buildings are WHOLE\n", whole, asked.size());
