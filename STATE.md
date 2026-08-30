@@ -403,7 +403,7 @@ flowchart LR
   engine --> |3| scene
   engine --> |3| base_spatial
 ```
-  36 edge(s) drawn, 48 thinner than three includes not drawn
+  36 edge(s) drawn, 49 thinner than three includes not drawn
   CYCLE import and import/surface include each other, 1 deep and 4 back
 
 ## Tiers
@@ -433,7 +433,7 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1616 | `cpp` | `engine/Picturing.cpp` |
+| 1621 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1103 | `cpp` | `engine/Live.cpp` |
@@ -530,10 +530,11 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**16 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
+**15 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
+- `harness/khronos/glTF`
 - `apps/viewer/src`
 - `apps/bench/src`
 - `apps/demo/src`

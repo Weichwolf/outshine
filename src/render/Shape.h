@@ -2,6 +2,8 @@
 #define OUTSHINE_RENDER_SHAPE_H
 
 #include <cstddef>
+#include "ClusterCook.h"
+#include "SurfaceState.h"
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -51,6 +53,13 @@ struct ShapePart {
   size_t FirstIndex = 0;
   size_t IndexCount = 0;
 
+  // AND WHICH CLUSTERS COVER IT. A cluster is a contiguous run of this part's triangles with a
+  // bounding sphere and a proven error bound, which is what a per-cluster culler needs and what
+  // the cooker cuts. A part whose surface BLENDS carries none: compositing is order-dependent and
+  // Nanite does not take translucency either.
+  uint32_t FirstCluster = 0;
+  uint32_t ClusterCount = 0;
+
   std::span<const float> PositionsM;
   std::span<const float> Normals;
   std::span<const float> Tangents;
@@ -73,6 +82,8 @@ struct Shape {
   // `addLamp` and a document's importer resolves one into the same row, so the renderer takes
   // them from here and never asks which of the two put them there.
   std::span<const PunctualLight> Lamps;
+  std::span<const DagCluster> Clusters;
+  std::span<const uint32_t> ClusterIndices;
 
   bool CarriesUv = false;
   bool CarriesUv1 = false;
@@ -97,6 +108,10 @@ struct Shape {
   void BoundsOf(size_t parts, double leastM[3], double mostM[3]) const;
 };
 
+// THE CUT, TAKEN ONCE WHERE THE SHAPE IS BUILT. Unreal's Nanite cuts a mesh into clusters of 128
+// triangles in the COOKER and never again; a cut taken per frame would be the CPU term this tree
+// is trying to remove. Cutting here means a shape carries its clusters the moment it stands, and
+// a rebuild costs what changed rather than what is drawn.
 // WHERE A SHAPE'S OWN BYTES LIVE WHEN THE PRODUCER HAS NONE TO POINT AT. A generator's `Geometry`
 // already holds float per part, so a world Shape views it and this store carries only the joined
 // indices. A document read from a file holds double, so its shape narrows ONCE into here and the
@@ -113,6 +128,16 @@ struct ShapeStore {
   std::vector<uint32_t> Indices;
   std::vector<Material> Surfaces;
   std::vector<PunctualLight> Lamps;
+  std::vector<DagCluster> Clusters;
+
+  // THE COOKED INDEX RUN, BESIDE THE DRAWN ONE AND NOT INSTEAD OF IT. A cluster wants its triangles
+  // spatially together, which means a Morton order; the drawn buffer wants the order it was given,
+  // because where two surfaces COINCIDE this renderer's depth test resolves the tie by which
+  // triangle arrived first and a reorder repaints them. Measured on Khronos's NormalTangentTest --
+  // one 198x48 cell whose bitangent flipped and whose picture went 6 codes from the oracle to 8,
+  // past the case's own bound of 6.435. So the cut keeps its own order until the draw is per
+  // CLUSTER, and on that day this buffer is the one it reads.
+  std::vector<uint32_t> ClusterIndices;
 
   void Clear() {
     Parts.clear();
@@ -125,8 +150,13 @@ struct ShapeStore {
     Indices.clear();
     Surfaces.clear();
     Lamps.clear();
+    Clusters.clear();
+    ClusterIndices.clear();
   }
 };
+
+inline constexpr uint32_t kClusterTriangles = 128;
+void CookShape(ShapeStore &into, std::span<const Material> surfaces);
 
 }
 #endif

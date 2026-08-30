@@ -1513,6 +1513,11 @@ bool Engine::render(Extent frame) {
   // hold this engine to it. Unreal keeps them in FSceneRenderer's stats and Filament keeps none;
   // this is ours, and the reason is written where the door is.
   S_->Published.Places("subject draws", (double)S_->Picture.Device.SubjectDrawCount(), "draws");
+  // THE CUT, COUNTED. A cluster is 128 triangles with a bounding sphere and a proven error bound,
+  // and it is what a per-cluster culler will decide over. The number standing beside `subject draws`
+  // is how the two are compared while the draw is still one call per batch.
+  S_->Published.Places("subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(),
+                      "clusters");
   S_->Published.Places("subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(),
                        "calls");
   S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");

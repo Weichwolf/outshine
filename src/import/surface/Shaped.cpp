@@ -51,11 +51,14 @@ Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
     made.Colours = Reach(into.Colours, one.FirstVertex * 4, one.VertexCount * 4);
     into.Parts.push_back(made);
   }
+  Render::CookShape(into, from.Surfaces());
   Render::Shape out;
   out.Parts = into.Parts;
   out.Surfaces = from.Surfaces();
   out.Lamps = into.Lamps;
   out.Indices = into.Indices;
+  out.Clusters = into.Clusters;
+  out.ClusterIndices = into.ClusterIndices;
   out.CarriesUv = from.HasUv();
   out.CarriesUv1 = from.HasUv1();
   out.CarriesNormal = from.HasNormal();
@@ -109,11 +112,14 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
     firstIndex += order.size();
     into.Parts.push_back(made);
   }
+  Render::CookShape(into, into.Surfaces);
   Render::Shape out;
   out.Parts = into.Parts;
   out.Surfaces = into.Surfaces;
   out.Lamps = into.Lamps;
   out.Indices = into.Indices;
+  out.Clusters = into.Clusters;
+  out.ClusterIndices = into.ClusterIndices;
   for (const Render::ShapePart &one : into.Parts) {
     out.CarriesUv = out.CarriesUv || one.HasUv;
     out.CarriesUv1 = out.CarriesUv1 || one.HasUv1;
