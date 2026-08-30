@@ -641,15 +641,19 @@ bool Live::Stand(std::string &error) {
         out[channel] = luminance[channel] / (1.0f - transfer[channel]);
       }
     };
-    float skylight[3];
-    Render::MediumSkyIrradiance(medium,
-                                medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
-                                cosSun,
-                                toSun,
-                                secondOrder,
-                                skylight);
-    float sunReach[3];
-    toSun(medium.BottomRadiusKm + Render::kMediumGroundLiftKm, cosSun, sunReach);
+    if (!(SkyStoodAt_ == cosSun)) {
+      Render::MediumSkyIrradiance(medium,
+                                  medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
+                                  cosSun,
+                                  toSun,
+                                  secondOrder,
+                                  Skylight_);
+      toSun(medium.BottomRadiusKm + Render::kMediumGroundLiftKm, cosSun, SunReach_);
+      SkyStoodAt_ = cosSun;
+      ++SkyIntegrations_;
+    }
+    const float *const skylight = Skylight_;
+    const float *const sunReach = SunReach_;
     const float straightDown = cosSun > 0.0f ? cosSun : 0.0f;
     for (int channel = 0; channel < 3; ++channel) {
       environment.RadianceLinear[channel] +=

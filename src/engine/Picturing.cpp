@@ -1194,6 +1194,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
   Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
   Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
+  Published.Places("stand: times the sky was integrated",
+                   (double)Picture.Standing->SkyIntegrations(),
+                   "integrations");
   Published.Places("stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
