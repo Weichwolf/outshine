@@ -34,3 +34,8 @@ __pycache__/
 .claude/settings.local.json
 temp/inav-src/
 .DS_Store
+
+# --- the compile database: DERIVED from test/run.sh's own tier graph on every `make db`, and it
+# has to sit at the project root because that is where clangd and clang-tidy look for it. It is an
+# artefact like every other and is never versioned. ---
+/compile_commands.json

@@ -337,6 +337,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
     if (World.EverLaid && !elsewhere && !grew) { return true; }
+      // HOW MANY TIMES THE WHOLE WORLD WAS REBUILT, which is the multiplier on every O(world) term
+    // below it. A rebuild costs what it costs; what decides a LOAD is how often it is paid, and
+    // that number was the one thing the rebuild measures could not say.
+    Published.Places("rebuilds since the world stood", (double)(World.Relaid + 1u), "rebuilds");
     Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
     Published.Places("rebuild: tiles resident when it did", (double)resident, "tiles");
     Published.Places("rebuild: and resident the time before", (double)World.LaidResident, "tiles");

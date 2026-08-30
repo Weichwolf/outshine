@@ -191,6 +191,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --library) LIBRARY=1; shift ;;
+    --compile-db) LIBRARY=1; COMPILEDB=1; shift ;;
     --audit) AUDIT=1; shift ;;
     --corpus) CORPUS=1; shift ;;
     --would-prune) WOULDPRUNE=1; shift ;;
@@ -437,6 +438,10 @@ BuildGroup() {
     *.cpp) groupUnits=$group ;;
     *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
   esac
+  # A TOOL'S ENTRY POINT IS NOT AN ARCHIVE MEMBER. `src/camera` is part of the library and its
+  # `main` is not: archived, it would sit in `liboutshine.a` waiting to be pulled into somebody
+  # else's link. It is compiled where the tools are built instead.
+  groupUnits=$(printf '%s\n' $groupUnits | grep -v '/Main\.cpp$' || true)
   # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
   # editing -O2 or the warning set in this file silently reused objects built with the
   # old one, and two of five flag groups is not an identity (board:1751). It is a GROUP's
@@ -448,6 +453,15 @@ BuildGroup() {
     unitFolder=${unit%/*}
     unitStem=${unit##*/}
     unitObject=$OBJDIR/$(printf '%s' "$unitFolder" | tr / -)-${unitStem%.cpp}.$setId.o
+    # THE COMPILE LINE, WRITTEN DOWN WHERE A TOOL CAN READ IT. clang-tidy, clang-format and clangd
+    # all want to know how a file is compiled, and this file is the only thing that knows -- the
+    # include set is DERIVED from the tier graph, so no second map can be kept without going stale.
+    # Emitting it here means the database cannot disagree with the build: it is the same string.
+    if [ -n "${COMPILEDB:-}" ]; then
+      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
+        "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$groupStd" "$OPT" "$WARN" \
+        "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
+    fi
     if ! UpToDate "$unitObject" "$unit"; then
       $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
     fi
@@ -619,6 +633,21 @@ BuildLibrary() {
     printf -- '-> build/libgenerators.a (%s objects, closed over the linker'"'"'s own walk)\n' \
       "$(echo $generatorObjects | wc -w | tr -d ' ')"
   fi
+  # THE TOOLS THAT SHIP WITH THE LIBRARY, beside it in build/. A `src/<tier>/Main.cpp` is a tool:
+  # the tier is part of the archive and its entry point is linked against it, so the tool cannot
+  # drift from the library it measures.
+  for tool in $(find src -name 'Main.cpp' | sort); do
+    toolLayer=$(dirname "$tool")
+    toolNamed=build/outshine-$(basename "$toolLayer")
+    if [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
+      continue
+    fi
+    $CXX $(GroupToolchain "$toolLayer") $OPT $WARN $(GroupIncludes "$toolLayer") \
+      "$tool" build/liboutshine.a $(LayerLink outshine/places) -o "$toolNamed" ||
+      Die "$tool does not build into $toolNamed"
+    printf -- '-> %s\n' "$toolNamed"
+  done
+
   for program in $(find apps -name '*.cpp' | sort); do
     layer=$(dirname "$program")
     Programs "$layer" >/dev/null 2>&1 || continue
@@ -634,7 +663,15 @@ BuildLibrary() {
   done
 }
 if [ -n "${LIBRARY:-}" ]; then
+  [ -n "${COMPILEDB:-}" ] && rm -f "$BUILD/compile_commands.part"
   BuildLibrary
+  if [ -n "${COMPILEDB:-}" ]; then
+    { printf '[\n'; sed '$ s/,$//' "$BUILD/compile_commands.part"; printf ']\n'; } \
+      > compile_commands.json
+    rm -f "$BUILD/compile_commands.part"
+    printf -- '-> compile_commands.json (%s unit(s))\n' \
+      "$(grep -c '"file"' compile_commands.json)"
+  fi
   trap - EXIT
   exit 0
 fi

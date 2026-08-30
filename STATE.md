@@ -366,10 +366,10 @@ Module depends on module, derived from the includes themselves.
 
 ```mermaid
 flowchart LR
-  render_stages --> |31| render_device
+  render_stages --> |34| render_device
   world_ground --> |19| base_spatial
   generators --> |18| generators_base
-  render --> |15| render_stages
+  render --> |16| render_stages
   world_ground --> |14| base_io
   sim --> |14| actor_path
   generators_draw --> |14| generators_base
@@ -388,7 +388,6 @@ flowchart LR
   sim --> |5| actor_body
   render --> |5| base_io
   import --> |5| base_spatial
-  render_stages --> |4| base_spatial
   import --> |4| render
   import_surface --> |4| import
   generators --> |4| generators_draw
@@ -403,7 +402,7 @@ flowchart LR
   engine --> |3| scene
   engine --> |3| base_spatial
 ```
-  36 edge(s) drawn, 50 thinner than three includes not drawn
+  35 edge(s) drawn, 52 thinner than three includes not drawn
   CYCLE import and import/surface include each other, 1 deep and 4 back
 
 ## Tiers
@@ -433,17 +432,17 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1655 | `cpp` | `engine/Picturing.cpp` |
+| 1659 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1145 | `cpp` | `engine/Live.cpp` |
-| 1097 | `cpp` | `render/SceneRenderer.cpp` |
+| 1159 | `cpp` | `render/SceneRenderer.cpp` |
+| 1151 | `cpp` | `engine/Live.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
+| 944 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
-| 875 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| **46** | `h` | *the median of 239 header(s)* |
-| **115** | `cpp` | *the median of 170 source(s)* |
+| **46** | `h` | *the median of 240 header(s)* |
+| **123** | `cpp` | *the median of 173 source(s)* |
 
 ## Carpet
 
@@ -451,12 +450,12 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 68 | `src/render/SceneRenderer.h` |
+| 70 | `src/render/SceneRenderer.h` |
 | 66 | `src/engine/Live.h` |
 | 59 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |
 | 47 | `src/import/Subject.h` |
-| 37 | `include/Geometry.h` |
+| 40 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins
 
@@ -469,6 +468,8 @@ Header names that collide.
 
 Sources no declared suite links, so nothing they hold is proven.
 
+  src/client/Main.cpp
+  src/client/PlaceCamera.cpp
 
 ## Access
 
@@ -504,6 +505,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/scenario/Tables.h` |
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
+| 1 | `src/render/draw/DrawList.h` |
 | 1 | `src/import/Keyframes.h` |
 | 1 | `src/generators/draw/TreeRandom.h` |
 | 1 | `src/generators/draw/RoofSurface.h` |
@@ -571,6 +573,7 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 |---|---|
 | 17 | `src/generators/draw/BuildingMesh.cpp` |
 | 16 | `src/generators/draw/BuildingShape.cpp` |
+| 9 | `src/client/PlaceCamera.cpp` |
 | 6 | `src/render/Framing.h` |
 | 6 | `src/generators/draw/RoofSurface.cpp` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
@@ -578,4 +581,3 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 | 4 | `src/world/ground/TerrainLoader.cpp` |
 | 4 | `src/render/stages/SubjectDraw.h` |
 | 4 | `src/actor/path/ReferenceLine.h` |
-| 3 | `src/world/ground/WaterField.cpp` |

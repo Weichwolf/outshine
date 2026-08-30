@@ -1,0 +1,54 @@
+#ifndef OUTSHINE_CAMERA_PLACECAMERA_H
+#define OUTSHINE_CAMERA_PLACECAMERA_H
+
+#include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace outshine {
+class Engine;
+}
+
+namespace outshine::Shots {
+
+inline constexpr int kWidePx = 1280;
+inline constexpr int kHighPx = 720;
+inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
+
+struct Place {
+  const char *Name = "";
+  double LatDeg = 0.0;
+  double LonDeg = 0.0;
+  double BearingDeg = 0.0;
+};
+
+struct Shot {
+  std::string Digest;
+  std::string Wrote;
+  std::string Why;
+
+  double P50Ms = 0.0, P95Ms = 0.0, P99Ms = 0.0;
+  std::size_t Frames = 0, OverBudget = 0, WorstAt = 0;
+
+  double Triangles = 0.0;
+  double BareTiles = 0.0;
+  double VariationAlongRows = 0.0;
+
+  double StandingMs = 0.0, LoadingMs = 0.0, StreamedS = 0.0;
+  bool Preloaded = false;
+  bool Kept = false;
+};
+
+// The standing, drawing and measuring half, over an engine a caller has already declared into.
+// `Take` builds a place's scenario and hands it here; a scenario read from a file goes straight in.
+[[nodiscard]] Shot Draw(class ::outshine::Engine &engine, std::string_view name, bool tells);
+
+[[nodiscard]] std::span<const Place> Places();
+[[nodiscard]] const Place *PlaceNamed(std::string_view name);
+[[nodiscard]] double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high);
+[[nodiscard]] Shot Take(const Place &place, bool tells);
+
+}
+#endif

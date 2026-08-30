@@ -209,7 +209,14 @@ inline int RenderPlace(const Place &place) {
   // WHAT IT DOES NOT COVER: the camera STANDS. A moving eye pays for streaming, for re-laying the
   // ring and for cache misses this never sees, so this is the floor of what a place costs and not
   // its worst case (board:1457).
+  //
+  // AND WHERE THE WORST ONE FELL, because a distribution alone cannot tell a WARM-UP from a
+  // PERIOD. A p99 that is the first timed frame is a cache filling once; a p99 that recurs is a
+  // frame doing work it should not, and the two want opposite answers. Sorting throws the order
+  // away, so the order is kept before the sort.
   std::vector<double> heldMs;
+  size_t worstAt = 0;
+  size_t overBudget = 0;
   {
     constexpr int kTimedFrames = 120;
     heldMs.reserve((size_t)kTimedFrames);
@@ -219,6 +226,8 @@ inline int RenderPlace(const Place &place) {
       heldMs.push_back(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - before)
               .count());
+      if (heldMs.back() > heldMs[worstAt]) { worstAt = heldMs.size() - 1; }
+      overBudget += heldMs.back() > 16.67 ? 1u : 0u;
     }
     std::sort(heldMs.begin(), heldMs.end());
   }
@@ -262,9 +271,11 @@ inline int RenderPlace(const Place &place) {
     std::filesystem::rename(keeping, named, failed);
     wrote = !failed;
   }
-  std::printf("PICTURE %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %.0f triangle(s)\n",
+  std::printf("PICTURE %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %zu over 16.67, worst at %zu"
+              "  %.0f triangle(s)\n",
               place.Name, digest.empty() ? "--------" : digest.c_str(), quantile(0.50),
-              quantile(0.95), quantile(0.99), measured("subjects, triangles"));
+              quantile(0.95), quantile(0.99), overBudget, worstAt,
+              measured("subjects, triangles"));
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
               place.Name, measured("tiles the ring laid"), measured("levels the cascade laid"),
