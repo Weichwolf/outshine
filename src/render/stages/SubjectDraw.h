@@ -64,6 +64,10 @@ public:
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
+  [[nodiscard]] uint32_t ClusterBatchRows() const {
+    return Args_.empty() ? 0u : (uint32_t)Batches.size();
+  }
+
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
       Placed_.clear();

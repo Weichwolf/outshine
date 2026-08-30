@@ -6,45 +6,84 @@ struct CullView {
 };
 
 constant uint kCullLanes = 128u;
+constant uint kScanLanes = 256u;
 constant uint kCullRejected = 0xffffffffu;
 
 kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
                               device const float4 *spheres [[buffer(1)]],
                               device const uint4 *jobs [[buffer(2)]],
-                              device const uint *source [[buffer(3)]],
-                              device const float4x4 *rows [[buffer(4)]],
-                              device uint *drawIndex [[buffer(5)]],
-                              device atomic_uint *args [[buffer(6)]],
-                              uint group [[threadgroup_position_in_grid]],
-                              uint lane [[thread_position_in_threadgroup]]) {
-  threadgroup uint at;
-  threadgroup uint4 job;
-  if (lane == 0u) {
-    at = kCullRejected;
-    job = group < view.jobs ? jobs[group] : uint4(0u);
-    if (group < view.jobs) {
-      const uint arg = 5u * job.y;
-      const float4x4 model = rows[2u * atomic_load_explicit(&args[arg + 4u], memory_order_relaxed)];
-      const float4 sphere = spheres[job.x];
-      const float3 centre = (model * float4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
-      const float widest =
-          max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
-      const float radius = sphere.w * widest;
-      bool kept = true;
-      for (uint one = 0u; one < 6u; ++one) {
-        const float4 plane = view.planes[one];
-        if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
-        if (dot(plane.xyz, centre) + plane.w < -radius) { kept = false; }
-      }
-      if (kept) {
-        at = atomic_load_explicit(&args[arg + 2u], memory_order_relaxed) +
-             atomic_fetch_add_explicit(&args[arg], job.w, memory_order_relaxed);
-      }
+                              device const float4x4 *rows [[buffer(3)]],
+                              device const uint *args [[buffer(4)]],
+                              device uint *kept [[buffer(5)]],
+                              uint id [[thread_position_in_grid]]) {
+  if (id >= view.jobs) { return; }
+  const uint4 job = jobs[id];
+  const float4x4 model = rows[2u * args[5u * job.y + 4u]];
+  const float4 sphere = spheres[job.x];
+  const float3 centre = (model * float4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
+  const float widest = max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
+  const float radius = sphere.w * widest;
+
+  for (uint at = 0u; at < 6u; ++at) {
+    const float4 plane = view.planes[at];
+    if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
+    if (dot(plane.xyz, centre) + plane.w < -radius) {
+      kept[id] = 0u;
+      return;
     }
   }
+  kept[id] = job.w;
+}
+
+kernel void subjectScanKernel(constant CullView &view [[buffer(0)]],
+                              device const uint *kept [[buffer(1)]],
+                              device const uint *batches [[buffer(2)]],
+                              device uint *slot [[buffer(3)]],
+                              device uint *args [[buffer(4)]],
+                              uint batch [[threadgroup_position_in_grid]],
+                              uint lane [[thread_position_in_threadgroup]]) {
+  threadgroup uint block[kScanLanes];
+  threadgroup uint carried;
+  const uint first = batches[2u * batch];
+  const uint count = batches[2u * batch + 1u];
+  if (lane == 0u) { carried = 0u; }
   threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  for (uint from = 0u; from < count; from += kScanLanes) {
+    const uint at = from + lane;
+    const uint mine = at < count ? kept[first + at] : 0u;
+    block[lane] = mine;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint step = 1u; step < kScanLanes; step <<= 1u) {
+      const uint taken = lane >= step ? block[lane - step] : 0u;
+      threadgroup_barrier(mem_flags::mem_threadgroup);
+      block[lane] += taken;
+      threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (at < count) {
+      slot[first + at] = mine == 0u ? kCullRejected : carried + block[lane] - mine;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (lane == kScanLanes - 1u) { carried += block[kScanLanes - 1u]; }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+  }
+  if (lane == 0u) { args[5u * batch] = carried; }
+}
+
+kernel void subjectCompactKernel(constant CullView &view [[buffer(0)]],
+                                 device const uint4 *jobs [[buffer(1)]],
+                                 device const uint *source [[buffer(2)]],
+                                 device const uint *slot [[buffer(3)]],
+                                 device const uint *args [[buffer(4)]],
+                                 device uint *drawIndex [[buffer(5)]],
+                                 uint group [[threadgroup_position_in_grid]],
+                                 uint lane [[thread_position_in_threadgroup]]) {
+  if (group >= view.jobs) { return; }
+  const uint at = slot[group];
   if (at == kCullRejected) { return; }
+  const uint4 job = jobs[group];
+  const uint base = args[5u * job.y + 2u];
   for (uint one = lane; one < job.w; one += kCullLanes) {
-    drawIndex[at + one] = source[job.z + one];
+    drawIndex[base + at + one] = source[job.z + one];
   }
 }

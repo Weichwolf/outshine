@@ -9,6 +9,13 @@
 namespace outshine::Render {
 namespace {
 
+struct CullView {
+  float Planes[24];
+  float Shift[4];
+  uint32_t Jobs;
+  uint32_t Pad[3];
+};
+
 std::string Kernel(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/subjectCull.msl", body, error)) { return std::string(); }
@@ -37,63 +44,107 @@ void PlanesOf(const float mvp[16], float out[24]) {
 
 } // namespace
 
-bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
-  Subjects_ = &subjects;
-  if (Pipe_) { return true; }
+bool SubjectCullStage::Pipeline(const Gpu &gpu,
+                                const char *entry,
+                                const ComputeShape &shape,
+                                OwnedComputePipeline &into,
+                                std::string &error) {
+  if (into) { return true; }
   const std::string source = KernelSource(error);
   if (source.empty()) { return false; }
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
-  wanted.entrypoint = "subjectCullKernel";
-  wanted.num_readonly_storage_buffers = KernelShape.ReadOnlyBuffers;
-  wanted.num_readwrite_storage_buffers = KernelShape.ReadWriteBuffers;
-  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
-  wanted.threadcount_x = KernelShape.GroupX;
+  wanted.entrypoint = entry;
+  wanted.num_readonly_storage_buffers = shape.ReadOnlyBuffers;
+  wanted.num_readwrite_storage_buffers = shape.ReadWriteBuffers;
+  wanted.num_uniform_buffers = shape.UniformBuffers;
+  wanted.threadcount_x = shape.GroupX;
   wanted.threadcount_y = 1u;
   wanted.threadcount_z = 1u;
   SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
   if (made == nullptr) {
-    error = std::string("the subject cull kernel was refused: ") + SDL_GetError();
+    error = std::string("the subject cull's ") + entry + " was refused: " + SDL_GetError();
     return false;
   }
-  Pipe_ = OwnedComputePipeline(gpu.Device, made);
+  into = OwnedComputePipeline(gpu.Device, made);
   return true;
 }
 
-void SubjectCullStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  Swept_ = 0;
-  if (!Pipe_ || Subjects_ == nullptr || into.Dispatch == nullptr) { return; }
+bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
+  Subjects_ = &subjects;
+  return Pipeline(gpu, "subjectCullKernel", CullShape, Cull_, error) &&
+         Pipeline(gpu, "subjectScanKernel", ScanShape, Scan_, error) &&
+         Pipeline(gpu, "subjectCompactKernel", CompactShape, Compact_, error);
+}
+
+uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
+  if (Subjects_ == nullptr) { return 0; }
   const uint32_t jobs = Subjects_->ClusterJobs();
-  if (jobs == 0) { return; }
-
-  struct CullView {
-    float Planes[24];
-    float Shift[4];
-    uint32_t Jobs;
-    uint32_t Pad[3];
-  } view{};
-
-  PlanesOf(ctx.Mvp16, view.Planes);
+  if (jobs == 0) { return 0; }
+  auto &into = *static_cast<CullView *>(view);
+  into = CullView{};
+  PlanesOf(ctx.Mvp16, into.Planes);
   for (int axis = 0; axis < 3; ++axis) {
-    view.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
+    into.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
   }
-  view.Jobs = jobs;
+  into.Jobs = jobs;
+  return jobs;
+}
 
+void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
+  Swept_ = 0;
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
   SDL_GPUBuffer *const read[4] = {resident.ClusterSpheres.Get(),
                                   resident.ClusterJobs.Get(),
-                                  resident.Idx.Get(),
-                                  resident.Placed.Get()};
+                                  resident.Placed.Get(),
+                                  resident.DrawArgs.Get()};
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
-  SDL_BindGPUComputePipeline(into.Dispatch, Pipe_.Get());
+  SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
+  SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
+  Swept_ = jobs;
+}
+
+void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
+  if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
+  const SubjectResidency &resident = Subjects_->Resident();
+  SDL_GPUBuffer *const read[2] = {resident.ClusterKept.Get(), resident.ClusterBatches.Get()};
+  for (SDL_GPUBuffer *const one : read) {
+    if (one == nullptr) { return; }
+  }
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
+  SDL_BindGPUComputePipeline(into.Dispatch, Scan_.Get());
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 2);
+  SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
+}
+
+void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecording &into) {
+  CullView view{};
+  const uint32_t jobs = Standing(ctx, &view);
+  if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }
+  const SubjectResidency &resident = Subjects_->Resident();
+  SDL_GPUBuffer *const read[4] = {resident.ClusterJobs.Get(),
+                                  resident.Idx.Get(),
+                                  resident.ClusterSlot.Get(),
+                                  resident.DrawArgs.Get()};
+  for (SDL_GPUBuffer *const one : read) {
+    if (one == nullptr) { return; }
+  }
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
+  SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
-  Swept_ = jobs;
 }
 
 std::string SubjectCullStage::KernelSource() {

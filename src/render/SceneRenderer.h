@@ -310,6 +310,8 @@ private:
   void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
   void EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into);
+  void EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into);
+  void EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();

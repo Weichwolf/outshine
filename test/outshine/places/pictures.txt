@@ -12,16 +12,16 @@
 # digest-named file is never overwritten, so six 720p frames a commit grow a repository
 # monotonically with exactly the changes this engine is meant to make often.
 #
-# CentralPark's digest is NOT STABLE and its line is one of its answers rather than its answer.
-# board:2044's third source stands: the cull's own compaction hands each cluster its slot with an
-# atomic, so the order is the GPU's. The other five repeat, run after run.
+# EVERY ONE OF THESE REPEATS. Ten consecutive runs of Central Park -- the worst of the six, which
+# once answered three different pictures -- give one digest. A line that moves here is a change,
+# never noise (board:2044).
 #
 # Rewritten by hand when a picture is MEANT to change. `make shots` prints the lines.
 #
-# place        digest      p50     p95     p99   over budget   triangles
-CentralPark    941e8210  p50   7.19  p95   8.62  p99  10.85 ms    1 of 120    3905416 triangle(s)
-Heidelberg     7646c403  p50   2.03  p95   2.62  p99   3.33 ms    0 of 120     979067 triangle(s)
-Jura           2aa8f40f  p50   2.56  p95   3.07  p99   3.67 ms    0 of 120     405592 triangle(s)
-OldTown        e8d3cf71  p50   1.38  p95   1.68  p99   2.27 ms    0 of 120     317377 triangle(s)
-Shibuya        029dcfdf  p50  11.90  p95  13.51  p99  14.66 ms    1 of 120    8789636 triangle(s)
-Venice         fe9cd1e5  p50   2.77  p95   3.09  p99   4.14 ms    0 of 120    1264837 triangle(s)
+# place        digest      p50     p95     p99   over budget
+CentralPark    cb4ee7d4  p50   7.18  p95   8.26  p99   8.86 ms    0 of 120
+Heidelberg     7646c403  p50   1.98  p95   2.42  p99   3.45 ms    0 of 120
+Jura           2aa8f40f  p50   2.50  p95   2.99  p99   3.90 ms    0 of 120
+OldTown        e8d3cf71  p50   1.36  p95   1.55  p99   2.27 ms    0 of 120
+Shibuya        029dcfdf  p50  12.13  p95  14.21  p99  15.01 ms    0 of 120
+Venice         fe9cd1e5  p50   2.61  p95   3.02  p99   4.11 ms    0 of 120

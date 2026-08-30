@@ -143,6 +143,10 @@ const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
      &SceneRenderer::ConfigureMediumRadiance,
      &SceneRenderer::EncodeMediumRadiance},
     {Stage::SubjectCull, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectCull},
+    {Stage::SubjectScan, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectScan},
+    {Stage::SubjectCompact,
+     &SceneRenderer::ConfigureSubjectCull,
+     &SceneRenderer::EncodeSubjectCompact},
     {Stage::LightVisibility,
      &SceneRenderer::ConfigureLightVisibility,
      &SceneRenderer::EncodeLightVisibility},
@@ -342,6 +346,9 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:
+    case Resource::ClusterBatches:
+    case Resource::ClusterKept:
+    case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return;
     case Resource::TransmittanceLut:
@@ -426,6 +433,9 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:
+    case Resource::ClusterBatches:
+    case Resource::ClusterKept:
+    case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
@@ -453,6 +463,9 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::ClusterSphere: return resident.ClusterSpheres.Get();
     case Resource::ClusterIndex: return resident.Idx.Get();
     case Resource::ClusterJobs: return resident.ClusterJobs.Get();
+    case Resource::ClusterBatches: return resident.ClusterBatches.Get();
+    case Resource::ClusterKept: return resident.ClusterKept.Get();
+    case Resource::ClusterSlot: return resident.ClusterSlot.Get();
     case Resource::DrawIndex: return resident.DrawIdx.Get();
     case Resource::DrawArguments: return resident.DrawArgs.Get();
     default: return nullptr;
@@ -736,7 +749,15 @@ bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
-  Cull_.Encode(ctx, into);
+  Cull_.EncodeCull(ctx, into);
+}
+
+void SceneRenderer::EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into) {
+  Cull_.EncodeScan(ctx, into);
+}
+
+void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into) {
+  Cull_.EncodeCompact(ctx, into);
 }
 
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {

@@ -33,6 +33,9 @@ struct SubjectResidency {
     Index,
     ClusterSpheres,
     ClusterJobs,
+    ClusterBatches,
+    ClusterKept,
+    ClusterSlot,
     DrawIndex,
     DrawArguments,
     Count
@@ -62,8 +65,8 @@ struct SubjectResidency {
   bool FiltersFloat32 = false;
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
-  OwnedBuffer ClusterSpheres, ClusterJobs;
-  OwnedBuffer DrawIdx, DrawArgs;
+  OwnedBuffer ClusterSpheres, ClusterJobs, ClusterBatches;
+  OwnedBuffer ClusterKept, ClusterSlot, DrawIdx, DrawArgs;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
 

@@ -686,12 +686,15 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
   if (jobs.empty() || mesh.ClusterSpheres.empty()) { return true; }
 
   Args_.assign(Batches.size() * 5u, 0u);
+  std::vector<uint32_t> rows(Batches.size() * 2u, 0u);
   uint32_t base = 0;
   for (size_t at = 0; at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
     Args_[at * 5u + 1u] = batch.Instances;
     Args_[at * 5u + 2u] = base;
     Args_[at * 5u + 4u] = batch.ModelSlot;
+    rows[at * 2u] = batch.FirstJob;
+    rows[at * 2u + 1u] = batch.JobCount;
     for (uint32_t one = 0; one < batch.JobCount; ++one) {
       base += jobs[((size_t)batch.FirstJob + one) * DrawList::kJobWords + 3u];
     }
@@ -715,6 +718,11 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
        read,
        jobs.data(),
        (uint32_t)(jobs.size() * sizeof(uint32_t))},
+      {&Bound().ClusterBatches,
+       &Bound().Held[(size_t)SubjectResidency::Stream::ClusterBatches],
+       read,
+       rows.data(),
+       (uint32_t)(rows.size() * sizeof(uint32_t))},
   };
   if (!Bound().Cross(cut, sizeof cut / sizeof cut[0], false, error)) {
     Args_.clear();
@@ -722,7 +730,15 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
     return false;
   }
 
-  if (!Room(Bound().DrawIdx,
+  if (!Room(Bound().ClusterKept,
+            SubjectResidency::Stream::ClusterKept,
+            SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+            Jobs_ * (uint32_t)sizeof(uint32_t)) ||
+      !Room(Bound().ClusterSlot,
+            SubjectResidency::Stream::ClusterSlot,
+            SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+            Jobs_ * (uint32_t)sizeof(uint32_t)) ||
+      !Room(Bound().DrawIdx,
             SubjectResidency::Stream::DrawIndex,
             SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
             base * (uint32_t)sizeof(uint32_t)) ||
