@@ -53,9 +53,9 @@ bool Engine::State::Watches(void) {
     station[1] = where.U + seen.OffsetM[1];
     station[2] = -where.N + seen.OffsetM[2];
   }
-  Published.Places("the eye, east", station[0], "m");
-  Published.Places("the eye, up", station[1], "m");
-  Published.Places("the eye, south", station[2], "m");
+  Published.Places("the standing eye, east", station[0], "m");
+  Published.Places("the standing eye, up", station[1], "m");
+  Published.Places("the standing eye, south", station[2], "m");
   double ahead[3];
   if (seen.Sees.Stands.GlobeAnchor) {
     const double bearing = seen.Sees.Stands.BearingDeg * std::numbers::pi / 180.0;
@@ -154,9 +154,9 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
           at[axis] + bodyFromWorld[8 + axis] * back + bodyFromWorld[4 + axis] * back * seen.RisesBy;
     }
   }
-  Published.Places("the eye, east", eye[0], "m");
-  Published.Places("the eye, up", eye[1], "m");
-  Published.Places("the eye, south", eye[2], "m");
+  Published.Places("the carried eye, east", eye[0], "m");
+  Published.Places("the carried eye, up", eye[1], "m");
+  Published.Places("the carried eye, south", eye[2], "m");
   Render::Viewpoint from;
   if (!Render::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
@@ -251,6 +251,7 @@ void Engine::frameTimesMs(std::vector<double> &out) const {
 
 Result Engine::advance() {
   const auto began = std::chrono::steady_clock::now();
+  S_->Published.Opens();
   if (!S_->Updates()) { return std::unexpected(S_->Error); }
   S_->Ticking.ElapsedS += S_->Session.Declared.Motion.StepS;
   S_->Tells();
@@ -321,7 +322,7 @@ void Engine::State::Inspected(void) {
         if (one > 0.0f) { written += 1.0; }
       }
       Published.Places("the shadow atlas, least depth", least, "");
-      Published.Places("its most", most, "");
+      Published.Places("the shadow atlas, most depth", most, "");
       Published.Places("texels above the clear", written, "texels");
       Published.Places(
           "the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");

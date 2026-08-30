@@ -540,8 +540,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (y < least) { least = y; }
         if (y > most) { most = y; }
       }
-      Published.Places("the ring's lowest vertex", least, "m");
-      Published.Places("its highest", most, "m");
+      Published.Places("the ground ring's lowest vertex", least, "m");
+      Published.Places("the ground ring's highest", most, "m");
     }
   }
   Geometry ground;
@@ -1359,8 +1359,8 @@ void Engine::State::Tells(void) {
   }
   if (Cost.Advance.Count > 0) {
     Published.Places("the step's own time, last", Cost.Advance.LastMs, "ms");
-    Published.Places("its least", Cost.Advance.LeastMs, "ms");
-    Published.Places("its most", Cost.Advance.MostMs, "ms");
+    Published.Places("the step's own time, least", Cost.Advance.LeastMs, "ms");
+    Published.Places("the step's own time, most", Cost.Advance.MostMs, "ms");
     Published.Places("steps taken", (double)Cost.Advance.Count, "steps");
   }
   if (Picture.Standing) {
@@ -1391,9 +1391,16 @@ void Engine::State::Tells(void) {
   }
   if (Cost.Render.Count > 0) {
     Published.Places("the picture's own time, last", Cost.Render.LastMs, "ms");
-    Published.Places("its least", Cost.Render.LeastMs, "ms");
-    Published.Places("its most", Cost.Render.MostMs, "ms");
+    Published.Places("the picture's own time, least", Cost.Render.LeastMs, "ms");
+    Published.Places("the picture's own time, most", Cost.Render.MostMs, "ms");
     Published.Places("pictures drawn", (double)Cost.Render.Count, "pictures");
+  }
+  {
+    const std::vector<std::string> clashed = Published.Clashed();
+    Published.Places("measures published twice in one round", (double)clashed.size(), "rows");
+    for (const std::string &one : clashed) {
+      Published.Places("published twice in one round: " + one, 1.0, "rows");
+    }
   }
 
   const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
@@ -1463,7 +1470,6 @@ Result Engine::mix(std::span<float> stereo, int rate) {
       return std::unexpected(S_->Error);
     }
     S_->Session.Mixing = true;
-    S_->Tells();
   }
   const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
   return (S_->Session.Sounding.Fills(

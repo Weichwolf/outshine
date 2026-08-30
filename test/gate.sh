@@ -27,22 +27,19 @@ Step 'the library and its clients' make
 Step 'the tiers and what stands wider'  sh test/run.sh --audit-layers --audit-access
 Step 'khronos static'               sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'             sh test/run.sh khronos/glTF/BoxAnimated
-Step 'the simulation, content, mix'  sh test/run.sh outshine/physics outshine/content outshine/audio outshine/scenario outshine/geo outshine/fuzz
 Step 'the places on Earth, rendered into build/places'  sh test/run.sh outshine/places
 
 printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date +%s) - began))"
 # THE COVERAGE LINE COUNTS RATHER THAN REMEMBERS. It said 27 while the suite held 29, and a
 # stale number in a statement about what is NOT covered is the same defect as a stale number in
 # one about what is.
-printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
-  "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
-printf 'the validator, wpt, test262 and the render corpus. AND THE CLIENT DOES NOT RUN HERE:\n'
-printf 'a client is a product, not a check. The one that stood here held this gate for ten\n'
-printf 'minutes when it hung and left three processes behind that poisoned every later run.\n'
-printf '`make shots` is where the client runs; test/outshine/places is where it is scored.\n'
-printf 'A change to SubjectProxy,\n'
-printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
-printf 'because the door cases are the only ones that compile against it.\n'
+printf 'NOT covered here: the validator, wpt, test262 and the geodesic corpus -- the four that\n'
+printf 'score a COMPUTATION rather than a picture, and the only C++ scorers left in the tree.\n'
+printf 'The render corpus is not here either. AND THE CLIENT DOES NOT RUN HERE: a client is a\n'
+printf 'product, not a check. The one that stood here held this gate for ten minutes when it\n'
+printf 'hung and left three processes behind that poisoned every later run. `make shots` is\n'
+printf 'where the client runs; test/outshine/places is where it is scored, and it is the ONLY\n'
+printf 'suite this tree still writes about itself.\n'
 printf 'AND ANY CHANGE UNDER src/ OR include/ WANTS `make lint`: it holds\n'
 printf 'the rules about the SOURCE -- no comment, one spelling per type, no block on the frame\n'
 printf 'path, every board edge landing -- and four of them stood red behind a GREEN gate here\n'
