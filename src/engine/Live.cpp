@@ -26,7 +26,8 @@ namespace outshine::Core {
 namespace {
 
 
-bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows, bool presents,
+bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces, bool sky, bool shadows,
+                 bool presents,
                  const std::vector<std::string> &stages, const std::vector<std::string> &outputs,
                  Render::PlanSpec &declaration, std::string &error) {
   // A PRESENT PASS FOR A WINDOW THAT DOES NOT EXIST IS WASTE. `Surface` is what PULLS
@@ -79,9 +80,14 @@ bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows, bool presen
     declaration.Content.push_back(Render::Stage::AerialPerspective);
   }
   if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
+  // THE PLAN FOLLOWS WHAT IS DRAWN, NOT WHAT THE FILE SHIPPED. A declaration REPLACES a surface,
+  // so a glass row the client overrode with an opaque one draws no glass and needs no pass for it
+  // -- reading `file.Materials()` here asked the asset a question the declaration had already
+  // answered. Measured: 21 Khronos cases whose own manifest calls them `opaque-min-1px` were
+  // running the two transmissive passes over bodies declared as flat emission.
   bool carriesGlass = false;
-  for (const Gltf::MaterialRef &material : file.Materials()) {
-    const SurfaceKind kind = StateOf(material.Surface).Kind();
+  for (const Render::SubjectMaterial &surface : surfaces) {
+    const SurfaceKind kind = surface.State().Kind();
     carriesGlass = carriesGlass || kind == SurfaceKind::ThinTransmissive ||
                    kind == SurfaceKind::Refractive;
   }
@@ -386,7 +392,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  if (!DeclarePlan(Held_.File(), Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
+  if (!DeclarePlan(Table_.Slots, Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
                    Renderer_ != nullptr && Renderer_->Presents(), Declared_.Stages,
                    Declared_.Outputs, declaration, error)) {
     return false;
