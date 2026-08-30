@@ -48,12 +48,22 @@ constexpr bool kChainIsReadable = false;
 } // namespace
 
 std::atomic<size_t> gUploads{0};
+std::atomic<size_t> gUploadsEver{0};
+std::atomic<size_t> gCrossingsFlushed{0};
 std::atomic<size_t> gUploadBytes{0};
 std::atomic<size_t> gBuffersMade{0};
 std::atomic<size_t> gStagingMade{0};
 
 size_t SubjectResidency::UploadsTaken() {
   return gUploads.exchange(0u);
+}
+
+size_t SubjectResidency::UploadsEver() {
+  return gUploadsEver.load(std::memory_order_relaxed);
+}
+
+size_t SubjectResidency::CrossingsFlushed() {
+  return gCrossingsFlushed.load(std::memory_order_relaxed);
 }
 
 size_t SubjectResidency::UploadMBTaken() {
@@ -154,6 +164,7 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
   }
   gUploads.fetch_add(1u, std::memory_order_relaxed);
+  gUploadsEver.fetch_add(1u, std::memory_order_relaxed);
   gUploadBytes.fetch_add(total, std::memory_order_relaxed);
   if (!Bulk_) {
     error = std::format(Says::kTopologyStagingFoundNoRoom, SDL_GetError());
@@ -200,6 +211,7 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
     const SDL_GPUTransferBufferLocation source{Staged_[at].Staging, Staged_[at].From};
     const SDL_GPUBufferRegion into{Staged_[at].Into, 0, Staged_[at].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
+    gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
   }
   SDL_EndGPUCopyPass(copy);
   StagedCount_ = 0;
@@ -270,6 +282,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
     gUploads.fetch_add(1u, std::memory_order_relaxed);
+    gUploadsEver.fetch_add(1u, std::memory_order_relaxed);
     gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
     void *const mappedLevel = SDL_MapGPUTransferBuffer(Device, staging, false);
     if (mappedLevel == nullptr) {

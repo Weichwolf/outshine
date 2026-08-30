@@ -40,6 +40,10 @@ struct Shot {
   double VariationAlongRows = 0.0;
 
   double StandingMs = 0.0, LoadingMs = 0.0, StreamedS = 0.0;
+
+  /// How many frames the plan wanted before the picture settled, and the instant the SHOT itself
+  /// was taken at -- a still of a moving subject says nothing without the second of these.
+  double SettledOver = 0.0, PosedAtS = 0.0;
   bool Preloaded = false;
   bool Kept = false;
 
@@ -47,7 +51,10 @@ struct Shot {
   std::vector<::outshine::Measure> Measures;
 };
 
-[[nodiscard]] Shot Draw(class ::outshine::Engine &engine, std::string_view name, bool tells);
+[[nodiscard]] Shot Draw(class ::outshine::Engine &engine,
+                        std::string_view name,
+                        bool tells,
+                        std::string_view under = "places");
 
 [[nodiscard]] std::span<const Place> Places();
 [[nodiscard]] const Place *PlaceNamed(std::string_view name);

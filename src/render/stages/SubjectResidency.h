@@ -16,6 +16,10 @@ namespace outshine::Render {
 
 struct SubjectResidency {
   [[nodiscard]] static size_t UploadsTaken();
+
+  [[nodiscard]] static size_t UploadsEver();
+
+  [[nodiscard]] static size_t CrossingsFlushed();
   [[nodiscard]] static size_t UploadMBTaken();
   [[nodiscard]] static size_t BuffersMadeTaken();
   [[nodiscard]] static size_t StagingMadeTaken();

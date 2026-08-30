@@ -1504,7 +1504,13 @@ bool Engine::render(Extent frame) {
   S_->Published.Places(
       "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
   S_->Published.Places(
-      "the geometry the device last took, digested", Render::HandedGeometryDigest(), "");
+      "the geometry the renderer was last offered, digested", Render::HandedGeometryDigest(), "");
+  S_->Published.Places("uploads the subject residency has made in all",
+                       (double)Render::SubjectResidency::UploadsEver(),
+                       "uploads");
+  S_->Published.Places("staged crossings the residency flushed",
+                       (double)Render::SubjectResidency::CrossingsFlushed(),
+                       "crossings");
   S_->Published.Places(
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
   {

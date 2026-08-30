@@ -84,21 +84,24 @@ void Tell(const Shot &shot, std::string_view name) {
 /// human-readable pair above is for an eye; this is for the case that scores it, and having both
 /// means a test and a person drive the SAME command.
 void Row(const Shot &shot, std::string_view name) {
-  std::printf("ROW\t%s\t%s\t%d\t%.4f\t%.4f\t%.4f\t%zu\t%zu\t%zu\t%.0f\t%.0f\t%.4f\t%d\t%s\n",
-              std::string(name).c_str(),
-              shot.Digest.empty() ? "-" : shot.Digest.c_str(),
-              shot.Kept ? 1 : 0,
-              shot.P50Ms,
-              shot.P95Ms,
-              shot.P99Ms,
-              shot.Frames,
-              shot.OverBudget,
-              shot.WorstAt,
-              shot.Triangles,
-              shot.BareTiles,
-              shot.VariationAlongRows,
-              shot.Preloaded ? 1 : 0,
-              shot.Why.empty() ? "-" : shot.Why.c_str());
+  std::printf(
+      "ROW\t%s\t%s\t%d\t%.4f\t%.4f\t%.4f\t%zu\t%zu\t%zu\t%.0f\t%.0f\t%.4f\t%d\t%.0f\t%.4f\t%s\n",
+      std::string(name).c_str(),
+      shot.Digest.empty() ? "-" : shot.Digest.c_str(),
+      shot.Kept ? 1 : 0,
+      shot.P50Ms,
+      shot.P95Ms,
+      shot.P99Ms,
+      shot.Frames,
+      shot.OverBudget,
+      shot.WorstAt,
+      shot.Triangles,
+      shot.BareTiles,
+      shot.VariationAlongRows,
+      shot.Preloaded ? 1 : 0,
+      shot.SettledOver,
+      shot.PosedAtS,
+      shot.Why.empty() ? "-" : shot.Why.c_str());
 }
 
 void Usage() {
@@ -200,7 +203,7 @@ int RunScenario(int argc, char **argv, bool everyMeasure) {
     std::printf("outshine-client: %s did not assemble -- %s\n", argv[0], engine.error().c_str());
     return 1;
   }
-  const Shot shot = outshine::Shots::Draw(engine, named, true);
+  const Shot shot = outshine::Shots::Draw(engine, named, true, "khronos");
   if (rows) {
     Row(shot, named.c_str());
   } else {

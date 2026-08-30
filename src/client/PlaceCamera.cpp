@@ -145,7 +145,7 @@ Shot Take(const Place &place, bool tells) {
   return drawn;
 }
 
-Shot Draw(Engine &engine, std::string_view name, bool tells) {
+Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view under) {
   Shot shot;
   const auto asked = std::chrono::steady_clock::now();
   Loading last;
@@ -199,9 +199,13 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
   shot.Triangles = measured("building triangles the world meshed");
   shot.BareTiles = measured("tiles laid bare on the ellipsoid");
 
+  shot.SettledOver = (double)wanted;
+  shot.PosedAtS = measured("and the instant it is posed at");
+
   std::error_code failed;
-  std::filesystem::create_directories("build/shots", failed);
-  const std::string writing = std::string("build/shots/") + std::string(name) + ".writing";
+  const std::string into = std::string("build/shots/") + std::string(under);
+  std::filesystem::create_directories(into, failed);
+  const std::string writing = into + "/" + std::string(name) + ".writing";
   if (engine.renderer().saveScreenshot(writing).has_value()) {
     std::string bytes;
     if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
@@ -211,7 +215,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
       std::fclose(held);
     }
     shot.Digest = Sha256Hex(bytes).substr(0, 8);
-    shot.Wrote = std::string("build/shots/") + std::string(name) + "-" + shot.Digest + ".png";
+    shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
     std::filesystem::rename(writing, shot.Wrote, failed);
     shot.Kept = !failed;
   }
