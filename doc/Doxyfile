@@ -1,0 +1,59 @@
+# THE DOOR, AND THE CLIENT THAT DRIVES IT. Nothing else is input: `src/` is the motor and its
+# reasons live in commits and board items, where a generated page cannot show them and a reader
+# looking for WHY is better served by `git log` than by a `@note`.
+#
+# WHAT IS DOCUMENTED IS WHAT A CLIENT CAN REACH. `include/` is public by definition -- a header is
+# there only if a client cannot use the engine without it -- and `src/client` is the library's own
+# command line, which is the same contract seen from the other side.
+PROJECT_NAME           = outshine
+PROJECT_BRIEF          = "An interactive physics simulation with a focus on graphics"
+OUTPUT_DIRECTORY       = build/doc
+CREATE_SUBDIRS         = NO
+
+INPUT                  = include src/client README.md
+FILE_PATTERNS          = *.h *.hpp *.md
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# EVERY PUBLIC ENTITY IS DOCUMENTED OR THE BUILD SAYS SO. `EXTRACT_ALL = YES` would silently
+# publish an undocumented name as though it were finished, which is the opposite of what this is
+# for: the page is the door's contract and a blank entry is a missing contract.
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_LOGFILE           = build/doc/warnings.txt
+
+# NOT AN ERROR YET, AND THE REASON IS THE SAME AS THE LINT'S. `include/` carries prose today and
+# almost no Doxygen blocks, so FAIL_ON_WARNINGS on the first day is a target nobody can run. The
+# count is held to a baseline that may only shrink, and this flips to FAIL_ON_WARNINGS on the day
+# the count reaches zero.
+WARN_AS_ERROR          = NO
+
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MULTILINE_CPP_IS_BRIEF = NO
+INHERIT_DOCS           = YES
+TAB_SIZE               = 2
+BUILTIN_STL_SUPPORT    = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+SEARCHENGINE           = YES
+
+HAVE_DOT               = NO
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+
+QUIET                  = YES
