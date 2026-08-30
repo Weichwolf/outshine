@@ -37,6 +37,8 @@ public:
 
   [[nodiscard]] static float ErrorPerMetreTaken();
 
+  [[nodiscard]] static uint32_t JobsSweptTaken();
+
 private:
   [[nodiscard]] bool Pipeline(const Gpu &gpu,
                               const char *entry,

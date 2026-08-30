@@ -290,6 +290,11 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
              {"passes", Plan_->PassCount()},
              {"stages", (int)Plan_->Order().size()},
              {"f32filter", Handles_.FiltersFloat32}});
+  for (size_t at = 0; at < kStageCount; ++at) {
+    const Stage stage = (Stage)at;
+    if (Executable(stage)) { continue; }
+    Log::Info("render", "stage_without_a_body", {{"stage", Row(stage).Name}});
+  }
   for (const std::string &merge : Plan_->Merges()) {
     Log::Info("render", "plan_merge", {{"merge", merge}});
   }

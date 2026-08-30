@@ -1540,6 +1540,8 @@ bool Engine::render(Extent frame) {
                        "crossings");
   S_->Published.Places(
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
+  S_->Published.Places(
+      "cull: jobs it swept", (double)Render::SubjectCullStage::JobsSweptTaken(), "jobs");
   {
     const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
     const double aspect = S_->Picture.Frame.HeightPx > 0 ? (double)S_->Picture.Frame.WidthPx /

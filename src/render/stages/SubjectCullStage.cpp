@@ -26,6 +26,7 @@ std::string Kernel(std::string &error) {
 }
 
 std::atomic<float> gErrorPerMetre{0.0f};
+std::atomic<uint32_t> gJobsSwept{0};
 
 void PlanesOf(const float mvp[16], float out[24]) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
@@ -84,6 +85,10 @@ bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::str
          Pipeline(gpu, "subjectCompactKernel", CompactShape, Compact_, error);
 }
 
+uint32_t SubjectCullStage::JobsSweptTaken() {
+  return gJobsSwept.load(std::memory_order_relaxed);
+}
+
 float SubjectCullStage::ErrorPerMetreTaken() {
   return gErrorPerMetre.load(std::memory_order_relaxed);
 }
@@ -128,6 +133,7 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
   SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
   Swept_ = jobs;
+  gJobsSwept.store(jobs, std::memory_order_relaxed);
 }
 
 void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &into) {
