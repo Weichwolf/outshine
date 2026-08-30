@@ -96,13 +96,13 @@ def scenario_for(manifest, entry):
     look = camera.get("lookAtM", [0.0, 0.0, 0.0])
     up = camera.get("upM", [0.0, 1.0, 0.0])
     light = scene.get("light", {})
-    animated = bool(manifest.get("subjects", [{}])[0].get("animation"))
+    animated = bool(scene.get("animation", {}).get("animations"))
     keeps = ["sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"]
     if animated:
         keeps.append("sceneVelocity")
     lines = ['<scenario>',
              f'  <render widthPx="{render.get("resolutionX", 1280)}" '
-             f'heightPx="{render.get("resolutionY", 720)}" fps="60" '
+             f'heightPx="{render.get("resolutionY", 720)}" fps="{kInstantRate}" '
              f'transfer="linear" precision="float" exposure="1.0">']
     lines += [f'    <keep name="{one}"/>' for one in keeps]
     lines.append('  </render>')
@@ -118,7 +118,8 @@ def scenario_for(manifest, entry):
         lines.append(f'    <environment r="{kFactoryWorldRadiance}" g="{kFactoryWorldRadiance}" '
                      f'b="{kFactoryWorldRadiance}"/>')
     lines.append('  </lighting>')
-    lines += ['  <assets>', f'    <asset uri="{entry}" kind="gltf" animation="ignore">']
+    plays = "play" if animated else "ignore"
+    lines += ['  <assets>', f'    <asset uri="{entry}" kind="gltf" animation="{plays}">']
     worn = parts_of(entry)
     names = [one.get("name") for one in
              (json.loads(entry.read_text()).get("materials", [])
@@ -133,6 +134,13 @@ def scenario_for(manifest, entry):
               '    </view>', '  </views>', '</scenario>']
     return "\n".join(lines) + "\n"
 
+
+# THE INSTANT THE ORACLE STANDS AT IS ZERO, and this is how a scenario reaches it today. The engine
+# advances an animation by 1/<render fps> per advance and the client settles two frames before it
+# takes the picture, so the shot lands at 2/fps -- which no reader would guess and no scenario can
+# state. A rate this high puts it at two microseconds, which is the oracle's frame 0 to eight
+# decimal places. The DECLARED instant belongs in the scenario and is its own item.
+kInstantRate = 1000000.0
 
 kMostDelta = 8
 kLeastAgreeing = 0.9999
