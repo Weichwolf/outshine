@@ -272,6 +272,7 @@ struct Surrounds {
   size_t AskedWanted = 0;
   uint64_t LaidFrom = 0;
   size_t LaidResident = 0;
+  uint64_t LaidClasses = 0;
   bool EverLaid = false;
   size_t Relaid = 0;
   size_t Asked = 0;

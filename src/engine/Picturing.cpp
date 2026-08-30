@@ -456,15 +456,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     World.AskedPending = sees->Pending;
     World.AskedWanted = sees->Tiles;
     const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
+    const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
+    const uint64_t classes = naming ? naming->Version() : 0;
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
-    if (World.EverLaid && !elsewhere && !grew) { return true; }
+    const bool renamed = classes != World.LaidClasses;
+    if (World.EverLaid && !elsewhere && !grew && !renamed) { return true; }
     Published.Places("rebuilds since the world stood", (double)(World.Relaid + 1u), "rebuilds");
     Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
     Published.Places("rebuild: tiles resident when it did", (double)resident, "tiles");
     Published.Places("rebuild: and resident the time before", (double)World.LaidResident, "tiles");
+    Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
     World.LaidFrom = from;
     World.LaidResident = resident;
+    World.LaidClasses = classes;
     World.EverLaid = true;
     ++World.Relaid;
   }
@@ -617,6 +622,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("lighting: bounce green", lighting.GroundLinear[1], "cd/m2");
     Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
     Published.Places("the ring's vertices a land class names", (double)named, "vertices");
+    Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
+    Published.Places("class field: it calls itself complete",
+                     World.Stack.Classes().Complete() ? 1.0 : 0.0,
+                     "yes/no");
+    Published.Places(
+        "class field: tiles it waits for", (double)World.Stack.Classes().PendingTiles(), "tiles");
+    Published.Places("class field: the fraction it has no data for",
+                     classes ? classes->NoDataFraction() : -1.0,
+                     "fraction");
+    Published.Places(
+        "class field: the materials are loaded", wearing.Ready() ? 1.0 : 0.0, "yes/no");
     Published.Places("out of, for a class", (double)(inFrame.size() / 3), "vertices");
   }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
