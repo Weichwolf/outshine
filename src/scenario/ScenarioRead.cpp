@@ -40,9 +40,10 @@ struct Element {
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views body player drive physics clock "
+     "instances regions volumes audio tables events views body player drive physics clock scene "
      "input state layer"},
     {"scenario/layer", "", "path"},
+    {"scenario/scene", ""},
     {"scenario/world", ""},
     {"scenario/render", "keep output stage"},
     {"scenario/render/keep", "", "name"},
@@ -82,7 +83,10 @@ const Element kGrammar[] = {
     {"scenario/volumes", "volume"},
     {"scenario/volumes/volume", "", "fires when"},
     {"scenario/audio", "bus sound"},
-    {"scenario/audio/bus", "", "id"},
+    {"scenario/audio/bus", "room voice", "id"},
+    {"scenario/audio/bus/room", ""},
+    {"scenario/audio/bus/voice", "from", "id"},
+    {"scenario/audio/bus/voice/from", "", "id"},
     {"scenario/audio/sound", "", "id uri"},
     {"scenario/tables", "table"},
     {"scenario/tables/table", "column row"},

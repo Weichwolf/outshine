@@ -118,3 +118,15 @@ if [ -f build/liboutshine.a ]; then
     printf 'lint: the unreached baseline SHRANK to %s -- recorded.\n' "$unreached"
   fi
 fi
+
+# THE SCENARIO'S GRAMMAR AGAINST ITS OWN READER. The two are kept by hand beside each other and they
+# drift; eight drifts have been found this way, each of them a capability no declaration could
+# reach. board:2052 removes the guard by removing the second copy -- derive the grammar from the
+# declaration types -- and until it lands this is what holds them together. It goes RED rather than
+# carrying a baseline, because a child the reader reads and the grammar refuses is a defect with no
+# legitimate population.
+if ! python3 test/scripts/grammar_vs_reader.py; then
+  printf 'lint: the scenario reader reads a child its grammar refuses -- a capability no\n' >&2
+  printf 'lint: declaration can reach. Add the row, or stop reading it.\n' >&2
+  exit 1
+fi
