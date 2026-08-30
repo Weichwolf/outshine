@@ -27,6 +27,8 @@ struct UvTransformProperties {
   double OffsetUv[2] = {0.0, 0.0};
   double RotationRad = 0.0;
   double ScaleUv[2] = {1.0, 1.0};
+
+  [[nodiscard]] bool operator==(const UvTransformProperties &) const = default;
 };
 
 [[nodiscard]] inline UvTransform UvTransformOf(const UvTransformProperties &declared) {

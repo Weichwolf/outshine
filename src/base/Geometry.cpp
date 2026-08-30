@@ -27,9 +27,15 @@ struct Geometry::Held {
     PunctualLight Light;
     double PlacedM[16];
   };
+  struct Picture {
+    int WidthPx = 0;
+    int HeightPx = 0;
+    std::vector<uint8_t> Rgba;
+  };
   std::vector<Piece> Parts;
   size_t Live = 0;
   std::vector<Named> Surfaces;
+  std::vector<Picture> Images;
   std::vector<Placed> Lamps;
 
   [[nodiscard]] const Piece *At(int part) const {
@@ -182,6 +188,35 @@ int Geometry::addLamp(std::string_view named, const PunctualLight &light, const 
   for (size_t at = 0; at < 16u; ++at) { placed.PlacedM[at] = placedM16[at]; }
   Held_->Lamps.push_back(std::move(placed));
   return (int)Held_->Lamps.size() - 1;
+}
+
+int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
+  if (widthPx <= 0 || heightPx <= 0 ||
+      rgba.size() < (size_t)widthPx * (size_t)heightPx * 4u) {
+    return -1;
+  }
+  Held::Picture made;
+  made.WidthPx = widthPx;
+  made.HeightPx = heightPx;
+  made.Rgba.assign(rgba.begin(), rgba.end());
+  Held_->Images.push_back(std::move(made));
+  return (int)Held_->Images.size() - 1;
+}
+
+int Geometry::images() const { return (int)Held_->Images.size(); }
+
+bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
+  const int at = surface.index();
+  if (at < 0 || (size_t)at >= Held_->Surfaces.size()) { return false; }
+  Held_->Surfaces[(size_t)at].Surface = row;
+  return true;
+}
+
+ImageView Geometry::imageAt(int image) const {
+  if (image < 0 || (size_t)image >= Held_->Images.size()) { return ImageView{}; }
+  const Held::Picture &held = Held_->Images[(size_t)image];
+  return ImageView{held.WidthPx, held.HeightPx,
+                   std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
 }
 
 int Geometry::surfaces() const { return (int)Held_->Surfaces.size(); }

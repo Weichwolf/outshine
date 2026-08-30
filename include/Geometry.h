@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "Material.h"
+#include "Texture.h"
 #include "PunctualLight.h"
 
 namespace outshine {
@@ -88,9 +89,21 @@ public:
   [[nodiscard]] std::string_view nameOf(int part) const;
   [[nodiscard]] MaterialInstance materialOf(int part) const;
 
+  // THE ASSET'S IMAGES, which a `Material`'s maps index into. They belong to the geometry rather
+  // than to a material because two materials share one image far more often than not, and glTF
+  // says so too: its `textures` are a table and its materials point into it.
+  int addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
+  [[nodiscard]] int images() const;
+  [[nodiscard]] ImageView imageAt(int image) const;
+
   [[nodiscard]] int surfaces() const;
   [[nodiscard]] std::string_view surfaceNameOf(int surface) const;
   [[nodiscard]] const Material &surfaceAt(MaterialInstance surface) const;
+
+  // AND A SURFACE CAN BE RESTATED. `addSurface` makes one and `setMaterial` points a part at
+  // another; neither could change the row a surface IS, so a client that read an asset and wanted
+  // to say "this surface, with THAT roughness" had to rebuild the table around it.
+  bool setSurface(MaterialInstance surface, const Material &row);
 
   [[nodiscard]] int lamps() const;
   [[nodiscard]] std::string_view lampNameOf(int lamp) const;

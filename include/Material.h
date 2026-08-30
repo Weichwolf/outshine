@@ -3,6 +3,8 @@
 
 #include <limits>
 
+#include "Texture.h"
+
 namespace outshine {
 
 enum class AlphaMode { Opaque, Masked, Blended };
@@ -44,6 +46,17 @@ struct Material {
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
+
+  // AND THE MAPS IT WEARS, named rather than carried. glTF's material states a texture INDEX, a uv
+  // set and a sampler; the pixels live with the asset. Same here: the index is into the
+  // `Geometry`'s own images, so a row copied from one asset onto another names nothing and says so.
+  SurfaceMap BaseColourMap;
+  SurfaceMap NormalMap;
+  SurfaceMap MetalRoughMap;
+  SurfaceMap EmissiveMap;
+  SurfaceMap OcclusionMap;
+  SurfaceMap SpecularStrengthMap;
+  SurfaceMap SpecularTintMap;
 };
 
 inline void DielectricF0(const Material &material, float out[3]) {

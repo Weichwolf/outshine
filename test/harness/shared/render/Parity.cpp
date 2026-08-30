@@ -791,6 +791,78 @@ std::string MissingInputs(const Case &subject) {
   return true;
 }
 
+// THE RUNNER BUILDS ITS OWN SURFACE TABLE, FROM THE DOOR. `ResolveSurfaceTable` and
+// `ResolveFileSurface` are the engine's, take a `Gltf::Document` and a `Gltf::Subject`, and were
+// the last thing keeping this file on those two names. What they decide is now readable: a
+// `Material` NAMES its maps and a `Geometry` carries the images, so the table below is this
+// runner PREDICTING what the engine will do -- which is what it already does for the slot split
+// -- rather than borrowing the engine's answer and calling the agreement a measurement.
+void SurfacesOf(const Handed &model, const outshine::Geometry &handed, bool carriesTransmission,
+                bool ownMaterials, SurfaceTable &out) {
+  out.Slots.clear();
+  out.Material.clear();
+  out.Decoded.clear();
+  out.PartSlot.assign(model.Parts().size(), 0);
+  const auto bound = [&handed](const outshine::SurfaceMap &map,
+                               outshine::Render::SubjectTexture &into) {
+    if (!map.bound()) { return; }
+    const outshine::ImageView held = handed.imageAt(map.Image);
+    if (!held.stands()) { return; }
+    into.Rgba = held.Rgba.data();
+    into.Width = (uint32_t)held.WidthPx;
+    into.Height = (uint32_t)held.HeightPx;
+    into.Set = map.Set;
+    into.Uv = outshine::UvTransformOf(map.Uv);
+    into.Magnify = map.Samples.Magnify == outshine::Filter::Nearest
+                       ? outshine::Render::SubjectFilter::Nearest
+                       : outshine::Render::SubjectFilter::Linear;
+    into.Minify = map.Samples.Minify == outshine::Filter::Nearest
+                      ? outshine::Render::SubjectFilter::Nearest
+                      : outshine::Render::SubjectFilter::Linear;
+    into.WrapU = map.Samples.WrapU == outshine::Wrap::ClampToEdge
+                     ? outshine::Render::SubjectWrap::ClampToEdge
+                 : map.Samples.WrapU == outshine::Wrap::MirroredRepeat
+                     ? outshine::Render::SubjectWrap::MirroredRepeat
+                     : outshine::Render::SubjectWrap::Repeat;
+    into.WrapV = map.Samples.WrapV == outshine::Wrap::ClampToEdge
+                     ? outshine::Render::SubjectWrap::ClampToEdge
+                 : map.Samples.WrapV == outshine::Wrap::MirroredRepeat
+                     ? outshine::Render::SubjectWrap::MirroredRepeat
+                     : outshine::Render::SubjectWrap::Repeat;
+  };
+  for (size_t part = 0; part < model.Parts().size(); ++part) {
+    const int material = model.Parts()[part].Material;
+    size_t slot = out.Material.size();
+    for (size_t at = 0; at < out.Material.size(); ++at) {
+      if (out.Material[at] == material) {
+        slot = at;
+        break;
+      }
+    }
+    if (slot == out.Material.size()) {
+      outshine::Render::SubjectMaterial surface;
+      if (material >= 0 && (size_t)material < model.Surfaces().size()) {
+        surface.Row = model.Surfaces()[(size_t)material];
+        if (!carriesTransmission) {
+          surface.Row.Transmission = 0.0f;
+          surface.Row.Thickness = 0.0f;
+        }
+        if (!ownMaterials) { surface.Row.Alpha = outshine::AlphaMode::Opaque; }
+        bound(surface.Row.BaseColourMap, surface.Colour);
+        bound(surface.Row.NormalMap, surface.Normal);
+        bound(surface.Row.MetalRoughMap, surface.MetalRough);
+        bound(surface.Row.EmissiveMap, surface.Emissive);
+        bound(surface.Row.SpecularStrengthMap, surface.SpecularStrength);
+        bound(surface.Row.SpecularTintMap, surface.SpecularTint);
+      }
+      out.Material.push_back(material);
+      out.Slots.push_back(surface);
+    }
+    out.PartSlot[part] = (uint32_t)slot;
+  }
+  out.Decoded.assign(out.Slots.size(), SurfaceRasters{});
+}
+
 [[nodiscard]] bool AnyLinearFilteredImage(const SurfaceTable &surfaces) {
   const auto interpolates = [](const outshine::Render::SubjectTexture &image) {
     return image.Rgba != nullptr && (image.Width > 1u || image.Height > 1u) &&
@@ -848,14 +920,8 @@ std::string MissingInputs(const Case &subject) {
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Model.PositionsM();
 
-  ResolveSurfaceTable(subject.File, subject.Surfacing, subject.TransmissionBounces > 0,
-                      subject.MaterialFromFile(), subject.Surfaces);
-  if (subject.MaterialFromFile() &&
-      !ResolveFileSurface(subject.File, subject.Surfacing, subject.Colour, subject.Carrier,
-                          subject.Surfaces,
-                          error)) {
-    return false;
-  }
+  SurfacesOf(subject.Model, subject.Held.geometry(), subject.TransmissionBounces > 0,
+             subject.MaterialFromFile(), subject.Surfaces);
   if (!ResolveEmission(subject, subject.Model, subject.Emitted, error)) {
     return false;
   }

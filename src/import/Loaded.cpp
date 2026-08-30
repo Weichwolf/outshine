@@ -1,11 +1,14 @@
 #include "Loaded.h"
 
+#include <cstring>
+#include <span>
 #include <vector>
 
 #include "Document.h"
 #include "Pose.h"
 #include "Subject.h"
 #include "Variant.h"
+#include "surface/Surfaces.h"
 
 namespace outshine {
 
@@ -34,7 +37,76 @@ struct Loaded::Held {
       return false;
     }
     Handed = Assembled.Handed(File);
+    return Wears();
+  }
+
+  // THE MAPS, TRANSLATED RATHER THAN RE-READ. `ResolveFileSurface` is the one place that decides
+  // what a glTF texture reference MEANS -- which uv set, which wrap, which filter, what transform
+  // -- and a second reading of the same references is how two answers to one question start. So
+  // this asks it, and turns what it resolved into the door's own words.
+  [[nodiscard]] bool Wears() {
+    Render::SurfaceTable table;
+    Gltf::ResolveSurfaceTable(File, Assembled, true, true, table);
+    if (!Gltf::ResolveFileSurface(File, Assembled, Render::ColourFrom::Row,
+                                  Render::ColourCarrier::Texture, table, Why)) {
+      return false;
+    }
+    for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
+      const int index = slot < table.Material.size() ? table.Material[slot] : -1;
+      if (index < 0 || index >= Handed.surfaces()) { continue; }
+      Material row = Handed.surfaceAt(MaterialInstance(index));
+      const Render::SubjectMaterial &held = table.Slots[slot];
+      const struct {
+        const Render::SubjectTexture &From;
+        SurfaceMap &Into;
+      } maps[] = {
+          {held.Colour, row.BaseColourMap},   {held.Normal, row.NormalMap},
+          {held.MetalRough, row.MetalRoughMap}, {held.Emissive, row.EmissiveMap},
+          {held.SpecularStrength, row.SpecularStrengthMap},
+          {held.SpecularTint, row.SpecularTintMap}};
+      for (const auto &map : maps) { Names(map.From, map.Into); }
+      if (!Handed.setSurface(MaterialInstance(index), row)) {
+        Why = "a surface the file declares could not be named on the geometry handed back";
+        return false;
+      }
+    }
     return true;
+  }
+
+  void Names(const Render::SubjectTexture &from, SurfaceMap &into) {
+    if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return; }
+    into.Image = Keeps(from);
+    into.Set = from.Set;
+    into.Samples.Magnify =
+        from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
+    into.Samples.Minify =
+        from.Minify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
+    into.Samples.Mip = from.Mip == Render::SubjectMip::None      ? MipFilter::None
+                       : from.Mip == Render::SubjectMip::Nearest ? MipFilter::Nearest
+                                                                 : MipFilter::Linear;
+    const auto wrapped = [](Render::SubjectWrap held) {
+      return held == Render::SubjectWrap::ClampToEdge     ? Wrap::ClampToEdge
+             : held == Render::SubjectWrap::MirroredRepeat ? Wrap::MirroredRepeat
+                                                           : Wrap::Repeat;
+    };
+    into.Samples.WrapU = wrapped(from.WrapU);
+    into.Samples.WrapV = wrapped(from.WrapV);
+  }
+
+  // ONE IMAGE PER DISTINCT PICTURE. Two surfaces sharing a glTF texture decode to two rasters on
+  // the engine's side, one per slot; the door's table is the ASSET's, so an identical picture is
+  // kept once and both maps name it.
+  [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {
+    const size_t bytes = (size_t)from.Width * (size_t)from.Height * 4u;
+    const std::span<const uint8_t> pixels(from.Rgba, bytes);
+    for (int at = 0; at < Handed.images(); ++at) {
+      const ImageView held = Handed.imageAt(at);
+      if (held.WidthPx != (int)from.Width || held.HeightPx != (int)from.Height) { continue; }
+      if (held.Rgba.size() >= bytes && std::memcmp(held.Rgba.data(), from.Rgba, bytes) == 0) {
+        return at;
+      }
+    }
+    return Handed.addImage((int)from.Width, (int)from.Height, pixels);
   }
 };
 
