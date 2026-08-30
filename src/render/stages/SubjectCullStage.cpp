@@ -1,5 +1,6 @@
 #include "SubjectCullStage.h"
 
+#include <atomic>
 #include <cmath>
 
 #include "ShaderFile.h"
@@ -13,7 +14,8 @@ struct CullView {
   float Planes[24];
   float Shift[4];
   uint32_t Jobs;
-  uint32_t Pad[3];
+  float ErrorPerMetre;
+  uint32_t Pad[2];
 };
 
 std::string Kernel(std::string &error) {
@@ -21,6 +23,8 @@ std::string Kernel(std::string &error) {
   if (!LoadShaderText("src/render/shaders/subjectCull.msl", body, error)) { return std::string(); }
   return MslPrelude(error) + body;
 }
+
+std::atomic<float> gErrorPerMetre{0.0f};
 
 void PlanesOf(const float mvp[16], float out[24]) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
@@ -79,6 +83,10 @@ bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::str
          Pipeline(gpu, "subjectCompactKernel", CompactShape, Compact_, error);
 }
 
+float SubjectCullStage::ErrorPerMetreTaken() {
+  return gErrorPerMetre.load(std::memory_order_relaxed);
+}
+
 uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
   if (Subjects_ == nullptr) { return 0; }
   const uint32_t jobs = Subjects_->ClusterJobs();
@@ -90,6 +98,14 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
   }
   into.Jobs = jobs;
+  const float *const up = &into.Planes[2 * 4];
+  const float *const down = &into.Planes[3 * 4];
+  const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
+  const float yfov = std::acos(std::fmin(std::fmax(-between, -1.0f), 1.0f));
+  const float halfTangent = std::tan(0.5f * yfov);
+  into.ErrorPerMetre =
+      halfTangent > 1.0e-6f && HeightPx_ > 0.0f ? HeightPx_ * 0.5f / halfTangent : 0.0f;
+  gErrorPerMetre.store(into.ErrorPerMetre, std::memory_order_relaxed);
   return jobs;
 }
 

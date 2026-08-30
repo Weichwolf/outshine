@@ -33,6 +33,10 @@ public:
 
   [[nodiscard]] uint32_t JobsSwept() const { return Swept_; }
 
+  void Projects(float heightPx) { HeightPx_ = heightPx; }
+
+  [[nodiscard]] static float ErrorPerMetreTaken();
+
 private:
   [[nodiscard]] bool Pipeline(const Gpu &gpu,
                               const char *entry,
@@ -44,6 +48,7 @@ private:
   SubjectDraw *Subjects_ = nullptr;
   OwnedComputePipeline Cull_, Scan_, Compact_;
   uint32_t Swept_ = 0;
+  float HeightPx_ = 0.0f;
 };
 
 } // namespace outshine::Render

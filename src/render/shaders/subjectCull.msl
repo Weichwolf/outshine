@@ -2,8 +2,21 @@ struct CullView {
   float4 planes[6];
   float4 shift;
   uint jobs;
-  uint pad0, pad1, pad2;
+  // THE LADDER'S ONE NUMBER, and it is a length in metres rather than a count of rungs. A cluster
+  // is kept when the error IT introduces projects to less than one texel and the error its PARENT
+  // would introduce does not, so exactly one rung of every chain draws and neighbours that pick
+  // differently still meet: that is Unreal's test and the parent half is what makes it watertight.
+  float errorPerMetre;
+  uint pad0, pad1;
 };
+
+constant uint kClusterFloat4s = 3u;
+
+static inline float projectedError(constant CullView &view, float error, float3 centre,
+                                   float radius) {
+  const float away = max(length(centre) - radius, 1.0e-3);
+  return error * view.errorPerMetre / away;
+}
 
 constant uint kCullLanes = 128u;
 constant uint kScanLanes = 256u;
@@ -19,7 +32,9 @@ kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
   if (id >= view.jobs) { return; }
   const uint4 job = jobs[id];
   const float4x4 model = rows[2u * args[5u * job.y + 4u]];
-  const float4 sphere = spheres[job.x];
+  const float4 sphere = spheres[job.x * kClusterFloat4s];
+  const float4 parent = spheres[job.x * kClusterFloat4s + 1u];
+  const float4 errs = spheres[job.x * kClusterFloat4s + 2u];
   const float3 centre = (model * float4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
   const float widest = max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
   const float radius = sphere.w * widest;
@@ -28,6 +43,16 @@ kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
     const float4 plane = view.planes[at];
     if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
     if (dot(plane.xyz, centre) + plane.w < -radius) {
+      kept[id] = 0u;
+      return;
+    }
+  }
+
+  if (view.errorPerMetre > 0.0) {
+    const float3 parentCentre = (model * float4(parent.xyz, 1.0)).xyz + view.shift.xyz;
+    const float mine = projectedError(view, errs.x * widest, centre, radius);
+    const float theirs = projectedError(view, errs.y * widest, parentCentre, parent.w * widest);
+    if (!(mine <= 1.0 && theirs > 1.0)) {
       kept[id] = 0u;
       return;
     }

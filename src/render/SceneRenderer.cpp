@@ -773,6 +773,7 @@ bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
+  Cull_.Projects((float)Height_);
   Cull_.EncodeCull(ctx, into);
 }
 

@@ -51,9 +51,19 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
 
   const auto keep = [&into](const DagCluster &cut) {
     into.Clusters.push_back(cut);
-    into.ClusterSpheres.insert(
-        into.ClusterSpheres.end(),
-        {cut.SelfCenter[0], cut.SelfCenter[1], cut.SelfCenter[2], cut.SelfRadius});
+    into.ClusterSpheres.insert(into.ClusterSpheres.end(),
+                               {cut.SelfCenter[0],
+                                cut.SelfCenter[1],
+                                cut.SelfCenter[2],
+                                cut.SelfRadius,
+                                cut.ParentCenter[0],
+                                cut.ParentCenter[1],
+                                cut.ParentCenter[2],
+                                cut.ParentRadius,
+                                cut.SelfErr,
+                                cut.ParentErr,
+                                0.0f,
+                                0.0f});
   };
   std::vector<uint32_t> local;
   for (ShapePart &part : into.Parts) {

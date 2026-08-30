@@ -37,6 +37,34 @@ Shibuya, one frame:
 A city is mostly occluded by its own front row, and 17 255 clusters survive a test that cannot see
 that. Nothing measures how many of them are hidden, because nothing asks.
 
+## WHERE IT STANDS, and the LOD half is IN and NOT PROVEN LIVE
+
+The ladder crosses now: `ClusterSpheres` packs twelve floats a cluster -- own centre and radius,
+parent centre and radius, own error and parent error -- and `subjectCull.msl` reads three `float4`
+and applies Unreal's test, keeping a cluster when its own projected error is at or under a texel and
+its parent's is not. The field of view comes out of the frustum planes the cull already computes:
+the top and bottom normals of a symmetric frustum meet at the vertical field, so `-dot` between them
+is its cosine and no second declaration of a number the matrix already carries is needed.
+
+**AND THE PICTURE DOES NOT MOVE, IN ANY OF THREE SETTINGS.** The projection factor was scaled by
+100, by 1/100 and left alone; Shibuya answered `aff2f732` every time and drew 73 706 clusters in 5
+draws every time. A test whose threshold can move by four orders of magnitude without moving one
+pixel is not running.
+
+    the control that was WRONG      x100, expecting coarser -- it keeps FINER, because a larger
+                                    projection makes the parent's error clear the threshold and the
+                                    leaf win. Reasoning about the direction after the fact is what
+                                    caught it
+    the control that should work    x1/100, expecting coarser
+    both                            aff2f732, 73 706 clusters, 5 draws
+
+Ruled out so far: the stages run (`subjectCull, took 0.033 ms`), the draw DOES bind the compacted
+list (`culled = cut && batch.JobCount > 0` and `cut` holds), the cook DOES build levels and sets a
+child's `ParentErr` per level, and the packing IS twelve floats. What is not yet known is whether
+`errorPerMetre` reaches the kernel non-zero -- the measure that would say so was added and did not
+print, because the edit that added it did not match its anchor and returned silently. THAT is the
+next step and it is one measurement.
+
 ## What will be true
 
 - [ ] the error and the parent bound cross to the device beside the centre and radius
