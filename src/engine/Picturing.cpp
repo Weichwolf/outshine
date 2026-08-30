@@ -1495,6 +1495,11 @@ bool Engine::render(Extent frame) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   S_->Published.Places("subject draws", (double)S_->Picture.Device.SubjectDrawCount(), "draws");
   S_->Published.Places(
+      "the subject's own animation runs for", S_->Picture.Standing->DurationS(), "s");
+  S_->Published.Places(
+      "the frames its rate makes of that", (double)S_->Picture.Standing->Frames(), "frames");
+  S_->Published.Places("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
+  S_->Published.Places(
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
   {
     const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();

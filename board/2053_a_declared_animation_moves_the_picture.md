@@ -28,6 +28,17 @@ which is the BIND pose.
 **One digest for four spellings and four instants.** `ScenarioRead` validates the spelling and
 refuses a fifth, so it reads as a working feature.
 
+## THE SHARP VERSION, with the instant printed beside the digest
+
+Three measures were added to see this at all -- the subject's animation duration, the frames its
+rate makes, and THE INSTANT IT IS POSED AT:
+
+    fps  60   posed at 2.033 s   between the identity key and -90 deg   digest 879159e8
+    fps 240   posed at 0.508 s   clamped to the first key, +90 deg      digest 879159e8
+
+Two genuinely different poses and ONE picture. The t = 2.000 s confound is gone with it: 2.033 s is
+not the identity key either.
+
 ## What is NOT the cause, measured
 
 - `Keyframes::At` clamps correctly: `abscissa <= Frames_[0]` returns the first key's value
@@ -37,8 +48,15 @@ refuses a fifth, so it reads as a working feature.
   (`Asset.cpp:31`), and sets `Moves_ = Motion_.EndS() > 0.0`
 - Posing RUNS: `heap taken under pose-build` reads 58 416 bytes and `pose-assemble` 4 848
 
-So the pose is built and the picture does not carry it. The next step wants a debug build and a
-trace from `Live::Advance` to the vertex buffer, which is why this is its own item.
+- `Posed::PoseInto` rebuilds `Assembled_` from the file with the animated locals every pose
+- `Live::Advance` calls `Submit()` in the same branch that advances `AtS`, so the posed geometry
+  is submitted rather than left behind
+- The `restand:` measures -- including `the geometry handed over, digested` and `uploads the
+  residency made` -- do NOT print on these runs at all, so the geometry is handed to the device
+  ONCE, at stand time, and a re-pose never reaches it
+
+That last line is the likeliest cause and it is where the next round starts: the pose is recomputed
+and re-submitted, and the residency does not take it.
 
 **One confound was found and removed.** `Shots::Draw` advances 120 times and `Live::Advance` steps
 `1/Render.Fps` per call, not the clock's rate -- at fps 60 that lands on t = 2.000 s, where this

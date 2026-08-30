@@ -226,6 +226,10 @@ public:
 
   [[nodiscard]] double AtS() const { return Held_.AtS(); }
 
+  [[nodiscard]] double DurationS() const { return Held_.DurationS(); }
+
+  [[nodiscard]] bool Moves() const { return Held_.Moves(); }
+
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:
