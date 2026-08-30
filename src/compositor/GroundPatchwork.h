@@ -10,12 +10,14 @@
 
 namespace outshine {
 
+constexpr int kPatchGrid = 33;
+
 struct Around {
   double LatDeg = 0.0;
   double LonDeg = 0.0;
   int Zoom = 0;
   int Levels = 1;
-  int Grid = 33;
+  int Grid = kPatchGrid;
   bool Asking = false;
   double EyeM[3] = {0.0, 0.0, 0.0};
   float FocalPx = 0.0f;

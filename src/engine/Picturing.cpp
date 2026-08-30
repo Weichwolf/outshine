@@ -10,6 +10,12 @@
 
 namespace outshine {
 
+static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
+              "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
+              "the patchwork's vertex spacing; that holds only while a stream tile carries twice "
+              "the intervals a patchwork tile lays, and if either grid moves the zoom must be "
+              "re-derived rather than kept");
+
 namespace {
 
 class Instancing final : public Generators::DrawSink {
@@ -409,6 +415,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     over.Levels = 1 + (int)std::ceil(doublings);
     Published.Places("the sight a scenario declares", wanted, "m");
     Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
+    Published.Places("the elevation's own posting",
+                     World.Stack.Ground().PostM(declared.Ground.Origin.LatitudeDeg),
+                     "m");
+    Published.Places("and the drawn mesh's vertex spacing",
+                     over.Grid > 1 ? tileSpanM / (double)(over.Grid - 1) : 0.0,
+                     "m");
   }
   if (!Watches()) { return false; }
   if (Picture.Standing->Watched()) {

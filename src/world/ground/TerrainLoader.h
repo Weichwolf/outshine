@@ -16,6 +16,8 @@ class Transport;
 
 namespace outshine::Ground {
 
+constexpr int kStreamGrid = 64;
+
 struct GroundSurface {
   int Z;
   int Grid;

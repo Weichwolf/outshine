@@ -43,8 +43,8 @@ bool GroundStack::Open(std::string_view cacheDir,
   say.Number("sources registered", (double)sources.Count(), "sources");
 
   outshine::Ground::GroundSurface surface;
-  surface.Z = 12;
-  surface.Grid = 64;
+  surface.Grid = outshine::Ground::kStreamGrid;
+  surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(
       outshine::Ground::GroundPoolConfig(focusLat, focusLon, 0, patienceS), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
