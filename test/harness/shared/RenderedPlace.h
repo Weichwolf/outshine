@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_TEST_RENDEREDPLACE_H
 #define OUTSHINE_TEST_RENDEREDPLACE_H
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -196,6 +197,42 @@ inline int RenderPlace(const Place &place) {
   std::error_code failed;
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = std::string("build/places/") + place.Name + ".png";
+  // AND THEN A DISTRIBUTION, because two frames is not one. The loop above draws what the PICTURE
+  // needs -- a temporal resolve wants its whole sequence -- and two samples of a frame time say
+  // nothing about whether a place holds 60 fps: the same Shibuya read 22.65 ms and 15.21 ms on two
+  // runs of it. These frames draw the same standing view again and are timed, so the number below
+  // is a p50/p95/p99 over a population rather than a coin toss.
+  //
+  // WHAT IT DOES NOT COVER: the camera STANDS. A moving eye pays for streaming, for re-laying the
+  // ring and for cache misses this never sees, so this is the floor of what a place costs and not
+  // its worst case (board:1457).
+  std::vector<double> heldMs;
+  {
+    constexpr int kTimedFrames = 120;
+    heldMs.reserve((size_t)kTimedFrames);
+    for (int at = 0; at < kTimedFrames; ++at) {
+      const auto before = std::chrono::steady_clock::now();
+      if (!engine.advance() || !engine.renderer().render(outshine::Extent{})) { break; }
+      heldMs.push_back(
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - before)
+              .count());
+    }
+    std::sort(heldMs.begin(), heldMs.end());
+  }
+  const auto quantile = [&heldMs](double share) {
+    if (heldMs.empty()) { return 0.0; }
+    size_t which = (size_t)(share * (double)(heldMs.size() - 1) + 0.5);
+    return heldMs[which < heldMs.size() ? which : heldMs.size() - 1];
+  };
+
+  // EVERY NUMBER, WHEN ASKED. The lines below are what this reads by default; a run that is
+  // chasing where a frame went needs the rest, and guessing which name to add to a filter is how
+  // a measurement goes missing.
+  if (std::getenv("OUTSHINE_ALL_MEASURES") != nullptr) {
+    for (const outshine::Measure &one : engine.measures()) {
+      std::printf("MEASURE %-56s %14.3f %s\n", one.What.c_str(), one.How, one.Unit.c_str());
+    }
+  }
   const bool wrote = engine.renderer().saveScreenshot(kept).has_value();
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
@@ -240,6 +277,9 @@ inline int RenderPlace(const Place &place) {
               standingMs, loadingMs, drawingMs, frames, drawingMs / (double)(frames > 0 ? frames : 1),
               measured("tiles it is still waiting for"), measured("tiles the stack does not hold"),
               measured("tiles it refused"));
+  std::printf("    THE FRAME, over %zu drawn from a STANDING eye: p50 %.2f  p95 %.2f  p99 %.2f ms"
+              "  (60 fps wants 16.67)\n",
+              heldMs.size(), quantile(0.50), quantile(0.95), quantile(0.99));
   std::printf("    %.0f tile(s) stood BARE on the ellipsoid because the ground had not arrived\n",
               measured("tiles laid bare on the ellipsoid"));
   std::printf("    of that wait, %.1f s STREAMED and %.1f s BUILT the world from what arrived\n",

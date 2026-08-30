@@ -1524,6 +1524,34 @@ bool Engine::render(Extent frame) {
   // is how the two are compared while the draw is still one call per batch.
   S_->Published.Places("subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(),
                       "clusters");
+  // WHAT A FRUSTUM WOULD KEEP, counted and not yet acted on. This decides nothing and draws
+  // nothing: it is the SIZE OF THE PRIZE, so the compute stage that will do the culling has a
+  // number to be measured against rather than a hope. A cluster is kept when its bounding sphere
+  // is not wholly outside any of the six planes.
+  {
+    const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
+    const double aspect = S_->Picture.Frame.HeightPx > 0
+                              ? (double)S_->Picture.Frame.WidthPx / (double)S_->Picture.Frame.HeightPx
+                              : 1.0;
+    const double half = 0.5 * eye.YfovRad;
+    const double up = std::tan(half), across = up * aspect;
+    size_t kept = 0;
+    for (const DagCluster &one : S_->Picture.Standing->Shown().Clusters) {
+      const double to[3] = {(double)one.SelfCenter[0] - eye.EyeM[0],
+                            (double)one.SelfCenter[1] - eye.EyeM[1],
+                            (double)one.SelfCenter[2] - eye.EyeM[2]};
+      const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
+      const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
+      const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];
+      const double radius = (double)one.SelfRadius;
+      if (ahead + radius < eye.ZNearM) { continue; }
+      if (eye.ZFarM > 0.0 && ahead - radius > eye.ZFarM) { continue; }
+      if (std::fabs(right) - radius > across * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
+      if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
+      ++kept;
+    }
+    S_->Published.Places("cull: clusters a frustum would keep", (double)kept, "clusters");
+  }
   S_->Published.Places("subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(),
                        "calls");
   S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");

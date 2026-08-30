@@ -433,7 +433,7 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1627 | `cpp` | `engine/Picturing.cpp` |
+| 1655 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1140 | `cpp` | `engine/Live.cpp` |
