@@ -128,6 +128,8 @@ outshine is rather than pretending to be a renderer it is not.
     int parts() const
     std::string_view nameOf(int part) const
     MaterialInstance materialOf(int part) const
+    int images() const
+    ImageView imageAt(int image) const
     int surfaces() const
     std::string_view surfaceNameOf(int surface) const
     const Material &surfaceAt(MaterialInstance surface) const
@@ -143,6 +145,36 @@ outshine is rather than pretending to be a renderer it is not.
     std::span<const uint32_t> trianglesOf(int part) const
     bool wellFormed() const
     const double *placementOf(int part) const
+
+### `Json.h`
+
+    type: Json
+    bool Parse(const char *text, size_t len)
+    bool ParseString(uint32_t &off, uint32_t &len, bool &escaped)
+    void Skip()
+
+### `Loaded.h`
+
+    type: Loaded
+    bool reads(std::string_view path)
+    bool wears(std::string_view variant)
+    const std::string &error(void) const
+    const Geometry &geometry(void) const
+    bool plays(std::span<const int> animations)
+    int animations(void) const
+    double durationS(void) const
+    bool poses(double seconds)
+    bool carriesCamera(void) const
+    const Camera &camera(void) const
+    int cameras(void) const
+    bool camera(int index, Camera &out) const
+    bool frames(double fill, Camera &out) const
+    bool frames(Camera &out) const
+
+### `Logging.h`
+
+    value: LogField
+    type: LogSink
 
 ### `Material.h`
 
@@ -211,6 +243,7 @@ outshine is rather than pretending to be a renderer it is not.
     bool endFrame(void)
     bool flushAndWait(void)
     Extent canvas(void) const
+    bool camera(Camera &out) const
     bool presenting(void) const
     bool readScenarioInto(std::string_view path, Scenario &out)
     bool generated(const Scenario &scenario)
@@ -269,6 +302,9 @@ outshine is rather than pretending to be a renderer it is not.
     value: Binding
     value: Persisted
     value: Scenario
+    bool viewMatrix(double outM16[16]) const
+    bool projectionMatrix(double aspect, double outM16[16]) const
+    bool clipMatrix(double aspect, double outM16[16]) const
     double exposureScale(void) const
     const Asset *subject(void) const
 
@@ -305,6 +341,25 @@ outshine is rather than pretending to be a renderer it is not.
     std::string_view error() const
     size_t touched() const
 
+### `SurfaceState.h`
+
+    type: SurfaceState
+
+### `Texture.h`
+
+    value: Sampler
+    value: SurfaceMap
+    value: ImageView
+    bool operator==(const Sampler &) const = default
+    bool operator==(const SurfaceMap &) const = default
+
+### `UvTransform.h`
+
+    value: UvPoint
+    value: UvTransform
+    value: UvTransformProperties
+    bool operator==(const UvTransformProperties &) const = default
+
 ## Shape
 
 Module depends on module, derived from the includes themselves.
@@ -328,29 +383,28 @@ flowchart LR
   engine --> |7| import
   actor_mind --> |7| actor_path
   engine --> |6| scenario
+  engine --> |6| base_io
   sim --> |5| base_spatial
   sim --> |5| actor_body
   render --> |5| base_io
   import --> |5| base_spatial
-  engine --> |5| base_io
+  import --> |4| render
   import_surface --> |4| import
   generators --> |4| generators_draw
   engine --> |4| generators
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
-  world_ground --> |3| base_format
   render --> |3| render_device
-  render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
   render_stages --> |3| base_math
-  import --> |3| render
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
   engine --> |3| world_ground
   engine --> |3| scene
   engine --> |3| base_spatial
 ```
-  38 edge(s) drawn, 51 thinner than three includes not drawn
+  36 edge(s) drawn, 48 thinner than three includes not drawn
+  CYCLE import and import/surface include each other, 1 deep and 4 back
 
 ## Tiers
 
@@ -379,17 +433,17 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1607 | `cpp` | `engine/Picturing.cpp` |
-| 1293 | `cpp` | `import/Subject.cpp` |
+| 1616 | `cpp` | `engine/Picturing.cpp` |
+| 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1125 | `cpp` | `engine/Live.cpp` |
-| 1071 | `cpp` | `render/SceneRenderer.cpp` |
+| 1103 | `cpp` | `engine/Live.cpp` |
+| 1081 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
 | 875 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| **46** | `h` | *the median of 242 header(s)* |
-| **114** | `cpp` | *the median of 168 source(s)* |
+| **46** | `h` | *the median of 239 header(s)* |
+| **115** | `cpp` | *the median of 170 source(s)* |
 
 ## Carpet
 
@@ -398,11 +452,11 @@ The widest public surfaces.
 | `[[nodiscard]]` | header |
 |---|---|
 | 68 | `src/render/SceneRenderer.h` |
-| 63 | `src/engine/Live.h` |
-| 58 | `include/Outshine.h` |
+| 65 | `src/engine/Live.h` |
+| 59 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |
-| 45 | `src/import/Subject.h` |
-| 36 | `src/render/stages/SubjectDraw.h` |
+| 47 | `src/import/Subject.h` |
+| 37 | `include/Geometry.h` |
 
 ## Twins
 
