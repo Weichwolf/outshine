@@ -342,14 +342,36 @@ not before.
 | the door spelled a camera's roll as an ANGLE with no stated convention | a rolled facet sharing 48% of its pixels | `UpM`, which is what `Camera::lookAt` takes |
 | the key light's DIRECTION was never handed over | 19 cases lit from elevation 0, bearing 0 | translated to elevation and bearing at the boundary |
 
-**WHAT IS NOT DONE.** The goal says the door is finished when the corpus harness enters through
-`include/` alone. The DRIVER does; the SCORER does not -- 22 internal headers, 58 uses of
-`Render::` and 24 of `Gltf::`. Part of that is defensible: a scorer that read the file only
-through the engine's own eyes would be marking its own homework, so it parses the glTF itself.
-Part is not -- `SubjectProxy`, `Surfacing`, `SceneRenderer` and `Compiled` are engine internals
-and a client cannot reach them. **Naming which of the 22 are the scorer's own right and which are
-reaching past the door is the next round's first job**, and the second is closing the ones that
-are reaching.
+**WHAT IS NOT DONE, AND IT IS ONE BLOCK.** The goal says the door is finished when the corpus
+harness enters through `include/` alone. The DRIVER does and always did. The SCORER now reads the
+FILE through the door -- `outshine::Loaded` loads it, `Handed` is the runner's own flat layout of
+what came back, and `Gltf::Part`, `Gltf::MaterialRef` and `Gltf::PlacedLight` went with the move.
+What remains is one wall and everything behind it:
+
+| still `src/` | why |
+|---|---|
+| `Gltf::Document` · `Gltf::Subject` · `ResolveSurfaceTable` · `ResolveFileSurface` | they decode the asset's IMAGES, and the door cannot say a surface wears one |
+| `Render::SubjectProxy` · `SubjectScratch` · `SubjectEnvironment` · `SurfaceTable` · `SubjectMaterial` · `SubjectTexture` | the scoring proxy WEARS that table |
+| `Render::Compiled` · `PlanSpec` · `Resource` · `Stage` · `Transfer` · `ScenePrecision` | plan introspection, which `engine.measures()` could answer |
+| `Gltf::Viewpoint` · `Transform` · `Viewport` · `ClipOf` · `Render::Eye` · `CameraKind` | the runner's own projection, now that the door hands back a `Camera` |
+
+**THE DOOR EXPRESSING AN ASSET'S TEXTURES IS WHAT UNBLOCKS THE FIRST TWO ROWS, AND IT IS THE NEXT
+PIECE.** `Material` is a row of numbers and `Geometry` carries no images; Filament's answer is a
+`Texture` a `MaterialInstance` takes as a parameter, and glTF's own material carries texture
+REFERENCES rather than pixels, so the split is a real one: the door's `Material` would carry the
+reference and the engine's `SubjectMaterial` keeps the decoded raster. Measured need is small --
+the runner reads `Rgba != nullptr`, `Width`, `Height`, `Magnify` and the uv set, and nothing else.
+Until then a `Document` and a `Subject` stay in `Case` to feed those two functions and the file is
+read a SECOND time for them, which is written into the code rather than hidden.
+
+Door verbs this round added, each because the runner could not proceed without it and neither
+could any other client:
+
+| verb | what it answers | who spells it that way |
+|---|---|---|
+| `Loaded::reads/wears/plays/poses/geometry` | what is IN this file, and what it looks like at second t | `gltfio::AssetLoader` + `Animator` |
+| `Loaded::camera` | the camera the asset ships | glTF's own `cameras` |
+| `Engine::camera` | the camera the FRAME is aimed with, which a derived view chose | `View::getCamera()` |
 
 **AND THE PREPARED CORPUS IS GONE.** The system's temp cleaner emptied
 `/var/folders/.../outshine-prepared` mid-session: every case reports UNPREPARED, the inputs
