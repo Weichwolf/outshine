@@ -310,6 +310,14 @@ bool Live::Build(std::string &error) {
         const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
         const size_t many = standing.size() < Table_.PartSlot.size() ? standing.size()
                                                                      : Table_.PartSlot.size();
+        // A SLOT IS SPLIT ONLY WHERE IT IS SHARED. A part that is its slot's ONLY wearer takes the
+        // declared row in place; splitting there would leave the original behind as a row no part
+        // wears, and a dead row still answers questions -- `SubjectDraw::SetMaterials` walks every
+        // slot and refused 32 cases over a transmissive orphan nothing draws.
+        std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
+        for (const uint32_t worn : Table_.PartSlot) {
+          if (worn < wearers.size()) { wearers[worn] += 1u; }
+        }
         Table_.Slots.reserve(Table_.Slots.size() + many);
         Table_.Material.reserve(Table_.Material.size() + many);
         Table_.Decoded.reserve(Table_.Decoded.size() + many);
@@ -322,11 +330,16 @@ bool Live::Build(std::string &error) {
             if (!byNode && !byPart) { continue; }
             Render::SubjectMaterial made{};
             made.Row = said.Row;
-            const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
-            Table_.Slots.push_back(made);
-            Table_.Material.push_back(carried);
-            Table_.Decoded.push_back(Render::SurfaceRasters());
-            Table_.PartSlot[part] = (uint32_t)(Table_.Slots.size() - 1u);
+            if (slot < wearers.size() && wearers[slot] == 1u) {
+              Table_.Slots[slot] = made;
+            } else {
+              if (slot < wearers.size()) { wearers[slot] -= 1u; }
+              const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
+              Table_.Slots.push_back(made);
+              Table_.Material.push_back(carried);
+              Table_.Decoded.push_back(Render::SurfaceRasters());
+              Table_.PartSlot[part] = (uint32_t)(Table_.Slots.size() - 1u);
+            }
             ++took;
             break;
           }
