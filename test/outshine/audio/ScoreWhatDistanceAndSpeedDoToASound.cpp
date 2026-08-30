@@ -47,11 +47,13 @@ namespace {
 
 [[nodiscard]] double Loudest(const std::vector<float> &stereo) {
   double most = 0.0;
-  for (const float one : stereo) { most = std::fabs((double)one) > most ? std::fabs((double)one) : most; }
+  for (const float one : stereo) {
+    most = std::fabs((double)one) > most ? std::fabs((double)one) : most;
+  }
   return most;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -83,12 +85,15 @@ int main(void) {
       return Report();
     }
     const double loudest = Loudest(stereo);
-    std::printf("%-12s at %5.1f m   peak %.4f   the standard owes %.4f\n", named, atM, loudest,
-                owed);
-    CHECK_NEAR(loudest, owed, 0.02, "",
-               ("the " + std::string(named) +
-                " distance model is the Web Audio formula and nothing else")
-                   .c_str());
+    std::printf(
+        "%-12s at %5.1f m   peak %.4f   the standard owes %.4f\n", named, atM, loudest, owed);
+    CHECK_NEAR(
+        loudest,
+        owed,
+        0.02,
+        "",
+        ("the " + std::string(named) + " distance model is the Web Audio formula and nothing else")
+            .c_str());
   }
 
   outshine::Audio::Mixer mixer;
@@ -118,12 +123,17 @@ int main(void) {
   const double heardHz = (double)crossings;
   const double owedHz = 441.0 * 10.0 / 9.0;
   std::printf("DOPPLER  source closing at c/10   heard %.1f Hz   the closed form owes %.1f Hz\n",
-              heardHz, owedHz);
-  CHECK_NEAR(heardHz, owedHz, 2.0, "Hz",
-       "**A SOURCE CLOSING AT A TENTH OF THE SPEED OF SOUND IS HEARD TEN NINTHS HIGH**: the "
-       "classical ratio is (c + v_ear.r) / (c + v_source.r) with r from ear to source, and "
-       "441 Hz becomes 490 Hz. A sign error either way lands on 9/10 and 397 Hz, which is why "
-             "the case drives it at exactly c/10");
+              heardHz,
+              owedHz);
+  CHECK_NEAR(
+      heardHz,
+      owedHz,
+      2.0,
+      "Hz",
+      "**A SOURCE CLOSING AT A TENTH OF THE SPEED OF SOUND IS HEARD TEN NINTHS HIGH**: the "
+      "classical ratio is (c + v_ear.r) / (c + v_source.r) with r from ear to source, and "
+      "441 Hz becomes 490 Hz. A sign error either way lands on 9/10 and 397 Hz, which is why "
+      "the case drives it at exactly c/10");
 
   Covers("the mixer: the three Web Audio distance models and the classical Doppler ratio, each "
          "against the closed form that defines it rather than against a number this tree chose");

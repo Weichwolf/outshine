@@ -22,7 +22,7 @@ constexpr double kMetresPerDegree = 111320.0;
   return (double)(held & 0xFFFFFFull) / (double)0xFFFFFF;
 }
 
-}
+} // namespace
 
 bool Structures::make(const Ask &ask, Geometry &into) const {
   const double sideM = ask.ExtentM > 0.0 && ask.ExtentM < 200.0 ? ask.ExtentM : 12.0;
@@ -30,8 +30,14 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
   const double lat = ask.NorthM;
   const double lon = ask.EastM;
 
-  const double ring[kCorners * 2] = {lat - halfDeg, lon - halfDeg, lat - halfDeg, lon + halfDeg,
-                                     lat + halfDeg, lon + halfDeg, lat + halfDeg, lon - halfDeg};
+  const double ring[kCorners * 2] = {lat - halfDeg,
+                                     lon - halfDeg,
+                                     lat - halfDeg,
+                                     lon + halfDeg,
+                                     lat + halfDeg,
+                                     lon + halfDeg,
+                                     lat + halfDeg,
+                                     lon - halfDeg};
   const double corners[kCorners] = {0.0, 0.0, 0.0, 0.0};
   double anchor[3] = {0.0, 0.0, 0.0};
 
@@ -71,4 +77,4 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
   return true;
 }
 
-}
+} // namespace outshine::Generators

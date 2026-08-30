@@ -7,10 +7,7 @@
 
 namespace outshine::Generators {
 
-namespace {
-
-
-}
+namespace {}
 
 void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   Samples_.fill(0.0f);
@@ -96,4 +93,4 @@ float LeafAngleDistribution::Fit(float sinEl) const {
   return G0_ + G1_ * std::pow(s, Gp_);
 }
 
-}
+} // namespace outshine::Generators

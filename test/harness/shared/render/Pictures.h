@@ -20,11 +20,13 @@ public:
   // second mechanism beside one it already carries. It also cost this runner its last reason to
   // reach into `src/content/shade` for the engine's own encoder -- a scorer writing ITS OWN
   // artefacts has no business inside the thing it is scoring.
-  [[nodiscard]] bool Png(const std::string &name, const std::vector<uint8_t> &rgba, int width,
-                         int height, std::string &error) const {
+  [[nodiscard]] bool Png(const std::string &name,
+                         const std::vector<uint8_t> &rgba,
+                         int width,
+                         int height,
+                         std::string &error) const {
     if (!Names(name, error)) { return false; }
-    if (width <= 0 || height <= 0 ||
-        rgba.size() < (size_t)width * (size_t)height * 4u) {
+    if (width <= 0 || height <= 0 || rgba.size() < (size_t)width * (size_t)height * 4u) {
       error = name + " was handed " + std::to_string(rgba.size()) + " bytes for a " +
               std::to_string(width) + "x" + std::to_string(height) + " picture";
       return false;
@@ -56,5 +58,5 @@ private:
   std::string Directory_;
 };
 
-}
+} // namespace outshine::Render::Parity
 #endif

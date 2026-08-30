@@ -10,7 +10,6 @@ namespace outshine {
 enum class AlphaMode { Opaque, Masked, Blended };
 
 struct Material {
-
   float BaseColour[4] = {0.5f, 0.5f, 0.5f, 1.0f};
   float Metalness = 0.0f;
   float Roughness = 1.0f;
@@ -79,10 +78,13 @@ inline float DielectricF90(const Material &material) {
 class MaterialInstance {
 public:
   MaterialInstance(void) = default;
+
   explicit MaterialInstance(int at) : At_(at) {}
 
   [[nodiscard]] bool bound(void) const { return At_ >= 0; }
+
   [[nodiscard]] int index(void) const { return At_; }
+
   [[nodiscard]] bool operator==(const MaterialInstance &) const = default;
 
 private:
@@ -91,5 +93,5 @@ private:
 
 constexpr int kMaterialRowFloats = 20;
 
-}
+} // namespace outshine
 #endif

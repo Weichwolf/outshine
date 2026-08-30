@@ -16,8 +16,8 @@ inline constexpr size_t kMaxNetworkPoints = 4000000;
 inline constexpr size_t kMaxRouteLegs = 262144;
 inline constexpr double kStartReachM = 250.0;
 
-[[nodiscard]] double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg,
-                            double toLonDeg, double sphereRadiusM);
+[[nodiscard]] double ApartM(
+    double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg, double sphereRadiusM);
 
 struct Waypoint {
   double LatDeg = 0.0;
@@ -66,13 +66,21 @@ public:
   [[nodiscard]] bool Weave(std::string &error);
 
   [[nodiscard]] size_t WayCount() const { return Ways_.size(); }
+
   [[nodiscard]] size_t PointCount() const { return Points_.size() / 2; }
+
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
+
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
+
   [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
+
   [[nodiscard]] size_t CrossingsJoined() const { return Joined_; }
+
   [[nodiscard]] size_t CrossingsLeftAlone() const { return LeftAlone_; }
+
   [[nodiscard]] size_t CellsInTheTieIndex() const { return IndexedCells_; }
+
   [[nodiscard]] size_t JunctionCount() const;
 
   struct Crossing {
@@ -88,16 +96,18 @@ public:
     size_t PairsPruned = 0;
   };
 
-  [[nodiscard]] std::expected<Swept, std::string_view> Crossings(
-      std::vector<Crossing> &into) const;
+  [[nodiscard]] std::expected<Swept, std::string_view> Crossings(std::vector<Crossing> &into) const;
+
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] size_t PointStreamBytes() const {
     return Points_.size() * sizeof(double) + WayOf_.size() * sizeof(uint32_t);
   }
+
   [[nodiscard]] size_t PointStreamHeldBytes() const {
     return Points_.capacity() * sizeof(double) + WayOf_.capacity() * sizeof(uint32_t);
   }
+
   [[nodiscard]] size_t BytesPerPoint() const {
     const size_t points = Points_.size() / 2;
     return points > 0 ? PointStreamBytes() / points : 0;
@@ -112,6 +122,7 @@ public:
     size_t UnderFour = 0;
     size_t InUnderFour = 0;
   };
+
   [[nodiscard]] Pieces InPieces() const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
   void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
@@ -128,6 +139,7 @@ private:
     int Lanes = 0;
     bool Spans = false;
   };
+
   struct Node {
     double LatDeg = 0.0;
     double LonDeg = 0.0;
@@ -139,6 +151,7 @@ private:
     double Friction = 0.0;
     int Lanes = 0;
   };
+
   struct Edge {
     size_t To = 0;
     double LengthM = 0.0;
@@ -149,6 +162,7 @@ private:
     double LonCellDeg = 0.0;
     int64_t Columns = 1;
   };
+
   [[nodiscard]] RowShape ShapeRow(int64_t row) const;
   [[nodiscard]] RowShape ShapeRowOver(int64_t row, double cellM) const;
   [[nodiscard]] int64_t RowOf(double latDeg) const;
@@ -172,6 +186,6 @@ private:
   bool Woven_ = false;
 };
 
-}
+} // namespace outshine::Path
 
 #endif

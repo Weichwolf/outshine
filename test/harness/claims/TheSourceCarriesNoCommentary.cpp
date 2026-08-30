@@ -15,7 +15,6 @@ namespace {
 
 constexpr size_t kLongestLabel = 100;
 
-
 [[nodiscard]] std::string Slurp(const std::filesystem::path &path) {
   std::FILE *file = std::fopen(path.string().c_str(), "rb");
   if (file == nullptr) { return std::string(); }
@@ -33,8 +32,8 @@ constexpr size_t kLongestLabel = 100;
 // the two characters as the thing they parse, so the walk reads literals before it judges
 // board:1801, reopened: the exemption was a property of the file's BYTES, and a comment can
 // spell any needle chosen for it -- `// this narration mentions Covers("IV.11") and therefore
-// exempts its own file` in src/base/spatial/Span.h turned this claim green, measured. Tightening the
-// needle again is the same construction; there is no string a comment cannot legally contain.
+// exempts its own file` in src/base/spatial/Span.h turned this claim green, measured. Tightening
+// the needle again is the same construction; there is no string a comment cannot legally contain.
 //
 // The exemption is a property of the file's ROLE, and the runner owns that role: a proof is a
 // translation unit `test/run.sh` builds and RUNS as a case. `run.sh --cases` prints that list
@@ -115,9 +114,7 @@ int main(void) {
       ++walked;
       if (IsAProof(cases, entry.string())) { continue; }
       const int line = CommentLine(Slurp(entry));
-      if (line > 0) {
-        narrating.push_back(entry.string() + ":" + std::to_string(line));
-      }
+      if (line > 0) { narrating.push_back(entry.string() + ":" + std::to_string(line)); }
     }
   }
 
@@ -132,8 +129,7 @@ int main(void) {
       if (suffix != ".cpp" && suffix != ".h") { continue; }
       ++scanned;
       const std::string text = Slurp(entry);
-      for (size_t at = text.find("R\"("); at != std::string::npos;
-           at = text.find("R\"(", at + 1)) {
+      for (size_t at = text.find("R\"("); at != std::string::npos; at = text.find("R\"(", at + 1)) {
         const size_t ends = text.find(")\"", at);
         const std::string blob = text.substr(at, ends == std::string::npos ? 400 : ends - at);
         const bool shaderish = blob.find("metal_stdlib") != std::string::npos ||
@@ -150,7 +146,9 @@ int main(void) {
     }
   }
   Note("sources scanned for an embedded shader", (double)scanned, "files");
-  for (const std::string &one : embedded) { std::printf("FOUND %s embeds a shader\n", one.c_str()); }
+  for (const std::string &one : embedded) {
+    std::printf("FOUND %s embeds a shader\n", one.c_str());
+  }
   CHECK(embedded.empty(),
         "**A SHADER LIVES IN A FILE**: src/, include/ and apps/ hold no MSL or GLSL in a "
         "string literal -- an embedded blob is a second home for a language this translation "
@@ -206,16 +204,14 @@ int main(void) {
     if (suffix != ".cpp" && suffix != ".h") { continue; }
     const std::string text = Slurp(entry);
     for (const char *verb : {".Claim(", ".Near("}) {
-      for (size_t at = text.find(verb); at != std::string::npos;
-           at = text.find(verb, at + 1)) {
+      for (size_t at = text.find(verb); at != std::string::npos; at = text.find(verb, at + 1)) {
         size_t line = 1;
         for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
         judging.push_back(entry.string() + ":" + std::to_string(line) + " " + verb);
       }
     }
     for (const char *verb : {"Number(\"", "Say(\""}) {
-      for (size_t at = text.find(verb); at != std::string::npos;
-           at = text.find(verb, at + 1)) {
+      for (size_t at = text.find(verb); at != std::string::npos; at = text.find(verb, at + 1)) {
         const size_t opens = at + std::strlen(verb);
         const size_t closes = text.find('"', opens);
         if (closes == std::string::npos) { continue; }
@@ -230,9 +226,7 @@ int main(void) {
   for (const std::string &one : judging) {
     std::printf("FOUND %s -- the library judges its own output\n", one.c_str());
   }
-  for (const std::string &one : essays) {
-    std::printf("FOUND %s of label\n", one.c_str());
-  }
+  for (const std::string &one : essays) { std::printf("FOUND %s of label\n", one.c_str()); }
   CHECK(judging.empty(),
         "**THE LIBRARY PUBLISHES NUMBERS AND THE CASE JUDGES THEM**: no Claim and no Near "
         "under src/ -- a criterion evaluated inside the engine is a case's judgement made "
@@ -257,10 +251,9 @@ int main(void) {
   for (const char *root : {"src", "include", "apps"}) {
     for (const auto &entry : Sources(root)) {
       const std::string held = Slurp(entry);
-      for (const char *shut : {"if (false)", "if (0)", "if (true)", "if (1)",
-                               "while (false)", "while (0)"}) {
-        for (size_t at = held.find(shut); at != std::string::npos;
-             at = held.find(shut, at + 1)) {
+      for (const char *shut :
+           {"if (false)", "if (0)", "if (true)", "if (1)", "while (false)", "while (0)"}) {
+        for (size_t at = held.find(shut); at != std::string::npos; at = held.find(shut, at + 1)) {
           size_t before = at;
           while (before > 0 && std::isspace((unsigned char)held[before - 1])) { --before; }
           if (before > 0 && held[before - 1] == '}') { continue; }

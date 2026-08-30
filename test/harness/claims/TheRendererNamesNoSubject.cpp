@@ -39,12 +39,23 @@ struct Forbidden {
 
 // What `src/render/` held when this claim was written -- zero, and it must stay zero.
 constexpr Forbidden kSubjects[] = {
-    {"Terrain", 0},  {"Buildings", 0}, {"Building", 0}, {"Water", 0},   {"Models", 0},
-    {"Forest", 0},   {"Tree", 0},      {"Road", 0},     {"Grass", 0},   {"Cloud", 0},
-    {"Ocean", 0},    {"River", 0},     {"Car", 0},      {"Vehicle", 0},
+    {"Terrain", 0},
+    {"Buildings", 0},
+    {"Building", 0},
+    {"Water", 0},
+    {"Models", 0},
+    {"Forest", 0},
+    {"Tree", 0},
+    {"Road", 0},
+    {"Grass", 0},
+    {"Cloud", 0},
+    {"Ocean", 0},
+    {"River", 0},
+    {"Car", 0},
+    {"Vehicle", 0},
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -52,15 +63,17 @@ int main(void) {
 
   size_t rose = 0;
   for (const Forbidden &one : kSubjects) {
-    const std::string counted =
-        Ask(std::string("grep -rowh '") + one.Word + "' src/render/ 2>/dev/null | wc -l | tr -d ' '");
+    const std::string counted = Ask(std::string("grep -rowh '") + one.Word +
+                                    "' src/render/ 2>/dev/null | wc -l | tr -d ' '");
     const size_t now = counted.empty() ? 0u : (size_t)std::strtoul(counted.c_str(), nullptr, 10);
     if (now != one.Standing) {
       std::printf("  %-12s %zu, declared %zu\n", one.Word, now, one.Standing);
       if (now > one.Standing) { ++rose; }
     }
   }
-  if (rose == 0) { std::printf("  src/render/ names none of the %zu\n", sizeof kSubjects / sizeof kSubjects[0]); }
+  if (rose == 0) {
+    std::printf("  src/render/ names none of the %zu\n", sizeof kSubjects / sizeof kSubjects[0]);
+  }
 
   CHECK(rose == 0,
         "**THE RENDERER KNOWS NO SUBJECT**: one route from data to pixel, and what a thing "

@@ -7,8 +7,12 @@ namespace outshine {
 namespace {
 
 template <class Row, class Same>
-void MergeRows(std::vector<Row> &into, const std::vector<Row> &from, std::string_view named,
-               const char *what, Same same, std::vector<std::string> &trace) {
+void MergeRows(std::vector<Row> &into,
+               const std::vector<Row> &from,
+               std::string_view named,
+               const char *what,
+               Same same,
+               std::vector<std::string> &trace) {
   for (const Row &row : from) {
     bool overrode = false;
     for (Row &held : into) {
@@ -26,56 +30,73 @@ void MergeRows(std::vector<Row> &into, const std::vector<Row> &from, std::string
 
 struct ByKindName {
   bool operator()(const Kind &a, const Kind &b) const { return a.Name == b.Name; }
+
   std::string Identity(const Kind &row) const { return row.Name; }
 };
+
 struct ByInstanceId {
   bool operator()(const Instance &a, const Instance &b) const {
     return !a.Id.empty() && a.Id == b.Id;
   }
+
   std::string Identity(const Instance &row) const { return row.Id; }
 };
+
 struct ByAssetUri {
   bool operator()(const Asset &a, const Asset &b) const { return a.Uri == b.Uri; }
+
   std::string Identity(const Asset &row) const { return row.Uri; }
 };
-template <class Row>
-struct ByKindField {
+
+template <class Row> struct ByKindField {
   bool operator()(const Row &a, const Row &b) const { return a.Kind == b.Kind; }
+
   std::string Identity(const Row &row) const { return row.Kind; }
 };
-template <class Row>
-struct ByIdField {
+
+template <class Row> struct ByIdField {
   bool operator()(const Row &a, const Row &b) const { return !a.Id.empty() && a.Id == b.Id; }
+
   std::string Identity(const Row &row) const { return row.Id; }
 };
+
 struct ByDoorEnds {
-  bool operator()(const Door &a, const Door &b) const {
-    return a.From == b.From && a.To == b.To;
-  }
+  bool operator()(const Door &a, const Door &b) const { return a.From == b.From && a.To == b.To; }
+
   std::string Identity(const Door &row) const { return row.From + "->" + row.To; }
 };
+
 struct BySoundUri {
   bool operator()(const Sound &a, const Sound &b) const { return a.Uri == b.Uri; }
+
   std::string Identity(const Sound &row) const { return row.Uri; }
 };
+
 struct ByEventName {
   bool operator()(const Event &a, const Event &b) const { return a.Name == b.Name; }
+
   std::string Identity(const Event &row) const { return row.Name; }
 };
+
 struct BySurfaceDocument {
   bool operator()(const Surface &a, const Surface &b) const { return a.Document == b.Document; }
+
   std::string Identity(const Surface &row) const { return row.Document; }
 };
+
 struct ByBindingEvent {
   bool operator()(const Binding &a, const Binding &b) const { return a.Event == b.Event; }
+
   std::string Identity(const Binding &row) const { return row.Event; }
 };
+
 struct ByPersistedWhat {
   bool operator()(const Persisted &a, const Persisted &b) const { return a.What == b.What; }
+
   std::string Identity(const Persisted &row) const { return row.What; }
 };
 
-}
+} // namespace
 
 bool LayerActive(const Layer &layer, std::string_view active) {
   if (layer.Set.empty()) { return true; }
@@ -89,8 +110,11 @@ bool LayerActive(const Layer &layer, std::string_view active) {
   return false;
 }
 
-bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
-                std::vector<std::string> &trace, std::string &error) {
+bool MergeLayer(Scenario &into,
+                const Scenario &layer,
+                std::string_view named,
+                std::vector<std::string> &trace,
+                std::string &error) {
   if (!layer.Layers.empty()) {
     error = "the layer '" + std::string(named) +
             "' declares layers of its own, and a graph of overrides is a thing nobody can "
@@ -101,10 +125,9 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
   MergeRows(into.Providers, layer.Providers, named, "provider", ByKindField<Provider>{}, trace);
-  MergeRows(into.Generators, layer.Generators, named, "generator", ByKindField<Generator>{},
-            trace);
-  MergeRows(into.Compositors, layer.Compositors, named, "compositor",
-            ByKindField<Compositor>{}, trace);
+  MergeRows(into.Generators, layer.Generators, named, "generator", ByKindField<Generator>{}, trace);
+  MergeRows(
+      into.Compositors, layer.Compositors, named, "compositor", ByKindField<Compositor>{}, trace);
   MergeRows(into.Regions, layer.Regions, named, "region", ByIdField<Region>{}, trace);
   MergeRows(into.Doors, layer.Doors, named, "door", ByDoorEnds{}, trace);
   MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Volume>{}, trace);
@@ -126,8 +149,12 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
   return true;
 }
 
-bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view named,
-                std::vector<std::string> &trace, std::string &error) {
+bool ApplyLayer(Scenario &into,
+                const char *text,
+                size_t size,
+                std::string_view named,
+                std::vector<std::string> &trace,
+                std::string &error) {
   Xml document;
   if (!document.Parse(text, size)) {
     error = document.Error();
@@ -143,7 +170,8 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   }
   if (!fragment.Render.Stages.empty()) {
     trace.push_back("layer '" + std::string(named) + "' replaced the stage list (" +
-                    std::to_string(fragment.Render.Stages.size()) + " stages -- the declared "
+                    std::to_string(fragment.Render.Stages.size()) +
+                    " stages -- the declared "
                     "list is the list)");
   }
   if (!fragment.Render.Outputs.empty()) {
@@ -154,10 +182,14 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
     bool DeclaredByLayer;
     const char *What;
   };
+
   const SectionRow sections[] = {
-      {fragment.Lit.Declared, "lighting"},     {fragment.Ground.Declared, "world"},
-      {fragment.Render.Declared, "render"},    {fragment.Motion.Declared, "physics"},
-      {fragment.Time.Declared, "clock"},       {fragment.Played.Declared, "player"},
+      {fragment.Lit.Declared, "lighting"},
+      {fragment.Ground.Declared, "world"},
+      {fragment.Render.Declared, "render"},
+      {fragment.Motion.Declared, "physics"},
+      {fragment.Time.Declared, "clock"},
+      {fragment.Played.Declared, "player"},
       {fragment.Routed.Declared, "drive"},
   };
   for (const SectionRow &section : sections) {
@@ -173,4 +205,4 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   return true;
 }
 
-}
+} // namespace outshine

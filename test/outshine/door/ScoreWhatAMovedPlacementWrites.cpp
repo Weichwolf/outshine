@@ -72,12 +72,11 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
         "\"animations\":[{\"samplers\":[{\"input\":2,\"output\":3,\"interpolation\":\"LINEAR\"}],"
         "\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"translation\"}}]}],";
   }
-  held +=
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
-      "{\"buffer\":1,\"byteOffset\":0,\"byteLength\":8},"
-      "{\"buffer\":1,\"byteOffset\":8,\"byteLength\":24}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,";
+  held += "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+          "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+          "{\"buffer\":1,\"byteOffset\":0,\"byteLength\":8},"
+          "{\"buffer\":1,\"byteOffset\":8,\"byteLength\":24}],"
+          "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,";
   held += kTriangleBase64;
   held += "\"},{\"byteLength\":32,\"uri\":\"data:application/octet-stream;base64,";
   held += kTrackBase64;
@@ -148,8 +147,10 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return stands;
 }
 
-[[nodiscard]] double MovingPixelsIn(const std::string &under, const outshine::Scenario &stands,
-                                    int steps, std::string &why) {
+[[nodiscard]] double MovingPixelsIn(const std::string &under,
+                                    const outshine::Scenario &stands,
+                                    int steps,
+                                    std::string &why) {
   outshine::Engine engine;
   engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
@@ -176,8 +177,8 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return -1.0;
 }
 
-[[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri, int steps,
-                                      std::string &why) {
+[[nodiscard]] double
+MovingPixelsOver(const std::string &under, const char *uri, int steps, std::string &why) {
   outshine::Engine engine;
   engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
@@ -204,7 +205,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return -1.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -243,7 +244,8 @@ int main(void) {
 
   std::printf("A SUBJECT THAT STANDS STILL   %.0f pixel(s) move\n", still);
   std::printf("ONE THAT MOVES                %.0f pixel(s) move\n", walked);
-  std::printf("A BODY FALLING PAST A VIEW    %.0f pixel(s) move%s\n", fell,
+  std::printf("A BODY FALLING PAST A VIEW    %.0f pixel(s) move%s\n",
+              fell,
               fell < 0.0 ? fallWhy.c_str() : "");
 
   // A PLACEMENT THAT MOVES WRITES A VELOCITY, and this is the only arrangement in the tree that

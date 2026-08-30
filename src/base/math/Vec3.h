@@ -15,7 +15,9 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   out[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-[[nodiscard]] inline double Length(const double v[3]) { return std::sqrt(Dot(v, v)); }
+[[nodiscard]] inline double Length(const double v[3]) {
+  return std::sqrt(Dot(v, v));
+}
 
 [[nodiscard]] inline bool Normalise(double v[3]) {
   const double length = Length(v);
@@ -24,6 +26,6 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   return true;
 }
 
-}
+} // namespace outshine
 
 #endif

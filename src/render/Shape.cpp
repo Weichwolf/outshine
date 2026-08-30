@@ -6,7 +6,10 @@
 namespace outshine::Render {
 
 std::atomic<double> gCookMs{0.0};
-double CookedMs() { return gCookMs.load(std::memory_order_relaxed); }
+
+double CookedMs() {
+  return gCookMs.load(std::memory_order_relaxed);
+}
 
 void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
   const auto fold = [this](size_t upTo, double least[3], double most[3]) {
@@ -38,7 +41,6 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
     mostM[axis] = most[axis];
   }
 }
-
 
 // A PART'S TRIANGLES, CUT AND REORDERED IN THE RUN THAT IS DRAWN. `CookClusters` sorts a run by the
 // Morton code of each triangle's centroid and hands back the reordered run with a sphere and a
@@ -91,8 +93,11 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       whole.First = (uint32_t)part.FirstIndex;
       whole.Count = (uint32_t)part.IndexCount;
       whole.ParentErr = kDagRootErr;
-      BoundingSphere(part.PositionsM.data(), (uint32_t)(part.PositionsM.size() / 3), 3,
-                     whole.SelfCenter, &whole.SelfRadius);
+      BoundingSphere(part.PositionsM.data(),
+                     (uint32_t)(part.PositionsM.size() / 3),
+                     3,
+                     whole.SelfCenter,
+                     &whole.SelfRadius);
       keep(whole);
       part.ClusterCount = 1;
       continue;
@@ -120,4 +125,4 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);
 }
-}
+} // namespace outshine::Render

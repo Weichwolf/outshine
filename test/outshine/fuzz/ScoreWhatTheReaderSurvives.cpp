@@ -69,7 +69,7 @@ constexpr size_t kPositions = 64;
   return std::fclose(file) == 0 && whole;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

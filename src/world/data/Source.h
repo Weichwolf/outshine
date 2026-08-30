@@ -24,9 +24,9 @@ public:
 
   [[nodiscard]] virtual Ticket Begin(const Address &at, Transport &transport) const = 0;
 
-  [[nodiscard]] virtual Fetched Collect(const Address &at, Ticket ticket,
-                                        Transport &transport) const = 0;
+  [[nodiscard]] virtual Fetched
+  Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;
 };
 
-}
+} // namespace outshine::Data
 #endif

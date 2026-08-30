@@ -83,13 +83,13 @@ public:
     return Mesh(z, x, y, grid, &aside);
   }
 
-  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
-                                  outshine::TileBuild *out) override {
+  [[nodiscard]] Reply
+  MeshAwaited(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
     return Mesh(z, x, y, grid, out);
   }
 };
 
-}
+} // namespace
 
 // AND A RING IS ASKED FOR IN A WAY THAT LETS IT ARRIVE. `TilePool` meshes on worker threads and
 // answers `Pending` until one finishes, so a caller that polls gets whatever happened to be ready.
@@ -110,7 +110,8 @@ class Twice final : public outshine::TileMeshes {
 public:
   explicit Twice(OneTile &one) : One_(one) {}
 
-  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
+  [[nodiscard]] Reply
+  Mesh(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
     const uint64_t key = ((uint64_t)x << 32) | y;
     if (Asked_.insert(key).second) { return Reply::Pending; }
     return One_.Mesh(z, x, y, grid, out);
@@ -121,8 +122,8 @@ public:
     return Mesh(z, x, y, grid, &aside);
   }
 
-  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
-                                  outshine::TileBuild *out) override {
+  [[nodiscard]] Reply
+  MeshAwaited(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
     const Reply first = Mesh(z, x, y, grid, out);
     if (first != Reply::Pending) { return first; }
     return Mesh(z, x, y, grid, out);
@@ -256,16 +257,18 @@ int main(void) {
       [[nodiscard]] Reply Mesh(int, uint32_t, uint32_t, int, outshine::TileBuild *) override {
         return Reply::Pending;
       }
-      [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
-    outshine::TileBuild aside;
-    return Mesh(z, x, y, grid, &aside);
-  }
 
-  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
-                                      outshine::TileBuild *out) override {
+      [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override {
+        outshine::TileBuild aside;
+        return Mesh(z, x, y, grid, &aside);
+      }
+
+      [[nodiscard]] Reply
+      MeshAwaited(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
         return Mesh(z, x, y, grid, out);
       }
     };
+
     outshine::Around ring = over;
     ring.Levels = 2;
     Never never;
@@ -273,7 +276,9 @@ int main(void) {
     const size_t bare = asked ? asked->Bare : 0;
     const size_t tiles = asked ? asked->Tiles : 0;
     std::printf("  a block whose tiles never land: %s, %zu of %zu bare\n",
-                asked ? "laid" : ("refused -- " + asked.error()).c_str(), bare, tiles);
+                asked ? "laid" : ("refused -- " + asked.error()).c_str(),
+                bare,
+                tiles);
 
     // THIS CHECK WAS INVERTED BY THE SAME INVARIANT (board:2017), and the inversion is the point.
     //
@@ -292,8 +297,9 @@ int main(void) {
           "nothing, the fallback would be inventing terrain rather than standing in for it");
   }
 
-  Covers("compositor: a ground patchwork reads a tile at the stride the tile's own layout "
-         "declares, so a normal never reaches a position and the relief a patch reports is the "
-         "relief the ground has, and a ring is asked for in a way that lets every tile of it arrive");
+  Covers(
+      "compositor: a ground patchwork reads a tile at the stride the tile's own layout "
+      "declares, so a normal never reaches a position and the relief a patch reports is the "
+      "relief the ground has, and a ring is asked for in a way that lets every tile of it arrive");
   return Report();
 }

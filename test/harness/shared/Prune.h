@@ -30,8 +30,11 @@ Examination Examine(const CaseUnderPrune &subject, const std::filesystem::path &
 class Removable {
 public:
   [[nodiscard]] const std::filesystem::path &Path() const { return Path_; }
+
   [[nodiscard]] Proof How() const { return How_; }
+
   [[nodiscard]] std::uintmax_t Bytes() const { return Bytes_; }
+
   [[nodiscard]] const std::string &Evidence() const { return Evidence_; }
 
 private:
@@ -79,7 +82,8 @@ inline bool ReadWholeFile(const std::filesystem::path &path, std::string &into) 
 
 enum class Sameness : uint8_t { Same, DifferentSize, DifferentBytes, Unreadable };
 
-inline Sameness SameContent(const std::filesystem::path &left, const std::filesystem::path &right,
+inline Sameness SameContent(const std::filesystem::path &left,
+                            const std::filesystem::path &right,
                             std::uintmax_t &firstDifference) {
   std::error_code failed;
   const std::uintmax_t leftBytes = std::filesystem::file_size(left, failed);
@@ -114,8 +118,10 @@ inline std::string Decimal(std::uintmax_t value) {
   return digits;
 }
 
-inline std::string StoreVouches(const CaseUnderPrune &subject, const std::string &key,
-                                const std::filesystem::path &file, bool &held) {
+inline std::string StoreVouches(const CaseUnderPrune &subject,
+                                const std::string &key,
+                                const std::filesystem::path &file,
+                                bool &held) {
   held = false;
   const std::filesystem::path object = subject.StoreDirectory / key;
   if (!std::filesystem::is_regular_file(object)) {
@@ -123,15 +129,11 @@ inline std::string StoreVouches(const CaseUnderPrune &subject, const std::string
   }
   std::uintmax_t at = 0;
   switch (SameContent(object, file, at)) {
-    case Sameness::Same:
-      held = true;
-      return "the store holds these bytes under key " + key;
-    case Sameness::DifferentSize:
-      return "the object under key " + key + " is a different size";
+    case Sameness::Same: held = true; return "the store holds these bytes under key " + key;
+    case Sameness::DifferentSize: return "the object under key " + key + " is a different size";
     case Sameness::DifferentBytes:
       return "the object under key " + key + " differs at byte " + Decimal(at);
-    case Sameness::Unreadable:
-      break;
+    case Sameness::Unreadable: break;
   }
   return "the object under key " + key + " could not be read against the file";
 }
@@ -167,7 +169,9 @@ inline Examination Examine(const CaseUnderPrune &subject, const std::filesystem:
   const std::filesystem::file_time_type written = std::filesystem::last_write_time(file, failed);
   if (!failed && written > subject.RunStarted) {
     examination.What = Verdict::Prunable;
-    examination.Ticket = Removable(file, Proof::ThisRunWroteIt, examination.Bytes,
+    examination.Ticket = Removable(file,
+                                   Proof::ThisRunWroteIt,
+                                   examination.Bytes,
                                    "this run's own arms wrote it, so re-running the case is its "
                                    "producer");
     return examination;
@@ -229,11 +233,10 @@ inline CaseReading ReadCase(const std::filesystem::path &directory,
     return reading;
   }
   std::error_code failed;
-  const std::filesystem::file_time_type started =
-      std::filesystem::last_write_time(marker, failed);
+  const std::filesystem::file_time_type started = std::filesystem::last_write_time(marker, failed);
   if (failed) {
-    reading.Refusal = "no marker at " + marker.string() +
-                      ", so nothing says which files this run wrote";
+    reading.Refusal =
+        "no marker at " + marker.string() + ", so nothing says which files this run wrote";
     return reading;
   }
   CaseUnderPrune subject;
@@ -292,6 +295,6 @@ inline Ledger Count(const std::vector<Examination> &examinations) {
   return ledger;
 }
 
-}
+} // namespace outshine::Prune
 
 #endif

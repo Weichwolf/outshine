@@ -70,7 +70,8 @@ int main(void) {
   // it: board:2038 puts the CORPUS harness on the same footing, and a conformance case driving
   // include/ alone proves more about the door than any one app ever did.
   CHECK(Sites(runner, "harness/khronos/glTF) printf '%s' \"-Iinclude") == 1 &&
-            Sites(runner, "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
+            Sites(runner,
+                  "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
         "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
         "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "
         "and no -Isrc entry, so the proof cannot be retired by widening the set it stands on "

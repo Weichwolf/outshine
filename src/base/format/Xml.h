@@ -26,6 +26,7 @@ public:
     uint32_t FirstChild = 0, NextSibling = 0;
     uint32_t FirstAttribute = 0, Attributes = 0;
   };
+
   struct Attribute {
     uint32_t NameOff = 0, NameLen = 0;
     uint32_t ValueOff = 0, ValueLen = 0;
@@ -34,9 +35,11 @@ public:
   class Ref {
   public:
     Ref() = default;
+
     Ref(const Xml *from, uint32_t at) : From_(from), At_(at) {}
 
     [[nodiscard]] bool Valid() const { return From_ != nullptr && At_ != 0; }
+
     [[nodiscard]] std::string Name() const;
     [[nodiscard]] std::string Text() const;
 
@@ -66,18 +69,22 @@ public:
         using difference_type = std::ptrdiff_t;
 
         Iterator() = default;
+
         Iterator(const Xml *from, uint32_t at, const char *name)
             : From_(from), At_(at), Name_(name), Want_(name == nullptr ? 0 : std::strlen(name)) {
           Settle();
         }
 
         [[nodiscard]] Ref operator*() const { return Ref(From_, At_); }
+
         Iterator &operator++();
+
         Iterator operator++(int) {
           Iterator was = *this;
           ++*this;
           return was;
         }
+
         [[nodiscard]] bool operator==(const Iterator &other) const { return At_ == other.At_; }
 
       private:
@@ -91,10 +98,12 @@ public:
       };
 
       Siblings() = default;
+
       Siblings(const Xml *from, uint32_t first, const char *name)
           : From_(from), First_(first), Name_(name) {}
 
       [[nodiscard]] Iterator begin() const { return Iterator(From_, First_, Name_); }
+
       [[nodiscard]] Iterator end() const { return Iterator(); }
 
     private:
@@ -116,20 +125,26 @@ public:
     std::string Path;
     std::string Attribute;
   };
+
   [[nodiscard]] Unread FirstUnread() const;
 
   [[nodiscard]] bool Parse(const char *text, size_t length);
+
   [[nodiscard]] Ref Root() const { return Ref(this, Root_); }
+
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size() ? Nodes_.size() - 1u : 0u; }
+
   [[nodiscard]] size_t SiblingSteps() const { return SiblingSteps_; }
 
 private:
   friend class Ref;
+
   [[nodiscard]] std::string Span(uint32_t off, uint32_t len) const {
     return std::string(Text_.data() + off, len);
   }
+
   [[nodiscard]] bool Refuse(const std::string &why, size_t at);
 
   std::string Text_;
@@ -144,6 +159,6 @@ private:
 static_assert(std::ranges::forward_range<Xml::Ref::Siblings>,
               "a scenario is read by walking children once, and the walk is a range");
 
-}
+} // namespace outshine
 
 #endif

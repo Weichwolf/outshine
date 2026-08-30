@@ -28,14 +28,16 @@ public:
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1, .FragmentSamplers = 1};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
-                               SDL_GPUTextureFormat targetFormat, std::string &error);
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUSampler *smooth,
+                               SDL_GPUTextureFormat targetFormat,
+                               std::string &error);
 
-  [[nodiscard]] bool SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height,
-                              std::string &error);
+  [[nodiscard]] bool
+  SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height, std::string &error);
 
-  [[nodiscard]] bool SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count,
-                              std::string &error);
+  [[nodiscard]] bool
+  SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count, std::string &error);
 
   void Bind(int widthPx, int heightPx) {
     WidthPx = widthPx;
@@ -57,5 +59,5 @@ private:
   bool Encodes = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

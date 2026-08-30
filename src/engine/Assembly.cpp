@@ -24,22 +24,26 @@ namespace {
   return (uint32_t)names.size();
 }
 
-[[nodiscard]] bool Numbered(const Setting &attribute, const std::string &on, double &value,
-                            std::string &error) {
+[[nodiscard]] bool
+Numbered(const Setting &attribute, const std::string &on, double &value, std::string &error) {
   char *end = nullptr;
   value = std::strtod(attribute.Value.c_str(), &end);
   if (end == attribute.Value.c_str() || (end != nullptr && *end != 0)) {
-    error = "the attribute '" + attribute.Name + "' on '" + on + "' declares '" +
-            attribute.Value + "', which is not a number -- a tick carries no string";
+    error = "the attribute '" + attribute.Name + "' on '" + on + "' declares '" + attribute.Value +
+            "', which is not a number -- a tick carries no string";
     return false;
   }
   return true;
 }
 
-}
+} // namespace
 
-bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
-              Column<Journey> &driven, Column<Traits> &traits, Assembled &out,
+bool Assemble(const Scenario &declared,
+              Scene &into,
+              Column<Body> &bodies,
+              Column<Journey> &driven,
+              Column<Traits> &traits,
+              Assembled &out,
               std::string &error) {
   out = Assembled{};
 
@@ -68,7 +72,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
     }
     for (const std::string &capability : kind.Capabilities) {
       if (capability.empty()) {
-        error = "the kind '" + kind.Name + "' may '', and a capability without a name is a "
+        error = "the kind '" + kind.Name +
+                "' may '', and a capability without a name is a "
                 "declaration that names nothing";
         return false;
       }
@@ -83,8 +88,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
       double value = 0.0;
       if (!Numbered(attribute, kind.Name, value, error)) { return false; }
       if (!given.Put(Interned(out.TraitNames, attribute.Name), value)) {
-        error = "the kind '" + kind.Name + "' declares more than " +
-                std::to_string(Traits::kMost) + " attributes, and the budget is declared";
+        error = "the kind '" + kind.Name + "' declares more than " + std::to_string(Traits::kMost) +
+                " attributes, and the budget is declared";
         return false;
       }
     }
@@ -98,8 +103,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
   for (const Instance &instance : declared.Instances) {
     const Entity prefab = out.PrefabNamed(instance.Of);
     if (prefab == kNoEntity) {
-      error = "the instance '" + instance.Id + "' is of '" + instance.Of +
-              "', which no kind declares";
+      error =
+          "the instance '" + instance.Id + "' is of '" + instance.Of + "', which no kind declares";
       return false;
     }
     const Entity stood = into.instantiate(prefab);
@@ -159,8 +164,7 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
     for (const std::string &what : instance.Holds) {
       const Entity held = out.InstanceNamed(what);
       if (held == kNoEntity) {
-        error = "the instance '" + instance.Id + "' holds '" + what +
-                "', which nothing declares";
+        error = "the instance '" + instance.Id + "' holds '" + what + "', which nothing declares";
         return false;
       }
       if (!into.link(held, Relation::HeldBy, holder)) {
@@ -190,9 +194,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
       return false;
     }
     for (const Drive &does : declaredBody.Driven) {
-      const char *const named = does.Does == Drives::Motion ? "steer"
-                                                             : (does.Opposes ? "torque-opposing"
-                                                                             : "torque");
+      const char *const named =
+          does.Does == Drives::Motion ? "steer" : (does.Opposes ? "torque-opposing" : "torque");
       if (!into.giveTag(body, TagCatalogue::under(tags::Does, Interned(out.TagNames, named)))) {
         error = into.error();
         return false;
@@ -222,8 +225,8 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
   if (declared.Routed.Declared) {
     if (declared.Routed.FromLatDeg == declared.Routed.ToLatDeg &&
         declared.Routed.FromLonDeg == declared.Routed.ToLonDeg) {
-      error = "the drive's ends coincide at (" + std::to_string(declared.Routed.FromLatDeg) +
-              ", " + std::to_string(declared.Routed.FromLonDeg) +
+      error = "the drive's ends coincide at (" + std::to_string(declared.Routed.FromLatDeg) + ", " +
+              std::to_string(declared.Routed.FromLonDeg) +
               "), which declares no route -- a zoom without a base route is a layer over "
               "nothing";
       return false;
@@ -245,4 +248,4 @@ bool Assemble(const Scenario &declared, Scene &into, Column<Body> &bodies,
   return true;
 }
 
-}
+} // namespace outshine

@@ -15,6 +15,7 @@ public:
     c.RunnerUp_ = (int16_t)runnerUpRow;
     return c;
   }
+
   static Cover Of(int row, float edgeM, int runnerUpRow) {
     Cover c = Of(row, runnerUpRow);
     c.EdgeM_ = edgeM;
@@ -23,19 +24,19 @@ public:
   }
 
   [[nodiscard]] bool TryRow(int *out) const {
-    if (Row_ < 0) return false;
+    if (Row_ < 0) { return false; }
     *out = Row_;
     return true;
   }
 
   [[nodiscard]] bool TryRunnerUp(int *out) const {
-    if (RunnerUp_ < 0) return false;
+    if (RunnerUp_ < 0) { return false; }
     *out = RunnerUp_;
     return true;
   }
 
   [[nodiscard]] bool TryEdgeM(float *out) const {
-    if (!HasEdge_) return false;
+    if (!HasEdge_) { return false; }
     *out = EdgeM_;
     return true;
   }
@@ -46,5 +47,5 @@ private:
   bool HasEdge_ = false;
 };
 
-}
+} // namespace outshine::Generators
 #endif

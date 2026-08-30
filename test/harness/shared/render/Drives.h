@@ -121,5 +121,5 @@ struct Drives {
   }
 };
 
-}
+} // namespace outshine::Test
 #endif

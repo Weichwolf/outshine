@@ -9,8 +9,7 @@ namespace {
 
 [[nodiscard]] std::string Slurp(const std::string &path) {
   std::ifstream reading(path, std::ios::binary);
-  return std::string((std::istreambuf_iterator<char>(reading)),
-                     std::istreambuf_iterator<char>());
+  return std::string((std::istreambuf_iterator<char>(reading)), std::istreambuf_iterator<char>());
 }
 
 [[nodiscard]] std::string Field(const std::string &text, size_t from, const std::string &key) {
@@ -62,8 +61,8 @@ int main(void) {
 
   // the five carriageway kinds: every one of them declares both numbers, and both must appear
   // in the block that justifies them.
-  static const char *const kCarriageways[] = {"motorway", "trunk", "primary", "secondary",
-                                              "tertiary"};
+  static const char *const kCarriageways[] = {
+      "motorway", "trunk", "primary", "secondary", "tertiary"};
   std::vector<std::string> silent;
   size_t walked = 0;
   for (const char *const kind : kCarriageways) {
@@ -83,9 +82,14 @@ int main(void) {
     const std::string metres = radius + " m";
     const bool gradeSaid = gradients.find(percent) != std::string::npos;
     const bool radiusSaid = radii.find(metres) != std::string::npos;
-    std::printf("NOTE %-10s gradient %-7s -> \"%s\" %s   radius %-4s -> \"%s\" %s\n", kind,
-                grade.c_str(), percent.c_str(), gradeSaid ? "printed" : "ABSENT",
-                radius.c_str(), metres.c_str(), radiusSaid ? "printed" : "ABSENT");
+    std::printf("NOTE %-10s gradient %-7s -> \"%s\" %s   radius %-4s -> \"%s\" %s\n",
+                kind,
+                grade.c_str(),
+                percent.c_str(),
+                gradeSaid ? "printed" : "ABSENT",
+                radius.c_str(),
+                metres.c_str(),
+                radiusSaid ? "printed" : "ABSENT");
     if (!gradeSaid) {
       silent.push_back(std::string(kind) + " declares " + percent +
                        " and its origin block prints no such figure");

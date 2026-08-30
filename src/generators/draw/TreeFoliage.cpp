@@ -13,9 +13,11 @@ constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 
 constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
 
-}
+} // namespace
 
-void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const TreeSpecies &species,
+void TreeFoliage::Build(const TreeSkeleton &plant,
+                        const TreeMesh &shape,
+                        const TreeSpecies &species,
                         int mult) {
   const TreeSpecies::Leaf &leaf = species.LeafParams();
   Inst_.clear();
@@ -56,24 +58,26 @@ void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const 
   TreeRandom rng(0x1eaf0001u);
   double owed = 0.0;
   for (const LeafPoint &p : plant.LeafPoints) {
-
     owed += PerPoint_;
     const long n = (long)(owed + 0.5);
     owed -= (double)n;
     for (long k = 0; k < n; ++k) {
       const float roll = kGolden * (float)Inst_.size() / (float)kFloats + rng.Signed() * 0.35f;
-      Inst_.insert(Inst_.end(), {p.Pos.X, p.Pos.Y, p.Pos.Z, std::fmod(roll, kTau),
-                                 p.Dir.X, p.Dir.Y, p.Dir.Z, 0.0f});
+      Inst_.insert(
+          Inst_.end(),
+          {p.Pos.X, p.Pos.Y, p.Pos.Z, std::fmod(roll, kTau), p.Dir.X, p.Dir.Y, p.Dir.Z, 0.0f});
     }
   }
   AreaM2_ = oneM2 * (double)Count();
 }
 
-float TreeFoliage::CardLeafM(int leavesPerCard, size_t cards, double lai,
+float TreeFoliage::CardLeafM(int leavesPerCard,
+                             size_t cards,
+                             double lai,
                              double crownProjM2) const {
   const double per = (double)(leavesPerCard > 0 ? leavesPerCard : 1) * (double)cards * LocalArea_;
   if (per <= 0.0 || lai <= 0.0 || crownProjM2 <= 0.0) { return ScaleM_; }
   return (float)std::sqrt(lai * crownProjM2 / per);
 }
 
-}
+} // namespace outshine::Generators

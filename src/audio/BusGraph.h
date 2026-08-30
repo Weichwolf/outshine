@@ -13,14 +13,17 @@ namespace outshine::Audio {
 
 class BusGraph {
 public:
-  [[nodiscard]] bool Build(std::span<const Bus> buses, std::span<const Sound> sounds,
-                           std::string &error);
+  [[nodiscard]] bool
+  Build(std::span<const Bus> buses, std::span<const Sound> sounds, std::string &error);
 
   [[nodiscard]] size_t BusCount() const { return Buses_.size(); }
+
   [[nodiscard]] size_t SoundCount() const { return Sounds_.size(); }
+
   [[nodiscard]] std::string_view Master() const;
 
   [[nodiscard]] bool Play(std::string_view id, std::string &error);
+
   [[nodiscard]] size_t Playing() const { return Voices_; }
 
   [[nodiscard]] double GainOf(std::string_view id) const;
@@ -31,6 +34,7 @@ private:
     int Into = -1;
     double Gain = 1.0;
   };
+
   struct Source {
     std::string Id;
     int Into = -1;
@@ -46,5 +50,5 @@ private:
   size_t Voices_ = 0;
 };
 
-}
+} // namespace outshine::Audio
 #endif

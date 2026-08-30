@@ -13,9 +13,9 @@ bool ParticipatingMediumMsl(std::string &into, std::string &error) {
       !LoadShaderText("src/render/shaders/medium.msl", rest, error)) {
     return false;
   }
-  into = std::string("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n") +
-         layout + core + rest;
+  into = std::string("#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n") + layout +
+         core + rest;
   return true;
 }
 
-}
+} // namespace outshine::Render

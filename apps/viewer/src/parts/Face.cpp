@@ -5,7 +5,6 @@
 #include <fstream>
 #include <sstream>
 
-
 namespace outshine::Viewer {
 
 constexpr double kCorpusShare = 0.15;
@@ -32,7 +31,7 @@ std::string Quoted(const std::string &text) {
   return out;
 }
 
-}
+} // namespace
 
 std::vector<Listed> Cases(const std::string &under, const std::string &prepared) {
   std::vector<Listed> found;
@@ -48,13 +47,13 @@ std::vector<Listed> Cases(const std::string &under, const std::string &prepared)
     one.Name = it->path().parent_path().filename().string();
     one.Prepared = prepared + "/" + Flattened(relative);
 
-    const std::string inside = relative.size() > under.size() + 1
-                                   ? relative.substr(under.size() + 1)
-                                   : relative;
+    const std::string inside =
+        relative.size() > under.size() + 1 ? relative.substr(under.size() + 1) : relative;
     const size_t first = inside.find('/');
     const size_t second = first == std::string::npos ? first : inside.find('/', first + 1);
     one.Suite = second == std::string::npos ? inside : inside.substr(0, second);
-    one.Ready = std::filesystem::exists(std::filesystem::path(one.Prepared) / "manifest.json", walking);
+    one.Ready =
+        std::filesystem::exists(std::filesystem::path(one.Prepared) / "manifest.json", walking);
     std::ifstream declaration(it->path());
     std::stringstream held;
     held << declaration.rdbuf();
@@ -91,47 +90,60 @@ int RowsThatFit(int heightPx) {
   return room > 0 ? (int)(room / (kRowEm * em)) : 0;
 }
 
-double RootEmPx(int heightPx) { return (double)heightPx / kLinesTall; }
-double ColumnsWidth(int widthPx) { return (kCorpusShare + kCaseShare) * (double)widthPx; }
+double RootEmPx(int heightPx) {
+  return (double)heightPx / kLinesTall;
+}
+
+double ColumnsWidth(int widthPx) {
+  return (kCorpusShare + kCaseShare) * (double)widthPx;
+}
 
 std::string Style(void) {
-
   const auto share = [](double of) { return std::to_string(of * 100.0) + "%"; };
   const auto em = [](double of) { return std::to_string(of) + "em"; };
 
-  return std::string("html, body { height: 100% }\n")
-         + "body { margin: 0; font-family: sheet; color: #c8d0d8 }\n"
-         + ".frame { display: flex; flex-direction: row; width: 100%; height: 100% }\n"
-         + ".corpora { display: flex; flex-direction: column; background: #0f1317; width: " +
+  return std::string("html, body { height: 100% }\n") +
+         "body { margin: 0; font-family: sheet; color: #c8d0d8 }\n" +
+         ".frame { display: flex; flex-direction: row; width: 100%; height: 100% }\n" +
+         ".corpora { display: flex; flex-direction: column; background: #0f1317; width: " +
          share(kCorpusShare) +
          "; height: 100%; border-width: 0 1px 0 0; border-color: #232c35 }\n"
          ".cases { display: flex; flex-direction: column; background: #12161b; width: " +
          share(kCaseShare) +
          "; height: 100%; border-width: 0 1px 0 0; border-color: #232c35 }\n"
-         ".head { background: #1a222a; padding: 0.3em 0.6em; box-sizing: border-box; color: #6f8090;"
-         " height: " + em(kHeadEm) + "; border-width: 0 0 1px 0; border-color: #232c35 }\n"
+         ".head { background: #1a222a; padding: 0.3em 0.6em; box-sizing: border-box; color: "
+         "#6f8090;"
+         " height: " +
+         em(kHeadEm) +
+         "; border-width: 0 0 1px 0; border-color: #232c35 }\n"
          ".list { flex: 1 1 0%; overflow: auto }\n"
-         ".row { padding: 0.1em 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
+         ".row { padding: 0.1em 0.6em; box-sizing: border-box; height: " +
+         em(kRowEm) +
          "; color: #9fb0bf }\n"
-         ".row-on { padding: 0.1em 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
+         ".row-on { padding: 0.1em 0.6em; box-sizing: border-box; height: " +
+         em(kRowEm) +
          "; background: #2f6f9f; color: #f2f6fa }\n"
-         ".row-out { padding: 0.1em 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
+         ".row-out { padding: 0.1em 0.6em; box-sizing: border-box; height: " +
+         em(kRowEm) +
          "; color: #6a7683 }\n"
          ".status { background: #1a222a; padding: 0.25em 0.6em; box-sizing: border-box; height: " +
-         em(kStatusEm) + "; color: #93a1ad; border-width: 1px 0 0 0; border-color: #232c35 }\n"
+         em(kStatusEm) +
+         "; color: #93a1ad; border-width: 1px 0 0 0; border-color: #232c35 }\n"
          ".stage { flex: 1 1 0%; height: 100% }\n"
          ".plate { background: #10141880; padding: 0.25em 0.6em; box-sizing: border-box; height: " +
-         em(kHeadEm) + "; color: #cfe0ee }\n"
+         em(kHeadEm) +
+         "; color: #cfe0ee }\n"
          ".console { display: flex; flex-direction: column; background: #0b0e11; width: 100%;"
          " height: 100% }\n"
-         ".code { padding: 0 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
+         ".code { padding: 0 0.6em; box-sizing: border-box; height: " +
+         em(kRowEm) +
          "; color: #9fb0bf; white-space: pre }\n"
          ".verdict { background: #1a222a; padding: 0.3em 0.6em; box-sizing: border-box; height: " +
          em(kHeadEm) + "; color: #cfe0ee; border-width: 1px 0 0 0; border-color: #232c35 }\n";
 }
 
-std::string Declaration(const std::vector<Listed> &cases, const Showing &showing, int widthPx,
-                        int heightPx) {
+std::string
+Declaration(const std::vector<Listed> &cases, const Showing &showing, int widthPx, int heightPx) {
   const std::vector<int> shown = Filtered(cases, showing);
   const std::vector<std::string> suites = Suites(cases);
   (void)widthPx;
@@ -155,8 +167,7 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   }
   out += "</div></div><div class=status>" + Quoted(showing.Note) + "</div></div>";
 
-  out += "<div class=cases><div class=head>CASE (" + std::to_string(shown.size()) +
-         ")</div>";
+  out += "<div class=cases><div class=head>CASE (" + std::to_string(shown.size()) + ")</div>";
 
   out += "<div class=list><div>";
   for (int at = 0; at < (int)shown.size(); ++at) {
@@ -198,7 +209,7 @@ std::string Slurp(const std::string &path, bool &found) {
   return held.str();
 }
 
-}
+} // namespace
 
 std::string EntryPath(const std::string &prepared) {
   bool haveManifest = false;
@@ -268,8 +279,12 @@ Stands StandOf(const Listed &one) {
   return out;
 }
 
-std::string Console(const std::string &title, const std::string &source, const std::string &verdict,
-                    const char *why, int widthPx, int heightPx) {
+std::string Console(const std::string &title,
+                    const std::string &source,
+                    const std::string &verdict,
+                    const char *why,
+                    int widthPx,
+                    int heightPx) {
   (void)widthPx;
   std::string out = "<style>html { font-size: " + std::to_string(RootEmPx(heightPx)) + "px }\n";
   out += Style();
@@ -281,7 +296,8 @@ std::string Console(const std::string &title, const std::string &source, const s
   const int most = RowsThatFit(heightPx);
   while (at < source.size() && lines < most) {
     const size_t end = source.find('\n', at);
-    const std::string line = source.substr(at, (end == std::string::npos ? source.size() : end) - at);
+    const std::string line =
+        source.substr(at, (end == std::string::npos ? source.size() : end) - at);
     at = end == std::string::npos ? source.size() : end + 1;
     out += "<div class=code>" + Quoted(line) + "</div>";
     ++lines;
@@ -291,6 +307,4 @@ std::string Console(const std::string &title, const std::string &source, const s
   return out;
 }
 
-
-
-}
+} // namespace outshine::Viewer

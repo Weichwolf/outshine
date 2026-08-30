@@ -39,7 +39,7 @@ struct Lens {
   return std::fclose(file) == 0 && whole;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -57,7 +57,8 @@ int main(void) {
        "{\"type\":\"perspective\",\"perspective\":{\"yfov\":1.0,\"znear\":0.1,\"zfar\":100.0}}",
        true},
       {"a perspective camera with no far plane at all",
-       "{\"type\":\"perspective\",\"perspective\":{\"yfov\":1.0,\"znear\":0.1}}", true},
+       "{\"type\":\"perspective\",\"perspective\":{\"yfov\":1.0,\"znear\":0.1}}",
+       true},
       {"a near plane AT the eye",
        "{\"type\":\"perspective\",\"perspective\":{\"yfov\":1.0,\"znear\":0.0,\"zfar\":100.0}}",
        false},
@@ -88,7 +89,9 @@ int main(void) {
     }
     outshine::Gltf::Document document;
     const bool stood = document.ReadFile(path);
-    std::printf("%-44s %s%s\n", one.What, stood ? "STOOD" : "refused",
+    std::printf("%-44s %s%s\n",
+                one.What,
+                stood ? "STOOD" : "refused",
                 stood == one.Stands ? "" : "   <- and should not have");
     if (stood == one.Stands) { ++agreed; }
   }

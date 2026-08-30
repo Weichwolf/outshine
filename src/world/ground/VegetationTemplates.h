@@ -14,7 +14,6 @@ namespace outshine::Ground {
 
 class VegetationTemplates {
 public:
-
   struct Row {
     float Ground[4];
     float Litter[4];
@@ -45,13 +44,19 @@ public:
   [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);
 
   const Row *Rows() const { return Table_.data(); }
+
   size_t RowBytes() const { return Table_.size() * sizeof(Row); }
+
   [[nodiscard]] bool Ready() const { return !Table_.empty(); }
+
   size_t TemplateCount() const { return Table_.size(); }
+
   [[nodiscard]] float FrictionOf(size_t tpl) const {
     return tpl < Friction_.size() ? Friction_[tpl] : 0.0f;
   }
+
   const std::string &Name(size_t i) const { return Names_[i]; }
+
   const std::string &Error() const { return Error_; }
 
   const Rule *Find(std::string_view layer, std::string_view kind) const;
@@ -59,7 +64,9 @@ public:
   int UnmappedRow() const { return Unmapped_; }
 
   const AlpineLimit &Limit() const { return Limit_; }
+
   int RockTemplate() const { return RockTpl_; }
+
   size_t RuleCount() const { return Rules_.size(); }
 
   const std::vector<std::string> &Layers() const { return Layers_; }
@@ -77,5 +84,5 @@ private:
   int Unmapped_ = 0, RockTpl_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

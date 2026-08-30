@@ -33,8 +33,10 @@ struct DrawShape {
   uint32_t FragmentStorageBuffers = 0;
 };
 
-[[nodiscard]] inline SDL_GPUShader *ShaderFrom(SDL_GPUDevice *device, std::string_view source,
-                                               const char *entry, SDL_GPUShaderStage stage,
+[[nodiscard]] inline SDL_GPUShader *ShaderFrom(SDL_GPUDevice *device,
+                                               std::string_view source,
+                                               const char *entry,
+                                               SDL_GPUShaderStage stage,
                                                const DrawShape &shape) {
   const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
   SDL_GPUShaderCreateInfo wanted{};
@@ -49,6 +51,6 @@ struct DrawShape {
   return SDL_CreateGPUShader(device, &wanted);
 }
 
-}
+} // namespace outshine::Render
 
 #endif

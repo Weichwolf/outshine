@@ -8,9 +8,13 @@ namespace outshine::Ui {
 
 namespace {
 
-bool Matches(std::string_view a, const char *b) { return a == std::string_view(b); }
+bool Matches(std::string_view a, const char *b) {
+  return a == std::string_view(b);
+}
 
-char Lowered(char c) { return c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c; }
+char Lowered(char c) {
+  return c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c;
+}
 
 std::string Lower(std::string_view text) {
   std::string out;
@@ -19,7 +23,9 @@ std::string Lower(std::string_view text) {
   return out;
 }
 
-bool Space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
+bool Space(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
+}
 
 void Resolve(std::string_view raw, std::string &out) {
   for (size_t at = 0; at < raw.size();) {
@@ -44,7 +50,6 @@ void Resolve(std::string_view raw, std::string &out) {
     } else if (Matches(name, "apos")) {
       out.push_back('\'');
     } else if (Matches(name, "nbsp")) {
-
       out.push_back((char)0xC2);
       out.push_back((char)0xA0);
     } else if (!name.empty() && name[0] == '#') {
@@ -82,11 +87,23 @@ void Resolve(std::string_view raw, std::string &out) {
   }
 }
 
-}
+} // namespace
 
 bool ClosesItself(std::string_view tag) {
-  static const char *const kVoid[] = {"area", "base",  "br",   "col",   "embed",  "hr",   "img",
-                                      "input", "link", "meta", "param", "source", "track", "wbr"};
+  static const char *const kVoid[] = {"area",
+                                      "base",
+                                      "br",
+                                      "col",
+                                      "embed",
+                                      "hr",
+                                      "img",
+                                      "input",
+                                      "link",
+                                      "meta",
+                                      "param",
+                                      "source",
+                                      "track",
+                                      "wbr"};
   for (const char *one : kVoid) {
     if (Matches(tag, one)) { return true; }
   }
@@ -98,12 +115,10 @@ bool HoldsRawText(std::string_view tag) {
 }
 
 bool IsBlockLevel(std::string_view tag) {
-  static const char *const kBlock[] = {"address", "article", "aside",  "blockquote", "div",
-                                       "dl",      "fieldset", "figure", "footer",   "form",
-                                       "h1",      "h2",     "h3",     "h4",         "h5",
-                                       "h6",      "header", "hr",     "main",       "nav",
-                                       "ol",      "p",      "pre",    "section",    "table",
-                                       "ul"};
+  static const char *const kBlock[] = {
+      "address", "article", "aside", "blockquote", "div", "dl",      "fieldset", "figure", "footer",
+      "form",    "h1",      "h2",    "h3",         "h4",  "h5",      "h6",       "header", "hr",
+      "main",    "nav",     "ol",    "p",          "pre", "section", "table",    "ul"};
   for (const char *one : kBlock) {
     if (Matches(tag, one)) { return true; }
   }
@@ -171,7 +186,6 @@ bool Markup::Read(std::string_view markup, std::string &error) {
     }
     const std::string name = Lower(markup.substr(nameFrom, cursor - nameFrom));
     if (name.empty()) {
-
       text.push_back('<');
       at += 1;
       continue;
@@ -246,13 +260,16 @@ bool Markup::Read(std::string_view markup, std::string &error) {
       const std::string closer = "</" + name;
       const size_t end = markup.find(closer, at);
       if (end == std::string_view::npos) {
-        error = "the document opens <" + name + "> and never closes it, so where its text ends is a "
-                                                "guess rather than a reading";
+        error = "the document opens <" + name +
+                "> and never closes it, so where its text ends is a "
+                "guess rather than a reading";
         return false;
       }
       const std::string_view body = markup.substr(at, end - at);
       const int node = push(std::move(element));
-      if (name == "script") { Scripted_ = Scripted_ || body.find_first_not_of(" \t\r\n") != std::string_view::npos; }
+      if (name == "script") {
+        Scripted_ = Scripted_ || body.find_first_not_of(" \t\r\n") != std::string_view::npos;
+      }
       if (name == "style") {
         Style_.append(body);
         Style_.push_back('\n');
@@ -277,4 +294,4 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine::Ui

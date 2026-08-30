@@ -9,22 +9,30 @@ namespace outshine {
 namespace {
 
 constexpr size_t kNodes = 8;
-constexpr double kAbscissa[kNodes] = {-0.9602898564975363, -0.7966664774136267,
-                                      -0.5255324099163290, -0.1834346424956498,
-                                      0.1834346424956498,  0.5255324099163290,
-                                      0.7966664774136267,  0.9602898564975363};
-constexpr double kWeight[kNodes] = {0.1012285362903763, 0.2223810344533745, 0.3137066458778873,
-                                    0.3626837833783620, 0.3626837833783620, 0.3137066458778873,
-                                    0.2223810344533745, 0.1012285362903763};
+constexpr double kAbscissa[kNodes] = {-0.9602898564975363,
+                                      -0.7966664774136267,
+                                      -0.5255324099163290,
+                                      -0.1834346424956498,
+                                      0.1834346424956498,
+                                      0.5255324099163290,
+                                      0.7966664774136267,
+                                      0.9602898564975363};
+constexpr double kWeight[kNodes] = {0.1012285362903763,
+                                    0.2223810344533745,
+                                    0.3137066458778873,
+                                    0.3626837833783620,
+                                    0.3626837833783620,
+                                    0.3137066458778873,
+                                    0.2223810344533745,
+                                    0.1012285362903763};
 
 double HeadingAlong(const Segment &along, double byM) {
-  const double rate = along.LengthM > 0.0
-                          ? (along.ExitCurvature - along.EntryCurvature) / along.LengthM
-                          : 0.0;
+  const double rate =
+      along.LengthM > 0.0 ? (along.ExitCurvature - along.EntryCurvature) / along.LengthM : 0.0;
   return along.EntryCurvature * byM + 0.5 * rate * byM * byM;
 }
 
-}
+} // namespace
 
 bool ReferenceLine::Refuse(std::string why) {
   Error_ = std::move(why);
@@ -35,11 +43,15 @@ bool ReferenceLine::Refuse(std::string why) {
   return false;
 }
 
-bool ReferenceLine::Fasten(std::span<const Knot> through, const char *what, const char *unit,
-                           std::vector<Knot> &into, std::string &error) {
+bool ReferenceLine::Fasten(std::span<const Knot> through,
+                           const char *what,
+                           const char *unit,
+                           std::vector<Knot> &into,
+                           std::string &error) {
   into.clear();
   if (Laid_.empty()) {
-    error = std::string("a ") + what + " profile is fastened to a line that is laid, and this one "
+    error = std::string("a ") + what +
+            " profile is fastened to a line that is laid, and this one "
             "carries no segments to fasten it to";
     Error_ = error;
     return false;
@@ -54,8 +66,8 @@ bool ReferenceLine::Fasten(std::span<const Knot> through, const char *what, cons
     const Knot &knot = through[which];
     if (!(knot.AlongM >= 0.0) || knot.AlongM > Length_ + kTangentTolerance) {
       error = std::string("a ") + what + " knot stands at " + std::to_string(knot.AlongM) +
-              " m along a line " + std::to_string(Length_) +
-              " m long, and a profile states its " + what + " over the line it is fastened to";
+              " m along a line " + std::to_string(Length_) + " m long, and a profile states its " +
+              what + " over the line it is fastened to";
       Error_ = error;
       return false;
     }
@@ -79,8 +91,8 @@ bool ReferenceLine::Bank(std::span<const Knot> through, std::string &error) {
   return Fasten(through, "bank", "rate", Bank_, error);
 }
 
-void ReferenceLine::Read(std::span<const Knot> through, double alongM, double &value,
-                         double &rate, double &bend) {
+void ReferenceLine::Read(
+    std::span<const Knot> through, double alongM, double &value, double &rate, double &bend) {
   value = 0.0;
   rate = 0.0;
   bend = 0.0;
@@ -150,8 +162,10 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
   if (along.Shape == Curve::Arc && along.EntryCurvature != 0.0) {
     const double radius = 1.0 / along.EntryCurvature;
     const double turned = along.EntryCurvature * byM;
-    out.EastM = from.EastM + radius * (std::sin(from.HeadingRad + turned) - std::sin(from.HeadingRad));
-    out.NorthM = from.NorthM - radius * (std::cos(from.HeadingRad + turned) - std::cos(from.HeadingRad));
+    out.EastM =
+        from.EastM + radius * (std::sin(from.HeadingRad + turned) - std::sin(from.HeadingRad));
+    out.NorthM =
+        from.NorthM - radius * (std::cos(from.HeadingRad + turned) - std::cos(from.HeadingRad));
     return out;
   }
 
@@ -195,17 +209,20 @@ bool ReferenceLine::Lay(const Placed &from, std::span<const Segment> along, std:
               " m long, and a segment of no length places nothing";
       return Refuse(error);
     }
-    if (declared.Shape == Curve::Straight) { declared.EntryCurvature = declared.ExitCurvature = 0.0; }
+    if (declared.Shape == Curve::Straight) {
+      declared.EntryCurvature = declared.ExitCurvature = 0.0;
+    }
     if (declared.Shape == Curve::Arc) { declared.ExitCurvature = declared.EntryCurvature; }
 
     if (which > 0) {
       const double leaving = Laid_.back().Declared.ExitCurvature;
       if (std::fabs(leaving - declared.EntryCurvature) > kTangentTolerance) {
-        error = "segment " + std::to_string(which) + " enters at curvature " +
-                std::to_string(declared.EntryCurvature) + " where segment " +
-                std::to_string(which - 1) + " leaves at " + std::to_string(leaving) +
-                ", and a leap in curvature is a step in the lateral force -- a spiral is what carries "
-                "a transition without one";
+        error =
+            "segment " + std::to_string(which) + " enters at curvature " +
+            std::to_string(declared.EntryCurvature) + " where segment " +
+            std::to_string(which - 1) + " leaves at " + std::to_string(leaving) +
+            ", and a leap in curvature is a step in the lateral force -- a spiral is what carries "
+            "a transition without one";
         return Refuse(error);
       }
     }
@@ -223,8 +240,8 @@ bool ReferenceLine::Lay(const Placed &from, std::span<const Segment> along, std:
   return true;
 }
 
-bool ReferenceLine::Nearest(double eastM, double northM, double nearM, double windowM,
-                            double &alongM) const {
+bool ReferenceLine::Nearest(
+    double eastM, double northM, double nearM, double windowM, double &alongM) const {
   if (Laid_.empty() || !(windowM > 0.0)) { return false; }
 
   double lowM = nearM - windowM;
@@ -314,4 +331,4 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
   return true;
 }
 
-}
+} // namespace outshine

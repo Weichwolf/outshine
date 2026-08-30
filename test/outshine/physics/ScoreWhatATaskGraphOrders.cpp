@@ -90,7 +90,7 @@ struct Chain {
   return ran.Total.load(std::memory_order_relaxed);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -109,7 +109,8 @@ int main(void) {
   std::printf("ON ONE HAND    %zu step(s) ran, summing %d\n", alone.Order.size(), byOne);
   std::printf("ON FOUR HANDS  %zu step(s) ran, summing %d\n", together.Order.size(), byFour);
   std::printf("THE DECLARED CHAIN LANDED AT  %zu -> %zu -> %zu on four hands\n",
-              At(together.Order, chain.First), At(together.Order, chain.Middle),
+              At(together.Order, chain.First),
+              At(together.Order, chain.Middle),
               At(together.Order, chain.Last));
 
   CHECK(alone.Order.size() == kSteps && together.Order.size() == kSteps,

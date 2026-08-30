@@ -23,13 +23,16 @@ namespace outshine::Gltf {
 
 namespace {
 
-
 double Length(const double v[3]) {
   return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
-[[nodiscard]] bool RunIsStatable(std::span<const float> run, size_t vertices, size_t components,
-                                 const char *semantic, const std::string &where, std::string &why) {
+[[nodiscard]] bool RunIsStatable(std::span<const float> run,
+                                 size_t vertices,
+                                 size_t components,
+                                 const char *semantic,
+                                 const std::string &where,
+                                 std::string &why) {
   if (run.empty()) { return true; }
   if (run.size() != vertices * components) {
     why = where + " states " + std::to_string(run.size() / components) + " " + semantic + " over " +
@@ -48,13 +51,13 @@ double Length(const double v[3]) {
 
 const char *ModeName(PrimitiveMode mode) {
   switch (mode) {
-  case PrimitiveMode::Points: return "POINTS";
-  case PrimitiveMode::Lines: return "LINES";
-  case PrimitiveMode::LineLoop: return "LINE_LOOP";
-  case PrimitiveMode::LineStrip: return "LINE_STRIP";
-  case PrimitiveMode::Triangles: return "TRIANGLES";
-  case PrimitiveMode::TriangleStrip: return "TRIANGLE_STRIP";
-  case PrimitiveMode::TriangleFan: return "TRIANGLE_FAN";
+    case PrimitiveMode::Points: return "POINTS";
+    case PrimitiveMode::Lines: return "LINES";
+    case PrimitiveMode::LineLoop: return "LINE_LOOP";
+    case PrimitiveMode::LineStrip: return "LINE_STRIP";
+    case PrimitiveMode::Triangles: return "TRIANGLES";
+    case PrimitiveMode::TriangleStrip: return "TRIANGLE_STRIP";
+    case PrimitiveMode::TriangleFan: return "TRIANGLE_FAN";
   }
   return "an undeclared mode";
 }
@@ -70,7 +73,9 @@ bool RunIsWhole(PrimitiveMode mode, size_t indices) {
 
 enum class Handedness { Preserved, Reversed };
 
-void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<uint32_t> &run,
+void Triangulate(PrimitiveMode mode,
+                 Handedness handedness,
+                 const std::vector<uint32_t> &run,
                  std::vector<uint32_t> &out) {
   out.clear();
   if (mode == PrimitiveMode::Triangles) {
@@ -98,6 +103,7 @@ void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<ui
 
 struct BasisKey {
   uint64_t Bits[4] = {};
+
   bool operator<(const BasisKey &other) const {
     return std::memcmp(Bits, other.Bits, sizeof Bits) < 0;
   }
@@ -113,11 +119,16 @@ BasisKey KeyOf(double x, double y, double z, double w) {
   return key;
 }
 
-}
+} // namespace
 
-bool Subject::MorphDeltasFor(const Document &document, const Primitive &primitive,
-                             const char *semantic, const double *weights, size_t count,
-                             size_t components, size_t vertices, std::vector<double> &out) {
+bool Subject::MorphDeltasFor(const Document &document,
+                             const Primitive &primitive,
+                             const char *semantic,
+                             const double *weights,
+                             size_t count,
+                             size_t components,
+                             size_t vertices,
+                             std::vector<double> &out) {
   out.clear();
   if (count == 0 || primitive.Targets.empty()) { return true; }
   std::vector<double> delta;
@@ -127,12 +138,12 @@ bool Subject::MorphDeltasFor(const Document &document, const Primitive &primitiv
     const int accessor = primitive.Targets[target].Find(semantic);
     if (accessor < 0) { continue; }
     if (!document.ReadElements(accessor, delta)) {
-      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " + semantic +
-                    " does not decode: " + document.Error());
+      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " +
+                    semantic + " does not decode: " + document.Error());
     }
     if (delta.size() != vertices * components) {
-      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " + semantic +
-                    " decodes to " + std::to_string(delta.size()) + " components over " +
+      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " +
+                    semantic + " decodes to " + std::to_string(delta.size()) + " components over " +
                     std::to_string(vertices) + " vertices of " + std::to_string(components));
     }
     if (out.empty()) { out.assign(vertices * components, 0.0); }
@@ -146,9 +157,12 @@ Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &
   return world * Transform::FromColumnMajor(&skin.InverseBind[joint * 16]);
 }
 
-bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
-                           std::span<const Transform> joints, const Primitive &primitive,
-                           size_t vertices, std::vector<Transform> &out) {
+bool Subject::BlendSkinFor(const Document &document,
+                           const Skin &skin,
+                           std::span<const Transform> joints,
+                           const Primitive &primitive,
+                           size_t vertices,
+                           std::vector<Transform> &out) {
   std::vector<double> index;
   std::vector<double> weight;
   size_t sets = 0;
@@ -166,10 +180,12 @@ bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
     std::vector<double> theseIndices;
     std::vector<double> theseWeights;
     if (!document.ReadElements(bones, theseIndices)) {
-      return Refuse(document.Path() + ": JOINTS_" + which + " does not decode: " + document.Error());
+      return Refuse(document.Path() + ": JOINTS_" + which +
+                    " does not decode: " + document.Error());
     }
     if (!document.ReadElements(weights, theseWeights)) {
-      return Refuse(document.Path() + ": WEIGHTS_" + which + " does not decode: " + document.Error());
+      return Refuse(document.Path() + ": WEIGHTS_" + which +
+                    " does not decode: " + document.Error());
     }
     if (theseIndices.size() != vertices * 4 || theseWeights.size() != vertices * 4) {
       return Refuse(document.Path() + ": JOINTS_" + which + " decodes to " +
@@ -181,9 +197,10 @@ bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
     weight.insert(weight.end(), theseWeights.begin(), theseWeights.end());
   }
   if (sets == 0) {
-    return Refuse(document.Path() +
-                  ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a skin "
-                  "without both binds no vertex to any joint");
+    return Refuse(
+        document.Path() +
+        ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a skin "
+        "without both binds no vertex to any joint");
   }
 
   out.assign(vertices, Transform());
@@ -218,10 +235,13 @@ bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
   return true;
 }
 
-bool Subject::SuppliedTangentsFor(const Document &document, const Primitive &primitive,
-                                  const VertexPlacement &place, Span<const double> morphWeights,
-                                  Part &part, size_t vertices, std::vector<double> &into) {
-
+bool Subject::SuppliedTangentsFor(const Document &document,
+                                  const Primitive &primitive,
+                                  const VertexPlacement &place,
+                                  Span<const double> morphWeights,
+                                  Part &part,
+                                  size_t vertices,
+                                  std::vector<double> &into) {
   const int supplied = primitive.Find("TANGENT");
   if (supplied >= 0) {
     std::vector<double> elements;
@@ -229,13 +249,20 @@ bool Subject::SuppliedTangentsFor(const Document &document, const Primitive &pri
       return Refuse(document.Path() + ": TANGENT does not decode: " + document.Error());
     }
     if (elements.size() != vertices * 4) {
-      return Refuse(document.Path() + ": TANGENT decodes to " + std::to_string(elements.size() / 4) +
-                    " vectors over " + std::to_string(vertices) + " vertices");
+      return Refuse(document.Path() + ": TANGENT decodes to " +
+                    std::to_string(elements.size() / 4) + " vectors over " +
+                    std::to_string(vertices) + " vertices");
     }
 
     std::vector<double> morphedTangents;
-    if (!MorphDeltasFor(document, primitive, "TANGENT", morphWeights.Data(), morphWeights.Size(), 3,
-                        vertices, morphedTangents)) {
+    if (!MorphDeltasFor(document,
+                        primitive,
+                        "TANGENT",
+                        morphWeights.Data(),
+                        morphWeights.Size(),
+                        3,
+                        vertices,
+                        morphedTangents)) {
       return false;
     }
     for (size_t vertex = 0; vertex < vertices && !morphedTangents.empty(); ++vertex) {
@@ -248,14 +275,12 @@ bool Subject::SuppliedTangentsFor(const Document &document, const Primitive &pri
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Transform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
-      const double local[3] = {elements[vertex * 4], elements[vertex * 4 + 1],
-                               elements[vertex * 4 + 2]};
+      const double local[3] = {
+          elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]};
       double global[3];
       placed.Direction(local, global);
       (void)Normalise(global);
-      for (int axis = 0; axis < 3; ++axis) {
-        into[vertex * 4 + (size_t)axis] = global[axis];
-      }
+      for (int axis = 0; axis < 3; ++axis) { into[vertex * 4 + (size_t)axis] = global[axis]; }
       into[vertex * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
     }
     part.Tangent = TangentSource::Supplied;
@@ -304,9 +329,7 @@ bool Subject::GeneratedTangentsFor(Part &part) {
       continue;
     }
     const uint32_t made = (uint32_t)VertexCount();
-    for (size_t axis = 0; axis < 3; ++axis) {
-      Positions_.push_back(Positions_[vertex * 3 + axis]);
-    }
+    for (size_t axis = 0; axis < 3; ++axis) { Positions_.push_back(Positions_[vertex * 3 + axis]); }
     Uv_.resize((size_t)made * 2 + 2, 0.0);
     Uv_[(size_t)made * 2] = Uv_[vertex * 2];
     Uv_[(size_t)made * 2 + 1] = Uv_[vertex * 2 + 1];
@@ -395,7 +418,9 @@ bool Subject::FlatNormalsFor(Part &part) {
       face[0] = face[1] = face[2] = 0.0;
     }
     for (size_t corner = 0; corner < 3; ++corner) {
-      for (size_t axis = 0; axis < 3; ++axis) { Normals_[(size_t)of[corner] * 3 + axis] = face[axis]; }
+      for (size_t axis = 0; axis < 3; ++axis) {
+        Normals_[(size_t)of[corner] * 3 + axis] = face[axis];
+      }
     }
   }
   part.HasNormal = true;
@@ -403,7 +428,10 @@ bool Subject::FlatNormalsFor(Part &part) {
   return true;
 }
 
-bool ViewpointLookAtGONE(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
+bool ViewpointLookAtGONE(const double eyeM[3],
+                         const double aimM[3],
+                         double rollRad,
+                         Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Normalise(forward)) { return false; }
   const double worldUp[3] = {0, 1, 0};
@@ -473,8 +501,10 @@ bool Subject::Build(const Document &document, const VariantSelection &variant) {
   return Flatten(document, nullptr, nullptr, variant);
 }
 
-bool Subject::Build(const Document &document, Span<const Transform> pose,
-                    Span<const double> weights, const VariantSelection &variant) {
+bool Subject::Build(const Document &document,
+                    Span<const Transform> pose,
+                    Span<const double> weights,
+                    const VariantSelection &variant) {
   if (pose.Size() != document.Nodes().size()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +
                   " local transforms and the file carries " +
@@ -489,7 +519,9 @@ bool Subject::Build(const Document &document, Span<const Transform> pose,
   return Flatten(document, pose.Data(), weights.Size() ? weights.Data() : nullptr, variant);
 }
 
-bool InstanceTransforms(const Document &document, const Node &node, const Transform &world,
+bool InstanceTransforms(const Document &document,
+                        const Node &node,
+                        const Transform &world,
                         std::vector<Transform> &out) {
   out.clear();
   const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
@@ -507,11 +539,17 @@ bool InstanceTransforms(const Document &document, const Node &node, const Transf
   if (node.InstanceRotation >= 0 && !document.ReadElements(node.InstanceRotation, rotation)) {
     return false;
   }
-  if (node.InstanceScale >= 0 && !document.ReadElements(node.InstanceScale, scale)) { return false; }
+  if (node.InstanceScale >= 0 && !document.ReadElements(node.InstanceScale, scale)) {
+    return false;
+  }
   size_t count = 0;
-  if (!translation.empty()) { count = translation.size() / 3; }
-  else if (!rotation.empty()) { count = rotation.size() / 4; }
-  else if (!scale.empty()) { count = scale.size() / 3; }
+  if (!translation.empty()) {
+    count = translation.size() / 3;
+  } else if (!rotation.empty()) {
+    count = rotation.size() / 4;
+  } else if (!scale.empty()) {
+    count = scale.size() / 3;
+  }
   out.reserve(count);
   for (size_t at = 0; at < count; ++at) {
     const double t[3] = {translation.empty() ? 0.0 : translation[at * 3 + 0],
@@ -529,12 +567,13 @@ bool InstanceTransforms(const Document &document, const Node &node, const Transf
   return true;
 }
 
-bool Subject::Flatten(const Document &document, const Transform *pose, const double *weights,
+bool Subject::Flatten(const Document &document,
+                      const Transform *pose,
+                      const double *weights,
                       const VariantSelection &variant) {
-
   const auto placementOf = [&document, pose](int node, Transform &out) {
-    return pose ? document.WorldTransform(node, Span<const Transform>(pose, document.Nodes().size()),
-                                          out)
+    return pose ? document.WorldTransform(
+                      node, Span<const Transform>(pose, document.Nodes().size()), out)
                 : document.WorldTransform(node, out);
   };
   Error_.clear();
@@ -699,29 +738,41 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
         }
         if (elements.size() % 3 != 0) {
-          return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
+          return Refuse(document.Path() + ": POSITION decodes to " +
+                        std::to_string(elements.size()) +
                         " components, which is not a whole number of points");
         }
         const size_t vertices = elements.size() / 3;
 
         std::vector<double> &morphedPositions = Scratch_.Morphed;
         morphedPositions.clear();
-        if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
-                            vertices, morphedPositions)) {
+        if (!MorphDeltasFor(document,
+                            primitive,
+                            "POSITION",
+                            nodeWeights.data(),
+                            morphCount,
+                            3,
+                            vertices,
+                            morphedPositions)) {
           return false;
         }
-        for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
+        for (size_t at = 0; at < morphedPositions.size(); ++at) {
+          elements[at] += morphedPositions[at];
+        }
         std::vector<Transform> &skinned = Scratch_.Skinned;
         skinned.clear();
-        if (node.Skin >= 0 &&
-            !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
-                          vertices, skinned)) {
+        if (node.Skin >= 0 && !BlendSkinFor(document,
+                                            document.Skins()[(size_t)node.Skin],
+                                            jointMatrices,
+                                            primitive,
+                                            vertices,
+                                            skinned)) {
           return false;
         }
         const VertexPlacement place{placedWorld, skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          double local[3] = {elements[vertex * 3], elements[vertex * 3 + 1],
-                             elements[vertex * 3 + 2]};
+          double local[3] = {
+              elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]};
           double global[3];
           place.At(vertex).Point(local, global);
           for (int axis = 0; axis < 3; ++axis) { atPos.push_back(global[axis]); }
@@ -734,6 +785,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           std::vector<double> *Into;
         } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &atUv},
                            {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &atUv1}};
+
         for (const auto &set : sets) {
           const int uv = primitive.Find(set.Semantic);
           part.*set.Carried = uv >= 0;
@@ -743,8 +795,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           std::vector<double> &coordinates = Scratch_.Coordinates;
           coordinates.clear();
           if (!document.ReadElements(uv, coordinates)) {
-            return Refuse(document.Path() + ": " + set.Semantic + " does not decode: " +
-                          document.Error());
+            return Refuse(document.Path() + ": " + set.Semantic +
+                          " does not decode: " + document.Error());
           }
           if (coordinates.size() != vertices * 2) {
             return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
@@ -810,14 +862,22 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           }
           std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
           morphedNormals.clear();
-          if (!MorphDeltasFor(document, primitive, "NORMAL", nodeWeights.data(), morphCount, 3,
-                              vertices, morphedNormals)) {
+          if (!MorphDeltasFor(document,
+                              primitive,
+                              "NORMAL",
+                              nodeWeights.data(),
+                              morphCount,
+                              3,
+                              vertices,
+                              morphedNormals)) {
             return false;
           }
-          for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
+          for (size_t at = 0; at < morphedNormals.size(); ++at) {
+            directions[at] += morphedNormals[at];
+          }
           for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
-                               directions[vertex * 3 + 2]};
+            double local[3] = {
+                directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]};
             double global[3];
 
             if (!place.At(vertex).Normal(local, global)) {
@@ -833,8 +893,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
 
         if (primitive.Indices >= 0) {
           if (!document.ReadIndices(primitive.Indices, run)) {
-            return Refuse(document.Path() + ": the index accessor does not decode: " +
-                          document.Error());
+            return Refuse(document.Path() +
+                          ": the index accessor does not decode: " + document.Error());
           }
         } else {
           run.resize(vertices);
@@ -852,9 +912,10 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           const bool mirrored = skinned[0].LinearDeterminant() < 0;
           for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
             if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
-              return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
-                            " of a skinned primitive blends to a transform whose determinant has the "
-                            "opposite sign to vertex 0's, so the primitive would need two windings");
+              return Refuse(
+                  document.Path() + ": vertex " + std::to_string(vertex) +
+                  " of a skinned primitive blends to a transform whose determinant has the "
+                  "opposite sign to vertex 0's, so the primitive would need two windings");
             }
           }
           handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
@@ -862,14 +923,19 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         Triangulate(primitive.Mode, handedness, run, indices);
         for (uint32_t index : indices) {
           if (index >= vertices) {
-            return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
-                          std::to_string(vertices) + " vertices of its own primitive");
+            return Refuse(document.Path() + ": index " + std::to_string(index) +
+                          " addresses past the " + std::to_string(vertices) +
+                          " vertices of its own primitive");
           }
           atIdx.push_back(index);
         }
         part.IndexCount = atIdx.size();
-        if (!SuppliedTangentsFor(document, primitive, place,
-                                 Span<const double>(nodeWeights.data(), morphCount), part, vertices,
+        if (!SuppliedTangentsFor(document,
+                                 primitive,
+                                 place,
+                                 Span<const double>(nodeWeights.data(), morphCount),
+                                 part,
+                                 vertices,
                                  atTan)) {
           return false;
         }
@@ -894,7 +960,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         (void)made.setTriangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
       }
     }
-
   }
 
   if (made.parts() == 0) {
@@ -914,9 +979,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
 }
 
 void Subject::Bound() {
-  for (int axis = 0; axis < 3; ++axis) {
-    Min_[axis] = Max_[axis] = Positions_[(size_t)axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { Min_[axis] = Max_[axis] = Positions_[(size_t)axis]; }
   for (size_t vertex = 1; vertex < VertexCount(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
       const double value = Positions_[vertex * 3 + (size_t)axis];
@@ -926,9 +989,13 @@ void Subject::Bound() {
   }
 }
 
-outshine::Geometry Subject::Handed() const { return Handed(nullptr); }
+outshine::Geometry Subject::Handed() const {
+  return Handed(nullptr);
+}
 
-outshine::Geometry Subject::Handed(const Document &naming) const { return Handed(&naming); }
+outshine::Geometry Subject::Handed(const Document &naming) const {
+  return Handed(&naming);
+}
 
 outshine::Geometry Subject::Handed(const Document *naming) const {
   outshine::Geometry out;
@@ -948,7 +1015,8 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
   };
   for (const Part &one : Parts_) {
     const int made = out.addPart(one.NodeName, MaterialInstance(one.Material));
-    const std::vector<float> positions = floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
+    const std::vector<float> positions =
+        floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
     (void)out.setPositions(made, std::span<const float>(positions.data(), positions.size()));
     if (one.HasNormal && !Normals_.empty()) {
       const std::vector<float> held = floats(Normals_, one.FirstVertex * 3, one.VertexCount * 3);
@@ -1013,7 +1081,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     Lights_.push_back(std::move(placed));
   }
   if (what.parts() == 0) {
-    return Refuse("an assembly of no piece draws nothing, and a subject with no triangle is not one");
+    return Refuse(
+        "an assembly of no piece draws nothing, and a subject with no triangle is not one");
   }
 
   bool anyUv = false;
@@ -1056,8 +1125,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
     for (size_t at = 0; at < pColours.size(); ++at) {
       if (pColours[at] >= 0.0f && pColours[at] <= 1.0f) { continue; }
-      return Refuse(where + " states a vertex colour component of " +
-                    std::to_string(pColours[at]) + " at " + std::to_string(at) +
+      return Refuse(where + " states a vertex colour component of " + std::to_string(pColours[at]) +
+                    " at " + std::to_string(at) +
                     ", and the format requires every component in [0, 1]");
     }
 
@@ -1099,9 +1168,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     Normals_.resize(Positions_.size(), 0.0);
     Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
     Colours_.resize((Positions_.size() / 3) * 4, 0.0);
-    for (size_t at = 0; at < pUv.size(); ++at) {
-      Uv_[part.FirstVertex * 2 + at] = (double)pUv[at];
-    }
+    for (size_t at = 0; at < pUv.size(); ++at) { Uv_[part.FirstVertex * 2 + at] = (double)pUv[at]; }
     for (size_t at = 0; at < pUv1.size(); ++at) {
       Uv1_[part.FirstVertex * 2 + at] = (double)pUv1[at];
     }
@@ -1135,15 +1202,17 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
 bool Subject::Append(const Subject &other) {
   if (other.Parts_.empty()) {
-    return Refuse("a subject with no part appends nothing, and an empty append is a caller's mistake "
-                  "rather than a shape this can carry");
+    return Refuse(
+        "a subject with no part appends nothing, and an empty append is a caller's mistake "
+        "rather than a shape this can carry");
   }
   const size_t vertexBase = VertexCount();
   const size_t indexBase = Indices_.size();
   const size_t vertexTotal = vertexBase + other.VertexCount();
 
   const auto join = [vertexBase, vertexTotal](std::vector<double> &mine,
-                                              const std::vector<double> &theirs, size_t stride) {
+                                              const std::vector<double> &theirs,
+                                              size_t stride) {
     if (mine.empty() && theirs.empty()) { return; }
     mine.resize(vertexTotal * stride, 0.0);
     for (size_t at = 0; at < theirs.size(); ++at) { mine[vertexBase * stride + at] = theirs[at]; }
@@ -1156,9 +1225,7 @@ bool Subject::Append(const Subject &other) {
   join(Colours_, other.Colours_, 4);
 
   Indices_.reserve(Indices_.size() + other.Indices_.size());
-  for (const uint32_t index : other.Indices_) {
-    Indices_.push_back((uint32_t)vertexBase + index);
-  }
+  for (const uint32_t index : other.Indices_) { Indices_.push_back((uint32_t)vertexBase + index); }
   int beyond = 0;
   for (const Part &part : Parts_) {
     if (part.Material >= beyond) { beyond = part.Material + 1; }
@@ -1175,13 +1242,15 @@ bool Subject::Append(const Subject &other) {
 }
 
 void Subject::BoundsOf(size_t parts, double least[3], double most[3]) const {
-  for (int axis = 0; axis < 3; ++axis) { least[axis] = Min_[axis]; most[axis] = Max_[axis]; }
+  for (int axis = 0; axis < 3; ++axis) {
+    least[axis] = Min_[axis];
+    most[axis] = Max_[axis];
+  }
   if (parts == 0 || parts >= Parts_.size()) { return; }
   bool any = false;
   for (size_t at = 0; at < parts; ++at) {
     const Part &part = Parts_[at];
-    for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount;
-         ++vertex) {
+    for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount; ++vertex) {
       for (int axis = 0; axis < 3; ++axis) {
         const double held = Positions_[vertex * 3 + (size_t)axis];
         if (!any || held < least[axis]) { least[axis] = held; }
@@ -1215,10 +1284,12 @@ bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, doub
   const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
 
-  double toEye[3] = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
+  double toEye[3] = {std::cos(elevation) * std::cos(azimuth),
+                     std::sin(elevation),
                      std::cos(elevation) * std::sin(azimuth)};
 
-  const double yfov = 2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
+  const double yfov =
+      2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
   const double distance = radius / std::sin(0.5 * yfov) / (fill > 0 ? fill : Render::kFramingFill);
   double eye[3];
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
@@ -1231,7 +1302,9 @@ bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, doub
   return true;
 }
 
-bool DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out,
+bool DeclaredPlacement(const Document &document,
+                       int cameraIndex,
+                       Viewpoint &out,
                        std::string &error) {
   if (cameraIndex < 0 || (size_t)cameraIndex >= document.Cameras().size()) {
     error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
@@ -1285,8 +1358,8 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
     double raster[3][2];
     for (int corner = 0; corner < 3; ++corner) {
       const size_t vertex = Indices_[triangle * 3 + (size_t)corner];
-      const double point[3] = {Positions_[vertex * 3], Positions_[vertex * 3 + 1],
-                               Positions_[vertex * 3 + 2]};
+      const double point[3] = {
+          Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]};
       double ndc[3];
       clip.Point(point, ndc);
       viewport.Raster(ndc, raster[corner]);
@@ -1297,4 +1370,4 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
   return total;
 }
 
-}
+} // namespace outshine::Gltf

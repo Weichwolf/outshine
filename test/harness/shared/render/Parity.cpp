@@ -22,7 +22,6 @@
 #include <Logging.h>
 #include <SurfaceState.h>
 
-
 #include "Acceptance.h"
 #include "Attribution.h"
 #include "Exactness.h"
@@ -38,11 +37,10 @@
 #include "SurfaceIdentity.h"
 #include "Ties.h"
 
-
 using outshine::Json;
 using namespace outshine::Render::Parity;
-using outshine::Test::ColourFrom;
 using outshine::Test::ColourCarrier;
+using outshine::Test::ColourFrom;
 using Handed = outshine::Test::Handed;
 
 namespace {
@@ -56,7 +54,6 @@ struct Case {
   Json Manifest;
   outshine::Loaded Held;
   Handed Model;
-
 
   // WHAT THIS CASE SAYS TO THE DOOR. The `Document` above is still read, and that is not a reach
   // past the door: a conformance harness parses the VENDOR'S FILE to know what the answer should
@@ -90,9 +87,11 @@ struct Case {
 
   ColourFrom Colour = ColourFrom::Declared;
   ColourCarrier Carrier = ColourCarrier::Texture;
+
   bool MaterialFromFile() const { return Colour != ColourFrom::Declared; }
 
   bool ShadedByLights() const { return Colour == ColourFrom::Row; }
+
   SceneLights Lights = SceneLights::None;
 
   outshine::PunctualLight Sun;
@@ -110,7 +109,6 @@ struct Case {
   double Fps = 0;
 
   std::vector<int> Animations;
-
 
   std::vector<double> RestPositions;
 
@@ -154,12 +152,13 @@ std::string Slurp(const std::string &path) {
   return text;
 }
 
-void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str()); }
+void Refused(const std::string &why) {
+  std::printf("REFUSED %s\n", why.c_str());
+}
 
 bool Reduced(const Case &subject) {
   return subject.MaterialKind == "emission" || subject.MaterialKind == "emission-per-material" ||
-         subject.MaterialKind == "emission-by-material-index" ||
-         subject.DeltaLit;
+         subject.MaterialKind == "emission-by-material-index" || subject.DeltaLit;
 }
 
 [[nodiscard]] bool ReadColourFrom(const Json::Ref &declared, ColourFrom &out, std::string &error) {
@@ -179,13 +178,12 @@ bool Reduced(const Case &subject) {
     out = ColourFrom::Declared;
     return true;
   }
-  error = "scene.material.source is '" + declared.Str("") +
-          "', and this runner has no arm for it";
+  error = "scene.material.source is '" + declared.Str("") + "', and this runner has no arm for it";
   return false;
 }
 
-[[nodiscard]] bool ReadColourCarrier(const Json::Ref &declared, ColourCarrier &out,
-                                         std::string &error) {
+[[nodiscard]] bool
+ReadColourCarrier(const Json::Ref &declared, ColourCarrier &out, std::string &error) {
   if (declared.StrEquals("texture")) {
     out = ColourCarrier::Texture;
     return true;
@@ -198,12 +196,13 @@ bool Reduced(const Case &subject) {
     out = ColourCarrier::VertexColour;
     return true;
   }
-  error = "scene.material.carriedBy is '" + declared.Str("") + "', and this runner has no arm for it";
+  error =
+      "scene.material.carriedBy is '" + declared.Str("") + "', and this runner has no arm for it";
   return false;
 }
 
-[[nodiscard]] bool ReadSceneLights(const Json::Ref &declared, SceneLights &out,
-                                   std::string &error) {
+[[nodiscard]] bool
+ReadSceneLights(const Json::Ref &declared, SceneLights &out, std::string &error) {
   if (declared.StrEquals("gltf")) {
     out = SceneLights::FromFile;
     return true;
@@ -223,8 +222,8 @@ bool Reduced(const Case &subject) {
   return false;
 }
 
-[[nodiscard]] bool ReadDeclaredSun(const Json::Ref &declared, outshine::PunctualLight &out,
-                                   std::string &error) {
+[[nodiscard]] bool
+ReadDeclaredSun(const Json::Ref &declared, outshine::PunctualLight &out, std::string &error) {
   const double angle = declared["angleRad"].Num(-1.0);
   if (angle != 0.0) {
     error = "scene.light is a sun of angular diameter " + std::to_string(angle) +
@@ -261,7 +260,10 @@ bool Reduced(const Case &subject) {
 
 class RunnerLog : public outshine::LogSink {
 public:
-  void Write(double, outshine::LogLevel level, const char *, const char *tag,
+  void Write(double,
+             outshine::LogLevel level,
+             const char *,
+             const char *tag,
              const char *event,
              std::span<const outshine::LogField> fields) override {
     if (level < outshine::LogLevel::Info) { return; }
@@ -279,8 +281,8 @@ public:
 // A MANIFEST STATES AN EYE, A POINT AND A ROLL, and the door takes an UP. The roll is measured
 // from world-up projected off the view axis, which is the convention the manifests were written
 // against; turning it into a vector here is the one place this runner knows about it.
-[[nodiscard]] bool StandsAt(const double eyeM[3], const double aimM[3], double rollRad,
-                            outshine::Camera &out) {
+[[nodiscard]] bool
+StandsAt(const double eyeM[3], const double aimM[3], double rollRad, outshine::Camera &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   const double reach =
       std::sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
@@ -290,8 +292,7 @@ public:
   double right[3] = {forward[1] * worldUp[2] - forward[2] * worldUp[1],
                      forward[2] * worldUp[0] - forward[0] * worldUp[2],
                      forward[0] * worldUp[1] - forward[1] * worldUp[0]};
-  const double across =
-      std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
+  const double across = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
   if (!(across > 0.0)) { return false; }
   for (int axis = 0; axis < 3; ++axis) { right[axis] /= across; }
   const double up[3] = {right[1] * forward[2] - right[2] * forward[1],
@@ -307,7 +308,6 @@ public:
   }
   return true;
 }
-
 
 [[nodiscard]] bool ResolveCamera(Case &subject, std::string &error) {
   const Json::Ref declared = subject.Manifest.Root()["scene"]["camera"];
@@ -402,8 +402,9 @@ public:
     subject.CameraSource = "framing-rule";
     return true;
   }
-  error = "the subject has degenerate bounds, so the framing rule refuses -- a fallback camera here "
-          "would manufacture exactly the empty picture the guard exists to catch";
+  error =
+      "the subject has degenerate bounds, so the framing rule refuses -- a fallback camera here "
+      "would manufacture exactly the empty picture the guard exists to catch";
   return false;
 }
 
@@ -411,8 +412,10 @@ public:
   path.OracleEstimates = light["estimator"].StrEquals("selected");
   path.OracleIsHostIrreproducible = light["estimator"].StrEquals("not-bit-reproducible");
   if (!path.OracleIsHostIrreproducible) { return true; }
-  if (!ReadDeclaredNumber(light["hostResidueRelative"], "scene.light.hostResidueRelative",
-                          path.OracleHostResidueRelative, error)) {
+  if (!ReadDeclaredNumber(light["hostResidueRelative"],
+                          "scene.light.hostResidueRelative",
+                          path.OracleHostResidueRelative,
+                          error)) {
     return false;
   }
   if (light["hostResidueRelative"]["origin"].Str("") != "measured") {
@@ -463,8 +466,7 @@ public:
   }
   if (!ReadExactnessClass(root, subject.Placement, error)) { return false; }
 
-  subject.TransmissionBounces =
-      root["renders"]["default"]["bounces"]["transmission"].Int(0);
+  subject.TransmissionBounces = root["renders"]["default"]["bounces"]["transmission"].Int(0);
   subject.OracleSamples = root["renders"]["default"]["samples"].Int(1);
   const Json::Ref reductions = root["reductions"];
   for (size_t at = 0; at < reductions.Size(); ++at) {
@@ -489,8 +491,7 @@ public:
   if (!ReadCriterionKind(root["criterion"]["kind"].Str(""), subject.Criterion, error)) {
     return false;
   }
-  if (root["criterion"]["says"].Str("").empty() ||
-      root["criterion"]["statedAt"].Str("").empty()) {
+  if (root["criterion"]["says"].Str("").empty() || root["criterion"]["statedAt"].Str("").empty()) {
     error = "criterion states no `says` or no `statedAt`, so the acceptance is ours and not the "
             "asset's";
     return false;
@@ -516,7 +517,8 @@ public:
     return false;
   }
   subject.Accepted.BoundaryP95MaxPx = DefaultBoundaryP95Px(subject.Accepted.Subject);
-  subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
+  subject.Accepted.EnforceBoundary =
+      subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
 
   const Json::Ref material = root["scene"]["material"];
@@ -630,8 +632,10 @@ std::string MissingInputs(const Case &subject) {
   return missing;
 }
 
-[[nodiscard]] bool ResolveEmission(const Case &subject, const Handed &geometry,
-                                   std::vector<std::array<float, 3>> &out, std::string &error) {
+[[nodiscard]] bool ResolveEmission(const Case &subject,
+                                   const Handed &geometry,
+                                   std::vector<std::array<float, 3>> &out,
+                                   std::string &error) {
   const Json::Ref material = subject.Manifest.Root()["scene"]["material"];
   const size_t parts = geometry.Parts().size();
   out.assign(parts, {0.0f, 0.0f, 0.0f});
@@ -650,7 +654,6 @@ std::string MissingInputs(const Case &subject) {
   }
 
   if (subject.MaterialFromFile()) {
-
     const bool emits = subject.MaterialKind == "emission";
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
@@ -662,8 +665,7 @@ std::string MissingInputs(const Case &subject) {
         const double factor = subject.Colour == ColourFrom::Emissive
                                   ? (double)surface.Emission[channel]
                                   : (double)surface.BaseColour[channel];
-        out[part][channel] =
-            (float)(factor * (emits ? 1.0 : subject.WorldRadiance[channel]));
+        out[part][channel] = (float)(factor * (emits ? 1.0 : subject.WorldRadiance[channel]));
       }
     }
     return true;
@@ -702,10 +704,11 @@ std::string MissingInputs(const Case &subject) {
       const Json::Ref colour = declared[name.c_str()];
       if (colour.Size() != 3) {
         error = "scene.material.colourLinearPerMaterial declares no colour for material '" + name +
-                "'" + (name == kDefaultMaterial
-                           ? " -- a primitive of this subject names none, and the format's default "
-                             "material is keyed by that reserved name"
-                           : "");
+                "'" +
+                (name == kDefaultMaterial
+                     ? " -- a primitive of this subject names none, and the format's default "
+                       "material is keyed by that reserved name"
+                     : "");
         return false;
       }
       for (size_t channel = 0; channel < 3; ++channel) {
@@ -758,7 +761,8 @@ std::string MissingInputs(const Case &subject) {
 
   if (subject.MaterialKind != "emission") {
     error = "scene.material.kind is '" + subject.MaterialKind +
-            "', and this runner knows 'diffuse', 'emission', 'emission-per-material' and 'emission-by-material-index'";
+            "', and this runner knows 'diffuse', 'emission', 'emission-per-material' and "
+            "'emission-by-material-index'";
     return false;
   }
 
@@ -792,8 +796,6 @@ std::string MissingInputs(const Case &subject) {
   return true;
 }
 
-
-
 [[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
   const double seconds = subject.Posed() && subject.Fps > 0.0 ? (double)frame / subject.Fps : 0.0;
   if (!subject.Held.poses(seconds)) {
@@ -816,18 +818,16 @@ std::string MissingInputs(const Case &subject) {
     return false;
   }
   if (subject.Posed() && !subject.Held.plays(std::span<const int>(subject.Animations.data(),
-                                                                 subject.Animations.size()))) {
+                                                                  subject.Animations.size()))) {
     error = subject.Held.error();
     return false;
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Model.PositionsM();
 
-  subject.Surfaces.Reads(subject.Model, subject.TransmissionBounces > 0,
-                         subject.MaterialFromFile());
-  if (!ResolveEmission(subject, subject.Model, subject.Emitted, error)) {
-    return false;
-  }
+  subject.Surfaces.Reads(
+      subject.Model, subject.TransmissionBounces > 0, subject.MaterialFromFile());
+  if (!ResolveEmission(subject, subject.Model, subject.Emitted, error)) { return false; }
   subject.Path.LinearFilteredSampler =
       outshine::Test::AnyLinearFilteredImage(subject.Surfaces, subject.Held.geometry());
   return ResolveCamera(subject, error);
@@ -846,7 +846,6 @@ struct Picture {
   std::vector<float> Velocity;
 };
 
-
 // THE CAPTURE, THROUGH THE DOOR AND NOTHING ELSE. It brackets the frame the way Filament does and
 // asks for each picture by name -- which is why `Buffer` and `readPixels(Buffer, ...)` went into
 // `include/`: a conformance case states a claim about the DEPTH or the SHADING NORMAL, and a
@@ -855,8 +854,10 @@ struct Picture {
 // A PICTURE THE PLAN DOES NOT KEEP IS EMPTY AND NOT A FAILURE. The case declares which ones it
 // wants through `Keeps`; asking for one it did not declare is the client's own error and reads as
 // a refusal, so this only takes what was asked for.
-[[nodiscard]] bool Capture(outshine::Engine &engine, const outshine::Test::Drives &drives,
-                           Picture &out, std::string &why) {
+[[nodiscard]] bool Capture(outshine::Engine &engine,
+                           const outshine::Test::Drives &drives,
+                           Picture &out,
+                           std::string &why) {
   if (!drives.Renders(engine, why)) { return false; }
   outshine::Renderer draws = engine.renderer();
   const auto keeps = [&drives](const char *named) {
@@ -878,8 +879,7 @@ struct Picture {
   }
   if (!reads(outshine::Buffer::Linear, out.Linear)) { return false; }
   if (keeps("sceneDepth") && !reads(outshine::Buffer::Depth, out.Depth)) { return false; }
-  if (keeps("sceneShadingNormal") &&
-      !reads(outshine::Buffer::ShadingNormal, out.ShadingNormal)) {
+  if (keeps("sceneShadingNormal") && !reads(outshine::Buffer::ShadingNormal, out.ShadingNormal)) {
     return false;
   }
   if (keeps("sceneSurfaceIdentity") &&
@@ -890,7 +890,9 @@ struct Picture {
   return true;
 }
 
-Mask FromDepth(const std::vector<float> &depth, const std::vector<float> &linear, int width,
+Mask FromDepth(const std::vector<float> &depth,
+               const std::vector<float> &linear,
+               int width,
                int height) {
   Mask mask;
   mask.Width = width;
@@ -920,8 +922,8 @@ Mask FromOracle(const RawF32 &oracle) {
 
 uint8_t Srgb8(double linear) {
   const double clamped = linear < 0.0 ? 0.0 : (linear > 1.0 ? 1.0 : linear);
-  const double encoded = clamped <= 0.0031308 ? 12.92 * clamped
-                                              : 1.055 * std::pow(clamped, 1.0 / 2.4) - 0.055;
+  const double encoded =
+      clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * std::pow(clamped, 1.0 / 2.4) - 0.055;
   const double level = encoded * 255.0 + 0.5;
   return (uint8_t)(level > 255.0 ? 255.0 : level);
 }
@@ -935,13 +937,16 @@ std::vector<uint8_t> Encoded(const RawF32 &oracle) {
         rgba[at + (size_t)channel] = Srgb8(oracle.At(x, y, channel));
       }
       const double coverage = oracle.At(x, y, oracle.Channels() - 1);
-      rgba[at + 3u] = (uint8_t)(coverage <= 0.0 ? 0.0 : (coverage >= 1.0 ? 255.0 : coverage * 255.0 + 0.5));
+      rgba[at + 3u] =
+          (uint8_t)(coverage <= 0.0 ? 0.0 : (coverage >= 1.0 ? 255.0 : coverage * 255.0 + 0.5));
     }
   }
   return rgba;
 }
 
-void ScoreDeterminism(const Case &subject, outshine::Engine &engine, const Picture &picture,
+void ScoreDeterminism(const Case &subject,
+                      outshine::Engine &engine,
+                      const Picture &picture,
                       std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   Picture again;
@@ -960,7 +965,10 @@ void ScoreDeterminism(const Case &subject, outshine::Engine &engine, const Pictu
       ++apart;
     }
   }
-  metrics.push_back({"linear_channels_differing_between_renders", (double)apart, 0.0, "channels",
+  metrics.push_back({"linear_channels_differing_between_renders",
+                     (double)apart,
+                     0.0,
+                     "channels",
                      Direction::AtMost});
   if (apart > 0) {
     Note("first differing channel, at index", (double)firstAt, "index");
@@ -977,28 +985,42 @@ void ScoreDeterminism(const Case &subject, outshine::Engine &engine, const Pictu
   }
 }
 
-void ScoreRadianceResidual(const Case &subject, const Picture &picture, const RawF32 &oracle,
+void ScoreRadianceResidual(const Case &subject,
+                           const Picture &picture,
+                           const RawF32 &oracle,
                            std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   const RadianceResidual radiance = Radiance(picture.Linear, oracle);
-  metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
+  metrics.push_back({"linear_channels_differing",
+                     (double)radiance.Differing,
+                     0.0,
+                     "channels",
                      subject.MaterialFromFile() && subject.Criterion == CriterionKind::Numeric
                          ? Direction::AtMost
                          : Direction::Reported});
-  metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
+  metrics.push_back({"linear_channels_compared",
+                     (double)radiance.Compared,
+                     0.0,
+                     "channels",
                      Direction::Reported});
-  metrics.push_back({"linear_channels_beyond_one_ulp", (double)radiance.BeyondOneUlp, 0.0,
-                     "channels", Direction::Reported});
-  metrics.push_back({"linear_channels_below_the_oracle", (double)radiance.BelowOracle, 0.0,
-                     "channels", Direction::Reported});
-  metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "f32 ulps",
+  metrics.push_back({"linear_channels_beyond_one_ulp",
+                     (double)radiance.BeyondOneUlp,
+                     0.0,
+                     "channels",
                      Direction::Reported});
-  metrics.push_back({"linear_p50_relative", radiance.P50Relative, 0.0, "dimensionless",
+  metrics.push_back({"linear_channels_below_the_oracle",
+                     (double)radiance.BelowOracle,
+                     0.0,
+                     "channels",
                      Direction::Reported});
-  metrics.push_back({"linear_p95_relative", radiance.P95Relative, 0.0, "dimensionless",
-                     Direction::Reported});
-  metrics.push_back({"linear_p99_relative", radiance.P99Relative, 0.0, "dimensionless",
-                     Direction::Reported});
+  metrics.push_back(
+      {"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "f32 ulps", Direction::Reported});
+  metrics.push_back(
+      {"linear_p50_relative", radiance.P50Relative, 0.0, "dimensionless", Direction::Reported});
+  metrics.push_back(
+      {"linear_p95_relative", radiance.P95Relative, 0.0, "dimensionless", Direction::Reported});
+  metrics.push_back(
+      {"linear_p99_relative", radiance.P99Relative, 0.0, "dimensionless", Direction::Reported});
   if (radiance.Differing > 0) {
     Note("worst radiance disagreement, ours", radiance.WorstOurs, "linear, scene-referred");
     Note("worst radiance disagreement, oracle", radiance.WorstTheirs, "linear, scene-referred");
@@ -1010,7 +1032,6 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
 }
 
 enum class Prepared { Yes, No };
-
 
 [[nodiscard]] bool ReadOracle(const Case &subject, int frame, RawF32 &oracle, size_t &seedApart) {
   using namespace outshine::Test;
@@ -1043,8 +1064,7 @@ enum class Prepared { Yes, No };
     Refused(shifted.Error());
     return false;
   }
-  const bool sameShape = shifted.Width() == oracle.Width() &&
-                         shifted.Height() == oracle.Height() &&
+  const bool sameShape = shifted.Width() == oracle.Width() && shifted.Height() == oracle.Height() &&
                          shifted.Channels() == oracle.Channels();
   CHECK(sameShape, "the two seeds were rendered into the same frame");
   if (!sameShape) {
@@ -1116,8 +1136,8 @@ void DeclareDrives(Case &subject) {
     const double dz = (double)subject.Sun.Direction[2];
     const double span = std::sqrt(dx * dx + dy * dy + dz * dz);
     if (span > 1.0e-12) {
-      says.Key.ElevationDeg = std::asin(std::clamp(-dy / span, -1.0, 1.0)) * 180.0 /
-                              std::numbers::pi;
+      says.Key.ElevationDeg =
+          std::asin(std::clamp(-dy / span, -1.0, 1.0)) * 180.0 / std::numbers::pi;
       says.Key.BearingDeg = std::atan2(-dx, -dz) * 180.0 / std::numbers::pi;
     }
   }
@@ -1149,10 +1169,9 @@ void DeclareDrives(Case &subject) {
     // PIXELS are covered rather than what colour they wear, and coverage agrees to five digits
     // today, so those three come across and nothing else does.
     const int index = subject.Model.Parts()[part].Material;
-    const outshine::Material carried =
-        index >= 0 && (size_t)index < subject.Model.Surfaces().size()
-            ? subject.Model.Surfaces()[(size_t)index]
-            : outshine::Material{};
+    const outshine::Material carried = index >= 0 && (size_t)index < subject.Model.Surfaces().size()
+                                           ? subject.Model.Surfaces()[(size_t)index]
+                                           : outshine::Material{};
     // A CASE WHOSE COLOUR IS THE FILE'S KEEPS THE FILE'S MAPS. `gltf-base-colour` and
     // `gltf-emissive` say "the asset states this surface and the oracle shades it flat", so the
     // base-colour map IS the picture and dropping it renders a flat average of a photograph. A
@@ -1183,19 +1202,17 @@ void DeclareDrives(Case &subject) {
   for (size_t part = 0; !subject.ShadedByLights() && part < subject.Emitted.size() &&
                         part < subject.Model.Parts().size();
        ++part) {
-    const uint32_t slot = part < subject.Surfaces.PartSlot.size() ? subject.Surfaces.PartSlot[part]
-                                                                  : 0u;
+    const uint32_t slot =
+        part < subject.Surfaces.PartSlot.size() ? subject.Surfaces.PartSlot[part] : 0u;
     // AND THE SPLIT IS THE ENGINE'S RULE, MIRRORED: only a SHARED slot gains one. A part that is
     // its slot's only wearer takes the row in place, so modelling a new slot there would count a
     // surface the engine never made.
     if (slot < wearers.size() && wearers[slot] == 1u) { continue; }
     if (slot < wearers.size()) { wearers[slot] -= 1u; }
-    const int carried = slot < subject.Surfaces.Material.size()
-                            ? subject.Surfaces.Material[slot]
-                            : -1;
-    subject.Surfaces.Slots.push_back(subject.Surfaces.Slots[slot < subject.Surfaces.Slots.size()
-                                                                ? slot
-                                                                : 0u]);
+    const int carried =
+        slot < subject.Surfaces.Material.size() ? subject.Surfaces.Material[slot] : -1;
+    subject.Surfaces.Slots.push_back(
+        subject.Surfaces.Slots[slot < subject.Surfaces.Slots.size() ? slot : 0u]);
     subject.Surfaces.Material.push_back(carried);
     subject.Surfaces.PartSlot[part] = (uint32_t)(subject.Surfaces.Slots.size() - 1u);
   }
@@ -1232,8 +1249,10 @@ void DeclareDrives(Case &subject) {
     says.Stages.push_back("compositeTransmission");
   }
 
-  std::printf("SAYS stages=%zu first=%s transfer=%s\n", says.Stages.size(),
-              says.Stages.empty() ? "-" : says.Stages.front().c_str(), "linear");
+  std::printf("SAYS stages=%zu first=%s transfer=%s\n",
+              says.Stages.size(),
+              says.Stages.empty() ? "-" : says.Stages.front().c_str(),
+              "linear");
 }
 
 Prepared Prepare(Case &subject, outshine::Engine &engine) {
@@ -1249,7 +1268,8 @@ Prepared Prepare(Case &subject, outshine::Engine &engine) {
   const std::string owed = MissingInputs(subject);
   if (!owed.empty()) {
     outshine::Test::Unprepared((subject.Directory + " is missing " + owed +
-                                " -- run test/harness/shared/corpus/prepare.py").c_str());
+                                " -- run test/harness/shared/corpus/prepare.py")
+                                   .c_str());
     return Prepared::No;
   }
 
@@ -1282,11 +1302,13 @@ Prepared Prepare(Case &subject, outshine::Engine &engine) {
   }
 
   DeclareDrives(subject);
-  std::printf("DRIVES surfaces=%zu parts=%zu emitted=%zu\n", subject.Driving.Surfaces.size(),
-              subject.Model.Parts().size(), subject.Emitted.size());
+  std::printf("DRIVES surfaces=%zu parts=%zu emitted=%zu\n",
+              subject.Driving.Surfaces.size(),
+              subject.Model.Parts().size(),
+              subject.Emitted.size());
 
-  engine.setRoots(outshine::Roots{subject.Directory, subject.Directory,
-                                  "/tmp/outshine-corpus-cache", true});
+  engine.setRoots(
+      outshine::Roots{subject.Directory, subject.Directory, "/tmp/outshine-corpus-cache", true});
   const bool canvas = engine.drawsInto(subject.Driving.Frame).has_value();
   CHECK(canvas, "the device came up, so the case can be rendered at all");
   if (!canvas) {
@@ -1305,27 +1327,37 @@ Prepared Prepare(Case &subject, outshine::Engine &engine) {
   return Prepared::Yes;
 }
 
-void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, double tieMarginPx,
+void ScoreExactnessConstruction(const Case &subject,
+                                const EdgeSet &silhouette,
+                                double tieMarginPx,
                                 std::vector<Metric> &metrics) {
   const Exactness measured = Measure(silhouette);
   const bool claimed = subject.Placement == ExactnessClass::Exact;
-  metrics.push_back({"silhouette_lines", (double)measured.LineCount(), 0.0, "lines",
-                     Direction::Reported});
-  metrics.push_back({"silhouette_edges", (double)measured.SilhouetteEdges, 0.0, "edges",
-                     Direction::Reported});
+  metrics.push_back(
+      {"silhouette_lines", (double)measured.LineCount(), 0.0, "lines", Direction::Reported});
+  metrics.push_back(
+      {"silhouette_edges", (double)measured.SilhouetteEdges, 0.0, "edges", Direction::Reported});
 
-  metrics.push_back({"exactness_slope_residual_px", measured.SlopeResidualPx, subject.OracleFloorPx,
-                     "px", claimed ? Direction::AtMost : Direction::Reported});
+  metrics.push_back({"exactness_slope_residual_px",
+                     measured.SlopeResidualPx,
+                     subject.OracleFloorPx,
+                     "px",
+                     claimed ? Direction::AtMost : Direction::Reported});
 
-  metrics.push_back({"exactness_margin_px", measured.MarginPx, kMarginFloorPx, "px",
+  metrics.push_back({"exactness_margin_px",
+                     measured.MarginPx,
+                     kMarginFloorPx,
+                     "px",
                      claimed ? Direction::AtLeast : Direction::Reported});
 
-  metrics.push_back({"exactness_margin_ceiling_px", measured.CeilingPx, 0.0, "px",
-                     Direction::Reported});
+  metrics.push_back(
+      {"exactness_margin_ceiling_px", measured.CeilingPx, 0.0, "px", Direction::Reported});
 
   constexpr double kOneQuantityPx = 1e-9;
   metrics.push_back({"exactness_margin_agreement_px",
-                     std::fabs(tieMarginPx - measured.MarginPx), kOneQuantityPx, "px",
+                     std::fabs(tieMarginPx - measured.MarginPx),
+                     kOneQuantityPx,
+                     "px",
                      claimed ? Direction::AtMost : Direction::Reported});
 
   constexpr size_t kLinesPrinted = 16;
@@ -1333,11 +1365,19 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
     const LatticeLine &fit = measured.Lines[line];
     std::printf("NOTE   silhouette line %ld x - %ld y = %.9f over %zu edges: margin %.9g px of "
                 "%.9g px, slope residual %.3g px\n",
-                fit.P, fit.Q, fit.C, fit.Edges, fit.MarginPx, fit.CeilingPx, fit.SlopeResidualPx);
+                fit.P,
+                fit.Q,
+                fit.C,
+                fit.Edges,
+                fit.MarginPx,
+                fit.CeilingPx,
+                fit.SlopeResidualPx);
   }
 }
 
-void ScoreVisibilityTerm(const Case &subject, const outshine::Test::Clip &clip, double biasM,
+void ScoreVisibilityTerm(const Case &subject,
+                         const outshine::Test::Clip &clip,
+                         double biasM,
                          std::vector<Metric> &metrics) {
   double centre[3];
   subject.Model.CentreM(centre);
@@ -1365,13 +1405,16 @@ void ScoreVisibilityTerm(const Case &subject, const outshine::Test::Clip &clip, 
     gram[2] += jacobian[axis][1] * jacobian[axis][1];
   }
   const double half = 0.5 * (gram[0] + gram[2]);
-  const double gap = std::sqrt(std::max(0.0, half * half - (gram[0] * gram[2] - gram[1] * gram[1])));
+  const double gap =
+      std::sqrt(std::max(0.0, half * half - (gram[0] * gram[2] - gram[1] * gram[1])));
   metrics.push_back({"shadow_ray_bias_m", biasM, 0.0, "m, subject frame", Direction::Reported});
-  metrics.push_back({"shadow_ray_bias_px", std::sqrt(std::max(0.0, half + gap)), 0.0, "px",
-                     Direction::Reported});
+  metrics.push_back(
+      {"shadow_ray_bias_px", std::sqrt(std::max(0.0, half + gap)), 0.0, "px", Direction::Reported});
 }
 
-void ScoreAlternateSpellings(const Case &subject, outshine::Engine &engine, const Mask &ours,
+void ScoreAlternateSpellings(const Case &subject,
+                             outshine::Engine &engine,
+                             const Mask &ours,
                              std::vector<Metric> &metrics) {
   // AN ALTERNATE SPELLING IS THE SAME SUBJECT WRITTEN ANOTHER WAY -- .glb against .gltf, embedded
   // against external -- and the claim is that it COVERS the same pixels. Through the door that is
@@ -1394,8 +1437,8 @@ void ScoreAlternateSpellings(const Case &subject, outshine::Engine &engine, cons
       continue;
     }
     const Mask other = FromDepth(again.Depth, again.Linear, ours.Width, ours.Height);
-    metrics.push_back({"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px",
-                       Direction::AtMost});
+    metrics.push_back(
+        {"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px", Direction::AtMost});
   }
 }
 
@@ -1404,14 +1447,18 @@ std::vector<float> OracleAsRgba(const RawF32 &oracle) {
   for (int y = 0; y < oracle.Height(); ++y) {
     for (int x = 0; x < oracle.Width(); ++x) {
       const size_t at = ((size_t)y * (size_t)oracle.Width() + (size_t)x) * 4u;
-      for (int channel = 0; channel < 3; ++channel) { samples[at + (size_t)channel] = oracle.At(x, y, channel); }
+      for (int channel = 0; channel < 3; ++channel) {
+        samples[at + (size_t)channel] = oracle.At(x, y, channel);
+      }
       samples[at + 3u] = oracle.Channels() > 3 ? oracle.At(x, y, 3) : 1.0f;
     }
   }
   return samples;
 }
 
-void ScoreStatedInvariants(const Case &subject, const Picture &picture, const RawF32 &oracle,
+void ScoreStatedInvariants(const Case &subject,
+                           const Picture &picture,
+                           const RawF32 &oracle,
                            std::vector<Metric> &metrics) {
   LinearFrame tap;
   tap.Samples = &picture.Linear;
@@ -1432,8 +1479,10 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
 
   for (const Invariant &check : subject.Invariants) {
     if (!tap.Holds()) { break; }
-    std::printf("INVARIANT %s -- %s\n", check.Name.c_str(),
-                check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest" : "region-compare");
+    std::printf("INVARIANT %s -- %s\n",
+                check.Name.c_str(),
+                check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest"
+                                                            : "region-compare");
     Evaluate(check, tap, metrics);
     if (!oracleFits || !theirs.Holds()) { continue; }
     std::vector<Metric> theirMetrics;
@@ -1447,9 +1496,12 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
   }
 }
 
-
-[[nodiscard]] bool RangeAt(const outshine::Camera &eye, const outshine::Test::Frame &frame,
-                           const std::vector<float> &depth, int column, int row, double &out,
+[[nodiscard]] bool RangeAt(const outshine::Camera &eye,
+                           const outshine::Test::Frame &frame,
+                           const std::vector<float> &depth,
+                           int column,
+                           int row,
+                           double &out,
                            std::string &error) {
   if (eye.Orthographic) {
     error = "a depth probe states a range along a view ray, and this case's camera is orthographic";
@@ -1478,7 +1530,8 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
 }
 
 void ScoreDepthProbes(const Case &subject,
-                      const std::vector<float> &depth, std::vector<Metric> &metrics) {
+                      const std::vector<float> &depth,
+                      std::vector<Metric> &metrics) {
   const Json::Ref probes = subject.Manifest.Root()["depthProbes"];
   for (size_t which = 0; which < probes.Size(); ++which) {
     const Json::Ref probe = probes[which];
@@ -1493,16 +1546,24 @@ void ScoreDepthProbes(const Case &subject,
       continue;
     }
     double measured = 0;
-    if (!RangeAt(subject.Eye, subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
-                 probe["atPx"][(size_t)1].Int(-1), measured, why)) {
+    if (!RangeAt(subject.Eye,
+                 subject.Frame,
+                 depth,
+                 probe["atPx"][(size_t)0].Int(-1),
+                 probe["atPx"][(size_t)1].Int(-1),
+                 measured,
+                 why)) {
       Refused(where + ": " + why);
       metrics.push_back({name + "_range_error_m", std::nan(""), tolerance, "m", Direction::AtMost});
       continue;
     }
     outshine::Test::Note((name + " range measured").c_str(), measured, "m");
     outshine::Test::Note((name + " range declared").c_str(), declared, "m");
-    metrics.push_back(
-        {name + "_range_error_m", std::fabs(measured - declared), tolerance, "m", Direction::AtMost});
+    metrics.push_back({name + "_range_error_m",
+                       std::fabs(measured - declared),
+                       tolerance,
+                       "m",
+                       Direction::AtMost});
   }
 }
 
@@ -1518,7 +1579,7 @@ void NoteWhatTheCaseCarries(const Case &subject) {
           placed.Light.Kind == outshine::LightKind::Directional ? "lux" : "candela");
     }
   }
-  const size_t lamps = subject.Lights == SceneLights::FromFile  ? subject.Model.Lights().size()
+  const size_t lamps = subject.Lights == SceneLights::FromFile      ? subject.Model.Lights().size()
                        : subject.Lights == SceneLights::DeclaredSun ? 1u
                                                                     : 0u;
   outshine::Test::Note("punctual lights the case declares", (double)lamps, "lights");
@@ -1527,23 +1588,30 @@ void NoteWhatTheCaseCarries(const Case &subject) {
   for (size_t part = 0; part < subject.Model.Parts().size(); ++part) {
     outshine::Test::Note(
         ("declared radiance of node '" + subject.Model.Parts()[part].NodeName + "', red").c_str(),
-        (double)subject.Emitted[part][0], "linear, scene-referred");
+        (double)subject.Emitted[part][0],
+        "linear, scene-referred");
   }
   if (!subject.MaterialFromFile()) { return; }
   for (size_t slot = 0; slot < subject.Surfaces.Slots.size(); ++slot) {
-    outshine::Test::Note(("colour image texels across, surface slot " + std::to_string(slot)).c_str(),
-                         (double)subject.Held.geometry().imageAt(subject.Surfaces.Slots[slot].BaseColourMap.Image).WidthPx,
-                         "texels");
+    outshine::Test::Note(
+        ("colour image texels across, surface slot " + std::to_string(slot)).c_str(),
+        (double)subject.Held.geometry()
+            .imageAt(subject.Surfaces.Slots[slot].BaseColourMap.Image)
+            .WidthPx,
+        "texels");
     outshine::Test::Note(("colour image texels down, surface slot " + std::to_string(slot)).c_str(),
-                         (double)subject.Held.geometry().imageAt(subject.Surfaces.Slots[slot].BaseColourMap.Image).HeightPx,
+                         (double)subject.Held.geometry()
+                             .imageAt(subject.Surfaces.Slots[slot].BaseColourMap.Image)
+                             .HeightPx,
                          "texels");
     outshine::Test::Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
-                         (double)subject.Surfaces.Slots[slot].BaseColour[3], "dimensionless");
+                         (double)subject.Surfaces.Slots[slot].BaseColour[3],
+                         "dimensionless");
 
-    outshine::Test::Note(("colour image uv set, surface slot " + std::to_string(slot)).c_str(),
-                         subject.Surfaces.Slots[slot].BaseColourMap.Set == outshine::UvSet::Second ? 1.0
-                                                                                            : 0.0,
-                         "index");
+    outshine::Test::Note(
+        ("colour image uv set, surface slot " + std::to_string(slot)).c_str(),
+        subject.Surfaces.Slots[slot].BaseColourMap.Set == outshine::UvSet::Second ? 1.0 : 0.0,
+        "index");
   }
 }
 
@@ -1552,8 +1620,11 @@ struct DeclaredNormals {
   std::vector<float> Depth;
 };
 
-DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const outshine::Test::Clip &clip,
-                                         const outshine::Test::Frame &viewport, int width, int height) {
+DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry,
+                                         const outshine::Test::Clip &clip,
+                                         const outshine::Test::Frame &viewport,
+                                         int width,
+                                         int height) {
   DeclaredNormals out;
   out.Xyz.assign((size_t)width * (size_t)height * 3u, 0.0f);
   out.Depth.assign((size_t)width * (size_t)height, 2.0f);
@@ -1561,53 +1632,55 @@ DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const outshine:
   const std::vector<uint32_t> &indices = geometry.Indices();
 
   for (const Handed::Part &part : geometry.Parts()) {
-  for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
-    double corner[3][2];
-    double depth[3];
-    const double *normal[3];
-    bool projects = true;
-    for (int which = 0; which < 3; ++which) {
-      const size_t vertex = indices[part.FirstIndex + triangle * 3u + (size_t)which];
-      const double point[3] = {geometry.PositionsM()[vertex * 3],
-                               geometry.PositionsM()[vertex * 3 + 1],
-                               geometry.PositionsM()[vertex * 3 + 2]};
-      double ndc[3];
-      clip.Point(point, ndc);
-      if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) {
-        projects = false;
-        break;
+    for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
+      double corner[3][2];
+      double depth[3];
+      const double *normal[3];
+      bool projects = true;
+      for (int which = 0; which < 3; ++which) {
+        const size_t vertex = indices[part.FirstIndex + triangle * 3u + (size_t)which];
+        const double point[3] = {geometry.PositionsM()[vertex * 3],
+                                 geometry.PositionsM()[vertex * 3 + 1],
+                                 geometry.PositionsM()[vertex * 3 + 2]};
+        double ndc[3];
+        clip.Point(point, ndc);
+        if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) {
+          projects = false;
+          break;
+        }
+        viewport.Raster(ndc, corner[which]);
+        depth[which] = ndc[2];
+        normal[which] = &geometry.Normals()[vertex * 3];
       }
-      viewport.Raster(ndc, corner[which]);
-      depth[which] = ndc[2];
-      normal[which] = &geometry.Normals()[vertex * 3];
-    }
-    if (!projects) { continue; }
-    int fromX = 0, toX = 0, fromY = 0, toY = 0;
-    Detail::Span(corner, width, 0, fromX, toX);
-    Detail::Span(corner, height, 1, fromY, toY);
-    const double area = (corner[1][0] - corner[0][0]) * (corner[2][1] - corner[0][1]) -
-                        (corner[2][0] - corner[0][0]) * (corner[1][1] - corner[0][1]);
-    if (area == 0.0) { continue; }
-    for (int y = fromY; y <= toY; ++y) {
-      for (int x = fromX; x <= toX; ++x) {
-        if (!Detail::Inside(corner, (double)x, (double)y)) { continue; }
-        const double w0 = ((corner[1][0] - (double)x) * (corner[2][1] - (double)y) -
-                           (corner[2][0] - (double)x) * (corner[1][1] - (double)y)) / area;
-        const double w1 = ((corner[2][0] - (double)x) * (corner[0][1] - (double)y) -
-                           (corner[0][0] - (double)x) * (corner[2][1] - (double)y)) / area;
-        const double w2 = 1.0 - w0 - w1;
-        const double z = w0 * depth[0] + w1 * depth[1] + w2 * depth[2];
-        const size_t at = (size_t)y * (size_t)width + (size_t)x;
+      if (!projects) { continue; }
+      int fromX = 0, toX = 0, fromY = 0, toY = 0;
+      Detail::Span(corner, width, 0, fromX, toX);
+      Detail::Span(corner, height, 1, fromY, toY);
+      const double area = (corner[1][0] - corner[0][0]) * (corner[2][1] - corner[0][1]) -
+                          (corner[2][0] - corner[0][0]) * (corner[1][1] - corner[0][1]);
+      if (area == 0.0) { continue; }
+      for (int y = fromY; y <= toY; ++y) {
+        for (int x = fromX; x <= toX; ++x) {
+          if (!Detail::Inside(corner, (double)x, (double)y)) { continue; }
+          const double w0 = ((corner[1][0] - (double)x) * (corner[2][1] - (double)y) -
+                             (corner[2][0] - (double)x) * (corner[1][1] - (double)y)) /
+                            area;
+          const double w1 = ((corner[2][0] - (double)x) * (corner[0][1] - (double)y) -
+                             (corner[0][0] - (double)x) * (corner[2][1] - (double)y)) /
+                            area;
+          const double w2 = 1.0 - w0 - w1;
+          const double z = w0 * depth[0] + w1 * depth[1] + w2 * depth[2];
+          const size_t at = (size_t)y * (size_t)width + (size_t)x;
 
-        if (z >= (double)out.Depth[at]) { continue; }
-        out.Depth[at] = (float)z;
-        for (int axis = 0; axis < 3; ++axis) {
-          out.Xyz[at * 3u + (size_t)axis] =
-              (float)(w0 * normal[0][axis] + w1 * normal[1][axis] + w2 * normal[2][axis]);
+          if (z >= (double)out.Depth[at]) { continue; }
+          out.Depth[at] = (float)z;
+          for (int axis = 0; axis < 3; ++axis) {
+            out.Xyz[at * 3u + (size_t)axis] =
+                (float)(w0 * normal[0][axis] + w1 * normal[1][axis] + w2 * normal[2][axis]);
+          }
         }
       }
     }
-  }
   }
   return out;
 }
@@ -1633,25 +1706,34 @@ DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const outshine:
 
 void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading) {
   for (const outshine::Render::Parity::Disagreement &where : reading.Disagreements) {
-    std::printf("SURFACE-AT %d,%d oracle=%s ours=%s\n", where.X, where.Y,
-                where.Oracle.Name.c_str(), where.Ours.Name.c_str());
+    std::printf("SURFACE-AT %d,%d oracle=%s ours=%s\n",
+                where.X,
+                where.Y,
+                where.Oracle.Name.c_str(),
+                where.Ours.Name.c_str());
   }
   for (const outshine::Render::Parity::Disagreement &where : reading.Splits) {
-    std::printf("SURFACE-ORACLE-SPLIT %d,%d its index says %s and its picture does not\n", where.X,
-                where.Y, where.Oracle.Name.c_str());
+    std::printf("SURFACE-ORACLE-SPLIT %d,%d its index says %s and its picture does not\n",
+                where.X,
+                where.Y,
+                where.Oracle.Name.c_str());
   }
 
   for (const outshine::Render::Parity::Swap &row : reading.Swaps) {
-    std::printf("SURFACE-SWAP oracle=%s ours=%s over %zu px\n", row.OracleName.c_str(),
-                row.OursName.c_str(), row.Pixels);
+    std::printf("SURFACE-SWAP oracle=%s ours=%s over %zu px\n",
+                row.OracleName.c_str(),
+                row.OursName.c_str(),
+                row.Pixels);
   }
 }
 
-[[nodiscard]] outshine::Render::Parity::DeclaredColours ColoursPerFileMaterial(const Case &subject) {
+[[nodiscard]] outshine::Render::Parity::DeclaredColours
+ColoursPerFileMaterial(const Case &subject) {
   outshine::Render::Parity::DeclaredColours out;
   if (subject.MaterialFromFile() || subject.ShadedByLights()) {
-    out.Why = "the case takes its appearance from the file's own materials, so the oracle's picture "
-              "is not one colour per material and its index pass cannot be held against it";
+    out.Why =
+        "the case takes its appearance from the file's own materials, so the oracle's picture "
+        "is not one colour per material and its index pass cannot be held against it";
     return out;
   }
   const size_t materials = subject.Model.Surfaces().size();
@@ -1675,9 +1757,12 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   return out;
 }
 
-[[nodiscard]] Mask ScoreSurfaceIdentity(const Case &subject, const Picture &picture,
-                                        const RawF32 &oraclePicture, const Mask &ours,
-                                        const Mask &theirs, int frame,
+[[nodiscard]] Mask ScoreSurfaceIdentity(const Case &subject,
+                                        const Picture &picture,
+                                        const RawF32 &oraclePicture,
+                                        const Mask &ours,
+                                        const Mask &theirs,
+                                        int frame,
                                         std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   using namespace outshine::Render::Parity;
@@ -1711,26 +1796,42 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
     Note("pixels we drew whose identity names no slot", (double)reading.OursNamingNoSlot, "px");
   }
 
-  metrics.push_back({"surface_oracle_distinct_materials", (double)reading.OracleDistinct, 0.0,
-                     "indices", Direction::Reported});
-  metrics.push_back({"surface_ours_distinct_slots", (double)reading.OursDistinct, 0.0, "slots",
+  metrics.push_back({"surface_oracle_distinct_materials",
+                     (double)reading.OracleDistinct,
+                     0.0,
+                     "indices",
                      Direction::Reported});
-  metrics.push_back({"surface_identity_compared", (double)reading.Compared, 0.0, "px",
+  metrics.push_back({"surface_ours_distinct_slots",
+                     (double)reading.OursDistinct,
+                     0.0,
+                     "slots",
                      Direction::Reported});
-  metrics.push_back({"surface_identity_agreeing", (double)reading.Agreeing, 0.0, "px",
-                     Direction::Reported});
-  metrics.push_back({"surface_identity_disagreeing", (double)reading.Disagreeing, 0.0, "px",
+  metrics.push_back(
+      {"surface_identity_compared", (double)reading.Compared, 0.0, "px", Direction::Reported});
+  metrics.push_back(
+      {"surface_identity_agreeing", (double)reading.Agreeing, 0.0, "px", Direction::Reported});
+  metrics.push_back({"surface_identity_disagreeing",
+                     (double)reading.Disagreeing,
+                     0.0,
+                     "px",
                      Direction::Reported});
 
   metrics.push_back({"surface_oracle_index_unlike_its_own_picture",
-                     declared.Computable ? (double)reading.OracleSplit : std::nan(""), 0.0, "px",
+                     declared.Computable ? (double)reading.OracleSplit : std::nan(""),
+                     0.0,
+                     "px",
                      Direction::Reported});
 
-  metrics.push_back({"surface_identity_disagreeing_composite", (double)reading.Composite, 0.0, "px",
+  metrics.push_back({"surface_identity_disagreeing_composite",
+                     (double)reading.Composite,
+                     0.0,
+                     "px",
                      Direction::Reported});
   metrics.push_back({"surface_identity_disagreeing_attributable",
-                     reading.AttributionKnown ? (double)reading.Attributable : std::nan(""), 0.0,
-                     "px", Direction::Reported});
+                     reading.AttributionKnown ? (double)reading.Attributable : std::nan(""),
+                     0.0,
+                     "px",
+                     Direction::Reported});
 
   if (!reading.AttributionKnown) { Refused("surface identity: " + declared.Why); }
   if (!reading.Adjudicated) { Refused("surface identity: " + reading.Refusal); }
@@ -1742,13 +1843,19 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
     return reading.AttributableAt;
   }
   metrics.push_back({"surface_oracle_distinct_objects",
-                     (double)DistinctOracleIndices(objects, theirs), 0.0, "indices",
+                     (double)DistinctOracleIndices(objects, theirs),
+                     0.0,
+                     "indices",
                      Direction::Reported});
   return reading.AttributableAt;
 }
 
-void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
-                        const outshine::Test::Clip &clip, int frame, std::vector<Metric> &metrics) {
+void ScoreShadingNormal(const Case &subject,
+                        const Picture &picture,
+                        const Mask &ours,
+                        const outshine::Test::Clip &clip,
+                        int frame,
+                        std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   RawF32 cycles;
   const std::string path =
@@ -1758,14 +1865,14 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     return;
   }
   const size_t width = (size_t)ours.Width, height = (size_t)ours.Height;
-  if (picture.ShadingNormal.size() < width * height * 4u ||
-      (size_t)cycles.Width() != width || (size_t)cycles.Height() != height) {
+  if (picture.ShadingNormal.size() < width * height * 4u || (size_t)cycles.Width() != width ||
+      (size_t)cycles.Height() != height) {
     Refused("the shading-normal readback and the oracle's normal pass do not cover one frame");
     return;
   }
 
-  const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Model, clip, subject.Frame,
-                                                            ours.Width, ours.Height);
+  const DeclaredNormals declared =
+      RasteriseDeclaredNormals(subject.Model, clip, subject.Frame, ours.Width, ours.Height);
 
   {
     std::vector<float> rgba((size_t)ours.Width * (size_t)ours.Height * 4u, 0.0f);
@@ -1775,8 +1882,8 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       }
     }
     std::string unwritten;
-    (void)WriteRawF32(subject.Directory + "file.normal.raw", rgba, ours.Width, ours.Height, 4,
-                      unwritten);
+    (void)WriteRawF32(
+        subject.Directory + "file.normal.raw", rgba, ours.Width, ours.Height, 4, unwritten);
   }
 
   constexpr double kNormalSignalDeg = 0.4;
@@ -1790,7 +1897,10 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   std::vector<double> degrees, oursVsFile, cyclesVsFile;
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = 0; x < width; ++x) {
-      if (!ours.At((int)x, (int)y)) { ++uncovered; continue; }
+      if (!ours.At((int)x, (int)y)) {
+        ++uncovered;
+        continue;
+      }
       const size_t at = (y * width + x) * 4u;
 
       const double ex = picture.ShadingNormal[at], ey = picture.ShadingNormal[at + 1],
@@ -1798,7 +1908,10 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       const double ox = ey, oy = ex, oz = -ez;
       const double oursLength = std::sqrt(ox * ox + oy * oy + oz * oz);
 
-      if (oursLength <= 0.0) { ++noLobe; continue; }
+      if (oursLength <= 0.0) {
+        ++noLobe;
+        continue;
+      }
       const bool backFacing = picture.ShadingNormal[at + 3] < 0.0f;
       if (backFacing) { ++shadedBack; }
 
@@ -1807,7 +1920,10 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       const double bz = (double)cycles.At((int)x, (int)y, 2);
       const double cx = bx, cy = bz, cz = -by;
       const double theirsLength = std::sqrt(cx * cx + cy * cy + cz * cz);
-      if (theirsLength <= 0.0) { ++noLobe; continue; }
+      if (theirsLength <= 0.0) {
+        ++noLobe;
+        continue;
+      }
       ++shaded;
       double cosine = (ox * cx + oy * cy + oz * cz) / (oursLength * theirsLength);
       cosine = cosine > 1.0 ? 1.0 : (cosine < -1.0 ? -1.0 : cosine);
@@ -1847,26 +1963,28 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   }
   std::sort(degrees.begin(), degrees.end());
   Note("shading normal, pixels compared", (double)shaded, "px");
-  Note("shading normal, pixels excluded as no-lobe (zero vector, by predicate)", (double)noLobe,
+  Note("shading normal, pixels excluded as no-lobe (zero vector, by predicate)",
+       (double)noLobe,
        "px");
   Note("shading normal, pixels outside our coverage", (double)uncovered, "px");
   if (shaded == 0) {
     Refused("no covered pixel carries a shading normal on both sides, so nothing was compared");
     return;
   }
-  metrics.push_back({"shading_normal_p50_deg", Percentile(degrees, 0.50), 0.0, "degrees",
-                     Direction::Reported});
-  metrics.push_back({"shading_normal_p95_deg", Percentile(degrees, 0.95), 0.0, "degrees",
-                     Direction::Reported});
+  metrics.push_back(
+      {"shading_normal_p50_deg", Percentile(degrees, 0.50), 0.0, "degrees", Direction::Reported});
+  metrics.push_back(
+      {"shading_normal_p95_deg", Percentile(degrees, 0.95), 0.0, "degrees", Direction::Reported});
   metrics.push_back({"shading_normal_max_deg", worstDeg, 0.0, "degrees", Direction::Reported});
-  metrics.push_back({"shading_normal_mean_deg", sumDeg / (double)shaded, 0.0, "degrees",
-                    Direction::Reported});
+  metrics.push_back(
+      {"shading_normal_mean_deg", sumDeg / (double)shaded, 0.0, "degrees", Direction::Reported});
 
   std::sort(oursVsFile.begin(), oursVsFile.end());
   std::sort(cyclesVsFile.begin(), cyclesVsFile.end());
   Note("shading normal, pixels the file adjudicates", (double)adjudicated, "px");
 
-  Note("shading normal, pixels where the two legs disagree beyond what the texture can express", (double)disputed,
+  Note("shading normal, pixels where the two legs disagree beyond what the texture can express",
+       (double)disputed,
        "px");
   if (disputed > 0) {
     std::sort(disputedMargin.begin(), disputedMargin.end());
@@ -1879,20 +1997,37 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     Note("disputed in band 2 of 4 across the frame", (double)bandDisputed[2], "px");
     Note("disputed in band 3 of 4 across the frame", (double)bandDisputed[3], "px");
     metrics.push_back({"disputed_ours_nearer_fraction",
-                       (double)oursNearer / (double)disputed, 0.0, "dimensionless",
+                       (double)oursNearer / (double)disputed,
+                       0.0,
+                       "dimensionless",
                        Direction::Reported});
 
-    metrics.push_back({"disputed_margin_p50_deg", Percentile(disputedMargin, 0.50), 0.0, "degrees",
+    metrics.push_back({"disputed_margin_p50_deg",
+                       Percentile(disputedMargin, 0.50),
+                       0.0,
+                       "degrees",
                        Direction::Reported});
   }
   if (!oursVsFile.empty()) {
-    metrics.push_back({"ours_vs_file_p50_deg", Percentile(oursVsFile, 0.50), 0.0, "degrees",
+    metrics.push_back({"ours_vs_file_p50_deg",
+                       Percentile(oursVsFile, 0.50),
+                       0.0,
+                       "degrees",
                        Direction::Reported});
-    metrics.push_back({"ours_vs_file_p95_deg", Percentile(oursVsFile, 0.95), 0.0, "degrees",
+    metrics.push_back({"ours_vs_file_p95_deg",
+                       Percentile(oursVsFile, 0.95),
+                       0.0,
+                       "degrees",
                        Direction::Reported});
-    metrics.push_back({"cycles_vs_file_p50_deg", Percentile(cyclesVsFile, 0.50), 0.0, "degrees",
+    metrics.push_back({"cycles_vs_file_p50_deg",
+                       Percentile(cyclesVsFile, 0.50),
+                       0.0,
+                       "degrees",
                        Direction::Reported});
-    metrics.push_back({"cycles_vs_file_p95_deg", Percentile(cyclesVsFile, 0.95), 0.0, "degrees",
+    metrics.push_back({"cycles_vs_file_p95_deg",
+                       Percentile(cyclesVsFile, 0.95),
+                       0.0,
+                       "degrees",
                        Direction::Reported});
   }
 }
@@ -1902,68 +2037,124 @@ void SayWhereItWas(const char *kind, const Excursion &worst) {
   if (worst.Code <= 0.0) { return; }
   std::printf("NOTE   worst %s disagreement: %.9g codes at (%zu, %zu) channel %zu, ours %.9g "
               "against %.9g, over %zu px\n",
-              kind, worst.Code, worst.X, worst.Y, worst.Channel, worst.Ours, worst.Theirs,
+              kind,
+              worst.Code,
+              worst.X,
+              worst.Y,
+              worst.Channel,
+              worst.Ours,
+              worst.Theirs,
               worst.Pixels);
 }
 
-void ScorePictureBound(const PictureDelta &picture, const Tail &bound, int oracleSamples,
+void ScorePictureBound(const PictureDelta &picture,
+                       const Tail &bound,
+                       int oracleSamples,
                        std::vector<Metric> &metrics) {
   for (const BoundTerm &term : bound.Terms) {
     std::printf("BOUND  %-56s %14.9g codes\n", term.Mechanism.c_str(), term.Codes);
   }
   if (!bound.Enforced) {
     std::printf("BOUND  %-56s %14s\n",
-                "the oracle still estimates, so no tail bound may be enforced", "--");
+                "the oracle still estimates, so no tail bound may be enforced",
+                "--");
   }
 
   const double atFraction =
       PercentileCode(picture.Buckets, picture.ChannelsCompared, kBoundFraction);
-  metrics.push_back({"picture_p99_delta_code", atFraction, bound.Codes, "codes",
-                     bound.Enforced ? Direction::AtMost : Direction::Reported, Count::Picture});
-  metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
-                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_p99_delta_code",
+                     atFraction,
+                     bound.Codes,
+                     "codes",
+                     bound.Enforced ? Direction::AtMost : Direction::Reported,
+                     Count::Picture});
+  metrics.push_back({"picture_max_delta_code",
+                     picture.Appearance.Code,
+                     bound.Codes,
+                     "codes",
+                     Direction::Reported,
+                     Count::Picture});
 
-  metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code,
-                     outshine::Render::Parity::kPerceptualFloorCodes, "codes",
-                     oracleSamples > 1 ? Direction::Reported :
-                     Direction::AtMost, Count::Picture});
-  metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
-                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_max_delta_code_alpha",
+                     picture.Predicate.Code,
+                     outshine::Render::Parity::kPerceptualFloorCodes,
+                     "codes",
+                     oracleSamples > 1 ? Direction::Reported : Direction::AtMost,
+                     Count::Picture});
+  metrics.push_back({"picture_max_delta_code_routed",
+                     picture.Routed.Code,
+                     0.0,
+                     "codes",
+                     Direction::Reported,
+                     Count::Picture});
 
-  metrics.push_back({"picture_oracle_black_channels", (double)picture.OracleBlackChannels, 0.0,
-                     "channels", Direction::Reported, Count::Picture});
-  metrics.push_back({"picture_oracle_black_we_lit", (double)picture.OracleBlackWeLit, 0.0, "channels",
-                     Direction::Reported, Count::Picture});
-  metrics.push_back({"picture_oracle_black_worst_code", picture.OracleBlackWorstCode, 0.0, "codes",
-                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_oracle_black_channels",
+                     (double)picture.OracleBlackChannels,
+                     0.0,
+                     "channels",
+                     Direction::Reported,
+                     Count::Picture});
+  metrics.push_back({"picture_oracle_black_we_lit",
+                     (double)picture.OracleBlackWeLit,
+                     0.0,
+                     "channels",
+                     Direction::Reported,
+                     Count::Picture});
+  metrics.push_back({"picture_oracle_black_worst_code",
+                     picture.OracleBlackWorstCode,
+                     0.0,
+                     "codes",
+                     Direction::Reported,
+                     Count::Picture});
 
   size_t shown = 0;
   for (const Excursion &channel : picture.Worst) {
     if (channel.Code <= 0.0) { break; }
-    std::printf("NOTE   worst %zu: %11.6f codes at (%zu, %zu) channel %zu, ours %.9g against %.9g\n",
-                ++shown, channel.Code, channel.X, channel.Y, channel.Channel, channel.Ours,
-                channel.Theirs);
+    std::printf(
+        "NOTE   worst %zu: %11.6f codes at (%zu, %zu) channel %zu, ours %.9g against %.9g\n",
+        ++shown,
+        channel.Code,
+        channel.X,
+        channel.Y,
+        channel.Channel,
+        channel.Ours,
+        channel.Theirs);
   }
   if (picture.Appearance.Pixels > shown) {
     std::printf("NOTE   and %zu further pixels carry an appearance disagreement, not listed\n",
                 picture.Appearance.Pixels - shown);
   }
-  metrics.push_back({"picture_pixels_routed", (double)picture.Routed.Pixels, 0.0, "px",
-                     Direction::Reported, Count::Picture});
-  metrics.push_back({"picture_pixels_differing", (double)picture.PixelsDiffering, 0.0, "px",
-                     Direction::Reported, Count::Picture});
-  metrics.push_back({"picture_channels_compared", (double)picture.ChannelsCompared, 0.0, "channels",
-                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_pixels_routed",
+                     (double)picture.Routed.Pixels,
+                     0.0,
+                     "px",
+                     Direction::Reported,
+                     Count::Picture});
+  metrics.push_back({"picture_pixels_differing",
+                     (double)picture.PixelsDiffering,
+                     0.0,
+                     "px",
+                     Direction::Reported,
+                     Count::Picture});
+  metrics.push_back({"picture_channels_compared",
+                     (double)picture.ChannelsCompared,
+                     0.0,
+                     "channels",
+                     Direction::Reported,
+                     Count::Picture});
   size_t occupied = 0;
   for (size_t bucket = 0; bucket < kCodeBuckets; ++bucket) {
     if (picture.Buckets[bucket] == 0) { continue; }
     ++occupied;
-    std::printf("HIST   delta_code in [%zu, %zu): %zu channels\n", bucket, bucket + 1,
+    std::printf("HIST   delta_code in [%zu, %zu): %zu channels\n",
+                bucket,
+                bucket + 1,
                 picture.Buckets[bucket]);
   }
   if (occupied == 0) {
-    std::printf("HIST   every colour channel the two sides agree to cover agrees to the last bit of "
-                "the transfer\n");
+    std::printf(
+        "HIST   every colour channel the two sides agree to cover agrees to the last bit of "
+        "the transfer\n");
   }
   SayWhereItWas("appearance", picture.Appearance);
   SayWhereItWas("alpha-predicate", picture.Predicate);
@@ -1990,9 +2181,12 @@ std::string Argument(int argc, char **argv) {
   return directory;
 }
 
-}
+} // namespace
 
-void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours, int frame,
+void ScoreVelocity(const Case &subject,
+                   const Picture &picture,
+                   const Mask &ours,
+                   int frame,
                    std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   if (picture.Velocity.empty()) { return; }
@@ -2020,15 +2214,23 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
     furthestPx = std::fmax(furthestPx, std::sqrt(acrossPx * acrossPx + downPx * downPx));
   }
   metrics.push_back({"velocity_pixels_covered", (double)covered, 0.0, "px", Direction::Reported});
-  metrics.push_back({"velocity_pixels_carrying_the_static_sentinel", (double)sentinel, 0.0, "px",
+  metrics.push_back({"velocity_pixels_carrying_the_static_sentinel",
+                     (double)sentinel,
+                     0.0,
+                     "px",
                      Direction::AtMost});
 
   const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;
-  metrics.push_back({"velocity_pixels_moving", (double)moving, poseMoved ? 1.0 : 0.0, "px",
+  metrics.push_back({"velocity_pixels_moving",
+                     (double)moving,
+                     poseMoved ? 1.0 : 0.0,
+                     "px",
                      poseMoved ? Direction::AtLeast : Direction::AtMost});
-  Note("velocity, furthest a covered pixel moved since the previous frame", furthestNdc,
+  Note("velocity, furthest a covered pixel moved since the previous frame",
+       furthestNdc,
        "ndc per frame");
-  Note("velocity, furthest a covered pixel moved since the previous frame", furthestPx,
+  Note("velocity, furthest a covered pixel moved since the previous frame",
+       furthestPx,
        "px per frame");
 }
 
@@ -2083,15 +2285,19 @@ struct Motion {
   }
   Note("subject motion from frame 0, furthest vertex", furthestM, "m");
   Note("subject motion from frame 0, furthest vertex projected", furthestPx, "px");
-  Note("subject motion from the previous frame, furthest vertex projected", furthestSincePreviousPx,
+  Note("subject motion from the previous frame, furthest vertex projected",
+       furthestSincePreviousPx,
        "px");
   Note("the floor it is held against, the oracle's own sub-pixel resolution",
-       subject.OracleFloorPx, "px");
+       subject.OracleFloorPx,
+       "px");
   return Motion{true, furthestPx, furthestSincePreviousPx};
 }
 
-[[nodiscard]] std::vector<float> WriteProducts(const Case &subject, const Picture &picture,
-                                               const RawF32 &oracle, const Mask &ours,
+[[nodiscard]] std::vector<float> WriteProducts(const Case &subject,
+                                               const Picture &picture,
+                                               const RawF32 &oracle,
+                                               const Mask &ours,
                                                const Mask &theirs) {
   using namespace outshine::Test;
   const std::vector<uint8_t> reference = Encoded(oracle);
@@ -2105,25 +2311,33 @@ struct Motion {
 
   std::string unwrittenNormal;
   if (!picture.ShadingNormal.empty()) {
-    (void)WriteRawF32(subject.Directory + "outshine.normal.raw", picture.ShadingNormal, ours.Width,
-                      ours.Height, 4, unwrittenNormal);
+    (void)WriteRawF32(subject.Directory + "outshine.normal.raw",
+                      picture.ShadingNormal,
+                      ours.Width,
+                      ours.Height,
+                      4,
+                      unwrittenNormal);
   }
   const std::vector<float> scored = ScoredFrame(picture.Linear, ours);
   const bool wroteFloats =
       !scored.empty() &&
-      WriteRawF32(subject.Directory + "outshine.raw", scored, ours.Width, ours.Height, 4, unwritten);
-  CHECK(wroteFloats, "outshine.raw is written beside oracle.raw, in the same OSRAWF32 layout and "
-                     "from the samples the picture bound is computed on");
+      WriteRawF32(
+          subject.Directory + "outshine.raw", scored, ours.Width, ours.Height, 4, unwritten);
+  CHECK(wroteFloats,
+        "outshine.raw is written beside oracle.raw, in the same OSRAWF32 layout and "
+        "from the samples the picture bound is computed on");
   RawF32 stored;
   bool storedIsScored = wroteFloats && stored.ReadFile(subject.Directory + "outshine.raw");
   for (size_t sample = 0; storedIsScored && sample < scored.size(); ++sample) {
     const int channels = 4;
     const int at = (int)(sample / (size_t)channels);
-    storedIsScored = stored.At(at % ours.Width, at / ours.Width,
-                               (int)(sample % (size_t)channels)) == scored[sample];
+    storedIsScored =
+        stored.At(at % ours.Width, at / ours.Width, (int)(sample % (size_t)channels)) ==
+        scored[sample];
   }
-  CHECK(storedIsScored, "outshine.raw reads back through the oracle's own reader as the samples "
-                        "that were scored, so the file on disk IS the frame the number came from");
+  CHECK(storedIsScored,
+        "outshine.raw reads back through the oracle's own reader as the samples "
+        "that were scored, so the file on disk IS the frame the number came from");
   if (!unwritten.empty()) { Refused(unwritten); }
 
   return scored;
@@ -2195,14 +2409,16 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
     return FrameVerdict{};
   }
 
-  const Mask ours =
-      FromDepth(picture.Depth, picture.Linear, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  const Mask ours = FromDepth(
+      picture.Depth, picture.Linear, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   const Mask theirs = FromOracle(oracle);
 
   {
-    double sum = 0.0; size_t many = 0;
+    double sum = 0.0;
+    size_t many = 0;
     for (size_t at = 0; at + 3 < picture.Linear.size(); at += 4) {
-      sum += picture.Linear[at]; ++many;
+      sum += picture.Linear[at];
+      ++many;
     }
     std::printf("LINEAR mean-red = %.9f over %zu px\n", many ? sum / (double)many : 0.0, many);
   }
@@ -2210,7 +2426,10 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
 
   std::vector<Metric> metrics;
   if (Reduced(subject)) {
-    metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
+    metrics.push_back({"oracle_samples_differing_between_seeds",
+                       (double)seedApart,
+                       0.0,
+                       "samples",
                        Direction::AtMost});
   }
 
@@ -2222,18 +2441,25 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
     }
     return 0.0;
   };
-  metrics.push_back({"subject_draws", measured("subject draws"), 0.0, "draws",
-                     Direction::Reported});
-  metrics.push_back({"subject_draw_calls", measured("subject draw calls"), 0.0, "calls",
-                     Direction::Reported});
-  metrics.push_back({"subject_surfaces", (double)subject.Surfaces.Slots.size(), 0.0, "slots",
+  metrics.push_back(
+      {"subject_draws", measured("subject draws"), 0.0, "draws", Direction::Reported});
+  metrics.push_back(
+      {"subject_draw_calls", measured("subject draw calls"), 0.0, "calls", Direction::Reported});
+  metrics.push_back({"subject_surfaces",
+                     (double)subject.Surfaces.Slots.size(),
+                     0.0,
+                     "slots",
                      Direction::Reported});
 
-  const Metric coverageOurs{"coverage_fraction_outshine", ours.Fraction(),
-                            subject.Accepted.CoverageFractionMin, "dimensionless",
+  const Metric coverageOurs{"coverage_fraction_outshine",
+                            ours.Fraction(),
+                            subject.Accepted.CoverageFractionMin,
+                            "dimensionless",
                             Direction::AtLeast};
-  const Metric coverageTheirs{"coverage_fraction_oracle", theirs.Fraction(),
-                              subject.Accepted.CoverageFractionMin, "dimensionless",
+  const Metric coverageTheirs{"coverage_fraction_oracle",
+                              theirs.Fraction(),
+                              subject.Accepted.CoverageFractionMin,
+                              "dimensionless",
                               Direction::AtLeast};
   metrics.push_back(coverageOurs);
   metrics.push_back(coverageTheirs);
@@ -2263,16 +2489,23 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
 
     const WorstDisagreement worst =
         WorstDisagreementPx(routing, edges, Boundary(theirs).size(), kBoundFraction);
-    metrics.push_back({"disagreement_max_px", worst.Px, subject.OracleFloorPx, "px",
-                       Direction::Reported});
+    metrics.push_back(
+        {"disagreement_max_px", worst.Px, subject.OracleFloorPx, "px", Direction::Reported});
 
-    metrics.push_back({"disagreement_p99_px", worst.AtFraction, subject.OracleFloorPx, "px",
+    metrics.push_back({"disagreement_p99_px",
+                       worst.AtFraction,
+                       subject.OracleFloorPx,
+                       "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
                                                                             : Direction::Reported,
                        Count::Picture});
 
-    metrics.push_back({"disagreement_samples", (double)worst.Pixels, 0.0, "px",
-                       Direction::Reported, Count::Picture});
+    metrics.push_back({"disagreement_samples",
+                       (double)worst.Pixels,
+                       0.0,
+                       "px",
+                       Direction::Reported,
+                       Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
     ScoreVisibilityTerm(subject, clip, (float)measured("shadow ray near"), metrics);
   }
@@ -2280,8 +2513,9 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   ScoreStatedInvariants(subject, picture, oracle, metrics);
 
   const PictureDelta image = ComparePicture(scored, oracle, routing);
-  CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
-                          "pixel of the picture has something to be compared against");
+  CHECK(image.Comparable,
+        "the linear tap and the coverage mask cover the oracle's frame, so every "
+        "pixel of the picture has something to be compared against");
   const Tail bound = BoundFor(subject.Path);
   ScorePictureBound(image, bound, subject.OracleSamples, metrics);
 
@@ -2296,7 +2530,10 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   ScoreRadianceResidual(subject, picture, oracle, metrics);
 
   const Distribution boundary = BoundaryDisplacement(ours, theirs);
-  metrics.push_back({"boundary_p95_px", boundary.P95, subject.Accepted.BoundaryP95MaxPx, "px",
+  metrics.push_back({"boundary_p95_px",
+                     boundary.P95,
+                     subject.Accepted.BoundaryP95MaxPx,
+                     "px",
                      Direction::Reported});
   metrics.push_back({"boundary_p50_px", boundary.P50, 0.0, "px", Direction::Reported});
   metrics.push_back({"boundary_p99_px", boundary.P99, 0.0, "px", Direction::Reported});
@@ -2305,10 +2542,13 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
 
-  metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
-                     subject.Placement == ExactnessClass::Exact ? Direction::AtMost
-                                                                : Direction::Reported,
-                     Count::Picture});
+  metrics.push_back(
+      {"pixels_disagreeing",
+       (double)Disagreeing(ours, theirs),
+       0.0,
+       "px",
+       subject.Placement == ExactnessClass::Exact ? Direction::AtMost : Direction::Reported,
+       Count::Picture});
 
   if (projects && Disagreeing(ours, theirs) > 0) {
     Note("disagreement attributed by node, both faces, overlap counted twice");
@@ -2316,16 +2556,22 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
         AttributeDisagreement(subject.Model, clip, subject.Frame, ours, theirs);
     for (const NodeDisagreement &node : table.Nodes) {
       std::printf("NOTE   node '%s' over %zu triangles: %zu px ours only, %zu px oracle only\n",
-                  node.Node.c_str(), node.Triangles, node.OursOnly, node.TheirsOnly);
+                  node.Node.c_str(),
+                  node.Triangles,
+                  node.OursOnly,
+                  node.TheirsOnly);
     }
     Note("disagreeing pixels no node's geometry projects onto", (double)table.Unattributed, "px");
-    Note("triangles outside the depth range, unattributed", (double)table.Unprojectable,
+    Note("triangles outside the depth range, unattributed",
+         (double)table.Unprojectable,
          "triangles");
   }
   if (projects) {
     metrics.push_back({"triangles_outside_the_depth_range",
-                       (double)TrianglesOutsideTheDepthRange(subject.Model, clip), 0.0,
-                       "triangles", Direction::AtMost});
+                       (double)TrianglesOutsideTheDepthRange(subject.Model, clip),
+                       0.0,
+                       "triangles",
+                       Direction::AtMost});
   }
   ScoreDepthProbes(subject, picture.Depth, metrics);
 
@@ -2336,15 +2582,17 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
 
   const Json::Ref expected = subject.Manifest.Root()["expected"]["subjectFrameFraction"];
   double declaredFraction = 0;
-  const bool statesFraction = ReadDeclaredNumber(expected, "expected.subjectFrameFraction",
-                                                 declaredFraction, why);
+  const bool statesFraction =
+      ReadDeclaredNumber(expected, "expected.subjectFrameFraction", declaredFraction, why);
   CHECK(statesFraction, "the manifest declares the frame fraction its camera was derived for");
   if (statesFraction && projects) {
     const double fraction = ProjectedAreaPx(subject.Model, clip, subject.Frame) /
                             (subject.Frame.WidthPx * subject.Frame.HeightPx);
 
-    metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
-                       subject.Accepted.FrameFractionTolerance, "dimensionless",
+    metrics.push_back({"frame_fraction_error",
+                       std::fabs(fraction - declaredFraction),
+                       subject.Accepted.FrameFractionTolerance,
+                       "dimensionless",
                        frame == 0 ? Direction::AtMost : Direction::Reported});
     Note("projected frame fraction", fraction, "dimensionless");
     Note("declared frame fraction", declaredFraction, "dimensionless");
@@ -2356,8 +2604,9 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
 
   if (image.PixelsDiffering > 0) {
     const bool placed = boundary.P95 <= subject.Accepted.BoundaryP95MaxPx;
-    Note(placed ? "attribution: the geometry is in the right pixels and the shading is wrong"
-               : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
+    Note(placed
+             ? "attribution: the geometry is in the right pixels and the shading is wrong"
+             : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
   }
 
   size_t reduced = 0;
@@ -2416,8 +2665,7 @@ int ScoreRenderCase(int argc, char **argv) {
   int refusedAt = -1;
   for (int frame = 0; frame < subject.Frames; ++frame) {
     if (subject.Animated()) {
-      std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames,
-                  (double)frame / subject.Fps);
+      std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames, (double)frame / subject.Fps);
 
       subject.PreviousPositions = subject.Model.PositionsM();
       if (!PoseGeometry(subject, frame, why)) {
@@ -2457,11 +2705,12 @@ int ScoreRenderCase(int argc, char **argv) {
 
   Note("the furthest the drawn subject moved from frame 0 over the grid", furthestMovedPx, "px");
   Note("frames whose drawn subject differs from frame 0", (double)framesThatMoved, "frames");
-  Note("frames whose oracle picture differs from frame 0", (double)oracleFramesThatDiffer, "frames");
+  Note(
+      "frames whose oracle picture differs from frame 0", (double)oracleFramesThatDiffer, "frames");
   if (subject.Animated()) {
     const int changing = framesThatMoved > 0 ? framesThatMoved : oracleFramesThatDiffer;
-    std::vector<Metric> grid{{kGridChangesThePicture, (double)changing, 1.0, "frames",
-                              Direction::AtLeast}};
+    std::vector<Metric> grid{
+        {kGridChangesThePicture, (double)changing, 1.0, "frames", Direction::AtLeast}};
     subject.MetricsReported.insert(kGridChangesThePicture);
     const auto declared = subject.Reductions.find(kGridChangesThePicture);
     if (declared != subject.Reductions.end()) {
@@ -2476,11 +2725,11 @@ int ScoreRenderCase(int argc, char **argv) {
           "every declared reduction names a metric this case actually reports");
   }
   if (subject.Animated() && subject.Reductions.count(kGridChangesThePicture) == 0) {
-
-    CHECK(furthestMovedPx > subject.OracleFloorPx || oracleFramesThatDiffer > 0,
-          "the declared grid changes the picture -- the drawn subject moves, or the oracle's own "
-          "frames differ -- so the sequence is not a still rendered once per frame and agreeing with "
-          "the oracle by construction");
+    CHECK(
+        furthestMovedPx > subject.OracleFloorPx || oracleFramesThatDiffer > 0,
+        "the declared grid changes the picture -- the drawn subject moves, or the oracle's own "
+        "frames differ -- so the sequence is not a still rendered once per frame and agreeing with "
+        "the oracle by construction");
   }
   Note("frames compared", (double)compared, "frames");
   Note("frames declared", (double)subject.Frames, "frames");
@@ -2507,4 +2756,3 @@ int ScoreRenderCase(int argc, char **argv) {
          "own thresholds and directions, and always writes the three pictures");
   return Report();
 }
-

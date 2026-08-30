@@ -8,10 +8,12 @@ struct KeyRow {
   SDL_Keycode Key;
   ptrdiff_t Event;
 };
+
 struct PadRow {
   uint8_t Button;
   ptrdiff_t Event;
 };
+
 struct AxisRow {
   uint8_t Axis;
   ptrdiff_t Event;
@@ -63,7 +65,7 @@ struct Resolved {
 
 constexpr float kAxisScale = 1.0f / 32767.0f;
 
-}
+} // namespace
 
 bool InputPump::Open(const InputMap &declared) {
   if (!Table().Whole) { return false; }
@@ -85,8 +87,8 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
       if (event.key.repeat) { return 0; }
       for (const KeyRow &row : Table().Keys) {
         if (row.Key == event.key.key) {
-          return fire(row.Event, InputMap::Kind::Button,
-                      event.type == SDL_EVENT_KEY_DOWN ? 1.0f : 0.0f, 0);
+          return fire(
+              row.Event, InputMap::Kind::Button, event.type == SDL_EVENT_KEY_DOWN ? 1.0f : 0.0f, 0);
         }
       }
       return 0;
@@ -116,8 +118,10 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
     case SDL_EVENT_GAMEPAD_BUTTON_UP: {
       for (const PadRow &row : Table().Buttons) {
         if (row.Button == event.gbutton.button) {
-          return fire(row.Event, InputMap::Kind::Button,
-                      event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? 1.0f : 0.0f, 0);
+          return fire(row.Event,
+                      InputMap::Kind::Button,
+                      event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? 1.0f : 0.0f,
+                      0);
         }
       }
       return 0;
@@ -125,8 +129,7 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
     case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
       for (const AxisRow &row : Table().Axes) {
         if (row.Axis == event.gaxis.axis) {
-          return fire(row.Event, InputMap::Kind::Axis, (float)event.gaxis.value * kAxisScale,
-                      0);
+          return fire(row.Event, InputMap::Kind::Axis, (float)event.gaxis.value * kAxisScale, 0);
         }
       }
       return 0;
@@ -135,4 +138,4 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
   }
 }
 
-}
+} // namespace outshine::Core

@@ -6,8 +6,7 @@
 
 namespace outshine::Render {
 
-[[nodiscard]] bool LoadShaderText(std::string_view treePath, std::string &into,
-                                  std::string &error);
+[[nodiscard]] bool LoadShaderText(std::string_view treePath, std::string &into, std::string &error);
 
 }
 

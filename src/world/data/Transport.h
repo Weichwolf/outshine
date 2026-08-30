@@ -17,9 +17,11 @@ public:
   enum class State { Working, Answered, Unreachable, Never };
 
   static Wire Working() { return Wire(State::Working, 0, {}, 0.0); }
+
   static Wire Answered(int status, std::vector<uint8_t> body) {
     return Wire(State::Answered, status, std::move(body), 0.0);
   }
+
   static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
     return Wire(State::Answered, status, std::move(body), retryAfterS);
   }
@@ -29,10 +31,11 @@ public:
   static Wire Never() { return Wire(State::Never, 0, {}, 0.0); }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
+
   [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
 
   [[nodiscard]] bool TryTake(int *status, std::vector<uint8_t> *body) {
-    if (Where_ != State::Answered) return false;
+    if (Where_ != State::Answered) { return false; }
     *status = Status_;
     *body = std::move(Body_);
     return true;
@@ -69,5 +72,5 @@ public:
   }
 };
 
-}
+} // namespace outshine::Data
 #endif

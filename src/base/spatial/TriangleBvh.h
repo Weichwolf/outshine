@@ -25,7 +25,9 @@ struct BvhNode {
   uint32_t Leaf = kBvhInterior;
 
   [[nodiscard]] bool IsLeaf() const { return Leaf != kBvhInterior; }
+
   [[nodiscard]] uint32_t FirstTriangle() const { return Leaf & kBvhLeafFirstMask; }
+
   [[nodiscard]] uint32_t TriangleCount() const { return Leaf >> kBvhLeafFirstBits; }
 };
 
@@ -40,15 +42,15 @@ static_assert(sizeof(BvhTriangle) == 36, "the intersection test reads a 36-byte 
 
 class TriangleBvh {
 public:
-
   [[nodiscard]] static TriangleBvh Over(Span<const float> positionsM, Span<const uint32_t> indices);
 
-  [[nodiscard]] bool Occludes(const float originM[3], const float direction[3], float nearM,
-                              float distanceM) const;
+  [[nodiscard]] bool
+  Occludes(const float originM[3], const float direction[3], float nearM, float distanceM) const;
 
   [[nodiscard]] Span<const BvhNode> Nodes() const {
     return Span<const BvhNode>(Nodes_.data(), Nodes_.size());
   }
+
   [[nodiscard]] Span<const BvhTriangle> Triangles() const {
     return Span<const BvhTriangle>(Tris_.data(), Tris_.size());
   }
@@ -67,5 +69,5 @@ private:
   uint32_t Depth_ = 0;
 };
 
-}
+} // namespace outshine
 #endif

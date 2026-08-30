@@ -34,9 +34,12 @@ constexpr float kFocalPx = 720.0f;
 class Layered final : public outshine::TileMeshes {
 public:
   [[nodiscard]] Reply Mesh(int, uint32_t, uint32_t, int, outshine::TileBuild *out) override {
-    static const float kPlaces[6][3] = {{0.0f, 0.0f, 0.0f},  {10.0f, 0.0f, 0.0f},
-                                        {10.0f, 0.0f, 10.0f}, {0.0f, 0.0f, 10.0f},
-                                        {5.0f, 0.0f, 0.0f},  {5.0f, 0.0f, 10.0f}};
+    static const float kPlaces[6][3] = {{0.0f, 0.0f, 0.0f},
+                                        {10.0f, 0.0f, 0.0f},
+                                        {10.0f, 0.0f, 10.0f},
+                                        {0.0f, 0.0f, 10.0f},
+                                        {5.0f, 0.0f, 0.0f},
+                                        {5.0f, 0.0f, 10.0f}};
     out->Verts.clear();
     for (const auto &one : kPlaces) {
       out->Verts.push_back(one[0]);
@@ -82,8 +85,8 @@ public:
     return Mesh(z, x, y, grid, &aside);
   }
 
-  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
-                                  outshine::TileBuild *out) override {
+  [[nodiscard]] Reply
+  MeshAwaited(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
     return Mesh(z, x, y, grid, out);
   }
 };
@@ -104,7 +107,7 @@ public:
   return over;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -125,11 +128,14 @@ int main(void) {
   }
 
   std::printf("THE TILE HOLDS       %zu cluster(s)\n", whole->ClustersHeld);
-  std::printf("AN EYE 12 m AWAY     draws %zu of them, %zu triangle(s)\n", near->ClustersDrawn,
+  std::printf("AN EYE 12 m AWAY     draws %zu of them, %zu triangle(s)\n",
+              near->ClustersDrawn,
               near->Index.size() / 3);
-  std::printf("AN EYE 4000 m AWAY   draws %zu of them, %zu triangle(s)\n", far->ClustersDrawn,
+  std::printf("AN EYE 4000 m AWAY   draws %zu of them, %zu triangle(s)\n",
+              far->ClustersDrawn,
               far->Index.size() / 3);
-  std::printf("AND NO CUT AT ALL    draws %zu of them, %zu triangle(s)\n", whole->ClustersDrawn,
+  std::printf("AND NO CUT AT ALL    draws %zu of them, %zu triangle(s)\n",
+              whole->ClustersDrawn,
               whole->Index.size() / 3);
 
   // THREE CLUSTERS PER TILE, AND `Levels = 1` LAYS A 4x4 BLOCK (board:2017), so the population is

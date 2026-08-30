@@ -42,9 +42,11 @@ struct Reaped {
   return false;
 }
 
-[[nodiscard]] Reaped Reap(const OsmField &field, const VegetationTemplates &widths,
-                          double bodyWidthM, Path::Network &into);
+[[nodiscard]] Reaped Reap(const OsmField &field,
+                          const VegetationTemplates &widths,
+                          double bodyWidthM,
+                          Path::Network &into);
 
-}
+} // namespace outshine::Ground
 
 #endif

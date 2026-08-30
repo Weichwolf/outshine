@@ -112,7 +112,8 @@ int main(void) {
   Note("clusters one level above", (double)above, "clusters");
   Note("the parent error they were given", (double)statedErrM, "m");
   Note("vertices the cooker made for that level",
-       (double)(dag.PositionsM.size() / 3 - dag.FirstOwnVertex), "vertices");
+       (double)(dag.PositionsM.size() / 3 - dag.FirstOwnVertex),
+       "vertices");
 
   CHECK(above > 0 && statedErrM > 0.0f && statedErrM < outshine::kDagRootErr,
         "**A DAG HAS A LEVEL ABOVE ITS LEAVES, AND THE LEAVES KNOW ITS ERROR**: without one, "
@@ -138,14 +139,18 @@ int main(void) {
       if (moved > worstMovedM) { worstMovedM = moved; }
     }
   }
-  Note("the furthest a leaf vertex sits from the nearest vertex the level above made", worstMovedM,
+  Note("the furthest a leaf vertex sits from the nearest vertex the level above made",
+       worstMovedM,
        "m");
   CHECK(worstMovedM <= (double)statedErrM + 1.0e-4,
         "**AND THE STATED ERROR IS NOT SMALLER THAN THE DISPLACEMENT IT CAUSED**: a bound that "
         "under-reports is worse than no bound, because the selection believes it and drops a "
         "cluster whose replacement is further off than it was told");
 
-  Covers("the cooker's cut: every triangle lands in exactly one cluster with its winding intact, "
-         "and every cluster's bounding sphere contains the vertices it was measured over; and its DAG: a level stands above the leaves and the parent error it states bounds the displacement that level actually caused");
+  Covers(
+      "the cooker's cut: every triangle lands in exactly one cluster with its winding intact, "
+      "and every cluster's bounding sphere contains the vertices it was measured over; and its "
+      "DAG: a level stands above the leaves and the parent error it states bounds the displacement "
+      "that level actually caused");
   return Report();
 }

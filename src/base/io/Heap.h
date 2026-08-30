@@ -7,7 +7,6 @@ namespace outshine {
 
 class Heap {
 public:
-
   static void *Take(const char *item, size_t bytes);
 
   static size_t LiveBytes();
@@ -32,5 +31,5 @@ public:
   [[noreturn]] static void Exhausted(const char *item);
 };
 
-}
+} // namespace outshine
 #endif

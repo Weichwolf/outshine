@@ -17,14 +17,13 @@ constexpr const char *kDefaultLeaf = "outshine-content";
 [[nodiscard]] std::string DefaultDirectory() {
   std::error_code ec;
   const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
-  if (ec) return std::string(kDefaultLeaf);
+  if (ec) { return std::string(kDefaultLeaf); }
   return (base / kDefaultLeaf).string();
 }
 
-}
+} // namespace
 
 std::string ContentKey(const SourceDecl &decl, const Address &at) {
-
   std::string subject = decl.Id;
   subject += '\n';
   subject += std::to_string(decl.Version);
@@ -39,7 +38,7 @@ ContentStore::ContentStore(const Config &config)
     : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
       Using_(config.Using),
       CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {
-  if (Using_ != Use::On) return;
+  if (Using_ != Use::On) { return; }
   std::error_code ec;
   std::filesystem::create_directories(Directory_, ec);
 
@@ -48,11 +47,12 @@ ContentStore::ContentStore(const Config &config)
     std::filesystem::file_time_type When;
     uintmax_t Bytes = 0;
   };
+
   std::vector<Entry> entries;
   uintmax_t total = 0;
   for (std::filesystem::directory_iterator it(Directory_, ec), end; !ec && it != end;
        it.increment(ec)) {
-    if (!it->is_regular_file(ec)) continue;
+    if (!it->is_regular_file(ec)) { continue; }
     Entry e;
     e.Path = it->path();
     e.When = it->last_write_time(ec);
@@ -60,13 +60,14 @@ ContentStore::ContentStore(const Config &config)
     total += e.Bytes;
     entries.push_back(std::move(e));
   }
-  if (total <= (uintmax_t)CapBytes_) return;
-  std::sort(entries.begin(), entries.end(),
-            [](const Entry &a, const Entry &b) { return a.When < b.When; });
+  if (total <= (uintmax_t)CapBytes_) { return; }
+  std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
+    return a.When < b.When;
+  });
   for (const Entry &e : entries) {
-    if (total <= (uintmax_t)CapBytes_) break;
+    if (total <= (uintmax_t)CapBytes_) { break; }
     std::error_code removeError;
-    if (!std::filesystem::remove(e.Path, removeError)) continue;
+    if (!std::filesystem::remove(e.Path, removeError)) { continue; }
     total -= e.Bytes;
     Swept_++;
     SweptBytes_ += (long long)e.Bytes;
@@ -74,7 +75,7 @@ ContentStore::ContentStore(const Config &config)
 }
 
 bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) const {
-  if (Using_ != Use::On) return false;
+  if (Using_ != Use::On) { return false; }
   const std::string path = Directory_ + "/" + std::string(key);
   std::FILE *f = std::fopen(path.c_str(), "rb");
   if (!f) {
@@ -100,7 +101,7 @@ bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) cons
 }
 
 void ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
-  if (Using_ != Use::On || bytes == 0) return;
+  if (Using_ != Use::On || bytes == 0) { return; }
 
   const std::string temp = Directory_ + "/." + std::string(key) + "." +
                            std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
@@ -136,4 +137,4 @@ ContentStore::Ledger ContentStore::Counters() const {
   return out;
 }
 
-}
+} // namespace outshine::Data

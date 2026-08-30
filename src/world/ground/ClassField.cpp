@@ -20,7 +20,7 @@ double Clock() {
   return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
 }
 
-}
+} // namespace
 
 void ClassField::Open(double lat, double lon) {
   Frame_ = TangentFrame::At(lat, lon);
@@ -39,8 +39,7 @@ size_t ClassField::HeapBytes() const {
 }
 
 void ClassField::Ingest(Tier &t) {
-
-  if (t.ArraysLent) return;
+  if (t.ArraysLent) { return; }
   const std::span<const double> pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
   if (havePts > t.PtsDone) {
@@ -57,13 +56,14 @@ void ClassField::Ingest(Tier &t) {
   const std::span<const OsmField::Ring> rings = t.Field->Rings();
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
-    for (size_t i = t.RingsDone; i < rings.size(); i++)
+    for (size_t i = t.RingsDone; i < rings.size(); i++) {
       t.Rings[i] = ClassBuilder::Ring{rings[i].First, rings[i].Count};
+    }
     t.RingsDone = rings.size();
   }
 
   const std::span<const OsmField::Feature> feats = t.Field->Features();
-  if (feats.size() <= t.FeatsDone) return;
+  if (feats.size() <= t.FeatsDone) { return; }
 
   for (size_t i = t.FeatsDone; i < feats.size(); i++) {
     const OsmField::Feature &f = feats[i];
@@ -73,21 +73,25 @@ void ClassField::Ingest(Tier &t) {
     if (!rule) {
       std::string key(layer);
       key.append("/").append(kind);
-      if (Unknown_.insert(key).second)
-        Log::Error("world", "class_unknown_kind",
+      if (Unknown_.insert(key).second) {
+        Log::Error("world",
+                   "class_unknown_kind",
                    {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
+      }
       UnknownFeats_++;
       continue;
     }
 
-    if (t.Field->Num(f, "tunnel", 0.0) > 0.5) continue;
-    if (f.Type != 2 && f.Type != 3) continue;
+    if (t.Field->Num(f, "tunnel", 0.0) > 0.5) { continue; }
+    if (f.Type != 2 && f.Type != 3) { continue; }
     if (f.Type == 2 && rule->WidthM <= 0.0f) {
       std::string key(layer);
       key.append("/").append(kind).append("#width");
-      if (Unknown_.insert(key).second)
-        Log::Error("world", "class_line_without_width",
+      if (Unknown_.insert(key).second) {
+        Log::Error("world",
+                   "class_line_without_width",
                    {{"layer", std::string(layer)}, {"kind", std::string(kind)}});
+      }
       UnknownFeats_++;
       continue;
     }
@@ -106,17 +110,23 @@ void ClassField::Ingest(Tier &t) {
       for (uint32_t k = 0; k < ring.Count; k++) {
         const float e = t.Pts[((size_t)ring.First + k) * 2];
         const float n = t.Pts[((size_t)ring.First + k) * 2 + 1];
-        rec.MinE = std::min(rec.MinE, e); rec.MaxE = std::max(rec.MaxE, e);
-        rec.MinN = std::min(rec.MinN, n); rec.MaxN = std::max(rec.MaxN, n);
+        rec.MinE = std::min(rec.MinE, e);
+        rec.MaxE = std::max(rec.MaxE, e);
+        rec.MinN = std::min(rec.MinN, n);
+        rec.MaxN = std::max(rec.MaxN, n);
       }
     }
-    if (rec.MaxE < rec.MinE) continue;
+    if (rec.MaxE < rec.MinE) { continue; }
     const float pad = rec.WidthM * 0.5f;
-    rec.MinE -= pad; rec.MinN -= pad; rec.MaxE += pad; rec.MaxN += pad;
+    rec.MinE -= pad;
+    rec.MinN -= pad;
+    rec.MaxE += pad;
+    rec.MaxN += pad;
     t.Feats.push_back(rec);
   }
   t.FeatsDone = feats.size();
-  std::stable_sort(t.Feats.begin(), t.Feats.end(),
+  std::stable_sort(t.Feats.begin(),
+                   t.Feats.end(),
                    [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
                      return a.Rank < b.Rank;
                    });
@@ -145,8 +155,9 @@ void ClassField::SubmitDue(double camE, double camN) {
   for (ClassGrain grain : order) {
     Tier &t = TierOf(grain);
     const double cx = t.OrgE + t.HalfCells * t.CellM, cy = t.OrgN + t.HalfCells * t.CellM;
-    const bool drifted = t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
-    if (t.Have && !t.Stale && !drifted) continue;
+    const bool drifted =
+        t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
+    if (t.Have && !t.Stale && !drifted) { continue; }
     Builder_.Submit(LendTo(t, grain, camE, camN));
     Submitted_ = grain;
     Submits_[grain == ClassGrain::Fine ? 0 : 1]++;
@@ -159,7 +170,7 @@ void ClassField::SubmitDue(double camE, double camN) {
 }
 
 void ClassField::Update(TilePool &tiles, double camLat, double camLon, double budgetMs) {
-  if (!Opened_ || !Veg_ || !Veg_->Ready()) return;
+  if (!Opened_ || !Veg_ || !Veg_->Ready()) { return; }
 
   if (!Fine_.Field) {
     Fine_.Field = std::make_unique<OsmField>(Fine_.Zoom, Veg_->Layers());
@@ -189,23 +200,27 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
     t.Have = true;
     Submitted_.reset();
     const double buildMs = done->Structure->Measured().BuildMs;
-    if (buildMs > BuildMsMax_) BuildMsMax_ = buildMs;
-    Log::Debug("world", "class_built", {{"version", (double)done->Structure->Version()},
-        {"buildMs", buildMs}, {"packMs", done->Structure->Measured().PackMs},
-        {"bufferKB", done->Structure->Bytes() / 1024.0},
-        {"lentKB", (double)(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
-                            CapacityBytes(t.Feats)) / 1024.0}});
+    if (buildMs > BuildMsMax_) { BuildMsMax_ = buildMs; }
+    Log::Debug("world",
+               "class_built",
+               {{"version", (double)done->Structure->Version()},
+                {"buildMs", buildMs},
+                {"packMs", done->Structure->Measured().PackMs},
+                {"bufferKB", done->Structure->Bytes() / 1024.0},
+                {"lentKB",
+                 (double)(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) + CapacityBytes(t.Feats)) /
+                     1024.0}});
     std::lock_guard<std::mutex> lk(Mu_);
     Published_ = std::move(done->Structure);
   }
 
-  if (!Submitted_) SubmitDue(camE, camN);
+  if (!Submitted_) { SubmitDue(camE, camN); }
 }
 
 bool ClassField::Complete() const {
-  return Opened_ && Fine_.Field && Coarse_.Field &&
-         Fine_.Field->PendingTiles() == 0 && Coarse_.Field->PendingTiles() == 0 &&
-         Fine_.Have && Coarse_.Have && !Fine_.Stale && !Coarse_.Stale && !Submitted_;
+  return Opened_ && Fine_.Field && Coarse_.Field && Fine_.Field->PendingTiles() == 0 &&
+         Coarse_.Field->PendingTiles() == 0 && Fine_.Have && Coarse_.Have && !Fine_.Stale &&
+         !Coarse_.Stale && !Submitted_;
 }
 
-}
+} // namespace outshine::Ground

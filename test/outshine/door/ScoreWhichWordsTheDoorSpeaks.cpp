@@ -26,7 +26,8 @@
 //   ONE DOOR   `Engine::render` is NOT reachable from a client and `Engine::renderer` is. Both
 //              halves are asserted: a detector that always answered "unreachable" would prove the
 //              first for free, and the second is what stops it.
-//   TOLD APART a part index cannot be passed where a `outshine::MaterialInstance` belongs. Both were `int`
+//   TOLD APART a part index cannot be passed where a `outshine::MaterialInstance` belongs. Both
+//   were `int`
 //              until this round and the compiler could not see the difference; the control is that
 //              the deliberate spelling still compiles.
 //
@@ -56,7 +57,7 @@ template <typename G>
 concept TakesAMaterialInstance =
     requires(G &g, outshine::MaterialInstance bound) { g.addPart("part", bound); };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -102,7 +103,8 @@ int main(void) {
   CHECK(!TakesABareIntAsMaterial<Geometry>,
         "**A PART INDEX IS NOT A MATERIAL**: while both were `int` the compiler could not tell a "
         "part handle from a surface handle, and passing one for the other is a defect that draws "
-        "-- wrongly -- rather than one that fails. `outshine::MaterialInstance` is what makes it a build "
+        "-- wrongly -- rather than one that fails. `outshine::MaterialInstance` is what makes it a "
+        "build "
         "error, which is stricter than any case can be");
 
   // TRANSFORMMANAGER. It had no caller in the whole tree, so this is the first time the capability
@@ -118,8 +120,11 @@ int main(void) {
   const bool same = read != nullptr && read[12] == 12.5 && read[13] == -3.25 && read[14] == 7.0;
   const bool refused = !transforms.setTransform(-1, shifted);
   const bool alsoRefused = !transforms.setTransform(made.parts(), shifted);
-  std::printf("  transform set %s, read back %s, part -1 %s, part %d %s\n", set ? "yes" : "NO",
-              same ? "yes" : "NO", refused ? "refused" : "TOOK", made.parts(),
+  std::printf("  transform set %s, read back %s, part -1 %s, part %d %s\n",
+              set ? "yes" : "NO",
+              same ? "yes" : "NO",
+              refused ? "refused" : "TOOK",
+              made.parts(),
               alsoRefused ? "refused" : "TOOK");
   CHECK(set && same,
         "**A TRANSFORM SET THROUGH THE MANAGER IS THE TRANSFORM READ BACK**: the capability has "
@@ -151,13 +156,15 @@ int main(void) {
   for (const Result &one : refusals) {
     if (one.has_value() || one.error().empty()) { ++silent; }
   }
-  std::printf("  five refusals driven, %zu of them silent; first reason: %.60s\n", silent,
+  std::printf("  five refusals driven, %zu of them silent; first reason: %.60s\n",
+              silent,
               tooEarly.has_value() ? "(ACCEPTED)" : tooEarly.error().c_str());
-  CHECK(silent == 0,
-        "**A REFUSAL CARRIES ITS REASON ON THE RETURN VALUE**: `Engine::error()` beside a `bool` is "
-        "last-write-wins, so a client that makes two calls before looking gets one reason for two "
-        "failures and no way to tell which. A door that cannot say WHY is the defect this session "
-        "fixed four times by hand");
+  CHECK(
+      silent == 0,
+      "**A REFUSAL CARRIES ITS REASON ON THE RETURN VALUE**: `Engine::error()` beside a `bool` is "
+      "last-write-wins, so a client that makes two calls before looking gets one reason for two "
+      "failures and no way to tell which. A door that cannot say WHY is the defect this session "
+      "fixed four times by hand");
 
   const Result accepted = door.declare(Scenario{});
   std::printf("  an accepted call: %s\n", accepted ? "no error carried" : accepted.error().c_str());

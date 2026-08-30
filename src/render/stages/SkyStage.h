@@ -17,18 +17,26 @@ public:
   [[nodiscard]] static std::string ShaderSource();
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *skyView,
-                               SDL_GPUTexture *transmittance, SDL_GPUSampler *lut,
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUTexture *skyView,
+                               SDL_GPUTexture *transmittance,
+                               SDL_GPUSampler *lut,
                                std::string &error);
 
-  void Declare(const Medium &medium, const float sunDir[3], const float up[3],
-               float illuminanceLux, float eyeHeightM);
+  void Declare(const Medium &medium,
+               const float sunDir[3],
+               const float up[3],
+               float illuminanceLux,
+               float eyeHeightM);
 
   void Eye(const Medium &medium, float eyeHeightM);
 
   [[nodiscard]] bool Stands() const { return Declared_; }
 
-  void SetBasis(const float right[3], const float upAxis[3], const float fwd[3], float tanHalfW,
+  void SetBasis(const float right[3],
+                const float upAxis[3],
+                const float fwd[3],
+                float tanHalfW,
                 float tanHalfH);
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
@@ -58,5 +66,5 @@ private:
   bool Declared_ = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

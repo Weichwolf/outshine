@@ -41,15 +41,15 @@ public:
     const int part = into.addPart("slab", surface);
     if (part < 0) { return false; }
     const float half = (float)(ask.ExtentM > 0.0 ? 0.5 * ask.ExtentM : 0.5);
-    const float places[12] = {-half, 0.0f, -half, half, 0.0f, -half,
-                              half,  0.0f, half,  -half, 0.0f, half};
+    const float places[12] = {
+        -half, 0.0f, -half, half, 0.0f, -half, half, 0.0f, half, -half, 0.0f, half};
     const uint32_t triangles[6] = {0, 1, 2, 0, 2, 3};
     return into.setPositions(part, std::span<const float>(places, 12)) &&
            into.setTriangles(part, std::span<const uint32_t>(triangles, 6));
   }
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -64,7 +64,9 @@ int main(void) {
   const bool refusedTwice = !offering.offers(shipped);
 
   std::printf("THE DOOR'S REGISTRY HOLDS  %zu maker(s): shipped %s, mine %s, a repeat %s\n",
-              offering.count(), tookShipped ? "in" : "REFUSED", tookMine ? "in" : "REFUSED",
+              offering.count(),
+              tookShipped ? "in" : "REFUSED",
+              tookMine ? "in" : "REFUSED",
               refusedTwice ? "refused" : "TAKEN AGAIN");
 
   CHECK(tookShipped && tookMine && refusedTwice && offering.count() == 2,
@@ -78,7 +80,8 @@ int main(void) {
     if (offering.named(outshine::kShipped[at]) != nullptr) { ++shippedFound; }
   }
   std::printf("AND THE SHIPPED CATALOGUE NAMES %zu kind(s), all %zu of them registered\n",
-              (size_t)outshine::Ships::kCount, shippedFound);
+              (size_t)outshine::Ships::kCount,
+              shippedFound);
 
   // THE SHIPPED CATALOGUE IS CLOSED AGAINST A TYPO, and the compiler is what closes it.
   // `Ships` enumerates what outshine ships and `kShipped` spells each one; a `static_assert` pairs
@@ -96,7 +99,8 @@ int main(void) {
   const outshine::Generates *const found = offering.named("slab");
   const outshine::Generates *const missing = offering.named("nothing-offers-this");
   std::printf("IT RESOLVES 'slab' %s and an unknown kind %s\n",
-              found ? "to a maker" : "to NOTHING", missing ? "TO A MAKER" : "to nothing");
+              found ? "to a maker" : "to NOTHING",
+              missing ? "TO A MAKER" : "to nothing");
 
   CHECK(found != nullptr && missing == nullptr,
         "and it resolves BY KIND, so a declaration naming a generator is answered by the door "
@@ -106,7 +110,8 @@ int main(void) {
   ask.ExtentM = 4.0;
   outshine::Geometry made;
   const bool stood = found->make(ask, made);
-  std::printf("AND THE MAKER FILLS THE DOOR'S VALUE: %s, %d part(s)\n", stood ? "yes" : "no",
+  std::printf("AND THE MAKER FILLS THE DOOR'S VALUE: %s, %d part(s)\n",
+              stood ? "yes" : "no",
               stood ? made.parts() : -1);
 
   CHECK(stood && made.parts() == 1,
@@ -116,11 +121,14 @@ int main(void) {
         "anywhere");
 
   outshine::Geometry both;
-  const outshine::Generates *const theirs = offering.named(outshine::nameOf(outshine::Ships::Structures));
+  const outshine::Generates *const theirs =
+      offering.named(outshine::nameOf(outshine::Ships::Structures));
   const bool mineFilled = found->make(ask, both);
   const bool theirsFilled = theirs != nullptr && theirs->make(ask, both);
   std::printf("AND ONE VALUE CARRIES BOTH: mine %s, shipped %s, %d part(s)\n",
-              mineFilled ? "in" : "REFUSED", theirsFilled ? "in" : "REFUSED", both.parts());
+              mineFilled ? "in" : "REFUSED",
+              theirsFilled ? "in" : "REFUSED",
+              both.parts());
 
   // ONE REPRESENTATION CARRIES BOTH CONTRIBUTIONS. This is what makes the tier a LIBRARY rather
   // than a set of unrelated makers: a client's generator and a shipped one fill the same value,
@@ -135,7 +143,8 @@ int main(void) {
   std::vector<uint8_t> glb;
   std::string why;
   const bool wrote = outshine::writeGlb(made, glb, why);
-  std::printf("AND IT SERIALISES TO %zu GLB byte(s)%s\n", glb.size(),
+  std::printf("AND IT SERIALISES TO %zu GLB byte(s)%s\n",
+              glb.size(),
               wrote ? "" : (" -- refused: " + why).c_str());
 
   // A SERIALISER SHIPS BESIDE THE LIBRARY, and it was already written. `Gltf::Emit` is a complete
@@ -148,7 +157,8 @@ int main(void) {
   const bool accepted =
       wrote && read.Read(outshine::Span<const uint8_t>(glb.data(), glb.size()), "generated.glb");
   std::printf("AND THE TREE'S OWN READER %s it: %d mesh(es)\n",
-              accepted ? "ACCEPTS" : "refuses", accepted ? (int)read.Meshes().size() : -1);
+              accepted ? "ACCEPTS" : "refuses",
+              accepted ? (int)read.Meshes().size() : -1);
 
   CHECK(wrote && accepted && !read.Meshes().empty(),
         "**A CALLER WHO WANTS A FILE GETS ONE, AND IT IS A DOCUMENT THIS TREE READS**: Unreal's "

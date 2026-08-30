@@ -31,7 +31,7 @@ struct Where {
   double LatDeg, LonDeg;
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -55,11 +55,18 @@ int main(void) {
       const Geo back = TileFracToGeo(zoom, x, y, at.X - (double)x, at.Y - (double)y);
       const double offLat = std::fabs(back.LatDeg - one.LatDeg);
       const double offLon = std::fabs(back.LonDeg - one.LonDeg);
-      if (offLat > worstLat) { worstLat = offLat; worstAt = one.What; }
+      if (offLat > worstLat) {
+        worstLat = offLat;
+        worstAt = one.What;
+      }
       if (offLon > worstLon) { worstLon = offLon; }
       if (zoom == 14) {
-        std::printf("%-38s asked %+9.4f,%+10.4f  came back %+9.4f,%+10.4f\n", one.What,
-                    one.LatDeg, one.LonDeg, back.LatDeg, back.LonDeg);
+        std::printf("%-38s asked %+9.4f,%+10.4f  came back %+9.4f,%+10.4f\n",
+                    one.What,
+                    one.LatDeg,
+                    one.LonDeg,
+                    back.LatDeg,
+                    back.LonDeg);
       }
     }
   }

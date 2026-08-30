@@ -20,8 +20,8 @@ bool Slurp(const char *path, std::string &into) {
 }
 
 // the fields of one struct block: the identifier before '=', '[' or ';' on each member line
-std::vector<std::string> FieldsOf(const std::string &header, const std::string &name,
-                                  std::string &error) {
+std::vector<std::string>
+FieldsOf(const std::string &header, const std::string &name, std::string &error) {
   std::vector<std::string> fields;
   const size_t open = header.find("struct " + name + " {");
   if (open == std::string::npos) {
@@ -55,8 +55,7 @@ std::vector<std::string> FieldsOf(const std::string &header, const std::string &
 
 bool Written(const std::string &source, const std::string &product, const std::string &field) {
   const std::string touch = product + "." + field;
-  for (size_t at = source.find(touch); at != std::string::npos;
-       at = source.find(touch, at + 1)) {
+  for (size_t at = source.find(touch); at != std::string::npos; at = source.find(touch, at + 1)) {
     if (at >= 2 && source.compare(at - 2, 2, "++") == 0) { return true; }
     size_t after = at + touch.size();
     if (after < source.size() &&
@@ -64,13 +63,14 @@ bool Written(const std::string &source, const std::string &product, const std::s
       continue;
     }
     while (after < source.size() && (source[after] == ' ' || source[after] == '[')) {
-      if (source[after] == '[') { after = source.find(']', after) + 1; continue; }
+      if (source[after] == '[') {
+        after = source.find(']', after) + 1;
+        continue;
+      }
       ++after;
     }
     if (after + 1 < source.size() && source.compare(after, 2, "++") == 0) { return true; }
-    if (after < source.size() && source[after] == '=' && source[after + 1] != '=') {
-      return true;
-    }
+    if (after < source.size() && source[after] == '=' && source[after + 1] != '=') { return true; }
     if (after + 1 < source.size() && source[after + 1] == '=' &&
         (source[after] == '+' || source[after] == '-' || source[after] == '|')) {
       return true;
@@ -94,6 +94,7 @@ int main(void) {
     const char *Name;
     const char *Held; // the variable the source writes it through
   };
+
   const Product products[] = {
       {"src/sim/DriveTick.h", "src/sim/DriveTick.cpp", "Ridden", "out"},
   };
@@ -106,8 +107,7 @@ int main(void) {
     CHECK(!fields.empty(), ("the struct parses: " + error).c_str());
     for (const std::string &field : fields) {
       CHECK(Written(source, product.Held, field),
-            (std::string(product.Name) + "::" + field +
-             " has a writer in " + product.Source +
+            (std::string(product.Name) + "::" + field + " has a writer in " + product.Source +
              " -- **A PRODUCT FIELD NOBODY WRITES IS A SILENT ZERO WEARING A MEANING** "
              "(board:1613, 1703)")
                 .c_str());

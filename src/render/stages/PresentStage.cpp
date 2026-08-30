@@ -4,11 +4,11 @@
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
-namespace {
+namespace {}
 
-}
-
-bool PresentStage::Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampler *exact,
+bool PresentStage::Configure(const Gpu &gpu,
+                             SDL_GPUTexture *frame,
+                             SDL_GPUSampler *exact,
                              std::string &error) {
   Frame = frame;
   Exact = exact;
@@ -26,10 +26,10 @@ bool PresentStage::For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
-  const OwnedShader vertex(gpu.Device, ShaderFrom(gpu.Device, source, "vs",
-                                                 SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(gpu.Device, ShaderFrom(gpu.Device, source, "fs",
-                                                   SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
+  const OwnedShader vertex(
+      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
+  const OwnedShader fragment(
+      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
   if (!vertex || !fragment) {
     error = std::string("the present did not compile: ") + SDL_GetError();
     return false;
@@ -76,4 +76,4 @@ std::string PresentStage::ShaderSource(std::string &error) {
   return MslPrelude(error) + body;
 }
 
-}
+} // namespace outshine::Render

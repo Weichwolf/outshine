@@ -10,8 +10,7 @@ namespace {
 
 [[nodiscard]] std::string Slurp(const std::string &path) {
   std::ifstream reading(path, std::ios::binary);
-  return std::string((std::istreambuf_iterator<char>(reading)),
-                     std::istreambuf_iterator<char>());
+  return std::string((std::istreambuf_iterator<char>(reading)), std::istreambuf_iterator<char>());
 }
 
 // every -Wsomething and -std=something in a chunk of text, in the order it stands.

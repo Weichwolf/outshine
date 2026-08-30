@@ -7,7 +7,9 @@ namespace outshine::Core {
 
 namespace {
 
-void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY,
+void AsOverlay(const std::vector<Ui::Quad> &from,
+               double offsetX,
+               double offsetY,
                std::vector<Render::OverlayQuad> &out) {
   out.reserve(out.size() + from.size());
   for (const Ui::Quad &quad : from) {
@@ -34,10 +36,13 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
   }
 }
 
-}
+} // namespace
 
-bool Overlay::Compose(Render::SceneRenderer &renderer, std::span<const Shows> surfaces,
-                      double surfaceWidthPx, double surfaceHeightPx, std::string &error) {
+bool Overlay::Compose(Render::SceneRenderer &renderer,
+                      std::span<const Shows> surfaces,
+                      double surfaceWidthPx,
+                      double surfaceHeightPx,
+                      std::string &error) {
   Laid_.clear();
   Quads_.clear();
   Laid_.resize(surfaces.size());
@@ -49,7 +54,8 @@ bool Overlay::Compose(Render::SceneRenderer &renderer, std::span<const Shows> su
     const double heightPx = declared.HeightFrac * surfaceHeightPx;
     if (widthPx <= 0.0 || heightPx <= 0.0) { continue; }
     if (Font_ == nullptr) {
-      error = "surface " + std::to_string(at) + " is declared and no face was handed over to set it in";
+      error =
+          "surface " + std::to_string(at) + " is declared and no face was handed over to set it in";
       return false;
     }
     laid.LeftPx = declared.LeftFrac * surfaceWidthPx;
@@ -58,8 +64,13 @@ bool Overlay::Compose(Render::SceneRenderer &renderer, std::span<const Shows> su
     laid.Sheet.Read(Ui::UserAgentSheet());
     if (!declared.Style.empty()) { laid.Sheet.Read(declared.Style); }
     laid.Sheet.Read(laid.Tree.StyleText());
-    if (!laid.Placed.Build(laid.Tree, laid.Sheet, widthPx, heightPx, *Font_,
-                           std::span<const Ui::Layout::Scrolled>(Scrolled_[at]), error)) {
+    if (!laid.Placed.Build(laid.Tree,
+                           laid.Sheet,
+                           widthPx,
+                           heightPx,
+                           *Font_,
+                           std::span<const Ui::Layout::Scrolled>(Scrolled_[at]),
+                           error)) {
       return false;
     }
     if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
@@ -67,8 +78,8 @@ bool Overlay::Compose(Render::SceneRenderer &renderer, std::span<const Shows> su
   }
   if (Font_ != nullptr && Font_->Cut() != Cut_) {
     Cut_ = Font_->Cut();
-    if (!renderer.SetOverlayAtlas(Font_->Sheet(), Font_->SheetWidthPx(), Font_->SheetHeightPx(),
-                                    error)) {
+    if (!renderer.SetOverlayAtlas(
+            Font_->Sheet(), Font_->SheetWidthPx(), Font_->SheetHeightPx(), error)) {
       return false;
     }
   }
@@ -111,4 +122,4 @@ Ui::Touched Overlay::Under(double xPx, double yPx, size_t &surface) const {
   return Ui::Touched{};
 }
 
-}
+} // namespace outshine::Core

@@ -5,10 +5,15 @@
 
 namespace outshine::Render {
 
-bool AerialPerspectiveStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
-                                       SDL_GPUTexture *skyView, SDL_GPUTexture *transmittance,
-                                       SDL_GPUSampler *exact, SDL_GPUSampler *lut,
-                                       SDL_GPUTextureFormat targetFormat, std::string &error) {
+bool AerialPerspectiveStage::Configure(const Gpu &gpu,
+                                       SDL_GPUTexture *scene,
+                                       SDL_GPUTexture *depth,
+                                       SDL_GPUTexture *skyView,
+                                       SDL_GPUTexture *transmittance,
+                                       SDL_GPUSampler *exact,
+                                       SDL_GPUSampler *lut,
+                                       SDL_GPUTextureFormat targetFormat,
+                                       std::string &error) {
   Scene = scene;
   Depth = depth;
   SkyView = skyView;
@@ -47,8 +52,11 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SD
   return true;
 }
 
-void AerialPerspectiveStage::Declare(const Medium &medium, const float sunDir[3], const float up[3],
-                                     float illuminanceLux, float eyeHeightM) {
+void AerialPerspectiveStage::Declare(const Medium &medium,
+                                     const float sunDir[3],
+                                     const float up[3],
+                                     float illuminanceLux,
+                                     float eyeHeightM) {
   for (int axis = 0; axis < 3; ++axis) {
     Pushed_.SunDir[axis] = sunDir[axis];
     Pushed_.WorldUp[axis] = up[axis];
@@ -66,8 +74,11 @@ void AerialPerspectiveStage::Eye(const Medium &medium, float eyeHeightM) {
                         (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
 }
 
-void AerialPerspectiveStage::SetBasis(const float right[3], const float upAxis[3],
-                                      const float fwd[3], float tanHalfW, float tanHalfH) {
+void AerialPerspectiveStage::SetBasis(const float right[3],
+                                      const float upAxis[3],
+                                      const float fwd[3],
+                                      float tanHalfW,
+                                      float tanHalfH) {
   for (int axis = 0; axis < 3; ++axis) {
     Pushed_.Right[axis] = right[axis];
     Pushed_.Up[axis] = upAxis[axis];
@@ -108,4 +119,4 @@ std::string AerialPerspectiveStage::ShaderSource(std::string &error) {
          layout + core + medium + body;
 }
 
-}
+} // namespace outshine::Render

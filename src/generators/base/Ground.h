@@ -15,7 +15,6 @@ namespace outshine::Generators {
 
 class Ground {
 public:
-
   struct Snapshot {
     std::shared_ptr<const GroundPatch> Patch;
     std::shared_ptr<const ClassStructure> Classes;
@@ -26,23 +25,29 @@ public:
   static std::optional<Ground> Of(const Tile &region, const Snapshot &snapshot);
 
   [[nodiscard]] const Tile &Where() const noexcept { return Region_; }
+
   [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept {
     return Patch_->HeightAslM(eastM, northM);
   }
+
   [[nodiscard]] double SlopeDeg(double eastM, double northM) const noexcept {
     return Patch_->SlopeDeg(eastM, northM);
   }
+
   void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept {
     Patch_->GradientAt(eastM, northM, dhde, dhdn);
   }
 
   [[nodiscard]] Cover CoverAt(double eastM, double northM) const noexcept;
+
   [[nodiscard]] const FeatureField &Features() const noexcept { return *Features_; }
+
   [[nodiscard]] const GroundTable &Table() const noexcept { return *Table_; }
 
   [[nodiscard]] const double *AnchorEcef() const noexcept { return AnchorEcef_; }
 
   [[nodiscard]] size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
+
   [[nodiscard]] size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
 private:
@@ -56,5 +61,5 @@ private:
   double AnchorEcef_[3];
 };
 
-}
+} // namespace outshine::Generators
 #endif

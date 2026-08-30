@@ -18,11 +18,13 @@ struct Mask {
   bool At(int x, int y) const {
     return x >= 0 && y >= 0 && x < Width && y < Height && In[(size_t)y * (size_t)Width + (size_t)x];
   }
+
   size_t Count() const {
     size_t n = 0;
     for (uint8_t pixel : In) { n += pixel ? 1u : 0u; }
     return n;
   }
+
   double Fraction() const {
     const double area = (double)Width * (double)Height;
     return area > 0 ? (double)Count() / area : 0.0;
@@ -102,5 +104,5 @@ inline double Iou(const Mask &a, const Mask &b) {
   return uni > 0 ? (double)intersection / (double)uni : 0.0;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

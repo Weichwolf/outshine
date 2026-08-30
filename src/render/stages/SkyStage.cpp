@@ -8,12 +8,13 @@
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
-namespace {
+namespace {}
 
-}
-
-bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUTexture *transmittance,
-                         SDL_GPUSampler *lut, std::string &error) {
+bool SkyStage::Configure(const Gpu &gpu,
+                         SDL_GPUTexture *skyView,
+                         SDL_GPUTexture *transmittance,
+                         SDL_GPUSampler *lut,
+                         std::string &error) {
   SkyView = skyView;
   Veil = transmittance;
   Lut = lut;
@@ -25,10 +26,10 @@ bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUTexture
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
-  const OwnedShader vertex(gpu.Device, ShaderFrom(gpu.Device, source, "vs",
-                                                 SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(gpu.Device, ShaderFrom(gpu.Device, source, "fs",
-                                                   SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
+  const OwnedShader vertex(
+      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
+  const OwnedShader fragment(
+      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
   if (!vertex || !fragment) {
     error = std::string("the sky did not compile: ") + SDL_GetError();
     return false;
@@ -59,15 +60,18 @@ bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUTexture
   return true;
 }
 
-void SkyStage::Declare(const Medium &medium, const float sunDir[3], const float up[3],
-                       float illuminanceLux, float eyeHeightM) {
+void SkyStage::Declare(const Medium &medium,
+                       const float sunDir[3],
+                       const float up[3],
+                       float illuminanceLux,
+                       float eyeHeightM) {
   for (int axis = 0; axis < 3; ++axis) {
     Pushed_.SunDir[axis] = sunDir[axis];
     Pushed_.WorldUp[axis] = up[axis];
   }
   Pushed_.Illuminance = illuminanceLux;
-  Pushed_.EyeRadiusKm =
-      medium.BottomRadiusKm + kMediumGroundLiftKm + (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+  Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
   Pushed_.BottomRadiusKm = medium.BottomRadiusKm;
   Pushed_.SunHalfAngleRad = kSunHalfAngleRad;
   Pushed_.Air = medium;
@@ -77,12 +81,15 @@ void SkyStage::Declare(const Medium &medium, const float sunDir[3], const float 
 
 void SkyStage::Eye(const Medium &medium, float eyeHeightM) {
   if (!Declared_) { return; }
-  Pushed_.EyeRadiusKm =
-      medium.BottomRadiusKm + kMediumGroundLiftKm + (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+  Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
 }
 
-void SkyStage::SetBasis(const float right[3], const float upAxis[3], const float fwd[3],
-                        float tanHalfW, float tanHalfH) {
+void SkyStage::SetBasis(const float right[3],
+                        const float upAxis[3],
+                        const float fwd[3],
+                        float tanHalfW,
+                        float tanHalfH) {
   for (int axis = 0; axis < 3; ++axis) {
     Pushed_.Right[axis] = right[axis];
     Pushed_.Up[axis] = upAxis[axis];
@@ -120,4 +127,4 @@ std::string SkyStage::ShaderSource(std::string &error) {
          "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" + layout + core + body;
 }
 
-}
+} // namespace outshine::Render

@@ -65,6 +65,6 @@ private:
   std::unique_ptr<Held> Held_;
 };
 
-}
+} // namespace outshine
 
 #endif

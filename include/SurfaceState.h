@@ -15,9 +15,13 @@ constexpr SurfaceState StateOf(const Material &material);
 class SurfaceState {
 public:
   [[nodiscard]] constexpr SurfaceKind Kind() const { return Kind_; }
+
   [[nodiscard]] constexpr bool WritesDepth() const { return WritesDepth_; }
+
   [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
+
   [[nodiscard]] constexpr bool Blends() const { return Blends_; }
+
   [[nodiscard]] constexpr bool Emits() const { return Emits_; }
 
   constexpr float CoverageCut() const { return CoverageCut_; }
@@ -38,8 +42,8 @@ constexpr SurfaceState StateOf(const Material &material) {
   SurfaceState s;
   s.CoverageCut_ = material.CoverageCut;
   s.CullsBack_ = !material.DoubleSided;
-  s.Emits_ = material.Emission[0] > 0.0f || material.Emission[1] > 0.0f ||
-             material.Emission[2] > 0.0f;
+  s.Emits_ =
+      material.Emission[0] > 0.0f || material.Emission[1] > 0.0f || material.Emission[2] > 0.0f;
 
   if (material.Transmission > 0.0f && material.Thickness > 0.0f) {
     s.Kind_ = SurfaceKind::Refractive;
@@ -48,7 +52,6 @@ constexpr SurfaceState StateOf(const Material &material) {
     return s;
   }
   if (material.Transmission > 0.0f) {
-
     s.Kind_ = SurfaceKind::ThinTransmissive;
     s.CullsBack_ = false;
     return s;
@@ -70,5 +73,5 @@ constexpr SurfaceState StateOf(const Material &material) {
   return state.CullsBack() && winding == Winding::Trusted;
 }
 
-}
+} // namespace outshine
 #endif

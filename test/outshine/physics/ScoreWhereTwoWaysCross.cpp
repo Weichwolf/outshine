@@ -41,17 +41,19 @@ constexpr double kSnapM = 8.0;
   outshine::Path::Network net(kSnapM, kSphereM);
   const double eastWest[4] = {48.0, 11.000, 48.0, 11.010};
   const double northSouth[4] = {47.998, 11.005, 48.002, 11.005};
-  net.Lay(std::span<const double>(eastWest, 4), outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, false});
-  net.Lay(std::span<const double>(northSouth, 4), outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, spanning});
+  net.Lay(std::span<const double>(eastWest, 4),
+          outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, false});
+  net.Lay(std::span<const double>(northSouth, 4),
+          outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, spanning});
   joined = net.Cross();
   leftAlone = net.CrossingsLeftAlone();
   std::string why;
   if (!net.Weave(why)) { return outshine::Path::Route{}; }
-  return net.Plan(outshine::Path::Waypoint{47.998, 11.005},
-                  outshine::Path::Waypoint{48.0, 11.010}, 0.0);
+  return net.Plan(
+      outshine::Path::Waypoint{47.998, 11.005}, outshine::Path::Waypoint{48.0, 11.010}, 0.0);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -61,14 +63,19 @@ int main(void) {
   const outshine::Path::Route flat = Across(false, joinedFlat, aloneFlat);
   const outshine::Path::Route over = Across(true, joinedOver, aloneOver);
 
-  const double owedM =
-      outshine::Path::ApartM(47.998, 11.005, 48.0, 11.005, kSphereM) +
-      outshine::Path::ApartM(48.0, 11.005, 48.0, 11.010, kSphereM);
+  const double owedM = outshine::Path::ApartM(47.998, 11.005, 48.0, 11.005, kSphereM) +
+                       outshine::Path::ApartM(48.0, 11.005, 48.0, 11.010, kSphereM);
 
-  std::printf("  both at grade    joined %zu  left alone %zu   route %s %8.1f m\n", joinedFlat,
-              aloneFlat, flat.Found ? "found" : "REFUSED", flat.LengthM);
-  std::printf("  one of them spans joined %zu  left alone %zu   route %s %8.1f m\n", joinedOver,
-              aloneOver, over.Found ? "found" : "REFUSED", over.LengthM);
+  std::printf("  both at grade    joined %zu  left alone %zu   route %s %8.1f m\n",
+              joinedFlat,
+              aloneFlat,
+              flat.Found ? "found" : "REFUSED",
+              flat.LengthM);
+  std::printf("  one of them spans joined %zu  left alone %zu   route %s %8.1f m\n",
+              joinedOver,
+              aloneOver,
+              over.Found ? "found" : "REFUSED",
+              over.LengthM);
   std::printf("  the two legs owe                                     %8.1f m\n", owedM);
 
   CHECK(joinedFlat == 1 && aloneFlat == 0,

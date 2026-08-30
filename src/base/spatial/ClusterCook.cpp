@@ -25,9 +25,10 @@ namespace {
   return (Spread(held[0]) << 2) | (Spread(held[1]) << 1) | Spread(held[2]);
 }
 
-}
+} // namespace
 
-Cooked CookClusters(std::span<const float> positionsM, std::span<const uint32_t> indices,
+Cooked CookClusters(std::span<const float> positionsM,
+                    std::span<const uint32_t> indices,
                     uint32_t mostTriangles) {
   Cooked out;
   const size_t triangles = indices.size() / 3;
@@ -48,6 +49,7 @@ Cooked CookClusters(std::span<const float> positionsM, std::span<const uint32_t>
     uint32_t Code = 0;
     uint32_t Triangle = 0;
   };
+
   std::vector<Sorted> order;
   order.reserve(triangles);
   const size_t vertices = positionsM.size() / 3;
@@ -62,8 +64,8 @@ Cooked CookClusters(std::span<const float> positionsM, std::span<const uint32_t>
     }
     order.push_back(Sorted{Morton(centre, least, span), (uint32_t)triangle});
   }
-  std::sort(order.begin(), order.end(),
-            [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });
+  std::sort(
+      order.begin(), order.end(), [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });
 
   out.Index.reserve(indices.size());
   out.Clusters.reserve((triangles + mostTriangles - 1) / mostTriangles);
@@ -103,13 +105,14 @@ Cooked CookClusters(std::span<const float> positionsM, std::span<const uint32_t>
   return out;
 }
 
-}
+} // namespace outshine
 
 namespace outshine {
 namespace {
 
 struct Cell {
   int At[3] = {0, 0, 0};
+
   [[nodiscard]] bool operator==(const Cell &other) const {
     return At[0] == other.At[0] && At[1] == other.At[1] && At[2] == other.At[2];
   }
@@ -122,10 +125,12 @@ struct CellHash {
   }
 };
 
-}
+} // namespace
 
-Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices,
-               uint32_t mostTriangles, uint32_t mostLevels) {
+Cooked CookDag(std::span<const float> positionsM,
+               std::span<const uint32_t> indices,
+               uint32_t mostTriangles,
+               uint32_t mostLevels) {
   Cooked out = CookClusters(positionsM, indices, mostTriangles);
   out.PositionsM.assign(positionsM.begin(), positionsM.end());
   out.FirstOwnVertex = (uint32_t)(positionsM.size() / 3);
@@ -163,7 +168,8 @@ Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indi
     std::vector<uint32_t> distinct(coarseIndex.begin(), coarseIndex.end());
     std::sort(distinct.begin(), distinct.end());
     distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
-    const double spacingM = (double)widest / std::sqrt((double)(distinct.size() > 1 ? distinct.size() : 2));
+    const double spacingM =
+        (double)widest / std::sqrt((double)(distinct.size() > 1 ? distinct.size() : 2));
     const float cellM = (float)(spacingM * 2.0) * (float)(1u << (level - 1));
 
     std::unordered_map<Cell, uint32_t, CellHash> stood;
@@ -175,8 +181,8 @@ Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indi
       const uint32_t index = coarseIndex[at];
       Cell where;
       for (int axis = 0; axis < 3; ++axis) {
-        where.At[axis] =
-            (int)std::floor((out.PositionsM[(size_t)index * 3 + (size_t)axis] - least[axis]) / cellM);
+        where.At[axis] = (int)std::floor(
+            (out.PositionsM[(size_t)index * 3 + (size_t)axis] - least[axis]) / cellM);
       }
       auto found = stood.find(where);
       if (found == stood.end()) {
@@ -193,8 +199,8 @@ Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indi
     }
     for (size_t slot = 0; slot < counted.size(); ++slot) {
       for (int axis = 0; axis < 3; ++axis) {
-        out.PositionsM.push_back(
-            (float)(summed[slot * 3 + (size_t)axis] / (double)(counted[slot] > 0 ? counted[slot] : 1)));
+        out.PositionsM.push_back((float)(summed[slot * 3 + (size_t)axis] /
+                                         (double)(counted[slot] > 0 ? counted[slot] : 1)));
       }
     }
 
@@ -278,4 +284,4 @@ Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indi
   return out;
 }
 
-}
+} // namespace outshine

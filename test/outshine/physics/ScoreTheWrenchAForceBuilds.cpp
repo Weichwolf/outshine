@@ -47,7 +47,7 @@ constexpr double kDragArea = 0.66 * 2.19;
   return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -64,7 +64,10 @@ int main(void) {
     const double forceN[3] = {0.0, 0.0, kBrakingN};
     Push(built, body, at, forceN);
     std::printf("THROUGH THE CENTRE force %.1f N builds torque (%.15g, %.15g, %.15g) Nm\n",
-                kBrakingN, built.TorqueNm[0], built.TorqueNm[1], built.TorqueNm[2]);
+                kBrakingN,
+                built.TorqueNm[0],
+                built.TorqueNm[1],
+                built.TorqueNm[2]);
     CHECK(Length(built.TorqueNm) == 0.0,
           "a force applied through the centre of mass builds NO moment -- r is zero, so r x F "
           "is zero, and any leak here is a rotation nothing asked for");
@@ -82,7 +85,10 @@ int main(void) {
     const double wanted = kContactBelowM * kBrakingN;
     std::printf("AT THE PATCH force %.1f N at %.3f m below the centre builds pitch %.15g Nm, "
                 "arithmetic says %.15g Nm\n",
-                kBrakingN, -kContactBelowM, built.TorqueNm[0], wanted);
+                kBrakingN,
+                -kContactBelowM,
+                built.TorqueNm[0],
+                wanted);
     CHECK(std::fabs(built.TorqueNm[0] - wanted) < kAgreesWithinNm,
           "**A LONGITUDINAL FORCE AT THE PATCH BUILDS THE PITCH MOMENT ITS ARM DEMANDS**: this "
           "is what dive under the brakes and squat under power ARE, and an engine that applies "
@@ -112,8 +118,8 @@ int main(void) {
 
     const double was = Length(upright.TorqueNm);
     const double now = Length(turned.TorqueNm);
-    std::printf("ROLLED 0.400 rad the same arm and force build |M| %.15g Nm, upright %.15g Nm\n",
-                now, was);
+    std::printf(
+        "ROLLED 0.400 rad the same arm and force build |M| %.15g Nm, upright %.15g Nm\n", now, was);
     CHECK(std::fabs(now - was) < kAgreesWithinNm,
           "the magnitude of a moment is invariant under a rotation of the whole system -- an arm "
           "read in the wrong frame would not be");
@@ -144,7 +150,8 @@ int main(void) {
             "drag opposes the velocity, so a body moving one way is pushed the other");
     }
     Note("the worst disagreement with one half rho v-squared A", worstRatio, "of the force");
-    Note("the worst disagreement of a doubled speed with a quadrupled force", worstAlong,
+    Note("the worst disagreement of a doubled speed with a quadrupled force",
+         worstAlong,
          "of the ratio");
     CHECK(worstRatio < kAgreesWithinN,
           "drag is one half rho v-squared A, and the engine computes the drag equation rather "

@@ -38,37 +38,42 @@ public:
   int Build(const GroundQuery &ground, const OsmField &field, Span<const WayLine> ways);
 
   uint32_t AddedFirst() const { return AddedFirst_; }
+
   uint32_t AddedCount() const { return AddedCount_; }
 
   const std::vector<float> &Verts() const { return Verts_; }
+
   const double *Anchor() const { return Anchor_; }
+
   const std::vector<Footprint> &Footprints() const { return Prints_; }
 
   Span<const Footprint> OfTile(int tile) const {
-    if (tile < 0) return Span<const Footprint>();
+    if (tile < 0) { return Span<const Footprint>(); }
     const TileRanges::Range r = ByTile_.At((uint32_t)tile);
     return Span<const Footprint>(Prints_.data() + r.First, r.Count);
   }
+
   int OsmHeights() const { return OsmHeights_; }
+
   int DefaultHeights() const { return DefaultHeights_; }
+
   int Deferrals() const { return Mark_.Deferrals(); }
+
   size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes() +
-           ByTile_.HeapBytes();
+    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
-  [[nodiscard]] bool Ingested(const OsmField &field) const {
-    return Mark_.Done(field.Features());
-  }
+  [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
 
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
-
-  static GroundSample RingBase(const GroundQuery &ground, const OsmField &field,
+  static GroundSample RingBase(const GroundQuery &ground,
+                               const OsmField &field,
                                const OsmField::Ring &ring,
                                std::vector<double> *corners);
-  [[nodiscard]] bool TileGroundResolved(const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
+  [[nodiscard]] bool TileGroundResolved(
+      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;
@@ -85,5 +90,5 @@ private:
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

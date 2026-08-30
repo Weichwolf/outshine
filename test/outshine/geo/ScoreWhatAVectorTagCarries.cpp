@@ -118,7 +118,7 @@ void Text(std::vector<uint8_t> &into, uint32_t field, const std::string &held) {
   return tile;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

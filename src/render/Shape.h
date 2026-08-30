@@ -14,13 +14,13 @@
 
 namespace outshine::Render {
 
-// WHAT THE RENDERER NEEDS OF A GEOMETRY, AND NOTHING ELSE. The render tier held the importer's own carrier --
-// the glTF importer's own carrier -- and reached into it fourteen times for streams, parts, counts
-// and bounds. An interchange format's carrier is not a render input: the tier that must not care
-// what it is drawing had a type that knows what FILE it came from.
+// WHAT THE RENDERER NEEDS OF A GEOMETRY, AND NOTHING ELSE. The render tier held the importer's own
+// carrier -- the glTF importer's own carrier -- and reached into it fourteen times for streams,
+// parts, counts and bounds. An interchange format's carrier is not a render input: the tier that
+// must not care what it is drawing had a type that knows what FILE it came from.
 //
-// SPANS RATHER THAN A COPY. This is a VIEW the engine fills over whatever it holds, so inverting the
-// dependency costs no bytes -- the importer knows the engine, the engine fills a Shape, and the
+// SPANS RATHER THAN A COPY. This is a VIEW the engine fills over whatever it holds, so inverting
+// the dependency costs no bytes -- the importer knows the engine, the engine fills a Shape, and the
 // renderer never learns where any of it came from. That is the arrow Unreal has (the glTF importer
 // is a module DEPENDING on the engine) and RAGE has (tools depend on the runtime, never the
 // reverse).
@@ -96,7 +96,9 @@ struct Shape {
   [[nodiscard]] size_t VertexCount() const {
     return Parts.empty() ? 0u : Parts.back().FirstVertex + Parts.back().VertexCount;
   }
+
   [[nodiscard]] size_t TriangleCount() const { return Indices.size() / 3; }
+
   [[nodiscard]] bool Empty() const { return Parts.empty() || Indices.empty(); }
 
   // THE EXTENT OF THE FIRST `parts` PARTS, and of the WHOLE when that is 0 or reaches every part.
@@ -161,5 +163,5 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces);
 // number that says whether "a rebuild costs what changed" is being obeyed or only intended.
 [[nodiscard]] double CookedMs();
 
-}
+} // namespace outshine::Render
 #endif

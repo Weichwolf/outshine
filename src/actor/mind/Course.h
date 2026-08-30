@@ -23,8 +23,13 @@ struct Where {
   double BankRad = 0.0;
 };
 
-[[nodiscard]] Where Locate(const ReferenceLine &along, double eastM, double northM,
-                               double heightM, double headingRad, double nearM, double windowM);
+[[nodiscard]] Where Locate(const ReferenceLine &along,
+                           double eastM,
+                           double northM,
+                           double heightM,
+                           double headingRad,
+                           double nearM,
+                           double windowM);
 
 struct Sighting {
   bool Found = false;
@@ -36,9 +41,9 @@ struct Sighting {
   double ClimbRad = 0.0;
 };
 
-[[nodiscard]] Sighting Sight(const ReferenceLine &along, const Where &from, double chordM,
-                             double asideM = 0.0);
+[[nodiscard]] Sighting
+Sight(const ReferenceLine &along, const Where &from, double chordM, double asideM = 0.0);
 
-}
+} // namespace outshine::Pilot
 
 #endif

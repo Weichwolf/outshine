@@ -16,8 +16,12 @@ void Posed::Clears() {
   AtS_ = 0.0;
 }
 
-bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnimation animation,
-                  int clip, double fps, std::string &error) {
+bool Posed::Reads(const std::string &path,
+                  const std::string &variant,
+                  AssetAnimation animation,
+                  int clip,
+                  double fps,
+                  std::string &error) {
   if (Read_) { return true; }
   if (!variant.empty()) { Variant_ = Gltf::VariantSelection(variant); }
   if (!File_.ReadFile(path)) {
@@ -57,8 +61,10 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
     }
     Motion_.At(seconds, Locals_, Weights_);
     const Heap::Tagged building("pose-build");
-    if (Assembled_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
-                        Span<const double>(Weights_.data(), Weights_.size()), Variant_)) {
+    if (Assembled_.Build(File_,
+                         Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
+                         Span<const double>(Weights_.data(), Weights_.size()),
+                         Variant_)) {
       if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       return true;
     }
@@ -69,4 +75,4 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
   return false;
 }
 
-}
+} // namespace outshine::Core

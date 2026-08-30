@@ -24,6 +24,7 @@ public:
     ++Count_;
     return *this;
   }
+
   int Value() const { return Count_; }
 
 private:
@@ -36,30 +37,52 @@ inline Tally Skips;
 inline Tally Unprepareds;
 inline Tally Partials;
 
-inline void Checked(bool held, const char *expression, const char *claim, const char *file,
-                    int line) {
+inline void
+Checked(bool held, const char *expression, const char *claim, const char *file, int line) {
   ++Checks;
   if (held) { return; }
   ++Failures;
   std::printf("FAIL %s:%d  %s\n       CHECK(%s)\n", file, line, claim, expression);
 }
 
-inline void CheckedNear(double got, double want, double tolerance, const char *unit,
-                        const char *claim, const char *expression, const char *file, int line) {
+inline void CheckedNear(double got,
+                        double want,
+                        double tolerance,
+                        const char *unit,
+                        const char *claim,
+                        const char *expression,
+                        const char *file,
+                        int line) {
   ++Checks;
   const double off = std::fabs(got - want);
   if (off <= tolerance) { return; }
   ++Failures;
-  std::printf("FAIL %s:%d  %s\n       %s = %.9g %s, want %.9g %s, off by %.9g %s > %.9g %s\n", file,
-              line, claim, expression, got, unit, want, unit, off, unit, tolerance, unit);
+  std::printf("FAIL %s:%d  %s\n       %s = %.9g %s, want %.9g %s, off by %.9g %s > %.9g %s\n",
+              file,
+              line,
+              claim,
+              expression,
+              got,
+              unit,
+              want,
+              unit,
+              off,
+              unit,
+              tolerance,
+              unit);
 }
 
 inline void Note(const char *what, double value, const char *unit) {
   std::printf("NOTE %s = %.9g %s\n", what, value, unit);
 }
-inline void Note(const char *what) { std::printf("NOTE %s\n", what); }
 
-inline void Covers(const char *requirement) { std::printf("COVERS %s\n", requirement); }
+inline void Note(const char *what) {
+  std::printf("NOTE %s\n", what);
+}
+
+inline void Covers(const char *requirement) {
+  std::printf("COVERS %s\n", requirement);
+}
 
 // where a test plants an artefact: inside the checkout-keyed nest run.sh exports, or -- run
 // standalone -- under a pid-keyed name in the temp root, so two runners never share a path
@@ -98,8 +121,8 @@ inline void Skip(const char *why) {
   auto walk = std::filesystem::recursive_directory_iterator(root, why);
   if (why) {
     ++Failures;
-    std::printf("FAIL the tree '%s' this claim walks is not there: %s\n", root,
-                why.message().c_str());
+    std::printf(
+        "FAIL the tree '%s' this claim walks is not there: %s\n", root, why.message().c_str());
     return found;
   }
   for (const auto &entry : walk) {
@@ -117,18 +140,22 @@ inline void Skip(const char *why) {
     ++Failures;
     std::printf("FAIL no claim was checked\n");
   }
-  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d PARTIAL %d\n", Checks.Value(),
-              Failures.Value(), Skips.Value(), Unprepareds.Value(), Partials.Value());
+  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d PARTIAL %d\n",
+              Checks.Value(),
+              Failures.Value(),
+              Skips.Value(),
+              Unprepareds.Value(),
+              Partials.Value());
   std::fflush(stdout);
   return (Failures.Value() == 0 && Unprepareds.Value() == 0) ? 0 : 1;
 }
 
-}
+} // namespace outshine::Test
 
-#define CHECK(expression, claim) \
+#define CHECK(expression, claim)                                                                   \
   ::outshine::Test::Checked((expression), #expression, (claim), __FILE__, __LINE__)
-#define CHECK_NEAR(got, want, tolerance, unit, claim)                                       \
-  ::outshine::Test::CheckedNear((got), (want), (tolerance), (unit), (claim), #got, __FILE__, \
-                                __LINE__)
+#define CHECK_NEAR(got, want, tolerance, unit, claim)                                              \
+  ::outshine::Test::CheckedNear(                                                                   \
+      (got), (want), (tolerance), (unit), (claim), #got, __FILE__, __LINE__)
 
 #endif

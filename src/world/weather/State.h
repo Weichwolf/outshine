@@ -7,9 +7,9 @@ namespace outshine {
 struct State {
   double NowS = 0.0;
 
-  PlatformBlock    Platform;
+  PlatformBlock Platform;
   EnvironmentBlock Env;
 };
 
-}
+} // namespace outshine
 #endif

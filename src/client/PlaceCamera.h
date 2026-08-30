@@ -50,5 +50,5 @@ struct Shot {
 [[nodiscard]] double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high);
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
-}
+} // namespace outshine::Shots
 #endif

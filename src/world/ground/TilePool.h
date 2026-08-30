@@ -21,7 +21,7 @@
 namespace outshine::Data {
 class SourceSet;
 class Transport;
-}
+} // namespace outshine::Data
 
 namespace outshine::Ground {
 
@@ -31,11 +31,9 @@ using outshine::TileBuild;
 
 class TilePool : public TileMeshes {
 public:
-
   using Reply = TileMeshes::Reply;
 
   struct Ledger {
-
     long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
     long long Evictions = 0;
 
@@ -49,6 +47,7 @@ public:
     long FetchOnCompute = 0;
     double FetchedMB = 0.0;
   };
+
   Ledger Counters() const;
 
   struct Config {
@@ -76,7 +75,6 @@ public:
 
   [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
 
-
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
   struct Landing {
@@ -87,6 +85,7 @@ public:
   [[nodiscard]] Reply Bytes(const Data::Request &request, Landing *out);
 
   [[nodiscard]] Reply BytesBlocking(const Data::Request &request, Landing *out);
+
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
   size_t ByteCacheBytes() const;
@@ -94,19 +93,19 @@ public:
   size_t DemCacheBytes() const;
 
   size_t SchedulerBytes() const;
+
   int ThreadCount() const { return (int)Threads_.size(); }
 
   int InFlightCap() const { return (int)Threads_.size(); }
 
   // A CLIENT'S WAIT IS A WAIT, NOT A SAMPLE. `Engine::preload` slept 20 ms and asked again, which
-  // is polling -- and this tree's own IO invariant is that a worker is NOTIFIED rather than polling.
-  // Unreal blocks on the outstanding-request count in `BlockTillAllRequestsFinished` and RAGE on
-  // `sysIpcSignalSema` in `LoadAllRequestedObjects`; both wake on a completion, and this is that
-  // completion. It answers false when the deadline passed with nothing landing.
+  // is polling -- and this tree's own IO invariant is that a worker is NOTIFIED rather than
+  // polling. Unreal blocks on the outstanding-request count in `BlockTillAllRequestsFinished` and
+  // RAGE on `sysIpcSignalSema` in `LoadAllRequestedObjects`; both wake on a completion, and this is
+  // that completion. It answers false when the deadline passed with nothing landing.
   [[nodiscard]] bool AwaitLanding(double seconds);
 
 private:
-
   enum class Rank { Fetch = 0, Mesh = 1 };
 
   struct Job {
@@ -148,7 +147,10 @@ private:
 
   [[nodiscard]] Reply Lookup(const std::string &key, Landing *out);
   void RefuseUntil(const std::string &key, double untilMs);
-  void Remember(const std::string &key, const uint8_t *data, size_t len, const Data::Address &at,
+  void Remember(const std::string &key,
+                const uint8_t *data,
+                size_t len,
+                const Data::Address &at,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Request &request, Landing *out);
 
@@ -188,5 +190,5 @@ private:
   std::unordered_map<uint64_t, std::vector<Job>> Awaiting_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

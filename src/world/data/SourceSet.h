@@ -23,6 +23,7 @@ public:
   [[nodiscard]] Registration Add(std::unique_ptr<Source> source);
 
   [[nodiscard]] size_t Count() const noexcept { return Sources_.size(); }
+
   [[nodiscard]] const Source &At(size_t i) const { return *Sources_[i]; }
 
   class Query {
@@ -36,6 +37,7 @@ public:
 
   private:
     friend class SourceSet;
+
     explicit Query(Request request) : Request_(std::move(request)) {}
 
     Request Request_;
@@ -59,6 +61,7 @@ public:
     long long Refused = 0, Retried = 0, FromStore = 0;
     long long DeliveredBytes = 0;
   };
+
   [[nodiscard]] Ledger Counters() const;
 
 private:
@@ -69,5 +72,5 @@ private:
   Ledger Ledger_;
 };
 
-}
+} // namespace outshine::Data
 #endif

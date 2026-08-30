@@ -21,6 +21,7 @@ public:
     uint32_t First = 0, Count = 0;
     bool Exterior = true;
   };
+
   struct Feature {
     uint32_t FirstRing = 0, RingCount = 0;
     uint32_t FirstTag = 0, TagCount = 0;
@@ -29,6 +30,7 @@ public:
     uint8_t Type = 0;
     double MinLat = 0, MinLon = 0, MaxLat = 0, MaxLon = 0;
   };
+
   struct Tile {
     int Z = 0, X = 0, Y = 0;
     uint32_t FirstFeature = 0, FeatureCount = 0;
@@ -36,17 +38,18 @@ public:
 
   OsmField(int zoom, std::span<const std::string> layers);
 
-  [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles,
-                          double budgetMs);
+  [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs);
 
   [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
 
   [[nodiscard]] long MissingLayers() const { return Missing_; }
+
   [[nodiscard]] long BadTiles() const { return Bad_; }
 
   [[nodiscard]] int PendingTiles() const { return Pending_; }
+
   [[nodiscard]] int RefusedTiles() const { return Refused_; }
 
   [[nodiscard]] bool Settled(int x, int y) const;
@@ -56,17 +59,23 @@ public:
   [[nodiscard]] std::span<const Feature> OfTile(int index) const;
 
   [[nodiscard]] std::span<const Feature> Features() const { return Features_; }
+
   [[nodiscard]] std::span<const Ring> Rings() const { return Rings_; }
+
   [[nodiscard]] std::span<const double> Points() const { return Points_; }
+
   [[nodiscard]] std::span<const Tile> Tiles() const { return Tiles_; }
 
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
+
   [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
 
   [[nodiscard]] size_t HeapBytes() const;
 
   [[nodiscard]] int Layer(const char *name) const;
+
   [[nodiscard]] int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
+
   [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[(size_t)i]; }
 
   [[nodiscard]] double Num(const Feature &f, const char *key, double def) const;
@@ -80,9 +89,11 @@ private:
     bool IsNum = false;
   };
 
-  uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
+  uint32_t Intern(std::vector<std::string> &pool,
+                  std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
-  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode);
+  [[nodiscard]] bool
+  AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode);
   void Settle(int x, int y);
 
   std::vector<std::string> Layers_;
@@ -103,5 +114,5 @@ private:
   long Missing_ = 0, Bad_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

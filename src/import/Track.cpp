@@ -24,9 +24,7 @@ void Slerp(const double *from, const double *to, double weight, double *out) {
     for (size_t at = 0; at < 4; ++at) { target[at] = -target[at]; }
   }
   if (cosine > kSameRotationCosine) {
-    for (size_t at = 0; at < 4; ++at) {
-      out[at] = from[at] + (target[at] - from[at]) * weight;
-    }
+    for (size_t at = 0; at < 4; ++at) { out[at] = from[at] + (target[at] - from[at]) * weight; }
     Normalise(out);
     return;
   }
@@ -38,10 +36,13 @@ void Slerp(const double *from, const double *to, double weight, double *out) {
   Normalise(out);
 }
 
-}
+} // namespace
 
-bool Track::Build(AnimationPath path, Interpolation how, std::span<const double> times,
-                  std::span<const double> values, Track &out) {
+bool Track::Build(AnimationPath path,
+                  Interpolation how,
+                  std::span<const double> times,
+                  std::span<const double> values,
+                  Track &out) {
   if (times.empty()) { return false; }
   const size_t perKeyframe = (how == Interpolation::CubicSpline) ? 3u : 1u;
   if (how == Interpolation::CubicSpline && times.size() < 2) { return false; }
@@ -64,8 +65,8 @@ void Track::At(double seconds, double *out) const {
   size_t span = 0;
   double weight = 0.0;
 
-  const bool spherical = Spherical_ && Curve_.How() == Interpolation::Linear &&
-                         Curve_.Span(seconds, span, weight);
+  const bool spherical =
+      Spherical_ && Curve_.How() == Interpolation::Linear && Curve_.Span(seconds, span, weight);
   if (spherical) {
     Slerp(Curve_.ValueAt(span), Curve_.ValueAt(span + 1), weight, out);
     return;
@@ -74,4 +75,4 @@ void Track::At(double seconds, double *out) const {
   if (Spherical_) { Normalise(out); }
 }
 
-}
+} // namespace outshine::Gltf

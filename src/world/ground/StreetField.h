@@ -29,20 +29,20 @@ public:
   const std::vector<Way> &Ways() const { return Ways_; }
 
   Span<const Way> OfTile(int tile) const {
-    if (tile < 0) return Span<const Way>();
+    if (tile < 0) { return Span<const Way>(); }
     const TileRanges::Range r = ByTile_.At((uint32_t)tile);
     return Span<const Way>(Ways_.data() + r.First, r.Count);
   }
 
   long UnwidthedCount() const { return Unwidthed_; }
+
   long TunnelCount() const { return Tunnels_; }
+
   size_t HeapBytes() const {
     return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
-  [[nodiscard]] bool Ingested(const OsmField &field) const {
-    return Mark_.Done(field.Features());
-  }
+  [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
 
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
@@ -53,5 +53,5 @@ private:
   long Unwidthed_ = 0, Tunnels_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

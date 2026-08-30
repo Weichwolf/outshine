@@ -32,21 +32,23 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::vector<std::string> twice = Lines(Ask(
-      "awk '"
-      "/case .* in$/ { ++deep; next } "
-      "/^ *esac/ { for (k in seen) { if (index(k, deep \"\\t\") == 1) { delete seen[k] } } --deep; next } "
-      "deep > 0 && /^ *[^ #].*\\) / { "
-      "  line = $0; sub(/\\).*$/, \"\", line); gsub(/^ +/, \"\", line); "
-      "  n = split(line, labels, \"[|]\"); "
-      "  for (i = 1; i <= n; i++) { "
-      "    lab = labels[i]; gsub(/^ +| +$/, \"\", lab); "
-      "    if (lab == \"*\" || lab == \"\") { continue } "
-      "    key = deep \"\\t\" lab; "
-      "    if (key in seen) { printf \"%s at line %d, already at line %d\\n\", lab, FNR, seen[key] } "
-      "    else { seen[key] = FNR } "
-      "  } "
-      "}' test/run.sh"));
+  const std::vector<std::string> twice =
+      Lines(Ask("awk '"
+                "/case .* in$/ { ++deep; next } "
+                "/^ *esac/ { for (k in seen) { if (index(k, deep \"\\t\") == 1) { delete seen[k] } "
+                "} --deep; next } "
+                "deep > 0 && /^ *[^ #].*\\) / { "
+                "  line = $0; sub(/\\).*$/, \"\", line); gsub(/^ +/, \"\", line); "
+                "  n = split(line, labels, \"[|]\"); "
+                "  for (i = 1; i <= n; i++) { "
+                "    lab = labels[i]; gsub(/^ +| +$/, \"\", lab); "
+                "    if (lab == \"*\" || lab == \"\") { continue } "
+                "    key = deep \"\\t\" lab; "
+                "    if (key in seen) { printf \"%s at line %d, already at line %d\\n\", lab, FNR, "
+                "seen[key] } "
+                "    else { seen[key] = FNR } "
+                "  } "
+                "}' test/run.sh"));
 
   std::printf("  case labels declared twice in test/run.sh: %zu\n", twice.size());
   for (const std::string &one : twice) { std::printf("    %s\n", one.c_str()); }

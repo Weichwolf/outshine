@@ -32,9 +32,13 @@ public:
   [[nodiscard]] bool Load(const char *path);
 
   [[nodiscard]] bool Ready() const { return !Mats_.empty(); }
+
   size_t Count() const { return Mats_.size(); }
+
   const Material &At(size_t i) const { return Mats_[i]; }
+
   int Find(std::string_view name) const;
+
   const std::string &Error() const { return Error_; }
 
 private:
@@ -42,5 +46,5 @@ private:
   std::string Error_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

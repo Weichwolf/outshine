@@ -12,7 +12,9 @@ namespace {
 
 constexpr double kDegToRad = std::numbers::pi / 180.0;
 
-double MetresPerDegreeLat(double sphereRadiusM) { return sphereRadiusM * kDegToRad; }
+double MetresPerDegreeLat(double sphereRadiusM) {
+  return sphereRadiusM * kDegToRad;
+}
 
 double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   const double shrink = std::cos(latDeg * kDegToRad);
@@ -24,10 +26,10 @@ double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   return apart - 360.0 * std::floor(apart / 360.0 + 0.5);
 }
 
-}
+} // namespace
 
-double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg,
-              double sphereRadiusM) {
+double ApartM(
+    double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg, double sphereRadiusM) {
   const double fromLat = fromLatDeg * kDegToRad;
   const double toLat = toLatDeg * kDegToRad;
   const double byLat = (toLatDeg - fromLatDeg) * kDegToRad;
@@ -36,9 +38,9 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
   while (byLon < -180.0) { byLon += 360.0; }
   byLon *= kDegToRad;
 
-  const double half = std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
-                      std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) *
-                          std::sin(0.5 * byLon);
+  const double half =
+      std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
+      std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) * std::sin(0.5 * byLon);
   return 2.0 * sphereRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
@@ -75,7 +77,9 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   Woven_ = false;
 }
 
-Network::RowShape Network::ShapeRow(int64_t row) const { return ShapeRowOver(row, SnapM_); }
+Network::RowShape Network::ShapeRow(int64_t row) const {
+  return ShapeRowOver(row, SnapM_);
+}
 
 Network::RowShape Network::ShapeRowOver(int64_t row, double cellM) const {
   RowShape shape;
@@ -88,7 +92,9 @@ Network::RowShape Network::ShapeRowOver(int64_t row, double cellM) const {
   return shape;
 }
 
-int64_t Network::RowOf(double latDeg) const { return RowOver(latDeg, SnapM_); }
+int64_t Network::RowOf(double latDeg) const {
+  return RowOver(latDeg, SnapM_);
+}
 
 int64_t Network::RowOver(double latDeg, double cellM) const {
   const double latCell = cellM / MetresPerDegreeLat(RadiusM_);
@@ -122,6 +128,7 @@ size_t Network::Cross() {
     double LatDeg = 0.0, LonDeg = 0.0;
     double Along = 0.0;
   };
+
   std::vector<std::vector<Cut>> perWay(Ways_.size());
   for (const Crossing &held : found) {
     if (Ways_[held.OverWay].Spans || Ways_[held.UnderWay].Spans) {
@@ -194,8 +201,8 @@ bool Network::Weave(std::string &error) {
     return false;
   }
   if (Points_.size() / 2 > kMaxNetworkPoints) {
-    error = "a network of " + std::to_string(Points_.size() / 2) +
-            " points reaches the bound of " + std::to_string(kMaxNetworkPoints);
+    error = "a network of " + std::to_string(Points_.size() / 2) + " points reaches the bound of " +
+            std::to_string(kMaxNetworkPoints);
     return false;
   }
   if (!(SnapM_ > 0.0)) {
@@ -256,18 +263,18 @@ bool Network::Weave(std::string &error) {
     const RowShape mine = ShapeRow(rowHere);
     for (int64_t row = rowHere - 1; row <= rowHere + 1 && found == Nodes_.size(); ++row) {
       const RowShape shape = ShapeRow(row);
-      const int64_t reachCols =
-          (int64_t)std::ceil(mine.LonCellDeg / shape.LonCellDeg) + 1;
+      const int64_t reachCols = (int64_t)std::ceil(mine.LonCellDeg / shape.LonCellDeg) + 1;
       const int64_t centre = ColumnIn(shape, lonDeg);
-      const int64_t span =
-          shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
+      const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
       for (int64_t step = 0; step < span && found == Nodes_.size(); ++step) {
         const int64_t column =
             ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
         const auto seen = byCell.find(KeyAt(row, column));
         if (seen == byCell.end()) { continue; }
         for (const size_t candidate : seen->second) {
-          if (ApartM(latDeg, lonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg, RadiusM_) <= SnapM_) {
+          if (ApartM(
+                  latDeg, lonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg, RadiusM_) <=
+              SnapM_) {
             found = candidate;
             break;
           }
@@ -289,7 +296,9 @@ bool Network::Weave(std::string &error) {
       byCell[CellOf(latDeg, lonDeg)].push_back(found);
     } else {
       const Way &from = Ways_[WayOf_[point]];
-      if (from.HalfWidthM > Nodes_[found].HalfWidthM) { Nodes_[found].HalfWidthM = from.HalfWidthM; }
+      if (from.HalfWidthM > Nodes_[found].HalfWidthM) {
+        Nodes_[found].HalfWidthM = from.HalfWidthM;
+      }
       if (from.Friction > 0.0 &&
           (Nodes_[found].Friction <= 0.0 || from.Friction < Nodes_[found].Friction)) {
         Nodes_[found].Friction = from.Friction;
@@ -314,8 +323,8 @@ bool Network::Weave(std::string &error) {
       const size_t from = nodeOf[way.First + step - 1];
       const size_t to = nodeOf[way.First + step];
       if (from == to) { continue; }
-      const double lengthM = ApartM(Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg,
-                                    Nodes_[to].LonDeg, RadiusM_);
+      const double lengthM = ApartM(
+          Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
       outgoing[from].push_back(Edge{to, lengthM});
       outgoing[to].push_back(Edge{from, lengthM});
     }
@@ -371,8 +380,7 @@ bool Network::Weave(std::string &error) {
       const int64_t firstColumn = here < there ? here : there;
       const int64_t lastColumn = here < there ? there : here;
       for (int64_t column = firstColumn; column <= lastColumn; ++column) {
-        const int64_t key =
-            KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns);
+        const int64_t key = KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns);
         std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell[key];
         if (holding) {
           cell.push_back({one, two});
@@ -402,8 +410,7 @@ bool Network::Weave(std::string &error) {
     for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
       const RowShape shape = ShapeRowOver(row, tieReachM);
       const int64_t centre = ColumnIn(shape, end.LonDeg);
-      const int64_t colReach =
-          (int64_t)std::ceil(reachM / (shape.LonCellDeg * perLonM)) + 1;
+      const int64_t colReach = (int64_t)std::ceil(reachM / (shape.LonCellDeg * perLonM)) + 1;
       for (int64_t step = -colReach; step <= colReach; ++step) {
         const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
         const auto seen = byEdgeCell.find(KeyAt(row, column));
@@ -445,8 +452,8 @@ bool Network::Weave(std::string &error) {
     if (!unlink(bestFrom, bestTo) || !unlink(bestTo, bestFrom)) { continue; }
     overCells(bestFrom, bestTo, false);
     const auto link = [this, &outgoing](size_t from, size_t to) {
-      const double lengthM = ApartM(Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg,
-                                    Nodes_[to].LonDeg, RadiusM_);
+      const double lengthM = ApartM(
+          Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
       outgoing[from].push_back(Edge{to, lengthM});
       outgoing[to].push_back(Edge{from, lengthM});
     };
@@ -470,8 +477,16 @@ bool Network::Weave(std::string &error) {
 
 namespace {
 
-[[nodiscard]] bool SegmentsMeet(double ax, double ay, double bx, double by, double cx, double cy,
-                                double dx, double dy, double *atX, double *atY) {
+[[nodiscard]] bool SegmentsMeet(double ax,
+                                double ay,
+                                double bx,
+                                double by,
+                                double cx,
+                                double cy,
+                                double dx,
+                                double dy,
+                                double *atX,
+                                double *atY) {
   const double rx = bx - ax, ry = by - ay, sx = dx - cx, sy = dy - cy;
   const double denominator = rx * sy - ry * sx;
   if (denominator == 0.0) { return false; }
@@ -483,7 +498,7 @@ namespace {
   return true;
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -495,10 +510,10 @@ struct Filed {
 static_assert(sizeof(Filed) == 8);
 static_assert(std::is_trivially_copyable_v<Filed>);
 
-}
+} // namespace
 
-std::expected<Network::Swept, std::string_view> Network::Crossings(
-    std::vector<Crossing> &into) const {
+std::expected<Network::Swept, std::string_view>
+Network::Crossings(std::vector<Crossing> &into) const {
   into.clear();
   Swept swept;
   const size_t points = Points_.size() / 2;
@@ -618,8 +633,12 @@ std::expected<Network::Swept, std::string_view> Network::Crossings(
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
-        into.push_back(Crossing{(uint32_t)segWay[mine], (uint32_t)segWay[theirs], atY, back,
-                                (uint32_t)firstA, (uint32_t)firstB});
+        into.push_back(Crossing{(uint32_t)segWay[mine],
+                                (uint32_t)segWay[theirs],
+                                atY,
+                                back,
+                                (uint32_t)firstA,
+                                (uint32_t)firstB});
       }
     }
   }
@@ -644,9 +663,11 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   }
   if (found.empty()) { Within(to, std::numbers::pi * RadiusM_, found); }
   size_t best = found.empty() ? 0 : found.front();
-  double bestAway = ApartM(to.LatDeg, to.LonDeg, Nodes_[best].LatDeg, Nodes_[best].LonDeg, RadiusM_);
+  double bestAway =
+      ApartM(to.LatDeg, to.LonDeg, Nodes_[best].LatDeg, Nodes_[best].LonDeg, RadiusM_);
   for (const size_t which : found) {
-    const double away = ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_);
+    const double away =
+        ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_);
     if (away < bestAway) {
       bestAway = away;
       best = which;
@@ -663,7 +684,8 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
   const uint64_t cells = (uint64_t)(2 * across + 1) * (uint64_t)(2 * across + 1);
   if (Cells_.empty() || cells > Cells_.size()) {
     for (size_t which = 0; which < Nodes_.size(); ++which) {
-      if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <= reachM) {
+      if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <=
+          reachM) {
         nodes.push_back(which);
       }
     }
@@ -675,8 +697,7 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
     const RowShape shape = ShapeRow(row);
     const int64_t reachCols =
         (int64_t)std::ceil((double)across * mine.LonCellDeg / shape.LonCellDeg) + 1;
-    const int64_t span =
-        shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
+    const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
     const int64_t centre = ColumnIn(shape, of.LonDeg);
     for (int64_t step = 0; step < span; ++step) {
       const int64_t column =
@@ -684,7 +705,10 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
       const auto seen = Cells_.find(KeyAt(row, column));
       if (seen == Cells_.end()) { continue; }
       for (const size_t candidate : seen->second) {
-        if (ApartM(of.LatDeg, of.LonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg,
+        if (ApartM(of.LatDeg,
+                   of.LonDeg,
+                   Nodes_[candidate].LatDeg,
+                   Nodes_[candidate].LonDeg,
                    RadiusM_) <= reachM) {
           nodes.push_back(candidate);
         }
@@ -772,8 +796,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   out.StartedFrom = nearStart.size();
 
   std::vector<size_t> nearFinish;
-  const double arriveM = Nodes_[finish].HalfWidthM > 0.0 ? 2.0 * Nodes_[finish].HalfWidthM
-                                                        : SnapM_;
+  const double arriveM = Nodes_[finish].HalfWidthM > 0.0 ? 2.0 * Nodes_[finish].HalfWidthM : SnapM_;
   Within(to, finishAwayM + arriveM, nearFinish);
   if (nearFinish.empty()) { nearFinish.push_back(finish); }
   std::vector<bool> arriving(Nodes_.size(), false);
@@ -794,8 +817,11 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     return state < edges ? Edges_[state].To : nearStart[state - edges];
   };
   const auto goalM = [&](size_t node) {
-    return ApartM(Nodes_[node].LatDeg, Nodes_[node].LonDeg, Nodes_[finish].LatDeg,
-                  Nodes_[finish].LonDeg, RadiusM_);
+    return ApartM(Nodes_[node].LatDeg,
+                  Nodes_[node].LonDeg,
+                  Nodes_[finish].LatDeg,
+                  Nodes_[finish].LonDeg,
+                  RadiusM_);
   };
 
   using Step = std::pair<double, size_t>;
@@ -848,12 +874,11 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
         const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
         const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
         if (wasLength > 0.0 && onLength > 0.0) {
-          const double turned =
-              (backEast * onEast + backNorth * onNorth) / (wasLength * onLength);
+          const double turned = (backEast * onEast + backNorth * onNorth) / (wasLength * onLength);
           const double turnRad = std::acos(turned < -1.0 ? -1.0 : (turned > 1.0 ? 1.0 : turned));
           const double half = 0.5 * turnRad;
-          if (std::tan(half) > 0.0 && tightestM > 0.0 &&
-              edge.LengthM > 0.0 && std::fabs(turnRad) > 1.0e-9) {
+          if (std::tan(half) > 0.0 && tightestM > 0.0 && edge.LengthM > 0.0 &&
+              std::fabs(turnRad) > 1.0e-9) {
             const double shorter =
                 edge.LengthM < Edges_[state].LengthM ? edge.LengthM : Edges_[state].LengthM;
             const double room = 0.5 * shorter / std::tan(half);
@@ -878,14 +903,13 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     const size_t joinedToEnd = Reaches(std::span<const size_t>(nearFinish));
     out.Component = joined;
     out.EndComponent = joinedToEnd;
-    out.Error =
-        "no chain of ways joins the two ends -- " + std::to_string(joined) + " nodes of " +
-        std::to_string(Nodes_.size()) + " are joined to the start by ANY edge, and the search " +
-        "settled " + std::to_string(reached) +
-        " of those, while " + std::to_string(joinedToEnd) +
-        " nodes are joined to the DESTINATION, so what separates the ends is " +
-        (joined + 1 < Nodes_.size() ? std::string("the graph itself")
-                                    : std::string("this search, not the graph"));
+    out.Error = "no chain of ways joins the two ends -- " + std::to_string(joined) + " nodes of " +
+                std::to_string(Nodes_.size()) +
+                " are joined to the start by ANY edge, and the search " + "settled " +
+                std::to_string(reached) + " of those, while " + std::to_string(joinedToEnd) +
+                " nodes are joined to the DESTINATION, so what separates the ends is " +
+                (joined + 1 < Nodes_.size() ? std::string("the graph itself")
+                                            : std::string("this search, not the graph"));
     return out;
   }
 
@@ -923,4 +947,4 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   return out;
 }
 
-}
+} // namespace outshine::Path

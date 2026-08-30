@@ -7,5 +7,5 @@ inline constexpr int kSubTexelPrecisionBits = 8;
 
 inline constexpr int kSubTexelDivisions = 1 << kSubTexelPrecisionBits;
 
-}
+} // namespace outshine::Test
 #endif

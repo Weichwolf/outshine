@@ -25,7 +25,6 @@ inline constexpr int kEnergySamples = 2048;
   const double sinV = std::sqrt(std::fmax(0.0, 1.0 - clampedNv * clampedNv));
   double total = 0.0;
   for (int i = 0; i < kEnergySamples; ++i) {
-
     const double u1 = (i + 0.5) / kEnergySamples;
     unsigned bits = (unsigned)i;
     bits = (bits << 16) | (bits >> 16);
@@ -66,9 +65,13 @@ inline constexpr int kEnergySamples = 2048;
   return std::fmin(2.0 * total / kEnergyQuadrature, 1.0);
 }
 
-[[nodiscard]] inline double SchlickAverage(double f0) { return f0 + (1.0 - f0) / 21.0; }
+[[nodiscard]] inline double SchlickAverage(double f0) {
+  return f0 + (1.0 - f0) / 21.0;
+}
 
-inline void GgxEnergyScale(const std::array<double, 3> &f0, double roughness, double nv,
+inline void GgxEnergyScale(const std::array<double, 3> &f0,
+                           double roughness,
+                           double nv,
                            std::array<double, 3> &out) {
   const double e = GgxDirectionalAlbedo(nv, roughness);
   if (!(e > 0.0) || !(e < 1.0)) {
@@ -89,7 +92,9 @@ inline constexpr int kEnergyViewSteps = 16;
 
 [[nodiscard]] inline std::string MicrofacetEnergyMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) {
+    return std::string();
+  }
   std::string albedo;
   albedo.reserve(kEnergyRoughnessSteps * kEnergyViewSteps * 12);
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
@@ -97,7 +102,10 @@ inline constexpr int kEnergyViewSteps = 16;
     for (int v = 0; v < kEnergyViewSteps; ++v) {
       const double nv = (double)v / (kEnergyViewSteps - 1);
       char cell[32];
-      std::snprintf(cell, sizeof cell, "%s%.6ff", albedo.empty() ? "" : ", ",
+      std::snprintf(cell,
+                    sizeof cell,
+                    "%s%.6ff",
+                    albedo.empty() ? "" : ", ",
                     GgxDirectionalAlbedo(nv, roughness));
       albedo += cell;
     }
@@ -105,14 +113,19 @@ inline constexpr int kEnergyViewSteps = 16;
   std::string average;
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
     char cell[32];
-    std::snprintf(cell, sizeof cell, "%s%.6ff", average.empty() ? "" : ", ",
+    std::snprintf(cell,
+                  sizeof cell,
+                  "%s%.6ff",
+                  average.empty() ? "" : ", ",
                   GgxEnergyAverage((double)r / (kEnergyRoughnessSteps - 1)));
     average += cell;
   }
   char head[256];
-  std::snprintf(head, sizeof head,
+  std::snprintf(head,
+                sizeof head,
                 "constant int kEnergyRoughnessSteps = %d;\nconstant int kEnergyViewSteps = %d;\n",
-                kEnergyRoughnessSteps, kEnergyViewSteps);
+                kEnergyRoughnessSteps,
+                kEnergyViewSteps);
   return std::string(head) + "constant float kGgxAlbedo[] = { " + albedo + " };\n" +
          "constant float kGgxAlbedoAverage[] = { " + average + " };\n" + body;
 }
@@ -122,6 +135,6 @@ inline constexpr int kEnergyViewSteps = 16;
   return MicrofacetEnergyMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 
 #endif

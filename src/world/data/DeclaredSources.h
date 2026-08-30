@@ -10,10 +10,12 @@
 
 namespace outshine::Data {
 
-[[nodiscard]] bool RegisterDeclared(SourceSet &set, std::span<const Provider> providers,
-                                    std::string_view starDirectory, std::string &error);
+[[nodiscard]] bool RegisterDeclared(SourceSet &set,
+                                    std::span<const Provider> providers,
+                                    std::string_view starDirectory,
+                                    std::string &error);
 
 [[nodiscard]] std::span<const Provider> ShippedProviders();
 
-}
+} // namespace outshine::Data
 #endif

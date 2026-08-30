@@ -32,6 +32,7 @@ enum class Family : uint8_t;
 struct Font {
   virtual ~Font() = default;
   [[nodiscard]] virtual FontMetrics At(double sizePx, Family family) const = 0;
+
   [[nodiscard]] virtual Glyph Shape(char32_t code, double sizePx, Family family) const {
     (void)code;
     (void)sizePx;
@@ -40,8 +41,11 @@ struct Font {
   }
 
   [[nodiscard]] virtual const uint8_t *Sheet(void) const { return nullptr; }
+
   [[nodiscard]] virtual int SheetWidthPx(void) const { return 0; }
+
   [[nodiscard]] virtual int SheetHeightPx(void) const { return 0; }
+
   [[nodiscard]] virtual uint64_t Cut(void) const { return 0; }
 };
 
@@ -76,6 +80,7 @@ struct Box {
   bool Positioned = false;
 
   [[nodiscard]] double Top() const { return Border.Top; }
+
   int Parent = -1;
   std::vector<int> Children;
 
@@ -89,20 +94,27 @@ struct Box {
 
 class Layout {
 public:
-
   struct Scrolled {
     int Node = -1;
     double Px = 0.0;
   };
 
-  [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
-                           double viewportHeight, const Font &font, std::string &error) {
+  [[nodiscard]] bool Build(const Markup &markup,
+                           Stylesheet &sheet,
+                           double viewportWidth,
+                           double viewportHeight,
+                           const Font &font,
+                           std::string &error) {
     return Build(markup, sheet, viewportWidth, viewportHeight, font, {}, error);
   }
 
-  [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
-                           double viewportHeight, const Font &font,
-                           std::span<const Scrolled> scrolled, std::string &error);
+  [[nodiscard]] bool Build(const Markup &markup,
+                           Stylesheet &sheet,
+                           double viewportWidth,
+                           double viewportHeight,
+                           const Font &font,
+                           std::span<const Scrolled> scrolled,
+                           std::string &error);
 
   [[nodiscard]] int Scroller(double x, double y) const;
   [[nodiscard]] double ScrollableBy(int node) const;
@@ -120,9 +132,11 @@ public:
     size_t Intrinsics = 0;
     size_t IntrinsicHits = 0;
   };
+
   [[nodiscard]] const Work &Spent() const { return Spent_; }
 
   [[nodiscard]] double ViewportWidth() const { return ViewportWidth_; }
+
   [[nodiscard]] double ViewportHeight() const { return ViewportHeight_; }
 
 private:
@@ -137,5 +151,5 @@ private:
 
 [[nodiscard]] std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup);
 
-}
+} // namespace outshine::Ui
 #endif

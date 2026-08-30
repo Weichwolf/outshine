@@ -18,10 +18,10 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   SDL_GPUColorTargetDescription target{};
   target.format = kVelocityFormat;
   target.blend_state.enable_color_write_mask = true;
-  target.blend_state.color_write_mask =
-      writes ? (SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G | SDL_GPU_COLORCOMPONENT_B |
-                SDL_GPU_COLORCOMPONENT_A)
-             : 0;
+  target.blend_state.color_write_mask = writes
+                                            ? (SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G |
+                                               SDL_GPU_COLORCOMPONENT_B | SDL_GPU_COLORCOMPONENT_A)
+                                            : 0;
   return target;
 }
 
@@ -39,5 +39,5 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   return held;
 }
 
-}
+} // namespace outshine::Render
 #endif

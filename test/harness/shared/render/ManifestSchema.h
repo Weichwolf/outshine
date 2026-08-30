@@ -13,8 +13,8 @@ class ManifestSchema {
 public:
   [[nodiscard]] bool Load(const std::string &text, std::string &error) {
     if (!Declaration_.Parse(text.c_str(), text.size())) {
-      error = "the manifest schema stopped parsing at byte " +
-              std::to_string(Declaration_.StoppedAt());
+      error =
+          "the manifest schema stopped parsing at byte " + std::to_string(Declaration_.StoppedAt());
       return false;
     }
     if (!Declaration_.Root()["objects"]["manifest"].Valid()) {
@@ -35,14 +35,16 @@ private:
     return Declaration_.Root()["objects"][name.c_str()];
   }
 
-  [[nodiscard]] static bool Missing(const std::string &where, const std::string &key,
-                                    std::string &error) {
+  [[nodiscard]] static bool
+  Missing(const std::string &where, const std::string &key, std::string &error) {
     error = where + " states no " + key;
     return false;
   }
 
-  [[nodiscard]] bool Object(const std::string &name, const std::string &where,
-                            const Json::Ref &value, std::vector<std::string> inherited,
+  [[nodiscard]] bool Object(const std::string &name,
+                            const std::string &where,
+                            const Json::Ref &value,
+                            std::vector<std::string> inherited,
                             std::string &error) const {
     Json::Ref node = Declared(name);
     if (!node.Valid()) {
@@ -56,8 +58,7 @@ private:
     while (node["variants"].Valid()) {
       const std::string key = node["discriminator"].Str("");
       const Json::Ref chosen = value[key.c_str()];
-      const std::string spelling =
-          chosen.Valid() ? chosen.Str("") : node["default"].Str("");
+      const std::string spelling = chosen.Valid() ? chosen.Str("") : node["default"].Str("");
       const Json::Ref variant = node["variants"][spelling.c_str()];
       if (spelling.empty() || !variant.Valid()) {
         error = where + "." + key + " is '" + spelling + "', and the schema declares " +
@@ -102,8 +103,10 @@ private:
     return list;
   }
 
-  [[nodiscard]] bool Value(const Json::Ref &declared, const std::string &where,
-                           const Json::Ref &value, std::string &error) const {
+  [[nodiscard]] bool Value(const Json::Ref &declared,
+                           const std::string &where,
+                           const Json::Ref &value,
+                           std::string &error) const {
     if (declared.GetKind() == Json::Kind::String) {
       return Scalar(declared.Str(""), where, value, error);
     }
@@ -117,8 +120,8 @@ private:
           return true;
         }
       }
-      error = where + " is '" + value.Str("") + "', and the schema declares one of " +
-              Options(allowed);
+      error =
+          where + " is '" + value.Str("") + "', and the schema declares one of " + Options(allowed);
       return false;
     }
     if (declared["object"].Valid()) {
@@ -130,7 +133,9 @@ private:
         return false;
       }
       for (size_t entry = 0; entry < value.Size(); ++entry) {
-        if (!Value(declared["array"], where + "[" + std::to_string(entry) + "]", value[entry],
+        if (!Value(declared["array"],
+                   where + "[" + std::to_string(entry) + "]",
+                   value[entry],
                    error)) {
           return false;
         }
@@ -147,7 +152,9 @@ private:
         return false;
       }
       for (size_t entry = 0; entry < value.Size(); ++entry) {
-        if (!Value(declared["oneOrMore"], where + "[" + std::to_string(entry) + "]", value[entry],
+        if (!Value(declared["oneOrMore"],
+                   where + "[" + std::to_string(entry) + "]",
+                   value[entry],
                    error)) {
           return false;
         }
@@ -165,7 +172,9 @@ private:
       }
       return true;
     }
-    if (declared["quantity"].Valid()) { return Quantity(declared["quantity"], where, value, error); }
+    if (declared["quantity"].Valid()) {
+      return Quantity(declared["quantity"], where, value, error);
+    }
     error = "the manifest schema declares a type at " + where + " that this reader does not know";
     return false;
   }
@@ -175,14 +184,16 @@ private:
     for (size_t entry = 0; entry < allowed.Size(); ++entry) {
       const Json::Ref option = allowed[entry];
       list += (entry ? ", " : "");
-      list += option.GetKind() == Json::Kind::String ? option.Str("")
-                                                     : std::to_string(option.Num());
+      list +=
+          option.GetKind() == Json::Kind::String ? option.Str("") : std::to_string(option.Num());
     }
     return list;
   }
 
-  [[nodiscard]] bool Quantity(const Json::Ref &inner, const std::string &where,
-                             const Json::Ref &value, std::string &error) const {
+  [[nodiscard]] bool Quantity(const Json::Ref &inner,
+                              const std::string &where,
+                              const Json::Ref &value,
+                              std::string &error) const {
     if (value.GetKind() != Json::Kind::Object) {
       error = where + " is not an object carrying value, unit and origin";
       return false;
@@ -202,20 +213,21 @@ private:
     if (value["unit"].Str("").empty()) { return Missing(where, "unit", error); }
     const std::string origin = value["origin"].Str("");
     if (origin != "SET" && origin != "derived" && origin != "measured") {
-      error = where + " has origin '" + origin + "', and a number's origin is SET, derived or "
-                                                 "measured";
+      error = where + " has origin '" + origin +
+              "', and a number's origin is SET, derived or "
+              "measured";
       return false;
     }
     if (origin == "derived" && value["derivation"].Str("").empty()) {
-      error = where + " is derived and states no derivation, which is a bare number wearing a label";
+      error =
+          where + " is derived and states no derivation, which is a bare number wearing a label";
       return false;
     }
     return true;
   }
 
   [[nodiscard]] static bool Whole(const Json::Ref &value) {
-    return value.GetKind() == Json::Kind::Number &&
-           value.Num() == std::floor(value.Num());
+    return value.GetKind() == Json::Kind::Number && value.Num() == std::floor(value.Num());
   }
 
   [[nodiscard]] static bool Hex(const std::string &text, size_t digits) {
@@ -243,8 +255,10 @@ private:
     return digits > 0 && (dots == 1 || dots == 2);
   }
 
-  [[nodiscard]] static bool Scalar(const std::string &kind, const std::string &where,
-                                   const Json::Ref &value, std::string &error) {
+  [[nodiscard]] static bool Scalar(const std::string &kind,
+                                   const std::string &where,
+                                   const Json::Ref &value,
+                                   std::string &error) {
     const bool text = value.GetKind() == Json::Kind::String;
     bool held = false;
     if (kind == "string") {
@@ -267,7 +281,6 @@ private:
     } else if (kind == "opaque") {
       held = value.GetKind() == Json::Kind::Object && value.Size() > 0;
     } else if (kind == "filename") {
-
       const std::string name = value.Str("");
       held = text && !name.empty() && name[0] != '.' && name[0] != '/' && name.back() != '/';
       for (size_t at = 0, next = 0; held && at < name.size(); at = next + 1) {
@@ -293,11 +306,10 @@ private:
 };
 
 [[nodiscard]] inline std::string SchemaPathBesideCase(const std::string &caseDirectory) {
-
   (void)caseDirectory;
   return "test/harness/shared/corpus/manifest-schema.json";
 }
 
-}
+} // namespace outshine::Render::Parity
 
 #endif

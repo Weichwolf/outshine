@@ -8,6 +8,7 @@ public:
   enum class State { Resolved, Pending, Hole };
 
   static GroundSample At(double aslM) { return GroundSample(State::Resolved, aslM); }
+
   static GroundSample At(double aslM, const double normal[3]) {
     GroundSample out(State::Resolved, aslM);
     out.NormalM_[0] = normal[0];
@@ -15,18 +16,21 @@ public:
     out.NormalM_[2] = normal[2];
     return out;
   }
+
   [[nodiscard]] GroundSample Coarser(int byZoomSteps) const {
     GroundSample out(*this);
     out.CoarseBy_ = byZoomSteps;
     return out;
   }
+
   static GroundSample Waiting() { return GroundSample(State::Pending); }
+
   static GroundSample Missing() { return GroundSample(State::Hole); }
 
   [[nodiscard]] State Where() const { return Where_; }
 
   [[nodiscard]] bool TryAslM(double *out) const {
-    if (Where_ != State::Resolved) return false;
+    if (Where_ != State::Resolved) { return false; }
     *out = AslM_;
     return true;
   }
@@ -44,5 +48,5 @@ private:
   int CoarseBy_ = 0;
 };
 
-}
+} // namespace outshine
 #endif

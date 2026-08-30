@@ -25,7 +25,6 @@ struct BoundTerm {
 };
 
 struct PathContents {
-
   bool OracleEstimates = false;
 
   bool OracleIsHostIrreproducible = false;
@@ -80,8 +79,8 @@ inline constexpr double kBoundFraction = 0.99;
   }
   for (const BoundTerm &term : tail.Terms) { tail.Codes += term.Codes; }
   if (tail.Codes < kPerceptualFloorCodes) {
-    tail.Terms.push_back({"the 8-bit transfer's own quantisation step",
-                          kPerceptualFloorCodes - tail.Codes});
+    tail.Terms.push_back(
+        {"the 8-bit transfer's own quantisation step", kPerceptualFloorCodes - tail.Codes});
     tail.Codes = kPerceptualFloorCodes;
   }
   return tail;
@@ -98,7 +97,6 @@ struct Excursion {
 };
 
 struct PictureDelta {
-
   Excursion Appearance;
 
   Excursion Predicate;
@@ -117,8 +115,8 @@ struct PictureDelta {
   bool Comparable = false;
 };
 
-[[nodiscard]] inline double PercentileCode(const std::array<size_t, kCodeBuckets> &buckets,
-                                           size_t compared, double fraction) {
+[[nodiscard]] inline double
+PercentileCode(const std::array<size_t, kCodeBuckets> &buckets, size_t compared, double fraction) {
   if (compared == 0) { return 0.0; }
   const size_t want = (size_t)(fraction * (double)compared);
 
@@ -135,13 +133,13 @@ struct PictureDelta {
 
 namespace Detail {
 
-inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t channel, double ours,
-                  double theirs) {
+inline void Widen(
+    Excursion &worst, double code, size_t x, size_t y, size_t channel, double ours, double theirs) {
   if (code <= worst.Code) { return; }
   worst = {code, x, y, channel, ours, theirs, worst.Pixels};
 }
 
-}
+} // namespace Detail
 
 [[nodiscard]] inline std::vector<float> ScoredFrame(const std::vector<float> &linear,
                                                     const Mask &coverage) {
@@ -157,8 +155,8 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
   return frame;
 }
 
-[[nodiscard]] inline PictureDelta ComparePicture(const std::vector<float> &frame,
-                                                 const RawF32 &oracle, const Routing &routing) {
+[[nodiscard]] inline PictureDelta
+ComparePicture(const std::vector<float> &frame, const RawF32 &oracle, const Routing &routing) {
   const Mask &ours = routing.Ours;
   const Mask &theirs = routing.Theirs;
   PictureDelta delta;
@@ -218,8 +216,7 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
             delta.Worst[at] = delta.Worst[at - 1u];
             --at;
           }
-          delta.Worst[at] = Excursion{code,          x, y, channel, oursCode * 255.0,
-                                      theirsCode * 255.0, 0};
+          delta.Worst[at] = Excursion{code, x, y, channel, oursCode * 255.0, theirsCode * 255.0, 0};
         }
       }
       delta.PixelsDiffering += apart ? 1u : 0u;
@@ -231,5 +228,5 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
   return delta;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

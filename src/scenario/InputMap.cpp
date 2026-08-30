@@ -10,18 +10,18 @@ struct KnownEvent {
 };
 
 constexpr KnownEvent kEvents[] = {
-    {"KeyW", InputMap::Kind::Button},        {"KeyA", InputMap::Kind::Button},
-    {"KeyS", InputMap::Kind::Button},        {"KeyD", InputMap::Kind::Button},
-    {"Space", InputMap::Kind::Button},       {"Escape", InputMap::Kind::Button},
-    {"ArrowUp", InputMap::Kind::Button},     {"ArrowDown", InputMap::Kind::Button},
-    {"ArrowLeft", InputMap::Kind::Button},   {"ArrowRight", InputMap::Kind::Button},
-    {"PageUp", InputMap::Kind::Button},      {"PageDown", InputMap::Kind::Button},
-    {"MouseLeft", InputMap::Kind::Button},   {"MouseRight", InputMap::Kind::Button},
-    {"GamepadSouth", InputMap::Kind::Button},{"GamepadEast", InputMap::Kind::Button},
-    {"MouseX", InputMap::Kind::Axis},        {"MouseY", InputMap::Kind::Axis},
-    {"AxisLeftX", InputMap::Kind::Axis},     {"AxisLeftY", InputMap::Kind::Axis},
-    {"AxisRightX", InputMap::Kind::Axis},    {"AxisRightY", InputMap::Kind::Axis},
-    {"TriggerLeft", InputMap::Kind::Axis},   {"TriggerRight", InputMap::Kind::Axis},
+    {"KeyW", InputMap::Kind::Button},         {"KeyA", InputMap::Kind::Button},
+    {"KeyS", InputMap::Kind::Button},         {"KeyD", InputMap::Kind::Button},
+    {"Space", InputMap::Kind::Button},        {"Escape", InputMap::Kind::Button},
+    {"ArrowUp", InputMap::Kind::Button},      {"ArrowDown", InputMap::Kind::Button},
+    {"ArrowLeft", InputMap::Kind::Button},    {"ArrowRight", InputMap::Kind::Button},
+    {"PageUp", InputMap::Kind::Button},       {"PageDown", InputMap::Kind::Button},
+    {"MouseLeft", InputMap::Kind::Button},    {"MouseRight", InputMap::Kind::Button},
+    {"GamepadSouth", InputMap::Kind::Button}, {"GamepadEast", InputMap::Kind::Button},
+    {"MouseX", InputMap::Kind::Axis},         {"MouseY", InputMap::Kind::Axis},
+    {"AxisLeftX", InputMap::Kind::Axis},      {"AxisLeftY", InputMap::Kind::Axis},
+    {"AxisRightX", InputMap::Kind::Axis},     {"AxisRightY", InputMap::Kind::Axis},
+    {"TriggerLeft", InputMap::Kind::Axis},    {"TriggerRight", InputMap::Kind::Axis},
 };
 constexpr size_t kEventCount = sizeof kEvents / sizeof kEvents[0];
 static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay outside");
@@ -35,9 +35,11 @@ static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay 
   return all;
 }
 
-}
+} // namespace
 
-size_t InputMap::Events() { return kEventCount; }
+size_t InputMap::Events() {
+  return kEventCount;
+}
 
 ptrdiff_t InputMap::EventIndexOf(std::string_view event) {
   for (size_t at = 0; at < kEventCount; ++at) {
@@ -116,4 +118,4 @@ size_t InputMap::BoundTo(std::string_view action) const {
   return bound;
 }
 
-}
+} // namespace outshine

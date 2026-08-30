@@ -23,8 +23,8 @@ namespace {
 // side never touches it; what crosses is a DELTA -- added, removed, transform changed. That
 // separation is what lets render state survive the frame at all, and state that survives the frame
 // is the precondition for state that lives on the DEVICE (`FGPUScene`). A renderer handed a fresh
-// table each frame cannot keep anything, so the per-frame upload is not merely wasteful: it forecloses
-// the GPU-driven path entirely.
+// table each frame cannot keep anything, so the per-frame upload is not merely wasteful: it
+// forecloses the GPU-driven path entirely.
 //
 // The measure is a RUNNING total of rows the renderer has been sent, so the case reads it twice and
 // looks at the difference. A total that stands still across a frame is the claim.
@@ -52,18 +52,19 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -80,7 +81,7 @@ constexpr const char *kTriangleBase64 =
   return -1.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -122,7 +123,8 @@ int main(void) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  if (!engine.declare(stands) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
+  if (!engine.declare(stands) || !engine.advance() ||
+      !engine.renderer().render(outshine::Extent{})) {
     Unprepared(("the subject did not stand: " + engine.error()).c_str());
     return Report();
   }

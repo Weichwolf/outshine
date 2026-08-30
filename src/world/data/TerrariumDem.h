@@ -14,5 +14,5 @@ protected:
   [[nodiscard]] Meaning Classify(int status, size_t bytes) const noexcept override;
 };
 
-}
+} // namespace outshine::Data
 #endif

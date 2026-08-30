@@ -65,15 +65,27 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(0.774, -1.405));
   made.Contacts.push_back(Standing(-0.774, 1.405));
   made.Contacts.push_back(Standing(0.774, 1.405));
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = false, .PeakNm = driveNm, .Ratio = 3.08, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = true, .PeakNm = 5500.0, .Ratio = 1.0, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion, .Opposes = false, .PeakNm = 0.0, .Ratio = 1.0, .CircleM = 11.3});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = false,
+                                        .PeakNm = driveNm,
+                                        .Ratio = 3.08,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = true,
+                                        .PeakNm = 5500.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion,
+                                        .Opposes = false,
+                                        .PeakNm = 0.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -85,8 +97,7 @@ int main(void) {
   outshine::Body towed = Doing(400.0);
   towed.Driven.erase(towed.Driven.begin());
 
-  const outshine::Sim::Rigged asRuns =
-      outshine::Sim::Stand(running, kGravityMs2, kAirDensityKgM3);
+  const outshine::Sim::Rigged asRuns = outshine::Sim::Stand(running, kGravityMs2, kAirDensityKgM3);
   const outshine::Sim::Rigged asStalls =
       outshine::Sim::Stand(stalled, kGravityMs2, kAirDensityKgM3);
   const outshine::Sim::Rigged asTowed = outshine::Sim::Stand(towed, kGravityMs2, kAirDensityKgM3);

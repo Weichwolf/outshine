@@ -62,7 +62,7 @@ constexpr double kFovDeg = 55.0;
 constexpr double kSunElevationDeg = 60.0;
 constexpr double kSunBearingDeg = 180.0;
 
-}
+} // namespace Placed
 
 inline int RenderPlace(const Place &place) {
   using namespace outshine::Test::Placed;
@@ -83,7 +83,8 @@ inline int RenderPlace(const Place &place) {
   outshine::LogSinkScope listening(&telling);
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
   if (!engine.drawsInto(outshine::Extent{kWidePx, kHighPx})) {
     Unprepared("the device stood no canvas");
     return Report();
@@ -118,8 +119,11 @@ inline int RenderPlace(const Place &place) {
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {
-    Unprepared((std::string(place.Name) + " needs terrain and OSM tiles and this machine has none "
-                                      "cached: " + engine.error()).c_str());
+    Unprepared((std::string(place.Name) +
+                " needs terrain and OSM tiles and this machine has none "
+                "cached: " +
+                engine.error())
+                   .c_str());
     return Report();
   }
 
@@ -132,22 +136,26 @@ inline int RenderPlace(const Place &place) {
   // nobody could tell, because one share is a number without a rate beside it. The bar to hold: at
   // least 50 Mbit/s off the wire, and a ring already in the cache costs no wait at all.
   outshine::Loading last;
-  const bool ready = engine
-                         .preload(kPatienceS,
-                                  [&](const outshine::Loading &how) {
-                                    if (how.ElapsedS - last.ElapsedS < 0.25 && how.share() < 1.0) {
-                                      return;
-                                    }
-                                    last = how;
-                                    std::printf(
-                                        "\r    loading  terrain %zu/%zu  osm %zu/%zu  %zu in flight"
-                                        "  %.1f MB  %.0f Mbit/s  %.0f ms/fetch  %.1f s   ",
-                                        how.GroundArrived, how.GroundWanted, how.VectorArrived,
-                                        how.VectorWanted, how.Outstanding, how.FetchedMB,
-                                        how.Megabits, how.MeanFetchMs, how.ElapsedS);
-                                    std::fflush(stdout);
-                                  })
-                         .has_value();
+  const bool ready =
+      engine
+          .preload(kPatienceS,
+                   [&](const outshine::Loading &how) {
+                     if (how.ElapsedS - last.ElapsedS < 0.25 && how.share() < 1.0) { return; }
+                     last = how;
+                     std::printf("\r    loading  terrain %zu/%zu  osm %zu/%zu  %zu in flight"
+                                 "  %.1f MB  %.0f Mbit/s  %.0f ms/fetch  %.1f s   ",
+                                 how.GroundArrived,
+                                 how.GroundWanted,
+                                 how.VectorArrived,
+                                 how.VectorWanted,
+                                 how.Outstanding,
+                                 how.FetchedMB,
+                                 how.Megabits,
+                                 how.MeanFetchMs,
+                                 how.ElapsedS);
+                     std::fflush(stdout);
+                   })
+          .has_value();
   std::printf("\n");
   // THE WAIT AND THE BUILD ARE TWO DIFFERENT COSTS AND ONE STOPWATCH HID IT. `preload` reports its
   // progress on every wake and then, on the wake that settles, BUILDS the world inside the same
@@ -266,83 +274,120 @@ inline int RenderPlace(const Place &place) {
       std::fclose(held);
     }
     digest = outshine::Sha256Hex(bytes).substr(0, 8);
-    const std::string named =
-        std::string("build/places/") + place.Name + "-" + digest + ".png";
+    const std::string named = std::string("build/places/") + place.Name + "-" + digest + ".png";
     std::filesystem::rename(keeping, named, failed);
     wrote = !failed;
   }
   std::printf("PICTURE %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %zu over 16.67, worst at %zu"
               "  %.0f triangle(s)\n",
-              place.Name, digest.empty() ? "--------" : digest.c_str(), quantile(0.50),
-              quantile(0.95), quantile(0.99), overBudget, worstAt,
+              place.Name,
+              digest.empty() ? "--------" : digest.c_str(),
+              quantile(0.50),
+              quantile(0.95),
+              quantile(0.99),
+              overBudget,
+              worstAt,
               measured("subjects, triangles"));
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
-              place.Name, measured("tiles the ring laid"), measured("levels the cascade laid"),
-              measured("subjects, triangles"), measured("so the relief it carries"),
+              place.Name,
+              measured("tiles the ring laid"),
+              measured("levels the cascade laid"),
+              measured("subjects, triangles"),
+              measured("so the relief it carries"),
               measured("its farthest vertex") / 1000.0);
-  std::printf("    sun %.0f deg up bearing %.0f, eye %.0f m ASL, curvature %.2f m at %.0f m where a "
-              "sphere says %.2f m\n",
-              measured("the sun stands this high"), measured("and bears"),
-              measured("the eye, up"),
-              measured("the ring's vertex that sinks furthest below its own altitude"),
-              measured("and how far out it lies"), measured("a sphere would sink it by"));
+  std::printf(
+      "    sun %.0f deg up bearing %.0f, eye %.0f m ASL, curvature %.2f m at %.0f m where a "
+      "sphere says %.2f m\n",
+      measured("the sun stands this high"),
+      measured("and bears"),
+      measured("the eye, up"),
+      measured("the ring's vertex that sinks furthest below its own altitude"),
+      measured("and how far out it lies"),
+      measured("a sphere would sink it by"));
   std::printf("    %.0f rebuild(s) of the terrain over %.0f walk(s) that asked\n",
-              measured("times the terrain was rebuilt"), measured("and how often it was asked about"));
-  std::printf("    the last rebuild took %.0f ms; of %d frame(s), advance %.0f ms and render %.0f ms\n",
-              measured("and what the last rebuild took"), frames, advancingMs, renderingMs);
+              measured("times the terrain was rebuilt"),
+              measured("and how often it was asked about"));
+  std::printf(
+      "    the last rebuild took %.0f ms; of %d frame(s), advance %.0f ms and render %.0f ms\n",
+      measured("and what the last rebuild took"),
+      frames,
+      advancingMs,
+      renderingMs);
   std::printf("    %.0f building triangle(s) meshed from OSM footprints\n",
               measured("building triangles the world meshed"));
   std::printf("    the ring's nearest vertex is %.0f m out at %.0f m up; the eye is %.0f m up\n",
-              measured("the ring's nearest vertex to the frame origin"), measured("and its up"),
+              measured("the ring's nearest vertex to the frame origin"),
+              measured("and its up"),
               measured("the eye, up"));
   std::printf("    buildings from %.0f to %.0f m up, %.0f to %.0f m out\n",
-              measured("buildings stand between"), measured("and"),
-              measured("their nearest vertex lies"), measured("their farthest"));
-  std::printf("    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer level\n",
-              measured("levels the cascade laid"), measured("tiles it skipped as already covered"),
-              measured("tiles that overlap a finer level"));
+              measured("buildings stand between"),
+              measured("and"),
+              measured("their nearest vertex lies"),
+              measured("their farthest"));
+  std::printf(
+      "    cascade: %.0f level(s), %.0f tile(s) skipped as covered, %.0f OVERLAPPING a finer "
+      "level\n",
+      measured("levels the cascade laid"),
+      measured("tiles it skipped as already covered"),
+      measured("tiles that overlap a finer level"));
   std::printf("    seam: %.0f shared vertices, %.2f m apart in height, %.2f deg apart in normal; "
               "%.0f street(s), %.0f footprint(s), %.0f instanced; kept at %s\n",
               measured("vertices two tiles put in the same place"),
               measured("and the widest they disagree on height"),
-              measured("the widest their NORMALS disagree"), measured("streets the world holds"),
-              measured("building footprints it holds"), measured("instances its draw sources made"),
+              measured("the widest their NORMALS disagree"),
+              measured("streets the world holds"),
+              measured("building footprints it holds"),
+              measured("instances its draw sources made"),
               wrote ? kept.c_str() : engine.error().c_str());
 
   // THE THREE ARE SEPARATE AND WERE NOT. This clock used to start BEFORE `preload`, so the
   // client's own wait for the world to arrive was divided by the frame count and reported as a
   // frame time: 3 138 ms a frame, on a frame that costs 12. Standing, loading and drawing are
   // three different questions and a single stopwatch across all three answers none of them.
-  std::printf("    THE TIME IS NOT THE PICTURE: %.0f ms to stand, %.0f ms waiting for the world, "
-              "%.1f ms to draw %d frame(s) (%.2f ms each). %.0f pending, %.0f absent, %.0f refused\n",
-              standingMs, loadingMs, drawingMs, frames, drawingMs / (double)(frames > 0 ? frames : 1),
-              measured("tiles it is still waiting for"), measured("tiles the stack does not hold"),
-              measured("tiles it refused"));
+  std::printf(
+      "    THE TIME IS NOT THE PICTURE: %.0f ms to stand, %.0f ms waiting for the world, "
+      "%.1f ms to draw %d frame(s) (%.2f ms each). %.0f pending, %.0f absent, %.0f refused\n",
+      standingMs,
+      loadingMs,
+      drawingMs,
+      frames,
+      drawingMs / (double)(frames > 0 ? frames : 1),
+      measured("tiles it is still waiting for"),
+      measured("tiles the stack does not hold"),
+      measured("tiles it refused"));
   std::printf("    THE FRAME, over %zu drawn from a STANDING eye: p50 %.2f  p95 %.2f  p99 %.2f ms"
               "  (60 fps wants 16.67)\n",
-              heldMs.size(), quantile(0.50), quantile(0.95), quantile(0.99));
+              heldMs.size(),
+              quantile(0.50),
+              quantile(0.95),
+              quantile(0.99));
   std::printf("    %.0f tile(s) stood BARE on the ellipsoid because the ground had not arrived\n",
               measured("tiles laid bare on the ellipsoid"));
   std::printf("    of that wait, %.1f s STREAMED and %.1f s BUILT the world from what arrived\n",
-              streamedS, loadingMs / 1000.0 - streamedS);
+              streamedS,
+              loadingMs / 1000.0 - streamedS);
   std::printf("    %s -- loaded %.0f%% of what the view wants, %d frame(s) drawn\n",
-              ready ? "PRELOADED" : "PATIENCE RAN OUT", 100.0 * engine.loadProgress(),
+              ready ? "PRELOADED" : "PATIENCE RAN OUT",
+              100.0 * engine.loadProgress(),
               frames);
 
   // A PICTURE OF NOTHING IS NOT A PICTURE. This case scores nothing and refuses only when it cannot
   // get a frame out -- and that let a flat green plane through as a PASS while 112 tiles stood bare
   // on the ellipsoid because the ground never arrived. The place then renders at sea level, every
-  // building with it, and the frame says "outshine gets everything wrong" when what happened is that
-  // the world did not come. A bare tile is the loudest thing this case can see and it now says so.
+  // building with it, and the frame says "outshine gets everything wrong" when what happened is
+  // that the world did not come. A bare tile is the loudest thing this case can see and it now says
+  // so.
   const double bare = measured("tiles laid bare on the ellipsoid");
   if (bare > 0.0) {
     char why[256];
-    std::snprintf(why, sizeof why,
+    std::snprintf(why,
+                  sizeof why,
                   "%s stood %.0f tile(s) BARE on the ellipsoid -- the elevation never arrived, so "
                   "the ground and everything on it is drawn at sea level. The picture is of the "
                   "streaming, not of the place",
-                  place.Name, bare);
+                  place.Name,
+                  bare);
     Unprepared(why);
     return Report();
   }
@@ -353,18 +398,23 @@ inline int RenderPlace(const Place &place) {
         held.What.rfind("asks that", 0) == 0 || held.What.rfind("megabytes", 0) == 0 ||
         held.What.rfind("jobs still", 0) == 0 || held.What.rfind("keys with", 0) == 0 ||
         held.What.rfind("jobs parked", 0) == 0 || held.What.rfind("results it", 0) == 0 ||
-        held.What.rfind("jobs waiting", 0) == 0 || held.What.rfind("mesh jobs it dropped", 0) == 0 || held.What.rfind("cull:", 0) == 0 || held.What.rfind("solid:", 0) == 0 || held.What.rfind("relief:", 0) == 0 || held.What.rfind("lighting:", 0) == 0 || held.What.rfind("generators:", 0) == 0 || held.What.rfind("buildings:", 0) == 0 || held.What.rfind("streets:", 0) == 0 || held.What.rfind("water:", 0) == 0 || held.What.rfind("the ring's vertices a land", 0) == 0 ||
-        held.What.rfind("out of, for a class", 0) == 0 ||
-        held.What.rfind("restand:", 0) == 0 ||
+        held.What.rfind("jobs waiting", 0) == 0 ||
+        held.What.rfind("mesh jobs it dropped", 0) == 0 || held.What.rfind("cull:", 0) == 0 ||
+        held.What.rfind("solid:", 0) == 0 || held.What.rfind("relief:", 0) == 0 ||
+        held.What.rfind("lighting:", 0) == 0 || held.What.rfind("generators:", 0) == 0 ||
+        held.What.rfind("buildings:", 0) == 0 || held.What.rfind("streets:", 0) == 0 ||
+        held.What.rfind("water:", 0) == 0 ||
+        held.What.rfind("the ring's vertices a land", 0) == 0 ||
+        held.What.rfind("out of, for a class", 0) == 0 || held.What.rfind("restand:", 0) == 0 ||
         held.What.rfind("rebuild:", 0) == 0) {
       std::printf("    %s: %.0f %s\n", held.What.c_str(), held.How, held.Unit.c_str());
     }
   }
 
-  // A PICTURE OF NOTHING PASSED THIS CASE FOR MONTHS, and the guard beside this one -- the bare-tile
-  // count -- did not catch it: Shibuya meshed 6.1 M building triangles, reported 0 bare tiles, and
-  // kept a 49 KB frame of flat green under a gradient sky. The case only ever asked whether a FILE
-  // was written.
+  // A PICTURE OF NOTHING PASSED THIS CASE FOR MONTHS, and the guard beside this one -- the
+  // bare-tile count -- did not catch it: Shibuya meshed 6.1 M building triangles, reported 0 bare
+  // tiles, and kept a 49 KB frame of flat green under a gradient sky. The case only ever asked
+  // whether a FILE was written.
   //
   // THE ORACLE NEEDS NO TASTE AND NO INVENTED NUMBER. A bare ellipsoid under a sky is a VERTICAL
   // gradient, and a vertical gradient has exactly ZERO horizontal variation by construction. Every
@@ -375,9 +425,9 @@ inline int RenderPlace(const Place &place) {
   // building in the frame stands ABOVE the horizon. Both halves of a bare frame -- the sky's
   // gradient and the flat ground -- carry zero horizontal variation, so taking the whole frame
   // dilutes nothing and misses nothing. MEASURED at the bar of ONE unit:
-  // the bare frame reads 0.719 and the five that hold their place read 2.343 to 3.629, so the gap is
-  // a factor of 3.3 -- not the order of magnitude a first draft of this comment claimed. Wide enough
-  // to separate them and narrow enough that the number is quoted here rather than assumed.
+  // the bare frame reads 0.719 and the five that hold their place read 2.343 to 3.629, so the gap
+  // is a factor of 3.3 -- not the order of magnitude a first draft of this comment claimed. Wide
+  // enough to separate them and narrow enough that the number is quoted here rather than assumed.
   //
   // It only bites when geometry was actually meshed, which is what makes it a CONTRADICTION between
   // two measurements rather than a judgement about how the picture looks: triangles were built and
@@ -392,10 +442,10 @@ inline int RenderPlace(const Place &place) {
   //
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar of 1.0 is a number nobody checked.
   // A bare ellipsoid under a sky IS a vertical gradient, so the statistic is run first over a
-  // gradient built here -- if THAT does not come in far under the bar, the bar separates nothing and
-  // every green below it is worthless. Measured on the real thing for comparison: a Shibuya frame
-  // that meshed 9.7 M triangles and drew none of them read 0.719, and the five places that do show
-  // their place read 1.789 to 2.883.
+  // gradient built here -- if THAT does not come in far under the bar, the bar separates nothing
+  // and every green below it is worthless. Measured on the real thing for comparison: a Shibuya
+  // frame that meshed 9.7 M triangles and drew none of them read 0.719, and the five places that do
+  // show their place read 1.789 to 2.883.
   const auto varyingAcross = [](const std::vector<uint8_t> &rgba, int wide, int high) {
     double sum = 0.0;
     size_t steps = 0;
@@ -425,11 +475,12 @@ inline int RenderPlace(const Place &place) {
     const double flatGradient = varyingAcross(gradient, kWidePx, kHighPx);
     std::printf("    control: a bare vertical gradient varies by %.3f of 255 along its rows\n",
                 flatGradient);
-    CHECK(flatGradient < 0.5,
-          "**THE BLANK-FRAME BAR SEPARATES SOMETHING**: the negative control for the measure beside "
-          "it. A picture of nothing is a vertical gradient and a vertical gradient has no horizontal "
-          "variation at all, so this has to read far below the bar of 1.0 that a real frame is held "
-          "to -- and if a future measure lets a gradient through, this goes red before a place does");
+    CHECK(
+        flatGradient < 0.5,
+        "**THE BLANK-FRAME BAR SEPARATES SOMETHING**: the negative control for the measure beside "
+        "it. A picture of nothing is a vertical gradient and a vertical gradient has no horizontal "
+        "variation at all, so this has to read far below the bar of 1.0 that a real frame is held "
+        "to -- and if a future measure lets a gradient through, this goes red before a place does");
   }
 
   double alongRows = 0.0;
@@ -451,14 +502,19 @@ inline int RenderPlace(const Place &place) {
   const double flatness = steps > 0 ? alongRows / (double)steps : 0.0;
   const double meshed = measured("building triangles the world meshed");
   std::printf("    the picture varies by %.3f of 255 along its rows, over %.0f meshed building "
-              "triangle(s)\n", flatness, meshed);
+              "triangle(s)\n",
+              flatness,
+              meshed);
   if (meshed > 0.0 && read && flatness < 1.0) {
     char why[320];
-    std::snprintf(why, sizeof why,
+    std::snprintf(why,
+                  sizeof why,
                   "%s meshed %.0f building triangle(s) and its picture varies by %.3f of 255 along "
                   "its rows -- a vertical gradient varies by zero, so the frame holds the sky and "
                   "the ground and NONE of the geometry that was built for it",
-                  place.Name, meshed, flatness);
+                  place.Name,
+                  meshed,
+                  flatness);
     Unprepared(why);
     return Report();
   }
@@ -473,6 +529,6 @@ inline int RenderPlace(const Place &place) {
   return Report();
 }
 
-}
+} // namespace outshine::Test
 
 #endif

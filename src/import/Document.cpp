@@ -25,24 +25,45 @@ uint32_t LittleWord(const uint8_t *at) {
 
 bool KnownComponent(int raw, ComponentType &out) {
   switch (raw) {
-  case 5120: out = ComponentType::Int8; return true;
-  case 5121: out = ComponentType::UInt8; return true;
-  case 5122: out = ComponentType::Int16; return true;
-  case 5123: out = ComponentType::UInt16; return true;
-  case 5125: out = ComponentType::UInt32; return true;
-  case 5126: out = ComponentType::Float32; return true;
-  default: return false;
+    case 5120: out = ComponentType::Int8; return true;
+    case 5121: out = ComponentType::UInt8; return true;
+    case 5122: out = ComponentType::Int16; return true;
+    case 5123: out = ComponentType::UInt16; return true;
+    case 5125: out = ComponentType::UInt32; return true;
+    case 5126: out = ComponentType::Float32; return true;
+    default: return false;
   }
 }
 
 bool KnownElement(std::string_view raw, ElementType &out) {
-  if (raw == "SCALAR") { out = ElementType::Scalar; return true; }
-  if (raw == "VEC2") { out = ElementType::Vec2; return true; }
-  if (raw == "VEC3") { out = ElementType::Vec3; return true; }
-  if (raw == "VEC4") { out = ElementType::Vec4; return true; }
-  if (raw == "MAT2") { out = ElementType::Mat2; return true; }
-  if (raw == "MAT3") { out = ElementType::Mat3; return true; }
-  if (raw == "MAT4") { out = ElementType::Mat4; return true; }
+  if (raw == "SCALAR") {
+    out = ElementType::Scalar;
+    return true;
+  }
+  if (raw == "VEC2") {
+    out = ElementType::Vec2;
+    return true;
+  }
+  if (raw == "VEC3") {
+    out = ElementType::Vec3;
+    return true;
+  }
+  if (raw == "VEC4") {
+    out = ElementType::Vec4;
+    return true;
+  }
+  if (raw == "MAT2") {
+    out = ElementType::Mat2;
+    return true;
+  }
+  if (raw == "MAT3") {
+    out = ElementType::Mat3;
+    return true;
+  }
+  if (raw == "MAT4") {
+    out = ElementType::Mat4;
+    return true;
+  }
   return false;
 }
 
@@ -54,55 +75,56 @@ bool KnownMode(int raw, PrimitiveMode &out) {
 
 double Component(const uint8_t *at, ComponentType component) {
   switch (component) {
-  case ComponentType::Int8: {
-    int8_t v = 0;
-    std::memcpy(&v, at, sizeof v);
-    return v;
-  }
-  case ComponentType::UInt8: return *at;
-  case ComponentType::Int16: {
-    int16_t v = 0;
-    std::memcpy(&v, at, sizeof v);
-    return v;
-  }
-  case ComponentType::UInt16: {
-    uint16_t v = 0;
-    std::memcpy(&v, at, sizeof v);
-    return v;
-  }
-  case ComponentType::UInt32: {
-    uint32_t v = 0;
-    std::memcpy(&v, at, sizeof v);
-    return v;
-  }
-  case ComponentType::Float32: {
-    float v = 0;
-    std::memcpy(&v, at, sizeof v);
-    return v;
-  }
+    case ComponentType::Int8: {
+      int8_t v = 0;
+      std::memcpy(&v, at, sizeof v);
+      return v;
+    }
+    case ComponentType::UInt8: return *at;
+    case ComponentType::Int16: {
+      int16_t v = 0;
+      std::memcpy(&v, at, sizeof v);
+      return v;
+    }
+    case ComponentType::UInt16: {
+      uint16_t v = 0;
+      std::memcpy(&v, at, sizeof v);
+      return v;
+    }
+    case ComponentType::UInt32: {
+      uint32_t v = 0;
+      std::memcpy(&v, at, sizeof v);
+      return v;
+    }
+    case ComponentType::Float32: {
+      float v = 0;
+      std::memcpy(&v, at, sizeof v);
+      return v;
+    }
   }
   return 0;
 }
 
 double Normalise(double raw, ComponentType component) {
   switch (component) {
-  case ComponentType::Int8: return raw < -127.0 ? -1.0 : raw / 127.0;
-  case ComponentType::UInt8: return raw / 255.0;
-  case ComponentType::Int16: return raw < -32767.0 ? -1.0 : raw / 32767.0;
-  case ComponentType::UInt16: return raw / 65535.0;
-  case ComponentType::UInt32: return raw / 4294967295.0;
-  case ComponentType::Float32: return raw;
+    case ComponentType::Int8: return raw < -127.0 ? -1.0 : raw / 127.0;
+    case ComponentType::UInt8: return raw / 255.0;
+    case ComponentType::Int16: return raw < -32767.0 ? -1.0 : raw / 32767.0;
+    case ComponentType::UInt16: return raw / 65535.0;
+    case ComponentType::UInt32: return raw / 4294967295.0;
+    case ComponentType::Float32: return raw;
   }
   return raw;
 }
 
 std::string DirectoryOf(std::string_view path) {
   const size_t slash = path.find_last_of('/');
-  return slash == std::string_view::npos ? std::string()
-                                         : std::string(path.substr(0, slash + 1));
+  return slash == std::string_view::npos ? std::string() : std::string(path.substr(0, slash + 1));
 }
 
-std::string Number(size_t value) { return std::to_string(value); }
+std::string Number(size_t value) {
+  return std::to_string(value);
+}
 
 [[nodiscard]] int SixBitsOf(char one) {
   if (one >= 'A' && one <= 'Z') { return one - 'A'; }
@@ -124,8 +146,7 @@ std::string Number(size_t value) { return std::to_string(value); }
 
 [[nodiscard]] bool DecodeBase64(std::string_view payload, std::vector<uint8_t> &out) {
   size_t padding = 0;
-  while (padding < 2 && payload.size() > padding &&
-         payload[payload.size() - 1 - padding] == '=') {
+  while (padding < 2 && payload.size() > padding && payload[payload.size() - 1 - padding] == '=') {
     ++padding;
   }
   const std::string_view body = payload.substr(0, payload.size() - padding);
@@ -171,30 +192,48 @@ std::string PercentDecoded(std::string_view uri) {
 
 bool KnownWrap(int raw, Wrap &out) {
   switch (raw) {
-  case 33071: out = Wrap::ClampToEdge; return true;
-  case 33648: out = Wrap::MirroredRepeat; return true;
-  case 10497: out = Wrap::Repeat; return true;
-  default: return false;
+    case 33071: out = Wrap::ClampToEdge; return true;
+    case 33648: out = Wrap::MirroredRepeat; return true;
+    case 10497: out = Wrap::Repeat; return true;
+    default: return false;
   }
 }
 
 [[nodiscard]] bool KnownMagFilter(int raw, Filter &out) {
   switch (raw) {
-  case 9728: out = Filter::Nearest; return true;
-  case 9729: out = Filter::Linear; return true;
-  default: return false;
+    case 9728: out = Filter::Nearest; return true;
+    case 9729: out = Filter::Linear; return true;
+    default: return false;
   }
 }
 
 [[nodiscard]] bool KnownMinFilter(int raw, Filter &base, MipFilter &mip) {
   switch (raw) {
-  case 9728: base = Filter::Nearest; mip = MipFilter::None; return true;
-  case 9729: base = Filter::Linear; mip = MipFilter::None; return true;
-  case 9984: base = Filter::Nearest; mip = MipFilter::Nearest; return true;
-  case 9985: base = Filter::Linear; mip = MipFilter::Nearest; return true;
-  case 9986: base = Filter::Nearest; mip = MipFilter::Linear; return true;
-  case 9987: base = Filter::Linear; mip = MipFilter::Linear; return true;
-  default: return false;
+    case 9728:
+      base = Filter::Nearest;
+      mip = MipFilter::None;
+      return true;
+    case 9729:
+      base = Filter::Linear;
+      mip = MipFilter::None;
+      return true;
+    case 9984:
+      base = Filter::Nearest;
+      mip = MipFilter::Nearest;
+      return true;
+    case 9985:
+      base = Filter::Linear;
+      mip = MipFilter::Nearest;
+      return true;
+    case 9986:
+      base = Filter::Nearest;
+      mip = MipFilter::Linear;
+      return true;
+    case 9987:
+      base = Filter::Linear;
+      mip = MipFilter::Linear;
+      return true;
+    default: return false;
   }
 }
 
@@ -216,7 +255,8 @@ constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_unlit",
                                                      "KHR_materials_variants",
                                                      "KHR_texture_transform",
-                                                     "KHR_xmp_json_ld", nullptr};
+                                                     "KHR_xmp_json_ld",
+                                                     nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
@@ -235,15 +275,15 @@ constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
 
-bool ResolveMaterialPointer(std::string_view pointer, AnimationChannel &channel,
+bool ResolveMaterialPointer(std::string_view pointer,
+                            AnimationChannel &channel,
                             UndrivenReason &why) {
   std::vector<std::string> segments;
   size_t at = 0;
   while (at <= pointer.size()) {
     const size_t slash = pointer.find('/', at);
-    segments.emplace_back(pointer.substr(at, slash == std::string_view::npos
-                                                ? std::string_view::npos
-                                                : slash - at));
+    segments.emplace_back(
+        pointer.substr(at, slash == std::string_view::npos ? std::string_view::npos : slash - at));
     if (slash == std::string::npos) { break; }
     at = slash + 1;
   }
@@ -317,13 +357,22 @@ bool ReadTextureTransform(const Json::Ref &info, TextureRef &into, std::string &
 }
 
 bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
-  if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
-  if (raw == "MASK") { out = AlphaMode::Masked; return true; }
-  if (raw == "BLEND") { out = AlphaMode::Blended; return true; }
+  if (raw.empty() || raw == "OPAQUE") {
+    out = AlphaMode::Opaque;
+    return true;
+  }
+  if (raw == "MASK") {
+    out = AlphaMode::Masked;
+    return true;
+  }
+  if (raw == "BLEND") {
+    out = AlphaMode::Blended;
+    return true;
+  }
   return false;
 }
 
-}
+} // namespace
 
 struct AttributeShape {
   ElementType Element;
@@ -406,7 +455,8 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
       return Refuse("is a GLB of version " + Number(version) + ", and this reader is glTF 2.0");
     }
     if (declared > length) {
-      return Refuse("declares " + Number(declared) + " bytes and " + Number(length) + " are present");
+      return Refuse("declares " + Number(declared) + " bytes and " + Number(length) +
+                    " are present");
     }
     const uint8_t *jsonChunk = nullptr;
     size_t jsonLength = 0;
@@ -418,7 +468,8 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
       const uint32_t chunkType = LittleWord(bytes + at + 4);
       at += 8;
       if (chunkLength > declared - at) {
-        return Refuse("has a GLB chunk of " + Number(chunkLength) + " bytes that runs past the file");
+        return Refuse("has a GLB chunk of " + Number(chunkLength) +
+                      " bytes that runs past the file");
       }
       if (chunkType == kChunkJson) {
         if (jsonChunk != nullptr) {
@@ -443,14 +494,15 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
       at += (chunkLength + 3) & ~size_t{3};
     }
     if (jsonChunk == nullptr) { return Refuse("is a GLB with no JSON chunk"); }
-    return ReadJson(reinterpret_cast<const char *>(jsonChunk), jsonLength, binaryChunk,
-                    binaryLength);
+    return ReadJson(
+        reinterpret_cast<const char *>(jsonChunk), jsonLength, binaryChunk, binaryLength);
   }
 
   return ReadJson(reinterpret_cast<const char *>(bytes), length, nullptr, 0);
 }
 
 constexpr double kMostDeclaredBytes = 4294967295.0;
+
 [[nodiscard]] bool DeclaredSize(const Json::Ref &ref, size_t &out) {
   const double raw = ref.Num(0.0);
   if (!(raw >= 0.0) || raw != std::floor(raw) || raw > kMostDeclaredBytes) { return false; }
@@ -465,7 +517,8 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
     const Json::Ref buffer = buffers[i];
     size_t declared = 0;
     if (!DeclaredSize(buffer["byteLength"], declared)) {
-      return Refuse("buffer " + Number(i) + " declares a byteLength that is not a whole "
+      return Refuse("buffer " + Number(i) +
+                    " declares a byteLength that is not a whole "
                     "non-negative count under the container's ceiling");
     }
     const std::string uri = PercentDecoded(buffer["uri"].Str(""));
@@ -496,11 +549,14 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
     } else {
       std::error_code stat;
       const auto measured = std::filesystem::file_size(directory + uri, stat);
-      if (stat) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
-      const size_t reading =
-          measured < (uintmax_t)declared + 1 ? (size_t)measured : declared + 1;
+      if (stat) {
+        return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
+      }
+      const size_t reading = measured < (uintmax_t)declared + 1 ? (size_t)measured : declared + 1;
       std::ifstream file(directory + uri, std::ios::binary);
-      if (!file) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
+      if (!file) {
+        return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
+      }
       bytes.resize(reading);
       file.read(reinterpret_cast<char *>(bytes.data()), (std::streamsize)bytes.size());
       bytes.resize((size_t)file.gcount());
@@ -515,7 +571,9 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
   return true;
 }
 
-bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryChunk,
+bool Document::ReadJson(const char *text,
+                        size_t length,
+                        const uint8_t *binaryChunk,
                         size_t binaryLength) {
   Json json;
   if (!json.Parse(text, length)) {
@@ -529,12 +587,25 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
   }
 
-  for (const char *named : {"accessors", "animations", "buffers", "bufferViews", "cameras",
-                            "images", "materials", "meshes", "nodes", "samplers", "scenes",
-                            "skins", "textures", "extensionsUsed", "extensionsRequired"}) {
+  for (const char *named : {"accessors",
+                            "animations",
+                            "buffers",
+                            "bufferViews",
+                            "cameras",
+                            "images",
+                            "materials",
+                            "meshes",
+                            "nodes",
+                            "samplers",
+                            "scenes",
+                            "skins",
+                            "textures",
+                            "extensionsUsed",
+                            "extensionsRequired"}) {
     const Json::Ref held = root[named];
     if (held.Valid() && held.GetKind() == Json::Kind::Array && held.Size() == 0) {
-      return Refuse(std::string(named) + " is present and empty, and glTF 2.0 gives every one of "
+      return Refuse(std::string(named) +
+                    " is present and empty, and glTF 2.0 gives every one of "
                     "its arrays a minimum of one item -- an array that is there says something "
                     "stands in it");
     }
@@ -546,9 +617,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                   "', which is above the glTF 2.0 this reader is");
   }
   const Json::Ref required = root["extensionsRequired"];
-  for (size_t i = 0; i < required.Size(); ++i) {
-    Required_.push_back(required[i].Str(""));
-  }
+  for (size_t i = 0; i < required.Size(); ++i) { Required_.push_back(required[i].Str("")); }
   for (const std::string &extension : Required_) {
     if (extension == "KHR_mesh_quantization") { Quantised_ = true; }
     if (!Honours(extension)) {
@@ -569,24 +638,30 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         const bool spelled = said.GetKind() == Json::Kind::String ||
                              said.GetKind() == Json::Kind::Number ||
                              said.GetKind() == Json::Kind::Bool;
-        held.Held.push_back(MetadataProperty{
-            std::move(key), spelled ? said.Str("") : std::string(said.Source()),
-            spelled ? MetadataShape::Text : MetadataShape::Structure});
+        held.Held.push_back(
+            MetadataProperty{std::move(key),
+                             spelled ? said.Str("") : std::string(said.Source()),
+                             spelled ? MetadataShape::Text : MetadataShape::Structure});
       }
       Metadata_.push_back(std::move(held));
     }
+
     struct Carrier {
       const char *Array;
       MetadataCarrier Kind;
     };
+
     static constexpr Carrier kCarriers[] = {
-        {"scenes", MetadataCarrier::Scene},       {"nodes", MetadataCarrier::Node},
-        {"meshes", MetadataCarrier::Mesh},        {"materials", MetadataCarrier::Material},
-        {"images", MetadataCarrier::Image},       {"animations", MetadataCarrier::Animation},
+        {"scenes", MetadataCarrier::Scene},
+        {"nodes", MetadataCarrier::Node},
+        {"meshes", MetadataCarrier::Mesh},
+        {"materials", MetadataCarrier::Material},
+        {"images", MetadataCarrier::Image},
+        {"animations", MetadataCarrier::Animation},
     };
 
-    const auto Points = [&](const Json::Ref &at, MetadataCarrier carrier, size_t which,
-                            const char *what) -> bool {
+    const auto Points =
+        [&](const Json::Ref &at, MetadataCarrier carrier, size_t which, const char *what) -> bool {
       const Json::Ref names = at["extensions"]["KHR_xmp_json_ld"]["packet"];
       if (!names.Valid()) { return true; }
       const int packet = names.Int(-1);
@@ -596,8 +671,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                       Number(Metadata_.size()) +
                       " -- a packet index outside the array it indexes is a refusal");
       }
-      MetadataUses_.push_back(
-          MetadataUse{carrier, (uint32_t)which, (uint32_t)packet});
+      MetadataUses_.push_back(MetadataUse{carrier, (uint32_t)which, (uint32_t)packet});
       return true;
     };
 
@@ -622,13 +696,13 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         !DeclaredSize(declaration["byteOffset"], view.ByteOffset) ||
         !DeclaredSize(declaration["byteLength"], view.ByteLength) ||
         !DeclaredSize(declaration["byteStride"], view.ByteStride)) {
-      return Refuse("bufferView " + Number(i) + " declares a size that is not a whole "
+      return Refuse("bufferView " + Number(i) +
+                    " declares a size that is not a whole "
                     "non-negative count under the container's ceiling");
     }
     if (declaration["byteStride"].Valid() &&
         (view.ByteStride < 4 || view.ByteStride > 252 || view.ByteStride % 4 != 0)) {
-      return Refuse("bufferView " + Number(i) + " declares byteStride " +
-                    Number(view.ByteStride) +
+      return Refuse("bufferView " + Number(i) + " declares byteStride " + Number(view.ByteStride) +
                     ", and the spec holds a stride to a multiple of 4 in [4, 252]");
     }
     if (view.Buffer >= Buffers_.size()) {
@@ -652,25 +726,27 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     accessor.View = view.Valid() ? view.Int(-1) : -1;
     if (!DeclaredSize(declaration["byteOffset"], accessor.ByteOffset) ||
         !DeclaredSize(declaration["count"], accessor.Count)) {
-      return Refuse("accessor " + Number(i) + " declares a size that is not a whole "
+      return Refuse("accessor " + Number(i) +
+                    " declares a size that is not a whole "
                     "non-negative count under the container's ceiling");
     }
     accessor.Normalized = declaration["normalized"].Bool(false);
     const int rawComponent = declaration["componentType"].Int(0);
     if (!KnownComponent(rawComponent, accessor.Component)) {
-      return Refuse("accessor " + Number(i) + " has componentType " + Number(static_cast<size_t>(rawComponent)) +
-                    ", which glTF 2.0 does not define");
+      return Refuse("accessor " + Number(i) + " has componentType " +
+                    Number(static_cast<size_t>(rawComponent)) + ", which glTF 2.0 does not define");
     }
     const std::string rawElement = declaration["type"].Str("");
     if (!KnownElement(rawElement, accessor.Element)) {
-      return Refuse("accessor " + Number(i) + " has type '" + rawElement + "', which glTF 2.0 does not define");
+      return Refuse("accessor " + Number(i) + " has type '" + rawElement +
+                    "', which glTF 2.0 does not define");
     }
     if (accessor.Normalized && accessor.Component == ComponentType::Float32) {
       return Refuse("accessor " + Number(i) + " is a normalized float, which glTF 2.0 forbids");
     }
     if (accessor.View >= 0 && static_cast<size_t>(accessor.View) >= Views_.size()) {
-      return Refuse("accessor " + Number(i) + " names bufferView " + Number(static_cast<size_t>(accessor.View)) +
-                    " of " + Number(Views_.size()));
+      return Refuse("accessor " + Number(i) + " names bufferView " +
+                    Number(static_cast<size_t>(accessor.View)) + " of " + Number(Views_.size()));
     }
     for (size_t k = 0; k < declaration["min"].Size(); ++k) {
       accessor.Min.push_back(declaration["min"][k].Num(0.0));
@@ -682,21 +758,25 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     if (sparse.Valid()) {
       accessor.HasSparse = true;
       if (!DeclaredSize(sparse["count"], accessor.Sparse.Count)) {
-        return Refuse("accessor " + Number(i) + " declares a sparse count that is not a "
+        return Refuse("accessor " + Number(i) +
+                      " declares a sparse count that is not a "
                       "whole non-negative count under the container's ceiling");
       }
       accessor.Sparse.IndicesBufferView = sparse["indices"]["bufferView"].Int(-1);
       if (!DeclaredSize(sparse["indices"]["byteOffset"], accessor.Sparse.IndicesByteOffset)) {
-        return Refuse("accessor " + Number(i) + " declares a sparse index offset that is "
+        return Refuse("accessor " + Number(i) +
+                      " declares a sparse index offset that is "
                       "not a whole non-negative count under the container's ceiling");
       }
       if (!KnownComponent(sparse["indices"]["componentType"].Int(0),
                           accessor.Sparse.IndicesComponent)) {
-        return Refuse("accessor " + Number(i) + " has a sparse index componentType glTF 2.0 does not define");
+        return Refuse("accessor " + Number(i) +
+                      " has a sparse index componentType glTF 2.0 does not define");
       }
       accessor.Sparse.ValuesBufferView = sparse["values"]["bufferView"].Int(-1);
       if (!DeclaredSize(sparse["values"]["byteOffset"], accessor.Sparse.ValuesByteOffset)) {
-        return Refuse("accessor " + Number(i) + " declares a sparse value offset that is "
+        return Refuse("accessor " + Number(i) +
+                      " declares a sparse value offset that is "
                       "not a whole non-negative count under the container's ceiling");
       }
       if (accessor.Sparse.Count > accessor.Count) {
@@ -729,7 +809,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       const Json::Ref declared = primitives[p];
       Primitive primitive;
       if (!KnownMode(declared["mode"].Valid() ? declared["mode"].Int(4) : 4, primitive.Mode)) {
-        return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " has a mode glTF 2.0 does not define");
+        return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
+                      " has a mode glTF 2.0 does not define");
       }
       primitive.Indices = declared["indices"].Valid() ? declared["indices"].Int(-1) : -1;
       primitive.Material = declared["material"].Valid() ? declared["material"].Int(-1) : -1;
@@ -738,7 +819,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         Attribute attribute;
         attribute.Semantic = attributes.Key(a);
         attribute.Accessor = attributes[a].Int(-1);
-        if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
+        if (attribute.Accessor < 0 ||
+            static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
           return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
                         attribute.Semantic + " names an accessor the file does not carry");
         }
@@ -753,7 +835,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         const AttributeShape shape{carried.Element, carried.Component, carried.Normalized};
         if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
           return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
-                        attribute.Semantic + " is an accessor shape glTF 2.0 does not permit for it" +
+                        attribute.Semantic +
+                        " is an accessor shape glTF 2.0 does not permit for it" +
                         (Quantised_ ? ", even with KHR_mesh_quantization"
                                     : " -- KHR_mesh_quantization widens this and the file does not "
                                       "require it"));
@@ -775,7 +858,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                           Number(t) + " displaces " + attribute.Semantic +
                           ", and glTF 2.0 states a target carries POSITION, NORMAL or TANGENT");
           }
-          if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
+          if (attribute.Accessor < 0 ||
+              static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
             return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
                           Number(t) + " names an accessor the file does not carry for " +
                           attribute.Semantic);
@@ -812,7 +896,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       if (!mesh.Primitives.empty() &&
           mesh.Primitives[0].Targets.size() != primitive.Targets.size()) {
         return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " declares " +
-                      Number(primitive.Targets.size()) + " morph targets and primitive 0 declares " +
+                      Number(primitive.Targets.size()) +
+                      " morph targets and primitive 0 declares " +
                       Number(mesh.Primitives[0].Targets.size()) +
                       ", and one weight run drives every primitive of a mesh");
       }
@@ -821,7 +906,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     if (!mesh.Weights.empty() && !mesh.Primitives.empty() &&
         mesh.Weights.size() != mesh.Primitives[0].Targets.size()) {
       return Refuse("mesh " + Number(i) + " declares " + Number(mesh.Weights.size()) +
-                    " weights over " + Number(mesh.Primitives[0].Targets.size()) + " morph targets");
+                    " weights over " + Number(mesh.Primitives[0].Targets.size()) +
+                    " morph targets");
     }
     Meshes_.push_back(std::move(mesh));
   }
@@ -858,8 +944,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                     " against a znear of " + Number(camera.ZNearM) +
                     ", and a far plane that does not lie beyond the near one encloses no volume");
     }
-    if (camera.Kind == CameraKind::Orthographic &&
-        (camera.XMagM == 0.0 || camera.YMagM == 0.0)) {
+    if (camera.Kind == CameraKind::Orthographic && (camera.XMagM == 0.0 || camera.YMagM == 0.0)) {
       return Refuse("camera " + Number(i) + " declares an orthographic magnification of " +
                     Number(camera.XMagM) + " by " + Number(camera.YMagM) +
                     ", and a zero magnification collapses the picture to a line");
@@ -885,10 +970,12 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     const Json::Ref scale = declaration["scale"];
     if (matrix.Valid()) {
       if (translation.Valid() || rotation.Valid() || scale.Valid()) {
-        return Refuse("node " + Number(i) + " carries both a matrix and a TRS component, which glTF 2.0 forbids");
+        return Refuse("node " + Number(i) +
+                      " carries both a matrix and a TRS component, which glTF 2.0 forbids");
       }
       if (matrix.Size() != 16) {
-        return Refuse("node " + Number(i) + " has a matrix of " + Number(matrix.Size()) + " numbers");
+        return Refuse("node " + Number(i) + " has a matrix of " + Number(matrix.Size()) +
+                      " numbers");
       }
       node.HasMatrix = true;
       for (size_t k = 0; k < 16; ++k) { node.Matrix[k] = matrix[k].Num(0.0); }
@@ -939,8 +1026,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                     " of " + Number(Meshes_.size()));
     }
     if (node.Camera >= 0 && static_cast<size_t>(node.Camera) >= Cameras_.size()) {
-      return Refuse("node " + Number(i) + " names camera " + Number(static_cast<size_t>(node.Camera)) +
-                    " of " + Number(Cameras_.size()));
+      return Refuse("node " + Number(i) + " names camera " +
+                    Number(static_cast<size_t>(node.Camera)) + " of " + Number(Cameras_.size()));
     }
     if (node.Light >= 0 && static_cast<size_t>(node.Light) >= Lights_.size()) {
       return Refuse("node " + Number(i) + " names " + kLightsPunctual + " light " +
@@ -1027,7 +1114,8 @@ bool Document::ReadSkins(const Json::Ref &root) {
     skin.Skeleton = declaration["skeleton"].Valid() ? declaration["skeleton"].Int(-1) : -1;
     const Json::Ref joints = declaration["joints"];
     if (joints.Size() == 0) {
-      return Refuse("skin " + Number(i) + " names no joint, and a skin with no joint deforms nothing");
+      return Refuse("skin " + Number(i) +
+                    " names no joint, and a skin with no joint deforms nothing");
     }
     for (size_t k = 0; k < joints.Size(); ++k) {
       const int node = joints[k].Int(-1);
@@ -1058,7 +1146,8 @@ bool Document::ReadSkins(const Json::Ref &root) {
                     " and the file declares " + Number(Skins_.size()));
     }
     if (skin >= 0 && Nodes_[i].Mesh < 0) {
-      return Refuse("node " + Number(i) + " names a skin and carries no mesh, and glTF states a "
+      return Refuse("node " + Number(i) +
+                    " names a skin and carries no mesh, and glTF states a "
                     "skin is only meaningful on the node that instantiates the geometry");
     }
   }
@@ -1144,12 +1233,9 @@ bool Document::ReadAnimations(const Json &json) {
       } else if (path == "weights") {
         channel.Path = AnimationPath::Weights;
       } else if (path == "pointer") {
-
-        const std::string pointer =
-            target["extensions"][kAnimationPointer]["pointer"].Str("");
+        const std::string pointer = target["extensions"][kAnimationPointer]["pointer"].Str("");
         UndrivenReason why = UndrivenReason::PointerUnparsed;
         if (!ResolveMaterialPointer(pointer, channel, why)) {
-
           animation.Undriven.push_back(UndrivenChannel{pointer, why});
           continue;
         }
@@ -1158,23 +1244,21 @@ bool Document::ReadAnimations(const Json &json) {
                       "', which is none of translation, rotation, scale, weights or pointer");
       }
       const size_t components = PathComponents(channel.Path);
-      const Accessor &values =
-          Accessors_[static_cast<size_t>(animation.Samplers[static_cast<size_t>(channel.Sampler)]
-                                             .Output)];
+      const Accessor &values = Accessors_[static_cast<size_t>(
+          animation.Samplers[static_cast<size_t>(channel.Sampler)].Output)];
       if (components > 0 && ElementComponents(values.Element) != components) {
         return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
                       "', which is " + Number(components) + " components, from an output of " +
                       Number(ElementComponents(values.Element)));
       }
       if (channel.Path != AnimationPath::Weights) {
-        const AnimationSampler &driving =
-            animation.Samplers[static_cast<size_t>(channel.Sampler)];
+        const AnimationSampler &driving = animation.Samplers[static_cast<size_t>(channel.Sampler)];
         const Accessor &grid = Accessors_[static_cast<size_t>(driving.Input)];
         const size_t perKeyframe = driving.How == Interpolation::CubicSpline ? 3u : 1u;
         if (values.Count != grid.Count * perKeyframe) {
-          return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" +
-                        path + "' with " + Number(values.Count) + " outputs over " +
-                        Number(grid.Count) + " keyframes, and the spec demands exactly " +
+          return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
+                        "' with " + Number(values.Count) + " outputs over " + Number(grid.Count) +
+                        " keyframes, and the spec demands exactly " +
                         Number(grid.Count * perKeyframe));
         }
       }
@@ -1186,8 +1270,7 @@ bool Document::ReadAnimations(const Json &json) {
 }
 
 bool Document::ReadLights(const Json &json) {
-  const Json::Ref declared =
-      json.Root()["extensions"][kLightsPunctual]["lights"];
+  const Json::Ref declared = json.Root()["extensions"][kLightsPunctual]["lights"];
   for (size_t i = 0; i < declared.Size(); ++i) {
     const Json::Ref entry = declared[i];
     LightRef light;
@@ -1230,7 +1313,8 @@ bool Document::ReadVariants(const Json &json) {
   const Json::Ref declared = json.Root()["extensions"][kMaterialsVariants];
   if (!declared.Valid()) { return true; }
   if (declared.GetKind() != Json::Kind::Object) {
-    return Refuse(std::string(kMaterialsVariants) + " is declared as something other than an object");
+    return Refuse(std::string(kMaterialsVariants) +
+                  " is declared as something other than an object");
   }
   const Json::Ref variants = declared["variants"];
   if (variants.GetKind() != Json::Kind::Array || variants.Size() == 0) {
@@ -1256,7 +1340,9 @@ bool Document::ReadVariants(const Json &json) {
   return true;
 }
 
-bool Document::ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive,
+bool Document::ReadVariantMappings(const Json::Ref &declared,
+                                   size_t mesh,
+                                   size_t primitive,
                                    Primitive &into) {
   const std::string where =
       "mesh " + Number(mesh) + " primitive " + Number(primitive) + " " + kMaterialsVariants;
@@ -1288,8 +1374,8 @@ bool Document::ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_
     for (size_t k = 0; k < named.Size(); ++k) {
       const int variant = named[k].GetKind() == Json::Kind::Number ? named[k].Int(-1) : -1;
       if (variant < 0 || (size_t)variant >= Variants_.size()) {
-        return Refuse(where + " mapping " + Number(i) + " names variant " + std::to_string(variant) +
-                      " of " + Number(Variants_.size()));
+        return Refuse(where + " mapping " + Number(i) + " names variant " +
+                      std::to_string(variant) + " of " + Number(Variants_.size()));
       }
       if (into.VariantMaterials[(size_t)variant] >= 0) {
         return Refuse(where + " maps variant '" + Variants_[(size_t)variant] + "' to material " +
@@ -1411,7 +1497,6 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     material.Surface.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
   }
   if (!baseColour.Valid()) {
-
     for (float &channel : material.Surface.BaseColour) { channel = 1.0f; }
   }
   material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
@@ -1453,7 +1538,8 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     const Json::Ref factor = transmission["transmissionFactor"];
     if (factor.Valid()) {
       if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
-        return Refuse("material " + Number(index) + " declares a transmissionFactor outside [0, 1]");
+        return Refuse("material " + Number(index) +
+                      " declares a transmissionFactor outside [0, 1]");
       }
       material.Surface.Transmission = static_cast<float>(factor.Num());
     }
@@ -1589,12 +1675,11 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.IridescenceThicknessMaxNm = static_cast<float>(most.Num());
     }
   }
-  const Json::Ref strength =
-      declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
+  const Json::Ref strength = declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {
-
     if (strength.GetKind() != Json::Kind::Number) {
-      return Refuse("material " + Number(index) + " declares an emissiveStrength that is not a "
+      return Refuse("material " + Number(index) +
+                    " declares an emissiveStrength that is not a "
                     "number");
     }
     const double scale = strength.Num();
@@ -1610,7 +1695,8 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   const Json::Ref unlit = declaration["extensions"][kUnlit];
   if (unlit.Valid()) {
     if (unlit.GetKind() != Json::Kind::Object) {
-      return Refuse("material " + Number(index) + " declares KHR_materials_unlit as something "
+      return Refuse("material " + Number(index) +
+                    " declares KHR_materials_unlit as something "
                     "other than an object, and the extension defines an empty object");
     }
     material.Surface.Unlit = true;
@@ -1618,7 +1704,8 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
 
   const std::string mode = declaration["alphaMode"].Str("");
   if (!KnownAlphaMode(mode, material.Surface.Alpha)) {
-    return Refuse("material " + Number(index) + " has alphaMode '" + mode + "', and glTF 2.0 has "
+    return Refuse("material " + Number(index) + " has alphaMode '" + mode +
+                  "', and glTF 2.0 has "
                   "OPAQUE, MASK and BLEND");
   }
   material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
@@ -1636,6 +1723,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       {specular, "specularTexture", &material.SpecularStrength},
       {specular, "specularColorTexture", &material.SpecularTint},
   };
+
   for (const auto &slot : slots) {
     const Json::Ref declared = slot.Under[slot.Slot];
     if (!declared.Valid()) { continue; }
@@ -1704,9 +1792,7 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
   if (held.size() != accessor.Count * components) { return true; }
 
   const bool single = accessor.Component == ComponentType::Float32 && !accessor.Normalized;
-  const auto narrow = [single](double value) {
-    return single ? (double)(float)value : value;
-  };
+  const auto narrow = [single](double value) { return single ? (double)(float)value : value; };
   const auto declaredAs = [&accessor](double value) {
     return accessor.Normalized ? Normalise(value, accessor.Component) : value;
   };
@@ -1720,14 +1806,14 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
     const double declaredLeast = narrow(declaredAs(accessor.Min[component]));
     const double declaredMost = narrow(declaredAs(accessor.Max[component]));
     if (accessor.Count > 0 && (least < declaredLeast || most > declaredMost)) {
-      why = "carries an element outside the bounds it declares: component " +
-            Number(component) + " runs " + Number(least) + " to " + Number(most) +
-            " over a declared " + Number(declaredLeast) + " to " + Number(declaredMost);
+      why = "carries an element outside the bounds it declares: component " + Number(component) +
+            " runs " + Number(least) + " to " + Number(most) + " over a declared " +
+            Number(declaredLeast) + " to " + Number(declaredMost);
       return false;
     }
     if (accessor.Count > 0 && (least != declaredLeast || most != declaredMost)) {
-      why = "declares bounds its data does not meet: component " + Number(component) +
-            " runs " + Number(least) + " to " + Number(most) + " and the accessor declares " +
+      why = "declares bounds its data does not meet: component " + Number(component) + " runs " +
+            Number(least) + " to " + Number(most) + " and the accessor declares " +
             Number(declaredLeast) + " to " + Number(declaredMost) +
             " -- glTF 2.0 asks for the actual componentwise extremes, not a box around them";
       return false;
@@ -1738,7 +1824,9 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
 
 bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   out.clear();
-  if (accessorIndex < 0 || static_cast<size_t>(accessorIndex) >= Accessors_.size()) { return false; }
+  if (accessorIndex < 0 || static_cast<size_t>(accessorIndex) >= Accessors_.size()) {
+    return false;
+  }
   const Accessor &accessor = Accessors_[static_cast<size_t>(accessorIndex)];
   const size_t components = ElementComponents(accessor.Element);
   const size_t rows = ElementRows(accessor.Element);
@@ -1752,8 +1840,7 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
     if (accessor.Count > 0) {
-      if (accessor.ByteOffset > span.Size() ||
-          element > span.Size() - accessor.ByteOffset ||
+      if (accessor.ByteOffset > span.Size() || element > span.Size() - accessor.ByteOffset ||
           (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride) {
         return false;
       }
@@ -1765,8 +1852,8 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
     size_t carriedBytes = 0;
     for (const std::vector<uint8_t> &buffer : Buffers_) { carriedBytes += buffer.size(); }
     if (accessor.Count > 0 &&
-        (components == 0 || accessor.Count > (carriedBytes * kFillOverCarried) /
-                                                 (components * sizeof(double)))) {
+        (components == 0 ||
+         accessor.Count > (carriedBytes * kFillOverCarried) / (components * sizeof(double)))) {
       return false;
     }
   }
@@ -1820,14 +1907,14 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
   }
 
   for (size_t k = 0; k < sparse.Count; ++k) {
-    const double index =
-        Component(indices.Data() + sparse.IndicesByteOffset + k * indexBytes, sparse.IndicesComponent);
+    const double index = Component(indices.Data() + sparse.IndicesByteOffset + k * indexBytes,
+                                   sparse.IndicesComponent);
     if (index < 0 || static_cast<size_t>(index) >= accessor.Count) { return false; }
     const uint8_t *at = values.Data() + sparse.ValuesByteOffset + k * element;
     for (size_t column = 0; column < columns; ++column) {
       for (size_t row = 0; row < rows; ++row) {
-        const double raw = Component(at + column * columnBytes + row * componentBytes,
-                                     accessor.Component);
+        const double raw =
+            Component(at + column * columnBytes + row * componentBytes, accessor.Component);
         out[static_cast<size_t>(index) * components + column * rows + row] =
             accessor.Normalized ? Normalise(raw, accessor.Component) : raw;
       }
@@ -1838,7 +1925,9 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
 
 bool Document::ReadIndices(int accessorIndex, std::vector<uint32_t> &out) const {
   out.clear();
-  if (accessorIndex < 0 || static_cast<size_t>(accessorIndex) >= Accessors_.size()) { return false; }
+  if (accessorIndex < 0 || static_cast<size_t>(accessorIndex) >= Accessors_.size()) {
+    return false;
+  }
   const Accessor &accessor = Accessors_[static_cast<size_t>(accessorIndex)];
   if (accessor.Element != ElementType::Scalar) { return false; }
   if (accessor.Component != ComponentType::UInt8 && accessor.Component != ComponentType::UInt16 &&
@@ -1874,9 +1963,8 @@ bool Document::Chain(int node, const Transform *posed, Transform &out) const {
     const Node &step = Nodes_[index];
     const Transform local =
         posed ? posed[index]
-              : (step.HasMatrix
-                     ? Transform::FromColumnMajor(step.Matrix)
-                     : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
+              : (step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
+                                : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
     out = out * local;
   }
   return true;
@@ -1888,4 +1976,4 @@ bool Document::ViewTransform(int cameraNode, Transform &out) const {
   return world.Inverse(out);
 }
 
-}
+} // namespace outshine::Gltf

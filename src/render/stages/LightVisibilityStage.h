@@ -19,7 +19,6 @@ public:
 
   void Declare(const float toSun[3], const float up[3], double radiusM);
 
-
   // THE ATLAS IS CACHED, AND THE DECISION IS MADE BEFORE THE PASS OPENS. Whether the pass CLEARS
   // its depth or LOADS what the last cast left is the difference between a cached shadow and an
   // erased one, and a render pass decides that at `Begin`. So the stage is asked first and answers
@@ -36,6 +35,7 @@ public:
   void Prepare(const FrameContext &ctx);
 
   [[nodiscard]] bool Casting() const { return Casting_; }
+
   [[nodiscard]] bool Cached() const { return Held_ && !Casting_; }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
@@ -46,8 +46,11 @@ public:
   void Build(const double preView[3]);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
+
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
+
   [[nodiscard]] const double *StoodAtM() const { return StoodAtM_; }
+
   [[nodiscard]] bool Standing() const { return Declared_; }
 
 public:
@@ -56,7 +59,9 @@ public:
 private:
   uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void Cast(const double lightFromWorld16[16], const double preView[3], int atlasPx,
+  void Cast(const double lightFromWorld16[16],
+            const double preView[3],
+            int atlasPx,
             const PassRecording &into);
 
   size_t CastBatches_ = 0;
@@ -80,5 +85,5 @@ private:
   bool Declared_ = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

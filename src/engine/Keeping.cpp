@@ -50,7 +50,7 @@ Result Engine::save(std::string_view path) const {
   const bool closed = std::fclose(file) == 0;
   if (wrote != text.size() || !closed) {
     S_->Error = held + ": the save did not reach the disk whole -- a full disk is a refusal, "
-                "never a successful save";
+                       "never a successful save";
     return std::unexpected(S_->Error);
   }
   S_->Error.clear();
@@ -67,18 +67,20 @@ Result Engine::restore(std::string_view path) {
   if (!SlurpFile(std::string(path), text, S_->Error)) { return std::unexpected(S_->Error); }
   size_t at = text.find('\n');
   const std::string head = text.substr(0, at == std::string::npos ? text.size() : at);
-  const std::string wanted =
-      "outshine-save 1 " + S_->Session.Declared.Named.Name + " " + S_->Session.Declared.Named.Version;
+  const std::string wanted = "outshine-save 1 " + S_->Session.Declared.Named.Name + " " +
+                             S_->Session.Declared.Named.Version;
   if (head != wanted) {
     S_->Error = "the save says '" + head + "' and this engine stands '" + wanted +
                 "' -- a save from another scenario or version refuses quoting both";
     return std::unexpected(S_->Error);
   }
+
   struct Landing {
     Entity Holder = kNoEntity;
     uint32_t Key = 0;
     double Value = 0.0;
   };
+
   std::vector<Landing> staged;
   while (at != std::string::npos && at + 1 < text.size()) {
     const size_t end = text.find('\n', at + 1);
@@ -153,15 +155,15 @@ Result Engine::park() {
   }
   for (const Scenario &asleep : S_->Session.Asleep) {
     if (asleep.Named.Name == S_->Session.Declared.Named.Name) {
-      S_->Error = S_->Session.Declared.Named.Name + " is parked already, so parking it twice would leave two";
+      S_->Error = S_->Session.Declared.Named.Name +
+                  " is parked already, so parking it twice would leave two";
       return std::unexpected(S_->Error);
     }
   }
   if (S_->Session.Asleep.size() >= kParkedBound) {
-    S_->Error = "the parked set is full at its declared bound of " +
-                std::to_string(kParkedBound) + " -- resume or discard '" +
-                S_->Session.Asleep.front().Named.Name + "' (the least recently live) before parking " +
-                S_->Session.Declared.Named.Name;
+    S_->Error = "the parked set is full at its declared bound of " + std::to_string(kParkedBound) +
+                " -- resume or discard '" + S_->Session.Asleep.front().Named.Name +
+                "' (the least recently live) before parking " + S_->Session.Declared.Named.Name;
     return std::unexpected(S_->Error);
   }
   S_->Session.Asleep.push_back(S_->Session.Declared);
@@ -183,7 +185,8 @@ Result Engine::resume(std::string_view name) {
     S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
     return {};
   }
-  S_->Error = std::string(name) + " is not parked, and resuming what was never parked is not a load";
+  S_->Error =
+      std::string(name) + " is not parked, and resuming what was never parked is not a load";
   return std::unexpected(S_->Error);
 }
 
@@ -204,4 +207,4 @@ std::vector<std::string> Engine::parked() const {
   return names;
 }
 
-}
+} // namespace outshine

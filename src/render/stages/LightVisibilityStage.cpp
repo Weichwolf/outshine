@@ -9,7 +9,6 @@
 
 namespace outshine::Render {
 
-
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
   return ConfigureDepthOnly(gpu, error);
@@ -117,8 +116,7 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
-  if (Held_ && stands == CastAt_ &&
-      std::memcmp(Static_, CastFrom_, sizeof Static_) == 0) {
+  if (Held_ && stands == CastAt_ && std::memcmp(Static_, CastFrom_, sizeof Static_) == 0) {
     return;
   }
   Casting_ = true;
@@ -131,7 +129,6 @@ void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &
   Cast(LightFromWorld_, ctx.PreViewTranslation, kShadowAtlasPx, into);
   Held_ = true;
 }
-
 
 std::string LightVisibilityStage::DepthOnlySource() {
   std::string ignored;
@@ -155,12 +152,14 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   }
   const std::string source = DepthOnlySource(error);
   if (source.empty()) { return false; }
-  const OwnedShader vertex(device, ShaderFrom(device, source, "vsDepth",
-                                              SDL_GPU_SHADERSTAGE_VERTEX,
-                                              SubjectDraw::DepthOnlyShape));
-  const OwnedShader fragment(device, ShaderFrom(device, source, "fsDepth",
-                                                SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                                SubjectDraw::DepthOnlyShape));
+  const OwnedShader vertex(
+      device,
+      ShaderFrom(
+          device, source, "vsDepth", SDL_GPU_SHADERSTAGE_VERTEX, SubjectDraw::DepthOnlyShape));
+  const OwnedShader fragment(
+      device,
+      ShaderFrom(
+          device, source, "fsDepth", SDL_GPU_SHADERSTAGE_FRAGMENT, SubjectDraw::DepthOnlyShape));
   if (!vertex || !fragment) {
     error = std::string("the depth-only shaders were refused: ") + SDL_GetError();
     return false;
@@ -202,13 +201,17 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   DepthOnly_ = OwnedPipeline(device, made);
   return true;
 }
-void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double preView[3],
-                                int atlasPx, const PassRecording &into) {
+
+void LightVisibilityStage::Cast(const double lightFromWorld16[16],
+                                const double preView[3],
+                                int atlasPx,
+                                const PassRecording &into) {
   if (Subjects_ == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
   const double *const Anchor = Subjects_->AnchorM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
-  if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx || into.Pass == nullptr) {
+  if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx ||
+      into.Pass == nullptr) {
     return;
   }
   SDL_GPUViewport square{};
@@ -228,16 +231,18 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
 
   float uniform[20] = {};
   for (int i = 0; i < 16; i++) { uniform[i] = (float)lightFromWorld16[i]; }
-  for (int axis = 0; axis < 3; ++axis) { uniform[16 + axis] = (float)(Anchor[axis] + preView[axis]); }
+  for (int axis = 0; axis < 3; ++axis) {
+    uniform[16 + axis] = (float)(Anchor[axis] + preView[axis]);
+  }
   SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
 
   CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {
     if (batch.ModelSlot >= CastsBelow_) { continue; }
     ++CastBatches_;
-    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0,
-                                 batch.ModelSlot);
+    SDL_DrawGPUIndexedPrimitives(
+        into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, batch.ModelSlot);
   }
 }
 
-}
+} // namespace outshine::Render

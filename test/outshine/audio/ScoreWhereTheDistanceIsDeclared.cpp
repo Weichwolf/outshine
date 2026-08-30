@@ -69,7 +69,7 @@ namespace {
   return true;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -80,7 +80,8 @@ int main(void) {
   // completely was being turned away for omitting a fifth number this tree invented.
   {
     outshine::Audio::BusGraph routing;
-    const std::vector<outshine::Bus> buses{outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
+    const std::vector<outshine::Bus> buses{
+        outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
     const std::vector<outshine::Sound> sounds{Tone(4.0)};
     std::string why;
     const bool stood = routing.Build(buses, sounds, why);
@@ -96,7 +97,8 @@ int main(void) {
   // Audio requires it above zero and why this is a refusal rather than a default.
   {
     outshine::Audio::BusGraph routing;
-    const std::vector<outshine::Bus> buses{outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
+    const std::vector<outshine::Bus> buses{
+        outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
     const std::vector<outshine::Sound> sounds{Tone(0.0)};
     std::string why;
     const bool stood = routing.Build(buses, sounds, why);
@@ -121,11 +123,16 @@ int main(void) {
     }
     const double ratio = quiet > 0.0 ? loud / quiet : 0.0;
     std::printf("  refM 5 -> %.4f   refM 10 -> %.4f   ratio %.4f, the closed form owes 2\n",
-                quiet, loud, ratio);
-    CHECK_NEAR(ratio, 2.0, 0.02, "x",
-          "**MOVING THE DECLARED DISTANCE MOVES THE MIX**: at 40 m the inverse model owes "
-          "5/(5+35) = 1/8 against 10/(10+30) = 1/4, a ratio of two. A ratio of one says the "
-          "declaration is being read from somewhere the mixer does not look");
+                quiet,
+                loud,
+                ratio);
+    CHECK_NEAR(ratio,
+               2.0,
+               0.02,
+               "x",
+               "**MOVING THE DECLARED DISTANCE MOVES THE MIX**: at 40 m the inverse model owes "
+               "5/(5+35) = 1/8 against 10/(10+30) = 1/4, a ratio of two. A ratio of one says the "
+               "declaration is being read from somewhere the mixer does not look");
   }
 
   Covers("the mixer: the distance a scenario declares is the distance that sounds, declared in "

@@ -8,8 +8,12 @@
 
 namespace outshine::Ground {
 
-void CookTile(const float *soup, int nverts, int gridverts, const double origin[3],
-              std::vector<float> &outVerts, std::vector<uint32_t> &outIdx,
+void CookTile(const float *soup,
+              int nverts,
+              int gridverts,
+              const double origin[3],
+              std::vector<float> &outVerts,
+              std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters);
 
 }

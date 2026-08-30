@@ -49,34 +49,45 @@ struct Token {
 };
 
 bool Space(char c) {
-
   return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
 }
 
 size_t SpaceRun(std::string_view text, size_t at) {
   if (Space(text[at])) { return 1; }
-  static const char *const kWide[] = {"\xC2\xA0", "\xE2\x80\xA8", "\xE2\x80\xA9",
-                                      "\xEF\xBB\xBF", "\xE2\x80\x80", "\xE2\x80\x81",
-                                      "\xE2\x80\x82", "\xE2\x80\x83", "\xE2\x80\x89",
-                                      "\xE2\x80\xAF", "\xE3\x80\x80"};
+  static const char *const kWide[] = {"\xC2\xA0",
+                                      "\xE2\x80\xA8",
+                                      "\xE2\x80\xA9",
+                                      "\xEF\xBB\xBF",
+                                      "\xE2\x80\x80",
+                                      "\xE2\x80\x81",
+                                      "\xE2\x80\x82",
+                                      "\xE2\x80\x83",
+                                      "\xE2\x80\x89",
+                                      "\xE2\x80\xAF",
+                                      "\xE3\x80\x80"};
   for (const char *wide : kWide) {
     const size_t length = std::char_traits<char>::length(wide);
     if (text.compare(at, length, wide) == 0) { return length; }
   }
   return 0;
 }
-bool Starts(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$'; }
-bool Continues(char c) { return Starts(c) || (c >= '0' && c <= '9'); }
 
-constexpr const char *kReserved[] = {"new",   "typeof", "void",  "delete", "instanceof", "in",
-                                     "function", "class", "await", "yield", "async",  "throw",
-                                     "try",   "catch",  "finally", "switch", "case",  "for",
-                                     "do",    "break",  "continue", "return", "this", "super",
-                                     "export", "import", "with"};
+bool Starts(char c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$';
+}
 
-constexpr const char *kMarks[] = {"++", "--", "==", "!=", "<=", ">=", "&&", "||", "(", ")", "{", "}",
-                                  "[",  "]",  ";",  ",",  ".",  "+",  "-", "*", "/", "%",
-                                  "<",  ">",  "=",  "!"};
+bool Continues(char c) {
+  return Starts(c) || (c >= '0' && c <= '9');
+}
+
+constexpr const char *kReserved[] = {
+    "new",   "typeof", "void",     "delete", "instanceof", "in",      "function", "class",  "await",
+    "yield", "async",  "throw",    "try",    "catch",      "finally", "switch",   "case",   "for",
+    "do",    "break",  "continue", "return", "this",       "super",   "export",   "import", "with"};
+
+constexpr const char *kMarks[] = {"++", "--", "==", "!=", "<=", ">=", "&&", "||", "(",
+                                  ")",  "{",  "}",  "[",  "]",  ";",  ",",  ".",  "+",
+                                  "-",  "*",  "/",  "%",  "<",  ">",  "=",  "!"};
 
 std::string Where(std::string_view text, size_t at) {
   size_t line = 1, column = 1;
@@ -123,9 +134,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
         if (text[at] == '\\' && at + 1 < text.size()) {
           ++at;
           const char escaped = text[at];
-          token.Spelling.push_back(escaped == 'n'    ? '\n'
-                                   : escaped == 't'  ? '\t'
-                                                     : escaped);
+          token.Spelling.push_back(escaped == 'n' ? '\n' : escaped == 't' ? '\t' : escaped);
         } else {
           token.Spelling.push_back(text[at]);
         }
@@ -142,21 +151,18 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
     if ((text[at] >= '0' && text[at] <= '9') ||
         (text[at] == '.' && at + 1 < text.size() && text[at + 1] >= '0' && text[at + 1] <= '9')) {
       token.What = Word::Number;
-      if (text[at] == '0' && at + 1 < text.size() &&
-          (text[at + 1] == 'x' || text[at + 1] == 'X')) {
+      if (text[at] == '0' && at + 1 < text.size() && (text[at + 1] == 'x' || text[at + 1] == 'X')) {
         uint64_t wide = 0;
-        const auto hex =
-            std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
+        const auto hex = std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
         if (hex.ec == std::errc::result_out_of_range) {
           size_t digitEnd = at + 2;
-          while (digitEnd < text.size() &&
-                 ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
-                  (text[digitEnd] >= 'a' && text[digitEnd] <= 'f') ||
-                  (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
+          while (digitEnd < text.size() && ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
+                                            (text[digitEnd] >= 'a' && text[digitEnd] <= 'f') ||
+                                            (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
             ++digitEnd;
           }
-          const auto whole = std::from_chars(text.data() + at + 2, text.data() + digitEnd,
-                                             token.Number, std::chars_format::hex);
+          const auto whole = std::from_chars(
+              text.data() + at + 2, text.data() + digitEnd, token.Number, std::chars_format::hex);
           if (whole.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
           at = digitEnd;
           out.push_back(std::move(token));
@@ -171,9 +177,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
       }
       const auto scanned =
           std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
-      if (scanned.ec == std::errc::result_out_of_range) {
-        token.Number = HUGE_VAL;
-      }
+      if (scanned.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
       at = (size_t)(scanned.ptr - text.data());
       out.push_back(std::move(token));
       continue;
@@ -210,12 +214,24 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
   return true;
 }
 
-}
+} // namespace
 
 struct Program::Node {
   enum class Shape : uint8_t {
-    Number, Text, Nothing, Name, Member, Call, Unary, Binary, Assign, AssignMember, Step, If,
-    While, Block
+    Number,
+    Text,
+    Nothing,
+    Name,
+    Member,
+    Call,
+    Unary,
+    Binary,
+    Assign,
+    AssignMember,
+    Step,
+    If,
+    While,
+    Block
   };
   Shape What = Shape::Number;
   double Number = 0.0;
@@ -235,17 +251,21 @@ struct Reading {
   size_t Depth = 0;
 
   [[nodiscard]] const Token &Now() const { return Tokens[At]; }
+
   [[nodiscard]] bool Is(const char *mark) const {
     return Now().What == Word::Mark && Now().Spelling == mark;
   }
+
   [[nodiscard]] bool IsWord(const char *word) const {
     return Now().What == Word::Name && Now().Spelling == word;
   }
+
   bool Take(const char *mark) {
     if (!Is(mark)) { return false; }
     ++At;
     return true;
   }
+
   [[nodiscard]] bool Want(const char *mark) {
     if (Take(mark)) { return true; }
     Error = std::string("the script expected '") + mark + "' at " + Where(Text, Now().At) +
@@ -254,18 +274,22 @@ struct Reading {
                                      : "'" + Now().Spelling + "'");
     return false;
   }
+
   [[nodiscard]] bool Room() {
     if (Nodes.size() < kMaxNodes) { return true; }
     Error = "the script reaches the node bound of " + std::to_string(kMaxNodes);
     return false;
   }
+
   [[nodiscard]] bool Deeper() {
     if (++Depth <= kMaxDepth) { return true; }
     Error = "the script nests past the depth bound of " + std::to_string(kMaxDepth) + " at " +
             Where(Text, Now().At);
     return false;
   }
+
   void Shallower() { --Depth; }
+
   size_t Make(Program::Node node) {
     Nodes.push_back(std::move(node));
     return Nodes.size() - 1;
@@ -312,14 +336,13 @@ bool ReadPrimary(Reading &in, size_t &out) {
     if (!ReadSequence(in, out)) { return false; }
     if (!in.Want(")")) { return false; }
   } else if (in.Is("++") || in.Is("--")) {
-
     const std::string mark = in.Now().Spelling;
     ++in.At;
     size_t target = 0;
     if (!ReadPrimary(in, target)) { return false; }
     if (in.Nodes[target].What != Shape::Name) {
-      in.Error = "the script increments something that is not a name, at " +
-                 Where(in.Text, in.Now().At);
+      in.Error =
+          "the script increments something that is not a name, at " + Where(in.Text, in.Now().At);
       return false;
     }
     Program::Node node;
@@ -363,7 +386,6 @@ bool ReadPrimary(Reading &in, size_t &out) {
       continue;
     }
     if (in.Is("++") || in.Is("--")) {
-
       if (in.Nodes[out].What != Shape::Name) { break; }
       Program::Node node;
       node.What = Shape::Step;
@@ -405,6 +427,7 @@ bool ReadPrimary(Reading &in, size_t &out) {
 struct Level {
   const char *Marks[4];
 };
+
 constexpr Level kLevels[] = {
     {{"||", nullptr, nullptr, nullptr}},
     {{"&&", nullptr, nullptr, nullptr}},
@@ -444,7 +467,9 @@ bool ReadBinary(Reading &in, size_t level, size_t &out) {
   return held;
 }
 
-bool ReadExpression(Reading &in, size_t &out) { return ReadBinary(in, 0, out); }
+bool ReadExpression(Reading &in, size_t &out) {
+  return ReadBinary(in, 0, out);
+}
 
 bool ReadSequence(Reading &in, size_t &out) {
   if (!ReadExpression(in, out)) { return false; }
@@ -482,10 +507,13 @@ bool ReadStatement(Reading &in, size_t &out) {
   if (!in.Deeper()) { return false; }
   bool held = true;
   if (in.Take(";")) {
-
     Program::Node node;
     node.What = Shape::Block;
-    if (in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
+    if (in.Room()) {
+      out = in.Make(std::move(node));
+    } else {
+      held = false;
+    }
   } else if (in.Is("{")) {
     held = ReadBlock(in, out);
   } else if (in.IsWord("if")) {
@@ -502,25 +530,31 @@ bool ReadStatement(Reading &in, size_t &out) {
 
       node.C = held ? otherwise + 1 : 0;
     }
-    if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
+    if (held && in.Room()) {
+      out = in.Make(std::move(node));
+    } else {
+      held = false;
+    }
   } else if (in.IsWord("while")) {
     ++in.At;
     Program::Node node;
     node.What = Shape::While;
     held = in.Want("(") && ReadSequence(in, node.A) && in.Want(")") && ReadStatement(in, node.B);
-    if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
+    if (held && in.Room()) {
+      out = in.Make(std::move(node));
+    } else {
+      held = false;
+    }
   } else {
-
     const bool declaring = in.IsWord("var") || in.IsWord("let") || in.IsWord("const");
     if (declaring) { ++in.At; }
     if (declaring) {
-
       Program::Node list;
       list.What = Shape::Block;
       for (;;) {
         if (in.Now().What != Word::Name) {
-          in.Error = "the script declares something that is not a name, at " +
-                     Where(in.Text, in.Now().At);
+          in.Error =
+              "the script declares something that is not a name, at " + Where(in.Text, in.Now().At);
           held = false;
           break;
         }
@@ -546,7 +580,11 @@ bool ReadStatement(Reading &in, size_t &out) {
         list.Parts.push_back(in.Make(std::move(node)));
         if (!in.Take(",")) { break; }
       }
-      if (held && in.Room()) { out = in.Make(std::move(list)); } else { held = false; }
+      if (held && in.Room()) {
+        out = in.Make(std::move(list));
+      } else {
+        held = false;
+      }
     } else {
       size_t left = 0;
       held = ReadExpression(in, left);
@@ -570,10 +608,13 @@ bool ReadStatement(Reading &in, size_t &out) {
                        Where(in.Text, in.Now().At);
             held = false;
           }
-          if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
+          if (held && in.Room()) {
+            out = in.Make(std::move(node));
+          } else {
+            held = false;
+          }
         }
       } else if (held) {
-
         while (held && in.Take(",")) {
           size_t right = 0;
           held = ReadExpression(in, right);
@@ -597,7 +638,7 @@ bool ReadStatement(Reading &in, size_t &out) {
   return held;
 }
 
-}
+} // namespace
 
 bool Program::Read(std::string_view text, std::string &error) {
   Nodes_.clear();
@@ -606,7 +647,6 @@ bool Program::Read(std::string_view text, std::string &error) {
   Stopped_.clear();
   std::vector<Token> tokens;
   if (!Tokenise(text, tokens, error)) {
-
     const size_t quoted = error.find('\'');
     if (quoted != std::string::npos && quoted + 1 < error.size()) {
       Stopped_ = error.substr(quoted + 1, 1);
@@ -648,9 +688,11 @@ struct Boundary {
 
 const Boundary kBoundaries[] = {
 
-    {"token:function", "a script here is a handler; one that defines callables has a lifetime to bound"},
+    {"token:function",
+     "a script here is a handler; one that defines callables has a lifetime to bound"},
     {"token:=>", "the same, written shorter"},
-    {"token:class", "a type system in a declaration is a program the consumer cannot see the shape of"},
+    {"token:class",
+     "a type system in a declaration is a program the consumer cannot see the shape of"},
     {"token:new", "there is nothing to construct where a script defines no type"},
     {"token:return", "a handler runs to its end; there is no frame to return from"},
     {"token:yield", "the same, suspended"},
@@ -682,22 +724,46 @@ const Boundary kBoundaries[] = {
     {"token:=", "an assignment where a value was expected -- a destructuring or a default"},
 
     {"name:Object", "the standard library is the host's; this language brings none"},
-    {"name:Array", "the same"},      {"name:Function", "the same"},  {"name:String", "the same"},
-    {"name:Number", "the same"},     {"name:Boolean", "the same"},   {"name:Symbol", "the same"},
-    {"name:BigInt", "the same"},     {"name:Math", "the same"},      {"name:JSON", "the same"},
-    {"name:Date", "the same"},       {"name:RegExp", "the same"},    {"name:Error", "the same"},
-    {"name:TypeError", "the same"},  {"name:RangeError", "the same"},{"name:SyntaxError", "the same"},
-    {"name:ReferenceError", "the same"}, {"name:EvalError", "the same"},
-    {"name:Reflect", "the same"},    {"name:Proxy", "the same"},     {"name:Promise", "the same"},
-    {"name:Map", "the same"},        {"name:Set", "the same"},       {"name:WeakMap", "the same"},
-    {"name:WeakSet", "the same"},    {"name:ArrayBuffer", "the same"}, {"name:DataView", "the same"},
-    {"name:Int8Array", "the same"},  {"name:Uint8Array", "the same"},{"name:Float64Array", "the same"},
-    {"name:globalThis", "the same"}, {"name:Infinity", "the same"},  {"name:NaN", "the same"},
-    {"name:parseInt", "the same"},   {"name:parseFloat", "the same"},{"name:isNaN", "the same"},
+    {"name:Array", "the same"},
+    {"name:Function", "the same"},
+    {"name:String", "the same"},
+    {"name:Number", "the same"},
+    {"name:Boolean", "the same"},
+    {"name:Symbol", "the same"},
+    {"name:BigInt", "the same"},
+    {"name:Math", "the same"},
+    {"name:JSON", "the same"},
+    {"name:Date", "the same"},
+    {"name:RegExp", "the same"},
+    {"name:Error", "the same"},
+    {"name:TypeError", "the same"},
+    {"name:RangeError", "the same"},
+    {"name:SyntaxError", "the same"},
+    {"name:ReferenceError", "the same"},
+    {"name:EvalError", "the same"},
+    {"name:Reflect", "the same"},
+    {"name:Proxy", "the same"},
+    {"name:Promise", "the same"},
+    {"name:Map", "the same"},
+    {"name:Set", "the same"},
+    {"name:WeakMap", "the same"},
+    {"name:WeakSet", "the same"},
+    {"name:ArrayBuffer", "the same"},
+    {"name:DataView", "the same"},
+    {"name:Int8Array", "the same"},
+    {"name:Uint8Array", "the same"},
+    {"name:Float64Array", "the same"},
+    {"name:globalThis", "the same"},
+    {"name:Infinity", "the same"},
+    {"name:NaN", "the same"},
+    {"name:parseInt", "the same"},
+    {"name:parseFloat", "the same"},
+    {"name:isNaN", "the same"},
     {"name:this", "there is no receiver where a script defines no callable"},
     {"name:arguments", "the same, and no frame to read them from"},
     {"name:eval", "a program that makes a program cannot be bounded by reading it"},
-    {"name:Test262Error", "a corpus's own error type, which the runner provides as a refusal instead"},
+    {"name:Test262Error",
+     "a corpus's own error type, which the runner provides as a refusal instead"},
     {"name:$262", "the corpus's own host object, which is a browser's job and not an engine's"},
     {"name:$DONE", "the same, for an asynchronous case"},
     {"name:compareArray", "a harness helper written in the part of the language named outside"},
@@ -705,7 +771,8 @@ const Boundary kBoundaries[] = {
     {"name:testWithTypedArrayConstructors", "the same"},
 
     {"negative-parse",
-     "this parser refuses a valid program past its subset with the same voice it refuses an invalid "
+     "this parser refuses a valid program past its subset with the same voice it refuses an "
+     "invalid "
      "one, so a case that passed by refusing would be a green light about something else"},
     {"negative-resolution", "module resolution, and there are no modules"},
     {"flags:module", "a module is a second program shape with its own resolution"},
@@ -719,23 +786,32 @@ const Boundary kBoundaries[] = {
     {"the script reaches the node bound", "the same, in size"},
 };
 
-}
+} // namespace
 
 [[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
   size_t at = 0;
   size_t whole = 0;
-  while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++whole; }
+  while (at < held.size() && held[at] >= '0' && held[at] <= '9') {
+    ++at;
+    ++whole;
+  }
   size_t fraction = 0;
   if (at < held.size() && held[at] == '.') {
     ++at;
-    while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++fraction; }
+    while (at < held.size() && held[at] >= '0' && held[at] <= '9') {
+      ++at;
+      ++fraction;
+    }
   }
   if (whole == 0 && fraction == 0) { return false; }
   if (at < held.size() && (held[at] == 'e' || held[at] == 'E')) {
     ++at;
     if (at < held.size() && (held[at] == '+' || held[at] == '-')) { ++at; }
     size_t exponent = 0;
-    while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++exponent; }
+    while (at < held.size() && held[at] >= '0' && held[at] <= '9') {
+      ++at;
+      ++exponent;
+    }
     if (exponent == 0) { return false; }
   }
   return at == held.size();
@@ -743,12 +819,12 @@ const Boundary kBoundaries[] = {
 
 [[nodiscard]] double TextToNumber(const std::string &text) {
   std::string_view held(text);
-  while (!held.empty() && (held.front() == ' ' || held.front() == '\t' ||
-                           held.front() == '\n' || held.front() == '\r')) {
+  while (!held.empty() && (held.front() == ' ' || held.front() == '\t' || held.front() == '\n' ||
+                           held.front() == '\r')) {
     held.remove_prefix(1);
   }
-  while (!held.empty() && (held.back() == ' ' || held.back() == '\t' ||
-                           held.back() == '\n' || held.back() == '\r')) {
+  while (!held.empty() && (held.back() == ' ' || held.back() == '\t' || held.back() == '\n' ||
+                           held.back() == '\r')) {
     held.remove_suffix(1);
   }
   if (held.empty()) { return 0.0; }
@@ -764,13 +840,12 @@ const Boundary kBoundaries[] = {
     if (wroteSign) { return std::nan(""); }
     for (size_t at = 2; at < held.size(); ++at) {
       const char c = held[at];
-      const bool digit = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-                         (c >= 'A' && c <= 'F');
+      const bool digit = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
       if (!digit) { return std::nan(""); }
     }
     double value = 0.0;
-    const auto hex = std::from_chars(held.data() + 2, held.data() + held.size(), value,
-                                     std::chars_format::hex);
+    const auto hex =
+        std::from_chars(held.data() + 2, held.data() + held.size(), value, std::chars_format::hex);
     if (hex.ec == std::errc::result_out_of_range) { return HUGE_VAL; }
     return hex.ec == std::errc() ? value : std::nan("");
   }
@@ -791,13 +866,17 @@ const char *WhyOutside(std::string_view name) {
 }
 
 void Program::Reset() {
-
   Names_.clear();
   Held_.clear();
 }
 
-bool Program::Held() const { return !Nodes_.empty(); }
-size_t Program::NodeCount() const { return Nodes_.size(); }
+bool Program::Held() const {
+  return !Nodes_.empty();
+}
+
+size_t Program::NodeCount() const {
+  return Nodes_.size();
+}
 
 const Value *Program::Named(std::string_view name) const {
   for (size_t at = 0; at < Names_.size(); ++at) {
@@ -813,15 +892,9 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
   }
   const Node &node = Nodes_[at];
   switch (node.What) {
-    case Node::Shape::Number:
-      out = Value::OfNumber(node.Number);
-      return true;
-    case Node::Shape::Text:
-      out = Value::OfText(node.Spelling);
-      return true;
-    case Node::Shape::Nothing:
-      out = Value();
-      return true;
+    case Node::Shape::Number: out = Value::OfNumber(node.Number); return true;
+    case Node::Shape::Text: out = Value::OfText(node.Spelling); return true;
+    case Node::Shape::Nothing: out = Value(); return true;
     case Node::Shape::Name: {
       const Value *held = Named(node.Spelling);
 
@@ -874,21 +947,18 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       Value inner;
       if (!Evaluate(node.A, host, inner, error)) { return false; }
 
-      out = node.Spelling == "!"  ? Value::OfNumber(inner.Truth() ? 0.0 : 1.0)
-            : node.Spelling == "+" ? Value::OfNumber(inner.What == Kind::Text
-                                                         ? TextToNumber(inner.Text)
-                                                         : inner.Number)
-                                   : Value::OfNumber(-inner.Number);
+      out =
+          node.Spelling == "!" ? Value::OfNumber(inner.Truth() ? 0.0 : 1.0)
+          : node.Spelling == "+"
+              ? Value::OfNumber(inner.What == Kind::Text ? TextToNumber(inner.Text) : inner.Number)
+              : Value::OfNumber(-inner.Number);
       return true;
     }
     case Node::Shape::Binary: {
       Value left;
       if (!Evaluate(node.A, host, left, error)) { return false; }
 
-      if (node.Spelling == ",") {
-
-        return Evaluate(node.B, host, out, error);
-      }
+      if (node.Spelling == ",") { return Evaluate(node.B, host, out, error); }
       if (node.Spelling == "&&") {
         if (!left.Truth()) {
           out = left;
@@ -921,15 +991,25 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       }
       const double a = left.Number, b = right.Number;
       double answer = 0.0;
-      if (node.Spelling == "+") { answer = a + b; }
-      else if (node.Spelling == "-") { answer = a - b; }
-      else if (node.Spelling == "*") { answer = a * b; }
-      else if (node.Spelling == "/") { answer = b == 0.0 ? 0.0 : a / b; }
-      else if (node.Spelling == "%") { answer = b == 0.0 ? 0.0 : std::fmod(a, b); }
-      else if (node.Spelling == "<") { answer = a < b ? 1.0 : 0.0; }
-      else if (node.Spelling == "<=") { answer = a <= b ? 1.0 : 0.0; }
-      else if (node.Spelling == ">") { answer = a > b ? 1.0 : 0.0; }
-      else { answer = a >= b ? 1.0 : 0.0; }
+      if (node.Spelling == "+") {
+        answer = a + b;
+      } else if (node.Spelling == "-") {
+        answer = a - b;
+      } else if (node.Spelling == "*") {
+        answer = a * b;
+      } else if (node.Spelling == "/") {
+        answer = b == 0.0 ? 0.0 : a / b;
+      } else if (node.Spelling == "%") {
+        answer = b == 0.0 ? 0.0 : std::fmod(a, b);
+      } else if (node.Spelling == "<") {
+        answer = a < b ? 1.0 : 0.0;
+      } else if (node.Spelling == "<=") {
+        answer = a <= b ? 1.0 : 0.0;
+      } else if (node.Spelling == ">") {
+        answer = a > b ? 1.0 : 0.0;
+      } else {
+        answer = a >= b ? 1.0 : 0.0;
+      }
       out = Value::OfNumber(answer);
       return true;
     }
@@ -946,7 +1026,6 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
   const Node &node = Nodes_[at];
   switch (node.What) {
     case Node::Shape::Block: {
-
       for (size_t at2 = 0; at2 < Nodes_[at].Parts.size(); ++at2) {
         if (!Perform(Nodes_[at].Parts[at2], host, error)) { return false; }
       }
@@ -974,7 +1053,8 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
       if (!Evaluate(node.A, host, object, error)) { return false; }
       if (!Evaluate(node.B, host, held, error)) { return false; }
       if (!host.SetMember(object, node.Spelling, held)) {
-        error = "the host does not take '" + node.Spelling + "', so the script wrote where nothing "
+        error = "the host does not take '" + node.Spelling +
+                "', so the script wrote where nothing "
                 "is listening";
         return false;
       }
@@ -1010,4 +1090,4 @@ bool Program::Run(Host &host, std::string &error) {
   return Perform(Root_, host, error);
 }
 
-}
+} // namespace outshine::Script

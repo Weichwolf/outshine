@@ -30,9 +30,14 @@ inline uint32_t IndexChannelsOf(std::span<const float> texels) {
   return mask;
 }
 
-inline void HalveInPlace(std::span<const float> from, uint32_t fromWidth, uint32_t fromHeight,
-                         std::vector<float> &into, uint32_t &toWidth, uint32_t &toHeight,
-                         TexelKind kind, uint32_t indexChannels = 0) {
+inline void HalveInPlace(std::span<const float> from,
+                         uint32_t fromWidth,
+                         uint32_t fromHeight,
+                         std::vector<float> &into,
+                         uint32_t &toWidth,
+                         uint32_t &toHeight,
+                         TexelKind kind,
+                         uint32_t indexChannels = 0) {
   toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
   toHeight = fromHeight > 1 ? fromHeight / 2u : 1u;
   into.assign((size_t)toWidth * toHeight * 4u, 0.0f);
@@ -46,8 +51,10 @@ inline void HalveInPlace(std::span<const float> from, uint32_t fromWidth, uint32
                                 ((size_t)y1 * fromWidth + x1) * 4u};
       const size_t at = ((size_t)y * toWidth + x) * 4u;
       for (size_t channel = 0; channel < 4; ++channel) {
-        const float sample[4] = {from[source[0] + channel], from[source[1] + channel],
-                                 from[source[2] + channel], from[source[3] + channel]};
+        const float sample[4] = {from[source[0] + channel],
+                                 from[source[1] + channel],
+                                 from[source[2] + channel],
+                                 from[source[3] + channel]};
         const float mean = 0.25f * (sample[0] + sample[1] + sample[2] + sample[3]);
         if (((indexChannels >> channel) & 1u) == 0u) {
           into[at + channel] = mean;
@@ -82,6 +89,6 @@ inline void HalveInPlace(std::span<const float> from, uint32_t fromWidth, uint32
   }
 }
 
-}
+} // namespace outshine::Render
 
 #endif

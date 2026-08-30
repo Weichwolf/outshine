@@ -21,16 +21,14 @@ namespace {
 //   honest         min [0,0,0]  max [1,1,0]     stands
 //   too wide       min [-9,0,0] max [1,1,0]     a box AROUND the data, and the spec forbids it
 //   too narrow     min [0,0,0]  max [0.5,1,0]   a box INSIDE it, and an element falls outside
-constexpr const char *kTriangleBase64 =
-    "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAA";
+constexpr const char *kTriangleBase64 = "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAA";
 
 [[nodiscard]] std::string Declaring(const char *least, const char *most) {
-  return std::string(
-             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-             "\"nodes\":[{\"mesh\":0}],"
-             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],"
-             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,"
-             "\"type\":\"VEC3\",\"min\":") +
+  return std::string("{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+                     "\"nodes\":[{\"mesh\":0}],"
+                     "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],"
+                     "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,"
+                     "\"type\":\"VEC3\",\"min\":") +
          least + ",\"max\":" + most +
          "}],"
          "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}],"
@@ -59,7 +57,7 @@ struct Answer {
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -73,14 +71,16 @@ int main(void) {
   const std::string path = std::string(nest) + "/bounded.gltf";
 
   const Answer honest = Read(path, Declaring("[0,0,0]", "[1,1,0]"));
-  std::printf("HONEST BOUNDS 0..1: %s%s\n", honest.Stood ? "STOOD" : "REFUSED -- ",
+  std::printf("HONEST BOUNDS 0..1: %s%s\n",
+              honest.Stood ? "STOOD" : "REFUSED -- ",
               honest.Stood ? "" : honest.Why.c_str());
   CHECK(honest.Stood,
         "an accessor whose declared bounds ARE its data stands -- a check that refused this "
         "would refuse every conformant file in the corpus and prove nothing but its own zeal");
 
   const Answer wide = Read(path, Declaring("[-9,0,0]", "[1,1,0]"));
-  std::printf("A BOX AROUND THE DATA, min x = -9: %s%s\n", wide.Stood ? "STOOD" : "REFUSED -- ",
+  std::printf("A BOX AROUND THE DATA, min x = -9: %s%s\n",
+              wide.Stood ? "STOOD" : "REFUSED -- ",
               wide.Stood ? "" : wide.Why.c_str());
   CHECK(!wide.Stood,
         "**AN ACCESSOR'S BOUNDS ARE ITS DATA'S EXTREMES AND NOT A BOX AROUND THEM**: glTF 2.0 "
@@ -89,7 +89,8 @@ int main(void) {
   CHECK(!wide.Stood && !wide.Why.empty(), "and the refusal carries a reason a caller could act on");
 
   const Answer narrow = Read(path, Declaring("[0,0,0]", "[0.5,1,0]"));
-  std::printf("A BOX INSIDE THE DATA, max x = 0.5: %s%s\n", narrow.Stood ? "STOOD" : "REFUSED -- ",
+  std::printf("A BOX INSIDE THE DATA, max x = 0.5: %s%s\n",
+              narrow.Stood ? "STOOD" : "REFUSED -- ",
               narrow.Stood ? "" : narrow.Why.c_str());
   CHECK(!narrow.Stood,
         "and an element that falls OUTSIDE the declared bounds is refused too -- the same "

@@ -16,8 +16,8 @@ namespace outshine {
 // number. A scenario may say the multiplier OR the three, and this is why they cannot disagree.
 double Camera::exposureScale(void) const {
   if (!exposed()) { return 0.0; }
-  const double ev100 = std::log2(ApertureFStops * ApertureFStops / ShutterS) -
-                       std::log2(SensitivityIso / 100.0);
+  const double ev100 =
+      std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);
   return 1.0 / (1.2 * std::pow(2.0, ev100));
 }
 
@@ -170,12 +170,10 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
   return true;
 }
 
-void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *z, double *into,
-                size_t count) {
+void ReadVector(
+    const Xml::Ref &from, const char *x, const char *y, const char *z, double *into, size_t count) {
   const char *names[4] = {x, y, z, "w"};
-  for (size_t at = 0; at < count && at < 4; ++at) {
-    into[at] = from.Num(names[at], into[at]);
-  }
+  for (size_t at = 0; at < count && at < 4; ++at) { into[at] = from.Num(names[at], into[at]); }
 }
 
 void ReadStanding(const Xml::Ref &from, Standing &into) {
@@ -247,7 +245,7 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-}
+} // namespace
 
 [[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
@@ -296,8 +294,8 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
     } else if (by == "rail") {
       into.Routed.By = Travels::Rail;
     } else {
-      error = "a journey travels '" + by +
-              "', and walk, drive, fly and rail are the whole catalogue";
+      error =
+          "a journey travels '" + by + "', and walk, drive, fly and rail are the whole catalogue";
       return false;
     }
     into.Routed.FromLatDeg = drive.Num("fromLat", into.Routed.FromLatDeg);
@@ -444,9 +442,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       thinks.Seed = mind.Int("seed", 0);
       made.Minds.push_back(thinks);
     }
-    for (const Xml::Ref may : one.Children("may")) {
-      made.Capabilities.push_back(may.Attr("do"));
-    }
+    for (const Xml::Ref may : one.Children("may")) { made.Capabilities.push_back(may.Attr("do")); }
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
@@ -464,9 +460,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
-    for (const Xml::Ref holds : one.Children("holds")) {
-      made.Holds.push_back(holds.Attr("what"));
-    }
+    for (const Xml::Ref holds : one.Children("holds")) { made.Holds.push_back(holds.Attr("what")); }
     into.Instances.push_back(made);
   }
 
@@ -478,9 +472,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     ReadVector(one, "x", "y", "z", made.OriginM, 3);
     made.RadiusM = one.Num("radiusM", 0.0);
     made.Streams = one.Flag("streams", true);
-    for (const Xml::Ref uses : one.Children("uses")) {
-      made.Uses.push_back(uses.Attr("what"));
-    }
+    for (const Xml::Ref uses : one.Children("uses")) { made.Uses.push_back(uses.Attr("what")); }
     into.Regions.push_back(made);
   }
   for (const Xml::Ref one : regions.Children("door")) {
@@ -556,9 +548,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
                    : does == "convolver" ? Makes::Convolver
                    : does == "mix"       ? Makes::Mix
                                          : Makes::Oscillator;
-      for (const Xml::Ref from : unit.Children("from")) {
-        makes.From.push_back(from.Attr("id"));
-      }
+      for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
       for (const Xml::Ref set : unit.Children("set")) {
         makes.Parameters.push_back(Setting{set.Attr("name"), set.Attr("value")});
       }
@@ -582,9 +572,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     }
     for (const Xml::Ref row : one.Children("row")) {
       std::vector<std::string> cells;
-      for (const Xml::Ref cell : row.Children("cell")) {
-        cells.push_back(cell.Attr("value"));
-      }
+      for (const Xml::Ref cell : row.Children("cell")) { cells.push_back(cell.Attr("value")); }
       made.Rows.push_back(cells);
     }
     into.Tables.push_back(made);
@@ -720,4 +708,4 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine

@@ -15,6 +15,6 @@ constexpr float Error(int k) {
   return 1.0f / (kCellPx * (float)(1u << (unsigned)(kLevels - k)));
 }
 
-}
-}
+} // namespace ModelLadder
+} // namespace outshine
 #endif

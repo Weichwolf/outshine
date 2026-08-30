@@ -15,12 +15,12 @@ public:
   void Grow(const TreeSpecies &species, TreeSkeleton &out);
 
   [[nodiscard]] int Passes() const { return Passes_; }
+
   [[nodiscard]] float DbhErrorRel() const { return DbhErrorRel_; }
 
   [[nodiscard]] float GrowHeight() const { return GrowHeight_; }
 
 private:
-
   static constexpr int kMaxNodes = 250000;
   static constexpr int kBranchSides = 8;
 
@@ -45,7 +45,8 @@ private:
     bool Foliate = true;
   };
 
-  void SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int node, float roll, int parentStep);
+  void
+  SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int node, float roll, int parentStep);
 
   void SpawnShoot(const Tip &parent, const Request &request, const TreeSpecies::Growth &g);
   void EmitLeafPoints(TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count, float roll);
@@ -77,5 +78,5 @@ private:
   float GrowHeight_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

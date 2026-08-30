@@ -31,7 +31,7 @@ constexpr double kExtentM = 100.0;
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -62,7 +62,10 @@ int main(void) {
     const size_t returning = field.Drain().size();
 
     std::printf("ARRIVING fires %zu, STAYING fires %zu, LEAVING fires %zu, RETURNING fires %zu\n",
-                first, again, leaving, returning);
+                first,
+                again,
+                leaving,
+                returning);
 
     CHECK(first == 1,
           "**A BODY INSIDE A DECLARED VOLUME FIRES ITS EVENT**: the field was said to fire "
@@ -73,8 +76,9 @@ int main(void) {
           "and STAYING fires nothing, because entering is a transition and not a state -- a "
           "field that fired on the state would fire sixty times a second for a parked car");
     CHECK(leaving == 0, "and leaving fires nothing, because this volume was declared on enter");
-    CHECK(returning == 1, "and returning fires once more, because a body that left has entered "
-                          "again");
+    CHECK(returning == 1,
+          "and returning fires once more, because a body that left has entered "
+          "again");
   }
 
   {

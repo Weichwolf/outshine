@@ -16,8 +16,8 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
   }
   const size_t vertices = floats / kSoupFloatsPerVertex;
   if (vertices % 3 != 0) {
-    Error_ = "a soup of " + std::to_string(vertices) +
-             " vertices is not a whole number of triangles";
+    Error_ =
+        "a soup of " + std::to_string(vertices) + " vertices is not a whole number of triangles";
     return false;
   }
 
@@ -41,4 +41,4 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
          Held_.setNormals(part, normalM) && Held_.setTriangles(part, run);
 }
 
-}
+} // namespace outshine::Generators

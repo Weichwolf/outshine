@@ -59,7 +59,8 @@ public:
     }
     const size_t samples = (size_t)Width_ * (size_t)Height_ * (size_t)Channels_;
     if (bytes.size() != header + samples * sizeof(float)) {
-      return Refuse(path + ": " + std::to_string(bytes.size()) + " bytes, and its own header says " +
+      return Refuse(path + ": " + std::to_string(bytes.size()) +
+                    " bytes, and its own header says " +
                     std::to_string(header + samples * sizeof(float)));
     }
     Samples_.resize(samples);
@@ -95,9 +96,13 @@ public:
   }
 
   const std::string &Error() const { return Error_; }
+
   int Width() const { return Width_; }
+
   int Height() const { return Height_; }
+
   int Channels() const { return Channels_; }
+
   bool TopRowFirst() const { return TopRowFirst_; }
 
   float At(int x, int y, int channel) const {
@@ -118,8 +123,12 @@ private:
   bool TopRowFirst_ = true;
 };
 
-[[nodiscard]] inline bool WriteRawF32(const std::string &path, const std::vector<float> &samples,
-                                      int width, int height, int channels, std::string &error) {
+[[nodiscard]] inline bool WriteRawF32(const std::string &path,
+                                      const std::vector<float> &samples,
+                                      int width,
+                                      int height,
+                                      int channels,
+                                      std::string &error) {
   if (samples.size() != (size_t)width * (size_t)height * (size_t)channels) {
     error = path + ": " + std::to_string(samples.size()) + " samples is not " +
             std::to_string(width) + "x" + std::to_string(height) + "x" + std::to_string(channels);
@@ -133,18 +142,18 @@ private:
 
   static const char kNames[8] = {'R', 0, 'G', 0, 'B', 0, 'A', 0};
   constexpr uint32_t kHeaderBytes = 44;
-  const uint32_t field[7] = {0x01020304u,        1u,           (uint32_t)width, (uint32_t)height,
-                             (uint32_t)channels, kHeaderBytes, 0u};
+  const uint32_t field[7] = {
+      0x01020304u, 1u, (uint32_t)width, (uint32_t)height, (uint32_t)channels, kHeaderBytes, 0u};
   std::FILE *file = std::fopen(path.c_str(), "wb");
   if (!file) {
     error = path + " could not be opened for writing";
     return false;
   }
-  const bool whole = std::fwrite("OSRAWF32", 1, 8, file) == 8 &&
-                     std::fwrite(field, 1, sizeof field, file) == sizeof field &&
-                     std::fwrite(kNames, 1, sizeof kNames, file) == sizeof kNames &&
-                     std::fwrite(samples.data(), sizeof(float), samples.size(), file) ==
-                         samples.size();
+  const bool whole =
+      std::fwrite("OSRAWF32", 1, 8, file) == 8 &&
+      std::fwrite(field, 1, sizeof field, file) == sizeof field &&
+      std::fwrite(kNames, 1, sizeof kNames, file) == sizeof kNames &&
+      std::fwrite(samples.data(), sizeof(float), samples.size(), file) == samples.size();
   std::fclose(file);
   if (!whole) {
     error = path + " was opened and not written whole";
@@ -153,5 +162,5 @@ private:
   return true;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

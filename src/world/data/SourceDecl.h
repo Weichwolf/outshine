@@ -25,7 +25,6 @@ enum class Necessity : uint8_t { Cosmetic, Required };
 [[nodiscard]] const char *Name(Necessity need) noexcept;
 
 struct SourceDecl {
-
   std::string Id;
 
   uint32_t Version = 1;
@@ -50,5 +49,5 @@ struct SourceDecl {
   int RetryBudget = 0;
 };
 
-}
+} // namespace outshine::Data
 #endif

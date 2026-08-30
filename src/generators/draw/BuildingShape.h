@@ -45,10 +45,13 @@ struct BuildingShape {
   int FrontEdge = -1;
 
   [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
+
   [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
+
   [[nodiscard]] double TopM() const { return FootM + EavesM + RiseM; }
 
   [[nodiscard]] En AxisV() const { return {-AxisU.N, AxisU.E}; }
+
   void ToBox(const En &p, double *u, double *v) const;
   [[nodiscard]] En FromBox(double u, double v) const;
 };
@@ -58,8 +61,8 @@ struct Massing {
   std::vector<BuildingShape> Parts;
 };
 
-Massing MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured,
-               const Frontage &street);
+Massing
+MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const Frontage &street);
 
-}
+} // namespace outshine::Generators
 #endif

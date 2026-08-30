@@ -25,23 +25,27 @@ bool Engine::State::Watches(void) {
                 "world before anything can be placed on it";
         return false;
       }
-      const GroundSample under =
-          World.Stack.Ground().At(seen.Sees.Stands.Geodetic.LatitudeDeg, seen.Sees.Stands.Geodetic.LongitudeDeg);
+      const GroundSample under = World.Stack.Ground().At(seen.Sees.Stands.Geodetic.LatitudeDeg,
+                                                         seen.Sees.Stands.Geodetic.LongitudeDeg);
       double aslM = 0.0;
       if (!under.TryAslM(&aslM)) {
-        Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
-                Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
+        Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) +
+                ", " + Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
                 " and the terrain there is not resident -- the height it stands at is not a "
                 "number this engine may invent";
         return false;
       }
       heightM += aslM;
     }
-    const Ground::EnuFrame frame =
-        Ground::EnuFrame::At(Session.Declared.Ground.Origin.LatitudeDeg, Session.Declared.Ground.Origin.LongitudeDeg);
+    const Ground::EnuFrame frame = Ground::EnuFrame::At(
+        Session.Declared.Ground.Origin.LatitudeDeg, Session.Declared.Ground.Origin.LongitudeDeg);
     Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.Geodetic.LongitudeDeg, seen.Sees.Stands.Geodetic.LatitudeDeg, heightM}, &where)) {
-      Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " + Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
+    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.Geodetic.LongitudeDeg,
+                                      seen.Sees.Stands.Geodetic.LatitudeDeg,
+                                      heightM},
+                          &where)) {
+      Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
+              Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
@@ -124,7 +128,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
       ++Session.Fired;
       Published.Places("events a declared volume has fired", (double)Session.Fired, "events");
       Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
-                             " for body " + std::to_string(fired.Body));
+                                " for body " + std::to_string(fired.Body));
     }
   }
   if (!Session.Views) { return true; }
@@ -133,21 +137,21 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   if (seen.Sees.Placed) { return Watches(); }
 
   const double *const centreM = Ticking.Drive.Stood.CentreM;
-  const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
-                           seen.OffsetM[2] - centreM[2]};
+  const double seatM[3] = {
+      seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1], seen.OffsetM[2] - centreM[2]};
   double at[3];
   for (int axis = 0; axis < 3; ++axis) {
     at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seatM[0] +
                bodyFromWorld[4 + axis] * seatM[1] + bodyFromWorld[8 + axis] * seatM[2];
   }
-  const double ahead[3] = {at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9],
-                           at[2] - bodyFromWorld[10]};
+  const double ahead[3] = {
+      at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9], at[2] - bodyFromWorld[10]};
   double eye[3] = {at[0], at[1], at[2]};
   if (seen.DistanceM > 0.0) {
     const double back = seen.DistanceM;
     for (int axis = 0; axis < 3; ++axis) {
-      eye[axis] = at[axis] + bodyFromWorld[8 + axis] * back +
-                  bodyFromWorld[4 + axis] * back * seen.RisesBy;
+      eye[axis] =
+          at[axis] + bodyFromWorld[8 + axis] * back + bodyFromWorld[4 + axis] * back * seen.RisesBy;
     }
   }
   Published.Places("the eye, east", eye[0], "m");
@@ -164,8 +168,10 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
 
 bool Engine::State::Updates(void) {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
-    const double atLat = Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
-    const double atLon = Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
+    const double atLat =
+        Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
+    const double atLon =
+        Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
       World.Stack.Restand(atLat, atLon, Ground::kStreamBudgetMs);
@@ -179,21 +185,25 @@ bool Engine::State::Updates(void) {
   if (Ticking.Drove) {
     if (Ticking.Steps >= Ticking.MostSteps) {
       Error = "the drive has taken " + Said((double)Ticking.Steps) +
-                  " steps and its own plan allows " + Said((double)Ticking.MostSteps) +
-                  " at the slowest station on it, so it is not arriving";
+              " steps and its own plan allows " + Said((double)Ticking.MostSteps) +
+              " at the slowest station on it, so it is not arriving";
       return false;
     }
     ++Ticking.Steps;
     const Heap::Tagged ticking("drive-tick");
-    const Sim::Ridden &rode =
-        Sim::DriveTick(Ticking.Drive.Way, Ticking.Drive.Stood, *Ticking.Surface, Ticking.Drive.State,
-                       Session.Declared.Motion.StepS, nullptr);
+    const Sim::Ridden &rode = Sim::DriveTick(Ticking.Drive.Way,
+                                             Ticking.Drive.Stood,
+                                             *Ticking.Surface,
+                                             Ticking.Drive.State,
+                                             Session.Declared.Motion.StepS,
+                                             nullptr);
     if (!rode.Found || rode.Lost) {
       Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
       return false;
     }
     if (rode.Arrived) {
-      Published.Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
+      Published.Places(
+          "wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
       Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
       return false;
     }
@@ -205,7 +215,8 @@ bool Engine::State::Updates(void) {
   if (Ticking.Drove) {
     Published.Places("how far along it the body has come", Ticking.Drive.State.Tally.ReachedM, "m");
     Published.Places("ticks the one lane task has kept", (double)Ticking.Drive.State.Kept, "ticks");
-    Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
+    Published.Places(
+        "bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
   Falls();
   if (!Watches()) { return false; }
@@ -230,9 +241,13 @@ void Engine::keepSamples(size_t steps) {
   S_->Cost.Render.Keeps(steps);
 }
 
-void Engine::stepTimesMs(std::vector<double> &out) const { S_->Cost.Advance.Into(out); }
+void Engine::stepTimesMs(std::vector<double> &out) const {
+  S_->Cost.Advance.Into(out);
+}
 
-void Engine::frameTimesMs(std::vector<double> &out) const { S_->Cost.Render.Into(out); }
+void Engine::frameTimesMs(std::vector<double> &out) const {
+  S_->Cost.Render.Into(out);
+}
 
 Result Engine::advance() {
   const auto began = std::chrono::steady_clock::now();
@@ -247,7 +262,8 @@ Result Engine::advance() {
 
 void Engine::State::Falls(void) {
   if (Ticking.Freestanding.empty()) { return; }
-  const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
+  const double stepS =
+      Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
   const double gravityMs2 =
       Session.Declared.Ground.GravityMs2 > 0.0 ? Session.Declared.Ground.GravityMs2 : 9.80665;
   for (Physics::Rigid &held : Ticking.Freestanding) {
@@ -263,28 +279,31 @@ void Engine::State::Falls(void) {
 void Engine::State::Drew(void) {
   const Heap::Tagged drew("frame-drew");
   const Heap::Tagged telling("frame-measures");
-  Published.Places("bodies the world's generators placed", (double)World.Placed,
-                   "bodies");
-  Published.Places("instances its draw sources made", (double)World.Instanced,
-                   "instances");
+  Published.Places("bodies the world's generators placed", (double)World.Placed, "bodies");
+  Published.Places("instances its draw sources made", (double)World.Instanced, "instances");
   Published.Places("how far the placement chain reached", (double)World.Reached, "steps");
   Published.Places("streets the world holds", (double)World.Stack.Ways().Ways().size(), "ways");
-  Published.Places("water surfaces it holds", (double)World.Stack.WaterBodies().Surfaces().size(),
-                   "surfaces");
+  Published.Places(
+      "water surfaces it holds", (double)World.Stack.WaterBodies().Surfaces().size(), "surfaces");
   Published.Places("building footprints it holds",
-                   (double)World.Stack.Footprints().Footprints().size(), "footprints");
-  Published.Places("batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
-  Published.Places("stages the compiled plan runs", (double)Picture.Standing->PlanStages(),
-                   "stages");
+                   (double)World.Stack.Footprints().Footprints().size(),
+                   "footprints");
+  Published.Places(
+      "batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
+  Published.Places(
+      "stages the compiled plan runs", (double)Picture.Standing->PlanStages(), "stages");
   Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");
   Published.Places("vertex uniform pushes the subject stages make",
-                   (double)Picture.Device.SubjectUniformPushes(), "pushes");
+                   (double)Picture.Device.SubjectUniformPushes(),
+                   "pushes");
   Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");
-  Published.Places("placement rows the renderer has been sent", (double)Picture.Device.SubjectPlacementsMoved(),
-         "rows");
-  Published.Places("frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
-  Published.Places("bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(),
-         "bytes");
+  Published.Places("placement rows the renderer has been sent",
+                   (double)Picture.Device.SubjectPlacementsMoved(),
+                   "rows");
+  Published.Places(
+      "frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
+  Published.Places(
+      "bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(), "bytes");
   Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
   Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
 }
@@ -304,7 +323,8 @@ void Engine::State::Inspected(void) {
       Published.Places("the shadow atlas, least depth", least, "");
       Published.Places("its most", most, "");
       Published.Places("texels above the clear", written, "texels");
-      Published.Places("the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
+      Published.Places(
+          "the shadow radius it stood on", Picture.Standing->ShadowRadiusStanding(), "m");
     }
   }
   {
@@ -322,16 +342,16 @@ void Engine::State::Inspected(void) {
       Published.Places("the furthest any of them moved", furthest, "ndc");
     }
   }
-  Published.Places("the exposure the picture applied", (double)Picture.Device.ExposureApplied(),
-                   "1/(cd/m2)");
+  Published.Places(
+      "the exposure the picture applied", (double)Picture.Device.ExposureApplied(), "1/(cd/m2)");
   {
     std::vector<float> linear;
     if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
       double brightest = 0.0;
       for (size_t at = 0; at + 3 < linear.size(); at += 4) {
         for (int channel = 0; channel < 3; ++channel) {
-          brightest = (double)linear[at + channel] > brightest ? (double)linear[at + channel]
-                                                               : brightest;
+          brightest =
+              (double)linear[at + channel] > brightest ? (double)linear[at + channel] : brightest;
         }
       }
       Published.Places("the brightest the scene's linear buffer reached", brightest, "");
@@ -351,17 +371,24 @@ void Engine::State::Inspected(void) {
   }
 }
 
-double Engine::stepSeconds(void) const { return S_->Session.Declared.Motion.StepS; }
+double Engine::stepSeconds(void) const {
+  return S_->Session.Declared.Motion.StepS;
+}
 
 Result Engine::advance(double elapsedS) {
   if (elapsedS > 0.0) { S_->Ticking.OwedS += elapsedS; }
   bool stood = true;
-  for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears && S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS; ++step) {
+  for (int step = 0; step < S_->Session.Declared.Motion.MostStepsInArrears &&
+                     S_->Ticking.OwedS >= S_->Session.Declared.Motion.StepS;
+       ++step) {
     S_->Ticking.OwedS -= S_->Session.Declared.Motion.StepS;
     stood = advance().has_value();
     if (!stood) { break; }
   }
-  if (S_->Ticking.OwedS > S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) { S_->Ticking.OwedS = 0.0; }
+  if (S_->Ticking.OwedS >
+      S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) {
+    S_->Ticking.OwedS = 0.0;
+  }
   return (stood) ? Result{} : std::unexpected(S_->Error);
 }
 
@@ -370,9 +397,8 @@ Result Engine::run() {
     S_->Error = "no scenario is standing, so there is nothing to run";
     return std::unexpected(S_->Error);
   }
-  while (advance()) {
-  }
+  while (advance()) {}
   return (S_->Error.empty()) ? Result{} : std::unexpected(S_->Error);
 }
 
-}
+} // namespace outshine

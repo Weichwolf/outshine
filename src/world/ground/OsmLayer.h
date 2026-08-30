@@ -23,9 +23,9 @@ inline const char *OsmLayerName(OsmLayer layer) {
 inline std::vector<std::string> OsmLayerNames(std::initializer_list<OsmLayer> layers) {
   std::vector<std::string> names;
   names.reserve(layers.size());
-  for (OsmLayer layer : layers) names.emplace_back(OsmLayerName(layer));
+  for (OsmLayer layer : layers) { names.emplace_back(OsmLayerName(layer)); }
   return names;
 }
 
-}
+} // namespace outshine::Ground
 #endif

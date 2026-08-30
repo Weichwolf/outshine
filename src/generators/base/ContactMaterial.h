@@ -22,7 +22,7 @@ public:
   ContactMaterial Contact = ContactMaterial{0};
 
   [[nodiscard]] std::optional<BodyId> Id() const {
-    if (Id_ == kUnplaced) return std::nullopt;
+    if (Id_ == kUnplaced) { return std::nullopt; }
     return BodyId(Id_);
   }
 
@@ -38,5 +38,5 @@ static_assert(sizeof(Body) == 3 * sizeof(double) + 4 * sizeof(float) + 2 * sizeo
 static_assert(sizeof(Body) == 48, "sizeof(Body)");
 static_assert(std::is_trivially_copyable<Body>::value, "collect is a memcpy");
 
-}
+} // namespace outshine::Generators
 #endif

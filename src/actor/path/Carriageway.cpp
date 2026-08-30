@@ -30,10 +30,14 @@ Astride Surface(const Placed &on, double alongM, double acrossM, double halfWidt
   return out;
 }
 
-}
+} // namespace
 
-Astride Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
-               double nearM, double windowM) {
+Astride Stand(const ReferenceLine &over,
+              double eastM,
+              double northM,
+              double halfWidthM,
+              double nearM,
+              double windowM) {
   double alongM = 0.0;
   if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return Astride(); }
   Placed on;
@@ -49,4 +53,4 @@ Astride StandAt(const ReferenceLine &over, double alongM, double acrossM, double
   return Surface(on, alongM, acrossM, halfWidthM);
 }
 
-}
+} // namespace outshine

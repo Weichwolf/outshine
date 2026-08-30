@@ -16,17 +16,26 @@ inline uint32_t ChunkNodePosting(int k, uint32_t postings, int nodes) {
 
 inline int ChunkNodeCell(double posting, uint32_t postings, int nodes) {
   const long span = (long)postings - 1, last = (long)nodes - 2;
-  if (span <= 0 || last <= 0) return 0;
+  if (span <= 0 || last <= 0) { return 0; }
   long p = (long)posting;
-  if (posting < 0.0) p = 0;
-  else if (p > span) p = span;
+  if (posting < 0.0) {
+    p = 0;
+  } else if (p > span) {
+    p = span;
+  }
   long k = ((p + 1) * (long)(nodes - 1) + span - 1) / span - 1;
-  if (k < 0) k = 0;
-  else if (k > last) k = last;
+  if (k < 0) {
+    k = 0;
+  } else if (k > last) {
+    k = last;
+  }
   return (int)k;
 }
 
-struct ChunkQuadCorner { int Row, Col; };
+struct ChunkQuadCorner {
+  int Row, Col;
+};
+
 inline const std::array<ChunkQuadCorner, 6> &ChunkQuadWinding() {
   static const std::array<ChunkQuadCorner, 6> kCorners{
       {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}}};
@@ -45,6 +54,7 @@ struct ChunkCell {
 
 private:
   friend float ChunkCellHeight(const ChunkCell &cell, float su, float sv);
+
   float At(int row, int col) const {
     return Nodes[(size_t)(Row + row) * (size_t)Stride + (size_t)(Col + col)];
   }
@@ -62,10 +72,10 @@ inline float ChunkCellHeight(const ChunkCell &cell, float su, float sv) {
     const float l1 = (pu * cv - pv * cu) / det, l2 = (bu * pv - bv * pu) / det;
     const float ha = cell.At(a.Row, a.Col);
     height = ha + l1 * (cell.At(b.Row, b.Col) - ha) + l2 * (cell.At(c.Row, c.Col) - ha);
-    if (l1 >= 0.0f && l2 >= 0.0f && l1 + l2 <= 1.0f) break;
+    if (l1 >= 0.0f && l2 >= 0.0f && l1 + l2 <= 1.0f) { break; }
   }
   return height;
 }
 
-}
+} // namespace outshine::Ground
 #endif

@@ -13,7 +13,10 @@ struct TelemetryChannel {
 
 class TelemetrySchema {
 public:
-  void Add(const std::string &name, const std::string &unit = "") { Channels_.push_back({name, unit}); }
+  void Add(const std::string &name, const std::string &unit = "") {
+    Channels_.push_back({name, unit});
+  }
+
   const std::vector<TelemetryChannel> &Channels() const { return Channels_; }
 
 private:
@@ -28,7 +31,9 @@ public:
   void Push(long long v);
   void Push(bool v);
   void Push(const std::string &v);
+
   const std::vector<std::string> &Fields() const { return Fields_; }
+
   void Clear() { Fields_.clear(); }
 
 private:
@@ -53,7 +58,9 @@ public:
 class TelemetryBus {
 public:
   void Register(TelemetrySource *src) { Sources_.push_back(src); }
+
   void SetSink(TelemetrySink *sink) { Sink_ = sink; }
+
   void Start();
   void Tick(double simTimeS);
 
@@ -65,5 +72,5 @@ private:
   bool Started_ = false;
 };
 
-}
+} // namespace outshine
 #endif

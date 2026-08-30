@@ -79,7 +79,7 @@ constexpr double kBlockedGain = 0.25;
   return Root(stereo);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -100,14 +100,17 @@ int main(void) {
 
   std::printf("CLEAR   rms %.6f\n", clear);
   std::printf("WALLED  rms %.6f   the closed form owes %.6f\n", walled, owed);
-  std::printf("        gain %.4f x one-pole |H(4 kHz)| %.6f at a 400 Hz cutoff\n", kBlockedGain,
-              magnitude);
+  std::printf(
+      "        gain %.4f x one-pole |H(4 kHz)| %.6f at a 400 Hz cutoff\n", kBlockedGain, magnitude);
 
   CHECK(walled < clear * kBlockedGain,
         "**A WALL DOES BOTH**: the blocked source is quieter than the declared gain alone would "
         "make it, because it is also duller -- and a mix that only ducked the volume would land "
         "exactly ON the gain rather than under it");
-  CHECK_NEAR(walled, owed, owed * 0.05, "",
+  CHECK_NEAR(walled,
+             owed,
+             owed * 0.05,
+             "",
              "and how much duller is the one-pole's own magnitude response, "
              "a / sqrt(a^2 + 2(1-a)(1 - cos w)) -- derived from the recursion rather than "
              "measured off it, so an error in the coefficient cannot hide inside the tolerance");

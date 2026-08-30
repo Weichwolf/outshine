@@ -11,22 +11,22 @@ namespace outshine::Test {
 
 // a Terrarium-encoded PNG the tile layer can read: height = (r*256 + g + b/256) - 32768,
 // written here so the tiles suite owns its fixtures instead of borrowing a corpus
-inline std::vector<uint8_t> TerrariumPng(uint32_t width, uint32_t height,
-                                         const std::vector<float> &metres) {
+inline std::vector<uint8_t>
+TerrariumPng(uint32_t width, uint32_t height, const std::vector<float> &metres) {
   const auto be32 = [](std::vector<uint8_t> &into, uint32_t v) {
     into.push_back((uint8_t)(v >> 24));
     into.push_back((uint8_t)(v >> 16));
     into.push_back((uint8_t)(v >> 8));
     into.push_back((uint8_t)v);
   };
-  const auto chunk = [&](std::vector<uint8_t> &into, const char *kind,
-                         const std::vector<uint8_t> &body) {
-    be32(into, (uint32_t)body.size());
-    std::vector<uint8_t> crcOver(kind, kind + 4);
-    crcOver.insert(crcOver.end(), body.begin(), body.end());
-    into.insert(into.end(), crcOver.begin(), crcOver.end());
-    be32(into, (uint32_t)crc32(0, crcOver.data(), (uInt)crcOver.size()));
-  };
+  const auto chunk =
+      [&](std::vector<uint8_t> &into, const char *kind, const std::vector<uint8_t> &body) {
+        be32(into, (uint32_t)body.size());
+        std::vector<uint8_t> crcOver(kind, kind + 4);
+        crcOver.insert(crcOver.end(), body.begin(), body.end());
+        into.insert(into.end(), crcOver.begin(), crcOver.end());
+        be32(into, (uint32_t)crc32(0, crcOver.data(), (uInt)crcOver.size()));
+      };
 
   std::vector<uint8_t> raw;
   raw.reserve((size_t)height * (1u + (size_t)width * 3u));
@@ -61,5 +61,5 @@ inline std::vector<uint8_t> TerrariumPng(uint32_t width, uint32_t height,
   return png;
 }
 
-}
+} // namespace outshine::Test
 #endif

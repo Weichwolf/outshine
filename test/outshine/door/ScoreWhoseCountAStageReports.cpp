@@ -98,7 +98,7 @@ constexpr const char *kTriangleBase64 =
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -146,10 +146,10 @@ int main(void) {
   const double bareDrew = Measured(unlit, "batches the picture draws");
   const double bareCast = Measured(unlit, "batches the shadow casts");
 
-  std::printf("  engine A  two parts, a key declared   draws %.0f   casts %.0f\n", litDrew,
-              litCast);
-  std::printf("  engine B  one part,  no lighting      draws %.0f   casts %.0f\n", bareDrew,
-              bareCast);
+  std::printf(
+      "  engine A  two parts, a key declared   draws %.0f   casts %.0f\n", litDrew, litCast);
+  std::printf(
+      "  engine B  one part,  no lighting      draws %.0f   casts %.0f\n", bareDrew, bareCast);
 
   CHECK(litCast > 0.0 && litCast == litDrew,
         "the lit engine casts every batch it draws, so there IS a count for a second engine to "

@@ -114,10 +114,13 @@ struct DriveState {
   Ridden Tally;
 };
 
-[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
-                               const Support &beneath, DriveState &drive, double dtS,
-                               const Taken *taken);
+[[nodiscard]] const Ridden &DriveTick(const Corridor &way,
+                                      const Rigged &stood,
+                                      const Support &beneath,
+                                      DriveState &drive,
+                                      double dtS,
+                                      const Taken *taken);
 
-}
+} // namespace outshine::Sim
 
 #endif

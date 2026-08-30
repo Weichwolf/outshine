@@ -118,7 +118,7 @@ constexpr int kMixFrames = 1024;
   return made;
 }
 
-}
+} // namespace
 
 int main(int argc, char *argv[]) {
   bool headless = false;
@@ -188,8 +188,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::printf("DEMO %d frame(s), %d mix(es) of %d frames, loudest %.4f\n", drawn, mixed,
-              kMixFrames, loudest);
+  std::printf("DEMO %d frame(s), %d mix(es) of %d frames, loudest %.4f\n",
+              drawn,
+              mixed,
+              kMixFrames,
+              loudest);
   SDL_Quit();
   return 0;
 }

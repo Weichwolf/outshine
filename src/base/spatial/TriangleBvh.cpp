@@ -14,9 +14,11 @@ constexpr uint32_t kMaxLeafBits = 8;
 constexpr uint32_t kMaxLeafTriangles = (1u << kMaxLeafBits) - 1u;
 
 struct Box {
-  float Min[3] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
+  float Min[3] = {std::numeric_limits<float>::infinity(),
+                  std::numeric_limits<float>::infinity(),
                   std::numeric_limits<float>::infinity()};
-  float Max[3] = {-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+  float Max[3] = {-std::numeric_limits<float>::infinity(),
+                  -std::numeric_limits<float>::infinity(),
                   -std::numeric_limits<float>::infinity()};
 
   void Cover(const float point[3]) {
@@ -32,6 +34,7 @@ struct Box {
       Max[axis] = std::max(Max[axis], other.Max[axis]);
     }
   }
+
   [[nodiscard]] float HalfArea() const {
     const float dx = Max[0] - Min[0], dy = Max[1] - Min[1], dz = Max[2] - Min[2];
     if (dx < 0.0f || dy < 0.0f || dz < 0.0f) { return 0.0f; }
@@ -63,13 +66,10 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
     centroidBox.Cover(work.Centroids.data() + (size_t)tri * 3u);
   }
 
-  const auto MakeLeaf = [&]() {
-    work.Nodes[here].Leaf = (count << kBvhLeafFirstBits) | first;
-  };
+  const auto MakeLeaf = [&]() { work.Nodes[here].Leaf = (count << kBvhLeafFirstBits) | first; };
 
   uint32_t split = 0;
   if (count > kBvhLeafTriangles) {
-
     int axis = 0;
     float widest = centroidBox.Max[0] - centroidBox.Min[0];
     for (int candidate = 1; candidate < 3; ++candidate) {
@@ -84,7 +84,8 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
       Box binBox[kBins];
       uint32_t binCount[kBins] = {};
       const auto BinOf = [&](uint32_t tri) {
-        const float offset = work.Centroids[(size_t)tri * 3u + (size_t)axis] - centroidBox.Min[axis];
+        const float offset =
+            work.Centroids[(size_t)tri * 3u + (size_t)axis] - centroidBox.Min[axis];
         const int at = (int)(offset * scale);
         return std::min(std::max(at, 0), kBins - 1);
       };
@@ -123,9 +124,9 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
 
       const float leafCost = box.HalfArea() * (float)count;
       if (bestPlane >= 0 && bestCost + box.HalfArea() < leafCost) {
-        const auto middle = std::partition(
-            work.Order.begin() + first, work.Order.begin() + first + count,
-            [&](uint32_t tri) { return BinOf(tri) <= bestPlane; });
+        const auto middle = std::partition(work.Order.begin() + first,
+                                           work.Order.begin() + first + count,
+                                           [&](uint32_t tri) { return BinOf(tri) <= bestPlane; });
         split = (uint32_t)(middle - (work.Order.begin() + first));
       }
     }
@@ -135,7 +136,6 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
     if (count <= kMaxLeafTriangles) {
       MakeLeaf();
     } else {
-
       split = count / 2u;
     }
   }
@@ -159,7 +159,7 @@ void Thread(Building &work, uint32_t here, uint32_t escape) {
   Thread(work, work.Right[here], escape);
 }
 
-}
+} // namespace
 
 TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t> indices) {
   TriangleBvh built;
@@ -289,13 +289,13 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
   return true;
 }
 
-bool TriangleBvh::Occludes(const float originM[3], const float direction[3], float nearM,
+bool TriangleBvh::Occludes(const float originM[3],
+                           const float direction[3],
+                           float nearM,
                            float distanceM) const {
   if (Nodes_.empty()) { return false; }
   float inverse[3];
-  for (int axis = 0; axis < 3; ++axis) {
-    inverse[axis] = 1.0f / direction[axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { inverse[axis] = 1.0f / direction[axis]; }
 
   uint32_t at = 0;
   while (at != kBvhNoEscape) {
@@ -324,12 +324,11 @@ bool TriangleBvh::Occludes(const float originM[3], const float direction[3], flo
       float pvec[3] = {direction[1] * tri.E2[2] - direction[2] * tri.E2[1],
                        direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
                        direction[0] * tri.E2[1] - direction[1] * tri.E2[0]};
-      const float determinant =
-          tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
+      const float determinant = tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
       if (std::fabs(determinant) < 1.0e-20f) { continue; }
       const float reciprocal = 1.0f / determinant;
-      const float tvec[3] = {originM[0] - tri.V0[0], originM[1] - tri.V0[1],
-                             originM[2] - tri.V0[2]};
+      const float tvec[3] = {
+          originM[0] - tri.V0[0], originM[1] - tri.V0[1], originM[2] - tri.V0[2]};
       const float u = (tvec[0] * pvec[0] + tvec[1] * pvec[1] + tvec[2] * pvec[2]) * reciprocal;
       if (u < 0.0f || u > 1.0f) { continue; }
       const float qvec[3] = {tvec[1] * tri.E1[2] - tvec[2] * tri.E1[1],
@@ -347,4 +346,4 @@ bool TriangleBvh::Occludes(const float originM[3], const float direction[3], flo
   return false;
 }
 
-}
+} // namespace outshine

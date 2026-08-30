@@ -34,8 +34,7 @@ constexpr float kNormals[9] = {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1
 constexpr uint32_t kIndices[3] = {0, 1, 2};
 
 [[nodiscard]] std::string Base64(const void *from, size_t bytes) {
-  static const char *kAlphabet =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  static const char *kAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const unsigned char *at = static_cast<const unsigned char *>(from);
   std::string out;
   for (size_t which = 0; which < bytes; which += 3) {
@@ -82,7 +81,10 @@ constexpr uint32_t kIndices[3] = {0, 1, 2};
   size_t apart = 0;
   for (size_t at = 0; at + 3 < a.size(); at += 4) {
     for (int channel = 0; channel < 3; ++channel) {
-      if (a[at + channel] != b[at + channel]) { ++apart; break; }
+      if (a[at + channel] != b[at + channel]) {
+        ++apart;
+        break;
+      }
     }
   }
   return apart;
@@ -99,7 +101,7 @@ constexpr uint32_t kIndices[3] = {0, 1, 2};
   return sum / (double)pixels;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -163,7 +165,8 @@ int main(void) {
   // broken. Only the file arm's input is a fixture; everything after it is the claim.
   const bool handed = engine.setGeometry(geometry).has_value();
   std::vector<uint8_t> fromMemory;
-  if (handed && (!engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(fromMemory))) {
+  if (handed && (!engine.renderer().render(outshine::Extent{}) ||
+                 !engine.renderer().readPixels(fromMemory))) {
     Unprepared(("the device would not draw the handed subject: " + engine.error()).c_str());
     return Report();
   }

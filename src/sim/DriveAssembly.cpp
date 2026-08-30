@@ -21,15 +21,15 @@
 #include "VegetationTemplates.h"
 #include "Wayfinding.h"
 
-using outshine::Path::ApartM;
-using outshine::Path::Network;
 using outshine::Ground::OsmField;
 using outshine::Ground::OsmLayer;
 using outshine::Ground::OsmLayerNames;
 using outshine::Ground::Reap;
 using outshine::Ground::Reaped;
-using outshine::Path::Route;
 using outshine::Ground::VegetationTemplates;
+using outshine::Path::ApartM;
+using outshine::Path::Network;
+using outshine::Path::Route;
 using outshine::Path::Waypoint;
 
 namespace outshine::Sim {
@@ -37,12 +37,18 @@ namespace outshine::Sim {
 namespace {
 constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
-}
+} // namespace
 
-bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body> &bodies,
-                   const Column<Journey> &driven, const WorldSettings &world,
-                   Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
-                   Sink &say, DriveProduct &out) {
+bool AssembleDrive(const Scene &scene,
+                   const Assembled &cast,
+                   const Column<Body> &bodies,
+                   const Column<Journey> &driven,
+                   const WorldSettings &world,
+                   Ground::GroundStack &stack,
+                   Data::Transport &wire,
+                   const Provision &kept,
+                   Sink &say,
+                   DriveProduct &out) {
   if (kept.CacheDir.empty() || kept.AssetsDir.empty()) {
     say.Refuse("no cache directory or assets root was provisioned");
     return false;
@@ -79,8 +85,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
     return false;
   }
 
-  if (!stack.Open(kept.CacheDir, kept.AssetsDir, kept.Providers, middleLat, middleLon, wire,
-                  say)) {
+  if (!stack.Open(kept.CacheDir, kept.AssetsDir, kept.Providers, middleLat, middleLon, wire, say)) {
     return false;
   }
 
@@ -92,17 +97,16 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   }
   say.Number("the zoom the ways are read at", (double)kZoom, "");
 
-  const double tileGroundM =
-      outshine::Ground::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
-      (double)(1L << kZoom);
+  const double tileGroundM = outshine::Ground::kMercatorGirthM *
+                             std::cos(middleLat * outshine::kPi / 180.0) / (double)(1L << kZoom);
   const int kCorridorRing = 2;
   const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
   const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
   say.Number("a tile's ground size at this zoom and latitude", tileGroundM / 1000.0, "km");
   say.Number("stations along the line the corridor is fetched at", (double)steps, "stations");
   say.Number("the ring fetched around each", (double)(2 * kCorridorRing + 1), "tiles across");
-  say.Number("what a square covering both cities would have cost", (double)(square * square),
-             "tiles");
+  say.Number(
+      "what a square covering both cities would have cost", (double)(square * square), "tiles");
 
   OsmField field(kZoom, OsmLayerNames({OsmLayer::Streets, OsmLayer::StreetPolygons}));
   const auto began = std::chrono::steady_clock::now();
@@ -197,7 +201,8 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
 
   const size_t joined = roads.Cross();
   say.Number("crossings at grade made into junctions", (double)joined, "crossings");
-  say.Number("crossings left alone because one way spans", (double)roads.CrossingsLeftAlone(),
+  say.Number("crossings left alone because one way spans",
+             (double)roads.CrossingsLeftAlone(),
              "crossings");
   if (!roads.Weave(error)) {
     say.Refuse(Line("the ways do not weave into a network: %s", error.c_str()));
@@ -222,13 +227,13 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
     const auto sweep = roads.Crossings(crossings);
     if (!sweep) {
       say.Refuse(Line("the crossing sweep cannot grid this network: %s",
-                   std::string(sweep.error()).c_str()));
+                      std::string(sweep.error()).c_str()));
       return false;
     }
     const Network::Swept swept = *sweep;
     const size_t found = swept.Found;
     say.Number("places two ways cross in plan without sharing a node", (double)found, "places");
-      out.Found.Crossings = (long)found;
+    out.Found.Crossings = (long)found;
     say.Number("segment pairs the crossing sweep tested", (double)swept.PairsTested, "pairs");
     say.Number("segments in the cell that held the most", (double)swept.FullestCell, "segments");
   }
@@ -244,8 +249,8 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   out.Found.ToAwayM = toAwayM;
   say.Number("how far the start is from the nearest road node", fromAwayM, "m");
   say.Number("how far the destination is from the nearest road node", toAwayM, "m");
-  say.Number("how far each walk is as a share of the drive",
-       (fromAwayM + toAwayM) / straightM, "of it");
+  say.Number(
+      "how far each walk is as a share of the drive", (fromAwayM + toAwayM) / straightM, "of it");
 
   stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
   if (!stood.Stood) { say.Refuse(Line("%s", stood.Error.c_str())); }
@@ -254,7 +259,8 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
   const Route route =
       roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM);
-  say.Number("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
+  say.Number(
+      "turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
   if (!route.Found) { say.Refuse(Line("%s", route.Error.c_str())); }
   say.Number("nodes the search settled", (double)route.Reached, "nodes");
   if (!route.Found) { return false; }
@@ -268,8 +274,17 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   say.Number("legs in it", (double)route.Legs.size(), "legs");
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  if (!Sim::LayCorridor(route, stack.Ground(), out.Car, stood, quantumM, tightestM,
-                        middleLat, world.Origin.RadiusM, say, out.Way, error)) {
+  if (!Sim::LayCorridor(route,
+                        stack.Ground(),
+                        out.Car,
+                        stood,
+                        quantumM,
+                        tightestM,
+                        middleLat,
+                        world.Origin.RadiusM,
+                        say,
+                        out.Way,
+                        error)) {
     return false;
   }
 
@@ -287,9 +302,7 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   rig = stood.Rig;
   body = outshine::Physics::Rigid();
   body.MassKg = stood.Envelope.MassKg;
-  for (int axis = 0; axis < 3; ++axis) {
-    body.InertiaKgM2[axis] = out.Car.InertiaKgM2[axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { body.InertiaKgM2[axis] = out.Car.InertiaKgM2[axis]; }
   outshine::Placed start;
   if (!corridor.At(0.0, start)) {
     say.Refuse("the corridor does not answer at its own start");
@@ -299,8 +312,8 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
   say.Number("the fastest the car may move between lane centres",
-       out.Way.AsideRatePerM * 1000.0,
-       "mm per metre");
+             out.Way.AsideRatePerM * 1000.0,
+             "mm per metre");
   body.PositionM[0] = start.EastM - std::sin(start.HeadingRad) * startAsideM;
   body.PositionM[1] = under0.HeightM + stood.CentreM[1];
   body.PositionM[2] = -(start.NorthM + std::cos(start.HeadingRad) * startAsideM);
@@ -308,11 +321,9 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   {
     const double up[3] = {under0.NormalM[0], under0.NormalM[1], -under0.NormalM[2]};
     say.Number("how far the ground normal leans from vertical where the car stands",
-               std::acos(under0.NormalM[1] > 1.0 ? 1.0 : under0.NormalM[1]) * 180.0 /
-                   outshine::kPi,
+               std::acos(under0.NormalM[1] > 1.0 ? 1.0 : under0.NormalM[1]) * 180.0 / outshine::kPi,
                "deg");
-    const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope,
-                              -std::sin(start.HeadingRad)};
+    const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope, -std::sin(start.HeadingRad)};
     outshine::Physics::Lie(body, aheadM, up);
     const double aheadBody[3] = {0.0, 0.0, -1.0};
     double ahead[3];
@@ -321,8 +332,8 @@ bool AssembleDrive(const Scene &scene, const Assembled &cast, const Column<Body>
   }
 
   out.State.AsideRatePerM = out.Way.AsideRatePerM;
-  
+
   out.Ready = true;
   return true;
 }
-}
+} // namespace outshine::Sim

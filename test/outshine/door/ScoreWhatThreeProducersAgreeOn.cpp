@@ -39,19 +39,20 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.7,0.3,0.15,1.0],"
-      "\"metallicFactor\":0.0,\"roughnessFactor\":0.85}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[-1,-1,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.7,0.3,0.15,1.0],"
+             "\"metallicFactor\":0.0,\"roughnessFactor\":0.85}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[-1,-1,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -78,6 +79,7 @@ void Fills(outshine::Geometry &into) {
 class Makes final : public outshine::Generates {
 public:
   [[nodiscard]] std::string_view kind() const override { return "one-face"; }
+
   [[nodiscard]] bool make(const outshine::Ask &, outshine::Geometry &into) const override {
     Fills(into);
     return true;
@@ -93,7 +95,7 @@ public:
   return many;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -153,8 +155,10 @@ int main(void) {
   // show the FIRST arm's picture and read identical -- the same green this case reports when it
   // works. So a BLANK declaration stands between the arms and its frame is checked to be empty:
   // that is what separates "each arm stood anew" from "the first arm never left".
-  const auto stoodBy = [&](const outshine::Scenario &declared, const outshine::Geometry *handed,
-                           std::vector<uint8_t> &rgba, std::string &why) {
+  const auto stoodBy = [&](const outshine::Scenario &declared,
+                           const outshine::Geometry *handed,
+                           std::vector<uint8_t> &rgba,
+                           std::string &why) {
     outshine::Engine &one = shared;
     if (!one.declare(declared)) {
       why = one.error();
@@ -213,17 +217,24 @@ int main(void) {
   }
 
   std::printf("A FILE, A CLIENT AND A GENERATOR each stood the same face\n");
-  std::printf("MEAN RED  file %6.3f  client %6.3f  maker %6.3f\n", meanOf(fromFile),
-              meanOf(fromClient), meanOf(fromMaker));
-  std::printf("LIT PIXELS file %5zu  client %5zu  maker %5zu\n", litOf(fromFile),
-              litOf(fromClient), litOf(fromMaker));
+  std::printf("MEAN RED  file %6.3f  client %6.3f  maker %6.3f\n",
+              meanOf(fromFile),
+              meanOf(fromClient),
+              meanOf(fromMaker));
+  std::printf("LIT PIXELS file %5zu  client %5zu  maker %5zu\n",
+              litOf(fromFile),
+              litOf(fromClient),
+              litOf(fromMaker));
   std::printf("FILE against CLIENT     %zu subpixel(s) apart of %zu\n",
-              Apart(fromFile, fromClient), fromFile.size());
+              Apart(fromFile, fromClient),
+              fromFile.size());
   std::printf("FILE against GENERATOR  %zu subpixel(s) apart of %zu\n",
-              Apart(fromFile, fromMaker), fromFile.size());
+              Apart(fromFile, fromMaker),
+              fromFile.size());
 
   std::printf("A BLANK DECLARATION between them drew %.0f batch(es), lit %zu pixel(s)\n",
-              blankBatches, litOf(fromBlank));
+              blankBatches,
+              litOf(fromBlank));
   CHECK(blankBatches == 0.0 && litOf(fromBlank) == 0,
         "**A REDECLARATION LEAVES NOTHING OF THE LAST ONE STANDING**: a declaration naming no "
         "asset draws an empty frame, so each arm below stood anew rather than inheriting what the "

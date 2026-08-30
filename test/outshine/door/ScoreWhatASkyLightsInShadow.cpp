@@ -50,19 +50,20 @@ constexpr const char *kUprightBase64 =
 
 [[nodiscard]] std::string Upright(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0],"
-      "\"metallicFactor\":0.0,\"roughnessFactor\":1.0}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\","
-      "\"min\":[-1,-1,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":72},"
-      "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":72}],"
-      "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64,") +
-      kUprightBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0],"
+             "\"metallicFactor\":0.0,\"roughnessFactor\":1.0}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":6,\"type\":"
+             "\"VEC3\","
+             "\"min\":[-1,-1,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":72},"
+             "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":72}],"
+             "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64,") +
+         kUprightBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -103,7 +104,7 @@ constexpr const char *kUprightBase64 =
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -134,7 +135,9 @@ int main(void) {
 
   const auto read = [&](bool sphere, double elevationDeg, double &into) {
     std::vector<uint8_t> rgba;
-    if (!engine.declare(Turned(sphere, elevationDeg)) || !engine.renderer().readPixels(rgba)) { return false; }
+    if (!engine.declare(Turned(sphere, elevationDeg)) || !engine.renderer().readPixels(rgba)) {
+      return false;
+    }
     into = Mean(rgba);
     return true;
   };

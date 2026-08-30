@@ -8,7 +8,6 @@ namespace outshine {
 
 class StackProbe {
 public:
-
   enum class Purpose { Frame, Class, Tile, Region };
   static constexpr int kPurposeCount = 4;
 
@@ -24,5 +23,5 @@ public:
   static const char *Name(Purpose purpose);
 };
 
-}
+} // namespace outshine
 #endif

@@ -6,38 +6,38 @@ namespace outshine::Gltf {
 
 size_t ComponentBytes(ComponentType component) {
   switch (component) {
-  case ComponentType::Int8:
-  case ComponentType::UInt8: return 1;
-  case ComponentType::Int16:
-  case ComponentType::UInt16: return 2;
-  case ComponentType::UInt32:
-  case ComponentType::Float32: return 4;
+    case ComponentType::Int8:
+    case ComponentType::UInt8: return 1;
+    case ComponentType::Int16:
+    case ComponentType::UInt16: return 2;
+    case ComponentType::UInt32:
+    case ComponentType::Float32: return 4;
   }
   return 0;
 }
 
 size_t ElementRows(ElementType element) {
   switch (element) {
-  case ElementType::Scalar: return 1;
-  case ElementType::Vec2: return 2;
-  case ElementType::Vec3: return 3;
-  case ElementType::Vec4: return 4;
-  case ElementType::Mat2: return 2;
-  case ElementType::Mat3: return 3;
-  case ElementType::Mat4: return 4;
+    case ElementType::Scalar: return 1;
+    case ElementType::Vec2: return 2;
+    case ElementType::Vec3: return 3;
+    case ElementType::Vec4: return 4;
+    case ElementType::Mat2: return 2;
+    case ElementType::Mat3: return 3;
+    case ElementType::Mat4: return 4;
   }
   return 0;
 }
 
 size_t ElementColumns(ElementType element) {
   switch (element) {
-  case ElementType::Mat2: return 2;
-  case ElementType::Mat3: return 3;
-  case ElementType::Mat4: return 4;
-  case ElementType::Scalar:
-  case ElementType::Vec2:
-  case ElementType::Vec3:
-  case ElementType::Vec4: return 1;
+    case ElementType::Mat2: return 2;
+    case ElementType::Mat3: return 3;
+    case ElementType::Mat4: return 4;
+    case ElementType::Scalar:
+    case ElementType::Vec2:
+    case ElementType::Vec3:
+    case ElementType::Vec4: return 1;
   }
   return 0;
 }
@@ -61,8 +61,8 @@ outshine::Material DefaultMaterial() {
 
 bool VertexColourComponents(const Accessor &accessor, size_t &components, std::string &why) {
   const bool normalizedInteger =
-      accessor.Normalized && (accessor.Component == ComponentType::UInt8 ||
-                              accessor.Component == ComponentType::UInt16);
+      accessor.Normalized &&
+      (accessor.Component == ComponentType::UInt8 || accessor.Component == ComponentType::UInt16);
   if (accessor.Component != ComponentType::Float32 && !normalizedInteger) {
     why = "carries componentType " + std::to_string((size_t)accessor.Component) +
           (accessor.Normalized ? " normalized" : " unnormalized") +
@@ -70,7 +70,6 @@ bool VertexColourComponents(const Accessor &accessor, size_t &components, std::s
     return false;
   }
   if (accessor.Element != ElementType::Vec3 && accessor.Element != ElementType::Vec4) {
-
     why = "carries an element of " + std::to_string(ElementRows(accessor.Element)) + " rows and " +
           std::to_string(ElementColumns(accessor.Element)) +
           " columns, and a vertex colour is VEC3 or VEC4";
@@ -115,7 +114,6 @@ Span<const AnimatablePointer> AnimatablePointers() {
 
 size_t FactorComponents(MaterialFactor factor) {
   switch (factor) {
-
     case MaterialFactor::BaseColour: return 4;
     case MaterialFactor::Metalness:
     case MaterialFactor::Roughness: return 1;
@@ -124,7 +122,10 @@ size_t FactorComponents(MaterialFactor factor) {
   return 0;
 }
 
-bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *socket, UvSet &out,
+bool UvSetOf(const TextureRef &reference,
+             CarriedUvSets carried,
+             const char *socket,
+             UvSet &out,
              std::string &why) {
   if (reference.TexCoord == 0) {
     out = UvSet::First;
@@ -167,4 +168,4 @@ int Primitive::MaterialUnder(int variant) const {
   return mapped < 0 ? Material : mapped;
 }
 
-}
+} // namespace outshine::Gltf

@@ -31,7 +31,7 @@ Png Refuse(std::string why) {
   return out;
 }
 
-}
+} // namespace
 
 Png ReadPng(const uint8_t *bytes, size_t length) {
   if (bytes == nullptr || length < sizeof(kSignature) + 12) {
@@ -88,7 +88,8 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   }
   if (colour != 2 && colour != 6) {
     return Refuse("this reader takes truecolour, with or without alpha, and this PNG is colour "
-                  "type " + std::to_string((int)colour));
+                  "type " +
+                  std::to_string((int)colour));
   }
   if (interlace != 0) {
     return Refuse("this reader takes no interlaced PNG, and this one is interlaced");
@@ -142,4 +143,4 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   return out;
 }
 
-}
+} // namespace outshine::Io

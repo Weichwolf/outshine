@@ -111,8 +111,8 @@ struct Citation {
       digits += row[step];
     }
     if (digits.empty()) { continue; }
-    out.push_back(Citation{row.substr(opens + 1, at - opens - 1), carried,
-                           (size_t)std::stoul(digits)});
+    out.push_back(
+        Citation{row.substr(opens + 1, at - opens - 1), carried, (size_t)std::stoul(digits)});
   }
   return out;
 }
@@ -236,7 +236,6 @@ int main(void) {
         "**AND EVERY PATH IT CITES IS IN THE TREE**: a tick that names a file is a claim with "
         "something under it, and a path that has moved reads exactly like one that has not");
 
-
   // What the tree IS lives in STATE.md, which every `make` regenerates. Its whole worth is that
   // no hand writes it: a CURRENT map drawn by hand cites file:line and every edit drifts it, so
   // the map spends its life being corrected instead of read. That worth survives exactly as long
@@ -256,7 +255,6 @@ int main(void) {
         "**STATE.md IS WHAT THE GENERATOR PRODUCES**: it is CURRENT, and CURRENT is only worth "
         "reading while no hand has touched it -- a STATE.md edited by hand, or left behind by a "
         "build that did not run, is the very drift the generated map exists to end");
-
 
   Covers("IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and "
          "every line it cites carries the text quoted beside it. STATE.md is CURRENT and is byte "

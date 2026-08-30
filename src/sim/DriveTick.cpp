@@ -21,8 +21,6 @@ static_assert(sizeof(Ridden) == 456, "sizeof(Ridden)");
 static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a value");
 static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
 
-
-
 namespace {
 constexpr double kResectM = 4.0;
 constexpr double kFromM = 50.0;
@@ -33,10 +31,14 @@ double HeadingOf(const outshine::Physics::Rigid &body) {
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   return std::atan2(-ahead[2], ahead[0]);
 }
-}
+} // namespace
 
-const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support &beneath,
-                 DriveState &drive, double dtS, const Taken *taken) {
+const Ridden &DriveTick(const Corridor &way,
+                        const Rigged &stood,
+                        const Support &beneath,
+                        DriveState &drive,
+                        double dtS,
+                        const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;
   auto &corridor = way.Line;
@@ -78,8 +80,8 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support 
   }
   drive.LastReachedM = at.AlongM;
 
-  const double speedMs = std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] +
-                                   body.VelocityMs[2] * body.VelocityMs[2]);
+  const double speedMs =
+      std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] + body.VelocityMs[2] * body.VelocityMs[2]);
   out.SpeedMs = speedMs;
   reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
   double aimStillMovingM = 0.0;
@@ -205,16 +207,13 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support 
       ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
 
-      const double clearM =
-          here.EdgeM - std::fabs(at.OffsetM) - 0.5 * drive.CarWidthM;
+      const double clearM = here.EdgeM - std::fabs(at.OffsetM) - 0.5 * drive.CarWidthM;
       if (out.OffsetSamples == 1 || clearM < out.LeastClearanceM) {
         out.LeastClearanceM = clearM;
         out.LeastClearanceAtM = at.AlongM;
       }
-      const size_t clearBin =
-          clearM <= 0.0 ? 0 : (size_t)(clearM / DriveState::kOffsetBinM) + 1;
-      ++drive.ClearBin[clearBin < DriveState::kOffsetBins ? clearBin
-                                                          : DriveState::kOffsetBins - 1];
+      const size_t clearBin = clearM <= 0.0 ? 0 : (size_t)(clearM / DriveState::kOffsetBinM) + 1;
+      ++drive.ClearBin[clearBin < DriveState::kOffsetBins ? clearBin : DriveState::kOffsetBins - 1];
     }
     if (out.StrayedAtM <= 0.0) {
       const double halfRoomM = here.LaneHalfM - 0.5 * drive.CarWidthM;
@@ -298,4 +297,4 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Support 
   return out;
 }
 
-}
+} // namespace outshine::Sim

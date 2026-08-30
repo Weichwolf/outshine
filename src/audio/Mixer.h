@@ -36,14 +36,17 @@ public:
   Mixer(const Mixer &) = delete;
   Mixer &operator=(const Mixer &) = delete;
 
-  [[nodiscard]] bool Stands(std::span<const Bus> buses, std::span<const Sound> declared,
-                            int rate, std::string &error);
+  [[nodiscard]] bool
+  Stands(std::span<const Bus> buses, std::span<const Sound> declared, int rate, std::string &error);
 
-  [[nodiscard]] bool Fills(std::span<float> stereo, std::span<const Heard> sources,
-                           const Listening &ear, std::string &error);
+  [[nodiscard]] bool Fills(std::span<float> stereo,
+                           std::span<const Heard> sources,
+                           const Listening &ear,
+                           std::string &error);
 
   [[nodiscard]] size_t Voices() const;
   [[nodiscard]] const BusGraph &Routing() const;
+
   [[nodiscard]] double SpeedOfSoundMs() const { return SpeedOfSoundMs_; }
 
 private:
@@ -53,5 +56,5 @@ private:
   int Rate_ = 48000;
 };
 
-}
+} // namespace outshine::Audio
 #endif

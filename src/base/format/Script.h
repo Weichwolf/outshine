@@ -36,12 +36,14 @@ struct Value {
     out.Number = number;
     return out;
   }
+
   [[nodiscard]] static Value OfText(std::string text) {
     Value out;
     out.What = Kind::Text;
     out.Text = std::move(text);
     return out;
   }
+
   [[nodiscard]] static Value OfRef(int ref) {
     Value out;
     out.What = Kind::Ref;
@@ -61,20 +63,23 @@ struct Host {
     (void)name;
     return {};
   }
+
   [[nodiscard]] virtual Value Member(const Value &object, std::string_view name) {
     (void)object;
     (void)name;
     return {};
   }
-  [[nodiscard]] virtual bool SetMember(const Value &object, std::string_view name,
-                                       const Value &to) {
+
+  [[nodiscard]] virtual bool
+  SetMember(const Value &object, std::string_view name, const Value &to) {
     (void)object;
     (void)name;
     (void)to;
     return false;
   }
 
-  [[nodiscard]] virtual bool Call(const Value &callee, const Value *args, size_t count, Value &out) {
+  [[nodiscard]] virtual bool
+  Call(const Value &callee, const Value *args, size_t count, Value &out) {
     (void)callee;
     (void)args;
     (void)count;
@@ -87,7 +92,6 @@ struct Host {
 
 class Program {
 public:
-
   struct Node;
 
   Program();
@@ -124,5 +128,5 @@ private:
   std::string Stopped_;
 };
 
-}
+} // namespace outshine::Script
 #endif

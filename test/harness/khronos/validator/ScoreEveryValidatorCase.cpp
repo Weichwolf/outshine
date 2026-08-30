@@ -19,7 +19,7 @@ std::string Slurp(const std::string &path, bool &found) {
   return held.str();
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   using namespace outshine::Test;
@@ -67,7 +67,8 @@ int main(int argc, char **argv) {
   const int errors = report.Root()["issues"]["numErrors"].Int(-1);
   CHECK(errors >= 0, "the report states how many errors the validator found");
   if (errors < 0) { return Report(); }
-  std::printf("VALIDATOR %d error(s), %d warning(s)\n", errors,
+  std::printf("VALIDATOR %d error(s), %d warning(s)\n",
+              errors,
               report.Root()["issues"]["numWarnings"].Int(0));
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -92,7 +93,9 @@ int main(int argc, char **argv) {
 
   const bool stood = engine.declare(stands) && engine.assemble();
   const std::string why = engine.error();
-  std::printf("OUTSHINE %s%s%s\n", stood ? "stood" : "refused", stood ? "" : ": ",
+  std::printf("OUTSHINE %s%s%s\n",
+              stood ? "stood" : "refused",
+              stood ? "" : ": ",
               stood ? "" : why.c_str());
 
   if (errors > 0) {

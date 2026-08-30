@@ -35,6 +35,7 @@ struct SurfaceMap {
   UvTransformProperties Uv;
 
   [[nodiscard]] bool bound(void) const { return Image >= 0; }
+
   [[nodiscard]] bool operator==(const SurfaceMap &) const = default;
 };
 
@@ -50,6 +51,6 @@ struct ImageView {
   }
 };
 
-}
+} // namespace outshine
 
 #endif

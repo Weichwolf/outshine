@@ -50,15 +50,19 @@ struct Computed {
     Held[(size_t)one.What] = one.How;
     Set[(size_t)one.What] = true;
   }
+
   [[nodiscard]] bool Has(Property what) const { return Set[(size_t)what]; }
+
   [[nodiscard]] Value Of(Property what) const { return Held[(size_t)what]; }
+
   [[nodiscard]] uint32_t Word(Property what, uint32_t fallback) const {
     return Set[(size_t)what] && Held[(size_t)what].How == Unit::Keyword ? Held[(size_t)what].Word
                                                                         : fallback;
   }
+
   [[nodiscard]] double Number(Property what, double fallback) const {
-    return Set[(size_t)what] && (Held[(size_t)what].How == Unit::None ||
-                                 Held[(size_t)what].How == Unit::Pixels)
+    return Set[(size_t)what] &&
+                   (Held[(size_t)what].How == Unit::None || Held[(size_t)what].How == Unit::Pixels)
                ? Held[(size_t)what].Number
                : fallback;
   }
@@ -123,6 +127,7 @@ struct Placer {
     double Width = 0.0;
     double Height = 0.0;
   };
+
   std::unordered_map<uint64_t, Measured> Sizes;
   std::unordered_map<uint64_t, double> Baselines;
   std::unordered_map<uint64_t, double> MinContents;
@@ -137,7 +142,9 @@ struct Placer {
 
   struct DepthHeld {
     explicit DepthHeld(Placer &of) : Of(of) { ++Of.Depth; }
+
     ~DepthHeld() { --Of.Depth; }
+
     DepthHeld(const DepthHeld &) = delete;
     DepthHeld &operator=(const DepthHeld &) = delete;
     Placer &Of;
@@ -145,20 +152,49 @@ struct Placer {
 
   [[nodiscard]] Computed StyleOf(int node, const Computed *inherited) const;
 
-  double Place(int node, const Computed *inherited, double originX, double originY,
-               double containerWidth, double containerHeight, int parentBox, double usedW = -1,
+  double Place(int node,
+               const Computed *inherited,
+               double originX,
+               double originY,
+               double containerWidth,
+               double containerHeight,
+               int parentBox,
+               double usedW = -1,
                double usedH = -1);
-  double Children(int node, const Computed &style, int self, double contentX, double contentY,
-                  double contentWidth, double contentHeight, double emPx);
-  double Blocks(int node, const Computed &style, int self, double contentX, double contentY,
-                double contentWidth, double contentHeight, double emPx);
-  double Flex(int node, const Computed &style, int self, double contentX, double contentY,
-              double contentWidth, double contentHeight, double emPx);
-  double Runs(int node, const Computed &style, int self, double contentX, double contentY,
-              double contentWidth, double emPx);
+  double Children(int node,
+                  const Computed &style,
+                  int self,
+                  double contentX,
+                  double contentY,
+                  double contentWidth,
+                  double contentHeight,
+                  double emPx);
+  double Blocks(int node,
+                const Computed &style,
+                int self,
+                double contentX,
+                double contentY,
+                double contentWidth,
+                double contentHeight,
+                double emPx);
+  double Flex(int node,
+              const Computed &style,
+              int self,
+              double contentX,
+              double contentY,
+              double contentWidth,
+              double contentHeight,
+              double emPx);
+  double Runs(int node,
+              const Computed &style,
+              int self,
+              double contentX,
+              double contentY,
+              double contentWidth,
+              double emPx);
 
-  void Measure(int node, const Computed *inherited, double availableWidth, double &width,
-               double &height);
+  void Measure(
+      int node, const Computed *inherited, double availableWidth, double &width, double &height);
 
   double MaxContent(int node, const Computed *inherited);
   double MaxContentUncached(int node, const Computed *inherited);
@@ -167,10 +203,15 @@ struct Placer {
   double MinContent(int node, const Computed *inherited, bool ownSize = true);
 
   double BaselineOf(int node, const Computed *inherited, double widthRoom);
-  [[nodiscard]] double Clamped(double used, const Computed &style, Property least, Property most,
-                               double against, double emPx, double frame = 0.0) const;
-  [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx,
-                             Family face) const;
+  [[nodiscard]] double Clamped(double used,
+                               const Computed &style,
+                               Property least,
+                               Property most,
+                               double against,
+                               double emPx,
+                               double frame = 0.0) const;
+  [[nodiscard]] double
+  Width(const std::string &text, size_t from, size_t to, double emPx, Family face) const;
 };
 
 [[nodiscard]] Family FaceOf(const Computed &style) {
@@ -180,8 +221,12 @@ struct Placer {
 Computed Placer::StyleOf(int node, const Computed *inherited) const {
   Computed out;
   if (inherited != nullptr) {
-    const Property carried[] = {Property::Colour,   Property::FontSize,  Property::LineHeight,
-                                Property::TextAlign, Property::FontFamily, Property::WhiteSpace};
+    const Property carried[] = {Property::Colour,
+                                Property::FontSize,
+                                Property::LineHeight,
+                                Property::TextAlign,
+                                Property::FontFamily,
+                                Property::WhiteSpace};
     for (const Property what : carried) {
       if (inherited->Has(what)) {
         out.Held[(size_t)what] = inherited->Of(what);
@@ -189,11 +234,13 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
       }
     }
   }
+
   struct Ranked {
     int Specificity;
     int Order;
     const Declaration *One;
   };
+
   std::vector<Ranked> found;
   const auto gather = [&](const Stylesheet &sheet, int bias) {
     for (const Rule &rule : sheet.Rules()) {
@@ -217,8 +264,8 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
   return out;
 }
 
-void Placer::Measure(int node, const Computed *inherited, double availableWidth, double &width,
-                     double &height) {
+void Placer::Measure(
+    int node, const Computed *inherited, double availableWidth, double &width, double &height) {
   ++Measures;
   const uint64_t key = MemoKey(node, availableWidth);
   const auto seen = Sizes.find(key);
@@ -284,14 +331,14 @@ double Placer::MinContentUncached(int node, const Computed *inherited, bool ownS
 
   if (ownSize && style.Has(Property::Width) && style.Of(Property::Width).How == Unit::Pixels) {
     const double declared = style.Of(Property::Width).Number;
-    return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) + margins;
+    return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) +
+           margins;
   }
 
   double own = 0;
   for (const int child : element.Children) {
     const Node &inner = Tree->Nodes()[(size_t)child];
     if (inner.Kind == NodeKind::Text) {
-
       const std::string text = Collapsed(inner.Text);
       size_t at = 0;
       while (at < text.size()) {
@@ -346,7 +393,8 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
 
   if (style.Has(Property::Width) && style.Of(Property::Width).How == Unit::Pixels) {
     const double declared = style.Of(Property::Width).Number;
-    return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) + margins;
+    return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) +
+           margins;
   }
 
   double own = 0;
@@ -398,10 +446,10 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   return length;
 }
 
-}
+} // namespace
 
-double Placer::Width(const std::string &text, size_t from, size_t to, double emPx,
-                     Family face) const {
+double
+Placer::Width(const std::string &text, size_t from, size_t to, double emPx, Family face) const {
   const FontMetrics metrics = Face->At(emPx, face);
   double width = 0;
   for (size_t at = from; at < to && at < text.size();) {
@@ -413,9 +461,13 @@ double Placer::Width(const std::string &text, size_t from, size_t to, double emP
   return width;
 }
 
-double Placer::Clamped(double used, const Computed &style, Property least, Property most,
-                       double against, double emPx, double frame) const {
-
+double Placer::Clamped(double used,
+                       const Computed &style,
+                       Property least,
+                       Property most,
+                       double against,
+                       double emPx,
+                       double frame) const {
   const double sides = style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : frame;
   double out = used;
 
@@ -450,8 +502,13 @@ double Placer::BaselineOf(int node, const Computed *inherited, double widthRoom)
   return baseline;
 }
 
-double Placer::Runs(int node, const Computed &style, int self, double contentX, double contentY,
-                    double contentWidth, double emPx) {
+double Placer::Runs(int node,
+                    const Computed &style,
+                    int self,
+                    double contentX,
+                    double contentY,
+                    double contentWidth,
+                    double emPx) {
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
   const double lineHeight = lineFactor > 3.0 ? lineFactor : lineFactor * emPx;
   const Family face = FaceOf(style);
@@ -471,7 +528,6 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
 
     size_t at = 0;
     while (at < text.size()) {
-
       size_t take = text.size() - at;
       if (contentWidth > 0) {
         double width = 0;
@@ -490,7 +546,6 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
           if (lastSpace != std::string::npos && lastSpace > at) {
             take = lastSpace - at;
           } else {
-
             const size_t next = text.find(' ', at);
             take = next == std::string::npos ? text.size() - at : next - at;
           }
@@ -512,9 +567,9 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
       line.Baseline = (lineHeight - (metrics.Ascent + metrics.Descent)) / 2.0 + metrics.Ascent;
 
       if ((*Out)[(size_t)self].Baseline == 0.0) {
-        (*Out)[(size_t)self].Baseline = (y - contentY) + line.Baseline +
-                                        ((*Out)[(size_t)self].Border.Top +
-                                         (*Out)[(size_t)self].Padding.Top);
+        (*Out)[(size_t)self].Baseline =
+            (y - contentY) + line.Baseline +
+            ((*Out)[(size_t)self].Border.Top + (*Out)[(size_t)self].Padding.Top);
       }
       Out->push_back(line);
       (*Out)[(size_t)self].Children.push_back((int)Out->size() - 1);
@@ -526,8 +581,14 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
   return y - contentY;
 }
 
-double Placer::Blocks(int node, const Computed &style, int self, double contentX, double contentY,
-                      double contentWidth, double contentHeight, double emPx) {
+double Placer::Blocks(int node,
+                      const Computed &style,
+                      int self,
+                      double contentX,
+                      double contentY,
+                      double contentWidth,
+                      double contentHeight,
+                      double emPx) {
   double y = contentY;
   y += Runs(node, style, self, contentX, y, contentWidth, emPx);
   for (const int child : Tree->Nodes()[(size_t)node].Children) {
@@ -538,8 +599,14 @@ double Placer::Blocks(int node, const Computed &style, int self, double contentX
   return y - contentY;
 }
 
-double Placer::Flex(int node, const Computed &style, int self, double contentX, double contentY,
-                    double contentWidth, double contentHeight, double emPx) {
+double Placer::Flex(int node,
+                    const Computed &style,
+                    int self,
+                    double contentX,
+                    double contentY,
+                    double contentWidth,
+                    double contentHeight,
+                    double emPx) {
   const uint32_t direction = style.Word(Property::FlexDirection, 0);
   const bool column = direction == kColumn || direction == kColumnReverse;
 
@@ -565,6 +632,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     Property Least = Property::MinWidth, Most = Property::MaxWidth;
     bool CrossDeclared = false;
   };
+
   std::vector<Item> items;
   for (const int child : Tree->Nodes()[(size_t)node].Children) {
     if (Tree->Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
@@ -572,14 +640,12 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     item.Node = child;
     item.Style = StyleOf(child, &style);
     if (item.Style.Word(Property::Display, kDisplayBlock) == kDisplayNone) { continue; }
-    const double itemEm = item.Style.Has(Property::FontSize)
-                              ? [&] {
-                                  bool absent = false;
-                                  const double found = Resolve(item.Style.Of(Property::FontSize),
-                                                               emPx, emPx, RootEm, absent);
-                                  return absent ? emPx : found;
-                                }()
-                              : emPx;
+    const double itemEm = item.Style.Has(Property::FontSize) ? [&] {
+      bool absent = false;
+      const double found = Resolve(item.Style.Of(Property::FontSize), emPx, emPx, RootEm, absent);
+      return absent ? emPx : found;
+    }()
+                                                             : emPx;
     const auto len = [&](Property what, double against, double fallback) {
       if (!item.Style.Has(what)) { return fallback; }
       bool absent = false;
@@ -599,7 +665,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
 
     bool haveBase = false;
     const Property mainSize = column ? Property::Height : Property::Width;
-    if (item.Style.Has(Property::FlexBasis) && item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
+    if (item.Style.Has(Property::FlexBasis) &&
+        item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
       bool absent = false;
       item.Base = Resolve(item.Style.Of(Property::FlexBasis), mainRoom, itemEm, RootEm, absent);
       haveBase = !absent;
@@ -611,15 +678,14 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     }
 
     if (haveBase && item.Style.Word(Property::BoxSizing, 0) != kBorderBox) {
-      const double frame =
-          column ? len(Property::BorderTopWidth, contentWidth, 0) +
-                       len(Property::BorderBottomWidth, contentWidth, 0) +
-                       len(Property::PaddingTop, contentWidth, 0) +
-                       len(Property::PaddingBottom, contentWidth, 0)
-                 : len(Property::BorderLeftWidth, contentWidth, 0) +
-                       len(Property::BorderRightWidth, contentWidth, 0) +
-                       len(Property::PaddingLeft, contentWidth, 0) +
-                       len(Property::PaddingRight, contentWidth, 0);
+      const double frame = column ? len(Property::BorderTopWidth, contentWidth, 0) +
+                                        len(Property::BorderBottomWidth, contentWidth, 0) +
+                                        len(Property::PaddingTop, contentWidth, 0) +
+                                        len(Property::PaddingBottom, contentWidth, 0)
+                                  : len(Property::BorderLeftWidth, contentWidth, 0) +
+                                        len(Property::BorderRightWidth, contentWidth, 0) +
+                                        len(Property::PaddingLeft, contentWidth, 0) +
+                                        len(Property::PaddingRight, contentWidth, 0);
       item.Base += frame;
     }
     item.Frame = column ? len(Property::BorderTopWidth, contentWidth, 0) +
@@ -632,7 +698,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                               len(Property::PaddingRight, contentWidth, 0);
     if (!haveBase) {
       if (column) {
-
         double w = 0, h = 0;
         Measure(child, &style, contentWidth, w, h);
         item.Base = h;
@@ -661,7 +726,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
           Measure(child, &style, contentWidth, w, h);
           item.Floor = h;
         } else {
-
           const double content =
               MinContent(child, &style, false) - item.MainMarginStart - item.MainMarginEnd;
 
@@ -671,31 +735,38 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
             const double specified =
                 Resolve(item.Style.Of(mainSize), mainRoom, itemEm, RootEm, absent);
             if (!absent) {
-              suggestion = std::fmin(content, specified + (item.Style.Word(Property::BoxSizing, 0) ==
-                                                                   kBorderBox
-                                                               ? 0.0
-                                                               : item.Frame));
+              suggestion = std::fmin(
+                  content,
+                  specified +
+                      (item.Style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : item.Frame));
             }
           }
-          item.Floor = Clamped(suggestion, item.Style, Property::kCount, item.Most, contentWidth,
-                               itemEm, item.Frame);
+          item.Floor = Clamped(suggestion,
+                               item.Style,
+                               Property::kCount,
+                               item.Most,
+                               contentWidth,
+                               itemEm,
+                               item.Frame);
         }
       }
     }
     item.Main = item.Base;
 
-    item.Hypothetical = std::fmax(Clamped(item.Base, item.Style, item.Least, item.Most, mainRoom,
-                                          itemEm, item.Frame),
-                                  item.Floor);
+    item.Hypothetical = std::fmax(
+        Clamped(item.Base, item.Style, item.Least, item.Most, mainRoom, itemEm, item.Frame),
+        item.Floor);
     items.push_back(std::move(item));
   }
   if (items.empty()) { return 0; }
 
   const bool wraps = wrapping == kWrap || wrapping == kWrapReverse;
+
   struct Line {
     size_t From = 0, Count = 0;
     double Cross = 0, CrossAt = 0;
   };
+
   std::vector<Line> lines;
   {
     Line line;
@@ -759,8 +830,13 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
         Item &one = items[line.From + i];
         const double share = growing ? one.Grow : one.Shrink * one.Base;
         const double wanted = std::fmax(0.0, one.Base + free * (share / factors));
-        const double clamped = Clamped(std::fmax(wanted, one.Floor), one.Style, one.Least, one.Most,
-                                       mainRoom, one.Em, one.Frame);
+        const double clamped = Clamped(std::fmax(wanted, one.Floor),
+                                       one.Style,
+                                       one.Least,
+                                       one.Most,
+                                       mainRoom,
+                                       one.Em,
+                                       one.Frame);
         one.Main = clamped;
         violation += clamped - wanted;
       }
@@ -782,10 +858,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       Item &one = items[i];
       if (!one.CrossDeclared) {
         if (column) {
-
           one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
         } else {
-
           double w = 0, h = 0;
           Measure(one.Node, &style, one.Main, w, h);
           one.Cross = h;
@@ -820,7 +894,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       lineAt = crossSlack / (double)(lines.size() * 2);
       betweenLines = gap + crossSlack / (double)lines.size();
     } else if (alignLines == kSpaceEvenly) {
-
       lineAt = crossSlack / (double)(lines.size() + 1);
       betweenLines = gap + lineAt;
     }
@@ -842,8 +915,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                                : align;
       if (how != kBaseline || column) { continue; }
 
-      lineBaseline[at] = std::fmax(lineBaseline[at], BaselineOf(one.Node, &style, one.Main) +
-                                                        one.CrossMarginStart);
+      lineBaseline[at] = std::fmax(lineBaseline[at],
+                                   BaselineOf(one.Node, &style, one.Main) + one.CrossMarginStart);
     }
   }
 
@@ -871,16 +944,16 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
         between = gap + cursor;
       }
     } else if (justify == kCentre) {
-
       cursor = slack / 2.0;
     }
 
     for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
       Item &one = items[i];
       cursor += one.MainMarginStart;
-      const uint32_t self_align = one.Style.Has(Property::AlignSelf)
-                                      ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
-                                      : align;
+      const uint32_t self_align =
+          one.Style.Has(Property::AlignSelf)
+              ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
+              : align;
       double cross = one.Cross;
       if (!one.CrossDeclared && self_align == kStretch) {
         cross = flexLine.Cross - one.CrossMarginStart - one.CrossMarginEnd;
@@ -894,10 +967,9 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       }
 
       if (self_align == kBaseline && !column) {
-
-        inLine = one.CrossMarginStart +
-                 (lineBaseline[lineIndex] - BaselineOf(one.Node, &style, one.Main) -
-                  one.CrossMarginStart);
+        inLine =
+            one.CrossMarginStart + (lineBaseline[lineIndex] -
+                                    BaselineOf(one.Node, &style, one.Main) - one.CrossMarginStart);
         inLine = std::fmax(inLine, 0.0);
       }
       if (wrapping == kWrapReverse) { inLine = flexLine.Cross - inLine - cross; }
@@ -912,9 +984,15 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       const double usedW = column ? (stretched || one.CrossDeclared ? cross : -1.0) : one.Main;
       const double usedH = column ? one.Main : (stretched || one.CrossDeclared ? cross : -1.0);
       const int before = (int)Out->size();
-      Place(one.Node, &style, x - (column ? one.CrossMarginStart : one.MainMarginStart),
-            y - (column ? one.MainMarginStart : one.CrossMarginStart), contentWidth, contentHeight,
-            self, usedW, usedH);
+      Place(one.Node,
+            &style,
+            x - (column ? one.CrossMarginStart : one.MainMarginStart),
+            y - (column ? one.MainMarginStart : one.CrossMarginStart),
+            contentWidth,
+            contentHeight,
+            self,
+            usedW,
+            usedH);
       if (before < (int)Out->size()) {
         Box &placed = (*Out)[(size_t)before];
         if (column) {
@@ -924,28 +1002,43 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
           placed.Width = one.Main;
           if (!one.CrossDeclared && self_align == kStretch) { placed.Height = cross; }
         }
-        deepest = std::fmax(deepest, column ? mainAt + one.Main + one.MainMarginEnd
-                                            : crossAt + placed.Height + one.CrossMarginEnd);
+        deepest = std::fmax(deepest,
+                            column ? mainAt + one.Main + one.MainMarginEnd
+                                   : crossAt + placed.Height + one.CrossMarginEnd);
       }
       cursor += one.Main + one.MainMarginEnd + between;
     }
   }
 
   double crossExtent = 0;
-  for (const Line &line : lines) { crossExtent = std::fmax(crossExtent, line.CrossAt + line.Cross); }
+  for (const Line &line : lines) {
+    crossExtent = std::fmax(crossExtent, line.CrossAt + line.Cross);
+  }
   return column ? deepest : std::fmax(deepest, crossExtent);
 }
 
-double Placer::Children(int node, const Computed &style, int self, double contentX, double contentY,
-                        double contentWidth, double contentHeight, double emPx) {
+double Placer::Children(int node,
+                        const Computed &style,
+                        int self,
+                        double contentX,
+                        double contentY,
+                        double contentWidth,
+                        double contentHeight,
+                        double emPx) {
   const uint32_t display = style.Word(Property::Display, kDisplayInline);
   return display == kDisplayFlex || display == kDisplayInlineFlex
              ? Flex(node, style, self, contentX, contentY, contentWidth, contentHeight, emPx)
              : Blocks(node, style, self, contentX, contentY, contentWidth, contentHeight, emPx);
 }
 
-double Placer::Place(int node, const Computed *inherited, double originX, double originY,
-                     double containerWidth, double containerHeight, int parentBox, double usedW,
+double Placer::Place(int node,
+                     const Computed *inherited,
+                     double originX,
+                     double originY,
+                     double containerWidth,
+                     double containerHeight,
+                     int parentBox,
+                     double usedW,
                      double usedH) {
   ++Places;
   if (Places > Budget) { TooCostly = true; }
@@ -966,8 +1059,8 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   double emPx = 16.0;
   if (style.Has(Property::FontSize)) {
     bool absent = false;
-    const double found =
-        Resolve(style.Of(Property::FontSize), inherited != nullptr ? 16.0 : RootEm, 16.0, RootEm, absent);
+    const double found = Resolve(
+        style.Of(Property::FontSize), inherited != nullptr ? 16.0 : RootEm, 16.0, RootEm, absent);
     if (!absent) { emPx = found; }
   }
   const auto len = [&](Property what, double against, double fallback) {
@@ -991,15 +1084,16 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
                  len(Property::PaddingRight, containerWidth, 0),
                  len(Property::PaddingBottom, containerWidth, 0),
                  len(Property::PaddingLeft, containerWidth, 0)};
-  box.Background = style.Has(Property::BackgroundColour) ? style.Of(Property::BackgroundColour).Word : 0;
+  box.Background =
+      style.Has(Property::BackgroundColour) ? style.Of(Property::BackgroundColour).Word : 0;
   box.BorderColour = style.Has(Property::BorderColour) ? style.Of(Property::BorderColour).Word : 0;
   box.Radius = len(Property::BorderRadius, containerWidth, 0);
   box.Opacity = style.Has(Property::Opacity) ? style.Of(Property::Opacity).Number : 1.0;
   const Value spills = style.Has(Property::Overflow) ? style.Of(Property::Overflow) : Value{};
   box.Scrolls = spills.How == Unit::Auto || spills.Word == kScroll;
   box.Clips = spills.Word == kHidden || box.Scrolls;
-  box.Positioned = style.Has(Property::Position) &&
-                   style.Word(Property::Position, kStatic) != kStatic;
+  box.Positioned =
+      style.Has(Property::Position) && style.Word(Property::Position, kStatic) != kStatic;
   box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
   box.FontSize = emPx;
   box.Parent = parentBox;
@@ -1015,16 +1109,20 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
     if (!widthAbsent && borderBox) { contentWidth = std::fmax(0.0, contentWidth - frameX); }
   }
   if (widthAbsent) {
-    contentWidth =
-        std::fmax(0.0, containerWidth - box.Margin.Left - box.Margin.Right - frameX);
+    contentWidth = std::fmax(0.0, containerWidth - box.Margin.Left - box.Margin.Right - frameX);
 
     if (style.Word(Property::Display, kDisplayInline) == kDisplayInlineFlex) {
-      const double wants = MaxContent(node, inherited) - box.Margin.Left - box.Margin.Right - frameX;
+      const double wants =
+          MaxContent(node, inherited) - box.Margin.Left - box.Margin.Right - frameX;
       contentWidth = std::fmax(0.0, std::fmin(contentWidth, wants));
     }
   }
-  contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0), style, Property::MinWidth,
-                         Property::MaxWidth, containerWidth, emPx) -
+  contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0),
+                         style,
+                         Property::MinWidth,
+                         Property::MaxWidth,
+                         containerWidth,
+                         emPx) -
                  (borderBox ? frameX : 0.0);
 
   if (usedW >= 0) {
@@ -1035,7 +1133,8 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   bool heightAbsent = true;
   double contentHeight = 0;
   if (style.Has(Property::Height) && style.Of(Property::Height).How != Unit::Auto) {
-    contentHeight = Resolve(style.Of(Property::Height), containerHeight, emPx, RootEm, heightAbsent);
+    contentHeight =
+        Resolve(style.Of(Property::Height), containerHeight, emPx, RootEm, heightAbsent);
     if (!heightAbsent && borderBox) { contentHeight = std::fmax(0.0, contentHeight - frameY); }
   }
 
@@ -1056,15 +1155,26 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   if (heightAbsent && style.Has(Property::MaxHeight) &&
       style.Of(Property::MaxHeight).How != Unit::Auto) {
     bool absent = false;
-    const double ceiling = Resolve(style.Of(Property::MaxHeight), containerHeight, emPx, RootEm, absent);
+    const double ceiling =
+        Resolve(style.Of(Property::MaxHeight), containerHeight, emPx, RootEm, absent);
     if (!absent) { heightRoom = std::fmax(0.0, ceiling - (borderBox ? frameY : 0.0)); }
   }
-  const double used = Children(node, style, self, contentX, contentY, contentWidth,
-                               std::fmax(heightRoom, heightRoom < 0 ? -1.0 : 0.0), emPx);
+  const double used = Children(node,
+                               style,
+                               self,
+                               contentX,
+                               contentY,
+                               contentWidth,
+                               std::fmax(heightRoom, heightRoom < 0 ? -1.0 : 0.0),
+                               emPx);
   if (heightAbsent) { contentHeight = used; }
 
-  contentHeight = Clamped(contentHeight + (borderBox ? frameY : 0.0), style, Property::MinHeight,
-                          Property::MaxHeight, containerHeight, emPx) -
+  contentHeight = Clamped(contentHeight + (borderBox ? frameY : 0.0),
+                          style,
+                          Property::MinHeight,
+                          Property::MaxHeight,
+                          containerHeight,
+                          emPx) -
                   (borderBox ? frameY : 0.0);
 
   (*Out)[(size_t)self].Width = contentWidth + frameX;
@@ -1085,16 +1195,16 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   return (*Out)[(size_t)self].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
-}
+} // namespace
 
 namespace {
 
 constexpr std::string_view kNotABox[] = {
-    "img",      "picture", "source",  "video",    "audio",   "canvas", "iframe",  "embed",
-    "object",   "svg",     "math",    "input",    "select",  "textarea", "button", "label",
-    "fieldset", "legend",  "progress", "meter",   "details", "summary", "form",   "marquee",
-    "table",    "thead",   "tbody",   "tfoot",    "tr",      "td",      "th",     "caption",
-    "colgroup", "col",     "frame",   "frameset", "applet",  "template", "slot",
+    "img",      "picture", "source",   "video",    "audio",   "canvas",   "iframe", "embed",
+    "object",   "svg",     "math",     "input",    "select",  "textarea", "button", "label",
+    "fieldset", "legend",  "progress", "meter",    "details", "summary",  "form",   "marquee",
+    "table",    "thead",   "tbody",    "tfoot",    "tr",      "td",       "th",     "caption",
+    "colgroup", "col",     "frame",    "frameset", "applet",  "template", "slot",
 };
 
 }
@@ -1121,7 +1231,6 @@ std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
 }
 
 const char *UserAgentSheet() {
-
   return "html, body, div, p, h1, h2, h3, h4, h5, h6, section, article, header, footer, nav, main,"
          " ul, ol, li, blockquote, figure, form, fieldset, pre { display: block }\n"
          "span, a, b, i, em, strong, small, code, label { display: inline }\n"
@@ -1132,8 +1241,12 @@ const char *UserAgentSheet() {
          "head, title, link, meta, style, script, base, noscript { display: none }\n";
 }
 
-bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
-                   double viewportHeight, const Font &font, std::span<const Scrolled> scrolled,
+bool Layout::Build(const Markup &markup,
+                   Stylesheet &sheet,
+                   double viewportWidth,
+                   double viewportHeight,
+                   const Font &font,
+                   std::span<const Scrolled> scrolled,
                    std::string &error) {
   ViewportWidth_ = viewportWidth;
   ViewportHeight_ = viewportHeight;
@@ -1163,13 +1276,18 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
     if (markup.Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
     y += placer.Place(child, nullptr, 0, y, viewportWidth, viewportHeight, -1);
   }
-  Spent_ = Work{placer.Places,   placer.Measures,  placer.MeasureHits, placer.Baselines_,
-                placer.BaselineHits, placer.Intrinsics, placer.IntrinsicHits};
+  Spent_ = Work{placer.Places,
+                placer.Measures,
+                placer.MeasureHits,
+                placer.Baselines_,
+                placer.BaselineHits,
+                placer.Intrinsics,
+                placer.IntrinsicHits};
   if (placer.TooCostly) {
     Boxes_.clear();
     error = "the declaration costs more than the " + std::to_string(kMostPlacesPerBox) +
-            " placements per box this layout budgets (" + std::to_string(elements) +
-            " elements, " + std::to_string(placer.Places) +
+            " placements per box this layout budgets (" + std::to_string(elements) + " elements, " +
+            std::to_string(placer.Places) +
             " placements spent) -- a shape whose cost multiplies with nesting is refused, "
             "not walked for minutes";
     return false;
@@ -1234,10 +1352,11 @@ double Layout::ScrollableBy(int node) const {
 }
 
 int Layout::Hit(double x, double y) const {
-
   for (size_t at = Boxes_.size(); at-- > 0;) {
     const Box &box = Boxes_[at];
-    if (!(x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height)) { continue; }
+    if (!(x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height)) {
+      continue;
+    }
 
     bool seen = true;
     for (int up = box.Parent; up >= 0 && seen; up = Boxes_[(size_t)up].Parent) {
@@ -1253,4 +1372,4 @@ int Layout::Hit(double x, double y) const {
   return -1;
 }
 
-}
+} // namespace outshine::Ui

@@ -73,6 +73,6 @@ struct Wears {
   return false;
 }
 
-}
+} // namespace outshine::Test
 
 #endif

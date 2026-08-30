@@ -10,7 +10,6 @@
 #include <numeric>
 #include <vector>
 
-
 namespace outshine::Render::Parity {
 
 constexpr long kAdmissibleNormSquared = 100;
@@ -111,9 +110,10 @@ struct Adjacency {
   int8_t Facing = 0;
 };
 
-}
+} // namespace Detail
 
-inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const outshine::Test::Clip &clip,
+inline EdgeSet Silhouette(const outshine::Test::Handed &subject,
+                          const outshine::Test::Clip &clip,
                           const outshine::Test::Frame &viewport) {
   const std::vector<uint32_t> &indices = subject.Indices();
   const std::vector<double> &positions = subject.PositionsM();
@@ -121,8 +121,8 @@ inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const outshine:
 
   std::vector<double> raster(vertices * 2, 0.0);
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
-    const double point[3] = {positions[vertex * 3], positions[vertex * 3 + 1],
-                             positions[vertex * 3 + 2]};
+    const double point[3] = {
+        positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]};
     double ndc[3];
     clip.Point(point, ndc);
     viewport.Raster(ndc, &raster[vertex * 2]);
@@ -132,8 +132,8 @@ inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const outshine:
   std::vector<Detail::Adjacency> edges;
   edges.reserve(indices.size());
   for (size_t triangle = 0; triangle * 3 + 2 < indices.size(); ++triangle) {
-    const uint32_t corner[3] = {indices[triangle * 3], indices[triangle * 3 + 1],
-                                indices[triangle * 3 + 2]};
+    const uint32_t corner[3] = {
+        indices[triangle * 3], indices[triangle * 3 + 1], indices[triangle * 3 + 2]};
     const double *a = &raster[(size_t)corner[0] * 2];
     const double *b = &raster[(size_t)corner[1] * 2];
     const double *c = &raster[(size_t)corner[2] * 2];
@@ -160,7 +160,6 @@ inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const outshine:
       outline = edges[at].Facing != edges[start].Facing;
     }
     if (outline) {
-
       const Detail::Adjacency &edge = edges[start];
       size_t endpointA = 0, endpointB = 0;
       for (int side = 0; side < 3; ++side) {
@@ -184,8 +183,8 @@ inline Exactness Measure(const EdgeSet &silhouette) {
   std::vector<LatticeLine> fitted;
   fitted.reserve(silhouette.Count());
   for (size_t edge = 0; edge < silhouette.Count(); ++edge) {
-    fitted.push_back(FitLine(silhouette.Ax[edge], silhouette.Ay[edge], silhouette.Bx[edge],
-                             silhouette.By[edge]));
+    fitted.push_back(FitLine(
+        silhouette.Ax[edge], silhouette.Ay[edge], silhouette.Bx[edge], silhouette.By[edge]));
   }
 
   std::sort(fitted.begin(), fitted.end(), [](const LatticeLine &a, const LatticeLine &b) {
@@ -214,5 +213,5 @@ inline Exactness Measure(const EdgeSet &silhouette) {
   return measured;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

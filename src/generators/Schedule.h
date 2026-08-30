@@ -10,9 +10,7 @@ namespace outshine::Generators {
 
 class Schedule {
 public:
-
   struct Ring {
-
     int Zoom = 14;
 
     int RadiusRegions = 1;
@@ -21,6 +19,7 @@ public:
   explicit Schedule(const Ring &ring);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
+
   [[nodiscard]] size_t Count() const { return Offsets_.size(); }
 
   [[nodiscard]] std::optional<Tile> At(size_t i, double lat, double lon) const;
@@ -38,5 +37,5 @@ private:
   std::vector<Offset> Offsets_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

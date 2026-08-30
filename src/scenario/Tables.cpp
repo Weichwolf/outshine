@@ -49,8 +49,7 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Table> de
       if (!cells.empty()) {
         if (!stood.ByKey.emplace(cells[0].Spelling, stood.RowCount).second) {
           return std::unexpected("the table '" + table.Id + "' keys two rows by '" +
-                                 cells[0].Spelling +
-                                 "', and a lookup with two answers has none");
+                                 cells[0].Spelling + "', and a lookup with two answers has none");
         }
       }
       for (Cell &one : cells) { stood.Cells.push_back(std::move(one)); }
@@ -61,8 +60,10 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Table> de
   return standing;
 }
 
-const TableBook::Cell *TableBook::At(std::string_view table, std::string_view row,
-                                     std::string_view column, bool wantNumber) const {
+const TableBook::Cell *TableBook::At(std::string_view table,
+                                     std::string_view row,
+                                     std::string_view column,
+                                     bool wantNumber) const {
   const auto held = Held_.find(table);
   if (held == Held_.end()) { return nullptr; }
   const Stood &stood = held->second;
@@ -76,16 +77,16 @@ const TableBook::Cell *TableBook::At(std::string_view table, std::string_view ro
   return nullptr;
 }
 
-const double *TableBook::Number(std::string_view table, std::string_view row,
-                                std::string_view column) const {
+const double *
+TableBook::Number(std::string_view table, std::string_view row, std::string_view column) const {
   const Cell *cell = At(table, row, column, true);
   return cell == nullptr ? nullptr : &cell->Value;
 }
 
-const std::string *TableBook::Text(std::string_view table, std::string_view row,
-                                   std::string_view column) const {
+const std::string *
+TableBook::Text(std::string_view table, std::string_view row, std::string_view column) const {
   const Cell *cell = At(table, row, column, false);
   return cell == nullptr ? nullptr : &cell->Spelling;
 }
 
-}
+} // namespace outshine

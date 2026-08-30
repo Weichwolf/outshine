@@ -12,7 +12,6 @@ namespace outshine {
 
 class ClassStructure {
 public:
-
   struct Grid {
     std::vector<uint32_t> Cells;
     std::vector<uint32_t> Seeds;
@@ -28,15 +27,24 @@ public:
     double BuildMs = 0.0, PackMs = 0.0;
   };
 
-  ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
-                 std::shared_ptr<const Grid> coarse, uint64_t version, int unmappedRow,
-                 double buildMs, int overflow);
+  ClassStructure(const TangentFrame &frame,
+                 std::shared_ptr<const Grid> fine,
+                 std::shared_ptr<const Grid> coarse,
+                 uint64_t version,
+                 int unmappedRow,
+                 double buildMs,
+                 int overflow);
 
   const TangentFrame &Frame() const { return Frame_; }
+
   const uint32_t *Words() const { return Words_.data(); }
+
   size_t Bytes() const { return Words_.size() * sizeof(uint32_t); }
+
   uint64_t Version() const { return Version_; }
+
   const Measures &Measured() const { return Measures_; }
+
   double NoDataFraction() const {
     return Measures_.Probes ? (double)Measures_.NoData / (double)Measures_.Probes : 0.0;
   }
@@ -56,5 +64,5 @@ private:
   uint64_t Version_;
 };
 
-}
+} // namespace outshine
 #endif

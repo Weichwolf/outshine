@@ -11,10 +11,12 @@ namespace {
 
 std::string Kernel(std::string &error) {
   char declared[256];
-  std::snprintf(declared, sizeof declared,
+  std::snprintf(declared,
+                sizeof declared,
                 "constant uint kTransmittanceSteps = %uu;\n"
                 "constant float kMediumSampleSegment = %.9g;\n",
-                (unsigned)kTransmittanceSteps, (double)kMediumSampleSegment);
+                (unsigned)kTransmittanceSteps,
+                (double)kMediumSampleSegment);
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -24,7 +26,7 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + declared + core + body;
 }
 
-}
+} // namespace
 
 bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
   if (Lut != lut) { Settled_ = false; }
@@ -70,8 +72,10 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
   if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &Declared_, (uint32_t)sizeof Declared_);
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_DispatchGPUCompute(into.Dispatch, (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch,
+                         (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+                         1u);
   Settled_ = true;
 }
 
@@ -80,6 +84,8 @@ std::string MediumTransmittanceStage::KernelSource() {
   return Kernel(ignored);
 }
 
-std::string MediumTransmittanceStage::KernelSource(std::string &error) { return Kernel(error); }
-
+std::string MediumTransmittanceStage::KernelSource(std::string &error) {
+  return Kernel(error);
 }
+
+} // namespace outshine::Render

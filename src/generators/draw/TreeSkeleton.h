@@ -16,7 +16,6 @@ enum class RingCap : uint8_t { Base, Point, Cut, Broken };
 
 class TreeSkeleton {
 public:
-
   struct Node {
     TreeVec3 Pos, Dir, Up;
     float Radius = 0.0f;
@@ -55,5 +54,5 @@ public:
   }
 };
 
-}
+} // namespace outshine::Generators
 #endif

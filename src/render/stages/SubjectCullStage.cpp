@@ -43,7 +43,7 @@ void PlanesOf(const float mvp[16], float out[24]) {
   }
 }
 
-}
+} // namespace
 
 bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
@@ -82,6 +82,7 @@ void SubjectCullStage::Encode(const FrameContext &ctx, const PassRecording &into
     uint32_t Jobs;
     uint32_t Pad[3];
   } view{};
+
   PlanesOf(ctx.Mvp16, view.Planes);
   for (int axis = 0; axis < 3; ++axis) {
     view.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
@@ -89,8 +90,10 @@ void SubjectCullStage::Encode(const FrameContext &ctx, const PassRecording &into
   view.Jobs = jobs;
 
   const SubjectResidency &resident = Subjects_->Resident();
-  SDL_GPUBuffer *const read[4] = {resident.ClusterSpheres.Get(), resident.ClusterJobs.Get(),
-                                  resident.Idx.Get(), resident.Placed.Get()};
+  SDL_GPUBuffer *const read[4] = {resident.ClusterSpheres.Get(),
+                                  resident.ClusterJobs.Get(),
+                                  resident.Idx.Get(),
+                                  resident.Placed.Get()};
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
@@ -109,6 +112,8 @@ std::string SubjectCullStage::KernelSource() {
   return Kernel(ignored);
 }
 
-std::string SubjectCullStage::KernelSource(std::string &error) { return Kernel(error); }
-
+std::string SubjectCullStage::KernelSource(std::string &error) {
+  return Kernel(error);
 }
+
+} // namespace outshine::Render

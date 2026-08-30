@@ -5,7 +5,9 @@
 
 namespace outshine::Ground {
 
-Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double bodyWidthM,
+Reaped Reap(const OsmField &field,
+            const VegetationTemplates &widths,
+            double bodyWidthM,
             Path::Network &into) {
   Reaped out;
   const int streets = field.Layer(OsmLayer::Streets);
@@ -36,9 +38,7 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double bod
     const std::string_view kind = field.Str(feature, "kind");
     if (rule->Lanes <= 0) {
       ++out.NotACarriageway;
-      if (!Listed(out.NotCarriageways, kind)) {
-        out.NotCarriageways += std::string(kind) + " ";
-      }
+      if (!Listed(out.NotCarriageways, kind)) { out.NotCarriageways += std::string(kind) + " "; }
       continue;
     }
     if (!(rule->MaxGradient > 0.0)) {
@@ -87,4 +87,4 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double bod
   return out;
 }
 
-}
+} // namespace outshine::Ground

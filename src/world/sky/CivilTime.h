@@ -29,7 +29,9 @@ constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
   y = static_cast<int64_t>(yoe) + era * 400 + (m <= 2);
 }
 
-[[nodiscard]] constexpr bool IsLeapYear(int64_t y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }
+[[nodiscard]] constexpr bool IsLeapYear(int64_t y) {
+  return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+}
 
 constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
   constexpr unsigned kLen[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -37,25 +39,31 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
 }
 
 [[nodiscard]] inline bool ParseIsoUtc(const char *s, int64_t &outUnixS) {
-  if (!s) return false;
+  if (!s) { return false; }
   size_t n = 0;
-  while (s[n]) { if (++n > 20) return false; }
-  if (n != 20) return false;
+  while (s[n]) {
+    if (++n > 20) { return false; }
+  }
+  if (n != 20) { return false; }
   const char sep[20] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, 'T', 0, 0, ':', 0, 0, ':', 0, 0, 'Z'};
   int v[20];
   for (int i = 0; i < 20; i++) {
-    if (sep[i]) { if (s[i] != sep[i]) return false; v[i] = 0; continue; }
-    if (s[i] < '0' || s[i] > '9') return false;
+    if (sep[i]) {
+      if (s[i] != sep[i]) { return false; }
+      v[i] = 0;
+      continue;
+    }
+    if (s[i] < '0' || s[i] > '9') { return false; }
     v[i] = s[i] - '0';
   }
   const int64_t year = v[0] * 1000 + v[1] * 100 + v[2] * 10 + v[3];
   const unsigned mon = static_cast<unsigned>(v[5] * 10 + v[6]);
   const unsigned day = static_cast<unsigned>(v[8] * 10 + v[9]);
   const int hour = v[11] * 10 + v[12], min = v[14] * 10 + v[15], sec = v[17] * 10 + v[18];
-  if (mon < 1 || mon > 12) return false;
-  if (day < 1 || day > DaysInMonth(year, mon)) return false;
+  if (mon < 1 || mon > 12) { return false; }
+  if (day < 1 || day > DaysInMonth(year, mon)) { return false; }
 
-  if (hour > 23 || min > 59 || sec > 59) return false;
+  if (hour > 23 || min > 59 || sec > 59) { return false; }
   outUnixS = DaysFromCivil(year, mon, day) * 86400 + hour * 3600 + min * 60 + sec;
   return true;
 }
@@ -63,14 +71,24 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
 inline const char *FormatIsoUtc(int64_t unixS, char *buf, size_t n) {
   int64_t days = unixS / 86400;
   int64_t rem = unixS - days * 86400;
-  if (rem < 0) { rem += 86400; days -= 1; }
-  int64_t y; unsigned m, d;
+  if (rem < 0) {
+    rem += 86400;
+    days -= 1;
+  }
+  int64_t y;
+  unsigned m, d;
   CivilFromDays(days, y, m, d);
-  snprintf(buf, n, "%04lld-%02u-%02uT%02u:%02u:%02uZ", static_cast<long long>(y), m, d,
-           static_cast<unsigned>(rem / 3600), static_cast<unsigned>((rem / 60) % 60),
+  snprintf(buf,
+           n,
+           "%04lld-%02u-%02uT%02u:%02u:%02uZ",
+           static_cast<long long>(y),
+           m,
+           d,
+           static_cast<unsigned>(rem / 3600),
+           static_cast<unsigned>((rem / 60) % 60),
            static_cast<unsigned>(rem % 60));
   return buf;
 }
 
-}
+} // namespace outshine
 #endif

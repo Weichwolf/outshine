@@ -40,9 +40,11 @@ constexpr std::array<Place, 6> kPlaces{{
     {"Jura", 47.2492, 7.5108, 156.53},
 }};
 
-}
+} // namespace
 
-std::span<const Place> Places() { return kPlaces; }
+std::span<const Place> Places() {
+  return kPlaces;
+}
 
 const Place *PlaceNamed(std::string_view name) {
   for (const Place &one : kPlaces) {
@@ -113,8 +115,10 @@ Shot Take(const Place &place, bool tells) {
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {
-    shot.Why = std::string(place.Name) + " needs terrain and OSM tiles and this machine has none "
-                                         "cached: " + engine.error();
+    shot.Why = std::string(place.Name) +
+               " needs terrain and OSM tiles and this machine has none "
+               "cached: " +
+               engine.error();
     return shot;
   }
   const double stoodMs =
@@ -138,9 +142,13 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
                                     last = how;
                                     std::printf("\r    loading  terrain %zu/%zu  osm %zu/%zu  "
                                                 "%zu in flight  %.1f MB  %.0f Mbit/s  %.1f s   ",
-                                                how.GroundArrived, how.GroundWanted,
-                                                how.VectorArrived, how.VectorWanted,
-                                                how.Outstanding, how.FetchedMB, how.Megabits,
+                                                how.GroundArrived,
+                                                how.GroundWanted,
+                                                how.VectorArrived,
+                                                how.VectorWanted,
+                                                how.Outstanding,
+                                                how.FetchedMB,
+                                                how.Megabits,
                                                 how.ElapsedS);
                                     std::fflush(stdout);
                                   })
@@ -222,4 +230,4 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
   return shot;
 }
 
-}
+} // namespace outshine::Shots

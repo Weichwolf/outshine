@@ -18,7 +18,8 @@ struct Direction {
 }
 
 [[nodiscard]] inline Direction Cross(const Direction &left, const Direction &right) {
-  return {left.Y * right.Z - left.Z * right.Y, left.Z * right.X - left.X * right.Z,
+  return {left.Y * right.Z - left.Z * right.Y,
+          left.Z * right.X - left.X * right.Z,
           left.X * right.Y - left.Y * right.X};
 }
 
@@ -51,15 +52,15 @@ struct SurfaceBasis {
 
 [[nodiscard]] inline SurfaceBasis SurfaceBasisAt(const SuppliedFrame &supplied, Facing facing) {
   const Direction normal = Normalised(supplied.Normal);
-  const Direction perpendicular = Normalised(
-      Sum(supplied.Tangent, Scaled(normal, -Dot(normal, supplied.Tangent))));
+  const Direction perpendicular =
+      Normalised(Sum(supplied.Tangent, Scaled(normal, -Dot(normal, supplied.Tangent))));
   const Direction bitangent = Scaled(Cross(normal, perpendicular), supplied.Handedness);
   if (facing == Facing::Front) { return {perpendicular, bitangent, normal}; }
   return {Scaled(perpendicular, -1.0), Scaled(bitangent, -1.0), Scaled(normal, -1.0)};
 }
 
-[[nodiscard]] inline Direction NormalFromMap(const SuppliedFrame &supplied, const Direction &tap,
-                                             double scale, Facing facing) {
+[[nodiscard]] inline Direction
+NormalFromMap(const SuppliedFrame &supplied, const Direction &tap, double scale, Facing facing) {
   const SurfaceBasis basis = SurfaceBasisAt(supplied, facing);
   const Direction along = Scaled(basis.Tangent, tap.X * scale);
   const Direction across = Scaled(basis.Bitangent, tap.Y * scale);
@@ -69,7 +70,9 @@ struct SurfaceBasis {
 
 [[nodiscard]] inline std::string NormalFromMapMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) {
+    return std::string();
+  }
   return body;
 }
 
@@ -78,5 +81,5 @@ struct SurfaceBasis {
   return NormalFromMapMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 #endif

@@ -38,7 +38,9 @@ std::string Number(double value) {
   return text;
 }
 
-std::string Integer(size_t value) { return std::to_string(value); }
+std::string Integer(size_t value) {
+  return std::to_string(value);
+}
 
 std::string Quoted(std::string_view text) {
   std::string out = "\"";
@@ -119,15 +121,17 @@ private:
     for (size_t part = 0; part < Subject_.Parts().size(); ++part) {
       const Part &drawn = Subject_.Parts()[part];
       if (drawn.Tangent == TangentSource::Generated) {
-        return Refuse("part " + Integer(part) + " carries a GENERATED tangent basis, and writing it "
+        return Refuse("part " + Integer(part) +
+                      " carries a GENERATED tangent basis, and writing it "
                       "as a supplied one would tell a consumer the author stated it -- which is "
                       "exactly what NormalTangentMirrorTest fails an engine for. The basis the "
                       "reader would regenerate needs the normal texture that produced it, and this "
                       "writer has no image bytes");
       }
       if (drawn.Material >= 0 && (size_t)drawn.Material >= What_.Materials.Size()) {
-        return Refuse("part " + Integer(part) + " names material " + Integer((size_t)drawn.Material) +
-                      " over a table of " + Integer(What_.Materials.Size()));
+        return Refuse("part " + Integer(part) + " names material " +
+                      Integer((size_t)drawn.Material) + " over a table of " +
+                      Integer(What_.Materials.Size()));
       }
     }
     for (size_t index = 0; index < What_.Materials.Size(); ++index) {
@@ -145,6 +149,7 @@ private:
                   {material.Normal, "normalTexture"},
                   {material.Occlusion, "occlusionTexture"},
                   {material.Emissive, "emissiveTexture"}};
+
     for (const auto &image : images) {
       if (image.Slot.Declared()) {
         return Refuse("material " + Integer(index) + " declares a " + image.Name +
@@ -215,8 +220,8 @@ private:
       nodes += "{\"mesh\":" + Integer(part);
       if (!drawn.NodeName.empty()) { nodes += ",\"name\":" + Quoted(drawn.NodeName); }
       nodes += "}";
-      meshes += "{\"primitives\":[{\"attributes\":{" + Streams(drawn) + "},\"indices\":" +
-                Integer(Indices(drawn));
+      meshes += "{\"primitives\":[{\"attributes\":{" + Streams(drawn) +
+                "},\"indices\":" + Integer(Indices(drawn));
       if (drawn.Material >= 0) { meshes += ",\"material\":" + Integer((size_t)drawn.Material); }
       meshes += "}]}";
     }
@@ -256,36 +261,43 @@ private:
       }
     }
     const bool bounded = std::strcmp(attribute.Semantic, "POSITION") == 0;
-    return Accessor(View(at, Binary_.size() - at), kFloat32,
+    return Accessor(View(at, Binary_.size() - at),
+                    kFloat32,
                     attribute.Components == 2 ? "VEC2"
                                               : (attribute.Components == 4 ? "VEC4" : "VEC3"),
-                    drawn.VertexCount, bounded ? &lowest : nullptr,
+                    drawn.VertexCount,
+                    bounded ? &lowest : nullptr,
                     bounded ? &highest : nullptr);
   }
 
   size_t Indices(const Part &drawn) {
     const size_t at = Binary_.size();
     for (size_t corner = 0; corner < drawn.IndexCount; ++corner) {
-      Append(Binary_,
-             static_cast<uint32_t>(Subject_.Indices()[drawn.FirstIndex + corner] - drawn.FirstVertex));
+      Append(
+          Binary_,
+          static_cast<uint32_t>(Subject_.Indices()[drawn.FirstIndex + corner] - drawn.FirstVertex));
     }
-    return Accessor(View(at, Binary_.size() - at), kUInt32, "SCALAR", drawn.IndexCount, nullptr,
-                    nullptr);
+    return Accessor(
+        View(at, Binary_.size() - at), kUInt32, "SCALAR", drawn.IndexCount, nullptr, nullptr);
   }
 
   size_t View(size_t at, size_t length) {
     if (!Views_.empty()) { Views_ += ","; }
-    Views_ += "{\"buffer\":0,\"byteOffset\":" + Integer(at) + ",\"byteLength\":" + Integer(length) +
-              "}";
+    Views_ +=
+        "{\"buffer\":0,\"byteOffset\":" + Integer(at) + ",\"byteLength\":" + Integer(length) + "}";
     return ViewCount_++;
   }
 
-  size_t Accessor(size_t view, int component, const char *element, size_t count,
-                  const std::vector<double> *lowest, const std::vector<double> *highest) {
+  size_t Accessor(size_t view,
+                  int component,
+                  const char *element,
+                  size_t count,
+                  const std::vector<double> *lowest,
+                  const std::vector<double> *highest) {
     if (!Accessors_.empty()) { Accessors_ += ","; }
     Accessors_ += "{\"bufferView\":" + Integer(view) +
-                  ",\"componentType\":" + Integer((size_t)component) + ",\"count\":" +
-                  Integer(count) + ",\"type\":\"" + element + "\"";
+                  ",\"componentType\":" + Integer((size_t)component) +
+                  ",\"count\":" + Integer(count) + ",\"type\":\"" + element + "\"";
     if (lowest != nullptr && highest != nullptr) {
       Accessors_ += ",\"min\":[";
       for (size_t axis = 0; axis < lowest->size(); ++axis) {
@@ -325,7 +337,7 @@ private:
   size_t ViewCount_ = 0, AccessorCount_ = 0;
 };
 
-}
+} // namespace
 
 bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   error.clear();
@@ -337,4 +349,4 @@ bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   return Writer(what, error).Run(glb);
 }
 
-}
+} // namespace outshine::Gltf

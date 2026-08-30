@@ -54,10 +54,13 @@ public:
   [[nodiscard]] outshine::GroundSample At(double, double) const override {
     return outshine::GroundSample::At(kBaseM);
   }
+
   [[nodiscard]] outshine::GroundSample Resident(double lat, double lon) const override {
     return At(lat, lon);
   }
+
   [[nodiscard]] double PostM(double) const override { return 30.0; }
+
   [[nodiscard]] outshine::Ground::GroundBlock BlockAt(int z, long x, long y) const override {
     Nodes_.assign((size_t)kSide * (size_t)kSide, (float)kBaseM);
     return outshine::Ground::GroundBlock::Over(Nodes_.data(), z, x, y, kSide, kSide - 1);
@@ -86,7 +89,8 @@ private:
   if (!lease) { return 0; }
 
   std::vector<Yield::Note> notes(forest.NoteNames().Size());
-  Yield yield(lease->Sink(), forest.NoteNames(), outshine::Span<Yield::Note>(notes.data(), notes.size()));
+  Yield yield(
+      lease->Sink(), forest.NoteNames(), outshine::Span<Yield::Note>(notes.data(), notes.size()));
   forest.Occupy(over, yield);
   for (const Yield::Note &note : yield.Notes()) {
     if (note.Times == 0) { continue; }
@@ -95,7 +99,7 @@ private:
   return yield.Placed().Count;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -179,7 +183,9 @@ int main(void) {
   const uint32_t none = TreesAt(*over, 0.0f);
 
   std::printf("A FOREST AT %.1e stems/m2  yields %u bod(y|ies) into a sink of %u\n",
-              (double)kStemsPerM2, dense, kSinkCapacity);
+              (double)kStemsPerM2,
+              dense,
+              kSinkCapacity);
   std::printf("THE SAME AT 0                yields %u\n", none);
 
   CHECK(dense < kSinkCapacity,

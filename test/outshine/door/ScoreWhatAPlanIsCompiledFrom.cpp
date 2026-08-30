@@ -36,11 +36,14 @@ using namespace outshine::Render;
 
 [[nodiscard]] std::string Named(const std::vector<Stage> &order) {
   std::string out;
-  for (const Stage one : order) { out += (out.empty() ? "" : " "); out += Row(one).Name; }
+  for (const Stage one : order) {
+    out += (out.empty() ? "" : " ");
+    out += Row(one).Name;
+  }
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -71,8 +74,7 @@ int main(void) {
   unread.Content = {Stage::AutoExposure, Stage::Sky};
   const auto refused = Compiled::Compile(unread);
   const bool named = !refused && refused.error().find("sky") != std::string::npos;
-  std::printf("  a stage nothing reads:  %s\n",
-              refused ? "COMPILED" : refused.error().c_str());
+  std::printf("  a stage nothing reads:  %s\n", refused ? "COMPILED" : refused.error().c_str());
   CHECK(named,
         "**A CONTENT STAGE NOTHING READS IS REFUSED BY NAME**: it would run, cost a pass and reach "
         "no pixel this plan asks for. Naming the row is what makes the refusal actionable -- a "
@@ -103,7 +105,10 @@ int main(void) {
       }
       bool fed = false;
       for (size_t before = 0; before < at; ++before) {
-        if (Produces(order[before], wanted)) { fed = true; break; }
+        if (Produces(order[before], wanted)) {
+          fed = true;
+          break;
+        }
       }
       if (!fed) {
         ++backwards;
@@ -112,8 +117,11 @@ int main(void) {
     }
   }
   std::printf("  held reads fed earlier: %zu unfed%s%s   (and %zu read(s) of a resource this "
-              "plan does not hold at all)\n", backwards, backwards > 0 ? ", first at " : "",
-              first, unheld);
+              "plan does not hold at all)\n",
+              backwards,
+              backwards > 0 ? ", first at " : "",
+              first,
+              unheld);
   CHECK(backwards == 0,
         "**A PRODUCER RUNS BEFORE ITS CONSUMER**: a stage reading a derived resource no earlier "
         "stage wrote reads whatever the last frame left in it. The catalogue's "

@@ -6,7 +6,7 @@
 namespace outshine::Ground {
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
-  if (!png || len == 0) return NotHere();
+  if (!png || len == 0) { return NotHere(); }
 
   const Io::Png read = Io::ReadPng(png, len);
   if (!read.Read) {
@@ -19,20 +19,21 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   for (uint32_t r = 0; r < read.High; r++) {
     const uint8_t *p = read.Bytes.data() + (size_t)r * stride;
     for (uint32_t c = 0; c < read.Wide; c++, p += read.Channels) {
-      field.SetM(r, c,
-                 (float)p[0] * 256.0f + (float)p[1] + (float)p[2] * (1.0f / 256.0f) - 32768.0f);
+      field.SetM(
+          r, c, (float)p[0] * 256.0f + (float)p[1] + (float)p[2] * (1.0f / 256.0f) - 32768.0f);
     }
   }
   return Holding(std::move(field));
 }
 
 TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, uint32_t stride) {
-  if (!field.Meshable()) return TerrainMesh(State::FieldTooSmall);
-  if (map.Extent() == 0) return TerrainMesh(State::FrameUnusable);
-  if (stride == 0) return TerrainMesh(State::StrideDoesNotDivide);
+  if (!field.Meshable()) { return TerrainMesh(State::FieldTooSmall); }
+  if (map.Extent() == 0) { return TerrainMesh(State::FrameUnusable); }
+  if (stride == 0) { return TerrainMesh(State::StrideDoesNotDivide); }
 
-  if (((field.Rows() - 1) % stride) != 0 || ((field.Cols() - 1) % stride) != 0)
+  if (((field.Rows() - 1) % stride) != 0 || ((field.Cols() - 1) % stride) != 0) {
     return TerrainMesh(State::StrideDoesNotDivide);
+  }
 
   const uint32_t rowsOut = PostingsPerEdge(field.Rows(), stride);
   const uint32_t colsOut = PostingsPerEdge(field.Cols(), stride);
@@ -57,4 +58,4 @@ TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, 
   return mesh;
 }
 
-}
+} // namespace outshine::Ground

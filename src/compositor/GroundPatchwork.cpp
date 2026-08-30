@@ -6,7 +6,8 @@
 
 namespace outshine {
 
-void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,
+void NormalsFrom(const std::vector<float> &positionM,
+                 const std::vector<uint32_t> &index,
                  std::vector<float> &into) {
   into.assign(positionM.size(), 0.0f);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
@@ -154,116 +155,123 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     std::vector<std::pair<long, long>> standing;
     for (long row = 0; row < kBlockTiles; ++row) {
       for (long column = 0; column < kBlockTiles; ++column) {
-      long x = originX + column, y = originY + row;
-      const long heldX0 = x * span, heldX1 = heldX0 + span - 1;
-      const long heldY0 = y * span, heldY1 = heldY0 + span - 1;
-      bool covered = true, touches = false;
-      for (long fy = heldY0; fy <= heldY1; ++fy) {
-        for (long fx = heldX0; fx <= heldX1; ++fx) {
-          const uint8_t *const cell = marked(fx, fy);
-          if (cell != nullptr && *cell != 0u) { touches = true; } else { covered = false; }
-        }
-      }
-      // A COARSE TILE THAT TOUCHES A FINER ONE IS DROPPED, NOT DRAWN THROUGH IT. Exact nesting is
-      // not reachable with a block cascade: each level snaps to its own zoom's grid independently,
-      // and no choice of origin keeps every level's block inside its coarser neighbour's inner
-      // quarter -- the parity condition it would need cannot hold at every level at once. Measured
-      // with whole-tile coverage only: 13 of 99 tiles skipped and 11 still OVERLAPPING, two
-      // surfaces 1 495.59 m apart and 100.75 deg apart in normal fighting for the same pixels.
-      // Dropping on touch trades that for a possible sliver of ellipsoid at a block edge, which is
-      // the lesser wrong. A QUADTREE cannot produce either, because it partitions: a node is
-      // refined or drawn, never both. That is board:2024, and this is the number that argues it.
-      if (covered) {
-        ++out.Skipped;
-        continue;
-      }
-      if (touches) { ++out.Overlapped; }
-      if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
-      TileBuild built;
-      const TileMeshes::Reply said =
-          over.Asking ? tiles.Wants(zoom, (uint32_t)x, (uint32_t)y, over.Grid)
-                      : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
-      bool ofTheGround = true;
-      if (zoom >= 0 && zoom < 24) { ++out.WantedAtZoom[zoom]; }
-      if (said == TileMeshes::Reply::Pending) {
-        ++out.Pending;
-        if (zoom >= 0 && zoom < 24) { ++out.PendingAtZoom[zoom]; }
-        ofTheGround = false;
-      }
-      else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
-        ++out.Absent;
-        ofTheGround = false;
-      } else if (said == TileMeshes::Reply::Refused) { ++out.Refused; ofTheGround = false; }
-      if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
-      // BARE COUNTS WHAT WAS LAID, PENDING COUNTS WHAT WAS ASKED FOR. A walk that only asks lays
-      // nothing, so counting both made every missing tile count twice and drove any progress
-      // fraction to zero by construction.
-      if (!ofTheGround && !over.Asking) { ++out.Bare; }
-      // ASKING WALKS AND REQUESTS AND BUILDS NOTHING. `tiles.Mesh` issues the fetch for a tile that
-      // is not resident, so the walk itself is what pulls the world in; assembling vertices while
-      // doing it would rebuild the whole terrain on every poll. A loading bar polls; it must cost
-      // a walk, not a mesh.
-      if (over.Asking) {
-        ++out.Tiles;
-        if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
-        continue;
-      }
-      if (!ofTheGround) { SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built); }
-      if (built.Verts.empty() || built.Idx.empty()) { continue; }
-
-      if (!anchored) {
-        for (int axis = 0; axis < 3; ++axis) { out.OriginEcef[axis] = built.OriginEcef[axis]; }
-        anchored = true;
-      }
-      const double shift[3] = {built.OriginEcef[0] - out.OriginEcef[0],
-                               built.OriginEcef[1] - out.OriginEcef[1],
-                               built.OriginEcef[2] - out.OriginEcef[2]};
-      const uint32_t first = (uint32_t)(out.PositionM.size() / 3);
-      for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
-           vertex += kTileVertexFloats) {
-        out.PositionM.push_back((float)((double)built.Verts[vertex] + shift[0]));
-        out.PositionM.push_back((float)((double)built.Verts[vertex + 1] + shift[1]));
-        out.PositionM.push_back((float)((double)built.Verts[vertex + 2] + shift[2]));
-        out.Uv.push_back(built.Verts[vertex + 3]);
-        out.Uv.push_back(built.Verts[vertex + 4]);
-        out.NormalM.push_back(built.Verts[vertex + 5]);
-        out.NormalM.push_back(built.Verts[vertex + 6]);
-        out.NormalM.push_back(built.Verts[vertex + 7]);
-      }
-      out.ClustersHeld += built.Clusters.size();
-      // THE WHOLE CUT, CARRIED. Every cluster is rebased onto one index list for the ring, so a
-      // reader on the device sees a flat table and one buffer rather than a tile's worth of each.
-      const uint32_t rebase = (uint32_t)out.AllIndex.size();
-      for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
-      for (const DagCluster &cluster : built.Clusters) {
-        DagCluster carried = cluster;
-        carried.First = rebase + cluster.First;
-        for (int axis = 0; axis < 3; ++axis) {
-          carried.SelfCenter[axis] = (float)((double)cluster.SelfCenter[axis] +
-                                             built.OriginEcef[axis] - out.ClusterEyeM[axis]);
-          carried.ParentCenter[axis] = (float)((double)cluster.ParentCenter[axis] +
-                                               built.OriginEcef[axis] - out.ClusterEyeM[axis]);
-        }
-        out.Clusters.push_back(carried);
-      }
-      if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
-        const double eyeInTile[3] = {over.EyeM[0] - built.OriginEcef[0],
-                                     over.EyeM[1] - built.OriginEcef[1],
-                                     over.EyeM[2] - built.OriginEcef[2]};
-        for (const DagCluster &cluster : built.Clusters) {
-          if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
-          ++out.ClustersDrawn;
-          for (uint32_t step = 0; step < cluster.Count; ++step) {
-            out.Index.push_back(first + built.Idx[cluster.First + step]);
+        long x = originX + column, y = originY + row;
+        const long heldX0 = x * span, heldX1 = heldX0 + span - 1;
+        const long heldY0 = y * span, heldY1 = heldY0 + span - 1;
+        bool covered = true, touches = false;
+        for (long fy = heldY0; fy <= heldY1; ++fy) {
+          for (long fx = heldX0; fx <= heldX1; ++fx) {
+            const uint8_t *const cell = marked(fx, fy);
+            if (cell != nullptr && *cell != 0u) {
+              touches = true;
+            } else {
+              covered = false;
+            }
           }
         }
-      } else {
-        out.ClustersDrawn += built.Clusters.size();
-        for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
-      }
-      out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
-      ++out.Tiles;
-      if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
+        // A COARSE TILE THAT TOUCHES A FINER ONE IS DROPPED, NOT DRAWN THROUGH IT. Exact nesting is
+        // not reachable with a block cascade: each level snaps to its own zoom's grid
+        // independently, and no choice of origin keeps every level's block inside its coarser
+        // neighbour's inner quarter -- the parity condition it would need cannot hold at every
+        // level at once. Measured with whole-tile coverage only: 13 of 99 tiles skipped and 11
+        // still OVERLAPPING, two surfaces 1 495.59 m apart and 100.75 deg apart in normal fighting
+        // for the same pixels. Dropping on touch trades that for a possible sliver of ellipsoid at
+        // a block edge, which is the lesser wrong. A QUADTREE cannot produce either, because it
+        // partitions: a node is refined or drawn, never both. That is board:2024, and this is the
+        // number that argues it.
+        if (covered) {
+          ++out.Skipped;
+          continue;
+        }
+        if (touches) { ++out.Overlapped; }
+        if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
+        TileBuild built;
+        const TileMeshes::Reply said =
+            over.Asking ? tiles.Wants(zoom, (uint32_t)x, (uint32_t)y, over.Grid)
+                        : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+        bool ofTheGround = true;
+        if (zoom >= 0 && zoom < 24) { ++out.WantedAtZoom[zoom]; }
+        if (said == TileMeshes::Reply::Pending) {
+          ++out.Pending;
+          if (zoom >= 0 && zoom < 24) { ++out.PendingAtZoom[zoom]; }
+          ofTheGround = false;
+        } else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
+          ++out.Absent;
+          ofTheGround = false;
+        } else if (said == TileMeshes::Reply::Refused) {
+          ++out.Refused;
+          ofTheGround = false;
+        }
+        if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
+        // BARE COUNTS WHAT WAS LAID, PENDING COUNTS WHAT WAS ASKED FOR. A walk that only asks lays
+        // nothing, so counting both made every missing tile count twice and drove any progress
+        // fraction to zero by construction.
+        if (!ofTheGround && !over.Asking) { ++out.Bare; }
+        // ASKING WALKS AND REQUESTS AND BUILDS NOTHING. `tiles.Mesh` issues the fetch for a tile
+        // that is not resident, so the walk itself is what pulls the world in; assembling vertices
+        // while doing it would rebuild the whole terrain on every poll. A loading bar polls; it
+        // must cost a walk, not a mesh.
+        if (over.Asking) {
+          ++out.Tiles;
+          if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
+          continue;
+        }
+        if (!ofTheGround) { SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built); }
+        if (built.Verts.empty() || built.Idx.empty()) { continue; }
+
+        if (!anchored) {
+          for (int axis = 0; axis < 3; ++axis) { out.OriginEcef[axis] = built.OriginEcef[axis]; }
+          anchored = true;
+        }
+        const double shift[3] = {built.OriginEcef[0] - out.OriginEcef[0],
+                                 built.OriginEcef[1] - out.OriginEcef[1],
+                                 built.OriginEcef[2] - out.OriginEcef[2]};
+        const uint32_t first = (uint32_t)(out.PositionM.size() / 3);
+        for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
+             vertex += kTileVertexFloats) {
+          out.PositionM.push_back((float)((double)built.Verts[vertex] + shift[0]));
+          out.PositionM.push_back((float)((double)built.Verts[vertex + 1] + shift[1]));
+          out.PositionM.push_back((float)((double)built.Verts[vertex + 2] + shift[2]));
+          out.Uv.push_back(built.Verts[vertex + 3]);
+          out.Uv.push_back(built.Verts[vertex + 4]);
+          out.NormalM.push_back(built.Verts[vertex + 5]);
+          out.NormalM.push_back(built.Verts[vertex + 6]);
+          out.NormalM.push_back(built.Verts[vertex + 7]);
+        }
+        out.ClustersHeld += built.Clusters.size();
+        // THE WHOLE CUT, CARRIED. Every cluster is rebased onto one index list for the ring, so a
+        // reader on the device sees a flat table and one buffer rather than a tile's worth of each.
+        const uint32_t rebase = (uint32_t)out.AllIndex.size();
+        for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
+        for (const DagCluster &cluster : built.Clusters) {
+          DagCluster carried = cluster;
+          carried.First = rebase + cluster.First;
+          for (int axis = 0; axis < 3; ++axis) {
+            carried.SelfCenter[axis] = (float)((double)cluster.SelfCenter[axis] +
+                                               built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+            carried.ParentCenter[axis] = (float)((double)cluster.ParentCenter[axis] +
+                                                 built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+          }
+          out.Clusters.push_back(carried);
+        }
+        if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
+          const double eyeInTile[3] = {over.EyeM[0] - built.OriginEcef[0],
+                                       over.EyeM[1] - built.OriginEcef[1],
+                                       over.EyeM[2] - built.OriginEcef[2]};
+          for (const DagCluster &cluster : built.Clusters) {
+            if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
+            ++out.ClustersDrawn;
+            for (uint32_t step = 0; step < cluster.Count; ++step) {
+              out.Index.push_back(first + built.Idx[cluster.First + step]);
+            }
+          }
+        } else {
+          out.ClustersDrawn += built.Clusters.size();
+          for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
+        }
+        out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
+        ++out.Tiles;
+        if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
       }
     }
     for (const auto &one : standing) {
@@ -280,13 +288,13 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
 
   if (out.Tiles == 0) {
-    return std::unexpected(
-        "no tile of the " + std::to_string(levels) + "-level cascade around " +
-        std::to_string(over.LatDeg) + ", " + std::to_string(over.LonDeg) + " meshed -- " +
-        std::to_string(out.Pending) + " pending, " + std::to_string(out.Absent) + " absent, " +
-        std::to_string(out.Refused) + " refused");
+    return std::unexpected("no tile of the " + std::to_string(levels) + "-level cascade around " +
+                           std::to_string(over.LatDeg) + ", " + std::to_string(over.LonDeg) +
+                           " meshed -- " + std::to_string(out.Pending) + " pending, " +
+                           std::to_string(out.Absent) + " absent, " + std::to_string(out.Refused) +
+                           " refused");
   }
   return out;
 }
 
-}
+} // namespace outshine

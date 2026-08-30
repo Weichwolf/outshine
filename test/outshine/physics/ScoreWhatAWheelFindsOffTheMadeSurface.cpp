@@ -77,12 +77,10 @@ private:
   from.HeadingRad = 1.5707963267948966;
   const outshine::Segment along{outshine::Curve::Straight, kLengthM, 0.0, 0.0};
   if (!out.Line.Lay(from, {along}, error)) { return false; }
-  if (!out.Line.Rise({outshine::Knot{0.0, 0.0, 0.0}, outshine::Knot{kLengthM, 0.0, 0.0}},
-                     error)) {
+  if (!out.Line.Rise({outshine::Knot{0.0, 0.0, 0.0}, outshine::Knot{kLengthM, 0.0, 0.0}}, error)) {
     return false;
   }
-  if (!out.Line.Bank({outshine::Knot{0.0, 0.0, 0.0}, outshine::Knot{kLengthM, 0.0, 0.0}},
-                     error)) {
+  if (!out.Line.Bank({outshine::Knot{0.0, 0.0, 0.0}, outshine::Knot{kLengthM, 0.0, 0.0}}, error)) {
     return false;
   }
   out.Bake(kLengthM);
@@ -189,7 +187,7 @@ struct Rode {
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -209,20 +207,27 @@ int main(void) {
   const Rode inLane = Over(way, unused, 0.0);
 
   std::printf("IN LANE   asked %ld  answered %ld  airborne %zu  off %d  reached %.2f m\n",
-              inLane.asked, inLane.answered, inLane.airborne, inLane.offTheRoad ? 1 : 0,
+              inLane.asked,
+              inLane.answered,
+              inLane.airborne,
+              inLane.offTheRoad ? 1 : 0,
               inLane.reachedM);
-  std::printf("          least clearance %.4f m   body up %.4f m\n", inLane.leastClearanceM,
+  std::printf("          least clearance %.4f m   body up %.4f m\n",
+              inLane.leastClearanceM,
               inLane.bodyUpM);
   std::printf("ON VERGE  asked %ld  answered %ld  airborne %zu  off %d  reached %.2f m\n",
-              aside.asked, aside.answered, aside.airborne, aside.offTheRoad ? 1 : 0,
+              aside.asked,
+              aside.answered,
+              aside.airborne,
+              aside.offTheRoad ? 1 : 0,
               aside.reachedM);
 
   CHECK(inLane.asked == 0,
         "a car inside the made surface asks the ground nothing: the corridor it was given IS the "
         "surface there, and a query per wheel per step for an answer already in hand is work on "
         "the frame path that buys nothing");
-  std::printf("ON VERGE  the tick REPORTED %ld ask(s) and MADE %ld call(s)\n", aside.asked,
-              aside.calls);
+  std::printf(
+      "ON VERGE  the tick REPORTED %ld ask(s) and MADE %ld call(s)\n", aside.asked, aside.calls);
   CHECK(aside.calls == aside.asked,
         "**ONE QUERY PER WHEEL PER STEP, AND THE TICK REPORTS EVERY ONE IT MAKES**: the query "
         "used to answer a height and the caller assembled the normal from TWO more at the post "

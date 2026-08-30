@@ -18,5 +18,5 @@ struct Routing {
   }
 };
 
-}
+} // namespace outshine::Render::Parity
 #endif

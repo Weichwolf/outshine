@@ -17,7 +17,7 @@ TreeVec3 RingDir(const TreeSkeleton::Node &node, float angle) {
   return node.Up * std::cos(angle) + b * std::sin(angle);
 }
 
-}
+} // namespace
 
 int TreeMesher::AddVert(TreeVec3 p) {
   Verts_.push_back(p);
@@ -126,8 +126,8 @@ void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) const {
   }
 }
 
-void TreeMesher::Cap(const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap,
-                     uint32_t seed) {
+void TreeMesher::Cap(
+    const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap, uint32_t seed) {
   float apex = 0.0f;
   switch (cap) {
     case RingCap::Base: apex = -0.6f; break;
@@ -152,8 +152,12 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node, const int *ring, int sides,
   }
 }
 
-bool TreeMesher::Collar(int face, const TreeSkeleton::Node &anchor,
-                        const TreeSkeleton::Node &first, int sides, float room, int *out) {
+bool TreeMesher::Collar(int face,
+                        const TreeSkeleton::Node &anchor,
+                        const TreeSkeleton::Node &first,
+                        int sides,
+                        float room,
+                        int *out) {
   if (face < 0 || Dead_[(size_t)face]) { return false; }
   const Face parent = Faces_[(size_t)face];
   const int o[4] = {parent.A, parent.B, parent.C, parent.D};
@@ -225,8 +229,12 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     }
     int at = shoot.First;
     const int wall = (int)Faces_.size();
-    if (face >= 0 && Collar(face, anchor, plant.Nodes[(size_t)(shoot.First + 1)], sides,
-                            RoomAt(plant, shoot), ring)) {
+    if (face >= 0 && Collar(face,
+                            anchor,
+                            plant.Nodes[(size_t)(shoot.First + 1)],
+                            sides,
+                            RoomAt(plant, shoot),
+                            ring)) {
       at = shoot.First + 1;
       Bands_[(size_t)at] = Band{wall, sides};
     } else {
@@ -248,7 +256,10 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
       for (int j = 0; j < sides; ++j) { ring[j] = next[j]; }
     }
 
-    Cap(plant.Nodes[(size_t)last], ring, sides, shoot.End,
+    Cap(plant.Nodes[(size_t)last],
+        ring,
+        sides,
+        shoot.End,
         plant.Seed * 2654435761u + (uint32_t)i + 1u);
   }
 
@@ -276,8 +287,12 @@ void TreeMesher::Export(TreeMesh &out) {
     const TreeVec3 p = Verts_[i];
     const TreeVec3 n = Normalize(Normals_[i]);
     float *o = &out.BarkVerts[i * TreeMesh::kBarkFloats];
-    o[0] = p.X; o[1] = p.Y; o[2] = p.Z;
-    o[3] = n.X; o[4] = n.Y; o[5] = n.Z;
+    o[0] = p.X;
+    o[1] = p.Y;
+    o[2] = p.Z;
+    o[3] = n.X;
+    o[4] = n.Y;
+    o[5] = n.Z;
   }
   out.BarkIdx.clear();
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
@@ -294,4 +309,4 @@ void TreeMesher::Export(TreeMesh &out) {
   }
 }
 
-}
+} // namespace outshine::Generators

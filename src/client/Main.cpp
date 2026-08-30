@@ -23,13 +23,23 @@ void Tell(const Shot &shot, std::string_view name) {
   }
   std::printf("SHOT    %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %zu of %zu over %.2f, "
               "worst at %zu\n",
-              std::string(name).c_str(), shot.Digest.empty() ? "--------" : shot.Digest.c_str(),
-              shot.P50Ms, shot.P95Ms, shot.P99Ms, shot.OverBudget, shot.Frames,
-              outshine::Shots::kFrameBudgetMs, shot.WorstAt);
+              std::string(name).c_str(),
+              shot.Digest.empty() ? "--------" : shot.Digest.c_str(),
+              shot.P50Ms,
+              shot.P95Ms,
+              shot.P99Ms,
+              shot.OverBudget,
+              shot.Frames,
+              outshine::Shots::kFrameBudgetMs,
+              shot.WorstAt);
   std::printf("        %.0f triangle(s), %.0f bare tile(s), varies by %.3f of 255 along its rows; "
               "%.1f s stood, %.1f s waited (%.1f s streamed); %s\n",
-              shot.Triangles, shot.BareTiles, shot.VariationAlongRows, shot.StandingMs / 1000.0,
-              shot.LoadingMs / 1000.0, shot.StreamedS,
+              shot.Triangles,
+              shot.BareTiles,
+              shot.VariationAlongRows,
+              shot.StandingMs / 1000.0,
+              shot.LoadingMs / 1000.0,
+              shot.StreamedS,
               shot.Kept ? shot.Wrote.c_str() : "NO PICTURE");
 }
 
@@ -138,7 +148,7 @@ int AskHeight(int argc, char **argv) {
   return 0;
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -151,8 +161,8 @@ int main(int argc, char **argv) {
   if (verb == "height") { return AskHeight(rest, from); }
   if (verb == "places") {
     for (const Place &one : outshine::Shots::Places()) {
-      std::printf("%-14s %10.5f %11.5f  bearing %6.2f\n", one.Name, one.LatDeg, one.LonDeg,
-                  one.BearingDeg);
+      std::printf(
+          "%-14s %10.5f %11.5f  bearing %6.2f\n", one.Name, one.LatDeg, one.LonDeg, one.BearingDeg);
     }
     return 0;
   }

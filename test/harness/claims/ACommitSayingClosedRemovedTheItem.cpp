@@ -29,7 +29,6 @@ using outshine::Test::Lines;
 
 namespace {
 
-
 constexpr const char *kThisClaim = "test/harness/claims/ACommitSayingClosedRemovedTheItem.cpp";
 
 }
@@ -43,17 +42,17 @@ int main(void) {
   // once their file was deleted (board:1988), so `board:1986` names two unrelated bodies of work
   // and no walk can say which one a closure meant. Judging that history would report live items
   // as unperformed closures for ever. Derived, never quoted: the commit that ADDED this file.
-  const std::string born =
-      Ask(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
-          " 2>/dev/null | tail -1");
+  const std::string born = Ask(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
+                               " 2>/dev/null | tail -1");
   if (born.empty()) {
     Unprepared("this claim is not committed yet, so it has no window to judge");
     return Report();
   }
 
-  const std::vector<std::string> announced = Lines(Ask(
-      "git log --format='%s' " + born + "..HEAD 2>/dev/null | "
-      "sed -n 's/.*board:\\([0-9][0-9]*\\) closed.*/\\1/p' | sort -u"));
+  const std::vector<std::string> announced =
+      Lines(Ask("git log --format='%s' " + born +
+                "..HEAD 2>/dev/null | "
+                "sed -n 's/.*board:\\([0-9][0-9]*\\) closed.*/\\1/p' | sort -u"));
 
   std::vector<std::string> standing;
   for (const std::string &one : announced) {
@@ -62,7 +61,8 @@ int main(void) {
   }
 
   std::printf("WINDOW starts at %s, the commit that added this claim\n", born.c_str());
-  std::printf("  %zu closure(s) announced in it, %zu still on the board\n", announced.size(),
+  std::printf("  %zu closure(s) announced in it, %zu still on the board\n",
+              announced.size(),
               standing.size());
   if (announced.empty()) {
     std::printf("  NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");

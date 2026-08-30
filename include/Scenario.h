@@ -35,9 +35,9 @@ struct Layer {
   std::string Set;
 };
 
-// WHERE ON THE EARTH THE SCENE STANDS, and Cesium's word for it. A `WorldSettings` that also carries
-// gravity, air density, wind and a streaming patience is not a georeference; this is the part that
-// is, and separating it is why the name can be used honestly at all.
+// WHERE ON THE EARTH THE SCENE STANDS, and Cesium's word for it. A `WorldSettings` that also
+// carries gravity, air density, wind and a streaming patience is not a georeference; this is the
+// part that is, and separating it is why the name can be used honestly at all.
 struct Georeference {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
@@ -381,8 +381,8 @@ struct Camera {
     FarM = farM;
   }
 
-  void setProjection(double leftM, double rightM, double bottomM, double topM, double nearM,
-                     double farM) {
+  void setProjection(
+      double leftM, double rightM, double bottomM, double topM, double nearM, double farM) {
     Orthographic = true;
     XMagM = 0.5 * (rightM - leftM);
     YMagM = 0.5 * (topM - bottomM);
@@ -440,8 +440,11 @@ struct View {
   Patch Viewport;
 
   void setCamera(const Camera &sees) { Sees = sees; }
+
   void setViewport(const Patch &over) { Viewport = over; }
+
   void setScene(std::string named) { In = std::move(named); }
+
   [[nodiscard]] const std::string &scene(void) const { return In; }
 
   std::string In;
@@ -542,9 +545,8 @@ struct Body {
         ++behind;
       }
     }
-    return ahead > 0 && behind > 0
-               ? std::fabs(behindM / (double)behind - aheadM / (double)ahead)
-               : 0.0;
+    return ahead > 0 && behind > 0 ? std::fabs(behindM / (double)behind - aheadM / (double)ahead)
+                                   : 0.0;
   }
 
   [[nodiscard]] double acrossM() const {
@@ -647,6 +649,6 @@ struct Scenario {
   [[nodiscard]] const Asset *subject(void) const;
 };
 
-}
+} // namespace outshine
 
 #endif

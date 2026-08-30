@@ -53,17 +53,17 @@ struct Laid {
   double LengthM = 0.0;
 };
 
-[[nodiscard]] double JunctionKerbM(double halfAM, double halfBM, double deflectionRad,
-                                   double shorterLegM);
+[[nodiscard]] double
+JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM);
 
 [[nodiscard]] std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
-                                                        double withinM, double tightestM,
-                                                        std::span<const double> withinAtM = {});
+                                                    double withinM,
+                                                    double tightestM,
+                                                    std::span<const double> withinAtM = {});
 
-[[nodiscard]] std::expected<Laid, Refusal> LayAligned(std::span<const double> eastNorthM,
-                                                            const Aligned &aligned,
-                                                            ReferenceLine &into);
+[[nodiscard]] std::expected<Laid, Refusal>
+LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, ReferenceLine &into);
 
-}
+} // namespace outshine
 
 #endif

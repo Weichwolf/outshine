@@ -29,8 +29,10 @@ struct Loaded::Held {
   [[nodiscard]] bool Assemble(double seconds) {
     const bool built =
         Moves ? (Motion.At(seconds, Locals, Weights),
-                 Assembled.Build(File, Span<const Gltf::Transform>(Locals.data(), Locals.size()),
-                                 Span<const double>(Weights.data(), Weights.size()), Variant))
+                 Assembled.Build(File,
+                                 Span<const Gltf::Transform>(Locals.data(), Locals.size()),
+                                 Span<const double>(Weights.data(), Weights.size()),
+                                 Variant))
               : Assembled.Build(File, Variant);
     if (!built) {
       Why = Assembled.Error();
@@ -47,8 +49,8 @@ struct Loaded::Held {
   [[nodiscard]] bool Wears() {
     Render::SurfaceTable table;
     Gltf::ResolveSurfaceTable(File, Assembled, true, true, table);
-    if (!Gltf::ResolveFileSurface(File, Assembled, Render::ColourFrom::Row,
-                                  Render::ColourCarrier::Texture, table, Why)) {
+    if (!Gltf::ResolveFileSurface(
+            File, Assembled, Render::ColourFrom::Row, Render::ColourCarrier::Texture, table, Why)) {
       return false;
     }
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
@@ -56,14 +58,17 @@ struct Loaded::Held {
       if (index < 0 || index >= Handed.surfaces()) { continue; }
       Material row = Handed.surfaceAt(MaterialInstance(index));
       const Render::SubjectMaterial &held = table.Slots[slot];
+
       const struct {
         const Render::SubjectTexture &From;
         SurfaceMap &Into;
-      } maps[] = {
-          {held.Colour, row.BaseColourMap},   {held.Normal, row.NormalMap},
-          {held.MetalRough, row.MetalRoughMap}, {held.Emissive, row.EmissiveMap},
-          {held.SpecularStrength, row.SpecularStrengthMap},
-          {held.SpecularTint, row.SpecularTintMap}};
+      } maps[] = {{held.Colour, row.BaseColourMap},
+                  {held.Normal, row.NormalMap},
+                  {held.MetalRough, row.MetalRoughMap},
+                  {held.Emissive, row.EmissiveMap},
+                  {held.SpecularStrength, row.SpecularStrengthMap},
+                  {held.SpecularTint, row.SpecularTintMap}};
+
       for (const auto &map : maps) { Names(map.From, map.Into); }
       if (!Handed.setSurface(MaterialInstance(index), row)) {
         Why = "a surface the file declares could not be named on the geometry handed back";
@@ -85,7 +90,7 @@ struct Loaded::Held {
                        : from.Mip == Render::SubjectMip::Nearest ? MipFilter::Nearest
                                                                  : MipFilter::Linear;
     const auto wrapped = [](Render::SubjectWrap held) {
-      return held == Render::SubjectWrap::ClampToEdge     ? Wrap::ClampToEdge
+      return held == Render::SubjectWrap::ClampToEdge      ? Wrap::ClampToEdge
              : held == Render::SubjectWrap::MirroredRepeat ? Wrap::MirroredRepeat
                                                            : Wrap::Repeat;
     };
@@ -111,6 +116,7 @@ struct Loaded::Held {
 };
 
 Loaded::Loaded() : Held_(std::make_unique<Held>()) {}
+
 Loaded::~Loaded() = default;
 Loaded::Loaded(Loaded &&) noexcept = default;
 Loaded &Loaded::operator=(Loaded &&) noexcept = default;
@@ -154,21 +160,43 @@ bool Loaded::plays(std::span<const int> animations) {
     held.Moves = false;
     return held.Assemble(0.0);
   }
-  if (!Gltf::Pose::Build(held.File, Span<const int>(held.Plays.data(), held.Plays.size()),
-                         held.Motion, held.Why)) {
+  if (!Gltf::Pose::Build(held.File,
+                         Span<const int>(held.Plays.data(), held.Plays.size()),
+                         held.Motion,
+                         held.Why)) {
     return false;
   }
   held.Moves = held.Motion.Valid();
   return held.Assemble(0.0);
 }
 
-const std::string &Loaded::error(void) const { return Held_->Why; }
-const Geometry &Loaded::geometry(void) const { return Held_->Handed; }
-int Loaded::animations(void) const { return (int)Held_->File.Animations().size(); }
-double Loaded::durationS(void) const { return Held_->Moves ? Held_->Motion.EndS() : 0.0; }
-bool Loaded::poses(double seconds) { return Held_->Assemble(seconds); }
-bool Loaded::carriesCamera(void) const { return Held_->HasEye; }
-int Loaded::cameras(void) const { return (int)Held_->File.Cameras().size(); }
+const std::string &Loaded::error(void) const {
+  return Held_->Why;
+}
+
+const Geometry &Loaded::geometry(void) const {
+  return Held_->Handed;
+}
+
+int Loaded::animations(void) const {
+  return (int)Held_->File.Animations().size();
+}
+
+double Loaded::durationS(void) const {
+  return Held_->Moves ? Held_->Motion.EndS() : 0.0;
+}
+
+bool Loaded::poses(double seconds) {
+  return Held_->Assemble(seconds);
+}
+
+bool Loaded::carriesCamera(void) const {
+  return Held_->HasEye;
+}
+
+int Loaded::cameras(void) const {
+  return (int)Held_->File.Cameras().size();
+}
 
 bool Loaded::camera(int index, Camera &out) const {
   Render::Viewpoint placed;
@@ -185,7 +213,12 @@ bool Loaded::frames(double fill, Camera &out) const {
   return true;
 }
 
-bool Loaded::frames(Camera &out) const { return frames(Render::kFramingFill, out); }
-const Camera &Loaded::camera(void) const { return Held_->Eye; }
-
+bool Loaded::frames(Camera &out) const {
+  return frames(Render::kFramingFill, out);
 }
+
+const Camera &Loaded::camera(void) const {
+  return Held_->Eye;
+}
+
+} // namespace outshine

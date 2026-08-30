@@ -8,7 +8,8 @@
 namespace outshine::Generators {
 
 bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
-                      std::string_view speciesDir, std::string &error) {
+                      std::string_view speciesDir,
+                      std::string &error) {
   if (Ready()) { return true; }
   if (!declared.Ready()) {
     error = "the declared vegetation carries no rows, so nothing shipped can stand on it";
@@ -55,4 +56,4 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   return true;
 }
 
-}
+} // namespace outshine::Generators

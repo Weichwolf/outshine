@@ -45,9 +45,11 @@ enum class CameraKind : uint8_t { Perspective, Orthographic };
 size_t ComponentBytes(ComponentType component);
 size_t ElementRows(ElementType element);
 size_t ElementColumns(ElementType element);
+
 inline size_t ElementComponents(ElementType element) {
   return ElementRows(element) * ElementColumns(element);
 }
+
 size_t TightElementBytes(ElementType element, ComponentType component);
 
 struct BufferView {
@@ -231,6 +233,7 @@ struct TextureRef {
   int Texture = -1;
   int TexCoord = 0;
   outshine::UvTransform Transform;
+
   [[nodiscard]] bool Declared() const { return Texture >= 0; }
 };
 
@@ -303,16 +306,19 @@ struct Animation {
 
 outshine::Material DefaultMaterial();
 
-[[nodiscard]] bool VertexColourComponents(const Accessor &accessor, size_t &components,
-                                          std::string &why);
+[[nodiscard]] bool
+VertexColourComponents(const Accessor &accessor, size_t &components, std::string &why);
 
 std::string MissingSemantics(const Primitive &primitive,
                              std::initializer_list<const char *> required);
 
 enum class CarriedUvSets { FirstOnly, Both };
 
-[[nodiscard]] bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *socket,
-                           UvSet &out, std::string &why);
+[[nodiscard]] bool UvSetOf(const TextureRef &reference,
+                           CarriedUvSets carried,
+                           const char *socket,
+                           UvSet &out,
+                           std::string &why);
 
-}
+} // namespace outshine::Gltf
 #endif

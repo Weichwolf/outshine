@@ -26,8 +26,11 @@ double AwayFromChordM(std::span<const double> points, size_t point, size_t from,
   return std::sqrt(e * e + n * n);
 }
 
-void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeTo,
-                 double withinM, std::vector<bool> &keep) {
+void KeepBetween(std::span<const double> points,
+                 size_t wholeFrom,
+                 size_t wholeTo,
+                 double withinM,
+                 std::vector<bool> &keep) {
   std::vector<std::pair<size_t, size_t>> spans;
   spans.reserve(64);
   spans.emplace_back(wholeFrom, wholeTo);
@@ -51,15 +54,15 @@ void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeT
   }
 }
 
-}
+} // namespace
 
 std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM) {
   std::vector<size_t> kept;
   return Simplify(eastNorthM, withinM, kept);
 }
 
-std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
-                             std::vector<size_t> &kept) {
+std::vector<double>
+Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t> &kept) {
   const size_t points = eastNorthM.size() / 2;
   kept.clear();
   kept.reserve(points);
@@ -83,21 +86,24 @@ std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
   return out;
 }
 
-Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
-           ReferenceLine &into) {
+Fitted
+Fit(std::span<const double> eastNorthM, double withinM, double tightestM, ReferenceLine &into) {
   return Fit(eastNorthM, withinM, tightestM, std::span<const double>(), into);
 }
 
-Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
-           std::span<const double> classTightestM, ReferenceLine &into,
+Fitted Fit(std::span<const double> eastNorthM,
+           double withinM,
+           double tightestM,
+           std::span<const double> classTightestM,
+           ReferenceLine &into,
            std::span<const double> withinAtM) {
   Fitted out;
   const size_t points = eastNorthM.size() / 2;
   out.Vertices = points;
 
   if (points < 2) {
-    out.Error = "a corridor is fitted through 2..N vertices and this one carries " +
-                std::to_string(points);
+    out.Error =
+        "a corridor is fitted through 2..N vertices and this one carries " + std::to_string(points);
     return out;
   }
   if (!(withinM > 0.0)) {
@@ -210,4 +216,4 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   return out;
 }
 
-}
+} // namespace outshine

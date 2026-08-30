@@ -17,14 +17,21 @@
 
 namespace outshine::Sim {
 
-
 namespace {
 constexpr double kPatienceS = 900.0;
 }
 
-bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body &car,
-                 const Rigged &stood, double quantumM, double tightestM, double middleLat, double sphereRadiusM,
-                 Sink &say, Corridor &out, std::string &error) {
+bool LayCorridor(const Path::Route &route,
+                 const GroundQuery &ground,
+                 const Body &car,
+                 const Rigged &stood,
+                 double quantumM,
+                 double tightestM,
+                 double middleLat,
+                 double sphereRadiusM,
+                 Sink &say,
+                 Corridor &out,
+                 std::string &error) {
   const double carWidthM = car.WidthM;
   auto &corridor = out.Line;
   auto &fitted = out.Fitted;
@@ -87,60 +94,67 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     const double other = before > 0.0 ? before : half;
     const double intoM = std::sqrt(eastIn * eastIn + northIn * northIn);
     const double outOfM = std::sqrt(eastOut * eastOut + northOut * northOut);
-    const double heldM =
-        JunctionKerbM(half, other, turn, intoM < outOfM ? intoM : outOfM);
+    const double heldM = JunctionKerbM(half, other, turn, intoM < outOfM ? intoM : outOfM);
     if (heldM > withinAtM[at]) { withinAtM[at] = heldM; }
     if (withinAtM[at] > widestJunctionM) { widestJunctionM = withinAtM[at]; }
   }
   say.Number("the widest a junction lets an arc leave its corner", widestJunctionM, "m");
-  say.Number("vertices the route offered before simplifying", (double)(eastNorthM.size() / 2),
-       "vertices");
+  say.Number(
+      "vertices the route offered before simplifying", (double)(eastNorthM.size() / 2), "vertices");
   say.Number("vertices left after removing what the data cannot resolve",
-       (double)(keptM.size() / 2), "vertices");
-  say.Number("the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
+             (double)(keptM.size() / 2),
+             "vertices");
+  say.Number(
+      "the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
 
-  say.Number("how far the built road may leave the polyline, being its own half width",
-             roadWithinM, "m");
+  say.Number(
+      "how far the built road may leave the polyline, being its own half width", roadWithinM, "m");
   fitted = Fit(keptM, roadWithinM, tightestM, classTightestM, corridor, withinAtM);
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
   say.Number("runs of same-sign turns among them", (double)fitted.Runs, "runs");
   say.Number("the longest such run", (double)fitted.LongestRunVertices, "vertices");
-  say.Number("vertices with a same-sign turn on BOTH sides", (double)fitted.SheltredVertices,
-       "vertices");
+  say.Number(
+      "vertices with a same-sign turn on BOTH sides", (double)fitted.SheltredVertices, "vertices");
   say.Number("straights between them", (double)fitted.Straights, "straights");
   say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
   say.Number("the polyline it came from", route.LengthM / 1000.0, "km");
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
-  say.Number("at which vertex that is", (double)fitted.TightestAtVertex,
-       Line("of %s", std::to_string(fitted.Vertices).c_str()).c_str());
-  say.Number("the tightest radius any vertex DEMANDED, drivable or not", fitted.TightestDemandedM,
-       "m");
-  say.Number("vertices whose road class declares a design minimum radius", (double)designed,
-       Line("of %s", std::to_string(keptAt.size()).c_str()).c_str());
+  say.Number("at which vertex that is",
+             (double)fitted.TightestAtVertex,
+             Line("of %s", std::to_string(fitted.Vertices).c_str()).c_str());
+  say.Number(
+      "the tightest radius any vertex DEMANDED, drivable or not", fitted.TightestDemandedM, "m");
+  say.Number("vertices whose road class declares a design minimum radius",
+             (double)designed,
+             Line("of %s", std::to_string(keptAt.size()).c_str()).c_str());
   size_t declaredLegs = 0;
   for (const auto &leg : route.Legs) {
     if (leg.MinRadiusM > 0.0) { ++declaredLegs; }
   }
-  say.Number("legs of the route whose road class declares one", (double)declaredLegs,
-       Line("of %s", std::to_string(route.Legs.size()).c_str()).c_str());
-  say.Number("corners the fit laid tighter than their class allows", (double)fitted.UnderClass,
-       "corners");
+  say.Number("legs of the route whose road class declares one",
+             (double)declaredLegs,
+             Line("of %s", std::to_string(route.Legs.size()).c_str()).c_str());
+  say.Number(
+      "corners the fit laid tighter than their class allows", (double)fitted.UnderClass, "corners");
   if (fitted.UnderClass > 0) {
     say.Number("the worst of them", fitted.UnderClassRadiusM, "m");
     say.Number("where its class allows", fitted.UnderClassMinimumM, "m");
     say.Number("that vertex", (double)fitted.UnderClassAtVertex, "");
   }
-  say.Number("the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / std::numbers::pi, "deg");
+  say.Number(
+      "the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / std::numbers::pi, "deg");
   say.Number("at which vertex", fitted.SharpestTurnAtM, "");
   say.Number("turns past a right angle", (double)fitted.TurnsPastRightAngle, "of 2480");
   say.Number("turns past 135 degrees", (double)fitted.TurnsPastHalfCircle, "of 2480");
-  say.Number("vertices too sharp for the car to drive at all", (double)fitted.Undrivable, "vertices");
+  say.Number(
+      "vertices too sharp for the car to drive at all", (double)fitted.Undrivable, "vertices");
   say.Number("how far it leaves a vertex at worst", fitted.WorstOffsetM, "m");
   say.Number("bends the accuracy bound had to split", (double)fitted.SplitByAccuracy, "bends");
   say.Number("how far the laid line drifts from the polyline beyond any corner's own doing",
-       fitted.DriftM, "m");
+             fitted.DriftM,
+             "m");
   say.Number("per corner that is", fitted.DriftPerCornerM * 1000.0, "mm");
   say.Number("the worst vertex", fitted.WorstVertex, "");
   say.Number("its incoming leg", fitted.WorstLegInM, "m");
@@ -153,18 +167,32 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   if (!fitted.Laid && fitted.Undrivable > 0) {
     const size_t at = (size_t)fitted.UndrivableAtM;
-    for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size(); ++which) {
+    for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size();
+         ++which) {
       char atLine[96];
-      std::snprintf(atLine, sizeof atLine, "AT %zu  %.7f %.7f", which,
-                    route.Legs[which].At.LatDeg, route.Legs[which].At.LonDeg);
+      std::snprintf(atLine,
+                    sizeof atLine,
+                    "AT %zu  %.7f %.7f",
+                    which,
+                    route.Legs[which].At.LatDeg,
+                    route.Legs[which].At.LonDeg);
       say.Say(atLine);
     }
     if (at >= 1 && at + 1 < route.Legs.size()) {
       char legs[96];
-      std::snprintf(legs, sizeof legs, "LEGS in %.2f m  out %.2f m", Path::ApartM(route.Legs[at - 1].At.LatDeg, route.Legs[at - 1].At.LonDeg,
-                         route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg, sphereRadiusM),
-                  Path::ApartM(route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg,
-                         route.Legs[at + 1].At.LatDeg, route.Legs[at + 1].At.LonDeg, sphereRadiusM));
+      std::snprintf(legs,
+                    sizeof legs,
+                    "LEGS in %.2f m  out %.2f m",
+                    Path::ApartM(route.Legs[at - 1].At.LatDeg,
+                                 route.Legs[at - 1].At.LonDeg,
+                                 route.Legs[at].At.LatDeg,
+                                 route.Legs[at].At.LonDeg,
+                                 sphereRadiusM),
+                    Path::ApartM(route.Legs[at].At.LatDeg,
+                                 route.Legs[at].At.LonDeg,
+                                 route.Legs[at + 1].At.LatDeg,
+                                 route.Legs[at + 1].At.LonDeg,
+                                 sphereRadiusM));
       say.Say(legs);
     }
   }
@@ -176,9 +204,11 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   say.Number("the tightest radius the body can drive", tightestM, "m");
   say.Number("the quantisation the drift is bounded against", quantumM, "m");
   say.Number("how much longer the corridor is than the polyline",
-       fitted.LengthM / route.LengthM - 1.0, "of it");
+             fitted.LengthM / route.LengthM - 1.0,
+             "of it");
   say.Number("the speed the tightest radius allows at 0.95 g",
-       std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6, "km/h");
+             std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6,
+             "km/h");
 
   const double postM = ground.PostM(middleLat);
   const long posts = (long)std::ceil(fitted.LengthM / postM);
@@ -331,11 +361,16 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     long gripless = 0;
     double leastGrip = 1.0e9, mostGrip = 0.0;
     for (const Station &one : stations) {
-      if (!(one.Friction > 0.0)) { ++gripless; continue; }
+      if (!(one.Friction > 0.0)) {
+        ++gripless;
+        continue;
+      }
       leastGrip = one.Friction < leastGrip ? one.Friction : leastGrip;
       mostGrip = one.Friction > mostGrip ? one.Friction : mostGrip;
     }
-    say.Number("the least grip the route's surface offers", gripless < (long)stations.size() ? leastGrip : 0.0, "x");
+    say.Number("the least grip the route's surface offers",
+               gripless < (long)stations.size() ? leastGrip : 0.0,
+               "x");
     say.Number("the most", mostGrip, "x");
     if (gripless > 0) {
       say.Refuse("the route crosses " + std::to_string(gripless) +
@@ -382,7 +417,8 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     }
     say.Number("the tightest the corridor itself turns", worstDrivenM, "m");
     say.Number("stations where the corner is too tight to hold two lanes apart",
-         (double)insideTight, "stations");
+               (double)insideTight,
+               "stations");
     double leadM = 0.0;
     for (size_t fine = roomM.size() - 1; fine > 0; --fine) {
       const double reachable = roomM[fine] + most;
@@ -399,8 +435,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     say.Number("the most a narrowing pulled the lane centre in ahead of itself", leadM, "m");
     long led = 0;
     for (size_t fine = 0; fine < stations.size(); ++fine) {
-      if (stations[fine].AsideM > roomM[fine]) { stations[fine].AsideM = roomM[fine]; ++led; }
-      if (stations[fine].AsideM < -roomM[fine]) { stations[fine].AsideM = -roomM[fine]; ++led; }
+      if (stations[fine].AsideM > roomM[fine]) {
+        stations[fine].AsideM = roomM[fine];
+        ++led;
+      }
+      if (stations[fine].AsideM < -roomM[fine]) {
+        stations[fine].AsideM = -roomM[fine];
+        ++led;
+      }
     }
     say.Number("stations where a narrowing ahead moved the car in early", (double)led, "stations");
 
@@ -430,8 +472,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
     }
     long clamped = 0;
     for (size_t fine = 0; fine < stations.size(); ++fine) {
-      if (stations[fine].AsideM > roomM[fine]) { stations[fine].AsideM = roomM[fine]; ++clamped; }
-      if (stations[fine].AsideM < -roomM[fine]) { stations[fine].AsideM = -roomM[fine]; ++clamped; }
+      if (stations[fine].AsideM > roomM[fine]) {
+        stations[fine].AsideM = roomM[fine];
+        ++clamped;
+      }
+      if (stations[fine].AsideM < -roomM[fine]) {
+        stations[fine].AsideM = -roomM[fine];
+        ++clamped;
+      }
     }
     say.Number("stations where the road edge overruled the taper", (double)clamped, "stations");
 
@@ -444,13 +492,15 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
       }
     }
     say.Number("the largest step left after tapering", leftM, "m");
-    say.Number("the furthest the tapered lane centre pushes the car past a road edge", worstOverM, "m");
+    say.Number(
+        "the furthest the tapered lane centre pushes the car past a road edge", worstOverM, "m");
   }
 
   narrowestLaneM = 1.0e9;
   double widestLaneM = 0.0, mostAsideM = 0.0;
   for (size_t post = 0; post < laneHalfM.size(); ++post) {
-    narrowestLaneM = 2.0 * laneHalfM[post] < narrowestLaneM ? 2.0 * laneHalfM[post] : narrowestLaneM;
+    narrowestLaneM =
+        2.0 * laneHalfM[post] < narrowestLaneM ? 2.0 * laneHalfM[post] : narrowestLaneM;
     widestLaneM = 2.0 * laneHalfM[post] > widestLaneM ? 2.0 * laneHalfM[post] : widestLaneM;
     mostAsideM = std::fabs(asideM[post]) > mostAsideM ? std::fabs(asideM[post]) : mostAsideM;
   }
@@ -458,7 +508,8 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   say.Number("the widest lane", widestLaneM, "m");
   say.Number("the furthest the car sits from the centreline", mostAsideM, "m");
   say.Number("what it leaves either side of itself in the narrowest lane",
-       0.5 * narrowestLaneM - 0.5 * carWidthM, "m");
+             0.5 * narrowestLaneM - 0.5 * carWidthM,
+             "m");
 
   double narrowestHalfM = 1.0e9, widestHalfM = 0.0;
   for (const double half : halfWidthM) {
@@ -484,16 +535,18 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   }
   say.Number("stations whose road kind declares no maximum grade", (double)undeclared, "stations");
   out.Made.GradelessKinds = undeclared;
-  say.Number("the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
+  say.Number(
+      "the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
   const double weightN = stood.Envelope.MassKg * stood.Envelope.GravityMs2;
   const double fromRest = stood.Envelope.DriveN / weightN;
   const double topMs = stood.Envelope.TopMs();
-  const double dragAtTopN = std::isfinite(topMs)
-      ? 0.5 * stood.Envelope.AirDensity * stood.Envelope.DragArea * topMs * topMs
-      : 0.0;
+  const double dragAtTopN = std::isfinite(topMs) ? 0.5 * stood.Envelope.AirDensity *
+                                                       stood.Envelope.DragArea * topMs * topMs
+                                                 : 0.0;
   say.Number("the steepest the standing rig could climb from rest", fromRest * 100.0, "%");
   say.Number("the steepest it could hold at its own top speed",
-       (stood.Envelope.DriveN - dragAtTopN) / weightN * 100.0, "%");
+             (stood.Envelope.DriveN - dragAtTopN) / weightN * 100.0,
+             "%");
   say.Number("where that is", gentlestAtM / 1000.0, "km");
 
   long shaped = 0;
@@ -507,8 +560,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
           spanM;
       const double ceiling = roadM[post - 1] + most;
       const double floorM = roadM[post - 1] - most;
-      if (roadM[post] > ceiling) { roadM[post] = ceiling; ++moved; }
-      if (roadM[post] < floorM) { roadM[post] = floorM; ++moved; }
+      if (roadM[post] > ceiling) {
+        roadM[post] = ceiling;
+        ++moved;
+      }
+      if (roadM[post] < floorM) {
+        roadM[post] = floorM;
+        ++moved;
+      }
     }
     for (size_t post = roadM.size() - 1; post > 0; --post) {
       const double most =
@@ -516,8 +575,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
           spanM;
       const double ceiling = roadM[post] + most;
       const double floorM = roadM[post] - most;
-      if (roadM[post - 1] > ceiling) { roadM[post - 1] = ceiling; ++moved; }
-      if (roadM[post - 1] < floorM) { roadM[post - 1] = floorM; ++moved; }
+      if (roadM[post - 1] > ceiling) {
+        roadM[post - 1] = ceiling;
+        ++moved;
+      }
+      if (roadM[post - 1] < floorM) {
+        roadM[post - 1] = floorM;
+        ++moved;
+      }
     }
     if (moved == 0) { break; }
     shaped = moved;
@@ -528,8 +593,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   for (size_t post = 0; post < roadM.size(); ++post) {
     const double byM = roadM[post] - heightM[post];
     movedM += std::fabs(byM);
-    if (byM < cutM) { cutM = byM; cutAtM = (double)post * spanM; }
-    if (byM > fillM) { fillM = byM; fillAtM = (double)post * spanM; }
+    if (byM < cutM) {
+      cutM = byM;
+      cutAtM = (double)post * spanM;
+    }
+    if (byM > fillM) {
+      fillM = byM;
+      fillAtM = (double)post * spanM;
+    }
   }
   say.Number("the deepest the road cuts into the ground", -cutM, "m");
   say.Number("where that is", cutAtM / 1000.0, "km");
@@ -545,10 +616,12 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   const double floorRatio = 1.409 / 0.477;
   planning.HoldWithinM = holdWithinM / floorRatio;
   say.Number("what the negative control measured the closed loop to cost over the first-order lag",
-       floorRatio, "x");
+             floorRatio,
+             "x");
   say.Number("so the budget the plan is given", planning.HoldWithinM, "m");
   planning.SettleS = outshine::Pilot::kSettleS;
-  planning.CorneringNPerRad = car.Contacts.empty() ? 0.0 : car.Contacts.front().Touches.CorneringNPerRad;
+  planning.CorneringNPerRad =
+      car.Contacts.empty() ? 0.0 : car.Contacts.front().Touches.CorneringNPerRad;
   say.Number("what the car leaves either side of itself there", holdWithinM, "m");
   say.Number("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
   say.Number("what is left for the path", planning.HoldingMs2(), "m/s2");
@@ -575,7 +648,8 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   say.Number("as a percentage", worstGradeM * 100.0, "%");
   say.Number("where that is", worstGradeAtM / 1000.0, "km");
 
-  const double climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2);
+  const double climbLimit =
+      stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2);
   say.Number("the steepest the standing rig's drivetrain can climb", climbLimit * 100.0, "%");
   out.Made.Rose = rose;
   out.Made.WorstGradeM = worstGradeM;
@@ -604,7 +678,8 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   say.Number("at p95", profile.Quantile(0.95) * 3.6, "km/h");
   say.Number("at p99", profile.Quantile(0.99) * 3.6, "km/h");
   say.Number("stations the plan holds under 30 km/h",
-       (double)profile.StationsUnder(30.0 / 3.6), "stations");
+             (double)profile.StationsUnder(30.0 / 3.6),
+             "stations");
   say.Number("stations in all", (double)profile.SampleCount(), "stations");
   for (size_t term = 0; term < (size_t)SpeedProfile::Held::kCount; ++term) {
     const SpeedProfile::Held which = (SpeedProfile::Held)term;
@@ -614,9 +689,10 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Body
   say.Number("the slowest station the road itself holds", bound.Ms * 3.6, "km/h");
   say.Number("where that station is", bound.AtM / 1000.0, "km");
   say.Number(SpeedProfile::NameOf(bound.By), bound.Ms * 3.6, "km/h at that station");
-  say.Number("the drive time that implies", fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / 3600.0, "h");
+  say.Number(
+      "the drive time that implies", fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / 3600.0, "h");
 
   return true;
 }
 
-}
+} // namespace outshine::Sim

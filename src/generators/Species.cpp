@@ -12,22 +12,19 @@ namespace {
   FILE *file = fopen(path.c_str(), "rb");
   if (file == nullptr) { return false; }
   char block[8192];
-  for (size_t read; (read = fread(block, 1, sizeof block, file)) > 0;) {
-    into.append(block, read);
-  }
+  for (size_t read; (read = fread(block, 1, sizeof block, file)) > 0;) { into.append(block, read); }
   fclose(file);
   return !into.empty();
 }
 
-}
+} // namespace
 
 bool ReadSpecies(const char *path, TreeSpecies *out) {
   std::string text;
   return Slurp(path, text) && out->Parse(text.c_str(), text.size());
 }
 
-bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out,
-                 std::string &error) {
+bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out, std::string &error) {
   out.clear();
   if (path == nullptr || *path == 0) {
     error = "a world's species are read from a path and this one is empty";
@@ -38,8 +35,8 @@ bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out,
   if (!std::filesystem::is_directory(where, why)) {
     TreeSpecies one;
     if (!ReadSpecies(path, &one)) {
-      error = std::string("the species file '") + path + "' does not read: " +
-              (one.Error().empty() ? "it could not be opened" : one.Error());
+      error = std::string("the species file '") + path +
+              "' does not read: " + (one.Error().empty() ? "it could not be opened" : one.Error());
       return false;
     }
     out.push_back(std::move(one));
@@ -73,4 +70,4 @@ bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out,
   return true;
 }
 
-}
+} // namespace outshine::Generators

@@ -14,8 +14,8 @@
 //   Tile    { repeated Layer layers = 3 }
 //   Layer   { string name = 1, repeated Feature features = 2, repeated string keys = 3,
 //             repeated Value values = 4, uint32 extent = 5, uint32 version = 15 }
-//   Feature { uint64 id = 1, packed uint32 tags = 2, GeomType type = 3, packed uint32 geometry = 4 }
-//   Value   { string string_value = 1, double double_value = 3 }
+//   Feature { uint64 id = 1, packed uint32 tags = 2, GeomType type = 3, packed uint32 geometry = 4
+//   } Value   { string string_value = 1, double double_value = 3 }
 // Geometry is command integers (id | count << 3) followed by zig-zag encoded parameters, and
 // every parameter is a delta from the cursor's previous position.
 namespace outshine::Test::Mvt {
@@ -31,19 +31,24 @@ public:
     }
     Out.push_back((uint8_t)value);
   }
+
   void Key(uint32_t field, uint32_t wire) { Varint(((uint64_t)field << 3) | wire); }
+
   void Uint(uint32_t field, uint64_t value) {
     Key(field, 0);
     Varint(value);
   }
+
   void Block(uint32_t field, const std::vector<uint8_t> &body) {
     Key(field, 2);
     Varint(body.size());
     Out.insert(Out.end(), body.begin(), body.end());
   }
+
   void Text(uint32_t field, const std::string &value) {
     Block(field, std::vector<uint8_t>(value.begin(), value.end()));
   }
+
   void Double(uint32_t field, double value) {
     Key(field, 1);
     uint64_t bits = 0;
@@ -68,6 +73,7 @@ struct Tag {
 [[nodiscard]] inline Tag Says(std::string key, std::string text) {
   return Tag{std::move(key), std::move(text), 0.0, false};
 }
+
 [[nodiscard]] inline Tag Counts(std::string key, double number) {
   return Tag{std::move(key), std::string(), number, true};
 }
@@ -79,9 +85,8 @@ struct Shape {
 };
 
 // one layer of N shapes, in tile-local coordinates over the declared extent.
-[[nodiscard]] inline std::vector<uint8_t> Layer(const std::string &name,
-                                                const std::vector<Shape> &shapes,
-                                                uint32_t extent = 4096) {
+[[nodiscard]] inline std::vector<uint8_t>
+Layer(const std::string &name, const std::vector<Shape> &shapes, uint32_t extent = 4096) {
   Buffer layer;
   layer.Text(1, name);
 

@@ -22,6 +22,7 @@ public:
     Mesh_.LeafVerts.insert(Mesh_.LeafVerts.end(), {p.X, p.Y, p.Z, n.X, n.Y, n.Z, u, v});
     return idx;
   }
+
   void Tri(uint32_t a, uint32_t b, uint32_t c) {
     Mesh_.LeafIdx.push_back(a);
     Mesh_.LeafIdx.push_back(b);
@@ -84,7 +85,8 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
   }
   for (int i = 0; i < n; ++i) {
     const int a = i * 3, d = (i + 1) * 3;
-    const int tri[4][3] = {{a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
+    const int tri[4][3] = {
+        {a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
     for (int k = 0; k < 4; ++k) {
       const TreeVec3 fn = Cross(pos[(size_t)tri[k][1]] - pos[(size_t)tri[k][0]],
                                 pos[(size_t)tri[k][2]] - pos[(size_t)tri[k][0]]);
@@ -93,8 +95,8 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
   }
   std::vector<uint32_t> idx((size_t)nv);
   for (int i = 0; i < nv; ++i) {
-    idx[(size_t)i] = sink.Vert(pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i],
-                               (float)(i / 3) / (float)n);
+    idx[(size_t)i] = sink.Vert(
+        pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i], (float)(i / 3) / (float)n);
   }
   for (int i = 0; i < n; ++i) {
     const int a = i * 3, d = (i + 1) * 3;
@@ -161,7 +163,8 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   }
   std::vector<uint32_t> idx((size_t)nv);
   for (int i = 0; i < nv; ++i) {
-    idx[(size_t)i] = sink.Vert(pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i], vv[(size_t)i]);
+    idx[(size_t)i] =
+        sink.Vert(pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i], vv[(size_t)i]);
   }
   for (int j = 0; j < a; ++j) { sink.Tri(idx[0], idx[at(1, j)], idx[at(1, j + 1)]); }
   for (int i = 1; i < r; ++i) {
@@ -235,19 +238,19 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
-}
+} // namespace
 
 void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   out.LeafVerts.clear();
   out.LeafIdx.clear();
   Sink sink(out);
   switch (leaf.Kind) {
-  case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
-  case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
-  case TreeSpecies::LeafKind::PalmateCompound: BuildPalmateCompound(sink, leaf); break;
-  case TreeSpecies::LeafKind::Needle: BuildNeedleShoot(sink, leaf); break;
-  case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3(0, 0, 0), 0.0f, 1.0f); break;
+    case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
+    case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
+    case TreeSpecies::LeafKind::PalmateCompound: BuildPalmateCompound(sink, leaf); break;
+    case TreeSpecies::LeafKind::Needle: BuildNeedleShoot(sink, leaf); break;
+    case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3(0, 0, 0), 0.0f, 1.0f); break;
   }
 }
 
-}
+} // namespace outshine::Generators

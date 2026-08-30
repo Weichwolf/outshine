@@ -20,4 +20,4 @@ Stride Walk(const Gait &of, const Demand &asked, double speedMs) {
   return out;
 }
 
-}
+} // namespace outshine::Pilot

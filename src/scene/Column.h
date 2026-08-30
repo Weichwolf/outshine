@@ -10,8 +10,7 @@
 
 namespace outshine {
 
-template <class Value>
-class Column {
+template <class Value> class Column {
 public:
   [[nodiscard]] bool Open(const Scene &of) {
     if (of.capacity() == 0) { return false; }
@@ -37,13 +36,10 @@ public:
   }
 
   void Drop(Entity of) {
-    if (of.Index < Held_.size() && Generations_[of.Index] == of.Generation) {
-      Held_[of.Index] = 0;
-    }
+    if (of.Index < Held_.size() && Generations_[of.Index] == of.Generation) { Held_[of.Index] = 0; }
   }
 
-  template <class Fn>
-  void Each(Fn &&fn) const {
+  template <class Fn> void Each(Fn &&fn) const {
     if (Bound_ == nullptr) { return; }
     for (uint32_t at = 0; at < (uint32_t)Values_.size(); ++at) {
       if (Held_[at] == 0) { continue; }
@@ -60,6 +56,6 @@ private:
   std::vector<uint8_t> Held_;
 };
 
-}
+} // namespace outshine
 
 #endif

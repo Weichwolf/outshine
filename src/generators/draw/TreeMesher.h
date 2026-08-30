@@ -12,7 +12,6 @@ namespace outshine::Generators {
 
 class TreeMesher {
 public:
-
   void Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh &out);
 
 private:
@@ -40,8 +39,12 @@ private:
   void BreakProfile(uint32_t seed, int sides, float *out) const;
   void Cap(const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap, uint32_t seed);
 
-  [[nodiscard]] bool Collar(int face, const TreeSkeleton::Node &anchor,
-                            const TreeSkeleton::Node &first, int sides, float room, int *out);
+  [[nodiscard]] bool Collar(int face,
+                            const TreeSkeleton::Node &anchor,
+                            const TreeSkeleton::Node &first,
+                            int sides,
+                            float room,
+                            int *out);
   [[nodiscard]] float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const;
   void Export(TreeMesh &out);
 
@@ -55,5 +58,5 @@ private:
   std::vector<TreeVec3> Normals_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

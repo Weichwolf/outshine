@@ -12,16 +12,16 @@
 // same frame. Above the ground rather than above the sea, and the reason is arithmetic: at 720 px
 // over 55 deg a pixel is 0.076 deg, so a 12 m building needs to be within about 3 km to cover three
 // of them -- and from 4 000 m ASL at -15 deg of pitch the nearest ground is 14.9 km away, so a town
-// is sub-pixel by construction. One height above sea level cannot show both a canyon and a street. Only the place and the bearing change, so a difference between two pictures is a
-// difference between two places or a defect -- never the clock. The sun is declared at 60 deg of
-// elevation bearing 180 deg rather than taken from the hour, because a real-time sun makes two
-// pictures incomparable the moment they are rendered a few minutes apart.
+// is sub-pixel by construction. One height above sea level cannot show both a canyon and a street.
+// Only the place and the bearing change, so a difference between two pictures is a difference
+// between two places or a defect -- never the clock. The sun is declared at 60 deg of elevation
+// bearing 180 deg rather than taken from the hour, because a real-time sun makes two pictures
+// incomparable the moment they are rendered a few minutes apart.
 //
 // WHAT I EXPECT TO SEE, written before looking.
 //   The lagoon and the island. Relief is metres, so this place tests the FLAT case: a ring that
 //   only looks right over a canyon is a ring that hides its errors under the terrain.
 
 int main(void) {
-  return outshine::Test::RenderPlace(
-      outshine::Test::Place{"Venice", 45.438, 12.3358, 30.0});
+  return outshine::Test::RenderPlace(outshine::Test::Place{"Venice", 45.438, 12.3358, 30.0});
 }

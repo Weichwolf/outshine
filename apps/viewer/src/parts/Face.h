@@ -7,7 +7,6 @@
 
 #include <Outshine.h>
 
-
 namespace outshine::Viewer {
 
 struct Listed {
@@ -27,15 +26,14 @@ struct Showing {
   std::string Note;
 };
 
-[[nodiscard]] std::vector<Listed> Cases(const std::string &under,
-                                        const std::string &prepared);
+[[nodiscard]] std::vector<Listed> Cases(const std::string &under, const std::string &prepared);
 
 [[nodiscard]] std::vector<std::string> Suites(const std::vector<Listed> &cases);
 
 [[nodiscard]] std::vector<int> Filtered(const std::vector<Listed> &cases, const Showing &showing);
 
-[[nodiscard]] std::string Declaration(const std::vector<Listed> &cases, const Showing &showing,
-                                      int widthPx, int heightPx);
+[[nodiscard]] std::string
+Declaration(const std::vector<Listed> &cases, const Showing &showing, int widthPx, int heightPx);
 
 struct Stands {
   std::string Under;
@@ -64,9 +62,12 @@ struct Stands {
 
 [[nodiscard]] std::string LinkedSheets(const std::string &prepared);
 
-[[nodiscard]] std::string Console(const std::string &title, const std::string &source,
-                                  const std::string &verdict, const char *why, int widthPx,
+[[nodiscard]] std::string Console(const std::string &title,
+                                  const std::string &source,
+                                  const std::string &verdict,
+                                  const char *why,
+                                  int widthPx,
                                   int heightPx);
 
-}
+} // namespace outshine::Viewer
 #endif

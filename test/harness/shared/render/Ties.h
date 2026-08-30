@@ -45,8 +45,10 @@ struct WorstDisagreement {
   size_t Pixels = 0;
 };
 
-inline WorstDisagreement WorstDisagreementPx(const Routing &routing, const EdgeSet &edges,
-                                            size_t silhouette, double fraction) {
+inline WorstDisagreement WorstDisagreementPx(const Routing &routing,
+                                             const EdgeSet &edges,
+                                             size_t silhouette,
+                                             double fraction) {
   WorstDisagreement out;
   std::vector<double> distances;
   for (int y = 0; y < routing.Ours.Height; ++y) {
@@ -67,5 +69,5 @@ inline WorstDisagreement WorstDisagreementPx(const Routing &routing, const EdgeS
   return out;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

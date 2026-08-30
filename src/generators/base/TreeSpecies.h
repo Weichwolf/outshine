@@ -78,15 +78,23 @@ public:
   [[nodiscard]] bool Parse(const char *text, size_t len);
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
+
   [[nodiscard]] const std::string &Name() const { return Name_; }
+
   [[nodiscard]] const std::string &Botanical() const { return Botanical_; }
+
   [[nodiscard]] const GrowthForm &Form() const { return Form_; }
+
   [[nodiscard]] const Growth &GrowthParams() const { return Growth_; }
+
   [[nodiscard]] const Leaf &LeafParams() const { return Leaf_; }
+
   [[nodiscard]] const Shading &ShadingParams() const { return Shading_; }
+
   [[nodiscard]] float HeightM() const { return HeightM_; }
 
   [[nodiscard]] float SpreadM() const { return SpreadM_; }
+
   [[nodiscard]] float HeightSigma() const { return HeightSigma_; }
 
   [[nodiscard]] float DbhM() const { return DbhM_; }
@@ -107,5 +115,5 @@ private:
   float Lai_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

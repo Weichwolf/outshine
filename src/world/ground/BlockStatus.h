@@ -21,16 +21,24 @@ struct BlockHeader {
   BlockStatus Status = BlockStatus::Invalid;
 
   [[nodiscard]] bool IsValid() const { return Status == BlockStatus::Valid; }
+
   [[nodiscard]] bool IsHeld() const { return Status == BlockStatus::Held; }
 
   [[nodiscard]] bool Readable() const { return Status != BlockStatus::Invalid; }
+
   double AgeS(double nowS) const { return nowS - StampS; }
 
-  void Publish(double nowS) { StampS = nowS; Status = BlockStatus::Valid; }
+  void Publish(double nowS) {
+    StampS = nowS;
+    Status = BlockStatus::Valid;
+  }
 
-  void Hold() { if (Status == BlockStatus::Valid) Status = BlockStatus::Held; }
+  void Hold() {
+    if (Status == BlockStatus::Valid) { Status = BlockStatus::Held; }
+  }
+
   void Invalidate() { Status = BlockStatus::Invalid; }
 };
 
-}
+} // namespace outshine
 #endif

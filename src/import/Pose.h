@@ -16,18 +16,20 @@ class Document;
 
 class Pose {
 public:
+  [[nodiscard]] static bool
+  Build(const Document &document, int animation, Pose &out, std::string &error);
 
-  [[nodiscard]] static bool Build(const Document &document, int animation, Pose &out,
-                                  std::string &error);
-
-  [[nodiscard]] static bool Build(const Document &document, Span<const int> animations, Pose &out,
-                                  std::string &error);
+  [[nodiscard]] static bool
+  Build(const Document &document, Span<const int> animations, Pose &out, std::string &error);
 
   [[nodiscard]] bool Valid() const { return !Nodes_.empty(); }
 
   double StartS() const { return StartS_; }
+
   double EndS() const { return EndS_; }
+
   size_t ChannelCount() const { return Channels_.size(); }
+
   size_t NodeCount() const { return Nodes_.size(); }
 
   void At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const;
@@ -41,11 +43,12 @@ public:
   void FactorsAt(double seconds, std::vector<FactorAt> &factors) const;
 
   [[nodiscard]] size_t WeightsFirst(size_t node) const { return Nodes_[node].WeightFirst; }
+
   [[nodiscard]] size_t WeightsCount(size_t node) const { return Nodes_[node].WeightCount; }
+
   [[nodiscard]] size_t WeightCount() const { return RestWeights_.size(); }
 
 private:
-
   struct Viewpoint {
     double Translation[3] = {0, 0, 0};
     double Rotation[4] = {0, 0, 0, 1};
@@ -74,5 +77,5 @@ private:
   double StartS_ = 0, EndS_ = 0;
 };
 
-}
+} // namespace outshine::Gltf
 #endif

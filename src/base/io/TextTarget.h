@@ -15,7 +15,9 @@ public:
   explicit TextTarget(const std::string &path);
 
   [[nodiscard]] const std::string &Refusal() const noexcept { return Refusal_; }
+
   [[nodiscard]] const std::string &Name() const noexcept { return Name_; }
+
   [[nodiscard]] std::FILE *File() const noexcept { return File_; }
 
 private:
@@ -27,5 +29,5 @@ private:
   std::FILE *File_ = nullptr;
 };
 
-}
+} // namespace outshine
 #endif

@@ -22,10 +22,15 @@ double AwayFrom(const Placed &line, double eastM, double northM) {
   return east * east + north * north;
 }
 
-}
+} // namespace
 
-Where Locate(const ReferenceLine &along, double eastM, double northM, double heightM,
-                 double headingRad, double nearM, double windowM) {
+Where Locate(const ReferenceLine &along,
+             double eastM,
+             double northM,
+             double heightM,
+             double headingRad,
+             double nearM,
+             double windowM) {
   Where out;
   out.EastM = eastM;
   out.NorthM = northM;
@@ -50,8 +55,7 @@ Where Locate(const ReferenceLine &along, double eastM, double northM, double hei
   return out;
 }
 
-Sighting Sight(const ReferenceLine &along, const Where &from, double chordM,
-               double asideM) {
+Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, double asideM) {
   Sighting out;
   if (!from.Found || !(chordM > 0.0)) { return out; }
 
@@ -90,4 +94,4 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM,
   return out;
 }
 
-}
+} // namespace outshine::Pilot

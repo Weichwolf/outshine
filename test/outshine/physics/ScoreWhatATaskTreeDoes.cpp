@@ -62,7 +62,7 @@ private:
   return many;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -112,7 +112,8 @@ int main(void) {
   const size_t beforeAbandon = after.size();
   along.Abandon();
   const Doing left = along.Step(kStepS);
-  std::printf("ABANDONED AFTER %zu act(s), then %zu more, reporting %s\n", beforeAbandon,
+  std::printf("ABANDONED AFTER %zu act(s), then %zu more, reporting %s\n",
+              beforeAbandon,
               after.size() - beforeAbandon,
               left == Doing::Abandoned ? "Abandoned" : "something else");
 

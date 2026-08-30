@@ -15,17 +15,17 @@ public:
   };
 
   void Set(uint32_t tile, uint32_t first, uint32_t end) {
-    if ((size_t)tile >= Ranges_.size()) Ranges_.resize((size_t)tile + 1);
+    if ((size_t)tile >= Ranges_.size()) { Ranges_.resize((size_t)tile + 1); }
     Ranges_[tile] = Range{first, end - first};
   }
-  Range At(uint32_t tile) const {
-    return (size_t)tile < Ranges_.size() ? Ranges_[tile] : Range{};
-  }
+
+  Range At(uint32_t tile) const { return (size_t)tile < Ranges_.size() ? Ranges_[tile] : Range{}; }
+
   size_t HeapBytes() const { return CapacityBytes(Ranges_); }
 
 private:
   std::vector<Range> Ranges_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

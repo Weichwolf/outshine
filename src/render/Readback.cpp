@@ -27,8 +27,11 @@ ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
   return ReadState::Ready;
 }
 
-ReadState Readback::FromTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture, uint32_t width,
-                                uint32_t height, uint32_t texelBytes) {
+ReadState Readback::FromTexture(SDL_GPUDevice *device,
+                                SDL_GPUTexture *texture,
+                                uint32_t width,
+                                uint32_t height,
+                                uint32_t texelBytes) {
   Release();
   Device = device;
   Row = width * texelBytes;
@@ -92,4 +95,4 @@ void Readback::Release() {
   Row = 0;
 }
 
-}
+} // namespace outshine::Render

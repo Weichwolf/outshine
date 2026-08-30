@@ -28,12 +28,14 @@ struct Demand {
   bool Saturated = false;
 };
 
-[[nodiscard]] double ReachOf(const Holding &with, double speedMs,
-                            double curvatureRatePerM = 0.0);
+[[nodiscard]] double ReachOf(const Holding &with, double speedMs, double curvatureRatePerM = 0.0);
 
-[[nodiscard]] Demand Hold(const ReferenceLine &along, const Holding &with, const Where &at,
-                          double speedMs, double wantedMs);
+[[nodiscard]] Demand Hold(const ReferenceLine &along,
+                          const Holding &with,
+                          const Where &at,
+                          double speedMs,
+                          double wantedMs);
 
-}
+} // namespace outshine::Pilot
 
 #endif

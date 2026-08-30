@@ -71,7 +71,7 @@ constexpr double kSunBearingDeg = 180.0;
   return counted > 0 ? summed / (double)counted : 0.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -90,8 +90,7 @@ int main(void) {
     return Report();
   }
 
-  const auto stoodAt = [&](double elevationDeg, std::vector<uint8_t> &rgba,
-                           double exposure = 0.0) {
+  const auto stoodAt = [&](double elevationDeg, std::vector<uint8_t> &rgba, double exposure = 0.0) {
     outshine::Scenario stands;
     stands.Ground.Declared = true;
     stands.Ground.Origin.LatitudeDeg = kLatDeg;
@@ -140,28 +139,32 @@ int main(void) {
   const double atFiveTwice = Luminance(lowTwice, kWidePx, groundFrom, kHighPx);
   const double atFiveAgain = Luminance(lowAgain, kWidePx, groundFrom, kHighPx);
 
-  std::printf("GROUND, bottom quarter    5 deg %7.3f   30 deg %7.3f   75 deg %7.3f\n", atFive,
-              atThirty, atSeventyFive);
-  std::printf("5 deg AGAIN, straight after         %7.3f   (%+.4f)\n", atFiveTwice,
-              atFiveTwice - atFive);
-  std::printf("5 deg AGAIN, after the 75 deg frame %7.3f   (%+.4f)\n", atFiveAgain,
-              atFiveAgain - atFive);
+  std::printf("GROUND, bottom quarter    5 deg %7.3f   30 deg %7.3f   75 deg %7.3f\n",
+              atFive,
+              atThirty,
+              atSeventyFive);
+  std::printf(
+      "5 deg AGAIN, straight after         %7.3f   (%+.4f)\n", atFiveTwice, atFiveTwice - atFive);
+  std::printf(
+      "5 deg AGAIN, after the 75 deg frame %7.3f   (%+.4f)\n", atFiveAgain, atFiveAgain - atFive);
 
-  CHECK(atFiveTwice == atFive,
-        "**THE CONTROL: THE SAME DECLARATION FROM THE SAME HISTORY GIVES THE SAME PICTURE, TO THE "
-        "BIT**. Every claim below is a difference between two renders, and a difference is evidence "
-        "only if an unchanged input reproduces. If this goes red the case is reading streaming that "
-        "had not finished, or noise, and has been calling it sunlight");
+  CHECK(
+      atFiveTwice == atFive,
+      "**THE CONTROL: THE SAME DECLARATION FROM THE SAME HISTORY GIVES THE SAME PICTURE, TO THE "
+      "BIT**. Every claim below is a difference between two renders, and a difference is evidence "
+      "only if an unchanged input reproduces. If this goes red the case is reading streaming that "
+      "had not finished, or noise, and has been calling it sunlight");
 
-  CHECK(atFiveAgain != atFive,
-        "**THE SECOND CONTROL: THE RENDERER CARRIES EXPOSURE STATE, AND THIS CASE SAYS SO**. The "
-        "same 5 deg declaration rendered after the 75 deg frame comes back an order of magnitude "
-        "darker, because the exposure has adapted to a bright scene and one frame does not undo it. "
-        "That is not a defect and this case does not treat it as one -- it is why the control above "
-        "is `from the same history` rather than `the same declaration`, and why the arms below are "
-        "read in ASCENDING order. A first draft of this case demanded statelessness from a renderer "
-        "that legitimately adapts and went red on the engine being right. If THIS check goes red "
-        "the adaptation has gone, and the control above has quietly become vacuous");
+  CHECK(
+      atFiveAgain != atFive,
+      "**THE SECOND CONTROL: THE RENDERER CARRIES EXPOSURE STATE, AND THIS CASE SAYS SO**. The "
+      "same 5 deg declaration rendered after the 75 deg frame comes back an order of magnitude "
+      "darker, because the exposure has adapted to a bright scene and one frame does not undo it. "
+      "That is not a defect and this case does not treat it as one -- it is why the control above "
+      "is `from the same history` rather than `the same declaration`, and why the arms below are "
+      "read in ASCENDING order. A first draft of this case demanded statelessness from a renderer "
+      "that legitimately adapts and went red on the engine being right. If THIS check goes red "
+      "the adaptation has gone, and the control above has quietly become vacuous");
 
   CHECK(atSeventyFive > atFive,
         "**THE SUN REACHES THE GROUND**: board:2020's own second control, unrun until now. A "
@@ -176,13 +179,14 @@ int main(void) {
 
   const double skyAtFive = Luminance(low, kWidePx, 0, skyTo);
   const double skyAtSeventyFive = Luminance(high, kWidePx, 0, skyTo);
-  std::printf("SKY, top eighth           5 deg %7.3f   75 deg %7.3f\n", skyAtFive,
-              skyAtSeventyFive);
-  CHECK(skyAtSeventyFive > skyAtFive,
-        "**THE SECOND CONTROL: THE SKY MOVES WITH THE SUN TOO**. One sun drives the atmosphere and "
-        "the ground through the same declaration, which is what Unreal's `SkyAtmosphere` and RAGE's "
-        "timecycle both do. A ground that brightened while the sky sat still would mean the ground "
-        "is reading something that is not the sun");
+  std::printf(
+      "SKY, top eighth           5 deg %7.3f   75 deg %7.3f\n", skyAtFive, skyAtSeventyFive);
+  CHECK(
+      skyAtSeventyFive > skyAtFive,
+      "**THE SECOND CONTROL: THE SKY MOVES WITH THE SUN TOO**. One sun drives the atmosphere and "
+      "the ground through the same declaration, which is what Unreal's `SkyAtmosphere` and RAGE's "
+      "timecycle both do. A ground that brightened while the sky sat still would mean the ground "
+      "is reading something that is not the sun");
 
   // A DECLARED EXPOSURE REACHES THE FRAME, which is the other half of board:2020's second box.
   // `Scenario::Render.Exposure` was read by the scenario parser and then by NOTHING: `Declaring`
@@ -204,13 +208,17 @@ int main(void) {
   }
   const double atHalf = Luminance(dim, kWidePx, groundFrom, kHighPx);
   const double atOne = Luminance(bright, kWidePx, groundFrom, kHighPx);
-  std::printf("DECLARED EXPOSURE  half %.2e %7.3f   twice %.2e %7.3f\n", derived * 0.5, atHalf,
-              derived * 2.0, atOne);
-  CHECK(atOne > atHalf,
-        "**A DECLARED EXPOSURE REACHES THE FRAME**: `Scenario::Render.Exposure` was parsed and then "
-        "read by nothing at all, so a client could state one and watch the engine derive its own "
-        "from the key light instead. Accepting a declaration and doing nothing with it is worse "
-        "than refusing it, because nothing tells the client it did not land");
+  std::printf("DECLARED EXPOSURE  half %.2e %7.3f   twice %.2e %7.3f\n",
+              derived * 0.5,
+              atHalf,
+              derived * 2.0,
+              atOne);
+  CHECK(
+      atOne > atHalf,
+      "**A DECLARED EXPOSURE REACHES THE FRAME**: `Scenario::Render.Exposure` was parsed and then "
+      "read by nothing at all, so a client could state one and watch the engine derive its own "
+      "from the key light instead. Accepting a declaration and doing nothing with it is worse "
+      "than refusing it, because nothing tells the client it did not land");
 
   std::vector<uint8_t> againAtOne;
   if (!stoodAt(30.0, againAtOne, derived * 2.0)) {

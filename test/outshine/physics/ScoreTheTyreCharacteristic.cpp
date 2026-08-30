@@ -53,7 +53,7 @@ constexpr double kCorneringNPerRad = 55000.0;
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -71,7 +71,9 @@ int main(void) {
     const double heldN = Brushed(linearN, holdN);
     const double off = std::fabs(heldN - linearN) / linearN;
     std::printf("AT A THOUSANDTH OF THE PATCH: linear %.6f N, brush %.6f N, off by %.3e\n",
-                linearN, heldN, off);
+                linearN,
+                heldN,
+                off);
     CHECK(off < kSlopeWithin,
           "**THE BRUSH KEEPS THE CORNERING STIFFNESS**: near zero slip every bristle grips and "
           "the force IS C*alpha -- a model that lost the slope would be a different tyre at the "
@@ -83,8 +85,10 @@ int main(void) {
   {
     const double peakRad = 3.0 * holdN / kCorneringNPerRad;
     const double heldN = Brushed(kCorneringNPerRad * peakRad, holdN);
-    std::printf("AT THE FULL PATCH, alpha = %.6f rad: %.15f N, the limit is %.15f N\n", peakRad,
-                heldN, holdN);
+    std::printf("AT THE FULL PATCH, alpha = %.6f rad: %.15f N, the limit is %.15f N\n",
+                peakRad,
+                heldN,
+                holdN);
     CHECK(std::fabs(heldN - holdN) < kAgreesWithin,
           "and it peaks AT the friction limit, exactly, where the whole patch has broken away");
     CHECK(std::fabs(Brushed(kCorneringNPerRad * peakRad * 4.0, holdN) - holdN) < kAgreesWithin,
@@ -100,7 +104,10 @@ int main(void) {
     const double clippedN = linearN < holdN ? linearN : holdN;
     const double apart = std::fabs(brushN - clippedN) / holdN;
     std::printf("HALFWAY TO THE PEAK: brush %.4f N, a hard clip %.4f N, apart by %.4f of the "
-                "limit\n", brushN, clippedN, apart);
+                "limit\n",
+                brushN,
+                clippedN,
+                apart);
     CHECK(apart > 0.1,
           "and the control is a control: a hard clip and the brush disagree by more than a tenth "
           "of the limit in the middle of the range, so this case can tell them apart");
@@ -111,8 +118,8 @@ int main(void) {
     const double atReference = FrictionAt(tyre, kReferenceN);
     const double atTwice = FrictionAt(tyre, 2.0 * kReferenceN);
     const double wanted = kFriction * std::pow(2.0, -kFalloff);
-    std::printf("mu AT THE REFERENCE %.1f N: %.15f, DECLARED %.15f\n", kReferenceN, atReference,
-                kFriction);
+    std::printf(
+        "mu AT THE REFERENCE %.1f N: %.15f, DECLARED %.15f\n", kReferenceN, atReference, kFriction);
     std::printf("mu AT TWICE IT:            %.15f, the power law says %.15f\n", atTwice, wanted);
     CHECK(std::fabs(atReference - kFriction) < kAgreesWithin,
           "at the reference load the declared coefficient holds exactly -- the reference is what "
@@ -131,10 +138,10 @@ int main(void) {
   {
     const double load = 2.0 * kReferenceN;
     const double even = FrictionAt(tyre, 0.5 * load) * 0.5 * load * 2.0;
-    const double leaning = FrictionAt(tyre, 0.6 * load) * 0.6 * load +
-                           FrictionAt(tyre, 0.4 * load) * 0.4 * load;
-    std::printf("TWO TYRES AT 50/50 HOLD %.4f N, THE SAME TWO AT 60/40 HOLD %.4f N\n", even,
-                leaning);
+    const double leaning =
+        FrictionAt(tyre, 0.6 * load) * 0.6 * load + FrictionAt(tyre, 0.4 * load) * 0.4 * load;
+    std::printf(
+        "TWO TYRES AT 50/50 HOLD %.4f N, THE SAME TWO AT 60/40 HOLD %.4f N\n", even, leaning);
     Note("what the pair loses to a 60/40 lean", (even - leaning) / even, "of the whole");
     CHECK(leaning < even,
           "so a pair that leans holds LESS than a pair that does not, which is why weight "
@@ -149,8 +156,8 @@ int main(void) {
     const double even = FrictionAt(flat, 0.5 * load) * 0.5 * load * 2.0;
     const double leaning =
         FrictionAt(flat, 0.6 * load) * 0.6 * load + FrictionAt(flat, 0.4 * load) * 0.4 * load;
-    std::printf("WITH NO FALLOFF DECLARED: 50/50 holds %.4f N and 60/40 holds %.4f N\n", even,
-                leaning);
+    std::printf(
+        "WITH NO FALLOFF DECLARED: 50/50 holds %.4f N and 60/40 holds %.4f N\n", even, leaning);
     CHECK(std::fabs(even - leaning) < kAgreesWithin,
           "and a tyre that declares no load sensitivity is EXACTLY indifferent to the lean -- "
           "the default changes nothing, so a scenario that declares none gets the model it had");

@@ -18,9 +18,14 @@ namespace outshine::Core {
 class Posed {
 public:
   void Clears();
-  [[nodiscard]] bool Reads(const std::string &path, const std::string &variant,
-                           AssetAnimation animation, int clip, double fps, std::string &error);
+  [[nodiscard]] bool Reads(const std::string &path,
+                           const std::string &variant,
+                           AssetAnimation animation,
+                           int clip,
+                           double fps,
+                           std::string &error);
   [[nodiscard]] bool Poses(double seconds, std::string &error);
+
   void Carries(const Gltf::Subject &built) { Assembled_ = built; }
 
   // THE WORLD'S GEOMETRY IS MOVED IN, NEVER COPIED. A scenario's ground is the door's own
@@ -32,24 +37,34 @@ public:
     Built_ = std::move(built);
     HoldsBuilt_ = true;
   }
+
   [[nodiscard]] bool HoldsBuilt() const { return HoldsBuilt_; }
+
   [[nodiscard]] const outshine::Geometry &Built() const { return Built_; }
 
   [[nodiscard]] const Gltf::Document &File() const { return File_; }
+
   // A NAME IS A PROMISE AND THIS ONE BROKE IT. It read `Geometry()` and returns a `Gltf::Subject`,
-  // which is the ASSEMBLED form -- one flat buffer with parts as ranges and the pose already baked --
-  // and NOT the door's `outshine::Geometry`, which owns per-part vectors and is what an author
+  // which is the ASSEMBLED form -- one flat buffer with parts as ranges and the pose already baked
+  // -- and NOT the door's `outshine::Geometry`, which owns per-part vectors and is what an author
   // fills. Two different types, one of the two names, on the accessor every engine file reaches
   // through. An hour of this session went into working out why a cooker taking a `Geometry` could
   // not be wired to a path that appeared to carry one; it does not, and now it does not say so
   // either.
   [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
+
   [[nodiscard]] Gltf::Subject &Assembled() { return Assembled_; }
+
   [[nodiscard]] bool Measures(double seconds, std::string &error);
+
   [[nodiscard]] const std::vector<double> &Previous() const { return PreviousPositionsM_; }
+
   [[nodiscard]] bool Moves() const { return Moves_; }
+
   [[nodiscard]] bool Stands() const { return Read_; }
+
   [[nodiscard]] int Frames() const { return Frames_; }
+
   // AN ANIMATION IS ADDRESSED IN SECONDS, NOT IN FRAMES. It ran on an index that wrapped at
   // `(int)(EndS * fps + 0.5)` -- Khronos's Fox declares 3.41666675 s, which rounds to THREE frames
   // at one per second, so the fourth second jumped back to the rest pose and lost 0.41666675 s of
@@ -57,7 +72,9 @@ public:
   // what the oracle renders and what this now does; looping is a client's policy and this door
   // does not yet spell one, so it is not invented here.
   [[nodiscard]] double AtS() const { return AtS_; }
+
   [[nodiscard]] double DurationS() const { return Motion_.EndS(); }
+
   void Advances(double stepS, bool loops) {
     const double end = Motion_.EndS();
     const double next = AtS_ + stepS;
@@ -85,5 +102,5 @@ private:
   double AtS_ = 0.0;
 };
 
-}
+} // namespace outshine::Core
 #endif

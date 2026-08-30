@@ -14,17 +14,22 @@ public:
     uint32_t First = 0, Count = 0;
     bool Exterior = true;
   };
+
   struct Feature {
     uint32_t FirstRing = 0, RingCount = 0;
     uint32_t FirstTag = 0, TagCount = 0;
     int Type = 0;
   };
 
-  [[nodiscard]] bool Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present = nullptr);
+  [[nodiscard]] bool
+  Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present = nullptr);
 
   int Extent() const { return Extent_; }
+
   const std::vector<Feature> &Features() const { return Features_; }
+
   const std::vector<Ring> &Rings() const { return Rings_; }
+
   const std::vector<int32_t> &Points() const { return Points_; }
 
   double Num(const Feature &f, const char *key, double def) const;
@@ -35,7 +40,9 @@ public:
     double Num = 0.0;
     bool IsNum = false;
   };
+
   uint32_t TagCount(const Feature &f) const { return f.TagCount / 2; }
+
   Tag TagAt(const Feature &f, uint32_t i) const;
 
 private:
@@ -50,5 +57,5 @@ private:
   std::vector<bool> ValueIsNum_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

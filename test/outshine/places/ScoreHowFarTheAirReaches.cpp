@@ -32,8 +32,8 @@
 // sky meets ground; the bands are placed against that. A hardcoded row would be a number with no
 // source and would stop being true the moment the pitch changed.
 //
-// WHAT THIS DOES NOT COVER, on its own page: it says nothing about whether the amount of blending is
-// RIGHT at any distance -- there is no oracle in this tree for that and inventing one would be a
+// WHAT THIS DOES NOT COVER, on its own page: it says nothing about whether the amount of blending
+// is RIGHT at any distance -- there is no oracle in this tree for that and inventing one would be a
 // number with no origin. It reads one place, one bearing and one sun. And it cannot see WHAT stands
 // in the far band: at this camera it is the Alps, and the case knows only that it is far.
 
@@ -90,7 +90,7 @@ struct Band {
   return found;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -142,9 +142,9 @@ int main(void) {
 
   std::vector<uint8_t> seen, seenAgain;
   if (!stood(seen) || !stood(seenAgain)) {
-    Unprepared(("this place needs terrain tiles and this machine has none cached: " +
-                engine.error())
-                   .c_str());
+    Unprepared(
+        ("this place needs terrain tiles and this machine has none cached: " + engine.error())
+            .c_str());
     return Report();
   }
 
@@ -155,11 +155,20 @@ int main(void) {
   const Band farAgain = Rows(seenAgain, kWidePx, horizon + 1, horizon + 5);
 
   std::printf("horizon found at row %d of %d\n", horizon, kHighPx);
-  std::printf("SKY   r %6.2f g %6.2f b %6.2f   blue share %.4f\n", sky.Red, sky.Green, sky.Blue,
+  std::printf("SKY   r %6.2f g %6.2f b %6.2f   blue share %.4f\n",
+              sky.Red,
+              sky.Green,
+              sky.Blue,
               sky.BlueShare());
-  std::printf("FAR   r %6.2f g %6.2f b %6.2f   blue share %.4f\n", far.Red, far.Green, far.Blue,
+  std::printf("FAR   r %6.2f g %6.2f b %6.2f   blue share %.4f\n",
+              far.Red,
+              far.Green,
+              far.Blue,
               far.BlueShare());
-  std::printf("NEAR  r %6.2f g %6.2f b %6.2f   blue share %.4f\n", near.Red, near.Green, near.Blue,
+  std::printf("NEAR  r %6.2f g %6.2f b %6.2f   blue share %.4f\n",
+              near.Red,
+              near.Green,
+              near.Blue,
               near.BlueShare());
 
   CHECK(far.Red + far.Green + far.Blue == farAgain.Red + farAgain.Green + farAgain.Blue,
@@ -172,12 +181,13 @@ int main(void) {
         "on a frame washed uniformly toward the sky, which is a defect and not a distance term. "
         "This is what tells an atmosphere from a wash");
 
-  CHECK(far.BlueShare() > near.BlueShare(),
-        "**DISTANCE IS VISIBLE ON OPAQUE GEOMETRY**: Rayleigh scattering goes as lambda^-4, so more "
-        "air means more blue. Ground behind 145 km of it must sit closer to the sky in blue share "
-        "than ground 2 km away. Without this term a 4 000 m range at 145 km renders the same green "
-        "as a 600 m hill at 20 km, and the eye reads the nearer one -- which is what made the Alps "
-        "look absent from a frame they were drawn in all along");
+  CHECK(
+      far.BlueShare() > near.BlueShare(),
+      "**DISTANCE IS VISIBLE ON OPAQUE GEOMETRY**: Rayleigh scattering goes as lambda^-4, so more "
+      "air means more blue. Ground behind 145 km of it must sit closer to the sky in blue share "
+      "than ground 2 km away. Without this term a 4 000 m range at 145 km renders the same green "
+      "as a 600 m hill at 20 km, and the eye reads the nearer one -- which is what made the Alps "
+      "look absent from a frame they were drawn in all along");
 
   CHECK(far.BlueShare() < sky.BlueShare(),
         "**AND THE GROUND HAS NOT BECOME THE SKY**: the far band must still be ground. A term that "

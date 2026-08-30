@@ -37,8 +37,24 @@ namespace {
 // stand.
 constexpr int kFramePx = 72;
 
-constexpr float kWall[18] = {-2.0f, -2.0f, 0.0f, 2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f,
-                             -2.0f, -2.0f, 0.0f, 2.0f, 2.0f,  0.0f, -2.0f, 2.0f, 0.0f};
+constexpr float kWall[18] = {-2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             2.0f,
+                             0.0f};
 constexpr float kFacing[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
 constexpr uint32_t kRun[6] = {0, 1, 2, 3, 4, 5};
 
@@ -54,7 +70,7 @@ constexpr uint32_t kRun[6] = {0, 1, 2, 3, 4, 5};
   return most;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -104,7 +120,8 @@ int main(void) {
     return geometry.setPositions(part, std::span<const float>(kWall, 18)) &&
            geometry.setNormals(part, std::span<const float>(kFacing, 18)) &&
            geometry.setTriangles(part, std::span<const uint32_t>(kRun, 6)) &&
-           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
+           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) &&
+           engine.renderer().readPixels(rgba);
   };
 
   std::vector<uint8_t> dark;

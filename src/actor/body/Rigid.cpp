@@ -16,9 +16,7 @@ void Turn(const double orientationQ[4], const double bodyV[3], double worldV[3])
   double qqv[3];
   const double twice[3] = {2.0 * qv[0], 2.0 * qv[1], 2.0 * qv[2]};
   Cross(q, twice, qqv);
-  for (int axis = 0; axis < 3; ++axis) {
-    worldV[axis] = bodyV[axis] + w * twice[axis] + qqv[axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { worldV[axis] = bodyV[axis] + w * twice[axis] + qqv[axis]; }
 }
 
 void Unturn(const double orientationQ[4], const double worldV[3], double bodyV[3]) {
@@ -78,11 +76,10 @@ void Step(Rigid &body, const Wrench &wrench, double dtS) {
 
   const double *const q = body.OrientationQ;
   const double *const spin = body.SpinBodyRadS;
-  const double rate[4] = {
-      -0.5 * (q[1] * spin[0] + q[2] * spin[1] + q[3] * spin[2]),
-      0.5 * (q[0] * spin[0] + q[2] * spin[2] - q[3] * spin[1]),
-      0.5 * (q[0] * spin[1] + q[3] * spin[0] - q[1] * spin[2]),
-      0.5 * (q[0] * spin[2] + q[1] * spin[1] - q[2] * spin[0])};
+  const double rate[4] = {-0.5 * (q[1] * spin[0] + q[2] * spin[1] + q[3] * spin[2]),
+                          0.5 * (q[0] * spin[0] + q[2] * spin[2] - q[3] * spin[1]),
+                          0.5 * (q[0] * spin[1] + q[3] * spin[0] - q[1] * spin[2]),
+                          0.5 * (q[0] * spin[2] + q[1] * spin[1] - q[2] * spin[0])};
 
   double turned[4];
   double square = 0.0;
@@ -114,7 +111,7 @@ void Unit(double v[3]) {
   }
 }
 
-}
+} // namespace
 
 void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   double ahead[3] = {aheadM[0], aheadM[1], aheadM[2]};
@@ -125,12 +122,12 @@ void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   Unit(ahead);
 
   const double back[3] = {-ahead[0], -ahead[1], -ahead[2]};
-  const double right[3] = {up[1] * back[2] - up[2] * back[1], up[2] * back[0] - up[0] * back[2],
+  const double right[3] = {up[1] * back[2] - up[2] * back[1],
+                           up[2] * back[0] - up[0] * back[2],
                            up[0] * back[1] - up[1] * back[0]};
 
-  const double m[3][3] = {{right[0], up[0], back[0]},
-                          {right[1], up[1], back[1]},
-                          {right[2], up[2], back[2]}};
+  const double m[3][3] = {
+      {right[0], up[0], back[0]}, {right[1], up[1], back[1]}, {right[2], up[2], back[2]}};
   const double trace = m[0][0] + m[1][1] + m[2][2];
   double q[4];
   if (trace > 0.0) {
@@ -161,4 +158,4 @@ void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
 }
 
-}
+} // namespace outshine::Physics

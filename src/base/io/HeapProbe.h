@@ -7,7 +7,6 @@ namespace outshine {
 
 class HeapProbe {
 public:
-
   static size_t LiveBytes();
 
   static size_t BreakBytes();
@@ -19,5 +18,5 @@ public:
   static size_t Sample();
 };
 
-}
+} // namespace outshine
 #endif

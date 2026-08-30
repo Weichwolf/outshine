@@ -12,7 +12,7 @@ bool SameState(const DrawBatch &batch, const DrawItem &item) {
          batch.Instances == item.Instances;
 }
 
-}
+} // namespace
 
 bool DrawList::Add(const DrawItem &item, std::string &error) {
   if (item.IndexCount == 0) {
@@ -50,7 +50,6 @@ void DrawList::Clear() {
 }
 
 void DrawList::Compile() {
-
   std::sort(Draws_.begin(), Draws_.end(), [](const DrawItem &a, const DrawItem &b) {
     const DrawKey left = DrawKey::Of(a.Order), right = DrawKey::Of(b.Order);
     return left == right ? a.Submitted < b.Submitted : left < right;
@@ -71,8 +70,16 @@ void DrawList::Compile() {
       ++Batches_.back().Draws;
       continue;
     }
-    Batches_.push_back({draw.FirstIndex, draw.IndexCount, draw.Order.MaterialSlot, draw.Layout,
-                        draw.Order.Surface.Kind(), 1, draw.ModelSlot, draw.Instances, 0, 0});
+    Batches_.push_back({draw.FirstIndex,
+                        draw.IndexCount,
+                        draw.Order.MaterialSlot,
+                        draw.Layout,
+                        draw.Order.Surface.Kind(),
+                        1,
+                        draw.ModelSlot,
+                        draw.Instances,
+                        0,
+                        0});
   }
 
   // A SECOND WALK, IN BATCH ORDER, BECAUSE THE FIRST ONE DOES NOT KNOW WHERE A BATCH ENDS. Only a
@@ -129,4 +136,4 @@ void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
   }
 }
 
-}
+} // namespace outshine::Render

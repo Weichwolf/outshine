@@ -26,10 +26,14 @@ struct Shows {
 class Overlay {
 public:
   void Faces(const Ui::Font *font) { Font_ = font; }
+
   [[nodiscard]] const Ui::Font *Face() const { return Font_; }
 
-  [[nodiscard]] bool Compose(Render::SceneRenderer &renderer, std::span<const Shows> surfaces,
-                             double surfaceWidthPx, double surfaceHeightPx, std::string &error);
+  [[nodiscard]] bool Compose(Render::SceneRenderer &renderer,
+                             std::span<const Shows> surfaces,
+                             double surfaceWidthPx,
+                             double surfaceHeightPx,
+                             std::string &error);
 
   void Wheeled(double xPx, double yPx, double byPx, bool &again);
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const;
@@ -37,7 +41,10 @@ public:
   [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
     return Scrolled_;
   }
-  void Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept) { Scrolled_ = std::move(kept); }
+
+  void Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept) {
+    Scrolled_ = std::move(kept);
+  }
 
 private:
   struct Laid {
@@ -55,5 +62,5 @@ private:
   std::vector<Render::OverlayQuad> Quads_;
 };
 
-}
+} // namespace outshine::Core
 #endif

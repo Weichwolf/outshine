@@ -34,7 +34,7 @@ constexpr const char *kScenario = "src/assets/drive/f31.scenario";
   return -1.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -46,7 +46,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     Unprepared("the device stood no canvas");
     return Report();
@@ -99,8 +100,8 @@ int main(void) {
         "renderer was handed the whole table each frame until this stood, so the cost of placing "
         "a scene scaled with the scene rather than with its motion -- and CLAUDE.md's rule is "
         "that the work a declaration causes is proportional to what it CHANGED");
-  std::printf("AND ITS VELOCITY SAYS  %.0f pixel(s) moved, the furthest by %.6g ndc\n",
-              moving, furthest);
+  std::printf(
+      "AND ITS VELOCITY SAYS  %.0f pixel(s) moved, the furthest by %.6g ndc\n", moving, furthest);
   // THIS SCENE CARRIES A VELOCITY TARGET AND ITS ASSET ANIMATES NOTHING, which is the whole of
   // what this number says here. `DeclarePlan` used to add `SceneVelocity` only when the glTF
   // ANIMATED, so the one scene in the tree where things actually move -- a car re-placed nine
@@ -121,7 +122,9 @@ int main(void) {
         "the buffer that describes its motion");
 
   std::printf("AND THE WORLD HOLDS    %.0f street(s), %.0f water surface(s), %.0f footprint(s)\n",
-              ways, water, prints);
+              ways,
+              water,
+              prints);
   // THE WORLD'S VECTOR DATA HAS AN OWNER. Unreal's PCG reads a level's own data because the level
   // owns it for as long as it is loaded; RAGE keeps map data resident per node. Measured before
   // this: `Surrounds` held a height stack and no vector field at all, and the only `OsmField` the
@@ -131,7 +134,9 @@ int main(void) {
   // `GroundStack` owns them now, beside the class field it already owned, and `Restand` fills
   // them where the camera stands.
   std::printf("AND ITS GENERATORS PLACED %.0f bod(y|ies) as %.0f instance(s), chain step %.0f\n",
-              grown, instanced, reached);
+              grown,
+              instanced,
+              reached);
   // A SHIPPED GENERATOR IS RUN BY THE ENGINE, and this number says how far it gets. Unreal's PCG
   // is a plugin the level runs; RAGE has none. `Surrounds` now carries a placement registry
   // beside its `Generates` one, and the forest in it is built from DECLARATION and not from code:

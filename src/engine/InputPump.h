@@ -26,5 +26,5 @@ private:
   const InputMap *Map_ = nullptr;
 };
 
-}
+} // namespace outshine::Core
 #endif

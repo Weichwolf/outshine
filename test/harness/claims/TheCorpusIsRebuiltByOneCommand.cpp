@@ -46,9 +46,8 @@ int main(void) {
   int verdict = 0;
   const std::string notices =
       std::filesystem::temp_directory_path().string() + "/outshine-preparer-notices";
-  const std::string plan =
-      Ask("python3 test/harness/shared/corpus/prepare.py dry-run --every-case 2>" + notices,
-          &verdict);
+  const std::string plan = Ask(
+      "python3 test/harness/shared/corpus/prepare.py dry-run --every-case 2>" + notices, &verdict);
   const size_t planned = Times(plan, "\"manifest\":");
   Note("manifests the preparer planned", (double)planned, "manifests");
   std::printf("NOTE the preparer exited %d\n", verdict);

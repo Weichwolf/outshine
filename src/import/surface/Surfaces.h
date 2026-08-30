@@ -9,12 +9,18 @@
 
 namespace outshine::Gltf {
 
-void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool carriesTransmission,
-                         bool ownMaterials, Render::SurfaceTable &out);
+void ResolveSurfaceTable(const Document &file,
+                         const Subject &geometry,
+                         bool carriesTransmission,
+                         bool ownMaterials,
+                         Render::SurfaceTable &out);
 
-[[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
-                                      Render::ColourFrom channel, Render::ColourCarrier carrier,
-                                      Render::SurfaceTable &table, std::string &error);
+[[nodiscard]] bool ResolveFileSurface(const Document &file,
+                                      const Subject &geometry,
+                                      Render::ColourFrom channel,
+                                      Render::ColourCarrier carrier,
+                                      Render::SurfaceTable &table,
+                                      std::string &error);
 
-}
+} // namespace outshine::Gltf
 #endif

@@ -17,5 +17,5 @@ namespace outshine::Render {
   return opening + pi;
 }
 
-}
+} // namespace outshine::Render
 #endif

@@ -41,8 +41,8 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::vector<std::string> sites = Lines(
-      Ask("grep -rn 'SDL_GPUShaderCreateInfo [A-Za-z_]*{' src/ 2>/dev/null | sort"));
+  const std::vector<std::string> sites =
+      Lines(Ask("grep -rn 'SDL_GPUShaderCreateInfo [A-Za-z_]*{' src/ 2>/dev/null | sort"));
 
   std::printf("SITES DECLARING A SHADER'S BINDING COUNTS  %zu\n", sites.size());
   for (const std::string &one : sites) { std::printf("  %s\n", one.c_str()); }

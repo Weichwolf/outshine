@@ -19,10 +19,13 @@ namespace outshine::Ground {
 // plain with no town in them.
 constexpr int kVectorRing = 3;
 
-
-bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
-                       std::span<const Provider> providers, double focusLat,
-                       double focusLon, Data::Transport &wire, Sink &say,
+bool GroundStack::Open(std::string_view cacheDir,
+                       std::string_view assetsDir,
+                       std::span<const Provider> providers,
+                       double focusLat,
+                       double focusLon,
+                       Data::Transport &wire,
+                       Sink &say,
                        double patienceS) {
   Close();
   const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
@@ -63,7 +66,8 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
     Cls_.SetVegetation(&Templates_);
   } else {
     say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
-                 "with no vegetation and no vector features", assets.c_str()));
+                 "with no vegetation and no vector features",
+                 assets.c_str()));
   }
   Opened_ = true;
   return true;
@@ -118,13 +122,13 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
   // next call's, and the terrain arriving is what makes them consumable.
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
   for (;;) {
-    const size_t before = Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() +
-                          Footprints_.IngestedTiles();
+    const size_t before =
+        Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     (void)Ways_.Ingest(*Vectors_, Templates_);
     (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
     (void)Footprints_.Build(*Ground_, *Vectors_, Span<const WayLine>());
-    const size_t after = Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() +
-                         Footprints_.IngestedTiles();
+    const size_t after =
+        Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }
     if (budgetMs > 0.0 &&
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -139,9 +143,9 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
 // fields and was asked by nobody, so readiness was decided by the terrain alone.
 // TWO QUESTIONS, AND CONFLATING THEM LIVE-LOCKS. DRAINED asks only whether the fields have taken up
 // what the decoder has already produced -- it is the loop's condition, and it must be reachable
-// while tiles are still in flight. INGESTED is readiness and adds the one the loop must not wait on:
-// that nothing is outstanding. Asking for both in the drain loop spins forever, because during a
-// load there is always something pending.
+// while tiles are still in flight. INGESTED is readiness and adds the one the loop must not wait
+// on: that nothing is outstanding. Asking for both in the drain loop spins forever, because during
+// a load there is always something pending.
 bool GroundStack::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
   return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_) &&
@@ -149,12 +153,12 @@ bool GroundStack::Drained() const {
 }
 
 // AND THE LAND CLASSES COUNT. `ClassField::Complete` was written, is exactly this question for the
-// two class tiers, and had NO CALLER -- the second readiness predicate in this tier that existed and
-// was asked by nobody. So whether a place was classified when its picture was taken was timing, and
-// the ground came out uniform green in one run and carrying fields and forest in the next.
+// two class tiers, and had NO CALLER -- the second readiness predicate in this tier that existed
+// and was asked by nobody. So whether a place was classified when its picture was taken was timing,
+// and the ground came out uniform green in one run and carrying fields and forest in the next.
 bool GroundStack::Ingested() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
-}
+} // namespace outshine::Ground

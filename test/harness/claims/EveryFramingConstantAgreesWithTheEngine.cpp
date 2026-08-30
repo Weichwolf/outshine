@@ -26,9 +26,9 @@ bool NumberAfter(const std::string &text, const std::string &name, double &out) 
   size_t from = equals + 1;
   while (from < text.size() && (text[from] == ' ' || text[from] == '\t')) { ++from; }
   size_t to = from;
-  while (to < text.size() && (std::isdigit((unsigned char)text[to]) || text[to] == '.' ||
-                              text[to] == '-' || text[to] == '+' || text[to] == 'e' ||
-                              text[to] == 'E')) {
+  while (to < text.size() &&
+         (std::isdigit((unsigned char)text[to]) || text[to] == '.' || text[to] == '-' ||
+          text[to] == '+' || text[to] == 'e' || text[to] == 'E')) {
     ++to;
   }
   if (to == from) { return false; }
@@ -50,7 +50,7 @@ constexpr Pair kConstants[] = {
     {"kFramingNearFloorFraction", "FRAMING_NEAR_FLOOR_FRACTION"},
 };
 
-}
+} // namespace
 
 int main() {
   using namespace outshine::Test;
@@ -67,16 +67,19 @@ int main() {
     const bool inEngine = NumberAfter(header, constant.InTheEngine, engine);
     const bool inPreparer = NumberAfter(preparer, constant.InThePreparer, python);
     CHECK(inEngine, (std::string("src/render/Framing.h declares ") + constant.InTheEngine).c_str());
-    CHECK(inPreparer,
-          (std::string("the preparer declares ") + constant.InThePreparer).c_str());
+    CHECK(inPreparer, (std::string("the preparer declares ") + constant.InThePreparer).c_str());
     if (!inEngine || !inPreparer) { continue; }
     const bool same = engine == python;
-    CHECK(same, (std::string(constant.InTheEngine) + " and " + constant.InThePreparer +
-                 " are the same number")
-                    .c_str());
+    CHECK(same,
+          (std::string(constant.InTheEngine) + " and " + constant.InThePreparer +
+           " are the same number")
+              .c_str());
     if (!same) {
-      std::printf("NOTE %s = %.17g, %s = %.17g\n", constant.InTheEngine, engine,
-                  constant.InThePreparer, python);
+      std::printf("NOTE %s = %.17g, %s = %.17g\n",
+                  constant.InTheEngine,
+                  engine,
+                  constant.InThePreparer,
+                  python);
     } else {
       ++agreeing;
     }
@@ -86,7 +89,6 @@ int main() {
   size_t declared = 0;
   for (size_t at = header.find("kFraming"); at != std::string::npos;
        at = header.find("kFraming", at + 1)) {
-
     const size_t line = header.find('\n', at);
     const size_t equals = header.find('=', at);
     if (equals != std::string::npos && (line == std::string::npos || equals < line)) { ++declared; }

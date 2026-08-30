@@ -12,7 +12,6 @@ namespace outshine::Generators {
 
 class OccupancySink {
 public:
-
   struct Storage {
     Span<Body> Bodies;
     Span<uint32_t> Links;
@@ -27,17 +26,19 @@ public:
   [[nodiscard]] Claim Place(const Body &body) noexcept;
 
   [[nodiscard]] Span<const Body> Placed() const noexcept { return Store_.Bodies.Sub(0, Count()); }
+
   [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept { return Claims_[(size_t)why]; }
 
   static int Cells(double spanM, double cellM);
 
 private:
-
   friend class RegionPool;
   void Open(const Ground &ground) noexcept;
 
   uint32_t &Count() noexcept { return Claims_[(size_t)Claim::Outcome::Placed]; }
+
   [[nodiscard]] uint32_t Count() const noexcept { return Claims_[(size_t)Claim::Outcome::Placed]; }
+
   [[nodiscard]] int CellOf(double m, int cells) const noexcept;
   [[nodiscard]] bool Clear(const Body &body) const noexcept;
 
@@ -48,5 +49,5 @@ private:
   float MaxRadiusM_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

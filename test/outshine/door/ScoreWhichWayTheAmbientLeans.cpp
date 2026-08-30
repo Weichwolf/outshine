@@ -39,20 +39,36 @@
 // noise. `outshine/door/ScoreWhatASkyDoesToHandedGeometry` settled the cause I had guessed at
 // instead: a declared sky does NOT cost handed geometry its framing, it covers MORE of the frame.
 //
-// WHAT THIS CASE DOES NOT COVER, on its own page: nothing here says the bounce's colour is right for
-// any real place -- with no world declared the albedo is the engine's default, not a land class. It
-// reads the frame's CENTRE as the quad, which a centred framing makes true and which would stop
-// being true if the framing changed. It does NOT read the corner as sky: with no georeference
-// declared no sky dome is drawn and the corner is quad as well, measured at (52, 59, 30) -- a first
-// draft asserted a blue corner and went red on a sky that was never there. And it says nothing
-// about magnitude: no oracle in this tree states how bright open shade should be.
+// WHAT THIS CASE DOES NOT COVER, on its own page: nothing here says the bounce's colour is right
+// for any real place -- with no world declared the albedo is the engine's default, not a land
+// class. It reads the frame's CENTRE as the quad, which a centred framing makes true and which
+// would stop being true if the framing changed. It does NOT read the corner as sky: with no
+// georeference declared no sky dome is drawn and the corner is quad as well, measured at (52, 59,
+// 30) -- a first draft asserted a blue corner and went red on a sky that was never there. And it
+// says nothing about magnitude: no oracle in this tree states how bright open shade should be.
 
 namespace {
 
 constexpr int kFramePx = 96;
 
-constexpr float kFace[18] = {-2.0f, -2.0f, 0.0f, 2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f,
-                             -2.0f, -2.0f, 0.0f, 2.0f, 2.0f,  0.0f, -2.0f, 2.0f, 0.0f};
+constexpr float kFace[18] = {-2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             2.0f,
+                             0.0f};
 constexpr uint32_t kRun[6] = {0, 1, 2, 3, 4, 5};
 
 struct Lit {
@@ -97,7 +113,7 @@ struct Lit {
                      : Lit{0, 0, 0};
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -166,29 +182,32 @@ int main(void) {
   std::printf("QUAD, NORMAL DOWN   r %6.2f  g %6.2f  b %6.2f\n", down.Red, down.Green, down.Blue);
   std::printf("SKY at the corner   r %6.2f  g %6.2f  b %6.2f\n", sky.Red, sky.Green, sky.Blue);
 
-  CHECK(up.Sum() > down.Sum() + 3.0,
-        "**THE CONTROL: THE TWO ARMS DIFFER IN DIRECT LIGHT**. `n.l` is +0.89 for the up arm and "
-        "-0.45 for the down one, so the up arm takes the sun and the down arm cannot. If they match "
-        "here, the down arm is being lit by something the case has not accounted for and its colour "
-        "below is not the indirect term alone");
+  CHECK(
+      up.Sum() > down.Sum() + 3.0,
+      "**THE CONTROL: THE TWO ARMS DIFFER IN DIRECT LIGHT**. `n.l` is +0.89 for the up arm and "
+      "-0.45 for the down one, so the up arm takes the sun and the down arm cannot. If they match "
+      "here, the down arm is being lit by something the case has not accounted for and its colour "
+      "below is not the indirect term alone");
 
   const double tintOfTheLit = (up.Green - up.Red) / up.Red;
   std::printf("the sunlit arm's green over red: %+.3f of red\n", tintOfTheLit);
-  CHECK(tintOfTheLit < 0.06,
-        "**THE SECOND CONTROL: THE SUNLIT ARM IS NEUTRAL**. A grey material under a white sun must "
-        "come back grey. If the whole picture carried a green cast the claim below would be reading "
-        "that cast rather than a hemisphere, and this is what tells the two apart. The frame's "
-        "corner cannot serve here: with no georeference declared there is no sky dome drawn behind "
-        "the quad, and the corner reads the quad as well -- which the case says rather than "
-        "quietly sampling it anyway");
+  CHECK(
+      tintOfTheLit < 0.06,
+      "**THE SECOND CONTROL: THE SUNLIT ARM IS NEUTRAL**. A grey material under a white sun must "
+      "come back grey. If the whole picture carried a green cast the claim below would be reading "
+      "that cast rather than a hemisphere, and this is what tells the two apart. The frame's "
+      "corner cannot serve here: with no georeference declared there is no sky dome drawn behind "
+      "the quad, and the corner reads the quad as well -- which the case says rather than "
+      "quietly sampling it anyway");
 
-  CHECK(down.Green > down.Red && down.Green > down.Blue,
-        "**THE AMBIENT LEANS, AND THE LOWER HALF IS THE GROUND**: a face taking no direct light "
-        "reads its indirect term neat. Under one constant radiance that term was the SKY and this "
-        "face would come back blue, like the corner above it. It comes back green because the lower "
-        "hemisphere is now the ground bounce, whose default albedo (0.10, 0.13, 0.07) is "
-        "green-dominant. Unreal, RAGE and Filament all make ambient depend on the normal; a "
-        "constant cannot, and this is the difference a constant forbids");
+  CHECK(
+      down.Green > down.Red && down.Green > down.Blue,
+      "**THE AMBIENT LEANS, AND THE LOWER HALF IS THE GROUND**: a face taking no direct light "
+      "reads its indirect term neat. Under one constant radiance that term was the SKY and this "
+      "face would come back blue, like the corner above it. It comes back green because the lower "
+      "hemisphere is now the ground bounce, whose default albedo (0.10, 0.13, 0.07) is "
+      "green-dominant. Unreal, RAGE and Filament all make ambient depend on the normal; a "
+      "constant cannot, and this is the difference a constant forbids");
 
   Covers("board:2020 -- indirect light depends on the normal, and the lower hemisphere exists");
   return Report();

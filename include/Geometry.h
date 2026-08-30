@@ -21,7 +21,9 @@ public:
 
 private:
   friend class Geometry;
+
   explicit TransformManager(Geometry &of) : Of_(&of) {}
+
   Geometry *Of_ = nullptr;
 };
 
@@ -40,7 +42,9 @@ public:
 
 private:
   friend class Geometry;
+
   explicit LightManager(Geometry &of) : Of_(&of) {}
+
   Geometry *Of_ = nullptr;
 };
 
@@ -55,7 +59,9 @@ public:
 
 private:
   friend class Geometry;
+
   explicit RenderableManager(Geometry &of) : Of_(&of) {}
+
   Geometry *Of_ = nullptr;
 };
 
@@ -130,6 +136,6 @@ private:
   std::unique_ptr<Held> Held_;
 };
 
-}
+} // namespace outshine
 
 #endif

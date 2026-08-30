@@ -75,8 +75,8 @@ struct Corridor {
 
 inline constexpr double kLagMargin = 4.0;
 
-[[nodiscard]] constexpr std::expected<double, std::string_view> AsideRatePerM(
-    double budgetM, double heldMs) noexcept {
+[[nodiscard]] constexpr std::expected<double, std::string_view>
+AsideRatePerM(double budgetM, double heldMs) noexcept {
   if (!(heldMs > 0.0)) {
     return std::unexpected("a lateral rate is scaled to a speed the plan HOLDS, and this one "
                            "holds none");
@@ -99,11 +99,18 @@ static_assert(AsideRatePerM(0.7195, 30.0).has_value(),
               "and a finite positive speed carries a rate");
 static_assert(AsideRatePerM(0.7195, 30.0).value() > 0.0, "which is positive");
 
-[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,
-                               const Body &car, const Rigged &stood, double quantumM,
-                               double tightestM, double middleLat, double sphereRadiusM,
-                               Sink &say, Corridor &out, std::string &error);
+[[nodiscard]] bool LayCorridor(const Path::Route &route,
+                               const GroundQuery &ground,
+                               const Body &car,
+                               const Rigged &stood,
+                               double quantumM,
+                               double tightestM,
+                               double middleLat,
+                               double sphereRadiusM,
+                               Sink &say,
+                               Corridor &out,
+                               std::string &error);
 
-}
+} // namespace outshine::Sim
 
 #endif

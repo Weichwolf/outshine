@@ -37,10 +37,10 @@ struct Viewpoint {
 
   // AIMED FROM A PLACE AT A PLACE. Fifteen lines of cross products that belong to a camera, and the
   // engine called them through the importer's copy for want of its own.
-  [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], double rollRad,
-                                   Viewpoint &out);
-  [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], const double upM[3],
-                                   Viewpoint &out);
+  [[nodiscard]] static bool
+  LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out);
+  [[nodiscard]] static bool
+  LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out);
 };
 
 // INLINE, SO A LIGHT SUITE STAYS LIGHT. The importer needs this the moment its camera IS the
@@ -62,10 +62,10 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   out[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-}
+} // namespace Aiming
 
-inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad,
-                              Viewpoint &out) {
+inline bool
+Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Aiming::Normalise(forward)) { return false; }
   const double worldUp[3] = {0, 1, 0};
@@ -92,8 +92,8 @@ inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double
 // sense. Measured on Khronos's Triangle, whose camera rolls -26.57 degrees: the guess came out
 // negated and the drawn facet shared 48% of its pixels with the oracle's. With the up vector
 // handed over as it stands, the two agree exactly.
-inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3],
-                              Viewpoint &out) {
+inline bool
+Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Aiming::Normalise(forward)) { return false; }
   double right[3];
@@ -128,5 +128,5 @@ inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   }
 }
 
-}
+} // namespace outshine::Render
 #endif

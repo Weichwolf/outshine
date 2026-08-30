@@ -22,7 +22,9 @@ public:
   static std::shared_ptr<const GroundTable> Of(Span<const Row> rows);
 
   [[nodiscard]] size_t Count() const { return Rows_.size(); }
+
   [[nodiscard]] const Row &At(size_t row) const { return Rows_[row]; }
+
   [[nodiscard]] size_t HeapBytes() const { return Rows_.capacity() * sizeof(Row); }
 
 private:
@@ -31,5 +33,5 @@ private:
   std::vector<Row> Rows_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

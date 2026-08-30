@@ -16,7 +16,6 @@ namespace outshine {
 class Fetching : public Data::Transport {
 public:
   struct Config {
-
     int Threads = 0;
 
     long TimeoutS = 20;
@@ -63,5 +62,5 @@ private:
   std::vector<std::thread> Threads_;
 };
 
-}
+} // namespace outshine
 #endif

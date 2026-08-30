@@ -49,7 +49,7 @@ constexpr double kSnapM = 8.0;
   return outshine::Path::ApartM(48.0, fromLonDeg, 48.0, toLonDeg, kSphereM);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -60,9 +60,12 @@ int main(void) {
   const double main_[4] = {48.0, 11.000, 48.0, 11.020};
   const double west[4] = {48.001, 11.005, 48.00001, 11.005};
   const double east[4] = {48.001, 11.015, 48.00001, 11.015};
-  net.Lay(std::span<const double>(main_, 4), outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, false});
-  net.Lay(std::span<const double>(west, 4), outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
-  net.Lay(std::span<const double>(east, 4), outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
+  net.Lay(std::span<const double>(main_, 4),
+          outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, false});
+  net.Lay(std::span<const double>(west, 4),
+          outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
+  net.Lay(std::span<const double>(east, 4),
+          outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
 
   std::string why;
   if (!net.Weave(why)) {
@@ -70,9 +73,8 @@ int main(void) {
     return Report();
   }
 
-  const outshine::Path::Route across =
-      net.Plan(outshine::Path::Waypoint{48.001, 11.005}, outshine::Path::Waypoint{48.001, 11.015},
-               0.0);
+  const outshine::Path::Route across = net.Plan(
+      outshine::Path::Waypoint{48.001, 11.005}, outshine::Path::Waypoint{48.001, 11.015}, 0.0);
   if (!across.Found) {
     std::printf("  the two stubs are not joined at all: %s\n", across.Error.c_str());
   }
@@ -82,7 +84,9 @@ int main(void) {
   const double stubsM = 2.0 * outshine::Path::ApartM(48.001, 11.005, 48.00001, 11.005, kSphereM);
 
   std::printf("  ends tied onto an edge          %zu\n", net.TiedToEdges());
-  std::printf("  nodes %zu   edges %zu   junctions %zu\n", net.NodeCount(), net.EdgeCount(),
+  std::printf("  nodes %zu   edges %zu   junctions %zu\n",
+              net.NodeCount(),
+              net.EdgeCount(),
               net.JunctionCount());
   std::printf("  along the road between them     %8.1f m\n", straightM);
   std::printf("  out to the west end and back    %8.1f m\n", aroundM);
@@ -93,8 +97,7 @@ int main(void) {
         "both loose ends are tied onto the edge they end on -- without two ties there is no "
         "second tie for the first to have invalidated, and this case would measure nothing");
 
-  CHECK(across.Found,
-        "and the two side roads are joined through the main road they both meet");
+  CHECK(across.Found, "and the two side roads are joined through the main road they both meet");
 
   CHECK(across.LengthM < 0.5 * (aroundM + stubsM) + 0.5 * (straightM + stubsM),
         "**TWO ENDS TIED ONTO ONE SEGMENT ARE JOINED ALONG IT**: both junctions lie on the same "

@@ -10,7 +10,7 @@ constexpr size_t kMostDoors = 256;
 constexpr size_t kMostStandings = 256;
 constexpr size_t kMostFired = 256;
 
-}
+} // namespace
 
 std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Volume> volumes,
                                                              std::span<const Event> events) {
@@ -75,15 +75,14 @@ std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Vol
     standing.Doors_.push_back(door);
   }
   standing.InsideDoor_.assign(standing.Doors_.size(), {});
-  for (std::vector<Standing> &seated : standing.InsideDoor_) {
-    seated.reserve(kMostStandings);
-  }
+  for (std::vector<Standing> &seated : standing.InsideDoor_) { seated.reserve(kMostStandings); }
   standing.Ring_.reserve(kMostFired);
   standing.Drained_.reserve(kMostFired);
   return standing;
 }
 
-bool TriggerField::Listen(std::string_view event, std::span<const std::string_view> reads,
+bool TriggerField::Listen(std::string_view event,
+                          std::span<const std::string_view> reads,
                           std::string &error) {
   for (size_t at = 0; at < Events_.size(); ++at) {
     if (Events_[at] != event) { continue; }
@@ -93,8 +92,8 @@ bool TriggerField::Listen(std::string_view event, std::span<const std::string_vi
         if (field == read) { carried = true; }
       }
       if (!carried) {
-        error = "the listener reads '" + std::string(read) + "' from '" +
-                std::string(event) + "', which carries none -- a field is declared or it "
+        error = "the listener reads '" + std::string(read) + "' from '" + std::string(event) +
+                "', which carries none -- a field is declared or it "
                 "is a null at run time, and this engine refuses the null here";
         return false;
       }
@@ -150,8 +149,8 @@ void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
       if (door.Opens == When::Enter) { fire(door.Event); }
       continue;
     }
-    if (in && standing < seated.size() && door.Opens == When::Dwell &&
-        !seated[standing].Dwelt && nowS - seated[standing].SinceS >= door.DwellS) {
+    if (in && standing < seated.size() && door.Opens == When::Dwell && !seated[standing].Dwelt &&
+        nowS - seated[standing].SinceS >= door.DwellS) {
       seated[standing].Dwelt = true;
       fire(door.Event);
       continue;
@@ -181,4 +180,4 @@ size_t TriggerField::Unheard(std::string_view event) const {
   return 0;
 }
 
-}
+} // namespace outshine

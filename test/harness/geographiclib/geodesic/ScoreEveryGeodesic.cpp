@@ -26,8 +26,8 @@ struct Row {
 [[nodiscard]] bool Rowed(const std::string &line, Row &out) {
   std::istringstream held(line);
   double az1 = 0.0, az2 = 0.0;
-  return (held >> out.FromLatDeg >> out.FromLonDeg >> az1 >> out.ToLatDeg >> out.ToLonDeg >>
-          az2 >> out.AlongM) &&
+  return (held >> out.FromLatDeg >> out.FromLonDeg >> az1 >> out.ToLatDeg >> out.ToLonDeg >> az2 >>
+          out.AlongM) &&
          out.AlongM > 0.0;
 }
 
@@ -40,13 +40,13 @@ struct Row {
   while (byLon > 180.0) { byLon -= 360.0; }
   while (byLon < -180.0) { byLon += 360.0; }
   byLon *= outshine::kDeg2Rad;
-  const double half = std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
-                      std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) *
-                          std::sin(0.5 * byLon);
+  const double half =
+      std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
+      std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) * std::sin(0.5 * byLon);
   return 2.0 * kR * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   using namespace outshine::Test;
@@ -74,9 +74,12 @@ int main(int argc, char **argv) {
   size_t settled = 0;
   double widestUnsettledM = 0.0, closestUnsettledM = 1.0e18;
   for (const Row &one : rows) {
-    const outshine::Geodesic said = outshine::GeodesicOn(
-        one.FromLatDeg, one.FromLonDeg, one.ToLatDeg, one.ToLonDeg, outshine::Data::kWgs84A,
-        outshine::Data::kWgs84F);
+    const outshine::Geodesic said = outshine::GeodesicOn(one.FromLatDeg,
+                                                         one.FromLonDeg,
+                                                         one.ToLatDeg,
+                                                         one.ToLonDeg,
+                                                         outshine::Data::kWgs84A,
+                                                         outshine::Data::kWgs84F);
     if (!said.Converged) {
       if (one.AlongM > widestUnsettledM) { widestUnsettledM = one.AlongM; }
       if (one.AlongM < closestUnsettledM) { closestUnsettledM = one.AlongM; }

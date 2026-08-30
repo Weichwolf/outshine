@@ -24,8 +24,21 @@ struct SubjectResidency {
   [[nodiscard]] static size_t StagingMadeTaken();
 
   enum class Stream : uint8_t {
-    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous,
-    Placements, Index, ClusterSpheres, ClusterJobs, DrawIndex, DrawArguments, Count
+    Vertex,
+    Emitted,
+    Normal,
+    Tangent,
+    Uv,
+    Uv1,
+    Colour,
+    Previous,
+    Placements,
+    Index,
+    ClusterSpheres,
+    ClusterJobs,
+    DrawIndex,
+    DrawArguments,
+    Count
   };
 
   struct Crossing {
@@ -66,7 +79,9 @@ struct SubjectResidency {
   OwnedBuffer DrawIdx, DrawArgs;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
+
   [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }
+
   void ForgetStagedCount() { StagedThisFrame_ = 0; }
 
   [[nodiscard]] uint32_t HeldBytes() const {
@@ -74,6 +89,7 @@ struct SubjectResidency {
     for (const uint32_t one : Held) { bytes += one; }
     return bytes;
   }
+
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
   bool HasUv1 = false;
@@ -84,10 +100,12 @@ struct SubjectResidency {
   [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
+
   void DropStaged() {
     StagedCount_ = 0;
     StagingUsed_ = 0;
   }
+
   [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
 
 private:
@@ -106,6 +124,7 @@ private:
     uint32_t Bytes = 0;
     SDL_GPUTransferBuffer *Staging = nullptr;
   };
+
   OwnedTransfer Staging_{};
   std::vector<OwnedTransfer> Retired_;
   uint32_t StagingBytes_ = 0;
@@ -116,9 +135,8 @@ private:
 
   OwnedTransfer Bulk_;
   uint32_t BulkBytes_ = 0;
-
 };
 
-}
+} // namespace outshine::Render
 
 #endif

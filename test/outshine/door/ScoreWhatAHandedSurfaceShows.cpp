@@ -36,8 +36,24 @@ namespace {
 // today is the row -- colour, metalness, roughness, transmission, emission and the rest.
 constexpr int kFramePx = 72;
 
-constexpr float kPositions[18] = {-2.0f, -2.0f, 0.0f, 2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f,
-                                  -2.0f, -2.0f, 0.0f, 2.0f, 2.0f,  0.0f, -2.0f, 2.0f, 0.0f};
+constexpr float kPositions[18] = {-2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  2.0f,
+                                  0.0f,
+                                  -2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  2.0f,
+                                  0.0f,
+                                  -2.0f,
+                                  2.0f,
+                                  0.0f};
 constexpr float kNormals[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
 constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
 
@@ -57,7 +73,7 @@ struct Lit {
   return Lit{r / (double)pixels, g / (double)pixels, b / (double)pixels};
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -99,7 +115,8 @@ int main(void) {
     return geometry.setPositions(part, std::span<const float>(kPositions, 18)) &&
            geometry.setNormals(part, std::span<const float>(kNormals, 18)) &&
            geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 6)) &&
-           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
+           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) &&
+           engine.renderer().readPixels(rgba);
   };
 
   constexpr float kRed[4] = {0.80f, 0.05f, 0.05f, 1.0f};
@@ -118,8 +135,8 @@ int main(void) {
   const Lit ofRed = Mean(red);
   const Lit ofBlue = Mean(blue);
   std::printf("STATING RED   mean r %6.2f  g %6.2f  b %6.2f\n", ofRed.Red, ofRed.Green, ofRed.Blue);
-  std::printf("STATING BLUE  mean r %6.2f  g %6.2f  b %6.2f\n", ofBlue.Red, ofBlue.Green,
-              ofBlue.Blue);
+  std::printf(
+      "STATING BLUE  mean r %6.2f  g %6.2f  b %6.2f\n", ofBlue.Red, ofBlue.Green, ofBlue.Blue);
 
   CHECK(ofRed.Red > 1.0 || ofBlue.Blue > 1.0,
         "something was drawn at all, so the comparison below has two pictures and not two black "
@@ -148,14 +165,18 @@ int main(void) {
     const int part = geometry.addPart("face", named);
     return geometry.setPositions(part, std::span<const float>(kPositions, 18)) &&
            geometry.setTriangles(part, std::span<const uint32_t>(kIndices, 6)) &&
-           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) && engine.renderer().readPixels(rgba);
+           engine.setGeometry(geometry) && engine.renderer().render(outshine::Extent{}) &&
+           engine.renderer().readPixels(rgba);
   };
   std::vector<uint8_t> unfaced;
   const bool stoodBare = bare(unfaced);
   const std::string whyBare = engine.error();
   const Lit ofBare = stoodBare ? Mean(unfaced) : Lit{0, 0, 0};
   std::printf("STATING NO NORMALS  %s mean r %6.2f  g %6.2f  b %6.2f\n",
-              stoodBare ? "        " : "REFUSED,", ofBare.Red, ofBare.Green, ofBare.Blue);
+              stoodBare ? "        " : "REFUSED,",
+              ofBare.Red,
+              ofBare.Green,
+              ofBare.Blue);
   if (!stoodBare) { std::printf("  BECAUSE %s\n", whyBare.c_str()); }
 
   CHECK(stoodBare && ofBare.Red > 1.0,

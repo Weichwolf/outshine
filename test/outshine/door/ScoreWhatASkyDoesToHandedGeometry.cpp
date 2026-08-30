@@ -13,9 +13,9 @@
 // WHAT A SKY DOES TO HANDED GEOMETRY, asked because a cause was written down without measuring it.
 //
 // A lighting case for handed geometry failed three times and I recorded the reason as: declaring
-// `Ground.Declared` to obtain a sky also stands a WORLD, whose bounds then drive the framing, so the
-// quad becomes a few pixels and every mean is background. That is a hypothesis. It was written into
-// board:2020 as a finding, and this case is what it should have had first.
+// `Ground.Declared` to obtain a sky also stands a WORLD, whose bounds then drive the framing, so
+// the quad becomes a few pixels and every mean is background. That is a hypothesis. It was written
+// into board:2020 as a finding, and this case is what it should have had first.
 //
 //   DRAWN         a handed quad with no sky declared reaches the frame
 //   STILL DRAWN   the same quad with a sky declared reaches it too, and covers a comparable share
@@ -32,8 +32,24 @@ namespace {
 
 constexpr int kFramePx = 96;
 
-constexpr float kFace[18] = {-2.0f, -2.0f, 0.0f, 2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f,
-                             -2.0f, -2.0f, 0.0f, 2.0f, 2.0f,  0.0f, -2.0f, 2.0f, 0.0f};
+constexpr float kFace[18] = {-2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             -2.0f,
+                             0.0f,
+                             2.0f,
+                             2.0f,
+                             0.0f,
+                             -2.0f,
+                             2.0f,
+                             0.0f};
 constexpr float kFacing[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
 constexpr uint32_t kRun[6] = {0, 1, 2, 3, 4, 5};
 
@@ -47,7 +63,7 @@ constexpr uint32_t kRun[6] = {0, 1, 2, 3, 4, 5};
   return (double)red / (double)pixels;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

@@ -51,7 +51,6 @@ struct SubjectTexture {
 };
 
 struct SubjectMaterial {
-
   Material Row;
   SubjectTexture Colour;
 
@@ -65,6 +64,7 @@ struct SubjectMaterial {
   float NormalScale = 1.0f;
 
   [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
+
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
 
   [[nodiscard]] bool ReadsSecondUv() const {
@@ -134,6 +134,6 @@ struct SubjectMesh : SubjectPose {
   std::span<const float> ClusterSpheres;
 };
 
-}
+} // namespace outshine::Render
 
 #endif

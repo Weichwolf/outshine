@@ -30,12 +30,17 @@ public:
   [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;
 
   [[nodiscard]] const uint8_t *Sheet(void) const override { return Rgba_.data(); }
+
   [[nodiscard]] int SheetWidthPx(void) const override { return SheetW_; }
+
   [[nodiscard]] int SheetHeightPx(void) const override { return SheetH_; }
+
   [[nodiscard]] uint64_t Cut(void) const override { return Cut_; }
 
   [[nodiscard]] uint64_t Opened(void) const { return Opened_; }
+
   [[nodiscard]] uint64_t Missed(void) const { return Missed_; }
+
   [[nodiscard]] size_t Cells(void) const { return Held_; }
 
 private:
@@ -72,5 +77,5 @@ private:
   bool Started_ = false;
 };
 
-}
+} // namespace outshine::Ui
 #endif

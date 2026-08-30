@@ -19,14 +19,22 @@ public:
   static constexpr DrawShape TemporalShaderShape{.FragmentSamplers = 4,
                                                  .FragmentUniformBuffers = 1};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
-                               SDL_GPUSampler *exact, SDL_GPUTextureFormat linear,
-                               const DisplayOptions &options, std::string &error);
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUTexture *scene,
+                               SDL_GPUTexture *depth,
+                               SDL_GPUSampler *exact,
+                               SDL_GPUTextureFormat linear,
+                               const DisplayOptions &options,
+                               std::string &error);
 
   void Bind(SDL_GPUTexture *scene) { Scene = scene; }
 
-  void BindTemporal(SDL_GPUTexture *history, SDL_GPUTexture *velocity, int width, int height,
-                    const float jitterDelta[2], bool historyHeld) {
+  void BindTemporal(SDL_GPUTexture *history,
+                    SDL_GPUTexture *velocity,
+                    int width,
+                    int height,
+                    const float jitterDelta[2],
+                    bool historyHeld) {
     History = history;
     Velocity = velocity;
     Width = width;
@@ -35,6 +43,7 @@ public:
     JitterDelta[1] = jitterDelta[1];
     HistoryHeld = historyHeld;
   }
+
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
@@ -50,5 +59,5 @@ private:
   SDL_GPUSampler *Exact = nullptr;
 };
 
-}
+} // namespace outshine::Render
 #endif

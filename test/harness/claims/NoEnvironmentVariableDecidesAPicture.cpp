@@ -75,8 +75,8 @@ int main(void) {
           const std::string named = Quoted(line, reads);
           std::string why;
           if (Excuse(named, why)) {
-            std::printf("NOTE %s:%d reads '%s' -- %s\n", path.c_str(), at, named.c_str(),
-                        why.c_str());
+            std::printf(
+                "NOTE %s:%d reads '%s' -- %s\n", path.c_str(), at, named.c_str(), why.c_str());
           } else {
             found.push_back(Reader{path, at, named});
           }
@@ -96,20 +96,24 @@ int main(void) {
         "distrust");
   for (const Reader &one : found) {
     std::printf("FOUND %s:%d reads the environment for '%s', with no reason declared\n",
-                one.File.c_str(), one.Line, one.Named.c_str());
+                one.File.c_str(),
+                one.Line,
+                one.Named.c_str());
   }
   Note("undeclared environment readers", (double)found.size(), "sites");
 
-  CHECK(found.empty(),
-        "**NO LAYER THAT DECIDES A PICTURE READS THE ENVIRONMENT.** The picture is a function of the "
-        "declaration and not of the machine, so a value that steers geometry, shading or streaming "
-        "arrives through a declaration a reader can see -- an engine default, a scenario, or a "
-        "consumer's override, each published with the measurement. getenv is ambient: read once, "
-        "appearing in no output, and a shell that set it three days ago changes today's number with "
-        "nothing to grep for");
+  CHECK(
+      found.empty(),
+      "**NO LAYER THAT DECIDES A PICTURE READS THE ENVIRONMENT.** The picture is a function of the "
+      "declaration and not of the machine, so a value that steers geometry, shading or streaming "
+      "arrives through a declaration a reader can see -- an engine default, a scenario, or a "
+      "consumer's override, each published with the measurement. getenv is ambient: read once, "
+      "appearing in no output, and a shell that set it three days ago changes today's number with "
+      "nothing to grep for");
 
-  Covers("I.17 the picture is a function of the declaration and not of the machine: no layer of the "
-         "engine that decides one reads an environment variable, and the host boundary that may is "
-         "named");
+  Covers(
+      "I.17 the picture is a function of the declaration and not of the machine: no layer of the "
+      "engine that decides one reads an environment variable, and the host boundary that may is "
+      "named");
   return Report();
 }

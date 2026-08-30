@@ -65,11 +65,14 @@ int main(void) {
     const bool fetched = HoldsAFetchedSubject(where, stem);
     const bool named = said.find("test/" + family + " declares") != std::string::npos;
     std::printf("NOTE test/%s: fetched subject %s, named by the runner %s\n",
-                family.c_str(), fetched ? "yes" : "no", named ? "yes" : "no");
+                family.c_str(),
+                fetched ? "yes" : "no",
+                named ? "yes" : "no");
     if (fetched == named) {
-      silent.push_back("test/" + family + (fetched ? " holds subjects and the runner "
-                                                           "names it anyway"
-                                                         : " holds none and the runner is silent"));
+      silent.push_back("test/" + family +
+                       (fetched ? " holds subjects and the runner "
+                                  "names it anyway"
+                                : " holds none and the runner is silent"));
     }
   }
 

@@ -13,7 +13,8 @@
 #include "Shell.h"
 
 #ifndef OUTSHINE_COMPILE
-#error "OUTSHINE_COMPILE is the harness's compile command for this layer; a subject cannot be judged without it"
+#error                                                                                             \
+    "OUTSHINE_COMPILE is the harness's compile command for this layer; a subject cannot be judged without it"
 #endif
 
 namespace outshine::Test {
@@ -31,9 +32,7 @@ inline SubjectExpectation DeclaredExpectation(const std::filesystem::path &subje
   SubjectExpectation declared;
   while (std::getline(source, line)) {
     const std::string refused = "// REFUSED: ";
-    if (line.rfind(refused, 0) == 0) {
-      return {Expectation::Refused, line.substr(refused.size())};
-    }
+    if (line.rfind(refused, 0) == 0) { return {Expectation::Refused, line.substr(refused.size())}; }
     if (line.rfind("// ACCEPTED", 0) == 0) { return {Expectation::Accepted, {}}; }
   }
   return declared;
@@ -70,7 +69,9 @@ inline void EveryCompileSubjectHolds(const char *directory) {
     const CompilerAnswer answer = Compile(subject);
     if (declared.What == Expectation::Accepted) {
       CHECK(!answer.Refused, "a subject declared ACCEPTED compiles under the house warning set");
-      if (answer.Refused) { std::printf("       %s\n%s", subject.c_str(), answer.Diagnostics.c_str()); }
+      if (answer.Refused) {
+        std::printf("       %s\n%s", subject.c_str(), answer.Diagnostics.c_str());
+      }
       continue;
     }
     CHECK(answer.Refused, "a subject declared REFUSED does not compile");
@@ -78,8 +79,10 @@ inline void EveryCompileSubjectHolds(const char *directory) {
         answer.Diagnostics.find(declared.Diagnostic) != std::string::npos;
     CHECK(forTheStatedReason, "a refused subject is refused for the reason it declares");
     if (!answer.Refused || !forTheStatedReason) {
-      std::printf("       %s declares REFUSED: %s\n%s", subject.c_str(),
-                  declared.Diagnostic.c_str(), answer.Diagnostics.c_str());
+      std::printf("       %s declares REFUSED: %s\n%s",
+                  subject.c_str(),
+                  declared.Diagnostic.c_str(),
+                  answer.Diagnostics.c_str());
     }
   }
   Note("compile subjects judged", static_cast<double>(subjects.size()), "files");
@@ -108,6 +111,6 @@ inline void NoIncludeClimbsOutOfItsDirectory(const char *directory) {
   Note("sources read for a climbing include", static_cast<double>(examined), "files");
 }
 
-}
+} // namespace outshine::Test
 
 #endif

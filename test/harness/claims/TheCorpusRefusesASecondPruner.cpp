@@ -11,12 +11,14 @@ namespace {
 
 // The guard is READ OUT OF run.sh and called, so the two cannot diverge: a copy of it as a
 // string literal here would stay green the day the guard left the runner (board:1838).
-[[nodiscard]] std::string DrivesTheRunnersGuard(const std::string &root, const std::string &where,
-                                                const char *nest) {
+[[nodiscard]] std::string
+DrivesTheRunnersGuard(const std::string &root, const std::string &where, const char *nest) {
   const std::string carved = root + "/guard.sh";
   std::string ignored;
   Run("{ echo 'Guard() {'; awk '/prunePreparer=/,/^  fi$/' test/run.sh; echo '  printf PRUNES'; "
-      "echo '}'; } > " + carved, ignored);
+      "echo '}'; } > " +
+          carved,
+      ignored);
   std::string said;
   Run("sh -c '. " + carved + "; prunePrepared=" + where + "; NEST=" + std::string(nest) +
           "; notMine=0; Guard; [ \"$notMine\" -gt 0 ] && printf LEFT-ALONE' 2>/dev/null",

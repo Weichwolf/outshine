@@ -20,7 +20,6 @@ public:
   enum class Use { Off, On };
 
   struct Config {
-
     std::string Directory;
     Use Using = Use::On;
 
@@ -36,12 +35,14 @@ public:
   void Keep(std::string_view key, const uint8_t *data, size_t bytes);
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
+
   [[nodiscard]] bool Enabled() const noexcept { return Using_ == Use::On; }
 
   struct Ledger {
     long long Hits = 0, Misses = 0, Writes = 0, WriteFailures = 0, Swept = 0;
     long long SweptBytes = 0;
   };
+
   [[nodiscard]] Ledger Counters() const;
 
 private:
@@ -55,5 +56,5 @@ private:
   std::atomic<uint64_t> TempSerial_{0};
 };
 
-}
+} // namespace outshine::Data
 #endif

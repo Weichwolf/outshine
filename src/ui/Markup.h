@@ -29,6 +29,7 @@ public:
   [[nodiscard]] bool Read(std::string_view markup, std::string &error);
 
   [[nodiscard]] const std::vector<Node> &Nodes() const { return Nodes_; }
+
   [[nodiscard]] int Root() const { return Root_; }
 
   [[nodiscard]] const std::string &StyleText() const { return Style_; }
@@ -48,5 +49,5 @@ private:
 [[nodiscard]] bool HoldsRawText(std::string_view tag);
 [[nodiscard]] bool IsBlockLevel(std::string_view tag);
 
-}
+} // namespace outshine::Ui
 #endif

@@ -37,9 +37,10 @@ namespace outshine::Render {
 
 class SceneRenderer {
 public:
-
   void Init(int width, int height, std::shared_ptr<const Compiled> plan);
+
   [[nodiscard]] const Compiled &Plan() const { return *Plan_; }
+
   [[nodiscard]] bool DeviceUsable() const { return Ready_; }
 
   [[nodiscard]] const std::string &WhyNot() const { return WhyNot_; }
@@ -49,15 +50,14 @@ public:
     int HeightPx = 0;
   };
 
-  [[nodiscard]] std::expected<void, std::string_view> DrawsInto(int widthPx, int heightPx,
-                                                                SDL_Window *presents);
+  [[nodiscard]] std::expected<void, std::string_view>
+  DrawsInto(int widthPx, int heightPx, SDL_Window *presents);
   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> Presented() const;
   void StopShowing();
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
-
 
   void SetPictureRegion(double x, double y, double width, double height, double aspect = 0.0) {
     RegionX_ = x;
@@ -68,9 +68,11 @@ public:
   }
 
   void RenderFrame();
+
   [[nodiscard]] bool Drew() const { return Submitted_; }
 
   ~SceneRenderer() { WaitForGpu(); }
+
   SceneRenderer() = default;
   SceneRenderer(const SceneRenderer &) = delete;
   SceneRenderer &operator=(const SceneRenderer &) = delete;
@@ -82,6 +84,7 @@ public:
   [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
   void WantsPixels();
+
   [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
 
   // WHETHER THIS DEVICE HAS A WINDOW TO SHOW A FRAME IN. Headless is the fast path rather than a
@@ -89,11 +92,14 @@ public:
   [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
 
   void Settle() { SDL_WaitForGPUIdle(Device_.Get()); }
+
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
+
   void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
+
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = (float)outshine::Camera::kNearestM;
 
@@ -109,7 +115,8 @@ public:
     return Overlay_.SetQuads(Handles_, quads, count, error);
   }
 
-  [[nodiscard]] bool SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
+  [[nodiscard]] bool
+  SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
     return Overlay_.SetAtlas(Handles_, rgba, width, height, error);
   }
 
@@ -129,7 +136,8 @@ public:
   }
 
   [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
-    return Subjects_.HandPlacements(false, error) && (!DrawsGlass_ || Glass_.HandPlacements(false, error));
+    return Subjects_.HandPlacements(false, error) &&
+           (!DrawsGlass_ || Glass_.HandPlacements(false, error));
   }
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
@@ -138,7 +146,9 @@ public:
   // geometry is resident and only what CHANGED crosses the bus. A number that stays high while
   // nothing moves is the finding, not the frame time it produces.
   [[nodiscard]] uint32_t SubjectBytesStaged() const { return Subjects_.StagedBytes(); }
+
   void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
+
   [[nodiscard]] const double *ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
@@ -152,7 +162,8 @@ public:
 
   [[nodiscard]] bool SetSubjectMaterials(std::span<const SubjectMaterial> materials,
                                          std::string &error) {
-    return Subjects_.SetMaterials(materials, error) && (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
+    return Subjects_.SetMaterials(materials, error) &&
+           (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
   }
 
   [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
@@ -196,6 +207,7 @@ public:
     Subjects_.SetEnvironment(environment);
     if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
   }
+
   [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
 
   // WHICH VERTEX LAYOUT EACH BATCH TOOK, which decides which SHADER VARIANT drew it. Nothing could
@@ -231,26 +243,32 @@ public:
   [[nodiscard]] size_t SubjectUniformPushes() const {
     return Subjects_.UniformPushes() + Glass_.UniformPushes();
   }
+
   [[nodiscard]] float ExposureApplied() const { return Plan_ ? Plan_->Exposure() : 0.0f; }
 
   [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-
-  void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
+  void SetCameraBasis(const double eye[3],
+                      const double fwd[3],
+                      const double right[3],
                       const double up[3]);
 
   void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? (float)deg : FovDeg_; }
+
   void SetOrthoM(double m) { OrthoM_ = (float)m; }
 
   void SetNearM(double m) { NearM_ = m > 0.0 ? (float)m : NearM_; }
+
   [[nodiscard]] float NearMetres() const { return NearM_; }
 
   void BeginTemporalRun();
 
   [[nodiscard]] int SceneW() const { return Width_; }
+
   [[nodiscard]] int SceneH() const { return Height_; }
+
   [[nodiscard]] double PictureW() const;
   [[nodiscard]] double PictureH() const;
 
@@ -258,10 +276,8 @@ public:
     return PictureH() > 0 ? (double)PictureW() / (double)PictureH() : 0.0;
   }
 
-
 private:
   Effort Spent_[kStageCount] = {};
-
 
   void Create(Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
@@ -272,6 +288,7 @@ private:
     bool (SceneRenderer::*Configure)(std::string &error);
     void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
   };
+
   static const Executor kExecutors[];
   static const size_t kExecutorCount;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
@@ -381,6 +398,7 @@ private:
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
   };
+
   [[nodiscard]] Placed PictureRect() const;
   double Eye_[3] = {0, 0, 0};
   double Fwd_[3] = {0, 0, 0}, Right_[3] = {0, 0, 0}, Up_[3] = {0, 0, 0};
@@ -396,5 +414,5 @@ private:
   float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
-}
+} // namespace outshine::Render
 #endif

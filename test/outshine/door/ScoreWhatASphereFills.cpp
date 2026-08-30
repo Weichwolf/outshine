@@ -86,7 +86,7 @@ struct Read {
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -111,8 +111,8 @@ int main(void) {
   };
 
   std::vector<uint8_t> dayLit, nightly, bareDay, bareNight;
-  if (!shot(true, 42.0, dayLit) || !shot(true, -80.0, nightly) ||
-      !shot(false, 42.0, bareDay) || !shot(false, -80.0, bareNight)) {
+  if (!shot(true, 42.0, dayLit) || !shot(true, -80.0, nightly) || !shot(false, 42.0, bareDay) ||
+      !shot(false, -80.0, bareNight)) {
     Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
   }
@@ -120,13 +120,21 @@ int main(void) {
   const Read day = Judged(dayLit), night = Judged(nightly);
   const Read plainDay = Judged(bareDay), plainNight = Judged(bareNight);
   std::printf("  sphere, sun +42 deg  mean max(RGB) %6.2f  peak %3d  pixels not opaque %zu\n",
-              day.MeanMax, day.Peak, day.Clear);
+              day.MeanMax,
+              day.Peak,
+              day.Clear);
   std::printf("  sphere, sun -80 deg  mean max(RGB) %6.2f  peak %3d  pixels not opaque %zu\n",
-              night.MeanMax, night.Peak, night.Clear);
+              night.MeanMax,
+              night.Peak,
+              night.Clear);
   std::printf("  no sphere,     +42   mean max(RGB) %6.2f  peak %3d  pixels not opaque %zu\n",
-              plainDay.MeanMax, plainDay.Peak, plainDay.Clear);
+              plainDay.MeanMax,
+              plainDay.Peak,
+              plainDay.Clear);
   std::printf("  no sphere,     -80   mean max(RGB) %6.2f  peak %3d  pixels not opaque %zu\n",
-              plainNight.MeanMax, plainNight.Peak, plainNight.Clear);
+              plainNight.MeanMax,
+              plainNight.Peak,
+              plainNight.Clear);
 
   CHECK(day.Clear == 0 && night.Clear == 0 && plainDay.Clear == 0 && plainNight.Clear == 0,
         "**A PRESENTED FRAME IS A PICTURE, NOT A CUT-OUT**: alpha is the coverage an "

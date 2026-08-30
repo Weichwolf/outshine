@@ -17,8 +17,11 @@ public:
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *opaque, SDL_GPUTexture *transmissive,
-                               SDL_GPUSampler *exact, SDL_GPUTextureFormat target,
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUTexture *opaque,
+                               SDL_GPUTexture *transmissive,
+                               SDL_GPUSampler *exact,
+                               SDL_GPUTextureFormat target,
                                std::string &error);
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
@@ -29,5 +32,5 @@ private:
   SDL_GPUSampler *Exact = nullptr;
 };
 
-}
+} // namespace outshine::Render
 #endif

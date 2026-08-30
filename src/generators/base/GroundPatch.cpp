@@ -8,22 +8,24 @@ namespace outshine::Generators {
 
 namespace {
 
-double Clamped(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
-
+double Clamped(double v, double lo, double hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
 }
 
-std::shared_ptr<const GroundPatch> GroundPatch::Complete(const Tile &region, int side,
-                                                         Span<const Posting> postings) {
-  if (side < 2 || postings.Size() != (size_t)side * (size_t)side) return nullptr;
-  for (const Posting &p : postings)
-    if (p.Height.Where() != GroundSample::State::Resolved) return nullptr;
+} // namespace
+
+std::shared_ptr<const GroundPatch>
+GroundPatch::Complete(const Tile &region, int side, Span<const Posting> postings) {
+  if (side < 2 || postings.Size() != (size_t)side * (size_t)side) { return nullptr; }
+  for (const Posting &p : postings) {
+    if (p.Height.Where() != GroundSample::State::Resolved) { return nullptr; }
+  }
   const double steps = (double)(side - 1);
   return std::shared_ptr<const GroundPatch>(
       new GroundPatch(side, region.SpanEm() / steps, region.SpanNm() / steps, postings));
 }
 
-GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm,
-                         Span<const Posting> postings)
+GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<const Posting> postings)
     : Side_(side), SpacingEm_(spacingEm), SpacingNm_(spacingNm) {
   AslM_.reserve(postings.Size());
   for (const Posting &p : postings) {
@@ -46,7 +48,9 @@ double GroundPatch::HeightAslM(double eastM, double northM) const noexcept {
   return (a + (b - a) * fu) * (1.0 - fv) + (c + (d - c) * fu) * fv;
 }
 
-void GroundPatch::GradientAt(double eastM, double northM, double *dhde,
+void GroundPatch::GradientAt(double eastM,
+                             double northM,
+                             double *dhde,
                              double *dhdn) const noexcept {
   *dhde = (HeightAslM(eastM + SpacingEm_, northM) - HeightAslM(eastM - SpacingEm_, northM)) /
           (2.0 * SpacingEm_);
@@ -64,4 +68,4 @@ size_t GroundPatch::HeapBytes() const {
   return AslM_.capacity() * sizeof(double);
 }
 
-}
+} // namespace outshine::Generators

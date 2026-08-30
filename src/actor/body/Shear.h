@@ -21,10 +21,11 @@ struct Shear {
   bool Sliding = false;
 };
 
-[[nodiscard]] Shear ShedAt(const Shearing &through, double loadN, double slipRad, double askedAlongN);
+[[nodiscard]] Shear
+ShedAt(const Shearing &through, double loadN, double slipRad, double askedAlongN);
 
-[[nodiscard]] Shear Shed(const Shearing &through, double loadN, double acrossMs, double alongMs,
-                         double askedAlongN);
+[[nodiscard]] Shear
+Shed(const Shearing &through, double loadN, double acrossMs, double alongMs, double askedAlongN);
 
 [[nodiscard]] double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM);
 
@@ -32,6 +33,6 @@ struct Shear {
 
 [[nodiscard]] double Brushed(double linearN, double holdN);
 
-}
+} // namespace outshine::Physics
 
 #endif

@@ -28,7 +28,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
 
   outshine::Scenario declared;
   declared.Bodies.push_back(outshine::Body{});
@@ -39,7 +40,9 @@ int main(void) {
   CHECK(declaredStands,
         ("**A WORLD STANDS WITH NO DEVICE**: this case never asks for a canvas, and Unreal's "
          "LoadMap builds a UWorld the same way -- which is what every commandlet and dedicated "
-         "server is: " + engine.error()).c_str());
+         "server is: " +
+         engine.error())
+            .c_str());
   if (!declaredStands) { return Report(); }
 
   outshine::Scene &world = engine.scene();
@@ -47,28 +50,32 @@ int main(void) {
   const outshine::Entity body = world.addEntity(outshine::Role::Body);
   const outshine::Entity mind = world.addEntity(outshine::Role::Mind);
   const bool made = world.alive(body) && world.alive(mind);
-  CHECK(made, "**A CLIENT MAKES ENTITIES THROUGH THE DOOR**: `Engine::Scene()` hands back the "
-              "world, and the world hands back handles -- which is Unreal's UWorld and RAGE's "
-              "entity store reached the way both engines reach them");
+  CHECK(made,
+        "**A CLIENT MAKES ENTITIES THROUGH THE DOOR**: `Engine::Scene()` hands back the "
+        "world, and the world hands back handles -- which is Unreal's UWorld and RAGE's "
+        "entity store reached the way both engines reach them");
 
   const bool tagged = world.giveTag(body, outshine::TagCatalogue::under(outshine::tags::Does, 1));
   CHECK(tagged, "and marks what one CAN do, from a catalogue a typo cannot enter");
 
   const bool linked = world.link(body, outshine::Relation::DrivenBy, mind);
-  CHECK(linked, ("and links a body to the mind that drives it: " +
-                 std::string(world.error())).c_str());
+  CHECK(linked,
+        ("and links a body to the mind that drives it: " + std::string(world.error())).c_str());
 
   const outshine::Entity found = world.targetOf(body, outshine::Relation::DrivenBy);
-  CHECK(found == mind, "and reads the link back -- so the graph answers, rather than only "
-                       "accepting");
+  CHECK(found == mind,
+        "and reads the link back -- so the graph answers, rather than only "
+        "accepting");
 
   const outshine::Entity tool = world.addEntity(outshine::Role::Tool);
   const bool refused = !world.link(body, outshine::Relation::DrivenBy, tool);
-  std::printf("A TOOL DRIVING A BODY  refused: %s   %s\n", refused ? "yes" : "NO",
+  std::printf("A TOOL DRIVING A BODY  refused: %s   %s\n",
+              refused ? "yes" : "NO",
               std::string(world.error()).c_str());
-  CHECK(refused, "**AND THE WORLD REFUSES WHAT ITS RULES FORBID**: DrivenBy targets a MIND, and a "
-                 "graph that accepts anything is a dictionary rather than a world. The rule is "
-                 "`constexpr` beside the relation, so it cannot drift from what the store does");
+  CHECK(refused,
+        "**AND THE WORLD REFUSES WHAT ITS RULES FORBID**: DrivenBy targets a MIND, and a "
+        "graph that accepts anything is a dictionary rather than a world. The rule is "
+        "`constexpr` beside the relation, so it cannot drift from what the store does");
 
   Covers("the door: a client reaches the WORLD through `Engine::Scene()` and nothing of `src/` -- "
          "making entities, marking what they can, linking them and reading the link back -- and "

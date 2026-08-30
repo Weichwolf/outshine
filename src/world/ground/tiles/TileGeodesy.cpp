@@ -9,11 +9,12 @@ namespace {
 constexpr double kDeg2Rad = kPi / 180.0;
 constexpr double kRad2Deg = 180.0 / kPi;
 
-}
+} // namespace
 
 TileIndex TileIndex::Of(Geo g, int z) {
-  if (g.LatDeg < -kMercatorLatMaxDeg || g.LatDeg > kMercatorLatMaxDeg)
+  if (g.LatDeg < -kMercatorLatMaxDeg || g.LatDeg > kMercatorLatMaxDeg) {
     return TileIndex(State::OutsideMercatorBand, 0, 0);
+  }
 
   const double n = std::ldexp(1.0, z);
   const double xf = (g.LonDeg + 180.0) / 360.0 * n;
@@ -21,10 +22,10 @@ TileIndex TileIndex::Of(Geo g, int z) {
 
   double xc = std::floor(xf);
   double yc = std::floor(yf);
-  if (xc < 0) xc = 0;
-  if (yc < 0) yc = 0;
-  if (xc > n - 1) xc = n - 1;
-  if (yc > n - 1) yc = n - 1;
+  if (xc < 0) { xc = 0; }
+  if (yc < 0) { yc = 0; }
+  if (xc > n - 1) { xc = n - 1; }
+  if (yc > n - 1) { yc = n - 1; }
   return TileIndex(State::Inside, (uint32_t)xc, (uint32_t)yc);
 }
 
@@ -42,7 +43,7 @@ GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
 
 Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t localX, int32_t localY) {
   Geo g;
-  if (extent == 0) return g;
+  if (extent == 0) { return g; }
 
   const double n = std::ldexp(1.0, z);
   const double invExtent = 1.0 / (double)extent;
@@ -121,16 +122,16 @@ Geo EcefToGeoWgs84(Ecef p) {
 }
 
 EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
-  if (originLatDeg < -89.9 || originLatDeg > 89.9)
+  if (originLatDeg < -89.9 || originLatDeg > 89.9) {
     return EnuFrame(State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0);
+  }
 
   const double mpd = kPi * kWgs84A / 180.0;
-  return EnuFrame(State::Usable, originLatDeg, originLonDeg, mpd,
-                  std::cos(originLatDeg * kDeg2Rad) * mpd);
+  return EnuFrame(
+      State::Usable, originLatDeg, originLonDeg, mpd, std::cos(originLatDeg * kDeg2Rad) * mpd);
 }
 
 TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent) {
-
   const GeoBounds b = TileBounds(z, x, y);
   Geo topLeft;
   topLeft.LonDeg = b.MinLonDeg;
@@ -141,7 +142,7 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
 
   TileEnuMap map;
   Enu etl, ebr;
-  if (!frame.TryFromGeo(topLeft, &etl) || !frame.TryFromGeo(bottomRight, &ebr)) return map;
+  if (!frame.TryFromGeo(topLeft, &etl) || !frame.TryFromGeo(bottomRight, &ebr)) { return map; }
 
   map.OriginE_ = etl.E;
   map.OriginN_ = etl.N;
@@ -152,4 +153,4 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
   return map;
 }
 
-}
+} // namespace outshine::Ground

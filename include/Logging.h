@@ -27,10 +27,14 @@ struct LogField {
 class LogSink {
 public:
   virtual ~LogSink() = default;
-  virtual void Write(double simTimeS, LogLevel level, const char *unit, const char *tag,
-                     const char *event, std::span<const LogField> fields) = 0;
+  virtual void Write(double simTimeS,
+                     LogLevel level,
+                     const char *unit,
+                     const char *tag,
+                     const char *event,
+                     std::span<const LogField> fields) = 0;
 };
 
-}
+} // namespace outshine
 
 #endif

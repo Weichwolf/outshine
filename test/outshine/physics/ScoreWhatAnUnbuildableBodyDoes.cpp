@@ -91,14 +91,13 @@ constexpr double kAirDensityKgM3 = 1.225;
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const outshine::Sim::Rigged whole =
-      outshine::Sim::Stand(Whole(), kGravityMs2, kAirDensityKgM3);
+  const outshine::Sim::Rigged whole = outshine::Sim::Stand(Whole(), kGravityMs2, kAirDensityKgM3);
   std::printf("  a body carrying every term      %s\n",
               whole.Stood ? "STANDS" : whole.Error.c_str());
   CHECK(whole.Stood,
@@ -108,19 +107,18 @@ int main(void) {
   for (const auto &[what, term, bend] :
        std::vector<std::tuple<const char *, const char *, void (*)(outshine::Body &)>>{
            {"no mass", "mass", [](outshine::Body &one) { one.MassKg = 0.0; }},
-           {"nothing that opposes", "slow",
-            [](outshine::Body &one) { one.Driven.pop_back(); }},
+           {"nothing that opposes", "slow", [](outshine::Body &one) { one.Driven.pop_back(); }},
            {"no frontal area", "frontal", [](outshine::Body &one) { one.FrontalM2 = 0.0; }},
-           {"a steering circle inside its own stance", "circle",
+           {"a steering circle inside its own stance",
+            "circle",
             [](outshine::Body &one) { one.Driven[0].CircleM = 1.0; }},
-           {"no contacts", "contact",
-            [](outshine::Body &one) { one.Contacts.clear(); }}}) {
+           {"no contacts", "contact", [](outshine::Body &one) { one.Contacts.clear(); }}}) {
     outshine::Body bent = Whole();
     bend(bent);
     const outshine::Sim::Rigged stood = outshine::Sim::Stand(bent, kGravityMs2, kAirDensityKgM3);
     const bool named = !stood.Stood && stood.Error.find(term) != std::string::npos;
-    std::printf("  %-30s %s\n", what,
-                stood.Stood ? "STOOD ANYWAY" : stood.Error.substr(0, 78).c_str());
+    std::printf(
+        "  %-30s %s\n", what, stood.Stood ? "STOOD ANYWAY" : stood.Error.substr(0, 78).c_str());
     CHECK(named,
           "**A BODY THE DECLARATION CANNOT SATISFY IS REFUSED, AND THE REFUSAL NAMES THE TERM**: "
           "an author reading it has to learn which number to fix, and a rig that stood with a "

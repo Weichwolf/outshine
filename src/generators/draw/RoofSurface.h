@@ -15,8 +15,10 @@ public:
   // ROOFS THAT COULD NOT BE COVERED, since the last read. A silent partial triangulation is what
   // this exists to make visible; the reader takes it and clears it.
   [[nodiscard]] static size_t UnclippedTaken() { return Unclipped_.exchange(0u); }
+
   // ROOF TRIANGLES WITH A VERTEX OUTSIDE THEIR OWN FOOTPRINT, since the last read.
   [[nodiscard]] static size_t OutsideTaken() { return Outside_.exchange(0u); }
+
   // WHAT `BreaksAlong` DID WITH THE CREASE CROSSINGS IT FOUND, since the last read. Two thresholds
   // act on one edge and they move in OPPOSITE directions with its length -- a crossing is dropped
   // within `kWeldM` METRES of an end, which is a shrinking FRACTION as the edge grows, and two
@@ -45,8 +47,8 @@ public:
   // stops matching the wall standing on it.
   static bool Fill(std::span<const En> plan, std::vector<En> &tris);
 
-  static std::vector<En> Widened(std::span<const En> ring, double byM,
-                                 std::span<const uint8_t> held = {});
+  static std::vector<En>
+  Widened(std::span<const En> ring, double byM, std::span<const uint8_t> held = {});
 
 private:
   inline static std::atomic<size_t> Unclipped_{0};
@@ -54,5 +56,5 @@ private:
   const BuildingShape &Shape_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

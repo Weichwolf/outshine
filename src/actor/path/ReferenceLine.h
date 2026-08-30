@@ -46,27 +46,36 @@ struct Segment {
 class ReferenceLine {
 public:
   [[nodiscard]] bool Lay(const Placed &from, std::span<const Segment> along, std::string &error);
-  [[nodiscard]] bool Lay(const Placed &from, std::initializer_list<Segment> along,
-                         std::string &error) {
+
+  [[nodiscard]] bool
+  Lay(const Placed &from, std::initializer_list<Segment> along, std::string &error) {
     return Lay(from, std::span<const Segment>(along.begin(), along.size()), error);
   }
 
   [[nodiscard]] bool Rise(std::span<const Knot> through, std::string &error);
+
   [[nodiscard]] bool Rise(std::initializer_list<Knot> through, std::string &error) {
     return Rise(std::span<const Knot>(through.begin(), through.size()), error);
   }
+
   [[nodiscard]] bool Bank(std::span<const Knot> through, std::string &error);
+
   [[nodiscard]] bool Bank(std::initializer_list<Knot> through, std::string &error) {
     return Bank(std::span<const Knot>(through.begin(), through.size()), error);
   }
 
   [[nodiscard]] bool At(double alongM, Placed &out) const;
-  [[nodiscard]] bool Nearest(double eastM, double northM, double nearM, double windowM,
-                             double &alongM) const;
+  [[nodiscard]] bool
+  Nearest(double eastM, double northM, double nearM, double windowM, double &alongM) const;
+
   [[nodiscard]] double LengthM() const { return Length_; }
+
   [[nodiscard]] size_t SegmentCount() const { return Laid_.size(); }
+
   [[nodiscard]] size_t RiseKnotCount() const { return Rise_.size(); }
+
   [[nodiscard]] size_t BankKnotCount() const { return Bank_.size(); }
+
   [[nodiscard]] std::vector<double> Seams() const;
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
@@ -77,12 +86,16 @@ private:
     Placed Entry;
     double AlongM = 0.0;
   };
+
   [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
   [[nodiscard]] bool Refuse(std::string why);
-  [[nodiscard]] bool Fasten(std::span<const Knot> through, const char *what, const char *unit,
-                            std::vector<Knot> &into, std::string &error);
-  static void Read(std::span<const Knot> through, double alongM, double &value, double &rate,
-                   double &bend);
+  [[nodiscard]] bool Fasten(std::span<const Knot> through,
+                            const char *what,
+                            const char *unit,
+                            std::vector<Knot> &into,
+                            std::string &error);
+  static void
+  Read(std::span<const Knot> through, double alongM, double &value, double &rate, double &bend);
 
   std::vector<Held> Laid_;
   std::vector<Knot> Rise_;
@@ -92,6 +105,6 @@ private:
   std::string Error_;
 };
 
-}
+} // namespace outshine
 
 #endif

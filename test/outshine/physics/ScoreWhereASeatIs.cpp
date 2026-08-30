@@ -62,9 +62,21 @@ constexpr double kRoofM = 1.45;
   made.Contacts.push_back(Standing(0.774, -1.405));
   made.Contacts.push_back(Standing(-0.774, 1.405));
   made.Contacts.push_back(Standing(0.774, 1.405));
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = false, .PeakNm = 400.0, .Ratio = 3.08, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = true, .PeakNm = 5500.0, .Ratio = 1.0, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion, .Opposes = false, .PeakNm = 0.0, .Ratio = 1.0, .CircleM = 11.3});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = false,
+                                        .PeakNm = 400.0,
+                                        .Ratio = 3.08,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = true,
+                                        .PeakNm = 5500.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion,
+                                        .Opposes = false,
+                                        .PeakNm = 0.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   made.AssetSpanM = 180.71;
@@ -77,32 +89,40 @@ constexpr double kRoofM = 1.45;
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   const outshine::Body declared = F31();
-  const outshine::Sim::Rigged stood =
-      outshine::Sim::Stand(declared, kGravityMs2, kAirDensityKgM3);
+  const outshine::Sim::Rigged stood = outshine::Sim::Stand(declared, kGravityMs2, kAirDensityKgM3);
   CHECK(stood.Stood, "the declaration stands, so its frames can be compared");
   if (!stood.Stood) { return Report(); }
 
   const double halfWidthM = 0.5 * declared.WidthM;
   const double halfLengthM = 0.5 * stood.Axles.WheelbaseM;
 
-  const double asDeclared[3] = {declared.Slots.front().AtM[0], declared.Slots.front().AtM[1], declared.Slots.front().AtM[2]};
-  const double inTheBody[3] = {asDeclared[0] - stood.CentreM[0], asDeclared[1] - stood.CentreM[1],
+  const double asDeclared[3] = {
+      declared.Slots.front().AtM[0], declared.Slots.front().AtM[1], declared.Slots.front().AtM[2]};
+  const double inTheBody[3] = {asDeclared[0] - stood.CentreM[0],
+                               asDeclared[1] - stood.CentreM[1],
                                asDeclared[2] - stood.CentreM[2]};
 
-  std::printf("THE CENTRE OF MASS the declaration puts at (%.3f, %.3f, %.3f) m\n", stood.CentreM[0],
-              stood.CentreM[1], stood.CentreM[2]);
-  std::printf("THE SEAT as declared, from the road:  (%.3f, %.3f, %.3f) m\n", asDeclared[0],
-              asDeclared[1], asDeclared[2]);
-  std::printf("THE SEAT in the body's own frame:     (%.3f, %.3f, %.3f) m\n", inTheBody[0],
-              inTheBody[1], inTheBody[2]);
-  std::printf("THE ROOF stands %.3f m off the road, so %.3f m above the body's origin\n", kRoofM,
+  std::printf("THE CENTRE OF MASS the declaration puts at (%.3f, %.3f, %.3f) m\n",
+              stood.CentreM[0],
+              stood.CentreM[1],
+              stood.CentreM[2]);
+  std::printf("THE SEAT as declared, from the road:  (%.3f, %.3f, %.3f) m\n",
+              asDeclared[0],
+              asDeclared[1],
+              asDeclared[2]);
+  std::printf("THE SEAT in the body's own frame:     (%.3f, %.3f, %.3f) m\n",
+              inTheBody[0],
+              inTheBody[1],
+              inTheBody[2]);
+  std::printf("THE ROOF stands %.3f m off the road, so %.3f m above the body's origin\n",
+              kRoofM,
               kRoofM - stood.CentreM[1]);
 
   CHECK(inTheBody[1] < kRoofM - stood.CentreM[1],
@@ -121,7 +141,8 @@ int main(void) {
         "mass not subtracted -- stands ABOVE the roof in that frame, so this case can tell the "
         "two readings apart rather than passing on either");
 
-  Note("how far the raw reading puts the eye above the roof", asDeclared[1] - (kRoofM - stood.CentreM[1]),
+  Note("how far the raw reading puts the eye above the roof",
+       asDeclared[1] - (kRoofM - stood.CentreM[1]),
        "m");
   Note("and the subtraction that fixes it", stood.CentreM[1], "m");
 

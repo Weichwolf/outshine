@@ -86,12 +86,11 @@ struct Laid {
   std::vector<double> withinAtM(points.size() / 2, halfM);
   if (byTheJunction) { withinAtM[1] = KerbM(halfM); }
   outshine::ReferenceLine line;
-  const outshine::Fitted fitted =
-      outshine::Fit(points, halfM, kLockM, {}, line, withinAtM);
+  const outshine::Fitted fitted = outshine::Fit(points, halfM, kLockM, {}, line, withinAtM);
   return Laid{fitted.Laid, fitted.TightestRadiusM, fitted.Error};
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -101,12 +100,17 @@ int main(void) {
   const Laid narrow = Over(1.5, true);
   const Laid byTheRoad = Over(3.75, false);
 
-  std::printf("  two 7.5 m roads, junction bound %5.2f m   %s  radius %6.3f m\n", KerbM(3.75),
-              wide.Stood ? "LAID   " : "REFUSED", wide.RadiusM);
-  std::printf("  two 3.0 m alleys, junction bound %5.2f m   %s  radius %6.3f m\n", KerbM(1.5),
-              narrow.Stood ? "LAID   " : "REFUSED", narrow.RadiusM);
+  std::printf("  two 7.5 m roads, junction bound %5.2f m   %s  radius %6.3f m\n",
+              KerbM(3.75),
+              wide.Stood ? "LAID   " : "REFUSED",
+              wide.RadiusM);
+  std::printf("  two 3.0 m alleys, junction bound %5.2f m   %s  radius %6.3f m\n",
+              KerbM(1.5),
+              narrow.Stood ? "LAID   " : "REFUSED",
+              narrow.RadiusM);
   std::printf("  two 7.5 m roads, ONE road's half width     %s  radius %6.3f m\n",
-              byTheRoad.Stood ? "LAID   " : "REFUSED", byTheRoad.RadiusM);
+              byTheRoad.Stood ? "LAID   " : "REFUSED",
+              byTheRoad.RadiusM);
   std::printf("  the vehicle bends to %.3f m\n", kLockM);
   if (!narrow.Stood) { std::printf("  the alley says: %s\n", narrow.Said.c_str()); }
 
@@ -130,8 +134,10 @@ int main(void) {
     const double loose = outshine::JunctionKerbM(3.75, 3.75, hairpinRad, 0.0);
     const double held = outshine::JunctionKerbM(3.75, 3.75, hairpinRad, kLegM);
     const double gentle = outshine::JunctionKerbM(3.75, 3.75, 0.1, kLegM);
-    std::printf("  a 178 deg hairpin, uncapped %8.2f m   capped by a %.0f m leg %8.2f m\n", loose,
-                kLegM, held);
+    std::printf("  a 178 deg hairpin, uncapped %8.2f m   capped by a %.0f m leg %8.2f m\n",
+                loose,
+                kLegM,
+                held);
     std::printf("  a 5.7 deg bend                                          %8.2f m\n", gentle);
 
     CHECK(loose > 200.0,

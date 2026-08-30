@@ -30,20 +30,22 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::vector<std::string> dangling = Lines(Ask(
-      "have=$(ls board/*.md | grep -o '[0-9]\\{4\\}' | sort -u); "
-      "for f in board/*.md; do "
-      "  n=$(basename \"$f\" | grep -o '^[0-9]*'); "
-      "  for field in Parent Depends; do "
-      "    sed -n \"s/^$field: //p\" \"$f\" | tr ',' '\\n' | tr -d ' ' | while read -r d; do "
-      "      [ -n \"$d\" ] || continue; "
-      "      printf '%s\\n' \"$have\" | grep -qx \"$d\" || printf '%s %s %s\\n' \"$n\" \"$field\" \"$d\"; "
-      "    done; "
-      "  done; "
-      "done"));
+  const std::vector<std::string> dangling = Lines(
+      Ask("have=$(ls board/*.md | grep -o '[0-9]\\{4\\}' | sort -u); "
+          "for f in board/*.md; do "
+          "  n=$(basename \"$f\" | grep -o '^[0-9]*'); "
+          "  for field in Parent Depends; do "
+          "    sed -n \"s/^$field: //p\" \"$f\" | tr ',' '\\n' | tr -d ' ' | while read -r d; do "
+          "      [ -n \"$d\" ] || continue; "
+          "      printf '%s\\n' \"$have\" | grep -qx \"$d\" || printf '%s %s %s\\n' \"$n\" "
+          "\"$field\" \"$d\"; "
+          "    done; "
+          "  done; "
+          "done"));
 
   const std::string items = Ask("ls board/*.md | wc -l | tr -d ' '");
-  std::printf("  %s item(s) on the board, %zu dangling Parent/Depends edge(s)\n", items.c_str(),
+  std::printf("  %s item(s) on the board, %zu dangling Parent/Depends edge(s)\n",
+              items.c_str(),
               dangling.size());
   for (const std::string &one : dangling) { std::printf("    %s names nothing\n", one.c_str()); }
 

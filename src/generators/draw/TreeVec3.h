@@ -9,17 +9,33 @@ struct TreeVec3 {
   float X = 0.0f, Y = 0.0f, Z = 0.0f;
 };
 
-inline TreeVec3 Vec3(float x, float y, float z) { return TreeVec3{x, y, z}; }
+inline TreeVec3 Vec3(float x, float y, float z) {
+  return TreeVec3{x, y, z};
+}
 
-inline TreeVec3 operator+(TreeVec3 a, TreeVec3 b) { return {a.X + b.X, a.Y + b.Y, a.Z + b.Z}; }
-inline TreeVec3 operator-(TreeVec3 a, TreeVec3 b) { return {a.X - b.X, a.Y - b.Y, a.Z - b.Z}; }
-inline TreeVec3 operator*(TreeVec3 a, float s) { return {a.X * s, a.Y * s, a.Z * s}; }
+inline TreeVec3 operator+(TreeVec3 a, TreeVec3 b) {
+  return {a.X + b.X, a.Y + b.Y, a.Z + b.Z};
+}
 
-inline float Dot(TreeVec3 a, TreeVec3 b) { return a.X * b.X + a.Y * b.Y + a.Z * b.Z; }
+inline TreeVec3 operator-(TreeVec3 a, TreeVec3 b) {
+  return {a.X - b.X, a.Y - b.Y, a.Z - b.Z};
+}
+
+inline TreeVec3 operator*(TreeVec3 a, float s) {
+  return {a.X * s, a.Y * s, a.Z * s};
+}
+
+inline float Dot(TreeVec3 a, TreeVec3 b) {
+  return a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+}
+
 inline TreeVec3 Cross(TreeVec3 a, TreeVec3 b) {
   return {a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X};
 }
-inline float Length(TreeVec3 a) { return std::sqrt(Dot(a, a)); }
+
+inline float Length(TreeVec3 a) {
+  return std::sqrt(Dot(a, a));
+}
 
 inline TreeVec3 Normalize(TreeVec3 a) {
   const float l = Length(a);
@@ -30,7 +46,8 @@ inline void FrameFrom(TreeVec3 t, TreeVec3 ref, TreeVec3 &n, TreeVec3 &b) {
   const TreeVec3 tt = Normalize(t);
   TreeVec3 nn = ref - tt * Dot(ref, tt);
   if (Length(nn) < 1e-5f) {
-    const TreeVec3 alt = std::fabs(tt.Y) < 0.9f ? TreeVec3{0.0f, 1.0f, 0.0f} : TreeVec3{1.0f, 0.0f, 0.0f};
+    const TreeVec3 alt =
+        std::fabs(tt.Y) < 0.9f ? TreeVec3{0.0f, 1.0f, 0.0f} : TreeVec3{1.0f, 0.0f, 0.0f};
     nn = alt - tt * Dot(alt, tt);
   }
   n = Normalize(nn);
@@ -49,5 +66,5 @@ inline TreeVec3 RmfDouble(TreeVec3 p0, TreeVec3 p1, TreeVec3 t0, TreeVec3 t1, Tr
   return Normalize(rL - v2 * (2.0f / c2 * Dot(v2, rL)));
 }
 
-}
+} // namespace outshine::Generators
 #endif

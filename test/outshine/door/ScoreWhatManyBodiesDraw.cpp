@@ -121,8 +121,8 @@ struct Drew {
   return stands;
 }
 
-[[nodiscard]] bool Ran(const std::string &under, const std::string &uri, int bodies, Drew &out,
-                       std::string &why) {
+[[nodiscard]] bool
+Ran(const std::string &under, const std::string &uri, int bodies, Drew &out, std::string &why) {
   outshine::Engine engine;
   engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
@@ -152,7 +152,7 @@ struct Drew {
   return true;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -179,10 +179,16 @@ int main(void) {
   const bool stood = Ran(under, uri, 1, one, why) && Ran(under, uri, 16, many, why);
   if (!stood) { std::printf("a declaration did not stand: %s\n", why.c_str()); }
 
-  std::printf("one body: %.0f draw(s) %.0f tri %.0f placement(s) %.0f differ\n", one.Draws,
-              one.Triangles, one.Placements, one.Differ);
-  std::printf("sixteen:  %.0f draw(s) %.0f tri %.0f placement(s) %.0f differ\n", many.Draws,
-              many.Triangles, many.Placements, many.Differ);
+  std::printf("one body: %.0f draw(s) %.0f tri %.0f placement(s) %.0f differ\n",
+              one.Draws,
+              one.Triangles,
+              one.Placements,
+              one.Differ);
+  std::printf("sixteen:  %.0f draw(s) %.0f tri %.0f placement(s) %.0f differ\n",
+              many.Draws,
+              many.Triangles,
+              many.Placements,
+              many.Differ);
 
   CHECK(stood && many.Placements == 16.0,
         "**EVERY DECLARED BODY REACHES THE PICTURE**: the simulation integrated sixteen and the "

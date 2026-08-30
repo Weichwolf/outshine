@@ -17,5 +17,5 @@ constexpr double kFramingFill = 0.6;
 
 constexpr double kFramingNearFloorFraction = 0.001;
 
-}
+} // namespace outshine::Render
 #endif

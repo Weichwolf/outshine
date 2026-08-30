@@ -19,8 +19,11 @@ namespace {
 }
 
 constexpr const char *kDeviceWork[] = {
-    "SDL_ClaimWindowForGPUDevice", "SDL_WaitAndAcquireGPUSwapchainTexture",
-    "SDL_ReleaseWindowFromGPUDevice", "SDL_AcquireGPUCommandBuffer", "SDL_CreateGPUTexture",
+    "SDL_ClaimWindowForGPUDevice",
+    "SDL_WaitAndAcquireGPUSwapchainTexture",
+    "SDL_ReleaseWindowFromGPUDevice",
+    "SDL_AcquireGPUCommandBuffer",
+    "SDL_CreateGPUTexture",
 };
 
 [[nodiscard]] bool ProvesTheDevice(const std::string &path) {

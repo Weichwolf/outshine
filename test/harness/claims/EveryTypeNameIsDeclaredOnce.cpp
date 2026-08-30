@@ -55,7 +55,8 @@ constexpr size_t kConstantNamesTwice = 1;
                                                                     size_t skipWords) {
   std::map<std::string, std::set<std::string>> out;
   const std::vector<std::string> hits =
-      Lines(Ask("grep -rnE '" + pattern + "' src/ include/ --include=*.h 2>/dev/null | grep -v ';$' | grep -v '::'"));
+      Lines(Ask("grep -rnE '" + pattern +
+                "' src/ include/ --include=*.h 2>/dev/null | grep -v ';$' | grep -v '::'"));
   for (const std::string &hit : hits) {
     const size_t colon = hit.find(':');
     if (colon == std::string::npos) { continue; }
@@ -73,7 +74,7 @@ constexpr size_t kConstantNamesTwice = 1;
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -95,7 +96,9 @@ int main(void) {
     const size_t equals = body.find(" =");
     if (equals == std::string::npos) { continue; }
     size_t from = equals;
-    while (from > 0 && (isalnum((unsigned char)body[from - 1]) || body[from - 1] == '_')) { --from; }
+    while (from > 0 && (isalnum((unsigned char)body[from - 1]) || body[from - 1] == '_')) {
+      --from;
+    }
     named[body.substr(from, equals - from)].insert(hit.substr(0, colon));
   }
   for (const auto &one : named) {

@@ -25,11 +25,14 @@
 namespace outshine::Core {
 namespace {
 
-
-bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces, bool sky, bool shadows,
+bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
+                 bool sky,
+                 bool shadows,
                  bool presents,
-                 const std::vector<std::string> &stages, const std::vector<std::string> &outputs,
-                 Render::PlanSpec &declaration, std::string &error) {
+                 const std::vector<std::string> &stages,
+                 const std::vector<std::string> &outputs,
+                 Render::PlanSpec &declaration,
+                 std::string &error) {
   // A PRESENT PASS FOR A WINDOW THAT DOES NOT EXIST IS WASTE. `Surface` is what PULLS
   // `Stage::Present` in -- the plan is demand-driven from `Outputs` -- so a headless frame simply
   // does not ask for it, and the readback takes `FrameTex` instead. The two carry ONE format,
@@ -88,8 +91,8 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces, bool sky,
   bool carriesGlass = false;
   for (const Render::SubjectMaterial &surface : surfaces) {
     const SurfaceKind kind = surface.State().Kind();
-    carriesGlass = carriesGlass || kind == SurfaceKind::ThinTransmissive ||
-                   kind == SurfaceKind::Refractive;
+    carriesGlass =
+        carriesGlass || kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
   }
   if (carriesGlass) {
     declaration.Content.push_back(Render::Stage::SubjectsTransmissive);
@@ -101,7 +104,7 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces, bool sky,
   return true;
 }
 
-}
+} // namespace
 
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
@@ -117,9 +120,11 @@ Live::~Live() {
   Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
 }
 
-bool Live::Open(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font,
-                std::unique_ptr<Live> &out, std::string &error) {
-
+bool Live::Open(Render::SceneRenderer &renderer,
+                Declaration declaration,
+                const Ui::Font *font,
+                std::unique_ptr<Live> &out,
+                std::string &error) {
   out.reset();
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
@@ -131,10 +136,7 @@ double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Render::kFramingFill;
 }
 
-namespace {
-
-
-}
+namespace {}
 
 // THE ENGINE FILLS THE VIEW THE RENDERER READS. `src/render/` no longer names the importer's
 // carrier: it takes a `Render::Shape`, which is spans over whatever is held, so inverting the
@@ -146,8 +148,6 @@ namespace {
 // uint32_t on both sides, a copy with an offset rather than a reshaping. This is the whole point
 // of the goal: `Assemble` widened 28 M vertices to double so that `PackVertices` could narrow them
 // back, and neither pass had a reader that wanted double.
-
-
 
 // ONE SHAPE, ONE STORE, ONE PRODUCER. Five call sites used to build a temporary over the SAME
 // buffer, so each one silently invalidated the spans the standing shape was holding. The shape is
@@ -188,8 +188,9 @@ bool Live::Build(std::string &error) {
     // FOUR CANDIDATES UNDER ONE PHASE, and guessing between them has cost three rounds today.
     const auto tookFrom = std::chrono::steady_clock::now();
     if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
-    CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
-                   .count();
+    CarryMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
+            .count();
     const auto resolvedFrom = std::chrono::steady_clock::now();
     Reshape();
     Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
@@ -199,7 +200,10 @@ bool Live::Build(std::string &error) {
   }
   if (!Declared_.Stands.empty()) {
     if (!Held_.Stands()) {
-      if (!Held_.Reads(Declared_.Stands, Declared_.Variant, Declared_.Animation, Declared_.Clip,
+      if (!Held_.Reads(Declared_.Stands,
+                       Declared_.Variant,
+                       Declared_.Animation,
+                       Declared_.Clip,
                        Declared_.Fps,
                        error)) {
         return false;
@@ -220,8 +224,12 @@ bool Live::Build(std::string &error) {
       }
     }
     Gltf::ResolveSurfaceTable(Held_.File(), Held_.Assembled(), true, true, Table_);
-    if (!Gltf::ResolveFileSurface(Held_.File(), Held_.Assembled(), Render::ColourFrom::Row, Render::ColourCarrier::Texture, Table_,
-                            error)) {
+    if (!Gltf::ResolveFileSurface(Held_.File(),
+                                  Held_.Assembled(),
+                                  Render::ColourFrom::Row,
+                                  Render::ColourCarrier::Texture,
+                                  Table_,
+                                  error)) {
       return false;
     }
     // THE FILE'S MATERIALS ARE A DEFAULT, NOT A FACT. A client rendering somebody else's asset
@@ -256,8 +264,8 @@ bool Live::Build(std::string &error) {
       // cause. Reserving the worst case first is the only version that is safe rather than lucky.
       {
         const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
-        const size_t many = standing.size() < Table_.PartSlot.size() ? standing.size()
-                                                                     : Table_.PartSlot.size();
+        const size_t many =
+            standing.size() < Table_.PartSlot.size() ? standing.size() : Table_.PartSlot.size();
         // A SLOT IS SPLIT ONLY WHERE IT IS SHARED. A part that is its slot's ONLY wearer takes the
         // declared row in place; splitting there would leave the original behind as a row no part
         // wears, and a dead row still answers questions -- `SubjectDraw::SetMaterials` walks every
@@ -296,7 +304,8 @@ bool Live::Build(std::string &error) {
       }
       if (took == 0) {
         error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
-                " surface(s) of '" + Declared_.Stands + "' and the file carries neither those "
+                " surface(s) of '" + Declared_.Stands +
+                "' and the file carries neither those "
                 "material names, those node names nor those part indices -- a surface declared "
                 "onto nothing changes "
                 "no pixel and says it did";
@@ -308,8 +317,8 @@ bool Live::Build(std::string &error) {
       for (const Material &declaredSurface : Declared_.Surfacing) {
         Render::SurfaceTable joining;
         Render::ShapeStore joiningParts;
-        Render::ResolveDeclaredSurface(Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface,
-                                       joining);
+        Render::ResolveDeclaredSurface(
+            Gltf::Shaped(*Declared_.Built, joiningParts), declaredSurface, joining);
         if (joining.Slots.empty()) {
           error = "a declared surface for the built geometry resolved to no slot, so the parts "
                   "joining this picture would name a surface that is not there";
@@ -325,9 +334,8 @@ bool Live::Build(std::string &error) {
       Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
       for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
         const int wanted = Held_.Assembled().Parts()[part].Material;
-        const uint32_t at = wanted > 0 && (size_t)wanted < Declared_.Surfacing.size()
-                                ? (uint32_t)wanted
-                                : 0u;
+        const uint32_t at =
+            wanted > 0 && (size_t)wanted < Declared_.Surfacing.size() ? (uint32_t)wanted : 0u;
         Table_.PartSlot[part] = base + at;
       }
       Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
@@ -352,8 +360,7 @@ bool Live::Build(std::string &error) {
       Table_.PartSlot.resize(before + (size_t)also.parts(), base);
       for (int part = 0; part < also.parts(); ++part) {
         const int wears = also.materialOf(part).index();
-        const uint32_t at =
-            wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
+        const uint32_t at = wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
         Table_.PartSlot[before + (size_t)part] = at;
       }
       // AND THE CARRIED COUNT IS THE ENGINE'S, NOT THE CALLER'S GUESS. It is the DRIVEN subject's
@@ -385,9 +392,14 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  if (!DeclarePlan(Table_.Slots, Declared_.DrawsSky, ShadowRadiusStoodM_ > 0.0,
-                   Renderer_ != nullptr && Renderer_->Presents(), Declared_.Stages,
-                   Declared_.Outputs, declaration, error)) {
+  if (!DeclarePlan(Table_.Slots,
+                   Declared_.DrawsSky,
+                   ShadowRadiusStoodM_ > 0.0,
+                   Renderer_ != nullptr && Renderer_->Presents(),
+                   Declared_.Stages,
+                   Declared_.Outputs,
+                   declaration,
+                   error)) {
     return false;
   }
   if (Declared_.Transfer == "linear") {
@@ -400,8 +412,7 @@ bool Live::Build(std::string &error) {
     return false;
   }
   if (Declared_.Precision == "float") {
-    declaration.Precision =
-        Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Float);
+    declaration.Precision = Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Float);
   } else if (Declared_.Precision == "half") {
     declaration.Precision = Render::Declared<Render::ScenePrecision>(Render::ScenePrecision::Half);
   } else if (!Declared_.Precision.empty()) {
@@ -413,8 +424,7 @@ bool Live::Build(std::string &error) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {
     const double ev100 = std::log2(Declared_.KeyLux / 2.5);
-    declaration.Exposure =
-        Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
+    declaration.Exposure = Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
   }
   if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
@@ -456,9 +466,7 @@ bool Live::Build(std::string &error) {
     const float up[3] = {0.0f, 1.0f, 0.0f};
 
     Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
-    if (ShadowRadiusStoodM_ > 0.0) {
-      Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_);
-    }
+    if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
   }
 
   const double eye[3] = {0.0, 0.0, 0.0}, forward[3] = {0.0, 0.0, -1.0};
@@ -466,9 +474,11 @@ bool Live::Build(std::string &error) {
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
   if (Shaped_.TriangleCount() > 0) {
-
-    Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
-                                Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
+    Renderer_->SetPictureRegion(Declared_.PictureLeftFrac,
+                                Declared_.PictureTopFrac,
+                                Declared_.PictureWidthFrac,
+                                Declared_.PictureHeightFrac,
+                                0.0);
     auto insideFrom = std::chrono::steady_clock::now();
     const auto sinceInside = [&insideFrom]() {
       const double ms =
@@ -601,8 +611,8 @@ bool Live::Look(std::string &error) {
     Looking_.Eye = Eye_;
     Looking_.StandsInside = true;
     Render::ShapeStore aiming;
-    return Render::Aim(*Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(),
-                       error);
+    return Render::Aim(
+        *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
   }
   double least[3], most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
@@ -612,8 +622,8 @@ bool Live::Look(std::string &error) {
     return false;
   }
   framed = fromFile;
-  const double centre[3] = {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5,
-                            (least[2] + most[2]) * 0.5};
+  const double centre[3] = {
+      (least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5};
   const double turn = Around_ * std::numbers::pi / 180.0;
   const double cosine = std::cos(turn), sine = std::sin(turn);
   const auto spun = [cosine, sine](const double from[3], double out[3]) {
@@ -621,8 +631,8 @@ bool Live::Look(std::string &error) {
     out[1] = from[1];
     out[2] = -from[0] * sine + from[2] * cosine;
   };
-  const double offset[3] = {framed.EyeM[0] - centre[0], framed.EyeM[1] - centre[1],
-                            framed.EyeM[2] - centre[2]};
+  const double offset[3] = {
+      framed.EyeM[0] - centre[0], framed.EyeM[1] - centre[1], framed.EyeM[2] - centre[2]};
   double turned[3];
   spun(offset, turned);
   for (int axis = 0; axis < 3; ++axis) { framed.EyeM[axis] = centre[axis] + turned[axis]; }
@@ -639,8 +649,8 @@ bool Live::Look(std::string &error) {
   // so refreshing the shared shape here would leave the proxy standing over three parts while its
   // surface table names nine. Its own store, and the standing shape is left alone.
   Render::ShapeStore aiming;
-  return Render::Aim(*Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(),
-                     error);
+  return Render::Aim(
+      *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
 }
 
 bool Live::Stand(std::string &error) {
@@ -666,16 +676,15 @@ bool Live::Stand(std::string &error) {
     const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
     std::array<float, 3> radiance{};
     for (int channel = 0; channel < 3; ++channel) {
-      radiance[(size_t)channel] = emits ? row.Emission[channel]
-                                        : row.BaseColour[channel] *
-                                              (float)Declared_.IndirectLight[channel];
+      radiance[(size_t)channel] =
+          emits ? row.Emission[channel]
+                : row.BaseColour[channel] * (float)Declared_.IndirectLight[channel];
     }
     (void)Stood_.Emits(part, radiance);
   }
 
   for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
   if (Declared_.KeyLux > 0.0) {
-
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
     PunctualLight key;
@@ -691,26 +700,28 @@ bool Live::Stand(std::string &error) {
     environment.RadianceLinear[channel] = (float)Declared_.IndirectLight[channel];
   }
   if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
-
     const Render::Medium medium;
-    const float cosSun =
-        (float)std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
+    const float cosSun = (float)std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
     const auto toSun = [&](float radiusKm, float cosZenith, float out[3]) {
       Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
     };
     const auto secondOrder = [&](float radiusKm, float cosZenith, float out[3]) {
       float luminance[3], transfer[3];
       const float unitU = cosZenith * 0.5f + 0.5f;
-      const float unitV = (radiusKm - medium.BottomRadiusKm) /
-                          (medium.TopRadiusKm - medium.BottomRadiusKm);
+      const float unitV =
+          (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
       Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
       for (int channel = 0; channel < 3; ++channel) {
         out[channel] = luminance[channel] / (1.0f - transfer[channel]);
       }
     };
     float skylight[3];
-    Render::MediumSkyIrradiance(medium, medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
-                                cosSun, toSun, secondOrder, skylight);
+    Render::MediumSkyIrradiance(medium,
+                                medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
+                                cosSun,
+                                toSun,
+                                secondOrder,
+                                skylight);
     float sunReach[3];
     toSun(medium.BottomRadiusKm + Render::kMediumGroundLiftKm, cosSun, sunReach);
     const float straightDown = cosSun > 0.0f ? cosSun : 0.0f;
@@ -740,7 +751,6 @@ bool Live::Stand(std::string &error) {
   // test stopped discriminating: distant towers drew and the buildings beside the camera did not.
   // Filament's `Camera` is authoritative and its `View` does not refit it; Unreal's is the same.
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
-
     double least[3], most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
     Shaped_.BoundsOf(Joined_, least, most);
@@ -775,7 +785,6 @@ bool Live::Submit(std::string &error) {
   }
   return Render::Move(*Renderer_, Stood_, Looking_, Scratch_, error);
 }
-
 
 const std::string &Live::ProgrammeOf(size_t surface) const {
   static const std::string kNone;
@@ -868,8 +877,7 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
     error = "the frame did not come back from the device";
     return false;
   }
-  const size_t want =
-      (size_t)Declared_.SurfaceWidthPx * (size_t)Declared_.SurfaceHeightPx * 4u;
+  const size_t want = (size_t)Declared_.SurfaceWidthPx * (size_t)Declared_.SurfaceHeightPx * 4u;
   if (rgba.size() != want) {
     error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
             std::to_string(Declared_.SurfaceWidthPx) + " by " +
@@ -909,8 +917,8 @@ bool Live::Carries(size_t bodies, std::string &error) {
   }
   const size_t stood = Stood_.Instances();
   if (!Stood_.Carries(bodies)) {
-    error = "the subject proxy stands over nothing, so it cannot carry " +
-            std::to_string(bodies) + " bodies";
+    error = "the subject proxy stands over nothing, so it cannot carry " + std::to_string(bodies) +
+            " bodies";
     return false;
   }
   if (stood != bodies && Stoodup_) {
@@ -929,14 +937,16 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   return Carry(0, worldFromBodyM, built, error);
 }
 
-bool Live::Carry(size_t body, const double worldFromBodyM[16], const double built[16],
+bool Live::Carry(size_t body,
+                 const double worldFromBodyM[16],
+                 const double built[16],
                  std::string &error) {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
   double bodyM[16];
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {
-      bodyM[column * 4 + row] =
-          column < 3 ? worldFromBodyM[column * 4 + row] * perUnit : worldFromBodyM[column * 4 + row];
+      bodyM[column * 4 + row] = column < 3 ? worldFromBodyM[column * 4 + row] * perUnit
+                                           : worldFromBodyM[column * 4 + row];
     }
   }
   if (Joined_ == 0) {
@@ -1003,7 +1013,10 @@ bool Live::Carry(size_t body, const double worldFromBodyM[16], const double buil
   return true;
 }
 
-bool Live::Restands(std::string stands, std::string variant, AssetAnimation animation, int clip,
+bool Live::Restands(std::string stands,
+                    std::string variant,
+                    AssetAnimation animation,
+                    int clip,
                     std::string &error) {
   Declared_.Stands = std::move(stands);
   Declared_.Variant = std::move(variant);
@@ -1019,7 +1032,9 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &erro
   return Restand(built, carried, Declared_.Surfacing.front(), error);
 }
 
-bool Live::Restand(outshine::Geometry &&built, size_t carried, const Material &wearing,
+bool Live::Restand(outshine::Geometry &&built,
+                   size_t carried,
+                   const Material &wearing,
                    std::string &error) {
   Aimed_ = false;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
@@ -1030,8 +1045,8 @@ bool Live::Restand(outshine::Geometry &&built, size_t carried, const Material &w
   Carrying_ = carried;
   auto phaseAt = std::chrono::steady_clock::now();
   const bool stood = Build(error);
-  BuildMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
-                 .count();
+  BuildMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   StandMs_ = 0.0;
   SubmitMs_ = 0.0;
   Carrying_ = 0;
@@ -1039,7 +1054,9 @@ bool Live::Restand(outshine::Geometry &&built, size_t carried, const Material &w
   return stood;
 }
 
-bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
+bool Live::Restand(const Gltf::Subject &built,
+                   size_t carried,
+                   const Material &wearing,
                    std::string &error) {
   Aimed_ = false;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
@@ -1080,7 +1097,8 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &w
   return true;
 }
 
-size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
+size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0,
+       Live::TookDrawing_ = 0;
 size_t Live::AssetReads_ = 0;
 size_t Live::PlanInits_ = 0;
 
@@ -1146,6 +1164,4 @@ bool Live::Draw(std::string &error) {
   return true;
 }
 
-
-
-}
+} // namespace outshine::Core

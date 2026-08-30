@@ -59,7 +59,7 @@ constexpr double kGravel = 0.6111;
   return most;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -77,7 +77,9 @@ int main(void) {
     }
     const Route over = alone.Plan(Waypoint{48.0, 11.000}, Waypoint{48.0, 11.010}, 0.0);
     std::printf("ONE WAY, gravel   legs %zu   least friction %.4f   declared %.4f\n",
-                over.Legs.size(), LeastFriction(over), kGravel);
+                over.Legs.size(),
+                LeastFriction(over),
+                kGravel);
     CHECK(!over.Legs.empty() && std::fabs(LeastFriction(over) - kGravel) < 1e-9,
           "**THE SURFACE REACHES THE LEG**: what a way's class declared arrives unchanged at the "
           "route the pilot reads, through the way, the node and the leg, so a wheel can be told "
@@ -97,21 +99,20 @@ int main(void) {
   }
   std::printf("TWO WAYS MEET     joined %zu junction(s)\n", joined);
 
-  const Route alongAsphalt =
-      meeting.Plan(Waypoint{48.0, 11.000}, Waypoint{48.0, 11.010}, 0.0);
-  const Route acrossGravel =
-      meeting.Plan(Waypoint{47.998, 11.005}, Waypoint{48.002, 11.005}, 0.0);
+  const Route alongAsphalt = meeting.Plan(Waypoint{48.0, 11.000}, Waypoint{48.0, 11.010}, 0.0);
+  const Route acrossGravel = meeting.Plan(Waypoint{47.998, 11.005}, Waypoint{48.002, 11.005}, 0.0);
 
   std::printf("  along the asphalt  least friction %.4f   widest half %.2f m\n",
-              LeastFriction(alongAsphalt), WidestHere(alongAsphalt));
+              LeastFriction(alongAsphalt),
+              WidestHere(alongAsphalt));
   std::printf("  across the gravel  least friction %.4f   widest half %.2f m\n",
-              LeastFriction(acrossGravel), WidestHere(acrossGravel));
+              LeastFriction(acrossGravel),
+              WidestHere(acrossGravel));
 
   CHECK(joined > 0,
         "the two ways meet at a junction, so there is a shared node for the rules below to "
         "disagree about");
-  CHECK(LeastFriction(alongAsphalt) > 0.0 &&
-            LeastFriction(alongAsphalt) <= kGravel + 1e-9,
+  CHECK(LeastFriction(alongAsphalt) > 0.0 && LeastFriction(alongAsphalt) <= kGravel + 1e-9,
         "**THE JOINT TAKES THE WORSE SURFACE**: a route down the asphalt reports the GRAVEL's "
         "friction where the two meet, because a node is one point a wheel stands on and it must "
         "not promise grip the ground does not have -- a driver planning on a promise the surface "

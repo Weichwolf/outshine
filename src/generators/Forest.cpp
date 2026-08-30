@@ -14,14 +14,19 @@ namespace {
 
 constexpr uint64_t kStreamsPerCell = 4;
 
-float Unit24(uint64_t bits) { return (float)(bits & 0xFFFFFFu) * (1.0f / 16777216.0f); }
-float Unit16(uint64_t bits) { return (float)(bits & 0xFFFFu) * (1.0f / 65536.0f); }
+float Unit24(uint64_t bits) {
+  return (float)(bits & 0xFFFFFFu) * (1.0f / 16777216.0f);
+}
+
+float Unit16(uint64_t bits) {
+  return (float)(bits & 0xFFFFu) * (1.0f / 65536.0f);
+}
 
 float SizeFactor(uint64_t bits, float sigma) {
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16) - 1.0f) * 2.4494897f;
 }
 
-}
+} // namespace
 
 Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit)
     : PerM2_(perM2ByRow), Limit_(limit) {
@@ -31,15 +36,19 @@ Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const Alpin
 }
 
 Span<const char *const> Forest::NoteNames() const noexcept {
-  static constexpr const char *const kNames[kNotes] = {
-      "noTemplate", "noSpecies", "zeroDensity",      "densityDraw",
-      "aboveTreeline", "tooSteep", "woodyDraw", "highestStandAslM"};
+  static constexpr const char *const kNames[kNotes] = {"noTemplate",
+                                                       "noSpecies",
+                                                       "zeroDensity",
+                                                       "densityDraw",
+                                                       "aboveTreeline",
+                                                       "tooSteep",
+                                                       "woodyDraw",
+                                                       "highestStandAslM"};
   static_assert(sizeof(Forest::Stem) == 24, "sizeof(Forest::Stem)");
   static_assert(std::is_trivially_copyable<Forest::Stem>::value, "a stem is copied per cell");
   static_assert(Forest::kSpeciesTableBytes == 1536, "the species table's bytes");
 
-  static_assert(EveryNoteNamed(kNames),
-                "every Note carries a name and none of them is empty");
+  static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
   return Span<const char *const>(kNames, kNotes);
 }
 
@@ -47,14 +56,16 @@ Forest::Lattice Forest::Of(const Tile &region) {
   Lattice l;
   l.Cols = (int)(region.SpanEm() / kCellM + 0.5);
   l.Rows = (int)(region.SpanNm() / kCellM + 0.5);
-  if (l.Cols < 1) l.Cols = 1;
-  if (l.Rows < 1) l.Rows = 1;
+  if (l.Cols < 1) { l.Cols = 1; }
+  if (l.Rows < 1) { l.Rows = 1; }
   l.Em = region.SpanEm() / (double)l.Cols;
   l.Nm = region.SpanNm() / (double)l.Rows;
   return l;
 }
 
-Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, Cell cell,
+Forest::Outcome Forest::Consider(const Ground &ground,
+                                 const Lattice &lattice,
+                                 Cell cell,
                                  Body *out) const noexcept {
   const Tile &region = ground.Where();
   const uint64_t index = (uint64_t)cell.J * (uint64_t)lattice.Cols + (uint64_t)cell.I;
@@ -63,13 +74,16 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
   const double northM = ((double)cell.J + 0.25 + 0.5 * (double)Unit24(place >> 24)) * lattice.Nm;
 
   int row = 0;
-  if (!ground.CoverAt(eastM, northM).TryRow(&row) || (size_t)row >= PerM2_.Size())
+  if (!ground.CoverAt(eastM, northM).TryRow(&row) || (size_t)row >= PerM2_.Size()) {
     return Outcome::NoTemplate;
+  }
   const float perM2 = PerM2_[(size_t)row];
-  if (perM2 <= 0.0f) return Outcome::ZeroDensity;
+  if (perM2 <= 0.0f) { return Outcome::ZeroDensity; }
 
   const uint64_t draw = region.Seed(index * kStreamsPerCell + 1);
-  if (Unit24(draw) > (float)((double)perM2 * lattice.Em * lattice.Nm)) return Outcome::DensityDraw;
+  if (Unit24(draw) > (float)((double)perM2 * lattice.Em * lattice.Nm)) {
+    return Outcome::DensityDraw;
+  }
 
   const double aslM = ground.HeightAslM(eastM, northM);
 
@@ -78,13 +92,14 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
   const double jitterN = latDeg * kMPerDeg;
   const double woody = Limit_.WoodyFraction(latDeg, aslM, jitterE + eastM, jitterN + northM);
   double steep = 0.0;
-  if (woody > 0.0 && (size_t)row < ground.Table().Count())
+  if (woody > 0.0 && (size_t)row < ground.Table().Count()) {
     steep = Limit_.BareBySlope(ground.SlopeDeg(eastM, northM),
                                (double)ground.Table().At((size_t)row).SlopeMaxDeg);
-  if (woody <= 0.0) return Outcome::AboveTreeline;
-  if (steep >= 1.0) return Outcome::TooSteep;
+  }
+  if (woody <= 0.0) { return Outcome::AboveTreeline; }
+  if (steep >= 1.0) { return Outcome::TooSteep; }
 
-  if ((double)Unit24(draw >> 24) >= woody * (1.0 - steep)) return Outcome::WoodyDraw;
+  if ((double)Unit24(draw >> 24) >= woody * (1.0 - steep)) { return Outcome::WoodyDraw; }
 
   if (Held_ == 0) { return Outcome::NoSpecies; }
   const Stem &stem = Stems_[(size_t)(region.Seed(index * kStreamsPerCell + 3) % Held_)];
@@ -118,19 +133,20 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
       }
       const Claim claim = yield.Place(body);
 
-      if (claim.Why() == Claim::Outcome::Full) return;
-      if (claim.Why() == Claim::Outcome::Placed) yield.Raise(HighestStandAslM, body.BaseAslM);
+      if (claim.Why() == Claim::Outcome::Full) { return; }
+      if (claim.Why() == Claim::Outcome::Placed) { yield.Raise(HighestStandAslM, body.BaseAslM); }
     }
   }
 }
 
 uint32_t Forest::Proposes(double areaM2) const noexcept {
   double densest = 0.0;
-  for (size_t i = 0; i < PerM2_.Size(); i++)
-    if ((double)PerM2_[i] > densest) densest = (double)PerM2_[i];
+  for (size_t i = 0; i < PerM2_.Size(); i++) {
+    if ((double)PerM2_[i] > densest) { densest = (double)PerM2_[i]; }
+  }
   const double cellM2 = kCellM * kCellM;
   double p = densest * cellM2;
-  if (p > 1.0) p = 1.0;
+  if (p > 1.0) { p = 1.0; }
   const double n = areaM2 / cellM2;
   const double mean = n * p;
   const double sd = std::sqrt(n * p * (1.0 - p));
@@ -141,8 +157,10 @@ uint32_t Forest::Proposes(double areaM2) const noexcept {
 bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const Lattice lattice = Of(ground.Where());
   const Cell cell{(int)std::floor(eastM / lattice.Em), (int)std::floor(northM / lattice.Nm)};
-  if (cell.I < 0 || cell.J < 0 || cell.I >= lattice.Cols || cell.J >= lattice.Rows) return false;
+  if (cell.I < 0 || cell.J < 0 || cell.I >= lattice.Cols || cell.J >= lattice.Rows) {
+    return false;
+  }
   return Consider(ground, lattice, cell, out) == Outcome::Placed;
 }
 
-}
+} // namespace outshine::Generators

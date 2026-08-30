@@ -25,7 +25,7 @@ namespace {
 constexpr int kRate = 24000;
 constexpr double kRt60 = 1.5;
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -65,8 +65,10 @@ int main(void) {
   std::vector<float> stereo(2048u * 2u, 0.0f);
   double struckPeak = 0.0;
   for (int block = 0; block < 4; ++block) {
-    if (!mixer.Fills(stereo, std::span<const outshine::Audio::Heard>(&where, 1),
-                     outshine::Audio::Listening{}, why)) {
+    if (!mixer.Fills(stereo,
+                     std::span<const outshine::Audio::Heard>(&where, 1),
+                     outshine::Audio::Listening{},
+                     why)) {
       Unprepared(why.c_str());
       return Report();
     }
@@ -80,8 +82,10 @@ int main(void) {
   double heldS = 0.0;
   const double owedShare = std::pow(10.0, -60.0 / 20.0);
   for (int block = 0; block < 200; ++block) {
-    if (!mixer.Fills(stereo, std::span<const outshine::Audio::Heard>(&where, 1),
-                     outshine::Audio::Listening{}, why)) {
+    if (!mixer.Fills(stereo,
+                     std::span<const outshine::Audio::Heard>(&where, 1),
+                     outshine::Audio::Listening{},
+                     why)) {
       break;
     }
     double loudest = 0.0;
@@ -96,7 +100,10 @@ int main(void) {
   std::printf("      g = 10^(-3D/RT60) per comb, struck peak %.4f\n", struckPeak);
 
   CHECK(struckPeak > 0.0, "the room is struck at all -- a send of one into a declared room");
-  CHECK_NEAR(heldS, kRt60, kRt60 * 0.35, "s",
+  CHECK_NEAR(heldS,
+             kRt60,
+             kRt60 * 0.35,
+             "s",
              "**A ROOM HOLDS A SOUND FOR THE TIME IT DECLARES**: RT60 = -3*D / log10(g) is the "
              "comb's own decay, and the mixer inverts it to choose g from the declared time. A "
              "wrong inversion gives a tail that is visibly short or endless, and the tolerance is "

@@ -27,8 +27,8 @@ using Result = std::expected<void, std::string>;
 // WHAT A WAIT LOOKS LIKE WHILE IT IS STILL WAITING. Cesium answers `ComputeLoadProgress()` and
 // Unreal `GetAsyncLoadPercentage`, both a single share, and a single share cannot say WHY a load is
 // slow. These are the quantities that can: how much of each kind arrived, what the wire actually
-// delivered, and how long a fetch took on average. A client that blocks on `preload` cannot poll for
-// them, so `preload` hands them over on every wake.
+// delivered, and how long a fetch took on average. A client that blocks on `preload` cannot poll
+// for them, so `preload` hands them over on every wake.
 struct Loading {
   size_t GroundWanted = 0, GroundArrived = 0;
   size_t VectorWanted = 0, VectorArrived = 0;
@@ -75,13 +75,14 @@ public:
   [[nodiscard]] Extent extent(void) const;
   [[nodiscard]] bool presents(void) const;
 
-
   // WHERE THE ENGINE'S COMMENTARY GOES. Handing in nothing turns it off, which is the default.
   void logsTo(LogSink *sink);
 
 private:
   friend class Engine;
+
   explicit SwapChain(Engine &of) : Of_(&of) {}
+
   Engine *Of_ = nullptr;
 };
 
@@ -106,15 +107,18 @@ public:
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 
   // HOW MANY FRAMES THIS PLAN NEEDS BEFORE IT IS SHOWING WHAT IT MEANS TO SHOW. A temporal resolve
-  // gathers its samples over TIME -- the projection is jittered by a sub-pixel offset each frame and
-  // the history is reprojected and blended -- so a still camera converges only because the SAMPLE
-  // moves, and one frame of it is one sample. The plan already computes the number and nothing has
-  // ever asked: `kTemporalSettleFrames` is 128, and a client taking a single picture drew two.
+  // gathers its samples over TIME -- the projection is jittered by a sub-pixel offset each frame
+  // and the history is reprojected and blended -- so a still camera converges only because the
+  // SAMPLE moves, and one frame of it is one sample. The plan already computes the number and
+  // nothing has ever asked: `kTemporalSettleFrames` is 128, and a client taking a single picture
+  // drew two.
   [[nodiscard]] int settleFrames(void) const;
 
 private:
   friend class Engine;
+
   explicit Renderer(Engine &of) : Of_(&of) {}
+
   Engine *Of_ = nullptr;
 };
 
@@ -210,6 +214,6 @@ private:
   std::unique_ptr<State> S_;
 };
 
-}
+} // namespace outshine
 
 #endif

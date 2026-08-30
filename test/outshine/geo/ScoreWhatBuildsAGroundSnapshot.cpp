@@ -70,7 +70,7 @@ private:
   mutable long Asked_ = 0;
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -86,7 +86,8 @@ int main(void) {
   }
 
   const std::shared_ptr<const GroundTable> table = TableOf(templates);
-  std::printf("TEMPLATES %zu   the table carries %zu row(s)\n", templates.TemplateCount(),
+  std::printf("TEMPLATES %zu   the table carries %zu row(s)\n",
+              templates.TemplateCount(),
               table ? templates.TemplateCount() : 0u);
   CHECK(table != nullptr,
         "**THE GROUND TABLE IS BUILT FROM THE SHIPPED TEMPLATES OUTSIDE THE ENGINE**: it was a "
@@ -101,9 +102,9 @@ int main(void) {
   Ground::Snapshot snapshot;
   const Snapped without = SnapshotOver(region, ground, classes, stands, table, &snapshot);
   std::printf("WITHOUT VECTORS   %s, ground queries made %ld\n",
-              without == Snapped::Taken      ? "TAKEN"
-              : without == Snapped::Waiting  ? "waiting"
-                                             : "no ground",
+              without == Snapped::Taken     ? "TAKEN"
+              : without == Snapped::Waiting ? "waiting"
+                                            : "no ground",
               ground.Asked());
 
   CHECK(without != Snapped::Taken,
@@ -120,7 +121,10 @@ int main(void) {
     const double atMiddle =
         snapshot.Patch->HeightAslM(0.5 * region.SpanEm(), 0.5 * region.SpanNm());
     std::printf("PATCH reads %.4f m at its origin and %.4f m at its middle, the block holds "
-                "%.4f m\n", atOrigin, atMiddle, kBaseM);
+                "%.4f m\n",
+                atOrigin,
+                atMiddle,
+                kBaseM);
     CHECK(std::fabs(atOrigin - kBaseM) < 1.0e-3 && std::fabs(atMiddle - kBaseM) < 1.0e-3,
           "and the patch reads the BLOCK the query handed it -- a patch that samples a grid it "
           "was not given comes back at zero, which is what this case measured before its own "

@@ -11,9 +11,6 @@
 
 namespace {
 
-
-
-
 struct Asked {
   std::string Scenario;
   std::string Assets;
@@ -29,26 +26,26 @@ struct Asked {
 };
 
 void Usage() {
-  std::printf(
-      "outshine-viewer -- shows a scenario\n"
-      "\n"
-      "  --show PATH      the scenario to show\n"
-      "  --assets DIR     where its asset URIs resolve\n"
-      "  --shipped DIR    where outshine's own data is (default src/assets)\n"
-      "  --size WxH       the surface to open (default 1280x720)\n"
-      "  --cases DIR      where the case manifests are (default test)\n"
-      "  --prepared DIR   where their prepared subjects are\n"
-      "  --case NAME      open with this case selected\n"
-      "  --frames N       stop after N frames\n"
-      "  --into DIR       keep a still of each frame here\n"
-      "  --headless       stand it up without opening a window\n");
+  std::printf("outshine-viewer -- shows a scenario\n"
+              "\n"
+              "  --show PATH      the scenario to show\n"
+              "  --assets DIR     where its asset URIs resolve\n"
+              "  --shipped DIR    where outshine's own data is (default src/assets)\n"
+              "  --size WxH       the surface to open (default 1280x720)\n"
+              "  --cases DIR      where the case manifests are (default test)\n"
+              "  --prepared DIR   where their prepared subjects are\n"
+              "  --case NAME      open with this case selected\n"
+              "  --frames N       stop after N frames\n"
+              "  --into DIR       keep a still of each frame here\n"
+              "  --headless       stand it up without opening a window\n");
 }
 
-}
+} // namespace
 
 class Browser final : public outshine::Host {
 public:
-  Browser(const std::vector<outshine::Viewer::Listed> &cases, outshine::Viewer::Showing at,
+  Browser(const std::vector<outshine::Viewer::Listed> &cases,
+          outshine::Viewer::Showing at,
           bool moved)
       : Cases_(cases), At_(std::move(at)), Moved_(moved) {}
 
@@ -62,15 +59,15 @@ public:
 
   void Steers(outshine::Engine *engine) { Engine_ = engine; }
 
-  [[nodiscard]] bool calls(std::string_view name, std::span<const outshine::Argument> args) override {
+  [[nodiscard]] bool calls(std::string_view name,
+                           std::span<const outshine::Argument> args) override {
     if (name == "next-view" && Engine_ != nullptr) {
       const std::vector<outshine::View> &named = Engine_->declaration().Views;
       if (named.size() < 2) { return false; }
       Viewing_ = (Viewing_ + 1) % named.size();
       return Engine_->setView(named[Viewing_].Id).has_value();
     }
-    if (name == "select" && args.size() == 1 &&
-        args[0].Is == outshine::Argument::Kind::Number) {
+    if (name == "select" && args.size() == 1 && args[0].Is == outshine::Argument::Kind::Number) {
       At_.Selected = (int)args[0].Number;
       const std::vector<int> shown = outshine::Viewer::Filtered(Cases_, At_);
       if (At_.Selected >= 0 && At_.Selected < (int)shown.size()) {
@@ -178,7 +175,8 @@ int main(int argc, char **argv) {
   }
   outshine::Engine engine;
   outshine::Renderer renderer = engine.renderer();
-  engine.setRoots(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+  engine.setRoots(
+      outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
   const outshine::Result standing =
       window != nullptr ? engine.drawsInto(window)
                         : engine.drawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
@@ -223,7 +221,10 @@ int main(int argc, char **argv) {
   }
   if (!engine.assemble()) { std::printf("REFUSED %s\n", engine.error().c_str()); }
 
-  std::printf("SHOWING %s at %dx%d%s\n", asked.Scenario.c_str(), asked.WidthPx, asked.HeightPx,
+  std::printf("SHOWING %s at %dx%d%s\n",
+              asked.Scenario.c_str(),
+              asked.WidthPx,
+              asked.HeightPx,
               asked.Windowed ? "" : ", headless");
 
   long frames = 0;
@@ -263,7 +264,8 @@ int main(int argc, char **argv) {
           browsing.Noted(held.Why);
         } else {
           shownCase = picked->Prepared;
-          engine.setRoots(outshine::Roots{held.Under, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+          engine.setRoots(
+              outshine::Roots{held.Under, asked.Shipped, "/tmp/outshine-viewer-cache", false});
           stands = outshine::Scenario{};
           stands.Render.Declared = true;
           stands.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
@@ -275,8 +277,7 @@ int main(int argc, char **argv) {
           stands.Lit.IndirectLight[0] = 0.20;
           stands.Lit.IndirectLight[1] = 0.22;
           stands.Lit.IndirectLight[2] = 0.26;
-          stands.Render.Picture =
-              outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
+          stands.Render.Picture = outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
           if (!held.Uri.empty()) {
             outshine::Asset shown;
             shown.Uri = held.Uri;

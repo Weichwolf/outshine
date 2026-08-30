@@ -31,7 +31,9 @@ public:
   }
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
+
   [[nodiscard]] int Width() const { return Width_; }
+
   [[nodiscard]] int Height() const { return Height_; }
 
   [[nodiscard]] const std::vector<float> *Plane(const std::string &channel) const {
@@ -64,7 +66,6 @@ private:
     uint32_t wide = 0;
     if (exponent == 0) {
       if (mantissa != 0) {
-
         int shift = 0;
         while ((mantissa & 0x400u) == 0) {
           mantissa <<= 1;
@@ -239,8 +240,11 @@ private:
     return std::string::npos;
   }
 
-  [[nodiscard]] bool ReadChannels(const std::vector<uint8_t> &data, size_t at, size_t size,
-                                  std::vector<Channel> &out, const std::string &path) {
+  [[nodiscard]] bool ReadChannels(const std::vector<uint8_t> &data,
+                                  size_t at,
+                                  size_t size,
+                                  std::vector<Channel> &out,
+                                  const std::string &path) {
     const size_t end = at + size;
     while (at < end && data[at] != 0) {
       const size_t nameEnd = Find(data, at);
@@ -269,5 +273,5 @@ private:
   std::map<std::string, std::vector<float>> Planes_;
 };
 
-}
+} // namespace outshine::Render::Parity
 #endif

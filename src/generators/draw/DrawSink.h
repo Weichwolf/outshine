@@ -10,10 +10,10 @@ class DrawSink {
 public:
   virtual ~DrawSink() = default;
 
-  [[nodiscard]] virtual bool Add(BodyId body, ClusterId cluster,
-                                 const Instance &instance) noexcept = 0;
+  [[nodiscard]] virtual bool
+  Add(BodyId body, ClusterId cluster, const Instance &instance) noexcept = 0;
   [[nodiscard]] virtual bool Full() const noexcept = 0;
 };
 
-}
+} // namespace outshine::Generators
 #endif

@@ -61,15 +61,27 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(halfTrackM, -halfSpanM));
   made.Contacts.push_back(Standing(-halfTrackM, halfSpanM));
   made.Contacts.push_back(Standing(halfTrackM, halfSpanM));
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = false, .PeakNm = 400.0, .Ratio = 3.08, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = true, .PeakNm = 5500.0, .Ratio = 1.0, .CircleM = 0.0});
-  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion, .Opposes = false, .PeakNm = 0.0, .Ratio = 1.0, .CircleM = 11.3});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = false,
+                                        .PeakNm = 400.0,
+                                        .Ratio = 3.08,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                        .Opposes = true,
+                                        .PeakNm = 5500.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 0.0});
+  made.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion,
+                                        .Opposes = false,
+                                        .PeakNm = 0.0,
+                                        .Ratio = 1.0,
+                                        .CircleM = 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -87,9 +99,11 @@ int main(void) {
   if (!(asF31.Stood && longer.Stood && wider.Stood)) { return Report(); }
 
   std::printf("CONTACTS AT z +-1.405   wheelbase %.4f m   steer lock %.5f rad\n",
-              asF31.Axles.WheelbaseM, asF31.Axles.SteerLimitRad);
+              asF31.Axles.WheelbaseM,
+              asF31.Axles.SteerLimitRad);
   std::printf("MOVED TO   z +-1.605    wheelbase %.4f m   steer lock %.5f rad\n",
-              longer.Axles.WheelbaseM, longer.Axles.SteerLimitRad);
+              longer.Axles.WheelbaseM,
+              longer.Axles.SteerLimitRad);
   std::printf("TRACK WIDENED TO +-0.974                   steer lock %.5f rad\n",
               wider.Axles.SteerLimitRad);
 

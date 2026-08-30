@@ -34,7 +34,7 @@ constexpr int kFramePx = 64;
   return made;
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   using namespace outshine::Test;
@@ -65,7 +65,8 @@ int main(int argc, char **argv) {
   std::printf("FIRST DECLARATION initialised the plan %zu time(s)\n", afterFirst - before);
   CHECK(afterFirst > before, "the first declaration builds a plan, so there is a stand");
 
-  CHECK(engine.declare(stands).has_value(), "declaring what already stands is accepted, not refused");
+  CHECK(engine.declare(stands).has_value(),
+        "declaring what already stands is accepted, not refused");
   const size_t afterSecond = outshine::Core::Live::PlanInits();
   std::printf("SECOND DECLARATION of the SAME scenario initialised the plan %zu further time(s)\n",
               afterSecond - afterFirst);
@@ -89,7 +90,8 @@ int main(int argc, char **argv) {
         "is a different part of the stream from the thing it lies over");
 
   Note("plans initialised over three declarations of one picture",
-       (double)(afterOverlay - before), "inits");
+       (double)(afterOverlay - before),
+       "inits");
 
   Covers("the door: the work a declaration causes is proportional to what it changed, so a "
          "scenario can be streamed rather than rebuilt");

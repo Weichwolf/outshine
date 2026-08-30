@@ -11,13 +11,19 @@ namespace outshine {
 class TangentFrame {
 public:
   TangentFrame() : TangentFrame(0.0, 0.0) {}
+
   static TangentFrame At(double latDeg, double lonDeg) { return TangentFrame(latDeg, lonDeg); }
 
   double AnchorLat() const { return Lat_; }
+
   double AnchorLon() const { return Lon_; }
+
   const double *OriginEcef() const { return O_; }
+
   const double *EastEcef() const { return East_; }
+
   const double *NorthEcef() const { return North_; }
+
   const double *UpEcef() const { return Up_; }
 
   void Place(const double ecef[3], double *eastM, double *upM, double *northM) const {
@@ -27,8 +33,8 @@ public:
     *northM = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
   }
 
-  void Place(double latDeg, double lonDeg, double altM, double *eastM, double *upM,
-             double *northM) const {
+  void Place(
+      double latDeg, double lonDeg, double altM, double *eastM, double *upM, double *northM) const {
     double p[3];
     GeoToEcef(latDeg, lonDeg, altM, p);
     Place(p, eastM, upM, northM);
@@ -63,5 +69,5 @@ private:
   double O_[3], East_[3], North_[3], Up_[3];
 };
 
-}
+} // namespace outshine
 #endif

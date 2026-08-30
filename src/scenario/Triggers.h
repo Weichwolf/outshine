@@ -21,20 +21,23 @@ public:
     uint32_t Body = 0;
   };
 
-  [[nodiscard]] static std::expected<TriggerField, std::string> Stand(
-      std::span<const Volume> volumes, std::span<const Event> events);
+  [[nodiscard]] static std::expected<TriggerField, std::string>
+  Stand(std::span<const Volume> volumes, std::span<const Event> events);
 
-  [[nodiscard]] bool Listen(std::string_view event, std::span<const std::string_view> reads,
-                            std::string &error);
+  [[nodiscard]] bool
+  Listen(std::string_view event, std::span<const std::string_view> reads, std::string &error);
 
   void Probe(uint32_t body, const double atM[3], double nowS);
 
   [[nodiscard]] std::span<const Fired> Drain();
 
   [[nodiscard]] size_t EventCount() const { return Events_.size(); }
+
   [[nodiscard]] const std::string *EventNamed(uint16_t event) const;
   [[nodiscard]] size_t Unheard(std::string_view event) const;
+
   [[nodiscard]] size_t Overflowed() const { return Overflowed_; }
+
   [[nodiscard]] size_t Unseated() const { return Unseated_; }
 
 private:
@@ -48,12 +51,14 @@ private:
     double ExtentM[3] = {0.0, 0.0, 0.0};
     double DwellS = 0.0;
   };
+
   struct Standing {
     uint32_t Body = 0;
     uint32_t Door = 0;
     double SinceS = 0.0;
     bool Dwelt = false;
   };
+
   std::vector<std::vector<Standing>> InsideDoor_;
 
   [[nodiscard]] bool Inside(const Door &door, const double atM[3]) const;
@@ -69,5 +74,5 @@ private:
   size_t Unseated_ = 0;
 };
 
-}
+} // namespace outshine
 #endif

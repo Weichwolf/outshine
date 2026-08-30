@@ -17,6 +17,7 @@
 namespace outshine::Data {
 class Transport;
 }
+
 namespace outshine::Ground {
 class GroundStack;
 }
@@ -59,12 +60,17 @@ struct DriveProduct {
   bool Ready = false;
 };
 
-[[nodiscard]] bool AssembleDrive(const Scene &scene, const Assembled &cast,
-                                 const Column<Body> &bodies, const Column<Journey> &driven,
-                                 const WorldSettings &world, Ground::GroundStack &stack,
-                                 Data::Transport &wire, const Provision &kept, Sink &say,
+[[nodiscard]] bool AssembleDrive(const Scene &scene,
+                                 const Assembled &cast,
+                                 const Column<Body> &bodies,
+                                 const Column<Journey> &driven,
+                                 const WorldSettings &world,
+                                 Ground::GroundStack &stack,
+                                 Data::Transport &wire,
+                                 const Provision &kept,
+                                 Sink &say,
                                  DriveProduct &out);
 
-}
+} // namespace outshine::Sim
 
 #endif

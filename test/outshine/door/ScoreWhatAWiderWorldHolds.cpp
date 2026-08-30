@@ -55,7 +55,8 @@ struct Held {
 [[nodiscard]] Held Drove(double toLat, double toLon, std::string &why) {
   Held out;
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;
@@ -81,7 +82,7 @@ struct Held {
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -95,8 +96,8 @@ int main(void) {
   std::string why;
   const Held near = Drove(48.14200, 11.58100, why);
   if (!near.Stood) {
-    Unprepared(("the drive needs terrain and OSM tiles and this machine has none cached: " + why)
-                   .c_str());
+    Unprepared(
+        ("the drive needs terrain and OSM tiles and this machine has none cached: " + why).c_str());
     return Report();
   }
   const Held far = Drove(48.15500, 11.59500, why);

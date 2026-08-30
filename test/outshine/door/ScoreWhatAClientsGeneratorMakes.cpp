@@ -38,8 +38,24 @@ namespace {
 // was already shaped for.
 constexpr int kFramePx = 72;
 
-constexpr float kPositions[18] = {-2.0f, -2.0f, 0.0f, 2.0f, -2.0f, 0.0f, 2.0f, 2.0f, 0.0f,
-                                  -2.0f, -2.0f, 0.0f, 2.0f, 2.0f,  0.0f, -2.0f, 2.0f, 0.0f};
+constexpr float kPositions[18] = {-2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  2.0f,
+                                  0.0f,
+                                  -2.0f,
+                                  -2.0f,
+                                  0.0f,
+                                  2.0f,
+                                  2.0f,
+                                  0.0f,
+                                  -2.0f,
+                                  2.0f,
+                                  0.0f};
 constexpr float kNormals[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
 constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
 
@@ -72,7 +88,7 @@ public:
   return sum / (double)pixels;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -119,14 +135,18 @@ int main(void) {
   Slab slab;
   engine.offers(slab);
   std::vector<uint8_t> pixels;
-  if (!engine.declare(stands) || !engine.renderer().render(outshine::Extent{}) || !engine.renderer().readPixels(pixels)) {
+  if (!engine.declare(stands) || !engine.renderer().render(outshine::Extent{}) ||
+      !engine.renderer().readPixels(pixels)) {
     Unprepared(("the offered generator did not stand: " + engine.error()).c_str());
     return Report();
   }
   const double green = Green(pixels);
   std::printf("OFFERED, THEN DECLARED       asked at east %.4f north %.4f over %.1f m, "
               "mean green %.2f\n",
-              slab.Asked.EastM, slab.Asked.NorthM, slab.Asked.ExtentM, green);
+              slab.Asked.EastM,
+              slab.Asked.NorthM,
+              slab.Asked.ExtentM,
+              green);
 
   CHECK(green > 1.0,
         "**AND A GENERATOR THAT IS OFFERED RUNS, AND WHAT IT MAKES STANDS IN THE PICTURE**: the "
@@ -143,7 +163,8 @@ int main(void) {
   asAsset.Assets.push_back(generated);
 
   std::vector<uint8_t> byAsset;
-  const bool stoodAsAsset = engine.declare(asAsset) && engine.renderer().render(outshine::Extent{}) &&
+  const bool stoodAsAsset = engine.declare(asAsset) &&
+                            engine.renderer().render(outshine::Extent{}) &&
                             engine.renderer().readPixels(byAsset);
   const double asAssetGreen = stoodAsAsset ? Green(byAsset) : -1.0;
 
@@ -174,7 +195,8 @@ int main(void) {
   shipped.Assets.push_back(own);
 
   std::vector<uint8_t> byShipped;
-  const bool stoodShipped = engine.declare(shipped) && engine.renderer().render(outshine::Extent{}) &&
+  const bool stoodShipped = engine.declare(shipped) &&
+                            engine.renderer().render(outshine::Extent{}) &&
                             engine.renderer().readPixels(byShipped);
   double redOfShipped = 0.0;
   if (stoodShipped) {
@@ -183,7 +205,8 @@ int main(void) {
     redOfShipped = many == 0 ? 0.0 : redOfShipped / (double)many;
   }
   std::printf("OUTSHINE'S OWN 'structures'  %s, mean red %.2f\n",
-              stoodShipped ? "stands with nothing offered" : engine.error().c_str(), redOfShipped);
+              stoodShipped ? "stands with nothing offered" : engine.error().c_str(),
+              redOfShipped);
 
   CHECK(stoodShipped && redOfShipped > 1.0,
         "**AND OUTSHINE SHIPS ONE OF ITS OWN**: a scenario naming `structures` stands without the "

@@ -16,8 +16,8 @@ struct TangentSubject {
   size_t IndexCount = 0;
 };
 
-[[nodiscard]] bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out,
-                                    std::string &error);
+[[nodiscard]] bool
+GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error);
 
-}
+} // namespace outshine::Gltf
 #endif

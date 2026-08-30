@@ -21,11 +21,13 @@ static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium'
 
 std::string Kernel(std::string &error) {
   char declared[512];
-  std::snprintf(declared, sizeof declared,
+  std::snprintf(declared,
+                sizeof declared,
                 "constant uint kSkyViewSteps = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
-                (unsigned)kSkyViewSteps, (double)kMediumLuminanceSegment,
+                (unsigned)kSkyViewSteps,
+                (double)kMediumLuminanceSegment,
                 (double)kMediumGroundLiftKm);
   std::string core;
   std::string body;
@@ -36,11 +38,14 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + declared + core + body;
 }
 
-}
+} // namespace
 
-bool MediumRadianceStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittance,
-                                    SDL_GPUTexture *multiScatter, SDL_GPUSampler *lut,
-                                    SDL_GPUTexture *into, std::string &error) {
+bool MediumRadianceStage::Configure(const Gpu &gpu,
+                                    SDL_GPUTexture *transmittance,
+                                    SDL_GPUTexture *multiScatter,
+                                    SDL_GPUSampler *lut,
+                                    SDL_GPUTexture *into,
+                                    std::string &error) {
   if (Into != into || Transmittance != transmittance || MultiScatter != multiScatter) {
     Settled_ = false;
   }
@@ -100,8 +105,10 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
-  SDL_DispatchGPUCompute(into.Dispatch, (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kSkyViewLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch,
+                         (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kSkyViewLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+                         1u);
   Settled_ = true;
 }
 
@@ -110,6 +117,8 @@ std::string MediumRadianceStage::KernelSource() {
   return Kernel(ignored);
 }
 
-std::string MediumRadianceStage::KernelSource(std::string &error) { return Kernel(error); }
-
+std::string MediumRadianceStage::KernelSource(std::string &error) {
+  return Kernel(error);
 }
+
+} // namespace outshine::Render

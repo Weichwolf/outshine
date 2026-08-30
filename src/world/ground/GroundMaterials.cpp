@@ -9,8 +9,9 @@
 namespace outshine::Ground {
 
 int GroundMaterials::Find(std::string_view name) const {
-  for (size_t i = 0; i < Mats_.size(); i++)
-    if (Mats_[i].Name == name) return (int)i;
+  for (size_t i = 0; i < Mats_.size(); i++) {
+    if (Mats_[i].Name == name) { return (int)i; }
+  }
   return -1;
 }
 
@@ -19,17 +20,26 @@ bool GroundMaterials::Load(const char *path) {
   Error_.clear();
 
   FILE *f = fopen(path, "rb");
-  if (!f) { Error_ = std::string("open failed: ") + path; return false; }
+  if (!f) {
+    Error_ = std::string("open failed: ") + path;
+    return false;
+  }
   fseek(f, 0, SEEK_END);
   const long n = ftell(f);
   fseek(f, 0, SEEK_SET);
   std::string text((size_t)(n > 0 ? n : 0), '\0');
   const size_t got = n > 0 ? fread(&text[0], 1, (size_t)n, f) : 0;
   fclose(f);
-  if (got != text.size()) { Error_ = "short read"; return false; }
+  if (got != text.size()) {
+    Error_ = "short read";
+    return false;
+  }
 
   Json doc;
-  if (!doc.Parse(text.c_str(), text.size())) { Error_ = "parse failed"; return false; }
+  if (!doc.Parse(text.c_str(), text.size())) {
+    Error_ = "parse failed";
+    return false;
+  }
 
   const Json::Ref mm = doc.Root()["moistureModel"];
   const float kWet = (float)mm["kWet"].Num(0.0);
@@ -68,26 +78,35 @@ bool GroundMaterials::Load(const char *path) {
     m.DetailFineM = (float)c["detailScaleM"][(size_t)1].Num(0.3);
     m.LitterCoverage = (float)c["litter"]["coverage"].Num(0.0);
     const Json::Ref pd = c["slope"]["plausibleDeg"];
-    if (pd.Size() != 2) { Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair"; return false; }
+    if (pd.Size() != 2) {
+      Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair";
+      return false;
+    }
     m.SlopeMaxDeg = (float)pd[(size_t)1].Num(90.0);
     litterName[i] = c["litter"]["class"].Str("");
 
     const Json::Ref surf = c["surface"];
-    if (surf.StrEquals("coherent")) m.SpecularScale = 1.0f;
-    else if (surf.StrEquals("particulate")) {
+    if (surf.StrEquals("coherent")) {
+      m.SpecularScale = 1.0f;
+    } else if (surf.StrEquals("particulate")) {
       const float t = std::min(std::max((m.Moisture - wetLo) / (wetHi - wetLo), 0.0f), 1.0f);
       m.SpecularScale = t * t * (3.0f - 2.0f * t);
-    } else { Error_ = "class " + m.Name + ": surface must be 'coherent' or 'particulate'"; return false; }
+    } else {
+      Error_ = "class " + m.Name + ": surface must be 'coherent' or 'particulate'";
+      return false;
+    }
 
     bool wetExempt = false;
-    for (size_t e = 0; e < excl.Size(); e++)
-      if (excl[e].StrEquals(m.Name.c_str())) wetExempt = true;
+    for (size_t e = 0; e < excl.Size(); e++) {
+      if (excl[e].StrEquals(m.Name.c_str())) { wetExempt = true; }
+    }
 
     const float wet = wetExempt ? 1.0f : (1.0f - kWet * m.Moisture);
 
     m.VisibleRatio = (float)c["visibleBroadbandRatio"].Num(1.0);
-    for (int k = 0; k < 3; k++)
+    for (int k = 0; k < 3; k++) {
       m.Albedo[k] = (float)c["albedo"][(size_t)k].Num(0.15) * wet * m.VisibleRatio;
+    }
 
     m.LitterClass = -1;
     Mats_.push_back(m);
@@ -100,12 +119,14 @@ bool GroundMaterials::Load(const char *path) {
   const float against = Mats_[(size_t)stands].PeakFriction;
   for (Material &one : Mats_) { one.FrictionFactor = one.PeakFriction / against; }
 
-  for (size_t i = 0; i < Mats_.size(); i++)
-    if (!litterName[i].empty()) Mats_[i].LitterClass = Find(litterName[i]);
+  for (size_t i = 0; i < Mats_.size(); i++) {
+    if (!litterName[i].empty()) { Mats_[i].LitterClass = Find(litterName[i]); }
+  }
 
-  Log::Info("ground", "materials", {{"path", path}, {"classes", (int)Mats_.size()},
-                                    {"kWet", (double)kWet}});
+  Log::Info("ground",
+            "materials",
+            {{"path", path}, {"classes", (int)Mats_.size()}, {"kWet", (double)kWet}});
   return true;
 }
 
-}
+} // namespace outshine::Ground

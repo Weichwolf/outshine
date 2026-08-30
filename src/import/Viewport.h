@@ -13,6 +13,7 @@ struct Viewport {
   double HeightPx = 0;
 
   double Aspect() const { return (HeightPx > 0) ? WidthPx / HeightPx : 0.0; }
+
   void Raster(const double ndc[3], double outPx[2]) const {
     outPx[0] = (ndc[0] * 0.5 + 0.5) * WidthPx - 0.5;
     outPx[1] = (0.5 - ndc[1] * 0.5) * HeightPx - 0.5;
@@ -35,5 +36,5 @@ struct Camera {
   [[nodiscard]] bool Projection(double viewportAspect, Transform &out) const;
 };
 
-}
+} // namespace outshine::Gltf
 #endif

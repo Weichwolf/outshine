@@ -9,9 +9,7 @@ bool Camera::Projection(double viewportAspect, Transform &out) const {
   for (double &element : out.M) { element = 0; }
 
   if (Kind == CameraKind::Perspective) {
-
-    if (!(viewportAspect > 0) || !(YfovRad > 0) || YfovRad >= std::numbers::pi ||
-        !(ZNearM > 0)) {
+    if (!(viewportAspect > 0) || !(YfovRad > 0) || YfovRad >= std::numbers::pi || !(ZNearM > 0)) {
       return false;
     }
     const double cotangent = 1.0 / std::tan(0.5 * YfovRad);
@@ -38,4 +36,4 @@ bool Camera::Projection(double viewportAspect, Transform &out) const {
   return true;
 }
 
-}
+} // namespace outshine::Gltf

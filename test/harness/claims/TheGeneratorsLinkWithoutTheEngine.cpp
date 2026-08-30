@@ -35,14 +35,14 @@ constexpr const char *kSeed = "src-generators";
 // own program, and a library that drags it in is not a library.
 [[nodiscard]] std::vector<std::string> MayReach() {
   std::vector<std::string> allowed{"src-generators-"};
-  for (const std::string &tier : outshine::Test::Lines(
-           outshine::Test::Ask("tr ' ' '\\n' < src/generators/reaches"))) {
+  for (const std::string &tier :
+       outshine::Test::Lines(outshine::Test::Ask("tr ' ' '\\n' < src/generators/reaches"))) {
     if (!tier.empty()) { allowed.push_back("src-" + tier + "-"); }
   }
   return allowed;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -118,8 +118,10 @@ int main(void) {
       Run("c++ -std=c++23 -Wall -Werror -Wpedantic -Iinclude -Isrc/base/math -Isrc/base/geo "
           "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
           "-Isrc/import -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
-          "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data test/harness/shared/frame/GeneratorsAlone.cpp "
-          "build/libgenerators.a -o " + alone + " 2>&1",
+          "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data "
+          "test/harness/shared/frame/GeneratorsAlone.cpp "
+          "build/libgenerators.a -o " +
+              alone + " 2>&1",
           built);
   if (made != 0) { std::printf("%s", built.c_str()); }
   CHECK(made == 0,

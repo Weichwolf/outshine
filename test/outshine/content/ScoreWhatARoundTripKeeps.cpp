@@ -33,26 +33,27 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0,1]}],"
-      "\"nodes\":[{\"mesh\":0,\"name\":\"first\"},"
-      "{\"mesh\":0,\"name\":\"second\",\"translation\":[2,0,0]}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,"
-      "\"TEXCOORD_0\":2,\"COLOR_0\":3,\"TANGENT\":4},\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.2,0.1,1.0],"
-      "\"metallicFactor\":0.25,\"roughnessFactor\":0.75}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
-      "{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
-      "{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},"
-      "{\"bufferView\":4,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":24},"
-      "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},"
-      "{\"buffer\":0,\"byteOffset\":144,\"byteLength\":48}],"
-      "\"buffers\":[{\"byteLength\":192,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0,1]}],"
+             "\"nodes\":[{\"mesh\":0,\"name\":\"first\"},"
+             "{\"mesh\":0,\"name\":\"second\",\"translation\":[2,0,0]}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,"
+             "\"TEXCOORD_0\":2,\"COLOR_0\":3,\"TANGENT\":4},\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.2,0.1,1.0],"
+             "\"metallicFactor\":0.25,\"roughnessFactor\":0.75}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+             "{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
+             "{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},"
+             "{\"bufferView\":4,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":24},"
+             "{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},"
+             "{\"buffer\":0,\"byteOffset\":144,\"byteLength\":48}],"
+             "\"buffers\":[{\"byteLength\":192,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] size_t Apart(const std::vector<double> &was, const std::vector<double> &is) {
@@ -64,7 +65,7 @@ constexpr const char *kTriangleBase64 =
   return many;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -88,14 +89,19 @@ int main(void) {
   if (rebuilt.Parts().empty()) { return Report(); }
 
   std::printf("THE READER STOOD    %zu part(s), %zu vertices, %zu indices, %zu surface(s)\n",
-              read.Parts().size(), read.VertexCount(), read.Indices().size(),
+              read.Parts().size(),
+              read.VertexCount(),
+              read.Indices().size(),
               read.Surfaces().size());
   std::printf("THE ROUND TRIP GAVE %zu part(s), %zu vertices, %zu indices, %zu surface(s)\n",
-              rebuilt.Parts().size(), rebuilt.VertexCount(), rebuilt.Indices().size(),
+              rebuilt.Parts().size(),
+              rebuilt.VertexCount(),
+              rebuilt.Indices().size(),
               rebuilt.Surfaces().size());
   std::printf("POSITIONS APART %zu   NORMALS APART %zu   UV APART %zu   COLOURS APART %zu\n",
-              Apart(read.PositionsM(), rebuilt.PositionsM()), Apart(read.Normals(),
-              rebuilt.Normals()), Apart(read.Uv(), rebuilt.Uv()),
+              Apart(read.PositionsM(), rebuilt.PositionsM()),
+              Apart(read.Normals(), rebuilt.Normals()),
+              Apart(read.Uv(), rebuilt.Uv()),
               Apart(read.Colours(), rebuilt.Colours()));
 
   CHECK(read.Parts().size() == 2,
@@ -113,8 +119,7 @@ int main(void) {
   CHECK(Apart(read.Normals(), rebuilt.Normals()) == 0,
         "and so do the normals, which the reader generates flat when a primitive omits them -- "
         "the pass that does it belongs to the packer now, so both sides of the trip run it");
-  CHECK(rebuilt.Surfaces().size() == read.Surfaces().size() &&
-            !read.Surfaces().empty() &&
+  CHECK(rebuilt.Surfaces().size() == read.Surfaces().size() && !read.Surfaces().empty() &&
             std::fabs(rebuilt.Surfaces()[0].Metalness - read.Surfaces()[0].Metalness) < 1.0e-6,
         "and the material rows cross with their numbers: 0.25 metalness read from the file "
         "arrives as 0.25 through the value, which is the half of the gap table that closed when "
@@ -124,7 +129,8 @@ int main(void) {
         "and the uv set crosses whole, which the value could only carry once `Texture(part, uv, "
         "set)` existed on it -- a middle form without a second uv set would drop one silently");
   std::printf("TANGENTS APART %zu  (read holds %zu, rebuilt %zu)\n",
-              Apart(read.Tangents(), rebuilt.Tangents()), read.Tangents().size(),
+              Apart(read.Tangents(), rebuilt.Tangents()),
+              read.Tangents().size(),
               rebuilt.Tangents().size());
   CHECK(!read.Tangents().empty() && Apart(read.Tangents(), rebuilt.Tangents()) == 0,
         "**AND A SUPPLIED TANGENT BASIS CROSSES**: this was the question expected to answer NO, "

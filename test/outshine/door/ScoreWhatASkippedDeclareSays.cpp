@@ -44,7 +44,8 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{64, 36})) {
     Unprepared("the device stood no canvas");
     return Report();

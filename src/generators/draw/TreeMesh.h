@@ -20,7 +20,9 @@ public:
   std::vector<uint32_t> LeafIdx;
 
   [[nodiscard]] size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
+
   [[nodiscard]] size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
+
   [[nodiscard]] size_t Bytes() const {
     return BarkVerts.size() * sizeof(float) + BarkIdx.size() * sizeof(uint32_t) +
            LeafVerts.size() * sizeof(float) + LeafIdx.size() * sizeof(uint32_t);
@@ -30,6 +32,7 @@ public:
     BarkVerts.clear();
     BarkIdx.clear();
   }
+
   void Clear() {
     ClearBark();
     LeafVerts.clear();
@@ -37,5 +40,5 @@ public:
   }
 };
 
-}
+} // namespace outshine::Generators
 #endif

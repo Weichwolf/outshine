@@ -17,7 +17,7 @@ namespace {
 std::atomic<size_t> gPeakLive{0};
 std::atomic<double> gCostMs{0.0};
 
-}
+} // namespace
 
 size_t HeapProbe::LiveBytes() {
 #if defined(__APPLE__)
@@ -45,16 +45,20 @@ size_t HeapProbe::BreakBytes() {
 size_t HeapProbe::Sample() {
   const auto t0 = std::chrono::steady_clock::now();
   const size_t now = LiveBytes();
-  gCostMs.store(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(),
-                std::memory_order_relaxed);
+  gCostMs.store(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(),
+      std::memory_order_relaxed);
   size_t seen = gPeakLive.load(std::memory_order_relaxed);
-  while (now > seen && !gPeakLive.compare_exchange_weak(seen, now, std::memory_order_relaxed)) {
-  }
+  while (now > seen && !gPeakLive.compare_exchange_weak(seen, now, std::memory_order_relaxed)) {}
   return now;
 }
 
-size_t HeapProbe::PeakLiveBytes() { return gPeakLive.load(std::memory_order_relaxed); }
-
-double HeapProbe::SampleCostMs() { return gCostMs.load(std::memory_order_relaxed); }
-
+size_t HeapProbe::PeakLiveBytes() {
+  return gPeakLive.load(std::memory_order_relaxed);
 }
+
+double HeapProbe::SampleCostMs() {
+  return gCostMs.load(std::memory_order_relaxed);
+}
+
+} // namespace outshine

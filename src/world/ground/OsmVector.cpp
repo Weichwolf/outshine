@@ -16,47 +16,74 @@ struct Reader {
     while (P < End) {
       const uint8_t b = *P++;
       r |= (uint64_t)(b & 0x7f) << s;
-      if (!(b & 0x80)) return r;
+      if (!(b & 0x80)) { return r; }
       s += 7;
-      if (s > 63) break;
+      if (s > 63) { break; }
     }
     Ok = false;
     return 0;
   }
+
   [[nodiscard]] bool Field(uint32_t &num, uint32_t &wire) {
-    if (P >= End) return false;
+    if (P >= End) { return false; }
     const uint64_t k = Varint();
-    if (!Ok) return false;
+    if (!Ok) { return false; }
     num = (uint32_t)(k >> 3);
     wire = (uint32_t)(k & 7);
     return true;
   }
+
   Reader Bytes() {
     const uint64_t n = Varint();
     Reader r{P, P, false};
-    if (!Ok || (uint64_t)(End - P) < n) { Ok = false; return r; }
+    if (!Ok || (uint64_t)(End - P) < n) {
+      Ok = false;
+      return r;
+    }
     r = Reader{P, P + n, true};
     P += n;
     return r;
   }
+
   [[nodiscard]] bool Skip(uint32_t wire) {
     switch (wire) {
       case 0: Varint(); return Ok;
-      case 1: if (End - P < 8) { Ok = false; return false; } P += 8; return true;
-      case 2: { const uint64_t n = Varint(); if (!Ok || (uint64_t)(End - P) < n) { Ok = false; return false; }
-                P += n; return true; }
-      case 5: if (End - P < 4) { Ok = false; return false; } P += 4; return true;
+      case 1:
+        if (End - P < 8) {
+          Ok = false;
+          return false;
+        }
+        P += 8;
+        return true;
+      case 2: {
+        const uint64_t n = Varint();
+        if (!Ok || (uint64_t)(End - P) < n) {
+          Ok = false;
+          return false;
+        }
+        P += n;
+        return true;
+      }
+      case 5:
+        if (End - P < 4) {
+          Ok = false;
+          return false;
+        }
+        P += 4;
+        return true;
       default: Ok = false; return false;
     }
   }
 };
 
-int32_t ZigZag(uint64_t v) { return (int32_t)((v >> 1) ^ (~(v & 1) + 1)); }
-
+int32_t ZigZag(uint64_t v) {
+  return (int32_t)((v >> 1) ^ (~(v & 1) + 1));
 }
 
+} // namespace
+
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
-  if (present) *present = false;
+  if (present) { *present = false; }
   Features_.clear();
   Rings_.clear();
   Points_.clear();
@@ -66,14 +93,17 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
   ValueStrs_.clear();
   ValueIsNum_.clear();
   Extent_ = 4096;
-  if (!bytes || len == 0) return false;
+  if (!bytes || len == 0) { return false; }
 
   Reader top{bytes, bytes + len, true};
   uint32_t num = 0, wire = 0;
   while (top.Field(num, wire)) {
-    if (num != 3 || wire != 2) { if (!top.Skip(wire)) return false; continue; }
+    if (num != 3 || wire != 2) {
+      if (!top.Skip(wire)) { return false; }
+      continue;
+    }
     Reader L = top.Bytes();
-    if (!top.Ok) return false;
+    if (!top.Ok) { return false; }
 
     Reader probe = L;
     std::string name;
@@ -81,22 +111,24 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
     while (probe.Field(n2, w2)) {
       if (n2 == 1 && w2 == 2) {
         Reader s = probe.Bytes();
-        if (!probe.Ok) break;
+        if (!probe.Ok) { break; }
         name.assign((const char *)s.P, (size_t)(s.End - s.P));
-      } else if (!probe.Skip(w2)) break;
+      } else if (!probe.Skip(w2)) {
+        break;
+      }
     }
-    if (name != layer) continue;
-    if (present) *present = true;
+    if (name != layer) { continue; }
+    if (present) { *present = true; }
 
     std::vector<Reader> featureBodies;
     while (L.Field(num, wire)) {
       if (num == 3 && wire == 2) {
         Reader s = L.Bytes();
-        if (!L.Ok) return false;
+        if (!L.Ok) { return false; }
         Keys_.emplace_back((const char *)s.P, (size_t)(s.End - s.P));
       } else if (num == 4 && wire == 2) {
         Reader v = L.Bytes();
-        if (!L.Ok) return false;
+        if (!L.Ok) { return false; }
         double val = 0.0;
         std::string str;
         bool isNum = false;
@@ -104,16 +136,35 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         while (v.Field(vn, vw)) {
           if (vn == 1 && vw == 2) {
             Reader s = v.Bytes();
-            if (!v.Ok) break;
+            if (!v.Ok) { break; }
             str.assign((const char *)s.P, (size_t)(s.End - s.P));
+          } else if (vn == 2 && vw == 5) {
+            float f;
+            std::memcpy(&f, v.P, 4);
+            v.P += 4;
+            val = f;
+            isNum = true;
+          } else if (vn == 3 && vw == 1) {
+            double d;
+            std::memcpy(&d, v.P, 8);
+            v.P += 8;
+            val = d;
+            isNum = true;
+          } else if (vn == 4 && vw == 0) {
+            val = (double)v.Varint();
+            isNum = true;
+          } else if (vn == 5 && vw == 0) {
+            val = (double)v.Varint();
+            isNum = true;
+          } else if (vn == 6 && vw == 0) {
+            val = (double)ZigZag(v.Varint());
+            isNum = true;
+          } else if (vn == 7 && vw == 0) {
+            val = v.Varint() != 0 ? 1.0 : 0.0;
+            isNum = true;
+          } else if (!v.Skip(vw)) {
+            break;
           }
-          else if (vn == 2 && vw == 5) { float f; std::memcpy(&f, v.P, 4); v.P += 4; val = f; isNum = true; }
-          else if (vn == 3 && vw == 1) { double d; std::memcpy(&d, v.P, 8); v.P += 8; val = d; isNum = true; }
-          else if (vn == 4 && vw == 0) { val = (double)v.Varint(); isNum = true; }
-          else if (vn == 5 && vw == 0) { val = (double)v.Varint(); isNum = true; }
-          else if (vn == 6 && vw == 0) { val = (double)ZigZag(v.Varint()); isNum = true; }
-          else if (vn == 7 && vw == 0) { val = v.Varint() != 0 ? 1.0 : 0.0; isNum = true; }
-          else if (!v.Skip(vw)) break;
         }
         Values_.push_back(val);
         ValueStrs_.push_back(std::move(str));
@@ -122,7 +173,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         Extent_ = (int)L.Varint();
       } else if (num == 2 && wire == 2) {
         featureBodies.push_back(L.Bytes());
-        if (!L.Ok) return false;
+        if (!L.Ok) { return false; }
       } else if (!L.Skip(wire)) {
         return false;
       }
@@ -137,14 +188,22 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       while (F.Field(fn, fw)) {
         if (fn == 2 && fw == 2) {
           Reader t = F.Bytes();
-          if (!F.Ok) break;
-          while (t.P < t.End) { const uint64_t v = t.Varint(); if (!t.Ok) break; Tags_.push_back((uint32_t)v); }
+          if (!F.Ok) { break; }
+          while (t.P < t.End) {
+            const uint64_t v = t.Varint();
+            if (!t.Ok) { break; }
+            Tags_.push_back((uint32_t)v);
+          }
         } else if (fn == 3 && fw == 0) {
           f.Type = (int)F.Varint();
         } else if (fn == 4 && fw == 2) {
           Reader gr = F.Bytes();
-          if (!F.Ok) break;
-          while (gr.P < gr.End) { const uint64_t v = gr.Varint(); if (!gr.Ok) break; geom.push_back((uint32_t)v); }
+          if (!F.Ok) { break; }
+          while (gr.P < gr.End) {
+            const uint64_t v = gr.Varint();
+            if (!gr.Ok) { break; }
+            geom.push_back((uint32_t)v);
+          }
         } else if (!F.Skip(fw)) {
           break;
         }
@@ -157,7 +216,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       int ringCount = 0;
 
       const auto flushLine = [&]() {
-        if (f.Type != 2 || ringCount < 2) return;
+        if (f.Type != 2 || ringCount < 2) { return; }
         Ring r{};
         r.First = ringFirst;
         r.Count = (uint32_t)ringCount;
@@ -169,11 +228,18 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         gi++;
         if (cmd == 1 || cmd == 2) {
           for (uint32_t k = 0; k < cnt; k++) {
-            if (gi + 1 >= geom.size()) { gi = geom.size(); break; }
+            if (gi + 1 >= geom.size()) {
+              gi = geom.size();
+              break;
+            }
             cx += ZigZag(geom[gi]);
             cy += ZigZag(geom[gi + 1]);
             gi += 2;
-            if (cmd == 1) { flushLine(); ringFirst = (uint32_t)Points_.size() / 2; ringCount = 0; }
+            if (cmd == 1) {
+              flushLine();
+              ringFirst = (uint32_t)Points_.size() / 2;
+              ringCount = 0;
+            }
             Points_.push_back(cx);
             Points_.push_back(cy);
             ringCount++;
@@ -210,30 +276,34 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
 double OsmVector::Num(const Feature &f, const char *key, double def) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
-    if (k >= Keys_.size() || v >= Values_.size()) continue;
-    if (Keys_[k] == key && ValueIsNum_[v]) return Values_[v];
+    if (k >= Keys_.size() || v >= Values_.size()) { continue; }
+    if (Keys_[k] == key && ValueIsNum_[v]) { return Values_[v]; }
   }
   return def;
 }
 
 OsmVector::Tag OsmVector::TagAt(const Feature &f, uint32_t i) const {
   Tag t{};
-  if (i * 2 + 1 >= f.TagCount) return t;
+  if (i * 2 + 1 >= f.TagCount) { return t; }
   const uint32_t k = Tags_[f.FirstTag + i * 2], v = Tags_[f.FirstTag + i * 2 + 1];
-  if (k >= Keys_.size() || v >= Values_.size()) return t;
+  if (k >= Keys_.size() || v >= Values_.size()) { return t; }
   t.Key = Keys_[k];
   t.IsNum = ValueIsNum_[v];
-  if (t.IsNum) t.Num = Values_[v]; else t.Str = ValueStrs_[v];
+  if (t.IsNum) {
+    t.Num = Values_[v];
+  } else {
+    t.Str = ValueStrs_[v];
+  }
   return t;
 }
 
 std::string_view OsmVector::Str(const Feature &f, const char *key) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
-    if (k >= Keys_.size() || v >= ValueStrs_.size()) continue;
-    if (Keys_[k] == key && !ValueIsNum_[v]) return ValueStrs_[v];
+    if (k >= Keys_.size() || v >= ValueStrs_.size()) { continue; }
+    if (Keys_[k] == key && !ValueIsNum_[v]) { return ValueStrs_[v]; }
   }
   return {};
 }
 
-}
+} // namespace outshine::Ground

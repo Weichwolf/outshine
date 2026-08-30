@@ -9,17 +9,19 @@
 
 namespace outshine {
 
-
 enum class Role : uint8_t { Body, Mind, Tool, Assignment };
 inline constexpr size_t kRoles = 4;
 
-[[nodiscard]] constexpr uint8_t RoleBit(Role kind) { return (uint8_t)(1u << (uint8_t)kind); }
+[[nodiscard]] constexpr uint8_t RoleBit(Role kind) {
+  return (uint8_t)(1u << (uint8_t)kind);
+}
 
 class Tag {
 public:
   constexpr Tag() = default;
 
   [[nodiscard]] constexpr uint32_t value() const { return Value_; }
+
   [[nodiscard]] constexpr bool within(Tag parent) const {
     uint32_t mask = 0xFFFFFFFFu;
     for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8) {
@@ -27,10 +29,12 @@ public:
     }
     return parent.Value_ != 0 && (Value_ & mask) == parent.Value_;
   }
+
   [[nodiscard]] constexpr bool operator==(Tag other) const { return Value_ == other.Value_; }
 
 private:
   constexpr explicit Tag(uint32_t value) : Value_(value) {}
+
   uint32_t Value_ = 0;
   friend struct TagCatalogue;
 };
@@ -47,7 +51,7 @@ struct TagCatalogue {
 namespace tags {
 inline constexpr Tag Does = TagCatalogue::Does;
 inline constexpr Tag Offers = TagCatalogue::Offers;
-}
+} // namespace tags
 
 static_assert(TagCatalogue::under(tags::Does, 1).within(tags::Does) &&
                   !tags::Does.within(TagCatalogue::under(tags::Does, 1)),
@@ -71,9 +75,8 @@ struct RelationRule {
   Relation Requires = kNoRelation;
 };
 
-inline constexpr uint8_t kEveryRole =
-    (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) |
-              RoleBit(Role::Assignment));
+inline constexpr uint8_t kEveryRole = (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) |
+                                                RoleBit(Role::Tool) | RoleBit(Role::Assignment));
 
 inline constexpr RelationRule kRules[kRelations] = {
     {Relation::IsA, true, true, false, true, kEveryRole, {}, kNoRelation},
@@ -96,17 +99,21 @@ constexpr bool EachRuleStandsAtItsOwnRelation() {
   }
   return true;
 }
+
 static_assert(EachRuleStandsAtItsOwnRelation(),
               "every relation carries its rule, and no rule allows nothing");
+
 constexpr bool EveryAcyclicRelationIsExclusive() {
   for (size_t at = 0; at < kRelations; ++at) {
     if (kRules[at].Acyclic && !kRules[at].Exclusive) { return false; }
   }
   return true;
 }
+
 static_assert(EveryAcyclicRelationIsExclusive(),
               "the cycle walk follows one target per hop, so an acyclic relation must be "
               "exclusive -- widen the walk before you relax this");
+
 constexpr size_t OwnedRelationCount() {
   size_t owned = 0;
   for (size_t at = 0; at < kRelations; ++at) {
@@ -114,21 +121,22 @@ constexpr size_t OwnedRelationCount() {
   }
   return owned;
 }
+
 constexpr bool EveryOwnedRelationIsExclusive() {
   for (size_t at = 0; at < kRelations; ++at) {
     if (kRules[at].OwnedByTarget && !kRules[at].Exclusive) { return false; }
   }
   return true;
 }
+
 static_assert(EveryOwnedRelationIsExclusive(),
               "the felling stack pushes one entry per owned in-edge, and its reserve is "
               "capacity x owned-relations ONLY while each entity has at most one owner "
               "per owned relation -- widen the reserve before you relax this");
-}
+} // namespace scene_register_checked
 
 inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
-
 
 struct Entity {
   uint32_t Index = 0;
@@ -191,11 +199,10 @@ public:
   [[nodiscard]] size_t touched() const;
   void resetTouched();
 
-
 private:
   struct Kept;
   std::unique_ptr<Kept> Kept_;
 };
 
-}
+} // namespace outshine
 #endif

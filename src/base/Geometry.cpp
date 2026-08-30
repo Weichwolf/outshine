@@ -18,20 +18,24 @@ struct Geometry::Held {
     std::vector<uint32_t> Indices;
     double PlacedM[16];
   };
+
   struct Named {
     std::string Named;
     Material Surface;
   };
+
   struct Placed {
     std::string Named;
     PunctualLight Light;
     double PlacedM[16];
   };
+
   struct Picture {
     int WidthPx = 0;
     int HeightPx = 0;
     std::vector<uint8_t> Rgba;
   };
+
   std::vector<Piece> Parts;
   size_t Live = 0;
   std::vector<Named> Surfaces;
@@ -43,12 +47,12 @@ struct Geometry::Held {
   }
 };
 
-
-}
+} // namespace outshine
 
 namespace outshine {
 
 Geometry::Geometry() : Held_(std::make_unique<Held>()) {}
+
 Geometry::~Geometry() = default;
 Geometry::Geometry(Geometry &&) noexcept = default;
 Geometry &Geometry::operator=(Geometry &&) noexcept = default;
@@ -87,7 +91,7 @@ namespace {
   return true;
 }
 
-}
+} // namespace
 
 bool Geometry::setPositions(int part, std::span<const float> metres) {
   if (part < 0 || part >= (int)Held_->Live || metres.size() % 3 != 0) { return false; }
@@ -128,16 +132,37 @@ bool TransformManager::setTransform(int part, const double modelM16[16]) {
   return true;
 }
 
-const double *TransformManager::getTransform(int part) const { return Of_->placementOf(part); }
+const double *TransformManager::getTransform(int part) const {
+  return Of_->placementOf(part);
+}
 
-TransformManager Geometry::transforms(void) { return TransformManager(*this); }
-LightManager Geometry::lights(void) { return LightManager(*this); }
-RenderableManager Geometry::renderables(void) { return RenderableManager(*this); }
+TransformManager Geometry::transforms(void) {
+  return TransformManager(*this);
+}
 
-int LightManager::count(void) const { return Of_->lamps(); }
-const PunctualLight &LightManager::getLight(int lamp) const { return Of_->lampAt(lamp); }
-std::string_view LightManager::nameOf(int lamp) const { return Of_->lampNameOf(lamp); }
-const double *LightManager::getTransform(int lamp) const { return Of_->lampPlacementOf(lamp); }
+LightManager Geometry::lights(void) {
+  return LightManager(*this);
+}
+
+RenderableManager Geometry::renderables(void) {
+  return RenderableManager(*this);
+}
+
+int LightManager::count(void) const {
+  return Of_->lamps();
+}
+
+const PunctualLight &LightManager::getLight(int lamp) const {
+  return Of_->lampAt(lamp);
+}
+
+std::string_view LightManager::nameOf(int lamp) const {
+  return Of_->lampNameOf(lamp);
+}
+
+const double *LightManager::getTransform(int lamp) const {
+  return Of_->lampPlacementOf(lamp);
+}
 
 bool LightManager::setLight(int lamp, const PunctualLight &light) {
   if (lamp < 0 || lamp >= Of_->lamps()) { return false; }
@@ -145,21 +170,33 @@ bool LightManager::setLight(int lamp, const PunctualLight &light) {
   return true;
 }
 
-int RenderableManager::count(void) const { return Of_->parts(); }
-std::string_view RenderableManager::nameOf(int part) const { return Of_->nameOf(part); }
-MaterialInstance RenderableManager::getMaterial(int part) const { return Of_->materialOf(part); }
-size_t RenderableManager::vertexCount(int part) const { return Of_->positionsOf(part).size() / 3; }
-size_t RenderableManager::triangleCount(int part) const { return Of_->trianglesOf(part).size() / 3; }
+int RenderableManager::count(void) const {
+  return Of_->parts();
+}
+
+std::string_view RenderableManager::nameOf(int part) const {
+  return Of_->nameOf(part);
+}
+
+MaterialInstance RenderableManager::getMaterial(int part) const {
+  return Of_->materialOf(part);
+}
+
+size_t RenderableManager::vertexCount(int part) const {
+  return Of_->positionsOf(part).size() / 3;
+}
+
+size_t RenderableManager::triangleCount(int part) const {
+  return Of_->trianglesOf(part).size() / 3;
+}
 
 bool RenderableManager::setMaterial(int part, MaterialInstance surface) {
-  if (part < 0 || part >= Of_->parts() || !surface.bound() ||
-      surface.index() >= Of_->surfaces()) {
+  if (part < 0 || part >= Of_->parts() || !surface.bound() || surface.index() >= Of_->surfaces()) {
     return false;
   }
   Of_->resurface(part, surface);
   return true;
 }
-
 
 void Geometry::relight(int lamp, const PunctualLight &light) {
   if (lamp < 0 || lamp >= (int)Held_->Lamps.size()) { return; }
@@ -181,7 +218,9 @@ MaterialInstance Geometry::addSurface(std::string_view named, const Material &su
   return MaterialInstance((int)Held_->Surfaces.size() - 1);
 }
 
-int Geometry::addLamp(std::string_view named, const PunctualLight &light, const double placedM16[16]) {
+int Geometry::addLamp(std::string_view named,
+                      const PunctualLight &light,
+                      const double placedM16[16]) {
   Geometry::Held::Placed placed;
   placed.Named = std::string(named);
   placed.Light = light;
@@ -191,8 +230,7 @@ int Geometry::addLamp(std::string_view named, const PunctualLight &light, const 
 }
 
 int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
-  if (widthPx <= 0 || heightPx <= 0 ||
-      rgba.size() < (size_t)widthPx * (size_t)heightPx * 4u) {
+  if (widthPx <= 0 || heightPx <= 0 || rgba.size() < (size_t)widthPx * (size_t)heightPx * 4u) {
     return -1;
   }
   Held::Picture made;
@@ -203,7 +241,9 @@ int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba)
   return (int)Held_->Images.size() - 1;
 }
 
-int Geometry::images() const { return (int)Held_->Images.size(); }
+int Geometry::images() const {
+  return (int)Held_->Images.size();
+}
 
 bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
   const int at = surface.index();
@@ -215,11 +255,13 @@ bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
 ImageView Geometry::imageAt(int image) const {
   if (image < 0 || (size_t)image >= Held_->Images.size()) { return ImageView{}; }
   const Held::Picture &held = Held_->Images[(size_t)image];
-  return ImageView{held.WidthPx, held.HeightPx,
-                   std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
+  return ImageView{
+      held.WidthPx, held.HeightPx, std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
 }
 
-int Geometry::surfaces() const { return (int)Held_->Surfaces.size(); }
+int Geometry::surfaces() const {
+  return (int)Held_->Surfaces.size();
+}
 
 std::string_view Geometry::surfaceNameOf(int surface) const {
   return surface >= 0 && surface < (int)Held_->Surfaces.size()
@@ -233,7 +275,9 @@ const Material &Geometry::surfaceAt(MaterialInstance surface) const {
   return at >= 0 && at < (int)Held_->Surfaces.size() ? Held_->Surfaces[(size_t)at].Surface : plain;
 }
 
-int Geometry::lamps() const { return (int)Held_->Lamps.size(); }
+int Geometry::lamps() const {
+  return (int)Held_->Lamps.size();
+}
 
 std::string_view Geometry::lampNameOf(int lamp) const {
   return lamp >= 0 && lamp < (int)Held_->Lamps.size()
@@ -257,7 +301,9 @@ const double *Geometry::placementOf(int part) const {
   return piece != nullptr ? piece->PlacedM : still;
 }
 
-int Geometry::parts() const { return (int)Held_->Live; }
+int Geometry::parts() const {
+  return (int)Held_->Live;
+}
 
 std::string_view Geometry::nameOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
@@ -297,8 +343,7 @@ std::span<const float> Geometry::coloursOf(int part) const {
 
 std::span<const uint32_t> Geometry::trianglesOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const uint32_t>(piece->Indices)
-                          : std::span<const uint32_t>();
+  return piece != nullptr ? std::span<const uint32_t>(piece->Indices) : std::span<const uint32_t>();
 }
 
 bool Geometry::wellFormed() const {
@@ -318,4 +363,4 @@ bool Geometry::wellFormed() const {
   return true;
 }
 
-}
+} // namespace outshine

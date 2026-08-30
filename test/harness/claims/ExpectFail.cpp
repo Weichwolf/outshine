@@ -1,7 +1,8 @@
 #include "Check.h"
 
 int main() {
-  outshine::Test::Covers("I.36 The harness's own red demonstrated by a test that is declared to fail");
+  outshine::Test::Covers(
+      "I.36 The harness's own red demonstrated by a test that is declared to fail");
 
   CHECK(1 + 1 == 2, "the reporter counts a claim that holds");
   CHECK_NEAR(2.0, 2.0, 1e-12, "of 1", "the reporter counts a near-claim that holds");

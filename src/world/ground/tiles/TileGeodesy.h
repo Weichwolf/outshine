@@ -28,25 +28,26 @@ struct TileFrac {
   double X = 0.0, Y = 0.0;
 };
 
+using Data::kMercatorGirthM;
 using Data::kWgs84A;
 using Data::kWgs84F;
-using Data::kMercatorGirthM;
 
 class TileIndex {
- public:
+public:
   enum class State { Inside, OutsideMercatorBand };
 
   static TileIndex Of(Geo g, int z);
 
   [[nodiscard]] State Where() const { return Where_; }
+
   [[nodiscard]] bool TryXy(uint32_t *x, uint32_t *y) const {
-    if (Where_ != State::Inside) return false;
+    if (Where_ != State::Inside) { return false; }
     *x = X_;
     *y = Y_;
     return true;
   }
 
- private:
+private:
   TileIndex(State where, uint32_t x, uint32_t y) : Where_(where), X_(x), Y_(y) {}
 
   State Where_;
@@ -81,7 +82,7 @@ Ecef GeoToEcefWgs84(Geo g);
 Geo EcefToGeoWgs84(Ecef p);
 
 class EnuFrame {
- public:
+public:
   enum class State { Usable, OriginTooPolar };
 
   static EnuFrame At(double originLatDeg, double originLonDeg);
@@ -89,7 +90,7 @@ class EnuFrame {
   [[nodiscard]] State Where() const { return Where_; }
 
   [[nodiscard]] bool TryFromGeo(Geo g, Enu *out) const {
-    if (Where_ != State::Usable) return false;
+    if (Where_ != State::Usable) { return false; }
     out->E = (g.LonDeg - OriginLonDeg_) * MetresPerDegLon_;
     out->N = (g.LatDeg - OriginLatDeg_) * MetresPerDegLat_;
     out->U = g.AltM;
@@ -97,17 +98,20 @@ class EnuFrame {
   }
 
   [[nodiscard]] bool TryToGeo(Enu e, Geo *out) const {
-    if (Where_ != State::Usable) return false;
+    if (Where_ != State::Usable) { return false; }
     out->LonDeg = OriginLonDeg_ + e.E / MetresPerDegLon_;
     out->LatDeg = OriginLatDeg_ + e.N / MetresPerDegLat_;
     out->AltM = e.U;
     return true;
   }
 
- private:
+private:
   EnuFrame(State where, double latDeg, double lonDeg, double mPerDegLat, double mPerDegLon)
-      : Where_(where), OriginLatDeg_(latDeg), OriginLonDeg_(lonDeg),
-        MetresPerDegLat_(mPerDegLat), MetresPerDegLon_(mPerDegLon) {}
+      : Where_(where),
+        OriginLatDeg_(latDeg),
+        OriginLonDeg_(lonDeg),
+        MetresPerDegLat_(mPerDegLat),
+        MetresPerDegLon_(mPerDegLon) {}
 
   State Where_;
   double OriginLatDeg_, OriginLonDeg_;
@@ -115,13 +119,17 @@ class EnuFrame {
 };
 
 class TileEnuMap {
- public:
+public:
   static TileEnuMap Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent);
 
   double OriginE() const { return OriginE_; }
+
   double OriginN() const { return OriginN_; }
+
   double ScaleE() const { return ScaleE_; }
+
   double ScaleN() const { return ScaleN_; }
+
   uint32_t Extent() const { return Extent_; }
 
   Enu Apply(int32_t localX, int32_t localY) const {
@@ -132,11 +140,11 @@ class TileEnuMap {
     return r;
   }
 
- private:
+private:
   double OriginE_ = 0.0, OriginN_ = 0.0;
   double ScaleE_ = 0.0, ScaleN_ = 0.0;
   uint32_t Extent_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

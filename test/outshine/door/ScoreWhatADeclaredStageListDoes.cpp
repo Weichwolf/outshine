@@ -39,18 +39,19 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -80,7 +81,7 @@ constexpr const char *kTriangleBase64 =
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -113,7 +114,8 @@ int main(void) {
     }
     const outshine::Scenario stands =
         pass == 0 ? Naming({}) : Naming({"subjects", "tonemap", "present"});
-    if (!engine.declare(stands) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
+    if (!engine.declare(stands) || !engine.advance() ||
+        !engine.renderer().render(outshine::Extent{})) {
       Unprepared(("the declaration would not stand: " + engine.error()).c_str());
       return Report();
     }
@@ -121,10 +123,10 @@ int main(void) {
     staged[pass] = Measured(engine, "stages the compiled plan runs");
   }
 
-  std::printf("THE DEFAULT PLAN RUNS    %.0f stage(s) and draws %.0f batch(es)\n", staged[0],
-              drawn[0]);
-  std::printf("A DECLARED LIST RUNS     %.0f stage(s) and draws %.0f batch(es)\n", staged[1],
-              drawn[1]);
+  std::printf(
+      "THE DEFAULT PLAN RUNS    %.0f stage(s) and draws %.0f batch(es)\n", staged[0], drawn[0]);
+  std::printf(
+      "A DECLARED LIST RUNS     %.0f stage(s) and draws %.0f batch(es)\n", staged[1], drawn[1]);
 
   CHECK(drawn[0] > 0.0 && drawn[1] > 0.0,
         "both plans stand and draw something, so the comparison below is between two pictures "

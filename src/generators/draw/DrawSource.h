@@ -14,12 +14,12 @@ public:
   DrawSource(const DrawSource &) = delete;
   DrawSource &operator=(const DrawSource &) = delete;
 
-  virtual void Draw(const Ground &ground, Span<const Body> placed,
-                    DrawSink &sink) const noexcept = 0;
+  virtual void
+  Draw(const Ground &ground, Span<const Body> placed, DrawSink &sink) const noexcept = 0;
 
 protected:
   DrawSource() = default;
 };
 
-}
+} // namespace outshine::Generators
 #endif

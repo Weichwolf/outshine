@@ -20,19 +20,40 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
-}
+} // namespace
 
 namespace {
 
-void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], double w, double h,
-               float fovDeg, float orthoM, float jitterX, float jitterY, float nearM) {
+void MvpCamRel(float *m,
+               const double R[3],
+               const double Uc[3],
+               const double F[3],
+               double w,
+               double h,
+               float fovDeg,
+               float orthoM,
+               float jitterX,
+               float jitterY,
+               float nearM) {
   const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f, asp = (float)w / (float)h;
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
-  const float v[16] = {(float)R[0], (float)Uc[0], -(float)F[0], 0,
-                       (float)R[1], (float)Uc[1], -(float)F[1], 0,
-                       (float)R[2], (float)Uc[2], -(float)F[2], 0,
-                       0,           0,            0,            1};
+  const float v[16] = {(float)R[0],
+                       (float)Uc[0],
+                       -(float)F[0],
+                       0,
+                       (float)R[1],
+                       (float)Uc[1],
+                       -(float)F[1],
+                       0,
+                       (float)R[2],
+                       (float)Uc[2],
+                       -(float)F[2],
+                       0,
+                       0,
+                       0,
+                       0,
+                       1};
 
   float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0};
 
@@ -41,7 +62,6 @@ void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3
   p[8] = -ndcX;
   p[9] = -ndcY;
   if (orthoM > 0.0f) {
-
     const float hw = 0.5f * orthoM * asp, hh = 0.5f * orthoM;
     const float zf = 60000.0f, rz = 1.0f / (zf - zn);
     float q[16] = {1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1};
@@ -97,10 +117,12 @@ float HalfToFloat(uint16_t bits) {
   return value;
 }
 
-}
+} // namespace
 
-void SceneRenderer::SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
-                              const double up[3]) {
+void SceneRenderer::SetCameraBasis(const double eye[3],
+                                   const double fwd[3],
+                                   const double right[3],
+                                   const double up[3]) {
   for (int axis = 0; axis < 3; axis++) {
     Eye_[axis] = eye[axis];
     Fwd_[axis] = fwd[axis];
@@ -111,20 +133,27 @@ void SceneRenderer::SetCameraBasis(const double eye[3], const double fwd[3], con
 }
 
 const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
-    {Stage::MediumTransmittance, &SceneRenderer::ConfigureMediumTransmittance,
+    {Stage::MediumTransmittance,
+     &SceneRenderer::ConfigureMediumTransmittance,
      &SceneRenderer::EncodeMediumTransmittance},
-    {Stage::MediumMultiScatter, &SceneRenderer::ConfigureMediumMultiScatter,
+    {Stage::MediumMultiScatter,
+     &SceneRenderer::ConfigureMediumMultiScatter,
      &SceneRenderer::EncodeMediumMultiScatter},
-    {Stage::MediumRadiance, &SceneRenderer::ConfigureMediumRadiance, &SceneRenderer::EncodeMediumRadiance},
+    {Stage::MediumRadiance,
+     &SceneRenderer::ConfigureMediumRadiance,
+     &SceneRenderer::EncodeMediumRadiance},
     {Stage::SubjectCull, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectCull},
-    {Stage::LightVisibility, &SceneRenderer::ConfigureLightVisibility,
+    {Stage::LightVisibility,
+     &SceneRenderer::ConfigureLightVisibility,
      &SceneRenderer::EncodeLightVisibility},
     {Stage::Sky, &SceneRenderer::ConfigureSky, &SceneRenderer::EncodeSky},
     {Stage::Subjects, &SceneRenderer::ConfigureSubjects, &SceneRenderer::EncodeSubjects},
     {Stage::SubjectsTransmissive, &SceneRenderer::ConfigureGlass, &SceneRenderer::EncodeGlass},
-    {Stage::CompositeTransmission, &SceneRenderer::ConfigureCompositeTransmission,
+    {Stage::CompositeTransmission,
+     &SceneRenderer::ConfigureCompositeTransmission,
      &SceneRenderer::EncodeCompositeTransmission},
-    {Stage::AerialPerspective, &SceneRenderer::ConfigureAerialPerspective,
+    {Stage::AerialPerspective,
+     &SceneRenderer::ConfigureAerialPerspective,
      &SceneRenderer::EncodeAerialPerspective},
     {Stage::TemporalResolve, &SceneRenderer::ConfigureTemporalResolve, nullptr},
     {Stage::Tonemap, &SceneRenderer::ConfigureTonemap, &SceneRenderer::EncodeTonemap},
@@ -140,7 +169,9 @@ const SceneRenderer::Executor *SceneRenderer::ExecutorOf(Stage stage) {
   return nullptr;
 }
 
-bool SceneRenderer::Executable(Stage stage) { return ExecutorOf(stage) != nullptr; }
+bool SceneRenderer::Executable(Stage stage) {
+  return ExecutorOf(stage) != nullptr;
+}
 
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
@@ -224,9 +255,10 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
     }
     return Handles_.SceneColours;
   };
-  Handles_.FiltersFloat32 =
-      SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
-                                   SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+  Handles_.FiltersFloat32 = SDL_GPUTextureSupportsFormat(device,
+                                                         SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
+                                                         SDL_GPU_TEXTURETYPE_2D,
+                                                         SDL_GPU_TEXTUREUSAGE_SAMPLER);
 
   for (size_t r = 0; r < kResourceCount; ++r) {
     const Resource id = static_cast<Resource>(r);
@@ -247,7 +279,8 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
   if (!StandsOffscreen()) { return; }
   Ready_ = true;
 
-  Log::Info("render", "device_ready",
+  Log::Info("render",
+            "device_ready",
             {{"width", Width_},
              {"height", Height_},
              {"driver", SDL_GetGPUDeviceDriver(device)},
@@ -302,8 +335,8 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::SceneSurfaceIdentity: SurfaceIdentityTex_ = target(resource, colour); return;
     case Resource::SceneDepth:
 
-      DepthTex_ = target(resource, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET |
-                                      SDL_GPU_TEXTUREUSAGE_SAMPLER);
+      DepthTex_ = target(resource,
+                         SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER);
       return;
     case Resource::FrameTex: FrameTex_ = target(resource, colour); return;
 
@@ -368,8 +401,7 @@ void SceneRenderer::Create(Resource resource) {
       ShadowAtlas_ = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
       return;
     }
-    case Resource::AoBuffer:
-      return;
+    case Resource::AoBuffer: return;
 
     case Resource::SceneLinear:
 
@@ -378,14 +410,12 @@ void SceneRenderer::Create(Resource resource) {
       LinearAt_ = 0;
       HistoryHeld_ = false;
       return;
-    case Resource::kCount:
-      return;
+    case Resource::kCount: return;
   }
 }
 
 SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
   switch (resource) {
-
     case Resource::OverlayAtlas: return nullptr;
     case Resource::SceneHdr: return HdrTex_.Get();
     case Resource::SceneTransmissive: return TransmissiveTex_.Get();
@@ -416,13 +446,10 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
-    case Resource::AoBuffer:
-      return nullptr;
+    case Resource::AoBuffer: return nullptr;
 
-    case Resource::SceneLinear:
-      return LinearTex_[LinearAt_].Get();
-    case Resource::kCount:
-      return nullptr;
+    case Resource::SceneLinear: return LinearTex_[LinearAt_].Get();
+    case Resource::kCount: return nullptr;
   }
   return nullptr;
 }
@@ -465,8 +492,8 @@ SceneRenderer::Placed SceneRenderer::PictureRect() const {
     out.HeightPx = RegionH_ * (double)Height_;
   }
   if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
-    const double fitted = out.WidthPx / out.HeightPx > RegionAspect_ ? out.HeightPx * RegionAspect_
-                                                                    : out.WidthPx;
+    const double fitted =
+        out.WidthPx / out.HeightPx > RegionAspect_ ? out.HeightPx * RegionAspect_ : out.WidthPx;
     const double tall = fitted / RegionAspect_;
     out.LeftPx += (out.WidthPx - fitted) / 2.0;
     out.TopPx += (out.HeightPx - tall) / 2.0;
@@ -476,13 +503,16 @@ SceneRenderer::Placed SceneRenderer::PictureRect() const {
   return out;
 }
 
-double SceneRenderer::PictureW() const { return PictureRect().WidthPx; }
-double SceneRenderer::PictureH() const { return PictureRect().HeightPx; }
+double SceneRenderer::PictureW() const {
+  return PictureRect().WidthPx;
+}
+
+double SceneRenderer::PictureH() const {
+  return PictureRect().HeightPx;
+}
 
 SDL_GPUTextureFormat SceneRenderer::SurfaceFormat() const {
-  if (Showing_ != nullptr) {
-    return SDL_GetGPUSwapchainTextureFormat(Device_.Get(), Showing_);
-  }
+  if (Showing_ != nullptr) { return SDL_GetGPUSwapchainTextureFormat(Device_.Get(), Showing_); }
   return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
@@ -511,7 +541,10 @@ bool SceneRenderer::ConfigureGlass(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
-  return CompositeTransmission_.Configure(Handles_, HdrTex_.Get(), TransmissiveTex_.Get(), Samp_.Get(),
+  return CompositeTransmission_.Configure(Handles_,
+                                          HdrTex_.Get(),
+                                          TransmissiveTex_.Get(),
+                                          Samp_.Get(),
                                           FormatOf(Plan_->Format(Resource::SceneComposited)),
                                           error);
 }
@@ -522,8 +555,8 @@ bool SceneRenderer::ConfigureTemporalResolve(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureOverlay(std::string &error) {
-  return Overlay_.Configure(Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
-                            error);
+  return Overlay_.Configure(
+      Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)), error);
 }
 
 bool SceneRenderer::ConfigurePresent(std::string &error) {
@@ -531,9 +564,13 @@ bool SceneRenderer::ConfigurePresent(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureTonemap(std::string &error) {
-  return Tonemap_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneLinear)),
-                            DepthTex_.Get(), Samp_.Get(),
-                            FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
+  return Tonemap_.Configure(Handles_,
+                            Target(Plan_->Bound(Resource::SceneLinear)),
+                            DepthTex_.Get(),
+                            Samp_.Get(),
+                            FormatOf(Plan_->Format(Resource::SceneLinear)),
+                            Display(),
+                            error);
 }
 
 bool SceneRenderer::ConfigureMediumTransmittance(std::string &error) {
@@ -541,24 +578,34 @@ bool SceneRenderer::ConfigureMediumTransmittance(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureMediumMultiScatter(std::string &error) {
-  return MultiScatter_.Configure(Handles_, TransmittanceLut_.Get(), LutSamp_.Get(),
-                                 MultiScatterLut_.Get(), error);
+  return MultiScatter_.Configure(
+      Handles_, TransmittanceLut_.Get(), LutSamp_.Get(), MultiScatterLut_.Get(), error);
 }
 
 bool SceneRenderer::ConfigureMediumRadiance(std::string &error) {
-  return Radiance_.Configure(Handles_, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
-                             LutSamp_.Get(), SkyViewLut_.Get(), error);
+  return Radiance_.Configure(Handles_,
+                             TransmittanceLut_.Get(),
+                             MultiScatterLut_.Get(),
+                             LutSamp_.Get(),
+                             SkyViewLut_.Get(),
+                             error);
 }
 
 bool SceneRenderer::ConfigureSky(std::string &error) {
-  return Sky_.Configure(Handles_, SkyViewLut_.Get(), TransmittanceLut_.Get(), LutSamp_.Get(),
-                        error);
+  return Sky_.Configure(
+      Handles_, SkyViewLut_.Get(), TransmittanceLut_.Get(), LutSamp_.Get(), error);
 }
 
 bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
-  return Aerial_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneComposited)),
-                           DepthTex_.Get(), SkyViewLut_.Get(), TransmittanceLut_.Get(), Samp_.Get(),
-                           LutSamp_.Get(), FormatOf(Plan_->Format(Resource::SceneAerial)), error);
+  return Aerial_.Configure(Handles_,
+                           Target(Plan_->Bound(Resource::SceneComposited)),
+                           DepthTex_.Get(),
+                           SkyViewLut_.Get(),
+                           TransmittanceLut_.Get(),
+                           Samp_.Get(),
+                           LutSamp_.Get(),
+                           FormatOf(Plan_->Format(Resource::SceneAerial)),
+                           error);
 }
 
 bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
@@ -583,8 +630,17 @@ FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
 
-  MvpCamRel(ctx.Mvp16, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
-            Jitter_[1], NearM_);
+  MvpCamRel(ctx.Mvp16,
+            Right_,
+            Up_,
+            Fwd_,
+            PictureW(),
+            PictureH(),
+            FovDeg_,
+            OrthoM_,
+            Jitter_[0],
+            Jitter_[1],
+            NearM_);
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevPreViewTranslation[axis] = Submitted_ ? -PrevEye_[axis] : ctx.PreViewTranslation[axis];
   }
@@ -640,7 +696,8 @@ void SceneRenderer::EncodeGlass(const FrameContext &ctx, const PassRecording &in
   Glass_.Encode(ctx, into);
 }
 
-void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx, const PassRecording &into) {
+void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
+                                                const PassRecording &into) {
   Picture(true, into);
   CompositeTransmission_.Encode(ctx, into);
 }
@@ -648,8 +705,8 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx, const P
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
   Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneLinear)));
   const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
-  Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta,
-                        HistoryHeld_);
+  Tonemap_.BindTemporal(
+      LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta, HistoryHeld_);
   Picture(true, into);
   Tonemap_.Encode(ctx, into);
 }
@@ -772,9 +829,10 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.buffer = held;
       binding.cycle = false;
     }
-    PassRecording into{commands, nullptr,
-                       SDL_BeginGPUComputePass(commands, written, writtenCount, tables,
-                                               tableCount)};
+    PassRecording into{
+        commands,
+        nullptr,
+        SDL_BeginGPUComputePass(commands, written, writtenCount, tables, tableCount)};
     for (size_t at = 0; at < declared.Count; ++at) {
       EncodeStage(Plan_->Order()[declared.First + at], into);
     }
@@ -786,16 +844,13 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   for (const Resource wanted : declared.Targets) {
     SDL_GPUColorTargetInfo &attachment = colours[colourCount++];
     attachment.texture = Target(wanted);
-    attachment.load_op =
-        Touched_[(size_t)wanted] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+    attachment.load_op = Touched_[(size_t)wanted] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     Touched_[(size_t)wanted] = true;
-    attachment.store_op =
-        Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+    attachment.store_op = Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
 
-    const bool carriesCoverage = wanted == Resource::SceneHdr ||
-                                 wanted == Resource::SceneComposited ||
-                                 wanted == Resource::SceneTransmissive ||
-                                 wanted == Resource::SceneLinear;
+    const bool carriesCoverage =
+        wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
+        wanted == Resource::SceneTransmissive || wanted == Resource::SceneLinear;
     attachment.clear_color = wanted == Resource::SceneVelocity
                                  ? SDL_FColor{kVelocityStatic, kVelocityStatic, 0, 0}
                                  : SDL_FColor{0, 0, 0, carriesCoverage ? 0.0f : 1.0f};
@@ -811,10 +866,11 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
   }
-  PassRecording into{commands,
-                     SDL_BeginGPURenderPass(commands, colours, colourCount,
-                                            declared.Depth != kNoEdge ? &depth : nullptr),
-                     nullptr};
+  PassRecording into{
+      commands,
+      SDL_BeginGPURenderPass(
+          commands, colours, colourCount, declared.Depth != kNoEdge ? &depth : nullptr),
+      nullptr};
   for (size_t at = 0; at < declared.Count; ++at) {
     EncodeStage(Plan_->Order()[declared.First + at], into);
   }
@@ -924,8 +980,17 @@ void SceneRenderer::RenderFrame() {
   Subjects_.CarryFrame();
   Glass_.CarryFrame();
 
-  MvpCamRel(PrevMvp16_, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
-            Jitter_[1], NearM_);
+  MvpCamRel(PrevMvp16_,
+            Right_,
+            Up_,
+            Fwd_,
+            PictureW(),
+            PictureH(),
+            FovDeg_,
+            OrthoM_,
+            Jitter_[0],
+            Jitter_[1],
+            NearM_);
   Submitted_ = true;
 }
 
@@ -940,7 +1005,9 @@ void SceneRenderer::WaitForGpu() {
   }
 }
 
-void SceneRenderer::WantsPixels() { Wanted_ = true; }
+void SceneRenderer::WantsPixels() {
+  Wanted_ = true;
+}
 
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!Ready_) { return ReadState::Failed; }
@@ -965,9 +1032,10 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     }
     rgba.resize((size_t)Width_ * (size_t)Height_ * 4u);
     std::memcpy(rgba.data(), read.Rows(), rgba.size());
-    asRgba(rgba, Plan_ ? FormatOf(Plan_->Format(held == HostSurface_ ? Resource::Surface
-                                                                    : Resource::FrameTex))
-                       : SDL_GPU_TEXTUREFORMAT_INVALID);
+    asRgba(rgba,
+           Plan_ ? FormatOf(
+                       Plan_->Format(held == HostSurface_ ? Resource::Surface : Resource::FrameTex))
+                 : SDL_GPU_TEXTUREFORMAT_INVALID);
     return ReadState::Ready;
   }
   if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
@@ -996,7 +1064,8 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   if (!Ready_ || !source) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, wide ? 16u : 8u) !=
+  if (read.FromTexture(
+          Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, wide ? 16u : 8u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
@@ -1018,8 +1087,11 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
 ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   if (!Ready_ || !ShadowAtlas_) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), ShadowAtlas_.Get(), (uint32_t)kShadowAtlasPx,
-                       (uint32_t)kShadowAtlasPx, 4u) != ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       ShadowAtlas_.Get(),
+                       (uint32_t)kShadowAtlasPx,
+                       (uint32_t)kShadowAtlasPx,
+                       4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
   depth.resize((size_t)kShadowAtlasPx * (size_t)kShadowAtlasPx);
@@ -1088,14 +1160,12 @@ void SceneRenderer::StopShowing() {
   Showing_ = nullptr;
 }
 
-std::expected<void, std::string_view> SceneRenderer::DrawsInto(int widthPx, int heightPx,
-                                                          SDL_Window *presents) {
+std::expected<void, std::string_view>
+SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   if (widthPx <= 0 || heightPx <= 0) {
     return std::unexpected("a canvas has an extent, and this one declares none");
   }
-  if (!Stands()) {
-    return std::unexpected("the renderer has no device to stand a canvas on");
-  }
+  if (!Stands()) { return std::unexpected("the renderer has no device to stand a canvas on"); }
 
   if (Showing_ != presents) {
     StopShowing();
@@ -1113,9 +1183,8 @@ std::expected<void, std::string_view> SceneRenderer::DrawsInto(int widthPx, int 
             "the window cannot present the transfer the plan declares, and WhyNot carries what "
             "the device said");
       }
-      const SDL_GPUPresentMode unqueued[] = {SDL_GPU_PRESENTMODE_MAILBOX,
-                                             SDL_GPU_PRESENTMODE_IMMEDIATE,
-                                             SDL_GPU_PRESENTMODE_VSYNC};
+      const SDL_GPUPresentMode unqueued[] = {
+          SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE, SDL_GPU_PRESENTMODE_VSYNC};
       bool took = false;
       for (const SDL_GPUPresentMode mode : unqueued) {
         if (!SDL_WindowSupportsGPUPresentMode(Device_.Get(), presents, mode)) { continue; }
@@ -1126,8 +1195,8 @@ std::expected<void, std::string_view> SceneRenderer::DrawsInto(int widthPx, int 
         }
       }
       if (!took) {
-        WhyNot_ = std::string("this window took no present mode the device offers: ") +
-                  SDL_GetError();
+        WhyNot_ =
+            std::string("this window took no present mode the device offers: ") + SDL_GetError();
         return std::unexpected(
             "the window took no present mode, and WhyNot carries what the device said");
       }
@@ -1146,7 +1215,8 @@ std::expected<void, std::string_view> SceneRenderer::DrawsInto(int widthPx, int 
   return {};
 }
 
-std::expected<std::optional<SceneRenderer::Shown>, std::string_view> SceneRenderer::Presented() const {
+std::expected<std::optional<SceneRenderer::Shown>, std::string_view>
+SceneRenderer::Presented() const {
   if (Showing_ == nullptr) {
     return std::unexpected(
         "no window is being shown on: a frame is presented to a surface the caller declared, "
@@ -1156,4 +1226,4 @@ std::expected<std::optional<SceneRenderer::Shown>, std::string_view> SceneRender
   return std::optional<Shown>(Shown_);
 }
 
-}
+} // namespace outshine::Render

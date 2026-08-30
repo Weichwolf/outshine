@@ -50,17 +50,19 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -100,7 +102,7 @@ constexpr const char *kTriangleBase64 =
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -129,14 +131,14 @@ int main(void) {
     return Report();
   }
 
-  const auto shot = [&](const outshine::Scenario &stands, const char *named,
-                        std::vector<unsigned char> &into) {
-    if (!engine.declare(stands) || !engine.advance()) { return false; }
-    const std::string path = under + "/" + named + ".png";
-    if (!engine.renderer().saveScreenshot(path)) { return false; }
-    into = Slurped(path);
-    return !into.empty();
-  };
+  const auto shot =
+      [&](const outshine::Scenario &stands, const char *named, std::vector<unsigned char> &into) {
+        if (!engine.declare(stands) || !engine.advance()) { return false; }
+        const std::string path = under + "/" + named + ".png";
+        if (!engine.renderer().saveScreenshot(path)) { return false; }
+        into = Slurped(path);
+        return !into.empty();
+      };
 
   std::vector<unsigned char> plain, scaled, keyed, filled, nightly;
   outshine::Scenario night = Lit(40000.0, 0.20);
@@ -144,10 +146,8 @@ int main(void) {
   outshine::Scenario other = Lit(40000.0, 0.20);
   other.Lit.Declared = false;
   other.Lit.Key.ElevationDeg = -80.0;
-  if (!shot(other, "filled", filled) ||
-      !shot(Lit(40000.0, 0.20), "plain", plain) ||
-      !shot(Lit(80000.0, 0.40), "scaled", scaled) ||
-      !shot(Lit(400.0, 0.20), "keyed", keyed) ||
+  if (!shot(other, "filled", filled) || !shot(Lit(40000.0, 0.20), "plain", plain) ||
+      !shot(Lit(80000.0, 0.40), "scaled", scaled) || !shot(Lit(400.0, 0.20), "keyed", keyed) ||
       !shot(night, "night", nightly)) {
     Unprepared(("a picture did not come back: " + engine.error()).c_str());
     return Report();
@@ -160,7 +160,8 @@ int main(void) {
   std::printf("40000 lux with 0.20 fill: %zu bytes\n", plain.size());
   std::printf("80000 lux with 0.40 fill: %zu bytes\n", scaled.size());
   std::printf("  400 lux with 0.20 fill: %zu bytes\n", keyed.size());
-  std::printf("THE KEY 80 DEG BELOW THE HORIZON: %zu bytes, %s\n", nightly.size(),
+  std::printf("THE KEY 80 DEG BELOW THE HORIZON: %zu bytes, %s\n",
+              nightly.size(),
               nightly == plain ? "IDENTICAL -- no light reaches this subject at all"
                                : "different, so the key does light it");
 
@@ -184,7 +185,8 @@ int main(void) {
     (void)Wrote(under + "/bare.gltf", flat);
     const bool stoodBare = engine.declare(bare).has_value();
     std::printf("A SUBJECT WITH NO NORMAL under the same declared light: %s%s\n",
-                stoodBare ? "STOOD" : "REFUSED -- ", stoodBare ? "" : engine.error().c_str());
+                stoodBare ? "STOOD" : "REFUSED -- ",
+                stoodBare ? "" : engine.error().c_str());
   }
 
   CHECK(plain != nightly,

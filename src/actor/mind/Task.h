@@ -17,6 +17,7 @@ public:
   void Abandon();
 
   [[nodiscard]] bool Holds() const { return Under_ != nullptr; }
+
   [[nodiscard]] size_t Deep() const;
 
 protected:
@@ -25,6 +26,7 @@ protected:
   [[nodiscard]] virtual Doing Act(double dtS) = 0;
 
   void Hands(std::unique_ptr<Task> under) { Under_ = std::move(under); }
+
   void Drops() { Under_.reset(); }
 
 private:
@@ -32,6 +34,6 @@ private:
   bool Left_ = false;
 };
 
-}
+} // namespace outshine::Control
 
 #endif

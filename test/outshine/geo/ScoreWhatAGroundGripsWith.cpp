@@ -61,7 +61,7 @@ constexpr double kExactly = 1e-6;
   return held;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -83,7 +83,9 @@ int main(void) {
   std::printf("CLASSES %zu\n", table.Count());
   const char *const band[] = {"asphalt", "crushed_stone", "gravel", "grass_thatch", "mud", "water"};
   for (const char *one : band) {
-    std::printf("  %-14s peak %.3f   factor %.4f\n", one, (double)PeakOf(table, one),
+    std::printf("  %-14s peak %.3f   factor %.4f\n",
+                one,
+                (double)PeakOf(table, one),
                 (double)FactorOf(table, one));
   }
 
@@ -126,8 +128,8 @@ int main(void) {
     Unprepared("the declared table names no reference class, so the control cannot be built");
     return Report();
   }
-  bent.replace(names, std::string("\"reference\": \"asphalt\"").size(),
-               "\"reference\": \"tarmacadam\"");
+  bent.replace(
+      names, std::string("\"reference\": \"asphalt\"").size(), "\"reference\": \"tarmacadam\"");
   if (!Wrote(broken, bent)) {
     Unprepared("the bent table could not be written into the nest");
     return Report();
@@ -135,8 +137,8 @@ int main(void) {
 
   GroundMaterials refused;
   const bool stood = refused.Load(broken.c_str());
-  std::printf("REFERENCE 'tarmacadam' -> %s: %s\n", stood ? "STOOD" : "REFUSED",
-              refused.Error().c_str());
+  std::printf(
+      "REFERENCE 'tarmacadam' -> %s: %s\n", stood ? "STOOD" : "REFUSED", refused.Error().c_str());
   CHECK(!stood,
         "a table whose reference class does not exist is REFUSED with a reason: there is no "
         "scale to divide by, and a reader that fell back on a default would give every ground "

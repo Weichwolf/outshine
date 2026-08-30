@@ -13,13 +13,15 @@ namespace outshine::Generators {
 
 class DrawSet {
 public:
-
   [[nodiscard]] bool Add(Rank rank, const DrawSource &source);
 
   [[nodiscard]] size_t Count() const { return Entries_.size(); }
 
-  void Draw(const Ground &ground, const GeneratorSet &generators, Span<const Yield> yields,
-            Span<const Body> placed, DrawSink &sink) const noexcept;
+  void Draw(const Ground &ground,
+            const GeneratorSet &generators,
+            Span<const Yield> yields,
+            Span<const Body> placed,
+            DrawSink &sink) const noexcept;
 
 private:
   struct Entry {
@@ -30,5 +32,5 @@ private:
   std::vector<Entry> Entries_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

@@ -8,7 +8,6 @@
 namespace outshine::Render::Parity {
 
 struct OracleProduct {
-
   std::string Quantity;
 
   std::string Recipe = "default";
@@ -27,9 +26,10 @@ struct OracleProduct {
   }
 
   [[nodiscard]] std::string Exr() const { return Name(".exr"); }
+
   [[nodiscard]] std::string Raw() const { return Name(".raw"); }
 };
 
-}
+} // namespace outshine::Render::Parity
 
 #endif

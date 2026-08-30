@@ -21,6 +21,7 @@ struct Assertion {
   const char *Attribute;
   const char *What;
 };
+
 constexpr Assertion kAssertions[] = {
     {"data-expected-width", "width"},
     {"data-expected-height", "height"},
@@ -49,12 +50,12 @@ bool NumberIn(const std::string &text, double &value) {
   return end != nullptr && end != text.c_str() && *end == '\0';
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    outshine::Test::Checked(false, "argc == 2", "one prepared case directory is the argument",
-                            __FILE__, __LINE__);
+    outshine::Test::Checked(
+        false, "argc == 2", "one prepared case directory is the argument", __FILE__, __LINE__);
     return outshine::Test::Report();
   }
 
@@ -63,13 +64,17 @@ int main(int argc, char **argv) {
   bool found = false;
   const std::string manifestText = ReadFile(prepared + "/manifest.json", found);
   if (!found) {
-    outshine::Test::Unprepared((prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
+    outshine::Test::Unprepared(
+        (prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return outshine::Test::Report();
   }
   Json manifest;
   if (!manifest.Parse(manifestText.c_str(), manifestText.size())) {
     char why[512];
-    std::snprintf(why, sizeof why, "%s: the manifest is not JSON at byte %zu", prepared.c_str(),
+    std::snprintf(why,
+                  sizeof why,
+                  "%s: the manifest is not JSON at byte %zu",
+                  prepared.c_str(),
                   manifest.StoppedAt());
     outshine::Test::Checked(false, "the manifest parses", why, __FILE__, __LINE__);
     return outshine::Test::Report();
@@ -90,14 +95,18 @@ int main(int argc, char **argv) {
   Ui::Markup markup;
   std::string error;
   if (!markup.Read(document, error)) {
-
     const char *why = Ui::WhyOutside(error);
     std::printf("UI-SUBSET %s\n", why != nullptr ? "reduced" : "outside");
     std::printf("%s %s -- the document is outside this reader: %s%s\n",
-                why != nullptr ? "REDUCED" : "OUTSIDE", id.c_str(), error.c_str(),
+                why != nullptr ? "REDUCED" : "OUTSIDE",
+                id.c_str(),
+                error.c_str(),
                 why != nullptr ? (" (" + std::string(why) + ")").c_str() : "");
-    outshine::Test::Checked(why != nullptr, "the reader refuses at a boundary this engine declared",
-                            (id + ": " + error).c_str(), __FILE__, __LINE__);
+    outshine::Test::Checked(why != nullptr,
+                            "the reader refuses at a boundary this engine declared",
+                            (id + ": " + error).c_str(),
+                            __FILE__,
+                            __LINE__);
     return outshine::Test::Report();
   }
 
@@ -119,8 +128,8 @@ int main(int argc, char **argv) {
   Ui::Layout layout;
   const Ui::AhemFont font;
   if (!layout.Build(markup, sheet, viewportWidth, viewportHeight, font, error)) {
-    outshine::Test::Checked(false, "the layout builds", (id + ": " + error).c_str(), __FILE__,
-                            __LINE__);
+    outshine::Test::Checked(
+        false, "the layout builds", (id + ": " + error).c_str(), __FILE__, __LINE__);
     std::printf("UI-LAYOUT red\n");
     return outshine::Test::Report();
   }
@@ -134,7 +143,6 @@ int main(int argc, char **argv) {
   if (!scripted.empty()) { names.push_back(scripted); }
 
   if (!names.empty()) {
-
     std::string boundary, gap;
     for (const std::string &name : names) {
       const char *why = Ui::WhyOutside(name);
@@ -146,16 +154,22 @@ int main(int argc, char **argv) {
     if (gap.empty()) {
       std::printf("UI-SUBSET reduced\n");
       std::printf("REDUCED %s -- every name that puts it outside is a declared boundary: %s\n",
-                  id.c_str(), boundary.c_str());
-      outshine::Test::Checked(true, "the case is outside a boundary this engine declared",
-                              (id + ": " + boundary).c_str(), __FILE__, __LINE__);
+                  id.c_str(),
+                  boundary.c_str());
+      outshine::Test::Checked(true,
+                              "the case is outside a boundary this engine declared",
+                              (id + ": " + boundary).c_str(),
+                              __FILE__,
+                              __LINE__);
     } else {
       std::printf("UI-SUBSET outside\n");
       std::printf("OUTSIDE %s -- undeclared: %s\n", id.c_str(), gap.c_str());
-      outshine::Test::Checked(false, "every name that puts a case outside is declared",
-                              (id + ": " + gap + " is outside the subset and nothing says why")
-                                  .c_str(),
-                              __FILE__, __LINE__);
+      outshine::Test::Checked(
+          false,
+          "every name that puts a case outside is declared",
+          (id + ": " + gap + " is outside the subset and nothing says why").c_str(),
+          __FILE__,
+          __LINE__);
     }
     return outshine::Test::Report();
   }
@@ -190,30 +204,39 @@ int main(int argc, char **argv) {
       if (!NumberIn(*declared, want)) {
         const std::string claim = id + ": <" + element + "> " + assertion.Attribute + "=\"" +
                                   *declared + "\" is not a number";
-        outshine::Test::Checked(false, "the declaration is a number", claim.c_str(), __FILE__,
-                                __LINE__);
+        outshine::Test::Checked(
+            false, "the declaration is a number", claim.c_str(), __FILE__, __LINE__);
         continue;
       }
       const double got = std::strcmp(assertion.What, "width") == 0    ? box.Width
                          : std::strcmp(assertion.What, "height") == 0 ? box.Height
                          : std::strcmp(assertion.What, "x") == 0      ? box.X - origin.first
-                                                                     : box.Y - origin.second;
+                                                                      : box.Y - origin.second;
 
       const bool integral = want == std::floor(want);
       const double residual = std::fabs(got - want);
       worst = std::fmax(worst, residual);
       const bool holds = integral ? std::floor(got + 0.5) == want : got == want;
       char measured[224];
-      std::snprintf(measured, sizeof measured, "%s: <%s> %s is %.6f, the document states %.6f",
-                    id.c_str(), element.c_str(), assertion.What, got, want);
-      outshine::Test::Checked(holds, "the box lands where the document says", measured, __FILE__,
-                              __LINE__);
+      std::snprintf(measured,
+                    sizeof measured,
+                    "%s: <%s> %s is %.6f, the document states %.6f",
+                    id.c_str(),
+                    element.c_str(),
+                    assertion.What,
+                    got,
+                    want);
+      outshine::Test::Checked(
+          holds, "the box lands where the document says", measured, __FILE__, __LINE__);
     }
   }
-  outshine::Test::Checked(stated > 0, "the document states its own layout",
-                          (id + " carries at least one assertion").c_str(), __FILE__, __LINE__);
-  std::printf("STATED %s %d assertions, worst sub-pixel residual %.6f px\n", id.c_str(), stated,
-              worst);
+  outshine::Test::Checked(stated > 0,
+                          "the document states its own layout",
+                          (id + " carries at least one assertion").c_str(),
+                          __FILE__,
+                          __LINE__);
+  std::printf(
+      "STATED %s %d assertions, worst sub-pixel residual %.6f px\n", id.c_str(), stated, worst);
   std::printf("UI-LAYOUT %s\n", outshine::Test::Failures.Value() == 0 ? "held" : "red");
   return outshine::Test::Report();
 }

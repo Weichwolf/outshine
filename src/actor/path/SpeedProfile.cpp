@@ -8,15 +8,17 @@ namespace outshine {
 
 const char *SpeedProfile::NameOf(Held term) noexcept {
   static constexpr const char *const kNames[(size_t)Held::kCount] = {
-      "free",  "curvature", "slip",     "ramp",
-      "climb", "crest",     "entry",    "traction", "brake"};
+      "free", "curvature", "slip", "ramp", "climb", "crest", "entry", "traction", "brake"};
   static_assert(kNames[(size_t)Held::kCount - 1] != nullptr,
                 "every term that can bind the plan carries a name");
   return (size_t)term < (size_t)Held::kCount ? kNames[(size_t)term] : "free";
 }
 
-bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, double stepM,
-                        double entryMs, std::string &error) {
+bool SpeedProfile::Over(const ReferenceLine &along,
+                        const Envelope &within,
+                        double stepM,
+                        double entryMs,
+                        std::string &error) {
   Held_.clear();
   Curvature_.clear();
   StepM_ = 0.0;
@@ -83,9 +85,8 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
     const double ramp = std::fabs(here.CurvatureRatePerM);
     if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
-      const double followedMs =
-          std::cbrt(6.0 * within.HoldWithinM /
-                    (ramp * within.SettleS * within.SettleS * within.SettleS));
+      const double followedMs = std::cbrt(
+          6.0 * within.HoldWithinM / (ramp * within.SettleS * within.SettleS * within.SettleS));
       if (followedMs < held) {
         held = followedMs;
         holds = Held::Ramp;
@@ -172,8 +173,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     Why_[0] = Held::Entry;
   }
   for (size_t at = 1; at < samples; ++at) {
-    const double reached =
-        std::sqrt(Held_[at - 1] * Held_[at - 1] + 2.0 * accelMs2 * gapM(at - 1));
+    const double reached = std::sqrt(Held_[at - 1] * Held_[at - 1] + 2.0 * accelMs2 * gapM(at - 1));
     if (reached < Held_[at]) {
       Held_[at] = reached;
       Why_[at] = Held::Traction;
@@ -251,4 +251,4 @@ size_t SpeedProfile::StationsUnder(double ms) const noexcept {
   return under;
 }
 
-}
+} // namespace outshine

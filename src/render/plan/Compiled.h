@@ -16,15 +16,18 @@ enum class Transfer { Linear, Filmic };
 
 enum class ScenePrecision { Half, Float };
 
-template <typename T>
-class Declared {
+template <typename T> class Declared {
 public:
   Declared() = default;
+
   explicit Declared(T value) : Value_(value), Set_(true) {}
+
   [[nodiscard]] bool IsSet() const { return Set_; }
+
   [[nodiscard]] bool operator==(const Declared &other) const {
     return Set_ == other.Set_ && (!Set_ || Value_ == other.Value_);
   }
+
   [[nodiscard]] T Or(T fallback) const { return Set_ ? Value_ : fallback; }
 
 private:
@@ -63,19 +66,18 @@ public:
     Resource Depth = kNoEdge;
   };
 
-  [[nodiscard]] static std::expected<std::shared_ptr<const Compiled>, std::string> Compile(
-      const PlanSpec &spec);
+  [[nodiscard]] static std::expected<std::shared_ptr<const Compiled>, std::string>
+  Compile(const PlanSpec &spec);
   [[nodiscard]] static std::optional<Stage> StageByName(std::string_view name);
   [[nodiscard]] static std::optional<Resource> ResourceByName(std::string_view name);
 
 private:
-  [[nodiscard]] static bool CompileInto(const PlanSpec &spec,
-                                        std::shared_ptr<const Compiled> *out,
-                                        std::string &error);
+  [[nodiscard]] static bool
+  CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled> *out, std::string &error);
 
 public:
-
   [[nodiscard]] bool Holds(Stage stage) const { return HeldStage_[static_cast<size_t>(stage)]; }
+
   [[nodiscard]] bool Holds(Resource resource) const {
     return HeldResource_[static_cast<size_t>(resource)];
   }
@@ -94,7 +96,9 @@ public:
   }
 
   [[nodiscard]] const std::vector<Stage> &Order() const { return Order_; }
+
   [[nodiscard]] const std::vector<Pass> &Passes() const { return Passes_; }
+
   [[nodiscard]] int PassCount() const { return static_cast<int>(Passes_.size()); }
 
   [[nodiscard]] bool Fused(Stage stage) const { return Fused_[static_cast<size_t>(stage)]; }
@@ -102,16 +106,19 @@ public:
   [[nodiscard]] int SettleFrames() const { return SettleFrames_; }
 
   [[nodiscard]] Transfer Display() const { return Display_; }
+
   [[nodiscard]] float Exposure() const { return Exposure_; }
 
   [[nodiscard]] TexelFormat Format(Resource resource) const {
     return Format_[static_cast<size_t>(resource)];
   }
+
   [[nodiscard]] ScenePrecision Precision() const { return Precision_; }
 
   [[nodiscard]] const std::string &Digest() const { return Digest_; }
 
   [[nodiscard]] const std::vector<std::string> &Merges() const { return Merges_; }
+
   [[nodiscard]] const std::vector<std::string> &Aliases() const { return Aliases_; }
 
 private:
@@ -134,5 +141,5 @@ private:
   int SettleFrames_ = 1;
 };
 
-}
+} // namespace outshine::Render
 #endif

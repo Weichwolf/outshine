@@ -35,8 +35,10 @@ namespace outshine::Test {
   std::fclose(reading);
 
   const size_t slash = gltfPath.find_last_of('/');
-  const std::string beside = slash == std::string::npos ? std::string() : gltfPath.substr(0, slash + 1);
-  for (size_t at = text.find("\"uri\""); at != std::string::npos; at = text.find("\"uri\"", at + 1)) {
+  const std::string beside =
+      slash == std::string::npos ? std::string() : gltfPath.substr(0, slash + 1);
+  for (size_t at = text.find("\"uri\""); at != std::string::npos;
+       at = text.find("\"uri\"", at + 1)) {
     const size_t opens = text.find('"', text.find(':', at) + 1);
     if (opens == std::string::npos) { break; }
     const size_t closes = text.find('"', opens + 1);

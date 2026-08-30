@@ -9,23 +9,26 @@ namespace outshine::Data {
 namespace {
 constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
-}
+} // namespace
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
-  if (!source) return Registration::Unnamed;
+  if (!source) { return Registration::Unnamed; }
   const SourceDecl &decl = source->Declaration();
-  if (decl.Id.empty()) return Registration::Unnamed;
+  if (decl.Id.empty()) { return Registration::Unnamed; }
   for (const std::unique_ptr<Source> &held : Sources_) {
     const SourceDecl &other = held->Declaration();
-    if (other.Kind == decl.Kind && other.Order == decl.Order) return Registration::DuplicateRank;
+    if (other.Kind == decl.Kind && other.Order == decl.Order) {
+      return Registration::DuplicateRank;
+    }
   }
   Sources_.push_back(std::move(source));
 
-  std::sort(Sources_.begin(), Sources_.end(),
+  std::sort(Sources_.begin(),
+            Sources_.end(),
             [](const std::unique_ptr<Source> &a, const std::unique_ptr<Source> &b) {
               const SourceDecl &da = a->Declaration();
               const SourceDecl &db = b->Declaration();
-              if (da.Kind != db.Kind) return da.Kind < db.Kind;
+              if (da.Kind != db.Kind) { return da.Kind < db.Kind; }
               return da.Order < db.Order;
             });
   return Registration::Accepted;
@@ -33,8 +36,9 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
 
 SourceSet::Query SourceSet::Ask(const Request &request) const {
   Query query(request);
-  for (const std::unique_ptr<Source> &source : Sources_)
-    if (source->Covers(request) == Coverage::Inside) query.Candidates_.push_back(source.get());
+  for (const std::unique_ptr<Source> &source : Sources_) {
+    if (source->Covers(request) == Coverage::Inside) { query.Candidates_.push_back(source.get()); }
+  }
   return query;
 }
 
@@ -80,7 +84,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     }
 
     Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
-    if (answer.Where() == Fetched::State::Working) return Delivery::Waiting();
+    if (answer.Where() == Fetched::State::Working) { return Delivery::Waiting(); }
     query.Ticket_ = Ticket::None;
 
     Meaning what = Meaning::Refused;
@@ -96,8 +100,9 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     const SourceDecl &decl = query.Current_->Declaration();
     switch (what) {
       case Meaning::Bytes: {
-        if (decl.Keeps == Cacheability::Forever)
+        if (decl.Keeps == Cacheability::Forever) {
           Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());
+        }
         std::lock_guard<std::mutex> lock(LedgerMutex_);
         Ledger_.Delivered++;
         Ledger_.DeliveredBytes += (long long)bytes.size();
@@ -139,7 +144,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) const {
-  if (query.Ticket_ != Ticket::None) transport.Cancel(query.Ticket_);
+  if (query.Ticket_ != Ticket::None) { transport.Cancel(query.Ticket_); }
   query.Ticket_ = Ticket::None;
   query.Current_ = nullptr;
   query.Next_ = query.Candidates_.size();
@@ -150,4 +155,4 @@ SourceSet::Ledger SourceSet::Counters() const {
   return Ledger_;
 }
 
-}
+} // namespace outshine::Data

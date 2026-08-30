@@ -431,18 +431,18 @@ The heaviest files. Headers and sources counted apart.
 
 | lines | kind | file |
 |---|---|---|
-| 1891 | `cpp` | `import/Document.cpp` |
-| 1659 | `cpp` | `engine/Picturing.cpp` |
-| 1300 | `cpp` | `import/Subject.cpp` |
-| 1256 | `cpp` | `ui/Layout.cpp` |
-| 1159 | `cpp` | `render/SceneRenderer.cpp` |
-| 1151 | `cpp` | `engine/Live.cpp` |
-| 1013 | `cpp` | `base/format/Script.cpp` |
-| 944 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
-| 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
-| **46** | `h` | *the median of 240 header(s)* |
-| **123** | `cpp` | *the median of 173 source(s)* |
+| 1979 | `cpp` | `import/Document.cpp` |
+| 1757 | `cpp` | `engine/Picturing.cpp` |
+| 1375 | `cpp` | `ui/Layout.cpp` |
+| 1373 | `cpp` | `import/Subject.cpp` |
+| 1229 | `cpp` | `render/SceneRenderer.cpp` |
+| 1167 | `cpp` | `engine/Live.cpp` |
+| 1093 | `cpp` | `base/format/Script.cpp` |
+| 1056 | `cpp` | `generators/draw/BuildingMesh.cpp` |
+| 1019 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| 950 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| **50** | `h` | *the median of 240 header(s)* |
+| **128** | `cpp` | *the median of 173 source(s)* |
 
 ## Carpet
 
@@ -454,7 +454,7 @@ The widest public surfaces.
 | 66 | `src/engine/Live.h` |
 | 59 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |
-| 47 | `src/import/Subject.h` |
+| 46 | `src/import/Subject.h` |
 | 40 | `src/render/stages/SubjectDraw.h` |
 
 ## Twins
@@ -492,10 +492,11 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 |---|---|
 | 7 | `src/generators/base/ContactMaterial.h` |
 | 5 | `src/generators/draw/TreeMesh.h` |
+| 4 | `src/render/stages/SkyStage.h` |
+| 4 | `src/render/stages/AerialPerspectiveStage.h` |
 | 4 | `src/content/shade/TangentFrame.h` |
-| 3 | `src/generators/draw/TreeFoliage.h` |
 | 3 | `src/generators/draw/LeafAngleDistribution.h` |
-| 2 | `src/render/draw/DrawKey.h` |
+| 2 | `src/generators/draw/TreeFoliage.h` |
 | 2 | `src/engine/Live.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |
@@ -506,14 +507,13 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/scenario/InputMap.h` |
 | 1 | `src/render/stages/TonemapStage.h` |
 | 1 | `src/render/draw/DrawList.h` |
+| 1 | `src/render/draw/DrawKey.h` |
 | 1 | `src/import/Keyframes.h` |
 | 1 | `src/generators/draw/TreeRandom.h` |
-| 1 | `src/generators/draw/RoofSurface.h` |
 | 1 | `src/generators/base/FeatureLevel.h` |
 | 1 | `src/generators/base/Cover.h` |
 | 1 | `src/generators/base/Claim.h` |
 | 1 | `src/engine/Asset.h` |
-| 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
 | 1 | `src/base/io/StackProbe.h` |
 | 1 | `src/base/format/Xml.h` |
@@ -548,8 +548,8 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 195 | 1 | `apps/demo` | `include/` alone |
-| 707 | 3 | `apps/viewer` | **does not link from the library alone** |
+| 198 | 1 | `apps/demo` | `include/` alone |
+| 723 | 3 | `apps/viewer` | **does not link from the library alone** |
 
 ## Corpora
 

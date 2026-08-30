@@ -23,7 +23,7 @@ RegionPool::RegionPool(const Extent &extent, const Shape &shape) {
 
 std::optional<RegionPool::Lease> RegionPool::TryAcquire(const Ground &ground) {
   for (size_t i = 0; i < Slots_.size(); i++) {
-    if (Slots_[i].Out) continue;
+    if (Slots_[i].Out) { continue; }
     Slots_[i].Out = true;
     Slots_[i].Sink->Open(ground);
     return Lease(*this, i);
@@ -33,12 +33,15 @@ std::optional<RegionPool::Lease> RegionPool::TryAcquire(const Ground &ground) {
 
 size_t RegionPool::Free() const {
   size_t n = 0;
-  for (const Slot &s : Slots_)
-    if (!s.Out) n++;
+  for (const Slot &s : Slots_) {
+    if (!s.Out) { n++; }
+  }
   return n;
 }
 
-void RegionPool::Release(size_t slot) { Slots_[slot].Out = false; }
+void RegionPool::Release(size_t slot) {
+  Slots_[slot].Out = false;
+}
 
 RegionPool::Lease::Lease(RegionPool &pool, size_t slot)
     : Pool_(&pool), Slot_(slot), Sink_(pool.Slots_[slot].Sink.get()) {}
@@ -49,8 +52,8 @@ RegionPool::Lease::Lease(Lease &&other) noexcept
 }
 
 RegionPool::Lease &RegionPool::Lease::operator=(Lease &&other) noexcept {
-  if (this == &other) return *this;
-  if (Pool_) Pool_->Release(Slot_);
+  if (this == &other) { return *this; }
+  if (Pool_) { Pool_->Release(Slot_); }
   Pool_ = other.Pool_;
   Slot_ = other.Slot_;
   Sink_ = other.Sink_;
@@ -59,7 +62,7 @@ RegionPool::Lease &RegionPool::Lease::operator=(Lease &&other) noexcept {
 }
 
 RegionPool::Lease::~Lease() {
-  if (Pool_) Pool_->Release(Slot_);
+  if (Pool_) { Pool_->Release(Slot_); }
 }
 
-}
+} // namespace outshine::Generators

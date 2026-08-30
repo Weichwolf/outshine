@@ -19,16 +19,15 @@ size_t Write(void *data, size_t size, size_t members, void *user) {
   Sink *sink = (Sink *)user;
   const size_t add = size * members;
 
-  if (sink->Max && sink->Out->size() + add > sink->Max) return 0;
+  if (sink->Max && sink->Out->size() + add > sink->Max) { return 0; }
   const uint8_t *bytes = (const uint8_t *)data;
   sink->Out->insert(sink->Out->end(), bytes, bytes + add);
   return add;
 }
 
-}
+} // namespace
 
 Fetching::Fetching(const Config &config) : Config_(config) {
-
   curl_global_init(CURL_GLOBAL_DEFAULT);
   int n = Config_.Threads;
   if (n <= 0) {
@@ -36,7 +35,9 @@ Fetching::Fetching(const Config &config) : Config_(config) {
     n = hardware > 0u ? std::min((int)hardware, kDefaultThreads) : kDefaultThreads;
   }
   Threads_.reserve((size_t)n);
-  for (int i = 0; i < n; i++) Threads_.emplace_back([this] { Work(); });
+  for (int i = 0; i < n; i++) {
+    Threads_.emplace_back([this] { Work(); });
+  }
 }
 
 Fetching::~Fetching() {
@@ -45,12 +46,12 @@ Fetching::~Fetching() {
     Stopping_ = true;
   }
   Wake_.notify_all();
-  for (std::thread &t : Threads_) t.join();
+  for (std::thread &t : Threads_) { t.join(); }
   curl_global_cleanup();
 }
 
 Data::Ticket Fetching::Begin(const std::string &url) {
-  if (url.empty()) return Data::Ticket::None;
+  if (url.empty()) { return Data::Ticket::None; }
   std::lock_guard<std::mutex> lock(Mutex_);
   const uint64_t ticket = NextTicket_++;
   Transfers_[ticket].Url = url;
@@ -60,30 +61,29 @@ Data::Ticket Fetching::Begin(const std::string &url) {
 }
 
 Data::Wire Fetching::Collect(Data::Ticket ticket) {
-  if (ticket == Data::Ticket::None) return Data::Wire::Unreachable();
+  if (ticket == Data::Ticket::None) { return Data::Wire::Unreachable(); }
   std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find((uint64_t)ticket);
 
-  if (found == Transfers_.end()) return Data::Wire::Unreachable();
-  if (!found->second.Done) return Data::Wire::Working();
+  if (found == Transfers_.end()) { return Data::Wire::Unreachable(); }
+  if (!found->second.Done) { return Data::Wire::Working(); }
   Transfer done = std::move(found->second);
   Transfers_.erase(found);
-  if (done.Unreachable) return Data::Wire::Unreachable();
+  if (done.Unreachable) { return Data::Wire::Unreachable(); }
   return Data::Wire::Answered(done.Status, std::move(done.Body), done.RetryAfterS);
 }
 
 void Fetching::Cancel(Data::Ticket ticket) {
-  if (ticket == Data::Ticket::None) return;
+  if (ticket == Data::Ticket::None) { return; }
   std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find((uint64_t)ticket);
-  if (found == Transfers_.end()) return;
+  if (found == Transfers_.end()) { return; }
   if (found->second.Done) {
     Transfers_.erase(found);
     return;
   }
   const auto queued = std::find(Queue_.begin(), Queue_.end(), (uint64_t)ticket);
   if (queued != Queue_.end()) {
-
     Queue_.erase(queued);
     Transfers_.erase(found);
     return;
@@ -97,7 +97,8 @@ bool Fetching::Await(double forMs) {
   const uint64_t stood = Completions_;
   const bool outstanding = !Transfers_.empty();
   if (!outstanding) { return false; }
-  return Landed_.wait_for(lock, std::chrono::microseconds((long long)(forMs * 1000.0)),
+  return Landed_.wait_for(lock,
+                          std::chrono::microseconds((long long)(forMs * 1000.0)),
                           [this, stood] { return Stopping_ || Completions_ != stood; }) &&
          Completions_ != stood;
 }
@@ -110,11 +111,11 @@ void Fetching::Work() {
     {
       std::unique_lock<std::mutex> lock(Mutex_);
       Wake_.wait(lock, [this] { return Stopping_ || !Queue_.empty(); });
-      if (Stopping_) break;
+      if (Stopping_) { break; }
       ticket = Queue_.front();
       Queue_.erase(Queue_.begin());
       const auto found = Transfers_.find(ticket);
-      if (found == Transfers_.end()) continue;
+      if (found == Transfers_.end()) { continue; }
       url = found->second.Url;
     }
 
@@ -134,13 +135,13 @@ void Fetching::Work() {
       curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, "");
       curl_easy_setopt(handle, CURLOPT_USERAGENT, Config_.UserAgent.c_str());
       result = curl_easy_perform(handle);
-      if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
-      if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RETRY_AFTER, &retryAfter);
+      if (result == CURLE_OK) { curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status); }
+      if (result == CURLE_OK) { curl_easy_getinfo(handle, CURLINFO_RETRY_AFTER, &retryAfter); }
     }
 
     std::lock_guard<std::mutex> lock(Mutex_);
     const auto found = Transfers_.find(ticket);
-    if (found == Transfers_.end()) continue;
+    if (found == Transfers_.end()) { continue; }
     if (found->second.Cancelled) {
       Transfers_.erase(found);
       continue;
@@ -156,7 +157,7 @@ void Fetching::Work() {
       found->second.Body = std::move(body);
     }
   }
-  if (handle) curl_easy_cleanup(handle);
+  if (handle) { curl_easy_cleanup(handle); }
 }
 
-}
+} // namespace outshine

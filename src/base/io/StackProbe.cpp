@@ -52,21 +52,20 @@ void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
 
 void Raise(std::atomic<size_t> &target, size_t value) {
   size_t seen = target.load(std::memory_order_relaxed);
-  while (value > seen && !target.compare_exchange_weak(seen, value, std::memory_order_relaxed)) {
-  }
+  while (value > seen && !target.compare_exchange_weak(seen, value, std::memory_order_relaxed)) {}
 }
 
-}
+} // namespace
 
 void StackProbe::Enter(Purpose purpose) {
   uintptr_t base = 0, end = 0, current = 0;
   ThisStack(&base, &end, &current);
   const uintptr_t deepest = end + kToolchainCookie;
-  if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) return;
+  if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) { return; }
   const uintptr_t top = (current - kLiveMargin) & ~(uintptr_t)7;
 
   const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
-  for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) *(uint64_t *)a = kPaint;
+  for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) { *(uint64_t *)a = kPaint; }
   tBase = base;
   tPaintBottom = bottom;
   tPaintTop = top;
@@ -79,10 +78,14 @@ void StackProbe::Enter(Purpose purpose) {
 }
 
 void StackProbe::Mark() {
-  if (tBase == 0) return;
+  if (tBase == 0) { return; }
   uintptr_t frontier = tPaintTop;
-  for (uintptr_t a = tPaintBottom; a < tPaintTop; a += sizeof(uint64_t))
-    if (*(const uint64_t *)a != kPaint) { frontier = a; break; }
+  for (uintptr_t a = tPaintBottom; a < tPaintTop; a += sizeof(uint64_t)) {
+    if (*(const uint64_t *)a != kPaint) {
+      frontier = a;
+      break;
+    }
+  }
   Raise(SlotOf(tPurpose).Peak, (size_t)(tBase - frontier));
 }
 
@@ -112,4 +115,4 @@ const char *StackProbe::Name(Purpose purpose) {
   return "";
 }
 
-}
+} // namespace outshine

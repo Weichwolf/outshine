@@ -21,9 +21,9 @@ struct Haul {
 };
 
 [[nodiscard]] double OverturningMs2(const Rails &on, double gravityMs2);
-[[nodiscard]] Haul Ride(const Rails &on, const Envelope &within, const Demand &asked,
-                        const Where &at, double speedMs);
+[[nodiscard]] Haul
+Ride(const Rails &on, const Envelope &within, const Demand &asked, const Where &at, double speedMs);
 
-}
+} // namespace outshine::Pilot
 
 #endif

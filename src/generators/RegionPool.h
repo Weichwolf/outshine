@@ -15,7 +15,6 @@ namespace outshine::Generators {
 
 class RegionPool {
 public:
-
   struct Shape {
     int Sinks = 1;
 
@@ -28,6 +27,7 @@ public:
     Tile Reached;
     Tile Anywhere;
   };
+
   RegionPool(const Extent &extent, const Shape &shape);
 
   class Lease {
@@ -51,6 +51,7 @@ public:
 
   std::optional<Lease> TryAcquire(const Ground &ground);
   [[nodiscard]] size_t Free() const;
+
   [[nodiscard]] size_t HeapBytes() const { return Bytes_; }
 
   [[nodiscard]] size_t SlotBytes() const { return Slots_.empty() ? 0 : Bytes_ / Slots_.size(); }
@@ -69,5 +70,5 @@ private:
   size_t Bytes_ = 0;
 };
 
-}
+} // namespace outshine::Generators
 #endif

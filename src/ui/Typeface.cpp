@@ -21,23 +21,38 @@ struct Named {
 };
 
 constexpr Named kFamilies[] = {
-    {"serif", Family::Serif},         {"times", Family::Serif},
-    {"times new roman", Family::Serif}, {"georgia", Family::Serif},
-    {"garamond", Family::Serif},      {"palatino", Family::Serif},
-    {"book antiqua", Family::Serif},  {"ui-serif", Family::Serif},
+    {"serif", Family::Serif},
+    {"times", Family::Serif},
+    {"times new roman", Family::Serif},
+    {"georgia", Family::Serif},
+    {"garamond", Family::Serif},
+    {"palatino", Family::Serif},
+    {"book antiqua", Family::Serif},
+    {"ui-serif", Family::Serif},
 
-    {"monospace", Family::Mono},      {"courier", Family::Mono},
-    {"courier new", Family::Mono},    {"consolas", Family::Mono},
-    {"menlo", Family::Mono},          {"monaco", Family::Mono},
-    {"sf mono", Family::Mono},        {"dejavu sans mono", Family::Mono},
-    {"liberation mono", Family::Mono}, {"ui-monospace", Family::Mono},
+    {"monospace", Family::Mono},
+    {"courier", Family::Mono},
+    {"courier new", Family::Mono},
+    {"consolas", Family::Mono},
+    {"menlo", Family::Mono},
+    {"monaco", Family::Mono},
+    {"sf mono", Family::Mono},
+    {"dejavu sans mono", Family::Mono},
+    {"liberation mono", Family::Mono},
+    {"ui-monospace", Family::Mono},
 
-    {"sans-serif", Family::Sans},     {"arial", Family::Sans},
-    {"helvetica", Family::Sans},      {"helvetica neue", Family::Sans},
-    {"verdana", Family::Sans},        {"tahoma", Family::Sans},
-    {"segoe ui", Family::Sans},       {"system-ui", Family::Sans},
-    {"ui-sans-serif", Family::Sans},  {"roboto", Family::Sans},
-    {"inter", Family::Sans},          {"dejavu sans", Family::Sans},
+    {"sans-serif", Family::Sans},
+    {"arial", Family::Sans},
+    {"helvetica", Family::Sans},
+    {"helvetica neue", Family::Sans},
+    {"verdana", Family::Sans},
+    {"tahoma", Family::Sans},
+    {"segoe ui", Family::Sans},
+    {"system-ui", Family::Sans},
+    {"ui-sans-serif", Family::Sans},
+    {"roboto", Family::Sans},
+    {"inter", Family::Sans},
+    {"dejavu sans", Family::Sans},
 };
 
 constexpr const char *kFiles[] = {"DejaVuSans.ttf", "DejaVuSerif.ttf", "DejaVuSansMono.ttf"};
@@ -59,13 +74,15 @@ static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == (size_t)Family::kCount,
 
 [[nodiscard]] std::string Trimmed(std::string_view from) {
   size_t first = 0, last = from.size();
-  const auto space = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '"' || c == '\''; };
+  const auto space = [](char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '"' || c == '\'';
+  };
   while (first < last && space(from[first])) { ++first; }
   while (last > first && space(from[last - 1])) { --last; }
   return std::string(from.substr(first, last - first));
 }
 
-}
+} // namespace
 
 Family FamilyNamed(std::string_view declared) {
   size_t at = 0;
@@ -82,7 +99,9 @@ Family FamilyNamed(std::string_view declared) {
   return Family::Sans;
 }
 
-const char *FileOf(Family family) { return kFiles[(size_t)family]; }
+const char *FileOf(Family family) {
+  return kFiles[(size_t)family];
+}
 
 Family FamilyOf(uint32_t declared) {
   for (const Named &known : kFamilies) {
@@ -195,14 +214,14 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
     return Cells_[slot] = cut;
   }
 
-  SDL_Surface *rgba = ink->format == SDL_PIXELFORMAT_RGBA32
-                          ? ink
-                          : SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);
+  SDL_Surface *rgba =
+      ink->format == SDL_PIXELFORMAT_RGBA32 ? ink : SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);
   int leftPx = 0, topPx = 0;
   if (rgba != nullptr && Packs(rgba->w, rgba->h, leftPx, topPx)) {
     const uint8_t *from = (const uint8_t *)rgba->pixels;
     for (int row = 0; row < rgba->h; ++row) {
-      uint8_t *into = Rgba_.data() + (((size_t)(topPx + row) * (size_t)SheetW_) + (size_t)leftPx) * 4u;
+      uint8_t *into =
+          Rgba_.data() + (((size_t)(topPx + row) * (size_t)SheetW_) + (size_t)leftPx) * 4u;
       SDL_memcpy(into, from + (size_t)row * (size_t)rgba->pitch, (size_t)rgba->w * 4u);
     }
     cut.WidthPx = (float)rgba->w;
@@ -251,4 +270,4 @@ Glyph Typeface::Shape(char32_t code, double sizePx, Family family) const {
   return glyph;
 }
 
-}
+} // namespace outshine::Ui

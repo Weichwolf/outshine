@@ -42,7 +42,7 @@ constexpr size_t kFloats = kVertices * outshine::Generators::kSoupFloatsPerVerte
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -69,8 +69,7 @@ int main(void) {
   bool everyFieldLanded = true;
   for (size_t vertex = 0; vertex < kVertices; ++vertex) {
     const float which = (float)vertex;
-    everyFieldLanded = everyFieldLanded &&
-                       handed.positionsOf(0)[vertex * 3] == 100.0f + which &&
+    everyFieldLanded = everyFieldLanded && handed.positionsOf(0)[vertex * 3] == 100.0f + which &&
                        handed.positionsOf(0)[vertex * 3 + 1] == 200.0f + which &&
                        handed.positionsOf(0)[vertex * 3 + 2] == 300.0f + which &&
                        handed.textureOf(0)[vertex * 2] == 0.1f * which &&
@@ -78,8 +77,11 @@ int main(void) {
                        handed.trianglesOf(0)[vertex] == (uint32_t)vertex;
   }
   std::printf("FIRST POSITION %.1f %.1f %.1f   FIRST UV %.2f %.2f\n",
-              handed.positionsOf(0)[0], handed.positionsOf(0)[1],
-              handed.positionsOf(0)[2], handed.textureOf(0)[0], handed.textureOf(0)[1]);
+              handed.positionsOf(0)[0],
+              handed.positionsOf(0)[1],
+              handed.positionsOf(0)[2],
+              handed.textureOf(0)[0],
+              handed.textureOf(0)[1]);
   CHECK(everyFieldLanded,
         "**EVERY FIELD LANDS IN ITS OWN ARRAY, IN ORDER**: a soup is interleaved and the value is "
         "not, so the crossing is a de-interleave and a stride read one float wide puts a normal "
@@ -88,16 +90,17 @@ int main(void) {
         "one nobody sees");
 
   Meshed second;
-  const bool tooShort = second.Take("half a vertex", outshine::MaterialInstance(0), soup.data(), kFloats - 1);
-  std::printf("A PARTIAL VERTEX  %s -- %s\n", tooShort ? "TAKEN" : "refused",
-              second.Error().c_str());
+  const bool tooShort =
+      second.Take("half a vertex", outshine::MaterialInstance(0), soup.data(), kFloats - 1);
+  std::printf(
+      "A PARTIAL VERTEX  %s -- %s\n", tooShort ? "TAKEN" : "refused", second.Error().c_str());
   CHECK(!tooShort,
         "a soup that is not a whole number of vertices is REFUSED with the count in the reason, "
         "rather than truncated into a mesh that is nearly right");
 
   Meshed third;
-  const bool notTriangles =
-      third.Take("two vertices", outshine::MaterialInstance(0), soup.data(), 2 * kSoupFloatsPerVertex);
+  const bool notTriangles = third.Take(
+      "two vertices", outshine::MaterialInstance(0), soup.data(), 2 * kSoupFloatsPerVertex);
   CHECK(!notTriangles,
         "and neither is a whole number of vertices that is not a whole number of triangles -- a "
         "soup carries its own topology and two thirds of a triangle is not one");

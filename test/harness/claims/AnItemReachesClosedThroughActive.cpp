@@ -56,7 +56,8 @@ namespace {
 // it goes, so this claim accepts `State: active` or `State: withdrawn` and refuses `State: open`,
 // which is a file that left without anyone saying which of the two it was.
 //
-// KEYED ON THE NUMBER OR THE TITLE, because an item can move in two ways and each keeps one of them:
+// KEYED ON THE NUMBER OR THE TITLE, because an item can move in two ways and each keeps one of
+// them:
 //
 //   RETITLED   the number stays and the title changes -- board:1966, reframed in one commit
 //   RENUMBERED the title stays and the number changes -- board:1932 became 1937 after a number
@@ -66,9 +67,9 @@ namespace {
 // watched only the number called the second one. A genuine closure refiles NEITHER, so watching
 // both excuses exactly the two kinds of move and nothing else.
 //
-// AT THE SAME COMMIT OR LATER, because a rename happens in ONE commit -- git records a delete and an
-// add and nothing distinguishes them by time. That does not reopen the hole the older rule had: a
-// number is identity and never repeats, so a same-commit number match can only be a rename; and a
+// AT THE SAME COMMIT OR LATER, because a rename happens in ONE commit -- git records a delete and
+// an add and nothing distinguishes them by time. That does not reopen the hole the older rule had:
+// a number is identity and never repeats, so a same-commit number match can only be a rename; and a
 // same-commit TITLE match is a renumber, which is the other move. Neither can be a closure, because
 // a closure files nothing.
 //
@@ -89,8 +90,7 @@ namespace {
 // An EMPTY window is reported and is not a failure -- a rule with nothing yet to judge has not
 // failed -- but it is printed in capitals, because "no closure in the window" and "every closure
 // passed" must never look alike to a reader.
-constexpr const char *kThisClaim =
-    "test/harness/claims/AnItemReachesClosedThroughActive.cpp";
+constexpr const char *kThisClaim = "test/harness/claims/AnItemReachesClosedThroughActive.cpp";
 
 struct Skipped {
   std::string Commit;
@@ -98,7 +98,7 @@ struct Skipped {
   std::string Said;
 };
 
-}
+} // namespace
 
 [[nodiscard]] std::string Numbered(const std::string &path) {
   const size_t slash = path.rfind('/');
@@ -192,8 +192,11 @@ int main(void) {
     if (header.empty()) { continue; }
 
     std::string titled;
-    (void)Run("git show " + at + "^:" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1", titled);
-    while (!titled.empty() && (titled.back() == '\n' || titled.back() == ' ')) { titled.pop_back(); }
+    (void)Run("git show " + at + "^:" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1",
+              titled);
+    while (!titled.empty() && (titled.back() == '\n' || titled.back() == ' ')) {
+      titled.pop_back();
+    }
     bool wasMoved = false;
     for (const std::string &key : {Numbered(line), titled}) {
       if (key.empty()) { continue; }
@@ -236,7 +239,10 @@ int main(void) {
     }
     std::string said = "no State line at all";
     for (const std::string &row : Lines(header)) {
-      if (row.compare(0, 7, "State: ") == 0) { said = row; break; }
+      if (row.compare(0, 7, "State: ") == 0) {
+        said = row;
+        break;
+      }
     }
     skipped.push_back(Skipped{at, line, said});
   }
@@ -246,10 +252,14 @@ int main(void) {
     std::printf("NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");
   }
   std::printf("BOARD DELETIONS in the window %zu, of which %zu were MOVES -- the same title was "
-              "filed again at a LATER commit\n", deletions, moved);
+              "filed again at a LATER commit\n",
+              deletions,
+              moved);
   std::printf("CLOSED THROUGH ACTIVE %zu, skipped the door %zu\n", closed.size(), skipped.size());
   for (const Skipped &one : skipped) {
-    std::printf("  %s deleted %s which said '%s'\n", one.Commit.c_str(), one.Item.c_str(),
+    std::printf("  %s deleted %s which said '%s'\n",
+                one.Commit.c_str(),
+                one.Item.c_str(),
                 one.Said.c_str());
   }
 

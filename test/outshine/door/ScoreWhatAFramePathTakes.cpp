@@ -66,8 +66,9 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAAA
                      "{\"buffer\":1,\"byteOffset\":8,\"byteLength\":24}],"
                      "\"buffers\":[{\"byteLength\":72,\"uri\":"
                      "\"data:application/octet-stream;base64,") +
-         kTriangleBase64 + "\"},{\"byteLength\":32,\"uri\":" +
-         "\"data:application/octet-stream;base64," + kTrackBase64 + "\"}]}";
+         kTriangleBase64 +
+         "\"},{\"byteLength\":32,\"uri\":" + "\"data:application/octet-stream;base64," +
+         kTrackBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -85,7 +86,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAAA
   return 0.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -151,8 +152,10 @@ int main(void) {
   const double bvhAfter = Taken(engine, "mesh-bvh");
   const double allAfter = Taken(engine, "render-frame") + bvhAfter;
 
-  std::printf("OVER %.0f POSED FRAMES  mesh-bvh took %.0f byte(s), the frame took %.0f\n", moved,
-              bvhAfter - bvhBefore, allAfter - allBefore);
+  std::printf("OVER %.0f POSED FRAMES  mesh-bvh took %.0f byte(s), the frame took %.0f\n",
+              moved,
+              bvhAfter - bvhBefore,
+              allAfter - allBefore);
 
   CHECK(bvhBefore > 0.0,
         "**THE STRUCTURE IS BUILT AT ALL**: this case reads a DIFFERENCE, and a difference of zero "

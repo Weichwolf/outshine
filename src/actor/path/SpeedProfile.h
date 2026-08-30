@@ -26,16 +26,20 @@ struct Envelope {
   double CorneringNPerRad = 0.0;
 
   [[nodiscard]] double LateralMs2() const { return Grip * GravityMs2; }
+
   [[nodiscard]] double HoldingMs2() const {
     const double left = Grip * GravityMs2 - ReserveMs2;
     return left > 0.0 ? left : 0.0;
   }
+
   [[nodiscard]] double AccelMs2() const { return MassKg > 0.0 ? DriveN / MassKg : 0.0; }
+
   [[nodiscard]] double BrakeMs2() const {
     const double fromTyres = Grip * GravityMs2;
     const double fromBrakes = MassKg > 0.0 ? BrakeN / MassKg : 0.0;
     return fromBrakes < fromTyres ? fromBrakes : fromTyres;
   }
+
   [[nodiscard]] double TopMs() const {
     const double resistance = 0.5 * AirDensity * DragArea;
     return resistance > 0.0 ? std::sqrt(DriveN / resistance)
@@ -45,8 +49,18 @@ struct Envelope {
 
 class SpeedProfile {
 public:
-  enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, Entry, Traction,
-                              Brake, kCount };
+  enum class Held : uint8_t {
+    Free,
+    Curvature,
+    Slip,
+    Ramp,
+    Climb,
+    Crest,
+    Entry,
+    Traction,
+    Brake,
+    kCount
+  };
 
   struct Bound {
     double Ms = 0.0;
@@ -54,25 +68,39 @@ public:
     Held By = Held::Free;
   };
 
-  [[nodiscard]] bool Over(const ReferenceLine &along, const Envelope &within, double stepM,
-                          double entryMs, std::string &error);
+  [[nodiscard]] bool Over(const ReferenceLine &along,
+                          const Envelope &within,
+                          double stepM,
+                          double entryMs,
+                          std::string &error);
 
   [[nodiscard]] Bound Slowest() const noexcept { return Slowest_; }
+
   [[nodiscard]] Bound Fastest() const noexcept { return Fastest_; }
+
   [[nodiscard]] size_t BoundBy(Held term) const noexcept {
     return (size_t)term < (size_t)Held::kCount ? Bound_[(size_t)term] : 0;
   }
+
   [[nodiscard]] static const char *NameOf(Held term) noexcept;
 
   [[nodiscard]] double At(double alongM) const;
+
   [[nodiscard]] double StepM() const noexcept { return StepM_; }
+
   [[nodiscard]] size_t SampleCount() const noexcept { return Held_.size(); }
+
   [[nodiscard]] double SampleAt(size_t which) const noexcept { return Held_[which]; }
+
   [[nodiscard]] double CurvatureAt(size_t which) const noexcept { return Curvature_[which]; }
+
   [[nodiscard]] double Quantile(double share) const noexcept;
   [[nodiscard]] size_t StationsUnder(double ms) const noexcept;
+
   [[nodiscard]] double BinMs() const noexcept { return BinMs_; }
+
   [[nodiscard]] Bound SlowestBound() const noexcept { return SlowestBound_; }
+
   [[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept {
     return term == Held::Curvature || term == Held::Slip || term == Held::Ramp ||
            term == Held::Climb || term == Held::Crest;
@@ -95,6 +123,6 @@ private:
   double LengthM_ = 0.0;
 };
 
-}
+} // namespace outshine
 
 #endif

@@ -61,12 +61,24 @@ public:
       const float acrossM = 0.35f;
       const float alongM = (float)((at % 8) - 4) * 1.1f;
       const float upM = (float)((at / 8) % 8) * 1.1f;
-      const float face[18] = {alongM - acrossM, upM - acrossM, 0.0f,
-                              alongM + acrossM, upM - acrossM, 0.0f,
-                              alongM + acrossM, upM + acrossM, 0.0f,
-                              alongM - acrossM, upM - acrossM, 0.0f,
-                              alongM + acrossM, upM + acrossM, 0.0f,
-                              alongM - acrossM, upM + acrossM, 0.0f};
+      const float face[18] = {alongM - acrossM,
+                              upM - acrossM,
+                              0.0f,
+                              alongM + acrossM,
+                              upM - acrossM,
+                              0.0f,
+                              alongM + acrossM,
+                              upM + acrossM,
+                              0.0f,
+                              alongM - acrossM,
+                              upM - acrossM,
+                              0.0f,
+                              alongM + acrossM,
+                              upM + acrossM,
+                              0.0f,
+                              alongM - acrossM,
+                              upM + acrossM,
+                              0.0f};
       constexpr float facing[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
       constexpr uint32_t run[6] = {0, 1, 2, 3, 4, 5};
       const int part = into.addPart("crate", named);
@@ -130,7 +142,7 @@ struct Cost {
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -153,10 +165,12 @@ int main(void) {
     return Report();
   }
 
-  std::printf("ONE CASTER          %3.0f shadow batch(es), drawing left %6.0f bytes\n", few.Batches,
+  std::printf("ONE CASTER          %3.0f shadow batch(es), drawing left %6.0f bytes\n",
+              few.Batches,
               few.Bytes);
   std::printf("SIXTY-FOUR CASTERS  %3.0f shadow batch(es), drawing left %6.0f bytes\n",
-              many.Batches, many.Bytes);
+              many.Batches,
+              many.Bytes);
 
   CHECK(many.Batches > few.Batches,
         "sixty-four crates cast more than one does, so the scene really grew and the byte "

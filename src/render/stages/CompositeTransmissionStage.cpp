@@ -11,19 +11,22 @@ constexpr uint32_t kCompositeImages = CompositeTransmissionStage::ShaderShape.Fr
 
 }
 
-bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaque,
-                                           SDL_GPUTexture *transmissive, SDL_GPUSampler *exact,
-                                           SDL_GPUTextureFormat targetFormat, std::string &error) {
+bool CompositeTransmissionStage::Configure(const Gpu &gpu,
+                                           SDL_GPUTexture *opaque,
+                                           SDL_GPUTexture *transmissive,
+                                           SDL_GPUSampler *exact,
+                                           SDL_GPUTextureFormat targetFormat,
+                                           std::string &error) {
   Opaque = opaque;
   Transmissive = transmissive;
   Exact = exact;
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
-  const OwnedShader vertex(gpu.Device, ShaderFrom(gpu.Device, source, "vs",
-                                                 SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(gpu.Device, ShaderFrom(gpu.Device, source, "fs",
-                                                   SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
+  const OwnedShader vertex(
+      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
+  const OwnedShader fragment(
+      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
   if (!vertex || !fragment) {
     error = std::string("the transmission composite did not compile: ") + SDL_GetError();
     return false;
@@ -53,7 +56,7 @@ void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecordin
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   const SDL_GPUTextureSamplerBinding images[kCompositeImages] = {{Opaque, Exact},
-                                                                {Transmissive, Exact}};
+                                                                 {Transmissive, Exact}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kCompositeImages);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
@@ -65,8 +68,10 @@ std::string CompositeTransmissionStage::ShaderSource() {
 
 std::string CompositeTransmissionStage::ShaderSource(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/compositeTransmission.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/compositeTransmission.msl", body, error)) {
+    return std::string();
+  }
   return MslPrelude(error) + body;
 }
 
-}
+} // namespace outshine::Render

@@ -17,8 +17,11 @@ public:
   [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .Samplers = 1, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *transmittance, SDL_GPUSampler *lut,
-                               SDL_GPUTexture *into, std::string &error);
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUTexture *transmittance,
+                               SDL_GPUSampler *lut,
+                               SDL_GPUTexture *into,
+                               std::string &error);
 
   void Declare(const Medium &medium);
 
@@ -35,5 +38,5 @@ private:
   bool Settled_ = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

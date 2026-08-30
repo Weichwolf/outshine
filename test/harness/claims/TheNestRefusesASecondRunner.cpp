@@ -9,9 +9,7 @@ using outshine::Test::Ask;
 using outshine::Test::Lines;
 using outshine::Test::Run;
 
-namespace {
-
-} // namespace
+namespace {} // namespace
 
 int main(void) {
   using namespace outshine::Test;

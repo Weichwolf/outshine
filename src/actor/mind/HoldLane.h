@@ -17,6 +17,7 @@ struct Sight {
 class HoldsLane final : public Task {
 public:
   [[nodiscard]] const Pilot::Demand &Asked() const { return Asked_; }
+
   void Sees(const Sight &now) { Now_ = now; }
 
 private:
@@ -26,6 +27,6 @@ private:
   Pilot::Demand Asked_;
 };
 
-}
+} // namespace outshine::Control
 
 #endif

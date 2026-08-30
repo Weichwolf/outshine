@@ -11,16 +11,54 @@
 namespace outshine::Ui {
 
 enum class Property : uint8_t {
-  Display, Position, BoxSizing, Overflow,
-  FlexDirection, FlexWrap, JustifyContent, AlignItems, AlignSelf, AlignContent,
-  FlexGrow, FlexShrink, FlexBasis, Gap, RowGap, ColumnGap,
-  Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight,
-  MarginTop, MarginRight, MarginBottom, MarginLeft,
-  PaddingTop, PaddingRight, PaddingBottom, PaddingLeft,
-  BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth,
-  Top, Right, Bottom, Left,
-  BackgroundColour, BorderColour, BorderRadius, Opacity, Colour,
-  FontSize, LineHeight, TextAlign, WhiteSpace, FontFamily,
+  Display,
+  Position,
+  BoxSizing,
+  Overflow,
+  FlexDirection,
+  FlexWrap,
+  JustifyContent,
+  AlignItems,
+  AlignSelf,
+  AlignContent,
+  FlexGrow,
+  FlexShrink,
+  FlexBasis,
+  Gap,
+  RowGap,
+  ColumnGap,
+  Width,
+  Height,
+  MinWidth,
+  MaxWidth,
+  MinHeight,
+  MaxHeight,
+  MarginTop,
+  MarginRight,
+  MarginBottom,
+  MarginLeft,
+  PaddingTop,
+  PaddingRight,
+  PaddingBottom,
+  PaddingLeft,
+  BorderTopWidth,
+  BorderRightWidth,
+  BorderBottomWidth,
+  BorderLeftWidth,
+  Top,
+  Right,
+  Bottom,
+  Left,
+  BackgroundColour,
+  BorderColour,
+  BorderRadius,
+  Opacity,
+  Colour,
+  FontSize,
+  LineHeight,
+  TextAlign,
+  WhiteSpace,
+  FontFamily,
   kCount
 };
 
@@ -49,7 +87,6 @@ struct Declaration {
 };
 
 struct Compound {
-
   int NthChild = 0;
 
   bool Universal = false;
@@ -71,14 +108,16 @@ struct Rule {
 
 class Stylesheet {
 public:
-
   void Read(std::string_view text);
 
   [[nodiscard]] std::vector<Declaration> Inline(std::string_view text);
 
   [[nodiscard]] const std::vector<Rule> &Rules() const { return Rules_; }
+
   [[nodiscard]] size_t PropertiesOutsideTheSubset() const { return Unheld_; }
+
   [[nodiscard]] size_t SelectorsOutsideTheSubset() const { return Unselectable_; }
+
   [[nodiscard]] const std::vector<std::string> &NamesOutsideTheSubset() const { return Names_; }
 
 private:
@@ -95,5 +134,5 @@ private:
 
 [[nodiscard]] const char *WhyOutside(std::string_view name);
 
-}
+} // namespace outshine::Ui
 #endif

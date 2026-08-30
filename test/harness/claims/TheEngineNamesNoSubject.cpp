@@ -71,24 +71,28 @@ constexpr Forbidden kSubjects[] = {
     {"Pedal", 0, "a control command over time"},
     {"Forest", 0, "a generator's subject; the engine holds a Making and never what it depicts"},
     {"Terrain", 0, "the same, and CLAUDE.md's own words: the engine knows no terrain"},
-    {"Building", 6, "NOT a house: all six are the PARTICIPLE -- ClassBuilder's Stage::Building "
-                    "and TriangleBvh's struct Building, which is work in progress. A word list "
-                    "cannot tell a noun from a gerund, so this row carries its measured count and "
-                    "the reason. The house is BuildingField in the DATA tier, which is OSM's own "
-                    "layer name, and src/engine and src/render hold neither"},
+    {"Building",
+     6,
+     "NOT a house: all six are the PARTICIPLE -- ClassBuilder's Stage::Building "
+     "and TriangleBvh's struct Building, which is work in progress. A word list "
+     "cannot tell a noun from a gerund, so this row carries its measured count and "
+     "the reason. The house is BuildingField in the DATA tier, which is OSM's own "
+     "layer name, and src/engine and src/render hold neither"},
     {"Road", 0, "a corridor is a reference line; a road is what OSM calls one"},
     {"River", 0, "a ribbon with a width; what it depicts is the generator's business"},
     {"Mountain", 0, "ground is a height field and a slope, and it has no proper nouns"},
-    {"Tree", 20, "every one is a DATA STRUCTURE and not a subject: sixteen are the markup and "
-                 "layout tree, four are TreeNodeBytes accounting a std::map's nodes. The world's "
-                 "tree belongs to the generators and reaches the engine as a Making -- src/engine "
-                 "named Forest nine times and Tree twelve until this row was written, all of it "
-                 "put there by the shipped-forest wiring and all of it moved to "
-                 "Generators::Shipping"},
+    {"Tree",
+     20,
+     "every one is a DATA STRUCTURE and not a subject: sixteen are the markup and "
+     "layout tree, four are TreeNodeBytes accounting a std::map's nodes. The world's "
+     "tree belongs to the generators and reaches the engine as a Making -- src/engine "
+     "named Forest nine times and Tree twelve until this row was written, all of it "
+     "put there by the shipped-forest wiring and all of it moved to "
+     "Generators::Shipping"},
     {"Walker", 0, "an assembly; walking is CONTROL over time"},
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -97,15 +101,18 @@ int main(void) {
   size_t rose = 0, fell = 0;
   std::printf("  %-10s %6s %6s\n", "word", "now", "owed");
   for (const Forbidden &one : kSubjects) {
-    const std::string counted =
-        Ask(std::string("grep -rowh '\\b") + one.Word +
-            "' src/ include/ --include='*.h' --include='*.cpp' "
-            "--exclude-dir=generators 2>/dev/null | wc -l | tr -d ' '");
+    const std::string counted = Ask(std::string("grep -rowh '\\b") + one.Word +
+                                    "' src/ include/ --include='*.h' --include='*.cpp' "
+                                    "--exclude-dir=generators 2>/dev/null | wc -l | tr -d ' '");
     const size_t now = counted.empty() ? 0u : (size_t)std::strtoul(counted.c_str(), nullptr, 10);
     const char *moved = now > one.Standing ? "  ROSE" : (now < one.Standing ? "  fell" : "");
     if (now > one.Standing) { ++rose; }
     if (now < one.Standing) { ++fell; }
-    std::printf("  %-10s %6zu %6zu%s%s\n", one.Word, now, one.Standing, moved,
+    std::printf("  %-10s %6zu %6zu%s%s\n",
+                one.Word,
+                now,
+                one.Standing,
+                moved,
                 now != one.Standing ? "" : "");
     if (now != one.Standing) { std::printf("             %s\n", one.Why); }
   }

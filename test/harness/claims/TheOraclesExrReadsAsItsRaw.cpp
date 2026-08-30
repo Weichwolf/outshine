@@ -22,7 +22,7 @@ namespace {
 const char *const kRgba[4] = {"R", "G", "B", "A"};
 
 bool Exists(const std::string &path) {
-  struct stat entry {};
+  struct stat entry{};
   return stat(path.c_str(), &entry) == 0 && S_ISREG(entry.st_mode);
 }
 
@@ -49,7 +49,7 @@ std::vector<std::string> PreparedCases(size_t &unpaired) {
   return cases;
 }
 
-}
+} // namespace
 
 int main() {
   using namespace outshine::Test;
@@ -57,12 +57,15 @@ int main() {
   size_t unpaired = 0;
   std::vector<std::string> cases = PreparedCases(unpaired);
   Note("prepared cases carrying both an oracle EXR and its raw", (double)cases.size(), "cases");
-  CHECK(unpaired == 0,
-        "no case carries one of the pair without the other, which would be a preparer defect rather "
-        "than an unprepared tree");
+  CHECK(
+      unpaired == 0,
+      "no case carries one of the pair without the other, which would be a preparer defect rather "
+      "than an unprepared tree");
 
   if (cases.empty()) {
-    Unprepared("test/harness/shared/corpus/prepare.py has produced no oracle.exr/oracle.raw pair to decode");
+    Unprepared(
+        "test/harness/shared/corpus/prepare.py has produced no oracle.exr/oracle.raw pair to "
+        "decode");
     return Report();
   }
 

@@ -19,6 +19,7 @@ public:
   struct Vertex {
     float Em, Nm;
   };
+
   struct Ring {
     uint32_t First, Count;
   };
@@ -34,17 +35,20 @@ public:
     float MinEm, MinNm, MaxEm, MaxNm;
   };
 
-  static std::shared_ptr<const FeatureField> Of(Span<const Feature> features,
-                                                Span<const Ring> rings,
-                                                Span<const Vertex> vertices);
+  static std::shared_ptr<const FeatureField>
+  Of(Span<const Feature> features, Span<const Ring> rings, Span<const Vertex> vertices);
 
   [[nodiscard]] size_t Count() const { return Features_.size(); }
+
   [[nodiscard]] const Feature &At(size_t i) const { return Features_[i]; }
+
   [[nodiscard]] Span<const Ring> Rings(const Feature &f) const;
   [[nodiscard]] Span<const Vertex> Vertices(const Ring &r) const;
+
   [[nodiscard]] static bool Boxed(const Feature &f, double eastM, double northM) noexcept {
     return eastM >= f.MinEm && eastM <= f.MaxEm && northM >= f.MinNm && northM <= f.MaxNm;
   }
+
   [[nodiscard]] bool Contains(const Feature &f, double eastM, double northM) const noexcept;
 
   [[nodiscard]] size_t HeapBytes() const;
@@ -57,5 +61,5 @@ private:
   std::vector<Vertex> Vertices_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

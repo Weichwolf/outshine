@@ -63,7 +63,7 @@ struct Shape {
   bool TwiceJson, TwiceBinary, JsonFirst, Stands;
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -91,7 +91,9 @@ int main(void) {
     }
     outshine::Gltf::Document document;
     const bool stood = document.ReadFile(path);
-    std::printf("%-40s %s%s\n", one.What, stood ? "STOOD" : "refused",
+    std::printf("%-40s %s%s\n",
+                one.What,
+                stood ? "STOOD" : "refused",
                 stood == one.Stands ? "" : "   <- and should not have");
     if (stood == one.Stands) { ++agreed; }
   }

@@ -18,17 +18,28 @@ public:
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 4, .FragmentUniformBuffers = 1};
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
-                               SDL_GPUTexture *skyView, SDL_GPUTexture *transmittance,
-                               SDL_GPUSampler *exact, SDL_GPUSampler *lut,
-                               SDL_GPUTextureFormat targetFormat, std::string &error);
+  [[nodiscard]] bool Configure(const Gpu &gpu,
+                               SDL_GPUTexture *scene,
+                               SDL_GPUTexture *depth,
+                               SDL_GPUTexture *skyView,
+                               SDL_GPUTexture *transmittance,
+                               SDL_GPUSampler *exact,
+                               SDL_GPUSampler *lut,
+                               SDL_GPUTextureFormat targetFormat,
+                               std::string &error);
 
-  void Declare(const Medium &medium, const float sunDir[3], const float up[3],
-               float illuminanceLux, float eyeHeightM);
+  void Declare(const Medium &medium,
+               const float sunDir[3],
+               const float up[3],
+               float illuminanceLux,
+               float eyeHeightM);
 
   void Eye(const Medium &medium, float eyeHeightM);
 
-  void SetBasis(const float right[3], const float upAxis[3], const float fwd[3], float tanHalfW,
+  void SetBasis(const float right[3],
+                const float upAxis[3],
+                const float fwd[3],
+                float tanHalfW,
                 float tanHalfH);
 
   void SetNear(float nearM) { Pushed_.NearM = nearM; }
@@ -65,5 +76,5 @@ private:
   bool Declared_ = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

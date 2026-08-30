@@ -21,16 +21,17 @@ constexpr double kDielectricF0 = 0.04;
 }
 
 [[nodiscard]] inline double BrdfVisibility(double nl, double nv, double a2) {
-  return 0.5 / (nl * std::sqrt(nv * nv * (1.0 - a2) + a2) +
-                nv * std::sqrt(nl * nl * (1.0 - a2) + a2));
+  return 0.5 /
+         (nl * std::sqrt(nv * nv * (1.0 - a2) + a2) + nv * std::sqrt(nl * nl * (1.0 - a2) + a2));
 }
 
-[[nodiscard]] inline std::array<double, 3> BrdfFresnel(const std::array<double, 3> &f0, double f90,
-                                                      double vh) {
+[[nodiscard]] inline std::array<double, 3>
+BrdfFresnel(const std::array<double, 3> &f0, double f90, double vh) {
   const double grazing = 1.0 - vh;
   const double squared = grazing * grazing;
   const double weight = squared * squared * grazing;
-  return {f0[0] + (f90 - f0[0]) * weight, f0[1] + (f90 - f0[1]) * weight,
+  return {f0[0] + (f90 - f0[0]) * weight,
+          f0[1] + (f90 - f0[1]) * weight,
           f0[2] + (f90 - f0[2]) * weight};
 }
 
@@ -42,14 +43,13 @@ constexpr double kDielectricF0 = 0.04;
 }
 
 [[nodiscard]] inline double RoughenedBy(double roughness, double meanResultantLength) {
-
   if (!(meanResultantLength < 1.0)) { return roughness; }
   const double alpha = roughness * roughness;
   return std::sqrt(std::sqrt(ToksvigA2(alpha * alpha, meanResultantLength)));
 }
 
-[[nodiscard]] inline double BrdfAnisotropicDistribution(double nh, double th, double bh, double at,
-                                                        double ab) {
+[[nodiscard]] inline double
+BrdfAnisotropicDistribution(double nh, double th, double bh, double at, double ab) {
   const double a2 = at * ab;
   const double fx = ab * th, fy = at * bh, fz = a2 * nh;
   const double dot = fx * fx + fy * fy + fz * fz;
@@ -58,8 +58,8 @@ constexpr double kDielectricF0 = 0.04;
   return a2 * w2 * w2 / kPi;
 }
 
-[[nodiscard]] inline double BrdfAnisotropicVisibility(double nl, double nv, double tv, double bv,
-                                                      double tl, double bl, double at, double ab) {
+[[nodiscard]] inline double BrdfAnisotropicVisibility(
+    double nl, double nv, double tv, double bv, double tl, double bl, double at, double ab) {
   const double alongV = nl * std::sqrt(at * tv * at * tv + ab * bv * ab * bv + nv * nv);
   const double alongL = nv * std::sqrt(at * tl * at * tl + ab * bl * ab * bl + nl * nl);
   const double sum = alongV + alongL;
@@ -85,7 +85,8 @@ struct BrdfGeometry {
 }
 
 [[nodiscard]] inline BrdfTerms BrdfCombine(const std::array<double, 3> &diffuseColour,
-                                           const std::array<double, 3> &fresnel, double lobe) {
+                                           const std::array<double, 3> &fresnel,
+                                           double lobe) {
   BrdfTerms terms;
   for (size_t channel = 0; channel < 3; ++channel) {
     terms.Diffuse[channel] = (1.0 - fresnel[channel]) * diffuseColour[channel] * (1.0 / kPi);
@@ -95,7 +96,8 @@ struct BrdfGeometry {
 }
 
 [[nodiscard]] inline BrdfTerms BrdfRgbMix(const std::array<double, 3> &diffuseColour,
-                                          const std::array<double, 3> &fresnel, double lobe) {
+                                          const std::array<double, 3> &fresnel,
+                                          double lobe) {
   const double most = std::fmax(std::fmax(fresnel[0], fresnel[1]), fresnel[2]);
   BrdfTerms terms;
   for (size_t channel = 0; channel < 3; ++channel) {
@@ -106,17 +108,20 @@ struct BrdfGeometry {
 }
 
 [[nodiscard]] inline BrdfTerms MetalRoughBrdf(const std::array<double, 3> &diffuseColour,
-                                              const std::array<double, 3> &f0, double f90, double a2,
+                                              const std::array<double, 3> &f0,
+                                              double f90,
+                                              double a2,
                                               const BrdfGeometry &at) {
   return BrdfCombine(diffuseColour, BrdfFresnel(f0, f90, at.Vh), BrdfLobe(a2, at));
 }
 
 [[nodiscard]] inline std::string MetalRoughBrdfMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) {
+    return std::string();
+  }
   char constants[256];
-  std::snprintf(constants, sizeof constants,
-                "constant float kPi = %.17g;\n", kPi);
+  std::snprintf(constants, sizeof constants, "constant float kPi = %.17g;\n", kPi);
   return std::string(constants) + body;
 }
 
@@ -125,5 +130,5 @@ struct BrdfGeometry {
   return MetalRoughBrdfMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 #endif

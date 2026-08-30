@@ -13,8 +13,9 @@
 
 namespace outshine::Ground {
 
-
-inline double ClampD(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
+inline double ClampD(double v, double lo, double hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
 
 using Postings = std::mdspan<const float, std::dextents<size_t, 2>>;
 static_assert(Postings::rank() == 2,
@@ -34,5 +35,5 @@ static_assert(Postings::rank() == 2,
   return (float)((a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy);
 }
 
-}
+} // namespace outshine::Ground
 #endif

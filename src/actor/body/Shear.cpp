@@ -43,8 +43,8 @@ Shear ShedAt(const Shearing &through, double loadN, double slipRad, double asked
   return out;
 }
 
-Shear Shed(const Shearing &through, double loadN, double acrossMs, double alongMs,
-           double askedAlongN) {
+Shear Shed(
+    const Shearing &through, double loadN, double acrossMs, double alongMs, double askedAlongN) {
   const double rollingMs = std::fabs(alongMs);
   const double slipRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
   return ShedAt(through, loadN, slipRad, askedAlongN);
@@ -56,4 +56,4 @@ double Relaxed(const Shearing &through, double wasRad, double isRad, double roll
   return wasRad + (isRad - wasRad) * caught;
 }
 
-}
+} // namespace outshine::Physics

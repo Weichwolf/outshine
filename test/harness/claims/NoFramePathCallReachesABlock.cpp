@@ -53,6 +53,7 @@ constexpr Seed kPictureSeeds[] = {
      "anyway so a change to that chain cannot silently unseed it"},
     {"Engine5State4DrewEv", "what the picture publishes after it draws"},
 };
+
 // Each is forbidden for a reason CLAUDE.md gives, and each is a SUBSTRING of a mangled or C
 // symbol so that every overload and every instantiation is caught by one entry.
 struct Forbidden {
@@ -83,12 +84,14 @@ constexpr Forbidden kPictureForbidden[] = {
     {"sleep", "an unbounded block on the path that draws"},
     {"nanosleep", "the same, one layer down"},
     {"BytesBlocking", "the tile pool's waiting fetch, reached while drawing"},
-    {"8Readback", "a GPU->CPU readback: the CPU waits on the device, which is the one thing a "
-                  "frame must never do. This is what board:2007 measured -- 43.6 MB and a sync "
-                  "every frame, spent publishing two numbers"},
+    {"8Readback",
+     "a GPU->CPU readback: the CPU waits on the device, which is the one thing a "
+     "frame must never do. This is what board:2007 measured -- 43.6 MB and a sync "
+     "every frame, spent publishing two numbers"},
     {"_fopen", "disk"},
     {"_pread", "disk"},
 };
+
 [[nodiscard]] std::string Demangled(const std::string &symbol) {
   std::string said;
   (void)Run("printf '%s' " + symbol + " | c++filt", said);
@@ -96,7 +99,7 @@ constexpr Forbidden kPictureForbidden[] = {
   return said.empty() ? symbol : said;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -124,10 +127,9 @@ int main(void) {
   }
 
   std::string edges;
-  const int walked =
-      Run("sh test/harness/shared/frame/callgraph.sh build/liboutshine.a " + std::string(nest) +
-              "/framewalk 2>/dev/null",
-          edges);
+  const int walked = Run("sh test/harness/shared/frame/callgraph.sh build/liboutshine.a " +
+                             std::string(nest) + "/framewalk 2>/dev/null",
+                         edges);
   CHECK(walked == 0 && !edges.empty(),
         "the archive walks -- a claim that cannot read the graph it judges is UNPREPARED, never "
         "green");
@@ -150,15 +152,22 @@ int main(void) {
     size_t ForbidCount;
     const char *Claim;
   };
+
   const Walk walks[] = {
-      {"the physics step", kStepSeeds, sizeof kStepSeeds / sizeof kStepSeeds[0], kStepForbidden,
+      {"the physics step",
+       kStepSeeds,
+       sizeof kStepSeeds / sizeof kStepSeeds[0],
+       kStepForbidden,
        sizeof kStepForbidden / sizeof kStepForbidden[0],
        "**NOTHING THE PHYSICS STEP CAN REACH ALLOCATES, LOCKS, TOUCHES DISK OR WAITS**: the bound "
        "is CLAUDE.md's and it was a sentence until this walk. It was broken in the session that "
        "quoted it -- a ground query on the tick reached a poll of 30000 attempts at 1 ms, four "
        "calls down, on a 16.7 ms budget, and no line of the tick mentioned sleeping"},
-      {"the picture", kPictureSeeds, sizeof kPictureSeeds / sizeof kPictureSeeds[0],
-       kPictureForbidden, sizeof kPictureForbidden / sizeof kPictureForbidden[0],
+      {"the picture",
+       kPictureSeeds,
+       sizeof kPictureSeeds / sizeof kPictureSeeds[0],
+       kPictureForbidden,
+       sizeof kPictureForbidden / sizeof kPictureForbidden[0],
        "**NOTHING THE PICTURE CAN REACH STALLS**: no readback, no lock, no disk, no sleep. Unreal "
        "polls FRHIGPUBufferReadback and never waits on it; RAGE double-buffers its timing buffer "
        "for the same reason. This walk did not exist until board:2007, and the first time it ran "
@@ -181,8 +190,10 @@ int main(void) {
 
     bool everySeedTook = true;
     for (size_t which = 0; which < walk.SeedCount; ++which) {
-      std::printf("SEED %-34s matched %zu symbol(s) -- %s\n", walk.Seeds[which].Mangled,
-                  seededBy[which], walk.Seeds[which].Why);
+      std::printf("SEED %-34s matched %zu symbol(s) -- %s\n",
+                  walk.Seeds[which].Mangled,
+                  seededBy[which],
+                  walk.Seeds[which].Why);
       everySeedTook = everySeedTook && seededBy[which] > 0;
     }
     CHECK(everySeedTook,
@@ -210,8 +221,8 @@ int main(void) {
       }
     }
 
-    std::printf("EDGES %zu over the archive, REACHABLE from %s %zu\n", edgeCount, walk.Name,
-                seen.size());
+    std::printf(
+        "EDGES %zu over the archive, REACHABLE from %s %zu\n", edgeCount, walk.Name, seen.size());
     for (const std::string &one : blocking) { std::printf("  BLOCKS  %s\n", one.c_str()); }
 
     CHECK(seen.size() > fromSeeds && seen.size() > 10,

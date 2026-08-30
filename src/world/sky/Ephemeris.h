@@ -11,7 +11,8 @@ constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {
   double D2R = kDeg2Rad, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
   double L = fmod(280.460 + 0.9856474 * n, 360.0), g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
-  double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R, eps = (23.439 - 0.0000004 * n) * D2R;
+  double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R,
+         eps = (23.439 - 0.0000004 * n) * D2R;
   double dec = asin(sin(eps) * sin(lam)), ra = atan2(cos(eps) * sin(lam), cos(lam));
   double gmst = fmod(18.697374558 + 24.06570982441908 * n, 24.0);
   double lst = fmod(gmst * 15.0 + lon, 360.0), ha = (lst - ra / D2R) * D2R, la = lat * D2R;
@@ -31,7 +32,7 @@ inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *a
   double M = fmod(115.3654 + 13.0649929509 * d, 360.0) * D2R;
 
   double E = M + e * sin(M) * (1.0 + e * cos(M));
-  for (int k = 0; k < 4; k++) E -= (E - e * sin(E) - M) / (1.0 - e * cos(E));
+  for (int k = 0; k < 4; k++) { E -= (E - e * sin(E) - M) / (1.0 - e * cos(E)); }
 
   double xv = a * (cos(E) - e), yv = a * (sqrt(1.0 - e * e) * sin(E));
   double v = atan2(yv, xv), r = sqrt(xv * xv + yv * yv);
@@ -71,17 +72,20 @@ inline Solar SolarAt(double lat, double lon, double utc) {
 }
 
 inline void SolarToEnv(const Solar &s, State &st) {
-  st.Env.SunElDeg = s.SunElDeg;   st.Env.SunAzDeg = s.SunAzDeg;
-  st.Env.MoonElDeg = s.MoonElDeg; st.Env.MoonAzDeg = s.MoonAzDeg; st.Env.MoonPhase = s.MoonPhase;
+  st.Env.SunElDeg = s.SunElDeg;
+  st.Env.SunAzDeg = s.SunAzDeg;
+  st.Env.MoonElDeg = s.MoonElDeg;
+  st.Env.MoonAzDeg = s.MoonAzDeg;
+  st.Env.MoonPhase = s.MoonPhase;
   st.Env.H.Publish(st.NowS);
 }
 
 inline double DaylightFactor(double sunElDeg) {
   double t = (sunElDeg + 9.0) / 12.0;
-  if (t < 0.0) t = 0.0;
-  if (t > 1.0) t = 1.0;
+  if (t < 0.0) { t = 0.0; }
+  if (t > 1.0) { t = 1.0; }
   return t * t * (3.0 - 2.0 * t);
 }
 
-}
+} // namespace outshine
 #endif

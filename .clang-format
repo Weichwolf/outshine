@@ -1,0 +1,59 @@
+# AN EXEMPLARY STYLE, NOT THIS TREE'S HABITS. The first draft of this file was fitted to what the
+# tree already wrote so the diff would be small, which is the wrong thing to optimise: a format
+# exists to make code READ well to a stranger, and "what is already here" has no opinion about that.
+#
+# IT ARRIVES IN STAGES, and this is the first. The arms below are the ones that cannot change what
+# code MEANS -- braces, spacing, wrapping, a newline at the end of a file. Include ordering comes
+# next and separately, because regrouping includes finds headers that are not self-contained, and
+# that is a real repair rather than a format.
+#
+# WHY 100 AND NOT 80. This tree's names are its documentation -- `SubjectsTransmissive`,
+# `kShadowRayNearFraction`, `VariationAlongRows` -- and a limit that wraps a two-name expression
+# costs more in broken lines than it saves in width. 100 fits two files side by side on the machine
+# this is written on and is what the code already assumes.
+BasedOnStyle: LLVM
+Standard: c++20
+ColumnLimit: 100
+IndentWidth: 2
+AccessModifierOffset: -2
+PointerAlignment: Right
+DerivePointerAlignment: false
+QualifierAlignment: Left
+LineEnding: LF
+InsertNewlineAtEOF: true
+
+# BRACES ALWAYS, AND THE FORMATTER PUTS THEM THERE. A braceless `if` that grows a second statement
+# is one of the few edits that changes meaning silently, and it is unspellable once this is on.
+InsertBraces: true
+
+# AND A ONE-LINE BODY STAYS ON ONE LINE, braces and all. `if (!stands) { return false; }` is a
+# guard read at a glance; spread over three lines it is a paragraph, and a function with six guards
+# becomes a page. This is where the tree's own habit is KEPT, because it is a good one.
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortBlocksOnASingleLine: Always
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+
+# A FREE FUNCTION IS NEVER ONE LINE. An accessor inside a class is a name for a member and reads as
+# one; a definition at namespace scope is a thing a reader looks for, and it is found by its line.
+AllowShortFunctionsOnASingleLine: Inline
+
+# ONE BLANK LINE BETWEEN DEFINITIONS, always, so the eye finds a boundary without counting braces.
+SeparateDefinitionBlocks: Always
+MaxEmptyLinesToKeep: 1
+
+BreakBeforeBraces: Attach
+SpacesBeforeTrailingComments: 1
+IndentCaseLabels: true
+IndentPPDirectives: None
+
+# ARGUMENTS ARE NOT PACKED. A call that does not fit puts ONE argument on each line, so adding or
+# removing one is a one-line diff instead of a reflowed paragraph. This is the arm that costs the
+# most churn today and pays it back on every review afterwards.
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: Align
+PackConstructorInitializers: NextLine
+
+SortIncludes: false
+IncludeBlocks: Preserve

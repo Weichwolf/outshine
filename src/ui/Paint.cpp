@@ -18,7 +18,9 @@ Clip Intersected(const Clip &a, const Clip &b) {
   return {left, top, std::fmax(0.0, right - left), std::fmax(0.0, bottom - top)};
 }
 
-bool Reaches(uint32_t colour) { return (colour & 0xFFu) != 0u; }
+bool Reaches(uint32_t colour) {
+  return (colour & 0xFFu) != 0u;
+}
 
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   const unsigned char lead = (unsigned char)text[at];
@@ -43,8 +45,8 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
 
 class Painter {
 public:
-  Painter(const Layout &layout, const Font &font, std::vector<Quad> &into, size_t &beyond,
-          double shift)
+  Painter(
+      const Layout &layout, const Font &font, std::vector<Quad> &into, size_t &beyond, double shift)
       : Boxes(layout.Boxes()), Face(font), Out(into), Beyond(beyond), Shift(shift) {}
 
   void Walk(int index, const Clip &clip, double opacity) {
@@ -57,25 +59,42 @@ public:
       return;
     }
 
-    Add({box.X, box.Y, box.Width, box.Height, 0, 0, 0, 0, box.Background, box.Radius, here, clip.X,
-         clip.Y, clip.Width, clip.Height, box.Node});
+    Add({box.X,
+         box.Y,
+         box.Width,
+         box.Height,
+         0,
+         0,
+         0,
+         0,
+         box.Background,
+         box.Radius,
+         here,
+         clip.X,
+         clip.Y,
+         clip.Width,
+         clip.Height,
+         box.Node});
     Edges(box, clip, here);
 
     Clip inner = clip;
     if (box.Clips) {
-      inner = Intersected(clip, {box.X + box.Border.Left, box.Y + box.Border.Top,
-                                 std::fmax(0.0, box.Width - box.Border.Left - box.Border.Right),
-                                 std::fmax(0.0, box.Height - box.Border.Top - box.Border.Bottom)});
+      inner = Intersected(clip,
+                          {box.X + box.Border.Left,
+                           box.Y + box.Border.Top,
+                           std::fmax(0.0, box.Width - box.Border.Left - box.Border.Right),
+                           std::fmax(0.0, box.Height - box.Border.Top - box.Border.Bottom)});
     }
     for (const int child : box.Children) { Walk(child, inner, here); }
   }
 
 private:
   void Add(Quad quad) {
-
     quad.Y -= Shift;
     quad.ClipY -= Shift;
-    if (quad.Width <= 0 || quad.Height <= 0 || quad.ClipWidth <= 0 || quad.ClipHeight <= 0) { return; }
+    if (quad.Width <= 0 || quad.Height <= 0 || quad.ClipWidth <= 0 || quad.ClipHeight <= 0) {
+      return;
+    }
 
     if (quad.X >= quad.ClipX + quad.ClipWidth || quad.X + quad.Width <= quad.ClipX ||
         quad.Y >= quad.ClipY + quad.ClipHeight || quad.Y + quad.Height <= quad.ClipY) {
@@ -93,14 +112,32 @@ private:
     const uint32_t colour = box.BorderColour;
     const double right = box.X + box.Width, bottom = box.Y + box.Height;
     const auto edge = [&](double x, double y, double w, double h) {
-      Add({x, y, w, h, 0, 0, 0, 0, colour, 0, opacity, clip.X, clip.Y, clip.Width, clip.Height,
+      Add({x,
+           y,
+           w,
+           h,
+           0,
+           0,
+           0,
+           0,
+           colour,
+           0,
+           opacity,
+           clip.X,
+           clip.Y,
+           clip.Width,
+           clip.Height,
            box.Node});
     };
     edge(box.X, box.Y, box.Width, box.Border.Top);
     edge(box.X, bottom - box.Border.Bottom, box.Width, box.Border.Bottom);
-    edge(box.X, box.Y + box.Border.Top, box.Border.Left,
+    edge(box.X,
+         box.Y + box.Border.Top,
+         box.Border.Left,
          box.Height - box.Border.Top - box.Border.Bottom);
-    edge(right - box.Border.Right, box.Y + box.Border.Top, box.Border.Right,
+    edge(right - box.Border.Right,
+         box.Y + box.Border.Top,
+         box.Border.Right,
          box.Height - box.Border.Top - box.Border.Bottom);
   }
 
@@ -114,9 +151,22 @@ private:
       at += NextCodePoint(run.Text, at, code);
       const Glyph glyph = Face.Shape(code, run.FontSize, run.Face);
       if (glyph.Drawn) {
-        Add({pen + glyph.LeftPx, run.Y + leading + glyph.TopPx, glyph.WidthPx, glyph.HeightPx,
-             glyph.U0, glyph.V0, glyph.U1, glyph.V1, run.Colour, 0, opacity, clip.X, clip.Y,
-             clip.Width, clip.Height, run.Node});
+        Add({pen + glyph.LeftPx,
+             run.Y + leading + glyph.TopPx,
+             glyph.WidthPx,
+             glyph.HeightPx,
+             glyph.U0,
+             glyph.V0,
+             glyph.U1,
+             glyph.V1,
+             run.Colour,
+             0,
+             opacity,
+             clip.X,
+             clip.Y,
+             clip.Width,
+             clip.Height,
+             run.Node});
       }
       pen += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
     }
@@ -129,10 +179,10 @@ private:
   double Shift = 0;
 };
 
-}
+} // namespace
 
-std::vector<double> PageBreaks(const Layout &layout, double pageHeightPx,
-                               size_t &linesTallerThanThePage) {
+std::vector<double>
+PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThePage) {
   linesTallerThanThePage = 0;
   std::vector<double> starts{0.0};
   if (pageHeightPx <= 0) { return starts; }
@@ -141,15 +191,13 @@ std::vector<double> PageBreaks(const Layout &layout, double pageHeightPx,
   for (const Box &box : layout.Boxes()) {
     if (!box.Text.empty()) { lines.push_back(&box); }
   }
-  std::sort(lines.begin(), lines.end(),
-            [](const Box *a, const Box *b) { return a->Y < b->Y; });
+  std::sort(lines.begin(), lines.end(), [](const Box *a, const Box *b) { return a->Y < b->Y; });
 
   double start = 0;
   for (const Box *line : lines) {
     if (line->Y < start) { continue; }
     if (line->Y + line->Height <= start + pageHeightPx) { continue; }
     if (line->Y <= start) {
-
       ++linesTallerThanThePage;
       start = line->Y + line->Height;
     } else {
@@ -178,4 +226,4 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
   return true;
 }
 
-}
+} // namespace outshine::Ui

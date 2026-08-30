@@ -2,7 +2,8 @@
 
 namespace outshine::Render {
 
-void ResolveDeclaredSurface(const Shape &geometry, const outshine::Material &row,
+void ResolveDeclaredSurface(const Shape &geometry,
+                            const outshine::Material &row,
                             SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
@@ -40,4 +41,4 @@ void ResolveDeclaredSurface(const Shape &geometry, const outshine::Material &row
   }
 }
 
-}
+} // namespace outshine::Render

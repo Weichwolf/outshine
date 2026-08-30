@@ -103,8 +103,7 @@ int main(void) {
   std::string aUnitSaid;
   (void)Run("find " + aDirectory + " -maxdepth 1 -name '*.cpp' | sort | head -1", aUnitSaid);
   const std::string aUnit = OneWord(aUnitSaid);
-  std::printf("SEED SITES  directory %s   unit under it %s\n", aDirectory.c_str(),
-              aUnit.c_str());
+  std::printf("SEED SITES  directory %s   unit under it %s\n", aDirectory.c_str(), aUnit.c_str());
   CHECK(!aDirectory.empty() && !aUnit.empty(),
         "STALE CONTROL: the declaration names no source directory holding a unit, so there is "
         "nowhere to seed a duplicate and the controls below would pass on an unseeded copy");
@@ -158,9 +157,8 @@ int main(void) {
         "flips and names a symbol it can no longer resolve -- the silent absence that filed the "
         "item in the first place");
 
-  const std::string ghost =
-      Seeded("ghost", "s|" + aDirectory + "|" + aDirectory + "/NoSuchUnit.cpp " + aDirectory +
-                          "|g");
+  const std::string ghost = Seeded(
+      "ghost", "s|" + aDirectory + "|" + aDirectory + "/NoSuchUnit.cpp " + aDirectory + "|g");
   std::string conjured;
   (void)Run("cat " + ghost, conjured);
   const std::string ghostList = Declaration(ghost);

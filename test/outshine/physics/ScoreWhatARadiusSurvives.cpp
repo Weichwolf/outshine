@@ -56,7 +56,7 @@ constexpr double kWithinM = 0.5;
   return points;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -85,7 +85,12 @@ int main(void) {
     owed[at] = (double)chords * kChords[at];
     std::printf("  chord %5.1f m over %3zu vertices   radius %8.3f m   length %8.3f m "
                 "(owed %8.3f)   runs %zu\n",
-                kChords[at], chords + 1, read[at], laid[at], owed[at], runs[at]);
+                kChords[at],
+                chords + 1,
+                read[at],
+                laid[at],
+                owed[at],
+                runs[at]);
   }
   std::printf("  the circle itself                 radius %8.3f m\n", kRadiusM);
 
@@ -102,7 +107,8 @@ int main(void) {
     const double along = std::fabs(laid[at] - sweptM) / sweptM;
     if (along > worstLength) { worstLength = along; }
   }
-  std::printf("  worst radius error %6.3f %%      worst length error %6.3f %%\n", 100.0 * worst,
+  std::printf("  worst radius error %6.3f %%      worst length error %6.3f %%\n",
+              100.0 * worst,
               100.0 * worstLength);
 
   CHECK(worst < 0.01,

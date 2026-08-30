@@ -22,11 +22,13 @@ constexpr int kFramePx = 64;
 
 class Counting : public outshine::Host {
 public:
-  [[nodiscard]] bool calls(std::string_view name, std::span<const outshine::Argument> args) override {
+  [[nodiscard]] bool calls(std::string_view name,
+                           std::span<const outshine::Argument> args) override {
     Named.emplace_back(name);
     Values.push_back(args.empty() ? -1.0 : args[0].Number);
     return true;
   }
+
   std::vector<std::string> Named;
   std::vector<double> Values;
 };
@@ -50,7 +52,7 @@ public:
   return event;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -78,7 +80,8 @@ int main(void) {
   const bool tookDown = engine.handleEvent(down).has_value();
   const bool tookUp = engine.handleEvent(up).has_value();
 
-  std::printf("THE PRESS was %s, THE RELEASE was %s\n", tookDown ? "taken" : "DROPPED",
+  std::printf("THE PRESS was %s, THE RELEASE was %s\n",
+              tookDown ? "taken" : "DROPPED",
               tookUp ? "taken" : "DROPPED");
   for (size_t at = 0; at < host.Named.size(); ++at) {
     std::printf("  REPORTED %s = %.1f\n", host.Named[at].c_str(), host.Values[at]);
@@ -92,8 +95,7 @@ int main(void) {
 
   CHECK(host.Named[0] == "throttle" && host.Named[1] == "throttle",
         "and both edges name the action the scenario bound, not the key that carried it");
-  CHECK(host.Values[0] == 1.0,
-        "the press reports one -- the command is fully active");
+  CHECK(host.Values[0] == 1.0, "the press reports one -- the command is fully active");
   CHECK(host.Values[1] == 0.0,
         "and the release reports ZERO, which is the value that makes it a release rather than a "
         "second press: the client cannot tell the edges apart by their count");

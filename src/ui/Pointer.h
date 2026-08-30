@@ -16,10 +16,11 @@ struct Touched {
   int DeclaredBy = -1;
 
   double LocalX = 0, LocalY = 0;
+
   [[nodiscard]] bool Held() const { return Node >= 0; }
 };
 
 [[nodiscard]] Touched Under(const Layout &layout, const Markup &markup, double x, double y);
 
-}
+} // namespace outshine::Ui
 #endif

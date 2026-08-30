@@ -13,28 +13,33 @@
 
 namespace outshine::Ground {
 
-inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y, int grid,
-                           Chunk *out, double origin_out[3]) {
-  if (!out || !origin_out) return 0;
+inline int ChunkBuildEcef(const TerrainMesh &mesh,
+                          int z,
+                          uint32_t x,
+                          uint32_t y,
+                          int grid,
+                          Chunk *out,
+                          double origin_out[3]) {
+  if (!out || !origin_out) { return 0; }
   out->verts = 0;
   out->nverts = 0;
   out->gridverts = 0;
   out->err = 0.f;
   origin_out[0] = origin_out[1] = origin_out[2] = 0.0;
   const std::vector<float> *positions = mesh.TryPositionsEnuM();
-  if (!positions || positions->empty()) return 0;
+  if (!positions || positions->empty()) { return 0; }
   const float *p = positions->data();
   const uint32_t nVertices = mesh.VertexCount();
 
   uint32_t C = 0;
-  for (uint32_t i = 1; i < nVertices; i++)
+  for (uint32_t i = 1; i < nVertices; i++) {
     if (p[i * 3] < p[(i - 1) * 3] - 0.5f) {
       C = i;
       break;
     }
+  }
   uint32_t R = C ? nVertices / C : 0;
-  if (!(C >= 2 && R >= 2 && nVertices % C == 0))
-    return 0;
+  if (!(C >= 2 && R >= 2 && nVertices % C == 0)) { return 0; }
 
   int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
 #define W3_MH(r, c) (p[((size_t)(r) * C + (size_t)(c)) * 3 + 2])
@@ -56,7 +61,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
     origin_out[2] = o.Z;
   }
 
-  for (int j = 0; j < gr; j++)
+  for (int j = 0; j < gr; j++) {
     for (int i = 0; i < gc; i++) {
       int r = W3_RI(j), c = W3_CI(i);
       double fx = (double)c / (double)(C - 1), fy = (double)r / (double)(R - 1);
@@ -70,23 +75,23 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
       d[2] = e.Z - origin_out[2];
       nh[(size_t)j * gc + i] = h;
     }
+  }
 
   double olen = sqrt(origin_out[0] * origin_out[0] + origin_out[1] * origin_out[1] +
                      origin_out[2] * origin_out[2]);
-  if (olen < 1.0) olen = 1.0;
-  float radial[3] = {(float)(origin_out[0] / olen), (float)(origin_out[1] / olen),
-                     (float)(origin_out[2] / olen)};
+  if (olen < 1.0) { olen = 1.0; }
+  float radial[3] = {
+      (float)(origin_out[0] / olen), (float)(origin_out[1] / olen), (float)(origin_out[2] / olen)};
 
   float *nv = (float *)Heap::Take("terrain node normals", (size_t)NN * 3 * sizeof(float));
-  for (int j = 0; j < gr; j++)
+  for (int j = 0; j < gr; j++) {
     for (int i = 0; i < gc; i++) {
       int i0 = i > 0 ? i - 1 : i, i1 = i < gc - 1 ? i + 1 : i, j0 = j > 0 ? j - 1 : j,
           j1 = j < gr - 1 ? j + 1 : j;
       const double *W = pe + ((size_t)j * gc + i0) * 3, *E = pe + ((size_t)j * gc + i1) * 3;
       const double *Nn = pe + ((size_t)j0 * gc + i) * 3, *Sn = pe + ((size_t)j1 * gc + i) * 3;
       double te[3] = {E[0] - W[0], E[1] - W[1], E[2] - W[2]};
-      double tn[3] = {Nn[0] - Sn[0], Nn[1] - Sn[1],
-                      Nn[2] - Sn[2]};
+      double tn[3] = {Nn[0] - Sn[0], Nn[1] - Sn[1], Nn[2] - Sn[2]};
       double nx = te[1] * tn[2] - te[2] * tn[1], ny = te[2] * tn[0] - te[0] * tn[2],
              nz = te[0] * tn[1] - te[1] * tn[0];
       double L = sqrt(nx * nx + ny * ny + nz * nz);
@@ -107,27 +112,30 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
       o[1] = fy;
       o[2] = fz;
     }
+  }
 
   float err = 0.f;
-  for (int j = 0; j < gr - 1; j++)
+  for (int j = 0; j < gr - 1; j++) {
     for (int i = 0; i < gc - 1; i++) {
       int r0 = W3_RI(j), r1 = W3_RI(j + 1), c0 = W3_CI(i), c1 = W3_CI(i + 1);
-      if (r1 <= r0 || c1 <= c0) continue;
+      if (r1 <= r0 || c1 <= c0) { continue; }
       const ChunkCell cell{nh, gc, j, i};
-      for (int r = r0; r <= r1; r++)
+      for (int r = r0; r <= r1; r++) {
         for (int c = c0; c <= c1; c++) {
           float sv = (float)(r - r0) / (float)(r1 - r0), su = (float)(c - c0) / (float)(c1 - c0);
           float d = fabsf(ChunkCellHeight(cell, su, sv) - W3_MH(r, c));
-          if (d > err) err = d;
+          if (d > err) { err = d; }
         }
+      }
     }
+  }
   out->err = err;
 
   int nquad = (gr - 1) * (gc - 1);
   ChunkVtx *v =
       (ChunkVtx *)Heap::Take("terrain tile vertices", (size_t)nquad * 6 * sizeof(ChunkVtx));
   size_t o = 0;
-  for (int j = 0; j < gr - 1; j++)
+  for (int j = 0; j < gr - 1; j++) {
     for (int i = 0; i < gc - 1; i++) {
       for (const ChunkQuadCorner &corner : ChunkQuadWinding()) {
         const int qj = j + corner.Row, qi = i + corner.Col;
@@ -144,6 +152,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
         d->norm[2] = N[2];
       }
     }
+  }
 
 #undef W3_MH
 #undef W3_RI
@@ -157,5 +166,5 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y
   return 1;
 }
 
-}
+} // namespace outshine::Ground
 #endif

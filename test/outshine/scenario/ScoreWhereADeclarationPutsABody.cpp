@@ -68,12 +68,19 @@ constexpr const char *kBoth = R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 void Say(const char *what, const outshine::Standing &one) {
-  std::printf("  %-22s at %.4f %.4f %.4f  facing %.3f %.3f %.3f %.3f  scale %.3f\n", what,
-              one.AtM[0], one.AtM[1], one.AtM[2], one.FacingXyzw[0], one.FacingXyzw[1],
-              one.FacingXyzw[2], one.FacingXyzw[3], one.ScaleXyz[0]);
+  std::printf("  %-22s at %.4f %.4f %.4f  facing %.3f %.3f %.3f %.3f  scale %.3f\n",
+              what,
+              one.AtM[0],
+              one.AtM[1],
+              one.AtM[2],
+              one.FacingXyzw[0],
+              one.FacingXyzw[1],
+              one.FacingXyzw[2],
+              one.FacingXyzw[3],
+              one.ScaleXyz[0]);
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -120,7 +127,8 @@ int main(void) {
   // no scale, so it must read as unit -- not as zero, which would collapse it.
   const outshine::Standing bare;
   std::printf("  body scale, undeclared      %.4f (a bare Standing says %.4f)\n",
-              read.Bodies[0].Stands.ScaleXyz[0], bare.ScaleXyz[0]);
+              read.Bodies[0].Stands.ScaleXyz[0],
+              bare.ScaleXyz[0]);
   CHECK(read.Bodies[0].Stands.ScaleXyz[0] == bare.ScaleXyz[0],
         "**AN UNDECLARED SCALE LEAVES THE DEFAULT STANDING**: a body that says nothing about "
         "scale is unit-scaled, and a reader that wrote zero there would collapse every body that "

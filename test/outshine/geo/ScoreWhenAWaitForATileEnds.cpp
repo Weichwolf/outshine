@@ -78,7 +78,8 @@ public:
   [[nodiscard]] bool Await(double forMs) override {
     std::unique_lock<std::mutex> held(Guard_);
     const bool stood = Released_;
-    return Landed_.wait_for(held, std::chrono::microseconds((long long)(forMs * 1000.0)),
+    return Landed_.wait_for(held,
+                            std::chrono::microseconds((long long)(forMs * 1000.0)),
                             [this, stood] { return Released_ != stood; }) &&
            Released_ != stood;
   }
@@ -131,8 +132,14 @@ private:
   return true;
 }
 
-[[nodiscard]] bool Ends(int pollAttempts, bool release, const char *nest, bool *entered,
-                        double *tookS, size_t *asked, long *onCompute, std::string &why) {
+[[nodiscard]] bool Ends(int pollAttempts,
+                        bool release,
+                        const char *nest,
+                        bool *entered,
+                        double *tookS,
+                        size_t *asked,
+                        long *onCompute,
+                        std::string &why) {
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = std::string(nest) + "/wait-cache";
   outshine::Data::ContentStore store(keeping);
@@ -170,13 +177,17 @@ private:
   }
   *tookS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
   const bool ended = returned.load();
-  if (ended) { waiter.join(); } else { waiter.detach(); }
+  if (ended) {
+    waiter.join();
+  } else {
+    waiter.detach();
+  }
   *asked = holding.Asked();
   *onCompute = pool.Counters().FetchOnCompute;
   return ended;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -200,7 +211,11 @@ int main(void) {
     return Report();
   }
   std::printf("  HELD then released   entered the wait: %s   ended: %s after %.3f s   "
-              "%zu ask(s)\n", entered ? "yes" : "NO", landed ? "yes" : "NO", tookS, asked);
+              "%zu ask(s)\n",
+              entered ? "yes" : "NO",
+              landed ? "yes" : "NO",
+              tookS,
+              asked);
 
   // ARM TWO: the worker's poll bound is three, so it gives up while the caller is still asleep
   // and takes the branch that erases the posted job with `Done_` still empty. Nothing releases
@@ -211,7 +226,9 @@ int main(void) {
   long onComputeTwo = 0;
   const bool dropped = Ends(3, false, nest, &enteredTwo, &tookTwoS, &askedTwo, &onComputeTwo, why);
   std::printf("  NEVER answered       ended: %s after %.3f s   %zu ask(s)\n",
-              dropped ? "yes" : "NO", tookTwoS, askedTwo);
+              dropped ? "yes" : "NO",
+              tookTwoS,
+              askedTwo);
 
   // ARM THREE: a REFUSAL IS REMEMBERED, and for a while. `Data::Delivery` carries five states and
   // the pool's negative cache took exactly one of them -- `Vacant`. A `Refused` was thrown away,

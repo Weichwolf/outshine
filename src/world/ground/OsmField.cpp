@@ -14,18 +14,21 @@ namespace outshine::Ground {
 
 namespace {
 
-uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y; }
-
+uint64_t TileKey(int x, int y) {
+  return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
 }
+
+} // namespace
 
 OsmField::OsmField(int zoom, std::span<const std::string> layers)
     : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
 
 uint32_t OsmField::Intern(std::vector<std::string> &pool,
-                          std::unordered_map<std::string, uint32_t> &index, std::string_view s) {
+                          std::unordered_map<std::string, uint32_t> &index,
+                          std::string_view s) {
   const std::string key(s);
   auto it = index.find(key);
-  if (it != index.end()) return it->second;
+  if (it != index.end()) { return it->second; }
   const uint32_t id = (uint32_t)pool.size();
   pool.push_back(key);
   index.emplace(key, id);
@@ -52,18 +55,18 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
   Geo centre;
   centre.LonDeg = lon;
   centre.LatDeg = lat;
-  if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) return 0;
+  if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) { return 0; }
 
   const long n = 1L << Zoom_;
   int added = 0;
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
 
-  for (int dy = -ringTiles; dy <= ringTiles; dy++)
+  for (int dy = -ringTiles; dy <= ringTiles; dy++) {
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
       const long tx = (long)cx + dx, ty = (long)cy + dy;
-      if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
+      if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
       const uint64_t key = TileKey((int)tx, (int)ty);
-      if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) continue;
+      if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) { continue; }
 
       const double spentMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -71,11 +74,16 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
       const bool mayDecode = budgetMs <= 0.0 || spentMs < budgetMs;
       bool refused = false;
       if (!AddTile(tiles, (int)tx, (int)ty, added, refused, mayDecode)) {
-        if (refused) { Refused_++; } else { Pending_++; }
+        if (refused) {
+          Refused_++;
+        } else {
+          Pending_++;
+        }
         continue;
       }
       Settle((int)tx, (int)ty);
     }
+  }
 
   return added;
 }
@@ -92,28 +100,28 @@ void OsmField::Settle(int x, int y) {
 }
 
 int OsmField::TileIndex(int x, int y) const {
-  for (size_t i = 0; i < Tiles_.size(); i++)
-    if (Tiles_[i].X == x && Tiles_[i].Y == y) return (int)i;
+  for (size_t i = 0; i < Tiles_.size(); i++) {
+    if (Tiles_[i].X == x && Tiles_[i].Y == y) { return (int)i; }
+  }
   return -1;
 }
 
 std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
-  if (index < 0 || (size_t)index >= Tiles_.size()) return {};
+  if (index < 0 || (size_t)index >= Tiles_.size()) { return {}; }
   const Tile &t = Tiles_[(size_t)index];
   return std::span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
 }
 
-bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused,
-                      bool mayDecode) {
+bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   refused = reply == TilePool::Reply::Refused;
-  if (reply == TilePool::Reply::Pending || refused) return false;
+  if (reply == TilePool::Reply::Pending || refused) { return false; }
 
-  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) return true;
-  if (!mayDecode) return false;
+  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) { return true; }
+  if (!mayDecode) { return false; }
   added += Accept(tx, ty, Scratch_.Bytes);
   return true;
 }
@@ -132,8 +140,9 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     if (!mvt.Parse(vectorTile.data(), (size_t)got, Layers_[li].c_str(), &present)) {
       if (present) {
         Bad_++;
-        Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
-                                                   {"bytes", got}, {"layer", Layers_[li]}});
+        Log::Error("world",
+                   "vectile_undecodable",
+                   {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got}, {"layer", Layers_[li]}});
       } else {
         Missing_++;
       }
@@ -175,10 +184,14 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
 
       for (uint32_t t = 0; t < mvt.TagCount(sf); t++) {
         const OsmVector::Tag tag = mvt.TagAt(sf, t);
-        if (tag.Key.empty()) continue;
+        if (tag.Key.empty()) { continue; }
         Value v{};
         v.IsNum = tag.IsNum;
-        if (tag.IsNum) v.Num = tag.Num; else v.Str = Intern(Strings_, StringIndex_, tag.Str);
+        if (tag.IsNum) {
+          v.Num = tag.Num;
+        } else {
+          v.Str = Intern(Strings_, StringIndex_, tag.Str);
+        }
         Tags_.push_back(Intern(Keys_, KeyIndex_, tag.Key));
         Tags_.push_back((uint32_t)Values_.size());
         Values_.push_back(v);
@@ -188,10 +201,16 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       Features_.push_back(f);
       added++;
     }
-    Log::Debug("world", "vectile", {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got},
-                                   {"layer", Layers_[li]}, {"parsed", true},
-                                   {"feats", (int)mvt.Features().size()},
-                                   {"rings", (int)mvt.Rings().size()}});
+    Log::Debug("world",
+               "vectile",
+               {{"z", Zoom_},
+                {"x", tx},
+                {"y", ty},
+                {"bytes", got},
+                {"layer", Layers_[li]},
+                {"parsed", true},
+                {"feats", (int)mvt.Features().size()},
+                {"rings", (int)mvt.Rings().size()}});
   }
   Tiles_[tile].FeatureCount = (uint32_t)Features_.size() - Tiles_[tile].FirstFeature;
   return added;
@@ -199,9 +218,9 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
 
 size_t OsmField::HeapBytes() const {
   size_t strings = 0;
-  for (const std::string &s : Keys_) strings += s.capacity();
-  for (const std::string &s : Strings_) strings += s.capacity();
-  for (const std::string &s : Layers_) strings += s.capacity();
+  for (const std::string &s : Keys_) { strings += s.capacity(); }
+  for (const std::string &s : Strings_) { strings += s.capacity(); }
+  for (const std::string &s : Layers_) { strings += s.capacity(); }
 
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
@@ -212,15 +231,16 @@ size_t OsmField::HeapBytes() const {
 }
 
 int OsmField::Layer(const char *name) const {
-  for (size_t i = 0; i < Layers_.size(); i++)
-    if (Layers_[i] == name) return (int)i;
+  for (size_t i = 0; i < Layers_.size(); i++) {
+    if (Layers_[i] == name) { return (int)i; }
+  }
   return -1;
 }
 
 double OsmField::Num(const Feature &f, const char *key, double def) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
-    if (Keys_[k] == key && Values_[v].IsNum) return Values_[v].Num;
+    if (Keys_[k] == key && Values_[v].IsNum) { return Values_[v].Num; }
   }
   return def;
 }
@@ -228,9 +248,9 @@ double OsmField::Num(const Feature &f, const char *key, double def) const {
 std::string_view OsmField::Str(const Feature &f, const char *key) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
-    if (Keys_[k] == key && !Values_[v].IsNum) return Strings_[Values_[v].Str];
+    if (Keys_[k] == key && !Values_[v].IsNum) { return Strings_[Values_[v].Str]; }
   }
   return {};
 }
 
-}
+} // namespace outshine::Ground

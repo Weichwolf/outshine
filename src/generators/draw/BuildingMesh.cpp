@@ -24,19 +24,47 @@ std::atomic<size_t> gFootless{0};
 std::atomic<size_t> gPlinthSteps{0};
 std::atomic<size_t> gFloorRim{0};
 std::atomic<size_t> gOverBudget{0};
+} // namespace
+
+size_t BuildingMesh::BuriedTaken() {
+  return gBuried.exchange(0u);
 }
 
-size_t BuildingMesh::BuriedTaken() { return gBuried.exchange(0u); }
-size_t BuildingMesh::DeepestBuriedMmTaken() { return gDeepestMm.exchange(0u); }
-size_t BuildingMesh::RaisedTaken() { return gRaised.exchange(0u); }
-size_t BuildingMesh::FarthestMTaken() { return gFarthestM.exchange(0u); }
-size_t BuildingMesh::BoxesTaken() { return gBoxes.exchange(0u); }
-size_t BuildingMesh::UnscaledTaken() { return gUnscaled.exchange(0u); }
-size_t BuildingMesh::FootlessTaken() { return gFootless.exchange(0u); }
-size_t BuildingMesh::PlinthStepsTaken() { return gPlinthSteps.exchange(0u); }
-size_t BuildingMesh::FloorRimTaken() { return gFloorRim.exchange(0u); }
-size_t BuildingMesh::OverBudgetTaken() { return gOverBudget.exchange(0u); }
+size_t BuildingMesh::DeepestBuriedMmTaken() {
+  return gDeepestMm.exchange(0u);
+}
 
+size_t BuildingMesh::RaisedTaken() {
+  return gRaised.exchange(0u);
+}
+
+size_t BuildingMesh::FarthestMTaken() {
+  return gFarthestM.exchange(0u);
+}
+
+size_t BuildingMesh::BoxesTaken() {
+  return gBoxes.exchange(0u);
+}
+
+size_t BuildingMesh::UnscaledTaken() {
+  return gUnscaled.exchange(0u);
+}
+
+size_t BuildingMesh::FootlessTaken() {
+  return gFootless.exchange(0u);
+}
+
+size_t BuildingMesh::PlinthStepsTaken() {
+  return gPlinthSteps.exchange(0u);
+}
+
+size_t BuildingMesh::FloorRimTaken() {
+  return gFloorRim.exchange(0u);
+}
+
+size_t BuildingMesh::OverBudgetTaken() {
+  return gOverBudget.exchange(0u);
+}
 
 namespace {
 
@@ -68,20 +96,24 @@ struct Vtx {
 [[nodiscard]] FacadeStyle StyleOf(BuildingUse use) {
   switch (use) {
     case BuildingUse::Outbuilding: return FacadeStyle::Outbuilding;
-    case BuildingUse::Terrace:     return FacadeStyle::Terrace;
-    case BuildingUse::Block:       return FacadeStyle::Block;
-    case BuildingUse::Hall:        return FacadeStyle::Hall;
-    case BuildingUse::Tower:       return FacadeStyle::Tower;
-    case BuildingUse::Spire:       return FacadeStyle::Spire;
-    case BuildingUse::House:       break;
+    case BuildingUse::Terrace: return FacadeStyle::Terrace;
+    case BuildingUse::Block: return FacadeStyle::Block;
+    case BuildingUse::Hall: return FacadeStyle::Hall;
+    case BuildingUse::Tower: return FacadeStyle::Tower;
+    case BuildingUse::Spire: return FacadeStyle::Spire;
+    case BuildingUse::House: break;
   }
   return FacadeStyle::House;
 }
 
-double EavesZ(const BuildingShape &s) { return s.FootM + s.EavesM; }
+double EavesZ(const BuildingShape &s) {
+  return s.FootM + s.EavesM;
+}
 
 Vtx Wall(const BuildingShape &s, const En &p, double z, double bays, Fields stand) {
-  return {p, z, FacadeUvX(StyleOf(s.Use), stand, (float)bays),
+  return {p,
+          z,
+          FacadeUvX(StyleOf(s.Use), stand, (float)bays),
           FacadeUvY(s.Ident, (float)((z - s.FootM) / s.FloorM))};
 }
 
@@ -96,8 +128,9 @@ public:
     double origin[3];
     GeoToEcef(lat, lon, plan.BaseAslM, origin);
     EnuAxesEcef(lat, lon, East_, North_, Up_);
-    for (int c = 0; c < 3; c++) Origin_[c] = origin[c] - plan.AnchorEcef[c];
-    ReachM_ = std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
+    for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
+    ReachM_ =
+        std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
     FocalPx_ = plan.FocalPx;
   }
 
@@ -105,12 +138,12 @@ public:
 
   [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
-  // THE GENERATOR OWNS ITS OWN TOPOLOGY. Positions are welded on the same centimetre grid everything
-  // else in this tree uses, so two corners meant to be one corner ARE one index -- and a shared edge
-  // is then a shared edge rather than something a walk has to rediscover afterwards by welding a
-  // soup. Unreal's `FMeshDescription` keeps vertices, edges and triangles apart for exactly this
-  // reason and splits RENDER vertices by normal and UV on top; the soup below is that split, derived
-  // from the topology instead of standing in for it.
+  // THE GENERATOR OWNS ITS OWN TOPOLOGY. Positions are welded on the same centimetre grid
+  // everything else in this tree uses, so two corners meant to be one corner ARE one index -- and a
+  // shared edge is then a shared edge rather than something a walk has to rediscover afterwards by
+  // welding a soup. Unreal's `FMeshDescription` keeps vertices, edges and triangles apart for
+  // exactly this reason and splits RENDER vertices by normal and UV on top; the soup below is that
+  // split, derived from the topology instead of standing in for it.
   //
   // NOTHING IS DISCARDED. The only triangle that goes is one whose corners are not three distinct
   // indices, and that one costs no edge: its edges are a self-loop and a pair that cancel. A needle
@@ -119,9 +152,9 @@ public:
   // sits beside.
   // SNAPPED, NOT WELDED, and the difference is the whole point. Welding merges positions that have
   // already drifted apart; snapping stops them drifting. Every corner is quantised to a MILLIMETRE
-  // as it is emitted, so two corners that mean to be one corner are bit-identical -- the index table
-  // below is then bookkeeping over positions that already agree, rather than a repair that has to
-  // guess how far apart is still "the same".
+  // as it is emitted, so two corners that mean to be one corner are bit-identical -- the index
+  // table below is then bookkeeping over positions that already agree, rather than a repair that
+  // has to guess how far apart is still "the same".
   //
   // A millimetre is chosen against the two things that bound it: it is far below anything a frame
   // can show at any distance a building is drawn from, and far above the float noise of the
@@ -160,7 +193,7 @@ public:
     Face_.push_back(ia);
     Face_.push_back(ib);
     Face_.push_back(ic);
-    for (int c2 = 0; c2 < 3; c2++) nrm[c2] /= len;
+    for (int c2 = 0; c2 < 3; c2++) { nrm[c2] /= len; }
     Push(a, nrm);
     Push(b, nrm);
     Push(c, nrm);
@@ -182,9 +215,13 @@ public:
       }
     }
     for (const auto &edge : counted) {
-      if (edge.second == 1) { ++*open; }
-      else if (edge.second > 2) { ++*overused; }
-      else if (walked.at(edge.first) != 0) { ++*reversed; }
+      if (edge.second == 1) {
+        ++*open;
+      } else if (edge.second > 2) {
+        ++*overused;
+      } else if (walked.at(edge.first) != 0) {
+        ++*reversed;
+      }
     }
   }
 
@@ -195,12 +232,14 @@ public:
 
 private:
   void Push(const Vtx &v, const double nrm[3]) {
-    for (int c = 0; c < 3; c++)
+    for (int c = 0; c < 3; c++) {
       Soup_.push_back((float)(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
+    }
     Soup_.push_back(v.U);
     Soup_.push_back(v.V);
-    for (int c = 0; c < 3; c++)
+    for (int c = 0; c < 3; c++) {
       Soup_.push_back((float)(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
+    }
   }
 
   std::vector<float> &Soup_;
@@ -215,7 +254,7 @@ class Site2Ground {
 public:
   Site2Ground(Span<const double> ringLatLon, Span<const double> cornerAslM, double baseAslM) {
     const size_t n = std::min(cornerAslM.Size(), ringLatLon.Size() / 2);
-    if (n < 3) return;
+    if (n < 3) { return; }
     double m[3][4] = {};
     for (size_t k = 0; k < n; k++) {
       double e = 0.0, nn = 0.0;
@@ -223,20 +262,21 @@ public:
       const double z = cornerAslM[k] - baseAslM;
       const double b[3] = {1.0, e, nn};
       for (int r = 0; r < 3; r++) {
-        for (int c = 0; c < 3; c++) m[r][c] += b[r] * b[c];
+        for (int c = 0; c < 3; c++) { m[r][c] += b[r] * b[c]; }
         m[r][3] += b[r] * z;
       }
     }
     for (int c = 0; c < 3; c++) {
       int piv = c;
-      for (int r = c + 1; r < 3; r++)
-        if (std::fabs(m[r][c]) > std::fabs(m[piv][c])) piv = r;
-      if (std::fabs(m[piv][c]) < 1.0e-6) return;
-      for (int k = 0; k < 4; k++) std::swap(m[c][k], m[piv][k]);
+      for (int r = c + 1; r < 3; r++) {
+        if (std::fabs(m[r][c]) > std::fabs(m[piv][c])) { piv = r; }
+      }
+      if (std::fabs(m[piv][c]) < 1.0e-6) { return; }
+      for (int k = 0; k < 4; k++) { std::swap(m[c][k], m[piv][k]); }
       for (int r = 0; r < 3; r++) {
-        if (r == c) continue;
+        if (r == c) { continue; }
         const double f = m[r][c] / m[c][c];
-        for (int k = c; k < 4; k++) m[r][k] -= f * m[c][k];
+        for (int k = c; k < 4; k++) { m[r][k] -= f * m[c][k]; }
       }
     }
     Const_ = m[0][3] / m[0][0];
@@ -250,32 +290,47 @@ private:
   double Const_ = 0.0, SlopeE_ = 0.0, SlopeN_ = 0.0;
 };
 
-double EdgeLength(const En &p, const En &q) { return std::hypot(q.E - p.E, q.N - p.N); }
+double EdgeLength(const En &p, const En &q) {
+  return std::hypot(q.E - p.E, q.N - p.N);
+}
 
 En Along(const En &p, const En &q, double t) {
   return {p.E + (q.E - p.E) * t, p.N + (q.N - p.N) * t};
 }
 
 double BaysOn(double lengthM, double bayM) {
-  if (lengthM < 1.9) return 0.0;
+  if (lengthM < 1.9) { return 0.0; }
   return std::max(1.0, std::round(lengthM / bayM));
 }
 
-void WallPanel(const BuildingShape &s, const En &p, const En &q, double bay0, double bay1,
-               double lowZ, double highZ, Fields stand, Site &site) {
-  site.Quad(Wall(s, p, lowZ, bay0, stand), Wall(s, q, lowZ, bay1, stand),
-            Wall(s, q, highZ, bay1, stand), Wall(s, p, highZ, bay0, stand));
+void WallPanel(const BuildingShape &s,
+               const En &p,
+               const En &q,
+               double bay0,
+               double bay1,
+               double lowZ,
+               double highZ,
+               Fields stand,
+               Site &site) {
+  site.Quad(Wall(s, p, lowZ, bay0, stand),
+            Wall(s, q, lowZ, bay1, stand),
+            Wall(s, q, highZ, bay1, stand),
+            Wall(s, p, highZ, bay0, stand));
 }
 
-void FrontWall(const BuildingShape &s, const En &p, const En &q, double bays, double lowZ,
-               double highZ, Site &site) {
+void FrontWall(const BuildingShape &s,
+               const En &p,
+               const En &q,
+               double bays,
+               double lowZ,
+               double highZ,
+               Site &site) {
   const double door = std::floor(0.5 * bays);
   const double t0 = door / bays, t1 = (door + 1.0) / bays;
   const En a = Along(p, q, t0), b = Along(p, q, t1);
-  if (door > 0.0) WallPanel(s, p, a, 0.0, door, lowZ, highZ, Fields::Front, site);
+  if (door > 0.0) { WallPanel(s, p, a, 0.0, door, lowZ, highZ, Fields::Front, site); }
   WallPanel(s, a, b, door, door + 1.0, lowZ, highZ, Fields::Entrance, site);
-  if (door + 1.0 < bays)
-    WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site);
+  if (door + 1.0 < bays) { WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site); }
 }
 
 // THE WALL HEAD IS BROKEN WHERE THE ROOF IS. One quad from corner to corner leaves an edge that the
@@ -285,27 +340,35 @@ void FrontWall(const BuildingShape &s, const En &p, const En &q, double bays, do
 // a seam pairs only if both sides carry the SAME vertices. The roof breaks a footprint edge at one
 // set of places and the overhung edge outside it at another -- the offset moves the crossing -- so
 // every builder takes the UNION of the two, and the covering is handed a ring already carrying it.
-void BreaksBoth(const RoofSurface &roof, const En &p, const En &q, const En &wp, const En &wq,
-                bool overhung, std::vector<double> &at) {
+void BreaksBoth(const RoofSurface &roof,
+                const En &p,
+                const En &q,
+                const En &wp,
+                const En &wq,
+                bool overhung,
+                std::vector<double> &at) {
   std::vector<double> other;
   roof.BreaksAlong(p, q, at);
   if (overhung) {
     roof.BreaksAlong(wp, wq, other);
     at.insert(at.end(), other.begin(), other.end());
     std::sort(at.begin(), at.end());
-    at.erase(std::unique(at.begin(), at.end(),
+    at.erase(std::unique(at.begin(),
+                         at.end(),
                          [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
              at.end());
   }
 }
 
 // THE PARAMETERS COME FROM THE FOOTPRINT, WHATEVER RING IS BEING EMITTED. A plinth ring is the
-// footprint pushed out by 9 cm, so breaking IT against the overhang lands the split about 10 cm from
-// where breaking the footprint does -- and a floor and the plinth wall standing on it then meet along
-// two polylines that agree everywhere except at the splits. Sixteen holes in a ten centimetre band
-// at the very bottom of a building whose defect I had assumed was in its roof.
-std::vector<En> RefinedLike(std::span<const En> along, const std::vector<En> &wide,
-                            std::span<const En> emit, const RoofSurface &roof) {
+// footprint pushed out by 9 cm, so breaking IT against the overhang lands the split about 10 cm
+// from where breaking the footprint does -- and a floor and the plinth wall standing on it then
+// meet along two polylines that agree everywhere except at the splits. Sixteen holes in a ten
+// centimetre band at the very bottom of a building whose defect I had assumed was in its roof.
+std::vector<En> RefinedLike(std::span<const En> along,
+                            const std::vector<En> &wide,
+                            std::span<const En> emit,
+                            const RoofSurface &roof) {
   const size_t n = along.size();
   const bool overhung = wide.size() == n;
   std::vector<En> out;
@@ -313,24 +376,36 @@ std::vector<En> RefinedLike(std::span<const En> along, const std::vector<En> &wi
   if (emit.size() != n) { return out; }
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof, along[i], along[j], overhung ? wide[i] : along[i],
-               overhung ? wide[j] : along[j], overhung, at);
+    BreaksBoth(roof,
+               along[i],
+               along[j],
+               overhung ? wide[i] : along[i],
+               overhung ? wide[j] : along[j],
+               overhung,
+               at);
     out.push_back(emit[i]);
     for (double t : at) { out.push_back(Along(emit[i], emit[j], t)); }
   }
   return out;
 }
 
-std::vector<En> Refined(std::span<const En> ring, const std::vector<En> &wide,
-                        const RoofSurface &roof, bool takeWide) {
+std::vector<En> Refined(std::span<const En> ring,
+                        const std::vector<En> &wide,
+                        const RoofSurface &roof,
+                        bool takeWide) {
   const size_t n = ring.size();
   const bool overhung = wide.size() == n;
   std::vector<En> out;
   std::vector<double> at;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof, ring[i], ring[j], overhung ? wide[i] : ring[i], overhung ? wide[j] : ring[j],
-               overhung, at);
+    BreaksBoth(roof,
+               ring[i],
+               ring[j],
+               overhung ? wide[i] : ring[i],
+               overhung ? wide[j] : ring[j],
+               overhung,
+               at);
     const En &from = takeWide && overhung ? wide[i] : ring[i];
     const En &to = takeWide && overhung ? wide[j] : ring[j];
     out.push_back(from);
@@ -339,27 +414,38 @@ std::vector<En> Refined(std::span<const En> ring, const std::vector<En> &wide,
   return out;
 }
 
-void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
-           double lowZ, double topZ, Site &site) {
+void Walls(const BuildingShape &s,
+           const RoofSurface &roof,
+           const std::vector<En> &wide,
+           double lowZ,
+           double topZ,
+           Site &site) {
   const size_t n = s.Ring.size();
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
-    if (len < 0.05) continue;
+    if (len < 0.05) { continue; }
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
     if ((int)i == s.FrontEdge && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
     const bool overhung = wide.size() == n;
-    BreaksBoth(roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung,
-               breaks);
+    BreaksBoth(
+        roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung, breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
-      WallPanel(s, Along(p, q, was), Along(p, q, now), bays * was, bays * now, lowZ, topZ,
-                (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back, site);
+      WallPanel(s,
+                Along(p, q, was),
+                Along(p, q, now),
+                bays * was,
+                bays * now,
+                lowZ,
+                topZ,
+                (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back,
+                site);
       was = now;
     }
   }
@@ -377,7 +463,9 @@ void Walls(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
 // against the drawn mesh rather than a denser walk.
 constexpr double kGroundStepM = 2.0;
 
-void SampleGround(const BuildingShape &s, const Site2Ground &ground, double *lowest,
+void SampleGround(const BuildingShape &s,
+                  const Site2Ground &ground,
+                  double *lowest,
                   double *highest) {
   bool first = true;
   const size_t n = s.Ring.size();
@@ -401,12 +489,12 @@ void SampleGround(const BuildingShape &s, const Site2Ground &ground, double *low
 
 // HOW FAR A PLINTH REACHES DOWN, derived from the site rather than chosen. A building is placed on
 // the DEM and drawn against the terrain MESH, and those two differ by whatever the mesh's grid
-// missed -- so a 0.30 m sink leaves a gap under anything on a slope. The spread of the ground across
-// the footprint's own ring measures the local gradient over the building's own extent; carrying that
-// same gradient one terrain vertex further is the smallest honest cover, and the vertex spacing at
-// the finest level is about a kilometre over a 33-wide grid, so roughly 31 m. The building's own
-// width is the only length it knows, so the spread is doubled rather than scaled by a grid this tier
-// cannot see.
+// missed -- so a 0.30 m sink leaves a gap under anything on a slope. The spread of the ground
+// across the footprint's own ring measures the local gradient over the building's own extent;
+// carrying that same gradient one terrain vertex further is the smallest honest cover, and the
+// vertex spacing at the finest level is about a kilometre over a 33-wide grid, so roughly 31 m. The
+// building's own width is the only length it knows, so the spread is doubled rather than scaled by
+// a grid this tier cannot see.
 double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
@@ -417,18 +505,27 @@ double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
 // THE LEDGE MEETS THE WALL, so it breaks where the wall breaks. Its inner edge is the wall's foot,
 // and a single corner-to-corner edge cannot pair with a foot the roof has already broken at the
 // ridge -- which is why holes stood at the BOTTOM of a building whose defect was at the top.
-void Plinth(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
-            const Site2Ground &ground, double topZ, Site &site) {
+void Plinth(const BuildingShape &s,
+            const RoofSurface &roof,
+            const std::vector<En> &wide,
+            const Site2Ground &ground,
+            double topZ,
+            Site &site) {
   const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
-  if (out.size() != s.Ring.size()) return;
+  if (out.size() != s.Ring.size()) { return; }
   const size_t n = s.Ring.size();
   const double lowZ = PlinthFootZ(s, ground);
   const bool overhung = wide.size() == n;
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    BreaksBoth(roof, s.Ring[i], s.Ring[j], overhung ? wide[i] : s.Ring[i],
-               overhung ? wide[j] : s.Ring[j], overhung, breaks);
+    BreaksBoth(roof,
+               s.Ring[i],
+               s.Ring[j],
+               overhung ? wide[i] : s.Ring[i],
+               overhung ? wide[j] : s.Ring[j],
+               overhung,
+               breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
@@ -436,24 +533,29 @@ void Plinth(const BuildingShape &s, const RoofSurface &roof, const std::vector<E
       const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
       was = now;
       gPlinthSteps.fetch_add(1u, std::memory_order_relaxed);
-      site.Quad(Face(s, oa, lowZ, Facade::Plinth), Face(s, ob, lowZ, Facade::Plinth),
-                Face(s, ob, topZ, Facade::Plinth), Face(s, oa, topZ, Facade::Plinth));
-      site.Quad(Face(s, oa, topZ, Facade::Ledge), Face(s, ob, topZ, Facade::Ledge),
-                Face(s, rb, topZ, Facade::Ledge), Face(s, ra, topZ, Facade::Ledge));
+      site.Quad(Face(s, oa, lowZ, Facade::Plinth),
+                Face(s, ob, lowZ, Facade::Plinth),
+                Face(s, ob, topZ, Facade::Plinth),
+                Face(s, oa, topZ, Facade::Plinth));
+      site.Quad(Face(s, oa, topZ, Facade::Ledge),
+                Face(s, ob, topZ, Facade::Ledge),
+                Face(s, rb, topZ, Facade::Ledge),
+                Face(s, ra, topZ, Facade::Ledge));
     }
   }
 }
 
 // A SOLID IS CLOSED AT THE BOTTOM TOO. Without this the base ring is an open boundary and the
-// terrain is what stops you seeing inside -- which holds until the terrain slopes, and stops holding
-// the moment it does. The ring is the plinth's outer one where a plinth stands, so the floor meets
-// the lowest wall the part actually has, and it is wound the other way round from a roof because its
-// outward direction is DOWN.
+// terrain is what stops you seeing inside -- which holds until the terrain slopes, and stops
+// holding the moment it does. The ring is the plinth's outer one where a plinth stands, so the
+// floor meets the lowest wall the part actually has, and it is wound the other way round from a
+// roof because its outward direction is DOWN.
 void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site &site) {
   std::vector<En> tris;
   (void)RoofSurface::Fill(ring, tris);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-    site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth), Face(s, tris[i + 1], atZ, Facade::Plinth),
+    site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth),
+             Face(s, tris[i + 1], atZ, Facade::Plinth),
              Face(s, tris[i], atZ, Facade::Plinth));
   }
 }
@@ -462,7 +564,9 @@ void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site
 // rectangle whose ridge runs along its long axis: all four corners sit at eaves height, so every
 // edge was skipped and the roof rose over an open end. The edge is broken where the covering is
 // broken, so the two boundaries pair.
-void Gables(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
+void Gables(const BuildingShape &s,
+            const RoofSurface &roof,
+            const std::vector<En> &wide,
             Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
@@ -470,42 +574,50 @@ void Gables(const BuildingShape &s, const RoofSurface &roof, const std::vector<E
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
-    if (len < 0.05) continue;
+    if (len < 0.05) { continue; }
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
-    BreaksBoth(roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung,
-               breaks);
+    BreaksBoth(
+        roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung, breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
       const En a = Along(p, q, was), b = Along(p, q, now);
       const double ha = std::max(roof.HeightAt(a), 0.0), hb = std::max(roof.HeightAt(b), 0.0);
       was = now;
-      if (ha < 0.03 && hb < 0.03) continue;
-      site.Quad(Wall(s, a, eaves, 0.0, Fields::Back), Wall(s, b, eaves, bays, Fields::Back),
+      if (ha < 0.03 && hb < 0.03) { continue; }
+      site.Quad(Wall(s, a, eaves, 0.0, Fields::Back),
+                Wall(s, b, eaves, bays, Fields::Back),
                 Wall(s, b, eaves + hb, bays, Fields::Back),
                 Wall(s, a, eaves + ha, 0.0, Fields::Back));
     }
   }
 }
 
-void Covering(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &plan,
-              double deckZ, Site &site) {
+void Covering(const BuildingShape &s,
+              const RoofSurface &roof,
+              const std::vector<En> &plan,
+              double deckZ,
+              Site &site) {
   std::vector<En> tris;
   roof.Cover(plan, tris);
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     Vtx v[3];
-    for (int k = 0; k < 3; k++)
-      v[k] = Face(s, tris[i + (size_t)k], deckZ + roof.HeightAt(tris[i + (size_t)k]) + kSlabM, kind);
+    for (int k = 0; k < 3; k++) {
+      v[k] =
+          Face(s, tris[i + (size_t)k], deckZ + roof.HeightAt(tris[i + (size_t)k]) + kSlabM, kind);
+    }
     site.Tri(v[0], v[1], v[2]);
   }
 }
 
-void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<En> &wide,
+void Eaves(const BuildingShape &s,
+           const RoofSurface &roof,
+           const std::vector<En> &wide,
            Site &site) {
   const size_t n = s.Ring.size();
-  if (wide.size() != n) return;
+  if (wide.size() != n) { return; }
   const double eaves = EavesZ(s);
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
@@ -519,46 +631,71 @@ void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<En
       was = now;
       const double za = eaves + roof.HeightAt(wa), zb = eaves + roof.HeightAt(wb);
       const double rza = eaves + roof.HeightAt(ra), rzb = eaves + roof.HeightAt(rb);
-      site.Quad(Face(s, ra, rza, Facade::Soffit), Face(s, rb, rzb, Facade::Soffit),
-                Face(s, wb, zb, Facade::Soffit), Face(s, wa, za, Facade::Soffit));
-      site.Quad(Face(s, wa, za, Facade::Trim), Face(s, wb, zb, Facade::Trim),
-                Face(s, wb, zb + kSlabM, Facade::Trim), Face(s, wa, za + kSlabM, Facade::Trim));
+      site.Quad(Face(s, ra, rza, Facade::Soffit),
+                Face(s, rb, rzb, Facade::Soffit),
+                Face(s, wb, zb, Facade::Soffit),
+                Face(s, wa, za, Facade::Soffit));
+      site.Quad(Face(s, wa, za, Facade::Trim),
+                Face(s, wb, zb, Facade::Trim),
+                Face(s, wb, zb + kSlabM, Facade::Trim),
+                Face(s, wa, za + kSlabM, Facade::Trim));
     }
   }
 }
 
-void Crown(const BuildingShape &s, const std::vector<En> &inner, const std::vector<En> &out,
+void Crown(const BuildingShape &s,
+           const std::vector<En> &inner,
+           const std::vector<En> &out,
            Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
   const double band = eaves - 0.34, lo = eaves, hi = eaves + s.RiseM;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
-    site.Quad(Face(s, out[i], band, Facade::Ledge), Face(s, out[j], band, Facade::Ledge),
-              Face(s, out[j], lo, Facade::Ledge), Face(s, out[i], lo, Facade::Ledge));
+    site.Quad(Face(s, out[i], band, Facade::Ledge),
+              Face(s, out[j], band, Facade::Ledge),
+              Face(s, out[j], lo, Facade::Ledge),
+              Face(s, out[i], lo, Facade::Ledge));
     // THE CORNICE'S UNDERSIDE FACES DOWN and its top faces up, so the two walk the same loop in
     // OPPOSITE senses. They walked it the same way -- `out[i], out[j], Ring[j], Ring[i]` above is
     // this loop rotated by one, not reversed -- which is a shell that is closed and locally inside
     // out, and no hole count can see that. The first attempt at this reversed the TOP instead and
     // the reversed-edge count went 16 to 24, which is how the right one of the two was found.
-    site.Quad(Face(s, s.Ring[j], band, Facade::Soffit), Face(s, out[j], band, Facade::Soffit),
-              Face(s, out[i], band, Facade::Soffit), Face(s, s.Ring[i], band, Facade::Soffit));
-    site.Quad(Face(s, out[i], lo, Facade::Ledge), Face(s, out[j], lo, Facade::Ledge),
-              Face(s, s.Ring[j], lo, Facade::Ledge), Face(s, s.Ring[i], lo, Facade::Ledge));
+    site.Quad(Face(s, s.Ring[j], band, Facade::Soffit),
+              Face(s, out[j], band, Facade::Soffit),
+              Face(s, out[i], band, Facade::Soffit),
+              Face(s, s.Ring[i], band, Facade::Soffit));
+    site.Quad(Face(s, out[i], lo, Facade::Ledge),
+              Face(s, out[j], lo, Facade::Ledge),
+              Face(s, s.Ring[j], lo, Facade::Ledge),
+              Face(s, s.Ring[i], lo, Facade::Ledge));
 
-    site.Quad(Face(s, s.Ring[i], lo, Facade::Parapet), Face(s, s.Ring[j], lo, Facade::Parapet),
-              Face(s, s.Ring[j], hi, Facade::Parapet), Face(s, s.Ring[i], hi, Facade::Parapet));
-    site.Quad(Face(s, inner[j], lo, Facade::Parapet), Face(s, inner[i], lo, Facade::Parapet),
-              Face(s, inner[i], hi, Facade::Parapet), Face(s, inner[j], hi, Facade::Parapet));
+    site.Quad(Face(s, s.Ring[i], lo, Facade::Parapet),
+              Face(s, s.Ring[j], lo, Facade::Parapet),
+              Face(s, s.Ring[j], hi, Facade::Parapet),
+              Face(s, s.Ring[i], hi, Facade::Parapet));
+    site.Quad(Face(s, inner[j], lo, Facade::Parapet),
+              Face(s, inner[i], lo, Facade::Parapet),
+              Face(s, inner[i], hi, Facade::Parapet),
+              Face(s, inner[j], hi, Facade::Parapet));
     // THE COPING SHARES ITS OUTER EDGE WITH THE PARAPET'S OUTER FACE, which reaches `hi` walking
-    // `Ring[j] -> Ring[i]`. Walking it the same way here is a seam traversed twice in one direction.
-    site.Quad(Face(s, s.Ring[i], hi, Facade::Ledge), Face(s, s.Ring[j], hi, Facade::Ledge),
-              Face(s, inner[j], hi, Facade::Ledge), Face(s, inner[i], hi, Facade::Ledge));
+    // `Ring[j] -> Ring[i]`. Walking it the same way here is a seam traversed twice in one
+    // direction.
+    site.Quad(Face(s, s.Ring[i], hi, Facade::Ledge),
+              Face(s, s.Ring[j], hi, Facade::Ledge),
+              Face(s, inner[j], hi, Facade::Ledge),
+              Face(s, inner[i], hi, Facade::Ledge));
   }
 }
 
-void Box(Site &site, const BuildingShape &s, const En &centre, double halfU, double halfV,
-         double lowZ, double highZ, Facade side) {
+void Box(Site &site,
+         const BuildingShape &s,
+         const En &centre,
+         double halfU,
+         double halfV,
+         double lowZ,
+         double highZ,
+         Facade side) {
   En c[4];
   const En u{s.AxisU.E * halfU, s.AxisU.N * halfU};
   const En v{-s.AxisU.N * halfV, s.AxisU.E * halfV};
@@ -568,23 +705,30 @@ void Box(Site &site, const BuildingShape &s, const En &centre, double halfU, dou
   c[3] = {centre.E - u.E + v.E, centre.N - u.N + v.N};
   for (int i = 0; i < 4; i++) {
     const int j = (i + 1) % 4;
-    site.Quad(Face(s, c[i], lowZ, side), Face(s, c[j], lowZ, side), Face(s, c[j], highZ, side),
+    site.Quad(Face(s, c[i], lowZ, side),
+              Face(s, c[j], lowZ, side),
+              Face(s, c[j], highZ, side),
               Face(s, c[i], highZ, side));
   }
-  site.Quad(Face(s, c[0], highZ, Facade::Ledge), Face(s, c[1], highZ, Facade::Ledge),
-            Face(s, c[2], highZ, Facade::Ledge), Face(s, c[3], highZ, Facade::Ledge));
+  site.Quad(Face(s, c[0], highZ, Facade::Ledge),
+            Face(s, c[1], highZ, Facade::Ledge),
+            Face(s, c[2], highZ, Facade::Ledge),
+            Face(s, c[3], highZ, Facade::Ledge));
   // A BOX IS CLOSED AT BOTH ENDS. A chimney and a roof plant stand THROUGH the surface they rise
   // from, so their underside is never seen -- and an unseen face is still a boundary edge to a walk
-  // over the triangles, which is what left four holes on every gabled house. Its limit, stated here:
-  // the box and the roof interpenetrate rather than being cut against each other, which closedness
-  // cannot see and no test in this tree yet can.
-  site.Quad(Face(s, c[3], lowZ, Facade::Ledge), Face(s, c[2], lowZ, Facade::Ledge),
-            Face(s, c[1], lowZ, Facade::Ledge), Face(s, c[0], lowZ, Facade::Ledge));
+  // over the triangles, which is what left four holes on every gabled house. Its limit, stated
+  // here: the box and the roof interpenetrate rather than being cut against each other, which
+  // closedness cannot see and no test in this tree yet can.
+  site.Quad(Face(s, c[3], lowZ, Facade::Ledge),
+            Face(s, c[2], lowZ, Facade::Ledge),
+            Face(s, c[1], lowZ, Facade::Ledge),
+            Face(s, c[0], lowZ, Facade::Ledge));
 }
 
 [[nodiscard]] bool WantsChimney(const BuildingShape &s) {
-  if (s.Roof != RoofKind::Gable && s.Roof != RoofKind::Hip && s.Roof != RoofKind::Mansard)
+  if (s.Roof != RoofKind::Gable && s.Roof != RoofKind::Hip && s.Roof != RoofKind::Mansard) {
     return false;
+  }
   return s.Use == BuildingUse::House || s.Use == BuildingUse::Terrace ||
          s.Use == BuildingUse::Block;
 }
@@ -599,7 +743,7 @@ void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
 
 void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double halfU = std::min(2.6, 0.30 * s.HalfUm), halfV = std::min(1.9, 0.30 * s.HalfVm);
-  if (halfU < 0.9 || halfV < 0.7) return;
+  if (halfU < 0.9 || halfV < 0.7) { return; }
   const double along = (((double)(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
@@ -630,10 +774,10 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
 
 // HOW FAR A BUILDING KEEPS ITS ARCHITECTURE, derived from the lens rather than chosen. At 720 px
 // over 55 degrees a pixel is 0.076 deg, so a feature of size `w` covers one pixel at
-// `w / tan(0.076 deg)` = w / 1.33e-3. A gable, a chimney or an eaves band is of the order of a metre,
-// so all of them are inside ONE pixel beyond about 750 m; a whole 27 m building still covers 20 px
-// at 20 km. Past the near bound a footprint therefore becomes a plain extruded prism -- the mass a
-// skyline is read by -- and everything the eye could not resolve stops being meshed.
+// `w / tan(0.076 deg)` = w / 1.33e-3. A gable, a chimney or an eaves band is of the order of a
+// metre, so all of them are inside ONE pixel beyond about 750 m; a whole 27 m building still covers
+// 20 px at 20 km. Past the near bound a footprint therefore becomes a plain extruded prism -- the
+// mass a skyline is read by -- and everything the eye could not resolve stops being meshed.
 //
 // This is Unreal's HLOD and RAGE's distant-building proxy, and it is the answer the owner named. It
 // is not a cut: the building is still there, still closed, still the right height. What it loses is
@@ -658,12 +802,12 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
 // never the right trade: there is no band in which it wins. The level that belongs in that gap is
 // its mirror -- a shaped roof over a HULL footprint -- and it is not built here, so the ornament
 // rides along with the roof to 1037 m and the box takes over beyond it. RAGE carries High/Med/Low/
-// Vlow inside a drawable and then SLOD1..4 of merged sectors on top; Unreal carries 4 to 8 mesh LODs
-// and HLOD clusters over them, and Nanite drops discrete levels entirely for a cluster cut at a
-// constant screen error. More than three, and for this reason.
+// Vlow inside a drawable and then SLOD1..4 of merged sectors on top; Unreal carries 4 to 8 mesh
+// LODs and HLOD clusters over them, and Nanite drops discrete levels entirely for a cluster cut at
+// a constant screen error. More than three, and for this reason.
 //
-// THERE IS NO LEVEL BELOW THE BOX. A building under a pixel still darkens the pixel it is under, and
-// dropping it is exactly how a town stops being a town.
+// THERE IS NO LEVEL BELOW THE BOX. A building under a pixel still darkens the pixel it is under,
+// and dropping it is exactly how a town stops being a town.
 constexpr double kRoofRiseM = 3.0;
 constexpr double kResolvedPx = 2.0;
 
@@ -712,32 +856,43 @@ constexpr double kBoxTris = 12.0;
     double loU = 1.0e300, hiU = -1.0e300, loV = 1.0e300, hiV = -1.0e300;
     for (const En &p : ring) {
       const double u = p.E * uE + p.N * uN, v = -p.E * uN + p.N * uE;
-      loU = std::min(loU, u); hiU = std::max(hiU, u);
-      loV = std::min(loV, v); hiV = std::max(hiV, v);
+      loU = std::min(loU, u);
+      hiU = std::max(hiU, u);
+      loV = std::min(loV, v);
+      hiV = std::max(hiV, v);
     }
     const double area = (hiU - loU) * (hiV - loV);
     if (area < bestArea) {
       bestArea = area;
-      axE = uE; axN = uN; minU = loU; maxU = hiU; minV = loV; maxV = hiV;
+      axE = uE;
+      axN = uN;
+      minU = loU;
+      maxU = hiU;
+      minV = loV;
+      maxV = hiV;
     }
   }
-  const auto at = [&](double u, double v) {
-    return En{u * axE - v * axN, u * axN + v * axE};
-  };
+  const auto at = [&](double u, double v) { return En{u * axE - v * axN, u * axN + v * axE}; };
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
 
-void Box(const BuildingShape &s, const std::vector<En> &ring, const Site2Ground &ground,
+void Box(const BuildingShape &s,
+         const std::vector<En> &ring,
+         const Site2Ground &ground,
          Site &site) {
   const double lowZ = PlinthFootZ(s, ground);
   const double topZ = s.TopM();
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
-    site.Quad(Face(s, ring[i], lowZ, Facade::Wall), Face(s, ring[j], lowZ, Facade::Wall),
-              Face(s, ring[j], topZ, Facade::Wall), Face(s, ring[i], topZ, Facade::Wall));
+    site.Quad(Face(s, ring[i], lowZ, Facade::Wall),
+              Face(s, ring[j], lowZ, Facade::Wall),
+              Face(s, ring[j], topZ, Facade::Wall),
+              Face(s, ring[i], topZ, Facade::Wall));
   }
-  site.Quad(Face(s, ring[0], topZ, Facade::RoofFlat), Face(s, ring[1], topZ, Facade::RoofFlat),
-            Face(s, ring[2], topZ, Facade::RoofFlat), Face(s, ring[3], topZ, Facade::RoofFlat));
+  site.Quad(Face(s, ring[0], topZ, Facade::RoofFlat),
+            Face(s, ring[1], topZ, Facade::RoofFlat),
+            Face(s, ring[2], topZ, Facade::RoofFlat),
+            Face(s, ring[3], topZ, Facade::RoofFlat));
   Floor(s, ring, lowZ, site);
 }
 
@@ -751,13 +906,15 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   if (focalPx > 0.0) {
     double leastE = 1.0e300, mostE = -1.0e300, leastN = 1.0e300, mostN = -1.0e300;
     for (const En &p : s.Ring) {
-      leastE = std::min(leastE, p.E); mostE = std::max(mostE, p.E);
-      leastN = std::min(leastN, p.N); mostN = std::max(mostN, p.N);
+      leastE = std::min(leastE, p.E);
+      mostE = std::max(mostE, p.E);
+      leastN = std::min(leastN, p.N);
+      mostN = std::max(mostN, p.N);
     }
     const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
     const double highM = s.TopM() - PlinthFootZ(s, ground);
-    const double asDetailed =
-        std::min(ArchitectureReachM(focalPx), FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
+    const double asDetailed = std::min(ArchitectureReachM(focalPx),
+                                       FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
     // WHERE EVEN A BOX IS TOO MUCH, counted rather than claimed. Twelve triangles stop fitting at
     // f * sqrt(h w / 12) -- 2446 m for a ten-by-fifteen house -- and there is no level below the
     // box in this tree. Dropping the building is not it: a building under a pixel still darkens the
@@ -798,14 +955,15 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
     // A SILENT FALLBACK IS HOW A SEAM OPENS. The plinth's wall walks the ring SUBDIVIDED at every
-    // crease crossing; if `foot` came back empty the floor would take the UNDIVIDED ring instead and
-    // the two would meet as one long edge against two short ones. Counted rather than assumed, and
-    // it reads 0 for every case in the sweep -- so that is not where the terrace's three edges are.
+    // crease crossing; if `foot` came back empty the floor would take the UNDIVIDED ring instead
+    // and the two would meet as one long edge against two short ones. Counted rather than assumed,
+    // and it reads 0 for every case in the sweep -- so that is not where the terrace's three edges
+    // are.
     if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
-    // THE WALL'S FOOT AND THE FLOOR'S RIM ARE THE SAME LINE OR THEY ARE A SEAM. The plinth emits one
-    // quad per subdivided segment and the floor is filled over `foot`; if the two counts differ, one
-    // carries a break the other does not, and three collinear hole edges are exactly what that looks
-    // like from the outside.
+    // THE WALL'S FOOT AND THE FLOOR'S RIM ARE THE SAME LINE OR THEY ARE A SEAM. The plinth emits
+    // one quad per subdivided segment and the floor is filled over `foot`; if the two counts
+    // differ, one carries a break the other does not, and three collinear hole edges are exactly
+    // what that looks like from the outside.
     gFloorRim.fetch_add(foot.empty() ? s.Ring.size() : foot.size(), std::memory_order_relaxed);
     Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
@@ -815,11 +973,11 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
 
   if (s.Roof == RoofKind::Flat) {
     // THE DECK MEETS THE PARAPET'S INNER FOOT. `Covering` lays its surface a slab's thickness above
-    // the height it is handed, and the parapet's inner face starts at the eaves -- so handing it the
-    // eaves left the deck floating `kSlabM` above the wall meant to hold it, all the way round.
+    // the height it is handed, and the parapet's inner face starts at the eaves -- so handing it
+    // the eaves left the deck floating `kSlabM` above the wall meant to hold it, all the way round.
     const double deckZ = crowned ? EavesZ(s) - kSlabM : EavesZ(s) + s.RiseM;
     Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
-    if (crowned) Crown(s, crownInner, crownOut, site);
+    if (crowned) { Crown(s, crownInner, crownOut, site); }
     RoofPlant(s, deckZ, site);
     return;
   }
@@ -828,8 +986,8 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const std::vector<En> covered = Refined(s.Ring, wide, roof, true);
   Covering(s, roof, covered.empty() ? s.Ring : covered, EavesZ(s), site);
   Gables(s, roof, wide, site);
-  if (!wide.empty()) Eaves(s, roof, wide, site);
-  if (WantsChimney(s)) Chimney(s, roof, site);
+  if (!wide.empty()) { Eaves(s, roof, wide, site); }
+  if (WantsChimney(s)) { Chimney(s, roof, site); }
 }
 
 double StandBack(const Frontage &street, const En &p) {
@@ -840,19 +998,22 @@ En OntoKerb(const Frontage &street, const En &p, double back) {
   return {p.E - back * street.ToStreetE, p.N - back * street.ToStreetN};
 }
 
-void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground &ground,
-              double plinthZ, Site &site) {
-  if (!street.Known || !s.OnGround()) return;
+void Pavement(const BuildingShape &s,
+              const Frontage &street,
+              const Site2Ground &ground,
+              double plinthZ,
+              Site &site) {
+  if (!street.Known || !s.OnGround()) { return; }
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
-    if (s.Party[i]) continue;
+    if (s.Party[i]) { continue; }
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double e = q.E - p.E, nn = q.N - p.N, len = std::hypot(e, nn);
-    if (len < 1.2) continue;
-    if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) continue;
+    if (len < 1.2) { continue; }
+    if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) { continue; }
     double bp = StandBack(street, p), bq = StandBack(street, q);
-    if (bp > -kPavementLeastM || bq > -kPavementLeastM) continue;
-    if (bp < -kPavementMostM && bq < -kPavementMostM) continue;
+    if (bp > -kPavementLeastM || bq > -kPavementLeastM) { continue; }
+    if (bp < -kPavementMostM && bq < -kPavementMostM) { continue; }
     bp = std::max(bp, -kFootwayMostM);
     bq = std::max(bq, -kFootwayMostM);
 
@@ -862,22 +1023,27 @@ void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground 
       return std::min(ground.At(at) + kKerbUpM, plinthZ - 0.05);
     };
     const double zp = walk(p), zq = walk(q), zpk = walk(pk), zqk = walk(qk);
-    site.Quad(Face(s, p, zp, Facade::Pavement), Face(s, pk, zpk, Facade::Pavement),
-              Face(s, qk, zqk, Facade::Pavement), Face(s, q, zq, Facade::Pavement));
-    site.Quad(Face(s, pk, zpk, Facade::Kerb), Face(s, pe, zpk, Facade::Kerb),
-              Face(s, qe, zqk, Facade::Kerb), Face(s, qk, zqk, Facade::Kerb));
+    site.Quad(Face(s, p, zp, Facade::Pavement),
+              Face(s, pk, zpk, Facade::Pavement),
+              Face(s, qk, zqk, Facade::Pavement),
+              Face(s, q, zq, Facade::Pavement));
+    site.Quad(Face(s, pk, zpk, Facade::Kerb),
+              Face(s, pe, zpk, Facade::Kerb),
+              Face(s, qe, zqk, Facade::Kerb),
+              Face(s, qk, zqk, Facade::Kerb));
     site.Quad(Face(s, pe, zpk - kKerbUpM - kKerbSkirtM, Facade::Kerb),
               Face(s, qe, zqk - kKerbUpM - kKerbSkirtM, Facade::Kerb),
-              Face(s, qe, zqk, Facade::Kerb), Face(s, pe, zpk, Facade::Kerb));
+              Face(s, qe, zqk, Facade::Kerb),
+              Face(s, pe, zpk, Facade::Kerb));
   }
 }
 
-}
+} // namespace
 
 void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept {
-  if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) return;
+  if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
   const Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
-  if (mass.Parts.empty()) return;
+  if (mass.Parts.empty()) { return; }
 
   Site site(plan, soup);
   const Site2Ground ground(plan.RingLatLon, plan.CornerAslM, plan.BaseAslM);
@@ -887,4 +1053,4 @@ void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) con
   }
 }
 
-}
+} // namespace outshine::Generators

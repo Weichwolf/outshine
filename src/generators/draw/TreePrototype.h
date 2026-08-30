@@ -13,10 +13,10 @@ namespace outshine::Generators {
 
 class TreePrototype {
 public:
-
   struct Crown {
     float HalfWidth = 0.0f, Bottom = 0.0f, Top = 0.0f, HeightM = 0.0f;
   };
+
   struct Rank {
     std::vector<float> BarkVerts;
     uint32_t BarkVertCount = 0;
@@ -48,6 +48,7 @@ public:
     RowSpare = 18,
     RowFloats = 20,
   };
+
   static_assert((int)Row::RowFloats == kMaterialRowFloats,
                 "the tree's material row IS the engine's material row -- one width, one "
                 "spelling");
@@ -55,8 +56,11 @@ public:
   static void MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]);
 
   [[nodiscard]] const std::vector<Rank> &Ranks() const { return Ranks_; }
+
   [[nodiscard]] const TreeLook &Look() const { return Look_; }
+
   [[nodiscard]] const Crown &Reach() const { return Crown_; }
+
   [[nodiscard]] double HeightM() const { return HeightM_; }
 
   static constexpr float kCardFanDeg = 110.0f;
@@ -68,5 +72,5 @@ private:
   double HeightM_ = 0.0;
 };
 
-}
+} // namespace outshine::Generators
 #endif

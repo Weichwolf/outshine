@@ -4,7 +4,9 @@ namespace outshine::Work {
 
 Graph::Graph(unsigned hands) : Hands_(hands == 0 ? 1u : hands) {
   Hand_.reserve(Hands_);
-  for (unsigned at = 0; at + 1u < Hands_; ++at) { Hand_.emplace_back([this]() { Serves(false); }); }
+  for (unsigned at = 0; at + 1u < Hands_; ++at) {
+    Hand_.emplace_back([this]() { Serves(false); });
+  }
 }
 
 Graph::~Graph() {
@@ -111,4 +113,4 @@ bool Graph::Runs() {
   return true;
 }
 
-}
+} // namespace outshine::Work

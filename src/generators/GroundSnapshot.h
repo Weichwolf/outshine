@@ -37,9 +37,9 @@ struct Fields {
                                    std::shared_ptr<const GroundTable> table,
                                    Ground::Snapshot *out);
 
-[[nodiscard]] std::shared_ptr<const GroundTable> TableOf(
-    const outshine::Ground::VegetationTemplates &templates);
+[[nodiscard]] std::shared_ptr<const GroundTable>
+TableOf(const outshine::Ground::VegetationTemplates &templates);
 
-}
+} // namespace outshine::Generators
 
 #endif

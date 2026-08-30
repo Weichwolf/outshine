@@ -14,5 +14,5 @@ struct Instance {
   float Scale = 1.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

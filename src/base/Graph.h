@@ -29,7 +29,9 @@ public:
   [[nodiscard]] bool Runs();
 
   [[nodiscard]] size_t Steps() const { return Steps_; }
+
   [[nodiscard]] unsigned Hands() const { return Hands_; }
+
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
 private:
@@ -57,6 +59,6 @@ private:
   std::string Error_;
 };
 
-}
+} // namespace outshine::Work
 
 #endif

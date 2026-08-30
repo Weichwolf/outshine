@@ -16,10 +16,13 @@ namespace outshine::Generators {
 class Shipping {
 public:
   [[nodiscard]] bool Stands(const outshine::Ground::VegetationTemplates &declared,
-                            std::string_view speciesDir, std::string &error);
+                            std::string_view speciesDir,
+                            std::string &error);
 
   [[nodiscard]] bool Ready() const { return !Made_.empty(); }
+
   [[nodiscard]] const GeneratorSet &Placing() const { return Placing_; }
+
   [[nodiscard]] const DrawSet &Drawing() const { return Drawing_; }
 
 private:
@@ -31,5 +34,5 @@ private:
   DrawSet Drawing_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

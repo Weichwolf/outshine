@@ -12,13 +12,13 @@ inline void Mat4Identity(float *m) {
 
 inline void Mat4Mul(float *o, const float *a, const float *b) {
   float r[16];
-  for (int c = 0; c < 4; c++)
+  for (int c = 0; c < 4; c++) {
     for (int rr = 0; rr < 4; rr++) {
       float s = 0;
-      for (int k = 0; k < 4; k++)
-        s += a[k * 4 + rr] * b[c * 4 + k];
+      for (int k = 0; k < 4; k++) { s += a[k * 4 + rr] * b[c * 4 + k]; }
       r[c * 4 + rr] = s;
     }
+  }
   memcpy(o, r, 64);
 }
 
@@ -70,5 +70,5 @@ inline void Mat4LookAt(float *m, const float *eye, const float *ctr, const float
   m[14] = (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]);
 }
 
-}
+} // namespace outshine
 #endif

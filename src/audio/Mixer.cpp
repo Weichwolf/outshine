@@ -10,21 +10,19 @@ namespace outshine::Audio {
 
 namespace {
 
-[[nodiscard]] double Named(std::span<const Setting> parameters, std::string_view name,
-                           double standing) {
+[[nodiscard]] double
+Named(std::span<const Setting> parameters, std::string_view name, double standing) {
   for (const Setting &one : parameters) {
     if (one.Name != name) { continue; }
     try {
       return std::stod(one.Value);
-    } catch (...) {
-      return standing;
-    }
+    } catch (...) { return standing; }
   }
   return standing;
 }
 
-[[nodiscard]] std::string Spelt(std::span<const Setting> parameters, std::string_view name,
-                                std::string_view standing) {
+[[nodiscard]] std::string
+Spelt(std::span<const Setting> parameters, std::string_view name, std::string_view standing) {
   for (const Setting &one : parameters) {
     if (one.Name == name) { return one.Value; }
   }
@@ -59,8 +57,11 @@ struct Running {
   return refM / (refM + heard.Rolloff * (atM - refM));
 }
 
-[[nodiscard]] double Doppler(const Heard &source, const Listening &ear, const double awayXyz[3],
-                             double awayM, double speedMs) {
+[[nodiscard]] double Doppler(const Heard &source,
+                             const Listening &ear,
+                             const double awayXyz[3],
+                             double awayM,
+                             double speedMs) {
   if (!(awayM > 0.0) || !(speedMs > 0.0)) { return 1.0; }
   double earToward = 0.0, sourceAway = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
@@ -73,7 +74,10 @@ struct Running {
   return shift < 0.25 ? 0.25 : (shift > 4.0 ? 4.0 : shift);
 }
 
-void Voiced(const Sound &sound, std::vector<Running> &state, double pitch, int rate,
+void Voiced(const Sound &sound,
+            std::vector<Running> &state,
+            double pitch,
+            int rate,
             std::vector<double> &into) {
   const size_t frames = into.size();
   for (double &one : into) { one = 0.0; }
@@ -127,7 +131,10 @@ void Voiced(const Sound &sound, std::vector<Running> &state, double pitch, int r
       case Makes::Delay: {
         const double seconds = Named(makes.Parameters, "delayS", 0.05);
         const size_t held = (size_t)(seconds * (double)rate);
-        if (kept.Ring.size() != held + 1) { kept.Ring.assign(held + 1, 0.0); kept.At = 0; }
+        if (kept.Ring.size() != held + 1) {
+          kept.Ring.assign(held + 1, 0.0);
+          kept.At = 0;
+        }
         const double back = Named(makes.Parameters, "feedback", 0.0);
         for (size_t frame = 0; frame < frames; ++frame) {
           out[frame] = kept.Ring[kept.At];
@@ -136,17 +143,14 @@ void Voiced(const Sound &sound, std::vector<Running> &state, double pitch, int r
         }
         break;
       }
-      case Makes::Mix:
-        out = in;
-        break;
-      default:
-        break;
+      case Makes::Mix: out = in; break;
+      default: break;
     }
   }
   into = made.back();
 }
 
-}
+} // namespace
 
 struct Reverberation {
   std::vector<std::vector<double>> Combs;
@@ -172,14 +176,22 @@ struct Mixer::Held {
 };
 
 Mixer::Mixer() : Held_(std::make_unique<Held>()) {}
+
 Mixer::~Mixer() = default;
 Mixer::Mixer(Mixer &&) noexcept = default;
 Mixer &Mixer::operator=(Mixer &&) noexcept = default;
 
-size_t Mixer::Voices() const { return Held_->Voices; }
-const BusGraph &Mixer::Routing() const { return Held_->Routing; }
+size_t Mixer::Voices() const {
+  return Held_->Voices;
+}
 
-bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, int rate,
+const BusGraph &Mixer::Routing() const {
+  return Held_->Routing;
+}
+
+bool Mixer::Stands(std::span<const Bus> buses,
+                   std::span<const Sound> declared,
+                   int rate,
                    std::string &error) {
   if (rate <= 0) {
     error = "a mixer runs at a rate and " + std::to_string(rate) + " is not one";
@@ -224,10 +236,11 @@ bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, 
     }
     for (const Voice &makes : one.Graph) {
       if (makes.Does == Makes::Convolver || makes.Does == Makes::Shaper) {
-        error = "the sound '" + one.Id + "' declares a '" +
-                (makes.Does == Makes::Convolver ? std::string("convolver") : std::string("shaper")) +
-                "' and this mixer does not run one yet -- a declared unit that silently does "
-                "nothing is worse than a refusal, because the mix would sound finished";
+        error =
+            "the sound '" + one.Id + "' declares a '" +
+            (makes.Does == Makes::Convolver ? std::string("convolver") : std::string("shaper")) +
+            "' and this mixer does not run one yet -- a declared unit that silently does "
+            "nothing is worse than a refusal, because the mix would sound finished";
         return false;
       }
     }
@@ -238,7 +251,9 @@ bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, 
   return true;
 }
 
-bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const Listening &ear,
+bool Mixer::Fills(std::span<float> stereo,
+                  std::span<const Heard> sources,
+                  const Listening &ear,
                   std::string &error) {
   if (stereo.size() % 2 != 0) {
     error = "a stereo buffer holds an even number of samples and this one holds " +
@@ -272,14 +287,17 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
       awayM = std::sqrt(awayM);
       gain *= Falloff(sound.Heard, awayM);
       pitch = Doppler(*standing, ear, awayXyz, awayM, SpeedOfSoundMs_);
-      const double along = awayM > 0.0 ? (awayXyz[0] * ear.RightXyz[0] + awayXyz[1] * ear.RightXyz[1] +
-                                          awayXyz[2] * ear.RightXyz[2]) / awayM
-                                       : 0.0;
+      const double along = awayM > 0.0
+                               ? (awayXyz[0] * ear.RightXyz[0] + awayXyz[1] * ear.RightXyz[1] +
+                                  awayXyz[2] * ear.RightXyz[2]) /
+                                     awayM
+                               : 0.0;
       rightShare = 0.5 * (1.0 + along);
       leftShare = 1.0 - rightShare;
 
-      const double blocked = standing->Blocked < 0.0 ? 0.0
-                             : standing->Blocked > 1.0 ? 1.0 : standing->Blocked;
+      const double blocked = standing->Blocked < 0.0   ? 0.0
+                             : standing->Blocked > 1.0 ? 1.0
+                                                       : standing->Blocked;
       gain *= 1.0 + blocked * (sound.Heard.BlockedGain - 1.0);
       if (sound.Heard.BlockedHz > 0.0 && blocked > 0.0) { dullHz = sound.Heard.BlockedHz; }
     }
@@ -329,4 +347,4 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
   return true;
 }
 
-}
+} // namespace outshine::Audio

@@ -17,11 +17,14 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
   return Render::SubjectWrap::Repeat;
 }
 
-[[nodiscard]] bool ReadSocketImage(const Document &file, const MaterialRef &material,
-                                   const TextureRef &declared, const char *socket,
+[[nodiscard]] bool ReadSocketImage(const Document &file,
+                                   const MaterialRef &material,
+                                   const TextureRef &declared,
+                                   const char *socket,
                                    CarriedUvSets carried,
                                    Core::Raster &raster,
-                                   Render::SubjectTexture &bound, std::string &error) {
+                                   Render::SubjectTexture &bound,
+                                   std::string &error) {
   if (!declared.Declared()) { return true; }
 
   std::string why;
@@ -50,27 +53,27 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
     const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
     bound.WrapU = WrapOf(sampler.WrapS);
     bound.WrapV = WrapOf(sampler.WrapT);
-    bound.Magnify = sampler.Mag == Filter::Nearest
-        ? Render::SubjectFilter::Nearest
-        : Render::SubjectFilter::Linear;
-    bound.Minify = sampler.Min == Filter::Nearest
-        ? Render::SubjectFilter::Nearest
-        : Render::SubjectFilter::Linear;
+    bound.Magnify = sampler.Mag == Filter::Nearest ? Render::SubjectFilter::Nearest
+                                                   : Render::SubjectFilter::Linear;
+    bound.Minify = sampler.Min == Filter::Nearest ? Render::SubjectFilter::Nearest
+                                                  : Render::SubjectFilter::Linear;
     bound.Mip = sampler.Mip == MipFilter::None
-        ? Render::SubjectMip::None
-        : (sampler.Mip == MipFilter::Nearest
-               ? Render::SubjectMip::Nearest
-               : Render::SubjectMip::Linear);
+                    ? Render::SubjectMip::None
+                    : (sampler.Mip == MipFilter::Nearest ? Render::SubjectMip::Nearest
+                                                         : Render::SubjectMip::Linear);
   }
   return true;
 }
 
-}
+} // namespace
 
-}
+} // namespace
 
-void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool carriesTransmission,
-                         bool ownMaterials, Render::SurfaceTable &out) {
+void ResolveSurfaceTable(const Document &file,
+                         const Subject &geometry,
+                         bool carriesTransmission,
+                         bool ownMaterials,
+                         Render::SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
   out.Decoded.clear();
@@ -88,7 +91,6 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
       Render::SubjectMaterial surface;
       surface.Row = DefaultMaterial();
       if (material >= 0 && (size_t)material < geometry.Surfaces().size()) {
-
         surface.Row = geometry.Surfaces()[(size_t)material];
         if (!carriesTransmission) {
           surface.Row.Transmission = 0.0f;
@@ -104,15 +106,17 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
   }
 }
 
-[[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
-                                      Render::ColourFrom channel, Render::ColourCarrier carrier,
-                                      Render::SurfaceTable &table, std::string &error) {
+[[nodiscard]] bool ResolveFileSurface(const Document &file,
+                                      const Subject &geometry,
+                                      Render::ColourFrom channel,
+                                      Render::ColourCarrier carrier,
+                                      Render::SurfaceTable &table,
+                                      std::string &error) {
   table.Decoded.assign(table.Slots.size(), Render::SurfaceRasters{});
-  const char *socket = channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
+  const char *socket =
+      channel == Render::ColourFrom::Emissive ? "emissiveTexture" : "baseColorTexture";
 
-  const CarriedUvSets carried = geometry.HasUv1()
-      ? CarriedUvSets::Both
-      : CarriedUvSets::FirstOnly;
+  const CarriedUvSets carried = geometry.HasUv1() ? CarriedUvSets::Both : CarriedUvSets::FirstOnly;
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
@@ -122,9 +126,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
         channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
     if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
         material.BaseColour.Texture != declared.Texture) {
-      error = std::string("material '") + material.Name + "' is not OPAQUE, takes its colour from " +
-              socket + " " + std::to_string(declared.Texture) + " and its coverage from " +
-              "baseColorTexture " + std::to_string(material.BaseColour.Texture) +
+      error = std::string("material '") + material.Name +
+              "' is not OPAQUE, takes its colour from " + socket + " " +
+              std::to_string(declared.Texture) + " and its coverage from " + "baseColorTexture " +
+              std::to_string(material.BaseColour.Texture) +
               ", and this subject binds one image per surface -- the second binding is the missing "
               "capability, not a texture to substitute";
       return false;
@@ -158,17 +163,14 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
       const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
       base.WrapU = WrapOf(sampler.WrapS);
       base.WrapV = WrapOf(sampler.WrapT);
-      base.Magnify = sampler.Mag == Filter::Nearest
-          ? Render::SubjectFilter::Nearest
-          : Render::SubjectFilter::Linear;
-      base.Minify = sampler.Min == Filter::Nearest
-          ? Render::SubjectFilter::Nearest
-          : Render::SubjectFilter::Linear;
+      base.Magnify = sampler.Mag == Filter::Nearest ? Render::SubjectFilter::Nearest
+                                                    : Render::SubjectFilter::Linear;
+      base.Minify = sampler.Min == Filter::Nearest ? Render::SubjectFilter::Nearest
+                                                   : Render::SubjectFilter::Linear;
       base.Mip = sampler.Mip == MipFilter::None
-          ? Render::SubjectMip::None
-          : (sampler.Mip == MipFilter::Nearest
-                 ? Render::SubjectMip::Nearest
-                 : Render::SubjectMip::Linear);
+                     ? Render::SubjectMip::None
+                     : (sampler.Mip == MipFilter::Nearest ? Render::SubjectMip::Nearest
+                                                          : Render::SubjectMip::Linear);
     }
     ++textured;
   }
@@ -179,6 +181,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
       if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
       const MaterialRef &material = file.Materials()[(size_t)index];
       table.Slots[slot].NormalScale = (float)material.NormalScale;
+
       const struct {
         const TextureRef &Declared;
         const char *Socket;
@@ -186,39 +189,51 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
         Render::SubjectTexture &Bound;
       } maps[] = {
           {material.Normal, "normalTexture", table.Decoded[slot].Normal, table.Slots[slot].Normal},
-          {material.MetallicRoughness, "metallicRoughnessTexture", table.Decoded[slot].MetalRough,
+          {material.MetallicRoughness,
+           "metallicRoughnessTexture",
+           table.Decoded[slot].MetalRough,
            table.Slots[slot].MetalRough},
-          {material.Emissive, "emissiveTexture", table.Decoded[slot].Emissive,
+          {material.Emissive,
+           "emissiveTexture",
+           table.Decoded[slot].Emissive,
            table.Slots[slot].Emissive},
-          {material.SpecularStrength, "specularTexture", table.Decoded[slot].SpecularStrength,
+          {material.SpecularStrength,
+           "specularTexture",
+           table.Decoded[slot].SpecularStrength,
            table.Slots[slot].SpecularStrength},
-          {material.SpecularTint, "specularColorTexture", table.Decoded[slot].SpecularTint,
+          {material.SpecularTint,
+           "specularColorTexture",
+           table.Decoded[slot].SpecularTint,
            table.Slots[slot].SpecularTint},
       };
+
       for (const auto &map : maps) {
-        if (!ReadSocketImage(file, material, map.Declared, map.Socket, carried, map.Into, map.Bound,
-                             error)) {
+        if (!ReadSocketImage(
+                file, material, map.Declared, map.Socket, carried, map.Into, map.Bound, error)) {
           return false;
         }
       }
     }
   }
 
-  if (channel != Render::ColourFrom::Row && carrier == Render::ColourCarrier::Texture && textured == 0) {
+  if (channel != Render::ColourFrom::Row && carrier == Render::ColourCarrier::Texture &&
+      textured == 0) {
     error = std::string("the declaration hands the surface to the file's ") + socket +
             " and no material of it declares one";
     return false;
   }
   if (carrier != Render::ColourCarrier::Texture && textured > 0) {
-    error = std::string("the declaration says the appearance is not the ") + socket + " IMAGE and " +
-            std::to_string(textured) + " material(s) of the file declare an image on that socket, "
+    error = std::string("the declaration says the appearance is not the ") + socket +
+            " IMAGE and " + std::to_string(textured) +
+            " material(s) of the file declare an image on that socket, "
             "which this case would then be sampling instead";
     return false;
   }
 
   if (carrier == Render::ColourCarrier::VertexColour && !geometry.HasColour()) {
-    error = "the declaration says the appearance is carried by COLOR_0 and no primitive of the subject "
-            "declares one";
+    error =
+        "the declaration says the appearance is carried by COLOR_0 and no primitive of the subject "
+        "declares one";
     return false;
   }
   if (textured > 0 && !geometry.HasUv()) {
@@ -229,4 +244,4 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool car
   return true;
 }
 
-}
+} // namespace outshine::Gltf

@@ -11,7 +11,6 @@
 
 #include "Mask.h"
 
-
 namespace outshine::Render::Parity {
 
 struct NodeDisagreement {
@@ -34,8 +33,7 @@ inline bool Inside(const double corner[3][2], double x, double y) {
   for (int edge = 0; edge < 3; ++edge) {
     const double *from = corner[edge];
     const double *to = corner[(edge + 1) % 3];
-    const double side =
-        (to[0] - from[0]) * (y - from[1]) - (to[1] - from[1]) * (x - from[0]);
+    const double side = (to[0] - from[0]) * (y - from[1]) - (to[1] - from[1]) * (x - from[0]);
     if (side == 0.0) { continue; }
     if (sign != 0.0 && (side > 0) != (sign > 0)) { return false; }
     sign = side;
@@ -46,7 +44,8 @@ inline bool Inside(const double corner[3][2], double x, double y) {
 class Occupancy {
 public:
   Occupancy(const Mask &ours, const Mask &theirs)
-      : Across_((ours.Width + kTile - 1) / kTile), Down_((ours.Height + kTile - 1) / kTile),
+      : Across_((ours.Width + kTile - 1) / kTile),
+        Down_((ours.Height + kTile - 1) / kTile),
         Summed_((size_t)(Across_ + 1) * (size_t)(Down_ + 1), 0) {
     for (int y = 0; y < ours.Height; ++y) {
       for (int x = 0; x < ours.Width; ++x) {
@@ -56,8 +55,7 @@ public:
     }
     for (int down = 1; down <= Down_; ++down) {
       for (int across = 1; across <= Across_; ++across) {
-        Summed_[At(across, down)] += Summed_[At(across - 1, down)] +
-                                     Summed_[At(across, down - 1)] -
+        Summed_[At(across, down)] += Summed_[At(across - 1, down)] + Summed_[At(across, down - 1)] -
                                      Summed_[At(across - 1, down - 1)];
       }
     }
@@ -74,9 +72,11 @@ public:
 
 private:
   static constexpr int kTile = 16;
+
   size_t At(int across, int down) const {
     return (size_t)down * (size_t)(Across_ + 1) + (size_t)across;
   }
+
   int Across_ = 0, Down_ = 0;
   std::vector<size_t> Summed_;
 };
@@ -91,7 +91,7 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
   high = std::min(limit - 1, (int)std::ceil(most));
 }
 
-}
+} // namespace Detail
 
 // THE FRACTION OF THE FRAME THE SUBJECT COVERS, over the pose it is CURRENTLY in. This read the
 // engine's own subject before, which a conformance runner may not reach -- and the copy it read
@@ -106,8 +106,8 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
     double raster[3][2];
     for (int corner = 0; corner < 3; ++corner) {
       const size_t vertex = indices[triangle * 3 + (size_t)corner];
-      const double point[3] = {positions[vertex * 3], positions[vertex * 3 + 1],
-                               positions[vertex * 3 + 2]};
+      const double point[3] = {
+          positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]};
       double ndc[3];
       clip.Point(point, ndc);
       viewport.Raster(ndc, raster[corner]);
@@ -119,7 +119,7 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 }
 
 [[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Test::Handed &geometry,
-                                                         const outshine::Test::Clip &clip) {
+                                                          const outshine::Test::Clip &clip) {
   size_t outside = 0;
   for (const outshine::Test::Handed::Part &part : geometry.Parts()) {
     for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
@@ -130,7 +130,10 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
                                  geometry.PositionsM()[vertex * 3 + 2]};
         double ndc[3];
         clip.Point(point, ndc);
-        if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) { ++outside; break; }
+        if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) {
+          ++outside;
+          break;
+        }
       }
     }
   }
@@ -139,7 +142,8 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 
 inline Attribution AttributeDisagreement(const outshine::Test::Handed &geometry,
                                          const outshine::Test::Clip &clip,
-                                         const outshine::Test::Frame &viewport, const Mask &ours,
+                                         const outshine::Test::Frame &viewport,
+                                         const Mask &ours,
                                          const Mask &theirs) {
   Attribution table;
   Mask touched;
@@ -158,7 +162,8 @@ inline Attribution AttributeDisagreement(const outshine::Test::Handed &geometry,
       bool projects = true;
       for (int which = 0; which < 3; ++which) {
         const size_t vertex = geometry.Indices()[part.FirstIndex + triangle * 3u + (size_t)which];
-        const double point[3] = {geometry.PositionsM()[vertex * 3], geometry.PositionsM()[vertex * 3 + 1],
+        const double point[3] = {geometry.PositionsM()[vertex * 3],
+                                 geometry.PositionsM()[vertex * 3 + 1],
                                  geometry.PositionsM()[vertex * 3 + 2]};
         double ndc[3];
         clip.Point(point, ndc);
@@ -206,6 +211,6 @@ inline Attribution AttributeDisagreement(const outshine::Test::Handed &geometry,
   return table;
 }
 
-}
+} // namespace outshine::Render::Parity
 
 #endif

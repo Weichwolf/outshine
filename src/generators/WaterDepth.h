@@ -17,13 +17,13 @@ public:
   [[nodiscard]] State Where() const { return Where_; }
 
   [[nodiscard]] bool TryDepthM(double *out) const {
-    if (Where_ != State::Fields) return false;
+    if (Where_ != State::Fields) { return false; }
     *out = M_;
     return true;
   }
 
   [[nodiscard]] bool TryDisagreementM(double *out) const {
-    if (Where_ != State::LevelBelowGround) return false;
+    if (Where_ != State::LevelBelowGround) { return false; }
     *out = M_;
     return true;
   }
@@ -35,5 +35,5 @@ private:
   double M_;
 };
 
-}
+} // namespace outshine
 #endif

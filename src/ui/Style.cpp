@@ -7,7 +7,9 @@ namespace outshine::Ui {
 
 namespace {
 
-bool Space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
+bool Space(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
+}
 
 std::string Lower(std::string_view text) {
   std::string out;
@@ -82,29 +84,30 @@ struct NamedColour {
   const char *Spelling;
   uint32_t Rgba;
 };
+
 const NamedColour kColours[] = {
-    {"transparent", 0x00000000}, {"black", 0x000000FF},     {"white", 0xFFFFFFFF},
-    {"red", 0xFF0000FF},         {"green", 0x008000FF},     {"blue", 0x0000FFFF},
-    {"yellow", 0xFFFF00FF},      {"orange", 0xFFA500FF},    {"purple", 0x800080FF},
-    {"gray", 0x808080FF},        {"grey", 0x808080FF},      {"silver", 0xC0C0C0FF},
-    {"lightgray", 0xD3D3D3FF},   {"lightgrey", 0xD3D3D3FF}, {"lightgreen", 0x90EE90FF},
-    {"pink", 0xFFC0CBFF},        {"teal", 0x008080FF},      {"navy", 0x000080FF},
-    {"lime", 0x00FF00FF},        {"aqua", 0x00FFFFFF},      {"fuchsia", 0xFF00FFFF},
-    {"maroon", 0x800000FF},      {"olive", 0x808000FF},      {"lightblue", 0xADD8E6FF},
-    {"salmon", 0xFA8072FF},      {"cyan", 0x00FFFFFF},       {"magenta", 0xFF00FFFF},
-    {"brown", 0xA52A2AFF},       {"gold", 0xFFD700FF},       {"violet", 0xEE82EEFF},
-    {"indigo", 0x4B0082FF},      {"beige", 0xF5F5DCFF},      {"tan", 0xD2B48CFF},
-    {"coral", 0xFF7F50FF},       {"khaki", 0xF0E68CFF},      {"plum", 0xDDA0DDFF},
-    {"orchid", 0xDA70D6FF},      {"skyblue", 0x87CEEBFF},    {"steelblue", 0x4682B4FF},
-    {"darkgray", 0xA9A9A9FF},    {"darkgrey", 0xA9A9A9FF},   {"lightyellow", 0xFFFFE0FF},
-    {"lightpink", 0xFFB6C1FF},   {"lightcyan", 0xE0FFFFFF},  {"seagreen", 0x2E8B57FF},
-    {"darkblue", 0x00008BFF},    {"darkgreen", 0x006400FF},  {"darkred", 0x8B0000FF},
-    {"hotpink", 0xFF69B4FF},     {"papayawhip", 0xFFEFD5FF}, {"whitesmoke", 0xF5F5F5FF},
-    {"gainsboro", 0xDCDCDCFF},   {"peachpuff", 0xFFDAB9FF},  {"lavender", 0xE6E6FAFF},
-    {"turquoise", 0x40E0D0FF},   {"crimson", 0xDC143CFF},    {"chocolate", 0xD2691EFF},
-    {"goldenrod", 0xDAA520FF},   {"firebrick", 0xB22222FF},  {"forestgreen", 0x228B22FF},
-    {"midnightblue", 0x191970FF},{"royalblue", 0x4169E1FF},  {"slategray", 0x708090FF},
-    {"slategrey", 0x708090FF},   {"dimgray", 0x696969FF},    {"dimgrey", 0x696969FF},
+    {"transparent", 0x00000000},  {"black", 0x000000FF},      {"white", 0xFFFFFFFF},
+    {"red", 0xFF0000FF},          {"green", 0x008000FF},      {"blue", 0x0000FFFF},
+    {"yellow", 0xFFFF00FF},       {"orange", 0xFFA500FF},     {"purple", 0x800080FF},
+    {"gray", 0x808080FF},         {"grey", 0x808080FF},       {"silver", 0xC0C0C0FF},
+    {"lightgray", 0xD3D3D3FF},    {"lightgrey", 0xD3D3D3FF},  {"lightgreen", 0x90EE90FF},
+    {"pink", 0xFFC0CBFF},         {"teal", 0x008080FF},       {"navy", 0x000080FF},
+    {"lime", 0x00FF00FF},         {"aqua", 0x00FFFFFF},       {"fuchsia", 0xFF00FFFF},
+    {"maroon", 0x800000FF},       {"olive", 0x808000FF},      {"lightblue", 0xADD8E6FF},
+    {"salmon", 0xFA8072FF},       {"cyan", 0x00FFFFFF},       {"magenta", 0xFF00FFFF},
+    {"brown", 0xA52A2AFF},        {"gold", 0xFFD700FF},       {"violet", 0xEE82EEFF},
+    {"indigo", 0x4B0082FF},       {"beige", 0xF5F5DCFF},      {"tan", 0xD2B48CFF},
+    {"coral", 0xFF7F50FF},        {"khaki", 0xF0E68CFF},      {"plum", 0xDDA0DDFF},
+    {"orchid", 0xDA70D6FF},       {"skyblue", 0x87CEEBFF},    {"steelblue", 0x4682B4FF},
+    {"darkgray", 0xA9A9A9FF},     {"darkgrey", 0xA9A9A9FF},   {"lightyellow", 0xFFFFE0FF},
+    {"lightpink", 0xFFB6C1FF},    {"lightcyan", 0xE0FFFFFF},  {"seagreen", 0x2E8B57FF},
+    {"darkblue", 0x00008BFF},     {"darkgreen", 0x006400FF},  {"darkred", 0x8B0000FF},
+    {"hotpink", 0xFF69B4FF},      {"papayawhip", 0xFFEFD5FF}, {"whitesmoke", 0xF5F5F5FF},
+    {"gainsboro", 0xDCDCDCFF},    {"peachpuff", 0xFFDAB9FF},  {"lavender", 0xE6E6FAFF},
+    {"turquoise", 0x40E0D0FF},    {"crimson", 0xDC143CFF},    {"chocolate", 0xD2691EFF},
+    {"goldenrod", 0xDAA520FF},    {"firebrick", 0xB22222FF},  {"forestgreen", 0x228B22FF},
+    {"midnightblue", 0x191970FF}, {"royalblue", 0x4169E1FF},  {"slategray", 0x708090FF},
+    {"slategrey", 0x708090FF},    {"dimgray", 0x696969FF},    {"dimgrey", 0x696969FF},
 };
 
 int HexOf(char c) {
@@ -133,8 +136,8 @@ bool ReadColour(std::string_view text, uint32_t &out) {
     } else {
       return false;
     }
-    out = ((uint32_t)channel[0] << 24) | ((uint32_t)channel[1] << 16) | ((uint32_t)channel[2] << 8) |
-          (uint32_t)channel[3];
+    out = ((uint32_t)channel[0] << 24) | ((uint32_t)channel[1] << 16) |
+          ((uint32_t)channel[2] << 8) | (uint32_t)channel[3];
     return true;
   }
   const std::string lowered = Lower(text);
@@ -168,8 +171,7 @@ Value ReadValue(std::string_view text) {
     const std::string_view digits = trimmed.front() == '+' ? trimmed.substr(1) : trimmed;
     double number = 0.0;
     const auto scanned = std::from_chars(digits.data(), digits.data() + digits.size(), number);
-    const std::string_view suffix =
-        Trim(digits.substr((size_t)(scanned.ptr - digits.data())));
+    const std::string_view suffix = Trim(digits.substr((size_t)(scanned.ptr - digits.data())));
     value.Number = number;
     if (suffix.empty()) {
       value.How = Unit::None;
@@ -182,7 +184,6 @@ Value ReadValue(std::string_view text) {
     } else if (suffix == "rem") {
       value.How = Unit::Rem;
     } else {
-
       value.How = Unit::Keyword;
       value.Word = Keyword(trimmed);
     }
@@ -193,7 +194,7 @@ Value ReadValue(std::string_view text) {
   return value;
 }
 
-}
+} // namespace
 
 Property PropertyNamed(std::string_view name) {
   const std::string lowered = Lower(name);
@@ -207,6 +208,7 @@ struct Vocabulary {
   Property What;
   const char *Words[14];
 };
+
 const Vocabulary kVocabularies[] = {
     {Property::Display, {"block", "flex", "inline", "none", "inline-flex", nullptr}},
     {Property::Position, {"static", "relative", nullptr}},
@@ -215,16 +217,52 @@ const Vocabulary kVocabularies[] = {
     {Property::FlexDirection, {"row", "column", "row-reverse", "column-reverse", nullptr}},
     {Property::FlexWrap, {"nowrap", "wrap", "wrap-reverse", nullptr}},
     {Property::JustifyContent,
-     {"flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly", "start",
-      "end", "left", "right", "normal", "stretch", nullptr}},
+     {"flex-start",
+      "flex-end",
+      "center",
+      "space-between",
+      "space-around",
+      "space-evenly",
+      "start",
+      "end",
+      "left",
+      "right",
+      "normal",
+      "stretch",
+      nullptr}},
     {Property::AlignItems,
-     {"stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", "normal", nullptr}},
+     {"stretch",
+      "flex-start",
+      "flex-end",
+      "center",
+      "start",
+      "end",
+      "baseline",
+      "normal",
+      nullptr}},
     {Property::AlignSelf,
-     {"auto", "stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", "normal",
+     {"auto",
+      "stretch",
+      "flex-start",
+      "flex-end",
+      "center",
+      "start",
+      "end",
+      "baseline",
+      "normal",
       nullptr}},
     {Property::AlignContent,
-     {"stretch", "flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly",
-      "start", "end", "normal", nullptr}},
+     {"stretch",
+      "flex-start",
+      "flex-end",
+      "center",
+      "space-between",
+      "space-around",
+      "space-evenly",
+      "start",
+      "end",
+      "normal",
+      nullptr}},
     {Property::TextAlign, {"left", "right", "center", nullptr}},
     {Property::WhiteSpace, {"normal", "pre", nullptr}},
 };
@@ -251,8 +289,11 @@ bool Bare(std::string_view text) {
   return value.How == Unit::None;
 }
 
-void Expand(std::string_view name, std::string_view text, std::vector<Declaration> &into,
-            size_t &unheld, std::vector<std::string> &names) {
+void Expand(std::string_view name,
+            std::string_view text,
+            std::vector<Declaration> &into,
+            size_t &unheld,
+            std::vector<std::string> &names) {
   const std::string lowered = Lower(name);
 
   if (!lowered.empty() && lowered.front() == '-') { return; }
@@ -307,7 +348,6 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       }
     }
     if (numbers == 0) {
-
       if (basisAt == parts.size()) { return false; }
       one(Property::FlexGrow, "1");
       one(Property::FlexShrink, "1");
@@ -319,7 +359,11 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       size_t first = parts.size(), second = parts.size();
       for (size_t at = 0; at < parts.size(); ++at) {
         if (!Bare(parts[at])) { continue; }
-        if (first == parts.size()) { first = at; } else { second = at; }
+        if (first == parts.size()) {
+          first = at;
+        } else {
+          second = at;
+        }
       }
       if (basisAt > first && basisAt < second) { return true; }
     }
@@ -361,11 +405,9 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       } else if (ReadValue(part).How == Unit::Colour) {
         one(Property::BorderColour, part);
       } else if (part == "thin" || part == "medium" || part == "thick") {
-
         width = part == "thin" ? "1px" : part == "medium" ? "3px" : "5px";
       } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em ||
                  (ReadValue(part).How == Unit::None && ReadValue(part).Number == 0.0)) {
-
         width = part == "0" ? std::string_view("0px") : part;
       } else {
         return false;
@@ -385,17 +427,23 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     return true;
   };
   if (lowered == "margin") {
-    if (sides(Property::MarginTop, Property::MarginRight, Property::MarginBottom,
+    if (sides(Property::MarginTop,
+              Property::MarginRight,
+              Property::MarginBottom,
               Property::MarginLeft)) {
       return;
     }
   } else if (lowered == "padding") {
-    if (sides(Property::PaddingTop, Property::PaddingRight, Property::PaddingBottom,
+    if (sides(Property::PaddingTop,
+              Property::PaddingRight,
+              Property::PaddingBottom,
               Property::PaddingLeft)) {
       return;
     }
   } else if (lowered == "border-width") {
-    if (sides(Property::BorderTopWidth, Property::BorderRightWidth, Property::BorderBottomWidth,
+    if (sides(Property::BorderTopWidth,
+              Property::BorderRightWidth,
+              Property::BorderBottomWidth,
               Property::BorderLeftWidth)) {
       return;
     }
@@ -406,7 +454,9 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
   } else if (lowered == "background") {
     if (single(Property::BackgroundColour)) { return; }
   } else if (lowered == "border") {
-    if (border(Property::BorderTopWidth, Property::BorderRightWidth, Property::BorderBottomWidth,
+    if (border(Property::BorderTopWidth,
+               Property::BorderRightWidth,
+               Property::BorderBottomWidth,
                Property::BorderLeftWidth)) {
       return;
     }
@@ -459,14 +509,15 @@ std::string WithoutComments(std::string_view css) {
   return out;
 }
 
-void ReadBlock(std::string_view body, std::vector<Declaration> &into, size_t &unheld,
+void ReadBlock(std::string_view body,
+               std::vector<Declaration> &into,
+               size_t &unheld,
                std::vector<std::string> &names) {
   size_t at = 0;
   while (at < body.size()) {
     const size_t semi = body.find(';', at);
-    const std::string_view one = Trim(body.substr(at, semi == std::string_view::npos
-                                                         ? std::string_view::npos
-                                                         : semi - at));
+    const std::string_view one =
+        Trim(body.substr(at, semi == std::string_view::npos ? std::string_view::npos : semi - at));
     at = semi == std::string_view::npos ? body.size() : semi + 1;
     if (one.empty()) { continue; }
     const size_t colon = one.find(':');
@@ -494,7 +545,6 @@ bool ReadCompound(std::string_view text, Compound &out) {
     if (text.empty()) { return true; }
   }
   if (text == "*") {
-
     out.Universal = true;
     return true;
   }
@@ -525,7 +575,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
          !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
 }
 
-}
+} // namespace
 
 std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   std::vector<Declaration> out;
@@ -547,7 +597,8 @@ void Stylesheet::Read(std::string_view text) {
       ++Unselectable_;
       if (Names_.size() < 64) {
         const size_t stops = css.find_first_of("{; \t\r\n", at);
-        Names_.emplace_back(css.substr(at, (stops == std::string_view::npos ? css.size() : stops) - at));
+        Names_.emplace_back(
+            css.substr(at, (stops == std::string_view::npos ? css.size() : stops) - at));
       }
       const size_t brace = css.find('{', at);
       const size_t semi = css.find(';', at);
@@ -587,14 +638,15 @@ void Stylesheet::Read(std::string_view text) {
       if (Names_.size() < 64) { Names_.emplace_back("nested-rule"); }
     }
     ReadBlock(nested == std::string_view::npos ? body : body.substr(0, body.rfind(';', nested) + 1),
-              declares, Unheld_, Names_);
+              declares,
+              Unheld_,
+              Names_);
 
     size_t from = 0;
     while (from <= heads.size()) {
       const size_t comma = heads.find(',', from);
-      const std::string_view head =
-          Trim(heads.substr(from, comma == std::string_view::npos ? std::string_view::npos
-                                                                 : comma - from));
+      const std::string_view head = Trim(heads.substr(
+          from, comma == std::string_view::npos ? std::string_view::npos : comma - from));
       from = comma == std::string_view::npos ? heads.size() + 1 : comma + 1;
       if (head.empty()) { continue; }
       Rule rule;
@@ -621,7 +673,6 @@ void Stylesheet::Read(std::string_view text) {
         }
       }
       if (!held || rule.Chain.empty()) {
-
         ++Unselectable_;
         if (Names_.size() < 64) { Names_.emplace_back(head); }
         continue;
@@ -646,7 +697,6 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   if (element.Kind != NodeKind::Element) { return false; }
   if (!compound.Tag.empty() && element.Name != compound.Tag) { return false; }
   if (compound.NthChild > 0) {
-
     if (element.Parent < 0) { return false; }
     int position = 0;
     for (const int sibling : markup.Nodes()[(size_t)element.Parent].Children) {
@@ -679,7 +729,7 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   return true;
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -701,15 +751,23 @@ const Boundary kBoundaries[] = {
     {"display:table-row", "the same, one box down"},
     {"display:list-item", "a marker box is inline layout with a second box beside the content"},
     {"<table>", "a table is a third layout model, and an interface states its rows itself"},
-    {"<thead>", "the same"},   {"<tbody>", "the same"},   {"<tfoot>", "the same"},
-    {"<tr>", "the same"},      {"<td>", "the same"},      {"<th>", "the same"},
-    {"<caption>", "the same"}, {"<colgroup>", "the same"}, {"<col>", "the same"},
+    {"<thead>", "the same"},
+    {"<tbody>", "the same"},
+    {"<tfoot>", "the same"},
+    {"<tr>", "the same"},
+    {"<td>", "the same"},
+    {"<th>", "the same"},
+    {"<caption>", "the same"},
+    {"<colgroup>", "the same"},
+    {"<col>", "the same"},
 
     {"display:inline-block", "inline layout beyond a text run is a second engine"},
     {"vertical-align", "it aligns things inside a line box, and there is one run per box here"},
-    {"line-height:normal", "a normal line height is the font's own, and a face here states a number"},
+    {"line-height:normal",
+     "a normal line height is the font's own, and a face here states a number"},
 
-    {"writing-mode", "one writing direction, declared; the rest is a second axis question everywhere"},
+    {"writing-mode",
+     "one writing direction, declared; the rest is a second axis question everywhere"},
     {"direction", "the same, for the inline direction"},
     {"unicode-bidi", "the same, inside a run"},
     {"text-orientation", "the same, per glyph"},
@@ -723,8 +781,10 @@ const Boundary kBoundaries[] = {
     {"inset-block", "the same"},
     {"inline-size", "the same, for a size"},
     {"block-size", "the same, for a size"},
-    {"min-inline-size", "the same"}, {"max-inline-size", "the same"},
-    {"min-block-size", "the same"},  {"max-block-size", "the same"},
+    {"min-inline-size", "the same"},
+    {"max-inline-size", "the same"},
+    {"min-block-size", "the same"},
+    {"max-block-size", "the same"},
 
     {"transform", "a matrix per box is a pass the frame budget has not bought"},
     {"box-shadow", "a shadow is a blur pass, and a declaration may not buy one"},
@@ -762,14 +822,28 @@ const Boundary kBoundaries[] = {
     {"::marker", "the same, beside a list item"},
 
     {"<img>", "a replaced box takes its size from a resource the consumer owns"},
-    {"<picture>", "the same"},  {"<source>", "the same"},  {"<video>", "the same"},
-    {"<audio>", "the same"},    {"<canvas>", "the same"},  {"<iframe>", "the same"},
-    {"<embed>", "the same"},    {"<object>", "the same"},  {"<svg>", "the same"},
+    {"<picture>", "the same"},
+    {"<source>", "the same"},
+    {"<video>", "the same"},
+    {"<audio>", "the same"},
+    {"<canvas>", "the same"},
+    {"<iframe>", "the same"},
+    {"<embed>", "the same"},
+    {"<object>", "the same"},
+    {"<svg>", "the same"},
     {"<input>", "an interactive replaced box is the consumer's control"},
-    {"<select>", "the same"},   {"<textarea>", "the same"},{"<button>", "the same"},
-    {"<label>", "the same"},    {"<fieldset>", "the same"},{"<legend>", "the same"},
-    {"<progress>", "the same"}, {"<meter>", "the same"},   {"<details>", "the same"},
-    {"<summary>", "the same"},  {"<form>", "the same"},    {"<marquee>", "the same"},
+    {"<select>", "the same"},
+    {"<textarea>", "the same"},
+    {"<button>", "the same"},
+    {"<label>", "the same"},
+    {"<fieldset>", "the same"},
+    {"<legend>", "the same"},
+    {"<progress>", "the same"},
+    {"<meter>", "the same"},
+    {"<details>", "the same"},
+    {"<summary>", "the same"},
+    {"<form>", "the same"},
+    {"<marquee>", "the same"},
     {"<math>", "a second content model with its own layout"},
     {"aspect-ratio", "a ratio sizes a replaced box, and this engine places none"},
     {"object-fit", "the same"},
@@ -778,10 +852,13 @@ const Boundary kBoundaries[] = {
     {"position:fixed", "the same"},
     {"position:sticky", "the same"},
     {"top", "an offset means nothing until a positioned box does"},
-    {"bottom", "the same"}, {"left", "the same"}, {"right", "the same"},
+    {"bottom", "the same"},
+    {"left", "the same"},
+    {"right", "the same"},
     {"z-index", "a stacking order needs a stacking context, which absolute positioning brings"},
 
-    {"font:", "the shorthand carries a family list, a style and a variant; a face here is one face"},
+    {"font:",
+     "the shorthand carries a family list, a style and a variant; a face here is one face"},
     {"font-family", "one family at a time, supplied by the consumer"},
     {"font-weight", "a weight is a second face, and a consumer supplies faces"},
     {"font-style", "the same"},
@@ -792,10 +869,12 @@ const Boundary kBoundaries[] = {
     {"content-visibility", "the same, deciding whether to lay out at all"},
     {"will-change", "a hint to a compositor this engine does not have"},
     {"outline", "a second frame outside the box, and a border is the one an interface declares"},
-    {"scrollbar", "a scrollbar is a control the client draws, from the overflow the library reports"},
+    {"scrollbar",
+     "a scrollbar is a control the client draws, from the overflow the library reports"},
     {"appearance", "a native widget look is a platform's, and this engine has no platform"},
     {"zoom", "a scale factor per box is a transform under another name"},
-    {"visibility", "a box that takes room and draws nothing is a second kind of hidden; opacity says it"},
+    {"visibility",
+     "a box that takes room and draws nothing is a second kind of hidden; opacity says it"},
     {"resize", "a control the client owns"},
     {"user-select", "text selection is client state, like focus and hover"},
     {"quotes", "generated content in a stylesheet"},
@@ -807,29 +886,32 @@ const Boundary kBoundaries[] = {
     {"background:currentcolor",
      "a value that resolves against another property is a second cascade pass"},
     {"color:currentcolor", "the same"},
-    {"nested-rule", "a nested rule is the same cascade written shorter, and a consumer can write it out"},
+    {"nested-rule",
+     "a nested rule is the same cascade written shorter, and a consumer can write it out"},
     {"!important", "a declaration that outranks the cascade is a second cascade"},
-    {"+", "the adjacent-sibling combinator walks the tree sideways, which no declaration here asks for"},
+    {"+",
+     "the adjacent-sibling combinator walks the tree sideways, which no declaration here asks for"},
     {"~", "the same, further along"},
     {"the document closes",
-     "this reader refuses a stray end tag that HTML ignores, so a consumer's declaration is right or "
+     "this reader refuses a stray end tag that HTML ignores, so a consumer's declaration is right "
+     "or "
      "it is refused -- upstream's corpus is not that consumer"},
 
     {"a script in the document decides this layout",
      "this engine runs a declared handler and never a document's own program"},
 };
 
-}
+} // namespace
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
     const std::string_view row(boundary.Name);
     if (name.size() < row.size()) { continue; }
 
-    const bool fragment = row.front() == ':' || row.front() == '+' || row.front() == '~' ||
-                          row.front() == '!';
-    const bool matched = fragment ? name.find(row) != std::string_view::npos
-                                  : name.compare(0, row.size(), row) == 0;
+    const bool fragment =
+        row.front() == ':' || row.front() == '+' || row.front() == '~' || row.front() == '!';
+    const bool matched =
+        fragment ? name.find(row) != std::string_view::npos : name.compare(0, row.size(), row) == 0;
     if (matched) { return boundary.Why; }
   }
   return nullptr;
@@ -853,4 +935,4 @@ bool Selects(const Rule &rule, const Markup &markup, int node) {
   return !rule.Chain.empty() && ChainSelects(rule, markup, rule.Chain.size() - 1, node);
 }
 
-}
+} // namespace outshine::Ui

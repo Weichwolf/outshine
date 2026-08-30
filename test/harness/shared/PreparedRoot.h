@@ -16,5 +16,5 @@ inline std::string PreparedRoot() {
   return root + "/outshine-prepared";
 }
 
-}
+} // namespace outshine::Test
 #endif

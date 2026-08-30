@@ -10,7 +10,7 @@ struct WindNed {
 struct CloudLayers {
   double TotalPct = 0.0, LowPct = 0.0, MidPct = 0.0, HighPct = 0.0;
   double CeilingM = 0.0;
-  bool   HaveCeiling = false;
+  bool HaveCeiling = false;
 };
 
 constexpr double kFBVisibilityUnlimitedM = 100000.0;
@@ -26,5 +26,5 @@ public:
   virtual double VisibilityM(double latDeg, double lonDeg) const = 0;
 };
 
-}
+} // namespace outshine
 #endif

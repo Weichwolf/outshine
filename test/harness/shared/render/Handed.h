@@ -24,6 +24,7 @@ struct Handed {
     size_t FirstIndex = 0, IndexCount = 0;
     bool HasNormal = false, HasUv = false, HasUv1 = false, HasTangent = false, HasColour = false;
   };
+
   struct Lamp {
     std::string NodeName;
     PunctualLight Light;
@@ -77,13 +78,21 @@ struct Handed {
   }
 
   [[nodiscard]] const std::vector<Part> &Parts() const { return Parts_; }
+
   [[nodiscard]] const std::vector<Lamp> &Lights() const { return Lamps_; }
+
   [[nodiscard]] const std::vector<double> &PositionsM() const { return PositionsM_; }
+
   [[nodiscard]] const std::vector<double> &Normals() const { return Normals_; }
+
   [[nodiscard]] const std::vector<uint32_t> &Indices() const { return Indices_; }
+
   [[nodiscard]] const std::vector<Material> &Surfaces() const { return Surfaces_; }
+
   [[nodiscard]] const std::vector<std::string> &SurfaceNames() const { return SurfaceNames_; }
+
   [[nodiscard]] bool HasUv1() const { return HasUv1_; }
+
   [[nodiscard]] size_t VertexCount() const { return PositionsM_.size() / 3; }
 
   void CentreM(double out[3]) const {
@@ -109,6 +118,6 @@ private:
   bool HasUv1_ = false;
 };
 
-}
+} // namespace outshine::Test
 
 #endif

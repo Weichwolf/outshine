@@ -32,14 +32,15 @@ namespace {
   if (at == std::string::npos) { return false; }
   const size_t end = body.find("\n\n", at);
   const std::string line = body.substr(at, end == std::string::npos ? end : end - at);
-  const bool named = line.find("Unreal") != std::string::npos && line.find("RAGE") != std::string::npos;
+  const bool named =
+      line.find("Unreal") != std::string::npos && line.find("RAGE") != std::string::npos;
   const bool neither = line.find("Neither") != std::string::npos ||
                        line.find("neither") != std::string::npos ||
                        line.find("The choice is mine") != std::string::npos;
   return named || neither;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

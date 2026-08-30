@@ -16,10 +16,15 @@ public:
   class Ref {
   public:
     Ref() = default;
+
     Ref(const Json *doc, int32_t node) : Doc(doc), Node(node) {}
 
     [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
-    [[nodiscard]] Kind GetKind() const { return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid; }
+
+    [[nodiscard]] Kind GetKind() const {
+      return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid;
+    }
+
     [[nodiscard]] size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
 
     [[nodiscard]] Ref operator[](size_t i) const;
@@ -30,6 +35,7 @@ public:
     [[nodiscard]] std::string_view Source() const;
 
     [[nodiscard]] double Num(double def = 0.0) const;
+
     [[nodiscard]] int Int(int def = 0) const {
       const double v = Num((double)def);
       if (!(v >= -2147483648.0) || !(v <= 2147483647.0) || v != (double)(long long)v) {
@@ -37,6 +43,7 @@ public:
       }
       return (int)v;
     }
+
     [[nodiscard]] bool Bool(bool def = false) const;
     [[nodiscard]] std::string Str(const char *def = "") const;
     [[nodiscard]] bool StrEquals(const char *s) const;
@@ -47,9 +54,11 @@ public:
   };
 
   [[nodiscard]] bool Parse(const char *text, size_t len);
+
   [[nodiscard]] bool Ok() const { return Ok_; }
 
   [[nodiscard]] size_t StoppedAt() const { return P_; }
+
   [[nodiscard]] Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
 
 private:
@@ -80,5 +89,5 @@ private:
   bool Ok_ = false;
 };
 
-}
+} // namespace outshine
 #endif

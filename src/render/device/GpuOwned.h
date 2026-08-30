@@ -6,15 +6,18 @@
 
 namespace outshine::Render {
 
-template <typename Handle, void (*Free)(SDL_GPUDevice *, Handle *)>
-class Owned {
+template <typename Handle, void (*Free)(SDL_GPUDevice *, Handle *)> class Owned {
 public:
   Owned() = default;
+
   Owned(SDL_GPUDevice *device, Handle *handle) : Device_(device), Handle_(handle) {}
+
   ~Owned() { Reset(); }
+
   Owned(Owned &&from) noexcept : Device_(from.Device_), Handle_(from.Handle_) {
     from.Handle_ = nullptr;
   }
+
   Owned &operator=(Owned &&from) noexcept {
     if (this != &from) {
       Reset();
@@ -24,11 +27,14 @@ public:
     }
     return *this;
   }
+
   Owned(const Owned &) = delete;
   Owned &operator=(const Owned &) = delete;
 
   [[nodiscard]] Handle *Get() const { return Handle_; }
+
   explicit operator bool() const { return Handle_ != nullptr; }
+
   void Reset() {
     if (Handle_) { Free(Device_, Handle_); }
     Handle_ = nullptr;
@@ -42,9 +48,13 @@ private:
 class OwnedDevice {
 public:
   OwnedDevice() = default;
+
   explicit OwnedDevice(SDL_GPUDevice *device) : Device_(device) {}
+
   ~OwnedDevice() { Reset(); }
+
   OwnedDevice(OwnedDevice &&from) noexcept : Device_(from.Device_) { from.Device_ = nullptr; }
+
   OwnedDevice &operator=(OwnedDevice &&from) noexcept {
     if (this != &from) {
       Reset();
@@ -53,11 +63,14 @@ public:
     }
     return *this;
   }
+
   OwnedDevice(const OwnedDevice &) = delete;
   OwnedDevice &operator=(const OwnedDevice &) = delete;
 
   [[nodiscard]] SDL_GPUDevice *Get() const { return Device_; }
+
   explicit operator bool() const { return Device_ != nullptr; }
+
   void Reset() {
     if (Device_) { SDL_DestroyGPUDevice(Device_); }
     Device_ = nullptr;
@@ -76,5 +89,5 @@ using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;
 using OwnedComputePipeline = Owned<SDL_GPUComputePipeline, SDL_ReleaseGPUComputePipeline>;
 
-}
+} // namespace outshine::Render
 #endif

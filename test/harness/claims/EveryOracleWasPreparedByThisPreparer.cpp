@@ -52,8 +52,8 @@ std::string HarnessOf(const std::string &caseDirectory) {
   size_t at = 0;
   while (at <= relative.size()) {
     const size_t slash = relative.find('/', at);
-    const std::string part = relative.substr(at, slash == std::string::npos ? std::string::npos
-                                                                            : slash - at);
+    const std::string part =
+        relative.substr(at, slash == std::string::npos ? std::string::npos : slash - at);
     if (part.empty()) { break; }
     walked += "/" + part;
     if (std::filesystem::is_directory(walked)) { found = walked; }
@@ -108,16 +108,15 @@ std::vector<Case> PreparedCases() {
     }
     const std::string prepared = root + flattened + "/";
     std::string document;
-    if (Slurp(prepared + "provenance.json", document)) {
-      cases.push_back({tracked, prepared});
-    }
+    if (Slurp(prepared + "provenance.json", document)) { cases.push_back({tracked, prepared}); }
   }
-  std::sort(cases.begin(), cases.end(),
-            [](const Case &left, const Case &right) { return left.Tracked < right.Tracked; });
+  std::sort(cases.begin(), cases.end(), [](const Case &left, const Case &right) {
+    return left.Tracked < right.Tracked;
+  });
   return cases;
 }
 
-}
+} // namespace
 
 int main() {
   using namespace outshine::Test;
@@ -125,7 +124,9 @@ int main() {
   const std::vector<Case> cases = PreparedCases();
   Note("prepared cases carrying a provenance document", (double)cases.size(), "cases");
   if (cases.empty()) {
-    Unprepared("test/harness/shared/corpus/prepare.py has produced no provenance.json to check a digest against");
+    Unprepared(
+        "test/harness/shared/corpus/prepare.py has produced no provenance.json to check a digest "
+        "against");
     return Report();
   }
 
@@ -147,7 +148,8 @@ int main() {
     const bool same = recorded == current;
     CHECK(same, (one.Tracked + " names the preparer that can reach it").c_str());
     if (!same) {
-      Note((one.Tracked + ": prepared by " + recorded + ", the tree digests to " + current).c_str());
+      Note(
+          (one.Tracked + ": prepared by " + recorded + ", the tree digests to " + current).c_str());
     } else {
       ++agreeing;
     }
@@ -158,13 +160,15 @@ int main() {
     Note(("khronos digests to " + sawKhronos).c_str());
     Note(("grown digests to " + sawGrown).c_str());
     CHECK(sawKhronos != sawGrown,
-          "two corpora served by different harnesses digest to different preparers, so an edit to one "
+          "two corpora served by different harnesses digest to different preparers, so an edit to "
+          "one "
           "vendor's steps cannot invalidate the other's cases");
   }
 
-  CHECK(silent == 0,
-        "every provenance document records the preparer that produced it, so a corpus older than the "
-        "field is reported rather than passed over");
+  CHECK(
+      silent == 0,
+      "every provenance document records the preparer that produced it, so a corpus older than the "
+      "field is reported rather than passed over");
   Note("cases whose oracle was produced by this preparer", (double)agreeing, "cases");
 
   Covers("the oracle key covers the preparer's own code, so a preparer change invalidates "

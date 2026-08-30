@@ -29,11 +29,11 @@ struct Patchwork {
   std::vector<float> Uv;
   std::vector<uint32_t> Index;
 
-  // WHAT A COMPUTE STAGE WOULD NEED, carried whether or not one runs yet. `Index` holds what the CPU
-  // SELECTED; these two hold what it selected FROM -- every cluster of every tile in the ring, with
-  // its `First`/`Count` already rebased onto `AllIndex`, and the eye each was tested against. A
-  // stage on the device cannot cull what never reached it, and until this the cooked form stopped at
-  // the compositor: `src/render/` named neither `ClusterDag` nor `DagCluster` anywhere.
+  // WHAT A COMPUTE STAGE WOULD NEED, carried whether or not one runs yet. `Index` holds what the
+  // CPU SELECTED; these two hold what it selected FROM -- every cluster of every tile in the ring,
+  // with its `First`/`Count` already rebased onto `AllIndex`, and the eye each was tested against.
+  // A stage on the device cannot cull what never reached it, and until this the cooked form stopped
+  // at the compositor: `src/render/` named neither `ClusterDag` nor `DagCluster` anywhere.
   //
   // They are FILLED and not yet READ, which is stated here rather than left to be discovered -- the
   // selection above still runs on the CPU and this is the residency step before the dispatch.
@@ -57,12 +57,13 @@ struct Patchwork {
   int CoarsestZoom = 0;
 };
 
-void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,
+void NormalsFrom(const std::vector<float> &positionM,
+                 const std::vector<uint32_t> &index,
                  std::vector<float> &into);
 
 [[nodiscard]] std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles,
                                                                  const Around &over);
 
-}
+} // namespace outshine
 
 #endif

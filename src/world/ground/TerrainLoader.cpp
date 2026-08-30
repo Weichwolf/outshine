@@ -36,28 +36,33 @@ constexpr int kCoarseSlots = 4;
 constexpr int kGroundStitchGrids = 5;
 constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
-double Clamped01(double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
+double Clamped01(double v) {
+  return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+}
 
 double Wrapped180(double lonDeg) {
-  while (lonDeg > 180.0) lonDeg -= 360.0;
-  while (lonDeg < -180.0) lonDeg += 360.0;
+  while (lonDeg > 180.0) { lonDeg -= 360.0; }
+  while (lonDeg < -180.0) { lonDeg += 360.0; }
   return lonDeg;
 }
 
 int DerivedThreads(int workers) {
-  if (workers > 0 && workers <= 32) return workers;
+  if (workers > 0 && workers <= 32) { return workers; }
   const unsigned hw = std::thread::hardware_concurrency();
   int n = hw > 3u ? (int)hw - 2 : 1;
-  if (n > kMaxTileThreads) n = kMaxTileThreads;
+  if (n > kMaxTileThreads) { n = kMaxTileThreads; }
   return n;
 }
 
-}
+} // namespace
 
 namespace outshine::Ground {
 
-void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t colPostings,
-                     int nodes, std::vector<float> *out) {
+void FillNodeHeights(const TerrainField &field,
+                     uint32_t rowPostings,
+                     uint32_t colPostings,
+                     int nodes,
+                     std::vector<float> *out) {
   out->resize((size_t)nodes * (size_t)nodes);
   for (int j = 0; j < nodes; j++) {
     const double fr = PostingFrac(Ground::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
@@ -95,8 +100,9 @@ struct Tile {
 
 struct GroundStream::Held {
   class Oracle : public TerrainSource {
-   public:
+  public:
     explicit Oracle(Held &held) : Held_(held) {}
+
     TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
       Held_.Decodes++;
       const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
@@ -105,7 +111,7 @@ struct GroundStream::Held {
         case TilePool::Reply::Ready: {
           int az = 0;
           uint32_t ax = 0, ay = 0;
-          if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
+          if (!landing.At.TryTile(&az, &ax, &ay)) { return TerrainBytes::Wire(); }
           return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
         }
         case TilePool::Reply::Absent: return TerrainBytes::Nothing();
@@ -117,7 +123,7 @@ struct GroundStream::Held {
       return TerrainBytes::Waiting();
     }
 
-   private:
+  private:
     Held &Held_;
   };
 
@@ -144,16 +150,16 @@ GroundStream::GroundStream(TilePool &tiles, GroundSurface surface)
 
 GroundStream::~GroundStream() {
   if (Held_ && Held_->Builds > 0) {
-    Log::Debug("world", "ground_oracle",
-               {{"tileBuilds", (int)Held_->Builds},
-                {"demDecodes", (int)Held_->Decodes},
-                {"decodesPerBuild",
-                 Held_->Builds ? (double)Held_->Decodes / (double)Held_->Builds : 0.0},
-                {"stitchMs", Held_->StitchMs},
-                {"stitchMsPerBuild",
-                 Held_->Builds ? Held_->StitchMs / (double)Held_->Builds : 0.0},
-                {"gridCache", kGroundStitchGrids},
-                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
+    Log::Debug(
+        "world",
+        "ground_oracle",
+        {{"tileBuilds", (int)Held_->Builds},
+         {"demDecodes", (int)Held_->Decodes},
+         {"decodesPerBuild", Held_->Builds ? (double)Held_->Decodes / (double)Held_->Builds : 0.0},
+         {"stitchMs", Held_->StitchMs},
+         {"stitchMsPerBuild", Held_->Builds ? Held_->StitchMs / (double)Held_->Builds : 0.0},
+         {"gridCache", kGroundStitchGrids},
+         {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
   }
 }
 
@@ -225,18 +231,18 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
   const double eastAt = clamped(u + step), westAt = clamped(u - step);
   const double southAt = clamped(v + step), northAt = clamped(v - step);
-  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
-                       (double)((long)1 << zoom) / (double)Surface_.Grid;
+  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) / (double)((long)1 << zoom) /
+                       (double)Surface_.Grid;
   const double acrossEastM = (eastAt - westAt) * (double)tile.Postings * spanM;
   const double acrossNorthM = (southAt - northAt) * (double)tile.Postings * spanM;
   if (!(acrossEastM > 0.0) || !(acrossNorthM > 0.0)) { return GroundSample::At(here); }
 
-  const double byEast =
-      (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, eastAt, v) -
-       TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, westAt, v)) / acrossEastM;
-  const double bySouth =
-      (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, southAt) -
-       TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, northAt)) / acrossNorthM;
+  const double byEast = (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, eastAt, v) -
+                         TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, westAt, v)) /
+                        acrossEastM;
+  const double bySouth = (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, southAt) -
+                          TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, northAt)) /
+                         acrossNorthM;
   double normal[3] = {-byEast, 1.0, bySouth};
   const double length =
       std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
@@ -276,7 +282,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
       t.Used = ++held.Clock;
       return t.Hole ? nullptr : &t;
     }
-    if (t.Used < victim->Used) victim = &t;
+    if (t.Used < victim->Used) { victim = &t; }
   }
   held.Pending = false;
   const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
@@ -293,7 +299,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   const int gr = field ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
   const int gc = field ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
-  if (held.Pending) return nullptr;
+  if (held.Pending) { return nullptr; }
   held.Builds++;
   victim->X = x;
   victim->Y = y;
@@ -318,24 +324,24 @@ GroundSample GroundStream::At(double lat, double lon) const {
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = (long)f.X, hy = (long)f.Y;
-  if (!WrapTile(Surface_.Z, &hx, &hy)) return GroundSample::Missing();
+  if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
-  if (!t) return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing();
+  if (!t) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
   return GroundSample::At(
       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, f.X - (double)hx, f.Y - (double)hy));
 }
 
 double GroundStream::PostM(double latDeg) const {
-  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) /
-         (double)((long)1 << Surface_.Z) / (double)Surface_.Grid;
+  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) / (double)((long)1 << Surface_.Z) /
+         (double)Surface_.Grid;
 }
 
 GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   GroundBlock block;
-  if (z != Surface_.Z) return block;
+  if (z != Surface_.Z) { return block; }
   long hx = x, hy = y;
-  if (!WrapTile(z, &hx, &hy)) return block;
+  if (!WrapTile(z, &hx, &hy)) { return block; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
   if (!t) {
@@ -352,8 +358,8 @@ GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   return block;
 }
 
-void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
-                          double *out) const noexcept {
+void GroundBlock::AslMRow(
+    double latDeg, double lonFromDeg, double lonStepDeg, int count, double *out) const noexcept {
   Geo from;
   from.LatDeg = latDeg;
   from.LonDeg = Wrapped180(lonFromDeg);
@@ -365,11 +371,12 @@ void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, i
   double tx1 = ToTileFracClamped(to, Zoom_).X;
 
   const double width = (double)((long)1 << Zoom_);
-  if ((tx1 - tx0) * lonStepDeg < 0.0) tx1 += lonStepDeg > 0.0 ? width : -width;
+  if ((tx1 - tx0) * lonStepDeg < 0.0) { tx1 += lonStepDeg > 0.0 ? width : -width; }
   const double fy = ty - (double)Y_;
   const double fx0 = tx0 - (double)X_, fxStep = tx1 - tx0;
-  for (int i = 0; i < count; i++)
+  for (int i = 0; i < count; i++) {
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
+  }
 }
 
 TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double patienceS) {
@@ -383,4 +390,4 @@ TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double pa
   return config;
 }
 
-}
+} // namespace outshine::Ground

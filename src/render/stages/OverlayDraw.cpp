@@ -13,8 +13,10 @@ constexpr uint32_t kAttributes = 5;
 
 }
 
-bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
-                            SDL_GPUTextureFormat targetFormat, std::string &error) {
+bool OverlayDraw::Configure(const Gpu &gpu,
+                            SDL_GPUSampler *smooth,
+                            SDL_GPUTextureFormat targetFormat,
+                            std::string &error) {
   Smooth = smooth;
 
   Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
@@ -22,10 +24,10 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
-  const OwnedShader vertex(gpu.Device, ShaderFrom(gpu.Device, source, "vs",
-                                                 SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
-  const OwnedShader fragment(gpu.Device, ShaderFrom(gpu.Device, source, "fs",
-                                                   SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
+  const OwnedShader vertex(
+      gpu.Device, ShaderFrom(gpu.Device, source, "vs", SDL_GPU_SHADERSTAGE_VERTEX, ShaderShape));
+  const OwnedShader fragment(
+      gpu.Device, ShaderFrom(gpu.Device, source, "fs", SDL_GPU_SHADERSTAGE_FRAGMENT, ShaderShape));
   if (!vertex || !fragment) {
     error = std::string("the overlay did not compile: ") + SDL_GetError();
     return false;
@@ -78,8 +80,8 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
   return SetAtlas(gpu, kWhite, 1, 1, error);
 }
 
-bool OverlayDraw::SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int height,
-                           std::string &error) {
+bool OverlayDraw::SetAtlas(
+    const Gpu &gpu, const uint8_t *rgba, int width, int height, std::string &error) {
   if (rgba == nullptr || width <= 0 || height <= 0) {
     error = "the overlay atlas has no texels, and a texture of nothing is not a texture";
     return false;
@@ -127,11 +129,14 @@ bool OverlayDraw::SetAtlas(const Gpu &gpu, const uint8_t *rgba, int width, int h
   return true;
 }
 
-bool OverlayDraw::SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count,
+bool OverlayDraw::SetQuads(const Gpu &gpu,
+                           const OverlayQuad *quads,
+                           size_t count,
                            std::string &error) {
   if (count > kMaxOverlayQuads) {
     error = "the overlay was given " + std::to_string(count) + " rectangles and holds " +
-            std::to_string(kMaxOverlayQuads) + ", which is " + std::to_string(count - kMaxOverlayQuads) +
+            std::to_string(kMaxOverlayQuads) + ", which is " +
+            std::to_string(count - kMaxOverlayQuads) +
             " past the bound -- a list cut without a word draws a picture nobody declared";
     return false;
   }
@@ -178,11 +183,13 @@ bool OverlayDraw::SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t coun
 void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || Count == 0 || !Verts || WidthPx <= 0 || HeightPx <= 0) { return; }
+
   struct Frame {
     float TargetPx[2];
     float EncodesSrgb;
     float Pad;
   } frame{{(float)WidthPx, (float)HeightPx}, Encodes ? 1.0f : 0.0f, 0.0f};
+
   SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
 
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
@@ -204,4 +211,4 @@ std::string OverlayDraw::ShaderSource(std::string &error) {
   return MslPrelude(error) + body;
 }
 
-}
+} // namespace outshine::Render

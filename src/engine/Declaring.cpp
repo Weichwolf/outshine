@@ -6,14 +6,17 @@
 
 namespace outshine {
 
-
 Result Engine::handleEvent(const SDL_Event &event) {
   if (!S_->Picture.Standing) { return std::unexpected(S_->Error); }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
     float xPx = 0.0f, yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
-    return (S_->Picture.Standing->Wheeled((double)xPx, (double)yPx,
-                                 -(double)event.wheel.y * S_->Session.Declared.WheelStepPx, S_->Error)) ? Result{} : std::unexpected(S_->Error);
+    return (S_->Picture.Standing->Wheeled((double)xPx,
+                                          (double)yPx,
+                                          -(double)event.wheel.y * S_->Session.Declared.WheelStepPx,
+                                          S_->Error))
+               ? Result{}
+               : std::unexpected(S_->Error);
   }
   if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     Core::InputPump::Fired fired[2];
@@ -56,14 +59,16 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
                 "scenario is declared before its surfaces are exchanged";
     return std::unexpected(S_->Error);
   }
-  if (!surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
+  if (!surfaces.empty() &&
+      !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
   std::vector<const Surface *> ordered;
   ordered.reserve(surfaces.size());
   for (const Surface &surface : surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(ordered.begin(), ordered.end(),
-                   [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
+  std::stable_sort(ordered.begin(), ordered.end(), [](const Surface *a, const Surface *b) {
+    return a->Z < b->Z;
+  });
   std::vector<Core::Shows> laid;
   laid.reserve(ordered.size());
   for (const Surface *surface : ordered) {
@@ -78,7 +83,8 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
     laid.push_back(std::move(shows));
   }
   S_->Session.Declared.Surfaces = surfaces;
-  return (S_->Picture.Standing->Redeclare(std::move(laid), S_->Error)) ? Result{} : std::unexpected(S_->Error);
+  return (S_->Picture.Standing->Redeclare(std::move(laid), S_->Error)) ? Result{}
+                                                                       : std::unexpected(S_->Error);
 }
 
 [[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
@@ -97,9 +103,8 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
 }
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
-  return a.SurfaceWidthPx == b.SurfaceWidthPx &&
-         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Built == b.Built &&
-         a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
+  return a.SurfaceWidthPx == b.SurfaceWidthPx && a.SurfaceHeightPx == b.SurfaceHeightPx &&
+         a.Built == b.Built && a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
          a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
          a.PictureLeftFrac == b.PictureLeftFrac && a.PictureTopFrac == b.PictureTopFrac &&
          a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
@@ -184,7 +189,8 @@ Result Engine::declare(const Scenario &scenario) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
     declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
-    const bool anglePut = scenario.Lit.Key.ElevationDeg != 0.0 || scenario.Lit.Key.BearingDeg != 0.0;
+    const bool anglePut =
+        scenario.Lit.Key.ElevationDeg != 0.0 || scenario.Lit.Key.BearingDeg != 0.0;
     if (scenario.Ground.Declared && anglePut && scenario.Time.Declared) {
       S_->Error = "this scenario declares a clock AND hand-sets the key light to " +
                   Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
@@ -203,13 +209,16 @@ Result Engine::declare(const Scenario &scenario) {
       if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
         if (!live && scenario.Time.Declared) {
           S_->Error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
-                      "'" + scenario.Time.Start + "' is not an ISO 8601 UTC time, and a sky has to "
+                      "'" +
+                      scenario.Time.Start +
+                      "' is not an ISO 8601 UTC time, and a sky has to "
                       "stand at some hour";
           return std::unexpected(S_->Error);
         }
         whenS = (int64_t)std::time(nullptr);
       }
-      const Solar sun = SolarAt(scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);
+      const Solar sun = SolarAt(
+          scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);
       declared.KeyElevationDeg = (double)sun.SunElDeg;
       declared.KeyBearingDeg = (double)sun.SunAzDeg;
     }
@@ -220,8 +229,9 @@ Result Engine::declare(const Scenario &scenario) {
   std::vector<const Surface *> ordered;
   ordered.reserve(scenario.Surfaces.size());
   for (const Surface &surface : scenario.Surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(ordered.begin(), ordered.end(),
-                   [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
+  std::stable_sort(ordered.begin(), ordered.end(), [](const Surface *a, const Surface *b) {
+    return a->Z < b->Z;
+  });
   for (const Surface *surface : ordered) {
     Core::Shows shows;
     shows.Markup = surface->Document;
@@ -233,7 +243,8 @@ Result Engine::declare(const Scenario &scenario) {
     shows.HeightFrac = surface->Where.HeightFrac;
     declared.Surfaces.push_back(std::move(shows));
   }
-  if (!declared.Surfaces.empty() && !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
+  if (!declared.Surfaces.empty() &&
+      !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
 
@@ -272,8 +283,8 @@ Result Engine::declare(const Scenario &scenario) {
 
   if (S_->Picture.Standing && SamePicture(S_->Picture.Shown, declared)) {
     if (!SameStand(S_->Picture.Shown, declared) &&
-        !S_->Picture.Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
-                                declared.Clip, S_->Error)) {
+        !S_->Picture.Standing->Restands(
+            declared.Stands, declared.Variant, declared.Animation, declared.Clip, S_->Error)) {
       return std::unexpected(S_->Error);
     }
     if (!SameSurfaces(S_->Picture.Shown.Surfaces, declared.Surfaces) &&
@@ -298,7 +309,11 @@ Result Engine::declare(const Scenario &scenario) {
     S_->Error.clear();
     return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
   }
-  if (!Core::Live::Open(S_->Picture.Device, std::move(declared), &S_->Picture.Face, S_->Picture.Standing, S_->Error)) {
+  if (!Core::Live::Open(S_->Picture.Device,
+                        std::move(declared),
+                        &S_->Picture.Face,
+                        S_->Picture.Standing,
+                        S_->Error)) {
     S_->Picture.Standing.reset();
     return std::unexpected(S_->Error);
   }
@@ -354,15 +369,20 @@ bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
   for (const Layer &layer : out.Layers) {
     const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
     if (!LayerActive(layer, out.Named.Active)) {
-      S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" + layer.Set +
-                               "' is not selected by active=\"" + out.Named.Active + "\"");
+      S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" +
+                                       layer.Set + "' is not selected by active=\"" +
+                                       out.Named.Active + "\"");
       continue;
     }
     const std::string at =
         (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
     std::string fragmentText;
     if (!SlurpFile(at, fragmentText, S_->Error)) { return false; }
-    if (!ApplyLayer(out, fragmentText.c_str(), fragmentText.size(), named, S_->Session.LayerTrace,
+    if (!ApplyLayer(out,
+                    fragmentText.c_str(),
+                    fragmentText.size(),
+                    named,
+                    S_->Session.LayerTrace,
                     S_->Error)) {
       S_->Error = at + ": " + S_->Error;
       return false;
@@ -389,7 +409,8 @@ Result Engine::setGeometry(const Geometry &geometry) {
     S_->Error.clear();
     return {};
   }
-  return (S_->Picture.Standing->Restand(handed, 0, S_->Error)) ? Result{} : std::unexpected(S_->Error);
+  return (S_->Picture.Standing->Restand(handed, 0, S_->Error)) ? Result{}
+                                                               : std::unexpected(S_->Error);
 }
 
 Result Engine::readScenario(std::string_view path) {
@@ -398,15 +419,22 @@ Result Engine::readScenario(std::string_view path) {
   S_->Session.Declared = scenario;
   S_->Session.Taken = false;
   S_->Session.Carried = Unacted(scenario);
-  S_->Session.Carried.insert(S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
+  S_->Session.Carried.insert(
+      S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
   S_->Error.clear();
   return {};
 }
 
-Scene &Engine::scene(void) { return S_->Cast.Scene; }
-
-const Scene &Engine::scene(void) const { return S_->Cast.Scene; }
-
-const Scenario &Engine::declaration() const { return S_->Session.Declared; }
-
+Scene &Engine::scene(void) {
+  return S_->Cast.Scene;
 }
+
+const Scene &Engine::scene(void) const {
+  return S_->Cast.Scene;
+}
+
+const Scenario &Engine::declaration() const {
+  return S_->Session.Declared;
+}
+
+} // namespace outshine

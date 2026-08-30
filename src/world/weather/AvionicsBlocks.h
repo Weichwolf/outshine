@@ -24,5 +24,5 @@ struct EnvironmentBlock {
   float MoonElDeg = 0.0f, MoonAzDeg = 0.0f, MoonPhase = 0.0f;
 };
 
-}
+} // namespace outshine
 #endif

@@ -11,19 +11,21 @@ enum class Scheme : uint8_t { TileZxy, WholeWorld };
 class Address {
 public:
   static Address Tile(int z, uint32_t x, uint32_t y) { return Address(Scheme::TileZxy, z, x, y); }
+
   static Address Whole(uint32_t index) { return Address(Scheme::WholeWorld, 0, index, 0); }
 
   [[nodiscard]] Scheme How() const noexcept { return How_; }
 
   [[nodiscard]] bool TryTile(int *z, uint32_t *x, uint32_t *y) const noexcept {
-    if (How_ != Scheme::TileZxy) return false;
+    if (How_ != Scheme::TileZxy) { return false; }
     *z = Z_;
     *x = X_;
     *y = Y_;
     return true;
   }
+
   [[nodiscard]] bool TryIndex(uint32_t *index) const noexcept {
-    if (How_ != Scheme::WholeWorld) return false;
+    if (How_ != Scheme::WholeWorld) { return false; }
     *index = X_;
     return true;
   }
@@ -33,6 +35,7 @@ public:
   [[nodiscard]] bool operator==(const Address &o) const noexcept {
     return How_ == o.How_ && Z_ == o.Z_ && X_ == o.X_ && Y_ == o.Y_;
   }
+
   [[nodiscard]] bool operator!=(const Address &o) const noexcept { return !(*this == o); }
 
 private:
@@ -43,5 +46,5 @@ private:
   uint32_t X_, Y_;
 };
 
-}
+} // namespace outshine::Data
 #endif

@@ -10,7 +10,11 @@ using outshine::Cross;
 using outshine::Dot;
 using outshine::Normalise;
 
-Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &with, Wrench &into,
+Reading Bear(Rig &of,
+             const Rigid &body,
+             const Footing *under,
+             const Controls &with,
+             Wrench &into,
              double dtS) {
   Reading out;
   out.Count = of.Count;
@@ -64,8 +68,7 @@ Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &w
     const double rollingMs = std::fabs(alongMs);
     const double rawSlipRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
     const double rolledM = rollingMs * dtS;
-    of.HeldSlipRad[which] =
-        Relaxed(mount.Sheds, of.HeldSlipRad[which], rawSlipRad, rolledM);
+    of.HeldSlipRad[which] = Relaxed(mount.Sheds, of.HeldSlipRad[which], rawSlipRad, rolledM);
 
     double askedAlongN = with.AppliedN * mount.Spin.Applied.Ratio;
     const double brakingN = with.ResistingN * mount.Spin.Resisting.Ratio;
@@ -82,8 +85,8 @@ Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &w
 
     double forceN[3];
     for (int axis = 0; axis < 3; ++axis) {
-      forceN[axis] = normal[axis] * against.LoadN + ahead[axis] * shed.AlongN +
-                     across[axis] * shed.AcrossN;
+      forceN[axis] =
+          normal[axis] * against.LoadN + ahead[axis] * shed.AlongN + across[axis] * shed.AcrossN;
     }
 
     double normalBody[3];
@@ -107,4 +110,4 @@ void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensi
   }
 }
 
-}
+} // namespace outshine::Physics

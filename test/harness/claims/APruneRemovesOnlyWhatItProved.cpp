@@ -34,19 +34,24 @@ const Examination *Find(const std::vector<Examination> &examinations, const char
   return nullptr;
 }
 
-void Claim(const std::vector<Examination> &examinations, const char *leaf, Verdict wanted,
+void Claim(const std::vector<Examination> &examinations,
+           const char *leaf,
+           Verdict wanted,
            const char *claim) {
   const Examination *row = Find(examinations, leaf);
   CHECK(row != nullptr, claim);
   if (!row) { return; }
   CHECK(row->What == wanted, claim);
   if (row->What != wanted) {
-    std::printf("NOTE %s: %s\n", leaf,
+    std::printf("NOTE %s: %s\n",
+                leaf,
                 row->Ticket.has_value() ? row->Ticket->Evidence().c_str() : row->Why.c_str());
   }
 }
 
-std::string Repeated(char of, size_t times) { return std::string(times, of); }
+std::string Repeated(char of, size_t times) {
+  return std::string(times, of);
+}
 
 struct Fabricated {
   fs::path Root, Case, Store, Marker;
@@ -65,12 +70,15 @@ Fabricated Fabricate(const std::string &storeName) {
 
   const std::string oracle = Repeated('o', 4096);
   const std::string subject = Repeated('s', 2048);
-  Write(made.Store / "0000000000000000000000000000000000000000000000000000000000000001", oracle,
+  Write(made.Store / "0000000000000000000000000000000000000000000000000000000000000001",
+        oracle,
         kBeforeTheRun);
   Write(made.Store / "0000000000000000000000000000000000000000000000000000000000000003",
-        Repeated('o', 4095), kBeforeTheRun);
+        Repeated('o', 4095),
+        kBeforeTheRun);
   Write(made.Store / "0000000000000000000000000000000000000000000000000000000000000004",
-        Repeated('o', 2048) + "X" + Repeated('o', 2047), kBeforeTheRun);
+        Repeated('o', 2048) + "X" + Repeated('o', 2047),
+        kBeforeTheRun);
 
   Write(made.Case / "oracle.raw", oracle, kBeforeTheRun);
   Write(made.Case / "oracle.normal.raw", oracle, kBeforeTheRun);
@@ -96,20 +104,34 @@ std::string Provenance(const Fabricated &made) {
          "   \"raw\": \"0000000000000000000000000000000000000000000000000000000000000001\",\n"
          "   \"normalRaw\": \"0000000000000000000000000000000000000000000000000000000000000002\",\n"
          "   \"uvRaw\": \"0000000000000000000000000000000000000000000000000000000000000003\",\n"
-         "   \"materialIndexRaw\": \"0000000000000000000000000000000000000000000000000000000000000004\",\n"
-         "   \"objectIndexRaw\": \"0000000000000000000000000000000000000000000000000000000000000005\"\n"
+         "   \"materialIndexRaw\": "
+         "\"0000000000000000000000000000000000000000000000000000000000000004\",\n"
+         "   \"objectIndexRaw\": "
+         "\"0000000000000000000000000000000000000000000000000000000000000005\"\n"
          "  },\n  \"products\": {\n"
-         "   \"raw\": {\"path\": \"" + directory + "oracle.raw\"},\n"
-         "   \"normalRaw\": {\"path\": \"" + directory + "oracle.normal.raw\"},\n"
-         "   \"uvRaw\": {\"path\": \"" + directory + "oracle.uv.raw\"},\n"
-         "   \"materialIndexRaw\": {\"path\": \"" + directory + "oracle.materialIndex.raw\"},\n"
-         "   \"objectIndexRaw\": {\"path\": \"" + directory + "oracle.objectIndex.raw\"}\n"
+         "   \"raw\": {\"path\": \"" +
+         directory +
+         "oracle.raw\"},\n"
+         "   \"normalRaw\": {\"path\": \"" +
+         directory +
+         "oracle.normal.raw\"},\n"
+         "   \"uvRaw\": {\"path\": \"" +
+         directory +
+         "oracle.uv.raw\"},\n"
+         "   \"materialIndexRaw\": {\"path\": \"" +
+         directory +
+         "oracle.materialIndex.raw\"},\n"
+         "   \"objectIndexRaw\": {\"path\": \"" +
+         directory +
+         "oracle.objectIndex.raw\"}\n"
          "  }\n }]\n}\n}\n";
 }
 
-bool Exists(const Fabricated &made, const char *leaf) { return fs::exists(made.Case / leaf); }
-
+bool Exists(const Fabricated &made, const char *leaf) {
+  return fs::exists(made.Case / leaf);
 }
+
+} // namespace
 
 int main() {
   using namespace outshine::Test;
@@ -118,7 +140,8 @@ int main() {
   Write(made.Case / "provenance.json", Provenance(made), kBeforeTheRun);
 
   const outshine::Prune::CaseReading reading = outshine::Prune::ReadCase(made.Case, made.Marker);
-  CHECK(reading.Subject.has_value(), "a case carrying a provenance document can be examined at all");
+  CHECK(reading.Subject.has_value(),
+        "a case carrying a provenance document can be examined at all");
   if (!reading.Subject.has_value()) {
     std::printf("NOTE %s\n", reading.Refusal.c_str());
     return Report();
@@ -130,33 +153,54 @@ int main() {
 
   const std::vector<Examination> examinations = outshine::Prune::ExamineCase(*reading.Subject);
 
-  Claim(examinations, "oracle.raw", Verdict::Prunable,
+  Claim(examinations,
+        "oracle.raw",
+        Verdict::Prunable,
         "a product whose bytes the store holds under the key provenance names is prunable");
-  Claim(examinations, "scene.glb", Verdict::Kept,
+  Claim(examinations,
+        "scene.glb",
+        Verdict::Kept,
         "a subject the preparer placed is kept, because it is this case's input and every other "
         "suite's");
-  Claim(examinations, "outshine.raw", Verdict::Prunable,
+  Claim(examinations,
+        "outshine.raw",
+        Verdict::Prunable,
         "our own output is prunable because this run's arms wrote it, and re-running the case is "
         "its producer");
 
-  Claim(examinations, "oracle.normal.raw", Verdict::Stays,
+  Claim(examinations,
+        "oracle.normal.raw",
+        Verdict::Stays,
         "a product whose key names no object in the store stays, and the store is not asked twice");
-  Claim(examinations, "oracle.uv.raw", Verdict::Stays,
+  Claim(examinations,
+        "oracle.uv.raw",
+        Verdict::Stays,
         "a product whose stored object is a different size stays");
-  Claim(examinations, "oracle.materialIndex.raw", Verdict::Stays,
+  Claim(examinations,
+        "oracle.materialIndex.raw",
+        Verdict::Stays,
         "a product whose stored object differs in one byte stays");
-  Claim(examinations, "grown.gltf", Verdict::Stays,
-        "a file in neither class -- no key, not written by this run, not in the store under its own "
-        "digest -- stays");
+  Claim(
+      examinations,
+      "grown.gltf",
+      Verdict::Stays,
+      "a file in neither class -- no key, not written by this run, not in the store under its own "
+      "digest -- stays");
 
-  Claim(examinations, "oracle.objectIndex.raw", Verdict::Stays,
+  Claim(examinations,
+        "oracle.objectIndex.raw",
+        Verdict::Stays,
         "a named product the store cannot vouch for stays even when this run's clock would have "
         "called it ours");
 
-  Claim(examinations, "0-reference.png", Verdict::Kept,
+  Claim(examinations,
+        "0-reference.png",
+        Verdict::Kept,
         "a picture is kept even when the store provably holds it");
   Claim(examinations, "manifest.json", Verdict::Kept, "the declaration is kept");
-  Claim(examinations, "provenance.json", Verdict::Kept,
+  Claim(examinations,
+        "provenance.json",
+        Verdict::Kept,
         "the provenance is kept, because the keys the next prune reads are in it");
 
   const outshine::Prune::Ledger ledger = outshine::Prune::Count(examinations);
@@ -183,8 +227,7 @@ int main() {
   CHECK(Exists(made, "0-reference.png") && Exists(made, "manifest.json") &&
             Exists(made, "provenance.json") && Exists(made, "scene.glb"),
         "the keep set is still on disk after the prune ran");
-  CHECK(fs::exists(made.Store /
-                   "0000000000000000000000000000000000000000000000000000000000000001"),
+  CHECK(fs::exists(made.Store / "0000000000000000000000000000000000000000000000000000000000000001"),
         "the store keeps the object the case stopped keeping a second copy of");
 
   const Fabricated undocumented = Fabricate("undocumented");

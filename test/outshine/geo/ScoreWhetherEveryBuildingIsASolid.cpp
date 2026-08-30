@@ -17,10 +17,10 @@
 // architecture it chooses.
 //
 // Unreal refuses a non-manifold cluster boundary in Nanite outright; RAGE's shells are authored and
-// a hole is caught in review. Both treat closedness as a PROPERTY OF THE ASSET rather than something
-// the renderer copes with, so the matter is closed. What neither can give this tree is the check
-// itself, because their buildings are drawn by hand and these are GROWN -- so the check has to be a
-// walk over the triangles, run for every case the grower can reach.
+// a hole is caught in review. Both treat closedness as a PROPERTY OF THE ASSET rather than
+// something the renderer copes with, so the matter is closed. What neither can give this tree is
+// the check itself, because their buildings are drawn by hand and these are GROWN -- so the check
+// has to be a walk over the triangles, run for every case the grower can reach.
 //
 // FOUR THINGS MUST BE TRUE, and each is a property of a SOLID rather than of a picture:
 //
@@ -143,7 +143,10 @@ struct Verdict {
 
   for (size_t one = 0; one * 3 + 2 < at.size(); ++one) {
     const double z = at[one * 3] * up[0] + at[one * 3 + 1] * up[1] + at[one * 3 + 2] * up[2];
-    if (one == 0) { out.BaseZ = out.TopZ = z; continue; }
+    if (one == 0) {
+      out.BaseZ = out.TopZ = z;
+      continue;
+    }
     if (z < out.BaseZ) { out.BaseZ = z; }
     if (z > out.TopZ) { out.TopZ = z; }
   }
@@ -180,7 +183,11 @@ struct Verdict {
       const double *qb = &at[(size_t)edge.first.second * 3];
       const double ha = qa[0] * up[0] + qa[1] * up[1] + qa[2] * up[2];
       const double hb = qb[0] * up[0] + qb[1] * up[1] + qb[2] * up[2];
-      if (std::fabs(ha - hb) < 0.01) { ++out.FlatHoles; } else { ++out.UprightHoles; }
+      if (std::fabs(ha - hb) < 0.01) {
+        ++out.FlatHoles;
+      } else {
+        ++out.UprightHoles;
+      }
     }
     const double *pa = &at[(size_t)edge.first.first * 3];
     const double *pb = &at[(size_t)edge.first.second * 3];
@@ -228,7 +235,12 @@ struct Verdict {
     const double za = pa[0] * up[0] + pa[1] * up[1] + pa[2] * up[2];
     const double zb = pb[0] * up[0] + pb[1] * up[1] + pb[2] * up[2];
     const double low = za < zb ? za : zb, high = za < zb ? zb : za;
-    if (!anyFlip) { out.FlipLowZ = low; out.FlipHighZ = high; anyFlip = true; continue; }
+    if (!anyFlip) {
+      out.FlipLowZ = low;
+      out.FlipHighZ = high;
+      anyFlip = true;
+      continue;
+    }
     if (low < out.FlipLowZ) { out.FlipLowZ = low; }
     if (high > out.FlipHighZ) { out.FlipHighZ = high; }
   }
@@ -249,7 +261,7 @@ struct Footprint {
   return {lat - n, lon - e, lat - n, lon + e, lat + n, lon + e, lat + n, lon - e};
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -285,13 +297,16 @@ int main(void) {
 
   for (const Footprint &one : asked) {
     Frontage street;
-    const Massing massed =
-        MassOf(Span<const double>(one.RingLatLon.data(), one.RingLatLon.size()), one.HeightM, true,
-               street);
+    const Massing massed = MassOf(Span<const double>(one.RingLatLon.data(), one.RingLatLon.size()),
+                                  one.HeightM,
+                                  true,
+                                  street);
     std::string architecture;
     double halfU = 0.0, halfV = 0.0, overhang = 0.0, rise = 0.0, juts = 0.0, breaks = 0.0;
     for (const BuildingShape &part : massed.Parts) {
-      halfU = part.HalfUm; halfV = part.HalfVm; overhang = part.FootM + part.EavesM;
+      halfU = part.HalfUm;
+      halfV = part.HalfVm;
+      overhang = part.FootM + part.EavesM;
       rise = part.RiseM;
       juts = part.OverhangM;
       breaks = part.BreakRiseM;
@@ -321,8 +336,8 @@ int main(void) {
     const size_t dropped = RoofSurface::BreaksDroppedTaken();
     const size_t merged = RoofSurface::BreaksMergedTaken();
     // WHETHER THE CLIPPER GOT A SURFACE OUT AT ALL. `Fill` rolls its triangles back and counts one
-    // here when the ear clip cannot finish, so a floor or a roof can be MISSING ENTIRELY -- and this
-    // case read the counter only to clear it, which is the same as not having it.
+    // here when the ear clip cannot finish, so a floor or a roof can be MISSING ENTIRELY -- and
+    // this case read the counter only to clear it, which is the same as not having it.
     const size_t footless = BuildingMesh::FootlessTaken();
     const size_t steps = BuildingMesh::PlinthStepsTaken();
     const size_t rim = BuildingMesh::FloorRimTaken();
@@ -339,21 +354,59 @@ int main(void) {
     if (said.VolumeM3 <= 0.0) { ++negative; }
     if (said.Whole()) { ++whole; }
     if (said.Holes == 0 && said.Overused == 0 && said.Degenerate == 0) { ++closed; }
-    std::printf("%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts %5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu dropped %3zu merged %2zu unclipped %2zu outside %2zu footless  plinth %3zu steps vs floor %3zu rim\n",
-                one.What, architecture.c_str(), said.Triangles, said.Holes, said.Overused,
-                said.Degenerate, halfU - halfV, overhang, rise, juts, breaks, said.FlatHoles,
-                said.UprightHoles, said.HoleLowZ - said.BaseZ, said.HoleHighZ - said.BaseZ,
-                kept, dropped, merged, unclipped, outside, footless, steps, rim);
+    std::printf(
+        "%-22s %-18s %5zu tri %4zu hole %4zu over %4zu deg  d %+8.5f eaves %6.2f rise %6.2f juts "
+        "%5.2f brk %5.2f  %3zu flat %3zu upright  holes at %6.2f..%6.2f  breaks %3zu kept %3zu "
+        "dropped %3zu merged %2zu unclipped %2zu outside %2zu footless  plinth %3zu steps vs floor "
+        "%3zu rim\n",
+        one.What,
+        architecture.c_str(),
+        said.Triangles,
+        said.Holes,
+        said.Overused,
+        said.Degenerate,
+        halfU - halfV,
+        overhang,
+        rise,
+        juts,
+        breaks,
+        said.FlatHoles,
+        said.UprightHoles,
+        said.HoleLowZ - said.BaseZ,
+        said.HoleHighZ - said.BaseZ,
+        kept,
+        dropped,
+        merged,
+        unclipped,
+        outside,
+        footless,
+        steps,
+        rim);
     if (said.Holes > 0 && said.Holes <= 8) {
       double mid[3] = {0.0, 0.0, 0.0};
       for (size_t v = 0; v + 2 < soup.size(); v += 8) {
-        mid[0] += soup[v]; mid[1] += soup[v + 1]; mid[2] += soup[v + 2];
+        mid[0] += soup[v];
+        mid[1] += soup[v + 1];
+        mid[2] += soup[v + 2];
       }
       const double count = (double)(soup.size() / 8);
       for (int c = 0; c < 3; ++c) { mid[c] = count > 0.0 ? mid[c] / count : 0.0; }
-      static const char *kNamed[16] = {"wall", "pitch", "flat", "soffit", "ledge", "trim",
-                                       "metal", "parapet", "plinth", "kerb", "pavement",
-                                       "?", "?", "?", "?", "?"};
+      static const char *kNamed[16] = {"wall",
+                                       "pitch",
+                                       "flat",
+                                       "soffit",
+                                       "ledge",
+                                       "trim",
+                                       "metal",
+                                       "parapet",
+                                       "plinth",
+                                       "kerb",
+                                       "pavement",
+                                       "?",
+                                       "?",
+                                       "?",
+                                       "?",
+                                       "?"};
       const auto surfaces = [&](uint32_t mask) {
         std::string named;
         for (int k = 0; k < 16; ++k) {
@@ -367,14 +420,19 @@ int main(void) {
         const double hb = e[3] * up[0] + e[4] * up[1] + e[5] * up[2] - said.BaseZ;
         const double len = std::sqrt((e[0] - e[3]) * (e[0] - e[3]) + (e[1] - e[4]) * (e[1] - e[4]) +
                                      (e[2] - e[5]) * (e[2] - e[5]));
-        const double ra = std::sqrt((e[0] - mid[0]) * (e[0] - mid[0]) +
-                                    (e[1] - mid[1]) * (e[1] - mid[1]) +
-                                    (e[2] - mid[2]) * (e[2] - mid[2]));
-        const double rb = std::sqrt((e[3] - mid[0]) * (e[3] - mid[0]) +
-                                    (e[4] - mid[1]) * (e[4] - mid[1]) +
-                                    (e[5] - mid[2]) * (e[5] - mid[2]));
+        const double ra =
+            std::sqrt((e[0] - mid[0]) * (e[0] - mid[0]) + (e[1] - mid[1]) * (e[1] - mid[1]) +
+                      (e[2] - mid[2]) * (e[2] - mid[2]));
+        const double rb =
+            std::sqrt((e[3] - mid[0]) * (e[3] - mid[0]) + (e[4] - mid[1]) * (e[4] - mid[1]) +
+                      (e[5] - mid[2]) * (e[5] - mid[2]));
         std::printf("        hole edge %6.3f m long, ends %6.2f and %6.2f up, %6.2f and %6.2f from "
-                    "the middle   %s | %s\n", len, ha, hb, ra, rb,
+                    "the middle   %s | %s\n",
+                    len,
+                    ha,
+                    hb,
+                    ra,
+                    rb,
                     surfaces(said.HoleKinds[which].first).c_str(),
                     surfaces(said.HoleKinds[which].second).c_str());
         ++which;

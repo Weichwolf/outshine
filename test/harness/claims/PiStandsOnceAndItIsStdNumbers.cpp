@@ -40,8 +40,7 @@ int main(void) {
     CHECK(Slurp(entry.path(), text), "a source the walk found can be read");
     ++files;
     for (const char *needle : kDigits) {
-      for (size_t at = text.find(needle); at != std::string::npos;
-           at = text.find(needle, at + 1)) {
+      for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1)) {
         spelt.push_back(entry.path().string() + " spells " + needle);
       }
     }
@@ -71,9 +70,10 @@ int main(void) {
         "**AND NO SOURCE SPELLS THE POSIX MACRO**: M_PI is not C++ and not this tree's origin "
         "for pi (board:1630)");
 
-  CHECK(alias.size() == 1 && alias[0] == std::filesystem::path("src/base/math/Units.h").string(),
-        "the kPi alias stands ONCE, in src/base/math/Units.h -- a second alias is the duplicate this "
-        "item removed from TileMath.h");
+  CHECK(
+      alias.size() == 1 && alias[0] == std::filesystem::path("src/base/math/Units.h").string(),
+      "the kPi alias stands ONCE, in src/base/math/Units.h -- a second alias is the duplicate this "
+      "item removed from TileMath.h");
 
   Covers("pi stands once and it is std::numbers: every pi in src/ derives from "
          "std::numbers::pi and the alias lives in one header (board:1630)");

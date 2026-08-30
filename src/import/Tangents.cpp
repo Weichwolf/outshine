@@ -19,8 +19,11 @@ struct Vector {
   double X = 0, Y = 0, Z = 0;
 
   Vector operator+(const Vector &other) const { return {X + other.X, Y + other.Y, Z + other.Z}; }
+
   Vector operator-(const Vector &other) const { return {X - other.X, Y - other.Y, Z - other.Z}; }
+
   Vector operator*(double scale) const { return {X * scale, Y * scale, Z * scale}; }
+
   bool operator==(const Vector &other) const {
     return X == other.X && Y == other.Y && Z == other.Z;
   }
@@ -29,11 +32,18 @@ struct Vector {
 [[nodiscard]] double Dot(const Vector &a, const Vector &b) {
   return a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 }
-[[nodiscard]] double Length(const Vector &v) { return std::sqrt(Dot(v, v)); }
+
+[[nodiscard]] double Length(const Vector &v) {
+  return std::sqrt(Dot(v, v));
+}
+
 [[nodiscard]] bool NotZero(const Vector &v) {
   return NotZero(v.X) || NotZero(v.Y) || NotZero(v.Z);
 }
-[[nodiscard]] Vector Normalised(const Vector &v) { return v * (1.0 / Length(v)); }
+
+[[nodiscard]] Vector Normalised(const Vector &v) {
+  return v * (1.0 / Length(v));
+}
 
 [[nodiscard]] Vector Perpendicular(const Vector &v, const Vector &n) {
   const Vector flat = v - n * Dot(n, v);
@@ -102,17 +112,22 @@ public:
   void Emit(std::vector<double> &out) const;
 
 private:
-  [[nodiscard]] Vector PositionOf(size_t corner) const { return At(Subject_.PositionsM, corner, 3); }
+  [[nodiscard]] Vector PositionOf(size_t corner) const {
+    return At(Subject_.PositionsM, corner, 3);
+  }
+
   [[nodiscard]] Vector NormalOf(size_t corner) const { return At(Subject_.Normals, corner, 3); }
 
   [[nodiscard]] Vector TexCoordOf(size_t corner) const {
     const size_t vertex = Subject_.Indices[corner];
     return {Subject_.Uv[vertex * 2], -Subject_.Uv[vertex * 2 + 1], 0.0};
   }
+
   [[nodiscard]] Vector At(const double *run, size_t corner, size_t width) const {
     const size_t vertex = Subject_.Indices[corner];
     return {run[vertex * width], run[vertex * width + 1], run[vertex * width + 2]};
   }
+
   [[nodiscard]] Space Evaluate(const std::vector<int> &faces, size_t vertex) const;
   void Reach(int face, int group);
 
@@ -129,6 +144,7 @@ private:
 
 struct AttributeKey {
   uint64_t Bits[8] = {};
+
   [[nodiscard]] bool operator<(const AttributeKey &other) const {
     return std::memcmp(Bits, other.Bits, sizeof Bits) < 0;
   }
@@ -148,8 +164,8 @@ void Basis::Weld() {
     const Vector normal = NormalOf(Corner_[corner]);
     const Vector texture = TexCoordOf(Corner_[corner]);
     AttributeKey key;
-    const double components[8] = {position.X, position.Y, position.Z, normal.X,
-                                  normal.Y,   normal.Z,   texture.X,  texture.Y};
+    const double components[8] = {
+        position.X, position.Y, position.Z, normal.X, normal.Y, normal.Z, texture.X, texture.Y};
     for (size_t at = 0; at < 8; ++at) { key.Bits[at] = BitsOf(components[at]); }
     const auto found = seen.find(key);
     if (found != seen.end()) {
@@ -173,8 +189,9 @@ void Basis::MarkDegenerate() {
 void Basis::MoveDegenerateLast() {
   std::vector<size_t> order(Triangles_.size());
   for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-  std::stable_partition(order.begin(), order.end(),
-                        [this](size_t triangle) { return !Triangles_[triangle].Degenerate; });
+  std::stable_partition(order.begin(), order.end(), [this](size_t triangle) {
+    return !Triangles_[triangle].Degenerate;
+  });
   std::vector<size_t> corners(Corner_.size());
   std::vector<TriangleInfo> triangles(Triangles_.size());
   Healthy_ = 0;
@@ -188,7 +205,6 @@ void Basis::MoveDegenerateLast() {
   }
   Corner_ = std::move(corners);
   Triangles_ = std::move(triangles);
-
 }
 
 void Basis::Measure() {
@@ -386,7 +402,7 @@ void Basis::Emit(std::vector<double> &out) const {
   }
 }
 
-}
+} // namespace
 
 bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error) {
   out.clear();
@@ -396,8 +412,8 @@ bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, s
     return false;
   }
   if (subject.IndexCount == 0 || subject.IndexCount % 3 != 0) {
-    error = "a tangent basis is generated over triangles and " + std::to_string(subject.IndexCount) +
-            " indices are not a whole number of them";
+    error = "a tangent basis is generated over triangles and " +
+            std::to_string(subject.IndexCount) + " indices are not a whole number of them";
     return false;
   }
   for (size_t at = 0; at < subject.IndexCount; ++at) {
@@ -421,4 +437,4 @@ bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, s
   return true;
 }
 
-}
+} // namespace outshine::Gltf

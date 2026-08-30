@@ -55,18 +55,19 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -87,7 +88,7 @@ struct Seen {
   double Least, Most, Written, Cast;
 };
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -131,7 +132,8 @@ int main(void) {
   const auto standAt = [&](double fill, Seen &seen) {
     outshine::Scenario arm = stands;
     arm.Render.Fill = fill;
-    if (!engine.declare(arm) || !engine.advance() || !engine.renderer().render(outshine::Extent{})) {
+    if (!engine.declare(arm) || !engine.advance() ||
+        !engine.renderer().render(outshine::Extent{})) {
       return false;
     }
     if (!engine.inspect()) { return false; }
@@ -142,16 +144,22 @@ int main(void) {
     return true;
   };
 
-  Seen near {}, far {};
+  Seen near{}, far{};
   if (!standAt(0.85, near) || !standAt(0.20, far)) {
     Unprepared(("an arm did not stand: " + engine.error()).c_str());
     return Report();
   }
 
   std::printf("EYE CLOSE (fill 0.85)  atlas %.6f .. %.6f   %.0f texel(s)   %.0f batch(es)\n",
-              near.Least, near.Most, near.Written, near.Cast);
+              near.Least,
+              near.Most,
+              near.Written,
+              near.Cast);
   std::printf("EYE FAR   (fill 0.20)  atlas %.6f .. %.6f   %.0f texel(s)   %.0f batch(es)\n",
-              far.Least, far.Most, far.Written, far.Cast);
+              far.Least,
+              far.Most,
+              far.Written,
+              far.Cast);
 
   CHECK(near.Written > 0.0 && near.Cast > 0.0,
         "the close arm wrote an atlas at all, so the comparison below has two shadows to compare "

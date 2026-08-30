@@ -12,7 +12,7 @@ template <typename T>
   return std::span<const T>(whole.data() + from, count);
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -55,7 +55,6 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
   for (const Material &surface : from.Surfaces()) { into.Surfaces.push_back(surface); }
 }
 
-
 void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   const int parts = from.parts();
   const uint32_t firstSurface = (uint32_t)into.Surfaces.size();
@@ -73,9 +72,8 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   }
 
   into.Parts.reserve(into.Parts.size() + (size_t)parts);
-  size_t firstVertex = into.Parts.empty()
-                           ? 0u
-                           : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
+  size_t firstVertex =
+      into.Parts.empty() ? 0u : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
   size_t firstIndex = into.Indices.size();
   for (int part = 0; part < parts; ++part) {
     Render::ShapePart made;
@@ -127,7 +125,7 @@ Render::Shape Viewed(Render::ShapeStore &into) {
   return out;
 }
 
-}
+} // namespace
 
 Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
   into.Clear();
@@ -147,12 +145,12 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
 // the proxy stood over the world's parts while the surface table still named the file's, and
 // `SubjectProxy::Wears` refused -- measured on the drive scenario, 3 parts against a slot for 9,
 // which is every frame of it since the world path started handing a `Geometry`.
-Render::Shape Shaped(const Subject &from, const outshine::Geometry &also,
-                     Render::ShapeStore &into) {
+Render::Shape
+Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into) {
   into.Clear();
   FillFrom(from, into);
   FillFrom(also, into);
   return Viewed(into);
 }
 
-}
+} // namespace outshine::Gltf

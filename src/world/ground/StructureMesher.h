@@ -22,7 +22,6 @@ struct Frontage {
 };
 
 struct StructurePlan {
-
   Span<const double> RingLatLon;
   double BaseAslM = 0.0;
 
@@ -55,5 +54,5 @@ protected:
   StructureMesher() = default;
 };
 
-}
+} // namespace outshine
 #endif

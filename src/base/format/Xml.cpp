@@ -9,7 +9,9 @@ namespace outshine {
 
 namespace {
 
-bool Space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
+bool Space(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
 
 bool NameStart(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
@@ -19,9 +21,11 @@ bool NameChar(char c) {
   return NameStart(c) || (c >= '0' && c <= '9') || c == '-' || c == '.';
 }
 
-std::string Where(size_t at) { return " at byte " + std::to_string(at); }
-
+std::string Where(size_t at) {
+  return " at byte " + std::to_string(at);
 }
+
+} // namespace
 
 bool Xml::Refuse(const std::string &why, size_t at) {
   Error_ = why + Where(at);
@@ -281,7 +285,8 @@ bool Xml::Parse(const char *text, size_t length) {
     }
     if (closed) { return Refuse("a document carries one root element and this is a second", at); }
     if (Nodes_.size() >= kXmlMaxNodes) {
-      return Refuse("the document reaches the element bound of " + std::to_string(kXmlMaxNodes), at);
+      return Refuse("the document reaches the element bound of " + std::to_string(kXmlMaxNodes),
+                    at);
     }
 
     Nodes_.push_back(Node());
@@ -382,6 +387,7 @@ Xml::Unread Xml::FirstUnread() const {
     uint32_t Next = 0;
     size_t PathWas = 0;
   };
+
   std::vector<Standing> walk;
   walk.reserve(kXmlDeepestChain);
   std::string path;
@@ -414,4 +420,4 @@ Xml::Unread Xml::FirstUnread() const {
   return Unread{};
 }
 
-}
+} // namespace outshine

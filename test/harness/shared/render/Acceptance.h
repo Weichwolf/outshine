@@ -37,8 +37,8 @@ struct Acceptance {
   bool EnforceBoundary = true;
 };
 
-[[nodiscard]] inline bool ReadDeclaredNumber(const Json::Ref &entry, const char *name, double &out,
-                                             std::string &error) {
+[[nodiscard]] inline bool
+ReadDeclaredNumber(const Json::Ref &entry, const char *name, double &out, std::string &error) {
   if (!entry.Valid() || entry.GetKind() != Json::Kind::Object) {
     error = std::string(name) + " is not an object carrying value, unit and origin";
     return false;
@@ -66,8 +66,8 @@ struct Acceptance {
   return true;
 }
 
-[[nodiscard]] inline bool ReadAcceptance(const Json::Ref &declared, Acceptance &out,
-                                         std::string &error) {
+[[nodiscard]] inline bool
+ReadAcceptance(const Json::Ref &declared, Acceptance &out, std::string &error) {
   if (!declared.Valid()) { return true; }
   if (declared.GetKind() != Json::Kind::Object) {
     error = "acceptance is not an object";
@@ -108,8 +108,8 @@ struct Acceptance {
   return true;
 }
 
-[[nodiscard]] inline bool ReadCriterionKind(const std::string &spelling, CriterionKind &out,
-                                            std::string &error) {
+[[nodiscard]] inline bool
+ReadCriterionKind(const std::string &spelling, CriterionKind &out, std::string &error) {
   if (spelling == "numeric") {
     out = CriterionKind::Numeric;
     return true;
@@ -131,8 +131,8 @@ struct Acceptance {
   return false;
 }
 
-[[nodiscard]] inline bool ReadOracleRole(const Json::Ref &criterion, OracleRole &out,
-                                         std::string &error) {
+[[nodiscard]] inline bool
+ReadOracleRole(const Json::Ref &criterion, OracleRole &out, std::string &error) {
   const std::string spelling = criterion["oracleRole"].Str("");
   if (spelling == "reference") {
     out = OracleRole::Reference;
@@ -158,8 +158,8 @@ struct Acceptance {
   }
   for (size_t entry = 0; entry < measured.Size(); ++entry) {
     double value = 0;
-    if (!ReadDeclaredNumber(measured[entry], "criterion.oracleLimitationMeasured[]", value,
-                            error)) {
+    if (!ReadDeclaredNumber(
+            measured[entry], "criterion.oracleLimitationMeasured[]", value, error)) {
       return false;
     }
     if (measured[entry]["of"].Str("").empty()) {
@@ -170,8 +170,8 @@ struct Acceptance {
   return true;
 }
 
-[[nodiscard]] inline bool ReadExactnessClass(const Json::Ref &root, ExactnessClass &out,
-                                             std::string &error) {
+[[nodiscard]] inline bool
+ReadExactnessClass(const Json::Ref &root, ExactnessClass &out, std::string &error) {
   const Json::Ref declared = root["acceptanceClass"];
   const std::string spelling = declared["is"].Str("");
   if (spelling == "exact") {
@@ -192,8 +192,8 @@ struct Acceptance {
   return true;
 }
 
-[[nodiscard]] inline bool ReadSubjectClass(const std::string &spelling, SubjectClass &out,
-                                           std::string &error) {
+[[nodiscard]] inline bool
+ReadSubjectClass(const std::string &spelling, SubjectClass &out, std::string &error) {
   if (spelling == "opaque-min-1px") {
     out = SubjectClass::OpaqueAtLeastOnePixel;
     return true;
@@ -206,10 +206,10 @@ struct Acceptance {
     out = SubjectClass::Transmissive;
     return true;
   }
-  error = "subjectClass '" + spelling +
-          "' is none of opaque-min-1px, sub-pixel-present, transmissive";
+  error =
+      "subjectClass '" + spelling + "' is none of opaque-min-1px, sub-pixel-present, transmissive";
   return false;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

@@ -34,9 +34,9 @@ struct Ribbon {
   std::string Error;
 };
 
-[[nodiscard]] Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM,
-                           double toM, double stepM);
+[[nodiscard]] Ribbon
+Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM);
 
-}
+} // namespace outshine
 
 #endif

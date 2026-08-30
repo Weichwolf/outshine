@@ -29,14 +29,13 @@ struct Page {
   double HeightPx = 0;
 };
 
-[[nodiscard]] std::vector<double> PageBreaks(const Layout &layout, double pageHeightPx,
-                                             size_t &linesTallerThanThePage);
+[[nodiscard]] std::vector<double>
+PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThePage);
 
 class Painting {
 public:
-
-  [[nodiscard]] bool Build(const Layout &layout, const Font &font, std::string &error,
-                           const Page &page = {});
+  [[nodiscard]] bool
+  Build(const Layout &layout, const Font &font, std::string &error, const Page &page = {});
 
   [[nodiscard]] const std::vector<Quad> &Quads() const { return Quads_; }
 
@@ -47,5 +46,5 @@ private:
   size_t Beyond_ = 0;
 };
 
-}
+} // namespace outshine::Ui
 #endif

@@ -17,11 +17,13 @@ public:
     GroundSample Height = GroundSample::Waiting();
   };
 
-  static std::shared_ptr<const GroundPatch> Complete(const Tile &region, int side,
-                                                     Span<const Posting> postings);
+  static std::shared_ptr<const GroundPatch>
+  Complete(const Tile &region, int side, Span<const Posting> postings);
 
   [[nodiscard]] int Side() const { return Side_; }
+
   [[nodiscard]] double SpacingEm() const { return SpacingEm_; }
+
   [[nodiscard]] double SpacingNm() const { return SpacingNm_; }
 
   [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept;
@@ -39,5 +41,5 @@ private:
   std::vector<double> AslM_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

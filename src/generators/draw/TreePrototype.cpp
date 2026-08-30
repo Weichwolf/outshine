@@ -19,7 +19,7 @@ float SrgbToLinear(float v) {
   return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
 }
 
-}
+} // namespace
 
 TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   TreeLook look;
@@ -51,15 +51,15 @@ void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloa
   constexpr float kLeastExponent = 0.55f;
   const float a = look.LeafWidest * kModeSlope + kNearFloor;
   float b = (1.0f - look.LeafWidest) * kModeSlope + kFarFloor - look.LeafTip * kTipSharpen;
-  if (b < kLeastExponent) b = kLeastExponent;
+  if (b < kLeastExponent) { b = kLeastExponent; }
   const float peak = std::pow(look.LeafWidest, a) * std::pow(1.0f - look.LeafWidest, b);
-  for (int c = 0; c < 3; c++) out[Row::BarkRgb + c] = look.BarkRgb[c];
+  for (int c = 0; c < 3; c++) { out[Row::BarkRgb + c] = look.BarkRgb[c]; }
   out[Row::BarkDark] = look.BarkDark;
   out[Row::BarkFreq] = look.BarkFreq;
   out[Row::BarkRidge] = look.BarkRidge;
   out[Row::NeedleWidth] = look.NeedleWidth;
   out[Row::LeafShapeNear] = a;
-  for (int c = 0; c < 3; c++) out[Row::LeafRgb + c] = look.LeafRgb[c];
+  for (int c = 0; c < 3; c++) { out[Row::LeafRgb + c] = look.LeafRgb[c]; }
   out[Row::LeafShapeFar] = b;
   out[Row::LeafWidth] = look.LeafWidth;
   out[Row::LeafBaseFill] = look.LeafBaseFill;
@@ -94,7 +94,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
     }
     const uint32_t nCards = (uint32_t)(out.Cards.size() / TreeFoliage::kFloats);
-    if (rank == 0) crownProjM2 = foliage.CrownProjM2();
+    if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
     out.CardCount = nCards;
     out.CardLeafM = foliage.CardLeafM(kElementsPerSheet, nCards, (double)sp.Lai(), crownProjM2);
     out.BarkVerts = mesh.BarkVerts;
@@ -106,8 +106,8 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   proto.Crown_.Bottom = plant.BoxMin.Y;
   proto.Crown_.Top = plant.BoxMax.Y;
   proto.Crown_.HeightM = (float)proto.HeightM_;
-  if (proto.Ranks_[0].BarkVertCount == 0) return std::nullopt;
+  if (proto.Ranks_[0].BarkVertCount == 0) { return std::nullopt; }
   return proto;
 }
 
-}
+} // namespace outshine::Generators

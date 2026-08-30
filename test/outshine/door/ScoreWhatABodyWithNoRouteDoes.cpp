@@ -41,18 +41,19 @@ constexpr const char *kTriangleBase64 =
 
 [[nodiscard]] std::string Minimal(void) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
-      "\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
-      "\"min\":[0,0,0],\"max\":[1,1,0]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
-      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
-      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
-      kTriangleBase64 + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":"
+             "\"VEC3\","
+             "\"min\":[0,0,0],\"max\":[1,1,0]},"
+             "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+             "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+             "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+             "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+         kTriangleBase64 + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -69,7 +70,7 @@ constexpr const char *kTriangleBase64 =
   return 0.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -141,10 +142,11 @@ int main(void) {
   const double owedMs = kGravityMs2 * afterS;
 
   std::printf("A CRATE, NO ROUTE, NO DRIVE   bodies standing %.0f\n", standing);
-  std::printf("AFTER %5.3f s                 up %10.5f m, falling %8.5f m/s\n", afterS, upM,
-              fallingMs);
+  std::printf(
+      "AFTER %5.3f s                 up %10.5f m, falling %8.5f m/s\n", afterS, upM, fallingMs);
   std::printf("FREE FALL OWES                up %10.5f m, falling %8.5f m/s\n",
-              kStartUpM - owedFallM, owedMs);
+              kStartUpM - owedFallM,
+              owedMs);
 
   CHECK(standing == 1.0,
         "**A BODY WITHOUT A JOURNEY STANDS**: a crate declares a place and no route, and the "
@@ -169,7 +171,8 @@ int main(void) {
   // stronger reading than either alone. A loose bound here would have passed either sign and hidden
   // an integrator that changed underneath.
   const double owedLag = -0.5 * kGravityMs2 * kStepS * afterS;
-  std::printf("THE SCHEME LAGS BY           %10.6f m, and it measures %10.6f m\n", owedLag,
+  std::printf("THE SCHEME LAGS BY           %10.6f m, and it measures %10.6f m\n",
+              owedLag,
               upM - (kStartUpM - owedFallM));
   CHECK(std::fabs((upM - (kStartUpM - owedFallM)) - owedLag) < 1.0e-6,
         "and it has fallen `g t^2 / 2` from where it was DECLARED to stand, short by exactly the "

@@ -42,27 +42,29 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::string born =
-      Ask(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
-          " 2>/dev/null | tail -1");
+  const std::string born = Ask(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
+                               " 2>/dev/null | tail -1");
   if (born.empty()) {
     Unprepared("this claim is not committed yet, so it has no window to judge");
     return Report();
   }
 
-  const std::vector<std::string> twice = Lines(Ask(
-      "git log --diff-filter=A --name-only --format='' " + born + "..HEAD 2>/dev/null | "
-      "sed -n 's|^board/\\([0-9][0-9][0-9][0-9]\\)_.*|\\1|p' | sort > /tmp/outshine-ids-new; "
-      "git log --diff-filter=A --name-only --format='' " + born +
-      " 2>/dev/null | sed -n 's|^board/\\([0-9][0-9][0-9][0-9]\\)_.*|\\1|p' | sort -u "
-      "> /tmp/outshine-ids-old; "
-      "comm -12 /tmp/outshine-ids-new /tmp/outshine-ids-old"));
+  const std::vector<std::string> twice = Lines(
+      Ask("git log --diff-filter=A --name-only --format='' " + born +
+          "..HEAD 2>/dev/null | "
+          "sed -n 's|^board/\\([0-9][0-9][0-9][0-9]\\)_.*|\\1|p' | sort > /tmp/outshine-ids-new; "
+          "git log --diff-filter=A --name-only --format='' " +
+          born +
+          " 2>/dev/null | sed -n 's|^board/\\([0-9][0-9][0-9][0-9]\\)_.*|\\1|p' | sort -u "
+          "> /tmp/outshine-ids-old; "
+          "comm -12 /tmp/outshine-ids-new /tmp/outshine-ids-old"));
 
-  const std::string highest = Ask(
-      "git log --all --diff-filter=A --name-only --format='' 2>/dev/null | "
-      "sed -n 's|^board/\\([0-9]*\\)_.*|\\1|p' | sort -n | tail -1");
+  const std::string highest =
+      Ask("git log --all --diff-filter=A --name-only --format='' 2>/dev/null | "
+          "sed -n 's|^board/\\([0-9]*\\)_.*|\\1|p' | sort -n | tail -1");
 
-  std::printf("WINDOW starts at %s; the history's highest id ever filed is %s\n", born.c_str(),
+  std::printf("WINDOW starts at %s; the history's highest id ever filed is %s\n",
+              born.c_str(),
               highest.c_str());
   std::printf("  ids issued again since: %zu\n", twice.size());
   for (const std::string &one : twice) { std::printf("    REUSED %s\n", one.c_str()); }

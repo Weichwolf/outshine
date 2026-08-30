@@ -14,5 +14,5 @@ constexpr double InterpolantErrorFor(double smallestHeightPixels, double widestW
   return snap * widestWRatio + kInterpolantArithmeticError;
 }
 
-}
+} // namespace outshine::Test
 #endif

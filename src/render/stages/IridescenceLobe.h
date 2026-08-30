@@ -48,7 +48,8 @@ inline constexpr double kFresnelInverseCeiling = 0.9999;
   return f0 + (1.0 - f0) * m2 * m2 * m;
 }
 
-inline void IridescenceSensitivity(double opdNm, const std::array<double, 3> &shift,
+inline void IridescenceSensitivity(double opdNm,
+                                   const std::array<double, 3> &shift,
                                    std::array<double, 3> &rgb) {
   const double phase = 2.0 * kPi * opdNm * 1.0e-9;
   std::array<double, 3> xyz{};
@@ -70,10 +71,14 @@ inline void IridescenceSensitivity(double opdNm, const std::array<double, 3> &sh
   }
 }
 
-inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double filmIor,
-                               const std::array<double, 3> &baseF0, std::array<double, 3> &out) {
+inline void IridescenceFresnel(double cosTheta1,
+                               double thicknessNm,
+                               double filmIor,
+                               const std::array<double, 3> &baseF0,
+                               std::array<double, 3> &out) {
   const double outsideIor = kOutsideIor;
-  const double sinTheta2Sq = (outsideIor / filmIor) * (outsideIor / filmIor) * (1.0 - cosTheta1 * cosTheta1);
+  const double sinTheta2Sq =
+      (outsideIor / filmIor) * (outsideIor / filmIor) * (1.0 - cosTheta1 * cosTheta1);
   const double cosTheta2Sq = 1.0 - sinTheta2Sq;
   if (cosTheta2Sq < 0.0) {
     out = {1.0, 1.0, 1.0};
@@ -123,9 +128,12 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
 
 [[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) {
+    return std::string();
+  }
   char constants[1024];
-  std::snprintf(constants, sizeof constants,
+  std::snprintf(constants,
+                sizeof constants,
                 "constant float kIriOutsideIor = %.17g;\n"
                 "constant float kIriF0Ceiling = %.17g;\n"
                 "constant float3 kIriVal = float3(%.6g, %.6g, %.6g);\n"
@@ -137,15 +145,31 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
                 "constant float kIriNorm = %.6g;\n"
                 "constant float3x3 kIriXyzToRgb = float3x3(float3(%.8g, %.8g, %.8g),"
                 " float3(%.8g, %.8g, %.8g), float3(%.8g, %.8g, %.8g));\n",
-                kOutsideIor, kFresnelInverseCeiling,
-                kSensitivityVal[0], kSensitivityVal[1], kSensitivityVal[2],
-                kSensitivityPos[0], kSensitivityPos[1], kSensitivityPos[2],
-                kSensitivityVar[0], kSensitivityVar[1], kSensitivityVar[2],
-                kSensitivityValX2, kSensitivityPosX2, kSensitivityVarX2, kSensitivityNorm,
+                kOutsideIor,
+                kFresnelInverseCeiling,
+                kSensitivityVal[0],
+                kSensitivityVal[1],
+                kSensitivityVal[2],
+                kSensitivityPos[0],
+                kSensitivityPos[1],
+                kSensitivityPos[2],
+                kSensitivityVar[0],
+                kSensitivityVar[1],
+                kSensitivityVar[2],
+                kSensitivityValX2,
+                kSensitivityPosX2,
+                kSensitivityVarX2,
+                kSensitivityNorm,
 
-                kXyzToRec709[0][0], kXyzToRec709[1][0], kXyzToRec709[2][0],
-                kXyzToRec709[0][1], kXyzToRec709[1][1], kXyzToRec709[2][1],
-                kXyzToRec709[0][2], kXyzToRec709[1][2], kXyzToRec709[2][2]);
+                kXyzToRec709[0][0],
+                kXyzToRec709[1][0],
+                kXyzToRec709[2][0],
+                kXyzToRec709[0][1],
+                kXyzToRec709[1][1],
+                kXyzToRec709[2][1],
+                kXyzToRec709[0][2],
+                kXyzToRec709[1][2],
+                kXyzToRec709[2][2]);
   return std::string(constants) + body;
 }
 
@@ -154,6 +178,6 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
   return IridescenceLobeMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 
 #endif

@@ -3,8 +3,6 @@
 
 #include <string>
 
-
 [[nodiscard]] int ScoreRenderCase(int argc, char **argv);
-
 
 #endif

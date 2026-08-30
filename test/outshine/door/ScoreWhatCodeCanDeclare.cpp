@@ -36,8 +36,8 @@ namespace {
 constexpr int kSteps = 24;
 constexpr const char *kScenario = "src/assets/drive/f31.scenario";
 
-[[nodiscard]] outshine::Contact Standing(const char *at, double xM, double zM, double reachM,
-                                         double stiffness, double damping) {
+[[nodiscard]] outshine::Contact
+Standing(const char *at, double xM, double zM, double reachM, double stiffness, double damping) {
   outshine::Contact one;
   one.At = at;
   one.AtM[0] = xM;
@@ -91,9 +91,21 @@ constexpr const char *kScenario = "src/assets/drive/f31.scenario";
   f31.Contacts.push_back(Standing("front-right", 0.774, -1.405, 0.45635, 32000.0, 3400.0));
   f31.Contacts.push_back(Standing("rear-left", -0.774, 1.405, 0.44909, 34000.0, 3600.0));
   f31.Contacts.push_back(Standing("rear-right", 0.774, 1.405, 0.44909, 34000.0, 3600.0));
-  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = false, .PeakNm = 400.0, .Ratio = 3.08, .CircleM = 0.0});
-  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort, .Opposes = true, .PeakNm = 5500.0, .Ratio = 1.0, .CircleM = 0.0});
-  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion, .Opposes = false, .PeakNm = 0.0, .Ratio = 1.0, .CircleM = 11.3});
+  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                       .Opposes = false,
+                                       .PeakNm = 400.0,
+                                       .Ratio = 3.08,
+                                       .CircleM = 0.0});
+  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Effort,
+                                       .Opposes = true,
+                                       .PeakNm = 5500.0,
+                                       .Ratio = 1.0,
+                                       .CircleM = 0.0});
+  f31.Driven.push_back(outshine::Drive{.Does = outshine::Drives::Motion,
+                                       .Opposes = false,
+                                       .PeakNm = 0.0,
+                                       .Ratio = 1.0,
+                                       .CircleM = 11.3});
   f31.DragCoefficient = 0.66;
   f31.FrontalM2 = 2.19;
   outshine::Slot driver;
@@ -141,7 +153,8 @@ struct Landed {
 [[nodiscard]] Landed Drove(const outshine::Scenario &declared, std::string &why) {
   Landed out;
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     why = "the device stood no canvas";
     return out;
@@ -160,7 +173,7 @@ struct Landed {
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -172,7 +185,8 @@ int main(void) {
   }
 
   outshine::Engine reader;
-  reader.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
+  reader.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   if (!reader.readScenario(kScenario)) {
     Unprepared(("the declaration would not read: " + reader.error()).c_str());
     return Report();
@@ -182,8 +196,8 @@ int main(void) {
   std::string why;
   const Landed byFile = Drove(fromFile, why);
   if (!byFile.Stood) {
-    Unprepared(("the drive needs terrain and OSM tiles and this machine has none cached: " + why)
-                   .c_str());
+    Unprepared(
+        ("the drive needs terrain and OSM tiles and this machine has none cached: " + why).c_str());
     return Report();
   }
   const Landed byHand = Drove(ByHand(), why);
@@ -192,16 +206,19 @@ int main(void) {
     return Report();
   }
 
-  std::printf("DECLARED BY XML   east %10.5f  up %10.4f  south %10.5f\n", byFile.EastM, byFile.UpM,
+  std::printf("DECLARED BY XML   east %10.5f  up %10.4f  south %10.5f\n",
+              byFile.EastM,
+              byFile.UpM,
               byFile.SouthM);
-  std::printf("DECLARED BY CODE  east %10.5f  up %10.4f  south %10.5f\n", byHand.EastM, byHand.UpM,
+  std::printf("DECLARED BY CODE  east %10.5f  up %10.4f  south %10.5f\n",
+              byHand.EastM,
+              byHand.UpM,
               byHand.SouthM);
 
   CHECK(std::fabs(byFile.EastM) + std::fabs(byFile.SouthM) > 0.0,
         "the file arm moved at all, so the comparison below is between two drives and not between "
         "two bodies that never left the start");
-  CHECK(byHand.EastM == byFile.EastM && byHand.UpM == byFile.UpM &&
-            byHand.SouthM == byFile.SouthM,
+  CHECK(byHand.EastM == byFile.EastM && byHand.UpM == byFile.UpM && byHand.SouthM == byFile.SouthM,
         "**EVERYTHING XML CAN DECLARE, CODE CAN BUILD**: the scenario VALUE is the one truth and "
         "the file is one serialisation of it, so a body integrated from identical declarations "
         "lands in the identical place. Nothing between the declaration and the wheel is allowed "
@@ -221,7 +238,8 @@ int main(void) {
   outshine::Scenario onFoot = fromFile;
   onFoot.Routed.By = outshine::Travels::Walk;
   outshine::Engine walker;
-  walker.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
+  walker.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", true});
   const bool refusedWalk =
       walker.drawsInto(outshine::Extent{320, 180}) && walker.declare(onFoot) && !walker.assemble();
   const std::string whyWalk = walker.error();

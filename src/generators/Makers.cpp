@@ -9,6 +9,7 @@ struct Makers::Kept {
 };
 
 Makers::Makers() : Kept_(std::make_unique<Kept>()) {}
+
 Makers::~Makers() = default;
 Makers::Makers(Makers &&) noexcept = default;
 Makers &Makers::operator=(Makers &&) noexcept = default;
@@ -26,6 +27,8 @@ const Generates *Makers::named(std::string_view kind) const {
   return nullptr;
 }
 
-size_t Makers::count() const { return Kept_->Held.size(); }
-
+size_t Makers::count() const {
+  return Kept_->Held.size();
 }
+
+} // namespace outshine

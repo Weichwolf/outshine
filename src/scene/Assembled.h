@@ -28,12 +28,14 @@ struct Assembled {
     }
     return kNoEntity;
   }
+
   [[nodiscard]] Entity InstanceNamed(std::string_view id) const {
     for (const auto &row : Instances) {
       if (row.first == id) { return row.second; }
     }
     return kNoEntity;
   }
+
   [[nodiscard]] uint32_t TraitKey(std::string_view name) const {
     for (size_t at = 0; at < TraitNames.size(); ++at) {
       if (TraitNames[at] == name) { return (uint32_t)(at + 1); }
@@ -42,6 +44,6 @@ struct Assembled {
   }
 };
 
-}
+} // namespace outshine
 
 #endif

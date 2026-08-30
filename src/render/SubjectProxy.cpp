@@ -46,7 +46,8 @@ bool SubjectProxy::Carries(size_t instances) {
 }
 
 bool SubjectProxy::Wears(std::span<const uint32_t> partSlot,
-                         std::span<const SubjectMaterial> slots, std::string &error) {
+                         std::span<const SubjectMaterial> slots,
+                         std::string &error) {
   if (partSlot.size() != Parts()) {
     error = "the subject proxy stands over " + std::to_string(Parts()) +
             " parts and the surface table names a slot for " + std::to_string(partSlot.size());
@@ -76,7 +77,6 @@ bool SubjectProxy::Places(size_t part, size_t instance, const double m16[16]) {
   return true;
 }
 
-
 bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error) {
   const size_t rows = proxy.Placements();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
@@ -88,8 +88,14 @@ bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &err
   return renderer.HandSubjectPlacements(error);
 }
 
-bool MovedInstance(SceneRenderer &renderer, size_t rows, size_t instances, size_t instance,
-                   size_t fromPart, size_t toPart, const double ecef[16], std::string &error) {
+bool MovedInstance(SceneRenderer &renderer,
+                   size_t rows,
+                   size_t instances,
+                   size_t instance,
+                   size_t fromPart,
+                   size_t toPart,
+                   const double ecef[16],
+                   std::string &error) {
   if (instances == 0 || instance >= instances) { return true; }
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = fromPart; part < toPart; ++part) {
@@ -98,7 +104,11 @@ bool MovedInstance(SceneRenderer &renderer, size_t rows, size_t instances, size_
   return renderer.HandSubjectPlacements(error);
 }
 
-bool Moved(SceneRenderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
+bool Moved(SceneRenderer &renderer,
+           size_t rows,
+           size_t from,
+           size_t to,
+           const double ecef[16],
            std::string &error) {
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
@@ -112,8 +122,11 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
   for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
 
-[[nodiscard]] bool ClearsNearPlane(const Shape &subject, const Viewpoint &eye,
-                                   size_t framedParts, bool standsInside, std::string &error) {
+[[nodiscard]] bool ClearsNearPlane(const Shape &subject,
+                                   const Viewpoint &eye,
+                                   size_t framedParts,
+                                   bool standsInside,
+                                   std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)SceneRenderer::kNearM;
   double framedLeast[3], framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
@@ -139,8 +152,8 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
   if (!first && least > plane) { return true; }
   for (const ShapePart &one : subject.Parts) {
     if (one.FirstVertex >= beyond) { break; }
-    for (size_t within = 0;
-         within < one.VertexCount && (within + 1) * 3 <= one.PositionsM.size(); ++within) {
+    for (size_t within = 0; within < one.VertexCount && (within + 1) * 3 <= one.PositionsM.size();
+         ++within) {
       const size_t vertex = one.FirstVertex + within;
       if (vertex >= beyond) { break; }
       double along = 0;
@@ -163,8 +176,8 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
 
 constexpr double kMagnificationAgreement = 1e-12;
 
-[[nodiscard]] bool SetProjection(SceneRenderer &renderer, const Viewpoint &eye,
-                                 std::string &error) {
+[[nodiscard]] bool
+SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error) {
   if (eye.Kind == CameraKind::Orthographic) {
     if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
       error = "the placement is orthographic and declares no magnification";
@@ -191,8 +204,7 @@ constexpr double kMagnificationAgreement = 1e-12;
   return true;
 }
 
-double DepthFraction(const Shape &subject, const ShapePart &part,
-                     const Viewpoint &eye) {
+double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   if (part.PositionsM.size() < 3) { return 0.0; }
   double low[3], high[3];
@@ -218,7 +230,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
 
 [[nodiscard]] bool Gathers(const SubjectProxy &proxy) {
   return !proxy.Lights().empty() || proxy.IndirectLight().RadianceLinear[0] > 0.0 ||
-         proxy.IndirectLight().RadianceLinear[1] > 0.0 || proxy.IndirectLight().RadianceLinear[2] > 0.0;
+         proxy.IndirectLight().RadianceLinear[1] > 0.0 ||
+         proxy.IndirectLight().RadianceLinear[2] > 0.0;
 }
 
 [[nodiscard]] bool Lit(const SubjectProxy &proxy, const Shape &subject, size_t part) {
@@ -226,8 +239,7 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
          !proxy.Slots()[proxy.Slot(part)].Row.Unlit;
 }
 
-[[nodiscard]] bool Agrees(const SubjectProxy &proxy, const Shape &subject,
-                          std::string &error) {
+[[nodiscard]] bool Agrees(const SubjectProxy &proxy, const Shape &subject, std::string &error) {
   const size_t parts = subject.Parts.size();
   if (proxy.Slots().empty()) {
     error = "the proxy declares no surface at all, and every draw binds one";
@@ -243,8 +255,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
     if (Gathers(proxy) && !subject.Parts[part].HasNormal &&
         !proxy.Slots()[proxy.Slot(part)].Row.Unlit) {
       error = "the proxy declares " + std::to_string(proxy.Lights().size()) +
-              " punctual lights and an environment, and part " + std::to_string(part) + " of node '" +
-              std::string(subject.Parts[part].Name) +
+              " punctual lights and an environment, and part " + std::to_string(part) +
+              " of node '" + std::string(subject.Parts[part].Name) +
               "' carries no NORMAL, so there is no direction for the cosine -- and nothing here "
               "derives the flat normal the format asks for";
       return false;
@@ -253,8 +265,11 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
   return true;
 }
 
-[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy, const Eye &view, const Shape &subject,
-                                 DrawList &list, std::string &error) {
+[[nodiscard]] bool BuildDrawList(const SubjectProxy &proxy,
+                                 const Eye &view,
+                                 const Shape &subject,
+                                 DrawList &list,
+                                 std::string &error) {
   list.Clear();
   for (size_t part = 0; part < subject.Parts.size(); ++part) {
     const ShapePart &where = subject.Parts[part];
@@ -276,8 +291,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
     carried.Uv = where.HasUv && proxy.Slots()[slot].ReadsAnyImage();
     carried.Normal = Lit(proxy, subject, part);
 
-    carried.Tangent = carried.Normal && carried.Uv && where.HasTangent &&
-                      proxy.Slots()[slot].Normal.Rgba;
+    carried.Tangent =
+        carried.Normal && carried.Uv && where.HasTangent && proxy.Slots()[slot].Normal.Rgba;
 
     carried.Uv1 = carried.Uv && where.HasUv1 && proxy.Slots()[slot].ReadsSecondUv();
 
@@ -354,14 +369,14 @@ void PackPrevious(const void *carrying, float *into, uint32_t floats) {
   if (many < floats) { std::memset(into + many, 0, (size_t)(floats - many) * sizeof(float)); }
 }
 
-[[nodiscard]] bool PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out,
-                               std::string &error) {
+[[nodiscard]] bool
+PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::string &error) {
   out.clear();
   out.reserve(proxy.Lights().size());
   for (size_t at = 0; at < proxy.Lights().size(); ++at) {
     const outshine::PunctualLight &declared = proxy.Lights()[at];
-    const double gltfDirection[3] = {declared.Direction[0], declared.Direction[1],
-                                     declared.Direction[2]};
+    const double gltfDirection[3] = {
+        declared.Direction[0], declared.Direction[1], declared.Direction[2]};
     double direction[3];
     for (int axis = 0; axis < 3; ++axis) { direction[axis] = gltfDirection[axis]; }
     const double length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
@@ -375,18 +390,21 @@ void PackPrevious(const void *carrying, float *into, uint32_t floats) {
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Direction[axis] = (float)(direction[axis] / length);
     }
-    const double gltfPosition[3] = {declared.Position[0], declared.Position[1],
-                                    declared.Position[2]};
+    const double gltfPosition[3] = {
+        declared.Position[0], declared.Position[1], declared.Position[2]};
     Anchored(proxy.Anchor(), gltfPosition, placed.PositionEcefM);
     out.push_back(placed);
   }
   return true;
 }
 
-}
+} // namespace
 
-bool Aim(SceneRenderer &renderer, const Shape &subject, const Eye &view,
-         const double anchorEcefM[3], std::string &error) {
+bool Aim(SceneRenderer &renderer,
+         const Shape &subject,
+         const Eye &view,
+         const double anchorEcefM[3],
+         std::string &error) {
   const Viewpoint &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!view.StandsInside &&
@@ -404,8 +422,11 @@ bool Aim(SceneRenderer &renderer, const Shape &subject, const Eye &view,
   return true;
 }
 
-bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-             SubjectScratch &scratch, std::string &error) {
+bool Surface(SceneRenderer &renderer,
+             const SubjectProxy &proxy,
+             const Eye &view,
+             SubjectScratch &scratch,
+             std::string &error) {
   if (!proxy.Shaped()) {
     error = "the proxy declares no subject";
     return false;
@@ -418,8 +439,11 @@ bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view
   return true;
 }
 
-bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-          SubjectScratch &scratch, std::string &error) {
+bool Show(SceneRenderer &renderer,
+          const SubjectProxy &proxy,
+          const Eye &view,
+          SubjectScratch &scratch,
+          std::string &error) {
   return Surface(renderer, proxy, view, scratch, error) &&
          Place(renderer, proxy, view, scratch, error);
 }
@@ -431,11 +455,19 @@ bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
 std::atomic<double> gPackMs{0.0};
 std::atomic<double> gHandMs{0.0};
 
-double PackedMs() { return gPackMs.load(std::memory_order_relaxed); }
-double HandedMs() { return gHandMs.load(std::memory_order_relaxed); }
+double PackedMs() {
+  return gPackMs.load(std::memory_order_relaxed);
+}
 
-bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-           SubjectScratch &scratch, std::string &error) {
+double HandedMs() {
+  return gHandMs.load(std::memory_order_relaxed);
+}
+
+bool Place(SceneRenderer &renderer,
+           const SubjectProxy &proxy,
+           const Eye &view,
+           SubjectScratch &scratch,
+           std::string &error) {
   if (!proxy.Shaped()) {
     error = "the proxy declares no subject";
     return false;
@@ -447,15 +479,12 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   }
   if (!Agrees(proxy, subject, error)) { return false; }
   if (proxy.Previous() && proxy.Previous()->size() / 3 != subject.VertexCount()) {
-    error = "the proxy's previous pose carries " +
-            std::to_string(proxy.Previous()->size() / 3) + " vertices and this one carries " +
-            std::to_string(subject.VertexCount()) +
+    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
+            " vertices and this one carries " + std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) {
-    return false;
-  }
+  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
   {
     const Heap::Tagged inside("draw-list");
@@ -495,9 +524,7 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
-  for (int axis = 0; axis < 3; ++axis) {
-    mesh.Anchor[axis] = proxy.Anchor()[axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;
@@ -525,8 +552,11 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   return true;
 }
 
-bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-          SubjectScratch &scratch, std::string &error) {
+bool Move(SceneRenderer &renderer,
+          const SubjectProxy &proxy,
+          const Eye &view,
+          SubjectScratch &scratch,
+          std::string &error) {
   if (!proxy.Shaped()) {
     error = "the proxy declares no subject";
     return false;
@@ -534,14 +564,12 @@ bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   const Shape &subject = *proxy.Shaped();
   if (!Agrees(proxy, subject, error)) { return false; }
   if (proxy.Previous() && proxy.Previous()->size() / 3 != subject.VertexCount()) {
-    error = "the proxy's previous pose carries " +
-            std::to_string(proxy.Previous()->size() / 3) + " vertices and this one carries " +
-            std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
+    error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
+            " vertices and this one carries " + std::to_string(subject.VertexCount()) +
+            ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) {
-    return false;
-  }
+  if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
   SubjectPose pose;
   const ChannelPack positions{&subject, &ShapePart::PositionsM, 3};
@@ -564,12 +592,10 @@ bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
   pose.Positions = scratch.Vertices;
   if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
   pose.VertexCount = (uint32_t)subject.VertexCount();
-  for (int axis = 0; axis < 3; ++axis) {
-    pose.Anchor[axis] = proxy.Anchor()[axis];
-  }
+  for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }
   return true;
 }
 
-}
+} // namespace outshine::Render

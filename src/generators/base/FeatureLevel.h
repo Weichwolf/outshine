@@ -6,6 +6,7 @@ namespace outshine::Generators {
 class FeatureLevel {
 public:
   static FeatureLevel None() { return FeatureLevel(); }
+
   static FeatureLevel At(float aslM) {
     FeatureLevel level;
     level.AslM_ = aslM;
@@ -14,7 +15,7 @@ public:
   }
 
   [[nodiscard]] bool TryAslM(float *out) const {
-    if (!Has_) return false;
+    if (!Has_) { return false; }
     *out = AslM_;
     return true;
   }
@@ -24,5 +25,5 @@ private:
   bool Has_ = false;
 };
 
-}
+} // namespace outshine::Generators
 #endif

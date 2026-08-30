@@ -23,8 +23,7 @@ namespace {
 constexpr int kFramePx = 64;
 
 // A triangle, three vec3 of float32, base64 of the 36 bytes: (0,0,0) (1,0,0) (0,1,0).
-constexpr const char *kTriangleBase64 =
-    "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAA";
+constexpr const char *kTriangleBase64 = "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAA";
 
 [[nodiscard]] std::string Minimal(double red) {
   return std::string(
@@ -63,7 +62,7 @@ constexpr const char *kTriangleBase64 =
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -75,8 +74,7 @@ int main(void) {
     return Report();
   }
   const std::string under = nest;
-  if (!Wrote(under + "/red.gltf", Minimal(0.9)) ||
-      !Wrote(under + "/blue.gltf", Minimal(0.1))) {
+  if (!Wrote(under + "/red.gltf", Minimal(0.9)) || !Wrote(under + "/blue.gltf", Minimal(0.1))) {
     Unprepared("the two subjects could not be written into the nest");
     return Report();
   }
@@ -102,15 +100,18 @@ int main(void) {
   const size_t readsFirst = outshine::Core::Live::AssetReads();
   const size_t plansFirst = outshine::Core::Live::PlanInits();
   std::printf("FIRST SUBJECT read %zu asset(s), initialised %zu plan(s)\n",
-              readsFirst - readsBefore, plansFirst - plansBefore);
+              readsFirst - readsBefore,
+              plansFirst - plansBefore);
   CHECK(readsFirst == readsBefore + 1, "the first subject is read exactly once");
   CHECK(plansFirst == plansBefore + 1, "and it builds the one plan the picture needs");
 
-  CHECK(engine.declare(Showing("blue.gltf")).has_value(), "a different subject in the same picture stands");
+  CHECK(engine.declare(Showing("blue.gltf")).has_value(),
+        "a different subject in the same picture stands");
   const size_t readsSwapped = outshine::Core::Live::AssetReads();
   const size_t plansSwapped = outshine::Core::Live::PlanInits();
   std::printf("SWAPPED SUBJECT read %zu further asset(s), initialised %zu further plan(s)\n",
-              readsSwapped - readsFirst, plansSwapped - plansFirst);
+              readsSwapped - readsFirst,
+              plansSwapped - plansFirst);
   CHECK(readsSwapped == readsFirst + 1,
         "the swapped subject IS read -- different bytes, and a swap that read nothing would "
         "mean this case measures nothing");
@@ -126,7 +127,8 @@ int main(void) {
   CHECK(plansBack == plansSwapped, "and swapping back rebuilds nothing either");
 
   Note("plans initialised over three subjects in one picture",
-       (double)(plansBack - plansBefore), "inits");
+       (double)(plansBack - plansBefore),
+       "inits");
   Note("assets read over the same three", (double)(readsSwapped + 1 - readsBefore), "reads");
 
   Covers("the door: a subject that changes costs the reading of that subject and nothing else, "

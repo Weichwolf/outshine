@@ -30,7 +30,7 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
 
 constexpr bool kChainIsReadable = false;
 
-}
+} // namespace
 
 // WHAT THE RESIDENCY ACTUALLY DOES PER REBUILD, counted rather than reasoned about. 89 per cent of
 // Shibuya's hand-over is spent below this line and the shape of the cost -- how many uploads, how
@@ -41,18 +41,29 @@ std::atomic<size_t> gUploadBytes{0};
 std::atomic<size_t> gBuffersMade{0};
 std::atomic<size_t> gStagingMade{0};
 
-size_t SubjectResidency::UploadsTaken() { return gUploads.exchange(0u); }
-size_t SubjectResidency::UploadMBTaken() { return gUploadBytes.exchange(0u) / 1000000u; }
-size_t SubjectResidency::BuffersMadeTaken() { return gBuffersMade.exchange(0u); }
-size_t SubjectResidency::StagingMadeTaken() { return gStagingMade.exchange(0u); }
+size_t SubjectResidency::UploadsTaken() {
+  return gUploads.exchange(0u);
+}
 
-// A STREAM GROWS BY DOUBLING AND NEVER BY EXACTLY WHAT WAS ASKED, and the reason is what a stream-in
-// does: Shibuya's world arrives in pieces, so every rebuild hands over a few thousand buildings more
-// than the last and a buffer sized to the request is too small the very next time. Twenty rebuilds
-// then meant twenty fresh sets of channel buffers, and a released SDL buffer is NOT freed when it
-// is released -- the driver holds it until a command buffer that could still be reading it has
-// retired, and a load draws two frames in forty seconds. Measured: 52.4 GB peak footprint against
-// a 3.4 GB resident set, and the system killed the run before it drew.
+size_t SubjectResidency::UploadMBTaken() {
+  return gUploadBytes.exchange(0u) / 1000000u;
+}
+
+size_t SubjectResidency::BuffersMadeTaken() {
+  return gBuffersMade.exchange(0u);
+}
+
+size_t SubjectResidency::StagingMadeTaken() {
+  return gStagingMade.exchange(0u);
+}
+
+// A STREAM GROWS BY DOUBLING AND NEVER BY EXACTLY WHAT WAS ASKED, and the reason is what a
+// stream-in does: Shibuya's world arrives in pieces, so every rebuild hands over a few thousand
+// buildings more than the last and a buffer sized to the request is too small the very next time.
+// Twenty rebuilds then meant twenty fresh sets of channel buffers, and a released SDL buffer is NOT
+// freed when it is released -- the driver holds it until a command buffer that could still be
+// reading it has retired, and a load draws two frames in forty seconds. Measured: 52.4 GB peak
+// footprint against a 3.4 GB resident set, and the system killed the run before it drew.
 //
 // DOUBLING MAKES THE COUNT LOGARITHMIC in how far the world grows, which is the same reason every
 // growable container does it. The tail is bounded too: a buffer is never widened past twice what is
@@ -105,8 +116,8 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     room.size = widened;
     OwnedTransfer fresh(Device, SDL_CreateGPUTransferBuffer(Device, &room));
     if (!fresh) {
-      error = std::string("the pose's staging buffer found no room on the device: ") +
-              SDL_GetError();
+      error =
+          std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
       return false;
     }
     if (Staging_ && StagedCount_ > 0) { Retired_.push_back(std::move(Staging_)); }
@@ -118,8 +129,8 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   // CYCLED ON THE FIRST MAP OF A FRAME AND ONLY THERE. `cycle` asks the driver to rename the
   // buffer if the GPU is still reading what the last frame put in it; a later map in the SAME
   // frame appends to what this frame has already written and must not rename.
-  auto *const mapped = static_cast<uint8_t *>(
-      SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
+  auto *const mapped =
+      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
   if (mapped == nullptr) {
     error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
     return false;
@@ -128,7 +139,8 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
     if (what[one].Writes != nullptr) {
-      what[one].Writes(what[one].Carrying, reinterpret_cast<float *>(mapped + at),
+      what[one].Writes(what[one].Carrying,
+                       reinterpret_cast<float *>(mapped + at),
                        what[one].Bytes / (uint32_t)sizeof(float));
     } else {
       std::memcpy(mapped + at, what[one].From, what[one].Bytes);
@@ -170,7 +182,8 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   gUploads.fetch_add(1u, std::memory_order_relaxed);
   gUploadBytes.fetch_add(total, std::memory_order_relaxed);
   if (!Bulk_) {
-    error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
+    error =
+        std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
     return false;
   }
   // CYCLED, AND BOTH ALTERNATIVES WERE MEASURED. Without cycling the frame draws NOTHING -- the
@@ -187,7 +200,8 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
     if (what[one].Writes != nullptr) {
-      what[one].Writes(what[one].Carrying, reinterpret_cast<float *>(mapped + at),
+      what[one].Writes(what[one].Carrying,
+                       reinterpret_cast<float *>(mapped + at),
                        what[one].Bytes / (uint32_t)sizeof(float));
     } else {
       std::memcpy(mapped + at, what[one].From, what[one].Bytes);
@@ -225,8 +239,8 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
   Retired_.clear();
 }
 
-SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode,
-                                            TexelKind kind) {
+SubjectResidency::BoundImage
+SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) {
   static const uint8_t white[4] = {255, 255, 255, 255};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
@@ -235,9 +249,8 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
   for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
     for (size_t channel = 0; channel < 3; ++channel) {
       const uint8_t code = texels[texel * 4u + channel];
-      linear[texel * 4u + channel] = decode == Transfer::Srgb
-                                         ? LinearFromSrgb8(code)
-                                         : static_cast<float>(code) / 255.0f;
+      linear[texel * 4u + channel] =
+          decode == Transfer::Srgb ? LinearFromSrgb8(code) : static_cast<float>(code) / 255.0f;
     }
     linear[texel * 4u + 3u] = static_cast<float>(texels[texel * 4u + 3u]) / 255.0f;
   }
@@ -270,7 +283,13 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
     if (which > 0) {
       std::vector<float> smaller;
       uint32_t smallerWidth = 0, smallerHeight = 0;
-      HalveInPlace(level, levelWidth, levelHeight, smaller, smallerWidth, smallerHeight, kind,
+      HalveInPlace(level,
+                   levelWidth,
+                   levelHeight,
+                   smaller,
+                   smallerWidth,
+                   smallerHeight,
+                   kind,
                    indexChannels);
       level.swap(smaller);
       levelWidth = smallerWidth;
@@ -281,9 +300,9 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;
     SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
-  gUploads.fetch_add(1u, std::memory_order_relaxed);
-  gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
+    gStagingMade.fetch_add(1u, std::memory_order_relaxed);
+    gUploads.fetch_add(1u, std::memory_order_relaxed);
+    gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
     void *const mappedLevel = SDL_MapGPUTransferBuffer(Device, staging, false);
     if (mappedLevel == nullptr) {
       SDL_ReleaseGPUTransferBuffer(Device, staging);
@@ -318,13 +337,12 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
   wantedSampler.min_filter = FilterOf(texture.Minify);
   wantedSampler.mag_filter = FilterOf(texture.Magnify);
 
-  wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest
-                                  ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
-                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+  wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
+                                                                 : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
 
   wantedSampler.max_lod = 1000.0f;
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }
 
-}
+} // namespace outshine::Render

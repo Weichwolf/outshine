@@ -45,6 +45,7 @@ enum class VertexAttribute : uint8_t {
 [[nodiscard]] constexpr VertexAttribute operator|(VertexAttribute a, VertexAttribute b) {
   return static_cast<VertexAttribute>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
 }
+
 [[nodiscard]] constexpr bool Holds(VertexAttribute set, VertexAttribute one) {
   return (static_cast<uint8_t>(set) & static_cast<uint8_t>(one)) != 0;
 }
@@ -68,8 +69,7 @@ inline constexpr std::array kVertexLayouts = {
                     VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
                         VertexAttribute::Tangent},
     VertexLayoutRow{VertexLayout::PositionColour, VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionUvColour,
-                    VertexAttribute::Uv | VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionUvColour, VertexAttribute::Uv | VertexAttribute::Colour},
     VertexLayoutRow{VertexLayout::PositionUvUv1Colour,
                     VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Colour},
     VertexLayoutRow{VertexLayout::PositionNormalColour,
@@ -92,6 +92,7 @@ inline constexpr std::array kVertexLayouts = {
   }
   return true;
 }
+
 static_assert(VertexLayoutsIndexThemselves(),
               "a layout's place in the table is the index its pipelines are built at");
 
@@ -102,24 +103,28 @@ static_assert(VertexLayoutsIndexThemselves(),
 [[nodiscard]] constexpr bool CarriesUv(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Uv);
 }
+
 [[nodiscard]] constexpr bool CarriesUv1(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Uv1);
 }
+
 [[nodiscard]] constexpr bool CarriesNormal(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Normal);
 }
+
 [[nodiscard]] constexpr bool CarriesTangent(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Tangent);
 }
+
 [[nodiscard]] constexpr bool CarriesColour(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Colour);
 }
 
-// THE RUNS THE DEVICE BINDS, DECLARED ONCE. The pipeline's vertex-buffer descriptions and the packer
-// that fills them each built this order and these widths BY HAND, in two files, with nothing to
-// notice if they drifted apart -- and a drift there is not a wrong picture, it is a shader reading
-// one attribute's bytes as another's. This tree's own rule applies: what the compiler can decide is
-// a `static_assert`, never a case.
+// THE RUNS THE DEVICE BINDS, DECLARED ONCE. The pipeline's vertex-buffer descriptions and the
+// packer that fills them each built this order and these widths BY HAND, in two files, with nothing
+// to notice if they drifted apart -- and a drift there is not a wrong picture, it is a shader
+// reading one attribute's bytes as another's. This tree's own rule applies: what the compiler can
+// decide is a `static_assert`, never a case.
 //
 // PLANAR RATHER THAN INTERLEAVED, and the reason is the depth and shadow passes: they read POSITION
 // alone, which costs 12 bytes a vertex from its own run and 32 from an interleaved one. Unreal
@@ -133,8 +138,7 @@ struct VertexRun {
 
 inline constexpr uint32_t kMostVertexRuns = 7;
 
-[[nodiscard]] constexpr uint32_t RunsOf(VertexLayout layout, bool writesVelocity,
-                                        VertexRun *out) {
+[[nodiscard]] constexpr uint32_t RunsOf(VertexLayout layout, bool writesVelocity, VertexRun *out) {
   uint32_t n = 0;
   out[n++] = VertexRun{3, 0};
   if (CarriesUv(layout)) { out[n++] = VertexRun{2, 1}; }
@@ -203,8 +207,8 @@ struct DrawItem {
 
 // A BATCH'S CLUSTERS ARE ITS DRAWS' CLUSTERS AND THEY ARE NOT CONTIGUOUS. Merging sorts by state,
 // so two parts that share a surface land in one batch while their cluster ranges stay where the
-// cooker put them. `Jobs` is therefore a RANGE INTO THE JOB LIST rather than into the cluster table:
-// the list is built once per mesh, in batch order, and one thread takes one job.
+// cooker put them. `Jobs` is therefore a RANGE INTO THE JOB LIST rather than into the cluster
+// table: the list is built once per mesh, in batch order, and one thread takes one job.
 struct DrawBatch {
   uint32_t FirstIndex = 0;
   uint32_t IndexCount = 0;
@@ -228,7 +232,6 @@ struct IndexRun {
 
 class DrawList {
 public:
-
   [[nodiscard]] bool Add(const DrawItem &item, std::string &error);
 
   void Clear();
@@ -238,7 +241,9 @@ public:
   void JobsAddress(std::span<const DagCluster> clusters);
 
   [[nodiscard]] const std::vector<DrawItem> &Draws() const { return Draws_; }
+
   [[nodiscard]] const std::vector<IndexRun> &Runs() const { return Runs_; }
+
   [[nodiscard]] const std::vector<DrawBatch> &Batches() const { return Batches_; }
 
   // ONE `uint4` PER CLUSTER A BATCH DRAWS: the cluster, the batch, where its indices begin in the
@@ -251,9 +256,11 @@ public:
   // subject's index run; the draw list repacks that run in batch order, so the offset moves and
   // this is where it is moved, once per mesh, rather than in the kernel every frame.
   [[nodiscard]] const std::vector<uint32_t> &ClusterJobs() const { return Jobs_; }
+
   static constexpr size_t kJobWords = 4;
 
   [[nodiscard]] uint32_t IndexCount() const { return IndexCount_; }
+
   [[nodiscard]] bool Empty() const { return Draws_.empty(); }
 
 private:
@@ -264,5 +271,5 @@ private:
   uint32_t IndexCount_ = 0;
 };
 
-}
+} // namespace outshine::Render
 #endif

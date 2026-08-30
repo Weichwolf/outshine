@@ -9,16 +9,18 @@
 namespace outshine::Render {
 namespace {
 
-
 std::string Kernel(std::string &error) {
   char declared[512];
-  std::snprintf(declared, sizeof declared,
+  std::snprintf(declared,
+                sizeof declared,
                 "constant uint kMultiScatterSteps = %uu;\n"
                 "constant uint kMultiScatterGrid = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
-                (unsigned)kMultiScatterSteps, (unsigned)kMultiScatterGrid,
-                (double)kMediumLuminanceSegment, (double)kMediumGroundLiftKm);
+                (unsigned)kMultiScatterSteps,
+                (unsigned)kMultiScatterGrid,
+                (double)kMediumLuminanceSegment,
+                (double)kMediumGroundLiftKm);
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -28,10 +30,12 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + declared + core + body;
 }
 
-}
+} // namespace
 
-bool MediumMultiScatterStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittance,
-                                        SDL_GPUSampler *lut, SDL_GPUTexture *into,
+bool MediumMultiScatterStage::Configure(const Gpu &gpu,
+                                        SDL_GPUTexture *transmittance,
+                                        SDL_GPUSampler *lut,
+                                        SDL_GPUTexture *into,
                                         std::string &error) {
   if (Into != into || Transmittance != transmittance) { Settled_ = false; }
   Transmittance = transmittance;
@@ -80,8 +84,10 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound{Transmittance, Lut};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
-  SDL_DispatchGPUCompute(into.Dispatch, (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch,
+                         (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+                         1u);
   Settled_ = true;
 }
 
@@ -90,6 +96,8 @@ std::string MediumMultiScatterStage::KernelSource() {
   return Kernel(ignored);
 }
 
-std::string MediumMultiScatterStage::KernelSource(std::string &error) { return Kernel(error); }
-
+std::string MediumMultiScatterStage::KernelSource(std::string &error) {
+  return Kernel(error);
 }
+
+} // namespace outshine::Render

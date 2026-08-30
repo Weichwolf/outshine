@@ -50,7 +50,8 @@ struct Cooked {
 // that drops one draws a hole, and a cut that repeats one draws it twice and costs twice. It does
 // not depend on the cut being GOOD, which is what makes it a fair test of a cut that will change.
 [[nodiscard]] Cooked CookClusters(std::span<const float> positionsM,
-                                  std::span<const uint32_t> indices, uint32_t mostTriangles);
+                                  std::span<const uint32_t> indices,
+                                  uint32_t mostTriangles);
 
 // THE PARENT ERROR IS WHAT MAKES IT A DAG RATHER THAN A LIST. `DagSelect` keeps a cluster when its
 // OWN error is small enough on screen and its PARENT's is not -- so without a coarser level every
@@ -66,8 +67,10 @@ struct Cooked {
 // stated and true beats an estimate that is better and unproven, and the item says which is which.
 //
 // `mostLevels` counts the coarser levels ABOVE the leaves. One is a DAG; zero is `CookClusters`.
-[[nodiscard]] Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indices,
-                             uint32_t mostTriangles, uint32_t mostLevels);
+[[nodiscard]] Cooked CookDag(std::span<const float> positionsM,
+                             std::span<const uint32_t> indices,
+                             uint32_t mostTriangles,
+                             uint32_t mostLevels);
 
-}
+} // namespace outshine
 #endif

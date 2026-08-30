@@ -46,6 +46,7 @@ public:
     std::vector<Ring> Rings;
     std::vector<Feature> Feats;
   };
+
   struct Handback {
     std::shared_ptr<const ClassStructure> Structure;
     Job Returned;
@@ -62,7 +63,10 @@ public:
   size_t HeapBytes() const { return HeapBytes_.load(std::memory_order_relaxed); }
 
 private:
-  struct Hit { double X; int Dir; };
+  struct Hit {
+    double X;
+    int Dir;
+  };
 
   struct Workspace {
     std::vector<uint8_t> Base, BaseRank;
@@ -97,5 +101,5 @@ private:
   std::thread Thread_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

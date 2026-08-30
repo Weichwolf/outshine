@@ -2,13 +2,7 @@
 
 namespace outshine {
 
-
-
-
-namespace {
-
-
-}
+namespace {}
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
@@ -34,7 +28,12 @@ Result Engine::assemble() {
                 " entities the declaration names";
     return std::unexpected(S_->Error);
   }
-  if (!outshine::Assemble(declared, S_->Cast.Scene, S_->Cast.Bodies, S_->Cast.Drives, S_->Cast.Kinds, S_->Cast.Stood,
+  if (!outshine::Assemble(declared,
+                          S_->Cast.Scene,
+                          S_->Cast.Bodies,
+                          S_->Cast.Drives,
+                          S_->Cast.Kinds,
+                          S_->Cast.Stood,
                           S_->Error)) {
     return std::unexpected(S_->Error);
   }
@@ -46,18 +45,23 @@ Result Engine::assemble() {
     }
     S_->Session.Tabled.emplace(*std::move(book));
   }
-  if (!declared.Buses.empty() || !declared.Sounds.empty()) {
-    S_->Session.Mixing = false;
-  }
+  if (!declared.Buses.empty() || !declared.Sounds.empty()) { S_->Session.Mixing = false; }
 
   return (S_->Routes()) ? Result{} : std::unexpected(S_->Error);
 }
 
 namespace {
 
-using Assembler = bool (*)(const Scene &, const Assembled &, const Column<Body> &,
-                           const Column<Journey> &, const WorldSettings &, Ground::GroundStack &,
-                           Data::Transport &, const Sim::Provision &, Sink &, Sim::DriveProduct &);
+using Assembler = bool (*)(const Scene &,
+                           const Assembled &,
+                           const Column<Body> &,
+                           const Column<Journey> &,
+                           const WorldSettings &,
+                           Ground::GroundStack &,
+                           Data::Transport &,
+                           const Sim::Provision &,
+                           Sink &,
+                           Sim::DriveProduct &);
 
 struct Travelling_ {
   Travels By;
@@ -88,7 +92,7 @@ const Travelling_ kAssemblers[kTravels] = {
   return "an unnamed way";
 }
 
-}
+} // namespace
 
 bool Engine::State::Routes(void) {
   const Scenario &declared = Session.Declared;
@@ -124,17 +128,28 @@ bool Engine::State::Routes(void) {
     }
   }
   Collecting say;
-  const Sim::Provision kept{Session.Under.Cache, Session.Under.Shipped,
+  const Sim::Provision kept{Session.Under.Cache,
+                            Session.Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Assembles(declared.Routed.By)(Cast.Scene, Cast.Stood, Cast.Bodies, Cast.Drives, declared.Ground,
-                                                    World.Stack, *World.Wire, kept, say, Ticking.Drive);
+  const bool routed = Assembles(declared.Routed.By)(Cast.Scene,
+                                                    Cast.Stood,
+                                                    Cast.Bodies,
+                                                    Cast.Drives,
+                                                    declared.Ground,
+                                                    World.Stack,
+                                                    *World.Wire,
+                                                    kept,
+                                                    say,
+                                                    Ticking.Drive);
   if (routed) {
-    World.Stack.Restand(Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon, Ground::kStreamBudgetMs);
+    World.Stack.Restand(
+        Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon, Ground::kStreamBudgetMs);
     Ticking.Surface = std::make_unique<Sim::GroundSupport>(World.Stack, Ticking.Drive.Surfaces);
     Ticking.Surface->Restand();
   }
-  Session.Carried.insert(Session.Carried.end(), std::make_move_iterator(say.Lines().begin()),
-                     std::make_move_iterator(say.Lines().end()));
+  Session.Carried.insert(Session.Carried.end(),
+                         std::make_move_iterator(say.Lines().begin()),
+                         std::make_move_iterator(say.Lines().end()));
   Published.Stands(std::move(say.Numbers()));
   if (!routed) {
     Error = say.WhyNot();
@@ -150,12 +165,14 @@ bool Engine::State::Routes(void) {
     const double slowestMs = Ticking.Drive.Way.Profile.Quantile(0.01);
     if (!(slowestMs > 0.0)) {
       Error = "a hundredth of this speed plan stands still, so the drive has no pace to be "
-              "bounded by and would never arrive -- p01 is " + Said(slowestMs) + " m/s";
+              "bounded by and would never arrive -- p01 is " +
+              Said(slowestMs) + " m/s";
       return false;
     }
     const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0;
     Ticking.MostSteps = (size_t)(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
-    Published.Places("the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
+    Published.Places(
+        "the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
   }
   if (!Composes()) { return false; }
   const bool aWorldStands = Ticking.Drove;
@@ -187,7 +204,8 @@ Result Engine::drawsInto(SDL_Window *presents) {
 
 Result Engine::drawsInto(Extent offscreen) {
   S_->Picture.Targeted = true;
-  const auto standing = S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
+  const auto standing =
+      S_->Picture.Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
@@ -196,52 +214,31 @@ Result Engine::drawsInto(Extent offscreen) {
   return {};
 }
 
-void Engine::setRoots(Roots roots) { S_->Session.Under = std::move(roots); }
-
-
-
-
-
-
-
-
-namespace {
-
-
+void Engine::setRoots(Roots roots) {
+  S_->Session.Under = std::move(roots);
 }
 
-void Engine::offers(Host *host) { S_->Offered = host; }
+namespace {}
 
-
-
-namespace {
-
-
-
-
-
+void Engine::offers(Host *host) {
+  S_->Offered = host;
 }
 
+namespace {}
 
-void Engine::offers(const Generates &maker) { (void)S_->World.Offering.offers(maker); }
-
-
-
-namespace {
-
-
+void Engine::offers(const Generates &maker) {
+  (void)S_->World.Offering.offers(maker);
 }
 
+namespace {}
 
+const std::vector<std::string> &Engine::unacted() const {
+  return S_->Session.Carried;
+}
 
-
-
-
-
-const std::vector<std::string> &Engine::unacted() const { return S_->Session.Carried; }
-
-
-const std::vector<Measure> &Engine::measures() const { return S_->Published.Numbers(); }
+const std::vector<Measure> &Engine::measures() const {
+  return S_->Published.Numbers();
+}
 
 bool Engine::settled(void) const {
   // SETTLED MEANS THE WHOLE PICTURE, NOT ONLY ITS GROUND. Ground tiles are one half; the OSM
@@ -269,10 +266,14 @@ bool Engine::settled(void) const {
 Result Renderer::render(Extent frame) {
   return Of_->render(frame) ? Result{} : std::unexpected(Of_->error());
 }
+
 Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->error());
 }
-int Renderer::settleFrames(void) const { return Of_->S_->Picture.Device.SettleFrames(); }
+
+int Renderer::settleFrames(void) const {
+  return Of_->S_->Picture.Device.SettleFrames();
+}
 
 Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
   return Of_->readPixels(rgba) ? Result{} : std::unexpected(Of_->error());
@@ -282,11 +283,21 @@ Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
   return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->error());
 }
 
-Renderer Engine::renderer(void) { return Renderer(*this); }
-SwapChain Engine::swapChain(void) { return SwapChain(*this); }
+Renderer Engine::renderer(void) {
+  return Renderer(*this);
+}
 
-Extent SwapChain::extent(void) const { return Of_->canvas(); }
-bool SwapChain::presents(void) const { return Of_->presenting(); }
+SwapChain Engine::swapChain(void) {
+  return SwapChain(*this);
+}
+
+Extent SwapChain::extent(void) const {
+  return Of_->canvas();
+}
+
+bool SwapChain::presents(void) const {
+  return Of_->presenting();
+}
 
 Result Renderer::beginFrame(SwapChain &into) {
   if (into.extent().WidthPx <= 0 || into.extent().HeightPx <= 0) {
@@ -306,9 +317,10 @@ Result Renderer::flushAndWait(void) {
 
 bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {
   if (!S_->World.Stack.Opened()) {
-    S_->Error = "a height was asked for at " + std::to_string(latitudeDeg) + ", " +
-                std::to_string(longitudeDeg) +
-                " and no world stands -- a scenario declares one before anything can be placed on it";
+    S_->Error =
+        "a height was asked for at " + std::to_string(latitudeDeg) + ", " +
+        std::to_string(longitudeDeg) +
+        " and no world stands -- a scenario declares one before anything can be placed on it";
     return false;
   }
   double aslM = 0.0;
@@ -339,18 +351,19 @@ double Engine::loadProgress(void) const {
 // PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the
 // invariant -- so a client that wants a finished picture rather than a progressively refining one
 // asks for it HERE, once, bounded in seconds. Filament spells the same distinction
-// `SceneRenderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides whether
-// to wait on it. Nothing inside advance() or render() ever calls this.
-// A CEILING ON ONE WAIT, NOT ON THE WAITING. The signal fires on every landing, so this bounds only
-// how long a wake is missed by -- the decode of an already-cached ring raises no landing at all, and
-// without a ceiling that ring would wait out the whole patience with its bytes already in hand.
+// `SceneRenderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides
+// whether to wait on it. Nothing inside advance() or render() ever calls this. A CEILING ON ONE
+// WAIT, NOT ON THE WAITING. The signal fires on every landing, so this bounds only how long a wake
+// is missed by -- the decode of an already-cached ring raises no landing at all, and without a
+// ceiling that ring would wait out the whole patience with its bytes already in hand.
 constexpr double kMostWaitS = 0.05;
 
 Loading Engine::loading(void) const {
   Loading said;
   said.GroundWanted = S_->World.AskedWanted;
-  said.GroundArrived =
-      S_->World.AskedWanted >= S_->World.AskedPending ? S_->World.AskedWanted - S_->World.AskedPending : 0;
+  said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
+                           ? S_->World.AskedWanted - S_->World.AskedPending
+                           : 0;
   if (!S_->World.Stack.Opened()) { return said; }
   if (const Ground::OsmField *vectors = S_->World.Stack.Vectors()) {
     said.VectorArrived = vectors->Tiles().size();
@@ -364,7 +377,9 @@ Loading Engine::loading(void) const {
   return said;
 }
 
-Result Engine::preload(double patienceS) { return preload(patienceS, {}); }
+Result Engine::preload(double patienceS) {
+  return preload(patienceS, {});
+}
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
   const auto began = std::chrono::steady_clock::now();
@@ -407,8 +422,8 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
       // turns tiles into geometry never ran.
       const bool built = S_->Grounds(true);
       S_->Error = "the world at this place did not become resident within " +
-                  std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) +
-                  " of " + std::to_string(S_->World.Wanted) + " tile(s) still pending" +
+                  std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) + " of " +
+                  std::to_string(S_->World.Wanted) + " tile(s) still pending" +
                   (built ? "" : ", and what did arrive would not build");
       return std::unexpected(S_->Error);
     }
@@ -430,19 +445,12 @@ Result Engine::setView(std::string_view view) {
   return {};
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-bool Engine::standing() const { return S_->Picture.Standing != nullptr; }
-const std::string &Engine::error() const { return S_->Error; }
-
+bool Engine::standing() const {
+  return S_->Picture.Standing != nullptr;
 }
+
+const std::string &Engine::error() const {
+  return S_->Error;
+}
+
+} // namespace outshine

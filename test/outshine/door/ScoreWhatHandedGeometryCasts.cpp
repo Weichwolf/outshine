@@ -28,8 +28,24 @@ namespace {
 // handed in draws N batches and casts N.
 constexpr int kFramePx = 96;
 
-constexpr float kPositions[18] = {-1.0f, -1.0f, 0.0f, 1.0f,  -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-                                  -1.0f, -1.0f, 0.0f, 1.0f,  1.0f,  0.0f, -1.0f, 1.0f, 0.0f};
+constexpr float kPositions[18] = {-1.0f,
+                                  -1.0f,
+                                  0.0f,
+                                  1.0f,
+                                  -1.0f,
+                                  0.0f,
+                                  1.0f,
+                                  1.0f,
+                                  0.0f,
+                                  -1.0f,
+                                  -1.0f,
+                                  0.0f,
+                                  1.0f,
+                                  1.0f,
+                                  0.0f,
+                                  -1.0f,
+                                  1.0f,
+                                  0.0f};
 constexpr float kNormals[18] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1};
 constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
 
@@ -40,7 +56,7 @@ constexpr uint32_t kIndices[6] = {0, 1, 2, 3, 4, 5};
   return -1.0;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

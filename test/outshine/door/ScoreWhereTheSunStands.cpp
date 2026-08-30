@@ -68,7 +68,7 @@ struct Read {
   return said;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -110,10 +110,14 @@ int main(void) {
     }
   }
 
-  std::printf("  the brightest bearing %5.0f deg   peak %3d   mean %6.2f\n", atBearing,
-              best.Peak, best.Mean);
-  std::printf("  the dimmest   bearing %5.0f deg   peak %3d   mean %6.2f\n", atDimmest,
-              dimmest.Peak, dimmest.Mean);
+  std::printf("  the brightest bearing %5.0f deg   peak %3d   mean %6.2f\n",
+              atBearing,
+              best.Peak,
+              best.Mean);
+  std::printf("  the dimmest   bearing %5.0f deg   peak %3d   mean %6.2f\n",
+              atDimmest,
+              dimmest.Peak,
+              dimmest.Mean);
 
   CHECK(dimmest.Peak > 0,
         "the sky is lit at every bearing, so what the check below measures is a DISC and not the "

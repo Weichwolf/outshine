@@ -18,13 +18,16 @@ constexpr uint32_t kRoundConstants[64] = {
     0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u,
     0xc67178f2u};
 
-[[nodiscard]] uint32_t Rotr(uint32_t v, int n) { return (v >> n) | (v << (32 - n)); }
+[[nodiscard]] uint32_t Rotr(uint32_t v, int n) {
+  return (v >> n) | (v << (32 - n));
+}
 
 void Compress(uint32_t state[8], const uint8_t block[64]) {
   uint32_t w[64];
-  for (int i = 0; i < 16; i++)
+  for (int i = 0; i < 16; i++) {
     w[i] = ((uint32_t)block[i * 4] << 24) | ((uint32_t)block[i * 4 + 1] << 16) |
            ((uint32_t)block[i * 4 + 2] << 8) | (uint32_t)block[i * 4 + 3];
+  }
   for (int i = 16; i < 64; i++) {
     const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
     const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
@@ -39,18 +42,36 @@ void Compress(uint32_t state[8], const uint8_t block[64]) {
     const uint32_t s0 = Rotr(a, 2) ^ Rotr(a, 13) ^ Rotr(a, 22);
     const uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
     const uint32_t t2 = s0 + maj;
-    h = g; g = f; f = e; e = d + t1;
-    d = c; c = b; b = a; a = t1 + t2;
+    h = g;
+    g = f;
+    f = e;
+    e = d + t1;
+    d = c;
+    c = b;
+    b = a;
+    a = t1 + t2;
   }
-  state[0] += a; state[1] += b; state[2] += c; state[3] += d;
-  state[4] += e; state[5] += f; state[6] += g; state[7] += h;
+  state[0] += a;
+  state[1] += b;
+  state[2] += c;
+  state[3] += d;
+  state[4] += e;
+  state[5] += f;
+  state[6] += g;
+  state[7] += h;
 }
 
-}
+} // namespace
 
 std::string Sha256Hex(const void *data, size_t bytes) {
-  uint32_t state[8] = {0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
-                       0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
+  uint32_t state[8] = {0x6a09e667u,
+                       0xbb67ae85u,
+                       0x3c6ef372u,
+                       0xa54ff53au,
+                       0x510e527fu,
+                       0x9b05688cu,
+                       0x1f83d9abu,
+                       0x5be0cd19u};
   const uint8_t *p = (const uint8_t *)data;
   size_t left = bytes;
   while (left >= 64) {
@@ -64,20 +85,25 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   tail[left] = 0x80;
   const size_t tailBlocks = (left + 9 > 64) ? 2u : 1u;
   const uint64_t bits = (uint64_t)bytes * 8u;
-  for (int i = 0; i < 8; i++) tail[tailBlocks * 64 - 1 - (size_t)i] = (uint8_t)(bits >> (8 * i));
-  for (size_t b = 0; b < tailBlocks; b++) Compress(state, tail + b * 64);
+  for (int i = 0; i < 8; i++) {
+    tail[tailBlocks * 64 - 1 - (size_t)i] = (uint8_t)(bits >> (8 * i));
+  }
+  for (size_t b = 0; b < tailBlocks; b++) { Compress(state, tail + b * 64); }
 
   static const char kHex[] = "0123456789abcdef";
   std::string out(64, '0');
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < 8; i++) {
     for (int n = 0; n < 4; n++) {
       const uint8_t byte = (uint8_t)(state[i] >> (24 - 8 * n));
       out[(size_t)(i * 8 + n * 2)] = kHex[byte >> 4];
       out[(size_t)(i * 8 + n * 2 + 1)] = kHex[byte & 15];
     }
+  }
   return out;
 }
 
-std::string Sha256Hex(std::string_view text) { return Sha256Hex(text.data(), text.size()); }
-
+std::string Sha256Hex(std::string_view text) {
+  return Sha256Hex(text.data(), text.size());
 }
+
+} // namespace outshine

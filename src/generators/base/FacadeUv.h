@@ -4,12 +4,27 @@
 namespace outshine {
 
 enum class Facade : int {
-  Wall = 0, RoofPitch = 1, RoofFlat = 2, Soffit = 3, Ledge = 4, Trim = 5, Metal = 6, Parapet = 7,
-  Plinth = 8, Kerb = 9, Pavement = 10
+  Wall = 0,
+  RoofPitch = 1,
+  RoofFlat = 2,
+  Soffit = 3,
+  Ledge = 4,
+  Trim = 5,
+  Metal = 6,
+  Parapet = 7,
+  Plinth = 8,
+  Kerb = 9,
+  Pavement = 10
 };
 
 enum class FacadeStyle : int {
-  Outbuilding = 0, House = 1, Terrace = 2, Block = 3, Hall = 4, Tower = 5, Spire = 6
+  Outbuilding = 0,
+  House = 1,
+  Terrace = 2,
+  Block = 3,
+  Hall = 4,
+  Tower = 5,
+  Spire = 6
 };
 
 enum class Fields : int { Back = 0, Front = 1, Entrance = 2 };
@@ -33,5 +48,5 @@ inline float FaceUvX(Facade kind, int ident) {
   return -(float)((int)kind + kFacadeStride * ident);
 }
 
-}
+} // namespace outshine
 #endif

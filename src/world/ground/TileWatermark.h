@@ -13,7 +13,6 @@ namespace outshine::Ground {
 
 class TileWatermark {
 public:
-
   struct Next {
     size_t From = 0, To = 0;
     uint32_t Tile = 0;
@@ -27,9 +26,9 @@ public:
     while (at < feats.size()) {
       const uint32_t tile = feats[at].Tile;
       size_t end = at;
-      while (end < feats.size() && feats[end].Tile == tile) end++;
+      while (end < feats.size() && feats[end].Tile == tile) { end++; }
       if (!Taken(tile)) {
-        if (consumable(at, end)) return Next{at, end, tile, true};
+        if (consumable(at, end)) { return Next{at, end, tile, true}; }
         Deferrals_++;
       }
       at = end;
@@ -40,19 +39,26 @@ public:
   [[nodiscard]] size_t Takes() const { return Takes_; }
 
   void Take(uint32_t tile) {
-    Takes_++; Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile); }
+    Takes_++;
+    Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile);
+  }
 
   void Advance(std::span<const OsmField::Feature> feats) {
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
       const uint32_t tile = feats[Mark_].Tile;
-      while (Mark_ < feats.size() && feats[Mark_].Tile == tile) Mark_++;
+      while (Mark_ < feats.size() && feats[Mark_].Tile == tile) { Mark_++; }
       Ahead_.erase(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile));
     }
   }
 
-  [[nodiscard]] bool Done(std::span<const OsmField::Feature> feats) const { return Mark_ >= feats.size(); }
+  [[nodiscard]] bool Done(std::span<const OsmField::Feature> feats) const {
+    return Mark_ >= feats.size();
+  }
+
   int Deferrals() const { return Deferrals_; }
+
   size_t AheadCount() const { return Ahead_.size(); }
+
   size_t HeapBytes() const { return CapacityBytes(Ahead_); }
 
 private:
@@ -66,5 +72,5 @@ private:
   int Deferrals_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

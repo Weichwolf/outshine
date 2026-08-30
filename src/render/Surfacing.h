@@ -33,7 +33,9 @@ enum class ColourFrom { Declared, BaseColour, Emissive, Row };
 
 enum class ColourCarrier { Texture, Factor, VertexColour };
 
-void ResolveDeclaredSurface(const Shape &geometry, const outshine::Material &row, SurfaceTable &out);
+void ResolveDeclaredSurface(const Shape &geometry,
+                            const outshine::Material &row,
+                            SurfaceTable &out);
 
-}
+} // namespace outshine::Render
 #endif

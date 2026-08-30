@@ -34,27 +34,39 @@ constexpr double kStreamBudgetMs = 2.0;
 class GroundStack {
 public:
   GroundStack() = default;
+
   ~GroundStack() { Close(); }
+
   GroundStack(const GroundStack &) = delete;
   GroundStack &operator=(const GroundStack &) = delete;
 
-  [[nodiscard]] bool Open(std::string_view cacheDir, std::string_view assetsDir,
-                          std::span<const Provider> providers, double focusLat,
-                          double focusLon, Data::Transport &wire, Sink &say,
+  [[nodiscard]] bool Open(std::string_view cacheDir,
+                          std::string_view assetsDir,
+                          std::span<const Provider> providers,
+                          double focusLat,
+                          double focusLon,
+                          Data::Transport &wire,
+                          Sink &say,
                           double patienceS = 0.0);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
+
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
+
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
+
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
+
   // THE ALBEDO EACH LAND CLASS DECLARES. Twenty of them are loaded from
   // `world/ground-materials.json` at every start and nothing outside this tier could read them, so
   // a desert and a meadow came out the same green.
   [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
+
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
 
   [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
+
   [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
 
   // THE MESHER COMES FROM ABOVE. `StructureMesher` is declared in this tier and implemented in
@@ -68,9 +80,13 @@ public:
   // once with the frame and the lens rather than sampled per frame, because a level that changed
   // with the camera would remesh the world every time the view turned.
   void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
+
   [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
+
   [[nodiscard]] const StreetField &Ways() const { return Ways_; }
+
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
+
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
   void Restand(double lat, double lon, double budgetMs);
@@ -95,6 +111,6 @@ private:
   bool Opened_ = false;
 };
 
-}
+} // namespace outshine::Ground
 
 #endif

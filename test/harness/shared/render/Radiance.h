@@ -47,8 +47,8 @@ struct RadianceResidual {
       if (!(oracle.At(static_cast<int>(x), static_cast<int>(y), 3) > 0.5f)) { continue; }
       for (size_t channel = 0; channel < 3; ++channel) {
         const float ours = linear[(y * width + x) * 4u + channel];
-        const float theirs = oracle.At(static_cast<int>(x), static_cast<int>(y),
-                                       static_cast<int>(channel));
+        const float theirs =
+            oracle.At(static_cast<int>(x), static_cast<int>(y), static_cast<int>(channel));
         ++out.Compared;
         const int64_t ulps = UlpsApart(ours, theirs);
         if (ulps == 0) { continue; }
@@ -56,15 +56,14 @@ struct RadianceResidual {
         if (ulps > 1) { ++out.BeyondOneUlp; }
         if (ours < theirs) { ++out.BelowOracle; }
         const double apart = static_cast<double>(ours) - static_cast<double>(theirs);
-        relative.push_back(theirs != 0.0f ? (apart < 0 ? -apart : apart) / static_cast<double>(theirs)
-                                          : 0.0);
+        relative.push_back(
+            theirs != 0.0f ? (apart < 0 ? -apart : apart) / static_cast<double>(theirs) : 0.0);
         if (ulps <= out.WorstUlps) { continue; }
         out.WorstUlps = ulps;
         out.WorstOurs = static_cast<double>(ours);
         out.WorstTheirs = static_cast<double>(theirs);
-        out.WorstRelative = theirs != 0.0f
-                                ? (out.WorstOurs - out.WorstTheirs) / static_cast<double>(theirs)
-                                : 0.0;
+        out.WorstRelative =
+            theirs != 0.0f ? (out.WorstOurs - out.WorstTheirs) / static_cast<double>(theirs) : 0.0;
         out.WorstX = x;
         out.WorstY = y;
         out.WorstChannel = channel;
@@ -78,5 +77,5 @@ struct RadianceResidual {
   return out;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

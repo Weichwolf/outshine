@@ -26,9 +26,11 @@ constexpr Profile kProfiles[] = {
 
 constexpr float kFloor = 0.05f;
 
-[[nodiscard]] bool Same(const char *a, const char *b) { return a && b && std::strcmp(a, b) == 0; }
-
+[[nodiscard]] bool Same(const char *a, const char *b) {
+  return a && b && std::strcmp(a, b) == 0;
 }
+
+} // namespace
 
 float GrowthForm::Reach(CrownEnvelope envelope, float t) {
   if (envelope == CrownEnvelope::Free) { return 1.0f; }
@@ -68,4 +70,4 @@ std::optional<CrownEnvelope> GrowthForm::EnvelopeOf(const char *name) {
   return std::nullopt;
 }
 
-}
+} // namespace outshine::Generators

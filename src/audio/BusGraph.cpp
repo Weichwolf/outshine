@@ -9,9 +9,11 @@ namespace {
 constexpr size_t kMostBuses = 64;
 constexpr size_t kMostSounds = 1024;
 
-[[nodiscard]] double Linear(double gainDb) { return std::pow(10.0, gainDb / 20.0); }
-
+[[nodiscard]] double Linear(double gainDb) {
+  return std::pow(10.0, gainDb / 20.0);
 }
+
+} // namespace
 
 int BusGraph::BusNamed(std::string_view id) const {
   for (size_t at = 0; at < Buses_.size(); ++at) {
@@ -20,7 +22,8 @@ int BusGraph::BusNamed(std::string_view id) const {
   return -1;
 }
 
-bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
+bool BusGraph::Build(std::span<const Bus> buses,
+                     std::span<const Sound> sounds,
                      std::string &error) {
   Buses_.clear();
   Sounds_.clear();
@@ -28,13 +31,13 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
   Voices_ = 0;
 
   if (buses.size() > kMostBuses) {
-    error = "the scenario declares " + std::to_string(buses.size()) +
-            " buses over the pool's " + std::to_string(kMostBuses);
+    error = "the scenario declares " + std::to_string(buses.size()) + " buses over the pool's " +
+            std::to_string(kMostBuses);
     return false;
   }
   if (sounds.size() > kMostSounds) {
-    error = "the scenario declares " + std::to_string(sounds.size()) +
-            " sounds over the pool's " + std::to_string(kMostSounds);
+    error = "the scenario declares " + std::to_string(sounds.size()) + " sounds over the pool's " +
+            std::to_string(kMostSounds);
     return false;
   }
   for (const Bus &bus : buses) {
@@ -43,7 +46,8 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
       return false;
     }
     if (BusNamed(bus.Id) >= 0) {
-      error = "the bus '" + bus.Id + "' is declared twice, and routing into it would be a "
+      error = "the bus '" + bus.Id +
+              "' is declared twice, and routing into it would be a "
               "coin toss";
       return false;
     }
@@ -102,8 +106,7 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
     }
     const int into = sound.Bus.empty() ? Master_ : BusNamed(sound.Bus);
     if (into < 0) {
-      error = "the sound '" + sound.Id + "' routes into '" + sound.Bus +
-              "', which no bus declares";
+      error = "the sound '" + sound.Id + "' routes into '" + sound.Bus + "', which no bus declares";
       return false;
     }
     if (sound.Heard.Positional && !(sound.Heard.RefM > 0.0)) {
@@ -112,8 +115,7 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
               "distance is a stereo source wearing a costume";
       return false;
     }
-    Sounds_.push_back(
-        Source{sound.Id, into, Linear(sound.GainDb), sound.Heard.Positional});
+    Sounds_.push_back(Source{sound.Id, into, Linear(sound.GainDb), sound.Heard.Positional});
   }
   return true;
 }
@@ -147,4 +149,4 @@ double BusGraph::GainOf(std::string_view id) const {
   return 0.0;
 }
 
-}
+} // namespace outshine::Audio

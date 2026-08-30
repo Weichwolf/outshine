@@ -22,15 +22,15 @@ namespace {
 constexpr double kUnitM = 1.0;
 
 void Facing(outshine::Geometry &into, const char *named, int material) {
-  constexpr float kFace[9] = {0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f, 0.0f, 0.0f, (float)kUnitM,
-                              0.0f};
+  constexpr float kFace[9] = {
+      0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f};
   constexpr uint32_t kRun[3] = {0, 1, 2};
   const int part = into.addPart(named, outshine::MaterialInstance(material));
   (void)into.setPositions(part, std::span<const float>(kFace, 9));
   (void)into.setTriangles(part, std::span<const uint32_t>(kRun, 3));
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -41,15 +41,13 @@ int main(void) {
   Facing(host, "body", 0);
   Facing(host, "glass", 1);
   Subject standing;
-  CHECK(standing.Assemble(host),
-        "a host of two parts naming materials 0 and 1 stands");
+  CHECK(standing.Assemble(host), "a host of two parts naming materials 0 and 1 stands");
   if (standing.Parts().size() != 2) { return Report(); }
 
   outshine::Geometry guest;
   Facing(guest, "ground", 0);
   Subject arriving;
-  CHECK(arriving.Assemble(guest),
-        "a guest of one part naming material 0 stands");
+  CHECK(arriving.Assemble(guest), "a guest of one part naming material 0 stands");
 
   const size_t was = standing.Parts().size();
   CHECK(standing.Append(arriving), "the guest appends onto the host");
@@ -57,8 +55,10 @@ int main(void) {
   if (standing.Parts().size() != was + 1) { return Report(); }
 
   for (size_t at = 0; at < standing.Parts().size(); ++at) {
-    std::printf("PART %zu '%s' names material %d\n", at,
-                standing.Parts()[at].NodeName.c_str(), standing.Parts()[at].Material);
+    std::printf("PART %zu '%s' names material %d\n",
+                at,
+                standing.Parts()[at].NodeName.c_str(),
+                standing.Parts()[at].Material);
   }
 
   CHECK(standing.Parts()[0].Material == 0 && standing.Parts()[1].Material == 1,

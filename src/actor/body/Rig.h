@@ -65,11 +65,15 @@ struct Reading {
   bool Sliding = false;
 };
 
-[[nodiscard]] Reading Bear(Rig &of, const Rigid &body, const Footing *under, const Controls &with,
-                           Wrench &into, double dtS);
+[[nodiscard]] Reading Bear(Rig &of,
+                           const Rigid &body,
+                           const Footing *under,
+                           const Controls &with,
+                           Wrench &into,
+                           double dtS);
 
 void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensity);
 
-}
+} // namespace outshine::Physics
 
 #endif

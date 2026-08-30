@@ -41,12 +41,10 @@
 #include "SceneRenderer.h"
 #include "ScenarioRead.h"
 
-
 namespace outshine {
 
 inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kMostSaveBytes = 1 << 20;
-
 
 class Collecting : public Sink {
 public:
@@ -56,22 +54,29 @@ public:
     Held.push_back(std::move(held));
     Took.push_back(Measure{what, how, unit == nullptr ? std::string() : std::string(unit)});
   }
+
   void Claim(bool held, const char *why) override {
     Held.push_back(std::string(held ? "HELD " : "FAILED ") + why);
     if (!held && Why.empty()) { Why = why; }
   }
+
   void Near(double was, double wanted, double within, const char *unit, const char *why) override {
     Held.push_back(std::string("NEAR ") + Rounded(was) + " of " + Rounded(wanted) + " within " +
                    Rounded(within) + (unit == nullptr ? "" : std::string(" ") + unit) + ": " + why);
     if (Why.empty()) { Why = why; }
   }
+
   void Say(const std::string &said) override { Held.push_back(said); }
+
   void Refuse(const std::string &why) override {
     Held.push_back("REFUSED " + why);
     if (Why.empty()) { Why = why; }
   }
+
   [[nodiscard]] const std::string &WhyNot() const { return Why; }
+
   [[nodiscard]] std::vector<std::string> &Lines() { return Held; }
+
   [[nodiscard]] std::vector<Measure> &Numbers() { return Took; }
 
 private:
@@ -87,7 +92,6 @@ private:
   std::string Why;
 };
 
-
 [[nodiscard]] inline std::string Said(double value) {
   char held[32] = {};
   std::snprintf(held, sizeof held, "%.5f", value);
@@ -102,7 +106,8 @@ private:
   return under.back() == '/' ? under + named : under + "/" + named;
 }
 
-[[nodiscard]] inline bool SlurpFile(const std::string &held, std::string &text, std::string &error) {
+[[nodiscard]] inline bool
+SlurpFile(const std::string &held, std::string &text, std::string &error) {
   std::FILE *const file = std::fopen(held.c_str(), "rb");
   if (file == nullptr) {
     error = held + ": no scenario at that path";
@@ -128,7 +133,9 @@ public:
     return Script::Value::OfRef((int)Named_.size());
   }
 
-  [[nodiscard]] bool Call(const Script::Value &callee, const Script::Value *args, size_t count,
+  [[nodiscard]] bool Call(const Script::Value &callee,
+                          const Script::Value *args,
+                          size_t count,
                           Script::Value &out) override {
     out = Script::Value();
     if (Client_ == nullptr || callee.What != Script::Kind::Ref) { return false; }
@@ -250,11 +257,13 @@ struct Surrounds {
   Generators::Structures Shipped;
   Makers Offering;
   Generators::Shipping Shipping;
+
   struct Standing {
     uint32_t Body = 0;
     uint32_t Cluster = 0;
     Generators::Instance Where;
   };
+
   std::vector<Standing> Instances;
   size_t Pending = 0;
   size_t Bare = 0;
@@ -280,7 +289,6 @@ struct Surrounds {
 };
 
 struct Spent {
-
   struct Counter {
     double LastMs = 0.0;
     double LeastMs = 0.0;
@@ -320,7 +328,7 @@ struct Spent {
       if (At != 0) { std::rotate(out.begin(), out.begin() + (long)At, out.end()); }
     }
 
-   private:
+  private:
     bool Filled_ = false;
   };
 
@@ -374,6 +382,5 @@ struct Engine::State {
   [[nodiscard]] bool Routes(void);
 };
 
-
-}
+} // namespace outshine
 #endif

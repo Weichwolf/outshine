@@ -85,10 +85,11 @@ struct Pull {
         Aliases.push_back(std::string(row.Name) + " -> neutral");
         return true;
       case FallbackKind::None:
-        Missing(r, row.Kind == ResourceKind::Attachment
-                       ? "is an attachment of this plan and nothing draws into it, so the plan would "
-                         "compile, run and render black"
-                       : "has no producer in this plan");
+        Missing(r,
+                row.Kind == ResourceKind::Attachment
+                    ? "is an attachment of this plan and nothing draws into it, so the plan would "
+                      "compile, run and render black"
+                    : "has no producer in this plan");
         return false;
     }
     return false;
@@ -101,7 +102,9 @@ struct Pull {
   }
 };
 
-const char *TransferName(Transfer t) { return t == Transfer::Linear ? "linear" : "filmic"; }
+const char *TransferName(Transfer t) {
+  return t == Transfer::Linear ? "linear" : "filmic";
+}
 
 const char *FormatName(TexelFormat f) {
   switch (f) {
@@ -123,7 +126,7 @@ std::string Decimal(float value) {
   return text;
 }
 
-}
+} // namespace
 
 std::optional<Stage> Compiled::StageByName(std::string_view name) {
   for (size_t s = 0; s < kStageCount; ++s) {
@@ -143,16 +146,17 @@ std::optional<Resource> Compiled::ResourceByName(std::string_view name) {
   return std::nullopt;
 }
 
-std::expected<std::shared_ptr<const Compiled>, std::string> Compiled::Compile(
-    const PlanSpec &spec) {
+std::expected<std::shared_ptr<const Compiled>, std::string>
+Compiled::Compile(const PlanSpec &spec) {
   std::shared_ptr<const Compiled> made;
   std::string error;
   if (!CompileInto(spec, &made, error)) { return std::unexpected(std::move(error)); }
   return made;
 }
 
-bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled> *out,
-                             std::string &error) {
+bool Compiled::CompileInto(const PlanSpec &spec,
+                           std::shared_ptr<const Compiled> *out,
+                           std::string &error) {
   if (spec.Outputs.empty()) {
     error = "render.outputs: a plan that requests no output renders nothing";
     return false;
@@ -170,7 +174,6 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
             ": nothing this plan requests reads what it draws into";
     return false;
   }
-
 
   std::unique_ptr<Compiled> plan(new Compiled());
   for (size_t s = 0; s < kStageCount; ++s) {
@@ -199,7 +202,6 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
     return false;
   }
   if (spec.Precision.Or(ScenePrecision::Half) == ScenePrecision::Float) {
-
     for (size_t at = 0; at < kResourceCount; ++at) {
       const Resource resource = static_cast<Resource>(at);
       if (CarriesSceneRadiance(resource)) { plan->Format_[at] = TexelFormat::Rgba32Float; }
@@ -209,8 +211,9 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
 
   if (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] &&
       !plan->HeldStage_[static_cast<size_t>(Stage::Tonemap)]) {
-    error = "render.content.temporalResolve: the resolve and the display transfer are one fragment, "
-            "so a plan that resolves must also request a picture -- request render.outputs.frameTex";
+    error =
+        "render.content.temporalResolve: the resolve and the display transfer are one fragment, "
+        "so a plan that resolves must also request a picture -- request render.outputs.frameTex";
     return false;
   }
 
@@ -265,7 +268,8 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
       if (merged) { plan->Passes_.back().Count++; }
     }
     if (!merged) {
-      plan->Passes_.push_back({row.Kind, row.Name, at, 1, AttachmentSet{}, AttachmentSet{}, kNoEdge});
+      plan->Passes_.push_back(
+          {row.Kind, row.Name, at, 1, AttachmentSet{}, AttachmentSet{}, kNoEdge});
     }
   }
 
@@ -349,7 +353,8 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
   }
 
   plan->SettleFrames_ =
-      1 + (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
+      1 +
+      (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
 
   std::string material = "outshine/render-plan/1\n";
   for (Stage s : plan->Order_) { material += std::string("stage ") + Row(s).Name + "\n"; }
@@ -361,8 +366,8 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
   for (const std::string &alias : plan->Aliases_) { material += "alias " + alias + "\n"; }
   for (size_t r = 0; r < kResourceCount; ++r) {
     if (!plan->HeldResource_[r]) { continue; }
-    material += std::string("resource ") + kResources[r].Name + " " +
-                FormatName(plan->Format_[r]) + "\n";
+    material +=
+        std::string("resource ") + kResources[r].Name + " " + FormatName(plan->Format_[r]) + "\n";
   }
   material += std::string("display ") + TransferName(plan->Display_) + "\n";
   material += "exposure " + Decimal(plan->Exposure_) + "\n";
@@ -372,4 +377,4 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
   return true;
 }
 
-}
+} // namespace outshine::Render

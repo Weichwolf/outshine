@@ -26,6 +26,7 @@ public:
     if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
     return {};
   }
+
   [[nodiscard]] S::Value Member(const S::Value &object, std::string_view name) override {
     if (object.What == S::Kind::Ref && object.Ref == kAssert) {
       if (name == "sameValue") { return S::Value::OfRef(kSame); }
@@ -36,8 +37,9 @@ public:
     if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
     return {};
   }
-  [[nodiscard]] bool Call(const S::Value &callee, const S::Value *args, size_t count,
-                          S::Value &out) override {
+
+  [[nodiscard]] bool
+  Call(const S::Value &callee, const S::Value *args, size_t count, S::Value &out) override {
     if (callee.What != S::Kind::Ref) { return false; }
     out = S::Value();
     switch (callee.Ref) {
@@ -55,17 +57,14 @@ public:
                               : args[0].Number == args[1].Number;
         if (same != (callee.Ref == kSame)) {
           Failed = (count >= 3 ? args[2].AsText() + ": " : std::string()) + "got " +
-                   args[0].AsText() + ", wanted " +
-                   (callee.Ref == kSame ? "" : "anything but ") + args[1].AsText();
+                   args[0].AsText() + ", wanted " + (callee.Ref == kSame ? "" : "anything but ") +
+                   args[1].AsText();
           return false;
         }
         return true;
       }
-      case kError:
-        Failed = count >= 1 ? args[0].AsText() : "the case called $ERROR";
-        return false;
-      case kPrint:
-        return true;
+      case kError: Failed = count >= 1 ? args[0].AsText() : "the case called $ERROR"; return false;
+      case kPrint: return true;
       default: break;
     }
     return false;
@@ -94,12 +93,12 @@ std::string ReadFile(const std::string &path, bool &found) {
   return text;
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    outshine::Test::Checked(false, "argc == 2", "one prepared case directory is the argument",
-                            __FILE__, __LINE__);
+    outshine::Test::Checked(
+        false, "argc == 2", "one prepared case directory is the argument", __FILE__, __LINE__);
     return outshine::Test::Report();
   }
   const std::string prepared = argv[1];
@@ -107,7 +106,8 @@ int main(int argc, char **argv) {
   bool found = false;
   const std::string manifestText = ReadFile(prepared + "/manifest.json", found);
   if (!found) {
-    outshine::Test::Unprepared((prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
+    outshine::Test::Unprepared(
+        (prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return outshine::Test::Report();
   }
   Json manifest;
@@ -153,16 +153,22 @@ int main(int argc, char **argv) {
     if (gap.empty()) {
       std::printf("JS-SUBSET reduced\n");
       std::printf("REDUCED %s -- every name that puts it outside is a declared boundary: %s\n",
-                  id.c_str(), boundary.c_str());
-      outshine::Test::Checked(true, "the case is outside a boundary this language declared",
-                              (id + ": " + boundary).c_str(), __FILE__, __LINE__);
+                  id.c_str(),
+                  boundary.c_str());
+      outshine::Test::Checked(true,
+                              "the case is outside a boundary this language declared",
+                              (id + ": " + boundary).c_str(),
+                              __FILE__,
+                              __LINE__);
     } else {
       std::printf("JS-SUBSET outside\n");
       std::printf("OUTSIDE %s -- undeclared: %s\n", id.c_str(), gap.c_str());
-      outshine::Test::Checked(false, "every name that puts a case outside is declared",
-                              (id + ": " + gap + " is outside the subset and nothing says why")
-                                  .c_str(),
-                              __FILE__, __LINE__);
+      outshine::Test::Checked(
+          false,
+          "every name that puts a case outside is declared",
+          (id + ": " + gap + " is outside the subset and nothing says why").c_str(),
+          __FILE__,
+          __LINE__);
     }
     return outshine::Test::Report();
   };
@@ -172,7 +178,6 @@ int main(int argc, char **argv) {
   S::Program program;
   std::string error;
   if (!program.Read(script, error)) {
-
     return settle({program.Stopped().empty() ? error : "token:" + program.Stopped()});
   }
 
@@ -183,11 +188,17 @@ int main(int argc, char **argv) {
   std::printf("JS-SUBSET inside\n");
   char why[512];
   if (wantsRefusal) {
-    std::snprintf(why, sizeof why, "%s: upstream states this case must fail at runtime, and it %s",
-                  id.c_str(), ran ? "ran to its end" : "was refused");
+    std::snprintf(why,
+                  sizeof why,
+                  "%s: upstream states this case must fail at runtime, and it %s",
+                  id.c_str(),
+                  ran ? "ran to its end" : "was refused");
     outshine::Test::Checked(!ran, "a negative case is refused", why, __FILE__, __LINE__);
   } else {
-    std::snprintf(why, sizeof why, "%s: %s", id.c_str(),
+    std::snprintf(why,
+                  sizeof why,
+                  "%s: %s",
+                  id.c_str(),
                   ran ? "ran to its end" : (host.Failed.empty() ? error : host.Failed).c_str());
     outshine::Test::Checked(ran, "a positive case runs to its end", why, __FILE__, __LINE__);
   }

@@ -68,18 +68,22 @@ constexpr const char *kQuadBase64 =
 
 [[nodiscard]] std::string Sheet(const char *held, const char *least, const char *most) {
   return std::string(
-      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-      "\"nodes\":[{\"mesh\":0}],"
-      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"material\":0}]}],"
-      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0],"
-      "\"metallicFactor\":0.0,\"roughnessFactor\":1.0}}],"
-      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\","
-      "\"min\":[") + least + "],\"max\":[" + most + "]},"
-      "{\"bufferView\":1,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\"}],"
-      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":72},"
-      "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":72}],"
-      "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64," +
-      held + "\"}]}";
+             "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+             "\"nodes\":[{\"mesh\":0}],"
+             "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+             "\"material\":0}]}],"
+             "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0],"
+             "\"metallicFactor\":0.0,\"roughnessFactor\":1.0}}],"
+             "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":6,\"type\":"
+             "\"VEC3\","
+             "\"min\":[") +
+         least + "],\"max\":[" + most +
+         "]},"
+         "{\"bufferView\":1,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\"}],"
+         "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":72},"
+         "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":72}],"
+         "\"buffers\":[{\"byteLength\":144,\"uri\":\"data:application/octet-stream;base64," +
+         held + "\"}]}";
 }
 
 [[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
@@ -110,8 +114,8 @@ constexpr const char *kQuadBase64 =
   return peak;
 }
 
-[[nodiscard]] outshine::Scenario Under(double elevationDeg, double bearingDeg,
-                                       const char *surface) {
+[[nodiscard]] outshine::Scenario
+Under(double elevationDeg, double bearingDeg, const char *surface) {
   outshine::Scenario made;
   made.Render.Declared = true;
   made.Render.Frame = outshine::Extent{kFramePx, kFramePx};
@@ -126,7 +130,7 @@ constexpr const char *kQuadBase64 =
   return made;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -157,8 +161,7 @@ int main(void) {
   }
 
   double levelPeak = 0.0;
-  const auto read = [&](double elevationDeg, double bearingDeg, const char *surface,
-                        double &into) {
+  const auto read = [&](double elevationDeg, double bearingDeg, const char *surface, double &into) {
     const outshine::Scenario stands = Under(elevationDeg, bearingDeg, surface);
     std::vector<uint8_t> rgba;
     if (!engine.declare(stands) || !engine.renderer().readPixels(rgba)) { return false; }
@@ -188,7 +191,9 @@ int main(void) {
     if (swept[at] > most) { most = swept[at]; }
     total += swept[at];
     std::printf("  elevation 42 deg, bearing %3.0f deg   level %7.3f   upright %7.3f\n",
-                kBearings[at], swept[at], upright[at]);
+                kBearings[at],
+                swept[at],
+                upright[at]);
   }
   double leastUpright = upright[0], mostUpright = upright[0];
   for (int at = 0; at < 4; ++at) {
@@ -208,7 +213,9 @@ int main(void) {
   std::printf("  elevation 21 deg, bearing   0 deg   mean max(RGB) %7.3f\n", lower);
   std::printf("  elevation -80 deg (no key)          mean max(RGB) %7.3f\n", dark);
   std::printf("  spread over four bearings %7.3f     one elevation step %7.3f     ratio %6.3f\n",
-              spread, step, step > 0.0 ? spread / step : -1.0);
+              spread,
+              step,
+              step > 0.0 ? spread / step : -1.0);
   std::printf("  the same four bearings over an UPRIGHT surface spread %7.3f\n", uprightSpread);
 
   // THE CLOSED FORM, AND WHAT IT PINS. An ordering is satisfied by any monotone wrongness: a
@@ -234,7 +241,8 @@ int main(void) {
   // separate question; four counts cannot hide a factor of two, which would move this by forty.
   constexpr double kOwed = 185.9;
   constexpr double kWithin = 4.0;
-  std::printf("  the closed form owes                %7.3f of 255, measured %7.3f\n", kOwed,
+  std::printf("  the closed form owes                %7.3f of 255, measured %7.3f\n",
+              kOwed,
               peakAtFortyTwo);
   CHECK(std::fabs(peakAtFortyTwo - kOwed) <= kWithin,
         "**A LEVEL LAMBERTIAN SURFACE READS WHAT THE CLOSED FORM SAYS**: declared illuminance "

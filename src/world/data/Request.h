@@ -13,6 +13,7 @@ public:
   Request(DataKind kind, Address where) : Kind_(kind), Where_(where) {}
 
   [[nodiscard]] DataKind Kind() const noexcept { return Kind_; }
+
   [[nodiscard]] const Address &Where() const noexcept { return Where_; }
 
   [[nodiscard]] std::string Key() const { return std::string(Name(Kind_)) + "/" + Where_.Text(); }
@@ -22,5 +23,5 @@ private:
   Address Where_;
 };
 
-}
+} // namespace outshine::Data
 #endif

@@ -56,7 +56,7 @@ constexpr double kSlipRad = 0.06;
   return ShedAt(on, kLoadN, kSlipRad, 0.0).HoldN;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -109,8 +109,10 @@ int main(void) {
   const Reading onFirm = readAt(1.0, askedN);
   const Reading onLoose = readAt(kGrassFactor, askedN);
 
-  std::printf("CONTACT load %9.2f N   ratio firm %.6f   ratio loose %.6f\n", onFirm.LoadN[0],
-              onFirm.RatioOfHold[0], onLoose.RatioOfHold[0]);
+  std::printf("CONTACT load %9.2f N   ratio firm %.6f   ratio loose %.6f\n",
+              onFirm.LoadN[0],
+              onFirm.RatioOfHold[0],
+              onLoose.RatioOfHold[0]);
 
   CHECK(onFirm.Touching[0] && onLoose.Touching[0],
         "both arms stand on the ground: the wheel is not airborne on either, which is the whole "

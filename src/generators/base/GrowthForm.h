@@ -7,11 +7,27 @@
 namespace outshine::Generators {
 
 enum class Architecture : uint8_t {
-  SingleStemTree, MultiStemTree, MultiStemShrub, Bush, Hedge, Snag, Stump, FallenLog
+  SingleStemTree,
+  MultiStemTree,
+  MultiStemShrub,
+  Bush,
+  Hedge,
+  Snag,
+  Stump,
+  FallenLog
 };
 
 enum class CrownEnvelope : uint8_t {
-  Free, Conical, Columnar, Ovoid, Domed, Vase, Weeping, Umbrella, FlatTopped, Cut
+  Free,
+  Conical,
+  Columnar,
+  Ovoid,
+  Domed,
+  Vase,
+  Weeping,
+  Umbrella,
+  FlatTopped,
+  Cut
 };
 
 struct GrowthForm {
@@ -36,5 +52,5 @@ struct GrowthForm {
   static std::optional<CrownEnvelope> EnvelopeOf(const char *name);
 };
 
-}
+} // namespace outshine::Generators
 #endif

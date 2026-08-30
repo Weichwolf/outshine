@@ -12,8 +12,14 @@ namespace {
 float NumF(const Json::Ref &r, const char *key, float def) {
   return (float)r[key].Num((double)def);
 }
-int NumI(const Json::Ref &r, const char *key, int def) { return r[key].Int(def); }
-[[nodiscard]] bool NumB(const Json::Ref &r, const char *key, bool def) { return r[key].Int(def ? 1 : 0) != 0; }
+
+int NumI(const Json::Ref &r, const char *key, int def) {
+  return r[key].Int(def);
+}
+
+[[nodiscard]] bool NumB(const Json::Ref &r, const char *key, bool def) {
+  return r[key].Int(def ? 1 : 0) != 0;
+}
 
 [[nodiscard]] TreeSpecies::LeafKind KindOf(const std::string &s) {
   if (s == "needle") { return TreeSpecies::LeafKind::Needle; }
@@ -23,7 +29,7 @@ int NumI(const Json::Ref &r, const char *key, int def) { return r[key].Int(def);
   return TreeSpecies::LeafKind::Broad;
 }
 
-}
+} // namespace
 
 bool TreeSpecies::Parse(const char *text, size_t len) {
   Json doc;
@@ -152,4 +158,4 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   }
   return true;
 }
-}
+} // namespace outshine::Generators

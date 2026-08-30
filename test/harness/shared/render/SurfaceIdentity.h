@@ -34,8 +34,8 @@ enum class IndexPass { Material, Object };
 
 class IndexNames {
 public:
-  [[nodiscard]] bool ReadFile(const std::string &directory, IndexPass which,
-                              std::optional<int> frame) {
+  [[nodiscard]] bool
+  ReadFile(const std::string &directory, IndexPass which, std::optional<int> frame) {
     Error_.clear();
     ByPassIndex_.clear();
     const std::string path = directory + "provenance.json";
@@ -60,6 +60,7 @@ public:
   }
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
+
   [[nodiscard]] size_t Count() const { return ByPassIndex_.size(); }
 
   [[nodiscard]] std::string At(int passIndex) const {
@@ -68,8 +69,8 @@ public:
   }
 
 private:
-  [[nodiscard]] bool Take(const Json::Ref &indexed, const std::string &path,
-                          const std::string &wanted) {
+  [[nodiscard]] bool
+  Take(const Json::Ref &indexed, const std::string &path, const std::string &wanted) {
     for (size_t at = 0; at < indexed.Size(); ++at) {
       const int passIndex = indexed[at]["passIndex"].Int(-1);
       const std::string name = indexed[at]["name"].Str("");
@@ -92,7 +93,8 @@ private:
   }
 
   [[nodiscard]] static bool EndsWith(const std::string &text, const std::string &tail) {
-    return text.size() >= tail.size() && text.compare(text.size() - tail.size(), tail.size(), tail) == 0;
+    return text.size() >= tail.size() &&
+           text.compare(text.size() - tail.size(), tail.size(), tail) == 0;
   }
 
   [[nodiscard]] static bool Slurp(const std::string &path, std::string &out) {
@@ -121,7 +123,9 @@ struct SurfaceAt {
 
 class OracleSurfaces {
 public:
-  [[nodiscard]] bool Read(const std::string &directory, IndexPass which, std::optional<int> frame,
+  [[nodiscard]] bool Read(const std::string &directory,
+                          IndexPass which,
+                          std::optional<int> frame,
                           const std::vector<std::string> &fileMaterialNames) {
     Names_ = fileMaterialNames;
     if (!Pass_.ReadFile(directory + PassRawName(which, frame))) { return Refuse(Pass_.Error()); }
@@ -138,7 +142,9 @@ public:
   }
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
+
   [[nodiscard]] int Width() const { return Pass_.Width(); }
+
   [[nodiscard]] int Height() const { return Pass_.Height(); }
 
   [[nodiscard]] int IndexAt(int x, int y) const { return (int)Pass_.At(x, y, 0); }
@@ -169,7 +175,6 @@ public:
   }
 
   [[nodiscard]] int FileMaterialNamed(const std::string &name, std::string &why) const {
-
     std::string wanted = name;
     bool present = false;
     for (const std::string &known : Names_) { present |= known == wanted; }
@@ -208,9 +213,14 @@ private:
 
 class OurSurfaces {
 public:
-  OurSurfaces(const std::vector<float> &identity, int width, const std::vector<int> &slotMaterial,
+  OurSurfaces(const std::vector<float> &identity,
+              int width,
+              const std::vector<int> &slotMaterial,
               const std::vector<std::string> &fileMaterialNames)
-      : Identity_(identity), Width_(width), SlotMaterial_(slotMaterial), Names_(fileMaterialNames) {}
+      : Identity_(identity),
+        Width_(width),
+        SlotMaterial_(slotMaterial),
+        Names_(fileMaterialNames) {}
 
   [[nodiscard]] int SlotAt(int x, int y) const {
     const size_t at = ((size_t)y * (size_t)Width_ + (size_t)x) * 4u;
@@ -343,7 +353,8 @@ struct IdentityReading {
 
 constexpr size_t kKeptDisagreements = 8;
 
-[[nodiscard]] inline size_t DistinctOracleIndices(const OracleSurfaces &oracle, const Mask &theirs) {
+[[nodiscard]] inline size_t DistinctOracleIndices(const OracleSurfaces &oracle,
+                                                  const Mask &theirs) {
   std::vector<int> seen;
   for (int y = 0; y < theirs.Height; ++y) {
     for (int x = 0; x < theirs.Width; ++x) {
@@ -394,7 +405,7 @@ inline void Refuse(IdentityReading &reading, const std::string &why) {
   reading.AttributableAt = Mask{};
 }
 
-}
+} // namespace Detail
 
 [[nodiscard]] inline IdentityReading ReadSurfaceIdentity(const IdentityQuestion &asked) {
   const Mask &theirs = asked.TheirCoverage;
@@ -426,7 +437,8 @@ inline void Refuse(IdentityReading &reading, const std::string &why) {
       if (cycles < 0 || mine < 0) {
         ++out.Unresolved;
         if (out.Unresolvable.empty()) {
-          out.Unresolvable = cycles < 0 ? asked.Oracle.At(x, y, true).Why : asked.Ours.At(x, y, true).Why;
+          out.Unresolvable =
+              cycles < 0 ? asked.Oracle.At(x, y, true).Why : asked.Ours.At(x, y, true).Why;
         }
         continue;
       }
@@ -465,21 +477,26 @@ inline void Refuse(IdentityReading &reading, const std::string &why) {
   if (!out.AttributionKnown) { out.AttributableAt = Mask{}; }
 
   if (out.Compared == 0) {
-    Detail::Refuse(out, "no pixel both sides cover carries an identity both of them can resolve, so "
-                        "the oracle's materials are not this file's and the two partitions are not "
-                        "comparable -- " + out.Unresolvable);
+    Detail::Refuse(out,
+                   "no pixel both sides cover carries an identity both of them can resolve, so "
+                   "the oracle's materials are not this file's and the two partitions are not "
+                   "comparable -- " +
+                       out.Unresolvable);
     return out;
   }
   if (out.Unresolved > 0) {
-    Detail::Refuse(out, std::to_string(out.Unresolved) + " of " + std::to_string(out.BothCovered) +
-                            " pixels both sides cover carry an identity one of them cannot resolve "
-                            "-- " + out.Unresolvable + " -- so the two partitions are not the same "
-                            "one");
+    Detail::Refuse(out,
+                   std::to_string(out.Unresolved) + " of " + std::to_string(out.BothCovered) +
+                       " pixels both sides cover carry an identity one of them cannot resolve "
+                       "-- " +
+                       out.Unresolvable +
+                       " -- so the two partitions are not the same "
+                       "one");
     return out;
   }
   out.Adjudicated = true;
   return out;
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

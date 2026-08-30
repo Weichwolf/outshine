@@ -18,9 +18,19 @@ namespace {
 //
 // The case walks the arrays the schema names, one document per array, and each must be refused
 // with the array's own name in the reason.
-constexpr const char *kNamed[] = {"accessors", "animations", "buffers", "bufferViews", "cameras",
-                                  "images",    "materials",  "meshes",  "nodes",      "samplers",
-                                  "scenes",    "skins",      "textures"};
+constexpr const char *kNamed[] = {"accessors",
+                                  "animations",
+                                  "buffers",
+                                  "bufferViews",
+                                  "cameras",
+                                  "images",
+                                  "materials",
+                                  "meshes",
+                                  "nodes",
+                                  "samplers",
+                                  "scenes",
+                                  "skins",
+                                  "textures"};
 
 [[nodiscard]] std::string Holding(const char *emptied) {
   std::string held = "{\"asset\":{\"version\":\"2.0\"},\"";
@@ -36,7 +46,7 @@ constexpr const char *kNamed[] = {"accessors", "animations", "buffers", "bufferV
   return std::fclose(file) == 0 && whole;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -64,7 +74,8 @@ int main(void) {
     std::printf("%-12s empty: %s\n", emptied, stood ? "STOOD" : "refused");
   }
 
-  Note("arrays the schema gives a minimum of one", (double)(sizeof kNamed / sizeof kNamed[0]),
+  Note("arrays the schema gives a minimum of one",
+       (double)(sizeof kNamed / sizeof kNamed[0]),
        "arrays");
   Note("of them, refused when emptied", (double)refused, "arrays");
   Note("and refused by NAME", (double)named, "arrays");
@@ -89,7 +100,8 @@ int main(void) {
   }
   outshine::Gltf::Document whole;
   const bool read = whole.ReadFile(path);
-  std::printf("THE SAME ARRAYS HOLDING ONE ITEM EACH: %s%s\n", read ? "STOOD" : "refused -- ",
+  std::printf("THE SAME ARRAYS HOLDING ONE ITEM EACH: %s%s\n",
+              read ? "STOOD" : "refused -- ",
               read ? "" : whole.Error().c_str());
   CHECK(read,
         "and the control is a control: the same arrays holding one item each are READ, so what "

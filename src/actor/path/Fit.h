@@ -12,8 +12,8 @@ namespace outshine {
 
 [[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM);
 
-[[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
-                                          std::vector<size_t> &kept);
+[[nodiscard]] std::vector<double>
+Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t> &kept);
 
 struct Fitted {
   bool Laid = false;
@@ -52,13 +52,16 @@ struct Fitted {
   std::string Error;
 };
 
-[[nodiscard]] Fitted Fit(std::span<const double> eastNorthM, double withinM,
-                         double tightestM, ReferenceLine &into);
+[[nodiscard]] Fitted
+Fit(std::span<const double> eastNorthM, double withinM, double tightestM, ReferenceLine &into);
 
-[[nodiscard]] Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
-                         std::span<const double> classTightestM, ReferenceLine &into,
+[[nodiscard]] Fitted Fit(std::span<const double> eastNorthM,
+                         double withinM,
+                         double tightestM,
+                         std::span<const double> classTightestM,
+                         ReferenceLine &into,
                          std::span<const double> withinAtM = {});
 
-}
+} // namespace outshine
 
 #endif

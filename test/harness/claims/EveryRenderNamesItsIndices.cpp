@@ -31,7 +31,6 @@ bool Slurp(const std::filesystem::path &path, std::string &into) {
 }
 
 std::vector<std::filesystem::path> PreparedCases() {
-
   std::vector<std::filesystem::path> cases;
   std::error_code failed;
 
@@ -96,13 +95,14 @@ Census ReadCase(const std::filesystem::path &directory, const Json &document) {
         continue;
       }
       ++tally.Refusing;
-      outshine::Test::Note((directory.string() + " recipe " + row["recipe"].Str("?") + ": " + why).c_str());
+      outshine::Test::Note(
+          (directory.string() + " recipe " + row["recipe"].Str("?") + ": " + why).c_str());
     }
   }
   return tally;
 }
 
-}
+} // namespace
 
 int main() {
   using namespace outshine::Test;
@@ -110,7 +110,9 @@ int main() {
   const std::vector<std::filesystem::path> cases = PreparedCases();
   Note("prepared cases carrying a provenance document", (double)cases.size(), "cases");
   if (cases.empty()) {
-    Unprepared("test/harness/shared/corpus/prepare.py has produced no provenance.json to read a mapping out of");
+    Unprepared(
+        "test/harness/shared/corpus/prepare.py has produced no provenance.json to read a mapping "
+        "out of");
     return Report();
   }
 

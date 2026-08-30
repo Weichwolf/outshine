@@ -35,7 +35,7 @@ constexpr double kRimLonDeg = -112.1076;
 constexpr double kLeastM = 1500.0;
 constexpr double kMostM = 2600.0;
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -47,18 +47,21 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  engine.setRoots(outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(
+      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
 
   double before = 0.0;
   const bool answeredEarly = engine.sampleHeight(kRimLatDeg, kRimLonDeg, before);
-  std::printf("BEFORE A WORLD STANDS  %s -- %s\n", answeredEarly ? "answered" : "refused",
+  std::printf("BEFORE A WORLD STANDS  %s -- %s\n",
+              answeredEarly ? "answered" : "refused",
               answeredEarly ? "" : engine.error().c_str());
 
-  CHECK(!answeredEarly,
-        "**A HEIGHT NOBODY HAS IS NOT A NUMBER TO INVENT**: asked before a world stands, the door "
-        "REFUSES and says why. This is the negative control for the check below -- a door that "
-        "answered 0.0 here would pass that one by accident, and a client would build on a sea-level "
-        "lie");
+  CHECK(
+      !answeredEarly,
+      "**A HEIGHT NOBODY HAS IS NOT A NUMBER TO INVENT**: asked before a world stands, the door "
+      "REFUSES and says why. This is the negative control for the check below -- a door that "
+      "answered 0.0 here would pass that one by accident, and a client would build on a sea-level "
+      "lie");
 
   if (!engine.drawsInto(outshine::Extent{320, 180})) {
     Unprepared("the device stood no canvas");

@@ -16,10 +16,10 @@ void Put(std::vector<float> &into, double a, double b, double c) {
   into.push_back((float)c);
 }
 
-}
+} // namespace
 
-Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM,
-             double stepM) {
+Ribbon
+Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM) {
   Ribbon out;
   out.FromM = fromM;
   out.ToM = toM;
@@ -50,9 +50,10 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     return out;
   }
 
-  const double acrossAt[kRibbonAcross] = {
-      -(section.HalfWidthM + section.ShoulderM), -section.HalfWidthM, section.HalfWidthM,
-      section.HalfWidthM + section.ShoulderM};
+  const double acrossAt[kRibbonAcross] = {-(section.HalfWidthM + section.ShoulderM),
+                                          -section.HalfWidthM,
+                                          section.HalfWidthM,
+                                          section.HalfWidthM + section.ShoulderM};
 
   out.PositionM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
   out.NormalM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
@@ -85,17 +86,19 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
-      Put(out.PositionM, eastM - out.OriginM[0], stood[which].HeightM - out.OriginM[1],
+      Put(out.PositionM,
+          eastM - out.OriginM[0],
+          stood[which].HeightM - out.OriginM[1],
           -northM - out.OriginM[2]);
-      Put(out.NormalM, stood[which].NormalM[0], stood[which].NormalM[1],
-          -stood[which].NormalM[2]);
+      Put(out.NormalM, stood[which].NormalM[0], stood[which].NormalM[1], -stood[which].NormalM[2]);
       out.AcrossM.push_back((float)acrossAt[which]);
     }
     for (size_t which = 0; which < kRibbonAcross; ++which) {
       const Astride &surface = stood[which];
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
-      Put(out.PositionM, eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],
+      Put(out.PositionM,
+          eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],
           surface.HeightM - surface.NormalM[1] * section.ThicknessM - out.OriginM[1],
           -(northM - surface.NormalM[2] * section.ThicknessM) - out.OriginM[2]);
       Put(out.NormalM, -surface.NormalM[0], -surface.NormalM[1], surface.NormalM[2]);
@@ -109,19 +112,31 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     const uint32_t next = here + perStation;
     for (uint32_t which = 0; which + 1 < (uint32_t)kRibbonAcross; ++which) {
       out.Index.insert(out.Index.end(),
-                       {here + which, next + which, here + which + 1,
-                        here + which + 1, next + which, next + which + 1});
+                       {here + which,
+                        next + which,
+                        here + which + 1,
+                        here + which + 1,
+                        next + which,
+                        next + which + 1});
       const uint32_t under = (uint32_t)kRibbonAcross;
       out.Index.insert(out.Index.end(),
-                       {here + under + which, here + under + which + 1, next + under + which,
-                        here + under + which + 1, next + under + which + 1, next + under + which});
+                       {here + under + which,
+                        here + under + which + 1,
+                        next + under + which,
+                        here + under + which + 1,
+                        next + under + which + 1,
+                        next + under + which});
     }
     const uint32_t under = (uint32_t)kRibbonAcross;
     const uint32_t edge = (uint32_t)kRibbonAcross - 1;
+    out.Index.insert(out.Index.end(), {here, here + under, next, next, here + under, next + under});
     out.Index.insert(out.Index.end(),
-                     {here, here + under, next, next, here + under, next + under});
-    out.Index.insert(out.Index.end(), {here + edge, next + edge, here + under + edge,
-                                       next + edge, next + under + edge, here + under + edge});
+                     {here + edge,
+                      next + edge,
+                      here + under + edge,
+                      next + edge,
+                      next + under + edge,
+                      here + under + edge});
   }
 
   for (const bool atEnd : {false, true}) {
@@ -161,4 +176,4 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
   return out;
 }
 
-}
+} // namespace outshine

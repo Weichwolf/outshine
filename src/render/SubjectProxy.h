@@ -25,31 +25,49 @@ struct Eye {
 class SubjectProxy {
 public:
   void Stands(const Shape &subject, const double anchorEcefM[3]);
+
   void Posed(const std::vector<double> *previousPositionsM) { Previous_ = previousPositionsM; }
+
   [[nodiscard]] bool Wears(std::span<const uint32_t> partSlot,
-                           std::span<const SubjectMaterial> slots, std::string &error);
+                           std::span<const SubjectMaterial> slots,
+                           std::string &error);
   [[nodiscard]] bool Emits(size_t part, const std::array<float, 3> &radiance);
   [[nodiscard]] bool Places(size_t part, const double m16[16]);
   [[nodiscard]] bool Places(size_t part, size_t instance, const double m16[16]);
   [[nodiscard]] bool Carries(size_t instances);
+
   void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }
+
   void Around(const SubjectEnvironment &environment) { Environment_ = environment; }
 
   [[nodiscard]] const Shape *Shaped() const { return Shape_; }
-  [[nodiscard]] size_t Parts() const { return Instances_ == 0 ? 0 : PartPlacement_.size() / Instances_; }
+
+  [[nodiscard]] size_t Parts() const {
+    return Instances_ == 0 ? 0 : PartPlacement_.size() / Instances_;
+  }
+
   [[nodiscard]] size_t Instances() const { return Instances_; }
+
   [[nodiscard]] size_t Placements() const { return Placed_ ? PartPlacement_.size() : 0; }
+
   [[nodiscard]] const double *Anchor() const { return AnchorEcefM_; }
+
   [[nodiscard]] const std::array<float, 3> &Emitted(size_t part) const {
     return EmittedRadiance_[part];
   }
+
   [[nodiscard]] uint32_t Slot(size_t part) const { return PartSurface_[part]; }
+
   [[nodiscard]] const std::array<double, 16> &Placement(size_t row) const {
     return PartPlacement_[row];
   }
+
   [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
+
   [[nodiscard]] const std::vector<double> *Previous() const { return Previous_; }
+
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
+
   [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
 
 private:
@@ -68,11 +86,20 @@ private:
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error);
 
-[[nodiscard]] bool Moved(SceneRenderer &renderer, size_t rows, size_t from, size_t to,
-                         const double ecef[16], std::string &error);
+[[nodiscard]] bool Moved(SceneRenderer &renderer,
+                         size_t rows,
+                         size_t from,
+                         size_t to,
+                         const double ecef[16],
+                         std::string &error);
 
-[[nodiscard]] bool MovedInstance(SceneRenderer &renderer, size_t rows, size_t instances, size_t instance,
-                                 size_t fromPart, size_t toPart, const double ecef[16],
+[[nodiscard]] bool MovedInstance(SceneRenderer &renderer,
+                                 size_t rows,
+                                 size_t instances,
+                                 size_t instance,
+                                 size_t fromPart,
+                                 size_t toPart,
+                                 const double ecef[16],
                                  std::string &error);
 
 struct SubjectScratch {
@@ -82,23 +109,38 @@ struct SubjectScratch {
   DrawList Draws;
 };
 
-[[nodiscard]] bool Aim(SceneRenderer &renderer, const Shape &subject, const Eye &view,
-                       const double anchorEcefM[3], std::string &error);
+[[nodiscard]] bool Aim(SceneRenderer &renderer,
+                       const Shape &subject,
+                       const Eye &view,
+                       const double anchorEcefM[3],
+                       std::string &error);
 
-[[nodiscard]] bool Show(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-                        SubjectScratch &scratch, std::string &error);
+[[nodiscard]] bool Show(SceneRenderer &renderer,
+                        const SubjectProxy &proxy,
+                        const Eye &view,
+                        SubjectScratch &scratch,
+                        std::string &error);
 
-[[nodiscard]] bool Surface(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-                           SubjectScratch &scratch, std::string &error);
+[[nodiscard]] bool Surface(SceneRenderer &renderer,
+                           const SubjectProxy &proxy,
+                           const Eye &view,
+                           SubjectScratch &scratch,
+                           std::string &error);
 
 [[nodiscard]] [[nodiscard]] double PackedMs();
 [[nodiscard]] double HandedMs();
 
-bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-                         SubjectScratch &scratch, std::string &error);
+bool Place(SceneRenderer &renderer,
+           const SubjectProxy &proxy,
+           const Eye &view,
+           SubjectScratch &scratch,
+           std::string &error);
 
-[[nodiscard]] bool Move(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
-                        SubjectScratch &scratch, std::string &error);
+[[nodiscard]] bool Move(SceneRenderer &renderer,
+                        const SubjectProxy &proxy,
+                        const Eye &view,
+                        SubjectScratch &scratch,
+                        std::string &error);
 
-}
+} // namespace outshine::Render
 #endif

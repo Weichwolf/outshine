@@ -105,8 +105,13 @@ constexpr const char *kTracksBase64 =
   return stands;
 }
 
-[[nodiscard]] bool Drew(const std::string &under, const char *uri, int clip, bool name, int steps,
-                        std::vector<uint8_t> &rgba, std::string &why) {
+[[nodiscard]] bool Drew(const std::string &under,
+                        const char *uri,
+                        int clip,
+                        bool name,
+                        int steps,
+                        std::vector<uint8_t> &rgba,
+                        std::string &why) {
   outshine::Engine engine;
   engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.drawsInto(outshine::Extent{kFramePx, kFramePx})) {
@@ -139,7 +144,7 @@ constexpr const char *kTracksBase64 =
   return apart;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;

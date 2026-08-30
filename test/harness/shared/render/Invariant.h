@@ -37,8 +37,8 @@ struct Invariant {
   bool Channel[3] = {true, true, true};
 };
 
-[[nodiscard]] inline bool ReadInvariantKind(const std::string &spelling, InvariantKind &out,
-                                            std::string &error) {
+[[nodiscard]] inline bool
+ReadInvariantKind(const std::string &spelling, InvariantKind &out, std::string &error) {
   if (spelling == "hue-of-brightest") {
     out = InvariantKind::HueOfBrightest;
     return true;
@@ -47,13 +47,13 @@ struct Invariant {
     out = InvariantKind::RegionCompare;
     return true;
   }
-  error = "statedInvariants[].kind '" + spelling +
-          "' is neither hue-of-brightest nor region-compare";
+  error =
+      "statedInvariants[].kind '" + spelling + "' is neither hue-of-brightest nor region-compare";
   return false;
 }
 
-[[nodiscard]] inline bool ReadTriple(const Json::Ref &entry, const char *name, double out[3],
-                                     std::string &error) {
+[[nodiscard]] inline bool
+ReadTriple(const Json::Ref &entry, const char *name, double out[3], std::string &error) {
   if (entry["value"].Size() != 3) {
     error = std::string(name) + " carries no three-channel value";
     return false;
@@ -86,8 +86,8 @@ struct Invariant {
   return true;
 }
 
-[[nodiscard]] inline bool ReadRect(const Json::Ref &entry, const char *name, PixelRect &out,
-                                   std::string &error) {
+[[nodiscard]] inline bool
+ReadRect(const Json::Ref &entry, const char *name, PixelRect &out, std::string &error) {
   if (entry["value"].Size() != 4) {
     error = std::string(name) + " is not four numbers -- x, y, width, height, in pixels";
     return false;
@@ -108,8 +108,8 @@ struct Invariant {
   return out.Width > 0 && out.Height > 0;
 }
 
-[[nodiscard]] inline bool ReadInvariants(const Json::Ref &declared, std::vector<Invariant> &out,
-                                         std::string &error) {
+[[nodiscard]] inline bool
+ReadInvariants(const Json::Ref &declared, std::vector<Invariant> &out, std::string &error) {
   out.clear();
   for (size_t at = 0; at < declared.Size(); ++at) {
     const Json::Ref entry = declared[at];
@@ -130,9 +130,11 @@ struct Invariant {
       case InvariantKind::HueOfBrightest:
         if (!ReadTriple(entry["hue"], (where + ".hue").c_str(), check.Rgb, error)) { return false; }
         if (!ReadDeclaredNumber(entry["brightestFraction"],
-                                (where + ".brightestFraction").c_str(), check.Fraction, error) ||
-            !ReadDeclaredNumber(entry["maxHueError"], (where + ".maxHueError").c_str(),
-                                check.Tolerance, error)) {
+                                (where + ".brightestFraction").c_str(),
+                                check.Fraction,
+                                error) ||
+            !ReadDeclaredNumber(
+                entry["maxHueError"], (where + ".maxHueError").c_str(), check.Tolerance, error)) {
           return false;
         }
         break;
@@ -155,19 +157,22 @@ struct Invariant {
           const bool ulps = entry["maxUlps"].Valid();
           const bool quantile = entry["maxP95Relative"].Valid();
           if (ulps == quantile) {
-            error = where + " declares " + (ulps ? "both maxUlps and maxP95Relative" : "neither "
-                    "maxUlps nor maxP95Relative") +
+            error = where + " declares " +
+                    (ulps ? "both maxUlps and maxP95Relative"
+                          : "neither "
+                            "maxUlps nor maxP95Relative") +
                     ", and one comparison is judged in one currency";
             return false;
           }
           check.Judged = ulps ? Invariant::Currency::Ulps : Invariant::Currency::P95Relative;
-          if (ulps && !ReadDeclaredNumber(entry["maxUlps"], (where + ".maxUlps").c_str(),
-                                          check.MaxUlps, error)) {
+          if (ulps && !ReadDeclaredNumber(
+                          entry["maxUlps"], (where + ".maxUlps").c_str(), check.MaxUlps, error)) {
             return false;
           }
-          if (quantile &&
-              !ReadDeclaredNumber(entry["maxP95Relative"], (where + ".maxP95Relative").c_str(),
-                                  check.MaxP95Relative, error)) {
+          if (quantile && !ReadDeclaredNumber(entry["maxP95Relative"],
+                                              (where + ".maxP95Relative").c_str(),
+                                              check.MaxP95Relative,
+                                              error)) {
             return false;
           }
         }
@@ -201,12 +206,14 @@ struct LinearFrame {
   int Height = 0;
 
   [[nodiscard]] bool Holds() const {
-    return Samples != nullptr &&
-           Samples->size() >= (size_t)Width * (size_t)Height * 4u && Width > 0 && Height > 0;
+    return Samples != nullptr && Samples->size() >= (size_t)Width * (size_t)Height * 4u &&
+           Width > 0 && Height > 0;
   }
+
   [[nodiscard]] float At(int x, int y, int channel) const {
     return (*Samples)[((size_t)y * (size_t)Width + (size_t)x) * 4u + (size_t)channel];
   }
+
   [[nodiscard]] bool Covered(int x, int y) const { return At(x, y, 3) > 0.0f; }
 };
 
@@ -217,8 +224,8 @@ inline int64_t UlpsBetween(float a, float b) {
   return left > right ? (int64_t)left - (int64_t)right : (int64_t)right - (int64_t)left;
 }
 
-inline void Evaluate(const Invariant &check, const LinearFrame &frame,
-                     std::vector<Metric> &metrics) {
+inline void
+Evaluate(const Invariant &check, const LinearFrame &frame, std::vector<Metric> &metrics) {
   switch (check.Kind) {
     case InvariantKind::HueOfBrightest: {
       std::vector<double> sums;
@@ -236,26 +243,26 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
       for (int y = 0; y < frame.Height; ++y) {
         for (int x = 0; x < frame.Width; ++x) {
           if (!frame.Covered(x, y)) { continue; }
-          const double sum = (double)frame.At(x, y, 0) + (double)frame.At(x, y, 1) +
-                             (double)frame.At(x, y, 2);
+          const double sum =
+              (double)frame.At(x, y, 0) + (double)frame.At(x, y, 1) + (double)frame.At(x, y, 2);
           if (!(sum >= floorSum) || !(sum > 0)) { continue; }
           ++judged;
           bool off = false;
           for (int channel = 0; channel < 3; ++channel) {
-            const double error = std::fabs((double)frame.At(x, y, channel) / sum -
-                                           check.Rgb[channel]);
+            const double error =
+                std::fabs((double)frame.At(x, y, channel) / sum - check.Rgb[channel]);
             if (error > worst) { worst = error; }
             off = off || error > check.Tolerance;
           }
           missed += off ? 1u : 0u;
         }
       }
-      metrics.push_back({check.Name + "_samples_off_hue", (double)missed, 0.0, "px",
-                         Direction::AtMost});
-      metrics.push_back({check.Name + "_samples_judged", (double)judged, 1.0, "px",
-                         Direction::AtLeast});
-      metrics.push_back({check.Name + "_worst_hue_error", worst, 0.0, "dimensionless",
-                         Direction::Reported});
+      metrics.push_back(
+          {check.Name + "_samples_off_hue", (double)missed, 0.0, "px", Direction::AtMost});
+      metrics.push_back(
+          {check.Name + "_samples_judged", (double)judged, 1.0, "px", Direction::AtLeast});
+      metrics.push_back(
+          {check.Name + "_worst_hue_error", worst, 0.0, "dimensionless", Direction::Reported});
       break;
     }
     case InvariantKind::RegionCompare: {
@@ -291,39 +298,64 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
         }
       }
 
-      metrics.push_back({check.Name + "_channels_apart", (double)apart, 0.0, "channels",
-                         check.Judged == Invariant::Currency::Ulps ? Direction::AtMost
-                                                                   : Direction::Reported});
+      metrics.push_back(
+          {check.Name + "_channels_apart",
+           (double)apart,
+           0.0,
+           "channels",
+           check.Judged == Invariant::Currency::Ulps ? Direction::AtMost : Direction::Reported});
       size_t read = 0;
       for (const bool channel : check.Channel) { read += channel ? 1u : 0u; }
-      metrics.push_back({check.Name + "_channels_compared", (double)compared,
+      metrics.push_back({check.Name + "_channels_compared",
+                         (double)compared,
                          (double)read * (double)check.From.Width * (double)check.From.Height,
-                         "channels", Direction::AtLeast});
+                         "channels",
+                         Direction::AtLeast});
       std::sort(spread.begin(), spread.end());
       std::sort(relative.begin(), relative.end());
 
-      metrics.push_back({check.Name + "_from_mean", compared > 0 ? fromTotal / (double)compared : 0.0,
-                         0.0, "linear, scene-referred", Direction::Reported});
-      metrics.push_back({check.Name + "_to_mean", compared > 0 ? toTotal / (double)compared : 0.0,
-                         0.0, "linear, scene-referred", Direction::Reported});
-      metrics.push_back({check.Name + "_p50_relative", Percentile(relative, 0.50), 0.0,
-                         "dimensionless", Direction::Reported});
-      metrics.push_back({check.Name + "_p95_relative", Percentile(relative, 0.95),
-                         check.MaxP95Relative, "dimensionless",
+      metrics.push_back({check.Name + "_from_mean",
+                         compared > 0 ? fromTotal / (double)compared : 0.0,
+                         0.0,
+                         "linear, scene-referred",
+                         Direction::Reported});
+      metrics.push_back({check.Name + "_to_mean",
+                         compared > 0 ? toTotal / (double)compared : 0.0,
+                         0.0,
+                         "linear, scene-referred",
+                         Direction::Reported});
+      metrics.push_back({check.Name + "_p50_relative",
+                         Percentile(relative, 0.50),
+                         0.0,
+                         "dimensionless",
+                         Direction::Reported});
+      metrics.push_back({check.Name + "_p95_relative",
+                         Percentile(relative, 0.95),
+                         check.MaxP95Relative,
+                         "dimensionless",
                          check.Judged == Invariant::Currency::P95Relative ? Direction::AtMost
-                                                                         : Direction::Reported});
-      metrics.push_back({check.Name + "_p50_ulps", Percentile(spread, 0.50), 0.0, "f32 ulps",
+                                                                          : Direction::Reported});
+      metrics.push_back({check.Name + "_p50_ulps",
+                         Percentile(spread, 0.50),
+                         0.0,
+                         "f32 ulps",
                          Direction::Reported});
-      metrics.push_back({check.Name + "_p95_ulps", Percentile(spread, 0.95), 0.0, "f32 ulps",
+      metrics.push_back({check.Name + "_p95_ulps",
+                         Percentile(spread, 0.95),
+                         0.0,
+                         "f32 ulps",
                          Direction::Reported});
-      metrics.push_back({check.Name + "_p99_ulps", Percentile(spread, 0.99), 0.0, "f32 ulps",
+      metrics.push_back({check.Name + "_p99_ulps",
+                         Percentile(spread, 0.99),
+                         0.0,
+                         "f32 ulps",
                          Direction::Reported});
-      metrics.push_back({check.Name + "_worst_ulps", (double)worst, 0.0, "f32 ulps",
-                         Direction::Reported});
+      metrics.push_back(
+          {check.Name + "_worst_ulps", (double)worst, 0.0, "f32 ulps", Direction::Reported});
       break;
     }
   }
 }
 
-}
+} // namespace outshine::Render::Parity
 #endif

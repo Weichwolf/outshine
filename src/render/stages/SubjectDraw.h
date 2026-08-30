@@ -26,6 +26,7 @@ public:
     long NormalIndex = -1;
     long IdentityIndex = -1;
   };
+
   [[nodiscard]] static std::string ShaderSource(const SourceOptions &options);
   [[nodiscard]] static std::string ShaderSource(const SourceOptions &options, std::string &error);
   [[nodiscard]] static std::string DepthOnlySource();
@@ -36,8 +37,7 @@ public:
                                          .VertexStorageBuffers = 1,
                                          .FragmentSamplers = kSubjectImages,
                                          .FragmentUniformBuffers = kSubjectFragmentUniforms};
-  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1,
-                                            .VertexStorageBuffers = 1};
+  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
 
@@ -144,8 +144,7 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials,
-                                  std::string &error);
+  [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
 
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
 
@@ -158,8 +157,10 @@ private:
   // A DEVICE-ONLY RUN, KEPT AT LEAST AS BIG AS IT HAS TO BE. Nothing on this side ever fills these
   // two, so they do not cross; what they share with a crossing is the rule that a buffer already
   // large enough is the one used again.
-  [[nodiscard]] bool Room(OwnedBuffer &into, SubjectResidency::Stream held,
-                          SDL_GPUBufferUsageFlags usage, uint32_t bytes) {
+  [[nodiscard]] bool Room(OwnedBuffer &into,
+                          SubjectResidency::Stream held,
+                          SDL_GPUBufferUsageFlags usage,
+                          uint32_t bytes) {
     if (into && Bound().Held[(size_t)held] >= bytes) { return true; }
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = usage;
@@ -171,39 +172,48 @@ private:
   }
 
 public:
-
   [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
 
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
-
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
+
   void Shares(SubjectResidency &other) { At_ = &other; }
+
   [[nodiscard]] SubjectResidency &Owned() { return Own_; }
+
   [[nodiscard]] bool Borrows() const { return At_ != nullptr; }
+
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
   [[nodiscard]] uint32_t Layouts() const;
   [[nodiscard]] uint32_t Textured() const;
+
   [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
+
   [[nodiscard]] const double *AnchorM() const { return Anchor; }
+
   [[nodiscard]] const double *ModelM() const { return Model; }
 
   [[nodiscard]] uint32_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
+
   [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
+
   void ForgetStagedCount() { Bound().ForgetStagedCount(); }
+
   uint32_t VertexCount() const { return Bound().NVerts; }
+
   long TriangleCount() const { return (long)Bound().NIdx / 3; }
 
   uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
+
   uint32_t DrawCount() const;
 
   uint32_t PipelineCount() const { return Built; }
-
 
 private:
   static constexpr int kUniFloats = 56;
@@ -247,7 +257,6 @@ public:
   void FlushCrossings(SDL_GPUCommandBuffer *commands) { Bound().FlushCrossings(commands); }
 
 private:
-
   [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
 
   [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
@@ -269,7 +278,9 @@ private:
   std::vector<Resource> Colours;
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
+
   [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
+
   [[nodiscard]] const SubjectResidency &Bound() const { return At_ != nullptr ? *At_ : Own_; }
 
   SDL_GPUTexture *Atlas_ = nullptr;
@@ -310,5 +321,5 @@ private:
   bool WritesVelocity = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

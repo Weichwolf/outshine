@@ -36,7 +36,7 @@ constexpr int kFramePx = 32;
   return out;
 }
 
-}
+} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -60,7 +60,9 @@ int main(void) {
     auto made = Compiled::Compile(Naming(row, true));
     if (made) { refusedByTheDevice.push_back(row); }
     std::printf("  %-10s catalogue row, device seats it: %-3s   plan compiles: %s\n",
-                Row(row).Name, seated ? "YES" : "no", made ? "yes" : "no");
+                Row(row).Name,
+                seated ? "YES" : "no",
+                made ? "yes" : "no");
     everyRowRefuses = everyRowRefuses && !seated;
   }
 
@@ -82,7 +84,9 @@ int main(void) {
   if (refusedByTheDevice.empty()) { return Report(); }
   const Stage anUnbuiltRow = refusedByTheDevice.front();
   std::printf("THE GRAPH ACCEPTS %zu OF %zu, so the device is asked about %s\n",
-              refusedByTheDevice.size(), unbuilt.size(), Row(anUnbuiltRow).Name);
+              refusedByTheDevice.size(),
+              unbuilt.size(),
+              Row(anUnbuiltRow).Name);
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared("SDL did not start, so no device can be asked what it seats");
@@ -97,7 +101,8 @@ int main(void) {
   }
   device.Init(kFramePx, kFramePx, *plain);
   const bool stood = device.DeviceUsable();
-  std::printf("A PLAN OF SEATED STAGES   device usable: %s   %s\n", stood ? "yes" : "no",
+  std::printf("A PLAN OF SEATED STAGES   device usable: %s   %s\n",
+              stood ? "yes" : "no",
               stood ? "" : device.WhyNot().c_str());
   if (!stood) {
     Unprepared(("the device would not stand a plan it seats entirely: " + device.WhyNot()).c_str());
@@ -106,25 +111,27 @@ int main(void) {
 
   auto withUnbuilt = Compiled::Compile(Naming(anUnbuiltRow, true));
   if (!withUnbuilt) {
-    Unprepared(("a plan naming " + std::string(Row(anUnbuiltRow).Name) + " would not compile: " +
-                withUnbuilt.error())
+    Unprepared(("a plan naming " + std::string(Row(anUnbuiltRow).Name) +
+                " would not compile: " + withUnbuilt.error())
                    .c_str());
     return Report();
   }
   device.Init(kFramePx, kFramePx, *withUnbuilt);
   const bool refused = !device.DeviceUsable();
-  std::printf("A PLAN NAMING %-10s REFUSED: %s\n  %s\n", Row(anUnbuiltRow).Name,
-              refused ? "yes" : "NO", device.WhyNot().c_str());
+  std::printf("A PLAN NAMING %-10s REFUSED: %s\n  %s\n",
+              Row(anUnbuiltRow).Name,
+              refused ? "yes" : "NO",
+              device.WhyNot().c_str());
 
   CHECK(refused,
         "**A STAGE THE DEVICE CANNOT RUN IS REFUSED BEFORE A FRAME IS DRAWN**: the catalogue "
         "offers more than any one device layer implements, which is what makes a second executor "
         "table possible at all, and a consumer that selects a row nothing seats learns so at "
         "stand-up rather than by looking at an empty picture");
-  // WHICH row the refusal names need not be the one asked for, and that is a measurement rather than a disappointment:
-  // asking for one row pulls its resource edges into the plan, and those can pull a SECOND
-  // unbuilt row in with them. The refusal is the device's first stop, not the row that was asked
-  // for, and the check below is written to accept any derived row by name.
+  // WHICH row the refusal names need not be the one asked for, and that is a measurement rather
+  // than a disappointment: asking for one row pulls its resource edges into the plan, and those can
+  // pull a SECOND unbuilt row in with them. The refusal is the device's first stop, not the row
+  // that was asked for, and the check below is written to accept any derived row by name.
   size_t unseated = 0;
   std::string named;
   for (size_t at = 0; at < kStageCount; ++at) {

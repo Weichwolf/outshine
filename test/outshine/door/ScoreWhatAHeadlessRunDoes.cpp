@@ -48,8 +48,8 @@ int main(void) {
 
   CHECK(taken == kSteps,
         ("**A WORLD STEPS WITH NO PICTURE**: this case never asks for a canvas, and neither does a "
-         "dedicated server or a commandlet. " + std::to_string(taken) + " of " +
-         std::to_string(kSteps) + " steps: " + engine.error())
+         "dedicated server or a commandlet. " +
+         std::to_string(taken) + " of " + std::to_string(kSteps) + " steps: " + engine.error())
             .c_str());
   if (taken != kSteps) { return Report(); }
 
@@ -64,16 +64,25 @@ int main(void) {
   const double owedM = gravity * stepS * stepS * (double)kSteps * (double)(kSteps + 1) / 2.0;
   const double owedMs = -gravity * stepS * (double)kSteps;
 
-  std::printf("HEADLESS  %d steps of %.5f s   fell %.4f m, the scheme owes %.4f m\n", kSteps,
-              stepS, 1000.0 - fell, owedM);
+  std::printf("HEADLESS  %d steps of %.5f s   fell %.4f m, the scheme owes %.4f m\n",
+              kSteps,
+              stepS,
+              1000.0 - fell,
+              owedM);
   std::printf("          falling at %.4f m/s, the scheme owes %.4f m/s\n", fast, owedMs);
 
-  CHECK_NEAR(1000.0 - fell, owedM, 1.0e-6, "m",
+  CHECK_NEAR(1000.0 - fell,
+             owedM,
+             1.0e-6,
+             "m",
              "and the fall is SEMI-IMPLICIT EULER's, g*h^2*n*(n+1)/2, which exceeds the "
              "continuum's g*t^2/2 by g*h*t/2 -- the scheme falls further because it advances "
              "velocity before position, and a case that did not say so would be tuning a "
              "tolerance rather than knowing what it integrates");
-  CHECK_NEAR(fast, owedMs, 1.0e-9, "m/s",
+  CHECK_NEAR(fast,
+             owedMs,
+             1.0e-9,
+             "m/s",
              "and the speed is exactly n steps of g*h, because constant acceleration is the one "
              "case where the scheme's velocity is the continuum's");
 

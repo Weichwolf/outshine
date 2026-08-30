@@ -46,7 +46,10 @@ int main(void) {
   for (const std::string &one : built) {
     bool found = false;
     for (const std::string &row : page) {
-      if (row.rfind(one + " ", 0) == 0) { found = true; break; }
+      if (row.rfind(one + " ", 0) == 0) {
+        found = true;
+        break;
+      }
     }
     if (!found) {
       ++missing;

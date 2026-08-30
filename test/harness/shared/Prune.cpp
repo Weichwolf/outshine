@@ -24,9 +24,11 @@ const char *Because(const Examination &examination) {
 }
 
 void NameTheRecovery(const std::string &directory) {
-  std::fprintf(stderr, "  the oracle half comes back with: python3 test/harness/shared/corpus/prepare.py all "
-                       "--manifest %smanifest.json\n",
-               directory.c_str());
+  std::fprintf(
+      stderr,
+      "  the oracle half comes back with: python3 test/harness/shared/corpus/prepare.py all "
+      "--manifest %smanifest.json\n",
+      directory.c_str());
   std::fprintf(stderr, "  our own dumps come back by re-running this case: sh test/run.sh\n");
 }
 
@@ -35,18 +37,22 @@ size_t RemoveAndSay(const std::vector<Examination> &examinations) {
   for (const Examination &examination : examinations) {
     if (examination.Ticket.has_value() && !outshine::Prune::Remove(*examination.Ticket)) {
       ++refused;
-      std::fprintf(stderr, "  UNLINK %s could not be removed\n",
+      std::fprintf(stderr,
+                   "  UNLINK %s could not be removed\n",
                    examination.Path.filename().string().c_str());
       continue;
     }
-    std::fprintf(stderr, "  %-6s %12llu  %-28s %s\n", Word(examination),
+    std::fprintf(stderr,
+                 "  %-6s %12llu  %-28s %s\n",
+                 Word(examination),
                  static_cast<unsigned long long>(examination.Bytes),
-                 examination.Path.filename().string().c_str(), Because(examination));
+                 examination.Path.filename().string().c_str(),
+                 Because(examination));
   }
   return refused;
 }
 
-}
+} // namespace
 
 int main(int argc, char **argv) {
   if (argc != 3) {
@@ -66,7 +72,8 @@ int main(int argc, char **argv) {
   const outshine::Prune::Ledger ledger = outshine::Prune::Count(examinations);
   NameTheRecovery(directory);
 
-  std::printf("PRUNE %llu %llu %llu %llu\n", static_cast<unsigned long long>(ledger.Pruned),
+  std::printf("PRUNE %llu %llu %llu %llu\n",
+              static_cast<unsigned long long>(ledger.Pruned),
               static_cast<unsigned long long>(ledger.PrunedBytes),
               static_cast<unsigned long long>(ledger.Stayed),
               static_cast<unsigned long long>(ledger.StayedBytes));

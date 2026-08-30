@@ -84,7 +84,10 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
     for (int v = 0; v < kSheenAlbedoSteps; ++v) {
       const double nv = (v + 0.5) / kSheenAlbedoSteps;
       char cell[32];
-      std::snprintf(cell, sizeof cell, "%s%.6ff", table.empty() ? "" : ", ",
+      std::snprintf(cell,
+                    sizeof cell,
+                    "%s%.6ff",
+                    table.empty() ? "" : ", ",
                     SheenDirectionalAlbedo(nv, roughness));
       table += cell;
     }
@@ -99,5 +102,5 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   return SheenLobeMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 #endif

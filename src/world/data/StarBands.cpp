@@ -24,15 +24,14 @@ namespace {
   return d;
 }
 
-}
+} // namespace
 
-StarBands::StarBands(std::string directory)
-    : Directory_(std::move(directory)), Decl_(Declared()) {}
+StarBands::StarBands(std::string directory) : Directory_(std::move(directory)), Decl_(Declared()) {}
 
 Coverage StarBands::Covers(const Request &request) const noexcept {
-  if (request.Kind() != Decl_.Kind) return Coverage::Outside;
+  if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   uint32_t band = 0;
-  if (!request.Where().TryIndex(&band)) return Coverage::Outside;
+  if (!request.Where().TryIndex(&band)) { return Coverage::Outside; }
   return band < kBands ? Coverage::Inside : Coverage::Outside;
 }
 
@@ -46,11 +45,11 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
   (void)ticket;
   (void)transport;
   uint32_t band = 0;
-  if (!at.TryIndex(&band)) return Fetched::Meant(Meaning::Refused);
+  if (!at.TryIndex(&band)) { return Fetched::Meant(Meaning::Refused); }
   char path[512];
   std::snprintf(path, sizeof path, "%s/band%u.bin", Directory_.c_str(), band);
   std::FILE *f = std::fopen(path, "rb");
-  if (!f) return Fetched::Meant(Meaning::Refused);
+  if (!f) { return Fetched::Meant(Meaning::Refused); }
   std::fseek(f, 0, SEEK_END);
   const long size = std::ftell(f);
   std::fseek(f, 0, SEEK_SET);
@@ -61,8 +60,8 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
     whole = std::fread(bytes.data(), 1, (size_t)size, f) == (size_t)size;
   }
   std::fclose(f);
-  if (!whole) return Fetched::Meant(Meaning::Refused);
+  if (!whole) { return Fetched::Meant(Meaning::Refused); }
   return Fetched::Delivered(std::move(bytes));
 }
 
-}
+} // namespace outshine::Data
