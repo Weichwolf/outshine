@@ -187,6 +187,12 @@ one it reads, and that cell needs a real answer then -- a depth bias, a stable t
 finding that the asset's coincident surfaces are undefined for any rasteriser and the case's bound
 has to say so.
 
+## What this is measured with
+
+`test/outshine/places`, one place at a time -- see board:2039 for the method and the standing
+numbers. Shibuya draws its frame in 22.65 ms against a 16.7 ms target while the ring holds 88
+clusters and draws 88 of them: nothing is culled yet, which is what this item is for.
+
 ## What is next, in order
 
     1. the clusters reach the DEVICE as a buffer, beside the streams that already cross

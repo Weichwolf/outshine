@@ -11,6 +11,37 @@ re-uploads a whole world because one cell arrived. RAGE: the same, with the stre
 adding and evicting drawables per map sector while the rest of the scene stands untouched.
 **They agree**, so the matter is closed: a change costs what it changed.
 
+## HOW THIS IS MEASURED, so the next reading is the same reading
+
+`test/outshine/places` is the instrument. It stands a real place, streams it, draws it and writes
+the picture to `build/places/<Name>.png`, printing what each phase cost beside what the world
+holds -- so every number here has a picture next to it that can be looked at.
+
+    sh test/run.sh outshine/places          all six, which is what the gate does
+    $NEST/outshine-places-RenderShibuya     ONE place, which is what a measurement wants
+
+`$NEST` is `${TMPDIR}/outshine-tests.<checkout hash>`, where `run.sh` builds. Run a single place
+directly when measuring: the other five cost minutes and answer a different question. **Always
+under a wall clock** -- `perl -e 'alarm 200; exec @ARGV' <binary>` -- because a world that does not
+settle waits out the patience rather than failing.
+
+The lines that matter are `THE TIME IS NOT THE PICTURE` (standing, waiting, and the per-frame draw)
+and the `rebuild:` block. A run that reports tiles standing BARE is a reading about the STREAMING
+and not about the place, and the case refuses it rather than scoring it.
+
+MEASURED on Shibuya, warm cache, and this reproduces the reading below to the megabyte:
+
+    waiting for the world                  22260 ms      the target is under 10 000
+    the frame                              22.65 ms      the target is 16.7 or better
+    the last rebuild                       18837 ms
+      of that, buildings streets water     11940 ms
+      walking it into the proxy             6428 ms
+      the device taking the streams         4330 ms
+      resolving its surface                  632 ms
+    megabytes carried                       2468 MB
+    what it holds     88 tiles over 7 levels, 9 433 960 triangles, 8 789 636 of them buildings,
+                      529 798 footprints, 79 674 streets
+
 MEASURED on Shibuya, one place, one load:
 
     times the world was built WHOLE            2 rebuilds
