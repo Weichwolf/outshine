@@ -212,7 +212,7 @@ LayerIncludes() {
     # carried its own hand-written list beside the build line, which is the second spelling of the
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
     # door, breaking `make` while every suite stayed green.
-    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Itest/harness/shared/render -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
+    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/world/data -Itest/harness/shared" ;;
     outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
@@ -221,7 +221,6 @@ LayerIncludes() {
     outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Itest/harness/shared" ;;
     outshine/physics) printf '%s' "-Iinclude -Isrc/base -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
     outshine/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base/math" ;;
-    outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
     outshine/places) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Itest/harness/shared" ;;
     # THE CORPUS RUNNER SEES THE DOOR AND ITS OWN DIRECTORIES, AND THIS LINE IS THE GUARD. The
@@ -229,8 +228,6 @@ LayerIncludes() {
     # given `include/` and nothing from `src/` at all -- not one path. A rename anywhere under
     # `src/` cannot reach a Khronos case, and the way to lose that is to widen this line, which is
     # why widening it is the finding rather than the fix.
-    harness/khronos/glTF) printf '%s' "-Iinclude -Itest/harness/shared -Itest/harness/shared/render -Itest/harness/shared/corpus" ;;
-    harness/khronos/generator | outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
@@ -239,7 +236,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/door | outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -251,14 +248,13 @@ SANITISER_EXEMPT="unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther"
 
 LayerSanitiser() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/shader | unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerValidation() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -266,7 +262,7 @@ LayerValidation() {
 LayerLink() {
   case "$1" in
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/door | outshine/places | outshine/client | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    outshine/places | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
@@ -284,18 +280,14 @@ LayerGroups() {
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
     outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp src/sim/DriveTick.cpp" ;;
     outshine/audio) printf '%s' "src/audio src/base/math" ;;
-    outshine/door) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
 
 LayerCases() {
   case "$1" in
-    harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/khronos/generator) find test/khronos/generator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    outshine/grown) find test/outshine/grown -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/khronos/validator) find test/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
@@ -314,10 +306,9 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
-    harness/shared | harness/khronos/glTF | harness/khronos/generator | outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
-    harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
+    harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/frame) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
-    harness/khronos/glTF/prepare | harness/khronos/generator/prepare | outshine/grown/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
+    harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
@@ -325,7 +316,6 @@ NotTheHarnesses() {
 
 LayerExtraSources() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -668,7 +658,7 @@ EverySourceStillCompiles() {
     ran=no
     for kept in $TESTS; do [ "$kept" = "$candidate" ] && ran=yes; done
     [ "$ran" = yes ] && continue
-    includes="-Itest/harness/shared -Itest/harness/shared/render $(LayerIncludes "$layer")"
+    includes="-Itest/harness/shared $(LayerIncludes "$layer")"
     toolchain=$(LayerToolchain "$layer")
     beside=""
     case " $seenLayers " in
@@ -1132,7 +1122,7 @@ StateProgress() {
         # by two cases is held by neither if one is missing, so the comma is a conjunction.
         # A PROOF LINE NAMES ITS CASES AND MAY CARRY WHAT THEY READ (board:2003). A token is a
         # proof CLAIM when it starts with one of test/'s six suite roots or with --audit; every
-        # other word is the reading and is not a path. `33/33` is prose; `outshine/door` is a
+        # other word is the reading and is not a path. `33/33` is prose; `outshine/places` is a
         # claim. A tick that makes no claim names no proof.
         holds=no
         for oneProof in $(printf '%s' "$named" | tr ',' ' '); do
@@ -1989,7 +1979,7 @@ CountTheTwo() {
 BinaryStamp() {
   stampBinary=$1
   shift
-  stampFiles="$* $(ls test/harness/shared/*.h test/harness/shared/render/*.h 2>/dev/null)"
+  stampFiles="$* $(ls test/harness/shared/*.h 2>/dev/null)"
   if [ -f "$stampBinary.d" ]; then
     for stampNeed in $(tr '\\' ' ' <"$stampBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
       case "$stampNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
@@ -2123,7 +2113,7 @@ for testSource in $TESTS; do
   if [ "$built" = yes ]; then
     buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $linkage"
     if Fresh "$plainBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" && BinaryStamp "$plainBinary" "$testSource" $(LayerExtraSources "$layer") >"$plainBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" && BinaryStamp "$plainBinary" "$testSource" $(LayerExtraSources "$layer") >"$plainBinary.stamp" || built=no
     fi
   fi
 
@@ -2178,7 +2168,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
     if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" && BinaryStamp "$sanitisedBinary" "$testSource" $(LayerExtraSources "$layer") >"$sanitisedBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" && BinaryStamp "$sanitisedBinary" "$testSource" $(LayerExtraSources "$layer") >"$sanitisedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj
@@ -2209,7 +2199,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $linkage"
     if Fresh "$validatedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" && BinaryStamp "$validatedBinary" "$testSource" $(LayerExtraSources "$layer") >"$validatedBinary.stamp" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" && BinaryStamp "$validatedBinary" "$testSource" $(LayerExtraSources "$layer") >"$validatedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj

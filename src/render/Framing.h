@@ -9,7 +9,7 @@ constexpr double kFramingElevationDeg = 20.0;
 constexpr double kFramingSensorHalfHeightMm = 12.0;
 constexpr double kFramingFocalLengthMm = 50.0;
 
-constexpr double kFramingFill = 0.6;
+constexpr double kFramingFill = 0.95;
 
 constexpr double kFramingNearFloorFraction = 0.001;
 

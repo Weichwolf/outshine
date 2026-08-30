@@ -54,7 +54,9 @@ def wears(material, worn, names):
         for at, colour in enumerate(material.get("colourLinearByMaterialIndex", [])):
             by_material[at] = colour
     elif kind == "emission":
-        return ['      <wears part="%d" keepsMaps="yes"><row unlit="yes"/></wears>' % part
+        return ['      <wears part="%d" keepsMaps="yes">'
+                '<row unlit="yes" r="1" g="1" b="1" '
+                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % part
                 for part in range(len(worn))]
     for part, material_at in enumerate(worn):
         colour = by_material.get(material_at)
@@ -67,9 +69,28 @@ def wears(material, worn, names):
     return said
 
 
+def derived_camera(entry):
+    """What Blender ACTUALLY framed, which is the only camera worth declaring.
+
+    A manifest may state a camera and 34 of them state none at all, but provenance.json records
+    what the oracle was rendered with either way -- and a manifest's stated camera goes stale the
+    moment the framing rule moves, which it just did. Reading the provenance means the reference
+    and the scenario come from ONE source and cannot disagree."""
+    told = entry.parent / "provenance.json"
+    if not told.exists():
+        return {}
+    said = json.loads(told.read_text())
+    for render in said.get("report", {}).get("render", []):
+        camera = render.get("provenance", {}).get("camera", {})
+        if camera.get("derivedFrom"):
+            return camera["derivedFrom"]
+    return {}
+
+
 def scenario_for(manifest, entry):
     scene = manifest.get("scene", {})
     camera = scene.get("camera", {})
+    camera = {**camera, **derived_camera(entry)}
     render = manifest.get("renders", {}).get("default", {})
     at = camera.get("positionM", [0.0, 0.0, 3.0])
     look = camera.get("lookAtM", [0.0, 0.0, 0.0])
@@ -93,7 +114,7 @@ def scenario_for(manifest, entry):
         bearing = math.degrees(math.atan2(-d[0], -d[2]))
         lines.append(f'    <key lux="{light.get("irradianceWPerM2", 0.0)}" '
                      f'elevationDeg="{elevation:.9f}" bearingDeg="{bearing:.9f}"/>')
-    if scene.get("material", {}).get("kind") == "diffuse":
+    if scene.get("material", {}).get("kind") in ("diffuse", "metal-rough"):
         lines.append(f'    <environment r="{kFactoryWorldRadiance}" g="{kFactoryWorldRadiance}" '
                      f'b="{kFactoryWorldRadiance}"/>')
     lines.append('  </lighting>')
@@ -164,7 +185,7 @@ def main():
         if not digest:
             red.append((name, 0.0, 0, "the client drew nothing"))
             continue
-        drew = TREE / "build" / "shots" / f"{name}-{digest}.png"
+        drew = TREE / "build" / "shots" / "khronos" / f"{name}-{digest}.png"
         agreeing, most, apart = scored(drew, reference)
         if agreeing is None:
             red.append((name, 0.0, 0, "the frames are not the same shape"))
