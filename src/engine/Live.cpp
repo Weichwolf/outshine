@@ -283,6 +283,13 @@ bool Live::Build(std::string &error) {
         const std::string &named = Held_.File().Materials()[(size_t)index].Name;
         for (const SurfaceOverride &said : Declared_.Overriding) {
           if (said.Named != named) { continue; }
+          // AN OVERRIDE REPLACES THE SURFACE, MAPS INCLUDED. Filament hands out a whole
+          // `MaterialInstance` -- its own parameters and its own samplers -- and Unreal's
+          // `SetMaterial` swaps the material entire; neither leaves the asset's textures bound
+          // under a row that says something else. Keeping them was the half-measure and it shows:
+          // a declared emission of (0.85, 0.15, 0.15) came out as `emission x colourTap`, a whole
+          // body of varying hue where the oracle is one flat colour.
+          Table_.Slots[slot] = Render::SubjectMaterial{};
           Table_.Slots[slot].Row = said.Row;
           ++took;
           break;
@@ -307,7 +314,7 @@ bool Live::Build(std::string &error) {
             const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
             const bool byPart = said.Part >= 0 && (size_t)said.Part == part;
             if (!byNode && !byPart) { continue; }
-            Render::SubjectMaterial made = Table_.Slots[slot];
+            Render::SubjectMaterial made{};
             made.Row = said.Row;
             const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
             Table_.Slots.push_back(made);
