@@ -96,6 +96,26 @@ public:
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
 
+  [[nodiscard]] double ReshapeMs() const { return ReshapeMs_; }
+
+  [[nodiscard]] double ComposeMs() const { return ComposeMs_; }
+
+  [[nodiscard]] double ReshapeAgainMs() const { return ReshapeAgainMs_; }
+
+  [[nodiscard]] double ProxyStandsMs() const { return ProxyStandsMs_; }
+
+  [[nodiscard]] double PlacesMs() const { return PlacesMs_; }
+
+  [[nodiscard]] double WearsMs() const { return WearsMs_; }
+
+  [[nodiscard]] double LampsMs() const { return LampsMs_; }
+
+  [[nodiscard]] double LitMs() const { return LitMs_; }
+
+  [[nodiscard]] double MediumMs() const { return MediumMs_; }
+
+  [[nodiscard]] double FramingMs() const { return FramingMs_; }
+
   [[nodiscard]] double CarryMs() const { return CarryMs_; }
 
   [[nodiscard]] double ResolveMs() const { return ResolveMs_; }
@@ -299,6 +319,9 @@ private:
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
+  double ReshapeMs_ = 0.0, ComposeMs_ = 0.0;
+  double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;
+  double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

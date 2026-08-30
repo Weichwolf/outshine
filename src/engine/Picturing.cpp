@@ -1185,6 +1185,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
   Published.Places(
       "rebuild: standing and submitting INSIDE Build", Picture.Standing->InsideMs(), "ms");
+  Published.Places("rebuild: shaping what was built", Picture.Standing->ReshapeMs(), "ms");
+  Published.Places("rebuild: composing it", Picture.Standing->ComposeMs(), "ms");
+  Published.Places("stand: shaping it a second time", Picture.Standing->ReshapeAgainMs(), "ms");
+  Published.Places("stand: the proxy taking it", Picture.Standing->ProxyStandsMs(), "ms");
+  Published.Places("stand: placing every part", Picture.Standing->PlacesMs(), "ms");
+  Published.Places("stand: dressing them", Picture.Standing->WearsMs(), "ms");
+  Published.Places("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
+  Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
+  Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
+  Published.Places("stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");

@@ -1,5 +1,6 @@
 Type: task
-State: active
+State: open
+After: 2057
 Area: base
 Tags: concurrency, determinism, performance
 
@@ -41,8 +42,15 @@ Shibuya's rebuild, 776 ms in all:
     the census over every triangle  38.0 ms
     cutting it into clusters         7.1 ms
 
-**748.6 ms is one thread packing channels** on a machine with 2 performance and 4 efficiency cores.
-The parts it walks are independent of one another, which is what makes the number spendable.
+**THIS NUMBER WAS READ WRONG and board:2057 holds the correction.** 778.9 of the 907.8 ms is
+`Live::Stand` integrating the atmosphere on the CPU to reach one ambient radiance; the channel
+packing this item named is 0.018 ms. The phase name said "walking it into the proxy" and I did not
+ask what the phase CONTAINED.
+
+What still stands for this item, and it is not a millisecond count: every generator is serial, four
+places own threads with no planner between them, and the tree's one task graph is bounded at 64
+steps and reached by the audio mixer alone. The number this item should be spent against has to be
+measured AFTER board:2057, on a rebuild that is not 86 per cent atmosphere.
 
 ## What will be true
 

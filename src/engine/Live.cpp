@@ -159,8 +159,12 @@ bool Live::Build(std::string &error) {
     CarryMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
             .count();
-    const auto resolvedFrom = std::chrono::steady_clock::now();
+    const auto reshapedFrom = std::chrono::steady_clock::now();
     Reshape();
+    ReshapeMs_ =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - reshapedFrom)
+            .count();
+    const auto resolvedFrom = std::chrono::steady_clock::now();
     Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
     ResolveMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
@@ -427,13 +431,15 @@ bool Live::Build(std::string &error) {
     InsideMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
             .count();
-    InsideMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
-            .count();
   } else {
     Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
   }
-  return Compose(error);
+  const auto composedFrom = std::chrono::steady_clock::now();
+  const bool composed = Compose(error);
+  ComposeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
+          .count();
+  return composed;
 }
 
 bool Live::Pose(double seconds, std::string &error) {
@@ -560,10 +566,20 @@ bool Live::Look(std::string &error) {
 }
 
 bool Live::Stand(std::string &error) {
+  auto standFrom = std::chrono::steady_clock::now();
+  const auto sinceStand = [&standFrom]() {
+    const double ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - standFrom)
+            .count();
+    standFrom = std::chrono::steady_clock::now();
+    return ms;
+  };
   Stood_ = Render::SubjectProxy{};
   const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
   Reshape();
+  ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);
+  ProxyStandsMs_ = sinceStand();
   const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }
@@ -574,7 +590,9 @@ bool Live::Stand(std::string &error) {
   }
   SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
+  PlacesMs_ = sinceStand();
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
+  WearsMs_ = sinceStand();
   for (size_t part = 0; part < Table_.PartSlot.size(); ++part) {
     const uint32_t slot = Table_.PartSlot[part];
     if (slot >= Table_.Slots.size()) { continue; }
@@ -589,6 +607,7 @@ bool Live::Stand(std::string &error) {
     (void)Stood_.Emits(part, radiance);
   }
 
+  LampsMs_ = sinceStand();
   for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
   if (Declared_.KeyLux > 0.0) {
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
@@ -605,6 +624,7 @@ bool Live::Stand(std::string &error) {
   for (int channel = 0; channel < 3; ++channel) {
     environment.RadianceLinear[channel] = (float)Declared_.IndirectLight[channel];
   }
+  LitMs_ = sinceStand();
   if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
     const Render::Medium medium;
     const float cosSun = (float)std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
@@ -641,6 +661,7 @@ bool Live::Stand(std::string &error) {
     }
   }
   Stood_.Around(environment);
+  MediumMs_ = sinceStand();
 
   std::string why;
   Render::Viewpoint eye = Looking_.Eye;
@@ -675,6 +696,7 @@ bool Live::Stand(std::string &error) {
     Looking_.Eye = eye;
   }
   return true;
+  FramingMs_ = sinceStand();
 }
 
 bool Live::Submit(std::string &error) {
