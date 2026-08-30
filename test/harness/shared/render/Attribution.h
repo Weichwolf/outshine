@@ -1,6 +1,7 @@
 #ifndef RENDER_ATTRIBUTION_H
 #define RENDER_ATTRIBUTION_H
 
+#include "Aim.h"
 #include "Handed.h"
 #include <algorithm>
 #include <cmath>
@@ -98,8 +99,8 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 // engine's own subject before, which a conformance runner may not reach -- and the copy it read
 // stood at rest, so an animated case measured frame 0's silhouette against every frame's oracle.
 [[nodiscard]] inline double ProjectedAreaPx(const outshine::Test::Handed &geometry,
-                                            const outshine::Gltf::Transform &clip,
-                                            const outshine::Gltf::Viewport &viewport) {
+                                            const outshine::Test::Clip &clip,
+                                            const outshine::Test::Frame &viewport) {
   double total = 0;
   const std::vector<double> &positions = geometry.PositionsM();
   const std::vector<uint32_t> &indices = geometry.Indices();
@@ -120,7 +121,7 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 }
 
 [[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Test::Handed &geometry,
-                                                         const outshine::Gltf::Transform &clip) {
+                                                         const outshine::Test::Clip &clip) {
   size_t outside = 0;
   for (const outshine::Test::Handed::Part &part : geometry.Parts()) {
     for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
@@ -139,8 +140,8 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 }
 
 inline Attribution AttributeDisagreement(const outshine::Test::Handed &geometry,
-                                         const outshine::Gltf::Transform &clip,
-                                         const outshine::Gltf::Viewport &viewport, const Mask &ours,
+                                         const outshine::Test::Clip &clip,
+                                         const outshine::Test::Frame &viewport, const Mask &ours,
                                          const Mask &theirs) {
   Attribution table;
   Mask touched;

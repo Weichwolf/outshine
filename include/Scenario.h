@@ -379,6 +379,15 @@ struct Camera {
     FarM = farM;
   }
 
+  // THE MATRICES A CLIENT PROJECTS WITH. Filament hands out `Camera::getViewMatrix()` and
+  // `getProjectionMatrix()` for exactly this reason: a client that wants to know WHERE a point
+  // lands on the frame -- to place a label, to test a pick, to score a render against a reference
+  // -- would otherwise rebuild the arithmetic and be wrong in a way nothing catches. `clipMatrix`
+  // is the two composed, which is the one a point is multiplied by. Column-major, sixteen doubles.
+  [[nodiscard]] bool viewMatrix(double outM16[16]) const;
+  [[nodiscard]] bool projectionMatrix(double aspect, double outM16[16]) const;
+  [[nodiscard]] bool clipMatrix(double aspect, double outM16[16]) const;
+
   bool LooksAt = false;
   double LookAtM[3] = {0.0, 0.0, 0.0};
   // WHICH WAY IS UP, AS FILAMENT SPELLS IT. `Camera::lookAt(eye, center, up)` takes a vector and

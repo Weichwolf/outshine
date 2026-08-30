@@ -1,6 +1,7 @@
 #ifndef RENDER_EXACTNESS_H
 #define RENDER_EXACTNESS_H
 
+#include "Aim.h"
 #include "Handed.h"
 #include <algorithm>
 #include <cmath>
@@ -115,8 +116,8 @@ struct Adjacency {
 
 }
 
-inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const Gltf::Transform &clip,
-                          const Gltf::Viewport &viewport) {
+inline EdgeSet Silhouette(const outshine::Test::Handed &subject, const outshine::Test::Clip &clip,
+                          const outshine::Test::Frame &viewport) {
   const std::vector<uint32_t> &indices = subject.Indices();
   const std::vector<double> &positions = subject.PositionsM();
   const size_t vertices = positions.size() / 3;

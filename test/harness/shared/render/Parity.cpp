@@ -14,6 +14,7 @@
 #include "Check.h"
 
 #include "RenderCase.h"
+#include "Aim.h"
 #include "Drives.h"
 #include "Handed.h"
 #include <Loaded.h>
@@ -48,8 +49,6 @@ using outshine::Gltf::Transform;
 using outshine::Gltf::Viewport;
 using namespace outshine::Render::Parity;
 using Handed = outshine::Test::Handed;
-using Document = outshine::Gltf::Document;
-using Subject = outshine::Gltf::Subject;
 
 namespace {
 using outshine::Render::SurfaceTable;
@@ -85,8 +84,8 @@ struct Case {
     Shape = outshine::Gltf::Shaped(Held.geometry(), Store);
     return Shape;
   }
-  Viewpoint Eye;
-  Viewport Frame;
+  outshine::Camera Eye;
+  outshine::Test::Frame Frame;
   Acceptance Accepted;
   ExactnessClass Placement = ExactnessClass::GeneralPosition;
 
@@ -126,7 +125,6 @@ struct Case {
   double Fps = 0;
 
   std::vector<int> Animations;
-  outshine::Gltf::Pose Animation;
 
   std::vector<Transform> Locals;
 
@@ -296,6 +294,38 @@ public:
 // THE DOOR'S CAMERA, READ BACK INTO THE SHAPE THIS RUNNER PROJECTS WITH. The two say the same
 // standing -- an eye, a point it looks at, which way is up, and a projection -- and the door's is
 // the one a client holds.
+// A MANIFEST STATES AN EYE, A POINT AND A ROLL, and the door takes an UP. The roll is measured
+// from world-up projected off the view axis, which is the convention the manifests were written
+// against; turning it into a vector here is the one place this runner knows about it.
+[[nodiscard]] bool StandsAt(const double eyeM[3], const double aimM[3], double rollRad,
+                            outshine::Camera &out) {
+  double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
+  const double reach =
+      std::sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
+  if (!(reach > 0.0)) { return false; }
+  for (int axis = 0; axis < 3; ++axis) { forward[axis] /= reach; }
+  const double worldUp[3] = {0, 1, 0};
+  double right[3] = {forward[1] * worldUp[2] - forward[2] * worldUp[1],
+                     forward[2] * worldUp[0] - forward[0] * worldUp[2],
+                     forward[0] * worldUp[1] - forward[1] * worldUp[0]};
+  const double across =
+      std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
+  if (!(across > 0.0)) { return false; }
+  for (int axis = 0; axis < 3; ++axis) { right[axis] /= across; }
+  const double up[3] = {right[1] * forward[2] - right[2] * forward[1],
+                        right[2] * forward[0] - right[0] * forward[2],
+                        right[0] * forward[1] - right[1] * forward[0]};
+  const double turn = std::cos(rollRad), lean = std::sin(rollRad);
+  out.Placed = true;
+  out.LooksAt = true;
+  for (int axis = 0; axis < 3; ++axis) {
+    out.Stands.AtM[axis] = eyeM[axis];
+    out.LookAtM[axis] = aimM[axis];
+    out.UpM[axis] = up[axis] * turn - right[axis] * lean;
+  }
+  return true;
+}
+
 [[nodiscard]] bool ViewpointOf(const outshine::Camera &from, Viewpoint &out) {
   const double aim[3] = {from.LookAtM[0], from.LookAtM[1], from.LookAtM[2]};
   if (!Viewpoint::LookAt(from.Stands.AtM, aim, from.UpM, out)) { return false; }
@@ -319,16 +349,16 @@ public:
       eye[axis] = declared["positionM"][axis].Num(0.0);
       aim[axis] = declared["lookAtM"][axis].Num(0.0);
     }
-    if (!Viewpoint::LookAt(eye, aim, declared["rollRad"].Num(0.0), subject.Eye)) {
+    if (!StandsAt(eye, aim, declared["rollRad"].Num(0.0), subject.Eye)) {
       error = "the manifest's camera aims at its own eye or straight up";
       return false;
     }
-    subject.Eye.ZNearM = declared["clipStartM"].Num(0.0);
-    subject.Eye.ZFarM = declared["clipEndM"].Num(0.0);
+    subject.Eye.NearM = declared["clipStartM"].Num(0.0);
+    subject.Eye.FarM = declared["clipEndM"].Num(0.0);
     subject.CameraSource = "manifest";
 
     if (declared["projection"].StrEquals("orthographic")) {
-      subject.Eye.Kind = outshine::Render::CameraKind::Orthographic;
+      subject.Eye.Orthographic = true;
       subject.Eye.YMagM = declared["yMagM"].Num(0.0);
 
       subject.Eye.XMagM = subject.Eye.YMagM * subject.Frame.Aspect();
@@ -339,8 +369,8 @@ public:
               "', and glTF has two";
       return false;
     }
-    subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
-    return subject.Eye.YfovRad > 0;
+    subject.Eye.FovDeg = declared["yfovRad"].Num(0.0) * 180.0 / std::numbers::pi;
+    return subject.Eye.FovDeg > 0;
   }
 
   if (declared["source"].StrEquals("derived")) {
@@ -374,15 +404,15 @@ public:
       eye[axis] = from["positionM"][axis].Num(0.0);
       aim[axis] = from["lookAtM"][axis].Num(0.0);
     }
-    if (!Viewpoint::LookAt(eye, aim, from["rollRad"].Num(0.0), subject.Eye)) {
+    if (!StandsAt(eye, aim, from["rollRad"].Num(0.0), subject.Eye)) {
       error = "the derived camera aims at its own eye or straight up";
       return false;
     }
-    subject.Eye.ZNearM = from["clipStartM"].Num(0.0);
-    subject.Eye.ZFarM = from["clipEndM"].Num(0.0);
-    subject.Eye.YfovRad = from["yfovRad"].Num(0.0);
+    subject.Eye.NearM = from["clipStartM"].Num(0.0);
+    subject.Eye.FarM = from["clipEndM"].Num(0.0);
+    subject.Eye.FovDeg = from["yfovRad"].Num(0.0) * 180.0 / std::numbers::pi;
     subject.CameraSource = "derived";
-    return subject.Eye.YfovRad > 0 && subject.Eye.ZFarM > subject.Eye.ZNearM;
+    return subject.Eye.FovDeg > 0 && subject.Eye.FarM > subject.Eye.NearM;
   }
 
   if (declared["source"].StrEquals("gltf")) {
@@ -391,9 +421,7 @@ public:
               "`cameras`, and a file may carry more than one";
       return false;
     }
-    outshine::Camera shipped;
-    if (!subject.Held.camera((int)declared["index"].Num(-1), shipped) ||
-        !ViewpointOf(shipped, subject.Eye)) {
+    if (!subject.Held.camera((int)declared["index"].Num(-1), subject.Eye)) {
       error = "the manifest names a camera of the file that it does not carry, or one that aims "
               "at its own eye";
       return false;
@@ -402,8 +430,7 @@ public:
     return true;
   }
 
-  outshine::Camera framed;
-  if (subject.Held.frames(framed) && ViewpointOf(framed, subject.Eye)) {
+  if (subject.Held.frames(subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;
   }
@@ -662,7 +689,7 @@ std::string MissingInputs(const Case &subject) {
 
       const outshine::Material surface = index >= 0 && (size_t)index < geometry.Surfaces().size()
                                              ? geometry.Surfaces()[(size_t)index]
-                                             : outshine::Gltf::DefaultMaterial();
+                                             : outshine::Material{};
       for (size_t channel = 0; channel < 3; ++channel) {
         const double factor = subject.Colour == ColourFrom::Emissive
                                   ? (double)surface.Emission[channel]
@@ -936,7 +963,9 @@ struct Picture {
 };
 
 outshine::Render::Eye MakeView(const Case &subject) {
-  return outshine::Render::Eye{subject.Eye, false, 0};
+  Viewpoint standing;
+  (void)ViewpointOf(subject.Eye, standing);
+  return outshine::Render::Eye{standing, false, 0};
 }
 
 // THE CAPTURE, THROUGH THE DOOR AND NOTHING ELSE. It brackets the frame the way Filament does and
@@ -1194,24 +1223,24 @@ void DeclareDrives(Case &subject) {
   says.Fps = subject.Fps;
 
   for (int axis = 0; axis < 3; ++axis) {
-    says.AtM[axis] = subject.Eye.EyeM[axis];
-    says.LookAtM[axis] = subject.Eye.EyeM[axis] + subject.Eye.Forward[axis];
+    says.AtM[axis] = subject.Eye.Stands.AtM[axis];
+    says.LookAtM[axis] = subject.Eye.LookAtM[axis];
   }
-  says.YfovRad = subject.Eye.YfovRad;
-  says.NearM = subject.Eye.ZNearM;
-  says.FarM = subject.Eye.ZFarM;
+  says.YfovRad = subject.Eye.FovDeg * std::numbers::pi / 180.0;
+  says.NearM = subject.Eye.NearM;
+  says.FarM = subject.Eye.FarM;
 
   // AND WHICH WAY IS UP, HANDED OVER RATHER THAN RECOVERED. An eye and a look-at point say where
   // a camera points and NOTHING about which way is up, so a rolled camera came through the door
   // upright. The door takes the vector now, the way Filament's `Camera::lookAt` does, so there is
   // no angle to recover and no sense to guess -- the guess came out negated, and Khronos's
   // Triangle shared 48% of its pixels with the oracle until this.
-  for (int axis = 0; axis < 3; ++axis) { says.UpM[axis] = subject.Eye.Up[axis]; }
+  for (int axis = 0; axis < 3; ++axis) { says.UpM[axis] = subject.Eye.UpM[axis]; }
 
   // AND THE PROJECTION. glTF has two cameras and so does this door; a case that declares an
   // orthographic one was being drawn in perspective, which is the largest coverage difference
   // available.
-  says.Orthographic = subject.Eye.Kind == outshine::Render::CameraKind::Orthographic;
+  says.Orthographic = subject.Eye.Orthographic;
   says.XMagM = subject.Eye.XMagM;
   says.YMagM = subject.Eye.YMagM;
 
@@ -1459,7 +1488,7 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
   }
 }
 
-void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double biasM,
+void ScoreVisibilityTerm(const Case &subject, const outshine::Test::Clip &clip, double biasM,
                          std::vector<Metric> &metrics) {
   double centre[3];
   subject.Model.CentreM(centre);
@@ -1596,10 +1625,10 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   return studio;
 }
 
-[[nodiscard]] bool RangeAt(const outshine::Gltf::Viewpoint &eye, const outshine::Gltf::Viewport &frame,
+[[nodiscard]] bool RangeAt(const outshine::Camera &eye, const outshine::Test::Frame &frame,
                            const std::vector<float> &depth, int column, int row, double &out,
                            std::string &error) {
-  if (eye.Kind != outshine::Render::CameraKind::Perspective) {
+  if (eye.Orthographic) {
     error = "a depth probe states a range along a view ray, and this case's camera is orthographic";
     return false;
   }
@@ -1613,14 +1642,14 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
     error = "nothing is drawn at the probe's pixel, so there is no surface to state a range for";
     return false;
   }
-  const double halfHeight = std::tan(eye.YfovRad * 0.5);
+  const double halfHeight = std::tan(eye.FovDeg * std::numbers::pi / 360.0);
   const double acrossNdc = 2.0 * ((double)column + 0.5) / frame.WidthPx - 1.0;
   const double downNdc = 1.0 - 2.0 * ((double)row + 0.5) / frame.HeightPx;
   const double across = acrossNdc * halfHeight * frame.Aspect();
   const double down = downNdc * halfHeight;
   const double secant = std::sqrt(across * across + down * down + 1.0);
 
-  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)outshine::Render::SceneRenderer::kNearM;
+  const double plane = eye.NearM > 0.0 ? eye.NearM : (double)outshine::Render::SceneRenderer::kNearM;
   out = plane / (double)depth[at] * secant;
   return true;
 }
@@ -1693,8 +1722,8 @@ struct DeclaredNormals {
   std::vector<float> Depth;
 };
 
-DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const Transform &clip,
-                                         const Viewport &viewport, int width, int height) {
+DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const outshine::Test::Clip &clip,
+                                         const outshine::Test::Frame &viewport, int width, int height) {
   DeclaredNormals out;
   out.Xyz.assign((size_t)width * (size_t)height * 3u, 0.0f);
   out.Depth.assign((size_t)width * (size_t)height, 2.0f);
@@ -1889,7 +1918,7 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
 }
 
 void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
-                        const Transform &clip, int frame, std::vector<Metric> &metrics) {
+                        const outshine::Test::Clip &clip, int frame, std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   RawF32 cycles;
   const std::string path =
@@ -2183,8 +2212,8 @@ struct Motion {
 [[nodiscard]] Motion ScoreMotion(const Case &subject, int frame) {
   using namespace outshine::Test;
   if (frame == 0) { return Motion{true, 0}; }
-  Transform clip;
-  if (!outshine::Gltf::ClipOf(subject.Eye, subject.Frame.Aspect(), clip)) {
+  outshine::Test::Clip clip;
+  if (!clip.Stands(subject.Eye, subject.Frame.Aspect())) {
     CHECK(false, "the resolved camera yields a projection, so the motion is measurable in pixels");
     return Motion{false, 0};
   }
@@ -2395,8 +2424,8 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
       ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, frame, metrics);
   const Routing routing{ours, theirs, routedBySurface};
 
-  Transform clip;
-  const bool projects = outshine::Gltf::ClipOf(subject.Eye, subject.Frame.Aspect(), clip);
+  outshine::Test::Clip clip;
+  const bool projects = clip.Stands(subject.Eye, subject.Frame.Aspect());
   CHECK(projects, "the resolved camera yields a projection");
   if (projects) {
     const EdgeSet edges = Silhouette(subject.Model, clip, subject.Frame);
@@ -2693,9 +2722,8 @@ bool ConfiguredCase::Start(outshine::Render::SceneRenderer &renderer, std::strin
 }
 
 bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
-  outshine::Camera framed;
-  Viewpoint derived;
-  if (!Held_->Subject.Held.frames(fill, framed) || !ViewpointOf(framed, derived)) {
+  outshine::Camera derived;
+  if (!Held_->Subject.Held.frames(fill, derived)) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
