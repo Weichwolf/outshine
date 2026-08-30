@@ -65,11 +65,47 @@ draws its soil.
 That is this item, measured by a case rather than by an eye, and it is the strongest evidence in
 it: the refusal is not about a missing class, it is about nothing standing on the class.
 
+## WHAT IT COSTS, derived before anything is written
+
+`vegetation.json` already declares every density. Over the fine class grid -- 2048 m square,
+4.19 km2 -- they come to:
+
+| template | trees | grass blades |
+|---|---|---|
+| mixed_broadleaf | 117 441 | 377 487 360 |
+| conifer_forest | 138 412 | 146 800 640 |
+| meadow | 3 355 | **3 355 443 200** |
+| settlement | 25 166 | 1 761 607 680 |
+
+At 200 triangles a tree, `mixed_broadleaf` alone is **23.5 M triangles** over that one grid.
+Venice's ENTIRE world today is 1.28 M. Grass as geometry at 90/m2 costs 1.80 M triangles for a
+100 m square and 7.20 M for 200 m.
+
+**So the answer is not one thing, it is two, and the numbers decide which is which.**
+
+- **A SWARD IS A SURFACE, not blades.** Beyond a few tens of metres a lawn's reflectance IS the
+  blades' and not the soil's, and `vegetation.json` already carries exactly that: `bladeClasses`
+  gives `graminoid` a `greenLinear` of [0.1506, 0.1892, 0.0803] and a `dryLinear` of
+  [0.3526, 0.2377, 0.0988], every template gives a `dryFraction`, and `meadow` declares
+  `swardClosure: 1.0` -- a closed sward through which no soil is seen. Mixing the sward into the
+  ground albedo by closure and dry fraction is not a cheat, it is what those four numbers were
+  measured FOR. This is the cheap half and it is where the green comes from.
+- **A TREE IS GEOMETRY near and an IMPOSTOR far**, which is Unreal's foliage HLOD and RAGE's
+  billboard cards. 117 441 trees cannot all be geometry; the count that CAN is a measurement,
+  not a guess, and it is board:2058's cluster work that decides it.
+
+`trees.status` in every template reads `"declared"` -- the file's own word for the half that has
+never been placed.
+
 ## What will be true
 
-- [ ] A land class that means vegetation SCATTERS the generator its `vegetation.json` template
-      already names, and the instances are drawn. The ground keeps its floor material underneath,
-      unchanged -- this item adds a layer, it does not repaint one.
+- [ ] The SWARD reaches the ground's albedo: a class whose template declares grass mixes
+      `greenLinear` and `dryLinear` by its `dryFraction`, and covers the floor material by its
+      `swardClosure`. Nothing is invented -- all four numbers are already declared and carry
+      their origins.
+- [ ] A land class that means TREES scatters the generator its template already names, at a
+      density the frame budget allows, with an impostor beyond it. The ground keeps its floor
+      material underneath -- this item adds a layer, it does not repaint one.
 - [ ] `outshine/places/RenderCentralPark` goes from UNPREPARED to PASS on its own bar, without
       the bar moving. It reads 0.8423 against 1.0 today.
 - [ ] Measurement that shows this is wrong: the Koenigstuhl's pixels at Heidelberg's declared
