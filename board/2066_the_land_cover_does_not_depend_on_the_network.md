@@ -39,6 +39,22 @@ wait. **The picture is better when the line is slower.**
 - `measures published twice in one round` reads **0**, so the ledger sees no name written twice
   with a different value. The round is not the explanation.
 
+## Two more facts, and candidate 1 falls
+
+- **The frames are the same.** `ClassField::LendTo` sets `job.Frame = Frame_`, so the structure is
+  built in exactly the frame `ClassAt` projects through. Candidate 1 is out.
+- **The measures describe the FIRST rebuild, before any `Update` ran.** `class field: tiles it
+  waits for` reads -1, which is only returned when `Fine_.Field` is null -- the state before
+  `ClassField::Update` has been entered once. `the version the colours used` reads -1 beside it.
+  So every class measure in `Grounds()` is answering from the first moment the world was touched,
+  while the probe showed a version-3 structure published and a rebuild firing for it.
+
+That leaves the question sharper than it was: a rebuild DOES run with version 3 in hand, and the
+ground still wears no class. The remaining candidate is EXTENT -- `SubmitDue` builds a grid of
+`HalfCells * CellM` about the camera, while the ring runs out to the declared sight, 240 km. A
+vertex outside the grid returns -1 by construction. What that does not yet explain is why `named`
+is exactly 0 rather than small: the vertices near the camera are inside any such grid.
+
 ## What is NOT established, and is the next measurement
 
 Why `ClassField::ClassAt` names nothing at the ring's vertices in the warm run while a structure

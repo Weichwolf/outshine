@@ -623,6 +623,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
     Published.Places("the ring's vertices a land class names", (double)named, "vertices");
     Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
+    Published.Places("class field: the version the colours used",
+                     classes ? (double)classes->Version() : -1.0,
+                     "version");
     Published.Places("class field: it calls itself complete",
                      World.Stack.Classes().Complete() ? 1.0 : 0.0,
                      "yes/no");
