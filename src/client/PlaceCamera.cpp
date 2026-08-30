@@ -83,6 +83,7 @@ double ControlVariation() {
 }
 
 LogSink *Telling = nullptr;
+bool Audits = false;
 
 Shot Take(const Place &place, bool tells) {
   Shot shot;
@@ -107,6 +108,7 @@ Shot Take(const Place &place, bool tells) {
   stands.Render.Declared = true;
   stands.Render.Frame = Extent{kWidePx, kHighPx};
   stands.Render.Fill = 0.6;
+  stands.Render.Audits = Audits;
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = kKeyLux;
   stands.Lit.Key.ElevationDeg = kSunElevationDeg;

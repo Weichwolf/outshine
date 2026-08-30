@@ -61,6 +61,11 @@ struct Shot {
 /// Where the engine says what it is doing while a place is taken. Null keeps it silent.
 extern ::outshine::LogSink *Telling;
 
+/// Whether the engine walks its own geometry and publishes what it finds -- coincident corners,
+/// edges on one triangle, needles. Off by default: it costs 11.3 s of Shibuya's load and answers
+/// questions that change when a GENERATOR changes, never between two frames.
+extern bool Audits;
+
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
 } // namespace outshine::Shots

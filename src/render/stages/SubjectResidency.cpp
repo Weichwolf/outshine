@@ -68,15 +68,6 @@ size_t SubjectResidency::StagingMadeTaken() {
   return gStagingMade.exchange(0u);
 }
 
-[[nodiscard]] static uint32_t Widened(uint32_t held, uint32_t wanted) {
-  uint32_t room = held > 0 ? held : wanted;
-  while (room < wanted) {
-    if (room > 0x7fffffffu) { return wanted; }
-    room *= 2u;
-  }
-  return room;
-}
-
 bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::string &error) {
   uint32_t total = 0;
   for (size_t at = 0; at < count; ++at) {
@@ -89,7 +80,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     if (*one.Held < one.Bytes || !*one.Into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
-      wanted.size = Widened(*one.Held, one.Bytes);
+      wanted.size = one.Bytes;
       *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
       if (!*one.Into) {
@@ -97,7 +88,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
-      *one.Held = wanted.size;
+      *one.Held = one.Bytes;
     }
 
     total = (total + one.Bytes + 15u) & ~15u;
@@ -158,9 +149,8 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
   if (BulkBytes_ < total || !Bulk_) {
-    room.size = Widened(BulkBytes_, total);
     Bulk_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-    BulkBytes_ = Bulk_ ? room.size : 0u;
+    BulkBytes_ = Bulk_ ? total : 0u;
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
   }
   gUploads.fetch_add(1u, std::memory_order_relaxed);
