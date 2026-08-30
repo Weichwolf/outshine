@@ -14,6 +14,7 @@
 #include "Check.h"
 
 #include "RenderCase.h"
+#include "Drives.h"
 #include "Shaped.h"
 #include "Surfaces.h"
 #include "Surfacing.h"
@@ -69,6 +70,13 @@ struct Case {
   Json Manifest;
   Document File;
   Subject Geometry;
+
+  // WHAT THIS CASE SAYS TO THE DOOR. The `Document` above is still read, and that is not a reach
+  // past the door: a conformance harness parses the VENDOR'S FILE to know what the answer should
+  // be, which is reading a FORMAT rather than driving an engine. What goes through `include/` is
+  // everything that renders -- the declaration, the frame, the readback -- because that is the
+  // submission path, and a gate blind to it is CLAUDE.md's first named trap.
+  outshine::Test::Drives Driving;
 
   // THE RENDERER'S OWN VIEW OF THAT GEOMETRY, AND ITS STORE. The proxy holds a POINTER to the
   // shape it stands on, so both have to outlive it -- and a `Case` is what outlives everything
@@ -854,40 +862,46 @@ outshine::Render::Eye MakeView(const Case &subject) {
   return outshine::Render::Eye{subject.Eye, false, 0};
 }
 
-[[nodiscard]] bool Capture(outshine::Render::SceneRenderer &renderer,
-                           const outshine::Render::SubjectProxy &studio,
-                           const outshine::Render::Eye &view, Picture &out,
-                           std::string &error) {
-  outshine::Render::SubjectScratch scratch;
-  if (!outshine::Render::Show(renderer, studio, view, scratch, error)) { return false; }
-
-  for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
-
-  if (renderer.ReadDepth(out.Depth) != outshine::Render::ReadState::Ready) {
-    error = "the depth readback did not complete";
+// THE CAPTURE, THROUGH THE DOOR AND NOTHING ELSE. It brackets the frame the way Filament does and
+// asks for each picture by name -- which is why `Buffer` and `readPixels(Buffer, ...)` went into
+// `include/`: a conformance case states a claim about the DEPTH or the SHADING NORMAL, and a
+// harness that could only read the displayed colour would have to reach past the door to say it.
+//
+// A PICTURE THE PLAN DOES NOT KEEP IS EMPTY AND NOT A FAILURE. The case declares which ones it
+// wants through `Keeps`; asking for one it did not declare is the client's own error and reads as
+// a refusal, so this only takes what was asked for.
+[[nodiscard]] bool Capture(outshine::Engine &engine, const outshine::Test::Drives &drives,
+                           Picture &out, std::string &why) {
+  if (!drives.Renders(engine, why)) { return false; }
+  outshine::Renderer draws = engine.renderer();
+  const auto keeps = [&drives](const char *named) {
+    for (const std::string &one : drives.Keeps) {
+      if (one == named) { return true; }
+    }
+    return false;
+  };
+  const auto reads = [&](outshine::Buffer which, std::vector<float> &into) {
+    if (!draws.readPixels(which, into)) {
+      why = engine.error();
+      return false;
+    }
+    return true;
+  };
+  if (!draws.readPixels(out.Rgba)) {
+    why = engine.error();
     return false;
   }
-  if (renderer.ReadSceneLinear(out.Linear) != outshine::Render::ReadState::Ready) {
-    error = "the scene-referred linear readback did not complete";
+  if (!reads(outshine::Buffer::Linear, out.Linear)) { return false; }
+  if (keeps("sceneDepth") && !reads(outshine::Buffer::Depth, out.Depth)) { return false; }
+  if (keeps("sceneShadingNormal") &&
+      !reads(outshine::Buffer::ShadingNormal, out.ShadingNormal)) {
     return false;
   }
-  if (renderer.ReadPixels(out.Rgba) != outshine::Render::ReadState::Ready) {
-    error = "the colour readback did not complete";
+  if (keeps("sceneSurfaceIdentity") &&
+      !reads(outshine::Buffer::SurfaceIdentity, out.SurfaceIdentity)) {
     return false;
   }
-  if (renderer.ReadShadingNormal(out.ShadingNormal) != outshine::Render::ReadState::Ready) {
-    error = "the shading-normal readback did not complete";
-    return false;
-  }
-  if (renderer.ReadSurfaceIdentity(out.SurfaceIdentity) != outshine::Render::ReadState::Ready) {
-    error = "the surface-identity readback did not complete";
-    return false;
-  }
-  if (renderer.Plan().Holds(outshine::Render::Resource::SceneVelocity) &&
-      renderer.ReadSceneVelocity(out.Velocity) != outshine::Render::ReadState::Ready) {
-    error = "the velocity readback did not complete";
-    return false;
-  }
+  if (keeps("sceneVelocity") && !reads(outshine::Buffer::Velocity, out.Velocity)) { return false; }
   return true;
 }
 
@@ -942,13 +956,12 @@ std::vector<uint8_t> Encoded(const RawF32 &oracle) {
   return rgba;
 }
 
-void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy &studio,
-                      outshine::Render::SceneRenderer &renderer, const Picture &picture,
+void ScoreDeterminism(const Case &subject, outshine::Engine &engine, const Picture &picture,
                       std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   Picture again;
   std::string trouble;
-  const bool twice = Capture(renderer, studio, MakeView(subject), again, trouble);
+  const bool twice = Capture(engine, subject.Driving, again, trouble);
   CHECK(twice, "the same declaration renders a second time in the same process");
   size_t apart = 0;
   int64_t worst = 0;
@@ -968,7 +981,8 @@ void ScoreDeterminism(const Case &subject, const outshine::Render::SubjectProxy 
     Note("first differing channel, at index", (double)firstAt, "index");
     Note("widest disagreement between two renders", (double)worst, "f32 ulps");
     Picture third;
-    if (Capture(renderer, studio, MakeView(subject), third, trouble) && third.Linear.size() == picture.Linear.size()) {
+    if (Capture(engine, subject.Driving, third, trouble) &&
+        third.Linear.size() == picture.Linear.size()) {
       size_t stable = 0;
       for (size_t at = 0; at < third.Linear.size(); ++at) {
         if (third.Linear[at] != picture.Linear[at]) { ++stable; }
@@ -1092,7 +1106,182 @@ void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
   return true;
 }
 
-Prepared Prepare(Case &subject, outshine::Render::SceneRenderer &renderer) {
+// THE CASE, SAID TO THE DOOR. Every number here was already read out of the manifest; this is
+// where it stops being an argument to an internal call and becomes a DECLARATION. What the engine
+// is told is exactly what a client could tell it, which is the whole of board:2038.
+void DeclareDrives(Case &subject) {
+  outshine::Test::Drives &says = subject.Driving;
+  says.Path = subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
+  says.Frame = outshine::Extent{(int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx};
+  says.Animated = subject.Animated();
+  says.Fps = subject.Fps;
+
+  for (int axis = 0; axis < 3; ++axis) {
+    says.AtM[axis] = subject.Eye.EyeM[axis];
+    says.LookAtM[axis] = subject.Eye.EyeM[axis] + subject.Eye.Forward[axis];
+  }
+  says.YfovRad = subject.Eye.YfovRad;
+  says.NearM = subject.Eye.ZNearM;
+  says.FarM = subject.Eye.ZFarM;
+
+  // AND WHICH WAY IS UP, HANDED OVER RATHER THAN RECOVERED. An eye and a look-at point say where
+  // a camera points and NOTHING about which way is up, so a rolled camera came through the door
+  // upright. The door takes the vector now, the way Filament's `Camera::lookAt` does, so there is
+  // no angle to recover and no sense to guess -- the guess came out negated, and Khronos's
+  // Triangle shared 48% of its pixels with the oracle until this.
+  for (int axis = 0; axis < 3; ++axis) { says.UpM[axis] = subject.Eye.Up[axis]; }
+
+  // AND THE PROJECTION. glTF has two cameras and so does this door; a case that declares an
+  // orthographic one was being drawn in perspective, which is the largest coverage difference
+  // available.
+  says.Orthographic = subject.Eye.Kind == outshine::Render::CameraKind::Orthographic;
+  says.XMagM = subject.Eye.XMagM;
+  says.YMagM = subject.Eye.YMagM;
+
+  // THE CASE'S OWN STAGES, NAMED. Leaving the list empty means "the engine's own default", and the
+  // engine's default is a WORLD -- subjects, overlay, sky, aerial perspective, shadows. A corpus
+  // case renders a subject against a reference with none of that, and an unnamed default drew all
+  // of it: measured, `plan_passes` over its bound and the picture 104.7 px away from the oracle.
+  says.Keeps = {"sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"};
+  if (subject.Animated()) { says.Keeps.push_back("sceneVelocity"); }
+  says.Transfer = "linear";
+  says.Precision = "float";
+  says.Exposure = 1.0;
+
+  // THE KEY LIGHT'S DIRECTION, TRANSLATED ONCE AT THE BOUNDARY. A case declares its sun as a
+  // glTF-shaped VECTOR and the door spells the key as an ELEVATION and a BEARING, because that is
+  // what a sun placed by a clock and a place has. Handing over only the intensity left every such
+  // case lit from elevation 0, bearing 0 -- six of the corpus's `light: sun` cases, all red on the
+  // picture. The engine builds the vector as (-cos el sin b, -sin el, -cos el cos b); this is that
+  // read backwards, and nothing else here needs to know either spelling.
+  if (subject.Lights == SceneLights::DeclaredSun) {
+    says.Key.Lux = (double)subject.Sun.Intensity;
+    const double dx = (double)subject.Sun.Direction[0];
+    const double dy = (double)subject.Sun.Direction[1];
+    const double dz = (double)subject.Sun.Direction[2];
+    const double span = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (span > 1.0e-12) {
+      says.Key.ElevationDeg = std::asin(std::clamp(-dy / span, -1.0, 1.0)) * 180.0 /
+                              std::numbers::pi;
+      says.Key.BearingDeg = std::atan2(-dx, -dz) * 180.0 / std::numbers::pi;
+    }
+  }
+  // ONLY A CASE SHADED BY LIGHTS DECLARES AN AMBIENT. A case whose oracle is a Diffuse BSDF under
+  // a uniform world has its rho*L computed HERE and handed over as the part's emission, so an
+  // ambient on top of it would light the same energy twice -- measured on BoxInterleaved, whose
+  // red face read 0.04326 against the oracle's 0.04070 with a grey 0.01279 in G and B that a
+  // diffuse-only oracle cannot have.
+  if (subject.ShadedByLights()) {
+    for (int channel = 0; channel < 3; ++channel) {
+      says.IndirectLight[channel] = subject.WorldRadiance[channel];
+    }
+  }
+
+  // THE EMITTED RADIANCE, SAID PER PART, which is what a flat-shaded case's appearance IS.
+  // ONLY A CASE THIS RUNNER SHADES ITSELF DECLARES ONE. An override REPLACES the surface, maps
+  // and all, so quoting the file's own row back at the engine would strip the very textures a
+  // light-shaded case is being scored on.
+  for (size_t part = 0; !subject.ShadedByLights() && part < subject.Emitted.size() &&
+                        part < subject.Geometry.Parts().size();
+       ++part) {
+    outshine::SurfaceOverride said;
+    said.Node = subject.Geometry.Parts()[part].NodeName;
+    said.Part = (int)part;
+    // WHAT IS DECLARED IS A SHADING, AND ONLY WHAT DECIDES COVERAGE SURVIVES THE FILE. The
+    // preparer replaces the material with a Diffuse or Emission BSDF, so a row carried over from
+    // the asset kept a transmission the oracle does not render -- 21 cases whose manifest calls
+    // them `opaque-min-1px` drew glass. Alpha mode, its cut and double-sidedness decide WHICH
+    // PIXELS are covered rather than what colour they wear, and coverage agrees to five digits
+    // today, so those three come across and nothing else does.
+    const int index = subject.Geometry.Parts()[part].Material;
+    const outshine::Material carried =
+        index >= 0 && (size_t)index < subject.Geometry.Surfaces().size()
+            ? subject.Geometry.Surfaces()[(size_t)index]
+            : outshine::Material{};
+    // A CASE WHOSE COLOUR IS THE FILE'S KEEPS THE FILE'S MAPS. `gltf-base-colour` and
+    // `gltf-emissive` say "the asset states this surface and the oracle shades it flat", so the
+    // base-colour map IS the picture and dropping it renders a flat average of a photograph. A
+    // case whose colour the MANIFEST states keeps nothing: the preparer replaced the material with
+    // a Diffuse or Emission BSDF and there is no map left on that side to agree with.
+    said.KeepsMaps = subject.MaterialFromFile();
+    said.Row = said.KeepsMaps ? carried : outshine::Material{};
+    said.Row.Alpha = carried.Alpha;
+    said.Row.CoverageCut = carried.CoverageCut;
+    said.Row.DoubleSided = carried.DoubleSided;
+    said.Row.BaseColour[3] = carried.BaseColour[3];
+    said.Row.Unlit = !subject.ShadedByLights();
+    for (int channel = 0; channel < 3; ++channel) {
+      said.Row.Emission[channel] = subject.Emitted[part][(size_t)channel];
+    }
+    says.Surfaces.push_back(said);
+  }
+
+  // A DECLARATION THAT SPLITS SLOTS HAS TO MODEL THE SPLIT. A surface declared per PART gives that
+  // part its own slot, so the engine's table grows by one for each -- and the identity attachment
+  // then names slots this harness's own table has never heard of. It declared them; it models
+  // them, in the order the parts are walked, which is the order they are appended in. Every part
+  // is declared, because `SurfaceOverride::Part` keys by ORDINAL and needs no name to match.
+  std::vector<uint32_t> wearers(subject.Surfaces.Slots.size(), 0u);
+  for (const uint32_t worn : subject.Surfaces.PartSlot) {
+    if (worn < wearers.size()) { wearers[worn] += 1u; }
+  }
+  for (size_t part = 0; !subject.ShadedByLights() && part < subject.Emitted.size() &&
+                        part < subject.Geometry.Parts().size();
+       ++part) {
+    const uint32_t slot = part < subject.Surfaces.PartSlot.size() ? subject.Surfaces.PartSlot[part]
+                                                                  : 0u;
+    // AND THE SPLIT IS THE ENGINE'S RULE, MIRRORED: only a SHARED slot gains one. A part that is
+    // its slot's only wearer takes the row in place, so modelling a new slot there would count a
+    // surface the engine never made.
+    if (slot < wearers.size() && wearers[slot] == 1u) { continue; }
+    if (slot < wearers.size()) { wearers[slot] -= 1u; }
+    const int carried = slot < subject.Surfaces.Material.size()
+                            ? subject.Surfaces.Material[slot]
+                            : -1;
+    subject.Surfaces.Slots.push_back(subject.Surfaces.Slots[slot < subject.Surfaces.Slots.size()
+                                                                ? slot
+                                                                : 0u]);
+    subject.Surfaces.Material.push_back(carried);
+    subject.Surfaces.PartSlot[part] = (uint32_t)(subject.Surfaces.Slots.size() - 1u);
+  }
+
+  // THE STAGES ARE DECIDED LAST, because whether the scene carries glass is a question about the
+  // surfaces that will be DRAWN, and those are declared above. Asking it first read an empty list
+  // and fell back to the file -- which is the very answer an override replaces.
+  says.Stages = {"subjects"};
+  // GLASS IS WHAT THE DECLARATION LEAVES STANDING. An override replaces the surface, so a case
+  // that states a flat emission over a glass body draws no glass -- and its own manifest says so,
+  // calling itself `opaque-min-1px`. Asking the FILE here made 21 such cases run two passes the
+  // oracle never ran.
+  bool carriesGlass = false;
+  if (says.Surfaces.empty()) {
+    for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
+      const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
+      carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
+                     kind == outshine::SurfaceKind::Refractive;
+    }
+  } else {
+    for (const outshine::SurfaceOverride &said : says.Surfaces) {
+      const outshine::SurfaceKind kind = outshine::StateOf(said.Row).Kind();
+      carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
+                     kind == outshine::SurfaceKind::Refractive;
+    }
+  }
+  // A TRANSMISSIVE SURFACE NEEDS ITS PASS WHETHER OR NOT THE CASE COUNTS BOUNCES. The engine
+  // refuses a plan whose surface is a thin transmissive sheet or a refracting volume and whose
+  // passes do not draw it -- and rightly: what is transparent would otherwise be drawn opaque and
+  // nothing would say so. Measured, gating this on the case's own bounce count kept 99 of the
+  // corpus's cases from standing at all.
+  if (carriesGlass) {
+    says.Stages.push_back("subjectsTransmissive");
+    says.Stages.push_back("compositeTransmission");
+  }
+
+  std::printf("SAYS stages=%zu first=%s transfer=%s\n", says.Stages.size(),
+              says.Stages.empty() ? "-" : says.Stages.front().c_str(), "linear");
+}
+
+Prepared Prepare(Case &subject, outshine::Engine &engine) {
   using namespace outshine::Test;
   std::string why;
   const bool declared = ReadManifest(subject, why);
@@ -1104,7 +1293,8 @@ Prepared Prepare(Case &subject, outshine::Render::SceneRenderer &renderer) {
 
   const std::string owed = MissingInputs(subject);
   if (!owed.empty()) {
-    outshine::Test::Unprepared((subject.Directory + " is missing " + owed + " -- run test/harness/shared/corpus/prepare.py").c_str());
+    outshine::Test::Unprepared((subject.Directory + " is missing " + owed +
+                                " -- run test/harness/shared/corpus/prepare.py").c_str());
     return Prepared::No;
   }
 
@@ -1136,26 +1326,27 @@ Prepared Prepare(Case &subject, outshine::Render::SceneRenderer &renderer) {
                 subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
   }
 
-  outshine::Render::PlanSpec declaration;
-  DeclarePlan(subject, declaration);
-  std::shared_ptr<const outshine::Render::Compiled> plan;
-  const bool compiled = [&] { auto made = outshine::Render::Compiled::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
-  CHECK(compiled, "the case's render declaration compiles");
-  if (!compiled) {
+  DeclareDrives(subject);
+  std::printf("DRIVES surfaces=%zu parts=%zu emitted=%zu\n", subject.Driving.Surfaces.size(),
+              subject.Geometry.Parts().size(), subject.Emitted.size());
+
+  engine.setRoots(outshine::Roots{subject.Directory, subject.Directory,
+                                  "/tmp/outshine-corpus-cache", true});
+  const bool canvas = engine.drawsInto(subject.Driving.Frame).has_value();
+  CHECK(canvas, "the device came up, so the case can be rendered at all");
+  if (!canvas) {
+    Refused(engine.error());
+    return Prepared::No;
+  }
+  const bool stood = subject.Driving.Stands(engine, why);
+  CHECK(stood, "the case stands through the door, which is the path a client has");
+  if (!stood) {
     Refused(why);
     return Prepared::No;
   }
-  std::printf("PLAN %s %d passes, %d stages\n", plan->Digest().c_str(), plan->PassCount(),
-              (int)plan->Order().size());
-
-  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx, plan);
-  const bool usable = renderer.DeviceUsable();
-  CHECK(usable, "the device came up, so the case can be rendered at all");
-  if (!usable) {
-    Refused("no usable device");
-    return Prepared::No;
+  for (const outshine::Measure &held : engine.measures()) {
+    std::printf("PROBE %-40s %.6f %s\n", held.What.c_str(), held.How, held.Unit.c_str());
   }
-
   return Prepared::Yes;
 }
 
@@ -1225,46 +1416,25 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
                      Direction::Reported});
 }
 
-void ScoreAlternateSpellings(const Case &subject, const outshine::Render::SubjectProxy &studio,
-                             outshine::Render::SceneRenderer &renderer, const Mask &ours,
+void ScoreAlternateSpellings(const Case &subject, outshine::Engine &engine, const Mask &ours,
                              std::vector<Metric> &metrics) {
+  // AN ALTERNATE SPELLING IS THE SAME SUBJECT WRITTEN ANOTHER WAY -- .glb against .gltf, embedded
+  // against external -- and the claim is that it COVERS the same pixels. Through the door that is
+  // one declaration replacing another and a second capture; the case is stood again afterwards, so
+  // whatever follows sees the subject it came in with. A scenario is a STREAM, which is what makes
+  // re-declaring the honest way to say this rather than a second engine beside the first.
   const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
   for (size_t which = 0; which < identical.Size(); ++which) {
     const std::string name = identical[which].Str("");
-    Document alternate;
-    Subject spelling;
     Picture again;
     std::string trouble;
-    bool built = alternate.ReadFile(subject.Directory + name);
-    if (!built) {
-      trouble = alternate.Error();
-
-    } else if (!(built = spelling.Build(alternate, subject.Variant))) {
-      trouble = spelling.Error();
-    } else {
-      outshine::Render::SubjectProxy other = studio;
-      const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
-      outshine::Render::ShapeStore spelt;
-      const outshine::Render::Shape spelledOut = outshine::Gltf::Shaped(spelling, spelt);
-      other.Stands(spelledOut, anchorEcefM);
-      other.Around(studio.IndirectLight());
-      for (const outshine::PunctualLight &light : studio.Lights()) { other.Lit(light); }
-      std::vector<std::array<float, 3>> emitted;
-      SurfaceTable surfaces;
-      ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0,
-                          subject.MaterialFromFile(), surfaces);
-      built = (!subject.MaterialFromFile() ||
-               ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
-                                  trouble)) &&
-              ResolveEmission(subject, alternate, spelling, emitted, trouble);
-      for (size_t part = 0; built && part < emitted.size(); ++part) {
-        (void)other.Emits(part, emitted[part]);
-      }
-      built = built && other.Wears(surfaces.PartSlot, surfaces.Slots, trouble);
-      built = built && Capture(renderer, other, MakeView(subject), again, trouble);
-    }
+    outshine::Test::Drives spelling = subject.Driving;
+    spelling.Path = name;
+    bool built = spelling.Stands(engine, trouble) && Capture(engine, spelling, again, trouble);
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
-    if (!built) {
+    const bool restored = subject.Driving.Stands(engine, trouble);
+    CHECK(restored, "the case stands again after the alternate spelling was drawn");
+    if (!built || !restored) {
       Refused(trouble);
       continue;
     }
@@ -2050,7 +2220,7 @@ struct FrameVerdict {
   std::uint64_t OracleDigest = 0;
 };
 
-FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer, int frame) {
+FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   using namespace outshine::Test;
 
   RawF32 oracle;
@@ -2063,7 +2233,27 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
 
   std::string why;
   Picture picture;
-  const bool rendered = Capture(renderer, studio, MakeView(subject), picture, why);
+  std::printf("LAMPS file=%zu\n", subject.Geometry.Lights().size());
+  // AND THE ENGINE IS STEPPED, NOT JUST THE COPY THIS RUNNER SCORES AGAINST. `Engine::advance` is
+  // the door's verb for "time has passed"; posing the harness's own geometry and rendering without
+  // it left the subject standing at frame 0 for the whole sequence, and the velocity buffer said
+  // so -- nothing moved on a frame whose oracle had moved.
+  //
+  // ONE STEP, NOT A DURATION. `advance(elapsedS)` owes the simulation that much time and runs as
+  // many FIXED steps as it covers -- at one frame per second that is sixty of them, each moving
+  // the asset's animation on by a frame. The grid here is a frame INDEX, so the verb it wants is
+  // the one that steps once. Measured: 15 animated cases whose frame 1 stood 87.6 px from the
+  // oracle's, and frame 0 exactly on it.
+  if (frame > 0 && !engine.advance()) {
+    Refused(engine.error());
+    return FrameVerdict{};
+  }
+  const bool rendered = Capture(engine, subject.Driving, picture, why);
+  for (const outshine::Measure &held : engine.measures()) {
+    if (held.What.rfind("draws taking", 0) == 0) {
+      std::printf("PROBE %s = %.0f\n", held.What.c_str(), held.How);
+    }
+  }
   CHECK(rendered, "outshine rendered the subject and both readbacks landed");
   if (!rendered) {
     Refused(why);
@@ -2074,6 +2264,13 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
       FromDepth(picture.Depth, picture.Linear, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   const Mask theirs = FromOracle(oracle);
 
+  {
+    double sum = 0.0; size_t many = 0;
+    for (size_t at = 0; at + 3 < picture.Linear.size(); at += 4) {
+      sum += picture.Linear[at]; ++many;
+    }
+    std::printf("LINEAR mean-red = %.9f over %zu px\n", many ? sum / (double)many : 0.0, many);
+  }
   const std::vector<float> scored = WriteProducts(subject, picture, oracle, ours, theirs);
 
   std::vector<Metric> metrics;
@@ -2082,9 +2279,17 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
                        Direction::AtMost});
   }
 
-  metrics.push_back({"subject_draws", (double)renderer.SubjectDrawCount(), 0.0, "draws",
+  // READ THROUGH THE DOOR, which is the point: the engine publishes what a frame cost and a client
+  // reads it back. These used to be `renderer.SubjectDrawCount()` on an internal handle.
+  const auto measured = [&engine](const char *named) {
+    for (const outshine::Measure &held : engine.measures()) {
+      if (held.What == named) { return held.How; }
+    }
+    return 0.0;
+  };
+  metrics.push_back({"subject_draws", measured("subject draws"), 0.0, "draws",
                      Direction::Reported});
-  metrics.push_back({"subject_draw_calls", (double)renderer.SubjectBatchCount(), 0.0, "calls",
+  metrics.push_back({"subject_draw_calls", measured("subject draw calls"), 0.0, "calls",
                      Direction::Reported});
   metrics.push_back({"subject_surfaces", (double)subject.Surfaces.Slots.size(), 0.0, "slots",
                      Direction::Reported});
@@ -2107,7 +2312,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
     return FrameVerdict{};
   }
 
-  ScoreAlternateSpellings(subject, studio, renderer, ours, metrics);
+  ScoreAlternateSpellings(subject, engine, ours, metrics);
 
   const Mask routedBySurface =
       ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, frame, metrics);
@@ -2134,7 +2339,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
     metrics.push_back({"disagreement_samples", (double)worst.Pixels, 0.0, "px",
                        Direction::Reported, Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
-    ScoreVisibilityTerm(subject, clip, renderer.ShadowRayNearM(), metrics);
+    ScoreVisibilityTerm(subject, clip, (float)measured("shadow ray near"), metrics);
   }
 
   ScoreStatedInvariants(subject, picture, oracle, metrics);
@@ -2151,7 +2356,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
       FromDepth(picture.Depth, {}, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   ScoreVelocity(subject, picture, depthOnly, frame, metrics);
 
-  ScoreDeterminism(subject, studio, renderer, picture, metrics);
+  ScoreDeterminism(subject, engine, picture, metrics);
 
   ScoreRadianceResidual(subject, picture, oracle, metrics);
 
@@ -2192,7 +2397,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::SceneRenderer &renderer
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
   const double passBound = subject.Accepted.Subject == SubjectClass::Transmissive ? 4.0 : 2.0;
   metrics.push_back(
-      {"plan_passes", (double)renderer.Plan().PassCount(), passBound, "passes", Direction::AtMost});
+      {"plan_passes", measured("plan passes"), passBound, "passes", Direction::AtMost});
 
   const Json::Ref expected = subject.Manifest.Root()["expected"]["subjectFrameFraction"];
   double declaredFraction = 0;
@@ -2260,8 +2465,8 @@ int ScoreRenderCase(int argc, char **argv) {
   if (subject.Directory.empty()) { return Report(); }
   std::printf("CASE %s\n", subject.Directory.c_str());
 
-  outshine::Render::SceneRenderer renderer;
-  if (Prepare(subject, renderer) == Prepared::No) {
+  outshine::Engine engine;
+  if (Prepare(subject, engine) == Prepared::No) {
     std::printf("VERDICT NOTHING-TO-COMPARE\n");
     return Report();
   }
@@ -2273,6 +2478,7 @@ int ScoreRenderCase(int argc, char **argv) {
   std::uint64_t firstOracleDigest = 0;
   int oracleFramesThatDiffer = 0;
   int stoppedAt = -1;
+  int refusedAt = -1;
   for (int frame = 0; frame < subject.Frames; ++frame) {
     if (subject.Animated()) {
       std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames,
@@ -2294,7 +2500,7 @@ int ScoreRenderCase(int argc, char **argv) {
       subject.MovedPx = motion.MovedSincePreviousPx;
       if (motion.MovedPx > subject.OracleFloorPx) { ++framesThatMoved; }
     }
-    const FrameVerdict verdict = ScoreFrame(subject, renderer, frame);
+    const FrameVerdict verdict = ScoreFrame(subject, engine, frame);
     if (verdict.Compared) {
       if (frame == 0) {
         firstOracleDigest = verdict.OracleDigest;
@@ -2304,6 +2510,7 @@ int ScoreRenderCase(int argc, char **argv) {
     }
     if (!verdict.Compared) {
       stoppedAt = frame;
+      refusedAt = frame;
       break;
     }
     ++compared;
@@ -2343,6 +2550,13 @@ int ScoreRenderCase(int argc, char **argv) {
   Note("frames compared", (double)compared, "frames");
   Note("frames declared", (double)subject.Frames, "frames");
   if (stoppedAt >= 0) {
+    // A STOP IS NOT AGREEMENT. A frame that FAILED a metric has already said so and the sequence
+    // stopping there is the design; a frame that could not be rendered or scored at all recorded
+    // nothing, and this path used to return CLEAN over it -- AnimatedCube reported 37 checks and
+    // zero failures while the engine refused its second pose.
+    CHECK(refusedAt < 0,
+          "the sequence stopped on a frame that FAILED rather than on one that could not be "
+          "rendered or scored -- a refusal mid-grid is a red frame, not a shorter grid");
     std::printf("FIRST FAILING FRAME %d of %d\n", stoppedAt, subject.Frames);
     std::printf("VERDICT COMPARED\n");
     Covers("I.26.10 a render test is a directory: one runner reads the declaration, renders the "
