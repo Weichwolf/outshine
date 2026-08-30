@@ -39,6 +39,7 @@ static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMa
 struct Shaded { float3 col; float3 nrm; };
 
 static inline Shaded mappedShade(constant M &surface, constant Lights &lights,
+                                 device const float *skyIrradiance,
                                  texture2d<float> colourMap, sampler colourSampler,
                                  texture2d<float> normalMap, sampler normalSampler,
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
@@ -55,7 +56,7 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights,
   const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
 
   const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
-  return Shaded{shadeRow(surface, lights, in.lp, shadingNormal, in.p, albedo,
+  return Shaded{shadeRow(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p, albedo,
                          surface.metalness * orm.b,
                          roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
@@ -64,7 +65,7 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights,
                 shadingNormal};
 }
 
-#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, colourMap, \
+#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, skyIrradiance, colourMap, \
     colourSampler, normalMap, normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, \
     emissiveSampler, specularStrengthMap, specularStrengthSampler, specularTintMap, \
     specularTintSampler, shadowMap, shadowSampler, in, front)

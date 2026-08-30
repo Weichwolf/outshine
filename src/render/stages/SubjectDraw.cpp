@@ -850,6 +850,8 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
     packed[4 + channel] = (float)IndirectLight.RadianceLinear[channel];
     packed[8 + channel] = (float)IndirectLight.GroundLinear[channel];
     packed[12 + channel] = (float)IndirectLight.UpUnit[channel];
+    packed[7] = (float)IndirectLight.SkyLux;
+    packed[11] = (float)IndirectLight.CosSunZenith;
   }
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;

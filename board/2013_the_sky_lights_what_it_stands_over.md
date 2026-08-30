@@ -55,6 +55,30 @@ one RGB for every normal direction. A wall facing the sun's side of the sky and 
 receive the same ambient. Unreal's SkyLight is directional (an SH or cubemap), RAGE's probe is
 directional; neither ships a hemisphere average, because the alley wall is exactly where it shows.
 
+## WHERE IT STANDS, and the disagreement is now MEASURED rather than predicted
+
+The device half is built and the CPU half is gone. `Live::Stand` hands the shader the INPUTS -- the
+declared ambient, the key's lux, the sun's cosine and the ground albedo -- and `shadeRow` reads the
+six floats the `irradiance` stage writes.
+
+    Shibuya's rebuild        907.8 ms  ->  107.0 ms
+    the medium's own tables  778.9 ms  ->    0.000 ms
+    Shibuya's frame, mean      83.42   ->   64.54 of 255, over 582 910 pixels
+
+**THE TWO IMPLEMENTATIONS DISAGREE BY 1.71 IN LINEAR LIGHT** and this item's own control said that
+would be the finding. What it does NOT say is which is right, and neither can: both are ours, so
+their agreement would prove agreement with ourselves and their disagreement proves only that one is
+wrong. Checked and ruled out already: the multi-scatter texture DOES hold `luminance / (1 -
+transfer)`, so the second-order amplification is not missing; and both sides step `kSkyViewSteps`
+30 with the same segment and lift constants.
+
+What settles it is the TRUTH-grade corpus this item now names -- Kider et al.'s measured full-day
+sky irradiance -- and until that runs, `test/outshine/places/pictures.txt` records what the tree
+draws and claims nothing about whether it is right. That is written INTO that file beside the six
+digests.
+
+- [ ] the 1.71 is explained: a readback of `IrradianceBuffer` beside the CPU integration for one
+      declared sun elevation, which is this item's own stated test, run before anything else
 - [ ] sky irradiance is computed ONCE, ON THE DEVICE, and both the exposure and the surfaces
       read that one -- GPU first, the way both references do it
 - [ ] `Stage::Irradiance` has a shader and an executor, or it is not a row in the catalogue

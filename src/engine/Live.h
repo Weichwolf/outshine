@@ -325,9 +325,6 @@ private:
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;
   double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;
 
-  float SkyStoodAt_ = std::numeric_limits<float>::quiet_NaN();
-  float Skylight_[3] = {0.0f, 0.0f, 0.0f};
-  float SunReach_[3] = {0.0f, 0.0f, 0.0f};
   size_t SkyIntegrations_ = 0;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 

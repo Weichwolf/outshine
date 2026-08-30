@@ -625,44 +625,10 @@ bool Live::Stand(std::string &error) {
     environment.RadianceLinear[channel] = (float)Declared_.IndirectLight[channel];
   }
   LitMs_ = sinceStand();
-  if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
-    const Render::Medium medium;
-    const float cosSun = (float)std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
-    const auto toSun = [&](float radiusKm, float cosZenith, float out[3]) {
-      Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
-    };
-    const auto secondOrder = [&](float radiusKm, float cosZenith, float out[3]) {
-      float luminance[3], transfer[3];
-      const float unitU = cosZenith * 0.5f + 0.5f;
-      const float unitV =
-          (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-      Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
-      for (int channel = 0; channel < 3; ++channel) {
-        out[channel] = luminance[channel] / (1.0f - transfer[channel]);
-      }
-    };
-    if (!(SkyStoodAt_ == cosSun)) {
-      Render::MediumSkyIrradiance(medium,
-                                  medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
-                                  cosSun,
-                                  toSun,
-                                  secondOrder,
-                                  Skylight_);
-      toSun(medium.BottomRadiusKm + Render::kMediumGroundLiftKm, cosSun, SunReach_);
-      SkyStoodAt_ = cosSun;
-      ++SkyIntegrations_;
-    }
-    const float *const skylight = Skylight_;
-    const float *const sunReach = SunReach_;
-    const float straightDown = cosSun > 0.0f ? cosSun : 0.0f;
-    for (int channel = 0; channel < 3; ++channel) {
-      environment.RadianceLinear[channel] +=
-          skylight[channel] / std::numbers::pi_v<float> * Declared_.KeyLux;
-      const float onTheGround =
-          (float)Declared_.KeyLux * (straightDown * sunReach[channel] + skylight[channel]);
-      environment.GroundLinear[channel] +=
-          (float)GroundAlbedo_[channel] * onTheGround / std::numbers::pi_v<float>;
-    }
+  environment.SkyLux = Declared_.DrawsSky && Declared_.KeyLux > 0.0 ? Declared_.KeyLux : 0.0;
+  environment.CosSunZenith = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
+  for (int channel = 0; channel < 3; ++channel) {
+    environment.GroundLinear[channel] = GroundAlbedo_[channel];
   }
   Stood_.Around(environment);
   MediumMs_ = sinceStand();

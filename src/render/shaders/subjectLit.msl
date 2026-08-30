@@ -36,6 +36,7 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
                 v.uv, v.uv1, v.colour)
 
 static inline float3 shadeRow(constant M &surface, constant Lights &lights,
+                              device const float *skyIrradiance,
                               float3 localM, float3 n, float3 p, float3 albedo, float metalness,
                               float roughness, float3 dielectricF0, float dielectricF90,
                               float3 emitted, float3 tangentDir, float4 lightSpace,
@@ -153,15 +154,22 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights,
 
   const float3 specularEnvironment = brdfFresnel(f0, f90, nvClamped);
   const float skyShare = clamp(dot(n, lights.up.xyz) * 0.5 + 0.5, 0.0, 1.0);
-  const float3 ambient = mix(lights.bounced.rgb, lights.environment.rgb, skyShare);
+  const float3 skylight = float3(skyIrradiance[0], skyIrradiance[1], skyIrradiance[2]);
+  const float3 sunReach = float3(skyIrradiance[3], skyIrradiance[4], skyIrradiance[5]);
+  const float lux = lights.environment.w;
+  const float straightDown = max(lights.bounced.w, 0.0);
+  const float3 fromSky = lights.environment.rgb + skylight * (lux / M_PI_F);
+  const float3 fromGround =
+      lights.bounced.rgb * (lux / M_PI_F) * (straightDown * sunReach + skylight);
+  const float3 ambient = mix(fromGround, fromSky, skyShare);
   sum = sum + ambient * (diffuseColour + specularEnvironment);
   return sum + emitted;
 }
 
 static inline float3 shade(constant M &surface, constant Lights &lights,
-                           float3 localM, float3 n, float3 p, float3 albedo, float4 lightSpace,
+                           device const float *skyIrradiance, float3 localM, float3 n, float3 p, float3 albedo, float4 lightSpace,
                            texture2d<float> shadowMap, sampler shadowSampler) {
-  return shadeRow(surface, lights, localM, n, p, albedo, surface.metalness,
+  return shadeRow(surface, lights, skyIrradiance, localM, n, p, albedo, surface.metalness,
                   surface.roughness, float3(surface.f0), surface.specularWeight,
                   surface.emissive, float3(0.0), lightSpace, shadowMap, shadowSampler);
 }
@@ -173,7 +181,7 @@ static inline float3 facing(float3 n, bool front) {
 fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -186,7 +194,7 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   if (surface.factor * in.colour.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -199,7 +207,7 @@ fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing
   const float3 shadingNormal = facing(in.n, front);
   const float3 albedo = surface.base.rgb * in.colour.rgb;
   SFrag o;
-  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p, albedo, in.ls, shadowMap, shadowSampler) +
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p, albedo, in.ls, shadowMap, shadowSampler) +
                      transmitted(surface, behindMap, in.pos.xy, albedo),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -211,7 +219,7 @@ fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing
 fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  surface.factor * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);

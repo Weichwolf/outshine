@@ -19,15 +19,28 @@
 # Rewritten by hand when a picture is MEANT to change. `make shots` prints the lines.
 #
 # place        digest      p50     p95     p99   over budget
-CentralPark    cb4ee7d4  p50   6.29  p95   6.88  p99   7.30 ms    0 of 120
-Heidelberg     3bc692bc  p50   1.69  p95   1.85  p99   2.81 ms    0 of 120
-Jura           2aa8f40f  p50   2.30  p95   2.57  p99   3.30 ms    0 of 120
-OldTown        f35c5bff  p50   1.25  p95   1.36  p99   2.20 ms    0 of 120
-Shibuya        aff2f732  p50   9.62  p95  10.84  p99  12.28 ms    1 of 120
-Venice         8fa6e48c  p50   2.31  p95   2.50  p99   3.30 ms    0 of 120
+CentralPark    be1bd191  p50   6.32  p95   7.16  p99   7.41 ms    0 of 120
+Heidelberg     0e8aaab7  p50   1.71  p95   2.08  p99   2.90 ms    0 of 120
+Jura           0d15c9c5  p50   2.31  p95   2.70  p99   3.40 ms    0 of 120
+OldTown        76085956  p50   1.24  p95   1.47  p99   2.20 ms    0 of 120
+Shibuya        dce6dd11  p50   9.70  p95  10.81  p99  11.44 ms    0 of 120
+Venice         f3166aa3  p50   2.28  p95   2.56  p99   3.48 ms    0 of 120
 
 # Four of the six moved with board:2047 and the move is QUANTISATION, not a picture. The building
 # mesher now emits an indexed mesh, so a corner reaches the device once instead of three times and
 # the interpolator sums the same numbers in a different order. Measured against the frames they
 # replace: OldTown 217 pixels of 921 600 differ, Heidelberg 84, Venice 258, Shibuya 220 -- and
 # EVERY one of them differs by exactly 1 of 255. Central Park and the Jura did not move at all.
+
+# ALL SIX MOVED AGAIN, and this time the move is NOT quantisation and is NOT yet defended. The
+# subject's ambient now comes from the device's own sky integration instead of a CPU one, and the
+# two DISAGREE: Shibuya's frame goes from a mean of 83.42 of 255 to 64.54, which is a factor of
+# 1.71 in linear light over 582 910 pixels. Shibuya's rebuild falls from 907.8 ms to 107.0 in the
+# same change, and the CPU integration -- 3 276 800 transmittance steps for one radiance -- is
+# gone.
+#
+# WHICH OF THE TWO IS RIGHT IS UNSETTLED, and neither can settle it: both are ours, so agreement
+# between them would prove agreement with ourselves and disagreement proves only that one is wrong.
+# What can settle it is `ebruneton/clear-sky-models`, whose Kider et al. measurements are TRUTH
+# grade, and board:2013 carries it. Until that runs, these six digests record WHAT THE TREE DRAWS
+# and make no claim that it is right.
