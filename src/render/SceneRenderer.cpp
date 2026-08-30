@@ -1122,6 +1122,24 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
+ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
+  kept = 0;
+  batches = 0;
+  const SubjectResidency &resident = Subjects_.Resident();
+  SDL_GPUBuffer *const args = resident.DrawArgs.Get();
+  const uint32_t rows = Subjects_.ClusterBatchRows();
+  if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
+  Readback read;
+  const uint32_t bytes = rows * 5u * (uint32_t)sizeof(uint32_t);
+  if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
+  const auto *const held = static_cast<const uint32_t *>(static_cast<const void *>(read.Rows()));
+  for (uint32_t at = 0; at < rows; ++at) {
+    kept += held[at * 5u];
+    batches += held[at * 5u] > 0u ? 1u : 0u;
+  }
+  return ReadState::Ready;
+}
+
 ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
   if (!Ready_ || !Irradiance_) { return ReadState::Failed; }
   Readback read;

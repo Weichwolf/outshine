@@ -1213,6 +1213,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");
+  Published.Places(
+      "cull: clusters with no parent above them", (double)Render::CookedRootless(), "clusters");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places(
       "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");
@@ -1336,13 +1338,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
   Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places(
-      "cull: clusters carried for the device", (double)laid->Clusters.size(), "clusters");
+      "ring: clusters carried for the device", (double)laid->Clusters.size(), "clusters");
   Published.Places(
-      "cull: the whole index list they cut from", (double)laid->AllIndex.size(), "indices");
+      "ring: the whole index list they cut from", (double)laid->AllIndex.size(), "indices");
   Published.Places(
-      "cull: against the list the CPU selected", (double)laid->Index.size(), "indices");
-  Published.Places("cull: clusters the ring holds", (double)laid->ClustersHeld, "clusters");
-  Published.Places("cull: clusters the CPU drew", (double)laid->ClustersDrawn, "clusters");
+      "ring: against the list the CPU selected", (double)laid->Index.size(), "indices");
+  Published.Places("ring: clusters it holds", (double)laid->ClustersHeld, "clusters");
+  Published.Places("ring: clusters the CPU drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");
   return true;
 }
@@ -1560,7 +1562,7 @@ bool Engine::render(Extent frame) {
       if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
       ++kept;
     }
-    S_->Published.Places("cull: clusters a frustum would keep", (double)kept, "clusters");
+    S_->Published.Places("ring: clusters a frustum would keep", (double)kept, "clusters");
   }
   S_->Published.Places(
       "subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(), "calls");

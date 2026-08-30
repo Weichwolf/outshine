@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"

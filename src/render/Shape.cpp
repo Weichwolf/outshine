@@ -6,9 +6,14 @@
 namespace outshine::Render {
 
 std::atomic<double> gCookMs{0.0};
+std::atomic<size_t> gRootless{0};
 
 double CookedMs() {
   return gCookMs.load(std::memory_order_relaxed);
+}
+
+size_t CookedRootless() {
+  return gRootless.load(std::memory_order_relaxed);
 }
 
 void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
@@ -45,11 +50,14 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
 void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
   const auto began = std::chrono::steady_clock::now();
   gCookMs.store(0.0, std::memory_order_relaxed);
+  gRootless.store(0u, std::memory_order_relaxed);
   into.Clusters.clear();
   into.ClusterSpheres.clear();
   if (into.Indices.empty()) { return; }
 
-  const auto keep = [&into](const DagCluster &cut) {
+  size_t rootless = 0;
+  const auto keep = [&into, &rootless](const DagCluster &cut) {
+    if (cut.ParentErr >= kDagRootErr) { ++rootless; }
     into.Clusters.push_back(cut);
     into.ClusterSpheres.insert(into.ClusterSpheres.end(),
                                {cut.SelfCenter[0],
@@ -104,6 +112,7 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
     }
     part.ClusterCount = (uint32_t)cut.Clusters.size();
   }
+  gRootless.store(rootless, std::memory_order_relaxed);
   gCookMs.store(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);

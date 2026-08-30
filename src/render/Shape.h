@@ -101,5 +101,7 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces);
 
 [[nodiscard]] double CookedMs();
 
+[[nodiscard]] std::size_t CookedRootless();
+
 } // namespace outshine::Render
 #endif

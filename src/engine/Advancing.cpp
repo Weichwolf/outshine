@@ -329,6 +329,13 @@ void Engine::State::Inspected(void) {
     }
   }
   {
+    uint32_t kept = 0, batches = 0;
+    if (Picture.Device.ReadKeptIndices(kept, batches) == Render::ReadState::Ready) {
+      Published.Places("cull: indices the subject cull kept", (double)kept, "indices");
+      Published.Places("cull: batches that kept any", (double)batches, "batches");
+    }
+  }
+  {
     float held[Render::kIrradianceFloats] = {};
     if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
       static const char *const kNamed[Render::kIrradianceFloats] = {
