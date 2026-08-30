@@ -113,36 +113,32 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   if (total == 0) { return true; }
 
   if (!deferred) { return Submit(what, count, total, error); }
-  const uint32_t wanted = StagingUsed_ + total;
-  if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
-    const uint32_t held = StagingUsed_;
-    DropStaged();
-    std::string carrying;
-    for (size_t one = 0; one < count; ++one) {
-      if (what[one].Bytes == 0) { continue; }
-      carrying += (carrying.empty() ? "" : " + ") + std::to_string(what[one].Bytes);
+  // A HAND THAT DOES NOT FIT TAKES A FRESH BUFFER, and the one it was staging into is kept until
+  // the copies are issued -- `Staged` records its own source, so two buffers in one frame cost
+  // nothing but the allocation. The buffer is grown to the larger of what it held and what this
+  // hand asks for, so the steady state settles back to ONE.
+  if (StagingUsed_ + total > StagingBytes_ || !Staging_) {
+    const uint32_t widened = total > StagingBytes_ ? total : StagingBytes_;
+    SDL_GPUTransferBufferCreateInfo room{};
+    room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    room.size = widened;
+    OwnedTransfer fresh(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+    if (!fresh) {
+      error = std::string("the pose's staging buffer found no room on the device: ") +
+              SDL_GetError();
+      return false;
     }
-    error = "this frame's hands stage " + std::to_string(wanted) + " bytes over the " +
-            std::to_string(StagingBytes_) +
-            " the residency opened for one full pose -- " + std::to_string(held) +
-            " already staged and this hand adds " + std::to_string(total) + " (" + carrying +
-            "), so a second full hand in one frame is more than the ring holds";
-    return false;
-  }
-  size_t landing = 0;
-  for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes > 0 && what[one].From != nullptr) { ++landing; }
-  }
-  if (StagedCount_ + landing > kStagedCrossings) {
-    DropStaged();
-    error = "a frame stages " + std::to_string(StagedCount_ + landing) +
-            " runs over the " + std::to_string(kStagedCrossings) +
-            " this subject declares room for";
-    return false;
+    if (Staging_ && StagedCount_ > 0) { Retired_.push_back(std::move(Staging_)); }
+    Staging_ = std::move(fresh);
+    StagingBytes_ = widened;
+    StagingUsed_ = 0;
   }
 
-  auto *const mapped =
-      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_[StagingAt_].Get(), false));
+  // CYCLED ON THE FIRST MAP OF A FRAME AND ONLY THERE. `cycle` asks the driver to rename the
+  // buffer if the GPU is still reading what the last frame put in it; a later map in the SAME
+  // frame appends to what this frame has already written and must not rename.
+  auto *const mapped = static_cast<uint8_t *>(
+      SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
   if (mapped == nullptr) {
     error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
     return false;
@@ -158,13 +154,13 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     }
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
-  SDL_UnmapGPUTransferBuffer(Device, Staging_[StagingAt_].Get());
+  SDL_UnmapGPUTransferBuffer(Device, Staging_.Get());
 
   at = StagingUsed_;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
-    Staged_[StagedCount_++] =
-        Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_[StagingAt_].Get()};
+    if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
+    Staged_[StagedCount_++] = Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_.Get()};
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
@@ -229,22 +225,18 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
 }
 
 bool SubjectResidency::OpenStaging(uint32_t bytes, std::string &error) {
-  if (bytes <= StagingBytes_ && Staging_[0]) { return true; }
+  if (bytes <= StagingBytes_ && Staging_) { return true; }
   SDL_GPUTransferBufferCreateInfo room{};
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = bytes;
-  for (size_t slot = 0; slot < kStagingRing; ++slot) {
-    Staging_[slot] = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-    if (!Staging_[slot]) {
-      error = std::string("the pose's staging ring found no room on the device: ") +
-              SDL_GetError();
-      return false;
-    }
+  Staging_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+  if (!Staging_) {
+    error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
+    return false;
   }
   StagingBytes_ = bytes;
   StagingUsed_ = 0;
   StagedCount_ = 0;
-  StagingAt_ = 0;
   return true;
 }
 
@@ -259,7 +251,7 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
   SDL_EndGPUCopyPass(copy);
   StagedCount_ = 0;
   StagingUsed_ = 0;
-  StagingAt_ = (StagingAt_ + 1) % kStagingRing;
+  Retired_.clear();
 }
 
 SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode,

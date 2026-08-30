@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <SDL3/SDL_gpu.h>
 
@@ -85,20 +86,27 @@ struct SubjectResidency {
   [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
 
 private:
-  static constexpr size_t kStagingRing = 3;
-  static constexpr size_t kStagedCrossings = 32;
+  // NO GUESSED DEPTH AND NO GUESSED WIDTH. Both bounds here were numbers this file chose: a ring of
+  // THREE transfer buffers rotated per frame, and room for THIRTY-TWO staged runs. The first is
+  // what `SDL_MapGPUTransferBuffer`'s `cycle` flag already decides -- the driver knows whether the
+  // GPU has finished reading the last contents and renames the buffer when it has not, where a
+  // depth of three only hopes. The second refused a frame outright: measured, Khronos's
+  // AnimatedCube staged one full pose of 4304 bytes and then a 128-byte hand of placements, and
+  // the residency answered "a second full hand in one frame is more than the ring holds" -- over
+  // 128 bytes. A run that does not fit now takes a FRESH buffer, and every staged run already
+  // records which buffer it came from, so nothing had to be invented to allow it.
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;
     uint32_t From = 0;
     uint32_t Bytes = 0;
     SDL_GPUTransferBuffer *Staging = nullptr;
   };
-  std::array<OwnedTransfer, kStagingRing> Staging_{};
+  OwnedTransfer Staging_{};
+  std::vector<OwnedTransfer> Retired_;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;
   uint32_t StagedThisFrame_ = 0;
-  size_t StagingAt_ = 0;
-  std::array<Staged, kStagedCrossings> Staged_{};
+  std::vector<Staged> Staged_;
   size_t StagedCount_ = 0;
 
   OwnedTransfer Bulk_;
