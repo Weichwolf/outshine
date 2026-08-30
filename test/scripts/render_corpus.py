@@ -20,14 +20,35 @@ def prepared_root():
 
 
 def parts_of(entry):
-    """The file's primitives in the order an importer meets them, and the material each wears."""
+    """The file's primitives in the order an IMPORTER meets them, and the material each wears.
+
+    Not the order the mesh list holds them in: a scene names its nodes in its own order and a node
+    names any mesh, so OrientationTest's scene opens [5, 12, 10, 3, ...] over a node-to-mesh map
+    that is scrambled. Walking meshes instead of nodes put every colour on the wrong part -- the
+    coverage agreed to the pixel and 82 821 pixels wore the wrong colour.
+    """
     if entry.suffix != ".gltf":
         return []
     file = json.loads(entry.read_text())
-    worn = []
-    for mesh in file.get("meshes", []):
-        for primitive in mesh.get("primitives", []):
-            worn.append(primitive.get("material", -1))
+    nodes = file.get("nodes", [])
+    meshes = file.get("meshes", [])
+    scenes = file.get("scenes", [])
+    roots = scenes[file.get("scene", 0)].get("nodes", []) if scenes else range(len(nodes))
+    worn, seen = [], set()
+
+    def walk(at):
+        if at in seen or at >= len(nodes):
+            return
+        seen.add(at)
+        node = nodes[at]
+        if "mesh" in node and node["mesh"] < len(meshes):
+            for primitive in meshes[node["mesh"]].get("primitives", []):
+                worn.append(primitive.get("material", -1))
+        for child in node.get("children", []):
+            walk(child)
+
+    for root in roots:
+        walk(root)
     return worn
 
 
@@ -219,7 +240,7 @@ def main():
         digest = ""
         for line in ran.stdout.splitlines():
             if line.startswith("ROW"):
-                digest = line.split()[2]
+                digest = line.split("\t")[2]
         if not digest:
             red.append((name, 0.0, 0, "the client drew nothing"))
             continue
