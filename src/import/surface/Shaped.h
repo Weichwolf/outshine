@@ -17,5 +17,10 @@ namespace outshine::Gltf {
 // disagree, so it stands beside the form it is the twin of.
 [[nodiscard]] Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into);
 
+// AND BOTH AT ONCE, the subject's parts first. A driven world holds a subject and the ground it
+// stands on, and they are one shape or the subject is not in the picture.
+[[nodiscard]] Render::Shape Shaped(const Subject &from, const outshine::Geometry &also,
+                                   Render::ShapeStore &into);
+
 }
 #endif

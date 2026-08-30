@@ -14,8 +14,9 @@ template <typename T>
 
 }
 
-Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
-  into.Clear();
+namespace {
+
+void FillFrom(const Subject &from, Render::ShapeStore &into) {
   const auto narrow = [](const std::vector<double> &wide, std::vector<float> &held) {
     held.reserve(wide.size());
     for (const double value : wide) { held.push_back((float)value); }
@@ -51,26 +52,13 @@ Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
     made.Colours = Reach(into.Colours, one.FirstVertex * 4, one.VertexCount * 4);
     into.Parts.push_back(made);
   }
-  Render::CookShape(into, from.Surfaces());
-  Render::Shape out;
-  out.Parts = into.Parts;
-  out.Surfaces = from.Surfaces();
-  out.Lamps = into.Lamps;
-  out.Indices = into.Indices;
-  out.Clusters = into.Clusters;
-  out.ClusterIndices = into.ClusterIndices;
-  out.CarriesUv = from.HasUv();
-  out.CarriesUv1 = from.HasUv1();
-  out.CarriesNormal = from.HasNormal();
-  out.CarriesTangent = from.HasTangent();
-  out.CarriesColour = from.HasColour();
-  return out;
+  for (const Material &surface : from.Surfaces()) { into.Surfaces.push_back(surface); }
 }
 
 
-Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
-  into.Clear();
+void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   const int parts = from.parts();
+  const uint32_t firstSurface = (uint32_t)into.Surfaces.size();
   size_t wholeIndices = 0;
   for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
   into.Indices.reserve(wholeIndices);
@@ -84,13 +72,16 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
     into.Lamps.push_back(standing);
   }
 
-  into.Parts.reserve((size_t)parts);
-  size_t firstVertex = 0;
-  size_t firstIndex = 0;
+  into.Parts.reserve(into.Parts.size() + (size_t)parts);
+  size_t firstVertex = into.Parts.empty()
+                           ? 0u
+                           : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
+  size_t firstIndex = into.Indices.size();
   for (int part = 0; part < parts; ++part) {
     Render::ShapePart made;
     made.Name = from.nameOf(part);
-    made.Material = from.materialOf(part).index();
+    const int wears = from.materialOf(part).index();
+    made.Material = wears < 0 ? -1 : (int)firstSurface + wears;
     made.PositionsM = from.positionsOf(part);
     made.Normals = from.normalsOf(part);
     made.Tangents = from.tangentsOf(part);
@@ -112,6 +103,12 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
     firstIndex += order.size();
     into.Parts.push_back(made);
   }
+}
+
+// THE STORE IS VIEWED ONCE, AFTER EVERYTHING IS IN IT. A part's channel spans point into the
+// store's own arrays, so taking them before the last source has been appended would leave them
+// pointing at freed memory the moment a vector grew.
+Render::Shape Viewed(Render::ShapeStore &into) {
   Render::CookShape(into, into.Surfaces);
   Render::Shape out;
   out.Parts = into.Parts;
@@ -128,6 +125,34 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
     out.CarriesColour = out.CarriesColour || one.HasColour;
   }
   return out;
+}
+
+}
+
+Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
+  into.Clear();
+  FillFrom(from, into);
+  return Viewed(into);
+}
+
+Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
+  into.Clear();
+  FillFrom(from, into);
+  return Viewed(into);
+}
+
+// A DRIVEN SUBJECT AND THE WORLD IT STANDS IN ARE ONE SHAPE. The subject's parts come FIRST and
+// `Live::Carrying_` says how many they are, which is what bounds the shadow radius and what the
+// placement rows address. Handing the world alone dropped the subject out of the picture entirely:
+// the proxy stood over the world's parts while the surface table still named the file's, and
+// `SubjectProxy::Wears` refused -- measured on the drive scenario, 3 parts against a slot for 9,
+// which is every frame of it since the world path started handing a `Geometry`.
+Render::Shape Shaped(const Subject &from, const outshine::Geometry &also,
+                     Render::ShapeStore &into) {
+  into.Clear();
+  FillFrom(from, into);
+  FillFrom(also, into);
+  return Viewed(into);
 }
 
 }

@@ -153,8 +153,14 @@ namespace {
 // buffer, so each one silently invalidated the spans the standing shape was holding. The shape is
 // built here and nowhere else, and which producer fills it is the only question left.
 void Live::Reshape() {
-  Shaped_ = Held_.HoldsBuilt() ? Gltf::Shaped(Held_.Built(), ShapeParts_)
-                               : Gltf::Shaped(Held_.Assembled(), ShapeParts_);
+  // A DRIVEN SUBJECT AND ITS WORLD ARE ONE SHAPE. When both stand, the subject's parts come first
+  // and the world's follow; handing the world alone dropped the subject out of the picture, which
+  // is what `SubjectProxy::Wears` was refusing.
+  const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
+  Shaped_ = Held_.HoldsBuilt()
+                ? (alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
+                              : Gltf::Shaped(Held_.Built(), ShapeParts_))
+                : Gltf::Shaped(Held_.Assembled(), ShapeParts_);
 }
 
 bool Live::Build(std::string &error) {
@@ -325,6 +331,32 @@ bool Live::Build(std::string &error) {
         Table_.PartSlot[part] = base + at;
       }
       Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
+    }
+
+    // AND THE SAME AGAIN WHERE THE WORLD ARRIVED AS A `Geometry`. `Restand(Geometry&&, carried)`
+    // carries it into `Held_` and leaves `Declared_.Built` null, so the branch above never ran and
+    // the table stayed the FILE's alone while the shape became the world's alone -- 3 parts against
+    // a slot for 9 on the drive scenario, every frame of it. The world's parts wear the world's own
+    // surfaces, which the shape already carries.
+    if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
+      const uint32_t base = (uint32_t)Table_.Slots.size();
+      const outshine::Geometry &also = Held_.Built();
+      for (int surface = 0; surface < also.surfaces(); ++surface) {
+        Render::SubjectMaterial made;
+        made.Row = also.surfaceAt(MaterialInstance(surface));
+        Table_.Slots.push_back(made);
+        Table_.Material.push_back(-1);
+        Table_.Decoded.push_back(Render::SurfaceRasters());
+      }
+      const size_t before = Table_.PartSlot.size();
+      Table_.PartSlot.resize(before + (size_t)also.parts(), base);
+      for (int part = 0; part < also.parts(); ++part) {
+        const int wears = also.materialOf(part).index();
+        const uint32_t at =
+            wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
+        Table_.PartSlot[before + (size_t)part] = at;
+      }
+      Joined_ = before;
     }
   }
 

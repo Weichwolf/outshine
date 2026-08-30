@@ -436,7 +436,7 @@ The heaviest files. Headers and sources counted apart.
 | 1621 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1103 | `cpp` | `engine/Live.cpp` |
+| 1135 | `cpp` | `engine/Live.cpp` |
 | 1081 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
