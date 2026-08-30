@@ -305,6 +305,8 @@ private:
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
   void EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
+  [[nodiscard]] FrameContext Framing() const;
+  void SettleShadow();
   bool Touched_[kResourceCount] = {};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
 

@@ -1,6 +1,7 @@
 #include "LightVisibilityStage.h"
 
 #include <cmath>
+#include <cstring>
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
@@ -101,6 +102,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
   LightFromWorld_[14] = farAlong / (farAlong - nearAlong);
   LightFromWorld_[15] = 1.0;
 
+  for (int at = 0; at < 16; ++at) { Static_[at] = LightFromWorld_[at]; }
   for (int row = 0; row < 3; ++row) {
     double carried = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
@@ -110,10 +112,24 @@ void LightVisibilityStage::Build(const double preView[3]) {
   }
 }
 
-void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
+void LightVisibilityStage::Prepare(const FrameContext &ctx) {
+  Casting_ = false;
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
+  const uint64_t stands = Subjects_->Generation();
+  if (Held_ && stands == CastAt_ &&
+      std::memcmp(Static_, CastFrom_, sizeof Static_) == 0) {
+    return;
+  }
+  Casting_ = true;
+  CastAt_ = stands;
+  for (int at = 0; at < 16; ++at) { CastFrom_[at] = Static_[at]; }
+}
+
+void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
+  if (!Casting_) { return; }
   Cast(LightFromWorld_, ctx.PreViewTranslation, kShadowAtlasPx, into);
+  Held_ = true;
 }
 
 

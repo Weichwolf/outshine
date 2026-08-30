@@ -434,7 +434,7 @@ bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::
 }
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
-
+  ++Reshaped_;
   Bound().DropStaged();
   Bound().NVerts = mesh.VertexCount;
   Bound().NIdx = mesh.IndexCount;
@@ -785,6 +785,7 @@ bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
 }
 
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
+  ++Reshaped_;
   if (Borrows()) { return true; }
   if (Bound().NIdx == 0 || Visibility_.Empty()) {
     error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";

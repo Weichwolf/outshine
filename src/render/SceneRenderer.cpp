@@ -577,10 +577,9 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
 }
 
-void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
-  const Executor *seat = ExecutorOf(stage);
-  if (seat == nullptr || seat->Encode == nullptr) { return; }
-
+// ONE FRAME, ONE FRAMING. Both the stages and the decisions taken BEFORE the passes open need the
+// same view, and a second place that builds it is a second place that can disagree with the first.
+FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
 
@@ -592,6 +591,14 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   for (int at = 0; at < 16; at++) {
     ctx.PrevMvp16[at] = Submitted_ ? PrevMvp16_[at] : ctx.Mvp16[at];
   }
+  return ctx;
+}
+
+void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
+  const Executor *seat = ExecutorOf(stage);
+  if (seat == nullptr || seat->Encode == nullptr) { return; }
+
+  const FrameContext ctx = Framing();
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
@@ -691,6 +698,14 @@ void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecordi
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
   Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
+}
+
+// THE ATLAS IS A FRAME OLDER THAN THE PICTURE WHENEVER NOTHING MOVED, and the pass has to be told
+// so before it opens: a depth attachment nothing has touched this frame is CLEARED, which would
+// erase exactly what the cache is keeping. Marking it touched makes the pass LOAD instead.
+void SceneRenderer::SettleShadow() {
+  Shadow_.Prepare(Framing());
+  Touched_[(size_t)Resource::ShadowAtlas] = Shadow_.Cached();
 }
 
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
@@ -838,6 +853,7 @@ void SceneRenderer::RenderFrame() {
   }
   Subjects_.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
+  SettleShadow();
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
 
   SDL_GPUTexture *swapchain = nullptr;

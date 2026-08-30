@@ -112,6 +112,12 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
+  // WHAT THIS SUBJECT LOOKS LIKE, AS ONE NUMBER. A cached shadow has to know whether the thing it
+  // cast is still the thing that stands, and the answer is not a comparison of geometry -- it is
+  // whether anything that could move a shadow has happened since. A mesh, a pose and a placement
+  // all can; a camera cannot, which is why this counts none of them.
+  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_; }
+
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {
       Placed_.clear();
@@ -306,6 +312,7 @@ private:
   uint32_t Jobs_ = 0;
   bool RowsStale_ = false;
   size_t Moved_ = 0;
+  uint64_t Reshaped_ = 0;
 
   bool WritesVelocity = false;
 };
