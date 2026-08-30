@@ -342,15 +342,17 @@ not before.
 | the door spelled a camera's roll as an ANGLE with no stated convention | a rolled facet sharing 48% of its pixels | `UpM`, which is what `Camera::lookAt` takes |
 | the key light's DIRECTION was never handed over | 19 cases lit from elevation 0, bearing 0 | translated to elevation and bearing at the boundary |
 
-**THE ENGINE IS OUT OF THE CORPUS RUNNER, AND THE INCLUDE LINE IS THE GUARD.**
-`test/run.sh` hands `harness/khronos/glTF` exactly this and nothing else:
+**THE CORPUS RUNNER ENTERS THROUGH THE DOOR AND NOTHING ELSE.** `test/run.sh` hands
+`harness/khronos/glTF` exactly this:
 
-    -Iinclude -Isrc/base/format -Isrc/base/io -Isrc/content/shade
-    -Itest/harness/shared -Itest/harness/shared/render -Itest/harness/shared/corpus
+    -Iinclude -Itest/harness/shared -Itest/harness/shared/render -Itest/harness/shared/corpus
 
-Not one engine path. A move anywhere in `src/import`, `src/render`, `src/engine`, `src/scene`,
-`src/scenario` or `src/generators` cannot reach a Khronos case, and the way to lose that is to
-widen this line -- so widening it is the finding rather than the fix.
+Not one path from `src/`. A rename anywhere under `src/` cannot reach a Khronos case, which is
+what the goal asked for and why: a vendor case must break when BEHAVIOUR changes and never when a
+file moves. That line is the guard, so widening it is the finding rather than the fix.
+
+**AND A CASE DRIVES IN A SCREEN.** 37 lines against `-Iinclude` alone -- declare the asset, the
+frame, the stages, the outputs and a view; stand it; bracket a frame; read the picture back.
 
 **WHAT THE DOOR GAINED, and every one of them because a client could not do without it:**
 
@@ -360,20 +362,27 @@ widen this line -- so widening it is the finding rather than the fix.
 | `Loaded::camera` / `cameras` | the camera an asset ships | glTF's own `cameras` |
 | `Loaded::frames` | the camera that FRAMES an asset that ships none | `Camera.viewBoundingSphere` |
 | `Engine::camera` | the camera the FRAME is aimed with | `View::getCamera()` |
-| `Camera::viewMatrix` / `projectionMatrix` / `clipMatrix` | where a point lands on the frame | `Camera::getViewMatrix()` |
+| `Camera::view` / `projection` / `clipMatrix` | where a point lands on the frame | `Camera::getViewMatrix()` |
 | `Camera::kNearestM` | the near plane a frame stands on when none is declared | -- |
 | `Texture.h`: `SurfaceMap` · `Sampler` · `ImageView` | that a surface WEARS a picture | `MaterialInstance::setParameter` |
 | `Material`'s seven maps · `Geometry::addImage` / `images` / `imageAt` | which picture, which uv set, which sampler | glTF's material and texture tables |
 | `Geometry::setSurface` | restating a surface rather than rebuilding the table | -- |
 | `Logging.h` + `Engine::logsTo` | receiving the engine's running account | -- |
-| `SurfaceState.h`, `UvTransform.h` | door vocabulary that stood BEHIND the door | -- |
+| `SurfaceState.h` · `UvTransform.h` | door vocabulary that stood BEHIND the door | -- |
+| `Json.h` | a client reading its own declarations | -- |
 
-**WHAT REMAINS ARE FOUR UTILITIES AND NOT THE ENGINE.** `Json.h` reads the manifests, `Image.h`
-encodes the three pictures a case writes, `TextTarget.h` and `LogSinks.h` put text somewhere --
-and the last two are the PLACES harness, not this one. None knows anything about rendering.
-Making them public would be a lie by this tree's own rule (a client can use the engine without
-every one of them); copying them into the harness would be a duplicate of a utility. **So they
-stay, named, and the goal's own test is met for the engine and not for those four.**
+**THE ONE THAT IS A JUDGEMENT AND NOT A TIDY-UP IS `Json.h`**, and it is written down so it can be
+overruled. Three roads led out of the last `src/` path: leave it and fail the goal's own test;
+write a second reader, which this page calls the worst outcome available; or publish the one that
+exists. I took the third. What moved is 84 lines of READ-ONLY value tree over the standard library
+-- no writer, nothing that knows a triangle from a texel -- and the six places in `src/` that
+parse glTF, ground materials, vegetation and tree species keep using the same one, so there is
+still exactly ONE JSON reader in this tree. It does not pass the door's admission test as written:
+a client can use this engine without ever reading JSON. **If that is the wrong call the fix is one
+`git mv`.**
+
+The PNG went to `IMG_SavePNG` on the way, which is what this tree's own rule says to do where SDL3
+supplies the function.
 
 **AND THE PREPARED CORPUS IS GONE.** The system's temp cleaner emptied
 `/var/folders/.../outshine-prepared` mid-session: every case reports UNPREPARED, the inputs
