@@ -1,5 +1,8 @@
 #include "SubjectDraw.h"
 
+#include <atomic>
+#include <chrono>
+
 #include <span>
 #include <new>
 
@@ -26,6 +29,9 @@
 #include "ShaderFile.h"
 
 namespace outshine::Render {
+
+static std::atomic<double> gBvhMs{0.0};
+double SubjectDraw::BuiltMs() { return gBvhMs.load(std::memory_order_relaxed); }
 
 namespace {
 
@@ -566,13 +572,26 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   {
     const Heap::Tagged building("mesh-bvh");
+    const auto began = std::chrono::steady_clock::now();
 
     // THE VISIBILITY STRUCTURE IS CPU WORK AND WANTS THE POSITIONS CONTIGUOUS, which is the one
     // reason a run of them still stands in memory of ours. It is THREE floats a vertex rather than
     // the nineteen the whole intermediate used to be, and every other channel now goes from the
     // producer's own spans into the device's mapping without stopping anywhere.
+    // THE RANGE A RAY MAY REACH, which the parts already put first: the carried subject's parts
+    // lead the table and the world's follow, so the reach is where the last carried batch ends.
+    uint32_t reach = 0;
+    for (const DrawBatch &batch : Batches) {
+      if (batch.ModelSlot >= TracesBelow_) { continue; }
+      const uint32_t past = batch.FirstIndex + batch.IndexCount;
+      reach = past > reach ? past : reach;
+    }
+    if (TracesBelow_ == 0xffffffffu) { reach = Bound().NIdx; }
     Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Positions.data(), mesh.Positions.size()),
-                                    Span<const uint32_t>(mesh.Indices, (size_t)Bound().NIdx));
+                                    Span<const uint32_t>(mesh.Indices, (size_t)reach));
+    gBvhMs.store(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        std::memory_order_relaxed);
   }
   if (Visibility_.Empty()) {
     error = "the subject's " + std::to_string(mesh.IndexCount / 3u) +

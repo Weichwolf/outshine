@@ -1,6 +1,12 @@
 #include "Shape.h"
 
+#include <atomic>
+#include <chrono>
+
 namespace outshine::Render {
+
+std::atomic<double> gCookMs{0.0};
+double CookedMs() { return gCookMs.load(std::memory_order_relaxed); }
 
 void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
   const auto fold = [this](size_t upTo, double least[3], double most[3]) {
@@ -53,6 +59,8 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
 // reordering them is visible -- and Nanite does not take translucency either, which is the same
 // answer arrived at for the same reason.
 void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
+  const auto began = std::chrono::steady_clock::now();
+  gCookMs.store(0.0, std::memory_order_relaxed);
   into.Clusters.clear();
   into.ClusterSpheres.clear();
   if (into.Indices.empty()) { return; }
@@ -108,5 +116,8 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
     }
     part.ClusterCount = (uint32_t)cut.Clusters.size();
   }
+  gCookMs.store(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+      std::memory_order_relaxed);
 }
 }

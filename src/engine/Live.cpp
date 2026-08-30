@@ -478,6 +478,12 @@ bool Live::Build(std::string &error) {
       return ms;
     };
     const auto wholeFrom = std::chrono::steady_clock::now();
+
+    // WHAT MAY CAST AND WHAT MAY BE TRACED IS DECIDED BEFORE THE GEOMETRY IS HANDED OVER, not
+    // after. The bound reaches the shadow stage and the visibility structure alike, and the
+    // structure is BUILT during the hand-over -- told afterwards, it had already walked all
+    // 9.43 M triangles of a city to answer a question about one carried subject.
+    Renderer_->CastsBelow((uint32_t)Joined_);
     if (!Stand(error)) { return false; }
     StandMs_ = sinceInside();
     if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) { return false; }

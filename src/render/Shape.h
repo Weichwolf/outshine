@@ -156,5 +156,10 @@ struct ShapeStore {
 inline constexpr uint32_t kClusterTriangles = 128;
 void CookShape(ShapeStore &into, std::span<const Material> surfaces);
 
+// WHAT THE LAST CUT COST. A cook walks every triangle of the subject and sorts each part's by a
+// Morton code, and the world's store is rebuilt from nothing on every restand -- so this is the
+// number that says whether "a rebuild costs what changed" is being obeyed or only intended.
+[[nodiscard]] double CookedMs();
+
 }
 #endif

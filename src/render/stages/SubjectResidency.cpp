@@ -162,8 +162,9 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   // may still be reading the last contents, so the write does not wait on the copy before it.
   // Mapping a REUSED buffer without cycling is a stall dressed as a memcpy.
   if (BulkBytes_ < total || !Bulk_) {
+    room.size = Widened(BulkBytes_, total);
     Bulk_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-    BulkBytes_ = Bulk_ ? total : 0u;
+    BulkBytes_ = Bulk_ ? room.size : 0u;
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
   }
   gUploads.fetch_add(1u, std::memory_order_relaxed);
@@ -172,6 +173,11 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
     error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
     return false;
   }
+  // CYCLED, AND BOTH ALTERNATIVES WERE MEASURED. Without cycling the frame draws NOTHING -- the
+  // copy in flight is still reading what this overwrites, and Shibuya went to 0.35 ms and an empty
+  // picture. Waiting on a fence first makes it correct again and SLOWER: the device step read
+  // 5047 ms against 4311 with the rename. So the rename is not what a rebuild's seconds are made
+  // of, and the cost is upstream of here.
   auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Bulk_.Get(), true));
   if (mapped == nullptr) {
     error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();

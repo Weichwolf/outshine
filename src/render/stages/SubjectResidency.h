@@ -118,6 +118,7 @@ private:
 
   OwnedTransfer Bulk_;
   uint32_t BulkBytes_ = 0;
+
 };
 
 }

@@ -60,6 +60,18 @@ public:
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
+  // HOW FAR UP THE PLACEMENT TABLE A RAY MAY REACH. The lit shader shoots one occlusion ray per
+  // light per pixel against a triangle structure, which is a SUBJECT-scale technique: it is how a
+  // detailed body shadows itself where an atlas texel is coarser than the detail. Built over a
+  // CITY it is 9.43 M triangles and 3831 ms of every rebuild -- measured on Shibuya, where it was
+  // the largest single term in the load and was being reported inside the number that says how
+  // long the DEVICE took.
+  //
+  // The bound is the one the atlas already takes (`CastsBelow`), and for the same reason: the
+  // world's shadows are the atlas's job. Neither Unreal nor RAGE traces a scene-wide triangle
+  // structure in the base pass.
+  void TracesBelow(uint32_t slot) { TracesBelow_ = slot; }
+
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
   // THE ARGUMENT TABLE IS RESET FROM THIS SIDE AND FILLED FROM THE OTHER. Only `num_indices` is
@@ -174,6 +186,7 @@ private:
   }
 
   TriangleBvh Visibility_;
+  uint32_t TracesBelow_ = 0xffffffffu;
 
 public:
 
@@ -189,6 +202,11 @@ public:
   [[nodiscard]] SubjectResidency &Owned() { return Own_; }
   [[nodiscard]] bool Borrows() const { return At_ != nullptr; }
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
+
+  // WHAT THE VISIBILITY STRUCTURE COST. It is built over every triangle of the subject on the CPU
+  // and it sits INSIDE the number that says how long the device took, which is where a measurement
+  // hides: 9.43 M triangles of city are not a device cost and were being reported as one.
+  [[nodiscard]] static double BuiltMs();
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
