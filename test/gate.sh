@@ -36,10 +36,10 @@ printf '\n%s in %ds\n' "$([ "$red" = 0 ] && echo GREEN || echo RED)" "$(($(date 
 # one about what is.
 printf 'NOT covered here: the engine submission path (outshine/door, %s cases),\n' \
   "$(find test/outshine/door -name '*.cpp' | wc -l | tr -d ' ')" 
-printf 'the validator, wpt, test262 and the render corpus. AND NO apps/ RUNS HERE:\n'
+printf 'the validator, wpt, test262 and the render corpus. AND THE CLIENT DOES NOT RUN HERE:\n'
 printf 'a client is a product, not a check. The one that stood here held this gate for ten\n'
 printf 'minutes when it hung and left three processes behind that poisoned every later run.\n'
-printf 'test/run.sh apps is where a client is run; test/outshine/places is where one is measured.\n'
+printf '`make shots` is where the client runs; test/outshine/places is where it is scored.\n'
 printf 'A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
 printf 'because the door cases are the only ones that compile against it.\n'
