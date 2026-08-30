@@ -43,7 +43,7 @@ printf 'test/run.sh apps is where a client is run; test/outshine/places is where
 printf 'A change to SubjectProxy,\n'
 printf 'Live or the renderer wants outshine/door as well -- and so does ANY change to include/,\n'
 printf 'because the door cases are the only ones that compile against it.\n'
-printf 'AND ANY CHANGE UNDER src/, include/ OR apps/ WANTS test/run.sh harness/claims: it holds\n'
+printf 'AND ANY CHANGE UNDER src/ OR include/ WANTS `make lint`: it holds\n'
 printf 'the rules about the SOURCE -- no comment, one spelling per type, no block on the frame\n'
 printf 'path, every board edge landing -- and four of them stood red behind a GREEN gate here\n'
 printf 'because nothing in this list looks at a source file. It costs two minutes, which is why\n'

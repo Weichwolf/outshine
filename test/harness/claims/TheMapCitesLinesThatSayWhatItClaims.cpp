@@ -236,29 +236,10 @@ int main(void) {
         "**AND EVERY PATH IT CITES IS IN THE TREE**: a tick that names a file is a claim with "
         "something under it, and a path that has moved reads exactly like one that has not");
 
-  // What the tree IS lives in STATE.md, which every `make` regenerates. Its whole worth is that
-  // no hand writes it: a CURRENT map drawn by hand cites file:line and every edit drifts it, so
-  // the map spends its life being corrected instead of read. That worth survives exactly as long
-  // as the committed file is what the generator produces, and this is the walk that says so.
-  std::string generated;
-  const int stated = Run("sh test/run.sh --state 2>/dev/null", generated);
-  CHECK(stated == 0 && !generated.empty(),
-        "the generator answers, so there is something to compare");
-  const std::string committed = Slurp("STATE.md");
-  CHECK(!committed.empty(),
-        "STATE.md stands in the tree, where a reader looks for what outshine is");
-  if (committed.empty() || generated.empty()) { return Report(); }
-
-  Note("what the generator produced", (double)generated.size(), "bytes");
-  Note("what the tree carries", (double)committed.size(), "bytes");
-  CHECK(committed == generated,
-        "**STATE.md IS WHAT THE GENERATOR PRODUCES**: it is CURRENT, and CURRENT is only worth "
-        "reading while no hand has touched it -- a STATE.md edited by hand, or left behind by a "
-        "build that did not run, is the very drift the generated map exists to end");
-
   Covers("IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and "
-         "every line it cites carries the text quoted beside it. STATE.md is CURRENT and is byte "
-         "for byte what run.sh --state produces, so the tree's own description cannot drift from "
-         "the tree (board:1762, 1768, 1775, 1777, 1779, 1855)");
+         "every line it cites carries the text quoted beside it (board:1762, 1768, 1775, 1777, "
+         "1779, 1855). It no longer judges STATE.md: the generated map is gone, and what it "
+         "carried is read where it lives -- board/ for the items, `make test` for the reds, "
+         "`make doc` for the door");
   return Report();
 }

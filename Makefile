@@ -5,10 +5,10 @@
 # WHAT EACH TARGET IS FOR
 #
 #   make strip      delete every comment src/ may not keep. `include/` and `src/client/` keep
-#                   their Doxygen; the rest of src/ and apps/ keep NOTHING, and seeing that on
+#                   their Doxygen; the rest of src/ keeps NOTHING, and seeing that on
 #                   every build is what forces code that speaks for itself
 #   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
-#                   the tools beside them, and STATE.md restated
+#                   and the tools beside them
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
 #   make lint       clang-format, clang-tidy and this tree's own repository rules
 #   make doc        the door's documentation -> build/doc
@@ -21,10 +21,6 @@
 # THE LAYERING IS THE BUILD AND IT IS DECLARED ONCE, in src/<tier>/reaches. test/run.sh derives
 # every include set from it, so this file keeps NO second map -- one went stale, left three layers
 # out of the archive and broke `make` at HEAD (board:1584).
-#
-# EVERY BUILD RESTATES WHAT THE LIBRARY IS. STATE.md is generated on every `make`: the door's
-# verbs, the tier graph, every standing red, every open item. It is an artefact and cannot be
-# edited into a lie.
 SHELL := /bin/bash
 .DEFAULT_GOAL := all
 
@@ -38,9 +34,8 @@ LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
 .PHONY: all strip db lint doc shots test suite clean spotless help
 
-all: strip       ## the library, the generator archive, the tools, and STATE.md
+all: strip       ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
-	@cd $(SELF_DIR) && sh test/run.sh --state > STATE.md
 
 strip:           ## delete every comment src/ may not keep -- see test/strip-comments.py
 	@cd $(SELF_DIR) && python3 test/strip-comments.py

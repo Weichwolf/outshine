@@ -233,16 +233,13 @@ LayerIncludes() {
     harness/khronos/generator | outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
-    apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
-    apps/demo/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
   esac
 }
 
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/door | outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    apps/demo/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/door | outshine/places | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -269,9 +266,8 @@ LayerValidation() {
 LayerLink() {
   case "$1" in
     outshine/fuzz | outshine/geo | outshine/content) printf '%s' "-lz" ;;
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/door | outshine/places | outshine/client | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/door | outshine/places | outshine/client | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
-    apps/demo/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
@@ -290,8 +286,7 @@ LayerGroups() {
     outshine/audio) printf '%s' "src/audio src/base/math" ;;
     outshine/door) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | apps/viewer/src | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    apps/demo/src) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/host src/compositor src/generators/base src/generators src/generators/draw src/sim src/scene src/engine/Assembly.cpp" ;;
+    harness/khronos/glTF | harness/khronos/generator | outshine/grown | outshine/frame | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/actor/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Picturing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -309,13 +304,10 @@ LayerCases() {
   esac
 }
 
-# board:1860: a PROGRAM under apps/ is not a case and not a harness -- it is the thing the
 # library exists for, and it must be BUILT so an entry point cannot break in silence. The gate
 # links it and runs it with --help, which every program answers without touching the world.
 Programs() {
   case "$1" in
-    apps/demo/src) printf '%s' "the demo's entry point" ;;
-    apps/viewer/src) printf '%s' "the viewer's entry point" ;;
     *) return 1 ;;
   esac
 }
@@ -325,7 +317,6 @@ NotTheHarnesses() {
     harness/shared | harness/khronos/glTF | harness/khronos/generator | outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     harness/shared/frame) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
-    apps/viewer/src/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     harness/khronos/glTF/prepare | harness/khronos/generator/prepare | outshine/grown/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
@@ -334,7 +325,6 @@ NotTheHarnesses() {
 
 LayerExtraSources() {
   case "$1" in
-    apps/viewer/src) printf '%s' "apps/viewer/src/parts/Face.cpp" ;;
     harness/khronos/glTF | harness/khronos/generator | outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     *) printf '%s' "" ;;
   esac
@@ -653,19 +643,6 @@ BuildLibrary() {
     printf -- '-> %s\n' "$toolNamed"
   done
 
-  for program in $(find apps -name '*.cpp' | sort); do
-    layer=$(dirname "$program")
-    Programs "$layer" >/dev/null 2>&1 || continue
-    named=build/outshine-$(basename "$(dirname "$layer")")
-    if [ -f "$named" ] && [ "$named" -nt build/liboutshine.a ] && [ "$named" -nt "$program" ]; then
-      continue
-    fi
-    $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") \
-      "$program" $(LayerExtraSources "$layer") build/liboutshine.a $(LayerLink "$layer") \
-      -o "$named" ||
-      Die "$program does not build into $named"
-    printf -- '-> %s\n' "$named"
-  done
 }
 if [ -n "${LIBRARY:-}" ]; then
   [ -n "${COMPILEDB:-}" ] && rm -f "$BUILD/compile_commands.part"
@@ -721,14 +698,7 @@ EverySourceStillCompiles() {
 }
 
 # A program that does not link is a red the gate can PRODUCE and could not DECLARE, so its
-# verdict carried a nameless failure every run. `apps/viewer/src/main.cpp` calls
-# `outshine::Viewer::Declaration` and `outshine::Viewer::StageRegion`, which live in
-# `apps/viewer/src/parts/Face.cpp` -- a second translation unit of the client's own, so the
-# client is NOT one entry point over the library and this check says so correctly. board:1898
-# holds the repair: the viewer entire is 706 lines and its shape is about 100. Until it lands
-# the red is declared here by name, and the day the viewer links from its entry point alone the
-# gate turns red on this stale line rather than going quietly green.
-EXPECT_UNLINKED="apps/viewer/src/main.cpp"
+EXPECT_UNLINKED=""
 
 EveryProgramStillLinks() {
   built=0
@@ -988,7 +958,7 @@ StateTwins() {
 StateStranded() {
 
   printf '\n## Stranded\n\nSources no declared suite links, so nothing they hold is proven.\n\n'
-  for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -1056,22 +1026,6 @@ StateReach() {
 # outside reference and only its own direction: it must fall.
 StateClients() {
   printf '\n## Clients\n\nWhat a product costs to write on this engine. A client that needs much code is a\nfinding about the DOOR, never about the client.\n\n| lines | units | client | reaches |\n|---|---|---|---|\n'
-  for clientDir in $(find apps -mindepth 1 -maxdepth 1 -type d | sort); do
-    clientUnits=$(find "$clientDir" -name '*.cpp' -o -name '*.h' | sort)
-    [ -n "$clientUnits" ] || continue
-    clientLines=$(cat $clientUnits | wc -l | tr -d ' ')
-    clientCount=$(printf '%s\n' "$clientUnits" | wc -l | tr -d ' ')
-    # THE HONEST COLUMN IS WHETHER IT LINKS, not whether it compiles. An include path into `src/`
-    # is one way to reach past the door and the LINKER finds the other: a client that needs a
-    # symbol `liboutshine.a` does not export is reaching past it just as surely, and this tree
-    # declares one such client in EXPECT_UNLINKED. Reporting only the include paths would print
-    # "include/ alone" over a standing red.
-    clientReach=$(LayerIncludes "${clientDir#apps/}/src" 2>/dev/null | tr ' ' '\n' | grep -c '^-Isrc' || true)
-    clientStanding='`include/` alone'
-    [ "${clientReach:-0}" = 0 ] || clientStanding="$clientReach path(s) into \`src/\`"
-    for clientRed in $EXPECT_UNLINKED; do
-      case "$clientRed" in "$clientDir"/*) clientStanding="**does not link from the library alone**" ;; esac
-    done
     printf '| %s | %s | `%s` | %s |\n' "$clientLines" "$clientCount" "$clientDir" "$clientStanding"
   done
 }
@@ -1471,7 +1425,7 @@ fi
 
 if [ "$AUDIT" = 1 ]; then
   bad=0
-  for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     files=""
     for group in $groups; do
@@ -1487,7 +1441,7 @@ if [ "$AUDIT" = 1 ]; then
       bad=1
     fi
   done
-  for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -1529,7 +1483,7 @@ if [ "$AUDITLINK" = 1 ]; then
   bad=0
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
-    auditSuites=$(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+    auditSuites=$(find test -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
@@ -1635,10 +1589,9 @@ PRUNE_MARKER=$BUILD/prune.marker
 
 
 TREES=test
-[ -z "$SUITES" ] && TREES="test apps"
+[ -z "$SUITES" ] && TREES="test"
 for named in $SUITES; do
   case "$named" in
-    apps | apps/*) TREES="test apps" ;;
   esac
 done
 
@@ -1707,8 +1660,8 @@ fi
 # AUDITS -- they answer a question somebody asked, and they run when named.
 # board:1876: test/unit is gone -- it asserted the shape of a moving architecture. What runs by
 # default is what is INVARIANT: the established corpora, whose truth does not depend on our
-# design. tools and apps run by name.
-NAMED_ONLY="apps"
+# design. tools run by name.
+NAMED_ONLY=""
 FAST_GATE=no
 kFastGateBoundMs=230000
 if [ -z "$SUITES" ]; then

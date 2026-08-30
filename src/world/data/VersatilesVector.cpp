@@ -1,8 +1,16 @@
 #include "VersatilesVector.h"
 
+#include <format>
+#include <string_view>
+
 #include <cstdio>
 
 namespace outshine::Data {
+
+namespace Says {
+inline constexpr std::string_view kTile = "https://tiles.versatiles.org/tiles/osm/{}/{}/{}";
+}
+
 namespace {
 
 [[nodiscard]] SourceDecl Declared() {
@@ -33,9 +41,7 @@ std::string VersatilesVector::Url(const Address &at) const {
   int z = 0;
   uint32_t x = 0, y = 0;
   if (!at.TryTile(&z, &x, &y)) { return std::string(); }
-  char url[128];
-  std::snprintf(url, sizeof url, "https://tiles.versatiles.org/tiles/osm/%d/%u/%u", z, x, y);
-  return std::string(url);
+  return std::format(Says::kTile, z, x, y);
 }
 
 Meaning VersatilesVector::Classify(int status, size_t bytes) const noexcept {

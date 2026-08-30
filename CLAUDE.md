@@ -21,7 +21,7 @@ The world is EARTH and the engine is online by definition: a picture can be made
 it, and what comes out has to be comparable with reality. Elevation always, vector data where a
 scenario asks for it, and the sun, the moon, the stars and the weather standing where the place and
 the hour put them rather than where a number says. A hand-set sun is a sun that disagrees with its
-own shadows the moment the clock moves. **How far the tree is from any of this is `STATE.md`'s to
+own shadows the moment the clock moves. **How far the tree is from any of this is `board/`'s to
 say, never this page's.**
 
 ## Why
@@ -115,7 +115,7 @@ commit, which is why they cannot be skipped quietly — an empty answer is visib
 comment or a commit is a HYPOTHESIS until it is measured again — including a cause written on this
 page. They fail that test often enough that the habit is worth more than any one of them: state the
 measurement before the work, so being wrong is visible on the day rather than a month later. Which
-causes have failed and what replaced them is the commits' to remember, and the count is `STATE.md`'s
+causes have failed and what replaced them is the commits' to remember, and the count is `board/`'s
 if it is worth counting at all.
 
 ## The craft
@@ -190,10 +190,9 @@ Four architectural commitments. Everything else is a decision an item can revisi
 | `src/` | the library. **The directory IS the dependency tier**, declared in `test/run.sh` and enforced by `--audit-layers`, which also refuses a cycle |
 | `src/generators/` | a library with its own door: a client registers its own beside them, and the tier links with none of the engine behind it |
 | `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora; `harness/` their scorers and the claims; `outshine/` is ours |
-| `src/client/` | the engine through its own door: `build/outshine-client`, and the camera that measures it |
-| `apps/` | the CLIENTS, each a product. **A client is almost no code and its LINE COUNT measures the door**: when a client needs much code the door is the finding, never the client |
+| `src/client/` | **THE ONE CLIENT**: `build/outshine-client`, the engine through its own door, and the camera that measures it. There is no `apps/` -- a product is a SCENARIO plus one command, so a second program would be a second door |
 | `board/` | one flat directory of work items — see below |
-| `Makefile` | build · test · clean, and every `make` rewrites `STATE.md` |
+| `Makefile` | the ONE way in: `strip · db · lint · doc · shots · test · suite · clean` |
 
 ## What proves what
 
@@ -234,8 +233,7 @@ tick is only earned when its proof stands AND its negative control goes red** �
 passes proves nothing, and that is the trap that costs most here.
 
 `test/run.sh` is the only test runner. **`test/gate.sh` is the fast gate** — under a minute,
-printing what it does NOT cover and the weakest measured areas from `STATE.md`, so the next item
-comes off the screen rather than out of memory.
+printing what it does NOT cover, so the next item comes off the screen rather than out of memory.
 
 ## How I work
 

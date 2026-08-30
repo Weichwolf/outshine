@@ -1,8 +1,17 @@
 #include "TerrariumDem.h"
 
+#include <format>
+#include <string_view>
+
 #include <cstdio>
 
 namespace outshine::Data {
+
+namespace Says {
+inline constexpr std::string_view kTile =
+    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{}/{}/{}.png";
+}
+
 namespace {
 
 [[nodiscard]] SourceDecl Declared() {
@@ -34,14 +43,7 @@ std::string TerrariumDem::Url(const Address &at) const {
   int z = 0;
   uint32_t x = 0, y = 0;
   if (!at.TryTile(&z, &x, &y)) { return std::string(); }
-  char url[160];
-  std::snprintf(url,
-                sizeof url,
-                "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/%d/%u/%u.png",
-                z,
-                x,
-                y);
-  return std::string(url);
+  return std::format(Says::kTile, z, x, y);
 }
 
 Meaning TerrariumDem::Classify(int status, size_t bytes) const noexcept {

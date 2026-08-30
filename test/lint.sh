@@ -22,7 +22,7 @@ done
 [ -f compile_commands.json ] || { printf 'lint: no compile_commands.json -- run `make db`\n' >&2; exit 2; }
 
 mkdir -p "$REPORT"
-ours=$(find src include apps test -name '*.cpp' -o -name '*.h' | grep -v '/shaders/' | sort)
+ours=$(find src include test -name '*.cpp' -o -name '*.h' | grep -v '/shaders/' | sort)
 
 printf '== format ==\n'
 if "$LLVM/clang-format" --dry-run --Werror $ours 2>"$REPORT/format.log"; then
@@ -35,7 +35,7 @@ fi
 
 printf '\n== analysis ==\n'
 "$LLVM/run-clang-tidy" -p . -quiet -j "$(sysctl -n hw.ncpu)" \
-  '/(src|apps)/.*\.cpp$' > "$REPORT/tidy.log" 2>/dev/null || true
+  '/src/.*\.cpp$' > "$REPORT/tidy.log" 2>/dev/null || true
 grep 'warning:' "$REPORT/tidy.log" | sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
 found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
 grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
@@ -54,6 +54,15 @@ if [ "$found" -lt "$allowed" ]; then
   printf 'lint: the baseline SHRANK to %s -- recorded. Commit %s with the repair.\n' \
     "$found" "$BASELINE"
 fi
+
+printf '\n== the repository's own rules ==\n'
+# THE CLAIMS ARE A LINTER AND NOT A PROOF. Twelve of them check the BOARD -- an id issued once, an
+# item naming its benchmark, every edge pointing at an item -- and about ten check the HARNESS. No
+# off-the-shelf tool knows what `board/NNNN_*.md` is, so they stay; what stops is their standing in
+# a TEST runner, where a red about a citation reads like a red about the engine.
+sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1 || true
+grep -E '^(FAIL|BUILD|UNPREP|PASS)' "$REPORT/claims.log" | grep -v '^PASS' | sed 's|/var/folders.*||' || true
+grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
 
 printf '\n== documentation ==\n'
 if [ -x "$(command -v doxygen)" ]; then

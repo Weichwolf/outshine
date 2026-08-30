@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Delete every comment in src/ and include/ that is not a Doxygen block.
 
-THE RULE IS THE TREE'S OWN AND IT IS OLDER THAN THIS FILE: `src/`, `include/` and `apps/` carry no
+THE RULE IS THE TREE'S OWN AND IT IS OLDER THAN THIS FILE: `src/` and `include/` carry no
 commentary. Names and structure carry the meaning; a number's origin lives in its item and its
 commit. Enforced by a claim it stayed broken for a year at 1606 lines, because a rule that only
 NAGS is a rule somebody is always about to get to.
@@ -16,7 +16,7 @@ comment. Raw strings matter: `R"msl( ... )msl"` may hold anything at all.
 
 WHAT SURVIVES, AND ONLY THERE: `///`, `//!`, `/** */` and `/*! */` in `include/` and
 `src/client/`. Those two are DOORS -- the engine's public interface and its official command line --
-and a door is documented where a generator can render it. Everywhere else in `src/` and `apps/`
+and a door is documented where a generator can render it. Everywhere else in `src/`
 nothing survives at all, which is the point: seeing the deletion on every build is what forces code
 that speaks for itself.
 """
@@ -135,9 +135,9 @@ def main(roots):
                 touched += 1
                 lines += was.count("\n") - now.count("\n")
     print("strip: %d file(s), %d line(s) gone -- they are in the commits that added them.\n"
-          "       include/ and src/client/ keep their Doxygen; the rest of src/ and apps/ keep "
+          "       include/ and src/client/ keep their Doxygen; the rest of src/ keeps "
           "nothing." % (touched, lines))
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:] or ["src", "include", "apps"]))
+    sys.exit(main(sys.argv[1:] or ["src", "include"]))

@@ -2,10 +2,25 @@
 #include "SubjectResidency.h"
 
 #include <cmath>
+#include <format>
+#include <string_view>
 #include <cstring>
 #include <vector>
 
 namespace outshine::Render {
+
+namespace Says {
+inline constexpr std::string_view kStreamFoundNoRoom =
+    "a vertex stream found no room on the device: {}";
+inline constexpr std::string_view kPoseStagingFoundNoRoom =
+    "the pose's staging buffer found no room on the device: {}";
+inline constexpr std::string_view kPoseStagingDidNotMap =
+    "the pose's staging buffer did not map: {}";
+inline constexpr std::string_view kTopologyStagingFoundNoRoom =
+    "the topology's staging buffer found no room on the device: {}";
+inline constexpr std::string_view kTopologyStagingDidNotMap =
+    "the topology's staging buffer did not map: {}";
+}
 
 namespace {
 
@@ -79,7 +94,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
       if (!*one.Into) {
         *one.Held = 0;
-        error = std::string("a vertex stream found no room on the device: ") + SDL_GetError();
+        error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
       *one.Held = wanted.size;
@@ -97,8 +112,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     room.size = widened;
     OwnedTransfer fresh(Device, SDL_CreateGPUTransferBuffer(Device, &room));
     if (!fresh) {
-      error =
-          std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
+      error = std::format(Says::kPoseStagingFoundNoRoom, SDL_GetError());
       return false;
     }
     if (Staging_ && StagedCount_ > 0) { Retired_.push_back(std::move(Staging_)); }
@@ -110,7 +124,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   auto *const mapped =
       static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
   if (mapped == nullptr) {
-    error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
+    error = std::format(Says::kPoseStagingDidNotMap, SDL_GetError());
     return false;
   }
   uint32_t at = StagingUsed_;
@@ -152,13 +166,12 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   gUploads.fetch_add(1u, std::memory_order_relaxed);
   gUploadBytes.fetch_add(total, std::memory_order_relaxed);
   if (!Bulk_) {
-    error =
-        std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
+    error = std::format(Says::kTopologyStagingFoundNoRoom, SDL_GetError());
     return false;
   }
   auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Bulk_.Get(), true));
   if (mapped == nullptr) {
-    error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();
+    error = std::format(Says::kTopologyStagingDidNotMap, SDL_GetError());
     return false;
   }
   uint32_t at = 0;
