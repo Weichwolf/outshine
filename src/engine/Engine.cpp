@@ -359,6 +359,10 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     tell(said);
   };
   const double bound = patienceS > 0.0 ? patienceS : 0.0;
+  if (!S_->Session.Declared.Ground.Declared) {
+    say();
+    return Result{};
+  }
   for (;;) {
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
     const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
@@ -381,6 +385,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    if (!S_->World.Stack.Opened()) { continue; }
     (void)S_->World.Stack.Pool().AwaitLanding(leftS < kMostWaitS ? leftS : kMostWaitS);
   }
 }

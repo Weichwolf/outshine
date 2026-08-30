@@ -409,12 +409,10 @@ Result Engine::setGeometry(const Geometry &geometry) {
 Result Engine::readScenario(std::string_view path) {
   Scenario scenario;
   if (!readScenarioInto(path, scenario)) { return std::unexpected(S_->Error); }
-  S_->Session.Declared = scenario;
-  S_->Session.Taken = false;
-  S_->Session.Carried = Unacted(scenario);
-  S_->Session.Carried.insert(
-      S_->Session.Carried.end(), S_->Session.LayerTrace.begin(), S_->Session.LayerTrace.end());
-  S_->Error.clear();
+  const std::vector<std::string> traced = S_->Session.LayerTrace;
+  const Result stood = declare(scenario);
+  if (!stood) { return stood; }
+  S_->Session.Carried.insert(S_->Session.Carried.end(), traced.begin(), traced.end());
   return {};
 }
 

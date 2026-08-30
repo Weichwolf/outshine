@@ -107,7 +107,7 @@ void Usage() {
       "  shots [--rows] [--measures] [--audit] [--all | <place>]\n"
       "                                   stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
-      "  run <scenario> [name]            read a declared scenario, stand it, draw it\n"
+      "  run [--rows] <scenario> [name]   read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               ask the Earth how high it is there\n"
       "  help                             this\n\n"
@@ -179,6 +179,12 @@ int TakeShots(int argc, char **argv) {
 }
 
 int RunScenario(int argc, char **argv, bool everyMeasure) {
+  bool rows = false;
+  while (argc > 0 && std::strcmp(argv[0], "--rows") == 0) {
+    rows = true;
+    --argc;
+    ++argv;
+  }
   if (argc < 1) {
     std::printf("outshine-client: name a scenario to run\n");
     return 2;
@@ -195,7 +201,11 @@ int RunScenario(int argc, char **argv, bool everyMeasure) {
     return 1;
   }
   const Shot shot = outshine::Shots::Draw(engine, named, true);
-  Tell(shot, named);
+  if (rows) {
+    Row(shot, named.c_str());
+  } else {
+    Tell(shot, named);
+  }
   if (everyMeasure) {
     for (const outshine::Measure &one : engine.measures()) {
       std::printf("        %-56s %14.3f %s\n", one.What.c_str(), one.How, one.Unit.c_str());
