@@ -583,7 +583,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   std::vector<float> tinted;
   {
     const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
-    const Ground::GroundMaterials &wearing = World.Stack.Materials();
+    const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
     const Render::Medium fallback;
     size_t named = 0;
     if (classes && wearing.Ready()) {
@@ -597,12 +597,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         int second = -1;
         const int which =
             World.Stack.Classes().ClassAt(*classes, where.LatDeg, where.LonDeg, &edgeM, &second);
-        const bool stands = which >= 0 && (size_t)which < wearing.Count();
+        const bool stands = which >= 0 && (size_t)which < wearing.TemplateCount();
         if (stands) { ++named; }
-        const Ground::GroundMaterials::Material &wore = wearing.At(stands ? (size_t)which : 0);
-        tinted[one * 4] = stands ? wore.Albedo[0] : (float)fallback.GroundAlbedo[0];
-        tinted[one * 4 + 1] = stands ? wore.Albedo[1] : (float)fallback.GroundAlbedo[1];
-        tinted[one * 4 + 2] = stands ? wore.Albedo[2] : (float)fallback.GroundAlbedo[2];
+        const Ground::VegetationTemplates::Row &wore = wearing.Rows()[stands ? (size_t)which : 0];
+        tinted[one * 4] = stands ? wore.Ground[0] : (float)fallback.GroundAlbedo[0];
+        tinted[one * 4 + 1] = stands ? wore.Ground[1] : (float)fallback.GroundAlbedo[1];
+        tinted[one * 4 + 2] = stands ? wore.Ground[2] : (float)fallback.GroundAlbedo[2];
         tinted[one * 4 + 3] = 1.0f;
       }
     }

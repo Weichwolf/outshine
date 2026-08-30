@@ -65,6 +65,36 @@ draws its soil.
 That is this item, measured by a case rather than by an eye, and it is the strongest evidence in
 it: the refusal is not about a missing class, it is about nothing standing on the class.
 
+## THE DESERT WAS AN INDEX IN THE WRONG TABLE
+
+`ClassField::ClassAt` returns a TEMPLATE row -- `ClassStructure::Evaluate` hands back
+`(w0 & 0xFF)`, which `ClassBuilder` filled from `VegetationTemplates::Rule::Tpl`. There are 14 of
+them. `Picturing` used it to index `GroundMaterials`, of which there are 20, and its guard
+`which < wearing.Count()` let every one through because 14 < 20. It checked that the number FITS
+the table, not that it is the table's number.
+
+| template | got | should have |
+|---|---|---|
+| 0 `mixed_broadleaf` | 0 **`sand`** [0.394, 0.251, 0.091] | `forest_floor` with its sward |
+| 2 `meadow` | 2 `earth_moist` | a closed graminoid sward |
+| 9 `settlement` | 9 `forest_floor` | `earth_dry` |
+| 11 `water` | 11 `needle_litter` | `water` |
+
+`sand` at [0.394, 0.251, 0.091] is the bright orange-brown that lay over every picture this tree
+made. Reading `VegetationTemplates::Rows()[which].Ground` instead -- the table that is INDEXED BY
+TEMPLATE and already carries the sward -- moves Heidelberg:
+
+| point | wrong table | right table | |
+|---|---|---|---|
+| the Neckar | (100, 83, 82) | **(64, 85, 102)** | B > G > R: water |
+| valley meadow | (98, 87, 90) | **(120, 119, 102)** | the sward at its declared dry fraction |
+| Koenigstuhl | (143, 123, 108) | (102, 93, 98) | forest floor, not sand |
+| Altstadt roofs | (173, 166, 154) | (171, 165, 153) | unmoved: buildings are not ground |
+
+`Rows()` and `RowBytes()` had NO CALLER before this -- a complete, flat, GPU-shaped table nobody
+read, the third such thing found in one night beside `ClassStructure::Words()` and
+`Stage::AutoExposure`.
+
 ## WHAT IT COSTS, derived before anything is written
 
 `vegetation.json` already declares every density. Over the fine class grid -- 2048 m square,
@@ -99,10 +129,11 @@ never been placed.
 
 ## What will be true
 
-- [ ] The SWARD reaches the ground's albedo: a class whose template declares grass mixes
-      `greenLinear` and `dryLinear` by its `dryFraction`, and covers the floor material by its
-      `swardClosure`. Nothing is invented -- all four numbers are already declared and carry
-      their origins.
+- [x] The SWARD reaches the ground's albedo. **It never needed building.**
+      `VegetationTemplates.cpp:151-157` already mixes `greenLinear` and `dryLinear` by
+      `dryFraction` and covers the floor by `swardClosure`, at LOAD time, into `Row::Ground`.
+      What was wrong is that `Picturing` read a different table with an index that did not
+      belong to it -- see below.
 - [ ] A land class that means TREES scatters the generator its template already names, at a
       density the frame budget allows, with an impostor beyond it. The ground keeps its floor
       material underneath -- this item adds a layer, it does not repaint one.
