@@ -22,9 +22,29 @@ scheme would be inventing that bug.
     ParentCenter[3] ParentRadius the bound of the group it merges into
     SelfErr  ParentErr           the error each introduces, in metres
 
-`subjectCull.msl` reads `spheres[job.x]` as ONE `float4` -- centre and radius -- and tests six
-frustum planes. **The error and the parent never cross to the device.** So the ladder is cooked,
-proven and unreachable: the commonest defect this tree names, and the third time today.
+`subjectCull.msl` read `spheres[job.x]` as ONE `float4` -- centre and radius -- and tested six
+frustum planes. **The error and the parent never crossed to the device.** That half is now done:
+`keep()` packs twelve floats a cluster, `CullView` carries `errorPerMetre`, and the rung test
+stands behind `if (view.errorPerMetre > 0.0)`.
+
+## AND THE LADDER IS NOT COOKED, which is why the rung test measured INERT
+
+The item said the ladder was "cooked, proven and unreachable". Only the last word was right.
+`src/render/Shape.cpp:109` calls **`CookClusters`**, which cuts ONE level and leaves every cluster
+a root -- that is the 1 792 rootless clusters this item measured, and it is not a property of the
+geometry, it is the function that was called.
+
+`CookDag(positionsM, indices, mostTriangles, mostLevels)` sits beside it in
+`src/base/spatial/ClusterCook.h`, is COMPLETE -- it clusters vertices per level, appends the
+coarsened positions, rebuilds the index, and writes `ParentCenter`, `ParentRadius` and `ParentErr`
+onto every child and `SelfErr` and `Level` onto every parent -- and **`git grep` finds no caller
+outside its own declaration and definition.** It is in `test/unreached-baseline`'s 184.
+
+The fourth unwired capability found in one night, and the one that blocks the rest of this item.
+Wiring it is not a change of function name: `CookDag` GROWS both the position array and the index
+array, while Shape.cpp writes the cut back IN PLACE and refuses anything that does not fit
+(`cut.Index.size() != local.size()`). The part's vertex and index ranges have to grow with it, and
+that is the work.
 
 ## What was measured
 
