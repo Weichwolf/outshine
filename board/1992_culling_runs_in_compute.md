@@ -165,19 +165,36 @@ generators, exactly where the parent's own diagram puts it.
 
 ## What is measured and stands
 
-**`DagSelect` is called in exactly ONE file**, `GroundPatchwork.cpp`. The subject path calls it
-nowhere.
+**THE COOKER IS REACHABLE NOW.** `CookShape` runs where a shape is BUILT -- in `Gltf::Shaped`,
+both arms -- so a subject carries its cut the moment it stands, and a cut taken per frame would be
+the very CPU term this item exists to remove. The cut is per PART because a cluster belongs to one
+surface, and a BLENDED part is left uncut: compositing reads the order its triangles arrive in, and
+Nanite does not take translucency either.
 
-**`outshine::Cook` is reached by NOTHING.** board:1991's landed cooker -- one cooker, one cooked
-form, the cut chosen per cluster -- has two callers in the whole tree and both are cases:
-`geo/ScoreWhatACutCostsASubject` and `geo/ScoreWhatOneCookerDoesToASubject`. The subject path
-flattens geometry into a `SubjectScratch` per frame and uploads it whole. That is this tree's named
-commonest defect standing between board:1991 and this item.
+    NormalTangentTest    61 clusters over 7774 triangles     SciFiHelmet   183
+    WaterBottle          36                                  Fox             5
 
-The item's own "342 held, 83 drawn" predates the runtime DAG's removal from `CookTile` and is struck.
+**AND THE COOKED ORDER STANDS BESIDE THE DRAWN ONE.** Rewriting the drawn buffer into the cooker's
+Morton order changed the picture: NormalTangentTest, one 198x48 cell at the bottom of the frame
+whose shading normal flipped the sign of its bitangent, and whose distance from the oracle went 6
+codes to 8 against the case's own bound of 6.435. **Where two surfaces COINCIDE this renderer
+resolves the tie by which triangle arrived first**, and a ray-traced oracle has its own tie-break
+that ours had been matching by luck. `ShapeStore::ClusterIndices` carries the cooked run;
+`Indices` keeps the drawn one.
 
-- [ ] a `Geometry` DECLARES where its cut comes from, `Built` or `Given`, and the engine names no
-      category
+**THAT COST IS DEFERRED, NOT AVOIDED.** On the day the draw is per CLUSTER the cooked buffer is the
+one it reads, and that cell needs a real answer then -- a depth bias, a stable tie-break, or the
+finding that the asset's coincident surfaces are undefined for any rasteriser and the case's bound
+has to say so.
+
+## What is next, in order
+
+    1. the clusters reach the DEVICE as a buffer, beside the streams that already cross
+    2. a compute stage reads them and writes a visible list -- frustum first, which needs no HiZ
+    3. the draw becomes INDIRECT off that list, and `subject draw calls` stops counting batches
+    4. the HiZ pyramid from the last frame's depth, and the two-phase test
+    5. the DAG's error bound picks the level, which is what `CookDag` already computes
+
 
 ## THE TEST, in the owner's own words: a terrain tile is a very large OSM roof
 
