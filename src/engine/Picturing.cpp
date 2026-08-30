@@ -461,6 +461,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
     const bool renamed = classes != World.LaidClasses;
+    Published.Places("tiles laid bare on the ellipsoid",
+                     (double)(sees->Pending + sees->Absent + sees->Refused),
+                     "tiles");
     if (World.EverLaid && !elsewhere && !grew && !renamed) { return true; }
     Published.Places("rebuilds since the world stood", (double)(World.Relaid + 1u), "rebuilds");
     Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
@@ -1475,7 +1478,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places(
       "levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
   Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
-  Published.Places("tiles laid bare on the ellipsoid", (double)laid->Bare, "tiles");
+  Published.Places("tiles the last rebuild laid bare", (double)laid->Bare, "tiles");
   World.Pending = laid->Pending;
   World.Bare = laid->Bare;
   World.Wanted = laid->Tiles;

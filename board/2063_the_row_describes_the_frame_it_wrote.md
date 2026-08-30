@@ -96,12 +96,32 @@ Both pictures are correct and one row says the elevation never arrived.
 TheAlpsFromTheJura and CentralPark all render well and all were refused. A gate that switches
 itself off on a stale counter is worse than no gate, because the tick is still green at the top.
 
+## FIXED for the bare tiles, and the gate is green
+
+The measure now comes from the ASKING pass, which runs on every call BEFORE the early return, as
+`Pending + Absent + Refused` -- which is what "no tile stands here" actually means. The rebuild's
+own delta is kept under a name that says so: `tiles the last rebuild laid bare`.
+
+The number that settled it, logged past the ledger at the last call:
+`pending=0 tiles=128 resident=128 early=1`. The world is COMPLETE and the function returns before
+saying so.
+
+    outshine/places   9 PASS  0 FAIL  0 SIGNAL  0 UNPREPARED   in 83 s
+
+Venice and Heidelberg both report 0 bare tiles at digests 16c056ee and a2d6cd59 -- unchanged. The
+picture never moved; the number stopped lying. The negative control is real: a blank frame reads
+CONTROL 0.0000 against a bar of 0.5 while the frame itself reads 1.4563 against a bar of 1.0.
+
 ## What will be true
 
-- [ ] The row a place writes is taken from the state that produced the PICTURE -- after the
+- [x] The row a place writes is taken from the state that produced the PICTURE -- after the
       last rebuild the frame used, not during a pass the frame did not use.
-- [ ] `BareTiles` names WHICH pass it counted where it prints, so a reader cannot attach it to
+- [x] `BareTiles` names WHICH pass it counted where it prints, so a reader cannot attach it to
       the wrong one.
+- [ ] **STILL OPEN:** `building triangles the world meshed` is the same defect unfixed. It reads
+      0 on a warm start and 1 283 058 on a cold one for the SAME picture, because it too is a
+      rebuild delta wearing a state's name. Nothing refuses on it today, which is the only reason
+      it is not costing anything yet.
 - [ ] Measurement that shows this is wrong: Heidelberg and Venice both render terrain and both
       must report 0 bare tiles once the row follows the frame. If either still reports bare
       tiles the world genuinely has a hole and THAT is the finding.
