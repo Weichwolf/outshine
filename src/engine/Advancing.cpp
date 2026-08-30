@@ -70,7 +70,7 @@ bool Engine::State::Watches(void) {
                           seen.Sees.LooksAt ? seen.Sees.LookAtM[1] : aimed[1],
                           seen.Sees.LooksAt ? seen.Sees.LookAtM[2] : aimed[2]};
   Render::Viewpoint standing;
-  if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.RollRad, standing)) { return true; }
+  if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.UpM, standing)) { return true; }
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;

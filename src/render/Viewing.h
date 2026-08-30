@@ -37,6 +37,8 @@ struct Viewpoint {
   // engine called them through the importer's copy for want of its own.
   [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], double rollRad,
                                    Viewpoint &out);
+  [[nodiscard]] static bool LookAt(const double eyeM[3], const double aimM[3], const double upM[3],
+                                   Viewpoint &out);
 };
 
 // INLINE, SO A LIGHT SUITE STAYS LIGHT. The importer needs this the moment its camera IS the
@@ -78,6 +80,30 @@ inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double
     out.Forward[axis] = forward[axis];
     out.Right[axis] = right[axis] * turn + up[axis] * lean;
     out.Up[axis] = up[axis] * turn - right[axis] * lean;
+  }
+  return true;
+}
+
+// AN UP VECTOR, WHICH IS WHAT FILAMENT'S `Camera::lookAt(eye, center, up)` TAKES. A roll angle
+// needs a convention -- which way is positive, measured from what -- and this file's was written
+// nowhere: a client holding the camera's own up had to recover an angle from it and guess the
+// sense. Measured on Khronos's Triangle, whose camera rolls -26.57 degrees: the guess came out
+// negated and the drawn facet shared 48% of its pixels with the oracle's. With the up vector
+// handed over as it stands, the two agree exactly.
+inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3],
+                              Viewpoint &out) {
+  double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
+  if (!Aiming::Normalise(forward)) { return false; }
+  double right[3];
+  Aiming::Cross(forward, upM, right);
+  if (!Aiming::Normalise(right)) { return false; }
+  double up[3];
+  Aiming::Cross(right, forward, up);
+  for (int axis = 0; axis < 3; ++axis) {
+    out.EyeM[axis] = eyeM[axis];
+    out.Forward[axis] = forward[axis];
+    out.Right[axis] = right[axis];
+    out.Up[axis] = up[axis];
   }
   return true;
 }

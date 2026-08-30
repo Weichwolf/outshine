@@ -381,7 +381,12 @@ struct Camera {
 
   bool LooksAt = false;
   double LookAtM[3] = {0.0, 0.0, 0.0};
-  double RollRad = 0.0;
+  // WHICH WAY IS UP, AS FILAMENT SPELLS IT. `Camera::lookAt(eye, center, up)` takes a vector and
+  // not an angle, and the reason is that an angle needs a convention: measured from what, positive
+  // which way. This door carried `RollRad` and never stated one, so a client holding the camera's
+  // own up had to recover an angle and guess -- and the guess came out negated on the one corpus
+  // case that rolls. The default is world up, which is what an unrolled camera means.
+  double UpM[3] = {0.0, 1.0, 0.0};
 
   // FILAMENT'S CAMERA TAKES A PHOTOGRAPHIC EXPOSURE -- aperture in f-stops, shutter in seconds,
   // sensitivity in ISO -- and computes the scale from them, because those three are what a
