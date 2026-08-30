@@ -9,6 +9,10 @@ bound: physically as accurate as NECESSARY, graphically as good as the FRAME BUD
 temporally DETERMINISTIC. The middle bound is the one "as good as possible" cannot carry — a
 target without a ceiling cannot be missed.
 
+**This page is the AIM and never the state.** Where the tree actually stands, what is open and what
+was decided is `board/` and `git log` — read those first, and `make help` for what can be run. A
+sentence here that describes today would be a lie within a week, so there is none.
+
 **WHAT THE ENGINE IS LAID OUT FOR.** Textures must WORK — the vendor corpora are the oracle and
 their textured path has to be right. But the frame budget is laid out for five things, and they are
 the answer to "what actually looks stunning": **high geometry with RECURSIVE generators · many
@@ -175,32 +179,35 @@ Four architectural commitments. Everything else is a decision an item can revisi
   one.** A subsystem that reads another's live state instead of its snapshot is the defect, because
   it puts a wait where a handoff belongs
 
-## Where things live
+## How the tree is arranged
 
-| | |
-|---|---|
-| `include/` | the door — **a header is public only if a client cannot use the engine without it** |
-| `src/` | the library. **The directory IS the dependency tier**, declared in `test/run.sh` and enforced by `--audit-layers`, which also refuses a cycle |
-| `src/generators/` | a library with its own door: a client registers its own beside them, and the tier links with none of the engine behind it |
-| `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora; `harness/` their scorers; `outshine/` is ours. `harness/claims/` is a LINTER over the repository and runs from `make lint` |
-| `src/client/` | **THE ONE CLIENT**: `build/outshine-client`, the engine through its own door and the camera that measures it. A product is a SCENARIO plus one command, so a second program would be a second door |
-| `board/` | one flat directory of work items — see below |
-| `Makefile` | the ONE way in: `strip · db · lint · doc · shots · test · suite · clean` |
+Principles and not a map, because a map goes stale the day a directory moves.
+
+- **A header is PUBLIC only if a client cannot use the engine without it.** The public headers are
+  the door and nothing else stands in it
+- **A directory IS a dependency tier** and each carries a `reaches` file naming what it may see.
+  The include path is DERIVED from that one declaration, so a cross-tier include fails at the
+  `#include` with a file and a line instead of being reported afterwards — what Unreal spends
+  `Build.cs` on
+- **The generators are a library with their own door**: a client registers its own beside them, and
+  that tier links with none of the engine behind it
+- **THERE IS ONE CLIENT**, the engine through its own door and the camera that measures it: a
+  product is a SCENARIO plus one command, so a second program would be a second door
+- **The vendor's word and ours stand apart, and the directory says which.** `board/` is one flat
+  directory of work items, and `make` is the only way in
 
 ## What proves what
 
-**Only the vendor corpora prove anything.** Khronos, WPT, test262 and GeographicLib are where a
-standards body or a computation carried further than ours states the answer. Everything under
-`test/outshine/` is a REGRESSION NET of unknown grade: it holds the tree to what the tree already
-did, which is agreement with ourselves. **That bites hardest during a refactor** — green means the
-previous behaviour was preserved, and if that behaviour was wrong, green is the wrong answer
-preserved exactly. A red there is INFORMATION and is never made green by editing the case.
+**Only a VENDOR CORPUS proves anything** — where a standards body, or a computation carried further
+than ours, states the answer. Everything we wrote ourselves is a REGRESSION NET of unknown grade: it
+holds the tree to what the tree already did, which is agreement with ourselves. **That bites
+hardest during a refactor** — green means the previous behaviour was preserved, and if that
+behaviour was wrong, green is the wrong answer preserved exactly. A red there is INFORMATION and is
+never made green by editing the case.
 
 **Two exceptions, both narrow.** A check that pins a SPELLING rather than a property is
-mis-specified and the CHECK changes — one required a literal command in the Makefile and went red
-when it moved behind a variable, while the property it meant still held. And a declared CEILING is
-a baseline: it may only FALL, and lowering it after a repair is the discipline. Everything else red
-stays red.
+mis-specified and the CHECK changes. And a declared CEILING is a baseline: it may only FALL, and
+lowering it after a repair is the discipline. Everything else red stays red.
 
 | grade | it holds | it proves |
 |---|---|---|
@@ -210,64 +217,63 @@ stays red.
 | **INPUT** | nothing is supplied | that we survive it |
 
 **A BENCHMARK IS A TOOL, NOT A GATE.** A PROOF states an invariant and its negative control goes
-RED. A BENCHMARK states a RATE, and a rate has no negative control: it is faster or slower, never
-wrong, so it can never earn a tick. It BOUNDS a decision — "this is the number the change has to
-beat" — and is quoted in the item that spends it. Every instrument states what it does NOT cover on
-the page where it prints, because the mistake it guards against was made here: a subject's rate
-quoted about a world.
+RED. A RATE has no negative control — it is faster or slower, never wrong — so it can never earn a
+tick. It BOUNDS a decision, "the number the change has to beat", and is quoted in the item that
+spends it. Every instrument states what it does NOT cover where it prints, because the mistake it
+guards against was made here: a subject's rate quoted about a world.
 
-**`build/outshine-client` IS THE INSTRUMENT AND `test/outshine/places/` SCORES IT.** The camera
-lives in `src/client`, whose `reaches` names `base` alone, so it is held to the door a stranger
-gets. `make shots` stands six real places and writes `build/shots/<place>-<digest>.png` beside what
-each cost; the six cases run that same command and apply the oracles to its rows. A number from
-here always has a picture beside it, and the digest says when one moved unintended.
+**THE CLIENT IS THE INSTRUMENT AND THE CASES SCORE IT.** `make shots` stands real places on Earth
+and writes each picture under its own DIGEST beside what it cost; the cases run that same command
+and apply their oracles to its rows. A number from here always has a picture beside it, and the
+digest says when one moved unintended. The instrument reaches the door and nothing else, so it is
+held to what a stranger gets.
 
 Every case is a scenario with an invariant oracle whose truth does not depend on our design. **A
 tick is earned only when its proof stands AND its negative control goes red** — a control that
-passes proves nothing, and that is the trap that costs most here.
+passes proves nothing, the trap that costs most here.
 
 **`make` IS THE ONLY DOOR** and nothing is started by reaching past it:
 
 | | |
 |---|---|
-| `make` | `test/strip-comments.py` · the library · the generators · `build/outshine-client` |
-| `make lint` | `test/lint.sh`: clang-format · clang-tidy · `test/harness/claims/` · `doc/Doxyfile` — each held to a baseline that may only SHRINK |
-| `make shots` | six places through `build/outshine-client`, pictures to `build/shots` |
-| `make test` · `make suite SUITE=x` | the fast gate · one suite |
-| `make db` · `make doc` | `compile_commands.json` · the door's documentation |
+| `make` | strip the comments, build the library and the generators, and the client beside them |
+| `make lint` | format · static analysis · the repository's own rules · the door's documentation |
+| `make shots` | the places, through the client, each picture under its digest |
+| `make test` · `make suite` | the fast gate · one suite by name |
+| `make db` · `make doc` | the compile database · the generated documentation |
 
-A strict analysis over 57 000 lines is red on day one and switched off in the first week, so the
-count is recorded and a commit may only lower it: new code is held to zero because anything it
-adds shows in the total.
+**Every baseline may only SHRINK.** A strict analysis over a grown tree is red on day one and
+switched off in the first week; a recorded count that a commit may lower and never raise holds new
+code to zero and lets old code be repaired at the pace it is touched. `make help` is the list.
 
 ## How I work
 
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
 the feature gaps.** A refactor toward a short target arrives somewhere that still has to be left.
 
-`board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body; fields `Type` ·
-`State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` · `Supersedes`. Filename
-`NNNN_label.md`; **the number is identity, issued once and never again** — the next comes from the
-HISTORY, which remembers every id ever filed, not from the directory:
+**Every item carries the benchmark and the choice** — what Unreal does, what RAGE does, which is
+taken and why. An item that cannot say it is not understood yet, and writing that line is most of
+the thinking. **Titles say what WILL BE TRUE**: one in the present tense is a complaint, one in the
+future is a target somebody can aim at.
 
-    git log --all --diff-filter=A --name-only --format='' | sed -n 's|^board/\([0-9]*\)_.*|\1|p' \
-      | sort -n | tail -1
+**THREE CONVENTIONS ARE WRITTEN DOWN BECAUSE BREAKING THEM IS SILENT AND IRREVERSIBLE.** Everything
+else about the board is legible from the board itself and is not this page's business.
 
-No dates. Titles say what WILL BE TRUE. Commits reference
-`board:NNNN`.
+- **An item's number is issued ONCE and never again**, and the next one comes from the HISTORY,
+  which remembers every id ever filed — not from the directory, which remembers only what is still
+  open. Taking it from the directory reuses the number of something closed, and two things then
+  share an identity for good
+- **Closing an item is DELETING the file.** What it said is in the commit and `git log` is the
+  logbook, so the directory holds only what is OPEN and can be read at a glance. A `State: closed`
+  left behind makes the directory stop meaning what it claims
+- **Exactly one item is `active`, and it says so in its own commit BEFORE the work**, because that
+  is the only place the board says what has an owner right now
 
-**Every item carries the benchmark and the choice** in one line near the top:
+Grep the history before filing: a removal was a decision, and filing it again overrules that
+decision by accident.
 
-    **Benchmark** — Unreal: <what it does>. RAGE: <what it does>. **Taking <which>** because <why>.
-
-An item leaves three ways and only a CLOSURE passes through `State: active`, recorded in its own
-commit BEFORE the work. A WITHDRAWAL says the defect was never there and names what was misread; a
-REMOVAL says the item named no step toward the benchmark. Closing is DELETING the file: what it
-said is in the commit, and `git log` is the logbook.
-
-**Grep `board/` AND the history before filing.** The directory holds what is open; `git log` holds
-what was closed and REMOVED, and filing a removal again overrules that decision by accident. A
-defect found while working something else becomes an item in the same round.
+**A defect found while working something else becomes an item in the same round**, even if it
+closes in that round: the alternative is a defect only one person ever knew about.
 
 ## What goes wrong
 
