@@ -194,6 +194,8 @@ def main():
             print(f"ASIDE {name:34s} {known[name]}")
             continue
         reference = where / "reference.png"
+        if not reference.exists():
+            reference = where / "reference.f0000.png"
         entry = prepared_root() / str(where.relative_to(TREE)).replace("/", "-") / \
             declared["subjects"][0]["entry"]
         if not entry.exists():

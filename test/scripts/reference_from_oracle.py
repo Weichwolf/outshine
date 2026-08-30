@@ -51,17 +51,25 @@ def main():
         where = manifest.parent
         if b'"renders"' not in manifest.read_bytes():
             continue
-        raw = prepared_root() / str(where.relative_to(TREE)).replace("/", "-") / "oracle.raw"
-        if not raw.exists():
+        prepared = prepared_root() / str(where.relative_to(TREE)).replace("/", "-")
+        still = prepared / "oracle.raw"
+        # A CASE THAT MOVES CARRIES A SEQUENCE, one file a frame, and every frame is a reference.
+        # A film would be a codec and a lossy one, which is the wrong thing to compare pixels with;
+        # the frames ARE the film and a viewer can be made from them whenever one is wanted.
+        run = sorted(prepared.glob("oracle.f[0-9][0-9][0-9][0-9].raw"))
+        made = [(still, where / "reference.png")] if still.exists() else [
+            (one, where / f"reference.{one.stem.split('.')[1]}.png") for one in run]
+        if not made:
             unlicensed += 1
             continue
-        linear = floats(raw)
-        if linear is None:
-            print(f"REFUSED {where.name}: {raw.name} is not this tree's float format")
-            refused += 1
-            continue
-        Image.fromarray(encoded(linear)).save(where / "reference.png")
-        wrote += 1
+        for source, into in made:
+            linear = floats(source)
+            if linear is None:
+                print(f"REFUSED {where.name}: {source.name} is not this tree's float format")
+                refused += 1
+                continue
+            Image.fromarray(encoded(linear)).save(into)
+            wrote += 1
     print(f"{wrote} reference(s) written, {unlicensed} case(s) with no oracle rendered yet, "
           f"{refused} refused")
     return 1 if refused else 0
