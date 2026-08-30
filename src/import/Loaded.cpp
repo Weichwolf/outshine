@@ -168,6 +168,24 @@ int Loaded::animations(void) const { return (int)Held_->File.Animations().size()
 double Loaded::durationS(void) const { return Held_->Moves ? Held_->Motion.EndS() : 0.0; }
 bool Loaded::poses(double seconds) { return Held_->Assemble(seconds); }
 bool Loaded::carriesCamera(void) const { return Held_->HasEye; }
+int Loaded::cameras(void) const { return (int)Held_->File.Cameras().size(); }
+
+bool Loaded::camera(int index, Camera &out) const {
+  Render::Viewpoint placed;
+  std::string why;
+  if (!Gltf::DeclaredPlacement(Held_->File, index, placed, why)) { return false; }
+  Render::CameraOf(placed, out);
+  return true;
+}
+
+bool Loaded::frames(double fill, Camera &out) const {
+  Render::Viewpoint fitted;
+  if (!Held_->Assembled.Frame(fitted, fill)) { return false; }
+  Render::CameraOf(fitted, out);
+  return true;
+}
+
+bool Loaded::frames(Camera &out) const { return frames(Render::kFramingFill, out); }
 const Camera &Loaded::camera(void) const { return Held_->Eye; }
 
 }

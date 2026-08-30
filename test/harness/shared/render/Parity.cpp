@@ -19,7 +19,6 @@
 #include <Loaded.h>
 
 #include "Shaped.h"
-#include "Surfaces.h"
 #include "Surfacing.h"
 
 #include "Acceptance.h"
@@ -37,16 +36,11 @@
 #include "SurfaceIdentity.h"
 #include "Ties.h"
 
-#include "Document.h"
 #include "SubjectProxy.h"
 #include "Wgs84.h"
-#include "Json.h"
 #include "Log.h"
-#include "Image.h"
 #include "Pose.h"
-#include "Compiled.h"
 #include "SceneRenderer.h"
-#include "Subject.h"
 
 using outshine::Json;
 using outshine::Gltf::Viewpoint;
@@ -60,8 +54,6 @@ using Subject = outshine::Gltf::Subject;
 namespace {
 using outshine::Render::SurfaceTable;
 using outshine::Render::SurfaceRasters;
-using outshine::Gltf::ResolveSurfaceTable;
-using outshine::Gltf::ResolveFileSurface;
 using outshine::Render::ColourFrom;
 using outshine::Render::ColourCarrier;
 
@@ -75,13 +67,6 @@ struct Case {
   outshine::Loaded Held;
   Handed Model;
 
-  // AND THE FILE AGAIN, FOR THE SURFACE TABLE ALONE. `ResolveSurfaceTable` and `ResolveFileSurface`
-  // decode an asset's IMAGES, and the door has no way to say that a surface wears one: `Material`
-  // is a row of numbers and `Geometry` carries no images. Until it does, these two stay and this
-  // reads the file a second time to feed them -- named here rather than hidden, because it is the
-  // last thing keeping this runner on `src/`.
-  outshine::Gltf::Document File;
-  outshine::Gltf::Subject Surfacing;
 
   // WHAT THIS CASE SAYS TO THE DOOR. The `Document` above is still read, and that is not a reach
   // past the door: a conformance harness parses the VENDOR'S FILE to know what the answer should
@@ -308,6 +293,24 @@ public:
   }
 };
 
+// THE DOOR'S CAMERA, READ BACK INTO THE SHAPE THIS RUNNER PROJECTS WITH. The two say the same
+// standing -- an eye, a point it looks at, which way is up, and a projection -- and the door's is
+// the one a client holds.
+[[nodiscard]] bool ViewpointOf(const outshine::Camera &from, Viewpoint &out) {
+  const double aim[3] = {from.LookAtM[0], from.LookAtM[1], from.LookAtM[2]};
+  if (!Viewpoint::LookAt(from.Stands.AtM, aim, from.UpM, out)) { return false; }
+  out.ZNearM = from.NearM;
+  out.ZFarM = from.FarM;
+  if (from.Orthographic) {
+    out.Kind = outshine::Render::CameraKind::Orthographic;
+    out.XMagM = from.XMagM;
+    out.YMagM = from.YMagM;
+  } else {
+    out.YfovRad = from.FovDeg * std::numbers::pi / 180.0;
+  }
+  return true;
+}
+
 [[nodiscard]] bool ResolveCamera(Case &subject, std::string &error) {
   const Json::Ref declared = subject.Manifest.Root()["scene"]["camera"];
   if (declared["source"].StrEquals("manifest")) {
@@ -388,16 +391,19 @@ public:
               "`cameras`, and a file may carry more than one";
       return false;
     }
-    if (!outshine::Gltf::DeclaredPlacement(subject.File, (int)declared["index"].Num(-1),
-                                           subject.Eye, error)) {
+    outshine::Camera shipped;
+    if (!subject.Held.camera((int)declared["index"].Num(-1), shipped) ||
+        !ViewpointOf(shipped, subject.Eye)) {
+      error = "the manifest names a camera of the file that it does not carry, or one that aims "
+              "at its own eye";
       return false;
     }
-    (void)subject.Held.carriesCamera();
     subject.CameraSource = "gltf";
     return true;
   }
 
-  if (subject.Surfacing.Frame(subject.Eye)) {
+  outshine::Camera framed;
+  if (subject.Held.frames(framed) && ViewpointOf(framed, subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;
   }
@@ -891,19 +897,6 @@ void SurfacesOf(const Handed &model, const outshine::Geometry &handed, bool carr
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
   const std::string entry =
       subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
-  if (!subject.File.ReadFile(subject.Directory + entry)) {
-    error = subject.File.Error();
-    return false;
-  }
-  // AN EMPTY VARIANT NAME IS NOT A VARIANT NAMED EMPTY. `VariantSelection()` selects nothing;
-  // `VariantSelection("")` looks for one the file does not carry and refuses.
-  const outshine::Gltf::VariantSelection wearing =
-      subject.VariantName.empty() ? outshine::Gltf::VariantSelection()
-                                  : outshine::Gltf::VariantSelection(subject.VariantName);
-  if (!subject.Surfacing.Build(subject.File, wearing)) {
-    error = subject.Surfacing.Error();
-    return false;
-  }
   if (!subject.Held.reads(subject.Directory + entry)) {
     error = subject.Held.error();
     return false;
@@ -2700,8 +2693,9 @@ bool ConfiguredCase::Start(outshine::Render::SceneRenderer &renderer, std::strin
 }
 
 bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
+  outshine::Camera framed;
   Viewpoint derived;
-  if (!Held_->Subject.Surfacing.Frame(derived, fill)) {
+  if (!Held_->Subject.Held.frames(fill, framed) || !ViewpointOf(framed, derived)) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }

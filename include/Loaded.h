@@ -50,6 +50,15 @@ public:
   // render against a reference needs the one the file states rather than one it invented.
   [[nodiscard]] bool carriesCamera(void) const;
   [[nodiscard]] const Camera &camera(void) const;
+  [[nodiscard]] int cameras(void) const;
+  [[nodiscard]] bool camera(int index, Camera &out) const;
+
+  // AND THE CAMERA THAT FRAMES IT, for an asset that ships none. Cesium spells this
+  // `Camera.viewBoundingSphere` and Filament's sample viewer does the same arithmetic by hand;
+  // a client that wants to SEE what it loaded should not have to derive the sphere itself. `fill`
+  // is how much of the frame the subject takes -- the engine's own default when it is not stated.
+  [[nodiscard]] bool frames(double fill, Camera &out) const;
+  [[nodiscard]] bool frames(Camera &out) const;
 
 private:
   struct Held;
