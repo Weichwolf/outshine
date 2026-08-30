@@ -20,7 +20,7 @@
 #
 # place        digest      p50     p95     p99   over budget
 CentralPark    cb4ee7d4  p50   6.29  p95   6.88  p99   7.30 ms    0 of 120
-Heidelberg     3bc692bc  p50   1.69  p95   1.85  p99   2.81 ms    0 of 120
+Heidelberg     7334483b  p50   1.69  p95   1.85  p99   2.81 ms    0 of 120
 Jura           2aa8f40f  p50   2.30  p95   2.57  p99   3.30 ms    0 of 120
 OldTown        3d2e4962  p50   1.25  p95   1.40  p99   2.04 ms    0 of 120
 Shibuya        aff2f732  p50   9.83  p95  11.63  p99  12.71 ms    0 of 120
@@ -48,3 +48,8 @@ Venice         8fa6e48c  p50   2.31  p95   2.50  p99   3.30 ms    0 of 120
 # not yet read -- and a pipeline that binds one more thing rasterises to the last bit differently.
 # Looked at and measured: NO pixel is zero, and the wall that reads dark in a thumbnail measures
 # (44, 49, 51) against a sky of (39, 71, 119). Five of the six are byte-for-byte what they were.
+
+# Heidelberg moved with the road's cross-section: each kerb now asks the ground where IT stands
+# instead of taking the centreline's one height, so a carriageway is no longer flat across a slope.
+# Seven pixels of 921 600 differ at this distance, which is what a two-lane road subtends from a
+# hillside -- the change is right and small, and the defect it fixes is neither.

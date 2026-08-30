@@ -22,6 +22,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   const int areas = field.Layer(OsmLayer::StreetPolygons);
   const uint32_t firstWay = (uint32_t)Ways_.size();
 
+  Looked_ += (long)(next.To - next.From);
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
     const bool ribbon = f.Type == 2 && (int)f.Layer == lines;
@@ -35,7 +36,10 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
 
     const VegetationTemplates::Rule *rule =
         veg.Find(field.LayerName((int)f.Layer), field.Str(f, "kind"));
-    if (!rule) { continue; }
+    if (!rule) {
+      Unruled_++;
+      continue;
+    }
     if (ribbon && rule->WidthM <= 0.0f) {
       Unwidthed_++;
       continue;

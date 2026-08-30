@@ -36,6 +36,10 @@ public:
 
   long UnwidthedCount() const { return Unwidthed_; }
 
+  [[nodiscard]] long UnruledCount() const { return Unruled_; }
+
+  [[nodiscard]] long LookedCount() const { return Looked_; }
+
   long TunnelCount() const { return Tunnels_; }
 
   size_t HeapBytes() const {
@@ -50,7 +54,7 @@ private:
   std::vector<Way> Ways_;
   TileRanges ByTile_;
   TileWatermark Mark_;
-  long Unwidthed_ = 0, Tunnels_ = 0;
+  long Unwidthed_ = 0, Tunnels_ = 0, Unruled_ = 0, Looked_ = 0;
 };
 
 } // namespace outshine::Ground

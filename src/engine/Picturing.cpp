@@ -1028,13 +1028,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           alongN /= run;
           const double halfM = (double)lane.HalfWidthM;
           const double offLat = -alongE * halfM / perLat, offLon = alongN * halfM / perLon;
-          double aslM = 0.0;
-          if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) {
+          double leftAslM = 0.0, rightAslM = 0.0;
+          if (!World.Stack.Ground().At(lat + offLat, lon + offLon).TryAslM(&leftAslM) ||
+              !World.Stack.Ground().At(lat - offLat, lon - offLon).TryAslM(&rightAslM)) {
             whole = false;
             break;
           }
-          left.insert(left.end(), {lat + offLat, lon + offLon, aslM});
-          right.insert(right.end(), {lat - offLat, lon - offLon, aslM});
+          left.insert(left.end(), {lat + offLat, lon + offLon, leftAslM});
+          right.insert(right.end(), {lat - offLat, lon - offLon, rightAslM});
         }
         if (!whole || left.size() < 6) {
           ++refusedWays;
@@ -1098,6 +1099,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("streets: vertices compared", (double)compared, "vertices");
     }
     Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
+    Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
+    Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");
+    Published.Places("streets: features no rule named", (double)ways.UnruledCount(), "features");
+    Published.Places(
+        "streets: features a rule gave no width", (double)ways.UnwidthedCount(), "features");
+    Published.Places("streets: features that are tunnels", (double)ways.TunnelCount(), "features");
     Published.Places("streets: ways it refused", (double)refusedWays, "ways");
     Published.Places("streets: triangles", (double)(order.size() / 3), "triangles");
     if (order.size() >= 3) {
