@@ -96,3 +96,25 @@ if [ -x "$(command -v doxygen)" ]; then
 else
   printf 'lint: doxygen is not installed, so the door is not checked. `brew install doxygen`\n' >&2
 fi
+
+# WHAT NOTHING CALLS, and clang cannot answer it. clang-tidy works one translation unit at a time,
+# so a public member in a header could be reached from any other unit and no single-unit pass may
+# call it dead. The LINKER resolves the whole archive, and this tree already reads exactly what it
+# resolves. The count is a SUSPICION rather than a verdict -- a symbol may be reached through a
+# table this graph cannot see -- so it carries a baseline that may fall and never rise.
+if [ -f build/liboutshine.a ]; then
+  unreached=$(python3 test/scripts/unreached.py | sed -n 's/.* \([0-9][0-9]*\) that nothing in the archive calls.*/\1/p')
+  allowedUnreached=$(cat test/unreached-baseline 2>/dev/null || echo 0)
+  printf '\nlint: %s symbol(s) nothing in the archive calls, the baseline allows %s\n' \
+    "$unreached" "$allowedUnreached"
+  if [ "$unreached" -gt "$allowedUnreached" ]; then
+    printf 'lint: THE UNREACHED BASELINE GREW by %s -- something was written that nothing calls.\n' \
+      "$((unreached - allowedUnreached))" >&2
+    printf 'lint: they are named by `python3 test/scripts/unreached.py`\n' >&2
+    exit 1
+  fi
+  if [ "$unreached" -lt "$allowedUnreached" ]; then
+    printf '%s\n' "$unreached" > test/unreached-baseline
+    printf 'lint: the unreached baseline SHRANK to %s -- recorded.\n' "$unreached"
+  fi
+fi
