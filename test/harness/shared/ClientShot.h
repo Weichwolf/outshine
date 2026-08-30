@@ -28,8 +28,7 @@ struct ClientRow {
 
 inline int ScorePlace(const char *place) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command =
-      std::string("build/outshine-client shots --rows ") + place + " 2>&1";
+  const std::string command = std::string("build/outshine-client shots --rows ") + place + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");
@@ -80,7 +79,8 @@ inline int ScorePlace(const char *place) {
 
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar below is a number nobody checked. A
   // bare ellipsoid under a sky IS a vertical gradient, so the statistic is run over one first -- if
-  // THAT does not come in far under the bar, the bar separates nothing and every green is worthless.
+  // THAT does not come in far under the bar, the bar separates nothing and every green is
+  // worthless.
   CHECK(control >= 0.0 && control < 0.5,
         "**THE BLANK-FRAME BAR SEPARATES SOMETHING**: a picture of nothing is a vertical gradient "
         "and a vertical gradient has no horizontal variation at all, so this has to read far below "
@@ -115,5 +115,5 @@ inline int ScorePlace(const char *place) {
   return Report();
 }
 
-}
+} // namespace outshine::Test
 #endif

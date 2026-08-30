@@ -1,3 +1,5 @@
 #include "ClientShot.h"
 
-int main(void) { return outshine::Test::ScorePlace("CentralPark"); }
+int main(void) {
+  return outshine::Test::ScorePlace("CentralPark");
+}
