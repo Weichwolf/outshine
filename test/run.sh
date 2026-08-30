@@ -1018,17 +1018,6 @@ StateReach() {
 # and built an item on it (board:1982). The upstream path in each manifest's `statedAt` is the
 # vendor's own chapter, so the reach here is theirs and not our naming, and the common prefix says
 # in one line how narrow or wide the slice is.
-# A CLIENT'S LINE COUNT IS A MEASUREMENT OF THE DOOR, which is why it is on this page and not in
-# Mass beside `src/`. The two counts mean opposite things: a heavy source under `src/` is a
-# complexity finding about that file, while a heavy client is a finding about the INTERFACE -- the
-# client had to write what the door would not give it. Neither benchmark ships a four-line client
-# (Unreal's samples are content plus a launcher, RAGE's game IS its client), so the number has no
-# outside reference and only its own direction: it must fall.
-StateClients() {
-  printf '\n## Clients\n\nWhat a product costs to write on this engine. A client that needs much code is a\nfinding about the DOOR, never about the client.\n\n| lines | units | client | reaches |\n|---|---|---|---|\n'
-    printf '| %s | %s | `%s` | %s |\n' "$clientLines" "$clientCount" "$clientDir" "$clientStanding"
-  done
-}
 
 StateCorpora() {
   printf '\n## Corpora\n\nWhat each outside oracle judges, from the upstream path every case manifest records.\nThe count is cases; the reach is chapters. A wide count over a narrow reach is still narrow.\n\n| corpus | cases | all under | chapters |\n|---|---|---|---|\n'
@@ -1243,7 +1232,6 @@ if [ "$STATE" = 1 ]; then
   StateAccess
   StateReds
   StateReach
-  StateClients
   StateCorpora
   StateDecided
   exit 0

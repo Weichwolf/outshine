@@ -113,40 +113,35 @@ the work, so being wrong is visible on the day rather than a month later.
 ## The craft
 
 These are C++ truths rather than decisions about outshine, and they do not move.
-
-- **C++23**, `-Wall -Werror -Wpedantic`, one `-std`. A warning is an error
+- **C++23**, `-Wall -Werror -Wpedantic`, one `-std`; a warning is an error
 - **What the compiler can decide is a `static_assert`, never a case** — layout, size, trait,
-  catalogue completeness, an enum's exhaustiveness. It is stricter than a suite and cannot be
-  skipped, sampled or left unlinked
+  catalogue completeness, an enum's exhaustiveness. Stricter than a suite, and unskippable
 - **The type system over checkers**: `std::span` / `std::string_view` at boundaries, `std::mdspan`
   for field and instance views, `std::expected` where a refusal carries its reason
-- **Private is the DEFAULT** and a wider door justifies itself. A public data member is an
+- **Private is the DEFAULT** and a wider door justifies itself; a public data member is an
   invariant nobody can hold. Composition usually; inheritance where a stable interface carries
   shared machinery
-- **SIMD- and optimisation-friendly**: contiguous, one-width, pointer-free layouts; fast path on
-  the hot path; batch over per-item; bounded terms on the frame path — no alloc, lock, disk or
-  unbounded block
+- **SIMD-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch
+  over per-item; bounded terms on the frame path — no alloc, lock, disk or unbounded block
 - **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
   DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
   speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
   carrying `Covers("`
 - **A name is a promise.** A word that means something else in Unreal or RAGE spends a reader's
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
-  constraint, force, contact, integration — and a car, a wheel, a seat or a door is a SUBJECT a
-  scenario assembles. Generators are the exception and the reason is exact: a tree grower's whole
-  job is to make one concrete thing
+  constraint, force, contact, integration — and a car, a seat or a door is a SUBJECT a scenario
+  assembles. Generators are the exception: a tree grower's whole job is to make one concrete thing
 - **WHERE SDL3 SUPPLIES THE STRUCTURE OR THE FUNCTION, IT IS THE ONE USED.** SDL3 is a hard
   dependency rather than a choice, so a second mechanism beside one it already carries is not
   insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII handle
   over an SDL type is ownership and stays; a scheme that re-decides what SDL decides is a finding
-- **Every number carries its origin** (derived · measured · `[SET]`) with unit and population. No
-  magic numbers; calibration measures, never decides
+- **Every number carries its origin** (derived · measured · `[SET]`) with unit and population;
+  calibration measures, never decides
 - **A diagnostic is a declared LABEL**, never a free literal: `namespace Says` at the top of the
   file, `std::format` at the site. The compiler checks the placeholders and a file's ways of
   refusing read as a list
 - **A failure is loud.** Accepting a declaration and doing nothing with it is worse than refusing
-  it. Something is always drawn; delete on the day you replace; artefacts to the system temp dir,
-  never the tree
+  it. Delete on the day you replace; artefacts to the system temp dir, never the tree
 
 ## The invariants
 
@@ -162,17 +157,22 @@ Four architectural commitments. Everything else is a decision an item can revisi
   A section NOT declared decides nothing — the engine's own default stands in its place, never the
   zeroes of a struct nobody filled in. A scenario is a STREAM: `Declare` seeds, then parts enter
   and leave, and the work a declaration causes is proportional to what CHANGED
+- **DETERMINISM IS COMPULSORY OUTSIDE THE SHADERS.** The same declaration renders the same bytes,
+  twice, on this machine — so anything assembled from work that ran on more than one thread is
+  combined in a DECLARED order and never in completion order. Both references depend on it: RAGE's
+  replay plays a drive back frame for frame, and Unreal's automation compares screenshots bit for
+  bit and calls a wandering one a streaming bug. `make shots` writes every picture under its own
+  digest, which is how a lost determinism is noticed the same day.
 - **FOUR THINGS RUN INDEPENDENTLY — SIM · VIDEO · AUDIO · IO — and what passes between them is a
   SNAPSHOT.** The simulation owns the world and hands the renderer a delta; the renderer draws a
   frame behind and never reaches back; the mixer reads where sources stood when it mixed. **IO is
   the fourth and it is not a task**: a fetch BLOCKS, and a blocking task on a compute worker is a
   worker doing nothing while holding a slot. The two pools are sized by DIFFERENT quantities —
   compute by cores, IO by how many requests may be outstanding — so they cannot be merged, and a
-  compute worker is NOTIFIED rather than polling. Unreal separates it (`FIoDispatcher`, the async
-  loading thread) and so does RAGE (streaming threads beside `sysTaskManager`); neither lets a
-  stall on a disk or a socket cost a core. **Headless is the fast path, not a degraded one** — a
-  picture is what makes a run REALTIME. A subsystem that reads another's live state instead of
-  its snapshot is the defect, because it puts a wait where a handoff belongs
+  compute worker is NOTIFIED rather than polling. Unreal separates it (`FIoDispatcher`) and so does
+  RAGE (streaming threads beside `sysTaskManager`). **Headless is the fast path, not a degraded
+  one.** A subsystem that reads another's live state instead of its snapshot is the defect, because
+  it puts a wait where a handoff belongs
 
 ## Where things live
 

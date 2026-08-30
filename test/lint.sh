@@ -10,6 +10,9 @@ set -eu
 cd "$(dirname "$0")/.."
 
 LLVM=${LLVM_BIN:-/opt/homebrew/opt/llvm/bin}
+# run-clang-tidy spawns clang-tidy by NAME, so naming the directory is not enough.
+PATH="$LLVM:$PATH"
+export PATH
 BASELINE=test/lint-baseline
 REPORT=build/lint
 
@@ -35,9 +38,17 @@ fi
 
 printf '\n== analysis ==\n'
 "$LLVM/run-clang-tidy" -p . -quiet -j "$(sysctl -n hw.ncpu)" \
-  '/src/.*\.cpp$' > "$REPORT/tidy.log" 2>/dev/null || true
+  '/src/.*\.cpp$' > "$REPORT/tidy.log" 2>&1 || true
 grep 'warning:' "$REPORT/tidy.log" | sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
 found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
+# A LINT THAT FINDS NOTHING HAS BROKEN, NOT PASSED. clang-tidy writes its diagnostics to STDERR and
+# this redirected them to /dev/null for one round, which reported zero and recorded a baseline of
+# zero -- a gate blind to its own path, which is the first trap on CLAUDE.md's list.
+if [ "$found" -eq 0 ]; then
+  printf 'lint: the analysis found NOTHING over 172 units, which means it did not run.\n' >&2
+  printf 'lint: %s\n' "$REPORT/tidy.log" >&2
+  exit 2
+fi
 grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
 head -12 "$REPORT/tidy.checks"
 
