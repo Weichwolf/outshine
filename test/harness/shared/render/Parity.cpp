@@ -19,7 +19,6 @@
 #include "Handed.h"
 #include <Loaded.h>
 
-#include "Shaped.h"
 #include "Surfacing.h"
 
 #include "Acceptance.h"
@@ -37,10 +36,7 @@
 #include "SurfaceIdentity.h"
 #include "Ties.h"
 
-#include "SubjectProxy.h"
-#include "Wgs84.h"
 #include "Log.h"
-#include "Pose.h"
 #include "SceneRenderer.h"
 
 using outshine::Json;
@@ -78,12 +74,6 @@ struct Case {
   // shape it stands on, so both have to outlive it -- and a `Case` is what outlives everything
   // here. Re-forming is what a re-posed subject means, so this is a method rather than a field
   // filled once.
-  mutable outshine::Render::ShapeStore Store;
-  mutable outshine::Render::Shape Shape;
-  const outshine::Render::Shape &Shaped() const {
-    Shape = outshine::Gltf::Shaped(Held.geometry(), Store);
-    return Shape;
-  }
   outshine::Camera Eye;
   outshine::Test::Frame Frame;
   Acceptance Accepted;
@@ -326,20 +316,6 @@ public:
   return true;
 }
 
-[[nodiscard]] bool ViewpointOf(const outshine::Camera &from, Viewpoint &out) {
-  const double aim[3] = {from.LookAtM[0], from.LookAtM[1], from.LookAtM[2]};
-  if (!Viewpoint::LookAt(from.Stands.AtM, aim, from.UpM, out)) { return false; }
-  out.ZNearM = from.NearM;
-  out.ZFarM = from.FarM;
-  if (from.Orthographic) {
-    out.Kind = outshine::Render::CameraKind::Orthographic;
-    out.XMagM = from.XMagM;
-    out.YMagM = from.YMagM;
-  } else {
-    out.YfovRad = from.FovDeg * std::numbers::pi / 180.0;
-  }
-  return true;
-}
 
 [[nodiscard]] bool ResolveCamera(Case &subject, std::string &error) {
   const Json::Ref declared = subject.Manifest.Root()["scene"]["camera"];
@@ -962,11 +938,6 @@ struct Picture {
   std::vector<float> Velocity;
 };
 
-outshine::Render::Eye MakeView(const Case &subject) {
-  Viewpoint standing;
-  (void)ViewpointOf(subject.Eye, standing);
-  return outshine::Render::Eye{standing, false, 0};
-}
 
 // THE CAPTURE, THROUGH THE DOOR AND NOTHING ELSE. It brackets the frame the way Filament does and
 // asks for each picture by name -- which is why `Buffer` and `readPixels(Buffer, ...)` went into
@@ -1132,36 +1103,6 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
 
 enum class Prepared { Yes, No };
 
-void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
-
-  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
-                         outshine::Render::Resource::SceneShadingNormal,
-                         outshine::Render::Resource::SceneSurfaceIdentity,
-                         outshine::Render::Resource::FrameTex};
-
-  if (subject.Animated()) {
-    declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
-  }
-  declaration.Content = {outshine::Render::Stage::Subjects};
-
-  bool carriesGlass = false;
-  for (const outshine::Material &material : subject.Model.Surfaces()) {
-    const outshine::SurfaceKind kind = outshine::StateOf(material).Kind();
-    carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
-                   kind == outshine::SurfaceKind::Refractive;
-  }
-  carriesGlass = carriesGlass && subject.TransmissionBounces > 0;
-  if (carriesGlass) {
-    declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
-    declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
-  }
-  declaration.Display =
-      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
-  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
-
-  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
-      outshine::Render::ScenePrecision::Float);
-}
 
 [[nodiscard]] bool ReadOracle(const Case &subject, int frame, RawF32 &oracle, size_t &seedApart) {
   using namespace outshine::Test;
@@ -1598,32 +1539,6 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
   }
 }
 
-outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
-  outshine::Render::SubjectProxy studio;
-  const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
-  studio.Stands(subject.Shaped(), anchorEcefM);
-  if (subject.Animated()) { studio.Posed(&subject.PreviousPositions); }
-  for (size_t part = 0; part < subject.Emitted.size(); ++part) {
-    (void)studio.Emits(part, subject.Emitted[part]);
-  }
-  std::string why;
-  (void)studio.Wears(subject.Surfaces.PartSlot, subject.Surfaces.Slots, why);
-  if (subject.Lights == SceneLights::FromFile) {
-    for (const Handed::Lamp &placed : subject.Model.Lights()) {
-      studio.Lit(placed.Light);
-    }
-  }
-  if (subject.Lights == SceneLights::DeclaredSun) { studio.Lit(subject.Sun); }
-
-  if (subject.ShadedByLights()) {
-    outshine::Render::SubjectEnvironment environment;
-    for (int channel = 0; channel < 3; ++channel) {
-      environment.RadianceLinear[channel] = subject.WorldRadiance[channel];
-    }
-    studio.Around(environment);
-  }
-  return studio;
-}
 
 [[nodiscard]] bool RangeAt(const outshine::Camera &eye, const outshine::Test::Frame &frame,
                            const std::vector<float> &depth, int column, int row, double &out,
@@ -1654,7 +1569,7 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   return true;
 }
 
-void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy &studio,
+void ScoreDepthProbes(const Case &subject,
                       const std::vector<float> &depth, std::vector<Metric> &metrics) {
   const Json::Ref probes = subject.Manifest.Root()["depthProbes"];
   for (size_t which = 0; which < probes.Size(); ++which) {
@@ -1683,7 +1598,10 @@ void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy 
   }
 }
 
-void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::SubjectProxy &studio) {
+// WHAT THE CASE DECLARES, counted by the case. This asked a scoring PROXY how many lights it had
+// been handed, which is this runner asking itself through an engine object -- the answer was never
+// anywhere but in the declaration above it.
+void NoteWhatTheCaseCarries(const Case &subject) {
   if (subject.Lights == SceneLights::FromFile) {
     for (const Handed::Lamp &placed : subject.Model.Lights()) {
       outshine::Test::Note(
@@ -1692,8 +1610,10 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::Subje
           placed.Light.Kind == outshine::LightKind::Directional ? "lux" : "candela");
     }
   }
-  outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights().size(),
-                       "lights");
+  const size_t lamps = subject.Lights == SceneLights::FromFile  ? subject.Model.Lights().size()
+                       : subject.Lights == SceneLights::DeclaredSun ? 1u
+                                                                    : 0u;
+  outshine::Test::Note("punctual lights the case declares", (double)lamps, "lights");
 
   outshine::Test::Note("uv sets the subject carries", subject.Model.HasUv1() ? 2.0 : 1.0, "sets");
   for (size_t part = 0; part < subject.Model.Parts().size(); ++part) {
@@ -2334,8 +2254,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   if (!ReadOracle(subject, frame, oracle, seedApart)) { return FrameVerdict{}; }
   const std::uint64_t oracleDigest = Digest(oracle);
 
-  const outshine::Render::SubjectProxy studio = MakeStudio(subject);
-  NoteWhatTheStudioCarries(subject, studio);
+  NoteWhatTheCaseCarries(subject);
 
   std::string why;
   Picture picture;
@@ -2498,7 +2417,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
                        (double)TrianglesOutsideTheDepthRange(subject.Model, clip), 0.0,
                        "triangles", Direction::AtMost});
   }
-  ScoreDepthProbes(subject, studio, picture.Depth, metrics);
+  ScoreDepthProbes(subject, picture.Depth, metrics);
 
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
   const double passBound = subject.Accepted.Subject == SubjectClass::Transmissive ? 4.0 : 2.0;
@@ -2679,72 +2598,3 @@ int ScoreRenderCase(int argc, char **argv) {
   return Report();
 }
 
-struct ConfiguredCase::Held {
-  Case Subject;
-  outshine::Render::SubjectScratch Scratch;
-};
-
-ConfiguredCase::ConfiguredCase() : Held_(std::make_unique<Held>()) {}
-ConfiguredCase::~ConfiguredCase() = default;
-
-bool ConfiguredCase::Read(const std::string &directory, std::string &error) {
-  Held_->Subject.Directory = directory;
-  if (!Held_->Subject.Directory.empty() && Held_->Subject.Directory.back() != '/') {
-    Held_->Subject.Directory += '/';
-  }
-  if (!ReadManifest(Held_->Subject, error)) { return false; }
-  return BuildSubject(Held_->Subject, error);
-}
-
-bool ConfiguredCase::Declines(void) const {
-  return Held_->Subject.Criterion == CriterionKind::LimitsProbe;
-}
-
-bool ConfiguredCase::Start(outshine::Render::SceneRenderer &renderer, std::string &error,
-                           const std::vector<outshine::Render::Stage> &alsoContent, int surfaceW,
-                           int surfaceH) {
-  outshine::Render::PlanSpec declaration;
-  DeclarePlan(Held_->Subject, declaration);
-  for (const outshine::Render::Stage stage : alsoContent) {
-    declaration.Content.push_back(stage);
-  }
-
-  declaration.Outputs.push_back(outshine::Render::Resource::Surface);
-  std::shared_ptr<const outshine::Render::Compiled> plan;
-  if (![&] { auto made = outshine::Render::Compiled::Compile(declaration); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }()) { return false; }
-  renderer.Init(surfaceW > 0 ? surfaceW : (int)Held_->Subject.Frame.WidthPx,
-                surfaceH > 0 ? surfaceH : (int)Held_->Subject.Frame.HeightPx, plan);
-  if (!renderer.DeviceUsable()) {
-    error = "the device did not come up, so this case cannot be shown";
-    return false;
-  }
-  return true;
-}
-
-bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
-  outshine::Camera derived;
-  if (!Held_->Subject.Held.frames(fill, derived)) {
-    error = "the subject has no extent, so no camera can be derived from it";
-    return false;
-  }
-  Held_->Subject.Eye = derived;
-  return true;
-}
-
-bool ConfiguredCase::PoseAt(int frame, std::string &error) {
-  if (Held_->Subject.Animated()) { Held_->Subject.PreviousPositions = Held_->Subject.Model.PositionsM(); }
-  return PoseGeometry(Held_->Subject, frame, error);
-}
-
-bool ConfiguredCase::Draw(outshine::Render::SceneRenderer &renderer, std::string &error) {
-  const outshine::Render::SubjectProxy studio = MakeStudio(Held_->Subject);
-  if (!outshine::Render::Show(renderer, studio, MakeView(Held_->Subject), Held_->Scratch, error)) { return false; }
-  renderer.RenderFrame();
-  return true;
-}
-
-int ConfiguredCase::Frames(void) const { return Held_->Subject.Frames; }
-double ConfiguredCase::Fps(void) const { return Held_->Subject.Fps; }
-int ConfiguredCase::WidthPx(void) const { return (int)Held_->Subject.Frame.WidthPx; }
-int ConfiguredCase::HeightPx(void) const { return (int)Held_->Subject.Frame.HeightPx; }
-const std::string &ConfiguredCase::Title(void) const { return Held_->Subject.Directory; }
