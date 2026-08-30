@@ -25,7 +25,14 @@ struct Drives {
 
   double AtM[3] = {0.0, 0.0, 0.0};
   double LookAtM[3] = {0.0, 0.0, 0.0};
-  double RollRad = 0.0, YfovRad = 0.0, NearM = 0.0, FarM = 0.0;
+  double UpM[3] = {0.0, 1.0, 0.0};
+  double YfovRad = 0.0, NearM = 0.0, FarM = 0.0;
+
+  // GLTF HAS TWO CAMERAS AND A CASE MAY DECLARE EITHER. Passing only the field of view drew an
+  // orthographic subject in perspective, which is the largest coverage difference available -- and
+  // coverage is what a per-pixel colour metric reads when the shape moves.
+  bool Orthographic = false;
+  double XMagM = 0.0, YMagM = 0.0;
 
   Light Key;
   double IndirectLight[3] = {0.0, 0.0, 0.0};
@@ -70,8 +77,12 @@ struct Drives {
     watches.Id = "oracle";
     watches.Sees.Placed = true;
     watches.Sees.LooksAt = true;
-    watches.Sees.RollRad = RollRad;
-    watches.Sees.setProjection(YfovRad * 180.0 / std::numbers::pi, NearM, FarM);
+    for (int axis = 0; axis < 3; ++axis) { watches.Sees.UpM[axis] = UpM[axis]; }
+    if (Orthographic) {
+      watches.Sees.setProjection(-XMagM, XMagM, -YMagM, YMagM, NearM, FarM);
+    } else {
+      watches.Sees.setProjection(YfovRad * 180.0 / std::numbers::pi, NearM, FarM);
+    }
     for (int axis = 0; axis < 3; ++axis) {
       watches.Sees.Stands.AtM[axis] = AtM[axis];
       watches.Sees.LookAtM[axis] = LookAtM[axis];
