@@ -17,6 +17,15 @@ makes -- one concrete output from a parameterisation.
 **Taken: the ATMOSPHERE and the HIGH CLOUDS.** Both are smooth, low-frequency and expensive to
 integrate, which is what a cache is for.
 
+**AND HIGH IS THE WHOLE OF IT -- A VOLUMETRIC CLOUD IS REFUSED, ON BUDGET.** A cirrus deck sits at
+8 to 12 km and is a SHEET: from any eye on the ground it is a function of direction alone, so it
+caches into the same table the atmosphere does and costs a lookup. A cloud you can fly through is a
+raymarch per pixel per frame, it moves with the eye, and it is the single most expensive thing in
+this class -- this frame budget has five things in it and that is not one of them. What the near
+field gets instead is the HAZE the participating medium already computes: `mediumTransmittance`,
+`aerialPerspective` and the multi-scatter table stand and are what makes distance read as distance.
+That is a DECISION about where the milliseconds go, not a gap.
+
 **Refused: the SUN, the MOON and the STARS.** They are point-to-small features and a cube map
 destroys them. A face of N pixels covers 90 degrees, so it holds N/90 pixels per degree, and the
 sun and moon are 0.53 degrees across:
