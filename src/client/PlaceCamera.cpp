@@ -88,20 +88,7 @@ double ControlVariation() {
 LogSink *Telling = nullptr;
 bool Audits = false;
 
-Shot Take(const Place &place, bool tells) {
-  Shot shot;
-  if (!SDL_Init(SDL_INIT_VIDEO)) {
-    shot.Why = "SDL did not start, so nothing can be drawn";
-    return shot;
-  }
-  Engine engine;
-  if (Telling != nullptr) { engine.logsTo(Telling); }
-  engine.setRoots(Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
-  if (!engine.drawsInto(Extent{.WidthPx = kWidePx, .HeightPx = kHighPx})) {
-    shot.Why = "the device stood no canvas";
-    return shot;
-  }
-
+Scenario ScenarioFor(const Place &place) {
   Scenario stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = place.LatDeg;
@@ -129,6 +116,24 @@ Shot Take(const Place &place, bool tells) {
   watches.Sees.Stands.PitchDeg = kPitchDeg;
   watches.Sees.FovDeg = kFovDeg;
   stands.Views.push_back(watches);
+  return stands;
+}
+
+Shot Take(const Place &place, bool tells) {
+  Shot shot;
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    shot.Why = "SDL did not start, so nothing can be drawn";
+    return shot;
+  }
+  Engine engine;
+  if (Telling != nullptr) { engine.logsTo(Telling); }
+  engine.setRoots(Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  if (!engine.drawsInto(Extent{.WidthPx = kWidePx, .HeightPx = kHighPx})) {
+    shot.Why = "the device stood no canvas";
+    return shot;
+  }
+
+  const Scenario stands = ScenarioFor(place);
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {

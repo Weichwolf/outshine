@@ -116,6 +116,14 @@ public:
   [[nodiscard]] Result mix(std::span<float> stereo, int rate);
 
   [[nodiscard]] Result readScenario(std::string_view path);
+
+  /// The declaration this engine stands on, written back in the spelling `readScenario` accepts.
+  ///
+  /// A format that is only ever read cannot be diffed against what the engine HOLDS, and that
+  /// asymmetry is how a grammar and its reader drift. With this, `read -> write -> read` is a
+  /// counter-control a client can run: the two texts are the same one, or a section is missing a
+  /// spelling.
+  [[nodiscard]] std::string writeScenario(void) const;
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
   [[nodiscard]] Result declare(const Scenario &scenario);
   [[nodiscard]] Result setSurfaces(const std::vector<Surface> &surfaces);

@@ -1,3 +1,4 @@
+#include "ScenarioWrite.h"
 #include "EngineHeld.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
@@ -404,6 +405,10 @@ Result Engine::setGeometry(const Geometry &geometry) {
   }
   return (S_->Picture.Standing->Restand(handed, 0, S_->Error)) ? Result{}
                                                                : std::unexpected(S_->Error);
+}
+
+std::string Engine::writeScenario(void) const {
+  return WriteScenario(S_->Session.Declared);
 }
 
 Result Engine::readScenario(std::string_view path) {

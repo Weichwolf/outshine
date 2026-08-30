@@ -51,6 +51,10 @@ struct Shot {
   std::vector<::outshine::Measure> Measures;
 };
 
+/// The declaration a place stands on, on its own, so a reader can write it down and read
+/// it back rather than take the camera's word for what it declared.
+[[nodiscard]] ::outshine::Scenario ScenarioFor(const Place &place);
+
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine,
                         std::string_view name,
                         bool tells,

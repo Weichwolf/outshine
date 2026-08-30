@@ -25,6 +25,7 @@ Step() {
 
 Step 'the library and its clients' make
 Step 'the tiers and what stands wider'  sh test/run.sh --audit-layers --audit-access
+Step 'each place written and read back' build/outshine-client roundtrip
 Step 'the measured sky at Egbert'   python3 test/scripts/score_clear_sky.py
 Step 'khronos static'               sh test/run.sh khronos/glTF/WaterBottle
 Step 'khronos animated'             sh test/run.sh khronos/glTF/BoxAnimated

@@ -182,6 +182,15 @@ void ReadVector(
 }
 
 void ReadStanding(const Xml::Ref &from, Standing &into) {
+  if (from.Spelt("lat") || from.Spelt("lon")) {
+    into.GlobeAnchor = true;
+    into.Geodetic.LatitudeDeg = from.Num("lat", into.Geodetic.LatitudeDeg);
+    into.Geodetic.LongitudeDeg = from.Num("lon", into.Geodetic.LongitudeDeg);
+    into.Geodetic.HeightM = from.Num("heightM", into.Geodetic.HeightM);
+    into.SamplesHeight = std::string(from.Attr("samplesHeight", "no")) == "yes";
+    into.BearingDeg = from.Num("bearingDeg", into.BearingDeg);
+    into.PitchDeg = from.Num("pitchDeg", into.PitchDeg);
+  }
   ReadVector(from, "x", "y", "z", into.AtM, 3);
   ReadVector(from, "qx", "qy", "qz", into.FacingXyzw, 3);
   into.FacingXyzw[3] = from.Num("qw", into.FacingXyzw[3]);
@@ -205,6 +214,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.Sky.CloudHigh = from.Num("cloudHigh", into.Ground.Sky.CloudHigh);
   into.Ground.Sky.CloudBaseAglM = from.Num("cloudBaseAglM", into.Ground.Sky.CloudBaseAglM);
   into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
+  into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
 }
 
 void ReadRender(const Xml::Ref &from, Scenario &into) {
@@ -216,6 +226,7 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
   into.Render.Frame.HeightPx = (int)from.Int("heightPx", into.Render.Frame.HeightPx);
   into.Render.Fps = from.Num("fps", into.Render.Fps);
   into.Render.Fill = from.Num("fill", into.Render.Fill);
+  into.Render.Audits = std::string(from.Attr("audits", "no")) == "yes";
   into.Render.OrbitDegPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegPerFrame);
   into.Render.Transfer = from.Attr("transfer", into.Render.Transfer.c_str());
   into.Render.Exposure = from.Num("exposure", into.Render.Exposure);

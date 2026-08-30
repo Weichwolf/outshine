@@ -110,6 +110,7 @@ void Usage() {
       "  shots [--rows] [--measures] [--audit] [--all | <place>]\n"
       "                                   stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
+      "  roundtrip                        write each place, read it back, write it again\n"
       "  run [--rows] <scenario> [name]   read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               ask the Earth how high it is there\n"
@@ -255,6 +256,41 @@ int main(int argc, char **argv) {
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return AskHeight(rest, from); }
+  if (verb == "roundtrip") {
+    int apart = 0;
+    const std::string held = std::string(std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "/tmp") +
+                             "/outshine-roundtrip.scn";
+    for (const Place &one : outshine::Shots::Places()) {
+      outshine::Engine engine;
+      if (!engine.declare(outshine::Shots::ScenarioFor(one))) {
+        std::printf("APART   %-14s did not declare: %s\n", one.Name, engine.error().c_str());
+        ++apart;
+        continue;
+      }
+      const std::string first = engine.writeScenario();
+      if (std::FILE *const file = std::fopen(held.c_str(), "wb")) {
+        std::fwrite(first.data(), 1, first.size(), file);
+        std::fclose(file);
+      }
+      outshine::Engine again;
+      if (!again.readScenario(held)) {
+        std::printf("APART   %-14s the written scenario did not read back: %s\n",
+                    one.Name,
+                    again.error().c_str());
+        ++apart;
+        continue;
+      }
+      const std::string second = again.writeScenario();
+      if (first == second) {
+        std::printf("HELD    %-14s %zu byte(s)\n", one.Name, first.size());
+      } else {
+        std::printf("APART   %-14s written twice and the two differ\n", one.Name);
+        ++apart;
+      }
+    }
+    std::printf("\n%d place(s) apart\n", apart);
+    return apart == 0 ? 0 : 1;
+  }
   if (verb == "places") {
     for (const Place &one : outshine::Shots::Places()) {
       std::printf(
