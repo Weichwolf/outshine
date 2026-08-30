@@ -538,6 +538,7 @@ inline constexpr StageRow kStages[] = {
       Resource::LutSampler,
       Resource::DrawIndex,
       Resource::DrawArguments,
+      Resource::IrradianceBuffer,
       kNoEdge},
      {kNoEdge},
      {Resource::SceneHdr,

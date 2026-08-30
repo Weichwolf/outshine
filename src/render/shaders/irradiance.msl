@@ -1,0 +1,30 @@
+struct Pushed {
+  Medium declared;
+  float cosSunZenith;
+  float groundRadiusKm;
+  float2 pad;
+};
+
+kernel void irradianceKernel(texture2d<float> transmittance [[texture(0)]],
+                             texture2d<float> multiScatter [[texture(1)]],
+                             sampler lut [[sampler(0)]],
+                             constant Pushed &pushed [[buffer(0)]],
+                             device float *into [[buffer(1)]]) {
+  float3 summed = float3(0.0);
+  for (uint which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
+    float ring = (float(which / kMultiScatterGrid) + 0.5) / float(kMultiScatterGrid);
+    float around = (float(which % kMultiScatterGrid) + 0.5) / float(kMultiScatterGrid);
+    float azimuth = 2.0 * M_PI_F * ring;
+    summed += mediumSkyRay(pushed.declared, pushed.groundRadiusKm, sqrt(around), cos(azimuth),
+                           pushed.cosSunZenith, transmittance, multiScatter, lut, kSkyViewSteps,
+                           kMediumLuminanceSegment, kMediumGroundLiftKm);
+  }
+  float3 skylight = summed * (M_PI_F / float(kMultiScatterGrid * kMultiScatterGrid));
+  float3 sunReach = mediumTransmittance(pushed.declared, pushed.groundRadiusKm,
+                                        pushed.cosSunZenith, kTransmittanceSteps,
+                                        kMediumSampleSegment);
+  for (uint channel = 0; channel < 3; ++channel) {
+    into[channel] = skylight[channel];
+    into[3u + channel] = sunReach[channel];
+  }
+}

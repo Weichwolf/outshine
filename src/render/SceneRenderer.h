@@ -26,6 +26,7 @@
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
+#include "stages/IrradianceStage.h"
 #include "stages/MediumRadianceStage.h"
 #include "stages/LightVisibilityStage.h"
 #include "stages/SubjectCullStage.h"
@@ -170,6 +171,7 @@ public:
     MediumTransmittance_.Declare(medium);
     MultiScatter_.Declare(medium);
     Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
+    Irradiance__.Declare(medium, CosSunZenith_);
   }
 
   void SetShadowFrame(const float toSun[3], const float up[3], double radiusM) {
@@ -180,6 +182,7 @@ public:
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Irradiance__.Declare(Medium_, CosSunZenith_);
     Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
     Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
@@ -188,6 +191,7 @@ public:
     if (!Sky_.Stands()) { return; }
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Irradiance__.Declare(Medium_, CosSunZenith_);
     Sky_.Eye(Medium_, eyeHeightM);
     Aerial_.Eye(Medium_, eyeHeightM);
   }
@@ -293,6 +297,8 @@ private:
   [[nodiscard]] bool ConfigureMediumTransmittance(std::string &error);
   [[nodiscard]] bool ConfigureMediumMultiScatter(std::string &error);
   [[nodiscard]] bool ConfigureMediumRadiance(std::string &error);
+
+  [[nodiscard]] bool ConfigureIrradiance(std::string &error);
   [[nodiscard]] bool ConfigureSky(std::string &error);
   [[nodiscard]] bool ConfigureAerialPerspective(std::string &error);
   [[nodiscard]] bool ConfigureLightVisibility(std::string &error);
@@ -306,6 +312,8 @@ private:
   void EncodeMediumTransmittance(const FrameContext &ctx, const PassRecording &into);
   void EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into);
   void EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into);
+
+  void EncodeIrradiance(const FrameContext &ctx, const PassRecording &into);
   void EncodeSky(const FrameContext &ctx, const PassRecording &into);
   void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
@@ -358,6 +366,8 @@ private:
   MediumTransmittanceStage MediumTransmittance_;
   MediumMultiScatterStage MultiScatter_;
   MediumRadianceStage Radiance_;
+  IrradianceStage Irradiance__;
+  OwnedBuffer Irradiance_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;

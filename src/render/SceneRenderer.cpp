@@ -142,6 +142,7 @@ const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
     {Stage::MediumRadiance,
      &SceneRenderer::ConfigureMediumRadiance,
      &SceneRenderer::EncodeMediumRadiance},
+    {Stage::Irradiance, &SceneRenderer::ConfigureIrradiance, &SceneRenderer::EncodeIrradiance},
     {Stage::SubjectCull, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectCull},
     {Stage::SubjectScan, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectScan},
     {Stage::SubjectCompact,
@@ -386,8 +387,14 @@ void SceneRenderer::Create(Resource resource) {
     }
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
+    case Resource::IrradianceBuffer: {
+      SDL_GPUBufferCreateInfo wanted{};
+      wanted.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
+      wanted.size = kIrradianceFloats * (uint32_t)sizeof(float);
+      Irradiance_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
+      return;
+    }
     case Resource::VegetationTable:
-    case Resource::IrradianceBuffer:
     case Resource::Meter:
     case Resource::ShadowAtlas: {
       SDL_GPUTextureCreateInfo wanted{};
@@ -742,6 +749,20 @@ void SceneRenderer::EncodeMediumMultiScatter(const FrameContext &ctx, const Pass
 void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   Radiance_.Encode(into);
+}
+
+bool SceneRenderer::ConfigureIrradiance(std::string &error) {
+  return Irradiance__.Configure(Handles_,
+                                TransmittanceLut_.Get(),
+                                MultiScatterLut_.Get(),
+                                LutSamp_.Get(),
+                                Irradiance_.Get(),
+                                error);
+}
+
+void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  Irradiance__.Encode(into);
 }
 
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
