@@ -11,7 +11,7 @@ const char *const kCaseTrees[] = {"test/khronos/glTF", "test/test262/js", "test/
 
 bool Declared(const std::filesystem::path &file) {
   const std::string name = file.filename().string();
-  return name == "manifest.json" || name == ".gitignore";
+  return name == "manifest.json" || name == "reference.png" || name == ".gitignore";
 }
 
 } // namespace
@@ -41,7 +41,9 @@ int main() {
 
   Note("files under the case trees", (double)looked, "files");
   Note("manifests, which is the case count", (double)manifests, "files");
-  Note("files that are neither a manifest nor a .gitignore", (double)strays.size(), "files");
+  Note("files that are neither a manifest, a reference nor a .gitignore",
+       (double)strays.size(),
+       "files");
 
   CHECK(manifests > 0,
         "the case trees hold cases at all, so the emptiness below is a measurement "
@@ -49,9 +51,11 @@ int main() {
 
   CHECK(
       strays.empty(),
-      "no prepared file stands in the tree -- a case directory holds its manifest and nothing "
-      "else, and every fetched buffer, image, .blend, .exr and .raw is under the system temp root "
-      "where CLAUDE.md puts it");
+      "no prepared file stands in the tree -- a case directory holds its manifest and the ORACLE'S "
+      "OWN PICTURE and nothing else, and every fetched buffer, image, .blend, .exr and .raw is "
+      "under the system temp root where CLAUDE.md puts it. A reference is not a product: it is "
+      "what the case is scored AGAINST, it is written once from floats that stay outside, and a "
+      "corpus whose oracle lives on one machine's disk proves nothing to the next reader");
 
   Covers("I.61 a repository is what is declared and what is built from it: the case trees carry "
          "declarations and never products");

@@ -266,8 +266,8 @@ else about the board is legible from the board itself and is not this page's bus
 - **Closing an item is DELETING the file.** What it said is in the commit and `git log` is the
   logbook, so the directory holds only what is OPEN and can be read at a glance. A `State: closed`
   left behind makes the directory stop meaning what it claims
-- **Exactly one item is `active`, and it says so in its own commit BEFORE the work**, because that
-  is the only place the board says what has an owner right now
+- **`active` is said in the item's own commit BEFORE the work** -- the board's only owner mark.
+  Several may stand on one chain, each naming what it waits on
 
 Grep the history before filing: a removal was a decision, and filing it again overrules that
 decision by accident.

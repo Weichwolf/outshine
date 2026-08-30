@@ -69,12 +69,15 @@ int main(void) {
   // A claim keeps counting what stands, so it counts two -- and the door proof is not weaker for
   // it: board:2038 puts the CORPUS harness on the same footing, and a conformance case driving
   // include/ alone proves more about the door than any one app ever did.
-  CHECK(Sites(runner, "harness/khronos/glTF) printf '%s' \"-Iinclude") == 1,
-        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the corpus harness, whose whole "
-        "purpose is to show that a client needs nothing but include/, is declared with -Iinclude "
-        "and no -Isrc entry, so the proof cannot be retired by widening the set it stands on "
-        "(board:1582, 2038). It was two programmes and `apps/` is gone; a conformance case driving "
-        "the door proves more about it than any app did");
+  std::string clientReaches;
+  CHECK(Slurp("src/client/reaches", clientReaches) &&
+            clientReaches.substr(0, clientReaches.find_last_not_of(" \n\r\t") + 1) == "base",
+        "**AND THE ONE CLIENT COMPILES AGAINST THE DOOR ALONE**: `src/client/reaches` names `base` "
+        "and nothing else, so the tool this tree measures itself with sees include/ and no engine "
+        "tier behind it. The include path is DERIVED from that line, so widening what the client "
+        "may reach is a one-word edit a reader can see -- which is the whole point of declaring it "
+        "once. It was two programmes and a corpus harness; both are gone, and the corpus now "
+        "drives THIS binary (board:1582, 2038, 2049)");
 
   // AND THE BUILD STANDS ON THE DECLARATION, not beside it. `EveryProgramStillLinks` compiled a
   // client with a hand-written `-Iinclude` and probed the door rule twelve lines later with a
