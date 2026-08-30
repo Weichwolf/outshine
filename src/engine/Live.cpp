@@ -29,14 +29,14 @@ namespace {
 bool DeclarePlan(const Gltf::Document &file, bool sky, bool shadows, bool presents,
                  const std::vector<std::string> &stages, const std::vector<std::string> &outputs,
                  Render::PlanSpec &declaration, std::string &error) {
-  // THE SURFACE STAYS DECLARED EVEN HEADLESS, and the attempt to drop it is written down because
-  // the reasoning was right and the place was wrong. A present pass for a window that does not
-  // exist is waste -- measured, one of the two passes a still frame runs. But the READBACK reads
-  // the resolved surface, so dropping it left the frame magenta: nothing drawn, nothing to read.
-  // Removing the pass means moving the readback to `FrameTex` first, which is board:2038's next
-  // measurement rather than a line here.
-  (void)presents;
-  declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
+  // A PRESENT PASS FOR A WINDOW THAT DOES NOT EXIST IS WASTE. `Surface` is what PULLS
+  // `Stage::Present` in -- the plan is demand-driven from `Outputs` -- so a headless frame simply
+  // does not ask for it, and the readback takes `FrameTex` instead. The two carry ONE format,
+  // `Rgba8UnormSrgb`, which the catalogue states for both, so the dropped pass was a blit between
+  // two textures of the same format and the picture is unchanged. Measured on a Khronos still:
+  // three passes to two.
+  declaration.Outputs = {Render::Resource::FrameTex};
+  if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
   for (const std::string &named : outputs) {
     const std::optional<Render::Resource> row = Render::Compiled::ResourceByName(named);
     if (!row) {
@@ -304,7 +304,9 @@ bool Live::Build(std::string &error) {
           const uint32_t slot = Table_.PartSlot[part];
           if (slot >= Table_.Slots.size()) { continue; }
           for (const SurfaceOverride &said : Declared_.Overriding) {
-            if (said.Node.empty() || said.Node != standing[part].NodeName) { continue; }
+            const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
+            const bool byPart = said.Part >= 0 && (size_t)said.Part == part;
+            if (!byNode && !byPart) { continue; }
             Render::SubjectMaterial made = Table_.Slots[slot];
             made.Row = said.Row;
             const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
@@ -320,7 +322,8 @@ bool Live::Build(std::string &error) {
       if (took == 0) {
         error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
                 " surface(s) of '" + Declared_.Stands + "' and the file carries neither those "
-                "material names nor those node names -- a surface declared onto nothing changes "
+                "material names, those node names nor those part indices -- a surface declared "
+                "onto nothing changes "
                 "no pixel and says it did";
         return false;
       }

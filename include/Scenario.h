@@ -149,6 +149,13 @@ struct SurfaceOverride {
   // declares a colour for each, which a key on the material alone cannot say.
   std::string Node;
 
+  // OR THE PART'S INDEX, which is the only key a file that names NEITHER can be told apart by.
+  // Filament keys `getMaterialInstanceAt(instance, primitiveIndex)` and Unreal keys
+  // `SetMaterial(int32 ElementIndex, ...)`: both address the slot by ORDINAL, and neither asks the
+  // asset for a name it may not carry. Measured: Khronos's BoxInterleaved names no material and no
+  // node, so `Named` and `Node` have nothing to match and the row cannot be reached at all.
+  int Part = -1;
+
   Material Row;
 };
 

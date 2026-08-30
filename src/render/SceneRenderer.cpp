@@ -163,6 +163,10 @@ std::expected<void, std::string_view> SceneRenderer::StandsOffscreen() {
   if (Showing_ != nullptr || Offscreen_ != nullptr || Plan_ == nullptr || Width_ <= 0) {
     return {};
   }
+  // A CANVAS NOTHING WRITES IS NOT A CANVAS. The offscreen texture exists to receive
+  // `Stage::Present`, and a plan that never asked for `Surface` never pulled that stage in, so
+  // there is no writer -- the readback takes `FrameTex` in that case.
+  if (!Plan_->Holds(Resource::Surface)) { return {}; }
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
   wanted.format = SurfaceFormat();
@@ -862,8 +866,7 @@ void SceneRenderer::WantsPixels() { Wanted_ = true; }
 
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!Ready_) { return ReadState::Failed; }
-  const auto asRgba = [this](std::vector<uint8_t> &held) {
-    const SDL_GPUTextureFormat holds = SurfaceFormat();
+  const auto asRgba = [](std::vector<uint8_t> &held, SDL_GPUTextureFormat holds) {
     if (holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM &&
         holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
       return;
@@ -871,20 +874,27 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     for (size_t at = 0; at + 3 < held.size(); at += 4) { std::swap(held[at], held[at + 2]); }
   };
   if (Showing_ == nullptr) {
-    if (HostSurface_ == nullptr) { return ReadState::Failed; }
+    // HEADLESS THE PICTURE IS `FrameTex`, NOT THE PRESENTED SURFACE. Nothing presents, so the plan
+    // never pulls `Stage::Present` in and `Surface` is never written; the frame the tonemap wrote
+    // is the finished one. Both are `Rgba8UnormSrgb`, so this reads the same codes the blit
+    // would have copied.
+    SDL_GPUTexture *const held = FrameTex_.Get() != nullptr ? FrameTex_.Get() : HostSurface_;
+    if (held == nullptr) { return ReadState::Failed; }
     Readback read;
-    if (read.FromTexture(Device_.Get(), HostSurface_, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
+    if (read.FromTexture(Device_.Get(), held, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
         ReadState::Ready) {
       return ReadState::Failed;
     }
     rgba.resize((size_t)Width_ * (size_t)Height_ * 4u);
     std::memcpy(rgba.data(), read.Rows(), rgba.size());
-    asRgba(rgba);
+    asRgba(rgba, Plan_ ? FormatOf(Plan_->Format(held == HostSurface_ ? Resource::Surface
+                                                                    : Resource::FrameTex))
+                       : SDL_GPU_TEXTUREFORMAT_INVALID);
     return ReadState::Ready;
   }
   if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
     rgba = Taken_;
-    asRgba(rgba);
+    asRgba(rgba, SurfaceFormat());
     return ReadState::Ready;
   }
   Wanted_ = true;
