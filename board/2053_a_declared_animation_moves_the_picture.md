@@ -55,8 +55,28 @@ not the identity key either.
   residency made` -- do NOT print on these runs at all, so the geometry is handed to the device
   ONCE, at stand time, and a re-pose never reaches it
 
-That last line is the likeliest cause and it is where the next round starts: the pose is recomputed
-and re-submitted, and the residency does not take it.
+## WHERE IT BREAKS, narrowed to one hop
+
+`the geometry the device last took, digested` was added beside the instant, and it settles it:
+
+    fps  60   posed at 2.033 s   geometry 8864644284851
+    fps 240   posed at 0.508 s   geometry 8864644284851
+
+The device is handed the SAME vertices at two different poses. Everything either side of that reads
+correct on the page:
+
+    Pose::At            samples every channel and writes locals[node] from the animated TRS;
+                        the matrix branch that would discard it is not taken -- node 0 has no matrix
+    Posed::PoseInto     calls Motion_.At then Assembled_.Build(File_, locals, weights, variant)
+    Subject::Build      refuses a pose of the wrong size, then Flattens WITH the pose
+    Live::Pose          Held_.Poses then Reshape, which rebuilds Shaped_ from Assembled_
+    Live::Advance       Advances, Pose(Held_.AtS()), Submit -- one branch, and AtS proves it ran
+    Move                packs Shaped_'s positions and calls SetSubjectPose every advance
+    SubjectDraw::SetPose refuses a mismatched vertex count, then HandStreams
+
+Every hop is right on the page and the result is invariant, so the next step is a RUNTIME probe of
+`locals[0]` after `Motion_.At` rather than more reading. That is a focused session and it is where
+this item resumes.
 
 **One confound was found and removed.** `Shots::Draw` advances 120 times and `Live::Advance` steps
 `1/Render.Fps` per call, not the clock's rate -- at fps 60 that lands on t = 2.000 s, where this
