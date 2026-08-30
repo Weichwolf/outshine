@@ -1,5 +1,6 @@
 #include "Log.h"
 #include <bit>
+#include <memory>
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
@@ -463,9 +464,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const bool renamed = classes != World.LaidClasses;
     {
       const Raised &standing = World.Stack.Footprints().Built();
-      Published.Places("building triangles the world meshed",
-                       (double)((standing.WallRun.size() + standing.RoofRun.size()) / 3u),
-                       "triangles");
+      const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
+      Published.Places("building triangles the world meshed", (double)triangles, "triangles");
     }
     Published.Places("tiles laid bare on the ellipsoid",
                      (double)(sees->Pending + sees->Absent + sees->Refused),
