@@ -295,7 +295,7 @@ bool Live::Build(std::string &error) {
           // under a row that says something else. Keeping them was the half-measure and it shows:
           // a declared emission of (0.85, 0.15, 0.15) came out as `emission x colourTap`, a whole
           // body of varying hue where the oracle is one flat colour.
-          Table_.Slots[slot] = Render::SubjectMaterial{};
+          if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
           Table_.Slots[slot].Row = said.Row;
           ++took;
           break;
@@ -328,7 +328,8 @@ bool Live::Build(std::string &error) {
             const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
             const bool byPart = said.Part >= 0 && (size_t)said.Part == part;
             if (!byNode && !byPart) { continue; }
-            Render::SubjectMaterial made{};
+            Render::SubjectMaterial made =
+                said.KeepsMaps ? Table_.Slots[slot] : Render::SubjectMaterial{};
             made.Row = said.Row;
             if (slot < wearers.size() && wearers[slot] == 1u) {
               Table_.Slots[slot] = made;

@@ -156,6 +156,17 @@ struct SurfaceOverride {
   // node, so `Named` and `Node` have nothing to match and the row cannot be reached at all.
   int Part = -1;
 
+  // AND WHETHER THE ASSET'S MAPS SURVIVE IT. Unreal has BOTH verbs and they are not the same one:
+  // `SetMaterial(ElementIndex, ...)` swaps the material entire and the mesh's own textures go with
+  // it, while `CreateDynamicMaterialInstance` keeps the parent and changes only its parameters.
+  // Filament draws the same line -- a fresh `MaterialInstance` against one duplicated from the
+  // existing. Replacing is the default because it is the one a client reaches for when it states
+  // what a surface IS; keeping is for a client that means "this asset's surface, with THIS row".
+  // Measured both ways on the Khronos corpus: a declared flat emission that kept the avocado's
+  // photograph came out a hundred hues, and a case whose colour is the FILE's base map came out
+  // flat when the map was dropped.
+  bool KeepsMaps = false;
+
   Material Row;
 };
 
