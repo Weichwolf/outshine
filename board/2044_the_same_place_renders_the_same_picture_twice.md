@@ -16,9 +16,10 @@ Central Park binary three times, no rebuild between them:
     82b5803f
     5f2b84a9
 
-Three runs, three pictures. Every other place is stable across the same treatment -- Shibuya
-answered `f9bfcc34` three times, Heidelberg `ece0fc0d`, Venice `50731a35`, Jura `55b8f95f`, the old
-town `d22cda63`. So it is not the instrument and it is not the device: it is Central Park.
+Three runs, three pictures. **And a second place does it too**: the Jura answered `2aa8f40f` and
+then `d5261898` on consecutive runs of one binary. Shibuya, Heidelberg, Venice and the old town
+repeat exactly, so it is not the instrument and not the device -- it is the two places, and both
+are ones where the eye looks a long way over varied terrain.
 
 **This was invisible until the digest existed**, which is the whole argument for it. The case is
 GREEN in all three runs -- its oracle asks whether the frame holds the geometry that was built for
@@ -42,7 +43,7 @@ candidates, in the order they are worth testing:
 
 ## What will be true
 
-- [ ] Central Park answers ONE digest over ten consecutive runs
+- [ ] Central Park AND the Jura each answer ONE digest over ten consecutive runs
 - [ ] `test/outshine/places/pictures.txt` carries every place's digest with no exception beside it
 - [ ] whatever the cause is, it is named in the commit that fixes it, because a non-deterministic
       picture is a non-deterministic SIMULATION and the picture is only where it became visible

@@ -82,6 +82,8 @@ double ControlVariation() {
   return VariationAlongRows(gradient, kWidePx, kHighPx);
 }
 
+LogSink *Telling = nullptr;
+
 Shot Take(const Place &place, bool tells) {
   Shot shot;
   if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -89,6 +91,7 @@ Shot Take(const Place &place, bool tells) {
     return shot;
   }
   Engine engine;
+  if (Telling != nullptr) { engine.logsTo(Telling); }
   engine.setRoots(Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
   if (!engine.drawsInto(Extent{kWidePx, kHighPx})) {
     shot.Why = "the device stood no canvas";
@@ -229,6 +232,8 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
   shot.P50Ms = quantile(0.50);
   shot.P95Ms = quantile(0.95);
   shot.P99Ms = quantile(0.99);
+
+  shot.Measures = engine.measures();
 
   std::vector<std::uint8_t> pixels;
   if (engine.renderer().readPixels(pixels).has_value()) {

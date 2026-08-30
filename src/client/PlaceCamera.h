@@ -7,9 +7,12 @@
 #include <string_view>
 #include <vector>
 
+#include <Outshine.h>
+
 namespace outshine {
 class Engine;
-}
+class LogSink;
+} // namespace outshine
 
 namespace outshine::Shots {
 
@@ -39,6 +42,9 @@ struct Shot {
   double StandingMs = 0.0, LoadingMs = 0.0, StreamedS = 0.0;
   bool Preloaded = false;
   bool Kept = false;
+
+  /// Every measure the engine published for the frame this shot was taken on.
+  std::vector<::outshine::Measure> Measures;
 };
 
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine, std::string_view name, bool tells);
@@ -52,6 +58,9 @@ struct Shot {
 /// frame is held to -- and if it ever does not, the bar separates nothing and every green under
 /// it is worthless.
 [[nodiscard]] double ControlVariation();
+/// Where the engine says what it is doing while a place is taken. Null keeps it silent.
+extern ::outshine::LogSink *Telling;
+
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
 } // namespace outshine::Shots

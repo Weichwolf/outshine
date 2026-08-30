@@ -43,6 +43,8 @@ public:
 
   const std::vector<float> &Verts() const { return Verts_; }
 
+  double MeshMs() const { return MeshMs_; }
+
   const double *Anchor() const { return Anchor_; }
 
   const std::vector<Footprint> &Footprints() const { return Prints_; }
@@ -79,6 +81,7 @@ private:
   const StructureMesher *Mesher_ = nullptr;
   std::vector<Footprint> Prints_;
   std::vector<float> Verts_;
+  double MeshMs_ = 0.0;
   TileRanges ByTile_;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;

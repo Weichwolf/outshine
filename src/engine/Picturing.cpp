@@ -228,6 +228,8 @@ bool Engine::State::Asks(void) {
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
   auto phaseAt = std::chrono::steady_clock::now();
+  auto censusAt = phaseAt;
+  auto wiresAt = phaseAt;
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
@@ -645,22 +647,43 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       phaseAt = std::chrono::steady_clock::now();
       const int builtPart = ground.addPart("walls", wallSurface);
       const int roofPart = ground.addPart("roofs", roofSurface);
-      std::vector<float> roofPlaces, roofFacing, wallPlaces, wallFacing;
-      std::vector<uint32_t> roofRun, wallRun;
-      for (size_t at = 0; at + 8 < raised.size(); at += 9) {
-        double aloft = 0.0;
-        for (size_t corner = 0; corner < 3; ++corner) { aloft += facing[at + corner * 3 + 1]; }
-        const bool roofing = aloft > 3.0 * kSteepestRoof;
-        std::vector<float> &places = roofing ? roofPlaces : wallPlaces;
-        std::vector<float> &turned = roofing ? roofFacing : wallFacing;
-        std::vector<uint32_t> &order = roofing ? roofRun : wallRun;
-        for (size_t one = 0; one < 9; ++one) {
-          places.push_back(raised[at + one]);
-          turned.push_back(facing[at + one]);
-        }
-        for (size_t one = 0; one < 3; ++one) { order.push_back((uint32_t)(order.size())); }
-      }
+      const size_t triangles = raised.size() / 9;
+      size_t walling = 0;
       {
+        size_t at = 0;
+        for (size_t last = triangles; at < last;) {
+          double aloft = 0.0;
+          for (size_t corner = 0; corner < 3; ++corner) {
+            aloft += facing[at * 9 + corner * 3 + 1];
+          }
+          if (aloft <= 3.0 * kSteepestRoof) {
+            ++at;
+            continue;
+          }
+          --last;
+          if (at == last) { break; }
+          for (size_t one = 0; one < 9; ++one) {
+            std::swap(raised[at * 9 + one], raised[last * 9 + one]);
+            std::swap(facing[at * 9 + one], facing[last * 9 + one]);
+          }
+        }
+        walling = at;
+      }
+      const size_t roofing = triangles - walling;
+      std::vector<uint32_t> roofRun(roofing * 3), wallRun(walling * 3);
+      for (size_t one = 0; one < wallRun.size(); ++one) { wallRun[one] = (uint32_t)one; }
+      for (size_t one = 0; one < roofRun.size(); ++one) { roofRun[one] = (uint32_t)one; }
+      const std::span<const float> wallPlaces(raised.data(), walling * 9);
+      const std::span<const float> wallFacing(facing.data(), walling * 9);
+      const std::span<const float> roofPlaces(raised.data() + walling * 9, roofing * 9);
+      const std::span<const float> roofFacing(facing.data() + walling * 9, roofing * 9);
+      Published.Places(
+          "rebuild: of that, partitioning roofs from walls",
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+              .count(),
+          "ms");
+      censusAt = std::chrono::steady_clock::now();
+      if (declared.Render.Audits) {
         std::unordered_map<uint64_t, uint32_t> seenAt;
         std::vector<uint32_t> welded;
         welded.reserve(raised.size() / 3);
@@ -731,6 +754,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             "solid: building vertices welded away as coincident", (double)coincident, "vertices");
         Published.Places(
             "solid: building vertices standing apart", (double)seenAt.size(), "vertices");
+        Published.Places(
+            "rebuild: of that, welding and counting edges",
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+                .count(),
+            "ms");
+        censusAt = std::chrono::steady_clock::now();
         Published.Places("solid: building triangles with two corners in one place",
                          (double)degenerate,
                          "triangles");
@@ -934,6 +963,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   };
 
   {
+    Published.Places(
+        "rebuild: of that, the census over every triangle",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+            .count(),
+        "ms");
+    wiresAt = std::chrono::steady_clock::now();
     const Ground::StreetField &ways = World.Stack.Ways();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<float> places, facing;
@@ -1134,6 +1169,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
+  Published.Places(
+      "rebuild: of that, the streets and the water",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wiresAt).count(),
+      "ms");
   Published.Places(
       "rebuild: and the buildings, streets and water took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),

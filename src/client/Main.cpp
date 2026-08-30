@@ -1,17 +1,54 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 #include <string>
 #include <vector>
 
 #include <SDL3/SDL.h>
 
+#include <Logging.h>
 #include <Outshine.h>
 #include <Scenario.h>
 
 #include "PlaceCamera.h"
 
 namespace {
+
+/// What the engine says while it works, through the door's own `logsTo`. Without a sink attached
+/// every `Log::Warn` in the tree writes to nowhere, and a stall reads as a slow fetch.
+class Telling final : public outshine::LogSink {
+public:
+  void Write(double simTimeS,
+             outshine::LogLevel level,
+             const char *unit,
+             const char *tag,
+             const char *event,
+             std::span<const outshine::LogField> fields) override {
+    if (level == outshine::LogLevel::Debug && !Loud) { return; }
+    std::printf("t=%.1f %-5s %-8s %s", simTimeS, Name(level), unit, event);
+    (void)tag;
+    for (const outshine::LogField &one : fields) {
+      std::printf(" %s=%s", one.Key, one.Value.c_str());
+    }
+    std::printf("\n");
+  }
+
+  bool Loud = false;
+
+private:
+  static const char *Name(outshine::LogLevel level) {
+    switch (level) {
+      case outshine::LogLevel::Debug: return "DEBUG";
+      case outshine::LogLevel::Info: return "INFO";
+      case outshine::LogLevel::Warn: return "WARN";
+      case outshine::LogLevel::Error: return "ERROR";
+    }
+    return "?";
+  }
+};
+
+Telling gTelling;
 
 using outshine::Shots::Place;
 using outshine::Shots::Shot;
@@ -67,7 +104,8 @@ void Row(const Shot &shot, std::string_view name) {
 void Usage() {
   std::printf(
       "outshine-client -- the engine through its own door, from a command line.\n\n"
-      "  shots [--rows] [--all | <place>]  stand each place, draw it, keep the picture\n"
+      "  shots [--rows] [--measures] [--all | <place>]\n"
+      "                                   stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
       "  run <scenario> [name]            read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
@@ -84,6 +122,7 @@ void Usage() {
     std::printf("outshine-client: SDL did not start\n");
     return false;
   }
+  engine.logsTo(&gTelling);
   engine.setRoots(
       outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
   if (!engine.drawsInto(outshine::Extent{outshine::Shots::kWidePx, outshine::Shots::kHighPx})) {
@@ -96,8 +135,10 @@ void Usage() {
 int TakeShots(int argc, char **argv) {
   std::vector<const Place *> taking;
   bool rows = false;
-  while (argc > 0 && std::strcmp(argv[0], "--rows") == 0) {
-    rows = true;
+  bool everyMeasure = false;
+  while (argc > 0 && argv[0][0] == '-' && std::strcmp(argv[0], "--all") != 0) {
+    if (std::strcmp(argv[0], "--rows") == 0) { rows = true; }
+    if (std::strcmp(argv[0], "--measures") == 0) { everyMeasure = true; }
     --argc;
     ++argv;
   }
@@ -117,11 +158,18 @@ int TakeShots(int argc, char **argv) {
   std::printf("CONTROL\t%.4f\n", outshine::Shots::ControlVariation());
   int refused = 0;
   for (const Place *const one : taking) {
+    outshine::Shots::Telling = &gTelling;
     const Shot shot = outshine::Shots::Take(*one, !rows);
     if (rows) {
       Row(shot, one->Name);
     } else {
       Tell(shot, one->Name);
+    }
+    if (everyMeasure) {
+      for (const outshine::Measure &measure : shot.Measures) {
+        std::printf(
+            "        %-56s %14.3f %s\n", measure.What.c_str(), measure.How, measure.Unit.c_str());
+      }
     }
     refused += shot.Why.empty() && shot.Kept ? 0 : 1;
   }

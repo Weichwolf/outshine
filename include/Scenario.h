@@ -102,6 +102,13 @@ struct RenderPlan {
   std::string Transfer;
   double Exposure = 0.0;
   std::string Precision;
+
+  /// Whether the engine walks its own geometry to publish what it finds there -- coincident
+  /// corners, edges on one triangle, needles, triangles reaching too far. It answers questions
+  /// about MESH QUALITY, which change when a generator changes and not between two frames, and it
+  /// costs 11.3 s of Shibuya's 19 s load. Off by default: a tool is used surgically, never by
+  /// habit.
+  bool Audits = false;
 };
 
 struct Lighting {

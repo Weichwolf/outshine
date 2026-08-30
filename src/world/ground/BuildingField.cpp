@@ -1,5 +1,7 @@
 #include "BuildingField.h"
 
+#include <chrono>
+
 #include "Geodesy.h"
 #include "Log.h"
 #include "TerrainLoader.h"
@@ -266,7 +268,11 @@ int BuildingField::Build(const GroundQuery &ground,
       }
       fp.BaseM = (float)base;
       Prints_.push_back(fp);
+      const auto meshFrom = std::chrono::steady_clock::now();
       Raise(field, fp);
+      MeshMs_ +=
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - meshFrom)
+              .count();
       added++;
     }
   }
@@ -287,7 +293,8 @@ int BuildingField::Build(const GroundQuery &ground,
              {"noGround", NoGround_},
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},
-             {"builtAhead", (int)Mark_.AheadCount()}});
+             {"builtAhead", (int)Mark_.AheadCount()},
+             {"meshMs", MeshMs_}});
   return (int)Prints_.size();
 }
 
