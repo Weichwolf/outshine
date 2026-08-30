@@ -29,6 +29,29 @@ and the row attaches the wrong one to the picture.
 ground and everything on it is drawn at sea level". Against this row that reads as a defect in the
 world; against the picture it is false.
 
+## THE MECHANISM, traced and tried
+
+Two things stack, and the second is why the obvious fix does not work.
+
+1. **The measure is only published on a REBUILD.** `Picturing.cpp:462` returns early --
+   `if (World.EverLaid && !elsewhere && !grew) { return true; }` -- so a settled frame never
+   reaches `Published.Places("tiles laid bare on the ellipsoid", laid->Bare, ...)`. The number the
+   client reads is whatever the LAST actual rebuild left there, and that rebuild ran while the
+   world was still streaming.
+
+2. **The obvious fix was tried and TAKEN BACK.** `GroundPatchwork.cpp` counts `out.Bare` only when
+   `!over.Asking`, and rightly: the asking pass calls `TilePool::Wants` rather than `Mesh`, so
+   `built` is never filled and the `built.Verts.empty()` test would call every tile bare. Counting
+   from the REPLY alone in the asking pass still reported 128 of 128, and made
+   `Engine::settled()`'s `World.Bare == 0` -- inert today because the asking pass never counts --
+   into a live condition on an artefact. Reverted.
+
+The artefact traced to `TilePool::Poll` (TilePool.cpp:605-609): it ERASES from `Done_` when
+`!done->second.Holds`, so the lay pass consumes what the next frame's asking pass wants to read,
+and the two passes do not see the same world. **Not established:** why `Holds` is false for these
+tiles, and whether a tile is therefore re-meshed every frame. That is the next measurement and it
+is a performance question as much as a correctness one.
+
 ## What it cost
 
 `test/outshine/places` -- the only suite that validates the rebuild -- reported
