@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: render, world
 Tags: picture, measured, gpu
 
