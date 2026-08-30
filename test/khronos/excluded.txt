@@ -1,0 +1,12 @@
+# CASES THIS CORPUS DOES NOT SCORE, and the reason each one is not scored.
+#
+# Blender is not an oracle for everything it can open. Where Cycles cannot state the answer, or
+# states a different one BY DESIGN rather than by defect, a red result teaches a reader to ignore
+# red -- which costs more than the case was ever worth. Such a case is set ASIDE here, by name,
+# with the reason written down.
+#
+# A line is `<case> <reason>`. A line with no reason is REFUSED by the runner, because an exclusion
+# nobody explained cannot be told from one nobody noticed. Grep the history before adding one: a
+# removal was a decision, and re-adding it by accident overrules that decision silently.
+#
+# format:  <case>  <why this corpus cannot score it>

@@ -138,6 +138,29 @@ kMostDelta = 8
 kLeastAgreeing = 0.9999
 
 
+def excluded():
+    """Cases this corpus does not score, each with the REASON it does not.
+
+    Blender is not an oracle for everything it can open. A case whose answer Cycles cannot state --
+    or states differently by design rather than by defect -- proves nothing about this engine, and
+    running it to watch it go red teaches a reader to ignore red. A line without a reason is
+    refused, because an exclusion nobody explained is indistinguishable from one nobody noticed.
+    """
+    told = TREE / "test" / "khronos" / "excluded.txt"
+    out = {}
+    if not told.exists():
+        return out
+    for at, line in enumerate(told.read_text().splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        name, _, why = line.partition(" ")
+        if not why.strip():
+            raise SystemExit(f"{told}:{at}: '{name}' is excluded and says no reason why")
+        out[name] = why.strip()
+    return out
+
+
 def cases(only):
     for manifest in sorted((TREE / "test" / "khronos").glob("*/*/manifest.json")):
         declared = json.loads(manifest.read_text())
@@ -163,8 +186,13 @@ def main():
     ask.add_argument("case", nargs="*")
     told = ask.parse_args()
 
-    held, red, unscored = 0, [], 0
+    known = excluded()
+    held, red, unscored, skipped = 0, [], 0, 0
     for name, where, declared in cases(set(told.case)):
+        if name in known:
+            skipped += 1
+            print(f"ASIDE {name:34s} {known[name]}")
+            continue
         reference = where / "reference.png"
         entry = prepared_root() / str(where.relative_to(TREE)).replace("/", "-") / \
             declared["subjects"][0]["entry"]
@@ -196,8 +224,8 @@ def main():
             red.append((name, agreeing, most, f"{apart} pixel(s) apart by more than {kMostDelta}"))
             print(f"APART {name:34s} {agreeing * 100:8.4f}%  worst pixel {most:3d}  {apart} px")
 
-    print(f"\n{held} held, {len(red)} apart, {unscored} unscored "
-          f"(no reference or no prepared subject)")
+    print(f"\n{held} held, {len(red)} apart, {skipped} set aside with a reason, {unscored} "
+          f"unscored (no reference or no prepared subject)")
     print(f"the bar is {kLeastAgreeing * 100:.2f}% of pixels within {kMostDelta} of 255; the worst "
           f"pixel is REPORTED and never gated, because one pixel at 255 is a hole rather than a "
           f"tolerance")
