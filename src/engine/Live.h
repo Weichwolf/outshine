@@ -230,6 +230,10 @@ public:
 
   [[nodiscard]] bool Moves() const { return Held_.Moves(); }
 
+  [[nodiscard]] double LocalsDigest() const { return Held_.LocalsDigest(); }
+
+  [[nodiscard]] double AssembledDigest() const { return Held_.AssembledDigest(); }
+
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:

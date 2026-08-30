@@ -587,6 +587,14 @@ bool Move(SceneRenderer &renderer,
   pose.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
+  {
+    unsigned long long digest = 1469598103934665603ull;
+    const auto *at = reinterpret_cast<const unsigned char *>(scratch.Vertices.data());
+    for (size_t one = 0; one < scratch.Vertices.size() * sizeof(float); ++one) {
+      digest = (digest ^ at[one]) * 1099511628211ull;
+    }
+    gGeometryDigest.store(digest, std::memory_order_relaxed);
+  }
   pose.Positions = scratch.Vertices;
   if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
   pose.VertexCount = (uint32_t)subject.VertexCount();

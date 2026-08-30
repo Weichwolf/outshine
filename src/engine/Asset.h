@@ -49,6 +49,10 @@ public:
 
   [[nodiscard]] bool Moves() const { return Moves_; }
 
+  [[nodiscard]] double LocalsDigest() const { return LocalsDigest_; }
+
+  [[nodiscard]] double AssembledDigest() const { return AssembledDigest_; }
+
   [[nodiscard]] bool Stands() const { return Read_; }
 
   [[nodiscard]] int Frames() const { return Frames_; }
@@ -79,6 +83,8 @@ private:
   [[nodiscard]] bool PoseInto(double seconds, bool records, std::string &error);
   std::vector<double> PreviousPositionsM_;
   bool Moves_ = false;
+  double LocalsDigest_ = 0.0;
+  double AssembledDigest_ = 0.0;
   bool Read_ = false;
   int Frames_ = 1;
   double AtS_ = 0.0;

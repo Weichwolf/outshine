@@ -1500,6 +1500,10 @@ bool Engine::render(Extent frame) {
       "the frames its rate makes of that", (double)S_->Picture.Standing->Frames(), "frames");
   S_->Published.Places("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
   S_->Published.Places(
+      "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
+  S_->Published.Places(
+      "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
+  S_->Published.Places(
       "the geometry the device last took, digested", Render::HandedGeometryDigest(), "");
   S_->Published.Places(
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");

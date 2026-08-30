@@ -1,4 +1,6 @@
 #include "Heap.h"
+#include <bit>
+
 #include "Asset.h"
 
 #include "Span.h"
@@ -55,12 +57,28 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
       PreviousPositionsM_ = Assembled_.PositionsM();
     }
     Motion_.At(seconds, Locals_, Weights_);
+    {
+      uint64_t keyed = 1469598103934665603ull;
+      for (const Gltf::Transform &one : Locals_) {
+        for (const double part : one.M) {
+          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
+        }
+      }
+      LocalsDigest_ = (double)(keyed % 1000000007ull);
+    }
     const Heap::Tagged building("pose-build");
     if (Assembled_.Build(File_,
                          Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                          Span<const double>(Weights_.data(), Weights_.size()),
                          Variant_)) {
       if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
+      {
+        uint64_t keyed = 1469598103934665603ull;
+        for (const double part : Assembled_.PositionsM()) {
+          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
+        }
+        AssembledDigest_ = (double)(keyed % 1000000007ull);
+      }
       return true;
     }
   } else if (Assembled_.Build(File_, Variant_)) {

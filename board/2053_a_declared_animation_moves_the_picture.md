@@ -74,9 +74,29 @@ correct on the page:
     Move                packs Shaped_'s positions and calls SetSubjectPose every advance
     SubjectDraw::SetPose refuses a mismatched vertex count, then HandStreams
 
-Every hop is right on the page and the result is invariant, so the next step is a RUNTIME probe of
-`locals[0]` after `Motion_.At` rather than more reading. That is a focused session and it is where
-this item resumes.
+## THE RUNTIME PROBE, and it puts the break on the DEVICE side
+
+Two more measures were added -- the pose's own local transforms, digested, and the vertices
+assembled from them:
+
+    fps  60   posed 2.033 s   locals 556671865   assembled 395731835   device 263376276556099
+    fps 240   posed 0.508 s   locals 986415778   assembled 580343474   device 211891159521651
+    picture, both                                                      879159e8
+
+**Everything up to and including the hand-over DIFFERS, and the picture does not.** The animation
+is sampled, the vertices are assembled from it, and the device is given them. What it draws is the
+same frame either way.
+
+**A measure had to be repaired to see this, and it nearly cost a wrong root cause.**
+`gGeometryDigest` was written only inside `Place`, which runs once when the subject first stands;
+`Move`, which runs on every advance, left it alone. Read as "the geometry the device last took" it
+said one number forever and would have proved the hand-over was stale. It is now written in `Move`
+as well, and it is what the two device digests above come from.
+
+So the remaining hop is `SubjectDraw::HandStreams` -> `SubjectResidency::Cross(deferred)` ->
+`FlushCrossings`, and the question for the next round is whether a pose's staged copy is flushed
+against the residency it was staged into. That is a GPU-side check and it is where this item
+resumes.
 
 **One confound was found and removed.** `Shots::Draw` advances 120 times and `Live::Advance` steps
 `1/Render.Fps` per call, not the clock's rate -- at fps 60 that lands on t = 2.000 s, where this
