@@ -175,7 +175,7 @@ public:
     MediumTransmittance_.Declare(medium);
     MultiScatter_.Declare(medium);
     Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
-    Irradiance__.Declare(medium, CosSunZenith_);
+    SkyIrradianceStage_.Declare(medium, CosSunZenith_);
   }
 
   void SetShadowFrame(const float toSun[3], const float up[3], double radiusM) {
@@ -186,7 +186,7 @@ public:
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    Irradiance__.Declare(Medium_, CosSunZenith_);
+    SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
     Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
     Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
@@ -195,7 +195,7 @@ public:
     if (!Sky_.Stands()) { return; }
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
-    Irradiance__.Declare(Medium_, CosSunZenith_);
+    SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
     Sky_.Eye(Medium_, eyeHeightM);
     Aerial_.Eye(Medium_, eyeHeightM);
   }
@@ -370,8 +370,8 @@ private:
   MediumTransmittanceStage MediumTransmittance_;
   MediumMultiScatterStage MultiScatter_;
   MediumRadianceStage Radiance_;
-  IrradianceStage Irradiance__;
-  OwnedBuffer Irradiance_;
+  IrradianceStage SkyIrradianceStage_;
+  OwnedBuffer IrradianceBuffer_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;

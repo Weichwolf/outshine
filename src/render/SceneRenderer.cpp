@@ -399,7 +399,8 @@ void SceneRenderer::Create(Resource resource) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
       wanted.size = kIrradianceFloats * (uint32_t)sizeof(float);
-      Irradiance_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
+      IrradianceBuffer_ =
+          OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
       return;
     }
     case Resource::VegetationTable:
@@ -483,7 +484,7 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::ClusterSlot: return resident.ClusterSlot.Get();
     case Resource::DrawIndex: return resident.DrawIdx.Get();
     case Resource::DrawArguments: return resident.DrawArgs.Get();
-    case Resource::IrradianceBuffer: return Irradiance_.Get();
+    case Resource::IrradianceBuffer: return IrradianceBuffer_.Get();
     default: return nullptr;
   }
 }
@@ -762,19 +763,19 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 }
 
 bool SceneRenderer::ConfigureIrradiance(std::string &error) {
-  Subjects_.SkyFrom(Irradiance_.Get());
-  if (DrawsGlass_) { Glass_.SkyFrom(Irradiance_.Get()); }
-  return Irradiance__.Configure(Handles_,
-                                TransmittanceLut_.Get(),
-                                MultiScatterLut_.Get(),
-                                LutSamp_.Get(),
-                                Irradiance_.Get(),
-                                error);
+  Subjects_.SkyFrom(IrradianceBuffer_.Get());
+  if (DrawsGlass_) { Glass_.SkyFrom(IrradianceBuffer_.Get()); }
+  return SkyIrradianceStage_.Configure(Handles_,
+                                       TransmittanceLut_.Get(),
+                                       MultiScatterLut_.Get(),
+                                       LutSamp_.Get(),
+                                       IrradianceBuffer_.Get(),
+                                       error);
 }
 
 void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
-  Irradiance__.Encode(into);
+  SkyIrradianceStage_.Encode(into);
 }
 
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
@@ -1155,10 +1156,10 @@ ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
 }
 
 ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
-  if (!Ready_ || !Irradiance_) { return ReadState::Failed; }
+  if (!Ready_ || !IrradianceBuffer_) { return ReadState::Failed; }
   Readback read;
   if (read.FromBuffer(Device_.Get(),
-                      Irradiance_.Get(),
+                      IrradianceBuffer_.Get(),
                       kIrradianceFloats * (uint32_t)sizeof(float)) != ReadState::Ready) {
     return ReadState::Failed;
   }
