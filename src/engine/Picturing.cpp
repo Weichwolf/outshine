@@ -1354,7 +1354,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
   Published.Places("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
-  Published.Places("its key light", Picture.Standing->Standing().KeyLux, "lux");
+  Published.Places("the light that reaches the ground", Picture.Standing->MeteredLux(), "lux");
+  Published.Places("and the exposure metered from it",
+                   Picture.Standing->Standing().KeyFromClock ? 1.0 : 0.0,
+                   "yes/no");
   Published.Places("times the terrain was rebuilt", (double)World.Relaid, "rebuilds");
   ++World.Rebuilds;
   World.RebuildMs =

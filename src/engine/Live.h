@@ -69,6 +69,7 @@ struct Declaration {
   bool DrawsSky = false;
   double ShadowRadiusM = 0.0;
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
+  bool KeyFromClock = false;
 
   std::vector<Shows> Surfaces;
 };
@@ -117,6 +118,8 @@ public:
   [[nodiscard]] double FramingMs() const { return FramingMs_; }
 
   [[nodiscard]] size_t SkyIntegrations() const { return SkyIntegrations_; }
+
+  [[nodiscard]] double MeteredLux() const;
 
   [[nodiscard]] const double *AmbientStood() const { return AmbientStood_; }
 
@@ -332,6 +335,12 @@ private:
   size_t SkyIntegrations_ = 0;
   double AmbientStood_[3] = {0.0, 0.0, 0.0};
   double GroundStood_[3] = {0.0, 0.0, 0.0};
+
+  void SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3]) const;
+
+  mutable double AirStoodAt_ = -2.0;
+  mutable float SunReachStood_[3] = {0.0f, 0.0f, 0.0f};
+  mutable float SkylightStood_[3] = {0.0f, 0.0f, 0.0f};
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

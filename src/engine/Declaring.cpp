@@ -111,9 +111,9 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
          a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
          a.IndirectLight[0] == b.IndirectLight[0] && a.IndirectLight[1] == b.IndirectLight[1] &&
          a.IndirectLight[2] == b.IndirectLight[2] && a.KeyLux == b.KeyLux &&
-         a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky && a.Stages == b.Stages &&
-         a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
-         a.KeyBearingDeg == b.KeyBearingDeg;
+         a.KeyFromClock == b.KeyFromClock && a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky &&
+         a.Stages == b.Stages && a.ShadowRadiusM == b.ShadowRadiusM &&
+         a.KeyElevationDeg == b.KeyElevationDeg && a.KeyBearingDeg == b.KeyBearingDeg;
 }
 
 [[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
@@ -215,6 +215,7 @@ Result Engine::declare(const Scenario &scenario) {
           scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);
       declared.KeyElevationDeg = (double)sun.SunElDeg;
       declared.KeyBearingDeg = (double)sun.SunAzDeg;
+      declared.KeyFromClock = true;
     }
     for (int at = 0; at < 3; ++at) { declared.IndirectLight[at] = scenario.Lit.IndirectLight[at]; }
     declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;

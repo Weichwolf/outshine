@@ -25,7 +25,6 @@ constexpr double kEyeAglM = 60.0;
 constexpr double kPlanAboveM = 4000.0;
 constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
-constexpr double kKeyLux = 40000.0;
 constexpr int kTimedFrames = 120;
 
 constexpr std::array<Place, 7> kPlaces{{
@@ -100,7 +99,6 @@ Scenario ScenarioFor(const Place &place) {
   stands.Render.Fill = 0.6;
   stands.Render.Audits = Audits;
   stands.Lit.Declared = true;
-  stands.Lit.Key.Lux = kKeyLux;
   stands.Time.Declared = true;
   stands.Time.Live = false;
   stands.Time.Start = place.WhenUtc;
