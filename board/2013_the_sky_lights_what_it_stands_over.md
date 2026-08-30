@@ -124,3 +124,34 @@ the noise, the duplicate is harmless and only the flatness remains -- that is a 
 Negative control for the third predicate: a scene lit by sky alone, no key light, where a flat term
 and a directional one cannot look the same. `khronos/glTF` guards it -- those cases declare their
 environment, so a change that moves them is wrong.
+
+## WHY THE DEVICE IRRADIANCE READS 0.000, and the one-line fix is WRONG
+
+Found while building board:2058's depth pyramid, which had the identical symptom.
+
+`Compiled.cpp:290` skips any resource whose `TexelFormat` is `Handle` when it builds a compute
+pass's read-write buffer list:
+
+    if (Row(target).Format == TexelFormat::Handle) { continue; }
+
+`Resource::IrradianceBuffer` is declared `Handle` with a stride of 0, so **the pass never receives
+it** and `irradianceKernel`'s `device float *into [[buffer(1)]]` writes into nothing. The stage
+runs, reports its milliseconds, and produces zeros. That is the whole of it.
+
+**Changing it to `Table` with a stride was TRIED and it BLANKED THE FRAME.** Heidelberg went from
+`varies by 2.327` to `varies by 0.005` -- a picture of nothing -- and the digest moved from
+941e3cf7 to 388fdfcc. The reason is `plan_merge merge=R1 irradiance + subjectCull`: the two stages
+share ONE compute pass, so the pass would bind TWO read-write buffers while each kernel's
+`ComputeShape` declares exactly one. The irradiance kernel then writes over the cull's `kept`
+buffer and nothing survives culling.
+
+Reverted. The pyramid works because `Stage::DepthPyramid` is alone in its pass, and that is luck
+rather than design -- the same collision waits for any future merge.
+
+So the fix is one of these, and the item has to choose:
+
+- The merge must not put two read-write-buffer stages in one pass, which is a rule
+  `plan_merge` can carry and prove.
+- Or a kernel's `ComputeShape` must declare the PASS's full buffer set rather than its own, so
+  the indices agree whatever it is merged with. That is what Unreal's RDG does: bindings belong
+  to the pass, not the shader.
