@@ -225,6 +225,113 @@ bool Engine::State::Asks(void) {
   return true;
 }
 
+void CensusOverEveryTriangle(Core::Ledger &Published,
+                             std::chrono::steady_clock::time_point &censusAt,
+                             std::span<const float> wallPlaces,
+                             std::span<const float> wallFacing,
+                             std::span<const uint32_t> wallRun,
+                             std::span<const float> roofPlaces,
+                             std::span<const float> roofFacing,
+                             std::span<const uint32_t> roofRun) {
+  const size_t wallVerts = wallPlaces.size() / 3;
+  const size_t wallTris = wallRun.size() / 3;
+  const size_t vertices = wallVerts + roofPlaces.size() / 3;
+  const size_t triangles = wallTris + roofRun.size() / 3;
+  const auto placeAt = [&](size_t one) {
+    return one < wallVerts ? wallPlaces.data() + one * 3
+                           : roofPlaces.data() + (one - wallVerts) * 3;
+  };
+  const auto turnAt = [&](size_t one) {
+    return one < wallVerts ? wallFacing.data() + one * 3
+                           : roofFacing.data() + (one - wallVerts) * 3;
+  };
+  const auto cornerOf = [&](size_t tri, size_t corner) -> size_t {
+    return tri < wallTris ? wallRun[tri * 3 + corner]
+                          : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
+  };
+  std::unordered_map<uint64_t, uint32_t> seenAt;
+  std::vector<uint32_t> welded;
+  welded.reserve(vertices);
+  size_t coincident = 0;
+  for (size_t one = 0; one < vertices; ++one) {
+    const float *const held = placeAt(one);
+    const int64_t cx = (int64_t)std::llround((double)held[0] * 100.0);
+    const int64_t cy = (int64_t)std::llround((double)held[1] * 100.0);
+    const int64_t cz = (int64_t)std::llround((double)held[2] * 100.0);
+    const uint64_t key =
+        (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^ (uint64_t)(cz * 83492791LL);
+    const auto found = seenAt.find(key);
+    if (found == seenAt.end()) {
+      const uint32_t made = (uint32_t)seenAt.size();
+      seenAt.emplace(key, made);
+      welded.push_back(made);
+    } else {
+      ++coincident;
+      welded.push_back(found->second);
+    }
+  }
+  std::unordered_map<uint64_t, int> edges;
+  size_t degenerate = 0;
+  for (size_t tri = 0; tri < triangles; ++tri) {
+    const uint32_t corner[3] = {
+        welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]};
+    if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
+      ++degenerate;
+      continue;
+    }
+    for (int side = 0; side < 3; ++side) {
+      const uint32_t from = corner[side];
+      const uint32_t to = corner[(side + 1) % 3];
+      const uint64_t low = from < to ? from : to;
+      const uint64_t high = from < to ? to : from;
+      edges[(low << 32) | high] += 1;
+    }
+  }
+  size_t open = 0, overused = 0;
+  for (const auto &one : edges) {
+    if (one.second == 1) {
+      ++open;
+    } else if (one.second > 2) {
+      ++overused;
+    }
+  }
+  {
+    std::unordered_map<uint64_t, uint32_t> whole;
+    size_t exact = 0;
+    for (size_t one = 0; one < vertices; ++one) {
+      uint64_t key = 1469598103934665603ull;
+      const float *const held = placeAt(one);
+      const float *const aim = turnAt(one);
+      for (size_t part = 0; part < 3; ++part) {
+        key = (key ^ std::bit_cast<uint32_t>(held[part])) * 1099511628211ull;
+      }
+      for (size_t part = 0; part < 3; ++part) {
+        key = (key ^ std::bit_cast<uint32_t>(aim[part])) * 1099511628211ull;
+      }
+      if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
+      ++exact;
+    }
+    Published.Places(
+        "solid: building corners identical in POSITION AND NORMAL", (double)exact, "corners");
+    Published.Places("solid: and how many distinct ones remain", (double)whole.size(), "corners");
+  }
+  Published.Places(
+      "solid: building vertices welded away as coincident", (double)coincident, "vertices");
+  Published.Places("solid: building vertices standing apart", (double)seenAt.size(), "vertices");
+  Published.Places(
+      "rebuild: of that, welding and counting edges",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+          .count(),
+      "ms");
+  censusAt = std::chrono::steady_clock::now();
+  Published.Places(
+      "solid: building triangles with two corners in one place", (double)degenerate, "triangles");
+  Published.Places("solid: building edges on ONE triangle, so a HOLE", (double)open, "edges");
+  Published.Places(
+      "solid: building edges on MORE than two, so not a surface", (double)overused, "edges");
+  Published.Places("solid: building edges in all", (double)edges.size(), "edges");
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
   auto phaseAt = std::chrono::steady_clock::now();
@@ -679,90 +786,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           "ms");
       censusAt = std::chrono::steady_clock::now();
       if (declared.Render.Audits) {
-        std::unordered_map<uint64_t, uint32_t> seenAt;
-        std::vector<uint32_t> welded;
-        welded.reserve(vertices);
-        size_t coincident = 0;
-        for (size_t one = 0; one < vertices; ++one) {
-          const float *const held = placeAt(one);
-          const int64_t cx = (int64_t)std::llround((double)held[0] * 100.0);
-          const int64_t cy = (int64_t)std::llround((double)held[1] * 100.0);
-          const int64_t cz = (int64_t)std::llround((double)held[2] * 100.0);
-          const uint64_t key = (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^
-                               (uint64_t)(cz * 83492791LL);
-          const auto found = seenAt.find(key);
-          if (found == seenAt.end()) {
-            const uint32_t made = (uint32_t)seenAt.size();
-            seenAt.emplace(key, made);
-            welded.push_back(made);
-          } else {
-            ++coincident;
-            welded.push_back(found->second);
-          }
-        }
-        std::unordered_map<uint64_t, int> edges;
-        size_t degenerate = 0;
-        for (size_t tri = 0; tri < triangles; ++tri) {
-          const uint32_t corner[3] = {
-              welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]};
-          if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
-            ++degenerate;
-            continue;
-          }
-          for (int side = 0; side < 3; ++side) {
-            const uint32_t from = corner[side];
-            const uint32_t to = corner[(side + 1) % 3];
-            const uint64_t low = from < to ? from : to;
-            const uint64_t high = from < to ? to : from;
-            edges[(low << 32) | high] += 1;
-          }
-        }
-        size_t open = 0, overused = 0;
-        for (const auto &one : edges) {
-          if (one.second == 1) {
-            ++open;
-          } else if (one.second > 2) {
-            ++overused;
-          }
-        }
-        {
-          std::unordered_map<uint64_t, uint32_t> whole;
-          size_t exact = 0;
-          for (size_t one = 0; one < vertices; ++one) {
-            uint64_t key = 1469598103934665603ull;
-            const float *const held = placeAt(one);
-            const float *const aim = turnAt(one);
-            for (size_t part = 0; part < 3; ++part) {
-              key = (key ^ std::bit_cast<uint32_t>(held[part])) * 1099511628211ull;
-            }
-            for (size_t part = 0; part < 3; ++part) {
-              key = (key ^ std::bit_cast<uint32_t>(aim[part])) * 1099511628211ull;
-            }
-            if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
-            ++exact;
-          }
-          Published.Places(
-              "solid: building corners identical in POSITION AND NORMAL", (double)exact, "corners");
-          Published.Places(
-              "solid: and how many distinct ones remain", (double)whole.size(), "corners");
-        }
-        Published.Places(
-            "solid: building vertices welded away as coincident", (double)coincident, "vertices");
-        Published.Places(
-            "solid: building vertices standing apart", (double)seenAt.size(), "vertices");
-        Published.Places(
-            "rebuild: of that, welding and counting edges",
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
-                .count(),
-            "ms");
-        censusAt = std::chrono::steady_clock::now();
-        Published.Places("solid: building triangles with two corners in one place",
-                         (double)degenerate,
-                         "triangles");
-        Published.Places("solid: building edges on ONE triangle, so a HOLE", (double)open, "edges");
-        Published.Places(
-            "solid: building edges on MORE than two, so not a surface", (double)overused, "edges");
-        Published.Places("solid: building edges in all", (double)edges.size(), "edges");
+        CensusOverEveryTriangle(
+            Published, censusAt, wallPlaces, wallFacing, wallRun, roofPlaces, roofFacing, roofRun);
       }
       Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
       Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
