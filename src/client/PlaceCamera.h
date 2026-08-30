@@ -37,6 +37,12 @@ struct Place {
 
   /// PLAN only: the ground the frame covers top to bottom, in metres.
   double SpanM = 0.0;
+
+  /// The instant the place is standing at, ISO 8601 UTC. The engine stands the sun from this
+  /// and the place's coordinates, so a hand-set elevation would be a second answer to a question
+  /// the clock already answers. Stated rather than live, because a live clock moves the picture's
+  /// digest and the tree's determinism is not optional.
+  const char *WhenUtc = "";
 };
 
 struct Shot {

@@ -70,6 +70,13 @@ std::string WriteScenario(const Scenario &declared) {
     Yes(said, "audits", declared.Render.Audits);
     said += "/>\n";
   }
+  if (declared.Time.Declared) {
+    said += "  <clock";
+    Said(said, "start", declared.Time.Start);
+    Number(said, "rate", declared.Time.Rate);
+    Yes(said, "live", declared.Time.Live);
+    said += "/>\n";
+  }
   if (declared.Lit.Declared) {
     said += "  <lighting>\n    <key";
     Number(said, "lux", declared.Lit.Key.Lux);

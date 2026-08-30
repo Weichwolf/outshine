@@ -25,19 +25,17 @@ constexpr double kEyeAglM = 60.0;
 constexpr double kPlanAboveM = 4000.0;
 constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
-constexpr double kSunElevationDeg = 60.0;
-constexpr double kSunBearingDeg = 180.0;
 constexpr double kKeyLux = 40000.0;
 constexpr int kTimedFrames = 120;
 
 constexpr std::array<Place, 7> kPlaces{{
-    {"OldTown", 49.3777, 10.179, 70.0},
-    {"Heidelberg", 49.4147, 8.6968, 108.50},
-    {"Shibuya", 35.6595, 139.7005, 40.0},
-    {"CentralPark", 40.7968, -73.9520, 218.32},
-    {"Venice", 45.438, 12.3358, 30.0},
-    {"Jura", 47.2492, 7.5108, 156.53},
-    {"ZurichPlan", 47.3667, 8.5500, 0.0, Place::Seen::Plan, 6000.0},
+    {"OldTown", 49.3777, 10.179, 70.0, Place::Seen::Eye, 0.0, "2026-06-21T11:19:00Z"},
+    {"Heidelberg", 49.4147, 8.6968, 108.50, Place::Seen::Eye, 0.0, "2026-06-21T11:25:00Z"},
+    {"Shibuya", 35.6595, 139.7005, 40.0, Place::Seen::Eye, 0.0, "2026-06-21T02:41:00Z"},
+    {"CentralPark", 40.7968, -73.9520, 218.32, Place::Seen::Eye, 0.0, "2026-06-21T16:56:00Z"},
+    {"Venice", 45.438, 12.3358, 30.0, Place::Seen::Eye, 0.0, "2026-06-21T11:11:00Z"},
+    {"Jura", 47.2492, 7.5108, 156.53, Place::Seen::Eye, 0.0, "2026-06-21T11:30:00Z"},
+    {"ZurichPlan", 47.3667, 8.5500, 0.0, Place::Seen::Plan, 3000.0, "2026-06-21T11:26:00Z"},
 }};
 
 } // namespace
@@ -103,8 +101,9 @@ Scenario ScenarioFor(const Place &place) {
   stands.Render.Audits = Audits;
   stands.Lit.Declared = true;
   stands.Lit.Key.Lux = kKeyLux;
-  stands.Lit.Key.ElevationDeg = kSunElevationDeg;
-  stands.Lit.Key.BearingDeg = kSunBearingDeg;
+  stands.Time.Declared = true;
+  stands.Time.Live = false;
+  stands.Time.Start = place.WhenUtc;
 
   View watches;
   watches.Id = "station";
