@@ -14,10 +14,15 @@
 namespace outshine {
 
 // THE RECORD THE DEVICE READS, laid out as the device reads it. A cluster crosses to a storage
-// buffer unchanged -- two float4 rows of sphere, then the scalars -- because a producer that emits
-// one shape and a renderer that wants another is a conversion, and a conversion per cluster is
-// 73 706 of them a frame. The `uint8_t` that used to end this made the record 49 bytes and
-// unreadable by any shader without repacking it first.
+// buffer unchanged -- because a producer that emits one shape and a renderer that wants another is
+// a conversion, and a conversion per cluster is 73 706 of them a frame.
+//
+// ORDER, NOT SIZE: `sizeof` was 52 before this reorder and is 52 after it, measured. What changed
+// is WHERE the spheres sit. Self lands on byte 0 and parent on 16, so the cull kernel reads each
+// as one aligned `float4`; before, `First` and `Count` pushed the first sphere to byte 8 and no
+// vector load reached it. The `uint8_t` that used to end the record also left three bytes of tail
+// padding an MSL struct has to declare by hand, and a padding byte miscounted on that side reads
+// every cluster after the first at the wrong offset.
 struct DagCluster {
   float SelfCenter[3] = {0, 0, 0};
   float SelfRadius = 0.0f;
