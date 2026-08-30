@@ -253,8 +253,13 @@ bool Engine::settled(void) const {
   // whether the three fields ingested what it decoded. Measured on the Jura: 100 per cent reported
   // over 9 settled tiles of a 49-tile ring, and the picture came out with the farms of the plain
   // and no town.
-  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
-         S_->World.Stack.Ingested();
+  // AND READY MEANS READY AT THE LEVEL THAT WAS ASKED FOR. A tile can answer "not pending" and
+  // still lay NOTHING -- the cascade wants it at one zoom and the elevation resident is another,
+  // or the build comes back empty -- and the ground then stands on the ellipsoid at sea level
+  // under a full set of streets and roofs. `Bare` is what the LAYING walk counted, and it is the
+  // only number that knows the difference.
+  return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
+         S_->World.Grown && S_->World.Stack.Ingested();
 }
 
 // A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
@@ -386,7 +391,15 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     S_->World.Stack.Restand(atLat, atLon, 0.0);
     (void)S_->Grows(atLat, atLon);
     say();
-    if (settled()) { return (S_->Grounds(true)) ? Result{} : std::unexpected(S_->Error); }
+    // LAY, THEN ASK WHETHER IT IS READY. `Bare` is what a LAYING walk counted, so a wait that only
+    // asks can never learn that a tile it was told about lays nothing. When the cheap conditions
+    // hold this lays once and lets `settled()` read the result; a ring that still stands anything
+    // bare is not ready and the wait goes on.
+    if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
+        S_->World.Stack.Ingested()) {
+      if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
+      if (settled()) { return Result{}; }
+    }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;
       // the refusal says what is still missing. Standing only on a full settle meant a place that

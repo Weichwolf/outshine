@@ -204,7 +204,11 @@ bool Engine::State::Asks(void) {
     return false;
   }
   World.Pending = asked->Pending;
-  World.Bare = asked->Bare;
+  // AN ASKING WALK DOES NOT COUNT BARE, so reading its zero as an answer is a fact about the WALK
+  // and not about the world. This overwrote what the LAYING walk had counted on every poll, which
+  // is why `settled()` could say yes with tiles that had no elevation at the zoom they were asked
+  // at -- the picture then stands them on the ellipsoid at sea level. Only a walk that lays may
+  // say what stood bare.
   World.Wanted = asked->Tiles;
   World.AskedPending = asked->Pending;
   World.AskedWanted = asked->Tiles;
@@ -1203,7 +1207,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];
   }
 
-  const size_t drivenParts = Picture.Standing->Shown().Parts.size();
+  // THE ENGINE KNOWS HOW MANY PARTS THE DRIVEN SUBJECT HAS; reading it off the standing SHAPE
+  // counts the world's too once the two stand together.
+  const size_t drivenParts = Picture.Standing->CarriedParts();
   Published.Places("restand: the carried count the world hands over", (double)drivenParts,
                    "carried");
   Published.Places("restand: parts in the geometry", (double)ground.parts(), "parts");

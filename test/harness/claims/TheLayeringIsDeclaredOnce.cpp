@@ -69,7 +69,7 @@ int main(void) {
   // A claim keeps counting what stands, so it counts two -- and the door proof is not weaker for
   // it: board:2038 puts the CORPUS harness on the same footing, and a conformance case driving
   // include/ alone proves more about the door than any one app ever did.
-  CHECK(Sites(runner, "apps/bench/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
+  CHECK(Sites(runner, "harness/khronos/glTF) printf '%s' \"-Iinclude") == 1 &&
             Sites(runner, "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
         "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
         "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "

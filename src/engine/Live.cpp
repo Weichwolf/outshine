@@ -356,7 +356,12 @@ bool Live::Build(std::string &error) {
             wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
         Table_.PartSlot[before + (size_t)part] = at;
       }
+      // AND THE CARRIED COUNT IS THE ENGINE'S, NOT THE CALLER'S GUESS. It is the DRIVEN subject's
+      // part count, and a caller that reads it off the standing shape reads car PLUS world the
+      // second time round -- measured on Shibuya, 9 then 12, which would bound the shadow radius
+      // over three of the world's parts.
       Joined_ = before;
+      Carrying_ = before;
     }
   }
 

@@ -214,11 +214,16 @@ refactor is INFORMATION, and it is never made green by editing the case.
 **A BENCHMARK IS A TOOL, NOT A GATE.** A PROOF states an invariant and its negative control goes
 RED — the refit takes zero bytes, sixty-four casters cost what one costs, sixteen bodies draw
 sixteen rows. A BENCHMARK states a RATE, and a rate has no negative control: it is faster or
-slower, never wrong. So a reading from `apps/bench` can never earn a tick. It BOUNDS a decision —
+slower, never wrong. So a rate can never earn a tick. It BOUNDS a decision —
 "this is the number the change has to beat" — and it is quoted in the item that spends it. It
 never enters `test/gate.sh`, never becomes a case, and is used surgically rather than run by
 habit. Every instrument also states what it does NOT cover, on the page where it prints, because
 the mistake it guards against is real and was made here: a subject's rate quoted about a world.
+
+**`test/outshine/places/` IS THE TEST AND THE BENCHMARK.** Six real places stand, stream, draw
+and WRITE THEIR PICTURE to `build/places/*.png` beside what each cost and what it holds. A number
+from here always has a picture next to it that can be looked at, which is what the third question
+above asks for.
 
 Every case is a scenario with an invariant oracle whose truth does not depend on our design. **A
 tick is only earned when its proof stands AND its negative control goes red** — a control that

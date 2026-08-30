@@ -433,10 +433,10 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `import/Document.cpp` |
-| 1621 | `cpp` | `engine/Picturing.cpp` |
+| 1627 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1135 | `cpp` | `engine/Live.cpp` |
+| 1140 | `cpp` | `engine/Live.cpp` |
 | 1081 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
@@ -530,13 +530,12 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**15 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
+**15 of 18** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 
 - `harness/khronos/glTF`
 - `apps/viewer/src`
-- `apps/bench/src`
 - `apps/demo/src`
 
 ## Clients
@@ -546,7 +545,6 @@ finding about the DOOR, never about the client.
 
 | lines | units | client | reaches |
 |---|---|---|---|
-| 360 | 1 | `apps/bench` | `include/` alone |
 | 195 | 1 | `apps/demo` | `include/` alone |
 | 707 | 3 | `apps/viewer` | **does not link from the library alone** |
 
