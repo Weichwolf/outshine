@@ -46,11 +46,32 @@ files finds exactly one caller -- `Shipped.cpp`, the registry that lists it. **N
 puts a tree anywhere**, and no measure in `--audit --measures` mentions a tree, foliage, a canopy
 or vegetation of any kind.
 
+## A CASE NOW REFUSES ON IT, on its first live run
+
+`building triangles the world meshed` was a rebuild delta reading 0 on a warm start, so
+`ClientShot.h`'s second check -- *"meshed N triangles and its picture varies by V ... the frame
+holds the sky and the ground and NONE of the geometry built for it"* -- could never fire: its
+entry condition was `row.Triangles > 0`. Made a state (board:2063), it fired at once:
+
+    CentralPark  3 905 744 building triangle(s), varies by 0.8423 of 255 along its rows
+    UNPREPARED -- the frame holds the sky and the ground and NONE of the geometry built for it
+
+The bar is 1.0 and a blank frame reads 0.0000. **CentralPark sits at 0.8423, nearer the blank
+frame than a real one.** Looking at it says why: Manhattan's skyline stands correctly along the
+horizon, and the whole foreground -- the park the camera is standing IN -- is featureless brown
+ground with road ribbons over it. Central Park is lawns, trees and a reservoir, and this engine
+draws its soil.
+
+That is this item, measured by a case rather than by an eye, and it is the strongest evidence in
+it: the refusal is not about a missing class, it is about nothing standing on the class.
+
 ## What will be true
 
 - [ ] A land class that means vegetation SCATTERS the generator its `vegetation.json` template
       already names, and the instances are drawn. The ground keeps its floor material underneath,
       unchanged -- this item adds a layer, it does not repaint one.
+- [ ] `outshine/places/RenderCentralPark` goes from UNPREPARED to PASS on its own bar, without
+      the bar moving. It reads 0.8423 against 1.0 today.
 - [ ] Measurement that shows this is wrong: the Koenigstuhl's pixels at Heidelberg's declared
       hour. They read (143, 123, 108) today, R > G, and must read G > R once a canopy stands over
       them. An aerial photograph of that hill in June is unambiguously green.

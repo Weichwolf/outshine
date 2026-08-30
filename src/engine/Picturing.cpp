@@ -461,6 +461,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
     const bool renamed = classes != World.LaidClasses;
+    {
+      const Raised &standing = World.Stack.Footprints().Built();
+      Published.Places("building triangles the world meshed",
+                       (double)((standing.WallRun.size() + standing.RoofRun.size()) / 3u),
+                       "triangles");
+    }
     Published.Places("tiles laid bare on the ellipsoid",
                      (double)(sees->Pending + sees->Absent + sees->Refused),
                      "tiles");
@@ -902,7 +908,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: parts the geometry holds", (double)ground.parts(), "parts");
-      Published.Places("building triangles the world meshed", (double)triangles, "triangles");
+      Published.Places("buildings: triangles this rebuild meshed", (double)triangles, "triangles");
       Published.Places("buildings: corners the soup holds", (double)vertices, "corners");
       {
         double up = 0.0;
@@ -1024,7 +1030,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("their farthest", farthest, "m out");
       }
     } else {
-      Published.Places("building triangles the world meshed", 0.0, "triangles");
+      Published.Places("buildings: triangles this rebuild meshed", 0.0, "triangles");
     }
   }
 
