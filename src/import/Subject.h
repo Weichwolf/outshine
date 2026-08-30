@@ -88,6 +88,16 @@ public:
 
   [[nodiscard]] outshine::Geometry Handed() const;
 
+  // NAMED, WHEN THE DOCUMENT IS AT HAND. A subject holds its surfaces as rows and the NAME the
+  // file gave each one lives in the document, so the plain form hands back unnamed surfaces --
+  // and a client keying a declaration by material name has nothing to key on.
+  [[nodiscard]] outshine::Geometry Handed(const Document &naming) const;
+
+private:
+  [[nodiscard]] outshine::Geometry Handed(const Document *naming) const;
+
+public:
+
   [[nodiscard]] bool Append(const Subject &other);
 
   [[nodiscard]] const std::string &Error() const { return Error_; }

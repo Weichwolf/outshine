@@ -926,9 +926,16 @@ void Subject::Bound() {
   }
 }
 
-outshine::Geometry Subject::Handed() const {
+outshine::Geometry Subject::Handed() const { return Handed(nullptr); }
+
+outshine::Geometry Subject::Handed(const Document &naming) const { return Handed(&naming); }
+
+outshine::Geometry Subject::Handed(const Document *naming) const {
   outshine::Geometry out;
-  for (size_t at = 0; at < Surfaces_.size(); ++at) { (void)out.addSurface("", Surfaces_[at]); }
+  for (size_t at = 0; at < Surfaces_.size(); ++at) {
+    const bool named = naming != nullptr && at < naming->Materials().size();
+    (void)out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
+  }
   for (const PlacedLight &lit : Lights_) {
     double placed[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     for (int axis = 0; axis < 3; ++axis) { placed[12 + axis] = lit.Light.Position[axis]; }
