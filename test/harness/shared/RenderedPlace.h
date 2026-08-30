@@ -14,6 +14,8 @@
 #include <Outshine.h>
 #include <Scenario.h>
 
+#include "Sha256.h"
+
 #include "Check.h"
 #include "LogSinks.h"
 #include "TextTarget.h"
@@ -197,6 +199,7 @@ inline int RenderPlace(const Place &place) {
   std::error_code failed;
   std::filesystem::create_directories("build/places", failed);
   const std::string kept = std::string("build/places/") + place.Name + ".png";
+  const std::string keeping = kept + ".writing";
   // AND THEN A DISTRIBUTION, because two frames is not one. The loop above draws what the PICTURE
   // needs -- a temporal resolve wants its whole sequence -- and two samples of a frame time say
   // nothing about whether a place holds 60 fps: the same Shibuya read 22.65 ms and 15.21 ms on two
@@ -233,7 +236,35 @@ inline int RenderPlace(const Place &place) {
       std::printf("MEASURE %-56s %14.3f %s\n", one.What.c_str(), one.How, one.Unit.c_str());
     }
   }
-  const bool wrote = engine.renderer().saveScreenshot(kept).has_value();
+  // THE PICTURE CARRIES ITS OWN DIGEST IN ITS NAME, so a frame that changed does not overwrite the
+  // frame it changed from and the two stand side by side for an eye. The digest is also PRINTED,
+  // because that is the half a diff can read: a run states which picture it made and what that
+  // picture cost, and a picture that was not supposed to move is caught by a line of text rather
+  // than by remembering what the last one looked like.
+  //
+  // IT IS A SNAPSHOT AND NOTHING MORE. These bytes come out of one driver on one machine; another
+  // GPU answers a different digest for the same correct picture, so this proves AGREEMENT WITH
+  // OURSELVES and never correctness. That is the grade CLAUDE.md gives it and the reason the
+  // picture itself stays out of the tree.
+  bool wrote = engine.renderer().saveScreenshot(keeping).has_value();
+  std::string digest;
+  if (wrote) {
+    std::string bytes;
+    if (std::FILE *const held = std::fopen(keeping.c_str(), "rb")) {
+      char block[65536];
+      size_t read = 0;
+      while ((read = std::fread(block, 1, sizeof block, held)) > 0) { bytes.append(block, read); }
+      std::fclose(held);
+    }
+    digest = outshine::Sha256Hex(bytes).substr(0, 8);
+    const std::string named =
+        std::string("build/places/") + place.Name + "-" + digest + ".png";
+    std::filesystem::rename(keeping, named, failed);
+    wrote = !failed;
+  }
+  std::printf("PICTURE %-26s %s  p50 %6.2f  p95 %6.2f  p99 %6.2f ms  %.0f triangle(s)\n",
+              place.Name, digest.empty() ? "--------" : digest.c_str(), quantile(0.50),
+              quantile(0.95), quantile(0.99), measured("subjects, triangles"));
 
   std::printf("%s  %.0f tile(s) over %.0f levels, %.0f triangle(s), %.0f m relief, reach %.1f km\n",
               place.Name, measured("tiles the ring laid"), measured("levels the cascade laid"),
