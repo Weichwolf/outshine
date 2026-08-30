@@ -40,6 +40,7 @@ struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
 struct Lights { float4 count; float4 environment; float4 bounced; float4 up; Light items[16]; };
 
 #define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
+    device const float *skyIrradiance [[buffer(2)]], \
     texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
     texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
     texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \

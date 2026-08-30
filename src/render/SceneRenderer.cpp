@@ -752,6 +752,8 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 }
 
 bool SceneRenderer::ConfigureIrradiance(std::string &error) {
+  Subjects_.SkyFrom(Irradiance_.Get());
+  if (DrawsGlass_) { Glass_.SkyFrom(Irradiance_.Get()); }
   return Irradiance__.Configure(Handles_,
                                 TransmittanceLut_.Get(),
                                 MultiScatterLut_.Get(),

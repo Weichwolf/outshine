@@ -36,7 +36,8 @@ public:
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
                                          .VertexStorageBuffers = 1,
                                          .FragmentSamplers = kSubjectImages,
-                                         .FragmentUniformBuffers = kSubjectFragmentUniforms};
+                                         .FragmentUniformBuffers = kSubjectFragmentUniforms,
+                                         .FragmentStorageBuffers = 1};
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
@@ -167,6 +168,8 @@ public:
 
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
+  void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
+
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
@@ -269,6 +272,7 @@ private:
   std::vector<Resource> Colours;
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
+  SDL_GPUBuffer *SkyIrradiance_ = nullptr;
 
   [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
 
