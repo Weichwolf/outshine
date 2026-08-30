@@ -24,7 +24,26 @@ with the same transmittance and multi-scatter closures the GPU chain uses, and A
 along. **The fifth written-down cause this session to fail its own measurement**, and the reason it
 was caught is that the item stated the measurement before the work started.
 
-## What is actually wrong, measured
+## AND THE SECOND PREMISE IS WRONG TOO, measured the same way
+
+It is NOT computed twice. `Stage::Irradiance` and `Stage::AutoExposure` are rows in
+`RenderCatalogue.h` and **nothing executes either of them**: no shader file, no executor, and
+neither name appears among the stages a run reports.
+
+    stages the compiled plan runs   12
+    the twelve, named               aerialPerspective lightVisibility mediumMultiScatter
+                                    mediumRadiance mediumTransmittance overlay sky subjectCompact
+                                    subjectCull subjects subjectScan tonemap
+
+So `IrradianceBuffer` is a resource a declared stage writes and no stage writes, and the CPU
+integration in `Live::Stand` is the ONLY implementation there has ever been. The duplicate this
+item was filed about is a declaration with no body on one side and 778.9 ms of proof-of-concept on
+the other.
+
+**That makes the repair simpler and larger at once**: there is nothing to reconcile, and the GPU
+half has to be BUILT rather than read from.
+
+## What was thought to be wrong, and half of it holds
 
 **One.** The same physical quantity is computed in TWO places: `MediumSkyIrradiance` on the CPU per
 restand for the subject, and the `Irradiance` stage on the GPU for `AutoExposure`. Same model, same
@@ -36,7 +55,9 @@ one RGB for every normal direction. A wall facing the sun's side of the sky and 
 receive the same ambient. Unreal's SkyLight is directional (an SH or cubemap), RAGE's probe is
 directional; neither ships a hemisphere average, because the alley wall is exactly where it shows.
 
-- [ ] sky irradiance is computed ONCE and both the exposure and the surfaces read that one
+- [ ] sky irradiance is computed ONCE, ON THE DEVICE, and both the exposure and the surfaces
+      read that one -- GPU first, the way both references do it
+- [ ] `Stage::Irradiance` has a shader and an executor, or it is not a row in the catalogue
 - [ ] a guard counts the implementations of it and refuses a second
 - [ ] the subject's ambient varies with the surface NORMAL rather than being one value per scene
 
