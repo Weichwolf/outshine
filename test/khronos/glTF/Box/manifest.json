@@ -214,5 +214,17 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
+  },
+  "oracleDigests": {
+    "default": {
+      "materialIndexRaw": "4b41e42a241aaaa7f70ce142f90a7c3a3eeebf0f4d2b0e42751b8d6788eef441",
+      "normalRaw": "b59188d87a25949d7991525b55214bbe35b4a210b28e967903586a149b07645f",
+      "objectIndexRaw": "4b41e42a241aaaa7f70ce142f90a7c3a3eeebf0f4d2b0e42751b8d6788eef441",
+      "raw": "04d708c118b0c5bc3ad2cd69bf6d25384d64b76a76d39b713754ce8785419d07",
+      "uvRaw": "cc8d2eabdb864667210d61c76c6c69bed1e9cdf5f5c2eaa4c868d958e2552779"
+    },
+    "seed-shift": {
+      "raw": "04d708c118b0c5bc3ad2cd69bf6d25384d64b76a76d39b713754ce8785419d07"
+    }
   }
 }

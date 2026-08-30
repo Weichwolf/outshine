@@ -19,7 +19,8 @@
     "filename": "a path relative to the case directory: no leading slash, no leading dot, no empty, '.' or '..' segment and no trailing slash. glTF references a buffer or image relative to the .gltf and a subdirectory is legal there, so a flattened name is a product the reader cannot find",
     "sha256": "64 lowercase hex digits",
     "sha1": "40 lowercase hex digits",
-    "release": "a release version, e.g. 5.2.0"
+    "release": "a release version, e.g. 5.2.0",
+    "{map: {map: type}}": "a map of maps: the oracle's digests, keyed by recipe name (or 'recipe.fNNNN' for one frame of an animation) and then by product. ONLY THE FLAT f32 DUMPS ARE PINNED and that is measured -- rendering Khronos's Box twice with --force on one host gave identical `raw`, `normalRaw` and `materialIndexRaw` and DIFFERENT `exr` and `normalExr`, because the pixels are the same and an OpenEXR container around them is not. `prep/jobs.py::_pinnable` carries the table. Record with OUTSHINE_BLESS_ORACLE=1 and commit the digests with the reason a reference moved"
   },
   "objects": {
     "reduction": {
@@ -109,6 +110,11 @@
             "depthProbes": {
               "array": {
                 "object": "depth-probe"
+              }
+            },
+            "oracleDigests": {
+              "map": {
+                "map": "sha256"
               }
             }
           },

@@ -287,8 +287,57 @@ def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, 
     for key in keys.values():
         store.forget(key)
     store.forget(provenance_key)
+    row["digests"] = _pinned(manifest, name, frame, targets)
     return dict(row, cache="miss" if rendered else "hit", products=_sizes(targets),
                 provenance=account)
+
+def _pinnable(product):
+    """THE RAW DUMPS ARE REPRODUCIBLE AND THE EXRs ARE NOT, and that is measured rather than
+    assumed. Rendering Khronos's Box twice with `--force` on one machine and one Blender:
+
+        raw               04d708c1..  04d708c1..   same
+        normalRaw         b59188d8..  b59188d8..   same
+        materialIndexRaw  4b41e42a..  4b41e42a..   same
+        exr               9508c92d..  8f7eb547..   DIFFERENT
+        normalExr         0f223a42..  22f3addd..   DIFFERENT
+
+    The pixels are identical either way; an OpenEXR file carries a container around them that is
+    not. So the flat f32 dump is what a digest can pin, and pinning the EXR would refuse every
+    render including the correct ones -- a guard that cries wolf is a guard somebody removes.
+    """
+    return product == "raw" or product.endswith("Raw")
+
+def _pinned(manifest, name, frame, targets):
+    """THE ORACLE'S OWN DIGEST, AGAINST THE ONE THE TREE RECORDS.
+
+    The recipe key already re-renders when Blender's version, the scene, the subjects or this
+    preparer change -- but it says that to the CACHE and to nobody else. So a bumped Blender, a
+    re-render at different sampling or another machine's output all become the reference silently,
+    and every case that grades against it grades against something no commit ever mentioned.
+
+    `manifest.json` carries `oracleDigests` and this refuses a mismatch BY NAME. A deliberate
+    re-render is then a commit that changes those digests, which is exactly what a moving reference
+    should be. `OUTSHINE_BLESS_ORACLE=1` records what is there for a manifest that has none yet.
+    """
+    key = name if frame is None else "%s.f%04d" % (name, frame)
+    recorded = (manifest.document.get("oracleDigests") or {}).get(key) or {}
+    observed = {product: sha256_of_file(path)
+                for product, path in sorted(targets.items()) if _pinnable(product)}
+    if os.environ.get("OUTSHINE_BLESS_ORACLE") == "1" or not recorded:
+        return dict(observed, pinned=bool(recorded))
+    for product, digest in observed.items():
+        if recorded.get(product) == digest:
+            continue
+        raise Refusal(
+            "oracle " + manifest.id + " / " + key + "." + product,
+            expected=recorded.get(product, "no digest recorded"),
+            observed=digest,
+            why="the oracle this case is graded against is not the one the tree records. Blender, "
+                "the scene or this preparer produced a DIFFERENT reference, and a case comparing "
+                "our render to it would pass or fail against something no commit ever mentioned. "
+                "If the move is intended, re-run with OUTSHINE_BLESS_ORACLE=1 and commit the new "
+                "digests in manifest.json with the reason")
+    return dict(observed, pinned=True)
 
 def _stored_provenance(store, key, manifest):
     document = store.read(key)
