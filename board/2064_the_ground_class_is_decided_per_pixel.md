@@ -46,8 +46,36 @@ comes closer because the mesh does not.
    two are exactly what a hard-but-not-aliased border is made of: the edge lands where the
    evaluation flips, and one pixel of coverage from the distance keeps it from crawling.
 
+## THE GROUND IS DRAWN AS A glTF SUBJECT, and that is what blocks this
+
+Tried and taken back the same round: the device side is easy -- `SceneRenderer::SetGroundClasses`
+uploading two storage buffers, `SubjectDraw::ClassFrom`, `FragmentStorageBuffers` 1 -> 3 -- and it
+builds. What has no clean answer is HOW THE SHADER KNOWS IT IS DRAWING GROUND. Every route was
+walked:
+
+| route | why not |
+|---|---|
+| a field on `Material` (include/Material.h) | it is a strict glTF metallic-roughness row and this engine reads all of glTF 2.0 (board:1382). A `WearsGroundClass` there is a non-glTF invention inside a glTF struct |
+| a new `SurfaceKind` | `SurfaceKind` is the ALPHA axis -- opaque, masked, blended, transmissive. Terrain is not an alpha mode and conflating two axes is how a variant table stops being readable |
+| the surface's NAME, `addSurface("ground", ...)` | pins a SPELLING rather than a property, which CLAUDE.md names as a mis-specified check |
+| `SubjectMaterial::NormalScale`'s neighbourhood | `SubjectMaterial` IS engine-internal and is the right home for the flag. `Surfacing.cpp:15-40` copies it from the public `Material`, but `Live.cpp:255-268` already reaches back into `Table_.Slots[slot]` after the fact for surface overrides, and `Picturing` holds `ringSurface.index()`. **This route stands** -- an index, not a spelling |
+
+So the flag has a home. What it exposes is the shape underneath: `Picturing` builds the whole world
+as one `outshine::Geometry` and hands it to `Live::Restand`, which runs it through the SAME
+`Build()`, the same `Table_`, the same `SubjectDraw` as a glTF asset. **Unreal gives Landscape its
+own primitive and its own material domain; RAGE gives terrain its own shaders.** Both would call
+this the defect, and every clean answer above is clean only because it works AROUND the routing.
+
+The device plumbing was written and then TAKEN BACK rather than landed, because a storage buffer
+no shader reads is the exact defect this tree keeps finding in itself -- `Words()` with no caller
+is why this item exists at all, and a second one beside it would be worse than none.
+
 ## What will be true
 
+- [ ] The ground reaches the device by a GROUND path rather than as a glTF subject, or the
+      subject path grows an engine-internal `WearsGroundClass` on `SubjectMaterial` that
+      `Picturing` sets by surface INDEX. The first is what both references do; the second is
+      what this tree can carry today. **The choice is written down before a line is written.**
 - [ ] The packed structure is a storage buffer on the device and `Evaluate` runs in the ground
       fragment shader. The class is decided at pixel rate; the border is where it flips.
 - [ ] The 17 materials of `ground-materials.json` are a palette buffer the shader indexes. The
