@@ -29,6 +29,22 @@ and the row attaches the wrong one to the picture.
 ground and everything on it is drawn at sea level". Against this row that reads as a defect in the
 world; against the picture it is false.
 
+## A COLUMN DRIFT WAS MASKING ALL OF THIS, and it is fixed
+
+`Main.cpp`'s `Row()` prints seventeen tab-separated fields and `ClientShot.h` read `row.Why` from
+`field[14]`, which is `SettledOver`. Its value is `2`, `2` is not `-`, so EVERY render case called
+`Unprepared("2")` and returned before running a single check. That is why the logs read
+`UNPREPARED 2` with no sentence: the message WAS the number.
+
+The doc comment over `Row()` says "every field of a `Shot`, tab separated, in a fixed order ...
+this is for the case that scores it". A hand-kept parallel list beside a type -- board:2061's
+defect exactly, one floor down, between the client and the case rather than the type and the
+serializer.
+
+Fixed by reading `Why` from `field.back()` rather than adding a third copy of the column list, and
+by refusing a row shorter than seventeen fields instead of misreading it. `CHECKS` went from 0 to
+1: the negative control now runs at all.
+
 ## THE MECHANISM, traced and tried
 
 Two things stack, and the second is why the obvious fix does not work.
@@ -51,6 +67,21 @@ The artefact traced to `TilePool::Poll` (TilePool.cpp:605-609): it ERASES from `
 and the two passes do not see the same world. **Not established:** why `Holds` is false for these
 tiles, and whether a tile is therefore re-meshed every frame. That is the next measurement and it
 is a performance question as much as a correctness one.
+
+## What the two runs actually say, now that the cases can speak
+
+Same place, same commit, IDENTICAL picture, opposite rows:
+
+| | cold cache | warm cache |
+|---|---|---|
+| `Preloaded` | 0 | 1 |
+| building triangles | **1 283 058** | **0** |
+| bare tiles | **0** | **128** |
+
+The difference tracks `Preloaded`. When preload does not finish, the world is still being built
+through the settle advances and the row reports the full build. When preload DOES finish, the
+settle advances rebuild nothing and the row keeps whatever the last rebuild inside preload left.
+Both pictures are correct and one row says the elevation never arrived.
 
 ## What it cost
 

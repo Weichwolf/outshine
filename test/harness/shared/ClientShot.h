@@ -47,7 +47,7 @@ inline int ScorePlace(const char *place) {
       if (*at != '\t') { break; }
     }
     if (field.size() >= 2 && field[0] == "CONTROL") { control = std::atof(field[1].c_str()); }
-    if (field.size() >= 15 && field[0] == "ROW") {
+    if (field.size() >= 17 && field[0] == "ROW") {
       row.Read = true;
       row.Name = field[1];
       row.Digest = field[2];
@@ -62,7 +62,7 @@ inline int ScorePlace(const char *place) {
       row.BareTiles = std::atof(field[11].c_str());
       row.Variation = std::atof(field[12].c_str());
       row.Preloaded = field[13] == "1";
-      row.Why = field[14];
+      row.Why = field.back();
     }
   }
   const int status = pclose(running);
