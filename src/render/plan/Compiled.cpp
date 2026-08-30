@@ -170,6 +170,18 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
     return false;
   }
 
+  // A TABLE WHOSE ELEMENT HAS NO SIZE CANNOT BE BOUND, and a plan that declares one would read it
+  // as empty and draw nothing while saying it drew. The catalogue states a stride for every buffer
+  // and this is where a row that forgot one is caught, before a shader is ever asked to read it.
+  for (size_t at = 0; at < kResourceCount; ++at) {
+    const ResourceRow &row = kResources[at];
+    if (row.Kind != ResourceKind::Buffer || row.Stride > 0u) { continue; }
+    error = std::string("render.resources.") + row.Name +
+            ": a buffer resource declares no stride, so its element has no size and nothing could "
+            "read it";
+    return false;
+  }
+
   std::unique_ptr<Compiled> plan(new Compiled());
   for (size_t s = 0; s < kStageCount; ++s) {
     plan->HeldStage_[s] = pull.HeldStage[s];

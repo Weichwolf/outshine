@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_PLAN_RENDERCATALOGUE_H
 
 #include <cstddef>
+#include "ClusterDag.h"
 
 namespace outshine::Render {
 
@@ -31,6 +32,15 @@ enum class Resource {
   OverlayAtlas,
   FrameTex,
   Surface,
+
+  // THE CUT AND WHAT A CULLER DECIDES ABOUT IT. These are BUFFERS, which this catalogue could not
+  // say until board:2041: a GPU-driven pass reads a TABLE at least as often as a texture, and a
+  // buffer that has to hide inside a stage is the one thing a plan exists to prevent.
+  ClusterTable,
+  ClusterIndex,
+  VisibleClusters,
+  DrawIndex,
+  DrawArguments,
   kCount
 };
 
@@ -63,6 +73,11 @@ enum class Resource {
     case Resource::OverlayAtlas:
     case Resource::FrameTex:
     case Resource::Surface:
+    case Resource::ClusterTable:
+    case Resource::ClusterIndex:
+    case Resource::VisibleClusters:
+    case Resource::DrawIndex:
+    case Resource::DrawArguments:
     case Resource::kCount:
       return false;
   }
@@ -92,7 +107,10 @@ enum class Stage {
   kCount
 };
 
-enum class ResourceKind { Given, Derived, Attachment };
+// A BUFFER IS A RESOURCE LIKE ANY OTHER. It is pulled, bound, stored and refused exactly as an
+// attachment is; what differs is that it carries a STRIDE rather than a texel format, because an
+// element of a table has a size and no filtering.
+enum class ResourceKind { Given, Derived, Attachment, Buffer };
 
 enum class Provenance { Machinery, Content };
 
@@ -121,6 +139,11 @@ struct ResourceRow {
   Resource AliasOf;
   TexelFormat Format;
   const char *Name;
+
+  // BYTES PER ELEMENT, and it is what makes a buffer row well formed. A texture leaves it zero;
+  // a buffer that leaves it zero is a declaration the compiler refuses, because a table whose
+  // element has no size cannot be bound and would read as an empty one.
+  uint32_t Stride = 0;
 };
 
 struct StageRow {
@@ -215,6 +238,24 @@ inline constexpr ResourceRow kResources[] = {
      TexelFormat::Rgba8UnormSrgb, "frameTex"},
     {Resource::Surface, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba8UnormSrgb, "surface"},
+
+    // THE CUT'S OWN TABLES. A stride is `sizeof` rather than a number written twice: the cull
+    // kernel reads `DagCluster` verbatim, so the day that record changes shape this row changes
+    // with it and no shader is left reading the old one.
+    {Resource::ClusterTable, ResourceKind::Buffer, FallbackKind::None, kNoEdge, TexelFormat::Handle,
+     "clusterTable", (uint32_t)sizeof(DagCluster)},
+    {Resource::ClusterIndex, ResourceKind::Buffer, FallbackKind::None, kNoEdge, TexelFormat::Handle,
+     "clusterIndex", (uint32_t)sizeof(uint32_t)},
+    {Resource::VisibleClusters, ResourceKind::Buffer, FallbackKind::None, kNoEdge,
+     TexelFormat::Handle, "visibleClusters", (uint32_t)sizeof(uint32_t)},
+    {Resource::DrawIndex, ResourceKind::Buffer, FallbackKind::None, kNoEdge, TexelFormat::Handle,
+     "drawIndex", (uint32_t)sizeof(uint32_t)},
+
+    // FIVE UINT32: index count, instance count, first index, vertex offset, first instance. That
+    // is `SDL_GPUIndexedIndirectDrawCommand`, and the assertion beside the encoder holds the two
+    // to each other.
+    {Resource::DrawArguments, ResourceKind::Buffer, FallbackKind::None, kNoEdge,
+     TexelFormat::Handle, "drawArguments", 5u * (uint32_t)sizeof(uint32_t)},
 };
 
 inline constexpr StageRow kStages[] = {

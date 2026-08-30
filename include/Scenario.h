@@ -128,7 +128,12 @@ struct Lighting {
   double ShadowRadiusM = 0.0;
 };
 
-enum class AssetAnimation { Play, Ignore, Driven };
+// WHETHER A CLIP REPEATS IS A DECLARATION, not a default. glTF states what SAMPLING does outside
+// a clip's range -- it clamps to the last keyframe -- and says nothing about whether an engine
+// starts it again; Unreal makes it `bLooping` on the instance and RAGE carries a loop flag on the
+// clip, so both agree it is the client's word. `Play` runs once and holds its end pose, which is
+// glTF's own rule; `Loop` wraps.
+enum class AssetAnimation { Play, Loop, Ignore, Driven };
 
 // WHAT A SURFACE OF SOMEBODY ELSE'S FILE IS, SAID BY THE CLIENT THAT LOADS IT. Unreal overrides a
 // component's material per slot (`SetMaterial`); Filament hands out a `MaterialInstance` per

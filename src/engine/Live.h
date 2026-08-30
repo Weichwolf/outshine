@@ -204,6 +204,7 @@ public:
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
+  static constexpr int kSweepSamples = 16;
   [[nodiscard]] double AtS() const { return Held_.AtS(); }
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
@@ -218,8 +219,17 @@ private:
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(double seconds, std::string &error);
   [[nodiscard]] bool Measure(double seconds, std::string &error);
-  [[nodiscard]] double Seconds(int frame) const {
-    return Declared_.Fps > 0.0 ? (double)frame / Declared_.Fps : 0.0;
+  // WHERE A SWEEP SAMPLES, and it is the animation's OWN span rather than a frame grid. A framing
+  // rule wants the EXTENT a subject reaches over its motion; tying that to a declared frame rate
+  // made it depend on a number the framing has nothing to do with, and a scenario that declared
+  // none divided by zero and bounded the rest pose against the end pose alone.
+  [[nodiscard]] int Sweeps() const {
+    const int frames = Held_.Frames();
+    return frames < 1 ? 1 : (frames < kSweepSamples ? frames : kSweepSamples);
+  }
+  [[nodiscard]] double Seconds(int sample) const {
+    const int over = Sweeps();
+    return over > 1 ? (double)sample * Held_.DurationS() / (double)(over - 1) : 0.0;
   }
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);

@@ -164,7 +164,10 @@ Result Engine::declare(const Scenario &scenario) {
   const Patch whole;
   const Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
   if (scenario.Render.Declared) {
-    declared.Fps = scenario.Render.Fps;
+    // A RATE NOT DECLARED LEAVES THE ENGINE'S OWN STANDING. Taking the struct's zero here stopped
+    // the animation dead: the cursor advances by ELAPSED TIME and one step of nothing is nothing,
+    // so a scenario that never mentioned a frame rate drew the rest pose for ever.
+    if (scenario.Render.Fps > 0.0) { declared.Fps = scenario.Render.Fps; }
     declared.Fill = scenario.Render.Fill;
     declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
     declared.Stages = scenario.Render.Stages;

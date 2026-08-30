@@ -549,9 +549,9 @@ bool Live::PartVolumes(std::string &error) {
     }
   };
   fold();
-  for (int frame = 0; frame < Held_.Frames(); ++frame) {
-    if (Seconds(frame) == Held_.AtS()) { continue; }
-    if (!Measure(Seconds(frame), error)) { return false; }
+  for (int sample = 0; sample < Sweeps(); ++sample) {
+    if (Seconds(sample) == Held_.AtS()) { continue; }
+    if (!Measure(Seconds(sample), error)) { return false; }
     fold();
   }
   if (Held_.Frames() > 1 && !Measure(Held_.AtS(), error)) { return false; }
@@ -741,8 +741,8 @@ bool Live::Stand(std::string &error) {
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
-    for (int frame = 1; frame < Held_.Frames(); ++frame) {
-      if (!Measure(Seconds(frame), error)) { return false; }
+    for (int sample = 1; sample < Sweeps(); ++sample) {
+      if (!Measure(Seconds(sample), error)) { return false; }
       double posedLeast[3], posedMost[3];
       Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
@@ -1082,8 +1082,13 @@ bool Live::Advance(std::string &error) {
   const Heap::Tagged advancing("live-advance");
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
-  if (Held_.Moves() && Held_.Frames() > 1) {
-    Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0);
+  // AN ASSET MOVES WHEN IT HAS A DURATION, and a frame COUNT has no business gating that. The
+  // count rounds a duration against a declared rate, so a short clip or an undeclared rate
+  // made it one and the subject stood still while its file said otherwise -- the velocity then
+  // read zero for a moving placement, which is the fault TAA cannot recover from.
+  if (Held_.Moves() && Held_.DurationS() > 0.0) {
+    Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
+                   Declared_.Animation == AssetAnimation::Loop);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       const Heap::Tagged posing("live-pose");

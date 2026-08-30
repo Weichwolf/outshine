@@ -388,6 +388,7 @@ flowchart LR
   sim --> |5| actor_body
   render --> |5| base_io
   import --> |5| base_spatial
+  render_stages --> |4| base_spatial
   import --> |4| render
   import_surface --> |4| import
   generators --> |4| generators_draw
@@ -395,7 +396,6 @@ flowchart LR
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   render --> |3| render_device
-  render_stages --> |3| base_spatial
   render_stages --> |3| base_math
   generators_draw --> |3| world_ground
   generators_draw --> |3| base_spatial
@@ -403,7 +403,7 @@ flowchart LR
   engine --> |3| scene
   engine --> |3| base_spatial
 ```
-  36 edge(s) drawn, 49 thinner than three includes not drawn
+  36 edge(s) drawn, 50 thinner than three includes not drawn
   CYCLE import and import/surface include each other, 1 deep and 4 back
 
 ## Tiers
@@ -436,8 +436,8 @@ The heaviest files. Headers and sources counted apart.
 | 1655 | `cpp` | `engine/Picturing.cpp` |
 | 1300 | `cpp` | `import/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
-| 1140 | `cpp` | `engine/Live.cpp` |
-| 1081 | `cpp` | `render/SceneRenderer.cpp` |
+| 1145 | `cpp` | `engine/Live.cpp` |
+| 1097 | `cpp` | `render/SceneRenderer.cpp` |
 | 1013 | `cpp` | `base/format/Script.cpp` |
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 890 | `cpp` | `generators/draw/BuildingMesh.cpp` |
@@ -452,7 +452,7 @@ The widest public surfaces.
 | `[[nodiscard]]` | header |
 |---|---|
 | 68 | `src/render/SceneRenderer.h` |
-| 65 | `src/engine/Live.h` |
+| 66 | `src/engine/Live.h` |
 | 59 | `include/Outshine.h` |
 | 51 | `src/import/Document.h` |
 | 47 | `src/import/Subject.h` |
@@ -495,6 +495,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 3 | `src/generators/draw/TreeFoliage.h` |
 | 3 | `src/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/render/draw/DrawKey.h` |
+| 2 | `src/engine/Live.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |
 | 1 | `src/world/ground/TerrainLoader.h` |
 | 1 | `src/world/ground/GroundStack.h` |
@@ -509,7 +510,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 1 | `src/generators/base/FeatureLevel.h` |
 | 1 | `src/generators/base/Cover.h` |
 | 1 | `src/generators/base/Claim.h` |
-| 1 | `src/engine/Live.h` |
+| 1 | `src/engine/Asset.h` |
 | 1 | `src/base/spatial/Span.h` |
 | 1 | `src/base/spatial/Sink.h` |
 | 1 | `src/base/io/StackProbe.h` |

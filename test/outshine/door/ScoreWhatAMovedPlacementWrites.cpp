@@ -139,6 +139,11 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   outshine::Asset shown;
   shown.Uri = uri;
   shown.Kind = "gltf";
+  // IT LOOPS, BECAUSE THIS MEASURES A SUBJECT IN MOTION. The clip runs one second and the grid
+  // samples 1.5 s of it; a clip that PLAYS holds its end pose there, which is glTF's own sampling
+  // rule and would make the last frame a still one -- the very thing the other half of this case
+  // is the control for.
+  shown.Animation = outshine::AssetAnimation::Loop;
   stands.Assets.push_back(shown);
   return stands;
 }

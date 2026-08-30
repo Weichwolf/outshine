@@ -306,6 +306,15 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::FrameTex: FrameTex_ = target(resource, colour); return;
 
     case Resource::Surface: return;
+
+    // A BUFFER IS SIZED WHERE ITS CONTENT IS KNOWN, not here. The plan DECLARES that the cut's
+    // tables exist so a cull that reads them can be refused when they are absent; how many
+    // clusters a scene holds is the residency's to answer, the same way a vertex stream is.
+    case Resource::ClusterTable:
+    case Resource::ClusterIndex:
+    case Resource::VisibleClusters:
+    case Resource::DrawIndex:
+    case Resource::DrawArguments: return;
     case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut: {
@@ -387,6 +396,13 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::FrameTex: return FrameTex_.Get();
 
     case Resource::Surface: return HostSurface_;
+
+    // NOT A TEXTURE. `BufferFor` answers for these.
+    case Resource::ClusterTable:
+    case Resource::ClusterIndex:
+    case Resource::VisibleClusters:
+    case Resource::DrawIndex:
+    case Resource::DrawArguments: return nullptr;
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
     case Resource::MultiScatterLut: return MultiScatterLut_.Get();
     case Resource::SkyViewLut: return SkyViewLut_.Get();

@@ -75,6 +75,11 @@ public:
     return HeldResource_[static_cast<size_t>(resource)];
   }
 
+  // WHAT ONE ELEMENT OF A BUFFER RESOURCE TAKES, in bytes. Zero for anything that is not one.
+  [[nodiscard]] uint32_t Stride(Resource resource) const {
+    return kResources[static_cast<size_t>(resource)].Stride;
+  }
+
   [[nodiscard]] bool Stored(Resource resource) const {
     return Stored_[static_cast<size_t>(resource)];
   }

@@ -25,7 +25,7 @@ struct SubjectResidency {
 
   enum class Stream : uint8_t {
     Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles,
-    Placements, Count
+    Placements, Clusters, ClusterIndices, Count
   };
 
   struct Crossing {
@@ -57,6 +57,7 @@ struct SubjectResidency {
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
   OwnedBuffer BvhNodes, BvhTris;
+  OwnedBuffer Clusters, ClusterIdx;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
   [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }

@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
 
 #include <cstdint>
+#include "ClusterDag.h"
 #include <span>
 
 #include "PunctualLight.h"
@@ -124,6 +125,11 @@ struct SubjectMesh : SubjectPose {
   const uint32_t *Indices = nullptr;
   uint32_t IndexCount = 0;
   const DrawList *Draws = nullptr;
+
+  // THE CUT, CROSSING WITH THE REST. The cooker made these where the shape was built; they reach
+  // the device as two storage buffers and nothing between here and there reshapes them.
+  std::span<const DagCluster> Clusters;
+  std::span<const uint32_t> ClusterIndices;
 };
 
 }

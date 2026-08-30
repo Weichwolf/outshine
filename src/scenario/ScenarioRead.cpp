@@ -379,13 +379,15 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     const std::string animation = one.Attr("animation", "play");
     if (animation == "play") {
       made.Animation = AssetAnimation::Play;
+    } else if (animation == "loop") {
+      made.Animation = AssetAnimation::Loop;
     } else if (animation == "ignore") {
       made.Animation = AssetAnimation::Ignore;
     } else if (animation == "driven") {
       made.Animation = AssetAnimation::Driven;
     } else {
       error = "<asset> declares animation='" + animation +
-              "', and the three answers are play, ignore and driven";
+              "', and the four answers are play, loop, ignore and driven";
       return false;
     }
     into.Assets.push_back(made);

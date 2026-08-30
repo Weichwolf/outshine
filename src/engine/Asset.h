@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_ASSET_H
 
 #include <string>
+#include <cmath>
 #include <vector>
 
 #include <Geometry.h>
@@ -56,9 +57,15 @@ public:
   // what the oracle renders and what this now does; looping is a client's policy and this door
   // does not yet spell one, so it is not invented here.
   [[nodiscard]] double AtS() const { return AtS_; }
-  void Advances(double stepS) {
+  [[nodiscard]] double DurationS() const { return Motion_.EndS(); }
+  void Advances(double stepS, bool loops) {
     const double end = Motion_.EndS();
-    AtS_ = AtS_ + stepS > end ? end : AtS_ + stepS;
+    const double next = AtS_ + stepS;
+    if (!(end > 0.0)) {
+      AtS_ = 0.0;
+      return;
+    }
+    AtS_ = loops ? next - end * std::floor(next / end) : (next > end ? end : next);
   }
 
 private:
