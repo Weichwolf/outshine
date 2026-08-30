@@ -130,3 +130,14 @@ if ! python3 test/scripts/grammar_vs_reader.py; then
   printf 'lint: declaration can reach. Add the row, or stop reading it.\n' >&2
   exit 1
 fi
+
+# THE SHADER VARIANTS AGAINST THE NAMES THAT ASK FOR THEM. The subject's variant set is written
+# twice -- as `fragment SFrag` entries in the .msl files and as string literals the renderer hands
+# the driver -- and the two agree by hand. A name asked for and not defined is a pipeline that fails
+# at RUN time with a driver's message rather than a compiler's; a name defined and never asked for
+# is a variant nothing can reach. board:2060 removes the second list; this holds them together until
+# it does.
+if ! python3 test/scripts/entries_vs_shaders.py; then
+  printf 'lint: the renderer names a shader entry no .msl defines, or defines one nobody asks\n' >&2
+  exit 1
+fi
