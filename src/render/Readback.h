@@ -39,5 +39,5 @@ private:
   uint32_t Row = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

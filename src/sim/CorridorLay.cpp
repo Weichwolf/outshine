@@ -695,4 +695,4 @@ bool LayCorridor(const Path::Route &route,
   return true;
 }
 
-} // namespace outshine::Sim
+}

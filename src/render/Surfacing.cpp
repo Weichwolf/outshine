@@ -41,4 +41,4 @@ void ResolveDeclaredSurface(const Shape &geometry,
   }
 }
 
-} // namespace outshine::Render
+}

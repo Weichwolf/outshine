@@ -88,5 +88,5 @@ public:
   LogThreadSinkScope &operator=(const LogThreadSinkScope &) = delete;
 };
 
-} // namespace outshine
+}
 #endif

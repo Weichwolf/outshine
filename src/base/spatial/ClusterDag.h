@@ -13,13 +13,6 @@
 
 namespace outshine {
 
-// THE COOKER'S OWN RECORD, AND NOT THE DEVICE'S. Two attempts made this one struct serve both and
-// both were wrong: a stride of 52 bytes is 16-aligned for every fourth cluster and no other, so the
-// `float4` load it was reordered for cannot be issued at all. A cooker walks clusters ONE at a time
-// and wants them whole; a cull kernel sweeps EVERY cluster's sphere and touches nothing else, so
-// what it wants is the spheres apart from the rest. Those are different questions and they now have
-// different answers -- `ShapeStore` carries the device's two runs beside this one, written where
-// the cut is taken.
 struct DagCluster {
   float SelfCenter[3] = {0, 0, 0};
   float SelfRadius = 0.0f;
@@ -124,19 +117,5 @@ DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau, const 
          DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
 }
 
-// WHAT THE CUT NEEDS AND NOTHING MORE. A DAG BUILDER stood here -- `ClusterDagBuild` and a `dag::`
-// namespace of quadrics, clustering, group simplification and absorption, 770 lines of it -- and
-// nothing in the engine reached any of it. It was written for board:1991, cooked nothing, and took
-// an `outshine::Geometry` while every path that would have used it carried the importer's own
-// carrier instead.
-//
-// Deleted rather than kept for later, which is this page's own rule: a capability no declaration
-// reaches is the commonest defect here, and one kept because it might be wanted is the same defect
-// with an excuse. When board:1949 makes ONE value, the cooker gets built against THAT value --
-// which is a different builder from this one, so keeping it would have preserved the wrong shape.
-//
-// What stays is what `GroundPatchwork` actually calls: the cluster record, the screen-space error,
-// and the selection.
-
-} // namespace outshine
+}
 #endif

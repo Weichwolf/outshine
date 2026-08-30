@@ -90,5 +90,5 @@ inline const char *FormatIsoUtc(int64_t unixS, char *buf, size_t n) {
   return buf;
 }
 
-} // namespace outshine
+}
 #endif

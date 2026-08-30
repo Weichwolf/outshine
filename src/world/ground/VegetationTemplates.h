@@ -84,5 +84,5 @@ private:
   int Unmapped_ = 0, RockTpl_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

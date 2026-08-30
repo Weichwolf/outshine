@@ -30,7 +30,7 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + declared + core + body;
 }
 
-} // namespace
+}
 
 bool MediumMultiScatterStage::Configure(const Gpu &gpu,
                                         SDL_GPUTexture *transmittance,
@@ -100,4 +100,4 @@ std::string MediumMultiScatterStage::KernelSource(std::string &error) {
   return Kernel(error);
 }
 
-} // namespace outshine::Render
+}

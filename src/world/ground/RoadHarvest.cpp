@@ -87,4 +87,4 @@ Reaped Reap(const OsmField &field,
   return out;
 }
 
-} // namespace outshine::Ground
+}

@@ -24,5 +24,5 @@ struct PassRecording {
   SDL_GPUComputePass *Dispatch = nullptr;
 };
 
-} // namespace outshine::Render
+}
 #endif

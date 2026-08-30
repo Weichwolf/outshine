@@ -4,6 +4,9 @@
 #
 # WHAT EACH TARGET IS FOR
 #
+#   make strip      delete every comment src/ may not keep. `include/` and `src/client/` keep
+#                   their Doxygen; the rest of src/ and apps/ keep NOTHING, and seeing that on
+#                   every build is what forces code that speaks for itself
 #   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
 #                   the tools beside them, and STATE.md restated
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
@@ -33,11 +36,14 @@ RUN      := cd $(SELF_DIR) && sh test/run.sh
 # quietly skipped.
 LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
-.PHONY: all db lint doc shots test suite clean spotless help
+.PHONY: all strip db lint doc shots test suite clean spotless help
 
-all:             ## the library, the generator archive, the tools, and STATE.md
-	@$(RUN) --library
-	@$(RUN) --state > STATE.md
+all: strip       ## the library, the generator archive, the tools, and STATE.md
+	@cd $(SELF_DIR) && sh test/run.sh --library
+	@cd $(SELF_DIR) && sh test/run.sh --state > STATE.md
+
+strip:           ## delete every comment src/ may not keep -- see test/strip-comments.py
+	@cd $(SELF_DIR) && python3 test/strip-comments.py
 
 db:              ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db

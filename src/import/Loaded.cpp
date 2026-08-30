@@ -42,10 +42,6 @@ struct Loaded::Held {
     return Wears();
   }
 
-  // THE MAPS, TRANSLATED RATHER THAN RE-READ. `ResolveFileSurface` is the one place that decides
-  // what a glTF texture reference MEANS -- which uv set, which wrap, which filter, what transform
-  // -- and a second reading of the same references is how two answers to one question start. So
-  // this asks it, and turns what it resolved into the door's own words.
   [[nodiscard]] bool Wears() {
     Render::SurfaceTable table;
     Gltf::ResolveSurfaceTable(File, Assembled, true, true, table);
@@ -98,9 +94,6 @@ struct Loaded::Held {
     into.Samples.WrapV = wrapped(from.WrapV);
   }
 
-  // ONE IMAGE PER DISTINCT PICTURE. Two surfaces sharing a glTF texture decode to two rasters on
-  // the engine's side, one per slot; the door's table is the ASSET's, so an identical picture is
-  // kept once and both maps name it.
   [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {
     const size_t bytes = (size_t)from.Width * (size_t)from.Height * 4u;
     const std::span<const uint8_t> pixels(from.Rgba, bytes);
@@ -130,8 +123,6 @@ bool Loaded::reads(std::string_view path) {
   held.Plays.clear();
   held.Moves = false;
 
-  // THE FILE'S OWN CAMERA IS READ ONCE AND KEPT. A glTF may place several; the FIRST is the one a
-  // client means by "the camera this asset ships", and a client that wants another declares it.
   held.HasEye = false;
   if (!held.File.Cameras().empty()) {
     Render::Viewpoint placed;
@@ -221,4 +212,4 @@ const Camera &Loaded::camera(void) const {
   return Held_->Eye;
 }
 
-} // namespace outshine
+}

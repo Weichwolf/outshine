@@ -77,5 +77,5 @@ private:
   bool Started_ = false;
 };
 
-} // namespace outshine::Ui
+}
 #endif

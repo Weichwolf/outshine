@@ -13,13 +13,6 @@ namespace outshine::Render {
 
 class SubjectDraw;
 
-// ONE THREADGROUP PER CLUSTER, NOT ONE THREAD. The first version gave a cluster to a single thread
-// and had it copy its own 384 indices in a loop, which is a serial memcpy on a machine built to do
-// the opposite: Heidelberg's 7650 clusters became 7650 busy lanes and took the frame from 9.59 ms
-// to 68.21. The copy itself is 23 MB a frame there, which is a quarter of a millisecond at this
-// device's bandwidth -- everything above that was the shape of the kernel and not the work in it.
-//
-// So the group decides ONCE, in lane zero, and every lane copies a strided slice of what it kept.
 class SubjectCullStage {
 public:
   [[nodiscard]] static std::string KernelSource();
@@ -40,5 +33,5 @@ private:
   uint32_t Swept_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

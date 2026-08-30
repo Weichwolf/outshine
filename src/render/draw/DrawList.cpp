@@ -12,7 +12,7 @@ bool SameState(const DrawBatch &batch, const DrawItem &item) {
          batch.Instances == item.Instances;
 }
 
-} // namespace
+}
 
 bool DrawList::Add(const DrawItem &item, std::string &error) {
   if (item.IndexCount == 0) {
@@ -82,19 +82,11 @@ void DrawList::Compile() {
                         0});
   }
 
-  // A SECOND WALK, IN BATCH ORDER, BECAUSE THE FIRST ONE DOES NOT KNOW WHERE A BATCH ENDS. Only a
-  // batch that stands on ONE placement takes jobs: a cluster's sphere is culled against one model
-  // matrix, and an instanced batch has as many as it has instances, so rejecting a cluster there
-  // would reject it for every instance at once.
   size_t at = 0;
   for (DrawBatch &batch : Batches_) {
     batch.FirstJob = (uint32_t)(Jobs_.size() / kJobWords);
     const size_t upTo = at + batch.Draws;
 
-    // ALL OF THE BATCH OR NONE OF IT. An indirect draw covers exactly the clusters the culler
-    // kept, so a batch holding one draw the cooker did not cut would lose that draw entirely --
-    // a hole in the picture rather than a slower frame. A batch that is not wholly cut takes the
-    // direct path, and that is also why the whole of it is checked before any of it is listed.
     bool wholly = batch.Instances == 1;
     for (size_t look = at; look < upTo && look < Draws_.size() && wholly; ++look) {
       wholly = Draws_[look].ClusterCount > 0;
@@ -113,10 +105,6 @@ void DrawList::Compile() {
   }
 }
 
-// THE CLUSTER RANGES, MOVED INTO THE PACKED RUN'S NUMBERING. A cooker numbers a cluster against the
-// subject's own index run and the pack rewrites that run in batch order; the shift is the same for
-// every cluster of one draw, so it is applied once here rather than carried into the kernel. The
-// caller supplies the table because `DrawList` knows what a DRAW is and nothing about a cut.
 void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
   size_t at = 0;
   for (const DrawBatch &batch : Batches_) {
@@ -136,4 +124,4 @@ void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
   }
 }
 
-} // namespace outshine::Render
+}

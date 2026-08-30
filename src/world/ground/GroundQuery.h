@@ -21,5 +21,5 @@ public:
   [[nodiscard]] virtual int BlockZoom() const { return 0; }
 };
 
-} // namespace outshine
+}
 #endif

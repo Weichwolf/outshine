@@ -232,5 +232,5 @@ inline void TrackProjectM(double refLat,
   acrossM = e * std::cos(c) - n * std::sin(c);
 }
 
-} // namespace outshine
+}
 #endif

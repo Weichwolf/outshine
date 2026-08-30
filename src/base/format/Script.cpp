@@ -214,7 +214,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
   return true;
 }
 
-} // namespace
+}
 
 struct Program::Node {
   enum class Shape : uint8_t {
@@ -638,7 +638,7 @@ bool ReadStatement(Reading &in, size_t &out) {
   return held;
 }
 
-} // namespace
+}
 
 bool Program::Read(std::string_view text, std::string &error) {
   Nodes_.clear();
@@ -786,7 +786,7 @@ const Boundary kBoundaries[] = {
     {"the script reaches the node bound", "the same, in size"},
 };
 
-} // namespace
+}
 
 [[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
   size_t at = 0;
@@ -1090,4 +1090,4 @@ bool Program::Run(Host &host, std::string &error) {
   return Perform(Root_, host, error);
 }
 
-} // namespace outshine::Script
+}

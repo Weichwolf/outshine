@@ -21,7 +21,7 @@ double U(uint32_t h) {
   return (double)(h & 0xFFFFFFu) / 16777216.0;
 }
 
-} // namespace
+}
 
 bool AlpineLimit::Load(const Json::Ref &root) {
   Ready_ = false;
@@ -62,4 +62,4 @@ double AlpineLimit::Noise(double e, double n) const {
   return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
 }
 
-} // namespace outshine
+}

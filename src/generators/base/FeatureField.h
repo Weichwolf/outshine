@@ -61,5 +61,5 @@ private:
   std::vector<Vertex> Vertices_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

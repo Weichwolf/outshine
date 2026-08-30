@@ -208,6 +208,11 @@ done
 
 LayerIncludes() {
   case "$1" in
+    # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
+    # carried its own hand-written list beside the build line, which is the second spelling of the
+    # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
+    # door, breaking `make` while every suite stayed green.
+    tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Itest/harness/shared/render -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/world/data -Itest/harness/shared" ;;
     outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
@@ -1623,7 +1628,7 @@ for pruneObject in $OBJECTS; do
   [ "$pruneObject" -nt "$BUILD/prune" ] && pruneStale=yes
 done
 if [ "$pruneStale" = yes ]; then
-  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Iinclude -Itest/harness/shared -Itest/harness/shared/render -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -o "$BUILD/prune" ||
+  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN $(LayerIncludes tool/prune) -o "$BUILD/prune" ||
     Die "the prune did not build"
 fi
 PRUNE_MARKER=$BUILD/prune.marker

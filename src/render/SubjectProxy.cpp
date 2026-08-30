@@ -309,15 +309,6 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
   return true;
 }
 
-// EACH CHANNEL PACKS ITSELF INTO THE MAPPING THE DEVICE HANDED BACK, so no buffer of ours stands
-// between the producer and the transfer buffer. A pointer says "copy these bytes from over there";
-// a writer says "you hold the memory, fill it". On Shibuya the buffer that stood here was 900 MB
-// and copying out of it cost 1932 ms.
-//
-// A RUN COVERS EVERY VERTEX OR IT COVERS NONE. The device addresses a channel by vertex id, so a
-// part declaring no UV still occupies its slice of the UV run -- packing only the parts that carry
-// one shifts every later part onto its neighbour's coordinates. `Assemble` used to pad while it
-// widened, and the padding was the half of it doing real work.
 struct ChannelPack {
   const Shape *From = nullptr;
   std::span<const float> ShapePart::*Channel = nullptr;
@@ -398,7 +389,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
   return true;
 }
 
-} // namespace
+}
 
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
@@ -448,10 +439,6 @@ bool Show(SceneRenderer &renderer,
          Place(renderer, proxy, view, scratch, error);
 }
 
-// PACKING AND HANDING OVER ARE TWO COSTS AND ONE NAME COVERED BOTH. `PackVertices` de-interleaves
-// the subject into the scratch -- CPU work that a matching layout would delete -- and
-// `SetSubjectMesh` is the device's own. 13.7 s of Shibuya's rebuild is the pair, and which of them
-// holds it decides whether the answer is a layout or a driver.
 std::atomic<double> gPackMs{0.0};
 std::atomic<double> gHandMs{0.0};
 
@@ -536,15 +523,6 @@ bool Place(SceneRenderer &renderer,
           .count(),
       std::memory_order_relaxed);
 
-  // AND THE TWO RUNS ARE DEAD THE MOMENT THE DEVICE HAS THEM. Both are staging on this side: the
-  // packed index run is copied into the device's index buffer and the position run is read once to
-  // build the visibility structure, and after `SetSubjectMesh` returns nothing reads either again
-  // until the NEXT rebuild, which resizes them anyway. Held, they were 113 MB and 340 MB of
-  // Shibuya standing idle beside a device that already had both -- enough that the system killed
-  // the run before it drew a frame once the cut's own tables were added.
-  //
-  // THE POSE PATH KEEPS ITS RUN. It repacks positions every frame for a subject that moves, so
-  // freeing there would be an allocation of the same size per frame rather than per rebuild.
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
   if (!Placed(renderer, proxy, error)) { return false; }
@@ -598,4 +576,4 @@ bool Move(SceneRenderer &renderer,
   return true;
 }
 
-} // namespace outshine::Render
+}

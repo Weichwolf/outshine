@@ -251,4 +251,4 @@ size_t SpeedProfile::StationsUnder(double ms) const noexcept {
   return under;
 }
 
-} // namespace outshine
+}

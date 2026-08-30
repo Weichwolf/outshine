@@ -32,5 +32,5 @@ private:
   bool Spherical_ = false;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

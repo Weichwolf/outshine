@@ -16,6 +16,6 @@ public:
   [[nodiscard]] virtual Underneath At(double lat, double lon) const = 0;
 };
 
-} // namespace outshine::Sim
+}
 
 #endif

@@ -11,5 +11,5 @@ struct BodyRange {
   uint32_t First = 0, Count = 0;
 };
 
-} // namespace outshine::Generators
+}
 #endif

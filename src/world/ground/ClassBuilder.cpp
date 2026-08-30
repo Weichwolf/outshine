@@ -89,7 +89,7 @@ void CurveRing(
   }
 }
 
-} // namespace
+}
 
 ClassBuilder::ClassBuilder()
     : Fine_(std::make_shared<const ClassStructure::Grid>()),
@@ -371,4 +371,4 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   B.Seeds.swap(seeds);
 }
 
-} // namespace outshine::Ground
+}

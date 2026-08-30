@@ -42,4 +42,4 @@ bool Infrastructure::At(const Ground &, double, double, Body *) const noexcept {
   return false;
 }
 
-} // namespace outshine::Generators
+}

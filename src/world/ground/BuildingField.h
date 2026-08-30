@@ -90,5 +90,5 @@ private:
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

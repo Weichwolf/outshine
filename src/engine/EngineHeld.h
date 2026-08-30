@@ -343,9 +343,6 @@ struct Ticks {
   bool Drove = false;
   double OwedS = 0.0;
 
-  // THE SIMULATION'S OWN CLOCK. A trigger volume was probed with the ANIMATION's frame index times
-  // the sim step -- two different quantities multiplied together -- because nothing here counted
-  // elapsed time and `Steps` only moves while a drive is running.
   double ElapsedS = 0.0;
   size_t Steps = 0;
   size_t MostSteps = 0;
@@ -382,5 +379,5 @@ struct Engine::State {
   [[nodiscard]] bool Routes(void);
 };
 
-} // namespace outshine
+}
 #endif

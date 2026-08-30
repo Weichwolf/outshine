@@ -24,5 +24,5 @@ struct Transform {
   [[nodiscard]] bool Inverse(Transform &out) const;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

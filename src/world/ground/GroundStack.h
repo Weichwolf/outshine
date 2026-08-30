@@ -24,11 +24,6 @@ class Sink;
 
 namespace outshine::Ground {
 
-// WHAT THE FRAME MAY SPEND ON THE STREAM, and it is a DURATION rather than a count of tiles. A
-// count is bound to how often somebody calls, which is not a quantity a frame budget is made of: at
-// 0.3 ms a tile it leaves the frame idle and at 40 ms it has already overrun. [SET] at 2.0 ms --
-// 12 per cent of the 16.7 ms a 60 Hz frame owns -- pending a measurement of the decode's own cost
-// on this target. `preload` passes 0.0, which means unbounded, because it IS the wait.
 constexpr double kStreamBudgetMs = 2.0;
 
 class GroundStack {
@@ -58,9 +53,6 @@ public:
 
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
 
-  // THE ALBEDO EACH LAND CLASS DECLARES. Twenty of them are loaded from
-  // `world/ground-materials.json` at every start and nothing outside this tier could read them, so
-  // a desert and a meadow came out the same green.
   [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
 
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
@@ -69,16 +61,8 @@ public:
 
   [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
 
-  // THE MESHER COMES FROM ABOVE. `StructureMesher` is declared in this tier and implemented in
-  // `src/generators/`, which this tier may not see, so whoever sits above both installs it. Nothing
-  // did: `BuildingField::Shapes` had no caller and `BuildingField::Verts` had no reader, so every
-  // footprint the world read was meshed by nobody.
   void ShapesFootprintsWith(const StructureMesher *mesher) { Footprints_.Shapes(mesher); }
 
-  // THE FOCAL LENGTH THE FOOTPRINTS ARE MESHED FOR. A level of detail is a number of PIXELS, so the
-  // generator cannot choose one without knowing how many pixels a metre is worth. It is declared
-  // once with the frame and the lens rather than sampled per frame, because a level that changed
-  // with the camera would remesh the world every time the view turned.
   void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
 
   [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
@@ -111,6 +95,6 @@ private:
   bool Opened_ = false;
 };
 
-} // namespace outshine::Ground
+}
 
 #endif

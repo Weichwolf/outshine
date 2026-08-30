@@ -72,5 +72,5 @@ private:
   double HeightM_ = 0.0;
 };
 
-} // namespace outshine::Generators
+}
 #endif

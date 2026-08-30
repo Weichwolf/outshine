@@ -49,5 +49,5 @@ private:
   double CrownProjM2_ = 0.0;
 };
 
-} // namespace outshine::Generators
+}
 #endif

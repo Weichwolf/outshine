@@ -39,11 +39,6 @@ bool Posed::Reads(const std::string &path,
   return true;
 }
 
-// A SWEEP THAT ONLY MEASURES MUST NOT DISTURB THE MOTION HISTORY. Deriving a camera over an
-// animation poses every frame and poses back, and each of those wrote `PreviousPositionsM_` -- so
-// the restored frame 0 carried the LAST frame as its predecessor and every covered pixel reported
-// motion on a still. Measured on Khronos's AnimatedCube: 346.7 px of velocity per frame at frame
-// 0, over all 97468 covered pixels.
 bool Posed::Measures(double seconds, std::string &error) {
   return PoseInto(seconds, false, error);
 }
@@ -75,4 +70,4 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
   return false;
 }
 
-} // namespace outshine::Core
+}

@@ -44,4 +44,4 @@ void Log::Emit(LogLevel level,
   out->Write(TimeS_, level, Unit_[0] ? Unit_ : nullptr, tag, event, fields);
 }
 
-} // namespace outshine
+}

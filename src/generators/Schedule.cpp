@@ -41,4 +41,4 @@ std::optional<Tile> Schedule::Widest(double lat, double lon) const {
   return widest;
 }
 
-} // namespace outshine::Generators
+}

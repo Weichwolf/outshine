@@ -34,6 +34,6 @@ private:
   bool Left_ = false;
 };
 
-} // namespace outshine::Control
+}
 
 #endif

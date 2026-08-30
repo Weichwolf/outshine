@@ -21,7 +21,7 @@
 namespace outshine::Data {
 class SourceSet;
 class Transport;
-} // namespace outshine::Data
+}
 
 namespace outshine::Ground {
 
@@ -98,11 +98,6 @@ public:
 
   int InFlightCap() const { return (int)Threads_.size(); }
 
-  // A CLIENT'S WAIT IS A WAIT, NOT A SAMPLE. `Engine::preload` slept 20 ms and asked again, which
-  // is polling -- and this tree's own IO invariant is that a worker is NOTIFIED rather than
-  // polling. Unreal blocks on the outstanding-request count in `BlockTillAllRequestsFinished` and
-  // RAGE on `sysIpcSignalSema` in `LoadAllRequestedObjects`; both wake on a completion, and this is
-  // that completion. It answers false when the deadline passed with nothing landing.
   [[nodiscard]] bool AwaitLanding(double seconds);
 
 private:
@@ -122,9 +117,6 @@ private:
     Reply State = Reply::Pending;
     TileBuild Build;
 
-    // ONLY A MESH IS WORTH HOLDING. A fetch result is consumed once by the mesh job that asked for
-    // it, and holding it broke the wake: a mesh parked in `Awaiting_[fetchKey]` is resumed when
-    // that fetch job RUNS, and a cached fetch never runs again.
     bool Holds = false;
   };
 
@@ -190,5 +182,5 @@ private:
   std::unordered_map<uint64_t, std::vector<Job>> Awaiting_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

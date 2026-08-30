@@ -28,7 +28,7 @@ TreeVec3 RadialAt(TreeVec3 dir, TreeVec3 up, float roll) {
   return n * std::cos(roll) + b * std::sin(roll);
 }
 
-} // namespace
+}
 
 TreeVec3 TreeGrower::Inward(TreeVec3 p) const {
   if (Form_.Envelope == CrownEnvelope::Cut) {
@@ -452,4 +452,4 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

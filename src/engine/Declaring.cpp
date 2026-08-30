@@ -169,9 +169,6 @@ Result Engine::declare(const Scenario &scenario) {
   const Patch whole;
   const Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
   if (scenario.Render.Declared) {
-    // A RATE NOT DECLARED LEAVES THE ENGINE'S OWN STANDING. Taking the struct's zero here stopped
-    // the animation dead: the cursor advances by ELAPSED TIME and one step of nothing is nothing,
-    // so a scenario that never mentioned a frame rate drew the rest pose for ever.
     if (scenario.Render.Fps > 0.0) { declared.Fps = scenario.Render.Fps; }
     declared.Fill = scenario.Render.Fill;
     declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
@@ -200,10 +197,6 @@ Result Engine::declare(const Scenario &scenario) {
       return std::unexpected(S_->Error);
     }
     if (scenario.Ground.Declared && !anglePut) {
-      // LIVE IS THE MACHINE'S OWN CLOCK AND IT IS NOW SAYABLE. A stated `Start` wins over it when
-      // both are given, because an instant is more specific than "now" and a client that names one
-      // wants the same picture tomorrow. Undeclared still means live, so nothing that stood before
-      // this moves -- what changed is that a client can now SAY which of the two it meant.
       int64_t whenS = 0;
       const bool live = !scenario.Time.Declared || scenario.Time.Live;
       if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
@@ -437,4 +430,4 @@ const Scenario &Engine::declaration() const {
   return S_->Session.Declared;
 }
 
-} // namespace outshine
+}

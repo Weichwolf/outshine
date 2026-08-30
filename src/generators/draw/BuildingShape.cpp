@@ -330,16 +330,6 @@ struct PartOrder {
   std::optional<BuildingUse> Use;
 };
 
-// A RING IS TIDIED BEFORE IT IS MESHED, and the threshold comes from the ring's own area rather
-// than from a constant. An OSM way closes on its first point and carries nodes a metre apart along
-// a straight facade; either makes a triangle of near-zero area, and a fan over such a ring throws a
-// vertex wherever the arithmetic lands. Seen at Rothenburg magnified eight times: long thin slivers
-// out of roof corners, lit as roof surfaces, and roof planes reaching past their building.
-//
-// What is dropped and nothing more: a point on top of its neighbour, and a point whose two edges
-// carry it less than a millionth of the ring's own area off the line between them. A building of
-// 100 m2 therefore keeps every corner that moves the outline by more than 0.0001 m2, which no real
-// facade fails.
 size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
   if (ring.size() < 3) { return 0; }
   double least[2] = {ring[0].E, ring[0].N}, most[2] = {ring[0].E, ring[0].N};
@@ -506,7 +496,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   }
 }
 
-} // namespace
+}
 
 void BuildingShape::ToBox(const En &p, double *u, double *v) const {
   const double e = p.E - Centre.E, n = p.N - Centre.N;
@@ -603,4 +593,4 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
   return out;
 }
 
-} // namespace outshine::Generators
+}

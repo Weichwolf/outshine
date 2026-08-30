@@ -17,5 +17,5 @@ private:
   double HeightM_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

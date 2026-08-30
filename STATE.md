@@ -432,17 +432,17 @@ The heaviest files. Headers and sources counted apart.
 | lines | kind | file |
 |---|---|---|
 | 1979 | `cpp` | `import/Document.cpp` |
-| 1757 | `cpp` | `engine/Picturing.cpp` |
+| 1590 | `cpp` | `engine/Picturing.cpp` |
 | 1375 | `cpp` | `ui/Layout.cpp` |
-| 1373 | `cpp` | `import/Subject.cpp` |
-| 1229 | `cpp` | `render/SceneRenderer.cpp` |
-| 1167 | `cpp` | `engine/Live.cpp` |
+| 1364 | `cpp` | `import/Subject.cpp` |
+| 1206 | `cpp` | `render/SceneRenderer.cpp` |
 | 1093 | `cpp` | `base/format/Script.cpp` |
-| 1056 | `cpp` | `generators/draw/BuildingMesh.cpp` |
-| 1019 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| 1038 | `cpp` | `engine/Live.cpp` |
+| 975 | `cpp` | `render/stages/SubjectDraw.cpp` |
 | 950 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| 938 | `cpp` | `ui/Style.cpp` |
 | **50** | `h` | *the median of 240 header(s)* |
-| **128** | `cpp` | *the median of 173 source(s)* |
+| **127** | `cpp` | *the median of 173 source(s)* |
 
 ## Carpet
 
@@ -533,7 +533,7 @@ What is declared to fail. A standing red is a finding, never a licence.
 
 Suites reaching past `include/` into `src/`, which CLAUDE.md forbids.
 
-**15 of 18** declared suite(s) are granted a `-Isrc` path (board:1879).
+**16 of 19** declared suite(s) are granted a `-Isrc` path (board:1879).
 
 Reaching the library through `include/` alone:
 

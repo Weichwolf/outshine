@@ -159,7 +159,7 @@ void Thread(Building &work, uint32_t here, uint32_t escape) {
   Thread(work, work.Right[here], escape);
 }
 
-} // namespace
+}
 
 TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t> indices) {
   TriangleBvh built;
@@ -346,4 +346,4 @@ bool TriangleBvh::Occludes(const float originM[3],
   return false;
 }
 
-} // namespace outshine
+}

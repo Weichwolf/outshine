@@ -11,7 +11,7 @@ char *Wrote(char *at, char *end, long long value) {
   return put.ec == std::errc() ? put.ptr : at;
 }
 
-} // namespace
+}
 
 std::string Address::Text() const {
   char text[48];
@@ -31,4 +31,4 @@ std::string Address::Text() const {
   return std::string(text, (size_t)(at - text));
 }
 
-} // namespace outshine::Data
+}

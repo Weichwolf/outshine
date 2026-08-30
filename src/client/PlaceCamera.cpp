@@ -26,11 +26,6 @@ constexpr double kSunBearingDeg = 180.0;
 constexpr double kKeyLux = 40000.0;
 constexpr int kTimedFrames = 120;
 
-// SIX PLACES ON EARTH, AND THE SET IS A DECISION. A canyon, a medieval town, a modern city, an
-// island city, a park under a skyline and a range seen from across a plain -- between them they ask
-// for terrain at every scale, footprints at every density, and a horizon at 240 km. Adding a
-// seventh is cheap; what is not cheap is changing what they share, because that is what makes any
-// two of them comparable.
 constexpr std::array<Place, 6> kPlaces{{
     {"OldTown", 49.3777, 10.179, 70.0},
     {"Heidelberg", 49.4147, 8.6968, 108.50},
@@ -40,7 +35,7 @@ constexpr std::array<Place, 6> kPlaces{{
     {"Jura", 47.2492, 7.5108, 156.53},
 }};
 
-} // namespace
+}
 
 std::span<const Place> Places() {
   return kPlaces;
@@ -213,8 +208,6 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
     shot.Kept = !failed;
   }
 
-  //
-  //
   std::vector<double> heldMs;
   heldMs.reserve((std::size_t)kTimedFrames);
   for (int at = 0; at < kTimedFrames; ++at) {
@@ -244,4 +237,4 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
   return shot;
 }
 
-} // namespace outshine::Shots
+}

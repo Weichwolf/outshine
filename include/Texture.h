@@ -8,12 +8,6 @@
 
 namespace outshine {
 
-// WHAT A SURFACE WEARS, WHICH THIS DOOR COULD NOT SAY. `Material` is a row of numbers and a
-// `Geometry` carried no images, so a client loading somebody else's asset could see its geometry
-// and its material constants and nothing about the PICTURES that make it look like the thing it
-// is. Filament's answer is a `Texture` a `MaterialInstance` takes as a parameter; glTF's own
-// material carries texture REFERENCES rather than pixels, and that split is the real one -- the
-// door's `Material` names a map, and the engine keeps the raster it decoded for the device.
 enum class Filter : uint8_t { Nearest, Linear };
 enum class MipFilter : uint8_t { None, Nearest, Linear };
 enum class Wrap : uint8_t { ClampToEdge, MirroredRepeat, Repeat };
@@ -39,8 +33,6 @@ struct SurfaceMap {
   [[nodiscard]] bool operator==(const SurfaceMap &) const = default;
 };
 
-// THE PIXELS, RGBA AND ROW-MAJOR, borrowed rather than owned: they live in the `Geometry` that
-// hands them out, and a view of them costs nothing to take.
 struct ImageView {
   int WidthPx = 0;
   int HeightPx = 0;
@@ -51,6 +43,6 @@ struct ImageView {
   }
 };
 
-} // namespace outshine
+}
 
 #endif

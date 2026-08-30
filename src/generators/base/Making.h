@@ -34,5 +34,5 @@ protected:
   Making() = default;
 };
 
-} // namespace outshine::Generators
+}
 #endif

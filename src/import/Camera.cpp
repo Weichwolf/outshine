@@ -24,7 +24,7 @@ namespace {
   return true;
 }
 
-} // namespace
+}
 
 bool Camera::viewMatrix(double outM16[16]) const {
   Render::Viewpoint standing;
@@ -59,4 +59,4 @@ bool Camera::clipMatrix(double aspect, double outM16[16]) const {
   return true;
 }
 
-} // namespace outshine
+}

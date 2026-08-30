@@ -19,6 +19,6 @@ struct Png {
 
 [[nodiscard]] Png ReadPng(const uint8_t *bytes, size_t length);
 
-} // namespace outshine::Io
+}
 
 #endif

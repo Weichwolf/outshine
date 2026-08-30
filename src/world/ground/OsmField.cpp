@@ -18,7 +18,7 @@ uint64_t TileKey(int x, int y) {
   return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
 }
 
-} // namespace
+}
 
 OsmField::OsmField(int zoom, std::span<const std::string> layers)
     : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
@@ -35,18 +35,6 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   return id;
 }
 
-// EVERY UNSETTLED TILE IN THE RING GETS ITS REQUEST, EVERY CALL. What stood here capped the work at
-// ONE tile per call -- and the cap sat in front of `Bytes`, so the remaining tiles were not merely
-// left undecoded, their fetches were never ISSUED. `TilePool` already fetches on a thread pool with
-// its own in-flight cap, so the cap here was throttling the one stage that was already parallel: a
-// ring of 49 tiles took 49 calls just to ask for 49 files. Measured on the Jura, ring 3: 9 of 49
-// tiles settled, and `preload` answering 100 per cent over the other 40.
-//
-// A COUNT IS NOT A BUDGET. One tile per call is bound to how often somebody calls, which is not a
-// quantity the frame path cares about -- at 0.3 ms a tile it wastes the frame and at 40 ms it has
-// already overrun. The expensive stage is `Accept`, which parses the vector tile, so THAT is what
-// carries a budget, and the budget is milliseconds. A non-positive budget means unbounded, which is
-// what `preload` passes: it is the client's explicit blocking wait and not the frame path.
 int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs) {
   uint32_t cx = 0, cy = 0;
   Pending_ = 0;
@@ -253,4 +241,4 @@ std::string_view OsmField::Str(const Feature &f, const char *key) const {
   return {};
 }
 
-} // namespace outshine::Ground
+}

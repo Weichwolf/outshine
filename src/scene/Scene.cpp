@@ -138,7 +138,7 @@ const char *Named(Relation how) {
   return "no relation";
 }
 
-} // namespace
+}
 
 bool Scene::Kept::open(size_t capacity) {
   if (capacity == 0) { return Refuse("a store of no entities holds nothing"); }
@@ -756,4 +756,4 @@ Scene::~Scene() = default;
 Scene::Scene(Scene &&) noexcept = default;
 Scene &Scene::operator=(Scene &&) noexcept = default;
 
-} // namespace outshine
+}

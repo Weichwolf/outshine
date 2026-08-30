@@ -89,6 +89,6 @@ inline void HalveInPlace(std::span<const float> from,
   }
 }
 
-} // namespace outshine::Render
+}
 
 #endif

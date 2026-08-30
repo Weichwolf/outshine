@@ -135,6 +135,6 @@ inline constexpr int kEnergyViewSteps = 16;
   return MicrofacetEnergyMsl(ignored);
 }
 
-} // namespace outshine::Render
+}
 
 #endif

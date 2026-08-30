@@ -218,7 +218,7 @@ constexpr double kMostClothoidShare = 1.0;
   return bend;
 }
 
-} // namespace
+}
 
 double JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM) {
   const double swing = std::fabs(deflectionRad);
@@ -452,4 +452,4 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   return said;
 }
 
-} // namespace outshine
+}

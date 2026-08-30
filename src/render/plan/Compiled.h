@@ -59,9 +59,6 @@ public:
 
     AttachmentSet Targets;
 
-    // THE TABLES THIS PASS WRITES, apart from the pictures it writes. A device declares the two at
-    // the same moment and by different calls, so the plan keeps them apart rather than making the
-    // encoder ask each target which of the two it is.
     AttachmentSet Buffers;
     Resource Depth = kNoEdge;
   };
@@ -82,7 +79,6 @@ public:
     return HeldResource_[static_cast<size_t>(resource)];
   }
 
-  // WHAT ONE ELEMENT OF A BUFFER RESOURCE TAKES, in bytes. Zero for anything that is not one.
   [[nodiscard]] uint32_t Stride(Resource resource) const {
     return kResources[static_cast<size_t>(resource)].Stride;
   }
@@ -141,5 +137,5 @@ private:
   int SettleFrames_ = 1;
 };
 
-} // namespace outshine::Render
+}
 #endif

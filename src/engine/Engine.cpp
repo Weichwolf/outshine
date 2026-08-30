@@ -92,7 +92,7 @@ const Travelling_ kAssemblers[kTravels] = {
   return "an unnamed way";
 }
 
-} // namespace
+}
 
 bool Engine::State::Routes(void) {
   const Scenario &declared = Session.Declared;
@@ -241,28 +241,10 @@ const std::vector<Measure> &Engine::measures() const {
 }
 
 bool Engine::settled(void) const {
-  // SETTLED MEANS THE WHOLE PICTURE, NOT ONLY ITS GROUND. Ground tiles are one half; the OSM
-  // fields the generators grow from are the other, and they arrive on their own schedule. A client
-  // that took its picture when the last tile landed got correct terrain with no buildings and no
-  // streets on it -- measured, six places at `0 instanced` with the snapshot answering Waiting.
-  // AND THE OSM SIDE HAS TO HAVE DRAINED, not merely started. `Grown` is `Snapped::Taken` for the
-  // ONE region under the anchor, which says nothing about whether the vector ring finished or
-  // whether the three fields ingested what it decoded. Measured on the Jura: 100 per cent reported
-  // over 9 settled tiles of a 49-tile ring, and the picture came out with the farms of the plain
-  // and no town.
-  // AND READY MEANS READY AT THE LEVEL THAT WAS ASKED FOR. A tile can answer "not pending" and
-  // still lay NOTHING -- the cascade wants it at one zoom and the elevation resident is another,
-  // or the build comes back empty -- and the ground then stands on the ellipsoid at sea level
-  // under a full set of streets and roofs. `Bare` is what the LAYING walk counted, and it is the
-  // only number that knows the difference.
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
          S_->World.Grown && S_->World.Stack.Ingested();
 }
 
-// A LOADING BAR IS A NUMBER, and every game has one. Cesium's tileset answers
-// `ComputeLoadProgress()` and Unreal answers `GetAsyncLoadPercentage`; both let the client draw the
-// bar rather than guessing. This is the same question in this engine's own terms: of the terrain
-// the current view wants, what share has actually arrived. A place with nothing wanted is loaded.
 Result Renderer::render(Extent frame) {
   return Of_->render(frame) ? Result{} : std::unexpected(Of_->error());
 }
@@ -335,12 +317,6 @@ bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heigh
 }
 
 double Engine::loadProgress(void) const {
-  // THIS READS THE ASK, and it only became truthful when the pool started HOLDING what it built.
-  // While `Done_` was a one-shot mailbox, a tile read "pending" again the moment it had been used,
-  // so this answered 0 per cent with 88 of 128 tiles carrying ground. It must not read the BUILD
-  // walk's numbers either: that walk does not count bare tiles at all, so `Bare == 0` there is a
-  // fact about the walk rather than about the world, and reading it made `settled()` answer yes
-  // with 35 tiles still pending.
   const size_t wanted = S_->World.AskedWanted;
   if (wanted == 0) { return 1.0; }
   const size_t missing = S_->World.AskedPending;
@@ -348,14 +324,6 @@ double Engine::loadProgress(void) const {
   return (double)(wanted - missing) / (double)wanted;
 }
 
-// PRELOAD IS THE CLIENT'S WAIT, NOT THE ENGINE'S. The frame path never blocks -- that is the
-// invariant -- so a client that wants a finished picture rather than a progressively refining one
-// asks for it HERE, once, bounded in seconds. Filament spells the same distinction
-// `SceneRenderer::flushAndWait`; Cesium's tileset reports load progress and the caller decides
-// whether to wait on it. Nothing inside advance() or render() ever calls this. A CEILING ON ONE
-// WAIT, NOT ON THE WAITING. The signal fires on every landing, so this bounds only how long a wake
-// is missed by -- the decode of an already-cached ring raises no landing at all, and without a
-// ceiling that ring would wait out the whole patience with its bytes already in hand.
 constexpr double kMostWaitS = 0.05;
 
 Loading Engine::loading(void) const {
@@ -393,33 +361,17 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
   const double bound = patienceS > 0.0 ? patienceS : 0.0;
   for (;;) {
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
-    // THE OSM SIDE HAS TO BE DRIVEN TOO. `GroundStack::Restand` is what builds the vector ring and
-    // ingests streets, water and footprints from it, and preload never called it -- so through the
-    // whole wait the terrain arrived and the OSM fields did not move at all. Measured: land classes
-    // and a patch of ground both present, `OSM features` answering 0, one vector tile settled and
-    // it was not the one the region asked for, and every place at `0 instanced`.
     const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
     const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;
-    // UNBOUNDED HERE, BECAUSE THIS IS THE WAIT ITSELF. A budget belongs to the frame path, which is
-    // a different caller with a different obligation; throttling the client's explicit blocking
-    // load only makes the wait longer without making any frame cheaper.
     S_->World.Stack.Restand(atLat, atLon, 0.0);
     (void)S_->Grows(atLat, atLon);
     say();
-    // LAY, THEN ASK WHETHER IT IS READY. `Bare` is what a LAYING walk counted, so a wait that only
-    // asks can never learn that a tile it was told about lays nothing. When the cheap conditions
-    // hold this lays once and lets `settled()` read the result; a ring that still stands anything
-    // bare is not ready and the wait goes on.
     if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&
         S_->World.Stack.Ingested()) {
       if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
       if (settled()) { return Result{}; }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
-      // PATIENCE RUNNING OUT IS NOT A REASON TO SHOW NOTHING. Whatever arrived is built and drawn;
-      // the refusal says what is still missing. Standing only on a full settle meant a place that
-      // loaded 73 per cent of its tiles rendered the bare ellipsoid, because the one call that
-      // turns tiles into geometry never ran.
       const bool built = S_->Grounds(true);
       S_->Error = "the world at this place did not become resident within " +
                   std::to_string(bound) + " s -- " + std::to_string(S_->World.Pending) + " of " +
@@ -453,4 +405,4 @@ const std::string &Engine::error() const {
   return S_->Error;
 }
 
-} // namespace outshine
+}

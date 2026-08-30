@@ -46,5 +46,5 @@ private:
   std::string Error_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

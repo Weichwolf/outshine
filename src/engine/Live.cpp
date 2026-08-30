@@ -33,12 +33,6 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
                  const std::vector<std::string> &outputs,
                  Render::PlanSpec &declaration,
                  std::string &error) {
-  // A PRESENT PASS FOR A WINDOW THAT DOES NOT EXIST IS WASTE. `Surface` is what PULLS
-  // `Stage::Present` in -- the plan is demand-driven from `Outputs` -- so a headless frame simply
-  // does not ask for it, and the readback takes `FrameTex` instead. The two carry ONE format,
-  // `Rgba8UnormSrgb`, which the catalogue states for both, so the dropped pass was a blit between
-  // two textures of the same format and the picture is unchanged. Measured on a Khronos still:
-  // three passes to two.
   declaration.Outputs = {Render::Resource::FrameTex};
   if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
   for (const std::string &named : outputs) {
@@ -56,9 +50,6 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
   }
 
   if (!stages.empty()) {
-    // A PICTURE NOBODY ASKED FOR COSTS A PASS. Velocity was added to every staged plan whether the
-    // declaration wanted it or not, which is one attachment and one pass on a case that renders a
-    // still. `Outputs` is now read, so a client that wants it says so.
 
     declaration.Content.clear();
     for (const std::string &named : stages) {
@@ -83,11 +74,6 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
     declaration.Content.push_back(Render::Stage::AerialPerspective);
   }
   if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
-  // THE PLAN FOLLOWS WHAT IS DRAWN, NOT WHAT THE FILE SHIPPED. A declaration REPLACES a surface,
-  // so a glass row the client overrode with an opaque one draws no glass and needs no pass for it
-  // -- reading `file.Materials()` here asked the asset a question the declaration had already
-  // answered. Measured: 21 Khronos cases whose own manifest calls them `opaque-min-1px` were
-  // running the two transmissive passes over bodies declared as flat emission.
   bool carriesGlass = false;
   for (const Render::SubjectMaterial &surface : surfaces) {
     const SurfaceKind kind = surface.State().Kind();
@@ -104,7 +90,7 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
   return true;
 }
 
-} // namespace
+}
 
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
@@ -138,24 +124,7 @@ double Live::Framing() const {
 
 namespace {}
 
-// THE ENGINE FILLS THE VIEW THE RENDERER READS. `src/render/` no longer names the importer's
-// carrier: it takes a `Render::Shape`, which is spans over whatever is held, so inverting the
-// dependency costs no bytes. The importer knows the engine; the engine hands the renderer a view;
-// the renderer never learns what file anything came from -- which is Unreal's arrow (the glTF
-// importer is a module depending on the engine) and RAGE's (tools depend on the runtime).
-// THE WORLD'S PRODUCER NEEDS NO CONVERSION AT ALL. A `Geometry` already holds float per part in
-// the layout the device binds, so the shape's parts VIEW it and only the indices are joined --
-// uint32_t on both sides, a copy with an offset rather than a reshaping. This is the whole point
-// of the goal: `Assemble` widened 28 M vertices to double so that `PackVertices` could narrow them
-// back, and neither pass had a reader that wanted double.
-
-// ONE SHAPE, ONE STORE, ONE PRODUCER. Five call sites used to build a temporary over the SAME
-// buffer, so each one silently invalidated the spans the standing shape was holding. The shape is
-// built here and nowhere else, and which producer fills it is the only question left.
 void Live::Reshape() {
-  // A DRIVEN SUBJECT AND ITS WORLD ARE ONE SHAPE. When both stand, the subject's parts come first
-  // and the world's follow; handing the world alone dropped the subject out of the picture, which
-  // is what `SubjectProxy::Wears` was refusing.
   const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
   Shaped_ = Held_.HoldsBuilt()
                 ? (alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
@@ -185,7 +154,6 @@ bool Live::Build(std::string &error) {
               "dereference";
       return false;
     }
-    // FOUR CANDIDATES UNDER ONE PHASE, and guessing between them has cost three rounds today.
     const auto tookFrom = std::chrono::steady_clock::now();
     if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
     CarryMs_ =
@@ -232,11 +200,6 @@ bool Live::Build(std::string &error) {
                                   error)) {
       return false;
     }
-    // THE FILE'S MATERIALS ARE A DEFAULT, NOT A FACT. A client rendering somebody else's asset
-    // against a reference states what the surfaces ARE; 107 of the 148 Khronos cases do exactly
-    // that, and before this the only way to say it was to reach past the door. Matched by NAME
-    // because that is what a file states and a manifest quotes -- an index moves when the file is
-    // re-exported and a name does not.
     if (!Declared_.Overriding.empty()) {
       size_t took = 0;
       for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
@@ -245,31 +208,16 @@ bool Live::Build(std::string &error) {
         const std::string &named = Held_.File().Materials()[(size_t)index].Name;
         for (const SurfaceOverride &said : Declared_.Overriding) {
           if (said.Named != named) { continue; }
-          // AN OVERRIDE REPLACES THE SURFACE, MAPS INCLUDED. Filament hands out a whole
-          // `MaterialInstance` -- its own parameters and its own samplers -- and Unreal's
-          // `SetMaterial` swaps the material entire; neither leaves the asset's textures bound
-          // under a row that says something else. Keeping them was the half-measure and it shows:
-          // a declared emission of (0.85, 0.15, 0.15) came out as `emission x colourTap`, a whole
-          // body of varying hue where the oracle is one flat colour.
           if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
           Table_.Slots[slot].Row = said.Row;
           ++took;
           break;
         }
       }
-      // A NODE'S OWN SURFACE GETS ITS OWN SLOT, and the slots are RESERVED before the first push.
-      // A `SubjectMaterial` holds raw pointers into `Decoded` -- `Colour.Rgba` IS
-      // `Decoded[slot].Colour.Rgba.data()` -- so growing that vector leaves every earlier slot
-      // pointing at freed memory, and the symptom is a `std::length_error` several frames from its
-      // cause. Reserving the worst case first is the only version that is safe rather than lucky.
       {
         const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
         const size_t many =
             standing.size() < Table_.PartSlot.size() ? standing.size() : Table_.PartSlot.size();
-        // A SLOT IS SPLIT ONLY WHERE IT IS SHARED. A part that is its slot's ONLY wearer takes the
-        // declared row in place; splitting there would leave the original behind as a row no part
-        // wears, and a dead row still answers questions -- `SubjectDraw::SetMaterials` walks every
-        // slot and refused 32 cases over a transmissive orphan nothing draws.
         std::vector<uint32_t> wearers(Table_.Slots.size(), 0u);
         for (const uint32_t worn : Table_.PartSlot) {
           if (worn < wearers.size()) { wearers[worn] += 1u; }
@@ -341,11 +289,6 @@ bool Live::Build(std::string &error) {
       Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
     }
 
-    // AND THE SAME AGAIN WHERE THE WORLD ARRIVED AS A `Geometry`. `Restand(Geometry&&, carried)`
-    // carries it into `Held_` and leaves `Declared_.Built` null, so the branch above never ran and
-    // the table stayed the FILE's alone while the shape became the world's alone -- 3 parts against
-    // a slot for 9 on the drive scenario, every frame of it. The world's parts wear the world's own
-    // surfaces, which the shape already carries.
     if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
       const uint32_t base = (uint32_t)Table_.Slots.size();
       const outshine::Geometry &also = Held_.Built();
@@ -363,10 +306,6 @@ bool Live::Build(std::string &error) {
         const uint32_t at = wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
         Table_.PartSlot[before + (size_t)part] = at;
       }
-      // AND THE CARRIED COUNT IS THE ENGINE'S, NOT THE CALLER'S GUESS. It is the DRIVEN subject's
-      // part count, and a caller that reads it off the standing shape reads car PLUS world the
-      // second time round -- measured on Shibuya, 9 then 12, which would bound the shadow radius
-      // over three of the world's parts.
       Joined_ = before;
       Carrying_ = before;
     }
@@ -449,17 +388,6 @@ bool Live::Build(std::string &error) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
-    // ONE FRAME, and it is the one the PRODUCERS write. A swap mapped a producer frame onto a
-    // device frame and every vector went through it together -- positions, normals, tangents,
-    // previous positions, placements, the light and the eye -- so the mapping was a relabelling
-    // that cost 28 M vertices a rebuild. Measured with one known vertex either side: (-2006, 426,
-    // -2111) in, (426, -2006, 2111) out, exactly (x,y,z) -> (y,x,-z).
-    //
-    // THE OWNER LOOKED AND THE WALLS ARE RIGHT NOW. The flatness statistic beside this moved when
-    // the swap went, and I read that as a regression and reverted -- wrongly: that statistic is a
-    // BLANK-frame guard and says on its own page that it does not judge how a picture looks. Two
-    // non-blank frames are outside what it can decide, and the eye is the oracle this directory
-    // exists for.
     const float toSun[3] = {(float)(std::cos(elevation) * std::sin(bearing)),
                             (float)std::sin(elevation),
                             (float)(std::cos(elevation) * std::cos(bearing))};
@@ -489,10 +417,6 @@ bool Live::Build(std::string &error) {
     };
     const auto wholeFrom = std::chrono::steady_clock::now();
 
-    // WHAT MAY CAST AND WHAT MAY BE TRACED IS DECIDED BEFORE THE GEOMETRY IS HANDED OVER, not
-    // after. The bound reaches the shadow stage and the visibility structure alike, and the
-    // structure is BUILT during the hand-over -- told afterwards, it had already walked all
-    // 9.43 M triangles of a city to answer a question about one carried subject.
     Renderer_->CastsBelow((uint32_t)Joined_);
     if (!Stand(error)) { return false; }
     StandMs_ = sinceInside();
@@ -512,20 +436,6 @@ bool Live::Build(std::string &error) {
   return Compose(error);
 }
 
-// A POSE MOVES THE VERTICES, SO THE SHAPE FOLLOWS IT IN THE SAME CALL. The shape narrows a
-// document's doubles into its own store, so it is a COPY of the posed positions rather than a view
-// of them, and an animation that re-poses without re-shaping draws the frame it was standing on
-// before. This is what the five throwaway shapes were buying, and it costs one line to buy it once.
-// A POSE MOVES THE VERTICES, SO THE ONE SHAPE FOLLOWS IT HERE. There is exactly one shape and the
-// proxy stands on it; a pose that changed the carrier without re-forming it would draw the frame
-// before. That this costs a re-form at all is board:2037:  REBUILDS the carrier from the
-// document every frame, which neither Unreal (a fixed FStaticMeshRenderData with a pose buffer)
-// nor RAGE (a fixed grmGeometry with crSkeleton matrices) does.
-// A POSE MOVES THE VERTICES, SO THE ONE SHAPE FOLLOWS IT HERE. There is exactly one shape and the
-// proxy stands on it, so a pose that changed the carrier without re-forming it would draw the
-// frame before. That this costs a re-form AT ALL is board:2037's finding: `Poses` rebuilds the
-// carrier from the document every frame, which neither Unreal (a fixed FStaticMeshRenderData with
-// its own pose buffer) nor RAGE (a fixed grmGeometry with crSkeleton matrices) does.
 bool Live::Pose(double seconds, std::string &error) {
   if (!Held_.Poses(seconds, error)) { return false; }
   Reshape();
@@ -644,10 +554,6 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Looking_ = {framed, false, Joined_};
-  // AIMING READS THE POSE THAT IS STANDING RIGHT NOW, which is not always the one the proxy stood
-  // with: `Poses` rebuilds the carrier from the document and drops whatever was APPENDED onto it,
-  // so refreshing the shared shape here would leave the proxy standing over three parts while its
-  // surface table names nine. Its own store, and the standing shape is left alone.
   Render::ShapeStore aiming;
   return Render::Aim(
       *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
@@ -743,13 +649,6 @@ bool Live::Stand(std::string &error) {
       !Held_.File().Cameras().empty() && Gltf::DeclaredPlacement(Held_.File(), 0, placed, why);
   if (declared) { eye = placed; }
   Looking_.Eye = eye;
-  // A DECLARED CAMERA IS NOT REFITTED. `Fill` frames a subject when nobody said where to stand; it
-  // may not overrule a client that did. It did: the places declare a view AND a fill, and the
-  // framing derived from the geometry's bounds replaced the declared eye -- carrying with it a near
-  // plane taken from the scene radius, 1 904 878 m over a 388 km ring. Reverse-Z writes
-  // `near / distance`, so every surface nearer than 1 905 km clamped to one depth and the depth
-  // test stopped discriminating: distant towers drew and the buildings beside the camera did not.
-  // Filament's `Camera` is authoritative and its `View` does not refit it; Unreal's is the same.
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
     double least[3], most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
@@ -846,9 +745,6 @@ bool Live::ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::stri
   return true;
 }
 
-// PRESENTING IS THE HALF OF A FRAME THAT REACHES A SCREEN, and headless has no such half. A
-// bracket that ends without a window has still ended a frame -- the picture is drawn and readable
-// -- so this answers TRUE rather than refusing, and `Presents` is where a client asks which it is.
 bool Live::Present(std::string &error) {
   if (Renderer_ == nullptr) {
     error = "a frame was ended on an engine that carries no device";
@@ -1064,10 +960,6 @@ bool Live::Restand(const Gltf::Subject &built,
   Declared_.Built = &built;
   Stoodup_ = false;
   Carrying_ = carried;
-  // THREE STEPS UNDER ONE NAME, and the rebuild's clock could not tell them apart: BUILD walks the
-  // subject into the proxy's own arrays, STAND settles the placements and lights, SUBMIT hands the
-  // streams to the device. 25 of Shibuya's 40 seconds are spent here and the phase that holds them
-  // has to be nameable before it can be answered.
   auto phaseAt = std::chrono::steady_clock::now();
   const auto since = [&phaseAt]() {
     const double ms =
@@ -1081,18 +973,6 @@ bool Live::Restand(const Gltf::Subject &built,
   Carrying_ = 0;
   Declared_.Surfacing = wore;
   if (!stood) { return false; }
-  // `Build` HAS ALREADY STOOD AND SUBMITTED, and doing it again here cost a third of the rebuild.
-  // The tail that stood here read
-  //
-  //     Joined_ = carried;  if (!Stand(error)) return false;  return Submit(error);
-  //
-  // and neither line changed anything: `Build` sets `Joined_ = Carrying_` itself and `Carrying_` is
-  // `carried` when it runs, and restoring `Declared_.Surfacing` above does not re-resolve the
-  // surface table, so the second pass ran on the same state as the first. It was also the LESSER
-  // pass -- `Build`'s own tail sets the picture region and lays the surface, which this never did.
-  //
-  // MEASURED on Shibuya before removing it: standing and submitting inside `Build` 13 844 ms, then
-  // 773 + 8 265 ms doing it again, out of a 24 163 ms hand-over.
   Joined_ = carried;
   return true;
 }
@@ -1106,10 +986,6 @@ bool Live::Advance(std::string &error) {
   const Heap::Tagged advancing("live-advance");
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
-  // AN ASSET MOVES WHEN IT HAS A DURATION, and a frame COUNT has no business gating that. The
-  // count rounds a duration against a declared rate, so a short clip or an undeclared rate
-  // made it one and the subject stood still while its file said otherwise -- the velocity then
-  // read zero for a moving placement, which is the fault TAA cannot recover from.
   if (Held_.Moves() && Held_.DurationS() > 0.0) {
     Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
                    Declared_.Animation == AssetAnimation::Loop);
@@ -1146,11 +1022,6 @@ bool Live::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
-  // A DECLARED CAMERA APPLIES WHEN THE FRAME IS DRAWN, NOT WHEN TIME PASSES. The aim stood only in
-  // `Advance`, so a client that declared a viewpoint and asked for ONE still picture -- which is
-  // every conformance case, and anyone rendering a subject against a reference -- got the engine's
-  // own fitted camera and no word about it. Measured: moving the declared eye ten metres changed
-  // the picture by nothing at all.
   if (!Aimed_) {
     if (!Look(error)) { return false; }
     Aimed_ = true;
@@ -1164,4 +1035,4 @@ bool Live::Draw(std::string &error) {
   return true;
 }
 
-} // namespace outshine::Core
+}

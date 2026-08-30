@@ -50,4 +50,4 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   return Fetched::Delivered(std::move(body));
 }
 
-} // namespace outshine::Data
+}

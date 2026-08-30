@@ -29,5 +29,5 @@ public:
   [[nodiscard]] uint32_t Proposes(double areaM2) const noexcept override;
 };
 
-} // namespace outshine::Generators
+}
 #endif

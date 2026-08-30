@@ -72,5 +72,5 @@ private:
   Ledger Ledger_;
 };
 
-} // namespace outshine::Data
+}
 #endif

@@ -6,10 +6,6 @@
 
 namespace outshine {
 
-// WHAT THE ENGINE WOULD HAVE SAID, AND WHERE IT GOES. A client can run without any of this -- the
-// engine refuses loudly through `error()` and reports through `measures()` -- but a client that
-// wants the running commentary had to reach into `src/base/io` for the interface to receive it.
-// The SINK is the client's; everything that decides what to emit stays behind the door.
 enum class LogLevel { Debug, Info, Warn, Error };
 
 struct LogField {
@@ -35,6 +31,6 @@ public:
                      std::span<const LogField> fields) = 0;
 };
 
-} // namespace outshine
+}
 
 #endif

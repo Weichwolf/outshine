@@ -128,5 +128,5 @@ private:
   std::vector<float> PositionsEnuM_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

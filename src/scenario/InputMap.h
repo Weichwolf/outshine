@@ -35,5 +35,5 @@ private:
   std::vector<std::string> Actions_;
 };
 
-} // namespace outshine
+}
 #endif

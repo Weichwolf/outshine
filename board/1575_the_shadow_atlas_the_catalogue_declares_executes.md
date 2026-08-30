@@ -11,10 +11,18 @@ Supersedes: 1567
 
 The atlas renders: a depth-only pass over the subject residency, reverse-Z, the orthographic
 sun texel-snapped in world space so the camera-relative rebase cannot shimmer it — proven by
-readback (4 194 304 texels written, nearest 0.774 against median 0.495). **Nothing samples it.**
-The only executed shadow path is still a per-pixel software BVH ray per light
-(src/render/stages/ShadowRay.h) — the right instrument against the Cycles oracle, the wrong
-mechanism at 60 Hz: cost scales with lights x pixels x depth complexity and caches nothing.
+readback (4 194 304 texels written, nearest 0.774 against median 0.495). It IS sampled now, and it
+is cached: cast only when the light matrix without the camera in it or the subject's generation
+changes, which took Shibuya's frame from 31.4 ms to 13.7 with the same picture digest.
+
+**THE SECOND MECHANISM IS GONE.** A per-pixel software BVH ray per light stood beside the atlas and
+answered the same question — the right instrument against the Cycles oracle, the wrong mechanism at
+60 Hz, since its cost scales with lights x pixels x depth complexity, it caches nothing, and the
+structure it reads had to be BUILT on the CPU over every triangle of the world: 3 831 ms of every
+Shibuya rebuild. Removing it left Shibuya's picture BIT-IDENTICAL and took 1.8 ms off the frame.
+What remains is one technique — depth rasterised from the light — and where an atlas texel is
+coarser than the detail, the answer is a screen-space march through the depth buffer the frame
+already has.
 
 The picture says the same thing from the other end: a visible sun disc with no consequence
 anywhere in the image — no sun-side/lee-side relief on the terrain, and the bonnet's highlight

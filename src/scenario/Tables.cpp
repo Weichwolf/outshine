@@ -89,4 +89,4 @@ TableBook::Text(std::string_view table, std::string_view row, std::string_view c
   return cell == nullptr ? nullptr : &cell->Spelling;
 }
 
-} // namespace outshine
+}

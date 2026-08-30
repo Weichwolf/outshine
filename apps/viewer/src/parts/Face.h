@@ -69,5 +69,5 @@ struct Stands {
                                   int widthPx,
                                   int heightPx);
 
-} // namespace outshine::Viewer
+}
 #endif

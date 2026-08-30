@@ -3,16 +3,13 @@
 namespace outshine::Gltf {
 namespace {
 
-// A CHANNEL A PRODUCER DID NOT WRITE IS AN EMPTY SPAN, NEVER A SHORT ONE. Reaching past the end
-// of a stream that was never filled has to answer nothing rather than a fragment, because a part
-// carrying half a channel would pack half a vertex and the device would read the neighbour's.
 template <typename T>
 [[nodiscard]] std::span<const T> Reach(const std::vector<T> &whole, size_t from, size_t count) {
   if (count == 0 || from + count > whole.size()) { return {}; }
   return std::span<const T>(whole.data() + from, count);
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -103,9 +100,6 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   }
 }
 
-// THE STORE IS VIEWED ONCE, AFTER EVERYTHING IS IN IT. A part's channel spans point into the
-// store's own arrays, so taking them before the last source has been appended would leave them
-// pointing at freed memory the moment a vector grew.
 Render::Shape Viewed(Render::ShapeStore &into) {
   Render::CookShape(into, into.Surfaces);
   Render::Shape out;
@@ -125,7 +119,7 @@ Render::Shape Viewed(Render::ShapeStore &into) {
   return out;
 }
 
-} // namespace
+}
 
 Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
   into.Clear();
@@ -139,12 +133,6 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
   return Viewed(into);
 }
 
-// A DRIVEN SUBJECT AND THE WORLD IT STANDS IN ARE ONE SHAPE. The subject's parts come FIRST and
-// `Live::Carrying_` says how many they are, which is what bounds the shadow radius and what the
-// placement rows address. Handing the world alone dropped the subject out of the picture entirely:
-// the proxy stood over the world's parts while the surface table still named the file's, and
-// `SubjectProxy::Wears` refused -- measured on the drive scenario, 3 parts against a slot for 9,
-// which is every frame of it since the world path started handing a `Geometry`.
 Render::Shape
 Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into) {
   into.Clear();
@@ -153,4 +141,4 @@ Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &
   return Viewed(into);
 }
 
-} // namespace outshine::Gltf
+}

@@ -31,12 +31,9 @@ private:
   std::vector<Surrounds::Standing> *Into_;
 };
 
-} // namespace
+}
 
 bool Engine::State::Grows(double atLat, double atLon) {
-  // A REFUSAL THAT SAYS NOTHING IS THE HARDEST DEFECT TO FIND. This has four preconditions and used
-  // to answer false for any of them without naming which, so `0 placed` at every one of six places
-  // was indistinguishable from `nothing grows here`.
   Published.Places("generators: bodies already placed", (double)World.Placed, "bodies");
   Published.Places(
       "generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0, "yes/no");
@@ -121,17 +118,6 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
-  // A DECLARED VIEW STANDS WHEN THE SCENARIO STANDS, WORLD OR NO WORLD. `Watches` used to run only
-  // inside the ground's own composition, so a scenario without a world -- which is every
-  // conformance case, and every client drawing a subject against a reference -- declared a camera
-  // that never reached the renderer, and the engine drew its own FITTED one instead. The picture
-  // was of the right subject from the wrong place and nothing said so.
-  // A VIEW THAT NEEDS NO GROUND STANDS HERE, and one that samples the ground waits for it. The aim
-  // used to be applied only inside the ground's own composition, so a scenario WITHOUT a world --
-  // every conformance case, and anyone drawing a subject against a reference -- declared a camera
-  // that never reached the renderer and got the engine's fitted one instead. Applying it
-  // unconditionally is the other error: a view that samples a height refuses while no tile has
-  // landed, and that refusal turned every place UNPREPARED. Measured, both ways.
   if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
     return false;
   }
@@ -201,10 +187,6 @@ bool Engine::State::Asks(void) {
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     over.Levels = 1 + (int)std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0);
   }
-  // THE QUEUE PRIORITISES AROUND THE EYE, and until now it prioritised around a point that never
-  // moved: `TilePool::Focus` had no caller in the whole tree, so `TileDistance` measured from the
-  // pool's construction origin whatever the camera did. Cesium orders its load queue by distance to
-  // the camera for the same reason -- what the viewer is standing in front of is what must arrive.
   World.Stack.Pool().Focus(over.LatDeg, over.LonDeg);
   auto asked = LayPatchwork(World.Stack.Pool(), over);
   if (!asked) {
@@ -212,11 +194,6 @@ bool Engine::State::Asks(void) {
     return false;
   }
   World.Pending = asked->Pending;
-  // AN ASKING WALK DOES NOT COUNT BARE, so reading its zero as an answer is a fact about the WALK
-  // and not about the world. This overwrote what the LAYING walk had counted on every poll, which
-  // is why `settled()` could say yes with tiles that had no elevation at the zoom they were asked
-  // at -- the picture then stands them on the ellipsoid at sea level. Only a walk that lays may
-  // say what stood bare.
   World.Wanted = asked->Tiles;
   World.AskedPending = asked->Pending;
   World.AskedWanted = asked->Tiles;
@@ -250,9 +227,6 @@ bool Engine::State::Asks(void) {
 
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");
-  // WHERE THE FORTY SECONDS GO. One clock stood over this whole function, so a rebuild could be
-  // named slow and never located. The phases are the ground ring, the buildings, the streets and
-  // water, the assembly into one subject, and the upload.
   auto phaseAt = std::chrono::steady_clock::now();
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
@@ -309,13 +283,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
     over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
   }
-  // TWO REASONS TO RE-LAY, AND NO OTHERS: the eye moved into a different tile, so the walk wants a
-  // different set; or the last pass was INCOMPLETE and tiles have since landed. Otherwise the
-  // terrain that stands is the terrain that was asked for, and rebuilding it costs a full
-  // `Gltf::Subject` assemble and a `Restand` for nothing. The old flightbox streamer named the same
-  // two reasons and slept between them; CLAUDE.md names it as the rule that work is proportional to
-  // what CHANGED. Measured before this guard: `advance` spent every frame inside
-  // `Grounds -> Restand -> Live::Stand`.
   {
     const Ground::TileFrac here =
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
@@ -336,19 +303,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     World.AskedPending = sees->Pending;
     World.AskedWanted = sees->Tiles;
     const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
-    // BUILDING THE TERRAIN IS A ONE-OFF, AND A STANDING CAMERA HAS NOTHING TO DO. The frame path
-    // re-lays for exactly ONE reason: the eye walked into a different tile, so the walk wants a
-    // different set. Tiles landing is the OTHER reason to re-lay, and it belongs to whoever is
-    // waiting for them -- `preload` while the world comes in, `Composes` at stand-up -- never to
-    // `advance`. Without that split, a tile arriving on almost every frame during load made
-    // "incomplete" true on every frame, and each one paid a full vertex build, a `Gltf::Subject`
-    // assemble and a `Restand`.
     const bool elsewhere = from != World.LaidFrom;
     const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
     if (World.EverLaid && !elsewhere && !grew) { return true; }
-    // HOW MANY TIMES THE WHOLE WORLD WAS REBUILT, which is the multiplier on every O(world) term
-    // below it. A rebuild costs what it costs; what decides a LOAD is how often it is paid, and
-    // that number was the one thing the rebuild measures could not say.
     Published.Places("rebuilds since the world stood", (double)(World.Relaid + 1u), "rebuilds");
     Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
     Published.Places("rebuild: tiles resident when it did", (double)resident, "tiles");
@@ -446,15 +403,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      leanCount > 0 ? leanSum / (double)leanCount : 0.0,
                      "deg");
   }
-  // THE GROUND WEARS THE CLASS IT IS. One flat `GroundAlbedo` painted a continent, so the Grand
-  // Canyon's desert came out the same green as a Bavarian meadow. The tree already loads twenty
-  // land classes with an albedo each and already knows which one stands at a point -- `ClassField`
-  // and `GroundMaterials` -- and nothing joined them to the picture.
-  //
-  // The colour rides on the VERTEX rather than on a surface, because a class boundary runs through
-  // a triangle and splitting the ring per class would multiply the parts by twenty. Unreal blends
-  // landscape layers per vertex and per texel for the same reason; Cesium tints its terrain from an
-  // overlay. Neither draws one colour over a continent.
   std::vector<float> tinted;
   {
     const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
@@ -595,9 +543,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   Geometry ground;
-  // THE SURFACES ARE DECLARED BEFORE THE PARTS THAT WEAR THEM, and the ground's is first so it
-  // stays surface 0. A part naming a surface index that does not exist yet wears whatever lands
-  // there later.
   Material bare;
   {
     const Render::Medium held;
@@ -606,32 +551,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   constexpr double kSteepestRoof = 0.5;
-  // A ROAD SITS ON THE GROUND AND MUST NOT FIGHT IT. The terrain mesh samples the DEM on a grid, so
-  // a ribbon taking DEM heights sinks wherever the grid missed. Fifteen centimetres is a road's own
-  // build-up over its base -- the smallest lift that is a real thing rather than a fudge -- and the
-  // item records that it is not enough on a slope.
-  // HOW HIGH A ROAD RIDES OVER THE DEM IT TOOK ITS HEIGHT FROM, and the number is measured. The
-  // terrain MESH samples the same DEM on a grid, so the two disagree by whatever the grid missed:
-  // over 31 275 road vertices at Rothenburg the average is under a metre and the worst case is 11
-  // m, and that tail is a 20 m grid cell's own relief on a slope rather than a constant error. One
-  // metre therefore covers the town and does not pretend to cover the hillside -- board:2028 owns
-  // the real answer, which is to ask the DRAWN surface rather than the raster behind it.
   constexpr double kRoadAboveM = 1.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
-  // THE BASE IS WHITE SO THE VERTEX COLOUR CARRIES. A base colour multiplies the vertex one, and
-  // the ring's albedo now comes from the class each vertex stands in.
   if (!tinted.empty()) {
     for (int channel = 0; channel < 3; ++channel) { bare.BaseColour[channel] = 1.0f; }
   }
   const MaterialInstance ringSurface = ground.addSurface("ground", bare);
   const int ringPart = ground.addPart("ground", ringSurface);
 
-  // THE BUILDINGS STAND IN THE SAME GEOMETRY AS THE GROUND, one part beside the ring's. They are
-  // STATIC map data, every one with its own footprint, so there is no prototype to instance -- RAGE
-  // bakes map geometry and Unreal merges static meshes for exactly this case, and instancing wins
-  // only where one shape repeats. `BuildingField` already meshes each footprint into an ECEF soup
-  // relative to its own anchor; nothing had ever installed the mesher or read the result.
   {
     const Ground::BuildingField &prints = World.Stack.Footprints();
     const std::vector<float> &soup = prints.Verts();
@@ -697,29 +625,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         facing[at * 3 + 2] = (float)(-alongNorth);
         run[at] = (uint32_t)at;
       }
-      // THE BUILDINGS KEEP THEIR OWN WINDING. The swap here was copied from the ring, whose indices
-      // `LayPatchwork` swaps for this renderer's facing -- but that swap belongs to the TILE
-      // mesher's output, and `BuildingMesh` emits its own consistent order from `Site::Tri`, which
-      // computes a normal from the same three vertices it pushes. Swapping it turned every closed
-      // body inside out: roofs floated and walls went missing, which is what a backfacing solid
-      // looks like. Withdrawn -- it was reasoned from the ring rather than measured on a building.
-      // BUILDINGS WEAR THEIR OWN SURFACE. `Restand`'s material overload assigns ONE material to
-      // every surface, so buildings came out in the ground's exact albedo -- drawn, correctly
-      // placed, and indistinguishable from the field they stand in. Lifted 500 m as a control they
-      // were unmistakable, with Rothenburg's street plan legible in their shadows on the ground.
-      // A ROOF IS NOT A WALL, and one material for both is why a thin eave board reads as a stripe
-      // rather than as part of a roof. OSM carries no material, so the ENGINE's default stands --
-      // that is the declared-not-coded rule, not an exception to it: a scenario that names one
-      // overrules this, and none does yet.
-      //
-      // The split is by the face's OWN NORMAL rather than by a class channel the soup does not
-      // carry: a face whose normal stands within 60 degrees of vertical is a roof, everything else
-      // is a wall. 60 rather than 40 because a steep gable is pitched 45 and a mansard's lower
-      // slope steeper still -- at 40 they came out white, which the frame showed plainly. A roof
-      // pitched past 60 is a wall by any reading. That is the same thing a shader would have to
-      // decide without extra data, and it costs no format change. Its limit, stated where it is
-      // made: a flat roof's parapet band and a dormer cheek are walls by this rule, and a very
-      // shallow shed roof is one too.
       Material walls;
       walls.BaseColour[0] = 0.74f;
       walls.BaseColour[1] = 0.71f;
@@ -740,9 +645,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       phaseAt = std::chrono::steady_clock::now();
       const int builtPart = ground.addPart("walls", wallSurface);
       const int roofPart = ground.addPart("roofs", roofSurface);
-      // A DISCARDED REFUSAL IS A DEFECT THAT CANNOT BE SEEN. Every one of these returns whether it
-      // took the data and every one of them was thrown away with a (void), so a part that was never
-      // made and a soup that was never stored looked exactly like geometry standing in the frame.
       std::vector<float> roofPlaces, roofFacing, wallPlaces, wallFacing;
       std::vector<uint32_t> roofRun, wallRun;
       for (size_t at = 0; at + 8 < raised.size(); at += 9) {
@@ -894,10 +796,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             sideways += 1.0;
           }
         }
-        // A WALL FACING THE SUN MUST BE LIT. At 60 deg of solar elevation a vertical face turned
-        // toward the sun takes cos(60) = 0.5 of the light against a roof's sin(60) = 0.87, so it
-        // reads about 57 per cent of the roof. Every wall in the frame is black, which is what a
-        // normal pointing INTO the solid does, and this counts them rather than judging by eye.
         Published.Places("buildings: normals pointing up", up, "normals");
         Published.Places("buildings: normals pointing DOWN", down, "normals");
         Published.Places("buildings: normals lying sideways", sideways, "normals");
@@ -906,10 +804,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         (void)inward;
       }
       {
-        // A NEEDLE IS AN AREA AGAINST A LENGTH. A triangle of almost no area whose longest edge
-        // runs metres is a sliver, and it is what the frame shows shooting out of roof corners.
-        // Counting them separates "the roofs are badly meshed" from "one vertex ran away", which
-        // the eye cannot: both look like a bright diagonal line.
         size_t needles = 0;
         double longest = 0.0;
         for (size_t at = 0; at + 8 < raised.size(); at += 9) {
@@ -931,11 +825,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
         Published.Places("buildings: the longest edge one carries", longest, "m");
-        // AND A SECOND CENSUS, because the first could not see what the frame shows. The slivers
-        // magnified eight times are under a pixel wide and about fifty long -- on the order of
-        // 0.15 m by 7.5 m, so 0.56 m2, which is fifty times the area the count above refuses. What
-        // marks them is not thinness but REACH: a triangle running 20 m belongs to no house in this
-        // town, and a facade panel or a roof plane never spans that.
         size_t reaching = 0;
         double furthest = 0.0;
         for (size_t at = 0; at + 8 < raised.size(); at += 9) {
@@ -1013,16 +902,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     (void)ground.setColours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
   }
 
-  // THE HEIGHT OF THE GROUND THAT IS DRAWN, not of the raster behind it. Cesium answers
-  // `sampleHeightMostDetailed` from the tileset that is LOADED for exactly this reason: a building
-  // or a road placed on the raster sinks into or floats over the surface a viewer actually sees, by
-  // whatever the terrain mesh's grid missed. Measured at Rothenburg over 31 275 road vertices, that
-  // was under a metre on average and 11 m at worst.
-  //
-  // This is a coarse stand-in for a ray against the mesh and it says so: one cell per
-  // `kDrapeGridM`, holding the HIGHEST ring vertex in it, so a draped thing rests on the local high
-  // point rather than cutting through it. Its error is a cell's own relief, which is why the cell
-  // is the tile grid's own spacing rather than a rounder number (board:2028).
   std::unordered_map<uint64_t, float> drawnGround;
   {
     drawnGround.reserve(inFrame.size() / 3);
@@ -1054,13 +933,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     return highest;
   };
 
-  // STREETS ARE GEOMETRY: a profile swept along the centreline, with its own material. Unreal
-  // sweeps a spline mesh along a road spline; RAGE authors road geometry with its own shaders.
-  // Neither paints a stripe on the terrain, and OSM carries no height, so each vertex asks the
-  // ground where it stands (board:2027, board:2028).
-  //
-  // The profile is a flat band of the way's own declared half width. That is the simplest honest
-  // cross-section and it is where a kerb, a camber and a verge go later; the item says so.
   {
     const Ground::StreetField &ways = World.Stack.Ways();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
@@ -1137,9 +1009,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double *const r0 = right.data() + step * 3;
           const double *const l1 = left.data() + (step + 1) * 3;
           const double *const r1 = right.data() + (step + 1) * 3;
-          // THE WINDING IS THE ONE THIS RENDERER FACES, found by making the material double-sided
-          // and watching the ribbons appear -- then set here and the crutch removed. A road is a
-          // solid surface and double-sided is the answer that stops asking the question.
           lay(l0, kRoadAboveM);
           lay(r1, kRoadAboveM);
           lay(r0, kRoadAboveM);
@@ -1149,11 +1018,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
-    // HOW FAR THE DEM AND THE DRAWN GROUND DISAGREE, measured rather than guessed. A road takes its
-    // height from the DEM and is drawn against the terrain MESH, which samples that same DEM on a
-    // grid -- so the gap is whatever the grid missed, and it is the number that decides the lift.
-    // board:2028 says the right answer is to ask the DRAWN surface; this says how wrong the DEM is
-    // until that exists.
     {
       std::unordered_map<uint64_t, float> highest;
       highest.reserve(inFrame.size() / 3);
@@ -1207,13 +1071,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
-  // WATER IS GEOMETRY, drawn at the level its own shore gives it. Unreal draws a water body as a
-  // mesh with a water material; RAGE the same. Neither leaves a lake as terrain-coloured ground,
-  // and Venice's lagoon read GREEN in every frame until now (board:2012).
-  //
-  // The surface is a flat lid over the ring at `LevelM`, ear-clipped the way a roof is. What it is
-  // NOT: no reflection, no refraction, no wave normal, no motion -- board:2012 owns those and this
-  // is the geometry they will need.
   {
     const Ground::WaterField &wet = World.Stack.WaterBodies();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
@@ -1288,8 +1145,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];
   }
 
-  // THE ENGINE KNOWS HOW MANY PARTS THE DRIVEN SUBJECT HAS; reading it off the standing SHAPE
-  // counts the world's too once the two stand together.
   const size_t drivenParts = Picture.Standing->CarriedParts();
   Published.Places(
       "restand: the carried count the world hands over", (double)drivenParts, "carried");
@@ -1416,11 +1271,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildBegan)
           .count();
   Published.Places("and what the last rebuild took", World.RebuildMs, "ms");
-  // HOW MANY TIMES THE WHOLE WORLD WAS BUILT to get one picture. `Grounds` runs again on every
-  // arrival during `preload`, and each run walks, assembles and uploads EVERYTHING that has landed
-  // so far rather than what changed since the last one -- so the bytes the residency moves are the
-  // sum over all of them. board:1995 and board:2026 both state the rule this breaks: a mutation
-  // costs what CHANGED.
   Published.Places("rebuild: times the world was built WHOLE", (double)World.Rebuilds, "rebuilds");
   Published.Places("and how often it was asked about", (double)World.Asked, "walks");
   Published.Places(
@@ -1610,21 +1460,9 @@ bool Engine::render(Extent frame) {
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  // WHAT THE FRAME COST, PUBLISHED WHERE A CLIENT CAN READ IT. These stood only inside the
-  // renderer, so the one harness that had to state a claim about them reached past the door for
-  // them -- and board:1943's whole claim IS a draw count, so a client that cannot read one cannot
-  // hold this engine to it. Unreal keeps them in FSceneRenderer's stats and Filament keeps none;
-  // this is ours, and the reason is written where the door is.
   S_->Published.Places("subject draws", (double)S_->Picture.Device.SubjectDrawCount(), "draws");
-  // THE CUT, COUNTED. A cluster is 128 triangles with a bounding sphere and a proven error bound,
-  // and it is what a per-cluster culler will decide over. The number standing beside `subject
-  // draws` is how the two are compared while the draw is still one call per batch.
   S_->Published.Places(
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
-  // WHAT A FRUSTUM WOULD KEEP, counted and not yet acted on. This decides nothing and draws
-  // nothing: it is the SIZE OF THE PRIZE, so the compute stage that will do the culling has a
-  // number to be measured against rather than a hope. A cluster is kept when its bounding sphere
-  // is not wholly outside any of the six planes.
   {
     const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
     const double aspect = S_->Picture.Frame.HeightPx > 0 ? (double)S_->Picture.Frame.WidthPx /
@@ -1652,8 +1490,6 @@ bool Engine::render(Extent frame) {
   S_->Published.Places(
       "subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(), "calls");
   S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");
-  // AND WHICH VARIANT THE DRAWS TOOK. One row per layout the frame actually used, which is what
-  // turns "the picture is wrong" into "this draw took the flat variant and that one did not".
   for (uint32_t at = 0; at < (uint32_t)Render::kVertexLayouts.size(); ++at) {
     const uint32_t many =
         S_->Picture.Device.SubjectBatchesTaking(static_cast<Render::VertexLayout>(at));
@@ -1715,9 +1551,6 @@ bool Engine::presenting(void) const {
   return S_->Picture.Device.Presents();
 }
 
-// A FRAME IS OPEN OR IT IS NOT, and `render` between the two draws without presenting. Filament's
-// `beginFrame` answers false when the frame should be DROPPED; here the only reason to drop one is
-// that nothing stands to be drawn, which is a refusal rather than a skip and says so.
 bool Engine::beginFrame(void) {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
@@ -1754,4 +1587,4 @@ bool Engine::saveScreenshot(std::string_view path) {
   return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 
-} // namespace outshine
+}

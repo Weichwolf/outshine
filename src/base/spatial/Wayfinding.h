@@ -186,6 +186,6 @@ private:
   bool Woven_ = false;
 };
 
-} // namespace outshine::Path
+}
 
 #endif

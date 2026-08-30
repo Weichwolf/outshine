@@ -446,7 +446,7 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   return length;
 }
 
-} // namespace
+}
 
 double
 Placer::Width(const std::string &text, size_t from, size_t to, double emPx, Family face) const {
@@ -1195,7 +1195,7 @@ double Placer::Place(int node,
   return (*Out)[(size_t)self].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -1372,4 +1372,4 @@ int Layout::Hit(double x, double y) const {
   return -1;
 }
 
-} // namespace outshine::Ui
+}

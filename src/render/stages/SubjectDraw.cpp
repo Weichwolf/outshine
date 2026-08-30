@@ -57,7 +57,7 @@ const char *KindName(SurfaceKind kind) {
   return "an undeclared surface";
 }
 
-} // namespace
+}
 
 namespace {
 
@@ -85,10 +85,6 @@ SDL_GPUVertexAttribute At(uint32_t location, uint32_t slot, SDL_GPUVertexElement
   return attribute;
 }
 
-// BUILT FROM THE ONE DECLARATION rather than beside it. This function and `PackVertices` each used
-// to spell the run order and the widths out by hand; now `RunsOf` says it once and a
-// `static_assert` holds the count. A drift here is not a wrong picture, it is a shader reading one
-// attribute's bytes as another's, which is why it belongs to the compiler.
 SDL_GPUVertexElementFormat FormatOf(uint32_t floats) {
   return floats == 2   ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2
          : floats == 4 ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4
@@ -114,7 +110,7 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device,
   return ShaderFrom(device, source, entry, stage, SubjectDraw::ShaderShape);
 }
 
-} // namespace
+}
 
 const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
   const bool textured = CarriesUv(layout);
@@ -578,13 +574,6 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   if (!HandClusters(mesh, error)) { return false; }
 
-  // THE INDEX RUN CROSSES LIKE EVERY OTHER RUN, which it did not until this round. It had its own
-  // path: a fresh buffer, a fresh transfer buffer the size of the whole run, its own command buffer
-  // and its own submit, EVERY rebuild -- and a released SDL buffer is held by the driver until a
-  // command buffer that might read it retires, which during a stream-in never happens. Shibuya
-  // rebuilds hundreds of times while it loads and each rebuild left 113 MB behind twice over.
-  // Crossing reuses the buffer when it is big enough and reuses ONE staging buffer for the whole
-  // hand-over, which is what every other stream here has done since board:1949.
   {
     const Heap::Tagged uploading("mesh-upload");
     SubjectResidency::Crossing run[] = {
@@ -605,16 +594,6 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   if (!HandStreams(mesh, false, error)) { return false; }
 
-  // NOTHING IS PRE-SIZED HERE, and that is a defect this round MEASURED rather than reasoned about.
-  // A `OpenStaging` stood at the end of this function and widened the DEFERRED ring to the sum of
-  // every stream the mesh had just handed over -- hundreds of megabytes on a city. The deferred
-  // ring is not what a rebuild uses; it is what a FRAME uses, for placements that moved and for the
-  // cull's twenty-byte argument reset. And the first map of a frame cycles it, which asks the
-  // driver to rename the WHOLE buffer. Heidelberg drew a frame in 9.59 ms and then in 86.98,
-  // and the twenty bytes were renaming three hundred megabytes to get there.
-  //
-  // `Cross` already widens the ring when a hand does not fit, so a guess ahead of the demand buys
-  // nothing and can only be wrong in the expensive direction.
   return true;
 }
 
@@ -698,14 +677,6 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
-// THE CUT CROSSES ONCE PER MESH, and the argument table is sized with it. Both tables were written
-// by the cooker and the draw list in the layout the kernel binds, so this function moves bytes and
-// reshapes none of them -- the one thing it computes is where each batch's compacted run begins,
-// which is a running sum over the batches and is not knowable before they are compiled.
-//
-// NO SECOND INDEX RUN CROSSES. The kernel copies out of `Idx`, which is the run the direct path
-// already draws: the cooker reordered the subject's indices in place, so the packed run IS the
-// cooked order and a separate cooked buffer would be 113 MB of the same numbers on Shibuya.
 bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
   const Heap::Tagged uploading("mesh-cull");
   Args_.clear();
@@ -751,12 +722,6 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
     return false;
   }
 
-  // GROWN, NEVER REMADE, and this is the difference between a rebuild and four hundred of them.
-  // A released SDL buffer is not freed when it is released -- the driver holds it until a command
-  // buffer that could still be reading it has retired, and during a stream-in NO frame is
-  // submitted between rebuilds. Made fresh each time, Shibuya's compacted run alone took the peak
-  // footprint to 52.9 GB against a resident set of 3.3, and the system killed the run before it
-  // drew. The rule is the one the vertex streams already follow: keep what is big enough.
   if (!Room(Bound().DrawIdx,
             SubjectResidency::Stream::DrawIndex,
             SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
@@ -902,10 +867,6 @@ uint32_t SubjectDraw::DrawCount() const {
   return drawn;
 }
 
-// THE ARGUMENT THIS SIDE WRITES AND THE ONE THE COMMAND PROCESSOR READS ARE THE SAME RECORD, and
-// this is where the two are held to each other. `Args_` is five uints a batch because SDL's own
-// record is five uints; if that ever stops being true, this refuses to compile rather than
-// dispatching a draw whose fields have all moved by one.
 static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t),
               "the indirect argument table is written as five uints a batch");
 inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
@@ -932,11 +893,6 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_PushGPUFragmentUniformData(
       into.Commands, 1, lights.data(), (uint32_t)(lights.size() * sizeof(float)));
 
-  // THE INDEX BUFFER IS WHICHEVER RUN THE BATCH DRAWS FROM, and the two are different runs. A
-  // batch the culler decided reads the COMPACTED run the kernel wrote; a batch it could not decide
-  // -- a blended surface, which the cooker does not cut, or an instanced one, whose clusters would
-  // have to be culled per instance -- reads the run it was given. Binding is stateful, so the
-  // switch is tracked rather than issued per draw.
   bool boundCut = false;
   bool anyIndex = false;
 
@@ -1016,4 +972,4 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   }
 }
 
-} // namespace outshine::Render
+}

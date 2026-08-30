@@ -46,9 +46,6 @@ struct Material {
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
 
-  // AND THE MAPS IT WEARS, named rather than carried. glTF's material states a texture INDEX, a uv
-  // set and a sampler; the pixels live with the asset. Same here: the index is into the
-  // `Geometry`'s own images, so a row copied from one asset onto another names nothing and says so.
   SurfaceMap BaseColourMap;
   SurfaceMap NormalMap;
   SurfaceMap MetalRoughMap;
@@ -93,5 +90,5 @@ private:
 
 constexpr int kMaterialRowFloats = 20;
 
-} // namespace outshine
+}
 #endif

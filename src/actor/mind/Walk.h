@@ -21,6 +21,6 @@ struct Stride {
 [[nodiscard]] double TightestPerM(const Gait &of, double speedMs);
 [[nodiscard]] Stride Walk(const Gait &of, const Demand &asked, double speedMs);
 
-} // namespace outshine::Pilot
+}
 
 #endif

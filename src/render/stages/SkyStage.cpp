@@ -127,4 +127,4 @@ std::string SkyStage::ShaderSource(std::string &error) {
          "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" + layout + core + body;
 }
 
-} // namespace outshine::Render
+}

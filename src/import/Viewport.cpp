@@ -36,4 +36,4 @@ bool Camera::Projection(double viewportAspect, Transform &out) const {
   return true;
 }
 
-} // namespace outshine::Gltf
+}

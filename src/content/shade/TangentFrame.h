@@ -69,5 +69,5 @@ private:
   double O_[3], East_[3], North_[3], Up_[3];
 };
 
-} // namespace outshine
+}
 #endif

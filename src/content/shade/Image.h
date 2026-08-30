@@ -21,5 +21,5 @@ struct Raster {
 
 [[nodiscard]] bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> &out);
 
-} // namespace outshine::Core
+}
 #endif

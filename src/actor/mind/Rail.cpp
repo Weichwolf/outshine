@@ -30,4 +30,4 @@ Haul Ride(
   return out;
 }
 
-} // namespace outshine::Pilot
+}

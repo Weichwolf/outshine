@@ -61,7 +61,7 @@ void Compress(uint32_t state[8], const uint8_t block[64]) {
   state[7] += h;
 }
 
-} // namespace
+}
 
 std::string Sha256Hex(const void *data, size_t bytes) {
   uint32_t state[8] = {0x6a09e667u,
@@ -106,4 +106,4 @@ std::string Sha256Hex(std::string_view text) {
   return Sha256Hex(text.data(), text.size());
 }
 
-} // namespace outshine
+}

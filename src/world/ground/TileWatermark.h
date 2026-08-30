@@ -72,5 +72,5 @@ private:
   int Deferrals_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

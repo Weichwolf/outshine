@@ -36,5 +36,5 @@ struct Camera {
   [[nodiscard]] bool Projection(double viewportAspect, Transform &out) const;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

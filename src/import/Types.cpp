@@ -168,4 +168,4 @@ int Primitive::MaterialUnder(int variant) const {
   return mapped < 0 ? Material : mapped;
 }
 
-} // namespace outshine::Gltf
+}

@@ -35,23 +35,12 @@ struct Layer {
   std::string Set;
 };
 
-// WHERE ON THE EARTH THE SCENE STANDS, and Cesium's word for it. A `WorldSettings` that also
-// carries gravity, air density, wind and a streaming patience is not a georeference; this is the
-// part that is, and separating it is why the name can be used honestly at all.
 struct Georeference {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
   double RadiusM = 6371008.8;
 };
 
-// WHAT A CLIENT DECLARES INSTEAD OF A SKY. There is no picture to hand in, so these are the two
-// things that decide what the sky looks like: WHEN it is, which puts the sun, the moon and the
-// stars, and WHAT THE WEATHER IS, which decides how their light arrives. Both belong to the door
-// because without them a client can only take whatever the engine happened to default to.
-//
-// The sun's ELEVATION and BEARING are not here and must not be: they are computed from the place
-// and the hour, and a scenario that declares both a clock and a hand-set sun is REFUSED, because
-// over a place on Earth only one of the two can be true.
 struct Weather {
   double CloudCover = 0.0;
   double CloudLow = 0.0, CloudMid = 0.0, CloudHigh = 0.0;
@@ -60,12 +49,6 @@ struct Weather {
   double WindMs = 0.0;
 };
 
-// THERE IS NO SKYBOX HERE AND THAT IS THE BETTER ANSWER, not a missing one. Filament's `Skybox` is
-// an image or a colour a scene shows where nothing else does; this engine's sun, moon and stars are
-// REAL -- they stand where the georeference and the clock put them, and the sky is computed from
-// that and the weather. A client hands in no picture of the sky because there is nothing it could
-// hand in that would agree with its own shadows the moment the clock moves. What it declares is
-// the weather, and `Weather` above is that.
 struct WorldSettings {
   bool Declared = false;
   Georeference Origin;
@@ -128,48 +111,15 @@ struct Lighting {
   double ShadowRadiusM = 0.0;
 };
 
-// WHETHER A CLIP REPEATS IS A DECLARATION, not a default. glTF states what SAMPLING does outside
-// a clip's range -- it clamps to the last keyframe -- and says nothing about whether an engine
-// starts it again; Unreal makes it `bLooping` on the instance and RAGE carries a loop flag on the
-// clip, so both agree it is the client's word. `Play` runs once and holds its end pose, which is
-// glTF's own rule; `Loop` wraps.
 enum class AssetAnimation { Play, Loop, Ignore, Driven };
 
-// WHAT A SURFACE OF SOMEBODY ELSE'S FILE IS, SAID BY THE CLIENT THAT LOADS IT. Unreal overrides a
-// component's material per slot (`SetMaterial`); Filament hands out a `MaterialInstance` per
-// primitive and lets a client set its parameters. **They agree** that the file's own materials are
-// a DEFAULT rather than a fact, and a client that renders another party's asset against a
-// reference has to be able to say what the surfaces are -- 107 of the 148 Khronos cases here do
-// exactly that, and before this they could only do it by reaching past the door.
-//
-// The match is by NAME because that is what a file states and what a manifest quotes; an index
-// moves when the file is re-exported and a name does not.
 struct SurfaceOverride {
   std::string Named;
 
-  // OR THE NODE. Unreal overrides a material per COMPONENT SLOT and Filament hands out a
-  // `MaterialInstance` per PRIMITIVE; **they agree** that the key is the PART rather than the
-  // material, and a file where two parts share one material has no other way to tell them apart.
-  // Measured: the five quads of Khronos's AlphaBlendModeTest share a single material and the case
-  // declares a colour for each, which a key on the material alone cannot say.
   std::string Node;
 
-  // OR THE PART'S INDEX, which is the only key a file that names NEITHER can be told apart by.
-  // Filament keys `getMaterialInstanceAt(instance, primitiveIndex)` and Unreal keys
-  // `SetMaterial(int32 ElementIndex, ...)`: both address the slot by ORDINAL, and neither asks the
-  // asset for a name it may not carry. Measured: Khronos's BoxInterleaved names no material and no
-  // node, so `Named` and `Node` have nothing to match and the row cannot be reached at all.
   int Part = -1;
 
-  // AND WHETHER THE ASSET'S MAPS SURVIVE IT. Unreal has BOTH verbs and they are not the same one:
-  // `SetMaterial(ElementIndex, ...)` swaps the material entire and the mesh's own textures go with
-  // it, while `CreateDynamicMaterialInstance` keeps the parent and changes only its parameters.
-  // Filament draws the same line -- a fresh `MaterialInstance` against one duplicated from the
-  // existing. Replacing is the default because it is the one a client reaches for when it states
-  // what a surface IS; keeping is for a client that means "this asset's surface, with THIS row".
-  // Measured both ways on the Khronos corpus: a declared flat emission that kept the avocado's
-  // photograph came out a hundred hues, and a case whose colour is the FILE's base map came out
-  // flat when the map was dropped.
   bool KeepsMaps = false;
 
   Material Row;
@@ -186,9 +136,6 @@ struct Asset {
   std::vector<SurfaceOverride> Surfaces;
 };
 
-// A PLACE ON THE EARTH, spelled the way Cesium spells it. Three loose doubles said the same thing
-// and named nothing: a reader who has used Cesium for Unreal already owns this word, and a reader
-// who has not can see from it that the numbers belong together.
 struct LongitudeLatitudeHeight {
   double LongitudeDeg = 0.0;
   double LatitudeDeg = 0.0;
@@ -344,16 +291,7 @@ struct Event {
   std::vector<std::string> Carries;
 };
 
-// FILAMENT'S CAMERA CARRIES ITS OWN PROJECTION -- `setProjection(fov, aspect, near, far)` and
-// `lookAt(eye, centre, up)` -- and a declaration that states a clip range or an aim point means it.
-// Unreal's `FMinimalViewInfo` is the same three: a location, a rotation and a projection. The
-// engine's own defaults stand where a field is left at zero, which is what an UNDECLARED section
-// means everywhere else on this page.
 struct Camera {
-  // THE NEAR PLANE A FRAME STANDS ON WHEN NOTHING DECLARES ONE, in metres. A client that reads a
-  // DEPTH attachment back needs it to turn what it read into a range, and it had to reach into the
-  // renderer to find out. It is stated here and the renderer takes it from here, so there is one
-  // holder and not two that agree until they do not.
   static constexpr double kNearestM = 0.05;
 
   bool Placed = false;
@@ -363,17 +301,9 @@ struct Camera {
   double NearM = 0.0;
   double FarM = 0.0;
 
-  // GLTF HAS TWO CAMERAS AND SO DOES FILAMENT: a perspective one stating a field of view, and an
-  // orthographic one stating how many metres the frame spans. A door that carried only the first
-  // could not express half of what a file declares, and a conformance case that renders an
-  // orthographic asset against a reference has no way to say so.
   bool Orthographic = false;
   double XMagM = 0.0, YMagM = 0.0;
 
-  // FILAMENT'S CAMERA IS GIVEN ITS PROJECTION AS ONE CALL -- a field of view, a near and a far --
-  // and a client that knows that reaches for the verb rather than for three fields. Here it says
-  // the same thing into a declaration, which is the tree's own shape: the engine still behaves
-  // rather than obeys, and a section left undeclared keeps the engine's own default.
   void setProjection(double fovDeg, double nearM, double farM) {
     Orthographic = false;
     FovDeg = fovDeg;
@@ -390,29 +320,14 @@ struct Camera {
     FarM = farM;
   }
 
-  // THE MATRICES A CLIENT PROJECTS WITH. Filament hands out `Camera::getViewMatrix()` and
-  // `getProjectionMatrix()` for exactly this reason: a client that wants to know WHERE a point
-  // lands on the frame -- to place a label, to test a pick, to score a render against a reference
-  // -- would otherwise rebuild the arithmetic and be wrong in a way nothing catches. `clipMatrix`
-  // is the two composed, which is the one a point is multiplied by. Column-major, sixteen doubles.
   [[nodiscard]] bool viewMatrix(double outM16[16]) const;
   [[nodiscard]] bool projectionMatrix(double aspect, double outM16[16]) const;
   [[nodiscard]] bool clipMatrix(double aspect, double outM16[16]) const;
 
   bool LooksAt = false;
   double LookAtM[3] = {0.0, 0.0, 0.0};
-  // WHICH WAY IS UP, AS FILAMENT SPELLS IT. `Camera::lookAt(eye, center, up)` takes a vector and
-  // not an angle, and the reason is that an angle needs a convention: measured from what, positive
-  // which way. This door carried `RollRad` and never stated one, so a client holding the camera's
-  // own up had to recover an angle and guess -- and the guess came out negated on the one corpus
-  // case that rolls. The default is world up, which is what an unrolled camera means.
   double UpM[3] = {0.0, 1.0, 0.0};
 
-  // FILAMENT'S CAMERA TAKES A PHOTOGRAPHIC EXPOSURE -- aperture in f-stops, shutter in seconds,
-  // sensitivity in ISO -- and computes the scale from them, because those three are what a
-  // photographer knows and a bare multiplier is not. The engine keeps the multiplier (`Exposure`
-  // in the render section) and this DERIVES it, so a scenario may say either and they cannot
-  // disagree: the derivation is the standard one, EV = log2(N^2 / t) - log2(S / 100).
   double ApertureFStops = 0.0;
   double ShutterS = 0.0;
   double SensitivityIso = 0.0;
@@ -430,10 +345,6 @@ struct Camera {
   [[nodiscard]] double exposureScale(void) const;
 };
 
-// FILAMENT'S VIEW IS SET WITH VERBS -- `setCamera`, `setViewport`, `setScene` -- because its scene
-// is assembled by calls. Here a scenario DECLARES, so the same three names stand on the same three
-// fields and mean "say what this view is". A reader who knows Filament reaches for the verb and
-// finds it; the engine still behaves rather than obeys, which is this tree's own rule.
 struct View {
   std::string Id;
   Camera Sees;
@@ -587,15 +498,6 @@ struct PhysicsSettings {
   int MostStepsInArrears = 8;
 };
 
-// WHEN IT IS, AND WHETHER THAT KEEPS MOVING. `Live` is the CLOCK OF THE MACHINE: the scene stands
-// at the real hour and goes on standing there as it passes, which is what a client wants when it
-// is showing a place rather than reproducing a picture. `Start` is one stated instant in ISO 8601
-// UTC, which is what a client wants when the picture has to be the SAME one tomorrow.
-//
-// UNDECLARED USED TO MEAN LIVE AND NOBODY COULD SAY SO. The engine fell back to `std::time` when a
-// clock was absent, so real time was reachable only by leaving something out -- and a default is
-// not an answer a client can state, argue with, or read back. Both are now sayable and the
-// fallback is unchanged, so nothing that stood before moves.
 struct Clock {
   bool Declared = false;
   bool Live = false;
@@ -649,6 +551,6 @@ struct Scenario {
   [[nodiscard]] const Asset *subject(void) const;
 };
 
-} // namespace outshine
+}
 
 #endif

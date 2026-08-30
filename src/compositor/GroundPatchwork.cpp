@@ -45,12 +45,6 @@ void NormalsFrom(const std::vector<float> &positionM,
 
 constexpr long kBlockTiles = 4;
 
-// THE ELLIPSOID IS WHAT STANDS UNTIL THE GROUND ARRIVES. Nothing may block a frame on IO, so a
-// tile that has not been meshed yet is laid as the bare WGS84 surface at that tile's own bounds --
-// no elevation, correct curvature, correct place. A later frame replaces it with the real mesh.
-// The old flightbox streamer covered a missing chunk with its parent for the same reason and wrote
-// the reason down: "a chunk that has not arrived is covered by its parent and picked up on a later
-// frame, so the world refines progressively and the frame loop never blocks".
 void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   const int side = grid < 2 ? 2 : grid;
   const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
@@ -114,19 +108,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
 
   Patchwork out;
-  // THE CLUSTER TABLE IS EYE-RELATIVE, because a cluster centre is a float and an absolute ECEF
-  // position at 6.4e6 m resolves to about half a metre in one. Precision has ONE boundary in this
-  // engine and it is the camera; a table meant for the device crosses it here rather than there.
   for (int axis = 0; axis < 3; ++axis) { out.ClusterEyeM[axis] = over.EyeM[axis]; }
   bool anchored = false;
 
-  // COVERAGE IS A MASK, NOT A LIST OF RECTANGLES. A coarse tile is covered by FOUR finer ones and
-  // never by any single one, so testing "is this tile inside some rectangle a finer level laid"
-  // can never succeed: measured, 0 tiles were skipped as covered while 24 overlapped a finer level,
-  // drawing coarse terrain straight through fine terrain with 1 495.59 m between the two surfaces
-  // and 100.75 deg between their normals. The mask is one cell per tile of the FINEST zoom across
-  // the coarsest level's block -- 4 * 2^(L-1) on a side, 512 cells at eight levels -- and a coarse
-  // tile is skipped only when EVERY cell it covers is already marked.
   const int levels = over.Levels < 1 ? 1 : over.Levels;
   const long widest = kBlockTiles * (1L << (levels - 1));
   long maskX0 = 0, maskY0 = 0;
@@ -169,16 +153,6 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
             }
           }
         }
-        // A COARSE TILE THAT TOUCHES A FINER ONE IS DROPPED, NOT DRAWN THROUGH IT. Exact nesting is
-        // not reachable with a block cascade: each level snaps to its own zoom's grid
-        // independently, and no choice of origin keeps every level's block inside its coarser
-        // neighbour's inner quarter -- the parity condition it would need cannot hold at every
-        // level at once. Measured with whole-tile coverage only: 13 of 99 tiles skipped and 11
-        // still OVERLAPPING, two surfaces 1 495.59 m apart and 100.75 deg apart in normal fighting
-        // for the same pixels. Dropping on touch trades that for a possible sliver of ellipsoid at
-        // a block edge, which is the lesser wrong. A QUADTREE cannot produce either, because it
-        // partitions: a node is refined or drawn, never both. That is board:2024, and this is the
-        // number that argues it.
         if (covered) {
           ++out.Skipped;
           continue;
@@ -203,14 +177,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           ofTheGround = false;
         }
         if (ofTheGround && (built.Verts.empty() || built.Idx.empty())) { ofTheGround = false; }
-        // BARE COUNTS WHAT WAS LAID, PENDING COUNTS WHAT WAS ASKED FOR. A walk that only asks lays
-        // nothing, so counting both made every missing tile count twice and drove any progress
-        // fraction to zero by construction.
         if (!ofTheGround && !over.Asking) { ++out.Bare; }
-        // ASKING WALKS AND REQUESTS AND BUILDS NOTHING. `tiles.Mesh` issues the fetch for a tile
-        // that is not resident, so the walk itself is what pulls the world in; assembling vertices
-        // while doing it would rebuild the whole terrain on every poll. A loading bar polls; it
-        // must cost a walk, not a mesh.
         if (over.Asking) {
           ++out.Tiles;
           if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
@@ -239,8 +206,6 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           out.NormalM.push_back(built.Verts[vertex + 7]);
         }
         out.ClustersHeld += built.Clusters.size();
-        // THE WHOLE CUT, CARRIED. Every cluster is rebased onto one index list for the ring, so a
-        // reader on the device sees a flat table and one buffer rather than a tile's worth of each.
         const uint32_t rebase = (uint32_t)out.AllIndex.size();
         for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
         for (const DagCluster &cluster : built.Clusters) {
@@ -297,4 +262,4 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   return out;
 }
 
-} // namespace outshine
+}

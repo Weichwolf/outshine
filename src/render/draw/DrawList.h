@@ -120,17 +120,6 @@ static_assert(VertexLayoutsIndexThemselves(),
   return Holds(AttributesOf(layout), VertexAttribute::Colour);
 }
 
-// THE RUNS THE DEVICE BINDS, DECLARED ONCE. The pipeline's vertex-buffer descriptions and the
-// packer that fills them each built this order and these widths BY HAND, in two files, with nothing
-// to notice if they drifted apart -- and a drift there is not a wrong picture, it is a shader
-// reading one attribute's bytes as another's. This tree's own rule applies: what the compiler can
-// decide is a `static_assert`, never a case.
-//
-// PLANAR RATHER THAN INTERLEAVED, and the reason is the depth and shadow passes: they read POSITION
-// alone, which costs 12 bytes a vertex from its own run and 32 from an interleaved one. Unreal
-// splits `FPositionVertexBuffer` from `FStaticMeshVertexBuffer` for exactly that, and RAGE's
-// `grmGeometry` keeps its channels apart too. They agree, so the layout is settled and the PRODUCER
-// is what has to write it.
 struct VertexRun {
   uint32_t Floats = 0;
   uint32_t Location = 0;
@@ -197,18 +186,12 @@ struct DrawItem {
   uint32_t ModelSlot = 0;
   uint32_t Instances = 1;
 
-  // WHICH CLUSTERS COVER THIS DRAW. The cooker cut them per part and a draw IS a part, so the range
-  // travels with the draw and the culler never has to ask a part anything.
   uint32_t FirstCluster = 0;
   uint32_t ClusterCount = 0;
 
   uint32_t Submitted = 0;
 };
 
-// A BATCH'S CLUSTERS ARE ITS DRAWS' CLUSTERS AND THEY ARE NOT CONTIGUOUS. Merging sorts by state,
-// so two parts that share a surface land in one batch while their cluster ranges stay where the
-// cooker put them. `Jobs` is therefore a RANGE INTO THE JOB LIST rather than into the cluster
-// table: the list is built once per mesh, in batch order, and one thread takes one job.
 struct DrawBatch {
   uint32_t FirstIndex = 0;
   uint32_t IndexCount = 0;
@@ -246,15 +229,6 @@ public:
 
   [[nodiscard]] const std::vector<DrawBatch> &Batches() const { return Batches_; }
 
-  // ONE `uint4` PER CLUSTER A BATCH DRAWS: the cluster, the batch, where its indices begin in the
-  // PACKED run, and how many. Sixteen bytes because that is one aligned load, and all four because
-  // that is everything a thread needs to go from its own id to a sphere, a source and a
-  // destination -- a lookup table beside this would be a second gather for facts already known
-  // when the batches were compiled.
-  //
-  // THE INDEX IS IN THE PACKED RUN'S OWN NUMBERING. The cooker numbers a cluster against the
-  // subject's index run; the draw list repacks that run in batch order, so the offset moves and
-  // this is where it is moved, once per mesh, rather than in the kernel every frame.
   [[nodiscard]] const std::vector<uint32_t> &ClusterJobs() const { return Jobs_; }
 
   static constexpr size_t kJobWords = 4;
@@ -271,5 +245,5 @@ private:
   uint32_t IndexCount_ = 0;
 };
 
-} // namespace outshine::Render
+}
 #endif

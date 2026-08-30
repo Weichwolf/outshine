@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CAMERA_PLACECAMERA_H
-#define OUTSHINE_CAMERA_PLACECAMERA_H
+#ifndef OUTSHINE_CLIENT_PLACECAMERA_H
+#define OUTSHINE_CLIENT_PLACECAMERA_H
 
 #include <cstdint>
 #include <span>
@@ -41,8 +41,6 @@ struct Shot {
   bool Kept = false;
 };
 
-// The standing, drawing and measuring half, over an engine a caller has already declared into.
-// `Take` builds a place's scenario and hands it here; a scenario read from a file goes straight in.
 [[nodiscard]] Shot Draw(class ::outshine::Engine &engine, std::string_view name, bool tells);
 
 [[nodiscard]] std::span<const Place> Places();
@@ -56,5 +54,5 @@ struct Shot {
 [[nodiscard]] double ControlVariation();
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
-} // namespace outshine::Shots
+}
 #endif

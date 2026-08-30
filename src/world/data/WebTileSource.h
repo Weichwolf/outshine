@@ -27,5 +27,5 @@ private:
   SourceDecl Decl_;
 };
 
-} // namespace outshine::Data
+}
 #endif

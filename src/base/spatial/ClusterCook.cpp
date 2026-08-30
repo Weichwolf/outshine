@@ -25,7 +25,7 @@ namespace {
   return (Spread(held[0]) << 2) | (Spread(held[1]) << 1) | Spread(held[2]);
 }
 
-} // namespace
+}
 
 Cooked CookClusters(std::span<const float> positionsM,
                     std::span<const uint32_t> indices,
@@ -105,7 +105,7 @@ Cooked CookClusters(std::span<const float> positionsM,
   return out;
 }
 
-} // namespace outshine
+}
 
 namespace outshine {
 namespace {
@@ -125,7 +125,7 @@ struct CellHash {
   }
 };
 
-} // namespace
+}
 
 Cooked CookDag(std::span<const float> positionsM,
                std::span<const uint32_t> indices,
@@ -141,15 +141,6 @@ Cooked CookDag(std::span<const float> positionsM,
   for (uint32_t level = 1; level <= mostLevels; ++level) {
     if (coarseIndex.size() < 3) { break; }
 
-    // THE CELL COMES FROM THE MESH'S OWN SPACING, NOT FROM ITS EXTENT. A cell smaller than the
-    // distance between neighbouring vertices collapses nothing -- measured: a 16 m grid of 289
-    // vertices with a cell of extent/256 = 0.125 m put every vertex in a cell of its own, made 289
-    // representatives out of 289 and stated an error of zero. For a SURFACE of V vertices spanning
-    // W, the mean spacing is about W / sqrt(V), and a cell of twice that merges roughly a 2x2 block
-    // -- which is the factor of two in triangles a level is supposed to be.
-    //
-    // THE CELL DOUBLES WITH EVERY LEVEL, so the error doubles with it, and a level is a factor of
-    // two in what it may cost on screen -- the ratio Nanite's groups halve their triangles by.
     float least[3] = {out.PositionsM[0], out.PositionsM[1], out.PositionsM[2]};
     float most[3] = {least[0], least[1], least[2]};
     for (const uint32_t index : coarseIndex) {
@@ -204,9 +195,6 @@ Cooked CookDag(std::span<const float> positionsM,
       }
     }
 
-    // THE ERROR IS MEASURED, NOT ASSUMED: the furthest any vertex moved to reach its
-    // representative. That is a BOUND on what this level misrepresents, and it is what the level
-    // below hands upward as its parent error.
     double worst = 0.0;
     for (size_t at = 0; at < coarseIndex.size(); ++at) {
       const uint32_t index = coarseIndex[at];
@@ -235,10 +223,6 @@ Cooked CookDag(std::span<const float> positionsM,
     const Cooked above = CookClusters(out.PositionsM, kept, mostTriangles);
     if (above.Clusters.empty()) { break; }
 
-    // EVERY CLUSTER OF THE LEVEL BELOW TAKES THIS LEVEL AS ITS PARENT. A group-per-parent is what
-    // Nanite does and it is finer; one parent for the level is coarser and it is TRUE, which is
-    // the property `DagSelect` needs -- a parent error that is too large keeps a child that could
-    // have been dropped, and one that is too small drops a child that was still needed.
     float wholeCentre[3] = {0.0f, 0.0f, 0.0f};
     float wholeRadius = 0.0f;
     {
@@ -284,4 +268,4 @@ Cooked CookDag(std::span<const float> positionsM,
   return out;
 }
 
-} // namespace outshine
+}

@@ -25,7 +25,7 @@ namespace {
   return d;
 }
 
-} // namespace
+}
 
 VersatilesVector::VersatilesVector() : WebTileSource(Declared()) {}
 
@@ -45,4 +45,4 @@ Meaning VersatilesVector::Classify(int status, size_t bytes) const noexcept {
   return Meaning::Refused;
 }
 
-} // namespace outshine::Data
+}

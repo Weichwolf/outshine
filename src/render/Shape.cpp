@@ -42,24 +42,6 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
   }
 }
 
-// A PART'S TRIANGLES, CUT AND REORDERED IN THE RUN THAT IS DRAWN. `CookClusters` sorts a run by the
-// Morton code of each triangle's centroid and hands back the reordered run with a sphere and a
-// proven error bound per cluster; nothing about the VERTICES moves, so the same triangles are drawn
-// and the only thing that changed is which of them sit next to each other.
-//
-// IN PLACE, AND THAT IS A DECISION WITH A MEASURED PRICE. A SECOND run was kept here for one round
-// -- the cooked order beside the given one -- because where two surfaces COINCIDE this renderer's
-// depth test resolves the tie by which triangle arrived first, and Khronos's NormalTangentTest has
-// one 198x48 cell that goes from 6 codes off the oracle to 8 when the order changes, past its own
-// bound of 6.435. The second run cost Shibuya 113 MB on this side, 113 MB on the device and 113 MB
-// of staging, and the run it was protecting is the one a culled part no longer draws from: a batch
-// the culler decides reads the COMPACTED run, which is in cluster order regardless. So the second
-// run bought a tie-break for parts that are cut and drawn directly, and was paid for by every part
-// that is cut at all. It goes, and the corpus is what says whether the tie-break is missed.
-//
-// A BLENDED SURFACE IS LEFT ALONE. Compositing reads the order the triangles arrive in, so
-// reordering them is visible -- and Nanite does not take translucency either, which is the same
-// answer arrived at for the same reason.
 void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
   const auto began = std::chrono::steady_clock::now();
   gCookMs.store(0.0, std::memory_order_relaxed);
@@ -67,8 +49,6 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
   into.ClusterSpheres.clear();
   if (into.Indices.empty()) { return; }
 
-  // ONE APPEND WRITES BOTH, so the cooker's record and the device's run cannot disagree about how
-  // many clusters there are or where one starts.
   const auto keep = [&into](const DagCluster &cut) {
     into.Clusters.push_back(cut);
     into.ClusterSpheres.insert(
@@ -85,9 +65,6 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
                       StateOf(surfaces[(size_t)part.Material]).Kind() == SurfaceKind::Masked;
     if (!cuts) { continue; }
 
-    // A PART THAT FITS IN ONE CLUSTER IS NOT REORDERED, because nothing would read the order. A
-    // cluster is culled whole and the sequence inside it is used by no stage, so the cheapest
-    // correct answer is to leave the run exactly as it arrived.
     if (part.IndexCount <= (size_t)kClusterTriangles * 3u) {
       DagCluster whole{};
       whole.First = (uint32_t)part.FirstIndex;
@@ -103,10 +80,6 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       continue;
     }
 
-    // THE CUT IS PER PART AND SO ARE ITS INDICES. A part's positions are its OWN span -- a world
-    // shape views the producer's arrays and joins nothing but the indices -- so the run is made
-    // part-local for the cooker and put back global afterwards. A cluster belongs to one part
-    // because a surface does.
     local.assign(into.Indices.begin() + (long)part.FirstIndex,
                  into.Indices.begin() + (long)(part.FirstIndex + part.IndexCount));
     for (uint32_t &at : local) { at -= (uint32_t)part.FirstVertex; }
@@ -125,4 +98,4 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);
 }
-} // namespace outshine::Render
+}

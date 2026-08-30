@@ -35,9 +35,6 @@ enum class Resource {
   FrameTex,
   Surface,
 
-  // THE CUT AND WHAT A CULLER DECIDES ABOUT IT. These are BUFFERS, which this catalogue could not
-  // say until board:2041: a GPU-driven pass reads a TABLE at least as often as a texture, and a
-  // buffer that has to hide inside a stage is the one thing a plan exists to prevent.
   ClusterSphere,
   ClusterIndex,
   ClusterJobs,
@@ -90,10 +87,6 @@ enum class Stage {
   Irradiance,
   AutoExposure,
 
-  // BEFORE THE SHADOW AND THE SKY RATHER THAN BESIDE THE DRAW, and the reason is the device. A
-  // cull immediately in front of the pass that consumes it is a hard wait: the raster cannot begin
-  // until the last thread has written the argument. Sitting here it shares the compute pass the
-  // atmosphere already opens, and the shadow atlas and the sky draw over the top of it.
   SubjectCull,
   LightVisibility,
   Sky,
@@ -112,15 +105,6 @@ enum class Stage {
   kCount
 };
 
-// A BUFFER IS A RESOURCE LIKE ANY OTHER. It is pulled, bound, stored and refused exactly as an
-// attachment is; what differs is that it carries a STRIDE rather than a texel format, because an
-// element of a table has a size and no filtering.
-//
-// AND THAT IS A DIFFERENT AXIS FROM THIS ONE, so `ResourceKind` does not gain an arm for it. This
-// enum says where a resource COMES FROM -- handed in, derived, drawn into -- and a table is handed
-// in or derived exactly as a picture is: four of the cut's six cross once per mesh and two are
-// written by a kernel. What a resource IS made of is the FORMAT's question, and
-// `TexelFormat::Table` is the arm that answers it.
 enum class ResourceKind { Given, Derived, Attachment };
 
 enum class Provenance { Machinery, Content };
@@ -129,13 +113,6 @@ enum class PassKind { Compute, Raster };
 
 enum class FallbackKind { None, Alias, Neutral };
 
-// `Handle` IS NOT `Table`, and the distance between them is what a refusal needs. A handle is a
-// resource the plan tracks as an EDGE and never allocates -- a sampler, a stage's own uniform --
-// and it has no element at all. A table has an element and its size is the stride, so a row that
-// says `Table` and states no stride is caught here rather than by a kernel silently reading an
-// empty buffer. That distinction was lost for one round and the door said so at once: the
-// irradiance stage writes a handle, and a check that asked every compute write for a stride
-// refused a plan that had been correct all along.
 enum class TexelFormat {
   Handle,
   Table,
@@ -159,9 +136,6 @@ struct ResourceRow {
   TexelFormat Format;
   const char *Name;
 
-  // BYTES PER ELEMENT, and it is what makes a buffer row well formed. A texture leaves it zero;
-  // a buffer that leaves it zero is a declaration the compiler refuses, because a table whose
-  // element has no size cannot be bound and would read as an empty one.
   uint32_t Stride = 0;
 };
 
@@ -358,13 +332,6 @@ inline constexpr ResourceRow kResources[] = {
      TexelFormat::Rgba8UnormSrgb,
      "surface"},
 
-    // THE CUT'S OWN TABLES. The first four are HANDED IN -- the cooker wrote them where the cut
-    // was taken and they cross to the device once per mesh; the last two are DERIVED and no byte
-    // of theirs is ever written on this side.
-    //
-    // A STRIDE IS `sizeof` AND NEVER A NUMBER WRITTEN TWICE. The sphere is a `float4` because that
-    // is the load the cull kernel issues; the argument is SDL's own record, so the day SDL changes
-    // it this row changes with it and no encoder is left writing the old shape.
     {Resource::ClusterSphere,
      ResourceKind::Given,
      FallbackKind::None,
@@ -406,10 +373,6 @@ inline constexpr ResourceRow kResources[] = {
   return row.Format == TexelFormat::Table;
 }
 
-// A TABLE STATES ITS STRIDE AND NOTHING ELSE DOES. Both halves are held, because both halves are a
-// real mistake: a table with no stride binds as empty and draws nothing while reporting that it
-// drew, and a picture that states one is a row somebody edited without deciding which of the two
-// it meant.
 [[nodiscard]] constexpr bool ElementsAreStated() {
   for (const ResourceRow &row : kResources) {
     if (IsBuffer(row) != (row.Stride > 0u)) { return false; }
@@ -741,5 +704,5 @@ static_assert(TopologicalOrderHolds(),
 static_assert(EveryFusionIsAdjacentAndFed(),
               "a declared fusion names the next stage and that stage reads what this one writes");
 
-} // namespace outshine::Render
+}
 #endif

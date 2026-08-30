@@ -180,7 +180,7 @@ int AskHeight(int argc, char **argv) {
   return 0;
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);

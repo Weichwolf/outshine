@@ -54,5 +54,5 @@ inline std::string DisplayMsl(const DisplayOptions &options) {
   return source;
 }
 
-} // namespace outshine::Render
+}
 #endif

@@ -70,7 +70,7 @@ double SegmentGapM2(double em, double nm, double e0, double n0, double e1, doubl
   return ge * ge + gn * gn;
 }
 
-} // namespace
+}
 
 bool FeatureField::Contains(const Feature &f, double eastM, double northM) const noexcept {
   if (!Boxed(f, eastM, northM)) { return false; }
@@ -104,4 +104,4 @@ size_t FeatureField::HeapBytes() const {
          Vertices_.capacity() * sizeof(Vertex);
 }
 
-} // namespace outshine::Generators
+}

@@ -31,4 +31,4 @@ size_t Makers::count() const {
   return Kept_->Held.size();
 }
 
-} // namespace outshine
+}

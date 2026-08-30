@@ -32,5 +32,5 @@ public:
   [[nodiscard]] virtual Reply Wants(int z, uint32_t x, uint32_t y, int grid) = 0;
 };
 
-} // namespace outshine
+}
 #endif

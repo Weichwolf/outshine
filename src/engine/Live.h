@@ -38,22 +38,14 @@ struct Declaration {
 
   std::vector<std::string> Stages;
 
-  // THE PICTURES A CLIENT ASKS THE FRAME TO KEEP, beyond the one it displays. A conformance case
-  // states a claim about the DEPTH or the SHADING NORMAL and has to be able to ask for them; a
-  // client that asks for nothing gets what the plan needs and no more, which is the fast path.
   std::vector<std::string> Outputs;
 
-  // HOW THE FRAME IS TRANSFERRED TO THE DISPLAY, and how much precision the scene carries. Both
-  // stood in the door as strings and neither was read, so a client asking for a LINEAR frame got
-  // the filmic curve and a picture 177 code values away from the one it declared.
   std::string Transfer;
   std::string Precision;
 
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
-  // WHAT A CLIENT SAID THE FILE'S OWN SURFACES ARE, matched by the name the file states. Empty is
-  // the ordinary case and means the file's materials stand as they were written.
   std::vector<SurfaceOverride> Overriding;
 
   std::string Variant;
@@ -175,11 +167,6 @@ public:
 
   [[nodiscard]] double NearStanding() const { return (double)Renderer_->NearMetres(); }
 
-  // THE NEAREST A DECLARED CAMERA MAY STAND. A framing near plane is derived from the scene's
-  // radius, which is right for fitting one object in a frame and ruinous for a world: with a ring
-  // reaching 388 km it came out at 1 904 878 m. Reverse-Z writes `near / distance`, so every
-  // surface closer than 1 905 km clamps to the same depth and the depth test stops discriminating
-  // -- which is why distant towers drew and the buildings beside the camera did not.
   [[nodiscard]] static double NearestStandable() { return (double)Render::SceneRenderer::kNearM; }
 
   [[nodiscard]] const double *PlacementStanding(size_t part) const {
@@ -253,10 +240,6 @@ private:
   [[nodiscard]] bool Pose(double seconds, std::string &error);
   [[nodiscard]] bool Measure(double seconds, std::string &error);
 
-  // WHERE A SWEEP SAMPLES, and it is the animation's OWN span rather than a frame grid. A framing
-  // rule wants the EXTENT a subject reaches over its motion; tying that to a declared frame rate
-  // made it depend on a number the framing has nothing to do with, and a scenario that declared
-  // none divided by zero and bounded the rest pose against the end pose alone.
   [[nodiscard]] int Sweeps() const {
     const int frames = Held_.Frames();
     return frames < 1 ? 1 : (frames < kSweepSamples ? frames : kSweepSamples);
@@ -317,5 +300,5 @@ private:
   double Around_ = 0.0;
 };
 
-} // namespace outshine::Core
+}
 #endif

@@ -52,5 +52,5 @@ struct GrowthForm {
   static std::optional<CrownEnvelope> EnvelopeOf(const char *name);
 };
 
-} // namespace outshine::Generators
+}
 #endif

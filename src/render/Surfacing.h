@@ -37,5 +37,5 @@ void ResolveDeclaredSurface(const Shape &geometry,
                             const outshine::Material &row,
                             SurfaceTable &out);
 
-} // namespace outshine::Render
+}
 #endif

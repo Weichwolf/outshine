@@ -74,4 +74,4 @@ std::string CompositeTransmissionStage::ShaderSource(std::string &error) {
   return MslPrelude(error) + body;
 }
 
-} // namespace outshine::Render
+}

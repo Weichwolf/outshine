@@ -23,5 +23,5 @@ private:
   Address Where_;
 };
 
-} // namespace outshine::Data
+}
 #endif

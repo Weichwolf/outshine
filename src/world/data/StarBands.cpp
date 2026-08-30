@@ -24,7 +24,7 @@ namespace {
   return d;
 }
 
-} // namespace
+}
 
 StarBands::StarBands(std::string directory) : Directory_(std::move(directory)), Decl_(Declared()) {}
 
@@ -64,4 +64,4 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
   return Fetched::Delivered(std::move(bytes));
 }
 
-} // namespace outshine::Data
+}

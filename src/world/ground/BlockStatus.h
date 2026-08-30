@@ -40,5 +40,5 @@ struct BlockHeader {
   void Invalidate() { Status = BlockStatus::Invalid; }
 };
 
-} // namespace outshine
+}
 #endif

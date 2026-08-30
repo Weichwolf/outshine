@@ -24,7 +24,7 @@ constexpr int kDemCacheCeiling = 128;
   return Severity(a) >= Severity(b) ? a : b;
 }
 
-} // namespace
+}
 
 TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
     : Source_(source), Frame_(frame), Config_(config) {
@@ -222,4 +222,4 @@ size_t TerrainTiles::HeapBytes() const {
   return bytes;
 }
 
-} // namespace outshine::Ground
+}

@@ -263,4 +263,4 @@ const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view laye
   return it != Rules_.end() ? &it->second : nullptr;
 }
 
-} // namespace outshine::Ground
+}

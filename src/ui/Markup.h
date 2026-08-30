@@ -49,5 +49,5 @@ private:
 [[nodiscard]] bool HoldsRawText(std::string_view tag);
 [[nodiscard]] bool IsBlockLevel(std::string_view tag);
 
-} // namespace outshine::Ui
+}
 #endif

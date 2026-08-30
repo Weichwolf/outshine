@@ -30,5 +30,5 @@ private:
   SDL_GPUTextureFormat Built = SDL_GPU_TEXTUREFORMAT_INVALID;
 };
 
-} // namespace outshine::Render
+}
 #endif

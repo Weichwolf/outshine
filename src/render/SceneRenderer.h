@@ -87,8 +87,6 @@ public:
 
   [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
 
-  // WHETHER THIS DEVICE HAS A WINDOW TO SHOW A FRAME IN. Headless is the fast path rather than a
-  // degraded one, so the answer is a fact about the target and never a complaint about it.
   [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
 
   void Settle() { SDL_WaitForGPUIdle(Device_.Get()); }
@@ -142,9 +140,6 @@ public:
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
 
-  // BYTES THE CPU HANDED THE GPU. RAGE and Unreal both drive this toward zero on a steady frame:
-  // geometry is resident and only what CHANGED crosses the bus. A number that stays high while
-  // nothing moves is the finding, not the frame time it produces.
   [[nodiscard]] uint32_t SubjectBytesStaged() const { return Subjects_.StagedBytes(); }
 
   void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
@@ -210,11 +205,6 @@ public:
 
   [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
 
-  // WHICH VERTEX LAYOUT EACH BATCH TOOK, which decides which SHADER VARIANT drew it. Nothing could
-  // read this, so a picture that disagreed with a reference could be argued about for a session
-  // without anyone checking whether the draw took the variant the code says it takes -- which is
-  // exactly what happened. A number that decides a picture and cannot be read is a number that
-  // gets reasoned about instead of measured.
   [[nodiscard]] uint32_t SubjectBatchesTaking(VertexLayout layout) const {
     uint32_t many = 0;
     for (const DrawBatch &batch : Subjects_.Drawn()) { many += batch.Layout == layout ? 1u : 0u; }
@@ -326,8 +316,6 @@ private:
   bool Touched_[kResourceCount] = {};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
 
-  // A TABLE IS RESOLVED THE WAY A PICTURE IS, and by a separate answer because the device
-  // binds the two by separate calls. A resource answers exactly one of the two.
   [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
@@ -414,5 +402,5 @@ private:
   float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
-} // namespace outshine::Render
+}
 #endif

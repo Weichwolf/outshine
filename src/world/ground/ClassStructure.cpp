@@ -38,7 +38,7 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
   return std::sqrt(qx * qx + qy * qy);
 }
 
-} // namespace
+}
 
 ClassStructure::ClassStructure(const TangentFrame &frame,
                                std::shared_ptr<const Grid> fine,
@@ -161,4 +161,4 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
   return best;
 }
 
-} // namespace outshine
+}

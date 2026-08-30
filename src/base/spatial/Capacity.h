@@ -20,5 +20,5 @@ template <class Value> size_t TreeNodeBytes(size_t count) {
   return count * sizeof(Node);
 }
 
-} // namespace outshine
+}
 #endif

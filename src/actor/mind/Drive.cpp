@@ -26,4 +26,4 @@ Steering Drive(const Axles &of, const Envelope &within, const Demand &asked) {
   return out;
 }
 
-} // namespace outshine::Pilot
+}

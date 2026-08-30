@@ -66,5 +66,5 @@ inline TreeVec3 RmfDouble(TreeVec3 p0, TreeVec3 p1, TreeVec3 t0, TreeVec3 t1, Tr
   return Normalize(rL - v2 * (2.0f / c2 * Dot(v2, rL)));
 }
 
-} // namespace outshine::Generators
+}
 #endif

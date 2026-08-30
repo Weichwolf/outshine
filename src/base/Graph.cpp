@@ -113,4 +113,4 @@ bool Graph::Runs() {
   return true;
 }
 
-} // namespace outshine::Work
+}

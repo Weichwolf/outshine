@@ -26,16 +26,6 @@ void CookTile(const float *soup,
   if (!soup || nverts <= 0) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
-  // A TERRAIN TILE NEEDS NO CLUSTER DAG, BECAUSE THE PYRAMID IS ALREADY THE LOD. Zoom z-1 IS the
-  // simplified version of zoom z, produced once by whoever made the tiles, so building a
-  // Nanite-style DAG inside each tile at runtime rebuilds a reduction the data already carries.
-  // Nanite builds its DAG OFFLINE at import; Cesium ships quantized-mesh tiles pre-simplified per
-  // level and cuts the quadtree by screen-space error. Neither simplifies terrain at runtime.
-  // Measured, and this is why it is here rather than an opinion: sampling a place mid-load put 572
-  // of the stack samples in `dag::Clustered`, `dag::SimplifyGroup` and `dag::Absorb` -- the whole
-  // CPU cost of standing a world, spent reducing 2 048 triangles per tile down to 8 across every
-  // one of 128 tiles. The DAG belongs to SUBJECTS, which have no natural pyramid; that is exactly
-  // where Nanite uses it.
   {
     outVerts.assign(soup, soup + (size_t)gridverts * kTileSoupFloats);
     outIdx.resize((size_t)gridverts);
@@ -51,4 +41,4 @@ void CookTile(const float *soup,
   }
 }
 
-} // namespace outshine::Ground
+}

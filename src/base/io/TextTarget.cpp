@@ -18,4 +18,4 @@ TextTarget::TextTarget(const std::string &path) : Name_(path) {
   File_ = Owned_.get();
 }
 
-} // namespace outshine
+}

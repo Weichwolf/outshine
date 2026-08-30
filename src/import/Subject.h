@@ -25,13 +25,6 @@ namespace outshine::Gltf {
 class Document;
 struct Primitive;
 
-// THE CAMERA IS THE RENDERER'S, and the importer names it rather than declaring a second one. Both
-// held the same eight numbers and the same LookAt; `EveryTypeNameIsDeclaredOnce` caught the
-// duplicate the moment it appeared, which is what that claim is for -- a word meaning two things is
-// a word nobody can read, even when the two things are identical.
-//
-// `View` and `Clip` stay HERE as free functions because they answer in `Transform`, which is the
-// importer's own matrix type. The camera crossed the tier; its glTF-shaped output did not.
 using Viewpoint = Render::Viewpoint;
 
 [[nodiscard]] bool ViewOf(const Viewpoint &from, Transform &out);
@@ -93,9 +86,6 @@ public:
 
   [[nodiscard]] outshine::Geometry Handed() const;
 
-  // NAMED, WHEN THE DOCUMENT IS AT HAND. A subject holds its surfaces as rows and the NAME the
-  // file gave each one lives in the document, so the plain form hands back unnamed surfaces --
-  // and a client keying a declaration by material name has nothing to key on.
   [[nodiscard]] outshine::Geometry Handed(const Document &naming) const;
 
 private:
@@ -241,5 +231,5 @@ private:
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 
-} // namespace outshine::Gltf
+}
 #endif

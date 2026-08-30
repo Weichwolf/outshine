@@ -74,5 +74,5 @@ private:
   size_t Unseated_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

@@ -25,4 +25,4 @@ size_t Task::Deep() const {
   return Under_ == nullptr ? 1u : 1u + Under_->Deep();
 }
 
-} // namespace outshine::Control
+}

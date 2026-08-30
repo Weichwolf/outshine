@@ -31,7 +31,7 @@ std::string Quoted(const std::string &text) {
   return out;
 }
 
-} // namespace
+}
 
 std::vector<Listed> Cases(const std::string &under, const std::string &prepared) {
   std::vector<Listed> found;
@@ -209,7 +209,7 @@ std::string Slurp(const std::string &path, bool &found) {
   return held.str();
 }
 
-} // namespace
+}
 
 std::string EntryPath(const std::string &prepared) {
   bool haveManifest = false;
@@ -307,4 +307,4 @@ std::string Console(const std::string &title,
   return out;
 }
 
-} // namespace outshine::Viewer
+}

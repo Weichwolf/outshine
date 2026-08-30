@@ -65,9 +65,9 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
   return true;
 }
 
-} // namespace
+}
 
-} // namespace
+}
 
 void ResolveSurfaceTable(const Document &file,
                          const Subject &geometry,
@@ -244,4 +244,4 @@ void ResolveSurfaceTable(const Document &file,
   return true;
 }
 
-} // namespace outshine::Gltf
+}

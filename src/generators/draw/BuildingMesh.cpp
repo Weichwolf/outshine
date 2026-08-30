@@ -24,7 +24,7 @@ std::atomic<size_t> gFootless{0};
 std::atomic<size_t> gPlinthSteps{0};
 std::atomic<size_t> gFloorRim{0};
 std::atomic<size_t> gOverBudget{0};
-} // namespace
+}
 
 size_t BuildingMesh::BuriedTaken() {
   return gBuried.exchange(0u);
@@ -138,28 +138,6 @@ public:
 
   [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
-  // THE GENERATOR OWNS ITS OWN TOPOLOGY. Positions are welded on the same centimetre grid
-  // everything else in this tree uses, so two corners meant to be one corner ARE one index -- and a
-  // shared edge is then a shared edge rather than something a walk has to rediscover afterwards by
-  // welding a soup. Unreal's `FMeshDescription` keeps vertices, edges and triangles apart for
-  // exactly this reason and splits RENDER vertices by normal and UV on top; the soup below is that
-  // split, derived from the topology instead of standing in for it.
-  //
-  // NOTHING IS DISCARDED. The only triangle that goes is one whose corners are not three distinct
-  // indices, and that one costs no edge: its edges are a self-loop and a pair that cancel. A needle
-  // and a sliver are BAD GEOMETRY and are the generator's to stop making, never the emitter's to
-  // quietly drop -- dropping one takes three edges out of the walk and can hide the very hole it
-  // sits beside.
-  // SNAPPED, NOT WELDED, and the difference is the whole point. Welding merges positions that have
-  // already drifted apart; snapping stops them drifting. Every corner is quantised to a MILLIMETRE
-  // as it is emitted, so two corners that mean to be one corner are bit-identical -- the index
-  // table below is then bookkeeping over positions that already agree, rather than a repair that
-  // has to guess how far apart is still "the same".
-  //
-  // A millimetre is chosen against the two things that bound it: it is far below anything a frame
-  // can show at any distance a building is drawn from, and far above the float noise of the
-  // arithmetic that produced it -- a ring widened, split and interpolated three times lands within
-  // microns of itself, never within millimetres.
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
     out.P.E = std::round(v.P.E * 1000.0) / 1000.0;
@@ -199,9 +177,6 @@ public:
     Push(c, nrm);
   }
 
-  // WHAT THE SHELL IT JUST BUILT IS, answered by the generator about itself rather than by a test
-  // about its output. An edge on one face is a hole; on more than two it is not a surface; walked
-  // twice the same way it is locally inside out.
   void Judged(size_t *open, size_t *overused, size_t *reversed) const {
     std::map<std::pair<uint32_t, uint32_t>, int> walked;
     std::map<std::pair<uint32_t, uint32_t>, int> counted;
@@ -333,13 +308,6 @@ void FrontWall(const BuildingShape &s,
   if (door + 1.0 < bays) { WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site); }
 }
 
-// THE WALL HEAD IS BROKEN WHERE THE ROOF IS. One quad from corner to corner leaves an edge that the
-// gable above it -- broken at the ridge -- has no matching edge for, so a wall that meets its own
-// gable perfectly along a straight line still reads as a hole to a walk over the triangles.
-// ONE SUBDIVISION FOR FOUR BUILDERS. Wall, gable, soffit and covering all end on the same seam, and
-// a seam pairs only if both sides carry the SAME vertices. The roof breaks a footprint edge at one
-// set of places and the overhung edge outside it at another -- the offset moves the crossing -- so
-// every builder takes the UNION of the two, and the covering is handed a ring already carrying it.
 void BreaksBoth(const RoofSurface &roof,
                 const En &p,
                 const En &q,
@@ -360,11 +328,6 @@ void BreaksBoth(const RoofSurface &roof,
   }
 }
 
-// THE PARAMETERS COME FROM THE FOOTPRINT, WHATEVER RING IS BEING EMITTED. A plinth ring is the
-// footprint pushed out by 9 cm, so breaking IT against the overhang lands the split about 10 cm
-// from where breaking the footprint does -- and a floor and the plinth wall standing on it then
-// meet along two polylines that agree everywhere except at the splits. Sixteen holes in a ten
-// centimetre band at the very bottom of a building whose defect I had assumed was in its roof.
 std::vector<En> RefinedLike(std::span<const En> along,
                             const std::vector<En> &wide,
                             std::span<const En> emit,
@@ -451,16 +414,6 @@ void Walls(const BuildingShape &s,
   }
 }
 
-// A BUILDING SITS ON THE HIGHEST GROUND UNDER ITS FOOTPRINT, and the ground has to be SAMPLED to
-// know where that is. Reading the ring's CORNERS alone misses any rise between them -- a footprint
-// spanning a crest touches its highest point in the middle of an edge, not at an end -- and the
-// building then stands below ground along that stretch. Sampled every 2 m, which is finer than the
-// terrain mesh's own grid at any zoom that reaches a building, so the walk cannot step over a rise
-// the mesh actually carries.
-//
-// Its limit, stated here: the samples are on the RING, so a rise strictly INSIDE a large footprint
-// is still invisible. That is the same question as board:2028's, and a proper answer is a ray query
-// against the drawn mesh rather than a denser walk.
 constexpr double kGroundStepM = 2.0;
 
 void SampleGround(const BuildingShape &s,
@@ -487,14 +440,6 @@ void SampleGround(const BuildingShape &s,
   if (first) { *lowest = *highest = 0.0; }
 }
 
-// HOW FAR A PLINTH REACHES DOWN, derived from the site rather than chosen. A building is placed on
-// the DEM and drawn against the terrain MESH, and those two differ by whatever the mesh's grid
-// missed -- so a 0.30 m sink leaves a gap under anything on a slope. The spread of the ground
-// across the footprint's own ring measures the local gradient over the building's own extent;
-// carrying that same gradient one terrain vertex further is the smallest honest cover, and the
-// vertex spacing at the finest level is about a kilometre over a 33-wide grid, so roughly 31 m. The
-// building's own width is the only length it knows, so the spread is doubled rather than scaled by
-// a grid this tier cannot see.
 double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
@@ -502,9 +447,6 @@ double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
 
-// THE LEDGE MEETS THE WALL, so it breaks where the wall breaks. Its inner edge is the wall's foot,
-// and a single corner-to-corner edge cannot pair with a foot the roof has already broken at the
-// ridge -- which is why holes stood at the BOTTOM of a building whose defect was at the top.
 void Plinth(const BuildingShape &s,
             const RoofSurface &roof,
             const std::vector<En> &wide,
@@ -545,11 +487,6 @@ void Plinth(const BuildingShape &s,
   }
 }
 
-// A SOLID IS CLOSED AT THE BOTTOM TOO. Without this the base ring is an open boundary and the
-// terrain is what stops you seeing inside -- which holds until the terrain slopes, and stops
-// holding the moment it does. The ring is the plinth's outer one where a plinth stands, so the
-// floor meets the lowest wall the part actually has, and it is wound the other way round from a
-// roof because its outward direction is DOWN.
 void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site &site) {
   std::vector<En> tris;
   (void)RoofSurface::Fill(ring, tris);
@@ -560,10 +497,6 @@ void Floor(const BuildingShape &s, const std::vector<En> &ring, double atZ, Site
   }
 }
 
-// THE GABLE FOLLOWS THE ROOF, NOT ITS CORNERS. Reading only the two ends saw nothing to build on a
-// rectangle whose ridge runs along its long axis: all four corners sit at eaves height, so every
-// edge was skipped and the roof rose over an open end. The edge is broken where the covering is
-// broken, so the two boundaries pair.
 void Gables(const BuildingShape &s,
             const RoofSurface &roof,
             const std::vector<En> &wide,
@@ -656,11 +589,6 @@ void Crown(const BuildingShape &s,
               Face(s, out[j], band, Facade::Ledge),
               Face(s, out[j], lo, Facade::Ledge),
               Face(s, out[i], lo, Facade::Ledge));
-    // THE CORNICE'S UNDERSIDE FACES DOWN and its top faces up, so the two walk the same loop in
-    // OPPOSITE senses. They walked it the same way -- `out[i], out[j], Ring[j], Ring[i]` above is
-    // this loop rotated by one, not reversed -- which is a shell that is closed and locally inside
-    // out, and no hole count can see that. The first attempt at this reversed the TOP instead and
-    // the reversed-edge count went 16 to 24, which is how the right one of the two was found.
     site.Quad(Face(s, s.Ring[j], band, Facade::Soffit),
               Face(s, out[j], band, Facade::Soffit),
               Face(s, out[i], band, Facade::Soffit),
@@ -678,9 +606,6 @@ void Crown(const BuildingShape &s,
               Face(s, inner[i], lo, Facade::Parapet),
               Face(s, inner[i], hi, Facade::Parapet),
               Face(s, inner[j], hi, Facade::Parapet));
-    // THE COPING SHARES ITS OUTER EDGE WITH THE PARAPET'S OUTER FACE, which reaches `hi` walking
-    // `Ring[j] -> Ring[i]`. Walking it the same way here is a seam traversed twice in one
-    // direction.
     site.Quad(Face(s, s.Ring[i], hi, Facade::Ledge),
               Face(s, s.Ring[j], hi, Facade::Ledge),
               Face(s, inner[j], hi, Facade::Ledge),
@@ -714,11 +639,6 @@ void Box(Site &site,
             Face(s, c[1], highZ, Facade::Ledge),
             Face(s, c[2], highZ, Facade::Ledge),
             Face(s, c[3], highZ, Facade::Ledge));
-  // A BOX IS CLOSED AT BOTH ENDS. A chimney and a roof plant stand THROUGH the surface they rise
-  // from, so their underside is never seen -- and an unseen face is still a boundary edge to a walk
-  // over the triangles, which is what left four holes on every gabled house. Its limit, stated
-  // here: the box and the roof interpenetrate rather than being cut against each other, which
-  // closedness cannot see and no test in this tree yet can.
   site.Quad(Face(s, c[3], lowZ, Facade::Ledge),
             Face(s, c[2], lowZ, Facade::Ledge),
             Face(s, c[1], lowZ, Facade::Ledge),
@@ -753,10 +673,6 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
   const double seat = highest + kPlinthM;
-  // THE MEASURE HAS TO ASK SOMEWHERE THE SEATING DID NOT LOOK, or it cannot fire. A first version
-  // compared the ring's own corners against a maximum taken over those same corners: zero by
-  // construction, and a count that always reads zero says nothing about a building being buried.
-  // These points are INSIDE the footprint, which is exactly the ground `SampleGround` cannot see.
   double deepest = 0.0;
   for (int step = 0; step < 5; ++step) {
     const double u = ((double)(step % 3) - 1.0) * 0.5 * s.HalfUm;
@@ -772,61 +688,9 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   return seat;
 }
 
-// HOW FAR A BUILDING KEEPS ITS ARCHITECTURE, derived from the lens rather than chosen. At 720 px
-// over 55 degrees a pixel is 0.076 deg, so a feature of size `w` covers one pixel at
-// `w / tan(0.076 deg)` = w / 1.33e-3. A gable, a chimney or an eaves band is of the order of a
-// metre, so all of them are inside ONE pixel beyond about 750 m; a whole 27 m building still covers
-// 20 px at 20 km. Past the near bound a footprint therefore becomes a plain extruded prism -- the
-// mass a skyline is read by -- and everything the eye could not resolve stops being meshed.
-//
-// This is Unreal's HLOD and RAGE's distant-building proxy, and it is the answer the owner named. It
-// is not a cut: the building is still there, still closed, still the right height. What it loses is
-// detail no pixel was carrying. At Shibuya the full path meshed 12.9 M triangles and 313 MB of
-// vertices from ONE vector tile, and the terrain never got a core to build on.
-// WHERE THE DETAIL STOPS PAYING, DERIVED FROM THE OPTICS AND NOT SET. A feature of h metres at d
-// metres covers `focalPx * h / d` pixels, with focalPx = H / (2 tan(fov/2)) -- 691.5 px at 720 rows
-// over 55 degrees. Below TWO pixels a feature is not merely wasted, it ALIASES, so two pixels is
-// where a level stops being worth building.
-//
-// A LEVEL IS BOUNDED BY THE SILHOUETTE IT ADDS, not by the smallest ornament riding on it. Getting
-// that wrong once cost Rothenburg every roof in the town: the cornice is 0.30 m and dies at 104 m,
-// so gating ARCHITECTURE on the cornice meant no building anywhere was ever built with a roof.
-//
-//   what a level adds        size    holds 2 px to
-//   roof SHAPE (the rise)    3.0 m       1037 m
-//   footprint corners        2.0 m        692 m
-//   cornice, plinth, bays    0.3 m        104 m
-//
-// AND THOSE ARE TWO AXES, NOT ONE -- which is the answer to "are three levels enough". Footprint
-// fidelity dies at 692 m and roof shape not until 1037 m, so a FLAT roof on a TRUE footprint is
-// never the right trade: there is no band in which it wins. The level that belongs in that gap is
-// its mirror -- a shaped roof over a HULL footprint -- and it is not built here, so the ornament
-// rides along with the roof to 1037 m and the box takes over beyond it. RAGE carries High/Med/Low/
-// Vlow inside a drawable and then SLOD1..4 of merged sectors on top; Unreal carries 4 to 8 mesh
-// LODs and HLOD clusters over them, and Nanite drops discrete levels entirely for a cluster cut at
-// a constant screen error. More than three, and for this reason.
-//
-// THERE IS NO LEVEL BELOW THE BOX. A building under a pixel still darkens the pixel it is under,
-// and dropping it is exactly how a town stops being a town.
 constexpr double kRoofRiseM = 3.0;
 constexpr double kResolvedPx = 2.0;
 
-// AND A SECOND BOUND, WHICH IS THE ONE THAT WAS MISSING. The test above asks whether a level's
-// FEATURE can be seen. It never asked whether the level's TRIANGLES fit the pixels the building
-// covers -- so full architecture stood out to 1037 m, where a ten-metre building covers 6.7 pixels,
-// and put 262 triangles on them. Thirty-nine triangles a pixel.
-//
-// A building of height h and silhouette width w at distance d covers about f^2 h w / d^2 pixels, so
-// a level costing T triangles is admissible only while T <= that:
-//
-//     d <= f * sqrt(h * w / T)
-//
-// For a 10 by 15 m house: full architecture (T = 262) to 523 m, a box (T = 12) to 2446 m. This is
-// Nanite's invariant stated as a rule the GENERATOR can obey -- never build more geometry than the
-// screen can show -- and it is the bound that answers 31 M vertices for a 0.92 M pixel frame.
-//
-// The two bounds are both necessary and neither implies the other: the feature test says the detail
-// would be invisible, the triangle test says it would not fit. The reach is the SMALLER of them.
 constexpr double kArchitectureTris = 262.0;
 constexpr double kBoxTris = 12.0;
 
@@ -839,10 +703,6 @@ constexpr double kBoxTris = 12.0;
   return focalPx * kRoofRiseM / kResolvedPx;
 }
 
-// THE MINIMUM-AREA ENCLOSING RECTANGLE, not an axis-aligned one: a building at 40 degrees to the
-// grid would otherwise gain a silhouette half again its own width, and a silhouette is the only
-// thing this level still carries. A minimum-area rectangle always has a side collinear with a hull
-// edge, so trying every ring edge finds it -- the ring is a superset of its hull and n is small.
 [[nodiscard]] std::vector<En> Hull(const std::vector<En> &ring) {
   const size_t n = ring.size();
   double bestArea = 1.0e300;
@@ -915,13 +775,6 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     const double highM = s.TopM() - PlinthFootZ(s, ground);
     const double asDetailed = std::min(ArchitectureReachM(focalPx),
                                        FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
-    // WHERE EVEN A BOX IS TOO MUCH, counted rather than claimed. Twelve triangles stop fitting at
-    // f * sqrt(h w / 12) -- 2446 m for a ten-by-fifteen house -- and there is no level below the
-    // box in this tree. Dropping the building is not it: a building under a pixel still darkens the
-    // pixel it is under, and dropping it is how a town stops being a town. Nor is dropping the
-    // box's FLOOR, which looks free because it is buried and is not: it is what keeps the solid
-    // closed, and `geo/ScoreWhetherEveryBuildingIsASolid` walks exactly that. So what belongs here
-    // is the merged level, and this counter is what says how much it would be worth.
     if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {
       gOverBudget.fetch_add(1u, std::memory_order_relaxed);
     }
@@ -938,11 +791,6 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   const double plinthZ = PlinthTopZ(s, ground);
   const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
-  // WHERE THE WALL STOPS IS THE ROOF'S TO SAY. A parapet's cornice juts out from the wall head, so
-  // the wall ends at the cornice's UNDERSIDE and the ledge above it belongs to the crown -- ending
-  // it level with the deck instead put three surfaces on one edge, which is not a surface at all.
-  // A flat roof with no crown carries its deck `RiseM` above the eaves, and a wall stopping at the
-  // eaves leaves exactly that much open.
   const std::vector<En> crownInner = RoofSurface::Widened(s.Ring, -kParapetThickM);
   const std::vector<En> crownOut = RoofSurface::Widened(s.Ring, kCorniceM);
   const bool crowned = s.Roof == RoofKind::Flat && crownInner.size() == s.Ring.size() &&
@@ -954,16 +802,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     Plinth(s, roof, overhang, ground, plinthZ, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
-    // A SILENT FALLBACK IS HOW A SEAM OPENS. The plinth's wall walks the ring SUBDIVIDED at every
-    // crease crossing; if `foot` came back empty the floor would take the UNDIVIDED ring instead
-    // and the two would meet as one long edge against two short ones. Counted rather than assumed,
-    // and it reads 0 for every case in the sweep -- so that is not where the terrace's three edges
-    // are.
     if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
-    // THE WALL'S FOOT AND THE FLOOR'S RIM ARE THE SAME LINE OR THEY ARE A SEAM. The plinth emits
-    // one quad per subdivided segment and the floor is filled over `foot`; if the two counts
-    // differ, one carries a break the other does not, and three collinear hole edges are exactly
-    // what that looks like from the outside.
     gFloorRim.fetch_add(foot.empty() ? s.Ring.size() : foot.size(), std::memory_order_relaxed);
     Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
   } else {
@@ -972,9 +811,6 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   Walls(s, roof, overhang, lowZ, wallTopZ, site);
 
   if (s.Roof == RoofKind::Flat) {
-    // THE DECK MEETS THE PARAPET'S INNER FOOT. `Covering` lays its surface a slab's thickness above
-    // the height it is handed, and the parapet's inner face starts at the eaves -- so handing it
-    // the eaves left the deck floating `kSlabM` above the wall meant to hold it, all the way round.
     const double deckZ = crowned ? EavesZ(s) - kSlabM : EavesZ(s) + s.RiseM;
     Covering(s, roof, crowned ? crownInner : s.Ring, deckZ, site);
     if (crowned) { Crown(s, crownInner, crownOut, site); }
@@ -1038,7 +874,7 @@ void Pavement(const BuildingShape &s,
   }
 }
 
-} // namespace
+}
 
 void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept {
   if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
@@ -1053,4 +889,4 @@ void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) con
   }
 }
 
-} // namespace outshine::Generators
+}

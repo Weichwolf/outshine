@@ -53,5 +53,5 @@ private:
   long Unwidthed_ = 0, Tunnels_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

@@ -24,6 +24,6 @@ private:
   std::shared_ptr<const ClassStructure> Held_;
 };
 
-} // namespace outshine::Sim
+}
 
 #endif

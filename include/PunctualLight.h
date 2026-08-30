@@ -19,5 +19,5 @@ struct PunctualLight {
   float RangeM = 0.0f;
 };
 
-} // namespace outshine
+}
 #endif

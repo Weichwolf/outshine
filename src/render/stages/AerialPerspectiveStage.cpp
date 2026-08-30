@@ -119,4 +119,4 @@ std::string AerialPerspectiveStage::ShaderSource(std::string &error) {
          layout + core + medium + body;
 }
 
-} // namespace outshine::Render
+}

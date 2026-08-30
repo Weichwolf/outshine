@@ -18,5 +18,5 @@ constexpr double kMToNm = 1.0 / kNmToM;
 constexpr double kKtToMs = kNmToM / 3600.0;
 constexpr double kMsToKt = 1.0 / kKtToMs;
 
-} // namespace outshine
+}
 #endif

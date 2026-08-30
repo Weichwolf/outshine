@@ -40,7 +40,7 @@ void Usage() {
               "  --headless       stand it up without opening a window\n");
 }
 
-} // namespace
+}
 
 class Browser final : public outshine::Host {
 public:

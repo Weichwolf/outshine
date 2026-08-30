@@ -119,7 +119,7 @@ BasisKey KeyOf(double x, double y, double z, double w) {
   return key;
 }
 
-} // namespace
+}
 
 bool Subject::MorphDeltasFor(const Document &document,
                              const Primitive &primitive,
@@ -467,9 +467,6 @@ bool ViewOf(const Viewpoint &from, Transform &out) {
 
 bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out) {
   Camera lens;
-  // THE FILE'S CAMERA KIND AND THE RENDERER'S ARE TWO ENUMS, and this is a real conversion rather
-  // than the redundant one it replaced: `Camera` is a glTF NODE, `Render::CameraKind` is what the
-  // renderer projects with. One crosses the door; the other lives behind it.
   lens.Kind = from.Kind == Render::CameraKind::Orthographic ? CameraKind::Orthographic
                                                             : CameraKind::Perspective;
   lens.YfovRad = from.YfovRad;
@@ -1061,8 +1058,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Surfaces_.clear();
   TangentWanted_.clear();
 
-  // THE WHOLE SIZE IS KNOWN BEFORE THE FIRST BYTE MOVES: a Geometry states its parts and each part
-  // states its positions, so the sum is one walk over the declarations rather than a guess.
   size_t wholeFloats = 0;
   for (int counting = 0; counting < what.parts(); ++counting) {
     wholeFloats += what.positionsOf(counting).size();
@@ -1149,10 +1144,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     anyTangent = anyTangent || part.HasTangent();
     anyColour = anyColour || part.HasColour;
 
-    // RESERVED ONCE, NOT GROWN PER PART. `push_back` over 84 M components with no reserve doubles
-    // its capacity about twenty-seven times and copies the whole run each time, and the `resize`
-    // calls below stand INSIDE the part loop, so every part re-grows five vectors that already hold
-    // hundreds of megabytes. Measured before this: 2 437 ms of assembly on Shibuya.
     if (Positions_.capacity() < Positions_.size() + pPos.size()) {
       Positions_.reserve(wholeFloats);
       Uv_.reserve((wholeFloats / 3) * 2);
@@ -1370,4 +1361,4 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
   return total;
 }
 
-} // namespace outshine::Gltf
+}

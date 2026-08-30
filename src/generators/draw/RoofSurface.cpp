@@ -14,28 +14,11 @@ struct Line {
   double A = 0.0, B = 0.0, C = 0.0;
 };
 
-// A CREASE'S TOLERANCE IS THE WELD'S. At a tenth of a millimetre a split point landing just beside
-// a corner still counts as a crossing, and the piece it cuts off is a sliver that `PushTri` then
-// drops
-// -- so the tidying and the splitting fight, and the surface ends up with a hole where a crease
-// grazed a corner. A centimetre is what positions are welded at, so below it two points ARE one
-// point and there is nothing to cut.
-// ONE TOLERANCE, USED BY EVERYTHING THAT ASKS "IS THIS THE SAME POINT". It was three different
-// numbers -- a millimetre where positions are snapped, a centimetre for a crease, two centimetres
-// for a break -- so a point could be the same point to one step of the pipeline and a different one
-// to the next, and a seam opened exactly there. A crease crossing dropped because it lay within
-// 2 cm of a corner still got cut at 1 cm by the clipper, and the piece between the two answers had
-// no partner.
 std::atomic<size_t> gBreaksKept{0};
 std::atomic<size_t> gBreaksDropped{0};
 std::atomic<size_t> gBreaksMerged{0};
 
 constexpr double kSamePointM = 0.01;
-// AND THIS ONE IS NOT THE SAME NUMBER, measured rather than assumed. Setting it to kSamePointM --
-// which is what tidiness wants -- took the tower from 14 holes to 8 and the SPIRE from 0 to 14. Two
-// tolerances that ought to be one are being played against each other here, and matching them by
-// hand is fitting rather than engineering. board:1949 is the answer: one subdivision decided ONCE
-// and shared, instead of several approximations tuned to agree.
 constexpr double kWeldM = 0.02;
 constexpr double kOnLineM = kWeldM;
 constexpr double kOverhangM = 0.60;
@@ -43,15 +26,6 @@ constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 
-// A TRIANGLE GOES ONLY IF IT IS DEGENERATE, not merely thin. Refusing on AREA drops pieces a split
-// legitimately produced, and a piece missing from a split is a HOLE -- the tower's roof was open
-// over seven metres because of it. Two corners within the weld tolerance ARE one corner, so such a
-// triangle carries no edge anything else can pair with and its absence costs nothing. A thin
-// triangle has a poor normal, which is a shading question and a smaller one than a hole.
-//
-// This was tried once BEFORE the crease tolerance was fixed and made things worse -- 62 holes to 96
-// across the nine cases -- because back then the splits were still manufacturing slivers faster
-// than keeping them could help. Order mattered.
 void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   const double ab = (a.E - b.E) * (a.E - b.E) + (a.N - b.N) * (a.N - b.N);
   const double bc = (b.E - c.E) * (b.E - c.E) + (b.N - c.N) * (b.N - c.N);
@@ -62,11 +36,6 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   out.push_back(c);
 }
 
-// A CLIPPER THAT CANNOT FINISH SAYS SO. It used to `return` on failing to find an ear and leave the
-// polygon HALF triangulated -- some ears cut, the rest of the surface simply absent, nothing
-// counted and nothing said. That is the open roof faces the owner saw. Unreal fails an asset's
-// build when a polygon will not triangulate and RAGE refuses at export; neither hands back half a
-// surface.
 [[nodiscard]] bool EarClip(std::span<const En> ring, std::vector<En> &tris) {
   const size_t n = ring.size();
   if (n < 3) { return false; }
@@ -102,8 +71,6 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return poly.size() <= 2;
 }
 
-// CROSSING NUMBER, with a margin. A cornice overhangs by design, so a vertex is outside only when
-// it clears the ring by more than that.
 [[nodiscard]] bool Inside(const std::vector<En> &ring, const En &p, double marginM) {
   const size_t n = ring.size();
   if (n < 3) { return true; }
@@ -128,12 +95,6 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return nearest <= marginM * marginM;
 }
 
-// A CREASE STATED TWICE IS NOT TWO CREASES. A hip's four diagonals are `{1, -1, +-d}` and
-// `{1, 1, +-d}` where `d` is the footprint's own asymmetry -- so on a SQUARE plan `d` is zero and
-// each pair collapses onto one line. Splitting a triangulation twice along the same line hands the
-// second pass triangles that already have a vertex exactly on it, and the half-plane clip then
-// drops pieces: the tower and the spire were open over their whole roof and closed outright with
-// the diagonals removed, which is how this was found.
 int Deduped(Line *lines, int n) {
   int kept = 0;
   for (int i = 0; i < n; i++) {
@@ -142,13 +103,6 @@ int Deduped(Line *lines, int n) {
     const Line unit{lines[i].A / reach, lines[i].B / reach, lines[i].C / reach};
     bool seen = false;
     for (int j = 0; j < kept && !seen; j++) {
-      // THE SAME TOLERANCE AS EVERYTHING ELSE THAT ASKS "IS THIS THE SAME PLACE". It was a
-      // MICROMETRE, and a hip's diagonals are `{1, +-1, +-d}` where `d` is the footprint's own
-      // asymmetry -- so on a plan that is square to within a fraction of a millimetre, which is
-      // what an 11 m box becomes after a trip through latitude and longitude, each pair is two
-      // DISTINCT lines a millimetre apart instead of one. Cutting a cell twice a millimetre apart
-      // leaves a sliver between them, and a sliver between two cuts is a hole. Below the weld
-      // tolerance two lines ARE one line, for the same reason two points are one point.
       const double same = std::fabs(unit.A - lines[j].A) + std::fabs(unit.B - lines[j].B) +
                           std::fabs(unit.C - lines[j].C);
       const double flipped = std::fabs(unit.A + lines[j].A) + std::fabs(unit.B + lines[j].B) +
@@ -215,7 +169,7 @@ void Refine(std::vector<En> &tris, int passes) {
   }
 }
 
-} // namespace
+}
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
@@ -261,17 +215,6 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
   return true;
 }
 
-// CUT THE POLYGON, THEN TRIANGULATE. Splitting an already-triangulated surface is a REPAIR: each
-// triangle is clipped on its own and the pieces have to agree afterwards, which they do until two
-// creases stack and one of them grazes a corner. Cutting the POLYGON first makes the crease a cell
-// BOUNDARY -- the two cells either side of it are built from the same two endpoints, so they cannot
-// disagree about where it runs. Every crease that opened a roof in this tree opened it at a stacked
-// split, and there are no stacked splits here: a cell is cut, and its halves are cut again, and
-// nothing is ever triangulated until the arrangement is finished.
-//
-// Sutherland-Hodgman, which is exact against a half plane. Its limit, stated where it is used: on a
-// CONCAVE cell it can lay a zero-width bridge across a notch. A footprint is concave often enough
-// that this has to be measured rather than assumed, and the measurement is Rothenburg's hole count.
 std::vector<En>
 ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line, double sign) {
   std::vector<En> out;
@@ -288,11 +231,6 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
     if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
       const double f = da / (da - db);
       En cut{a.E + (b.E - a.E) * f, a.N + (b.N - a.N) * f};
-      // THE SNAP USES THE SAME NUMBER AS `BreaksAlong`, not the on-line epsilon. A crossing within
-      // `kWeldM` of a corner is DROPPED there -- so if it is merely snapped here at a smaller
-      // tolerance, the covering gains a vertex the soffit and trim beside it never got, and the
-      // seam between them is one vertex out. Two thresholds answering the same question is how the
-      // hip's eaves opened three centimetres above the trim.
       if (std::hypot(cut.E - a.E, cut.N - a.N) < kWeldM) {
         cut = a;
       } else if (std::hypot(cut.E - b.E, cut.N - b.N) < kWeldM) {
@@ -330,10 +268,6 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     const double span = d0 - d1;
     if (std::fabs(span) < kOnLineM) { continue; }
     const double t = d0 / span;
-    // A BREAK IS DROPPED IF IT LANDS WITHIN A WELD OF EITHER END. The tolerance is in METRES, not
-    // in the parameter: a thousandth of a 0.1 m edge is a tenth of a millimetre, and two corners
-    // that close together are ONE corner once positions are welded on a centimetre grid -- so the
-    // split buys a triangle with two corners in one place instead of a seam.
     const double reach = std::hypot(to.E - from.E, to.N - from.N);
     const double keepAway = reach > 1.0e-6 ? kWeldM / reach : 1.0;
     if (t > keepAway && t < 1.0 - keepAway) {
@@ -354,9 +288,6 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
 
-  // THE ARRANGEMENT COMES FIRST AND THE TRIANGLES COME LAST. The polygon is cut by each crease in
-  // turn, so a crease is a cell BOUNDARY built from the same two endpoints on both sides; only when
-  // no cut is left does anything get triangulated.
   Line lines[kMaxCreases];
   const int n = CreasesOf(Shape_, lines);
   std::vector<std::vector<En>> cells;
@@ -379,8 +310,6 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   std::vector<En> mine;
   for (const std::vector<En> &cell : cells) {
     if (!EarClip(cell, mine)) {
-      // WHAT CANNOT BE COVERED WHOLE IS NOT COVERED AT ALL. A partial cover is a roof with a hole
-      // in it that no number reports; a refusal is one the count below can see.
       tris.resize(first);
       RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
       return;
@@ -388,20 +317,8 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   }
   if (mine.empty()) { return; }
   if (Shape_.Roof == RoofKind::Dome) { Refine(mine, 4); }
-  // A ROOF VERTEX BELONGS INSIDE THE FOOTPRINT IT COVERS. Five explanations for the bright
-  // diagonals across Rothenburg died in turn -- a fan, thin area, long reach, the clipper's
-  // bail-outs, and aliasing, the last of them at twice the resolution where the slivers got WIDER
-  // rather than vanishing. At that size they resolve into real thin roof surfaces reaching out past
-  // the building they belong to, so this is the question that can only answer yes or no. The
-  // crossing number is taken in the same E/N the ring is given in, and a vertex a hand's breadth
-  // outside is tolerated because a cornice legitimately overhangs.
   for (size_t at = 0; at + 2 < mine.size(); at += 3) {
     for (size_t corner = 0; corner < 3; ++corner) {
-      // THE MARGIN IS THE MITER LIMIT, not a hand's breadth. A pitched roof covers a ring WIDENED
-      // by the building's own overhang, and `Widened` allows a corner to travel up to four times
-      // that before it refuses -- so a legitimate eave corner stands `4 * OverhangM` outside the
-      // footprint. A fixed 0.60 m counted those as defects: 14 331 at Rothenburg against overhangs
-      // of 0.25 and 0.42 m, whose corners reach 1.00 and 1.68 m.
       const double reach = 4.0 * std::max({Shape_.OverhangM, kCorniceM, kOverhangM});
       if (!Inside(Shape_.Ring, mine[at + corner], reach)) {
         Outside_.fetch_add(1u, std::memory_order_relaxed);
@@ -412,16 +329,6 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-// A PARTY EDGE DOES NOT MOVE, and every offset in this file used to move it. A terrace house has no
-// eaves overhang into its neighbour and no plinth jutting under their wall -- so widening a part's
-// ring uniformly pushes its roof through the wall it shares, and the two neighbours then cover the
-// same strip twice. The offset is therefore PER EDGE: zero where the edge is shared, `byM` where it
-// is not, and the corner between them is the exact intersection of the two offset lines rather than
-// a mitre of one distance.
-//
-// For a corner p with adjacent edges (a,p) and (p,b), outward normals N0 and N1 and offsets d0 and
-// d1, the moved corner is p + y where y.N0 = d0 and y.N1 = d1 -- a 2x2 solve, exact. When d0 == d1
-// it reduces to the mitre that stood here.
 std::vector<En>
 RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8_t> held) {
   const size_t n = ring.size();
@@ -455,4 +362,4 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
   return out;
 }
 
-} // namespace outshine::Generators
+}

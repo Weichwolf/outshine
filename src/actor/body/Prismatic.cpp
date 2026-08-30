@@ -37,4 +37,4 @@ double PressedForM(const Prismatic &joint, double loadN) {
   return joint.TravelM + (loadN - joint.StiffnessNPerM * joint.TravelM) / joint.StopNPerM;
 }
 
-} // namespace outshine::Physics
+}

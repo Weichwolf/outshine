@@ -59,7 +59,7 @@ using std::sqrt;
 #undef MEDIUM_CONST
 #undef MEDIUM_THREAD
 #undef OUTSHINE_PI
-} // namespace medium_core
+}
 
 using medium_core::mediumGroundReach;
 using medium_core::mediumHeightAlong;
@@ -358,5 +358,5 @@ inline void MediumTransmittance(
 
 [[nodiscard]] bool ParticipatingMediumMsl(std::string &into, std::string &error);
 
-} // namespace outshine::Render
+}
 #endif

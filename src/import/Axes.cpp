@@ -18,4 +18,4 @@ void PlacedInEcef(const double gltf[16], double out[16]) {
   }
 }
 
-} // namespace outshine::Gltf
+}

@@ -26,5 +26,5 @@ private:
   uint32_t State_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

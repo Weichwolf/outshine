@@ -142,5 +142,5 @@ bool Place(SceneRenderer &renderer,
                         SubjectScratch &scratch,
                         std::string &error);
 
-} // namespace outshine::Render
+}
 #endif

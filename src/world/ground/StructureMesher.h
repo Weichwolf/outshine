@@ -33,12 +33,6 @@ struct StructurePlan {
 
   const double *AnchorEcef = nullptr;
 
-  // THE FOCAL LENGTH IN PIXELS, which is what turns a size into a number of pixels: a feature of h
-  // metres at d metres covers focalPx * h / d of them. It is H / (2 tan(fov/2)) and it is the ONLY
-  // thing a level-of-detail threshold can honestly be derived from -- a threshold in metres answers
-  // the same for a 6 m shed and a 100 m tower, which cover 1 and 17 pixels at the same distance.
-  // Zero means undeclared, and an undeclared scale keeps FULL detail and is counted rather than
-  // guessed at.
   double FocalPx = 0.0;
 };
 
@@ -54,5 +48,5 @@ protected:
   StructureMesher() = default;
 };
 
-} // namespace outshine
+}
 #endif

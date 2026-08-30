@@ -27,4 +27,4 @@ Touched Under(const Layout &layout, const Markup &markup, double x, double y) {
   return found;
 }
 
-} // namespace outshine::Ui
+}

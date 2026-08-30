@@ -101,5 +101,5 @@ private:
   uint64_t Seq_ = 0;
 };
 
-} // namespace outshine::Ground
+}
 #endif

@@ -123,6 +123,6 @@ private:
   double LengthM_ = 0.0;
 };
 
-} // namespace outshine
+}
 
 #endif

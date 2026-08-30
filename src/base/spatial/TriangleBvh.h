@@ -69,5 +69,5 @@ private:
   uint32_t Depth_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

@@ -19,5 +19,5 @@ struct TreeLook {
   float NeedleWidth = 0.0f;
 };
 
-} // namespace outshine
+}
 #endif

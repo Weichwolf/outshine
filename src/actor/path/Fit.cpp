@@ -54,7 +54,7 @@ void KeepBetween(std::span<const double> points,
   }
 }
 
-} // namespace
+}
 
 std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM) {
   std::vector<size_t> kept;
@@ -216,4 +216,4 @@ Fitted Fit(std::span<const double> eastNorthM,
   return out;
 }
 
-} // namespace outshine
+}

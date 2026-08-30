@@ -13,9 +13,6 @@ struct ComputeShape {
   uint32_t ReadOnlyTextures = 0;
   uint32_t ReadWriteTextures = 0;
 
-  // MSL BINDS THESE IN ONE ORDER AND SDL STATES IT: uniform buffers, then read-only storage
-  // buffers, then read-write storage buffers, all in `[[buffer(n)]]`. The kernel's slot numbers
-  // are that order and nothing else, so the counts here are what makes them addressable.
   uint32_t ReadOnlyBuffers = 0;
   uint32_t ReadWriteBuffers = 0;
   uint32_t UniformBuffers = 0;
@@ -51,6 +48,6 @@ struct DrawShape {
   return SDL_CreateGPUShader(device, &wanted);
 }
 
-} // namespace outshine::Render
+}
 
 #endif

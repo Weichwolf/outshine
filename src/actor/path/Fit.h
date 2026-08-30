@@ -62,6 +62,6 @@ Fit(std::span<const double> eastNorthM, double withinM, double tightestM, Refere
                          ReferenceLine &into,
                          std::span<const double> withinAtM = {});
 
-} // namespace outshine
+}
 
 #endif

@@ -9,14 +9,6 @@
 
 namespace outshine::Ground {
 
-// HOW FAR THE VECTOR DATA REACHES, derived rather than set. With the far level of detail a building
-// of height h is still worth drawing while it covers one pixel, which is `focalPx * h` metres away
-// -- 691.5 * 10 = 6.9 km for an ordinary ten-metre house at 720 rows over 55 degrees. A z14 tile is
-// 40075017 / 2^14 = 2446 m at the equator and 1660 m at 47 degrees north, so a ring of 3 reaches
-// 5.8 km: the largest whole number of tiles that stays inside the distance at which a house stops
-// being a pixel. It stood at 1, which reached 2.5 km -- and every place but one stands INSIDE its
-// own town and never noticed. The Jura stands 4.9 km from Solothurn and showed the farms of the
-// plain with no town in them.
 constexpr int kVectorRing = 3;
 
 bool GroundStack::Open(std::string_view cacheDir,
@@ -108,18 +100,7 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
     WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
-  // DECODING AND INGESTING ARE TWO PUMPS AND NEITHER GATES THE OTHER. What stood here returned
-  // early unless the decoder had produced features THIS call, so the moment the ring was fully
-  // decoded the three fields stopped being fed and their watermarks froze wherever they stood.
-  // Measured on the Jura: 5 of a 9-tile ring settled and the building field holding 159 footprints
-  // while the world carried 983.
   (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
-  // THE LOOP ENDS ON NO PROGRESS, NOT ON DONE. A footprint tile is consumable only once the ground
-  // under it has resolved -- `TileWatermark::Ask` DEFERS the rest -- so a round can legitimately
-  // take nothing while the watermark is still short of the end. Waiting for `Drained()` therefore
-  // spins forever exactly when the terrain is behind the vectors, which is most of a cold load.
-  // What the loop is entitled to is every tile that is consumable NOW; the deferred ones are the
-  // next call's, and the terrain arriving is what makes them consumable.
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
   for (;;) {
     const size_t before =
@@ -138,27 +119,15 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
   }
 }
 
-// DRAINED IS AN EMPTY QUEUE, which is the question Unreal's `BlockTillAllRequestsFinished` and
-// RAGE's `LoadAllRequestedObjects` both answer. `TileWatermark::Done` already existed on all three
-// fields and was asked by nobody, so readiness was decided by the terrain alone.
-// TWO QUESTIONS, AND CONFLATING THEM LIVE-LOCKS. DRAINED asks only whether the fields have taken up
-// what the decoder has already produced -- it is the loop's condition, and it must be reachable
-// while tiles are still in flight. INGESTED is readiness and adds the one the loop must not wait
-// on: that nothing is outstanding. Asking for both in the drain loop spins forever, because during
-// a load there is always something pending.
 bool GroundStack::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
   return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_) &&
          Footprints_.Ingested(*Vectors_);
 }
 
-// AND THE LAND CLASSES COUNT. `ClassField::Complete` was written, is exactly this question for the
-// two class tiers, and had NO CALLER -- the second readiness predicate in this tier that existed
-// and was asked by nobody. So whether a place was classified when its picture was taken was timing,
-// and the ground came out uniform green in one run and carrying fields and forest in the next.
 bool GroundStack::Ingested() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
-} // namespace outshine::Ground
+}

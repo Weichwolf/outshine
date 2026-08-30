@@ -27,5 +27,5 @@ private:
   std::vector<Range> Ranges_;
 };
 
-} // namespace outshine::Ground
+}
 #endif

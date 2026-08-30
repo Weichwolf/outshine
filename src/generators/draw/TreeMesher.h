@@ -58,5 +58,5 @@ private:
   std::vector<TreeVec3> Normals_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

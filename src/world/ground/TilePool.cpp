@@ -44,7 +44,7 @@ uint64_t RequestKey(const std::string &key) {
   return ((uint64_t)3 << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
 
-} // namespace
+}
 
 TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
     : Sources_(sources),
@@ -130,9 +130,6 @@ TilePool::Ledger TilePool::Counters() const {
     std::lock_guard<std::mutex> lock(LedgerMutex_);
     out = Ledger_;
   }
-  // THE QUEUE'S OWN STATE IS READ AFTER THE LEDGER IS COPIED, not before. `out = Ledger_` assigns
-  // the WHOLE struct, so anything written into `out` ahead of it is erased -- which is how the
-  // outstanding, parked and held counts all read exactly 0 while the pool plainly held work.
   std::lock_guard<std::mutex> queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
@@ -358,7 +355,7 @@ private:
   TilePool &Pool_;
 };
 
-} // namespace
+}
 
 namespace {
 
@@ -379,7 +376,7 @@ enum class Miss { None, Hole, Wait, Refused };
   return Miss::Refused;
 }
 
-} // namespace
+}
 
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
@@ -514,13 +511,6 @@ void TilePool::Work(int slot) {
       size_t best = 0;
       for (size_t i = 1; i < Queue_.size(); i++) {
         const Job &a = Queue_[i], &b = Queue_[best];
-        // FINER FIRST, THEN NEARER. Sorting by distance alone inverts the priority: a coarse tile
-        // covering hundreds of kilometres is CENTRED on the camera, so it wins against every fine
-        // tile the eye actually resolves -- measured, the Grand Canyon loaded 55 per cent of its
-        // tiles and read 59 m of relief where its rim-to-river drop is over 1 500 m, because what
-        // arrived was the coarse levels. Cesium selects by screen-space error and loads the
-        // selected set nearest-first; the depth in the tree is this cascade's stand-in for that
-        // error, so depth leads and distance breaks the tie.
         if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
             (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
           best = i;
@@ -546,12 +536,6 @@ void TilePool::Work(int slot) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
       std::unique_lock<std::mutex> lock(QueueMutex_);
-      // PARKING BEHIND SOMETHING THAT HAS ALREADY LANDED IS A DEADLOCK. A parked job is woken when
-      // the job it waits for RUNS, and a fetch whose result is already in `Done_` will never run
-      // again -- so the mesh waits for ever while the data it needs sits finished a few bytes away.
-      // Measured: 36 keys with 37 jobs parked behind them, an empty queue, nothing outstanding to
-      // do, and 35 of 112 tiles standing bare after 16 s of patience. The pool's own ledger said it
-      // had finished all its work in 892 ms.
       if (Done_.find(awaited) != Done_.end()) {
         Queue_.push_back(std::move(job));
         lock.unlock();
@@ -582,12 +566,6 @@ void TilePool::Work(int slot) {
       std::lock_guard<std::mutex> lock(QueueMutex_);
 
       if (result.State == Reply::Pending) {
-        // A DEFERRED MESH IS DROPPED AND RETRIED, and nothing bounds that. `RunMesh` answers
-        // Pending when the grid it needs is not stitched yet; if no fetch was requested during the
-        // attempt there is nothing to park behind, so the key leaves `Posted_` and the next ask
-        // posts it again. When the reason for the defer does not clear on its own, that is a retry
-        // loop with no progress -- measured, 79 of 112 tiles ever finished while the pool sat with
-        // an empty queue, nothing posted and nothing parked.
         Posted_.erase(job.Key);
         {
           std::lock_guard<std::mutex> ledger(LedgerMutex_);
@@ -624,12 +602,6 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
       out->State = done->second.State;
       return out->State;
     }
-    // A FINISHED TILE STAYS. `Done_` used to be a one-shot MAILBOX: the caller that took a mesh
-    // erased it and dropped its key from `Posted_`, so the very next walk found neither and posted
-    // the job again. Measured, that cost 583 ms of a standing camera's frame -- 128 tiles re-meshed
-    // every frame for a world that had not moved -- and it made any residency question
-    // unanswerable, because every tile read "pending" the moment it had been used. Unreal, RAGE and
-    // Cesium all hold streamed data resident until a budget evicts it; that is what streaming IS.
     const bool consumed = !done->second.Holds;
     if (consumed) {
       *out = std::move(done->second);
@@ -638,13 +610,6 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
     } else {
       *out = done->second;
     }
-    // A CACHED ANSWER MUST STILL WAKE WHAT WAS WAITING FOR IT. A mesh job that needs a DEM tile is
-    // parked in `Awaiting_[fetchKey]` and resumed when that fetch job RUNS. While `Done_` was a
-    // one-shot mailbox that worked by accident: taking the result erased it, so the next asker
-    // re-posted the fetch, it ran again, and the parked jobs drained. With `Done_` holding results,
-    // the fetch never runs a second time and the parked mesh jobs wait for ever -- measured, 29 to
-    // 34 tiles of 112 stuck Pending across EVERY zoom level, with 0 absent and 0 refused, and
-    // 61 seconds of patience changing nothing.
     const auto parked = Awaiting_.find(job.Key);
     if (parked != Awaiting_.end()) {
       for (Job &held : parked->second) { Queue_.push_back(std::move(held)); }
@@ -668,12 +633,6 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   return Reply::Pending;
 }
 
-// WANTS ASKS WITHOUT TAKING. `Poll` CONSUMES a finished result -- it moves it out, erases it from
-// `Done_` and drops the key from `Posted_` -- which is right for a caller that is going to use the
-// mesh and wrong for one that only wants to know whether it has landed. A residency poll built on
-// `Poll` throws away every tile it finds and re-posts the job, so the pool re-parses the same tile
-// forever and never settles. This posts the job if it is unknown and reports what it sees, and it
-// takes nothing.
 TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
   const uint64_t key = MeshKey(z, x, y);
   {
@@ -738,4 +697,4 @@ bool TilePool::Known(uint64_t key) {
   return Done_.find(key) != Done_.end() || Posted_.find(key) != Posted_.end();
 }
 
-} // namespace outshine::Ground
+}

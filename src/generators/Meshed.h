@@ -25,5 +25,5 @@ private:
   std::string Error_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

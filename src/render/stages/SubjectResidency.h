@@ -15,9 +15,6 @@
 namespace outshine::Render {
 
 struct SubjectResidency {
-  // WHAT THE RESIDENCY DID PER REBUILD, since the last read. 89 per cent of the hand-over is spent
-  // here and a duration alone cannot say whether the answer is fewer calls, a persistent staging
-  // buffer, or a layout that needs no copy.
   [[nodiscard]] static size_t UploadsTaken();
   [[nodiscard]] static size_t UploadMBTaken();
   [[nodiscard]] static size_t BuffersMadeTaken();
@@ -48,10 +45,6 @@ struct SubjectResidency {
     const void *From = nullptr;
     uint32_t Bytes = 0;
 
-    // A STREAM THAT WRITES ITSELF INTO THE MAPPING RATHER THAN BEING COPIED INTO IT. `From` says
-    // "these bytes are over there"; `Writes` says "the memory is yours to fill". SDL hands back a
-    // mapped transfer buffer either way, and a producer that already holds float in the device's
-    // layout has no reason to assemble a second copy first.
     void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
     const void *Carrying = nullptr;
 
@@ -69,12 +62,6 @@ struct SubjectResidency {
   bool FiltersFloat32 = false;
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
-  // WHAT THE CULL READS AND WHAT IT WRITES. The two tables cross once per mesh and never again,
-  // and the SOURCE the kernel copies from is `Idx` -- the same run the direct path draws, because
-  // the cooker reordered it in place and a second copy of 28 million indices is the thing this
-  // round removed. The last two are the device's own and no byte of theirs is ever assembled on
-  // this side: `DrawIdx` is written by the kernel and read by the index assembler, `DrawArgs` is
-  // written by the kernel and read by the command processor.
   OwnedBuffer ClusterSpheres, ClusterJobs;
   OwnedBuffer DrawIdx, DrawArgs;
   OwnedBuffer Placed;
@@ -109,15 +96,6 @@ struct SubjectResidency {
   [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
 
 private:
-  // NO GUESSED DEPTH AND NO GUESSED WIDTH. Both bounds here were numbers this file chose: a ring of
-  // THREE transfer buffers rotated per frame, and room for THIRTY-TWO staged runs. The first is
-  // what `SDL_MapGPUTransferBuffer`'s `cycle` flag already decides -- the driver knows whether the
-  // GPU has finished reading the last contents and renames the buffer when it has not, where a
-  // depth of three only hopes. The second refused a frame outright: measured, Khronos's
-  // AnimatedCube staged one full pose of 4304 bytes and then a 128-byte hand of placements, and
-  // the residency answered "a second full hand in one frame is more than the ring holds" -- over
-  // 128 bytes. A run that does not fit now takes a FRESH buffer, and every staged run already
-  // records which buffer it came from, so nothing had to be invented to allow it.
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;
     uint32_t From = 0;
@@ -137,6 +115,6 @@ private:
   uint32_t BulkBytes_ = 0;
 };
 
-} // namespace outshine::Render
+}
 
 #endif

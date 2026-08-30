@@ -166,5 +166,5 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   return 1;
 }
 
-} // namespace outshine::Ground
+}
 #endif

@@ -59,5 +59,5 @@ private:
   SDL_GPUSampler *Exact = nullptr;
 };
 
-} // namespace outshine::Render
+}
 #endif

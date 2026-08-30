@@ -40,4 +40,4 @@ void CatmullRomTangents(const double *knots,
   }
 }
 
-} // namespace outshine
+}

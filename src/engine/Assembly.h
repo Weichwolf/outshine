@@ -23,6 +23,6 @@ namespace outshine {
                             Assembled &out,
                             std::string &error);
 
-} // namespace outshine
+}
 
 #endif

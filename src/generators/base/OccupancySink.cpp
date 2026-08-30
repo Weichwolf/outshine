@@ -16,7 +16,7 @@ constexpr uint32_t kNoBody = 0xffffffffu;
   return a.BaseAslM < b.BaseAslM + (double)b.HeightM && b.BaseAslM < a.BaseAslM + (double)a.HeightM;
 }
 
-} // namespace
+}
 
 OccupancySink::OccupancySink(const Storage &storage) : Store_(storage) {
   assert(Store_.Links.Size() == Store_.Bodies.Size());
@@ -83,4 +83,4 @@ Claim OccupancySink::Place(const Body &body) noexcept {
   return Claim::Of(BodyId(slot));
 }
 
-} // namespace outshine::Generators
+}

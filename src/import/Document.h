@@ -146,5 +146,5 @@ private:
   int DefaultScene_ = -1;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

@@ -118,7 +118,7 @@ constexpr int kMixFrames = 1024;
   return made;
 }
 
-} // namespace
+}
 
 int main(int argc, char *argv[]) {
   bool headless = false;

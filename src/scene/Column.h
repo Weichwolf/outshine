@@ -56,6 +56,6 @@ private:
   std::vector<uint8_t> Held_;
 };
 
-} // namespace outshine
+}
 
 #endif

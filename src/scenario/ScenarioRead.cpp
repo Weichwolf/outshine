@@ -9,11 +9,6 @@
 
 namespace outshine {
 
-// FILAMENT'S OWN DERIVATION, and it is the standard photographic one rather than a curve somebody
-// tuned: EV100 = log2(N^2 / t) - log2(S / 100), and the scale a renderer multiplies by is
-// 1 / (1.2 * 2^EV100). The 1.2 is the ISO/ASA calibration constant for an averaging meter, which is
-// what makes an f/16, 1/100 s, ISO 100 exposure read as a sunlit scene rather than as an arbitrary
-// number. A scenario may say the multiplier OR the three, and this is why they cannot disagree.
 double Camera::exposureScale(void) const {
   if (!exposed()) { return 0.0; }
   const double ev100 =
@@ -245,7 +240,7 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-} // namespace
+}
 
 [[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
@@ -708,4 +703,4 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   return true;
 }
 
-} // namespace outshine
+}

@@ -15,14 +15,6 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + body;
 }
 
-// THE SIX PLANES A PROJECTION ALREADY CARRIES. Gribb and Hartmann: the clip test is
-// `-w <= x,y <= w` and `0 <= z <= w` in this device's convention, so each bound is a row of the
-// matrix added to or taken from the w row, and nothing about the camera has to be known separately.
-// Deriving them instead of passing a frustum is what keeps the culler agreeing with the rasteriser
-// -- one matrix decides both, so they cannot drift.
-//
-// A DEGENERATE PLANE IS LEFT IN AND SKIPPED BY THE KERNEL, because an infinite far plane makes the
-// far row vanish and a normalisation by zero would reject the whole world.
 void PlanesOf(const float mvp[16], float out[24]) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
   for (int at = 0; at < 6; ++at) {
@@ -43,7 +35,7 @@ void PlanesOf(const float mvp[16], float out[24]) {
   }
 }
 
-} // namespace
+}
 
 bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
@@ -100,9 +92,6 @@ void SubjectCullStage::Encode(const FrameContext &ctx, const PassRecording &into
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
-  // ONE GROUP PER CLUSTER. The group is the unit of work here, not the thread -- every lane of it
-  // copies a slice of the one cluster the group kept -- so the grid is the JOB COUNT and not the
-  // job count divided by the group width.
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
   Swept_ = jobs;
 }
@@ -116,4 +105,4 @@ std::string SubjectCullStage::KernelSource(std::string &error) {
   return Kernel(error);
 }
 
-} // namespace outshine::Render
+}

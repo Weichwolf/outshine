@@ -21,7 +21,7 @@ constexpr const char *kDefaultLeaf = "outshine-content";
   return (base / kDefaultLeaf).string();
 }
 
-} // namespace
+}
 
 std::string ContentKey(const SourceDecl &decl, const Address &at) {
   std::string subject = decl.Id;
@@ -137,4 +137,4 @@ ContentStore::Ledger ContentStore::Counters() const {
   return out;
 }
 
-} // namespace outshine::Data
+}

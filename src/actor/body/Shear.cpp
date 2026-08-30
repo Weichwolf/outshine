@@ -56,4 +56,4 @@ double Relaxed(const Shearing &through, double wasRad, double isRad, double roll
   return wasRad + (isRad - wasRad) * caught;
 }
 
-} // namespace outshine::Physics
+}

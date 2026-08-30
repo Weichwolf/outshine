@@ -54,5 +54,5 @@ public:
   }
 };
 
-} // namespace outshine::Generators
+}
 #endif

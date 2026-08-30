@@ -36,7 +36,7 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
   }
 }
 
-} // namespace
+}
 
 bool Overlay::Compose(Render::SceneRenderer &renderer,
                       std::span<const Shows> surfaces,
@@ -122,4 +122,4 @@ Ui::Touched Overlay::Under(double xPx, double yPx, size_t &surface) const {
   return Ui::Touched{};
 }
 
-} // namespace outshine::Core
+}

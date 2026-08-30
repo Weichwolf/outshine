@@ -80,15 +80,6 @@ struct SubjectMaterial {
   }
 };
 
-// A STREAM THAT WRITES ITSELF INTO THE DEVICE'S OWN MAPPING. A pointer says "copy these bytes
-// from over there"; a writer says "you hold the memory, fill it". The producer's data is already
-// float and already in the device's layout, so the only work left was CONCATENATING the parts into
-// one run -- and SDL's mapped transfer buffer is as good a place to concatenate into as a vector
-// of ours, minus the vector. On Shibuya that vector is 900 MB and the copy out of it is 1932 ms.
-//
-// The writer is a plain function pointer and an opaque context because the thing that can pack a
-// channel knows both the shape and the proxy, and the stage that owns the mapping must know
-// neither -- `src/render/stages/` does not name `SubjectProxy` and this keeps it that way.
 struct SubjectStream {
   const float *From = nullptr;
   void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
@@ -100,9 +91,6 @@ struct SubjectStream {
 struct SubjectPose {
   SubjectStream Verts;
 
-  // THE POSITIONS, CONTIGUOUS, FOR THE WORK THAT HAPPENS ON THIS SIDE. The visibility structure is
-  // built and refitted on the CPU and wants one run it can index; every other channel goes from
-  // the producer's spans into the device's mapping and is never assembled here at all.
   std::span<const float> Positions;
   SubjectStream Uv;
 
@@ -125,15 +113,11 @@ struct SubjectMesh : SubjectPose {
   uint32_t IndexCount = 0;
   const DrawList *Draws = nullptr;
 
-  // THE CUT, CROSSING WITH THE REST. The cooker made these where the shape was built; they reach
-  // the device as two storage buffers and nothing between here and there reshapes them.
   std::span<const DagCluster> Clusters;
 
-  // WHAT THE DEVICE BINDS. `Clusters` is the cooker's record and stays on this side; this is its
-  // layout, written where the cut was taken.
   std::span<const float> ClusterSpheres;
 };
 
-} // namespace outshine::Render
+}
 
 #endif

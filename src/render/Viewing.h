@@ -8,18 +8,6 @@
 
 namespace outshine::Render {
 
-// WHERE THE PICTURE IS SEEN FROM, and it belongs to the renderer rather than to a file format.
-// The importer's own viewpoint type stood here: the render tier held a type from the glTF reader
-// and used it as a
-// plain data carrier -- no method of it was ever called from `src/render/`. A camera is not a glTF
-// concept, it is the thing every renderer has; Filament spells it `Camera` at its door and Unreal's
-// FSceneView is its own type with the importer nowhere near it.
-//
-// THE IMPORTER KEEPS ITS OWN, and that is not a duplicate. A glTF camera NODE is a real glTF thing
-// and the importer's viewpoint reads it -- `Subject::Frame` and `DeclaredPlacement` both produce
-// one. What
-// changes is that the conversion happens ONCE, where a file's camera enters, instead of the whole
-// render tier speaking the file's dialect.
 enum class CameraKind : uint8_t { Perspective, Orthographic };
 
 struct Viewpoint {
@@ -35,18 +23,12 @@ struct Viewpoint {
   double ZNearM = 0;
   double ZFarM = 0;
 
-  // AIMED FROM A PLACE AT A PLACE. Fifteen lines of cross products that belong to a camera, and the
-  // engine called them through the importer's copy for want of its own.
   [[nodiscard]] static bool
   LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out);
   [[nodiscard]] static bool
   LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out);
 };
 
-// INLINE, SO A LIGHT SUITE STAYS LIGHT. The importer needs this the moment its camera IS the
-// renderer's, and three suites that link the importer without the render tier could not resolve it.
-// Fifteen lines of cross products are not worth a link edge -- the alternative was making every one
-// of those suites carry the renderer to place a camera.
 namespace Aiming {
 
 inline bool Normalise(double v[3]) {
@@ -62,7 +44,7 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   out[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-} // namespace Aiming
+}
 
 inline bool
 Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
@@ -86,12 +68,6 @@ Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Vi
   return true;
 }
 
-// AN UP VECTOR, WHICH IS WHAT FILAMENT'S `Camera::lookAt(eye, center, up)` TAKES. A roll angle
-// needs a convention -- which way is positive, measured from what -- and this file's was written
-// nowhere: a client holding the camera's own up had to recover an angle from it and guess the
-// sense. Measured on Khronos's Triangle, whose camera rolls -26.57 degrees: the guess came out
-// negated and the drawn facet shared 48% of its pixels with the oracle's. With the up vector
-// handed over as it stands, the two agree exactly.
 inline bool
 Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
@@ -110,9 +86,6 @@ Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3
   return true;
 }
 
-// THE DOOR'S SPELLING OF THE SAME STANDING. A `Viewpoint` is a basis and a projection; a `Camera`
-// is what a client declares and reads back. The translation lives HERE, beside the type it
-// translates, because two copies of it is how the two spellings start to disagree.
 inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   out.Placed = true;
   out.LooksAt = true;
@@ -128,5 +101,5 @@ inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   }
 }
 
-} // namespace outshine::Render
+}
 #endif

@@ -22,5 +22,5 @@ private:
   uint32_t Index_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

@@ -46,5 +46,5 @@ private:
   uint32_t X_, Y_;
 };
 
-} // namespace outshine::Data
+}
 #endif

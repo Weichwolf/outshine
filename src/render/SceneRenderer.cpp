@@ -20,7 +20,7 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
-} // namespace
+}
 
 namespace {
 
@@ -117,7 +117,7 @@ float HalfToFloat(uint16_t bits) {
   return value;
 }
 
-} // namespace
+}
 
 void SceneRenderer::SetCameraBasis(const double eye[3],
                                    const double fwd[3],
@@ -196,9 +196,6 @@ std::expected<void, std::string_view> SceneRenderer::StandsOffscreen() {
   if (Showing_ != nullptr || Offscreen_ != nullptr || Plan_ == nullptr || Width_ <= 0) {
     return {};
   }
-  // A CANVAS NOTHING WRITES IS NOT A CANVAS. The offscreen texture exists to receive
-  // `Stage::Present`, and a plan that never asked for `Surface` never pulled that stage in, so
-  // there is no writer -- the readback takes `FrameTex` in that case.
   if (!Plan_->Holds(Resource::Surface)) { return {}; }
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
@@ -342,9 +339,6 @@ void SceneRenderer::Create(Resource resource) {
 
     case Resource::Surface: return;
 
-    // A BUFFER IS SIZED WHERE ITS CONTENT IS KNOWN, not here. The plan DECLARES that the cut's
-    // tables exist so a cull that reads them can be refused when they are absent; how many
-    // clusters a scene holds is the residency's to answer, the same way a vertex stream is.
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:
@@ -429,7 +423,6 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
 
     case Resource::Surface: return HostSurface_;
 
-    // NOT A TEXTURE. `BufferFor` answers for these.
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:
@@ -454,10 +447,6 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
   return nullptr;
 }
 
-// THE CUT'S TABLES LIVE WHERE THEIR SIZE IS KNOWN, which is the subject stage, and the plan holds
-// the EDGE rather than the allocation. That is the same arrangement `IrradianceBuffer` and `Meter`
-// already have: what the catalogue decides is who may read what and in which order, and a resource
-// whose extent depends on a mesh cannot be sized by a plan compiled before the mesh exists.
 SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
   const SubjectResidency &resident = Subjects_.Resident();
   switch (resource) {
@@ -624,8 +613,6 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
 }
 
-// ONE FRAME, ONE FRAMING. Both the stages and the decisions taken BEFORE the passes open need the
-// same view, and a second place that builds it is a second place that can disagree with the first.
 FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
@@ -757,9 +744,6 @@ void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRec
   Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
 }
 
-// THE ATLAS IS A FRAME OLDER THAN THE PICTURE WHENEVER NOTHING MOVED, and the pass has to be told
-// so before it opens: a depth attachment nothing has touched this frame is CLEARED, which would
-// erase exactly what the cache is keeping. Marking it touched makes the pass LOAD instead.
 void SceneRenderer::SettleShadow() {
   Shadow_.Prepare(Framing());
   Touched_[(size_t)Resource::ShadowAtlas] = Shadow_.Cached();
@@ -817,9 +801,6 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.cycle = false;
     }
 
-    // A TABLE THIS PASS WRITES IS DECLARED HERE OR NOT AT ALL, and it is NEVER cycled: the
-    // argument table arrives holding the reset this frame's copy pass put in it, and cycling would
-    // hand the kernel a fresh, uninitialised buffer to accumulate into.
     SDL_GPUStorageBufferReadWriteBinding tables[kMaxColourAttachments] = {};
     uint32_t tableCount = 0;
     for (const Resource wanted : declared.Buffers) {
@@ -1019,10 +1000,6 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     for (size_t at = 0; at + 3 < held.size(); at += 4) { std::swap(held[at], held[at + 2]); }
   };
   if (Showing_ == nullptr) {
-    // HEADLESS THE PICTURE IS `FrameTex`, NOT THE PRESENTED SURFACE. Nothing presents, so the plan
-    // never pulls `Stage::Present` in and `Surface` is never written; the frame the tonemap wrote
-    // is the finished one. Both are `Rgba8UnormSrgb`, so this reads the same codes the blit
-    // would have copied.
     SDL_GPUTexture *const held = FrameTex_.Get() != nullptr ? FrameTex_.Get() : HostSurface_;
     if (held == nullptr) { return ReadState::Failed; }
     Readback read;
@@ -1226,4 +1203,4 @@ SceneRenderer::Presented() const {
   return std::optional<Shown>(Shown_);
 }
 
-} // namespace outshine::Render
+}

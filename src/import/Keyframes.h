@@ -60,5 +60,5 @@ private:
   Interpolation How_ = Interpolation::Linear;
 };
 
-} // namespace outshine
+}
 #endif

@@ -26,6 +26,6 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   return true;
 }
 
-} // namespace outshine
+}
 
 #endif

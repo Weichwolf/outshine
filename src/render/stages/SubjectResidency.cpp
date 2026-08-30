@@ -30,12 +30,8 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
 
 constexpr bool kChainIsReadable = false;
 
-} // namespace
+}
 
-// WHAT THE RESIDENCY ACTUALLY DOES PER REBUILD, counted rather than reasoned about. 89 per cent of
-// Shibuya's hand-over is spent below this line and the shape of the cost -- how many uploads, how
-// many bytes, how many fresh buffers -- decides whether the answer is fewer calls, a persistent
-// staging buffer, or a layout that needs no copy at all.
 std::atomic<size_t> gUploads{0};
 std::atomic<size_t> gUploadBytes{0};
 std::atomic<size_t> gBuffersMade{0};
@@ -57,17 +53,6 @@ size_t SubjectResidency::StagingMadeTaken() {
   return gStagingMade.exchange(0u);
 }
 
-// A STREAM GROWS BY DOUBLING AND NEVER BY EXACTLY WHAT WAS ASKED, and the reason is what a
-// stream-in does: Shibuya's world arrives in pieces, so every rebuild hands over a few thousand
-// buildings more than the last and a buffer sized to the request is too small the very next time.
-// Twenty rebuilds then meant twenty fresh sets of channel buffers, and a released SDL buffer is NOT
-// freed when it is released -- the driver holds it until a command buffer that could still be
-// reading it has retired, and a load draws two frames in forty seconds. Measured: 52.4 GB peak
-// footprint against a 3.4 GB resident set, and the system killed the run before it drew.
-//
-// DOUBLING MAKES THE COUNT LOGARITHMIC in how far the world grows, which is the same reason every
-// growable container does it. The tail is bounded too: a buffer is never widened past twice what is
-// asked, so the slack a finished world carries is at most what it holds.
 [[nodiscard]] static uint32_t Widened(uint32_t held, uint32_t wanted) {
   uint32_t room = held > 0 ? held : wanted;
   while (room < wanted) {
@@ -105,10 +90,6 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   if (total == 0) { return true; }
 
   if (!deferred) { return Submit(what, count, total, error); }
-  // A HAND THAT DOES NOT FIT TAKES A FRESH BUFFER, and the one it was staging into is kept until
-  // the copies are issued -- `Staged` records its own source, so two buffers in one frame cost
-  // nothing but the allocation. The buffer is grown to the larger of what it held and what this
-  // hand asks for, so the steady state settles back to ONE.
   if (StagingUsed_ + total > StagingBytes_ || !Staging_) {
     const uint32_t widened = total > StagingBytes_ ? total : StagingBytes_;
     SDL_GPUTransferBufferCreateInfo room{};
@@ -126,9 +107,6 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     StagingUsed_ = 0;
   }
 
-  // CYCLED ON THE FIRST MAP OF A FRAME AND ONLY THERE. `cycle` asks the driver to rename the
-  // buffer if the GPU is still reading what the last frame put in it; a later map in the SAME
-  // frame appends to what this frame has already written and must not rename.
   auto *const mapped =
       static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
   if (mapped == nullptr) {
@@ -165,14 +143,6 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   SDL_GPUTransferBufferCreateInfo room{};
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
-  // THE STAGING BUFFER STAYS. It was created and destroyed on EVERY upload -- 35 of them in one of
-  // Shibuya's rebuilds, each sized to the whole hand-over -- so the rebuild paid for hundreds of
-  // megabytes of allocation and first-touch page faults that the previous upload had already paid
-  // for. It is grown when a bigger hand arrives and never shrunk.
-  //
-  // MAPPED WITH CYCLE, which is the whole reason reuse is safe: SDL renames the buffer when the GPU
-  // may still be reading the last contents, so the write does not wait on the copy before it.
-  // Mapping a REUSED buffer without cycling is a stall dressed as a memcpy.
   if (BulkBytes_ < total || !Bulk_) {
     room.size = Widened(BulkBytes_, total);
     Bulk_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
@@ -186,11 +156,6 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
         std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
     return false;
   }
-  // CYCLED, AND BOTH ALTERNATIVES WERE MEASURED. Without cycling the frame draws NOTHING -- the
-  // copy in flight is still reading what this overwrites, and Shibuya went to 0.35 ms and an empty
-  // picture. Waiting on a fence first makes it correct again and SLOWER: the device step read
-  // 5047 ms against 4311 with the rename. So the rename is not what a rebuild's seconds are made
-  // of, and the cost is upstream of here.
   auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Bulk_.Get(), true));
   if (mapped == nullptr) {
     error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();
@@ -345,4 +310,4 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   return bound;
 }
 
-} // namespace outshine::Render
+}

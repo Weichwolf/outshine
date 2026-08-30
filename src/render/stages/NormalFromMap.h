@@ -81,5 +81,5 @@ NormalFromMap(const SuppliedFrame &supplied, const Direction &tap, double scale,
   return NormalFromMapMsl(ignored);
 }
 
-} // namespace outshine::Render
+}
 #endif
