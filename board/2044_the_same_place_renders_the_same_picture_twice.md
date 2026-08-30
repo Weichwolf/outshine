@@ -25,21 +25,37 @@ are ones where the eye looks a long way over varied terrain.
 GREEN in all three runs -- its oracle asks whether the frame holds the geometry that was built for
 it, and it does, three different ways.
 
-## Where it most likely comes from
+## WHERE IT COMES FROM, measured rather than guessed
 
-Not diagnosed, and the item says so rather than guessing in a way that gets quoted later. The
-candidates, in the order they are worth testing:
+**It is the ORDER and not the CONTENT.** Six runs of the Jura, one binary:
 
-- **The stream-in race.** A place stands when `settled()` says the view is loaded, and the ORDER in
-  which tiles and vector features arrive is thread order. If a building is meshed from a tile that
-  arrived second rather than first, its triangles land at a different index and the depth test
-  resolves a coincident pair the other way. Central Park is the place with the most vector features
-  per area of the six.
-- **A generator reading a shared counter.** `RegionPool` and the draw generators run on the compute
-  pool; a seed taken from anything but the FEATURE's own identity is a seed that depends on
-  scheduling.
-- **The frame the picture is taken on.** The picture loop draws what the picture needs; if a place
-  needs one more frame on a slow run, it is a different frame.
+    d5261898  x4        2aa8f40f  x2        and nothing else -- a BINARY race
+    every geometry count identical: 405 592 triangles, 128 mesh jobs, 456 outstanding, 456 held
+
+The counts agree to the unit, so the same tiles arrive and the same buildings are meshed. What
+differs is the sequence they are meshed IN, and two mechanisms turn that into a different picture:
+a depth-test tie between coincident triangles goes to whichever was drawn first, and any reduction
+over the set -- a bound, a centre, an anchor -- ends in different last bits.
+
+**Drawing longer does not heal it.** Forty frames before the screenshot instead of two gives the
+same two digests, so the divergence is settled BEFORE the first frame and is not a job landing
+late.
+
+**The mechanism is `OsmField`.** `Tiles_`, `Features_`, `Rings_` and `Points_` are all
+`std::vector`s appended as tiles ARRIVE, and `BuildingField::Build` walks them in that order. Thread
+scheduling therefore decides the vertex order of an entire city.
+
+## The two shapes a fix can take, and the choice is a DESIGN one
+
+**Ingest in KEY order rather than arrival order.** Deterministic, and it costs a reorder buffer: a
+tile that arrives early waits for its lower-keyed neighbours. During a PRELOAD that is free, because
+the client is waiting anyway and the owner has already said the initial stand must be complete from
+far to near. While streaming WARM it is not free -- it would hold back geometry that could already
+be drawn.
+
+**So the likely answer is BOTH, split by phase**: key order while preloading, arrival order once
+warm, and the digest is only claimed to repeat for a preloaded stand. That has to be decided
+rather than assumed, which is why this item stops here instead of guessing.
 
 ## What will be true
 
