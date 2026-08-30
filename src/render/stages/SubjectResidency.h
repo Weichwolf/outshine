@@ -25,7 +25,7 @@ struct SubjectResidency {
 
   enum class Stream : uint8_t {
     Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles,
-    Placements, Clusters, ClusterIndices, Count
+    Placements, Index, ClusterSpheres, ClusterJobs, DrawIndex, DrawArguments, Count
   };
 
   struct Crossing {
@@ -57,7 +57,15 @@ struct SubjectResidency {
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
   OwnedBuffer BvhNodes, BvhTris;
-  OwnedBuffer Clusters, ClusterIdx;
+
+  // WHAT THE CULL READS AND WHAT IT WRITES. The two tables cross once per mesh and never again,
+  // and the SOURCE the kernel copies from is `Idx` -- the same run the direct path draws, because
+  // the cooker reordered it in place and a second copy of 28 million indices is the thing this
+  // round removed. The last two are the device's own and no byte of theirs is ever assembled on
+  // this side: `DrawIdx` is written by the kernel and read by the index assembler, `DrawArgs` is
+  // written by the kernel and read by the command processor.
+  OwnedBuffer ClusterSpheres, ClusterJobs;
+  OwnedBuffer DrawIdx, DrawArgs;
   OwnedBuffer Placed;
   std::array<uint32_t, (size_t)Stream::Count> Held{};
   [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }
@@ -75,10 +83,8 @@ struct SubjectResidency {
   bool HasTangent = false;
   bool HasColour = false;
 
-  [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
   [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
-  [[nodiscard]] bool OpenStaging(uint32_t bytes, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
   void DropStaged() {
     StagedCount_ = 0;

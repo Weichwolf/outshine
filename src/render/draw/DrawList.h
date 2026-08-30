@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+#include <span>
+
+#include "ClusterDag.h"
 #include "DrawKey.h"
 
 namespace outshine::Render {
@@ -190,9 +193,18 @@ struct DrawItem {
   uint32_t ModelSlot = 0;
   uint32_t Instances = 1;
 
+  // WHICH CLUSTERS COVER THIS DRAW. The cooker cut them per part and a draw IS a part, so the range
+  // travels with the draw and the culler never has to ask a part anything.
+  uint32_t FirstCluster = 0;
+  uint32_t ClusterCount = 0;
+
   uint32_t Submitted = 0;
 };
 
+// A BATCH'S CLUSTERS ARE ITS DRAWS' CLUSTERS AND THEY ARE NOT CONTIGUOUS. Merging sorts by state,
+// so two parts that share a surface land in one batch while their cluster ranges stay where the
+// cooker put them. `Jobs` is therefore a RANGE INTO THE JOB LIST rather than into the cluster table:
+// the list is built once per mesh, in batch order, and one thread takes one job.
 struct DrawBatch {
   uint32_t FirstIndex = 0;
   uint32_t IndexCount = 0;
@@ -204,6 +216,9 @@ struct DrawBatch {
 
   uint32_t ModelSlot = 0;
   uint32_t Instances = 1;
+
+  uint32_t FirstJob = 0;
+  uint32_t JobCount = 0;
 };
 
 struct IndexRun {
@@ -220,9 +235,23 @@ public:
 
   void Compile();
 
+  void JobsAddress(std::span<const DagCluster> clusters);
+
   [[nodiscard]] const std::vector<DrawItem> &Draws() const { return Draws_; }
   [[nodiscard]] const std::vector<IndexRun> &Runs() const { return Runs_; }
   [[nodiscard]] const std::vector<DrawBatch> &Batches() const { return Batches_; }
+
+  // ONE `uint4` PER CLUSTER A BATCH DRAWS: the cluster, the batch, where its indices begin in the
+  // PACKED run, and how many. Sixteen bytes because that is one aligned load, and all four because
+  // that is everything a thread needs to go from its own id to a sphere, a source and a
+  // destination -- a lookup table beside this would be a second gather for facts already known
+  // when the batches were compiled.
+  //
+  // THE INDEX IS IN THE PACKED RUN'S OWN NUMBERING. The cooker numbers a cluster against the
+  // subject's index run; the draw list repacks that run in batch order, so the offset moves and
+  // this is where it is moved, once per mesh, rather than in the kernel every frame.
+  [[nodiscard]] const std::vector<uint32_t> &ClusterJobs() const { return Jobs_; }
+  static constexpr size_t kJobWords = 4;
 
   [[nodiscard]] uint32_t IndexCount() const { return IndexCount_; }
   [[nodiscard]] bool Empty() const { return Draws_.empty(); }
@@ -231,6 +260,7 @@ private:
   std::vector<DrawItem> Draws_;
   std::vector<IndexRun> Runs_;
   std::vector<DrawBatch> Batches_;
+  std::vector<uint32_t> Jobs_;
   uint32_t IndexCount_ = 0;
 };
 

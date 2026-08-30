@@ -59,7 +59,8 @@ void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3
 
 SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
   switch (declared) {
-    case TexelFormat::Handle: return SDL_GPU_TEXTUREFORMAT_INVALID;
+    case TexelFormat::Handle:
+    case TexelFormat::Table: return SDL_GPU_TEXTUREFORMAT_INVALID;
     case TexelFormat::Rgba16Float: return SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
     case TexelFormat::Rgba32Float: return SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     case TexelFormat::Rg16Float: return SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
@@ -115,6 +116,7 @@ const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
     {Stage::MediumMultiScatter, &SceneRenderer::ConfigureMediumMultiScatter,
      &SceneRenderer::EncodeMediumMultiScatter},
     {Stage::MediumRadiance, &SceneRenderer::ConfigureMediumRadiance, &SceneRenderer::EncodeMediumRadiance},
+    {Stage::SubjectCull, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectCull},
     {Stage::LightVisibility, &SceneRenderer::ConfigureLightVisibility,
      &SceneRenderer::EncodeLightVisibility},
     {Stage::Sky, &SceneRenderer::ConfigureSky, &SceneRenderer::EncodeSky},
@@ -310,9 +312,9 @@ void SceneRenderer::Create(Resource resource) {
     // A BUFFER IS SIZED WHERE ITS CONTENT IS KNOWN, not here. The plan DECLARES that the cut's
     // tables exist so a cull that reads them can be refused when they are absent; how many
     // clusters a scene holds is the residency's to answer, the same way a vertex stream is.
-    case Resource::ClusterTable:
+    case Resource::ClusterSphere:
     case Resource::ClusterIndex:
-    case Resource::VisibleClusters:
+    case Resource::ClusterJobs:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return;
     case Resource::TransmittanceLut:
@@ -398,9 +400,9 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::Surface: return HostSurface_;
 
     // NOT A TEXTURE. `BufferFor` answers for these.
-    case Resource::ClusterTable:
+    case Resource::ClusterSphere:
     case Resource::ClusterIndex:
-    case Resource::VisibleClusters:
+    case Resource::ClusterJobs:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
@@ -423,6 +425,22 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
       return nullptr;
   }
   return nullptr;
+}
+
+// THE CUT'S TABLES LIVE WHERE THEIR SIZE IS KNOWN, which is the subject stage, and the plan holds
+// the EDGE rather than the allocation. That is the same arrangement `IrradianceBuffer` and `Meter`
+// already have: what the catalogue decides is who may read what and in which order, and a resource
+// whose extent depends on a mesh cannot be sized by a plan compiled before the mesh exists.
+SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
+  const SubjectResidency &resident = Subjects_.Resident();
+  switch (resource) {
+    case Resource::ClusterSphere: return resident.ClusterSpheres.Get();
+    case Resource::ClusterIndex: return resident.Idx.Get();
+    case Resource::ClusterJobs: return resident.ClusterJobs.Get();
+    case Resource::DrawIndex: return resident.DrawIdx.Get();
+    case Resource::DrawArguments: return resident.DrawArgs.Get();
+    default: return nullptr;
+  }
 }
 
 DisplayOptions SceneRenderer::Display() const {
@@ -662,6 +680,14 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
   Radiance_.Encode(into);
 }
 
+bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
+  return Cull_.Configure(Subjects_, Handles_, error);
+}
+
+void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
+  Cull_.Encode(ctx, into);
+}
+
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
   Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
@@ -718,8 +744,22 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.texture = Target(wanted);
       binding.cycle = false;
     }
+
+    // A TABLE THIS PASS WRITES IS DECLARED HERE OR NOT AT ALL, and it is NEVER cycled: the
+    // argument table arrives holding the reset this frame's copy pass put in it, and cycling would
+    // hand the kernel a fresh, uninitialised buffer to accumulate into.
+    SDL_GPUStorageBufferReadWriteBinding tables[kMaxColourAttachments] = {};
+    uint32_t tableCount = 0;
+    for (const Resource wanted : declared.Buffers) {
+      SDL_GPUBuffer *const held = BufferFor(wanted);
+      if (held == nullptr) { continue; }
+      SDL_GPUStorageBufferReadWriteBinding &binding = tables[tableCount++];
+      binding.buffer = held;
+      binding.cycle = false;
+    }
     PassRecording into{commands, nullptr,
-                       SDL_BeginGPUComputePass(commands, written, writtenCount, nullptr, 0)};
+                       SDL_BeginGPUComputePass(commands, written, writtenCount, tables,
+                                               tableCount)};
     for (size_t at = 0; at < declared.Count; ++at) {
       EncodeStage(Plan_->Order()[declared.First + at], into);
     }
@@ -813,6 +853,12 @@ void SceneRenderer::RenderFrame() {
     }
   }
 
+  {
+    std::string why;
+    if (!Subjects_.HandDrawArguments(true, why)) {
+      Log::Error("render", "cull_arguments_not_reset", {{"msg", why}});
+    }
+  }
   Subjects_.FlushCrossings(commands);
   if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 

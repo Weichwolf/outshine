@@ -22,10 +22,21 @@ a gather per cell; a tile's field indexed by hand-rolled `y * width + x` is a la
 compiler can prove contiguous. A field is an mdspan over one contiguous, pointer-free block, or
 it blocks SIMD while being correct.
 
+**AND THE TREE CARRIES ITS OWN `Span` BESIDE THE STANDARD ONE.** `src/base/spatial/Span.h` is 41
+lines of `std::span` with different spellings -- `Data()`, `Size()`, `Empty()`, `Bytes()`, `Sub()`
+where the standard has `data()`, `size()`, `empty()` and `subspan()`. Measured: **136 uses across
+56 files.** It is why the sweep above keeps finding boundaries that already take a view and still
+count as unswept: they take THIS view. A standard algorithm cannot be handed one without
+unwrapping it, and a reader who knows `std::span` has to learn a second name for it. Found while
+auditing the tree against SDL3 and the standard (board:2042, which records the rest of that audit
+and hands this half here rather than working it twice).
+
 ## What will be true
 
 - [ ] The two greps come back empty at every boundary, and a `const vector&` parameter is a
       finding.
+- [ ] `src/base/spatial/Span.h` is DELETED and every one of its 136 uses is `std::span`. A second
+      view type is not a boundary that was missed, it is a boundary that was answered wrong.
 - [ ] Every field, tile and instance stream is viewed through `std::mdspan` over one block.
 - [ ] A refusal that carries a reason is `std::expected`, never bool-plus-string, and never a
       line of prose the caller greps. The ONE door does the last of those today:

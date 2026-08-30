@@ -55,6 +55,11 @@ public:
     size_t Count;
 
     AttachmentSet Targets;
+
+    // THE TABLES THIS PASS WRITES, apart from the pictures it writes. A device declares the two at
+    // the same moment and by different calls, so the plan keeps them apart rather than making the
+    // encoder ask each target which of the two it is.
+    AttachmentSet Buffers;
     Resource Depth = kNoEdge;
   };
 

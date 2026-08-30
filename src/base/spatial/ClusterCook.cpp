@@ -268,7 +268,7 @@ Cooked CookDag(std::span<const float> positionsM, std::span<const uint32_t> indi
     for (const DagCluster &one : above.Clusters) {
       DagCluster carried = one;
       carried.First = rebase + one.First;
-      carried.Level = (uint8_t)level;
+      carried.Level = (uint32_t)level;
       carried.SelfErr = (float)worst;
       out.Clusters.push_back(carried);
     }

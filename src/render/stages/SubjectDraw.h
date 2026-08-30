@@ -62,6 +62,16 @@ public:
 
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
+  // THE ARGUMENT TABLE IS RESET FROM THIS SIDE AND FILLED FROM THE OTHER. Only `num_indices` is
+  // zeroed here; the other four fields are properties of the BATCH and do not change between
+  // frames, so re-crossing the whole row costs twenty bytes per material class and buys the
+  // culler a table it can accumulate into without a clearing dispatch of its own. This is the
+  // CPU's only per-frame work that scales with anything, and it scales with material classes
+  // rather than with the scene -- which is what board:1993 asks for.
+  [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
+
+  [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
+
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
     if (rows == 0) {
       Placed_.clear();
@@ -140,6 +150,22 @@ public:
 private:
   [[nodiscard]] bool HandVisibility(bool deferred, std::string &error);
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
+  [[nodiscard]] bool HandClusters(const SubjectMesh &mesh, std::string &error);
+
+  // A DEVICE-ONLY RUN, KEPT AT LEAST AS BIG AS IT HAS TO BE. Nothing on this side ever fills these
+  // two, so they do not cross; what they share with a crossing is the rule that a buffer already
+  // large enough is the one used again.
+  [[nodiscard]] bool Room(OwnedBuffer &into, SubjectResidency::Stream held,
+                          SDL_GPUBufferUsageFlags usage, uint32_t bytes) {
+    if (into && Bound().Held[(size_t)held] >= bytes) { return true; }
+    SDL_GPUBufferCreateInfo wanted{};
+    wanted.usage = usage;
+    wanted.size = Bound().Held[(size_t)held] > 0 ? Bound().Held[(size_t)held] : bytes;
+    while (wanted.size < bytes) { wanted.size *= 2u; }
+    into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
+    Bound().Held[(size_t)held] = into ? wanted.size : 0u;
+    return (bool)into;
+  }
 
   TriangleBvh Visibility_;
 
@@ -273,6 +299,11 @@ private:
   uint64_t ModelStamp_ = 0;
   uint64_t Frame_ = 1;
   std::vector<float> Rows_;
+
+  // FIVE UINTS A BATCH, in `SDL_GPUIndexedIndirectDrawCommand`'s own order. The assertion beside
+  // it is what keeps this table and the command processor's reading of it the same table.
+  std::vector<uint32_t> Args_;
+  uint32_t Jobs_ = 0;
   bool RowsStale_ = false;
   size_t Moved_ = 0;
 

@@ -106,6 +106,7 @@ const char *TransferName(Transfer t) { return t == Transfer::Linear ? "linear" :
 const char *FormatName(TexelFormat f) {
   switch (f) {
     case TexelFormat::Handle: return "handle";
+    case TexelFormat::Table: return "table";
     case TexelFormat::Rgba16Float: return "rgba16float";
     case TexelFormat::Rgba32Float: return "rgba32float";
     case TexelFormat::Rg16Float: return "rg16float";
@@ -170,17 +171,6 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
     return false;
   }
 
-  // A TABLE WHOSE ELEMENT HAS NO SIZE CANNOT BE BOUND, and a plan that declares one would read it
-  // as empty and draw nothing while saying it drew. The catalogue states a stride for every buffer
-  // and this is where a row that forgot one is caught, before a shader is ever asked to read it.
-  for (size_t at = 0; at < kResourceCount; ++at) {
-    const ResourceRow &row = kResources[at];
-    if (row.Kind != ResourceKind::Buffer || row.Stride > 0u) { continue; }
-    error = std::string("render.resources.") + row.Name +
-            ": a buffer resource declares no stride, so its element has no size and nothing could "
-            "read it";
-    return false;
-  }
 
   std::unique_ptr<Compiled> plan(new Compiled());
   for (size_t s = 0; s < kStageCount; ++s) {
@@ -274,7 +264,9 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
       }
       if (merged) { plan->Passes_.back().Count++; }
     }
-    if (!merged) { plan->Passes_.push_back({row.Kind, row.Name, at, 1, AttachmentSet{}, kNoEdge}); }
+    if (!merged) {
+      plan->Passes_.push_back({row.Kind, row.Name, at, 1, AttachmentSet{}, AttachmentSet{}, kNoEdge});
+    }
   }
 
   for (Pass &pass : plan->Passes_) {
@@ -285,6 +277,13 @@ bool Compiled::CompileInto(const PlanSpec &spec, std::shared_ptr<const Compiled>
           const Resource target = row.Writes[e];
           if (!plan->HeldResource_[static_cast<size_t>(target)]) { continue; }
 
+          if (IsBuffer(Row(target))) {
+            if (pass.Buffers.Add(target)) { continue; }
+            error = std::string("compute pass ") + pass.Name + ": more than " +
+                    std::to_string(kMaxColourAttachments) +
+                    " distinct table targets, which is the device floor";
+            return false;
+          }
           if (Row(target).Format == TexelFormat::Handle) { continue; }
           if (!pass.Targets.Add(target)) {
             error = std::string("compute pass ") + pass.Name + ": more than " +

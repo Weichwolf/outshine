@@ -13,16 +13,13 @@
 
 namespace outshine {
 
-// THE RECORD THE DEVICE READS, laid out as the device reads it. A cluster crosses to a storage
-// buffer unchanged -- because a producer that emits one shape and a renderer that wants another is
-// a conversion, and a conversion per cluster is 73 706 of them a frame.
-//
-// ORDER, NOT SIZE: `sizeof` was 52 before this reorder and is 52 after it, measured. What changed
-// is WHERE the spheres sit. Self lands on byte 0 and parent on 16, so the cull kernel reads each
-// as one aligned `float4`; before, `First` and `Count` pushed the first sphere to byte 8 and no
-// vector load reached it. The `uint8_t` that used to end the record also left three bytes of tail
-// padding an MSL struct has to declare by hand, and a padding byte miscounted on that side reads
-// every cluster after the first at the wrong offset.
+// THE COOKER'S OWN RECORD, AND NOT THE DEVICE'S. Two attempts made this one struct serve both and
+// both were wrong: a stride of 52 bytes is 16-aligned for every fourth cluster and no other, so the
+// `float4` load it was reordered for cannot be issued at all. A cooker walks clusters ONE at a time
+// and wants them whole; a cull kernel sweeps EVERY cluster's sphere and touches nothing else, so
+// what it wants is the spheres apart from the rest. Those are different questions and they now have
+// different answers -- `ShapeStore` carries the device's two runs beside this one, written where
+// the cut is taken.
 struct DagCluster {
   float SelfCenter[3] = {0, 0, 0};
   float SelfRadius = 0.0f;
@@ -33,7 +30,6 @@ struct DagCluster {
   uint32_t First = 0, Count = 0;
   uint32_t Level = 0;
 };
-static_assert(sizeof(DagCluster) == 52, "the cull kernel reads this record verbatim");
 
 inline constexpr float kDagRootErr = 3.0e38f;
 

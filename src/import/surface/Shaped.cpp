@@ -116,7 +116,7 @@ Render::Shape Viewed(Render::ShapeStore &into) {
   out.Lamps = into.Lamps;
   out.Indices = into.Indices;
   out.Clusters = into.Clusters;
-  out.ClusterIndices = into.ClusterIndices;
+  out.ClusterSpheres = into.ClusterSpheres;
   for (const Render::ShapePart &one : into.Parts) {
     out.CarriesUv = out.CarriesUv || one.HasUv;
     out.CarriesUv1 = out.CarriesUv1 || one.HasUv1;

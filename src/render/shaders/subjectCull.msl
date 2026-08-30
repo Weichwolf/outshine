@@ -1,0 +1,50 @@
+struct CullView {
+  float4 planes[6];
+  float4 shift;
+  uint jobs;
+  uint pad0, pad1, pad2;
+};
+
+constant uint kCullLanes = 128u;
+constant uint kCullRejected = 0xffffffffu;
+
+kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
+                              device const float4 *spheres [[buffer(1)]],
+                              device const uint4 *jobs [[buffer(2)]],
+                              device const uint *source [[buffer(3)]],
+                              device const float4x4 *rows [[buffer(4)]],
+                              device uint *drawIndex [[buffer(5)]],
+                              device atomic_uint *args [[buffer(6)]],
+                              uint group [[threadgroup_position_in_grid]],
+                              uint lane [[thread_position_in_threadgroup]]) {
+  threadgroup uint at;
+  threadgroup uint4 job;
+  if (lane == 0u) {
+    at = kCullRejected;
+    job = group < view.jobs ? jobs[group] : uint4(0u);
+    if (group < view.jobs) {
+      const uint arg = 5u * job.y;
+      const float4x4 model = rows[2u * atomic_load_explicit(&args[arg + 4u], memory_order_relaxed)];
+      const float4 sphere = spheres[job.x];
+      const float3 centre = (model * float4(sphere.xyz, 1.0)).xyz + view.shift.xyz;
+      const float widest =
+          max(max(length(model[0].xyz), length(model[1].xyz)), length(model[2].xyz));
+      const float radius = sphere.w * widest;
+      bool kept = true;
+      for (uint one = 0u; one < 6u; ++one) {
+        const float4 plane = view.planes[one];
+        if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
+        if (dot(plane.xyz, centre) + plane.w < -radius) { kept = false; }
+      }
+      if (kept) {
+        at = atomic_load_explicit(&args[arg + 2u], memory_order_relaxed) +
+             atomic_fetch_add_explicit(&args[arg], job.w, memory_order_relaxed);
+      }
+    }
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  if (at == kCullRejected) { return; }
+  for (uint one = lane; one < job.w; one += kCullLanes) {
+    drawIndex[at + one] = source[job.z + one];
+  }
+}

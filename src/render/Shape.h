@@ -83,7 +83,7 @@ struct Shape {
   // them from here and never asks which of the two put them there.
   std::span<const PunctualLight> Lamps;
   std::span<const DagCluster> Clusters;
-  std::span<const uint32_t> ClusterIndices;
+  std::span<const float> ClusterSpheres;
 
   bool CarriesUv = false;
   bool CarriesUv1 = false;
@@ -130,14 +130,12 @@ struct ShapeStore {
   std::vector<PunctualLight> Lamps;
   std::vector<DagCluster> Clusters;
 
-  // THE COOKED INDEX RUN, BESIDE THE DRAWN ONE AND NOT INSTEAD OF IT. A cluster wants its triangles
-  // spatially together, which means a Morton order; the drawn buffer wants the order it was given,
-  // because where two surfaces COINCIDE this renderer's depth test resolves the tie by which
-  // triangle arrived first and a reorder repaints them. Measured on Khronos's NormalTangentTest --
-  // one 198x48 cell whose bitangent flipped and whose picture went 6 codes from the oracle to 8,
-  // past the case's own bound of 6.435. So the cut keeps its own order until the draw is per
-  // CLUSTER, and on that day this buffer is the one it reads.
-  std::vector<uint32_t> ClusterIndices;
+  // THE ONE RUN THE DEVICE READS, WRITTEN HERE RATHER THAN PACKED LATER. A cull kernel sweeps
+  // EVERY cluster's sphere and reads nothing else about the ones it rejects, so the sphere is apart
+  // from the record: at a 16-byte stride the sweep is a `float4` load and a coalesced read, and
+  // Shibuya's 73 706 clusters cost it 1.2 MB rather than the 3.8 an interleaved record would.
+  // Four floats a cluster: centre in subject metres, then radius.
+  std::vector<float> ClusterSpheres;
 
   void Clear() {
     Parts.clear();
@@ -151,7 +149,7 @@ struct ShapeStore {
     Surfaces.clear();
     Lamps.clear();
     Clusters.clear();
-    ClusterIndices.clear();
+    ClusterSpheres.clear();
   }
 };
 

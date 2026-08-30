@@ -269,6 +269,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
     item.Instances = (uint32_t)proxy.Instances();
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
+    item.FirstCluster = where.FirstCluster;
+    item.ClusterCount = where.ClusterCount;
 
     VertexRunsCarried carried;
     carried.Uv = where.HasUv && proxy.Slots()[slot].ReadsAnyImage();
@@ -288,6 +290,7 @@ double DepthFraction(const Shape &subject, const ShapePart &part,
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
+  list.JobsAddress(subject.Clusters);
   return true;
 }
 
@@ -496,6 +499,8 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
     mesh.Anchor[axis] = proxy.Anchor()[axis];
   }
   mesh.Draws = &scratch.Draws;
+  mesh.Clusters = subject.Clusters;
+  mesh.ClusterSpheres = subject.ClusterSpheres;
   const Heap::Tagged handing("subject-mesh");
   const auto handedFrom = std::chrono::steady_clock::now();
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
@@ -503,6 +508,18 @@ bool Place(SceneRenderer &renderer, const SubjectProxy &proxy, const Eye &view,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count(),
       std::memory_order_relaxed);
+
+  // AND THE TWO RUNS ARE DEAD THE MOMENT THE DEVICE HAS THEM. Both are staging on this side: the
+  // packed index run is copied into the device's index buffer and the position run is read once to
+  // build the visibility structure, and after `SetSubjectMesh` returns nothing reads either again
+  // until the NEXT rebuild, which resizes them anyway. Held, they were 113 MB and 340 MB of
+  // Shibuya standing idle beside a device that already had both -- enough that the system killed
+  // the run before it drew a frame once the cut's own tables were added.
+  //
+  // THE POSE PATH KEEPS ITS RUN. It repacks positions every frame for a subject that moves, so
+  // freeing there would be an allocation of the same size per frame rather than per rebuild.
+  { std::vector<uint32_t>().swap(scratch.Indices); }
+  { std::vector<float>().swap(scratch.Vertices); }
   if (!Placed(renderer, proxy, error)) { return false; }
 
   return true;

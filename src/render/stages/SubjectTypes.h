@@ -129,7 +129,10 @@ struct SubjectMesh : SubjectPose {
   // THE CUT, CROSSING WITH THE REST. The cooker made these where the shape was built; they reach
   // the device as two storage buffers and nothing between here and there reshapes them.
   std::span<const DagCluster> Clusters;
-  std::span<const uint32_t> ClusterIndices;
+
+  // WHAT THE DEVICE BINDS. `Clusters` is the cooker's record and stays on this side; this is its
+  // layout, written where the cut was taken.
+  std::span<const float> ClusterSpheres;
 };
 
 }

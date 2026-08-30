@@ -46,43 +46,24 @@ size_t SubjectResidency::UploadMBTaken() { return gUploadBytes.exchange(0u) / 10
 size_t SubjectResidency::BuffersMadeTaken() { return gBuffersMade.exchange(0u); }
 size_t SubjectResidency::StagingMadeTaken() { return gStagingMade.exchange(0u); }
 
-OwnedBuffer SubjectResidency::Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes) {
-  SDL_GPUBufferCreateInfo wantedBuffer{};
-  wantedBuffer.usage = usage;
-  wantedBuffer.size = bytes;
-  OwnedBuffer buffer(Device, SDL_CreateGPUBuffer(Device, &wantedBuffer));
-  gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
-  if (!buffer) { return buffer; }
-
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-  gStagingMade.fetch_add(1u, std::memory_order_relaxed);
-  gUploads.fetch_add(1u, std::memory_order_relaxed);
-  gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
-  if (!staging) {
-    buffer.Reset();
-    return buffer;
+// A STREAM GROWS BY DOUBLING AND NEVER BY EXACTLY WHAT WAS ASKED, and the reason is what a stream-in
+// does: Shibuya's world arrives in pieces, so every rebuild hands over a few thousand buildings more
+// than the last and a buffer sized to the request is too small the very next time. Twenty rebuilds
+// then meant twenty fresh sets of channel buffers, and a released SDL buffer is NOT freed when it
+// is released -- the driver holds it until a command buffer that could still be reading it has
+// retired, and a load draws two frames in forty seconds. Measured: 52.4 GB peak footprint against
+// a 3.4 GB resident set, and the system killed the run before it drew.
+//
+// DOUBLING MAKES THE COUNT LOGARITHMIC in how far the world grows, which is the same reason every
+// growable container does it. The tail is bounded too: a buffer is never widened past twice what is
+// asked, so the slack a finished world carries is at most what it holds.
+[[nodiscard]] static uint32_t Widened(uint32_t held, uint32_t wanted) {
+  uint32_t room = held > 0 ? held : wanted;
+  while (room < wanted) {
+    if (room > 0x7fffffffu) { return wanted; }
+    room *= 2u;
   }
-  void *const mapped = SDL_MapGPUTransferBuffer(Device, staging, false);
-  if (mapped == nullptr) {
-    SDL_ReleaseGPUTransferBuffer(Device, staging);
-    buffer.Reset();
-    return buffer;
-  }
-  std::memcpy(mapped, from, bytes);
-  SDL_UnmapGPUTransferBuffer(Device, staging);
-
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  SDL_GPUTransferBufferLocation source{staging, 0};
-  SDL_GPUBufferRegion into{buffer.Get(), 0, bytes};
-  SDL_UploadToGPUBuffer(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  SDL_ReleaseGPUTransferBuffer(Device, staging);
-  return buffer;
+  return room;
 }
 
 bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::string &error) {
@@ -97,7 +78,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     if (*one.Held < one.Bytes || !*one.Into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
-      wanted.size = one.Bytes;
+      wanted.size = Widened(*one.Held, one.Bytes);
       *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
       if (!*one.Into) {
@@ -105,7 +86,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
         error = std::string("a vertex stream found no room on the device: ") + SDL_GetError();
         return false;
       }
-      *one.Held = one.Bytes;
+      *one.Held = wanted.size;
     }
 
     total = (total + one.Bytes + 15u) & ~15u;
@@ -221,22 +202,6 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);
-  return true;
-}
-
-bool SubjectResidency::OpenStaging(uint32_t bytes, std::string &error) {
-  if (bytes <= StagingBytes_ && Staging_) { return true; }
-  SDL_GPUTransferBufferCreateInfo room{};
-  room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  room.size = bytes;
-  Staging_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-  if (!Staging_) {
-    error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
-    return false;
-  }
-  StagingBytes_ = bytes;
-  StagingUsed_ = 0;
-  StagedCount_ = 0;
   return true;
 }
 

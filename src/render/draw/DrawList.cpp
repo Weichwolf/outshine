@@ -45,6 +45,7 @@ void DrawList::Clear() {
   Draws_.clear();
   Runs_.clear();
   Batches_.clear();
+  Jobs_.clear();
   IndexCount_ = 0;
 }
 
@@ -57,6 +58,7 @@ void DrawList::Compile() {
 
   Runs_.clear();
   Batches_.clear();
+  Jobs_.clear();
   Runs_.reserve(Draws_.size());
   IndexCount_ = 0;
   for (DrawItem &draw : Draws_) {
@@ -70,7 +72,60 @@ void DrawList::Compile() {
       continue;
     }
     Batches_.push_back({draw.FirstIndex, draw.IndexCount, draw.Order.MaterialSlot, draw.Layout,
-                        draw.Order.Surface.Kind(), 1, draw.ModelSlot, draw.Instances});
+                        draw.Order.Surface.Kind(), 1, draw.ModelSlot, draw.Instances, 0, 0});
+  }
+
+  // A SECOND WALK, IN BATCH ORDER, BECAUSE THE FIRST ONE DOES NOT KNOW WHERE A BATCH ENDS. Only a
+  // batch that stands on ONE placement takes jobs: a cluster's sphere is culled against one model
+  // matrix, and an instanced batch has as many as it has instances, so rejecting a cluster there
+  // would reject it for every instance at once.
+  size_t at = 0;
+  for (DrawBatch &batch : Batches_) {
+    batch.FirstJob = (uint32_t)(Jobs_.size() / kJobWords);
+    const size_t upTo = at + batch.Draws;
+
+    // ALL OF THE BATCH OR NONE OF IT. An indirect draw covers exactly the clusters the culler
+    // kept, so a batch holding one draw the cooker did not cut would lose that draw entirely --
+    // a hole in the picture rather than a slower frame. A batch that is not wholly cut takes the
+    // direct path, and that is also why the whole of it is checked before any of it is listed.
+    bool wholly = batch.Instances == 1;
+    for (size_t look = at; look < upTo && look < Draws_.size() && wholly; ++look) {
+      wholly = Draws_[look].ClusterCount > 0;
+    }
+    for (; at < upTo && at < Draws_.size(); ++at) {
+      if (!wholly) { continue; }
+      const DrawItem &draw = Draws_[at];
+      for (uint32_t one = 0; one < draw.ClusterCount; ++one) {
+        Jobs_.push_back(draw.FirstCluster + one);
+        Jobs_.push_back((uint32_t)(&batch - Batches_.data()));
+        Jobs_.push_back(draw.FirstIndex);
+        Jobs_.push_back(0u);
+      }
+    }
+    batch.JobCount = (uint32_t)(Jobs_.size() / kJobWords) - batch.FirstJob;
+  }
+}
+
+// THE CLUSTER RANGES, MOVED INTO THE PACKED RUN'S NUMBERING. A cooker numbers a cluster against the
+// subject's own index run and the pack rewrites that run in batch order; the shift is the same for
+// every cluster of one draw, so it is applied once here rather than carried into the kernel. The
+// caller supplies the table because `DrawList` knows what a DRAW is and nothing about a cut.
+void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
+  size_t at = 0;
+  for (const DrawBatch &batch : Batches_) {
+    const size_t upTo = at + batch.Draws;
+    uint32_t job = batch.FirstJob;
+    for (; at < upTo && at < Draws_.size(); ++at) {
+      if (batch.JobCount == 0) { continue; }
+      const DrawItem &draw = Draws_[at];
+      for (uint32_t one = 0; one < draw.ClusterCount; ++one, ++job) {
+        const size_t cluster = (size_t)draw.FirstCluster + one;
+        if (cluster >= clusters.size()) { continue; }
+        Jobs_[(size_t)job * kJobWords + 2u] =
+            draw.FirstIndex + (clusters[cluster].First - draw.SourceFirstIndex);
+        Jobs_[(size_t)job * kJobWords + 3u] = clusters[cluster].Count;
+      }
+    }
   }
 }
 

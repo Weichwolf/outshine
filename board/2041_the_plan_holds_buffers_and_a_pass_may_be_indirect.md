@@ -72,3 +72,53 @@ catalogue fixed and the dispatch count constant, which is what board:1943 asks f
 Nothing here makes a frame faster on its own. It is the vocabulary board:1992 and board:1993 need
 in order to be built at all; if the frame does not move once they are, this item was not the
 reason and the cause is elsewhere.
+
+## WHAT IS BUILT, AND THE TWO THINGS THE FIRST BUILD MEASURED
+
+`Stage::SubjectCull` stands: a compute stage that sweeps one thread per cluster, rejects the
+cluster against the six planes the view matrix already carries, and appends the survivors' indices
+into a compacted run while an atomic add on `num_indices` writes the draw's own count. The subject
+pass records `SDL_DrawGPUIndexedPrimitivesIndirect` for every batch the culler decided and the
+direct draw for every batch it could not.
+
+**It sits BEFORE the shadow and the sky, not in front of the draw**, and that is the one placement
+decision worth writing down: a cull immediately ahead of the pass that consumes it is a hard wait,
+where here it shares the compute pass the atmosphere already opens and the raster work in between
+covers its latency.
+
+### 1. The plan needed a THIRD arm, not a fourth kind
+
+The first attempt gave `ResourceKind` a `Buffer` arm. That conflated two axes -- where a resource
+comes from, and what its element is -- and the door said so within one run: `irradiance` is a
+compute write with no texel format and no stride, so a check asking every compute write for one
+refused a plan that had always been correct. `TexelFormat::Table` is the arm that was missing, a
+`static_assert` holds "a table states a stride and a picture states a format" over the whole
+catalogue, and `ResourceKind` still means only provenance.
+
+### 2. THE INDEX RUN EXISTED SIX TIMES, and three of those were this item's
+
+Measured on Shibuya, 28.3 M indices at 4 bytes:
+
+    Indices          CPU   113 MB   the subject's own run
+    ClusterIndices   CPU   113 MB   the cooked order, kept beside it
+    scratch.Indices  CPU   113 MB   the same run repacked in batch order
+    Idx              GPU   113 MB   the packed run
+    ClusterIdx       GPU   113 MB   the cooked order again
+    DrawIdx          GPU   113 MB   what the culler compacts into
+
+678 MB for one list of numbers, and the two biggest places -- Shibuya and Central Park -- were
+killed by the system before they drew a frame. `memorystatus_available_pages` fell to 24 147, which
+is 96 MB, and the kernel was shedding daemons.
+
+**The cooker reorders `Indices` IN PLACE now** and `ClusterIndices` and `ClusterIdx` are gone,
+along with the staging that carried them. A cluster's range is carried in the JOB -- one `uint4`
+of cluster, batch, first index and count, already in the packed run's numbering -- so the kernel
+reads the same buffer the direct path draws from and no table is gathered to find a range.
+
+**The reorder changes a depth-test tie**, which is what the second run was protecting: where two
+surfaces COINCIDE this renderer resolves the tie by arrival order, and Khronos's NormalTangentTest
+has one 198x48 cell that moves from 6 codes off the oracle to 8, past its own bound of 6.435.
+**That is not a reason to keep the second run.** The engine's layout is decided by what the device
+needs, and a vendor corpus is where a standards body states an ANSWER, not where it states a
+memory layout; if the importer has to change to keep that case green, the importer is what
+changes. Recorded here so the red, when it comes, is the expected one rather than a surprise.

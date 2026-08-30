@@ -537,9 +537,25 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   if (Borrows()) { return true; }
 
+  if (!HandClusters(mesh, error)) { return false; }
+
+  // THE INDEX RUN CROSSES LIKE EVERY OTHER RUN, which it did not until this round. It had its own
+  // path: a fresh buffer, a fresh transfer buffer the size of the whole run, its own command buffer
+  // and its own submit, EVERY rebuild -- and a released SDL buffer is held by the driver until a
+  // command buffer that might read it retires, which during a stream-in never happens. Shibuya
+  // rebuilds hundreds of times while it loads and each rebuild left 113 MB behind twice over.
+  // Crossing reuses the buffer when it is big enough and reuses ONE staging buffer for the whole
+  // hand-over, which is what every other stream here has done since board:1949.
   {
     const Heap::Tagged uploading("mesh-upload");
-    Bound().Idx = Bound().Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, Bound().NIdx * (uint32_t)sizeof(uint32_t));
+    SubjectResidency::Crossing run[] = {
+        {&Bound().Idx, &Bound().Held[(size_t)SubjectResidency::Stream::Index],
+         SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ, mesh.Indices,
+         Bound().NIdx * (uint32_t)sizeof(uint32_t)}};
+    if (!Bound().Cross(run, 1, false, error)) {
+      Bound().NIdx = 0;
+      return false;
+    }
   }
   if (!Bound().Idx) {
     Bound().NIdx = 0;
@@ -566,9 +582,17 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   if (!HandVisibility(false, error)) { return false; }
 
-  uint32_t staged = 0;
-  for (const uint32_t held : Bound().Held) { staged += (held + 15u) & ~15u; }
-  return Bound().OpenStaging(staged, error);
+  // NOTHING IS PRE-SIZED HERE, and that is a defect this round MEASURED rather than reasoned about.
+  // A `OpenStaging` stood at the end of this function and widened the DEFERRED ring to the sum of
+  // every stream the mesh had just handed over -- hundreds of megabytes on a city. The deferred
+  // ring is not what a rebuild uses; it is what a FRAME uses, for placements that moved and for the
+  // cull's twenty-byte argument reset. And the first map of a frame cycles it, which asks the
+  // driver to rename the WHOLE buffer. Heidelberg drew a frame in 9.59 ms and then in 86.98,
+  // and the twenty bytes were renaming three hundred megabytes to get there.
+  //
+  // `Cross` already widens the ring when a hand does not fit, so a guess ahead of the demand buys
+  // nothing and can only be wrong in the expensive direction.
+  return true;
 }
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
@@ -623,6 +647,84 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   return true;
 }
 
+// THE CUT CROSSES ONCE PER MESH, and the argument table is sized with it. Both tables were written
+// by the cooker and the draw list in the layout the kernel binds, so this function moves bytes and
+// reshapes none of them -- the one thing it computes is where each batch's compacted run begins,
+// which is a running sum over the batches and is not knowable before they are compiled.
+//
+// NO SECOND INDEX RUN CROSSES. The kernel copies out of `Idx`, which is the run the direct path
+// already draws: the cooker reordered the subject's indices in place, so the packed run IS the
+// cooked order and a separate cooked buffer would be 113 MB of the same numbers on Shibuya.
+bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
+  const Heap::Tagged uploading("mesh-cull");
+  Args_.clear();
+  Jobs_ = 0;
+  if (mesh.Draws == nullptr) { return true; }
+  const std::vector<uint32_t> &jobs = mesh.Draws->ClusterJobs();
+  if (jobs.empty() || mesh.ClusterSpheres.empty()) { return true; }
+
+  Args_.assign(Batches.size() * 5u, 0u);
+  uint32_t base = 0;
+  for (size_t at = 0; at < Batches.size(); ++at) {
+    const DrawBatch &batch = Batches[at];
+    Args_[at * 5u + 1u] = batch.Instances;
+    Args_[at * 5u + 2u] = base;
+    Args_[at * 5u + 4u] = batch.ModelSlot;
+    for (uint32_t one = 0; one < batch.JobCount; ++one) {
+      base += jobs[((size_t)batch.FirstJob + one) * DrawList::kJobWords + 3u];
+    }
+  }
+  Jobs_ = (uint32_t)(jobs.size() / DrawList::kJobWords);
+  if (base == 0) {
+    Args_.clear();
+    Jobs_ = 0;
+    return true;
+  }
+
+  const auto read = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+  SubjectResidency::Crossing cut[] = {
+      {&Bound().ClusterSpheres, &Bound().Held[(size_t)SubjectResidency::Stream::ClusterSpheres],
+       read, mesh.ClusterSpheres.data(),
+       (uint32_t)(mesh.ClusterSpheres.size() * sizeof(float))},
+      {&Bound().ClusterJobs, &Bound().Held[(size_t)SubjectResidency::Stream::ClusterJobs], read,
+       jobs.data(), (uint32_t)(jobs.size() * sizeof(uint32_t))},
+  };
+  if (!Bound().Cross(cut, sizeof cut / sizeof cut[0], false, error)) {
+    Args_.clear();
+    Jobs_ = 0;
+    return false;
+  }
+
+  // GROWN, NEVER REMADE, and this is the difference between a rebuild and four hundred of them.
+  // A released SDL buffer is not freed when it is released -- the driver holds it until a command
+  // buffer that could still be reading it has retired, and during a stream-in NO frame is
+  // submitted between rebuilds. Made fresh each time, Shibuya's compacted run alone took the peak
+  // footprint to 52.9 GB against a resident set of 3.3, and the system killed the run before it
+  // drew. The rule is the one the vertex streams already follow: keep what is big enough.
+  if (!Room(Bound().DrawIdx, SubjectResidency::Stream::DrawIndex,
+            SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+            base * (uint32_t)sizeof(uint32_t)) ||
+      !Room(Bound().DrawArgs, SubjectResidency::Stream::DrawArguments,
+            SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
+            (uint32_t)(Args_.size() * sizeof(uint32_t)))) {
+    Args_.clear();
+    Jobs_ = 0;
+    error = std::string("the cut's compacted run found no room on the device: ") + SDL_GetError();
+    return false;
+  }
+  return HandDrawArguments(false, error);
+}
+
+bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
+  if (Args_.empty() || !Bound().DrawArgs) { return true; }
+  for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
+  const uint32_t bytes = (uint32_t)(Args_.size() * sizeof(uint32_t));
+  SubjectResidency::Crossing table[] = {
+      {&Bound().DrawArgs, &Bound().Held[(size_t)SubjectResidency::Stream::DrawArguments],
+       SDL_GPU_BUFFERUSAGE_INDIRECT, Args_.data(), bytes}};
+  return Bound().Cross(table, 1, deferred, error);
+}
+
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   size_t needed = Placed_.size() / 16u;
   for (const DrawBatch &batch : Batches) {
@@ -645,7 +747,8 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   }
   SubjectResidency::Crossing rows[] = {
       {&Bound().Placed, &Bound().Held[(size_t)SubjectResidency::Stream::Placements],
-       SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Rows_.data(),
+       SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+       Rows_.data(),
        (uint32_t)(Rows_.size() * sizeof(float))}};
   return Bound().Cross(rows, 1, deferred, error);
 }
@@ -784,6 +887,14 @@ uint32_t SubjectDraw::DrawCount() const {
   return drawn;
 }
 
+// THE ARGUMENT THIS SIDE WRITES AND THE ONE THE COMMAND PROCESSOR READS ARE THE SAME RECORD, and
+// this is where the two are held to each other. `Args_` is five uints a batch because SDL's own
+// record is five uints; if that ever stops being true, this refuses to compile rather than
+// dispatching a draw whose fields have all moved by one.
+static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t),
+              "the indirect argument table is written as five uints a batch");
+inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
+
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (Bound().NIdx == 0 || Batches.empty() || !Bound().Vtx || !Bound().Idx || !Bound().Emit || !Bound().BvhNodes || !Bound().BvhTris) { return; }
   float uniform[kUniFloats] = {};
@@ -804,8 +915,13 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
                                  (uint32_t)(lights.size() * sizeof(float)));
 
-  SDL_GPUBufferBinding indices{Bound().Idx.Get(), 0};
-  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+  // THE INDEX BUFFER IS WHICHEVER RUN THE BATCH DRAWS FROM, and the two are different runs. A
+  // batch the culler decided reads the COMPACTED run the kernel wrote; a batch it could not decide
+  // -- a blended surface, which the cooker does not cut, or an instanced one, whose clusters would
+  // have to be culled per instance -- reads the run it was given. Binding is stateful, so the
+  // switch is tracked rather than issued per draw.
+  bool boundCut = false;
+  bool anyIndex = false;
 
   SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {Bound().BvhNodes.Get(), Bound().BvhTris.Get()};
   SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, occluders, kSubjectStorageBuffers);
@@ -815,8 +931,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   size_t bound = kPipelines;
   size_t boundSlot = 0;
   bool slotBound = false;
+  const bool cut = Bound().DrawIdx && Bound().DrawArgs && !Args_.empty();
   for (size_t at = 0; at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
+    const bool culled = cut && batch.JobCount > 0;
     const SurfaceSlot &surface = Slots[batch.MaterialSlot];
 
     const bool glassSlot = surface.Kind == SurfaceKind::ThinTransmissive ||
@@ -866,6 +984,17 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
                                      (uint32_t)(surface.Row.size() * sizeof(float)));
       boundSlot = batch.MaterialSlot;
       slotBound = true;
+    }
+    if (!anyIndex || boundCut != culled) {
+      SDL_GPUBufferBinding indices{culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(), 0};
+      SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+      boundCut = culled;
+      anyIndex = true;
+    }
+    if (culled) {
+      SDL_DrawGPUIndexedPrimitivesIndirect(into.Pass, Bound().DrawArgs.Get(),
+                                           (Uint32)(at * kIndirectStride), 1u);
+      continue;
     }
     SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0,
                                  batch.ModelSlot);

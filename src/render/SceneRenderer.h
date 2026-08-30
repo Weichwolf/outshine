@@ -28,6 +28,7 @@
 #include "stages/MediumMultiScatterStage.h"
 #include "stages/MediumRadianceStage.h"
 #include "stages/LightVisibilityStage.h"
+#include "stages/SubjectCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
@@ -289,6 +290,7 @@ private:
   [[nodiscard]] bool ConfigureSky(std::string &error);
   [[nodiscard]] bool ConfigureAerialPerspective(std::string &error);
   [[nodiscard]] bool ConfigureLightVisibility(std::string &error);
+  [[nodiscard]] bool ConfigureSubjectCull(std::string &error);
   void EncodeSubjects(const FrameContext &ctx, const PassRecording &into);
   void EncodeGlass(const FrameContext &ctx, const PassRecording &into);
   void EncodeCompositeTransmission(const FrameContext &ctx, const PassRecording &into);
@@ -301,9 +303,14 @@ private:
   void EncodeSky(const FrameContext &ctx, const PassRecording &into);
   void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
+  void EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
   bool Touched_[kResourceCount] = {};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
+
+  // A TABLE IS RESOLVED THE WAY A PICTURE IS, and by a separate answer because the device
+  // binds the two by separate calls. A resource answers exactly one of the two.
+  [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
   [[nodiscard]] SDL_GPUTexture *LinearSource() const;
@@ -345,6 +352,7 @@ private:
   MediumRadianceStage Radiance_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
+  SubjectCullStage Cull_;
   Medium Medium_;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;
