@@ -2,6 +2,8 @@
 #define OUTSHINE_RENDER_VIEWING_H
 
 #include <cmath>
+#include "Scenario.h"
+#include <numbers>
 #include <cstdint>
 
 namespace outshine::Render {
@@ -106,6 +108,24 @@ inline bool Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const 
     out.Up[axis] = up[axis];
   }
   return true;
+}
+
+// THE DOOR'S SPELLING OF THE SAME STANDING. A `Viewpoint` is a basis and a projection; a `Camera`
+// is what a client declares and reads back. The translation lives HERE, beside the type it
+// translates, because two copies of it is how the two spellings start to disagree.
+inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
+  out.Placed = true;
+  out.LooksAt = true;
+  for (int axis = 0; axis < 3; ++axis) {
+    out.Stands.AtM[axis] = from.EyeM[axis];
+    out.LookAtM[axis] = from.EyeM[axis] + from.Forward[axis];
+    out.UpM[axis] = from.Up[axis];
+  }
+  if (from.Kind == CameraKind::Orthographic) {
+    out.setProjection(-from.XMagM, from.XMagM, -from.YMagM, from.YMagM, from.ZNearM, from.ZFarM);
+  } else {
+    out.setProjection(from.YfovRad * 180.0 / std::numbers::pi, from.ZNearM, from.ZFarM);
+  }
 }
 
 }

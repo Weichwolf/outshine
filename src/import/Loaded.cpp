@@ -59,21 +59,7 @@ bool Loaded::reads(std::string_view path) {
     Render::Viewpoint placed;
     std::string ignored;
     if (Gltf::DeclaredPlacement(held.File, 0, placed, ignored)) {
-      Camera &eye = held.Eye;
-      eye.Placed = true;
-      eye.LooksAt = true;
-      for (int axis = 0; axis < 3; ++axis) {
-        eye.Stands.AtM[axis] = placed.EyeM[axis];
-        eye.LookAtM[axis] = placed.EyeM[axis] + placed.Forward[axis];
-        eye.UpM[axis] = placed.Up[axis];
-      }
-      if (placed.Kind == Render::CameraKind::Orthographic) {
-        eye.setProjection(-placed.XMagM, placed.XMagM, -placed.YMagM, placed.YMagM, placed.ZNearM,
-                          placed.ZFarM);
-      } else {
-        eye.setProjection(placed.YfovRad * 180.0 / 3.14159265358979323846, placed.ZNearM,
-                          placed.ZFarM);
-      }
+      Render::CameraOf(placed, held.Eye);
       held.HasEye = true;
     }
   }

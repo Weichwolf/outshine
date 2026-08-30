@@ -119,7 +119,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Session.Volumes) {
-    Session.Volumes->Probe(0, body.PositionM, (double)Picture.Standing->At() * Session.Declared.Motion.StepS);
+    Session.Volumes->Probe(0, body.PositionM, Ticking.ElapsedS);
     for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
       ++Session.Fired;
       Published.Places("events a declared volume has fired", (double)Session.Fired, "events");
@@ -237,6 +237,7 @@ void Engine::frameTimesMs(std::vector<double> &out) const { S_->Cost.Render.Into
 Result Engine::advance() {
   const auto began = std::chrono::steady_clock::now();
   if (!S_->Updates()) { return std::unexpected(S_->Error); }
+  S_->Ticking.ElapsedS += S_->Session.Declared.Motion.StepS;
   S_->Tells();
   const bool drew = S_->Draws();
   S_->Cost.Advance.Took(

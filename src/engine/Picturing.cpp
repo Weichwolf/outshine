@@ -1563,6 +1563,12 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
 
 Extent Engine::canvas(void) const { return S_->Picture.Frame; }
 
+bool Engine::camera(Camera &out) const {
+  if (!S_->Picture.Standing) { return false; }
+  Render::CameraOf(S_->Picture.Standing->Aimed(), out);
+  return true;
+}
+
 bool Engine::presenting(void) const { return S_->Picture.Device.Presents(); }
 
 // A FRAME IS OPEN OR IT IS NOT, and `render` between the two draws without presenting. Filament's

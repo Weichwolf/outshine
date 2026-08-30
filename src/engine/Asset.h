@@ -19,7 +19,7 @@ public:
   void Clears();
   [[nodiscard]] bool Reads(const std::string &path, const std::string &variant,
                            AssetAnimation animation, int clip, double fps, std::string &error);
-  [[nodiscard]] bool Poses(int frame, double fps, std::string &error);
+  [[nodiscard]] bool Poses(double seconds, std::string &error);
   void Carries(const Gltf::Subject &built) { Assembled_ = built; }
 
   // THE WORLD'S GEOMETRY IS MOVED IN, NEVER COPIED. A scenario's ground is the door's own
@@ -44,13 +44,22 @@ public:
   // either.
   [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
   [[nodiscard]] Gltf::Subject &Assembled() { return Assembled_; }
-  [[nodiscard]] bool Measures(int frame, double fps, std::string &error);
+  [[nodiscard]] bool Measures(double seconds, std::string &error);
   [[nodiscard]] const std::vector<double> &Previous() const { return PreviousPositionsM_; }
   [[nodiscard]] bool Moves() const { return Moves_; }
   [[nodiscard]] bool Stands() const { return Read_; }
   [[nodiscard]] int Frames() const { return Frames_; }
-  [[nodiscard]] int At() const { return At_; }
-  void Advances(int frames) { At_ = frames > 0 ? (At_ + 1) % frames : 0; }
+  // AN ANIMATION IS ADDRESSED IN SECONDS, NOT IN FRAMES. It ran on an index that wrapped at
+  // `(int)(EndS * fps + 0.5)` -- Khronos's Fox declares 3.41666675 s, which rounds to THREE frames
+  // at one per second, so the fourth second jumped back to the rest pose and lost 0.41666675 s of
+  // motion that the file states. glTF says sampling past the last keyframe CLAMPS to it, which is
+  // what the oracle renders and what this now does; looping is a client's policy and this door
+  // does not yet spell one, so it is not invented here.
+  [[nodiscard]] double AtS() const { return AtS_; }
+  void Advances(double stepS) {
+    const double end = Motion_.EndS();
+    AtS_ = AtS_ + stepS > end ? end : AtS_ + stepS;
+  }
 
 private:
   Gltf::Document File_;
@@ -61,12 +70,12 @@ private:
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
   std::vector<double> Weights_;
-  [[nodiscard]] bool PoseInto(int frame, double fps, bool records, std::string &error);
+  [[nodiscard]] bool PoseInto(double seconds, bool records, std::string &error);
   std::vector<double> PreviousPositionsM_;
   bool Moves_ = false;
   bool Read_ = false;
   int Frames_ = 1;
-  int At_ = 0;
+  double AtS_ = 0.0;
 };
 
 }

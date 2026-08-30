@@ -183,6 +183,13 @@ private:
   [[nodiscard]] bool endFrame(void);
   [[nodiscard]] bool flushAndWait(void);
   [[nodiscard]] Extent canvas(void) const;
+
+  // THE CAMERA THE FRAME IS AIMED WITH, which is not always the one declared: a view that states
+  // no camera gets the engine's own framing of what stands, and a client had no way to ask what
+  // that came out as. Filament's `View::getCamera()` answers the same question, and a conformance
+  // runner that cannot ask it has to reimplement the framing rule and compare its own answer with
+  // itself.
+  [[nodiscard]] bool camera(Camera &out) const;
   [[nodiscard]] bool presenting(void) const;
 
   friend class SwapChain;

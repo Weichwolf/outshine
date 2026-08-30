@@ -204,7 +204,7 @@ public:
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
-  [[nodiscard]] int At() const { return Held_.At(); }
+  [[nodiscard]] double AtS() const { return Held_.AtS(); }
   [[nodiscard]] int Frames() const { return Held_.Frames(); }
 
 private:
@@ -216,8 +216,11 @@ private:
   Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] double Framing() const;
-  [[nodiscard]] bool Pose(int frame, std::string &error);
-  [[nodiscard]] bool Measure(int frame, std::string &error);
+  [[nodiscard]] bool Pose(double seconds, std::string &error);
+  [[nodiscard]] bool Measure(double seconds, std::string &error);
+  [[nodiscard]] double Seconds(int frame) const {
+    return Declared_.Fps > 0.0 ? (double)frame / Declared_.Fps : 0.0;
+  }
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
   [[nodiscard]] bool Submit(std::string &error);

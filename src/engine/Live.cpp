@@ -258,13 +258,13 @@ bool Live::Build(std::string &error) {
       }
       AssetReads_ += 1;
     }
-    if (!Pose(0, error)) { return false; }
+    if (!Pose(0.0, error)) { return false; }
     for (const std::string &joining : Declared_.Joins) {
       Core::Posed arriving;
       if (!arriving.Reads(joining, "", Declared_.Animation, Declared_.Clip, Declared_.Fps, error)) {
         return false;
       }
-      if (!arriving.Poses(0, Declared_.Fps, error)) { return false; }
+      if (!arriving.Poses(0.0, error)) { return false; }
       AssetReads_ += 1;
       if (!Held_.Assembled().Append(arriving.Assembled())) {
         error = "the subject '" + joining + "' would not append onto the one before it";
@@ -531,14 +531,14 @@ bool Live::Build(std::string &error) {
 // frame before. That this costs a re-form AT ALL is board:2037's finding: `Poses` rebuilds the
 // carrier from the document every frame, which neither Unreal (a fixed FStaticMeshRenderData with
 // its own pose buffer) nor RAGE (a fixed grmGeometry with crSkeleton matrices) does.
-bool Live::Pose(int frame, std::string &error) {
-  if (!Held_.Poses(frame, Declared_.Fps, error)) { return false; }
+bool Live::Pose(double seconds, std::string &error) {
+  if (!Held_.Poses(seconds, error)) { return false; }
   Reshape();
   return true;
 }
 
-bool Live::Measure(int frame, std::string &error) {
-  if (!Held_.Measures(frame, Declared_.Fps, error)) { return false; }
+bool Live::Measure(double seconds, std::string &error) {
+  if (!Held_.Measures(seconds, error)) { return false; }
   Reshape();
   return true;
 }
@@ -571,11 +571,11 @@ bool Live::PartVolumes(std::string &error) {
   };
   fold();
   for (int frame = 0; frame < Held_.Frames(); ++frame) {
-    if (frame == Held_.At()) { continue; }
-    if (!Measure(frame, error)) { return false; }
+    if (Seconds(frame) == Held_.AtS()) { continue; }
+    if (!Measure(Seconds(frame), error)) { return false; }
     fold();
   }
-  if (Held_.Frames() > 1 && !Measure(Held_.At(), error)) { return false; }
+  if (Held_.Frames() > 1 && !Measure(Held_.AtS(), error)) { return false; }
   return true;
 }
 
@@ -763,7 +763,7 @@ bool Live::Stand(std::string &error) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int frame = 1; frame < Held_.Frames(); ++frame) {
-      if (!Measure(frame, error)) { return false; }
+      if (!Measure(Seconds(frame), error)) { return false; }
       double posedLeast[3], posedMost[3];
       Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
@@ -771,7 +771,7 @@ bool Live::Stand(std::string &error) {
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
       }
     }
-    if (Held_.Frames() > 1 && !Measure(0, error)) { return false; }
+    if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
     Gltf::Viewpoint fitted;
     if (!Gltf::FramingFor(least, most, fitted, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
@@ -1104,11 +1104,11 @@ bool Live::Advance(std::string &error) {
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
   if (Held_.Moves() && Held_.Frames() > 1) {
-    Held_.Advances(Held_.Frames());
+    Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       const Heap::Tagged posing("live-pose");
-      if (!Pose(Held_.At(), error)) { return false; }
+      if (!Pose(Held_.AtS(), error)) { return false; }
     }
     TookPosing_ = took("live-pose", beforePose);
     const size_t beforeSubmit = Heap::TakenUnder("live-submit");
