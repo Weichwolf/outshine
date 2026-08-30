@@ -150,7 +150,8 @@ void Live::SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3])
       Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
     };
     const auto secondOrder = [&](float radiusKm, float cosZenith, float out[3]) {
-      float luminance[3], transfer[3];
+      float luminance[3];
+      float transfer[3];
       const float unitU = cosZenith * 0.5f + 0.5f;
       const float unitV =
           (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
@@ -172,7 +173,8 @@ void Live::SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3])
 double Live::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
   const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
-  float sunReach[3], skylight[3];
+  float sunReach[3];
+  float skylight[3];
   SunThroughTheAir(cosSun, sunReach, skylight);
   const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
   return kSolarIlluminanceLx * (straightDown * Photopic(sunReach) + Photopic(skylight));
@@ -366,7 +368,8 @@ bool Live::Build(std::string &error) {
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
-    double least[3], most[3];
+    double least[3];
+    double most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
     Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
@@ -451,8 +454,10 @@ bool Live::Build(std::string &error) {
     if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
   }
 
-  const double eye[3] = {0.0, 0.0, 0.0}, forward[3] = {0.0, 0.0, -1.0};
-  const double right[3] = {1.0, 0.0, 0.0}, up[3] = {0.0, 1.0, 0.0};
+  const double eye[3] = {0.0, 0.0, 0.0};
+  const double forward[3] = {0.0, 0.0, -1.0};
+  const double right[3] = {1.0, 0.0, 0.0};
+  const double up[3] = {0.0, 1.0, 0.0};
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
   if (Shaped_.TriangleCount() > 0) {
@@ -544,7 +549,8 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
   bool first = true;
-  double leastM[3] = {0.0, 0.0, 0.0}, mostM[3] = {0.0, 0.0, 0.0};
+  double leastM[3] = {0.0, 0.0, 0.0};
+  double mostM[3] = {0.0, 0.0, 0.0};
   const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < framed; ++part) {
     const Volume &held = PartBounds_[part];
@@ -580,7 +586,8 @@ bool Live::Look(std::string &error) {
     return Render::Aim(
         *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
   }
-  double least[3], most[3];
+  double least[3];
+  double most[3];
   if (!PlacedBounds(least, most, error)) { return false; }
   Gltf::Viewpoint fromFile;
   if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
@@ -591,7 +598,8 @@ bool Live::Look(std::string &error) {
   const double centre[3] = {
       (least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5};
   const double turn = Around_ * std::numbers::pi / 180.0;
-  const double cosine = std::cos(turn), sine = std::sin(turn);
+  const double cosine = std::cos(turn);
+  const double sine = std::sin(turn);
   const auto spun = [cosine, sine](const double from[3], double out[3]) {
     out[0] = from[0] * cosine + from[2] * sine;
     out[1] = from[1];
@@ -666,7 +674,8 @@ bool Live::Stand(std::string &error) {
     key.Kind = LightKind::Directional;
     key.Intensity = (float)Declared_.KeyLux;
     if (Declared_.KeyFromClock) {
-      float sunReach[3], skylight[3];
+      float sunReach[3];
+      float skylight[3];
       SunThroughTheAir(std::sin(elevation), sunReach, skylight);
       key.Intensity = (float)kSolarIlluminanceLx;
       for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = sunReach[channel]; }
@@ -684,7 +693,8 @@ bool Live::Stand(std::string &error) {
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
     const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
     const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-    float sunReach[3], skylight[3];
+    float sunReach[3];
+    float skylight[3];
     SunThroughTheAir(cosSun, sunReach, skylight);
     const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
     for (int channel = 0; channel < 3; ++channel) {
@@ -711,7 +721,8 @@ bool Live::Stand(std::string &error) {
   if (declared) { eye = placed; }
   Looking_.Eye = eye;
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
-    double least[3], most[3];
+    double least[3];
+    double most[3];
     const auto boundedFrom = std::chrono::steady_clock::now();
     Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
@@ -719,7 +730,8 @@ bool Live::Stand(std::string &error) {
             .count();
     for (int sample = 1; sample < Sweeps(); ++sample) {
       if (!Measure(Seconds(sample), error)) { return false; }
-      double posedLeast[3], posedMost[3];
+      double posedLeast[3];
+      double posedMost[3];
       Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
@@ -932,7 +944,8 @@ bool Live::Carry(size_t body,
   }
   const size_t instances = Stood_.Instances();
   const size_t rows = parts * instances;
-  bool bodyMoved = false, builtMoved = false;
+  bool bodyMoved = false;
+  bool builtMoved = false;
   for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[body][at] != bodyM[at]; }
   for (int at = 0; at < 16 && !builtMoved; ++at) { builtMoved = SentBuilt_[at] != built[at]; }
   if (!bodyMoved && !builtMoved) { return true; }

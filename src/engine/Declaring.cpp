@@ -10,7 +10,8 @@ namespace outshine {
 Result Engine::handleEvent(const SDL_Event &event) {
   if (!S_->Picture.Standing) { return std::unexpected(S_->Error); }
   if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-    float xPx = 0.0f, yPx = 0.0f;
+    float xPx = 0.0f;
+    float yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
     return (S_->Picture.Standing->Wheeled((double)xPx,
                                           (double)yPx,

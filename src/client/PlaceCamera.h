@@ -53,8 +53,16 @@ struct Shot {
   double P50Ms = 0.0, P95Ms = 0.0, P99Ms = 0.0;
   std::size_t Frames = 0, OverBudget = 0, WorstAt = 0;
 
+  /// Building triangles the LAST REBUILD meshed -- a delta and not a total, so a settled frame
+  /// over a world that changed nothing reads zero with a city in front of it (board:2063).
   double Triangles = 0.0;
+
+  /// Tiles the LAST REBUILD laid on the ellipsoid because no elevation mesh stood for them. Same
+  /// caveat: it describes that pass, never the picture that was written (board:2063).
   double BareTiles = 0.0;
+
+  /// Mean absolute difference between neighbouring pixels along each row, in counts of 255. A
+  /// picture of nothing is a vertical gradient and has none of it.
   double VariationAlongRows = 0.0;
 
   double StandingMs = 0.0, LoadingMs = 0.0, StreamedS = 0.0;

@@ -35,7 +35,8 @@ void MvpCamRel(float *m,
                float jitterX,
                float jitterY,
                float nearM) {
-  const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f, asp = (float)w / (float)h;
+  const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f;
+  const float asp = (float)w / (float)h;
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
   const float v[16] = {(float)R[0],
@@ -62,8 +63,10 @@ void MvpCamRel(float *m,
   p[8] = -ndcX;
   p[9] = -ndcY;
   if (orthoM > 0.0f) {
-    const float hw = 0.5f * orthoM * asp, hh = 0.5f * orthoM;
-    const float zf = 60000.0f, rz = 1.0f / (zf - zn);
+    const float hw = 0.5f * orthoM * asp;
+    const float hh = 0.5f * orthoM;
+    const float zf = 60000.0f;
+    const float rz = 1.0f / (zf - zn);
     float q[16] = {1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1};
     q[12] = ndcX;
     q[13] = ndcY;
@@ -681,7 +684,8 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   spent.Placements = 0;
   if (stage == Stage::Subjects || stage == Stage::SubjectsTransmissive) {
     const SubjectDraw &drew = stage == Stage::Subjects ? Subjects_ : Glass_;
-    uint32_t surfaces = 0, placements = 0;
+    uint32_t surfaces = 0;
+    uint32_t placements = 0;
     for (const DrawBatch &batch : drew.Drawn()) {
       spent.Draws += 1u;
       spent.Triangles += (batch.IndexCount / 3u) * batch.Instances;
@@ -804,7 +808,9 @@ void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassR
   Picture(true, into);
   const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
   const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
-  float right[3], up[3], fwd[3];
+  float right[3];
+  float up[3];
+  float fwd[3];
   for (int axis = 0; axis < 3; ++axis) {
     right[axis] = (float)Right_[axis];
     up[axis] = (float)Up_[axis];
@@ -819,7 +825,9 @@ void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into
   Picture(true, into);
   const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
   const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
-  float right[3], up[3], fwd[3];
+  float right[3];
+  float up[3];
+  float fwd[3];
   for (int axis = 0; axis < 3; ++axis) {
     right[axis] = (float)Right_[axis];
     up[axis] = (float)Up_[axis];
@@ -946,7 +954,8 @@ void SceneRenderer::RenderFrame() {
 
   SDL_GPUTexture *swapchain = nullptr;
   if (Showing_ != nullptr) {
-    Uint32 gotW = 0, gotH = 0;
+    Uint32 gotW = 0;
+    Uint32 gotH = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &swapchain, &gotW, &gotH) &&
         swapchain != nullptr) {
       Shown_.WidthPx = (int)gotW;

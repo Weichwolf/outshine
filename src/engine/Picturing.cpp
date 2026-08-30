@@ -237,13 +237,17 @@ void CarryIntoTheFrame(const std::vector<float> &corners,
     const float *const one = corners.data() + at * kTileVertexFloats;
     const double held[3] = {
         anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
-    double eastM = 0.0, upM = 0.0, northM = 0.0;
+    double eastM = 0.0;
+    double upM = 0.0;
+    double northM = 0.0;
     standing.Place(held, &eastM, &upM, &northM);
     places[at * 3] = (float)eastM;
     places[at * 3 + 1] = (float)upM;
     places[at * 3 + 2] = (float)(-northM);
     const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
-    double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+    double alongEast = 0.0;
+    double alongUp = 0.0;
+    double alongNorth = 0.0;
     standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
     turned[at * 3] = (float)alongEast;
     turned[at * 3 + 1] = (float)alongUp;
@@ -313,7 +317,8 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
       edges[(low << 32) | high] += 1;
     }
   }
-  size_t open = 0, overused = 0;
+  size_t open = 0;
+  size_t overused = 0;
   for (const auto &one : edges) {
     if (one.second == 1) {
       ++open;
@@ -371,7 +376,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
 
-  double atLat = anchorLat, atLon = anchorLon;
+  double atLat = anchorLat;
+  double atLon = anchorLon;
   if (Picture.Standing->Watched()) {
     const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
     const double *const eye = Picture.Standing->Watching().EyeM;
@@ -464,13 +470,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const TangentFrame standing = TangentFrame::At(frameLat, frameLon);
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
-  double sank = 0.0, sankAt = 0.0;
-  double tallest = -1.0e9, lowest = 1.0e9, tallestOut = 0.0;
+  double sank = 0.0;
+  double sankAt = 0.0;
+  double tallest = -1.0e9;
+  double lowest = 1.0e9;
+  double tallestOut = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
     const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
                             laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
                             laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
-    double eastM = 0.0, upM = 0.0, northM = 0.0;
+    double eastM = 0.0;
+    double upM = 0.0;
+    double northM = 0.0;
     standing.Place(held, &eastM, &upM, &northM);
     inFrame[at] = (float)eastM;
     inFrame[at + 1] = (float)upM;
@@ -496,8 +507,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::unordered_map<uint64_t, size_t> met2;
     met.reserve(inFrame.size() / 3);
     met2.reserve(inFrame.size() / 3);
-    double widest = 0.0, leaning = 0.0, leanSum = 0.0;
-    size_t shared = 0, leanCount = 0;
+    double widest = 0.0;
+    double leaning = 0.0;
+    double leanSum = 0.0;
+    size_t shared = 0;
+    size_t leanCount = 0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const int64_t east = (int64_t)std::llround((double)inFrame[at] * 4.0);
       const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
@@ -513,7 +527,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       if (apart > widest) { widest = apart; }
       if (at + 2 < laid->NormalM.size() && stood->second == inFrame[at + 1]) {
         const size_t twin = met2[key];
-        double dot = 0.0, one = 0.0, two = 0.0;
+        double dot = 0.0;
+        double one = 0.0;
+        double two = 0.0;
         for (size_t axis = 0; axis < 3; ++axis) {
           const double a = (double)laid->NormalM[at + axis];
           const double b = (double)laid->NormalM[twin + axis];
@@ -596,9 +612,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("a sphere would sink it by", sankAt * sankAt / (2.0 * Data::kWgs84A), "m");
 
   {
-    double nearest = 1.0e30, atUp = 0.0, farthest = 0.0, farUp = 0.0;
+    double nearest = 1.0e30;
+    double atUp = 0.0;
+    double farthest = 0.0;
+    double farUp = 0.0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double east = (double)inFrame[at], south = (double)inFrame[at + 2];
+      const double east = (double)inFrame[at];
+      const double south = (double)inFrame[at + 2];
       const double away = east * east + south * south;
       if (away < nearest) {
         nearest = away;
@@ -621,7 +641,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
       const double held[3] = {
           (double)laid->NormalM[at], (double)laid->NormalM[at + 1], (double)laid->NormalM[at + 2]};
-      double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+      double alongEast = 0.0;
+      double alongUp = 0.0;
+      double alongNorth = 0.0;
       standing.Turn(held, &alongEast, &alongUp, &alongNorth);
       laid->NormalM[at] = (float)alongEast;
       laid->NormalM[at + 1] = (float)alongUp;
@@ -629,9 +651,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   {
-    double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0;
+    double up = 0.0;
+    double down = 0.0;
+    double sideways = 0.0;
+    double unlengthed = 0.0;
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
-      const double x = laid->NormalM[at], y = laid->NormalM[at + 1], z = laid->NormalM[at + 2];
+      const double x = laid->NormalM[at];
+      const double y = laid->NormalM[at + 1];
+      const double z = laid->NormalM[at + 2];
       const double length = std::sqrt(x * x + y * y + z * z);
       if (!(length > 0.5)) {
         unlengthed += 1.0;
@@ -650,9 +677,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("its normals that point DOWN", down, "normals");
     Published.Places("its normals that lie sideways", sideways, "normals");
     {
-      double steepest = 0.0, mean = 0.0, counted = 0.0;
+      double steepest = 0.0;
+      double mean = 0.0;
+      double counted = 0.0;
       for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
-        const double x = laid->NormalM[at], y = laid->NormalM[at + 1], z = laid->NormalM[at + 2];
+        const double x = laid->NormalM[at];
+        const double y = laid->NormalM[at + 1];
+        const double z = laid->NormalM[at + 2];
         const double length = std::sqrt(x * x + y * y + z * z);
         if (!(length > 1.0e-6)) { continue; }
         const double leanDeg = std::acos(std::fmin(1.0, y / length)) * 180.0 / std::numbers::pi;
@@ -666,7 +697,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("its normals with no length at all", unlengthed, "normals");
     Published.Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
     {
-      double least = 1.0e30, most = -1.0e30;
+      double least = 1.0e30;
+      double most = -1.0e30;
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
         const double y = (double)held[at];
@@ -724,10 +756,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          "features");
       }
       {
-        double least = 1.0e30, most = -1.0e30;
+        double least = 1.0e30;
+        double most = -1.0e30;
         size_t within = 0;
         for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-          const double east = (double)inFrame[at], south = (double)inFrame[at + 2];
+          const double east = (double)inFrame[at];
+          const double south = (double)inFrame[at + 2];
           if (east * east + south * south > 3200.0 * 3200.0) { continue; }
           const double up = (double)inFrame[at + 1];
           least = up < least ? up : least;
@@ -741,7 +775,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
     }
     if (built.WallRun.size() + built.RoofRun.size() >= 3) {
-      std::vector<float> wallPlaces, wallFacing, roofPlaces, roofFacing;
+      std::vector<float> wallPlaces;
+      std::vector<float> wallFacing;
+      std::vector<float> roofPlaces;
+      std::vector<float> roofFacing;
       CarryIntoTheFrame(built.WallCorners, anchor, standing, wallPlaces, wallFacing);
       CarryIntoTheFrame(built.RoofCorners, anchor, standing, roofPlaces, roofFacing);
       const std::vector<uint32_t> &wallRun = built.WallRun;
@@ -795,7 +832,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
       Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
       {
-        size_t upright = 0, facingDown = 0;
+        size_t upright = 0;
+        size_t facingDown = 0;
         for (size_t one = 0; one + 2 < wallFacing.size(); one += 3) {
           const double aloft = (double)wallFacing[one + 1];
           if (aloft < -0.5) {
@@ -833,10 +871,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("building triangles the world meshed", (double)triangles, "triangles");
       Published.Places("buildings: corners the soup holds", (double)vertices, "corners");
       {
-        double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0, inward = 0.0;
+        double up = 0.0;
+        double down = 0.0;
+        double sideways = 0.0;
+        double unlengthed = 0.0;
+        double inward = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const aim = turnAt(at);
-          const double x = aim[0], y = aim[1], z = aim[2];
+          const double x = aim[0];
+          const double y = aim[1];
+          const double z = aim[2];
           const double length = std::sqrt(x * x + y * y + z * z);
           if (!(length > 0.5)) {
             unlengthed += 1.0;
@@ -859,16 +903,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         (void)inward;
       }
       {
-        size_t needles = 0, reaching = 0;
-        double longest = 0.0, furthest = 0.0;
+        size_t needles = 0;
+        size_t reaching = 0;
+        double longest = 0.0;
+        double furthest = 0.0;
         for (size_t tri = 0; tri < triangles; ++tri) {
           const float *const a = placeAt(cornerOf(tri, 0));
           const float *const b = placeAt(cornerOf(tri, 1));
           const float *const c = placeAt(cornerOf(tri, 2));
-          const double ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-          const double vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-          const double wx = c[0] - b[0], wy = c[1] - b[1], wz = c[2] - b[2];
-          const double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+          const double ux = b[0] - a[0];
+          const double uy = b[1] - a[1];
+          const double uz = b[2] - a[2];
+          const double vx = c[0] - a[0];
+          const double vy = c[1] - a[1];
+          const double vz = c[2] - a[2];
+          const double wx = c[0] - b[0];
+          const double wy = c[1] - b[1];
+          const double wz = c[2] - b[2];
+          const double nx = uy * vz - uz * vy;
+          const double ny = uz * vx - ux * vz;
+          const double nz = ux * vy - uy * vx;
           const double area = 0.5 * std::sqrt(nx * nx + ny * ny + nz * nz);
           const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
                                                   vx * vx + vy * vy + vz * vz,
@@ -915,11 +969,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          "mm");
       }
       {
-        double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
+        double least = 1.0e30;
+        double most = -1.0e30;
+        double nearest = 1.0e30;
+        double farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const held = placeAt(at);
           const double up = (double)held[1];
-          const double east = (double)held[0], south = (double)held[2];
+          const double east = (double)held[0];
+          const double south = (double)held[2];
           const double away = std::sqrt(east * east + south * south);
           least = up < least ? up : least;
           most = up > most ? up : most;
@@ -985,9 +1043,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     wiresAt = std::chrono::steady_clock::now();
     const Ground::StreetField &ways = World.Stack.Ways();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
-    std::vector<float> places, facing;
+    std::vector<float> places;
+    std::vector<float> facing;
     std::vector<uint32_t> order;
-    size_t laidWays = 0, refusedWays = 0;
+    size_t laidWays = 0;
+    size_t refusedWays = 0;
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
       for (const Ground::StreetField::Way &lane : ways.Ways()) {
@@ -997,7 +1057,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           continue;
         }
         bool whole = true;
-        std::vector<double> left, right;
+        std::vector<double> left;
+        std::vector<double> right;
         left.reserve(lane.PointCount * 3);
         right.reserve(lane.PointCount * 3);
         for (uint32_t step = 0; step < lane.PointCount && whole; ++step) {
@@ -1006,7 +1067,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             whole = false;
             break;
           }
-          const double lat = points[at], lon = points[at + 1];
+          const double lat = points[at];
+          const double lon = points[at + 1];
           const uint32_t before = step == 0 ? step : step - 1;
           const uint32_t after = step + 1 < lane.PointCount ? step + 1 : step;
           const size_t from = ((size_t)lane.FirstPoint + before) * 2;
@@ -1027,8 +1089,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           alongE /= run;
           alongN /= run;
           const double halfM = (double)lane.HalfWidthM;
-          const double offLat = -alongE * halfM / perLat, offLon = alongN * halfM / perLon;
-          double leftAslM = 0.0, rightAslM = 0.0;
+          const double offLat = -alongE * halfM / perLat;
+          const double offLon = alongN * halfM / perLon;
+          double leftAslM = 0.0;
+          double rightAslM = 0.0;
           if (!World.Stack.Ground().At(lat + offLat, lon + offLon).TryAslM(&leftAslM) ||
               !World.Stack.Ground().At(lat - offLat, lon - offLon).TryAslM(&rightAslM)) {
             whole = false;
@@ -1043,7 +1107,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         ++laidWays;
         const auto lay = [&](const double *from, double raise) {
-          double eastM = 0.0, upM = 0.0, northM = 0.0;
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
           standing.Place(from[0], from[1], from[2], &eastM, &upM, &northM);
           const double onDrawn = drapedOver(eastM, -northM, upM);
           places.push_back((float)eastM);
@@ -1080,7 +1146,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           highest[key] = inFrame[at + 1];
         }
       }
-      double deepest = 0.0, summed = 0.0;
+      double deepest = 0.0;
+      double summed = 0.0;
       size_t compared = 0;
       for (size_t at = 0; at + 2 < places.size(); at += 3) {
         const int64_t east = (int64_t)std::llround((double)places[at] / kGapGridM);
@@ -1130,9 +1197,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {
     const Ground::WaterField &wet = World.Stack.WaterBodies();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
-    std::vector<float> places, facing;
+    std::vector<float> places;
+    std::vector<float> facing;
     std::vector<uint32_t> order;
-    size_t lidsLaid = 0, lidsRefused = 0;
+    size_t lidsLaid = 0;
+    size_t lidsRefused = 0;
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
       for (const Ground::WaterField::Surface &lake : wet.Surfaces()) {
@@ -1151,7 +1220,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const uint32_t corners[3] = {0u, step, step + 1u};
           for (const uint32_t corner : corners) {
             const size_t at = ((size_t)lake.FirstPoint + corner) * 2;
-            double eastM = 0.0, upM = 0.0, northM = 0.0;
+            double eastM = 0.0;
+            double upM = 0.0;
+            double northM = 0.0;
             standing.Place(points[at], points[at + 1], (double)lake.LevelM, &eastM, &upM, &northM);
             places.push_back((float)eastM);
             places.push_back((float)upM);
@@ -1314,13 +1385,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
   Published.Places("tiles it refused", (double)laid->Refused, "tiles");
   {
-    double least = 1.0e30, most = -1.0e30;
+    double least = 1.0e30;
+    double most = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const double up = (double)inFrame[at + 1];
       if (up < least) { least = up; }
       if (up > most) { most = up; }
     }
-    double west = 1.0e30, east = -1.0e30, north = 1.0e30, south = -1.0e30;
+    double west = 1.0e30;
+    double east = -1.0e30;
+    double north = 1.0e30;
+    double south = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const double alongE = (double)inFrame[at];
       const double alongS = (double)inFrame[at + 2];
@@ -1514,7 +1589,8 @@ void Engine::State::Tells(void) {
 bool Engine::State::Blocked(const double sourceM[3]) const {
   if (World.Blocking.Empty() || !Picture.Standing) { return false; }
   const Render::Viewpoint &eye = Picture.Standing->Aimed();
-  float fromM[3], along[3];
+  float fromM[3];
+  float along[3];
   double awayM = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     const double step = sourceM[axis] - eye.EyeM[axis];
@@ -1587,7 +1663,8 @@ bool Engine::render(Extent frame) {
                                                                (double)S_->Picture.Frame.HeightPx
                                                          : 1.0;
     const double half = 0.5 * eye.YfovRad;
-    const double up = std::tan(half), across = up * aspect;
+    const double up = std::tan(half);
+    const double across = up * aspect;
     size_t kept = 0;
     for (const DagCluster &one : S_->Picture.Standing->Shown().Clusters) {
       const double to[3] = {(double)one.SelfCenter[0] - eye.EyeM[0],
