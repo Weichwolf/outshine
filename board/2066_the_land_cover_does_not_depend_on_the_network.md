@@ -55,19 +55,51 @@ ground still wears no class. The remaining candidate is EXTENT -- `SubmitDue` bu
 vertex outside the grid returns -1 by construction. What that does not yet explain is why `named`
 is exactly 0 rather than small: the vertices near the camera are inside any such grid.
 
+## PROBED AT THE LAST REBUILD, and it names REAL classes
+
+Logging straight past the ledger, inside the tinting loop, on the rebuild that produced the
+picture:
+
+    named=253515  unmapped=0  version=3  verts=653400  materials=1  missingLayers=26  clsPending=0
+
+**38.8 % of the ring's vertices wear a land class and NOT ONE of them is the unmapped row.** The
+classification is applied, it is real, and the picture is still brown. Every ledger measure that
+said otherwise was answering from the first rebuild.
+
+The same four points, warm against cold, tell what actually differs:
+
+| point | warm `a2d6cd59` | cold `236b28e5` |
+|---|---|---|
+| foreground | (100, 79, 58) | (78, 90, 62) |
+| valley floor | (97, 96, 59) | (80, 97, 62) |
+| Koenigstuhl | (143, 123, 108) | (103, 118, 114) |
+| far left | (128, 114, 107) | (96, 110, 111) |
+| right slope | (140, 116, 95) | (98, 111, 100) |
+
+Every point differs and every one the same way: **warm has R > G, cold has G > R.** The two runs
+do not differ in whether a class is assigned -- they differ in WHICH class. Bare earth against
+vegetation, everywhere at once.
+
+The class grid's own extent is not the answer either, though it explains the far distance:
+`Fine_` is 64 cells of 16 m, a half-width of **1024 m**; `Coarse_` is 128 of 64 m, **8192 m**.
+The ring runs to the declared sight of 240 km, so everything past 8.2 km is unclassed by
+construction -- but the Koenigstuhl is 2 km out and inside both.
+
+`missingLayers=26` at that same rebuild is the one lead left: the classification is built from
+vector tiles that do not carry every layer `VegetationTemplates::Layers()` asked for, and which
+layers are present decides bare against green.
+
 ## What is NOT established, and is the next measurement
 
 Why `ClassField::ClassAt` names nothing at the ring's vertices in the warm run while a structure
 of version 3 stands published. The two candidates, neither tested:
 
-1. `ClassAt` projects through `ClassField::Frame_` and evaluates in the grid of the structure,
-   which was built with `job.Frame`. If those frames are not the same origin every vertex falls
-   outside the grid and returns -1.
-2. The colours are computed in the LAST rebuild, and the last rebuild may predate version 3
-   even though a rebuild fired for it.
-
-Distinguishing them needs one number: at the rebuild that produced the picture, the class version
-in hand and the count of vertices it named.
+Both candidates are now DEAD -- the frames match and the last rebuild does hold version 3 and does
+name 253 515 vertices. What is left is why the SAME place gets bare earth on one run and
+vegetation on the other, with `missingLayers` reading 26 on the bare one. The measurement:
+`MissingLayers()`, `UnknownKinds()` and `UnknownFeatures()` on a COLD run, against the 26 above.
+If the cold run reads 0 the answer is that the classification is built before its layers arrive
+and nothing makes it wait.
 
 ## What will be true
 
