@@ -37,6 +37,12 @@ against plane-parallel air mass. Nothing here is broken.
 | **sun : sky** | **14.5 : 1** | **~6.8 : 1** |
 | aerosol optical depth, 550 nm | **0.0053** | 0.05 - 0.15 |
 
+Measured again with Mie scattering and extinction both scaled 10x, the single-scattering albedo
+0.90 held: sky irradiance **13 047 lx** (a clear day gives ~12 500), direct horizontal 100 783 lx,
+**sun : sky 7.72 : 1**. The sky half lands on the real number; the ratio closes most of the gap.
+That scale is now the engine's own default, because this engine's world is EARTH and pristine
+mountain air is the special case a scenario should have to ask for.
+
 Aerosol optical depth of 0.0053 is a mountain-top on the clearest day of a decade. A real clear
 lowland day is ten to twenty times that, and the term appears TWICE with opposite signs: it dims
 the sun and it brightens the sky. Both errors push the same way, which is why the ratio is off by
@@ -53,7 +59,11 @@ photograph's, and that is the single loudest thing between `ZurichPlan` and an a
       is too thick and the picture will read as haze.
 - [ ] Negative control: turbidity declared at the pristine value reproduces today's 14.5 : 1
       exactly, so the knob is proven to be the thing that moved it.
-- [ ] The vendor sky corpus (test/clearsky) gains a DIFFUSE row -- it scores global horizontal
-      today, which a too-thin atmosphere passes because the direct excess and the diffuse
-      deficit cancel in the sum. That cancellation is why this was invisible until the ratio
-      was asked for.
+- [ ] The vendor sky corpus (test/clearsky) grades the ORACLE ONLY today and says so where it
+      prints -- it never touches the engine's sky, so nothing in this tree would have caught
+      this. It gains a row that scores OUR diffuse horizontal against Kider's measured day, and
+      that row is what makes the aerosol falsifiable rather than argued.
+- [ ] kSolarIlluminanceLx is [SET] at 133 000 lx and should be DERIVED: the tree already holds
+      ASTM G173's AM0 spectrum (test/clearsky, pinned by sha256, integrating to 1347.93 W/m2
+      over 280..4000 nm), so weighting it with the CIE photopic curve gives the number instead
+      of quoting it.

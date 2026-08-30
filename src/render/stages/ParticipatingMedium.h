@@ -16,10 +16,10 @@ struct alignas(16) Medium {
   float MieScaleHeightKm = 1.2f;
 
   float RayleighScatteringPerKm[3] = {0.005802f, 0.013558f, 0.033100f};
-  float MieScatteringPerKm = 0.003996f;
+  float MieScatteringPerKm = 0.039960f;
 
   float OzoneAbsorptionPerKm[3] = {0.000650f, 0.001881f, 0.000085f};
-  float MieExtinctionPerKm = 0.004440f;
+  float MieExtinctionPerKm = 0.044400f;
 
   float OzoneCentreKm = 25.0f;
   float OzoneHalfWidthKm = 15.0f;
