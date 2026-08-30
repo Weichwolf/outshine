@@ -13,7 +13,7 @@ and `test/run.sh` runs its 25 claims and the corpora to a trailer. The one file 
 
 The three occurrences that filed this item were an UNDECLARED layer
 (`tools/host/DelayedTransport.cpp` at 1af2c00b), a NEW entry point (the driver client (deleted at the owner's word))
-and a source that did not COMPILE (`apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8`, a
+and a source that did not COMPILE (a case beside the viewer, since deleted with apps/, a
 missing `Check.h`). Each time the fix was the file, and each time the gate went silent again the
 next time some other file broke -- because nothing in `test/run.sh` turns an unbuildable source
 into one red LINE instead of an exit. **This item is open until the negative controls below
@@ -29,8 +29,8 @@ broken.** Measured 2026-08-25 at 817ea333, a full run in its own worktree:
 
 ```
 844 tests: 825 PASS  2 FAIL  0 TIMEOUT  0 SIGNAL  2 BUILD  0 SKIP  15 UNPREPARED
-run.sh: apps/viewer/src/main.cpp does not BUILD AND ANSWER --help ... (board:1860)
-apps/viewer/src/main.cpp:10:10: fatal error: 'Face.h' file not found
+run.sh: the viewer's entry point does not BUILD AND ANSWER --help ... (board:1860)
+  its main.cpp:10:10: fatal error: 'Face.h' file not found
 run.sh: 1 program(s) build and answer --help, 1 do not; 2 compile through the DOOR alone
 run.sh: THE FAST GATE OVERRAN ITS BOUND -- 1205550 ms of RUN over the declared 230000 ms
 ```
@@ -38,9 +38,9 @@ run.sh: THE FAST GATE OVERRAN ITS BOUND -- 1205550 ms of RUN over the declared 2
 Both halves are wrong. `make` links `build/outshine-viewer` and it runs, and the same script's
 own door check -- which passes `-I"$layer/parts"` (test/run.sh:585) -- compiles it. The failing
 check is `EveryProgramStillLinks` (:569), which spells `-Iinclude` by hand instead of asking
-`GroupIncludes` (:202 declares `-Iapps/viewer/src/parts` for exactly this group) and never
+`GroupIncludes` (which declared that client's own `parts/` for exactly this group) and never
 compiles the companion its own `ProgramCompanions` declares at :292,
-`apps/viewer/src/parts/Face.cpp`. **One include truth, three spellings**, and the third one is
+its own second translation unit. **One include truth, three spellings**, and the third one is
 the only one that fails. The verdict does reach the exit code -- `EveryProgramStillLinks ||
 compileBlind=1` (:1443) feeds `red` (:1513) -- so the gate is RED for a programme `make` links
 and that runs. A false red costs exactly what a false green does: the next reader stops

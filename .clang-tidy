@@ -33,6 +33,14 @@ Checks: >
   -readability-magic-numbers
 WarningsAsErrors: ''
 
+CheckOptions:
+  # `misc-include-cleaner` IS RIGHT ABOUT THE STANDARD LIBRARY AND WRONG ABOUT EVERYTHING ELSE HERE,
+  # measured: it found `<ratio>` and `<system_error>` genuinely missing, and in the same file it
+  # claimed `Sha256.h` was unused while `Sha256Hex` is called on the next screen. It also asks for
+  # `SDL3/SDL_init.h` where SDL documents `SDL3/SDL.h` as the entry point. A finding that has to be
+  # ignored teaches a reader to ignore findings, so the check keeps the half it is right about.
+  misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*;include/.*'
+
 # WHY THE LAST TWO GROUPS ARE OFF
 #
 # `readability-uppercase-literal-suffix` (194) wants `1.0F` where the tree and most of the world

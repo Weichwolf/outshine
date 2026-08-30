@@ -69,13 +69,12 @@ int main(void) {
   // A claim keeps counting what stands, so it counts two -- and the door proof is not weaker for
   // it: board:2038 puts the CORPUS harness on the same footing, and a conformance case driving
   // include/ alone proves more about the door than any one app ever did.
-  CHECK(Sites(runner, "harness/khronos/glTF) printf '%s' \"-Iinclude") == 1 &&
-            Sites(runner,
-                  "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
-        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
-        "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "
+  CHECK(Sites(runner, "harness/khronos/glTF) printf '%s' \"-Iinclude") == 1,
+        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the corpus harness, whose whole "
+        "purpose is to show that a client needs nothing but include/, is declared with -Iinclude "
         "and no -Isrc entry, so the proof cannot be retired by widening the set it stands on "
-        "(board:1582)");
+        "(board:1582, 2038). It was two programmes and `apps/` is gone; a conformance case driving "
+        "the door proves more about it than any app did");
 
   // AND THE BUILD STANDS ON THE DECLARATION, not beside it. `EveryProgramStillLinks` compiled a
   // client with a hand-written `-Iinclude` and probed the door rule twelve lines later with a

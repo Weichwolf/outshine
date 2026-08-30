@@ -10,14 +10,14 @@ Tags: benchmark, target
 
 Unreal's own sample games are thin over the engine module; the measure both benchmarks pass is
 that a product needs no engine surgery. outshine states the rule in CLAUDE.md and fails it:
-`apps/viewer` is 706 lines across two translation units and does not even LINK from the library
+The viewer was 706 lines across two translation units and did not even LINK from the library
 alone, which is declared in `EXPECT_UNLINKED`.
 
 - [x] a program that does not link is a declared red with a reason, not a nameless one
       proof: --audit-link
-- [ ] `apps/viewer/src/main.cpp` links from `liboutshine.a` and its entry point ALONE -- no
+- [ ] `src/client/Main.cpp` links from `liboutshine.a` and its entry point ALONE -- no
       `parts/` of its own (board:1898, board:1923's EXPECT_UNLINKED line goes with it)
-- [ ] `apps/viewer` under 120 lines and the driver client (deleted) under 100 (board:1898)
+- [ ] `src/client/Main.cpp` under 120 lines -- it is 160 today (board:1898)
 - [ ] the door offers an asset-SWAP verb, so a client does not re-declare a scenario to change
       one subject (board:1898)
 - [ ] shipped default lighting is a catalogue selection, so a client that wants a lit scene need

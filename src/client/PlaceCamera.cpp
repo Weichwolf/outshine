@@ -1,6 +1,9 @@
 #include "PlaceCamera.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <ratio>
+#include <system_error>
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -94,7 +97,7 @@ Shot Take(const Place &place, bool tells) {
   Engine engine;
   if (Telling != nullptr) { engine.logsTo(Telling); }
   engine.setRoots(Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
-  if (!engine.drawsInto(Extent{kWidePx, kHighPx})) {
+  if (!engine.drawsInto(Extent{.WidthPx = kWidePx, .HeightPx = kHighPx})) {
     shot.Why = "the device stood no canvas";
     return shot;
   }
@@ -106,7 +109,7 @@ Shot Take(const Place &place, bool tells) {
   stands.Ground.PatienceS = 3.0;
   stands.Ground.SightM = kSightM;
   stands.Render.Declared = true;
-  stands.Render.Frame = Extent{kWidePx, kHighPx};
+  stands.Render.Frame = Extent{.WidthPx = kWidePx, .HeightPx = kHighPx};
   stands.Render.Fill = 0.6;
   stands.Render.Audits = Audits;
   stands.Lit.Declared = true;
@@ -225,10 +228,10 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
     shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
   }
   shot.Frames = heldMs.size();
-  std::sort(heldMs.begin(), heldMs.end());
+  std::ranges::sort(heldMs);
   const auto quantile = [&heldMs](double share) {
     if (heldMs.empty()) { return 0.0; }
-    const std::size_t which = (std::size_t)(share * (double)(heldMs.size() - 1) + 0.5);
+    const auto which = (std::size_t)std::llround(share * (double)(heldMs.size() - 1));
     return heldMs[which < heldMs.size() ? which : heldMs.size() - 1];
   };
   shot.P50Ms = quantile(0.50);

@@ -52,7 +52,7 @@ using outshine::Test::Lines;
 namespace {
 
 // What the board held when this claim was written. It may only fall.
-constexpr size_t kCitationsIntoNothing = 16;
+constexpr size_t kCitationsIntoNothing = 15;
 
 } // namespace
 

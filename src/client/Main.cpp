@@ -125,7 +125,8 @@ void Usage() {
   engine.logsTo(&gTelling);
   engine.setRoots(
       outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
-  if (!engine.drawsInto(outshine::Extent{outshine::Shots::kWidePx, outshine::Shots::kHighPx})) {
+  if (!engine.drawsInto(outshine::Extent{.WidthPx = outshine::Shots::kWidePx,
+                                         .HeightPx = outshine::Shots::kHighPx})) {
     std::printf("outshine-client: the device stood no canvas -- %s\n", engine.error().c_str());
     return false;
   }
@@ -210,7 +211,8 @@ int AskHeight(int argc, char **argv) {
   }
   outshine::Engine engine;
   if (!Stands(engine)) { return 2; }
-  const double lat = std::atof(argv[0]), lon = std::atof(argv[1]);
+  const double lat = std::atof(argv[0]);
+  const double lon = std::atof(argv[1]);
   outshine::Scenario stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;
@@ -235,7 +237,7 @@ int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   const std::string verb = argc > 1 ? argv[1] : "help";
   const int rest = argc - 2;
-  char **from = argv + 2;
+  char **const from = argv + 2;
   if (verb == "shots") { return TakeShots(rest, from); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }

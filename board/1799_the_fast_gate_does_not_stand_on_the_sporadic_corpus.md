@@ -10,7 +10,7 @@ Tags: process, claims, measured
 ## MEASURED at 84115df7, a full `sh test/run.sh` in its own worktree
 
     1844 tests: 1829 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  15 UNPREPARED
-    apps/viewer/src/main.cpp does not BUILD AND ANSWER --help ... 'Face.h' file not found
+    the viewer (deleted with apps/) did not BUILD AND ANSWER --help ... 'Face.h' not found
     run.sh: 1 program(s) build and answer --help, 1 do not; 2 compile through the DOOR alone
     run.sh: THE FAST GATE OVERRAN ITS BOUND -- 2612327 ms of RUN over the declared 230000 ms
     run.sh: 16 case(s) are RED and the verdict is theirs, whatever the clock said
@@ -29,13 +29,13 @@ box is done.
     test/run.sh:598   $CXX ... -Iinclude -c "$one"                          <- decides the exit code
     test/run.sh:613   $CXX ... -Iinclude -I"$layer" -I"$layer/parts" -fsyntax-only "$one"
 
-`apps/viewer/src/main.cpp:10` includes `"Face.h"`, which is `apps/viewer/src/parts/Face.h` -- the
+The viewer's entry point included `"Face.h"` from its own `parts/` -- the
 viewer's OWN source, not the library. CLAUDE.md's door rule forbids a client reaching into
 `src/`; a client's own `parts/` directory is not `src/`, and **:613 has the rule right while :598
 has it wrong**. Neither calls `LayerIncludes "$layer"`, which is what `make` uses and under which
 the viewer builds and links without complaint.
 
-So `make` and `test/run.sh` disagree about whether `apps/viewer` compiles, and the disagreement is
+So `make` and `test/run.sh` disagreed about whether that client compiled, and the disagreement is
 a second spelling of the include map inside the very file the Makefile's own header names as the
 ONLY spelling (board:1584). The viewer is not broken; the check is.
 
@@ -64,7 +64,7 @@ or more UNRELATED sentences (`IV.13`, `IV.14`, `IV.15` each collided the day the
 - [x] An overrun does not mask a verdict: the counts are computed and printed before any exit,
       so a slow run still says which cases were red.
 - [ ] The client's include set is spelled ONCE, by `LayerIncludes`, and every check in
-      `EveryProgramStillLinks` uses it. Proving case: `apps/viewer` builds, answers `--help` and
+      `EveryProgramStillLinks` uses it. Proving case: `build/outshine-client` builds, answers `help` and
       is counted as reaching the library through the door; negative control, `main.cpp` including
       an `src/` header, and it is refused by name.
 - [ ] The fast gate holds its declared bound, and the bound is a MEASUREMENT of what the gate

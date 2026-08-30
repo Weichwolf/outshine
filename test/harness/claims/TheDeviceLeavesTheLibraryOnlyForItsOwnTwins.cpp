@@ -39,7 +39,7 @@ int main(void) {
 
   std::vector<std::string> holding;
   size_t walked = 0;
-  for (const char *root : {"src", "include", "apps", "test"}) {
+  for (const char *root : {"src", "include", "test"}) {
     for (const auto &entry : Sources(root)) {
       const std::string suffix = entry.extension().string();
       if (suffix != ".cpp" && suffix != ".h") { continue; }

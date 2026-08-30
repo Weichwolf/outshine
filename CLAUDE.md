@@ -60,15 +60,14 @@ they differ, the decision is written down with its reason — the reason is the 
 neither faces the question, the item says exactly that and says why the choice is mine.
 
 **A measurement of THIS tree outranks both.**
-**THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** A client's knowledge
-has to transfer, so `include/` uses the names a reader already owns — **Filament** for the renderer
-(`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` · `MaterialInstance` ·
-`TransformManager`) and **Cesium** for the Earth (`Georeference` · `GlobeAnchor` ·
-`LongitudeLatitudeHeight` · `sampleHeight`). Both are Apache 2.0 and both are READABLE, which is
-the same admissibility this page already asks of a source. Filament because it is a RENDERER rather
-than an engine — the exact layer — and because the people who wrote it ship it on phones, which is
-this target's own constraint. Cesium because georeferenced 3D is what it is FOR, and because
-Unreal and Unity users already spell a place its way.
+
+**THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** `include/` uses the names
+a reader already owns — **Filament** for the renderer (`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` ·
+`MaterialInstance` · `TransformManager`) and **Cesium** for the Earth (`Georeference` ·
+`GlobeAnchor` · `LongitudeLatitudeHeight` · `sampleHeight`). Both are Apache 2.0 and READABLE,
+which is the admissibility this page asks of any source. Filament because it is a RENDERER rather
+than an engine and its authors ship it on phones, which is this target's constraint; Cesium because
+georeferenced 3D is what it is FOR.
 
 **Not Godot**, and the reason is a rule rather than a preference: its vocabulary is a NODE TREE —
 `Node3D`, `add_child`, `owner` — and a scenario over a store has no such hierarchy. A name is a
@@ -141,7 +140,9 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   file, `std::format` at the site. The compiler checks the placeholders and a file's ways of
   refusing read as a list
 - **A failure is loud.** Accepting a declaration and doing nothing with it is worse than refusing
-  it. Delete on the day you replace; artefacts to the system temp dir, never the tree
+  it. Delete on the day you replace; artefacts to the system temp dir or `build/`, never the tree
+  -- `compile_commands.json` is the one exception, because clangd looks for it at the root, and it
+  is gitignored
 
 ## The invariants
 
@@ -189,12 +190,17 @@ Four architectural commitments. Everything else is a decision an item can revisi
 ## What proves what
 
 **Only the vendor corpora prove anything.** Khronos, WPT, test262 and GeographicLib are where a
-standards body or a computation carried further than ours states the answer; a case there fails
-because the code is wrong. Everything under `test/outshine/` is a REGRESSION NET of unknown grade:
-it holds the tree to what the tree already did, which is agreement with ourselves. **That bites
-hardest during a refactor** — green means the previous behaviour was preserved, and if that
-behaviour was wrong, green is the wrong answer preserved exactly. A red in `outshine/` during a
-refactor is INFORMATION, and it is never made green by editing the case.
+standards body or a computation carried further than ours states the answer. Everything under
+`test/outshine/` is a REGRESSION NET of unknown grade: it holds the tree to what the tree already
+did, which is agreement with ourselves. **That bites hardest during a refactor** — green means the
+previous behaviour was preserved, and if that behaviour was wrong, green is the wrong answer
+preserved exactly. A red there is INFORMATION and is never made green by editing the case.
+
+**Two exceptions, both narrow.** A check that pins a SPELLING rather than a property is
+mis-specified and the CHECK changes — one required a literal command in the Makefile and went red
+when it moved behind a variable, while the property it meant still held. And a declared CEILING is
+a baseline: it may only FALL, and lowering it after a repair is the discipline. Everything else red
+stays red.
 
 | grade | it holds | it proves |
 |---|---|---|
@@ -211,23 +217,21 @@ the page where it prints, because the mistake it guards against was made here: a
 quoted about a world.
 
 **`build/outshine-client` IS THE INSTRUMENT AND `test/outshine/places/` SCORES IT.** The camera
-lives in `src/client`, whose `reaches` names `base` alone -- so it is held to the same door a
-stranger gets. `make shots` stands six real places, streams them, draws them and writes
-`build/shots/<place>-<digest>.png` beside what each cost; the six cases run that same command and
-apply the oracles to its rows. A number from here always has a picture next to it that can be
-looked at, which is what the third question above asks for, and the digest says when a picture
-moved without anyone intending it.
+lives in `src/client`, whose `reaches` names `base` alone, so it is held to the door a stranger
+gets. `make shots` stands six real places and writes `build/shots/<place>-<digest>.png` beside what
+each cost; the six cases run that same command and apply the oracles to its rows. A number from
+here always has a picture beside it, and the digest says when one moved unintended.
 
 Every case is a scenario with an invariant oracle whose truth does not depend on our design. **A
-tick is only earned when its proof stands AND its negative control goes red** — a control that
+tick is earned only when its proof stands AND its negative control goes red** — a control that
 passes proves nothing, and that is the trap that costs most here.
 
 **`make` IS THE ONLY DOOR** and nothing is started by reaching past it:
 
 | | |
 |---|---|
-| `make` | strip · the library · the generators · the tools beside them |
-| `make lint` | clang-format · clang-tidy · the repository's own rules · Doxygen — each held to a baseline that may only SHRINK |
+| `make` | `test/strip-comments.py` · the library · the generators · `build/outshine-client` |
+| `make lint` | `test/lint.sh`: clang-format · clang-tidy · `test/harness/claims/` · `doc/Doxyfile` — each held to a baseline that may only SHRINK |
 | `make shots` | six places through `build/outshine-client`, pictures to `build/shots` |
 | `make test` · `make suite SUITE=x` | the fast gate · one suite |
 | `make db` · `make doc` | `compile_commands.json` · the door's documentation |
@@ -239,14 +243,12 @@ adds shows in the total.
 ## How I work
 
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
-the feature gaps.** A refactor toward a target short of the benchmark arrives somewhere that still
-has to be left.
+the feature gaps.** A refactor toward a short target arrives somewhere that still has to be left.
 
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body; fields `Type` ·
 `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` · `Supersedes`. Filename
-`NNNN_label.md`; **the number is identity, so it is issued once and never again** — the next one
-comes from the HISTORY, which remembers every id ever filed, not from the directory, which only
-remembers the ones still standing:
+`NNNN_label.md`; **the number is identity, issued once and never again** — the next comes from the
+HISTORY, which remembers every id ever filed, not from the directory:
 
     git log --all --diff-filter=A --name-only --format='' | sed -n 's|^board/\([0-9]*\)_.*|\1|p' \
       | sort -n | tail -1
@@ -258,16 +260,14 @@ No dates. Titles say what WILL BE TRUE. Commits reference
 
     **Benchmark** — Unreal: <what it does>. RAGE: <what it does>. **Taking <which>** because <why>.
 
-An item leaves three ways, and only a CLOSURE passes through `State: active` — recorded in its own
-commit BEFORE the work, because that is the only place the board says what has an owner right now.
-A WITHDRAWAL says the defect was never there and names what was misread. A REMOVAL says the item
-named no step toward the benchmark. Closing is DELETING the file: what it said is in the commit,
-and `git log` is the logbook.
+An item leaves three ways and only a CLOSURE passes through `State: active`, recorded in its own
+commit BEFORE the work. A WITHDRAWAL says the defect was never there and names what was misread; a
+REMOVAL says the item named no step toward the benchmark. Closing is DELETING the file: what it
+said is in the commit, and `git log` is the logbook.
 
 **Grep `board/` AND the history before filing.** The directory holds what is open; `git log` holds
-what was closed, withdrawn and REMOVED — and filing a removal again overrules that decision by
-accident. A duplicate is worked, never written twice; a defect found while working something else
-becomes an item in the same round.
+what was closed and REMOVED, and filing a removal again overrules that decision by accident. A
+defect found while working something else becomes an item in the same round.
 
 ## What goes wrong
 

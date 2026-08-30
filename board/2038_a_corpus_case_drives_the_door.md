@@ -15,7 +15,7 @@ MEASURED:
 
     test/harness/shared/render/Parity.cpp        2430 lines
     the whole render harness                     6629 lines
-    apps/demo/src/main.cpp (a real client)        195 lines
+    a real client of the day                      195 lines
 
     #include in Parity.cpp                         41
     of those, from include/ -- the door             0

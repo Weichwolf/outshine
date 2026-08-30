@@ -2,7 +2,7 @@ Type: task
 State: open
 Area: door
 Tags: store, interface
-Parent: 1880
+Parent: 1582
 
 # The scene store passes the door, and Along/Whole go behind it
 
