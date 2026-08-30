@@ -141,6 +141,14 @@ enum class AssetAnimation { Play, Ignore, Driven };
 // moves when the file is re-exported and a name does not.
 struct SurfaceOverride {
   std::string Named;
+
+  // OR THE NODE. Unreal overrides a material per COMPONENT SLOT and Filament hands out a
+  // `MaterialInstance` per PRIMITIVE; **they agree** that the key is the PART rather than the
+  // material, and a file where two parts share one material has no other way to tell them apart.
+  // Measured: the five quads of Khronos's AlphaBlendModeTest share a single material and the case
+  // declares a colour for each, which a key on the material alone cannot say.
+  std::string Node;
+
   Material Row;
 };
 

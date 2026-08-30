@@ -288,10 +288,40 @@ bool Live::Build(std::string &error) {
           break;
         }
       }
+      // A NODE'S OWN SURFACE GETS ITS OWN SLOT, and the slots are RESERVED before the first push.
+      // A `SubjectMaterial` holds raw pointers into `Decoded` -- `Colour.Rgba` IS
+      // `Decoded[slot].Colour.Rgba.data()` -- so growing that vector leaves every earlier slot
+      // pointing at freed memory, and the symptom is a `std::length_error` several frames from its
+      // cause. Reserving the worst case first is the only version that is safe rather than lucky.
+      {
+        const std::vector<Gltf::Part> &standing = Held_.Assembled().Parts();
+        const size_t many = standing.size() < Table_.PartSlot.size() ? standing.size()
+                                                                     : Table_.PartSlot.size();
+        Table_.Slots.reserve(Table_.Slots.size() + many);
+        Table_.Material.reserve(Table_.Material.size() + many);
+        Table_.Decoded.reserve(Table_.Decoded.size() + many);
+        for (size_t part = 0; part < many; ++part) {
+          const uint32_t slot = Table_.PartSlot[part];
+          if (slot >= Table_.Slots.size()) { continue; }
+          for (const SurfaceOverride &said : Declared_.Overriding) {
+            if (said.Node.empty() || said.Node != standing[part].NodeName) { continue; }
+            Render::SubjectMaterial made = Table_.Slots[slot];
+            made.Row = said.Row;
+            const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
+            Table_.Slots.push_back(made);
+            Table_.Material.push_back(carried);
+            Table_.Decoded.push_back(Render::SurfaceRasters());
+            Table_.PartSlot[part] = (uint32_t)(Table_.Slots.size() - 1u);
+            ++took;
+            break;
+          }
+        }
+      }
       if (took == 0) {
         error = "this declaration names " + std::to_string(Declared_.Overriding.size()) +
-                " surface(s) of '" + Declared_.Stands + "' and the file carries none of those "
-                "names -- a surface declared onto nothing changes no pixel and says it did";
+                " surface(s) of '" + Declared_.Stands + "' and the file carries neither those "
+                "material names nor those node names -- a surface declared onto nothing changes "
+                "no pixel and says it did";
         return false;
       }
     }

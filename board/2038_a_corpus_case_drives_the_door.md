@@ -353,6 +353,12 @@ wrong"; this one asks "where is 1.674 applied", which has an answer that can be 
         values agree: an unreliable reading, discarded rather than reported. Repeat it from a clean
         assembly -- it is the cheapest of the three suspects to settle.
 
+    1a. THE ENGINE SIDE IS IN THE TREE NOW, so there is no assembly left to get wrong: the node
+        key and the per-part slot split stand in `include/Scenario.h` and `Live::Build`, verified
+        to change nothing when nothing declares them (492 tests, 484 PASS, exactly the baseline).
+        The conversion is now ONE FILE -- `Parity.cpp` -- and a measurement costs a copy and a
+        build rather than a reassembly of five pieces.
+
     1c. VERIFY THE ASSEMBLY BEFORE MEASURING IT. Reassembling the conversion by hand -- engine
         pieces, driver, harness -- has produced a broken build or a broken result FOUR times in
         this item, and three of those were read as data before anyone noticed. The fix is one
