@@ -342,36 +342,38 @@ not before.
 | the door spelled a camera's roll as an ANGLE with no stated convention | a rolled facet sharing 48% of its pixels | `UpM`, which is what `Camera::lookAt` takes |
 | the key light's DIRECTION was never handed over | 19 cases lit from elevation 0, bearing 0 | translated to elevation and bearing at the boundary |
 
-**WHAT IS NOT DONE, AND IT IS ONE BLOCK.** The goal says the door is finished when the corpus
-harness enters through `include/` alone. The DRIVER does and always did. The SCORER now reads the
-FILE through the door -- `outshine::Loaded` loads it, `Handed` is the runner's own flat layout of
-what came back, and `Gltf::Part`, `Gltf::MaterialRef` and `Gltf::PlacedLight` went with the move.
-What remains is one wall and everything behind it:
+**THE ENGINE IS OUT OF THE CORPUS RUNNER, AND THE INCLUDE LINE IS THE GUARD.**
+`test/run.sh` hands `harness/khronos/glTF` exactly this and nothing else:
 
-| still `src/` | why |
-|---|---|
-| `Gltf::Document` · `Gltf::Subject` · `ResolveSurfaceTable` · `ResolveFileSurface` | they decode the asset's IMAGES, and the door cannot say a surface wears one |
-| `Render::SubjectProxy` · `SubjectScratch` · `SubjectEnvironment` · `SurfaceTable` · `SubjectMaterial` · `SubjectTexture` | the scoring proxy WEARS that table |
-| `Render::Compiled` · `PlanSpec` · `Resource` · `Stage` · `Transfer` · `ScenePrecision` | plan introspection, which `engine.measures()` could answer |
-| `Gltf::Viewpoint` · `Transform` · `Viewport` · `ClipOf` · `Render::Eye` · `CameraKind` | the runner's own projection, now that the door hands back a `Camera` |
+    -Iinclude -Isrc/base/format -Isrc/base/io -Isrc/content/shade
+    -Itest/harness/shared -Itest/harness/shared/render -Itest/harness/shared/corpus
 
-**THE DOOR EXPRESSING AN ASSET'S TEXTURES IS WHAT UNBLOCKS THE FIRST TWO ROWS, AND IT IS THE NEXT
-PIECE.** `Material` is a row of numbers and `Geometry` carries no images; Filament's answer is a
-`Texture` a `MaterialInstance` takes as a parameter, and glTF's own material carries texture
-REFERENCES rather than pixels, so the split is a real one: the door's `Material` would carry the
-reference and the engine's `SubjectMaterial` keeps the decoded raster. Measured need is small --
-the runner reads `Rgba != nullptr`, `Width`, `Height`, `Magnify` and the uv set, and nothing else.
-Until then a `Document` and a `Subject` stay in `Case` to feed those two functions and the file is
-read a SECOND time for them, which is written into the code rather than hidden.
+Not one engine path. A move anywhere in `src/import`, `src/render`, `src/engine`, `src/scene`,
+`src/scenario` or `src/generators` cannot reach a Khronos case, and the way to lose that is to
+widen this line -- so widening it is the finding rather than the fix.
 
-Door verbs this round added, each because the runner could not proceed without it and neither
-could any other client:
+**WHAT THE DOOR GAINED, and every one of them because a client could not do without it:**
 
-| verb | what it answers | who spells it that way |
+| verb or type | what could not be said before | who spells it that way |
 |---|---|---|
-| `Loaded::reads/wears/plays/poses/geometry` | what is IN this file, and what it looks like at second t | `gltfio::AssetLoader` + `Animator` |
-| `Loaded::camera` | the camera the asset ships | glTF's own `cameras` |
-| `Engine::camera` | the camera the FRAME is aimed with, which a derived view chose | `View::getCamera()` |
+| `Loaded` | what is IN a file, and what it looks like at second t | `gltfio::AssetLoader` + `Animator` |
+| `Loaded::camera` / `cameras` | the camera an asset ships | glTF's own `cameras` |
+| `Loaded::frames` | the camera that FRAMES an asset that ships none | `Camera.viewBoundingSphere` |
+| `Engine::camera` | the camera the FRAME is aimed with | `View::getCamera()` |
+| `Camera::viewMatrix` / `projectionMatrix` / `clipMatrix` | where a point lands on the frame | `Camera::getViewMatrix()` |
+| `Camera::kNearestM` | the near plane a frame stands on when none is declared | -- |
+| `Texture.h`: `SurfaceMap` · `Sampler` · `ImageView` | that a surface WEARS a picture | `MaterialInstance::setParameter` |
+| `Material`'s seven maps · `Geometry::addImage` / `images` / `imageAt` | which picture, which uv set, which sampler | glTF's material and texture tables |
+| `Geometry::setSurface` | restating a surface rather than rebuilding the table | -- |
+| `Logging.h` + `Engine::logsTo` | receiving the engine's running account | -- |
+| `SurfaceState.h`, `UvTransform.h` | door vocabulary that stood BEHIND the door | -- |
+
+**WHAT REMAINS ARE FOUR UTILITIES AND NOT THE ENGINE.** `Json.h` reads the manifests, `Image.h`
+encodes the three pictures a case writes, `TextTarget.h` and `LogSinks.h` put text somewhere --
+and the last two are the PLACES harness, not this one. None knows anything about rendering.
+Making them public would be a lie by this tree's own rule (a client can use the engine without
+every one of them); copying them into the harness would be a duplicate of a utility. **So they
+stay, named, and the goal's own test is met for the engine and not for those four.**
 
 **AND THE PREPARED CORPUS IS GONE.** The system's temp cleaner emptied
 `/var/folders/.../outshine-prepared` mid-session: every case reports UNPREPARED, the inputs
