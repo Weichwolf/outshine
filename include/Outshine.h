@@ -14,6 +14,7 @@
 
 #include "Generate.h"
 #include "Geometry.h"
+#include "Logging.h"
 
 #include <Event.h>
 #include <Scene.h>
@@ -73,6 +74,10 @@ class SwapChain {
 public:
   [[nodiscard]] Extent extent(void) const;
   [[nodiscard]] bool presents(void) const;
+
+
+  // WHERE THE ENGINE'S COMMENTARY GOES. Handing in nothing turns it off, which is the default.
+  void logsTo(LogSink *sink);
 
 private:
   friend class Engine;
@@ -169,6 +174,11 @@ public:
   [[nodiscard]] Result save(std::string_view path) const;
   [[nodiscard]] Result restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> parked(void) const;
+
+  // WHERE THE ENGINE COMMENTARY GOES. Handing in nothing turns it off, which is the default: a
+  // client can run without any of it, because the engine refuses through `error()` and reports
+  // through `measures()`. A client that wants the running account had no way to receive it.
+  void logsTo(LogSink *sink);
 
   [[nodiscard]] bool standing(void) const;
   [[nodiscard]] const std::string &error(void) const;

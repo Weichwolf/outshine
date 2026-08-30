@@ -345,6 +345,12 @@ struct Event {
 // engine's own defaults stand where a field is left at zero, which is what an UNDECLARED section
 // means everywhere else on this page.
 struct Camera {
+  // THE NEAR PLANE A FRAME STANDS ON WHEN NOTHING DECLARES ONE, in metres. A client that reads a
+  // DEPTH attachment back needs it to turn what it read into a range, and it had to reach into the
+  // renderer to find out. It is stated here and the renderer takes it from here, so there is one
+  // holder and not two that agree until they do not.
+  static constexpr double kNearestM = 0.05;
+
   bool Placed = false;
   Standing Stands;
   double FovDeg = 0.0;

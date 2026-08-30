@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
 #include "Heap.h"
+#include "Scenario.h"
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -93,7 +94,7 @@ public:
   [[nodiscard]] static bool Executable(Stage stage);
   void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
-  static constexpr float kNearM = 0.05f;
+  static constexpr float kNearM = (float)outshine::Camera::kNearestM;
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 

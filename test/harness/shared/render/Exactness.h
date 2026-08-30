@@ -10,9 +10,6 @@
 #include <numeric>
 #include <vector>
 
-#include "Viewport.h"
-#include "Subject.h"
-#include "Transform.h"
 
 namespace outshine::Render::Parity {
 

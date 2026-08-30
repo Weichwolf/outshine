@@ -11,8 +11,6 @@
 
 #include "Mask.h"
 
-#include "Subject.h"
-#include "Transform.h"
 
 namespace outshine::Render::Parity {
 

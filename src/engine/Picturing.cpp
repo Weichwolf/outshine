@@ -1,3 +1,4 @@
+#include "Log.h"
 #include <bit>
 #include <cmath>
 #include "Heap.h"
@@ -1560,6 +1561,8 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
 }
+
+void Engine::logsTo(LogSink *listening) { outshine::Log::SetSink(listening); }
 
 Extent Engine::canvas(void) const { return S_->Picture.Frame; }
 
