@@ -59,7 +59,9 @@ const Element kGrammar[] = {
     {"scenario/compositors", "compositor"},
     {"scenario/compositors/compositor", "", "kind"},
     {"scenario/assets", "asset"},
-    {"scenario/assets/asset", "", "uri"},
+    {"scenario/assets/asset", "wears", "uri"},
+    {"scenario/assets/asset/wears", "row", ""},
+    {"scenario/assets/asset/wears/row", "", ""},
     {"scenario/placements", "place"},
     {"scenario/placements/place", "", "asset"},
     {"scenario/surfaces", "surface"},
@@ -386,6 +388,29 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       error = "<asset> declares animation='" + animation +
               "', and the four answers are play, loop, ignore and driven";
       return false;
+    }
+    for (const Xml::Ref worn : one.Children("wears")) {
+      SurfaceOverride said;
+      said.Named = worn.Attr("named");
+      said.Node = worn.Attr("node");
+      said.Part = (int)worn.Num("part", -1.0);
+      said.KeepsMaps = std::string(worn.Attr("keepsMaps", "no")) == "yes";
+      const Xml::Ref row = worn.Child("row");
+      if (row.Valid()) {
+        said.Row.BaseColour[0] = (float)row.Num("r", (double)said.Row.BaseColour[0]);
+        said.Row.BaseColour[1] = (float)row.Num("g", (double)said.Row.BaseColour[1]);
+        said.Row.BaseColour[2] = (float)row.Num("b", (double)said.Row.BaseColour[2]);
+        said.Row.BaseColour[3] = (float)row.Num("a", (double)said.Row.BaseColour[3]);
+        said.Row.Metalness = (float)row.Num("metalness", (double)said.Row.Metalness);
+        said.Row.Roughness = (float)row.Num("roughness", (double)said.Row.Roughness);
+        said.Row.Emission[0] = (float)row.Num("emissionR", (double)said.Row.Emission[0]);
+        said.Row.Emission[1] = (float)row.Num("emissionG", (double)said.Row.Emission[1]);
+        said.Row.Emission[2] = (float)row.Num("emissionB", (double)said.Row.Emission[2]);
+        said.Row.Unlit = std::string(row.Attr("unlit", "no")) == "yes";
+        said.Row.DoubleSided = std::string(row.Attr("doubleSided", "no")) == "yes";
+        said.Row.CoverageCut = (float)row.Num("coverageCut", (double)said.Row.CoverageCut);
+      }
+      made.Surfaces.push_back(said);
     }
     into.Assets.push_back(made);
   }
