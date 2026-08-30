@@ -21,10 +21,22 @@ inline constexpr int kHighPx = 720;
 inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
 struct Place {
+  /// How a place is looked at. An EYE stands on the ground at head height and looks along a
+  /// bearing, which is what a person would see and what the frame budget is measured against. A
+  /// PLAN looks straight down through an orthographic camera over a stated span of ground: no
+  /// perspective, no horizon, every metre the same size, which is the view that shows whether the
+  /// generators put things where the map says. One is the product; the other is the drawing.
+  enum class Seen : uint8_t { Eye, Plan };
+
   const char *Name = "";
   double LatDeg = 0.0;
   double LonDeg = 0.0;
   double BearingDeg = 0.0;
+
+  Seen From = Seen::Eye;
+
+  /// PLAN only: the ground the frame covers top to bottom, in metres.
+  double SpanM = 0.0;
 };
 
 struct Shot {

@@ -22,6 +22,7 @@ namespace {
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
 constexpr double kEyeAglM = 60.0;
+constexpr double kPlanAboveM = 4000.0;
 constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr double kSunElevationDeg = 60.0;
@@ -29,13 +30,14 @@ constexpr double kSunBearingDeg = 180.0;
 constexpr double kKeyLux = 40000.0;
 constexpr int kTimedFrames = 120;
 
-constexpr std::array<Place, 6> kPlaces{{
+constexpr std::array<Place, 7> kPlaces{{
     {"OldTown", 49.3777, 10.179, 70.0},
     {"Heidelberg", 49.4147, 8.6968, 108.50},
     {"Shibuya", 35.6595, 139.7005, 40.0},
     {"CentralPark", 40.7968, -73.9520, 218.32},
     {"Venice", 45.438, 12.3358, 30.0},
     {"Jura", 47.2492, 7.5108, 156.53},
+    {"ZurichPlan", 47.3667, 8.5500, 0.0, Place::Seen::Plan, 6000.0},
 }};
 
 } // namespace
@@ -110,11 +112,19 @@ Scenario ScenarioFor(const Place &place) {
   watches.Sees.Stands.GlobeAnchor = true;
   watches.Sees.Stands.Geodetic.LatitudeDeg = place.LatDeg;
   watches.Sees.Stands.Geodetic.LongitudeDeg = place.LonDeg;
-  watches.Sees.Stands.Geodetic.HeightM = kEyeAglM;
-  watches.Sees.Stands.SamplesHeight = true;
+  const bool overhead = place.From == Place::Seen::Plan;
+  watches.Sees.Stands.Geodetic.HeightM = overhead ? kPlanAboveM : kEyeAglM;
+  watches.Sees.Stands.SamplesHeight = !overhead;
   watches.Sees.Stands.BearingDeg = place.BearingDeg;
-  watches.Sees.Stands.PitchDeg = kPitchDeg;
+  watches.Sees.Stands.PitchDeg = overhead ? -90.0 : kPitchDeg;
   watches.Sees.FovDeg = kFovDeg;
+  if (overhead) {
+    watches.Sees.Orthographic = true;
+    watches.Sees.YMagM = 0.5 * place.SpanM;
+    watches.Sees.XMagM = 0.5 * place.SpanM * (double)kWidePx / (double)kHighPx;
+    watches.Sees.NearM = 1.0;
+    watches.Sees.FarM = kPlanAboveM * 2.0;
+  }
   stands.Views.push_back(watches);
   return stands;
 }

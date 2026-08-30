@@ -25,6 +25,7 @@ Jura           2aa8f40f  p50   2.30  p95   2.57  p99   3.30 ms    0 of 120
 OldTown        3d2e4962  p50   1.25  p95   1.40  p99   2.04 ms    0 of 120
 Shibuya        aff2f732  p50   9.83  p95  11.63  p99  12.71 ms    0 of 120
 Venice         8fa6e48c  p50   2.31  p95   2.50  p99   3.30 ms    0 of 120
+ZurichPlan     2e0d5f12  p50   6.51  p95   7.80  p99   8.15 ms    0 of 120
 
 # Four of the six moved with board:2047 and the move is QUANTISATION, not a picture. The building
 # mesher now emits an indexed mesh, so a corner reaches the device once instead of three times and
@@ -53,3 +54,12 @@ Venice         8fa6e48c  p50   2.31  p95   2.50  p99   3.30 ms    0 of 120
 # instead of taking the centreline's one height, so a carriageway is no longer flat across a slope.
 # Seven pixels of 921 600 differ at this distance, which is what a two-lane road subtends from a
 # hillside -- the change is right and small, and the defect it fixes is neither.
+
+# ZurichPlan is not a picture of the product. It is a DRAWING: an orthographic camera 4 km above
+# the ground looking straight down over 6 km of it, where a metre is a metre everywhere and there
+# is no horizon to hide behind. Zurich was chosen because everything is in it -- a lake, a river,
+# a dense old town, motorways -- and because anyone can say what it must look like.
+#
+# What it says today: the lake is NOT THERE. 73 458 OSM features are held, the buildings consume
+# them, and the street field and the water field walk zero. Two of the three consumers are dead and
+# a perspective view from head height hid it behind its own horizon for as long as it has existed.
