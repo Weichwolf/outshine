@@ -30,6 +30,7 @@ enum class Resource {
   SceneAerial,
   AoBuffer,
   SceneLinear,
+  DepthPyramid,
 
   OverlayAtlas,
   FrameTex,
@@ -69,6 +70,7 @@ enum class Resource {
     case Resource::SceneShadingNormal:
     case Resource::SceneSurfaceIdentity:
     case Resource::AoBuffer:
+    case Resource::DepthPyramid:
 
     case Resource::OverlayAtlas:
     case Resource::FrameTex:
@@ -106,6 +108,7 @@ enum class Stage {
   CompositeTransmission,
   AerialPerspective,
   AmbientOcclusion,
+  DepthPyramid,
   TemporalResolve,
   Tonemap,
   Overlay,
@@ -147,6 +150,8 @@ struct ResourceRow {
   uint32_t Stride = 0;
 };
 
+inline constexpr Resource kNoEdge = Resource::kCount;
+
 struct StageRow {
   Stage Id;
   Provenance From;
@@ -158,9 +163,11 @@ struct StageRow {
   Resource Contributes[kMaxEdges];
 
   Stage FusesInto;
+
+  Resource ReadsLastFrame[kMaxEdges] = {
+      kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge};
 };
 
-inline constexpr Resource kNoEdge = Resource::kCount;
 inline constexpr Stage kNoFusion = Stage::kCount;
 
 class AttachmentSet {
@@ -321,6 +328,13 @@ inline constexpr ResourceRow kResources[] = {
      Resource::SceneAerial,
      TexelFormat::Rgba16Float,
      "sceneLinear"},
+    {Resource::DepthPyramid,
+     ResourceKind::Derived,
+     FallbackKind::None,
+     kNoEdge,
+     TexelFormat::Table,
+     "depthPyramid",
+     (uint32_t)sizeof(float)},
     {Resource::OverlayAtlas,
      ResourceKind::Given,
      FallbackKind::None,
@@ -469,7 +483,8 @@ inline constexpr StageRow kStages[] = {
      {Resource::ClusterSphere, Resource::ClusterJobs, kNoEdge},
      {Resource::ClusterKept, kNoEdge},
      {kNoEdge},
-     kNoFusion},
+     kNoFusion,
+     {Resource::DepthPyramid, kNoEdge}},
     {Stage::SubjectScan,
      Provenance::Machinery,
      PassKind::Compute,
@@ -588,6 +603,15 @@ inline constexpr StageRow kStages[] = {
      {kNoEdge},
      {Resource::AoBuffer, kNoEdge},
      kNoFusion},
+    {Stage::DepthPyramid,
+     Provenance::Machinery,
+     PassKind::Compute,
+     "depthPyramid",
+     {Resource::SceneDepth, Resource::LinearSampler, kNoEdge},
+     {Resource::DepthPyramid, kNoEdge},
+     {kNoEdge},
+     kNoFusion},
+
     {Stage::TemporalResolve,
      Provenance::Content,
      PassKind::Raster,

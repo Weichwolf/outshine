@@ -34,6 +34,9 @@ struct Pull {
     HeldStage[static_cast<size_t>(s)] = true;
     const StageRow &row = Row(s);
     for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) { Want(row.Reads[e]); }
+    for (size_t e = 0; e < kMaxEdges && row.ReadsLastFrame[e] != kNoEdge; ++e) {
+      Want(row.ReadsLastFrame[e]);
+    }
     for (size_t e = 0; e < kMaxEdges && row.Contributes[e] != kNoEdge; ++e) {
       if (Row(row.Contributes[e]).Format == TexelFormat::Depth32Float) { Want(row.Contributes[e]); }
     }
@@ -338,6 +341,9 @@ bool Compiled::CompileInto(const PlanSpec &spec,
         const StageRow &row = Row(held);
         for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) {
           if (plan->Bound(row.Reads[e]) == plan->Bound(id)) { read = true; }
+        }
+        for (size_t e = 0; e < kMaxEdges && row.ReadsLastFrame[e] != kNoEdge; ++e) {
+          if (plan->Bound(row.ReadsLastFrame[e]) == plan->Bound(id)) { read = true; }
         }
       }
       bool wanted = id == Resource::Surface;

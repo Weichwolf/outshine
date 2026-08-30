@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 
 #include "Log.h"
+#include "stages/DepthPyramid.h"
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
@@ -163,6 +164,9 @@ const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
     {Stage::AerialPerspective,
      &SceneRenderer::ConfigureAerialPerspective,
      &SceneRenderer::EncodeAerialPerspective},
+    {Stage::DepthPyramid,
+     &SceneRenderer::ConfigureDepthPyramid,
+     &SceneRenderer::EncodeDepthPyramid},
     {Stage::TemporalResolve, &SceneRenderer::ConfigureTemporalResolve, nullptr},
     {Stage::Tonemap, &SceneRenderer::ConfigureTonemap, &SceneRenderer::EncodeTonemap},
     {Stage::Overlay, &SceneRenderer::ConfigureOverlay, &SceneRenderer::EncodeOverlay},
@@ -403,6 +407,15 @@ void SceneRenderer::Create(Resource resource) {
           OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
       return;
     }
+    case Resource::DepthPyramid: {
+      SDL_GPUBufferCreateInfo wanted{};
+      wanted.usage =
+          SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+      wanted.size =
+          PyramidOver((uint32_t)Width_, (uint32_t)Height_).Texels * (uint32_t)sizeof(float);
+      Pyramid_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
+      return;
+    }
     case Resource::VegetationTable:
     case Resource::Meter:
     case Resource::ShadowAtlas: {
@@ -465,6 +478,7 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
+    case Resource::DepthPyramid:
     case Resource::AoBuffer: return nullptr;
 
     case Resource::SceneLinear: return LinearTex_[LinearAt_].Get();
@@ -485,6 +499,7 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::DrawIndex: return resident.DrawIdx.Get();
     case Resource::DrawArguments: return resident.DrawArgs.Get();
     case Resource::IrradianceBuffer: return IrradianceBuffer_.Get();
+    case Resource::DepthPyramid: return Pyramid_.Get();
     default: return nullptr;
   }
 }
@@ -778,7 +793,18 @@ void SceneRenderer::EncodeIrradiance(const FrameContext &ctx, const PassRecordin
   SkyIrradianceStage_.Encode(into);
 }
 
+bool SceneRenderer::ConfigureDepthPyramid(std::string &error) {
+  return PyramidStage_.Configure(
+      Handles_, DepthTex_.Get(), Samp_.Get(), Pyramid_.Get(), Width_, Height_, error);
+}
+
+void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  PyramidStage_.Encode(into);
+}
+
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
+  Cull_.PyramidFrom(Pyramid_.Get(), PyramidOver((uint32_t)Width_, (uint32_t)Height_));
   return Cull_.Configure(Subjects_, Handles_, error);
 }
 
@@ -1152,6 +1178,32 @@ ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
     kept += held[at * 5u];
     batches += held[at * 5u] > 0u ? 1u : 0u;
   }
+  return ReadState::Ready;
+}
+
+ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mean) {
+  nearest = 0.0f;
+  farthest = 1.0f;
+  mean = 0.0f;
+  if (!Ready_ || !Pyramid_) { return ReadState::Failed; }
+  const PyramidShape shape = PyramidOver((uint32_t)Width_, (uint32_t)Height_);
+  const uint32_t texels = shape.Wide[0] * shape.High[0];
+  if (texels == 0) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromBuffer(Device_.Get(), Pyramid_.Get(), texels * (uint32_t)sizeof(float)) !=
+      ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  const auto *const held = static_cast<const float *>(static_cast<const void *>(read.Rows()));
+  double summed = 0.0;
+  nearest = held[0];
+  farthest = held[0];
+  for (uint32_t at = 0; at < texels; ++at) {
+    nearest = held[at] > nearest ? held[at] : nearest;
+    farthest = held[at] < farthest ? held[at] : farthest;
+    summed += (double)held[at];
+  }
+  mean = (float)(summed / (double)texels);
   return ReadState::Ready;
 }
 

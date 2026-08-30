@@ -8,6 +8,17 @@ struct CullView {
   // differently still meet: that is Unreal's test and the parent half is what makes it watertight.
   float errorPerMetre;
   uint pad0, pad1;
+
+  // THE OTHER HALF OF NANITE'S CULL. `clip` takes the same space the planes are tested in and
+  // lands in clip space; the pyramid holds the FARTHEST depth of each block of the frame BEFORE
+  // this one, which is the only frame that can know what is in front. `occludes` is zero until
+  // one has been built, because the first frame of a scenario has nothing to hide behind.
+  float4x4 clip;
+  uint4 pyramidWide;
+  uint4 pyramidHigh;
+  uint4 pyramidAt;
+  uint occludes;
+  uint pad2, pad3, pad4;
 };
 
 constant uint kClusterFloat4s = 3u;
@@ -27,7 +38,8 @@ kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
                               device const uint4 *jobs [[buffer(2)]],
                               device const float4x4 *rows [[buffer(3)]],
                               device const uint *args [[buffer(4)]],
-                              device uint *kept [[buffer(5)]],
+                              device const float *pyramid [[buffer(5)]],
+                              device uint *kept [[buffer(6)]],
                               uint id [[thread_position_in_grid]]) {
   if (id >= view.jobs) { return; }
   const uint4 job = jobs[id];
@@ -55,6 +67,54 @@ kernel void subjectCullKernel(constant CullView &view [[buffer(0)]],
     if (!(mine <= 1.0 && theirs > 1.0)) {
       kept[id] = 0u;
       return;
+    }
+  }
+  if (view.occludes != 0u) {
+    float2 least = float2(1.0e30, 1.0e30);
+    float2 most = float2(-1.0e30, -1.0e30);
+    float nearest = -1.0e30;
+    bool astride = false;
+    for (uint corner = 0u; corner < 8u; ++corner) {
+      const float3 at = centre + radius * float3((corner & 1u) != 0u ? 1.0 : -1.0,
+                                                 (corner & 2u) != 0u ? 1.0 : -1.0,
+                                                 (corner & 4u) != 0u ? 1.0 : -1.0);
+      const float4 said = view.clip * float4(at, 1.0);
+      if (said.w <= 1.0e-6) {
+        astride = true;
+        break;
+      }
+      const float3 ndc = said.xyz / said.w;
+      least = min(least, ndc.xy);
+      most = max(most, ndc.xy);
+      nearest = max(nearest, ndc.z);
+    }
+    if (!astride) {
+      const float2 lo = clamp(float2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5), 0.0, 1.0);
+      const float2 hi = clamp(float2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5), 0.0, 1.0);
+      float across = max((hi.x - lo.x) * float(view.pyramidWide[0]),
+                         (hi.y - lo.y) * float(view.pyramidHigh[0]));
+      uint level = 0u;
+      while (level + 1u < 4u && across > 2.0) {
+        across *= 0.5;
+        level += 1u;
+      }
+      const uint wide = view.pyramidWide[level];
+      const uint high = view.pyramidHigh[level];
+      const uint first = view.pyramidAt[level];
+      const uint2 from = uint2(min(uint(lo.x * float(wide)), wide - 1u),
+                               min(uint(lo.y * float(high)), high - 1u));
+      const uint2 to = uint2(min(uint(hi.x * float(wide)), wide - 1u),
+                             min(uint(hi.y * float(high)), high - 1u));
+      float farthest = 1.0;
+      for (uint down = from.y; down <= to.y && down < from.y + 4u; ++down) {
+        for (uint sideways = from.x; sideways <= to.x && sideways < from.x + 4u; ++sideways) {
+          farthest = min(farthest, pyramid[first + down * wide + sideways]);
+        }
+      }
+      if (nearest < farthest) {
+        kept[id] = 0u;
+        return;
+      }
     }
   }
   kept[id] = job.w;

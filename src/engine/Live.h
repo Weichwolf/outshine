@@ -150,6 +150,10 @@ public:
 
   [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
 
+  [[nodiscard]] Render::ReadState Pyramid(float &nearest, float &farthest, float &mean) const {
+    return Renderer_->ReadPyramid(nearest, farthest, mean);
+  }
+
   [[nodiscard]] const double *ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
 
   [[nodiscard]] bool

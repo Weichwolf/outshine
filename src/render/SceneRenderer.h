@@ -26,6 +26,7 @@
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
+#include "stages/DepthPyramidStage.h"
 #include "stages/IrradianceStage.h"
 #include "stages/MediumRadianceStage.h"
 #include "stages/LightVisibilityStage.h"
@@ -107,6 +108,8 @@ public:
   [[nodiscard]] ReadState ReadKeptIndices(uint32_t &kept, uint32_t &batches);
 
   [[nodiscard]] ReadState ReadSkyIrradiance(float out[kIrradianceFloats]);
+
+  [[nodiscard]] ReadState ReadPyramid(float &nearest, float &farthest, float &mean);
 
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
 
@@ -303,6 +306,8 @@ private:
   [[nodiscard]] bool ConfigureMediumRadiance(std::string &error);
 
   [[nodiscard]] bool ConfigureIrradiance(std::string &error);
+
+  [[nodiscard]] bool ConfigureDepthPyramid(std::string &error);
   [[nodiscard]] bool ConfigureSky(std::string &error);
   [[nodiscard]] bool ConfigureAerialPerspective(std::string &error);
   [[nodiscard]] bool ConfigureLightVisibility(std::string &error);
@@ -318,6 +323,7 @@ private:
   void EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into);
 
   void EncodeIrradiance(const FrameContext &ctx, const PassRecording &into);
+  void EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into);
   void EncodeSky(const FrameContext &ctx, const PassRecording &into);
   void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
@@ -371,7 +377,9 @@ private:
   MediumMultiScatterStage MultiScatter_;
   MediumRadianceStage Radiance_;
   IrradianceStage SkyIrradianceStage_;
+  DepthPyramidStage PyramidStage_;
   OwnedBuffer IrradianceBuffer_;
+  OwnedBuffer Pyramid_;
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;

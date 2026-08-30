@@ -17,7 +17,16 @@ struct CullView {
   uint32_t Jobs;
   float ErrorPerMetre;
   uint32_t Pad[2];
+
+  float Clip[16];
+  uint32_t PyramidWide[4];
+  uint32_t PyramidHigh[4];
+  uint32_t PyramidAt[4];
+  uint32_t Occludes;
+  uint32_t Pad2[3];
 };
+
+static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4 aligned");
 
 std::string Kernel(std::string &error) {
   std::string body;
@@ -104,6 +113,13 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
   }
   into.Jobs = jobs;
+  for (int at = 0; at < 16; ++at) { into.Clip[at] = (float)ctx.Mvp16[at]; }
+  for (uint32_t level = 0; level < kPyramidLevels; ++level) {
+    into.PyramidWide[level] = Pyramid_.Wide[level];
+    into.PyramidHigh[level] = Pyramid_.High[level];
+    into.PyramidAt[level] = Pyramid_.At[level];
+  }
+  into.Occludes = PyramidBuffer_ != nullptr && Stood_ ? 1u : 0u;
   const float *const up = &into.Planes[2 * 4];
   const float *const down = &into.Planes[3 * 4];
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
@@ -121,16 +137,19 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  SDL_GPUBuffer *const read[4] = {resident.ClusterSpheres.Get(),
+  SDL_GPUBuffer *const read[5] = {resident.ClusterSpheres.Get(),
                                   resident.ClusterJobs.Get(),
                                   resident.Placed.Get(),
-                                  resident.DrawArgs.Get()};
+                                  resident.DrawArgs.Get(),
+                                  PyramidBuffer_ != nullptr ? PyramidBuffer_
+                                                            : resident.ClusterSpheres.Get()};
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
   SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
-  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 5);
+  Stood_ = true;
   SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
   Swept_ = jobs;
   gJobsSwept.store(jobs, std::memory_order_relaxed);

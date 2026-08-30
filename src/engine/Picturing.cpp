@@ -1698,6 +1698,14 @@ bool Engine::render(Extent frame) {
   S_->Published.Places(
       "cull: jobs it swept", (double)Render::SubjectCullStage::JobsSweptTaken(), "jobs");
   {
+    float nearest = 0.0f, farthest = 0.0f, mean = 0.0f;
+    if (S_->Picture.Standing->Pyramid(nearest, farthest, mean) == Render::ReadState::Ready) {
+      S_->Published.Places("cull: the pyramid's nearest depth", (double)nearest, "0..1");
+      S_->Published.Places("cull: its farthest", (double)farthest, "0..1");
+      S_->Published.Places("cull: and its mean", (double)mean, "0..1");
+    }
+  }
+  {
     const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
     const double aspect = S_->Picture.Frame.HeightPx > 0 ? (double)S_->Picture.Frame.WidthPx /
                                                                (double)S_->Picture.Frame.HeightPx

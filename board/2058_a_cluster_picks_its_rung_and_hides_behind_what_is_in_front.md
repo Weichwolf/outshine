@@ -63,6 +63,43 @@ normals renormalised); give the shape OWNERSHIP of the coarse vertices rather th
 somebody else's array; then grow the part's index range, which Shape.cpp today refuses outright
 (`cut.Index.size() != local.size()`).
 
+## THE HiZ HALF LANDED, and the oracle is that it is INVISIBLE
+
+A correct occlusion cull changes the WORK and never the PICTURE, so the test states itself: the
+cull must reject clusters AND every `make shots` digest must hold. Either alone proves nothing --
+an unchanged digest beside zero rejections is a control that passes because the code does not run,
+which is exactly what this cost an hour to notice.
+
+    Heidelberg, one place, one commit
+      without occlusion   974 379 indices kept    digest 941e3cf7
+      with occlusion      929 835 indices kept    digest 941e3cf7
+                          14 848 triangles gone, 4.6 %, and not one bit of picture moved
+
+    Venice   1 307 040 -> 1 303 968 indices, digest 7f387e61 either way
+    outshine/places  8 PASS  1 UNPREPARED (CentralPark, board:2068's own refusal)
+
+What it needed, in the order it was needed:
+
+1. **`StageRow::ReadsLastFrame`**, which did not exist. `TopologicalOrderHolds()` proves at compile
+   time that nothing reads what a later stage writes, so a depth pyramid -- written after the
+   frame is drawn, read before the next one is culled -- could not be DECLARED at all, only hidden
+   inside a stage the way `temporalResolve` hides its history. The new edge is excluded from the
+   ordering proof and included in the planner's holding and storing, so the pyramid is kept rather
+   than pruned.
+2. **`Stage::DepthPyramid`**: four levels, each reduced straight from the depth texture over a
+   block of 2^(level+1). Independent by construction, because SDL3 orders nothing between
+   dispatches inside one compute pass. The cost is written where the constant is: the coarsest
+   level reads 16x16 texels a thread, and a single-pass downsampler over threadgroup memory is
+   what lifts it.
+3. **`subjectCull.msl`** projects the cluster's eight AABB corners through the same matrix the
+   frustum planes come from, picks the level whose texel covers the screen box, and rejects when
+   the cluster's NEAREST reverse-Z depth is behind the block's FARTHEST.
+
+**`TexelFormat::Handle` with a stride of 0 is never bound.** `Compiled.cpp:290` skips it outright,
+so the compute pass never receives it as a read-write buffer and the kernel writes into nothing.
+The pyramid read 0.000 for an hour under a perfectly stable digest. `Resource::IrradianceBuffer`
+carries the SAME declaration, which is why board:2013's device irradiance reads 0.000.
+
 ## What was measured
 
 Shibuya, one frame:

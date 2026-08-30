@@ -1,0 +1,29 @@
+struct Reducing {
+  uint SrcWide;
+  uint SrcHigh;
+  uint DstWide;
+  uint DstHigh;
+  uint DstAt;
+  uint Block;
+  uint Pad0;
+  uint Pad1;
+};
+
+kernel void depthPyramidKernel(depth2d<float> sceneDepth [[texture(0)]],
+                               sampler held [[sampler(0)]],
+                               constant Reducing &over [[buffer(0)]],
+                               device float *pyramid [[buffer(1)]],
+                               uint2 id [[thread_position_in_grid]]) {
+  (void)held;
+  if (id.x >= over.DstWide || id.y >= over.DstHigh) { return; }
+  const uint2 from = id * over.Block;
+  const uint2 last = uint2(over.SrcWide - 1u, over.SrcHigh - 1u);
+  float farthest = 1.0;
+  for (uint down = 0u; down < over.Block; ++down) {
+    for (uint across = 0u; across < over.Block; ++across) {
+      const uint2 at = min(from + uint2(across, down), last);
+      farthest = min(farthest, sceneDepth.read(at));
+    }
+  }
+  pyramid[over.DstAt + id.y * over.DstWide + id.x] = farthest;
+}

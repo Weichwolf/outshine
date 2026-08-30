@@ -7,6 +7,7 @@
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
+#include "DepthPyramid.h"
 #include "KernelShape.h"
 
 namespace outshine::Render {
@@ -18,8 +19,13 @@ public:
   [[nodiscard]] static std::string KernelSource();
   [[nodiscard]] static std::string KernelSource(std::string &error);
 
+  void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
+    PyramidBuffer_ = pyramid;
+    Pyramid_ = shape;
+  }
+
   static constexpr ComputeShape CullShape{
-      .ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64};
+      .ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64};
   static constexpr ComputeShape ScanShape{
       .ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256};
   static constexpr ComputeShape CompactShape{
@@ -40,6 +46,9 @@ public:
   [[nodiscard]] static uint32_t JobsSweptTaken();
 
 private:
+  SDL_GPUBuffer *PyramidBuffer_ = nullptr;
+  PyramidShape Pyramid_;
+  bool Stood_ = false;
   [[nodiscard]] bool Pipeline(const Gpu &gpu,
                               const char *entry,
                               const ComputeShape &shape,
