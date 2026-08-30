@@ -40,6 +40,39 @@ directional; neither ships a hemisphere average, because the alley wall is exact
 - [ ] a guard counts the implementations of it and refuses a second
 - [ ] the subject's ambient varies with the surface NORMAL rather than being one value per scene
 
+## WHAT GRADES IT, and Cycles is not it
+
+`test/CORPORA.md` section 9 states it plainly: **Blender cannot be this corpus's oracle, because
+Cycles does not model an atmosphere.** So the render corpus's silence about the sky is not a gap in
+the cases -- it is a gap in what that oracle can answer, and no threshold over a Blender frame will
+ever grade a sky model.
+
+    ebruneton/clear-sky-models input/   BSD   TRUTH   Kider et al.'s MEASURED full-day sky
+                                                      irradiance for a real clear sky, plus the
+                                                      ASTM G173 reference solar spectrum -- the
+                                                      ground truth eight published sky models were
+                                                      graded against, one of them this tree's
+    precomputed_atmospheric_scattering  BSD   ref     where this tree's constants come from
+
+That second line is a debt as much as an oracle. `RayleighScatteringPerKm = {0.005802f, 0.013558f,
+0.033100f}` stands in `ParticipatingMedium.h:18` and `grep` finds it in NO board item, so under
+*every number carries its origin* it is undeclared. Citing Bruneton discharges half of it; the
+other half is the derivation, which the paper states and this tree does not.
+
+**AND THE COST, carried from board:2057 which was withdrawn as a duplicate of this item:**
+
+    Shibuya's rebuild                 907.8 ms
+      the medium's own tables         778.9 ms   86 per cent, on the CPU
+      everything else in Live::Stand   10.7 ms
+
+3 276 800 transmittance steps for one ambient radiance: MediumSkyIrradiance sweeps 8x8 directions,
+each calling MediumMultiScatterTexel over 8x8 directions at 20 steps, each of those calling
+MediumTransmittance at 40. The device builds the same table in a 256x64 texture in a stage that
+already runs, which is the second reason the CPU half should not exist.
+
+**THE ATMOSPHERE IS TO BE PURE GPU.** A faster CPU implementation was written and reverted unmade:
+speeding up the copy that should not exist is the wrong repair.
+
 **The measurement that would show I am wrong**: if the CPU and GPU paths already agree to within
 the noise, the duplicate is harmless and only the flatness remains -- that is a case, comparing
 `MediumSkyIrradiance` against a readback of `IrradianceBuffer` for one declared sun elevation.
