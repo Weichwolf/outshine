@@ -23,15 +23,11 @@
 #include "NormalFromMap.h"
 #include "SceneTargets.h"
 #include "ShaderPrelude.h"
-#include "ShadowRay.h"
 #include "SurfaceState.h"
-#include "TriangleBvh.h"
 #include "ShaderFile.h"
 
 namespace outshine::Render {
 
-static std::atomic<double> gBvhMs{0.0};
-double SubjectDraw::BuiltMs() { return gBvhMs.load(std::memory_order_relaxed); }
 
 namespace {
 
@@ -189,17 +185,16 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
       !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error)) {
     return std::string();
   }
-  const std::string shadowRay = ShadowRayMsl(error);
   const std::string brdf = MetalRoughBrdfMsl(error);
   const std::string sheen = SheenLobeMsl(error);
   const std::string iridescence = IridescenceLobeMsl(error);
   const std::string energy = MicrofacetEnergyMsl(error);
   const std::string normalMap = NormalFromMapMsl(error);
-  if (shadowRay.empty() || brdf.empty() || sheen.empty() || iridescence.empty() ||
+  if (brdf.empty() || sheen.empty() || iridescence.empty() ||
       energy.empty() || normalMap.empty()) {
     return std::string();
   }
-  return MslPrelude(error) + VelocityStaticDefine() + VelocityStaticMsl(error) + shadowRay +
+  return MslPrelude(error) + VelocityStaticDefine() + VelocityStaticMsl(error) +
          "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
          "\n#define SUBJECT_WRITES_SHADING_NORMAL " + (options.NormalIndex >= 0 ? "1" : "0") +
          "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
@@ -570,36 +565,6 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   if (!HandStreams(mesh, false, error)) { return false; }
 
-  {
-    const Heap::Tagged building("mesh-bvh");
-    const auto began = std::chrono::steady_clock::now();
-
-    // THE VISIBILITY STRUCTURE IS CPU WORK AND WANTS THE POSITIONS CONTIGUOUS, which is the one
-    // reason a run of them still stands in memory of ours. It is THREE floats a vertex rather than
-    // the nineteen the whole intermediate used to be, and every other channel now goes from the
-    // producer's own spans into the device's mapping without stopping anywhere.
-    // THE RANGE A RAY MAY REACH, which the parts already put first: the carried subject's parts
-    // lead the table and the world's follow, so the reach is where the last carried batch ends.
-    uint32_t reach = 0;
-    for (const DrawBatch &batch : Batches) {
-      if (batch.ModelSlot >= TracesBelow_) { continue; }
-      const uint32_t past = batch.FirstIndex + batch.IndexCount;
-      reach = past > reach ? past : reach;
-    }
-    if (TracesBelow_ == 0xffffffffu) { reach = Bound().NIdx; }
-    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Positions.data(), mesh.Positions.size()),
-                                    Span<const uint32_t>(mesh.Indices, (size_t)reach));
-    gBvhMs.store(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-        std::memory_order_relaxed);
-  }
-  if (Visibility_.Empty()) {
-    error = "the subject's " + std::to_string(mesh.IndexCount / 3u) +
-            " triangles built no visibility structure, so no light could be occluded by them";
-    Bound().NIdx = 0;
-    return false;
-  }
-  if (!HandVisibility(false, error)) { return false; }
 
   // NOTHING IS PRE-SIZED HERE, and that is a defect this round MEASURED rather than reasoned about.
   // A `OpenStaging` stood at the end of this function and widened the DEFERRED ring to the sum of
@@ -772,41 +737,10 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   return Bound().Cross(rows, 1, deferred, error);
 }
 
-bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
-  const Heap::Tagged uploading("mesh-upload");
-  const auto storage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
-
-  SubjectResidency::Crossing structure[] = {
-      {&Bound().BvhNodes, &Bound().Held[(size_t)SubjectResidency::Stream::BvhNodes], storage, Visibility_.Nodes().Data(),
-       (uint32_t)Visibility_.Nodes().Bytes()},
-      {&Bound().BvhTris, &Bound().Held[(size_t)SubjectResidency::Stream::BvhTriangles], storage, Visibility_.Triangles().Data(),
-       (uint32_t)Visibility_.Triangles().Bytes()},
-  };
-  if (!Bound().Cross(structure, sizeof structure / sizeof structure[0], deferred, error)) {
-    Bound().NIdx = 0;
-    return false;
-  }
-  if (!Bound().BvhNodes || !Bound().BvhTris) {
-    Bound().NIdx = 0;
-    error = std::string("the subject's visibility structure did not reach the device: ") +
-            SDL_GetError();
-    return false;
-  }
-
-  const BvhNode &root = Visibility_.Nodes()[0];
-  float diagonal = 0.0f;
-  for (int axis = 0; axis < 3; ++axis) {
-    const float span = root.MaxM[axis] - root.MinM[axis];
-    diagonal += span * span;
-  }
-  ShadowNearM_ = std::sqrt(diagonal) * kShadowRayNearFraction;
-  return true;
-}
-
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   ++Reshaped_;
   if (Borrows()) { return true; }
-  if (Bound().NIdx == 0 || Visibility_.Empty()) {
+  if (Bound().NIdx == 0) {
     error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
     return false;
   }
@@ -833,18 +767,6 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
     Bound().DropStaged();
     return false;
   }
-  {
-    const Heap::Tagged refitting("mesh-bvh");
-    if (!Visibility_.Refit(Span<const float>(pose.Positions.data(), pose.Positions.size()))) {
-      Bound().DropStaged();
-      error = "the subject's visibility structure did not refit to this pose";
-      return false;
-    }
-  }
-  if (!HandVisibility(true, error)) {
-    Bound().DropStaged();
-    return false;
-  }
   return true;
 }
 
@@ -864,7 +786,7 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
     const FrameContext &ctx) const {
   std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
-  packed[1] = ShadowNearM_;
+  packed[1] = 0.0f;
   packed[2] = Shadowed_ ? 1.0f : 0.0f;
   packed[3] = 1.0f / (float)kShadowAtlasPx;
   for (int channel = 0; channel < 3; ++channel) {
@@ -916,7 +838,7 @@ static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t)
 inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
 
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (Bound().NIdx == 0 || Batches.empty() || !Bound().Vtx || !Bound().Idx || !Bound().Emit || !Bound().BvhNodes || !Bound().BvhTris) { return; }
+  if (Bound().NIdx == 0 || Batches.empty() || !Bound().Vtx || !Bound().Idx || !Bound().Emit) { return; }
   float uniform[kUniFloats] = {};
   const auto place = [this, &ctx, &uniform, &into]() {
     for (int axis = 0; axis < 3; ++axis) {
@@ -943,8 +865,6 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   bool boundCut = false;
   bool anyIndex = false;
 
-  SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {Bound().BvhNodes.Get(), Bound().BvhTris.Get()};
-  SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, occluders, kSubjectStorageBuffers);
   SDL_GPUBuffer *const rows[1] = {Bound().Placed.Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
 

@@ -24,7 +24,7 @@ struct SubjectResidency {
   [[nodiscard]] static size_t StagingMadeTaken();
 
   enum class Stream : uint8_t {
-    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles,
+    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous,
     Placements, Index, ClusterSpheres, ClusterJobs, DrawIndex, DrawArguments, Count
   };
 
@@ -56,8 +56,6 @@ struct SubjectResidency {
   bool FiltersFloat32 = false;
 
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
-  OwnedBuffer BvhNodes, BvhTris;
-
   // WHAT THE CULL READS AND WHAT IT WRITES. The two tables cross once per mesh and never again,
   // and the SOURCE the kernel copies from is `Idx` -- the same run the direct path draws, because
   // the cooker reordered it in place and a second copy of 28 million indices is the thing this

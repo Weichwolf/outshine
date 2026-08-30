@@ -1224,8 +1224,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");
-  Published.Places("rebuild: building the visibility structure",
-                   Render::SubjectDraw::BuiltMs(), "ms");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
   Published.Places("rebuild: uploads the residency made",
@@ -1558,7 +1556,6 @@ bool Engine::render(Extent frame) {
   S_->Published.Places("subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(),
                        "calls");
   S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");
-  S_->Published.Places("shadow ray near", (double)S_->Picture.Device.ShadowRayNearM(), "m");
   // AND WHICH VARIANT THE DRAWS TOOK. One row per layout the frame actually used, which is what
   // turns "the picture is wrong" into "this draw took the flat variant and that one did not".
   for (uint32_t at = 0; at < (uint32_t)Render::kVertexLayouts.size(); ++at) {

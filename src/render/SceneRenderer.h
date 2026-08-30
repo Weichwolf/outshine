@@ -93,11 +93,7 @@ public:
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
-  void CastsBelow(uint32_t slot) {
-    Shadow_.CastsBelow(slot);
-    Subjects_.TracesBelow(slot);
-    Glass_.TracesBelow(slot);
-  }
+  void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = (float)outshine::Camera::kNearestM;
 
@@ -241,7 +237,6 @@ public:
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-  [[nodiscard]] float ShadowRayNearM() const { return Subjects_.ShadowNearM(); }
 
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);

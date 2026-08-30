@@ -40,7 +40,6 @@ struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
 struct Lights { float4 count; float4 environment; float4 bounced; float4 up; Light items[16]; };
 
 #define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
-    device const BvhNode *bvhNodes [[buffer(2)]], device const BvhTri *bvhTris [[buffer(3)]], \
     texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
     texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
     texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
@@ -49,9 +48,6 @@ struct Lights { float4 count; float4 environment; float4 bounced; float4 up; Lig
     texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]], \
     texture2d<float> behindMap [[texture(6)]], sampler behindSampler [[sampler(6)]], \
     texture2d<float> shadowMap [[texture(7)]], sampler shadowSampler [[sampler(7)]]
-
-struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
-#define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
 
 struct Uvs { float2 first; float2 second; };
 static inline float2 uvBy(packed_float3 u, packed_float3 v, Uvs uv, float second) {

@@ -9,7 +9,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
   float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness * orm.b, surface.roughness * orm.g,
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
@@ -29,7 +29,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness * orm.b, surface.roughness * orm.g,
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
@@ -48,7 +48,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness * orm.b, surface.roughness * orm.g,
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
@@ -69,7 +69,7 @@ fragment SFrag fsLitTransmissiveTextured(LOut in [[stage_in]], bool front [[fron
   const float3 shadingNormal = facing(in.n, front);
   const float3 albedo = surface.base.rgb * tap.rgb * in.colour.rgb;
   SFrag o;
-  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, in.lp, shadingNormal, in.p,
                           albedo,
                           surface.metalness * orm.b, surface.roughness * orm.g,
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),

@@ -35,7 +35,7 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
                 SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
                 v.uv, v.uv1, v.colour)
 
-static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occluders occluders,
+static inline float3 shadeRow(constant M &surface, constant Lights &lights,
                               float3 localM, float3 n, float3 p, float3 albedo, float metalness,
                               float roughness, float3 dielectricF0, float dielectricF90,
                               float3 emitted, float3 tangentDir, float4 lightSpace,
@@ -109,9 +109,6 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
     float nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
 
-    if (bvhOccludes(occluders.nodes, occluders.tris, originM, toward, lights.count.y, reachM)) {
-      continue;
-    }
     float3 h = normalize(toward + v);
     float nh = max(dot(n, h), 0.0);
     float vh = max(dot(v, h), 0.0);
@@ -161,10 +158,10 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
   return sum + emitted;
 }
 
-static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
+static inline float3 shade(constant M &surface, constant Lights &lights,
                            float3 localM, float3 n, float3 p, float3 albedo, float4 lightSpace,
                            texture2d<float> shadowMap, sampler shadowSampler) {
-  return shadeRow(surface, lights, occluders, localM, n, p, albedo, surface.metalness,
+  return shadeRow(surface, lights, localM, n, p, albedo, surface.metalness,
                   surface.roughness, float3(surface.f0), surface.specularWeight,
                   surface.emissive, float3(0.0), lightSpace, shadowMap, shadowSampler);
 }
@@ -176,7 +173,7 @@ static inline float3 facing(float3 n, bool front) {
 fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -189,7 +186,7 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   if (surface.factor * in.colour.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -202,7 +199,7 @@ fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing
   const float3 shadingNormal = facing(in.n, front);
   const float3 albedo = surface.base.rgb * in.colour.rgb;
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, albedo, in.ls, shadowMap, shadowSampler) +
+  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p, albedo, in.ls, shadowMap, shadowSampler) +
                      transmitted(surface, behindMap, in.pos.xy, albedo),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -214,7 +211,7 @@ fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing
 fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shade(surface, lights, in.lp, shadingNormal, in.p,
                        surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  surface.factor * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
