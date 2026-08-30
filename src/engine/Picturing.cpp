@@ -225,6 +225,32 @@ bool Engine::State::Asks(void) {
   return true;
 }
 
+void CarryIntoTheFrame(const std::vector<float> &corners,
+                       const double anchor[3],
+                       const TangentFrame &standing,
+                       std::vector<float> &places,
+                       std::vector<float> &turned) {
+  const size_t count = corners.size() / kTileVertexFloats;
+  places.resize(count * 3);
+  turned.resize(count * 3);
+  for (size_t at = 0; at < count; ++at) {
+    const float *const one = corners.data() + at * kTileVertexFloats;
+    const double held[3] = {
+        anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
+    double eastM = 0.0, upM = 0.0, northM = 0.0;
+    standing.Place(held, &eastM, &upM, &northM);
+    places[at * 3] = (float)eastM;
+    places[at * 3 + 1] = (float)upM;
+    places[at * 3 + 2] = (float)(-northM);
+    const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
+    double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+    standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
+    turned[at * 3] = (float)alongEast;
+    turned[at * 3 + 1] = (float)alongUp;
+    turned[at * 3 + 2] = (float)(-alongNorth);
+  }
+}
+
 void CensusOverEveryTriangle(Core::Ledger &Published,
                              std::chrono::steady_clock::time_point &censusAt,
                              std::span<const float> wallPlaces,
@@ -716,31 +742,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
     if (built.WallRun.size() + built.RoofRun.size() >= 3) {
       std::vector<float> wallPlaces, wallFacing, roofPlaces, roofFacing;
-      const auto carry = [&](const std::vector<float> &corners,
-                             std::vector<float> &places,
-                             std::vector<float> &turned) {
-        const size_t count = corners.size() / kTileVertexFloats;
-        places.resize(count * 3);
-        turned.resize(count * 3);
-        for (size_t at = 0; at < count; ++at) {
-          const float *const one = corners.data() + at * kTileVertexFloats;
-          const double held[3] = {
-              anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
-          double eastM = 0.0, upM = 0.0, northM = 0.0;
-          standing.Place(held, &eastM, &upM, &northM);
-          places[at * 3] = (float)eastM;
-          places[at * 3 + 1] = (float)upM;
-          places[at * 3 + 2] = (float)(-northM);
-          const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
-          double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
-          standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
-          turned[at * 3] = (float)alongEast;
-          turned[at * 3 + 1] = (float)alongUp;
-          turned[at * 3 + 2] = (float)(-alongNorth);
-        }
-      };
-      carry(built.WallCorners, wallPlaces, wallFacing);
-      carry(built.RoofCorners, roofPlaces, roofFacing);
+      CarryIntoTheFrame(built.WallCorners, anchor, standing, wallPlaces, wallFacing);
+      CarryIntoTheFrame(built.RoofCorners, anchor, standing, roofPlaces, roofFacing);
       const std::vector<uint32_t> &wallRun = built.WallRun;
       const std::vector<uint32_t> &roofRun = built.RoofRun;
       const size_t wallVerts = wallPlaces.size() / 3;
