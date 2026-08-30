@@ -44,7 +44,8 @@ const Element kGrammar[] = {
      "input state layer"},
     {"scenario/layer", "", "path"},
     {"scenario/world", ""},
-    {"scenario/render", "output stage"},
+    {"scenario/render", "keep output stage"},
+    {"scenario/render/keep", "", "name"},
     {"scenario/render/output", "", "name"},
     {"scenario/render/stage", "", "name"},
     {"scenario/lighting", "key environment"},
@@ -90,8 +91,10 @@ const Element kGrammar[] = {
     {"scenario/events/event", "carries", "name"},
     {"scenario/events/event/carries", "", "what"},
     {"scenario/views", "view"},
-    {"scenario/views/view", "at", "id"},
+    {"scenario/views/view", "at lookAt up", "id"},
     {"scenario/views/view/at", ""},
+    {"scenario/views/view/lookAt", ""},
+    {"scenario/views/view/up", ""},
     {"scenario/player", ""},
     {"scenario/body", "at centreOfMass inertia contact actuator aero slot"},
     {"scenario/body/at", ""},
@@ -601,6 +604,19 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.OffsetM[1] = one.Num("offsetY", 0.0);
     made.OffsetM[2] = one.Num("offsetZ", 0.0);
     made.Sees.FovDeg = one.Num("fovDeg", 0.0);
+    made.Sees.NearM = one.Num("nearM", 0.0);
+    made.Sees.FarM = one.Num("farM", 0.0);
+    made.Sees.Orthographic = std::string(one.Attr("orthographic", "no")) == "yes";
+    made.Sees.XMagM = one.Num("xMagM", 0.0);
+    made.Sees.YMagM = one.Num("yMagM", 0.0);
+    made.Sees.ApertureFStops = one.Num("apertureFStops", 0.0);
+    made.Sees.ShutterS = one.Num("shutterS", 0.0);
+    made.Sees.SensitivityIso = one.Num("sensitivityIso", 0.0);
+    if (Declares(one, "lookAt")) {
+      made.Sees.LooksAt = true;
+      ReadVector(one.Child("lookAt"), "x", "y", "z", made.Sees.LookAtM, 3);
+    }
+    if (Declares(one, "up")) { ReadVector(one.Child("up"), "x", "y", "z", made.Sees.UpM, 3); }
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
   }

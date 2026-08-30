@@ -9,43 +9,11 @@ import argparse, hashlib, json, math, os, pathlib, subprocess, sys, tempfile
 
 TREE = pathlib.Path(__file__).resolve().parents[2]
 CLIENT = TREE / "build" / "outshine-client"
+kFactoryWorldRadiance = 0.05087608844041824
 
 
 def prepared_root():
     return pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-prepared"
-
-
-def facing(position, look_at, roll):
-    fx, fy, fz = (look_at[i] - position[i] for i in range(3))
-    length = math.sqrt(fx * fx + fy * fy + fz * fz)
-    if length <= 0.0:
-        return (0.0, 0.0, 0.0, 1.0)
-    fx, fy, fz = fx / length, fy / length, fz / length
-    ux, uy, uz = 0.0, 1.0, 0.0
-    rx, ry, rz = fy * uz - fz * uy, fz * ux - fx * uz, fx * uy - fy * ux
-    rl = math.sqrt(rx * rx + ry * ry + rz * rz)
-    if rl <= 1.0e-9:
-        rx, ry, rz, rl = 1.0, 0.0, 0.0, 1.0
-    rx, ry, rz = rx / rl, ry / rl, rz / rl
-    ux, uy, uz = ry * fz - rz * fy, rz * fx - rx * fz, rx * fy - ry * fx
-    if roll:
-        c, s = math.cos(roll), math.sin(roll)
-        rx, ry, rz, ux, uy, uz = (c * rx + s * ux, c * ry + s * uy, c * rz + s * uz,
-                                  c * ux - s * rx, c * uy - s * ry, c * uz - s * rz)
-    m = ((rx, ux, -fx), (ry, uy, -fy), (rz, uz, -fz))
-    trace = m[0][0] + m[1][1] + m[2][2]
-    if trace > 0.0:
-        w = math.sqrt(1.0 + trace) * 0.5
-        d = 0.25 / w
-        return ((m[2][1] - m[1][2]) * d, (m[0][2] - m[2][0]) * d, (m[1][0] - m[0][1]) * d, w)
-    if m[0][0] > m[1][1] and m[0][0] > m[2][2]:
-        s = math.sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0
-        return (0.25 * s, (m[0][1] + m[1][0]) / s, (m[0][2] + m[2][0]) / s, (m[2][1] - m[1][2]) / s)
-    if m[1][1] > m[2][2]:
-        s = math.sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0
-        return ((m[0][1] + m[1][0]) / s, 0.25 * s, (m[1][2] + m[2][1]) / s, (m[0][2] - m[2][0]) / s)
-    s = math.sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0
-    return ((m[0][2] + m[2][0]) / s, (m[1][2] + m[2][1]) / s, 0.25 * s, (m[1][0] - m[0][1]) / s)
 
 
 def scenario_for(manifest, entry):
@@ -54,18 +22,36 @@ def scenario_for(manifest, entry):
     render = manifest.get("renders", {}).get("default", {})
     at = camera.get("positionM", [0.0, 0.0, 3.0])
     look = camera.get("lookAtM", [0.0, 0.0, 0.0])
-    qx, qy, qz, qw = facing(at, look, camera.get("rollRad", 0.0))
+    up = camera.get("upM", [0.0, 1.0, 0.0])
     light = scene.get("light", {})
+    animated = bool(manifest.get("subjects", [{}])[0].get("animation"))
+    keeps = ["sceneDepth", "sceneShadingNormal", "sceneSurfaceIdentity"]
+    if animated:
+        keeps.append("sceneVelocity")
     lines = ['<scenario>',
              f'  <render widthPx="{render.get("resolutionX", 1280)}" '
-             f'heightPx="{render.get("resolutionY", 720)}" fps="60"/>']
+             f'heightPx="{render.get("resolutionY", 720)}" fps="60" '
+             f'transfer="linear" precision="float" exposure="1.0">']
+    lines += [f'    <keep name="{one}"/>' for one in keeps]
+    lines.append('  </render>')
+    lines.append('  <lighting>')
     if light.get("kind") == "sun":
-        lines.append(f'  <lighting sunIrradianceWPerM2="{light.get("irradianceWPerM2", 0.0)}"/>')
-    lines += [f'  <assets>', f'    <asset uri="{entry}" kind="gltf" animation="ignore"/>',
+        d = light.get("directionM", [0.0, -1.0, 0.0])
+        span = math.sqrt(sum(v * v for v in d)) or 1.0
+        elevation = math.degrees(math.asin(max(-1.0, min(1.0, -d[1] / span))))
+        bearing = math.degrees(math.atan2(-d[0], -d[2]))
+        lines.append(f'    <key lux="{light.get("irradianceWPerM2", 0.0)}" '
+                     f'elevationDeg="{elevation:.9f}" bearingDeg="{bearing:.9f}"/>')
+    lines.append(f'    <environment r="{kFactoryWorldRadiance}" g="{kFactoryWorldRadiance}" '
+                 f'b="{kFactoryWorldRadiance}"/>')
+    lines.append('  </lighting>')
+    lines += ['  <assets>', f'    <asset uri="{entry}" kind="gltf" animation="ignore"/>',
               '  </assets>', '  <views>',
-              f'    <view id="oracle" fovDeg="{math.degrees(camera.get("yfovRad", 0.5)):.9f}">',
-              f'      <at x="{at[0]:.12f}" y="{at[1]:.12f}" z="{at[2]:.12f}" '
-              f'qx="{qx:.12f}" qy="{qy:.12f}" qz="{qz:.12f}" qw="{qw:.12f}"/>',
+              f'    <view id="oracle" fovDeg="{math.degrees(camera.get("yfovRad", 0.5)):.9f}" '
+              f'nearM="{camera.get("clipStartM", 0.0):.9f}" farM="{camera.get("clipEndM", 0.0):.9f}">',
+              f'      <at x="{at[0]:.12f}" y="{at[1]:.12f}" z="{at[2]:.12f}"/>',
+              f'      <lookAt x="{look[0]:.12f}" y="{look[1]:.12f}" z="{look[2]:.12f}"/>',
+              f'      <up x="{up[0]:.12f}" y="{up[1]:.12f}" z="{up[2]:.12f}"/>',
               '    </view>', '  </views>', '</scenario>']
     return "\n".join(lines) + "\n"
 
