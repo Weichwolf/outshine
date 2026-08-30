@@ -333,11 +333,11 @@ void Engine::State::Inspected(void) {
     if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
       static const char *const kNamed[Render::kIrradianceFloats] = {
           "the device's sky irradiance, red",
-          "green",
-          "blue",
+          "the device's sky irradiance, green",
+          "the device's sky irradiance, blue",
           "the device's transmittance toward the sun, red",
-          "green ",
-          "blue "};
+          "the device's transmittance toward the sun, green",
+          "the device's transmittance toward the sun, blue"};
       for (size_t at = 0; at < Render::kIrradianceFloats; ++at) {
         Published.Places(kNamed[at], (double)held[at], "");
       }
