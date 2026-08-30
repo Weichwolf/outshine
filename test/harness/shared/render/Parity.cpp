@@ -15,6 +15,9 @@
 
 #include "RenderCase.h"
 #include "Drives.h"
+#include "Handed.h"
+#include <Loaded.h>
+
 #include "Shaped.h"
 #include "Surfaces.h"
 #include "Surfacing.h"
@@ -46,12 +49,13 @@
 #include "Subject.h"
 
 using outshine::Json;
-using outshine::Gltf::Document;
 using outshine::Gltf::Viewpoint;
-using outshine::Gltf::Subject;
 using outshine::Gltf::Transform;
 using outshine::Gltf::Viewport;
 using namespace outshine::Render::Parity;
+using Handed = outshine::Test::Handed;
+using Document = outshine::Gltf::Document;
+using Subject = outshine::Gltf::Subject;
 
 namespace {
 using outshine::Render::SurfaceTable;
@@ -68,8 +72,16 @@ constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 struct Case {
   std::string Directory;
   Json Manifest;
-  Document File;
-  Subject Geometry;
+  outshine::Loaded Held;
+  Handed Model;
+
+  // AND THE FILE AGAIN, FOR THE SURFACE TABLE ALONE. `ResolveSurfaceTable` and `ResolveFileSurface`
+  // decode an asset's IMAGES, and the door has no way to say that a surface wears one: `Material`
+  // is a row of numbers and `Geometry` carries no images. Until it does, these two stay and this
+  // reads the file a second time to feed them -- named here rather than hidden, because it is the
+  // last thing keeping this runner on `src/`.
+  outshine::Gltf::Document File;
+  outshine::Gltf::Subject Surfacing;
 
   // WHAT THIS CASE SAYS TO THE DOOR. The `Document` above is still read, and that is not a reach
   // past the door: a conformance harness parses the VENDOR'S FILE to know what the answer should
@@ -85,7 +97,7 @@ struct Case {
   mutable outshine::Render::ShapeStore Store;
   mutable outshine::Render::Shape Shape;
   const outshine::Render::Shape &Shaped() const {
-    Shape = outshine::Gltf::Shaped(Geometry, Store);
+    Shape = outshine::Gltf::Shaped(Held.geometry(), Store);
     return Shape;
   }
   Viewpoint Eye;
@@ -122,7 +134,7 @@ struct Case {
 
   std::vector<Invariant> Invariants;
 
-  outshine::Gltf::VariantSelection Variant;
+  std::string VariantName;
   SurfaceTable Surfaces;
 
   int Frames = 1;
@@ -137,7 +149,7 @@ struct Case {
 
   std::vector<double> RestPositions;
 
-  Subject PreviousGeometry;
+  std::vector<double> PreviousPositions;
 
   double MovedPx = 0;
 
@@ -380,11 +392,12 @@ public:
                                            subject.Eye, error)) {
       return false;
     }
+    (void)subject.Held.carriesCamera();
     subject.CameraSource = "gltf";
     return true;
   }
 
-  if (subject.Geometry.Frame(subject.Eye)) {
+  if (subject.Surfacing.Frame(subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;
   }
@@ -514,7 +527,7 @@ public:
   }
 
   const Json::Ref variant = root["scene"]["materialVariant"];
-  if (variant.Valid()) { subject.Variant = outshine::Gltf::VariantSelection(variant.Str("")); }
+  if (variant.Valid()) { subject.VariantName = variant.Str(""); }
 
   const Json::Ref animation = root["scene"]["animation"];
   if (animation.Valid()) {
@@ -616,8 +629,7 @@ std::string MissingInputs(const Case &subject) {
   return missing;
 }
 
-[[nodiscard]] bool ResolveEmission(const Case &subject, const Document &file,
-                                   const Subject &geometry,
+[[nodiscard]] bool ResolveEmission(const Case &subject, const Handed &geometry,
                                    std::vector<std::array<float, 3>> &out, std::string &error) {
   const Json::Ref material = subject.Manifest.Root()["scene"]["material"];
   const size_t parts = geometry.Parts().size();
@@ -626,8 +638,8 @@ std::string MissingInputs(const Case &subject) {
   if (subject.ShadedByLights()) {
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
-      if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-      const outshine::Material &surface = file.Materials()[(size_t)index].Surface;
+      if (index < 0 || (size_t)index >= geometry.Surfaces().size()) { continue; }
+      const outshine::Material &surface = geometry.Surfaces()[(size_t)index];
       if (!surface.Unlit) { continue; }
       for (size_t channel = 0; channel < 3; ++channel) {
         out[part][channel] = surface.BaseColour[channel];
@@ -642,8 +654,8 @@ std::string MissingInputs(const Case &subject) {
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
 
-      const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
-                                             ? file.Materials()[(size_t)index].Surface
+      const outshine::Material surface = index >= 0 && (size_t)index < geometry.Surfaces().size()
+                                             ? geometry.Surfaces()[(size_t)index]
                                              : outshine::Gltf::DefaultMaterial();
       for (size_t channel = 0; channel < 3; ++channel) {
         const double factor = subject.Colour == ColourFrom::Emissive
@@ -663,22 +675,22 @@ std::string MissingInputs(const Case &subject) {
       const int index = geometry.Parts()[part].Material;
 
       static const std::string kDefaultMaterial = "<default>";
-      if (index >= (int)file.Materials().size()) {
+      if (index >= (int)geometry.Surfaces().size()) {
         error = "part " + std::to_string(part) + " names material " + std::to_string(index) +
-                " and the file declares " + std::to_string(file.Materials().size());
+                " and the file declares " + std::to_string(geometry.Surfaces().size());
         return false;
       }
 
       std::string name;
       if (index < 0) {
         name = kDefaultMaterial;
-      } else if (!file.Materials()[(size_t)index].Name.empty()) {
-        name = file.Materials()[(size_t)index].Name;
+      } else if (!geometry.SurfaceNames()[(size_t)index].empty()) {
+        name = geometry.SurfaceNames()[(size_t)index];
       } else {
         name = "Material_" + std::to_string(index);
 
-        for (size_t other = 0; other < file.Materials().size(); ++other) {
-          if (file.Materials()[other].Name == name) {
+        for (size_t other = 0; other < geometry.Surfaces().size(); ++other) {
+          if (geometry.SurfaceNames()[other] == name) {
             error = "material " + std::to_string(index) + " names itself nothing and material " +
                     std::to_string(other) + " is spelled '" + name +
                     "', which is the key the importer gives the first";
@@ -715,12 +727,12 @@ std::string MissingInputs(const Case &subject) {
     static const double kStep[3] = {0.6180339887498949, 0.4142135623730951, 0.3027756377319946};
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
-      if (index >= (int)file.Materials().size()) {
+      if (index >= (int)geometry.Surfaces().size()) {
         error = "part " + std::to_string(part) + " names material " + std::to_string(index) +
-                " and the file declares " + std::to_string(file.Materials().size());
+                " and the file declares " + std::to_string(geometry.Surfaces().size());
         return false;
       }
-      const double slot = index < 0 ? (double)file.Materials().size() : (double)index;
+      const double slot = index < 0 ? (double)geometry.Surfaces().size() : (double)index;
       for (size_t channel = 0; channel < 3; ++channel) {
         const double walked = slot * kStep[channel];
         out[part][channel] = (float)(0.15 + 0.70 * (walked - std::floor(walked)));
@@ -795,22 +807,13 @@ std::string MissingInputs(const Case &subject) {
 }
 
 [[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
-  if (!subject.Posed()) {
-    if (subject.Geometry.Build(subject.File, subject.Variant)) { return true; }
-    error = subject.Geometry.Error();
+  const double seconds = subject.Posed() && subject.Fps > 0.0 ? (double)frame / subject.Fps : 0.0;
+  if (!subject.Held.poses(seconds)) {
+    error = subject.Held.error();
     return false;
   }
-  subject.Animation.At((double)frame / subject.Fps, subject.Locals, subject.Weights);
-  if (subject.Geometry.Build(subject.File,
-                             outshine::Span<const Transform>(subject.Locals.data(),
-                                                             subject.Locals.size()),
-                             outshine::Span<const double>(subject.Weights.data(),
-                                                          subject.Weights.size()),
-                             subject.Variant)) {
-    return true;
-  }
-  error = subject.Geometry.Error();
-  return false;
+  subject.Model.Reads(subject.Held.geometry());
+  return true;
 }
 
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
@@ -820,25 +823,40 @@ std::string MissingInputs(const Case &subject) {
     error = subject.File.Error();
     return false;
   }
-  if (subject.Posed() &&
-      !outshine::Gltf::Pose::Build(subject.File,
-                                   outshine::Span<const int>(subject.Animations.data(),
-                                                             subject.Animations.size()),
-                                   subject.Animation, error)) {
+  // AN EMPTY VARIANT NAME IS NOT A VARIANT NAMED EMPTY. `VariantSelection()` selects nothing;
+  // `VariantSelection("")` looks for one the file does not carry and refuses.
+  const outshine::Gltf::VariantSelection wearing =
+      subject.VariantName.empty() ? outshine::Gltf::VariantSelection()
+                                  : outshine::Gltf::VariantSelection(subject.VariantName);
+  if (!subject.Surfacing.Build(subject.File, wearing)) {
+    error = subject.Surfacing.Error();
+    return false;
+  }
+  if (!subject.Held.reads(subject.Directory + entry)) {
+    error = subject.Held.error();
+    return false;
+  }
+  if (!subject.VariantName.empty() && !subject.Held.wears(subject.VariantName)) {
+    error = subject.Held.error();
+    return false;
+  }
+  if (subject.Posed() && !subject.Held.plays(std::span<const int>(subject.Animations.data(),
+                                                                 subject.Animations.size()))) {
+    error = subject.Held.error();
     return false;
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
-  subject.RestPositions = subject.Geometry.PositionsM();
+  subject.RestPositions = subject.Model.PositionsM();
 
-  ResolveSurfaceTable(subject.File, subject.Geometry, subject.TransmissionBounces > 0,
+  ResolveSurfaceTable(subject.File, subject.Surfacing, subject.TransmissionBounces > 0,
                       subject.MaterialFromFile(), subject.Surfaces);
   if (subject.MaterialFromFile() &&
-      !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
+      !ResolveFileSurface(subject.File, subject.Surfacing, subject.Colour, subject.Carrier,
                           subject.Surfaces,
                           error)) {
     return false;
   }
-  if (!ResolveEmission(subject, subject.File, subject.Geometry, subject.Emitted, error)) {
+  if (!ResolveEmission(subject, subject.Model, subject.Emitted, error)) {
     return false;
   }
   subject.Path.LinearFilteredSampler = AnyLinearFilteredImage(subject.Surfaces);
@@ -1039,8 +1057,8 @@ void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
   declaration.Content = {outshine::Render::Stage::Subjects};
 
   bool carriesGlass = false;
-  for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
-    const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
+  for (const outshine::Material &material : subject.Model.Surfaces()) {
+    const outshine::SurfaceKind kind = outshine::StateOf(material).Kind();
     carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
                    kind == outshine::SurfaceKind::Refractive;
   }
@@ -1182,10 +1200,10 @@ void DeclareDrives(Case &subject) {
   // and all, so quoting the file's own row back at the engine would strip the very textures a
   // light-shaded case is being scored on.
   for (size_t part = 0; !subject.ShadedByLights() && part < subject.Emitted.size() &&
-                        part < subject.Geometry.Parts().size();
+                        part < subject.Model.Parts().size();
        ++part) {
     outshine::SurfaceOverride said;
-    said.Node = subject.Geometry.Parts()[part].NodeName;
+    said.Node = subject.Model.Parts()[part].NodeName;
     said.Part = (int)part;
     // WHAT IS DECLARED IS A SHADING, AND ONLY WHAT DECIDES COVERAGE SURVIVES THE FILE. The
     // preparer replaces the material with a Diffuse or Emission BSDF, so a row carried over from
@@ -1193,10 +1211,10 @@ void DeclareDrives(Case &subject) {
     // them `opaque-min-1px` drew glass. Alpha mode, its cut and double-sidedness decide WHICH
     // PIXELS are covered rather than what colour they wear, and coverage agrees to five digits
     // today, so those three come across and nothing else does.
-    const int index = subject.Geometry.Parts()[part].Material;
+    const int index = subject.Model.Parts()[part].Material;
     const outshine::Material carried =
-        index >= 0 && (size_t)index < subject.Geometry.Surfaces().size()
-            ? subject.Geometry.Surfaces()[(size_t)index]
+        index >= 0 && (size_t)index < subject.Model.Surfaces().size()
+            ? subject.Model.Surfaces()[(size_t)index]
             : outshine::Material{};
     // A CASE WHOSE COLOUR IS THE FILE'S KEEPS THE FILE'S MAPS. `gltf-base-colour` and
     // `gltf-emissive` say "the asset states this surface and the oracle shades it flat", so the
@@ -1226,7 +1244,7 @@ void DeclareDrives(Case &subject) {
     if (worn < wearers.size()) { wearers[worn] += 1u; }
   }
   for (size_t part = 0; !subject.ShadedByLights() && part < subject.Emitted.size() &&
-                        part < subject.Geometry.Parts().size();
+                        part < subject.Model.Parts().size();
        ++part) {
     const uint32_t slot = part < subject.Surfaces.PartSlot.size() ? subject.Surfaces.PartSlot[part]
                                                                   : 0u;
@@ -1255,8 +1273,8 @@ void DeclareDrives(Case &subject) {
   // oracle never ran.
   bool carriesGlass = false;
   if (says.Surfaces.empty()) {
-    for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
-      const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
+    for (const outshine::Material &material : subject.Model.Surfaces()) {
+      const outshine::SurfaceKind kind = outshine::StateOf(material).Kind();
       carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
                      kind == outshine::SurfaceKind::Refractive;
     }
@@ -1328,7 +1346,7 @@ Prepared Prepare(Case &subject, outshine::Engine &engine) {
 
   DeclareDrives(subject);
   std::printf("DRIVES surfaces=%zu parts=%zu emitted=%zu\n", subject.Driving.Surfaces.size(),
-              subject.Geometry.Parts().size(), subject.Emitted.size());
+              subject.Model.Parts().size(), subject.Emitted.size());
 
   engine.setRoots(outshine::Roots{subject.Directory, subject.Directory,
                                   "/tmp/outshine-corpus-cache", true});
@@ -1385,7 +1403,7 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
 void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double biasM,
                          std::vector<Metric> &metrics) {
   double centre[3];
-  subject.Geometry.CentreM(centre);
+  subject.Model.CentreM(centre);
   double at[2];
   double ndc[3];
   clip.Point(centre, ndc);
@@ -1496,14 +1514,14 @@ outshine::Render::SubjectProxy MakeStudio(const Case &subject) {
   outshine::Render::SubjectProxy studio;
   const double anchorEcefM[3] = {outshine::Data::kWgs84A, 0.0, 0.0};
   studio.Stands(subject.Shaped(), anchorEcefM);
-  if (subject.Animated()) { studio.Posed(&subject.PreviousGeometry.PositionsM()); }
+  if (subject.Animated()) { studio.Posed(&subject.PreviousPositions); }
   for (size_t part = 0; part < subject.Emitted.size(); ++part) {
     (void)studio.Emits(part, subject.Emitted[part]);
   }
   std::string why;
   (void)studio.Wears(subject.Surfaces.PartSlot, subject.Surfaces.Slots, why);
   if (subject.Lights == SceneLights::FromFile) {
-    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
+    for (const Handed::Lamp &placed : subject.Model.Lights()) {
       studio.Lit(placed.Light);
     }
   }
@@ -1579,9 +1597,9 @@ void ScoreDepthProbes(const Case &subject, const outshine::Render::SubjectProxy 
 
 void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::SubjectProxy &studio) {
   if (subject.Lights == SceneLights::FromFile) {
-    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
+    for (const Handed::Lamp &placed : subject.Model.Lights()) {
       outshine::Test::Note(
-          ("light '" + placed.LightName + "' on node '" + placed.NodeName + "', intensity").c_str(),
+          ("light '" + placed.NodeName + "' on node '" + placed.NodeName + "', intensity").c_str(),
           (double)placed.Light.Intensity,
           placed.Light.Kind == outshine::LightKind::Directional ? "lux" : "candela");
     }
@@ -1589,10 +1607,10 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Render::Subje
   outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights().size(),
                        "lights");
 
-  outshine::Test::Note("uv sets the subject carries", subject.Geometry.HasUv1() ? 2.0 : 1.0, "sets");
-  for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
+  outshine::Test::Note("uv sets the subject carries", subject.Model.HasUv1() ? 2.0 : 1.0, "sets");
+  for (size_t part = 0; part < subject.Model.Parts().size(); ++part) {
     outshine::Test::Note(
-        ("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red").c_str(),
+        ("declared radiance of node '" + subject.Model.Parts()[part].NodeName + "', red").c_str(),
         (double)subject.Emitted[part][0], "linear, scene-referred");
   }
   if (!subject.MaterialFromFile()) { return; }
@@ -1616,7 +1634,7 @@ struct DeclaredNormals {
   std::vector<float> Depth;
 };
 
-DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transform &clip,
+DeclaredNormals RasteriseDeclaredNormals(const Handed &geometry, const Transform &clip,
                                          const Viewport &viewport, int width, int height) {
   DeclaredNormals out;
   out.Xyz.assign((size_t)width * (size_t)height * 3u, 0.0f);
@@ -1624,7 +1642,7 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   if (geometry.Normals().size() < geometry.PositionsM().size()) { return out; }
   const std::vector<uint32_t> &indices = geometry.Indices();
 
-  for (const outshine::Gltf::Part &part : geometry.Parts()) {
+  for (const Handed::Part &part : geometry.Parts()) {
   for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
     double corner[3][2];
     double depth[3];
@@ -1676,21 +1694,21 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   return out;
 }
 
-[[nodiscard]] std::vector<std::string> FileMaterialNames(const Document &file) {
+[[nodiscard]] std::vector<std::string> FileMaterialNames(const Handed &model) {
   std::vector<std::string> names;
-  names.reserve(file.Materials().size());
-  for (size_t at = 0; at < file.Materials().size(); ++at) {
-    const std::string &declared = file.Materials()[at].Name;
+  names.reserve(model.SurfaceNames().size());
+  for (size_t at = 0; at < model.SurfaceNames().size(); ++at) {
+    const std::string &declared = model.SurfaceNames()[at];
     names.push_back(declared.empty() ? "Material_" + std::to_string(at) : declared);
   }
   return names;
 }
 
-[[nodiscard]] std::vector<uint8_t> BlendedFileMaterials(const Document &file) {
+[[nodiscard]] std::vector<uint8_t> BlendedFileMaterials(const Handed &model) {
   std::vector<uint8_t> blended;
-  blended.reserve(file.Materials().size());
-  for (const outshine::Gltf::MaterialRef &material : file.Materials()) {
-    blended.push_back(material.Surface.Alpha == outshine::AlphaMode::Blended ? 1u : 0u);
+  blended.reserve(model.Surfaces().size());
+  for (const outshine::Material &surface : model.Surfaces()) {
+    blended.push_back(surface.Alpha == outshine::AlphaMode::Blended ? 1u : 0u);
   }
   return blended;
 }
@@ -1718,12 +1736,12 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
               "is not one colour per material and its index pass cannot be held against it";
     return out;
   }
-  const size_t materials = subject.File.Materials().size();
+  const size_t materials = subject.Model.Surfaces().size();
   out.ByFileMaterial.assign(materials, {0.0f, 0.0f, 0.0f});
   out.Known.assign(materials, 0u);
-  for (size_t part = 0; part < subject.Geometry.Parts().size() && part < subject.Emitted.size();
+  for (size_t part = 0; part < subject.Model.Parts().size() && part < subject.Emitted.size();
        ++part) {
-    const int material = subject.Geometry.Parts()[part].Material;
+    const int material = subject.Model.Parts()[part].Material;
     if (material < 0 || (size_t)material >= materials) { continue; }
     const std::array<float, 3> &radiance = subject.Emitted[part];
     if (out.Known[(size_t)material] && out.ByFileMaterial[(size_t)material] != radiance) {
@@ -1746,7 +1764,7 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   using namespace outshine::Test;
   using namespace outshine::Render::Parity;
 
-  const std::vector<std::string> names = FileMaterialNames(subject.File);
+  const std::vector<std::string> names = FileMaterialNames(subject.Model);
   OracleSurfaces oracle;
   if (!oracle.Read(subject.Directory, IndexPass::Material, subject.ProductFrame(frame), names)) {
     Refused(oracle.Error());
@@ -1763,7 +1781,7 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
 
   const OurSurfaces mine(picture.SurfaceIdentity, ours.Width, subject.Surfaces.Material, names);
   const DeclaredColours declared = ColoursPerFileMaterial(subject);
-  const std::vector<uint8_t> blended = BlendedFileMaterials(subject.File);
+  const std::vector<uint8_t> blended = BlendedFileMaterials(subject.Model);
   const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared, blended};
   const IdentityReading reading = ReadSurfaceIdentity(asked);
 
@@ -1828,7 +1846,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     return;
   }
 
-  const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
+  const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Model, clip, subject.Frame,
                                                             ours.Width, ours.Height);
 
   {
@@ -2111,9 +2129,9 @@ struct Motion {
     CHECK(false, "the resolved camera yields a projection, so the motion is measurable in pixels");
     return Motion{false, 0};
   }
-  const std::vector<double> &now = subject.Geometry.PositionsM();
+  const std::vector<double> &now = subject.Model.PositionsM();
   const std::vector<double> &rest = subject.RestPositions;
-  const std::vector<double> &before = subject.PreviousGeometry.PositionsM();
+  const std::vector<double> &before = subject.PreviousPositions;
 
   if (now.size() != rest.size() || now.empty()) {
     CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
@@ -2233,7 +2251,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
 
   std::string why;
   Picture picture;
-  std::printf("LAMPS file=%zu\n", subject.Geometry.Lights().size());
+  std::printf("LAMPS file=%zu\n", subject.Model.Lights().size());
   // AND THE ENGINE IS STEPPED, NOT JUST THE COPY THIS RUNNER SCORES AGAINST. `Engine::advance` is
   // the door's verb for "time has passed"; posing the harness's own geometry and rendering without
   // it left the subject standing at frame 0 for the whole sequence, and the velocity buffer said
@@ -2322,7 +2340,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   const bool projects = outshine::Gltf::ClipOf(subject.Eye, subject.Frame.Aspect(), clip);
   CHECK(projects, "the resolved camera yields a projection");
   if (projects) {
-    const EdgeSet edges = Silhouette(subject.Geometry, clip, subject.Frame);
+    const EdgeSet edges = Silhouette(subject.Model, clip, subject.Frame);
     const double tieMarginPx = TieMarginPx(ours, edges);
     metrics.push_back({"tie_margin_px", tieMarginPx, 0.0, "px", Direction::Reported});
 
@@ -2378,7 +2396,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   if (projects && Disagreeing(ours, theirs) > 0) {
     Note("disagreement attributed by node, both faces, overlap counted twice");
     const Attribution table =
-        AttributeDisagreement(subject.Geometry, clip, subject.Frame, ours, theirs);
+        AttributeDisagreement(subject.Model, clip, subject.Frame, ours, theirs);
     for (const NodeDisagreement &node : table.Nodes) {
       std::printf("NOTE   node '%s' over %zu triangles: %zu px ours only, %zu px oracle only\n",
                   node.Node.c_str(), node.Triangles, node.OursOnly, node.TheirsOnly);
@@ -2389,7 +2407,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
   }
   if (projects) {
     metrics.push_back({"triangles_outside_the_depth_range",
-                       (double)TrianglesOutsideTheDepthRange(subject.Geometry, clip), 0.0,
+                       (double)TrianglesOutsideTheDepthRange(subject.Model, clip), 0.0,
                        "triangles", Direction::AtMost});
   }
   ScoreDepthProbes(subject, studio, picture.Depth, metrics);
@@ -2405,7 +2423,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Engine &engine, int frame) {
                                                  declaredFraction, why);
   CHECK(statesFraction, "the manifest declares the frame fraction its camera was derived for");
   if (statesFraction && projects) {
-    const double fraction = subject.Geometry.ProjectedAreaPx(clip, subject.Frame) /
+    const double fraction = ProjectedAreaPx(subject.Model, clip, subject.Frame) /
                             (subject.Frame.WidthPx * subject.Frame.HeightPx);
 
     metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
@@ -2484,7 +2502,7 @@ int ScoreRenderCase(int argc, char **argv) {
       std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames,
                   (double)frame / subject.Fps);
 
-      subject.PreviousGeometry = subject.Geometry;
+      subject.PreviousPositions = subject.Model.PositionsM();
       if (!PoseGeometry(subject, frame, why)) {
         CHECK(false, "the subject poses at every frame of the declared grid");
         Refused(why);
@@ -2617,7 +2635,7 @@ bool ConfiguredCase::Start(outshine::Render::SceneRenderer &renderer, std::strin
 
 bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
   Viewpoint derived;
-  if (!Held_->Subject.Geometry.Frame(derived, fill)) {
+  if (!Held_->Subject.Surfacing.Frame(derived, fill)) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
@@ -2626,7 +2644,7 @@ bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
 }
 
 bool ConfiguredCase::PoseAt(int frame, std::string &error) {
-  if (Held_->Subject.Animated()) { Held_->Subject.PreviousGeometry = Held_->Subject.Geometry; }
+  if (Held_->Subject.Animated()) { Held_->Subject.PreviousPositions = Held_->Subject.Model.PositionsM(); }
   return PoseGeometry(Held_->Subject, frame, error);
 }
 

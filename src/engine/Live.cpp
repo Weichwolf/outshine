@@ -146,64 +146,6 @@ namespace {
 // uint32_t on both sides, a copy with an offset rather than a reshaping. This is the whole point
 // of the goal: `Assemble` widened 28 M vertices to double so that `PackVertices` could narrow them
 // back, and neither pass had a reader that wanted double.
-Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
-  into.Clear();
-  const int parts = from.parts();
-  size_t wholeIndices = 0;
-  for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
-  into.Indices.reserve(wholeIndices);
-  for (int surface = 0; surface < from.surfaces(); ++surface) {
-    into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
-  }
-  for (int lamp = 0; lamp < from.lamps(); ++lamp) {
-    PunctualLight standing = from.lampAt(lamp);
-    const double *const at = from.lampPlacementOf(lamp);
-    for (int axis = 0; axis < 3; ++axis) { standing.Position[axis] = (float)at[12 + axis]; }
-    into.Lamps.push_back(standing);
-  }
-
-  into.Parts.reserve((size_t)parts);
-  size_t firstVertex = 0;
-  size_t firstIndex = 0;
-  for (int part = 0; part < parts; ++part) {
-    Render::ShapePart made;
-    made.Name = from.nameOf(part);
-    made.Material = from.materialOf(part).index();
-    made.PositionsM = from.positionsOf(part);
-    made.Normals = from.normalsOf(part);
-    made.Tangents = from.tangentsOf(part);
-    made.Uv = from.textureOf(part, 0);
-    made.Uv1 = from.textureOf(part, 1);
-    made.Colours = from.coloursOf(part);
-    made.HasUv = !made.Uv.empty();
-    made.HasUv1 = !made.Uv1.empty();
-    made.HasNormal = !made.Normals.empty();
-    made.HasColour = !made.Colours.empty();
-    made.HasTangent = !made.Tangents.empty();
-    made.VertexCount = made.PositionsM.size() / 3;
-    made.FirstVertex = firstVertex;
-    const std::span<const uint32_t> order = from.trianglesOf(part);
-    made.FirstIndex = firstIndex;
-    made.IndexCount = order.size();
-    for (const uint32_t index : order) { into.Indices.push_back((uint32_t)firstVertex + index); }
-    firstVertex += made.VertexCount;
-    firstIndex += order.size();
-    into.Parts.push_back(made);
-  }
-  Render::Shape out;
-  out.Parts = into.Parts;
-  out.Surfaces = into.Surfaces;
-  out.Lamps = into.Lamps;
-  out.Indices = into.Indices;
-  for (const Render::ShapePart &one : into.Parts) {
-    out.CarriesUv = out.CarriesUv || one.HasUv;
-    out.CarriesUv1 = out.CarriesUv1 || one.HasUv1;
-    out.CarriesNormal = out.CarriesNormal || one.HasNormal;
-    out.CarriesTangent = out.CarriesTangent || one.HasTangent;
-    out.CarriesColour = out.CarriesColour || one.HasColour;
-  }
-  return out;
-}
 
 
 
@@ -211,7 +153,7 @@ Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into) {
 // buffer, so each one silently invalidated the spans the standing shape was holding. The shape is
 // built here and nowhere else, and which producer fills it is the only question left.
 void Live::Reshape() {
-  Shaped_ = Held_.HoldsBuilt() ? Shaped(Held_.Built(), ShapeParts_)
+  Shaped_ = Held_.HoldsBuilt() ? Gltf::Shaped(Held_.Built(), ShapeParts_)
                                : Gltf::Shaped(Held_.Assembled(), ShapeParts_);
 }
 

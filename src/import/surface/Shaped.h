@@ -11,5 +11,11 @@ namespace outshine::Gltf {
 // same handover a generator makes, which is what makes them one path rather than two.
 [[nodiscard]] Render::Shape Shaped(const Subject &from, Render::ShapeStore &into);
 
+// AND FROM THE DOOR'S OWN GEOMETRY, which is where a CLIENT's subject arrives. This stood
+// file-local in `Live.cpp` and had no second caller until a conformance runner needed the same
+// layout over the same door type -- two copies of it is how two readings of one file start to
+// disagree, so it stands beside the form it is the twin of.
+[[nodiscard]] Render::Shape Shaped(const outshine::Geometry &from, Render::ShapeStore &into);
+
 }
 #endif

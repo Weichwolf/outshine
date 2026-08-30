@@ -1,6 +1,7 @@
 #ifndef RENDER_ATTRIBUTION_H
 #define RENDER_ATTRIBUTION_H
 
+#include "Handed.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -93,10 +94,35 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 
 }
 
-[[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Gltf::Subject &geometry,
+// THE FRACTION OF THE FRAME THE SUBJECT COVERS, over the pose it is CURRENTLY in. This read the
+// engine's own subject before, which a conformance runner may not reach -- and the copy it read
+// stood at rest, so an animated case measured frame 0's silhouette against every frame's oracle.
+[[nodiscard]] inline double ProjectedAreaPx(const outshine::Test::Handed &geometry,
+                                            const outshine::Gltf::Transform &clip,
+                                            const outshine::Gltf::Viewport &viewport) {
+  double total = 0;
+  const std::vector<double> &positions = geometry.PositionsM();
+  const std::vector<uint32_t> &indices = geometry.Indices();
+  for (size_t triangle = 0; triangle * 3 + 2 < indices.size(); ++triangle) {
+    double raster[3][2];
+    for (int corner = 0; corner < 3; ++corner) {
+      const size_t vertex = indices[triangle * 3 + (size_t)corner];
+      const double point[3] = {positions[vertex * 3], positions[vertex * 3 + 1],
+                               positions[vertex * 3 + 2]};
+      double ndc[3];
+      clip.Point(point, ndc);
+      viewport.Raster(ndc, raster[corner]);
+    }
+    total += 0.5 * std::fabs((raster[1][0] - raster[0][0]) * (raster[2][1] - raster[0][1]) -
+                             (raster[2][0] - raster[0][0]) * (raster[1][1] - raster[0][1]));
+  }
+  return total;
+}
+
+[[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Test::Handed &geometry,
                                                          const outshine::Gltf::Transform &clip) {
   size_t outside = 0;
-  for (const outshine::Gltf::Part &part : geometry.Parts()) {
+  for (const outshine::Test::Handed::Part &part : geometry.Parts()) {
     for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
       for (int which = 0; which < 3; ++which) {
         const size_t vertex = geometry.Indices()[part.FirstIndex + triangle * 3u + (size_t)which];
@@ -112,7 +138,7 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
   return outside;
 }
 
-inline Attribution AttributeDisagreement(const outshine::Gltf::Subject &geometry,
+inline Attribution AttributeDisagreement(const outshine::Test::Handed &geometry,
                                          const outshine::Gltf::Transform &clip,
                                          const outshine::Gltf::Viewport &viewport, const Mask &ours,
                                          const Mask &theirs) {
@@ -123,7 +149,7 @@ inline Attribution AttributeDisagreement(const outshine::Gltf::Subject &geometry
   touched.In.assign((size_t)ours.Width * (size_t)ours.Height, 0u);
   const Detail::Occupancy disagreeing(ours, theirs);
 
-  for (const outshine::Gltf::Part &part : geometry.Parts()) {
+  for (const outshine::Test::Handed::Part &part : geometry.Parts()) {
     NodeDisagreement row;
     row.Node = part.NodeName;
     row.Triangles = part.IndexCount / 3u;
