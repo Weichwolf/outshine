@@ -307,7 +307,7 @@ Programs() {
 NotTheHarnesses() {
   case "$1" in
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
-    harness/shared/frame) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
+    harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
@@ -604,7 +604,7 @@ BuildLibrary() {
   # does, so `linkreach.sh` computes the closure the linker computes -- every object the generator
   # objects reach by undefined symbol -- and those members, and only those, are archived again.
   # A second hand-kept list would drift from the first the day somebody adds an include.
-  reachedGenerators=$(sh test/harness/shared/frame/linkreach.sh build/liboutshine.a \
+  reachedGenerators=$(sh test/harness/shared/graph/linkreach.sh build/liboutshine.a \
                         build/genwalk src-generators 2>/dev/null | sed 's|:$||')
   generatorObjects=""
   for reached in $reachedGenerators; do

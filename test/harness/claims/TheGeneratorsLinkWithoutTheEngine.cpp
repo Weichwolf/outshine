@@ -16,7 +16,7 @@ namespace {
 // one, and it is not a matter of taste or of includes: either the generator objects resolve their
 // undefined symbols without the engine's, or a foreign program cannot link them.
 //
-// `test/harness/shared/frame/linkreach.sh` computes the closure the linker itself computes when
+// `test/harness/shared/graph/linkreach.sh` computes the closure the linker itself computes when
 // it pulls members out of a `.a`: every object reachable from a seed by UNDEFINED SYMBOL. This
 // walk is SOUND where the frame path's relocation walk is not -- a virtual call carries no symbol
 // at its call site, but the vtable naming its overrides is a relocation in the referencing
@@ -66,7 +66,7 @@ int main(void) {
   }
 
   std::string reached;
-  const int walked = Run("sh test/harness/shared/frame/linkreach.sh build/liboutshine.a " +
+  const int walked = Run("sh test/harness/shared/graph/linkreach.sh build/liboutshine.a " +
                              std::string(nest) + "/linkwalk " + kSeed + " 2>/dev/null",
                          reached);
   CHECK(walked == 0 && !reached.empty(),
@@ -119,7 +119,7 @@ int main(void) {
           "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
           "-Isrc/import -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
           "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data "
-          "test/harness/shared/frame/GeneratorsAlone.cpp "
+          "test/harness/shared/graph/GeneratorsAlone.cpp "
           "build/libgenerators.a -o " +
               alone + " 2>&1",
           built);

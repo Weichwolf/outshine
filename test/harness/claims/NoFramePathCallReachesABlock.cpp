@@ -19,7 +19,7 @@ namespace {
 // down, a poll loop of 30000 attempts at 1 ms, on a budget of 16.7 ms.
 //
 // A grep cannot find that, because no line of the tick mentions sleeping. The graph can.
-// `test/harness/shared/frame/callgraph.sh` reads every object in the archive: `nm -n` gives the
+// `test/harness/shared/graph/callgraph.sh` reads every object in the archive: `nm -n` gives the
 // text symbols in ADDRESS order, and every relocation `objdump -dr` prints carries the address it
 // sits at, so the enclosing function is the last symbol at or below it. What comes out is what
 // the LINKER resolves, not what a header suggests.
@@ -127,7 +127,7 @@ int main(void) {
   }
 
   std::string edges;
-  const int walked = Run("sh test/harness/shared/frame/callgraph.sh build/liboutshine.a " +
+  const int walked = Run("sh test/harness/shared/graph/callgraph.sh build/liboutshine.a " +
                              std::string(nest) + "/framewalk 2>/dev/null",
                          edges);
   CHECK(walked == 0 && !edges.empty(),

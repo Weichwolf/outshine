@@ -15,8 +15,7 @@ tree does not do it.
 
 Six vendor scorers, each a `.cpp` linked against the library and reaching PAST the door:
 
-    test/harness/khronos/glTF/ScoreEveryKhronosCase.cpp        RenderCase.h, 148 models
-    test/harness/khronos/generator/ScoreEveryGeneratorCase.cpp RenderCase.h
+    the two render scorers                                     deleted; see below
     test/harness/khronos/validator/ScoreEveryValidatorCase.cpp <Outshine.h> -- the DOOR already
     test/harness/wpt/css/ScoreEveryWptCase.cpp                 Layout.h Markup.h Style.h
     test/harness/test262/js/ScoreEveryScriptCase.cpp           Script.h
