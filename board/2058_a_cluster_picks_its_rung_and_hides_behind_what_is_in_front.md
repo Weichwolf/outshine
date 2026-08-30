@@ -37,6 +37,30 @@ Shibuya, one frame:
 A city is mostly occluded by its own front row, and 17 255 clusters survive a test that cannot see
 that. Nothing measures how many of them are hidden, because nothing asks.
 
+## WHY THE RUNG TEST CHANGES NOTHING: THERE IS NO LADDER TO CHOOSE FROM
+
+    cook: clusters in all                     1 792
+    cook: clusters with no parent above them  1 792
+
+Every cluster the cook makes for Shibuya is a ROOT. `CookShape` takes the
+`part.IndexCount <= kClusterTriangles * 3` branch and emits one whole cluster with
+`ParentErr = kDagRootErr` -- and it takes that branch for every part, because the world arrives as
+thousands of SMALL parts rather than a few large ones. The hand-over proves it: 21 504 floats at
+twelve a cluster, and the first two clusters' error pair reads `SelfErr 0, ParentErr 3e38`.
+
+So the rung test is correct and inert, and the three thresholds that moved nothing were telling the
+truth. A test that keeps a cluster whose parent's error clears the threshold keeps EVERY cluster
+when every parent is the root sentinel.
+
+**AND THIS IS NANITE'S PREMISE, NOT A BUG IN THE TEST.** Unreal cuts ONE mesh into clusters and
+merges them upward; the ladder is a property of a large connected body. This tree hands the cull a
+thousand buildings, each its own part, each under 128 triangles. Nothing to merge, nothing to
+choose. The occlusion half of this item does not depend on that and is untouched by it -- a hidden
+cluster is hidden whatever rung it is on.
+
+    cull: jobs it swept                   73 706
+    cull: indices the subject cull kept   6 422 028
+
 ## WHERE IT STANDS, and the LOD half is IN and NOT PROVEN LIVE
 
 The ladder crosses now: `ClusterSpheres` packs twelve floats a cluster -- own centre and radius,

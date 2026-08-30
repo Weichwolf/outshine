@@ -7,6 +7,7 @@ namespace outshine::Render {
 
 std::atomic<double> gCookMs{0.0};
 std::atomic<size_t> gRootless{0};
+std::atomic<size_t> gClusters{0};
 
 double CookedMs() {
   return gCookMs.load(std::memory_order_relaxed);
@@ -14,6 +15,10 @@ double CookedMs() {
 
 size_t CookedRootless() {
   return gRootless.load(std::memory_order_relaxed);
+}
+
+size_t CookedClusters() {
+  return gClusters.load(std::memory_order_relaxed);
 }
 
 void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
@@ -113,6 +118,7 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
     part.ClusterCount = (uint32_t)cut.Clusters.size();
   }
   gRootless.store(rootless, std::memory_order_relaxed);
+  gClusters.store(into.Clusters.size(), std::memory_order_relaxed);
   gCookMs.store(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);
