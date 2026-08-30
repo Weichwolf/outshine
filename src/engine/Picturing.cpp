@@ -1194,6 +1194,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
   Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
   Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
+  {
+    static const char *const kSky[3] = {"the ambient the sky casts, red", "green", "blue"};
+    static const char *const kGround[3] = {
+        "the ambient the ground bounces, red", "green ", "blue "};
+    for (size_t at = 0; at < 3; ++at) {
+      Published.Places(kSky[at], Picture.Standing->AmbientStood()[at], "");
+      Published.Places(kGround[at], Picture.Standing->GroundStood()[at], "");
+    }
+  }
   Published.Places("stand: times the sky was integrated",
                    (double)Picture.Standing->SkyIntegrations(),
                    "integrations");

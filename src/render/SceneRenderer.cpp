@@ -475,6 +475,7 @@ SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
     case Resource::ClusterSlot: return resident.ClusterSlot.Get();
     case Resource::DrawIndex: return resident.DrawIdx.Get();
     case Resource::DrawArguments: return resident.DrawArgs.Get();
+    case Resource::IrradianceBuffer: return Irradiance_.Get();
     default: return nullptr;
   }
 }
@@ -1117,6 +1118,18 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   }
   depth.resize((size_t)kShadowAtlasPx * (size_t)kShadowAtlasPx);
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
+  return ReadState::Ready;
+}
+
+ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
+  if (!Ready_ || !Irradiance_) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromBuffer(Device_.Get(),
+                      Irradiance_.Get(),
+                      kIrradianceFloats * (uint32_t)sizeof(float)) != ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  std::memcpy(out, read.Rows(), kIrradianceFloats * sizeof(float));
   return ReadState::Ready;
 }
 

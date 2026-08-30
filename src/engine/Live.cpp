@@ -630,6 +630,10 @@ bool Live::Stand(std::string &error) {
   for (int channel = 0; channel < 3; ++channel) {
     environment.GroundLinear[channel] = GroundAlbedo_[channel];
   }
+  for (int channel = 0; channel < 3; ++channel) {
+    AmbientStood_[channel] = environment.RadianceLinear[channel];
+    GroundStood_[channel] = environment.GroundLinear[channel];
+  }
   Stood_.Around(environment);
   MediumMs_ = sinceStand();
 

@@ -329,6 +329,21 @@ void Engine::State::Inspected(void) {
     }
   }
   {
+    float held[Render::kIrradianceFloats] = {};
+    if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
+      static const char *const kNamed[Render::kIrradianceFloats] = {
+          "the device's sky irradiance, red",
+          "green",
+          "blue",
+          "the device's transmittance toward the sun, red",
+          "green ",
+          "blue "};
+      for (size_t at = 0; at < Render::kIrradianceFloats; ++at) {
+        Published.Places(kNamed[at], (double)held[at], "");
+      }
+    }
+  }
+  {
     std::vector<float> velocity;
     if (Picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
       double moving = 0.0, furthest = 0.0;

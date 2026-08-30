@@ -104,6 +104,8 @@ public:
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
+  [[nodiscard]] ReadState ReadSkyIrradiance(float out[kIrradianceFloats]);
+
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
 
   [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);

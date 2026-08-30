@@ -1,0 +1,31 @@
+{
+ "schema": "outshine/measured-corpus-manifest",
+ "schemaVersion": 1,
+ "id": "clearsky/egbert",
+ "title": "Kider et al.'s clear day at Egbert, Ontario, and ASTM G173",
+ "source": {
+  "kind": "clear-sky-models",
+  "of": "E. Bruneton",
+  "licence": "BSD"
+ },
+ "site": {
+  "name": "Egbert, Ontario",
+  "latitudeDeg": 44.23,
+  "longitudeDeg": -79.78
+ },
+ "day": "2013-05-27",
+ "files": {
+  "astm-g173.txt": {
+   "bytes": 87246,
+   "sha256": "0b4b5ba91b8709acf7bded8776be36443fed963da08cdbfd9ba91b0ec1887d6f"
+  },
+  "kider_full_day_irradiance_raw_2013_5_27.txt": {
+   "bytes": 50522,
+   "sha256": "d64cb7ba000e2c939162d492e294ee50d799e8f6045fc6d896e66b0153df589f"
+  },
+  "130527_130527_Egbert.pfn": {
+   "bytes": 22288,
+   "sha256": "083761b5546d1fe9e855945afebca104c7589c333136b34dbfbc5a47a2de3379"
+  }
+ }
+}

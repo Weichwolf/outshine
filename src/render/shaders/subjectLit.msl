@@ -154,14 +154,7 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights,
 
   const float3 specularEnvironment = brdfFresnel(f0, f90, nvClamped);
   const float skyShare = clamp(dot(n, lights.up.xyz) * 0.5 + 0.5, 0.0, 1.0);
-  const float3 skylight = float3(skyIrradiance[0], skyIrradiance[1], skyIrradiance[2]);
-  const float3 sunReach = float3(skyIrradiance[3], skyIrradiance[4], skyIrradiance[5]);
-  const float lux = lights.environment.w;
-  const float straightDown = max(lights.bounced.w, 0.0);
-  const float3 fromSky = lights.environment.rgb + skylight * (lux / M_PI_F);
-  const float3 fromGround =
-      lights.bounced.rgb * (lux / M_PI_F) * (straightDown * sunReach + skylight);
-  const float3 ambient = mix(fromGround, fromSky, skyShare);
+  const float3 ambient = mix(lights.bounced.rgb, lights.environment.rgb, skyShare);
   sum = sum + ambient * (diffuseColour + specularEnvironment);
   return sum + emitted;
 }

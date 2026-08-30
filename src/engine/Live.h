@@ -118,6 +118,10 @@ public:
 
   [[nodiscard]] size_t SkyIntegrations() const { return SkyIntegrations_; }
 
+  [[nodiscard]] const double *AmbientStood() const { return AmbientStood_; }
+
+  [[nodiscard]] const double *GroundStood() const { return GroundStood_; }
+
   [[nodiscard]] double CarryMs() const { return CarryMs_; }
 
   [[nodiscard]] double ResolveMs() const { return ResolveMs_; }
@@ -326,6 +330,8 @@ private:
   double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;
 
   size_t SkyIntegrations_ = 0;
+  double AmbientStood_[3] = {0.0, 0.0, 0.0};
+  double GroundStood_[3] = {0.0, 0.0, 0.0};
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

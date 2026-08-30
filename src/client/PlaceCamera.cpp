@@ -199,6 +199,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   shot.Triangles = measured("building triangles the world meshed");
   shot.BareTiles = measured("tiles laid bare on the ellipsoid");
 
+  if (Audits) { (void)engine.inspect(); }
   shot.SettledOver = (double)wanted;
   shot.PosedAtS = measured("and the instant it is posed at");
 
