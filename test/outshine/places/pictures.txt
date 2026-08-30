@@ -19,9 +19,15 @@
 # Rewritten by hand when a picture is MEANT to change. `make shots` prints the lines.
 #
 # place        digest      p50     p95     p99   over budget
-CentralPark    cb4ee7d4  p50   7.18  p95   8.26  p99   8.86 ms    0 of 120
-Heidelberg     7646c403  p50   1.98  p95   2.42  p99   3.45 ms    0 of 120
-Jura           2aa8f40f  p50   2.50  p95   2.99  p99   3.90 ms    0 of 120
-OldTown        e8d3cf71  p50   1.36  p95   1.55  p99   2.27 ms    0 of 120
-Shibuya        029dcfdf  p50  12.13  p95  14.21  p99  15.01 ms    0 of 120
-Venice         fe9cd1e5  p50   2.61  p95   3.02  p99   4.11 ms    0 of 120
+CentralPark    cb4ee7d4  p50   6.29  p95   6.88  p99   7.30 ms    0 of 120
+Heidelberg     3bc692bc  p50   1.69  p95   1.85  p99   2.81 ms    0 of 120
+Jura           2aa8f40f  p50   2.30  p95   2.57  p99   3.30 ms    0 of 120
+OldTown        f35c5bff  p50   1.25  p95   1.36  p99   2.20 ms    0 of 120
+Shibuya        aff2f732  p50   9.62  p95  10.84  p99  12.28 ms    1 of 120
+Venice         8fa6e48c  p50   2.31  p95   2.50  p99   3.30 ms    0 of 120
+
+# Four of the six moved with board:2047 and the move is QUANTISATION, not a picture. The building
+# mesher now emits an indexed mesh, so a corner reaches the device once instead of three times and
+# the interpolator sums the same numbers in a different order. Measured against the frames they
+# replace: OldTown 217 pixels of 921 600 differ, Heidelberg 84, Venice 258, Shibuya 220 -- and
+# EVERY one of them differs by exactly 1 of 255. Central Park and the Jura did not move at all.

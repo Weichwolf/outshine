@@ -50,8 +50,18 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
   plan.AnchorEcef = anchor;
 
   const BuildingMesh mesher;
+  Raised raised;
+  mesher.Mesh(plan, raised);
   std::vector<float> soup;
-  mesher.Mesh(plan, soup);
+  const auto spread = [&soup](const std::vector<float> &corners, const std::vector<uint32_t> &run) {
+    for (const uint32_t corner : run) {
+      soup.insert(soup.end(),
+                  corners.begin() + (std::ptrdiff_t)corner * 8,
+                  corners.begin() + (std::ptrdiff_t)corner * 8 + 8);
+    }
+  };
+  spread(raised.WallCorners, raised.WallRun);
+  spread(raised.RoofCorners, raised.RoofRun);
   if (soup.empty()) { return false; }
 
   Meshed made;

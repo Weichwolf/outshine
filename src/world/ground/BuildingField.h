@@ -41,7 +41,7 @@ public:
 
   uint32_t AddedCount() const { return AddedCount_; }
 
-  const std::vector<float> &Verts() const { return Verts_; }
+  const Raised &Built() const { return Built_; }
 
   double MeshMs() const { return MeshMs_; }
 
@@ -62,7 +62,7 @@ public:
   int Deferrals() const { return Mark_.Deferrals(); }
 
   size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
+    return CapacityBytes(Prints_) + Built_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
@@ -80,7 +80,7 @@ private:
 
   const StructureMesher *Mesher_ = nullptr;
   std::vector<Footprint> Prints_;
-  std::vector<float> Verts_;
+  Raised Built_;
   double MeshMs_ = 0.0;
   TileRanges ByTile_;
   TileWatermark Mark_;

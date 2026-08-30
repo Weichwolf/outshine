@@ -1,11 +1,31 @@
 #ifndef OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 #define OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 
+#include <cstdint>
 #include <vector>
 
 #include "Span.h"
 
 namespace outshine {
+
+inline constexpr double kSteepestRoof = 0.5;
+
+struct Raised {
+  std::vector<float> WallCorners, RoofCorners;
+  std::vector<uint32_t> WallRun, RoofRun;
+
+  void Clear() noexcept {
+    WallCorners.clear();
+    RoofCorners.clear();
+    WallRun.clear();
+    RoofRun.clear();
+  }
+
+  [[nodiscard]] std::size_t HeapBytes() const noexcept {
+    return WallCorners.capacity() * sizeof(float) + RoofCorners.capacity() * sizeof(float) +
+           WallRun.capacity() * sizeof(uint32_t) + RoofRun.capacity() * sizeof(uint32_t);
+  }
+};
 
 struct WayLine {
   Span<const double> LatLon;
@@ -42,7 +62,7 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  virtual void Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept = 0;
+  virtual void Mesh(const StructurePlan &plan, Raised &into) const noexcept = 0;
 
 protected:
   StructureMesher() = default;

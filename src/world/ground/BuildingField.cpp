@@ -213,7 +213,7 @@ int BuildingField::Build(const GroundQuery &ground,
                          const OsmField &field,
                          Span<const WayLine> ways) {
   assert(Anchored_);
-  AddedFirst_ = (uint32_t)Verts_.size();
+  AddedFirst_ = (uint32_t)(Built_.WallCorners.size() + Built_.RoofCorners.size());
   AddedCount_ = 0;
 
   const std::span<const OsmField::Feature> feats = field.Features();
@@ -281,7 +281,7 @@ int BuildingField::Build(const GroundQuery &ground,
   ByTile_.Set(next.Tile, firstPrint, (uint32_t)Prints_.size());
   Mark_.Advance(feats);
 
-  AddedCount_ = (uint32_t)Verts_.size() - AddedFirst_;
+  AddedCount_ = (uint32_t)(Built_.WallCorners.size() + Built_.RoofCorners.size()) - AddedFirst_;
   if (added == 0) { return (int)Prints_.size(); }
 
   Log::Info("world",
@@ -290,7 +290,7 @@ int BuildingField::Build(const GroundQuery &ground,
              {"total", (int)Prints_.size()},
              {"osmHeight", OsmHeights_},
              {"defaultHeight", DefaultHeights_},
-             {"vertsMB", (double)Verts_.size() * 4.0 / 1.0e6},
+             {"vertsMB", (double)Built_.HeapBytes() / 1.0e6},
              {"noGround", NoGround_},
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},
@@ -312,7 +312,7 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.Street = f.Street;
   plan.AnchorEcef = Anchor_;
   plan.FocalPx = FocalPx_;
-  Mesher_->Mesh(plan, Verts_);
+  Mesher_->Mesh(plan, Built_);
 }
 
 } // namespace outshine::Ground

@@ -123,7 +123,7 @@ Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
 
 class Site {
 public:
-  Site(const StructurePlan &plan, std::vector<float> &soup) : Soup_(soup) {
+  Site(const StructurePlan &plan, Raised &into) : Out_(into) {
     const double lat = plan.RingLatLon[0], lon = plan.RingLatLon[1];
     double origin[3];
     GeoToEcef(lat, lon, plan.BaseAslM, origin);
@@ -172,9 +172,11 @@ public:
     Face_.push_back(ib);
     Face_.push_back(ic);
     for (int c2 = 0; c2 < 3; c2++) { nrm[c2] /= len; }
-    Push(a, nrm);
-    Push(b, nrm);
-    Push(c, nrm);
+    const int side = nrm[2] > kSteepestRoof ? 1 : 0;
+    std::vector<uint32_t> &run = side == 1 ? Out_.RoofRun : Out_.WallRun;
+    run.push_back(Corner(side, a, ia, nrm));
+    run.push_back(Corner(side, b, ib, nrm));
+    run.push_back(Corner(side, c, ic, nrm));
   }
 
   void Judged(size_t *open, size_t *overused, size_t *reversed) const {
@@ -206,19 +208,30 @@ public:
   }
 
 private:
-  void Push(const Vtx &v, const double nrm[3]) {
+  [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const double nrm[3]) {
+    std::vector<float> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
+    const uint64_t facing = ((uint64_t)(uint32_t)(int32_t)std::llround(nrm[0] * 4096.0) << 42) ^
+                            ((uint64_t)(uint32_t)(int32_t)std::llround(nrm[1] * 4096.0) << 21) ^
+                            (uint64_t)(uint32_t)(int32_t)std::llround(nrm[2] * 4096.0);
+    const uint64_t key = ((uint64_t)at * 1099511628211ull) ^ facing;
+    const auto found = Corners_[side].find(key);
+    if (found != Corners_[side].end()) { return found->second; }
+    const auto made = (uint32_t)(soup.size() / 8u);
+    Corners_[side].emplace(key, made);
     for (int c = 0; c < 3; c++) {
-      Soup_.push_back((float)(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
+      soup.push_back((float)(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
     }
-    Soup_.push_back(v.U);
-    Soup_.push_back(v.V);
+    soup.push_back(v.U);
+    soup.push_back(v.V);
     for (int c = 0; c < 3; c++) {
-      Soup_.push_back((float)(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
+      soup.push_back((float)(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
     }
+    return made;
   }
 
-  std::vector<float> &Soup_;
+  Raised &Out_;
   std::unordered_map<uint64_t, uint32_t> Welded_;
+  std::unordered_map<uint64_t, uint32_t> Corners_[2];
   std::vector<uint32_t> Face_;
   double Origin_[3], East_[3], North_[3], Up_[3];
   double ReachM_ = 0.0;
@@ -876,12 +889,12 @@ void Pavement(const BuildingShape &s,
 
 } // namespace
 
-void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept {
+void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
   if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
   const Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
   if (mass.Parts.empty()) { return; }
 
-  Site site(plan, soup);
+  Site site(plan, into);
   const Site2Ground ground(plan.RingLatLon, plan.CornerAslM, plan.BaseAslM);
   for (const BuildingShape &part : mass.Parts) {
     RaisePart(part, ground, site);

@@ -552,7 +552,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       bare.BaseColour[channel] = held.GroundAlbedo[channel];
     }
   }
-  constexpr double kSteepestRoof = 0.5;
   constexpr double kRoadAboveM = 1.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
@@ -564,7 +563,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   {
     const Ground::BuildingField &prints = World.Stack.Footprints();
-    const std::vector<float> &soup = prints.Verts();
+    const Raised &built = prints.Built();
     const double *const anchor = prints.Anchor();
     {
       double away = 0.0;
@@ -574,7 +573,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
       Published.Places(
           "buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
-      Published.Places("buildings: floats in the soup", (double)soup.size(), "floats");
+      Published.Places("buildings: floats in the soup",
+                       (double)(built.WallCorners.size() + built.RoofCorners.size()),
+                       "floats");
       Published.Places(
           "buildings: the field's last delta began at", (double)prints.AddedFirst(), "floats");
       Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
@@ -606,27 +607,51 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("buildings: over this many ring vertices", (double)within, "vertices");
       }
     }
-    if (soup.size() >= kTileVertexFloats * 3) {
-      const size_t vertices = soup.size() / kTileVertexFloats;
-      std::vector<float> raised(vertices * 3), facing(vertices * 3);
-      std::vector<uint32_t> run(vertices);
-      for (size_t at = 0; at < vertices; ++at) {
-        const float *const one = soup.data() + at * kTileVertexFloats;
-        const double held[3] = {
-            anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
-        double eastM = 0.0, upM = 0.0, northM = 0.0;
-        standing.Place(held, &eastM, &upM, &northM);
-        raised[at * 3] = (float)eastM;
-        raised[at * 3 + 1] = (float)upM;
-        raised[at * 3 + 2] = (float)(-northM);
-        const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
-        double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
-        standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
-        facing[at * 3] = (float)alongEast;
-        facing[at * 3 + 1] = (float)alongUp;
-        facing[at * 3 + 2] = (float)(-alongNorth);
-        run[at] = (uint32_t)at;
-      }
+    if (built.WallRun.size() + built.RoofRun.size() >= 3) {
+      std::vector<float> wallPlaces, wallFacing, roofPlaces, roofFacing;
+      const auto carry = [&](const std::vector<float> &corners,
+                             std::vector<float> &places,
+                             std::vector<float> &turned) {
+        const size_t count = corners.size() / kTileVertexFloats;
+        places.resize(count * 3);
+        turned.resize(count * 3);
+        for (size_t at = 0; at < count; ++at) {
+          const float *const one = corners.data() + at * kTileVertexFloats;
+          const double held[3] = {
+              anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
+          double eastM = 0.0, upM = 0.0, northM = 0.0;
+          standing.Place(held, &eastM, &upM, &northM);
+          places[at * 3] = (float)eastM;
+          places[at * 3 + 1] = (float)upM;
+          places[at * 3 + 2] = (float)(-northM);
+          const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
+          double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+          standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
+          turned[at * 3] = (float)alongEast;
+          turned[at * 3 + 1] = (float)alongUp;
+          turned[at * 3 + 2] = (float)(-alongNorth);
+        }
+      };
+      carry(built.WallCorners, wallPlaces, wallFacing);
+      carry(built.RoofCorners, roofPlaces, roofFacing);
+      const std::vector<uint32_t> &wallRun = built.WallRun;
+      const std::vector<uint32_t> &roofRun = built.RoofRun;
+      const size_t wallVerts = wallPlaces.size() / 3;
+      const size_t wallTris = wallRun.size() / 3;
+      const size_t vertices = wallVerts + roofPlaces.size() / 3;
+      const size_t triangles = wallTris + roofRun.size() / 3;
+      const auto placeAt = [&](size_t one) {
+        return one < wallVerts ? wallPlaces.data() + one * 3
+                               : roofPlaces.data() + (one - wallVerts) * 3;
+      };
+      const auto turnAt = [&](size_t one) {
+        return one < wallVerts ? wallFacing.data() + one * 3
+                               : roofFacing.data() + (one - wallVerts) * 3;
+      };
+      const auto cornerOf = [&](size_t tri, size_t corner) -> size_t {
+        return tri < wallTris ? wallRun[tri * 3 + corner]
+                              : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
+      };
       Material walls;
       walls.BaseColour[0] = 0.74f;
       walls.BaseColour[1] = 0.71f;
@@ -647,38 +672,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       phaseAt = std::chrono::steady_clock::now();
       const int builtPart = ground.addPart("walls", wallSurface);
       const int roofPart = ground.addPart("roofs", roofSurface);
-      const size_t triangles = raised.size() / 9;
-      size_t walling = 0;
-      {
-        size_t at = 0;
-        for (size_t last = triangles; at < last;) {
-          double aloft = 0.0;
-          for (size_t corner = 0; corner < 3; ++corner) {
-            aloft += facing[at * 9 + corner * 3 + 1];
-          }
-          if (aloft <= 3.0 * kSteepestRoof) {
-            ++at;
-            continue;
-          }
-          --last;
-          if (at == last) { break; }
-          for (size_t one = 0; one < 9; ++one) {
-            std::swap(raised[at * 9 + one], raised[last * 9 + one]);
-            std::swap(facing[at * 9 + one], facing[last * 9 + one]);
-          }
-        }
-        walling = at;
-      }
-      const size_t roofing = triangles - walling;
-      std::vector<uint32_t> roofRun(roofing * 3), wallRun(walling * 3);
-      for (size_t one = 0; one < wallRun.size(); ++one) { wallRun[one] = (uint32_t)one; }
-      for (size_t one = 0; one < roofRun.size(); ++one) { roofRun[one] = (uint32_t)one; }
-      const std::span<const float> wallPlaces(raised.data(), walling * 9);
-      const std::span<const float> wallFacing(facing.data(), walling * 9);
-      const std::span<const float> roofPlaces(raised.data() + walling * 9, roofing * 9);
-      const std::span<const float> roofFacing(facing.data() + walling * 9, roofing * 9);
       Published.Places(
-          "rebuild: of that, partitioning roofs from walls",
+          "rebuild: of that, carrying both parts into the frame",
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
               .count(),
           "ms");
@@ -686,12 +681,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       if (declared.Render.Audits) {
         std::unordered_map<uint64_t, uint32_t> seenAt;
         std::vector<uint32_t> welded;
-        welded.reserve(raised.size() / 3);
+        welded.reserve(vertices);
         size_t coincident = 0;
-        for (size_t one = 0; one + 2 < raised.size(); one += 3) {
-          const int64_t cx = (int64_t)std::llround((double)raised[one] * 100.0);
-          const int64_t cy = (int64_t)std::llround((double)raised[one + 1] * 100.0);
-          const int64_t cz = (int64_t)std::llround((double)raised[one + 2] * 100.0);
+        for (size_t one = 0; one < vertices; ++one) {
+          const float *const held = placeAt(one);
+          const int64_t cx = (int64_t)std::llround((double)held[0] * 100.0);
+          const int64_t cy = (int64_t)std::llround((double)held[1] * 100.0);
+          const int64_t cz = (int64_t)std::llround((double)held[2] * 100.0);
           const uint64_t key = (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^
                                (uint64_t)(cz * 83492791LL);
           const auto found = seenAt.find(key);
@@ -706,8 +702,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         std::unordered_map<uint64_t, int> edges;
         size_t degenerate = 0;
-        for (size_t tri = 0; tri + 2 < welded.size(); tri += 3) {
-          const uint32_t corner[3] = {welded[tri], welded[tri + 1], welded[tri + 2]};
+        for (size_t tri = 0; tri < triangles; ++tri) {
+          const uint32_t corner[3] = {
+              welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]};
           if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
             ++degenerate;
             continue;
@@ -731,16 +728,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         {
           std::unordered_map<uint64_t, uint32_t> whole;
           size_t exact = 0;
-          const size_t corners = raised.size() / 3;
-          for (size_t one = 0; one < corners; ++one) {
+          for (size_t one = 0; one < vertices; ++one) {
             uint64_t key = 1469598103934665603ull;
+            const float *const held = placeAt(one);
+            const float *const aim = turnAt(one);
             for (size_t part = 0; part < 3; ++part) {
-              const uint32_t bits = std::bit_cast<uint32_t>(raised[one * 3 + part]);
-              key = (key ^ bits) * 1099511628211ull;
+              key = (key ^ std::bit_cast<uint32_t>(held[part])) * 1099511628211ull;
             }
             for (size_t part = 0; part < 3; ++part) {
-              const uint32_t bits = std::bit_cast<uint32_t>(facing[one * 3 + part]);
-              key = (key ^ bits) * 1099511628211ull;
+              key = (key ^ std::bit_cast<uint32_t>(aim[part])) * 1099511628211ull;
             }
             if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
             ++exact;
@@ -806,11 +802,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: parts the geometry holds", (double)ground.parts(), "parts");
-      Published.Places("building triangles the world meshed", (double)(vertices / 3), "triangles");
+      Published.Places("building triangles the world meshed", (double)triangles, "triangles");
+      Published.Places("buildings: corners the soup holds", (double)vertices, "corners");
       {
         double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0, inward = 0.0;
-        for (size_t at = 0; at + 2 < vertices * 3; at += 3) {
-          const double x = facing[at], y = facing[at + 1], z = facing[at + 2];
+        for (size_t at = 0; at < vertices; ++at) {
+          const float *const aim = turnAt(at);
+          const double x = aim[0], y = aim[1], z = aim[2];
           const double length = std::sqrt(x * x + y * y + z * z);
           if (!(length > 0.5)) {
             unlengthed += 1.0;
@@ -833,17 +831,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         (void)inward;
       }
       {
-        size_t needles = 0;
-        double longest = 0.0;
-        for (size_t at = 0; at + 8 < raised.size(); at += 9) {
-          const double ax = raised[at], ay = raised[at + 1], az = raised[at + 2];
-          const double bx = raised[at + 3], by = raised[at + 4], bz = raised[at + 5];
-          const double cx = raised[at + 6], cy = raised[at + 7], cz = raised[at + 8];
-          const double ux = bx - ax, uy = by - ay, uz = bz - az;
-          const double vx = cx - ax, vy = cy - ay, vz = cz - az;
+        size_t needles = 0, reaching = 0;
+        double longest = 0.0, furthest = 0.0;
+        for (size_t tri = 0; tri < triangles; ++tri) {
+          const float *const a = placeAt(cornerOf(tri, 0));
+          const float *const b = placeAt(cornerOf(tri, 1));
+          const float *const c = placeAt(cornerOf(tri, 2));
+          const double ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+          const double vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+          const double wx = c[0] - b[0], wy = c[1] - b[1], wz = c[2] - b[2];
           const double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
           const double area = 0.5 * std::sqrt(nx * nx + ny * ny + nz * nz);
-          const double wx = cx - bx, wy = cy - by, wz = cz - bz;
           const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
                                                   vx * vx + vy * vy + vz * vz,
                                                   wx * wx + wy * wy + wz * wz}));
@@ -851,26 +849,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             ++needles;
             longest = edge > longest ? edge : longest;
           }
-        }
-        Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
-        Published.Places("buildings: the longest edge one carries", longest, "m");
-        size_t reaching = 0;
-        double furthest = 0.0;
-        for (size_t at = 0; at + 8 < raised.size(); at += 9) {
-          const double ax = raised[at], ay = raised[at + 1], az = raised[at + 2];
-          const double bx = raised[at + 3], by = raised[at + 4], bz = raised[at + 5];
-          const double cx = raised[at + 6], cy = raised[at + 7], cz = raised[at + 8];
-          const double ux = bx - ax, uy = by - ay, uz = bz - az;
-          const double vx = cx - ax, vy = cy - ay, vz = cz - az;
-          const double wx = cx - bx, wy = cy - by, wz = cz - bz;
-          const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
-                                                  vx * vx + vy * vy + vz * vz,
-                                                  wx * wx + wy * wy + wz * wz}));
           if (edge > 20.0) {
             ++reaching;
             furthest = edge > furthest ? edge : furthest;
           }
         }
+        Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
+        Published.Places("buildings: the longest edge one carries", longest, "m");
         Published.Places("buildings: triangles reaching over 20 m", (double)reaching, "triangles");
         Published.Places("buildings: the furthest any reaches", furthest, "m");
         Published.Places("buildings: roofs the clipper could not cover",
@@ -904,8 +889,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       {
         double least = 1.0e30, most = -1.0e30, nearest = 1.0e30, farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
-          const double up = (double)raised[at * 3 + 1];
-          const double east = (double)raised[at * 3], south = (double)raised[at * 3 + 2];
+          const float *const held = placeAt(at);
+          const double up = (double)held[1];
+          const double east = (double)held[0], south = (double)held[2];
           const double away = std::sqrt(east * east + south * south);
           least = up < least ? up : least;
           most = up > most ? up : most;
