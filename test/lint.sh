@@ -55,7 +55,7 @@ if [ "$found" -lt "$allowed" ]; then
     "$found" "$BASELINE"
 fi
 
-printf '\n== the repository's own rules ==\n'
+printf '\n== the repository rules ==\n'
 # THE CLAIMS ARE A LINTER AND NOT A PROOF. Twelve of them check the BOARD -- an id issued once, an
 # item naming its benchmark, every edge pointing at an item -- and about ten check the HARNESS. No
 # off-the-shelf tool knows what `board/NNNN_*.md` is, so they stay; what stops is their standing in
