@@ -190,6 +190,7 @@ Four architectural commitments. Everything else is a decision an item can revisi
 | `src/` | the library. **The directory IS the dependency tier**, declared in `test/run.sh` and enforced by `--audit-layers`, which also refuses a cycle |
 | `src/generators/` | a library with its own door: a client registers its own beside them, and the tier links with none of the engine behind it |
 | `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora; `harness/` their scorers and the claims; `outshine/` is ours |
+| `src/client/` | the engine through its own door: `build/outshine-client`, and the camera that measures it |
 | `apps/` | the CLIENTS, each a product. **A client is almost no code and its LINE COUNT measures the door**: when a client needs much code the door is the finding, never the client |
 | `board/` | one flat directory of work items — see below |
 | `Makefile` | build · test · clean, and every `make` rewrites `STATE.md` |
@@ -220,10 +221,13 @@ never enters `test/gate.sh`, never becomes a case, and is used surgically rather
 habit. Every instrument also states what it does NOT cover, on the page where it prints, because
 the mistake it guards against is real and was made here: a subject's rate quoted about a world.
 
-**`test/outshine/places/` IS THE TEST AND THE BENCHMARK.** Six real places stand, stream, draw
-and WRITE THEIR PICTURE to `build/places/*.png` beside what each cost and what it holds. A number
-from here always has a picture next to it that can be looked at, which is what the third question
-above asks for.
+**`build/outshine-client` IS THE INSTRUMENT AND `test/outshine/places/` SCORES IT.** The camera
+lives in `src/client`, whose `reaches` names `base` alone -- so it is held to the same door a
+stranger gets. `make shots` stands six real places, streams them, draws them and writes
+`build/shots/<place>-<digest>.png` beside what each cost; the six cases run that same command and
+apply the oracles to its rows. A number from here always has a picture next to it that can be
+looked at, which is what the third question above asks for, and the digest says when a picture
+moved without anyone intending it.
 
 Every case is a scenario with an invariant oracle whose truth does not depend on our design. **A
 tick is only earned when its proof stands AND its negative control goes red** — a control that

@@ -6,23 +6,21 @@
 # supposed to move a picture and moves one says so here, in a line of text, instead of in a memory
 # of what the last frame looked like.
 #
-# The picture itself stays OUT of the tree. It is written to build/places/<place>-<digest>.png,
-# where a changed frame does not overwrite the frame it changed from and the two stand side by side
-# for an eye. Committing the PNGs was considered and refused: a digest-named file is never
-# overwritten, so six 720p frames a commit grow a repository monotonically with exactly the changes
-# this engine is meant to make often.
-#
-# Rewritten by hand when a picture is MEANT to change, which is what makes an unexpected change
-# visible. `sh test/run.sh outshine/places` prints the lines.
+# The picture itself stays OUT of the tree. `build/outshine-client shots` writes
+# build/shots/<place>-<digest>.png, where a changed frame does not overwrite the frame it changed
+# from and the two stand side by side for an eye. Committing the PNGs was considered and refused: a
+# digest-named file is never overwritten, so six 720p frames a commit grow a repository
+# monotonically with exactly the changes this engine is meant to make often.
 #
 # CentralPark's digest is NOT STABLE and the line below is one of its answers rather than its
-# answer. Three runs of one binary gave three pictures -- board:2044, which the digest is what
-# found. Every other place repeats.
+# answer -- board:2044, which the digest is what found. Every other place repeats.
 #
-# place        digest      p50     p95     p99  triangles
-CentralPark                1573ebf8  p50   7.46  p95   9.01  p99  25.00 ms  4400890 triangle(s)
-Heidelberg                 7646c403  p50   2.04  p95   2.51  p99   3.78 ms  1362774 triangle(s)
-Jura                       2aa8f40f  p50   2.59  p95   3.21  p99   4.23 ms  759099 triangle(s)
-OldTown                    e8d3cf71  p50   1.39  p95   1.67  p99   2.42 ms  594104 triangle(s)
-Shibuya                    029dcfdf  p50  11.16  p95  13.38  p99  24.34 ms  9433960 triangle(s)
-Venice                     ca8b6ad4  p50   2.74  p95   2.95  p99   4.08 ms  1549479 triangle(s)
+# Rewritten by hand when a picture is MEANT to change. `make shots` prints the lines.
+#
+# place        digest      p50     p95     p99   over budget   triangles
+CentralPark    12c704b3  p50   7.17  p95   8.12  p99  12.42 ms    0 of 120    3905416 triangle(s)
+Heidelberg     7646c403  p50   1.98  p95   2.25  p99   3.30 ms    0 of 120     979067 triangle(s)
+Jura           2aa8f40f  p50   2.53  p95   3.07  p99   3.86 ms    0 of 120     405592 triangle(s)
+OldTown        e8d3cf71  p50   1.36  p95   1.50  p99   2.33 ms    0 of 120     317377 triangle(s)
+Shibuya        029dcfdf  p50  11.05  p95  12.72  p99  13.79 ms    0 of 120    8789636 triangle(s)
+Venice         ca8b6ad4  p50   2.72  p95   3.04  p99   4.11 ms    0 of 120    1264837 triangle(s)

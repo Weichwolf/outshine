@@ -73,6 +73,20 @@ double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high
   return steps > 0 ? sum / (double)steps : 0.0;
 }
 
+double ControlVariation() {
+  std::vector<std::uint8_t> gradient((std::size_t)kWidePx * (std::size_t)kHighPx * 4u, 255u);
+  for (int y = 0; y < kHighPx; ++y) {
+    const auto shade = (std::uint8_t)(255 * y / (kHighPx - 1));
+    for (int x = 0; x < kWidePx; ++x) {
+      const std::size_t at = ((std::size_t)y * (std::size_t)kWidePx + (std::size_t)x) * 4u;
+      gradient[at] = shade;
+      gradient[at + 1] = shade;
+      gradient[at + 2] = (std::uint8_t)(255 - shade);
+    }
+  }
+  return VariationAlongRows(gradient, kWidePx, kHighPx);
+}
+
 Shot Take(const Place &place, bool tells) {
   Shot shot;
   if (!SDL_Init(SDL_INIT_VIDEO)) {

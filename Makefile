@@ -51,10 +51,10 @@ doc:             ## the door's documentation -> build/doc
 shots: all       ## every place through the camera -> build/shots   (PLACE=Shibuya for one)
 	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
 
-test:            ## the fast gate
+test: all        ## the fast gate
 	@$(RUN)
 
-suite:           ## one named suite   (SUITE=outshine/places)
+suite: all       ## one named suite   (SUITE=outshine/places)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/places))
 	@$(RUN) $(SUITE)
 

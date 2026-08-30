@@ -48,6 +48,12 @@ struct Shot {
 [[nodiscard]] std::span<const Place> Places();
 [[nodiscard]] const Place *PlaceNamed(std::string_view name);
 [[nodiscard]] double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high);
+
+/// The statistic's own negative control: what a bare vertical gradient varies by along its rows.
+/// A picture of nothing IS a vertical gradient, so this must come in far under the bar a real
+/// frame is held to -- and if it ever does not, the bar separates nothing and every green under
+/// it is worthless.
+[[nodiscard]] double ControlVariation();
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
 } // namespace outshine::Shots

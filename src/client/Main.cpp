@@ -43,10 +43,31 @@ void Tell(const Shot &shot, std::string_view name) {
               shot.Kept ? shot.Wrote.c_str() : "NO PICTURE");
 }
 
+/// One line a program can read: every field of a `Shot`, tab separated, in a fixed order. The
+/// human-readable pair above is for an eye; this is for the case that scores it, and having both
+/// means a test and a person drive the SAME command.
+void Row(const Shot &shot, std::string_view name) {
+  std::printf("ROW\t%s\t%s\t%d\t%.4f\t%.4f\t%.4f\t%zu\t%zu\t%zu\t%.0f\t%.0f\t%.4f\t%d\t%s\n",
+              std::string(name).c_str(),
+              shot.Digest.empty() ? "-" : shot.Digest.c_str(),
+              shot.Kept ? 1 : 0,
+              shot.P50Ms,
+              shot.P95Ms,
+              shot.P99Ms,
+              shot.Frames,
+              shot.OverBudget,
+              shot.WorstAt,
+              shot.Triangles,
+              shot.BareTiles,
+              shot.VariationAlongRows,
+              shot.Preloaded ? 1 : 0,
+              shot.Why.empty() ? "-" : shot.Why.c_str());
+}
+
 void Usage() {
   std::printf(
       "outshine-client -- the engine through its own door, from a command line.\n\n"
-      "  shots [--all | <place> ...]      stand each place, draw it, keep the picture\n"
+      "  shots [--rows] [--all | <place>]  stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
       "  run <scenario> [name]            read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
@@ -74,6 +95,12 @@ void Usage() {
 
 int TakeShots(int argc, char **argv) {
   std::vector<const Place *> taking;
+  bool rows = false;
+  while (argc > 0 && std::strcmp(argv[0], "--rows") == 0) {
+    rows = true;
+    --argc;
+    ++argv;
+  }
   if (argc < 1 || std::strcmp(argv[0], "--all") == 0) {
     for (const Place &one : outshine::Shots::Places()) { taking.push_back(&one); }
   } else {
@@ -87,10 +114,15 @@ int TakeShots(int argc, char **argv) {
       taking.push_back(named);
     }
   }
+  std::printf("CONTROL\t%.4f\n", outshine::Shots::ControlVariation());
   int refused = 0;
   for (const Place *const one : taking) {
-    const Shot shot = outshine::Shots::Take(*one, true);
-    Tell(shot, one->Name);
+    const Shot shot = outshine::Shots::Take(*one, !rows);
+    if (rows) {
+      Row(shot, one->Name);
+    } else {
+      Tell(shot, one->Name);
+    }
     refused += shot.Why.empty() && shot.Kept ? 0 : 1;
   }
   return refused == 0 ? 0 : 1;
