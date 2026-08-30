@@ -34,6 +34,23 @@ budget that is supposed to describe the streaming.
 render-side tag together is under 30 KB. Writing eviction for the subject would be writing it where
 the bytes are not.
 
+## THE FIRST THING A CEILING NEEDS IS A NUMBER, and this tree does not have one
+
+`GroundStack::HeapBytes()` was added -- the five fields that know what they hold, summed -- and it
+reads ZERO on Shibuya, two lines above `prints.Built()` returning 17 539 993 corners. So does
+`BuildingField::HeapBytes()` on its own, and so does `buildings: footprints the field holds`, which
+counted 10 459 earlier the same day.
+
+The measure was REMOVED rather than left standing. A number that reads zero beside geometry that
+plainly exists is the eighth measure this session that says something other than its name, and
+shipping it would have been the same fault I spent the day naming in other people's code and my
+own.
+
+**That contradiction is this item's first step**, before any ceiling: a field reports nothing held
+while its own geometry reports seventeen million corners, and until that is understood there is no
+number to bound. The heap tags cannot stand in for it -- `world-ground` measures ALLOCATION through
+a phase, so its 2.38 GB is churn rather than residency.
+
 ## What will be true
 
 - [ ] ONE ceiling is declared for the world's resident set, in bytes, and it is the number a reader
