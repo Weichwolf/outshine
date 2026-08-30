@@ -316,69 +316,44 @@ broken one, and a round that reached it would have called the defect the fix.
 what is being scaled is the same thing on both sides; here it was not, and nothing in the reading
 said so. `coverage_fraction_outshine` was already being printed and answers the question directly.
 
-## THE NEXT ROUND'S FIRST LINES, so it starts from a measurement and not from a memory
+## WHERE IT STANDS, and what the next round does
 
-    0. EVERY CASE STANDS AND RENDERS THROUGH THE DOOR, and what is left is agreement. Standing on
-       the 151 prepared Khronos cases, converted harness against this engine:
+The runner in the tree stands, aims, draws and scores a corpus case through `include/` alone.
+`Drives` is 125 lines, compiles against `-Iinclude` and nothing else, and a case drives in about
+twenty. Measured over the 151 prepared Khronos cases, converted runner against the standing one:
 
-           green                      34
-           picture_p99_delta_code     57
-           plan_passes                19      down from 101 once headless stopped presenting
-           surface identity           17
-           a declared grid moves      10
-           velocity_pixels_moving     10
+    converted   150 green, 1 red -- ABeautifulGame
+    standing    150 green, 1 red -- SpecularTest
 
-       The SAME 151 with the harness still in the tree read 150 green, one red -- SpecularTest,
-       35 codes against a bound of 6.4354338, which fails identically on the engine before this
-       round's changes and is therefore not theirs.
+Case for case, and the two reds are DIFFERENT cases: SpecularTest agrees through the door and did
+not before.
 
-    1. VERIFY THE ASSEMBLY AGAINST A PICTURE, NEVER AGAINST A MEAN. The anchor is
-       `BoxInterleaved -> CHECKS 28 FAILURES 0`, which is what the standing harness reads and what
-       the converted one now reads too. A mean is one number over a frame and agrees with itself
-       in a hundred wrong ways; `picture_p99_delta_code = 0` is the oracle's own picture.
+**THE CAUSES FOUND, in the order they were found, because each was a door defect and not a case's:**
 
-    2. THE 57 ARE A SHADE DIFFERENCE. BoxInterleaved's was reached by giving `SurfaceOverride` a
-       PART key -- a file that names neither its material nor its node had no way to be addressed,
-       which its manifest states plainly and this runner did not read. What the remaining 57 have
-       in common is not yet measured; the first cut is which of them declare `kind` other than
-       `diffuse`, because that arm is the one just proven.
+| what was wrong | what it cost | what it is now |
+|---|---|---|
+| an override could only be keyed by NAME, and a file may carry none | a declared row reached nothing | `SurfaceOverride::Part`, keyed by ordinal as Filament and Unreal both key it |
+| an override left the asset's maps bound under a row that replaced them | a flat emission drawn as `emission x colourTap` | replacing is the default; `KeepsMaps` is Unreal's other verb |
+| the plan asked `file.Materials()` whether the scene carries glass | 21 opaque cases ran two transmissive passes | it asks the resolved slots, which is what draws |
+| a headless frame still ran a present pass | three passes where two suffice | `Surface` is not requested; the readback takes `FrameTex` |
+| every part split its slot, leaving the original worn by nobody | 32 cases refused over a transmissive orphan | only a SHARED slot splits |
+| a bounds sweep posed every frame and RECORDED each | 346.7 px of velocity on a still frame 0 | `Posed::Measures` poses without recording |
+| the residency guessed a ring depth of 3 and a width of one pose | a 128-byte hand refused mid-sequence | one buffer, grown, and `cycle` on the first map of a frame |
+| the door spelled a camera's roll as an ANGLE with no stated convention | a rolled facet sharing 48% of its pixels | `UpM`, which is what `Camera::lookAt` takes |
+| the key light's DIRECTION was never handed over | 19 cases lit from elevation 0, bearing 0 | translated to elevation and bearing at the boundary |
 
-    3. THE ENGINE SIDE IS IN THE TREE, so there is no assembly left to get wrong: the node key,
-       the PART key and the per-part slot split stand in `include/Scenario.h` and `Live::Build`,
-       and a headless plan no longer carries a present pass or the offscreen canvas that received
-       it. The conversion is ONE FILE -- `Parity.cpp` -- and a measurement costs a copy and a
-       build rather than a reassembly of five pieces.
+**WHAT IS NOT DONE.** The goal says the door is finished when the corpus harness enters through
+`include/` alone. The DRIVER does; the SCORER does not -- 22 internal headers, 58 uses of
+`Render::` and 24 of `Gltf::`. Part of that is defensible: a scorer that read the file only
+through the engine's own eyes would be marking its own homework, so it parses the glTF itself.
+Part is not -- `SubjectProxy`, `Surfacing`, `SceneRenderer` and `Compiled` are engine internals
+and a client cannot reach them. **Naming which of the 22 are the scorer's own right and which are
+reaching past the door is the next round's first job**, and the second is closing the ones that
+are reaching.
 
-    1c. VERIFY THE ASSEMBLY BEFORE MEASURING IT. Reassembling the conversion by hand -- engine
-        pieces, driver, harness -- has produced a broken build or a broken result FOUR times in
-        this item, and three of those were read as data before anyone noticed. The fix is one
-        line: render a case whose value is known and refuse to proceed unless it matches.
+**AND THE PREPARED CORPUS IS GONE.** The system's temp cleaner emptied
+`/var/folders/.../outshine-prepared` mid-session: every case reports UNPREPARED, the inputs
+deleted, only this session's outputs left. The 150/151 above is the last reading taken against
+real inputs. **A run measures nothing until `test/harness/shared/corpus/prepare.py` has fetched
+them again**, and a round that starts by reading a number off a run will read zeros.
 
-            expected  BoxInterleaved  LINEAR mean-red = 0.002571654
-            reading it as 0.000000000 means the assembly is wrong, not the engine
-
-        It caught the fifth attempt immediately, which is the first time in this item that a
-        tangled assembly cost a minute instead of a round.
-
-    2. run more than five. MEASURED: with the complete state -- flat rule, node key, per-part
-       slot, roll and projection -- the five representatives read 2 of 5 passing and the corpus
-       reads 81 of 444. 40 per cent against 18: five is not a sample either, it is a slightly
-       larger anecdote. The failure is UNIFORM -- 121 of 148 base cases and 242 of 296 variants,
-       82 per cent in both -- so there is no family to chase, and the next round runs the whole
-       444 after each change and reads the COUNT, which is 12 minutes and the only honest number.
-    3. read the LINEAR mean, not the delta -- a ratio names a factor, a distance names nothing
-    4. rebuild ALL 168 objects after any change to a struct in `include/`, or the crash will look
-       like the feature's fault
-
-The converted harness is at `scratchpad/Parity-durch-die-tuer.cpp`. It needs, and the tree does not
-yet carry: `SurfaceOverride::Node`, the per-part slot split in `Live::Build`, and the harness's own
-model of that split.
-
-That is the next round's work, and it is the last thing between this conversion and the tree.
-
-- [ ] A Khronos case reads a file, places a camera, renders, and compares -- through `include/`
-      alone, and the driving part of it fits on a screen
-- [ ] The scoring stays as long as it needs to be: an EXR oracle, a p99 delta and an acceptance
-      class are the corpus's own work and are not the door's business
-- [ ] `Parity.cpp` names no header outside `include/`, and a claim holds that count at zero
-      proof: the negative control is one internal include, which turns the claim RED
