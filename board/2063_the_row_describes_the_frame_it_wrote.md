@@ -62,11 +62,17 @@ Two things stack, and the second is why the obvious fix does not work.
    `Engine::settled()`'s `World.Bare == 0` -- inert today because the asking pass never counts --
    into a live condition on an artefact. Reverted.
 
-The artefact traced to `TilePool::Poll` (TilePool.cpp:605-609): it ERASES from `Done_` when
-`!done->second.Holds`, so the lay pass consumes what the next frame's asking pass wants to read,
-and the two passes do not see the same world. **Not established:** why `Holds` is false for these
-tiles, and whether a tile is therefore re-meshed every frame. That is the next measurement and it
-is a performance question as much as a correctness one.
+**That hypothesis is now DEAD too.** `TilePool::Poll` does erase from `Done_` when
+`!done->second.Holds`, but `TilePool.cpp:529` sets `result.Holds = true` for every `Rank::Mesh`
+job. A meshed tile is never consumed, it is copied out, and the asking pass finds it again. No
+tile is re-meshed per frame and the two passes do read the same map.
+
+So three explanations have been measured and all three fell: the round (the ledger reports no
+clash and preload's clashes are cleared unseen -- board:2067), the asking pass's own counting
+(tried, reverted, still 128 of 128), and the pool consuming its results. What is left is the only
+branch not yet instrumented: `TileMeshes::Reply::Ready` returned together with an EMPTY
+`built.Verts`, which `GroundPatchwork.cpp:179` also counts as bare. `terrain 128/128` says the DEM
+arrived; whether `RunMesh` produced a mesh from it is the number nobody has taken.
 
 ## What the two runs actually say, now that the cases can speak
 
