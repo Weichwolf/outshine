@@ -174,6 +174,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   if (corners) { corners->clear(); }
   if (ring.Count == 0) { return GroundSample::Missing(); }
   double lowest = 1.0e9;
+  int coarsest = 0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const GroundSample g =
         ground.At(pts[((size_t)ring.First + k) * 2], pts[((size_t)ring.First + k) * 2 + 1]);
@@ -181,8 +182,9 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
     if (!g.TryAslM(&aslM)) { return g; }
     if (corners) { corners->push_back(aslM); }
     lowest = std::min(lowest, aslM);
+    coarsest = std::max(coarsest, g.CoarseBy());
   }
-  return GroundSample::At(lowest);
+  return GroundSample::At(lowest).Coarser(coarsest);
 }
 
 bool BuildingField::TileGroundResolved(
@@ -194,9 +196,8 @@ bool BuildingField::TileGroundResolved(
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
-      if (RingBase(ground, field, ring, nullptr).Where() == GroundSample::State::Pending) {
-        return false;
-      }
+      const GroundSample base = RingBase(ground, field, ring, nullptr);
+      if (base.Where() == GroundSample::State::Pending || base.CoarseBy() > 0) { return false; }
     }
   }
   return true;
@@ -223,7 +224,7 @@ int BuildingField::Build(const GroundQuery &ground,
   const uint32_t firstPrint = (uint32_t)Prints_.size();
   int added = 0;
 
-  const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
+  const TileWatermark::Next next = Mark_.Ask(feats, field.Tiles(), [&](size_t from, size_t to) {
     return TileGroundResolved(ground, field, from, to, layer);
   });
   if (!next.Found) { return (int)Prints_.size(); }

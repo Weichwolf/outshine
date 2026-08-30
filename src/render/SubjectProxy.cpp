@@ -440,6 +440,7 @@ bool Show(SceneRenderer &renderer,
 }
 
 std::atomic<double> gPackMs{0.0};
+std::atomic<unsigned long long> gGeometryDigest{0};
 std::atomic<double> gHandMs{0.0};
 
 double PackedMs() {
@@ -448,6 +449,10 @@ double PackedMs() {
 
 double HandedMs() {
   return gHandMs.load(std::memory_order_relaxed);
+}
+
+double HandedGeometryDigest() {
+  return (double)(gGeometryDigest.load(std::memory_order_relaxed) & 0xffffffffffffull);
 }
 
 bool Place(SceneRenderer &renderer,
@@ -512,6 +517,21 @@ bool Place(SceneRenderer &renderer,
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
+  {
+    unsigned long long digest = 1469598103934665603ull;
+    const auto eat = [&digest](const void *from, size_t bytes) {
+      const auto *at = static_cast<const unsigned char *>(from);
+      for (size_t one = 0; one < bytes; ++one) { digest = (digest ^ at[one]) * 1099511628211ull; }
+    };
+    eat(scratch.Indices.data(), scratch.Indices.size() * sizeof(uint32_t));
+    for (const ShapePart &one : subject.Parts) {
+      for (const std::span<const float> run :
+           {one.PositionsM, one.Normals, one.Tangents, one.Uv, one.Uv1, one.Colours}) {
+        eat(run.data(), run.size() * sizeof(float));
+      }
+    }
+    gGeometryDigest.store(digest, std::memory_order_relaxed);
+  }
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;

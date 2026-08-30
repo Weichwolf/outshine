@@ -127,7 +127,9 @@ struct SubjectScratch {
                            SubjectScratch &scratch,
                            std::string &error);
 
-[[nodiscard]] [[nodiscard]] double PackedMs();
+[[nodiscard]] double PackedMs();
+
+[[nodiscard]] double HandedGeometryDigest();
 [[nodiscard]] double HandedMs();
 
 bool Place(SceneRenderer &renderer,

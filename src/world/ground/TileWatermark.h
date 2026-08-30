@@ -20,20 +20,32 @@ public:
   };
 
   template <typename Consumable>
-  Next Ask(std::span<const OsmField::Feature> feats, Consumable consumable) {
-    Next next;
+  Next Ask(std::span<const OsmField::Feature> feats,
+           std::span<const OsmField::Tile> tiles,
+           Consumable consumable) {
+    Candidates_.clear();
     size_t at = Mark_;
     while (at < feats.size()) {
       const uint32_t tile = feats[at].Tile;
       size_t end = at;
       while (end < feats.size() && feats[end].Tile == tile) { end++; }
-      if (!Taken(tile)) {
-        if (consumable(at, end)) { return Next{at, end, tile, true}; }
-        Deferrals_++;
-      }
+      if (!Taken(tile)) { Candidates_.push_back(Next{at, end, tile, true}); }
       at = end;
     }
-    return next;
+    const auto key = [tiles](const Next &one) {
+      if (one.Tile >= tiles.size()) { return (unsigned long long)one.Tile; }
+      const OsmField::Tile &which = tiles[one.Tile];
+      return ((unsigned long long)(uint32_t)which.Z << 56) ^
+             ((unsigned long long)(uint32_t)which.X << 28) ^ (unsigned long long)(uint32_t)which.Y;
+    };
+    std::sort(Candidates_.begin(), Candidates_.end(), [&key](const Next &a, const Next &b) {
+      return key(a) < key(b);
+    });
+    for (const Next &one : Candidates_) {
+      if (consumable(one.From, one.To)) { return one; }
+      Deferrals_++;
+    }
+    return Next{};
   }
 
   [[nodiscard]] size_t Takes() const { return Takes_; }
@@ -68,6 +80,7 @@ private:
 
   std::vector<uint32_t> Ahead_;
   size_t Mark_ = 0;
+  std::vector<Next> Candidates_;
   size_t Takes_ = 0;
   int Deferrals_ = 0;
 };

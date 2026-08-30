@@ -45,21 +45,50 @@ late.
 `std::vector`s appended as tiles ARRIVE, and `BuildingField::Build` walks them in that order. Thread
 scheduling therefore decides the vertex order of an entire city.
 
-## The two shapes a fix can take, and the choice is a DESIGN one
+## THREE SOURCES, TWO CLOSED, AND THE THIRD IS THIS TREE'S OWN CULL
 
-**Ingest in KEY order rather than arrival order.** Deterministic, and it costs a reorder buffer: a
-tile that arrives early waits for its lower-keyed neighbours. During a PRELOAD that is free, because
-the client is waiting anyway and the owner has already said the initial stand must be complete from
-far to near. While streaming WARM it is not free -- it would hold back geometry that could already
-be drawn.
+**One: tiles were ingested in ARRIVAL order.** `OsmField` appends as tiles land and the consumers
+walked that order, so thread scheduling decided the vertex order of a city. `TileWatermark::Ask`
+now picks the consumable tile with the smallest KEY instead of the first to arrive. Closed.
 
-**So the likely answer is BOTH, split by phase**: key order while preloading, arrival order once
-warm, and the digest is only claimed to repeat for a preloaded stand. That has to be decided
-rather than assumed, which is why this item stops here instead of guessing.
+**Two: a building's base was sampled from whatever ground was resident.** `GroundStream::Resident`
+answers from the fine tile when it is there and otherwise from a COARSER ancestor, marking the
+sample `Coarser(n)` -- and the guard only refused a `Pending` one. So a building meshed while the
+coarse tile stood got a coarse base, and whether that happened was a race. It refuses a coarse
+sample now, which costs nothing: the preload already waits for every tile. Closed, and it is the
+owner's older report -- *ready must be ready at the correct LOD* -- found by measurement.
+
+**Together they made the WORLD deterministic**, and a new measure proves it rather than asserting
+it: `restand: the geometry handed over, digested` is an FNV-1a over the packed index run and every
+channel of every part. Six consecutive runs of Central Park answer one digest.
+
+**Three: THE CULL'S COMPACTION IS ORDERED BY THE GPU.** With the world identical the picture still
+moved, and the control is decisive -- disabling the indirect draw gave SIX identical pictures.
+`subjectCull.msl` hands each surviving cluster its slot with `atomic_fetch_add`, so the compacted
+index run is in the order the atomics fired. Where two surfaces coincide the depth test resolves
+the tie by arrival, and Manhattan has many.
+
+## The fix, designed
+
+A PREFIX SUM, which is what makes a survivor's destination a function of its INDEX rather than of
+when its atomic fired. Three dispatches:
+
+    1  cull      one thread per cluster: test, write `Kept[job] = kept ? count : 0`
+    2  scan      one thread per BATCH, serial exclusive prefix over that batch's jobs -> `At[job]`,
+                 and the batch's total into `num_indices`
+    3  compact   one threadgroup per job, copy to `base + At[job]`
+
+The scan is serial per batch and that is affordable: about 74 000 dependent adds is roughly 74 us
+on one lane, and the batches run in parallel. A multi-level scan buys nothing at this size and
+costs a kernel.
+
+**Nanite does this and so does every GPU compaction that has to repeat.** An atomic gives the right
+COUNT and never the right ORDER.
 
 ## What will be true
 
-- [ ] Central Park AND the Jura each answer ONE digest over ten consecutive runs
+- [x] the Jura answers one digest over ten runs; the geometry digest repeats everywhere
+- [ ] Central Park answers ONE picture over ten consecutive runs -- the scan above is what is left
 - [ ] `test/outshine/places/pictures.txt` carries every place's digest with no exception beside it
 - [ ] whatever the cause is, it is named in the commit that fixes it, because a non-deterministic
       picture is a non-deterministic SIMULATION and the picture is only where it became visible

@@ -1203,6 +1203,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
+  Published.Places(
+      "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");
   Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
   Published.Places("rebuild: uploads the residency made",
                    (double)Render::SubjectResidency::UploadsTaken(),
