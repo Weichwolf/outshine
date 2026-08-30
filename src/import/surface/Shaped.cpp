@@ -9,7 +9,7 @@ template <typename T>
   return std::span<const T>(whole.data() + from, count);
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -119,7 +119,7 @@ Render::Shape Viewed(Render::ShapeStore &into) {
   return out;
 }
 
-}
+} // namespace
 
 Render::Shape Shaped(const Subject &from, Render::ShapeStore &into) {
   into.Clear();
@@ -141,4 +141,4 @@ Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &
   return Viewed(into);
 }
 
-}
+} // namespace outshine::Gltf

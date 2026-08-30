@@ -44,7 +44,7 @@ uint64_t RequestKey(const std::string &key) {
   return ((uint64_t)3 << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
 
-}
+} // namespace
 
 TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
     : Sources_(sources),
@@ -355,7 +355,7 @@ private:
   TilePool &Pool_;
 };
 
-}
+} // namespace
 
 namespace {
 
@@ -376,7 +376,7 @@ enum class Miss { None, Hole, Wait, Refused };
   return Miss::Refused;
 }
 
-}
+} // namespace
 
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
@@ -697,4 +697,4 @@ bool TilePool::Known(uint64_t key) {
   return Done_.find(key) != Done_.end() || Posted_.find(key) != Posted_.end();
 }
 
-}
+} // namespace outshine::Ground

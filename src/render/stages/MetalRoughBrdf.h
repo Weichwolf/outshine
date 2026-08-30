@@ -130,5 +130,5 @@ struct BrdfGeometry {
   return MetalRoughBrdfMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 #endif

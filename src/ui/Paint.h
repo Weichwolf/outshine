@@ -46,5 +46,5 @@ private:
   size_t Beyond_ = 0;
 };
 
-}
+} // namespace outshine::Ui
 #endif

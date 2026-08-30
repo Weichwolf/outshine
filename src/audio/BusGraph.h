@@ -50,5 +50,5 @@ private:
   size_t Voices_ = 0;
 };
 
-}
+} // namespace outshine::Audio
 #endif

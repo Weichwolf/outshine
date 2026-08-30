@@ -25,7 +25,7 @@ size_t Write(void *data, size_t size, size_t members, void *user) {
   return add;
 }
 
-}
+} // namespace
 
 Fetching::Fetching(const Config &config) : Config_(config) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -160,4 +160,4 @@ void Fetching::Work() {
   if (handle) { curl_easy_cleanup(handle); }
 }
 
-}
+} // namespace outshine

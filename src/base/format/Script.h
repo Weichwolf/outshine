@@ -128,5 +128,5 @@ private:
   std::string Stopped_;
 };
 
-}
+} // namespace outshine::Script
 #endif

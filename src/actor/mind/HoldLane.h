@@ -27,6 +27,6 @@ private:
   Pilot::Demand Asked_;
 };
 
-}
+} // namespace outshine::Control
 
 #endif

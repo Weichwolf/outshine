@@ -31,4 +31,4 @@ Cover Ground::CoverAt(double eastM, double northM) const noexcept {
   return Cover::Of(row, (float)edgeM, runnerUp);
 }
 
-}
+} // namespace outshine::Generators

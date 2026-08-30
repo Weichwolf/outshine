@@ -35,7 +35,7 @@ constexpr std::array<Place, 6> kPlaces{{
     {"Jura", 47.2492, 7.5108, 156.53},
 }};
 
-}
+} // namespace
 
 std::span<const Place> Places() {
   return kPlaces;
@@ -237,4 +237,4 @@ Shot Draw(Engine &engine, std::string_view name, bool tells) {
   return shot;
 }
 
-}
+} // namespace outshine::Shots

@@ -56,5 +56,5 @@ private:
   int Rate_ = 48000;
 };
 
-}
+} // namespace outshine::Audio
 #endif

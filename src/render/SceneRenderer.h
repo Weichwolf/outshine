@@ -402,5 +402,5 @@ private:
   float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
-}
+} // namespace outshine::Render
 #endif

@@ -11,5 +11,5 @@ void CurveKnots(
 void CatmullRomTangents(
     const double *knots, size_t count, const double *values, size_t components, double *triplesOut);
 
-}
+} // namespace outshine
 #endif

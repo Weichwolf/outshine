@@ -129,4 +129,4 @@ bool Transform::Inverse(Transform &out) const {
   return true;
 }
 
-}
+} // namespace outshine::Gltf

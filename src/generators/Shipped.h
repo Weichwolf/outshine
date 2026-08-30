@@ -34,5 +34,5 @@ private:
   DrawSet Drawing_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

@@ -57,7 +57,7 @@ const char *KindName(SurfaceKind kind) {
   return "an undeclared surface";
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -110,7 +110,7 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device,
   return ShaderFrom(device, source, entry, stage, SubjectDraw::ShaderShape);
 }
 
-}
+} // namespace
 
 const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
   const bool textured = CarriesUv(layout);
@@ -972,4 +972,4 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   }
 }
 
-}
+} // namespace outshine::Render

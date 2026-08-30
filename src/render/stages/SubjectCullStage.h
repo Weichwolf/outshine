@@ -33,5 +33,5 @@ private:
   uint32_t Swept_ = 0;
 };
 
-}
+} // namespace outshine::Render
 #endif

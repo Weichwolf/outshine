@@ -26,7 +26,7 @@ std::string Kernel(std::string &error) {
   return MslPrelude(error) + declared + core + body;
 }
 
-}
+} // namespace
 
 bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
   if (Lut != lut) { Settled_ = false; }
@@ -88,4 +88,4 @@ std::string MediumTransmittanceStage::KernelSource(std::string &error) {
   return Kernel(error);
 }
 
-}
+} // namespace outshine::Render

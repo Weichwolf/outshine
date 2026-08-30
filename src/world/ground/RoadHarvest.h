@@ -47,6 +47,6 @@ struct Reaped {
                           double bodyWidthM,
                           Path::Network &into);
 
-}
+} // namespace outshine::Ground
 
 #endif

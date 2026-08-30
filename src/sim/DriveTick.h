@@ -121,6 +121,6 @@ struct DriveState {
                                       double dtS,
                                       const Taken *taken);
 
-}
+} // namespace outshine::Sim
 
 #endif

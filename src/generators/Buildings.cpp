@@ -98,4 +98,4 @@ bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out)
   return true;
 }
 
-}
+} // namespace outshine::Generators

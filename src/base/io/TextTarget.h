@@ -29,5 +29,5 @@ private:
   std::FILE *File_ = nullptr;
 };
 
-}
+} // namespace outshine
 #endif

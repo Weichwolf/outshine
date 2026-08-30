@@ -130,4 +130,4 @@ bool GroundStack::Ingested() const {
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
-}
+} // namespace outshine::Ground

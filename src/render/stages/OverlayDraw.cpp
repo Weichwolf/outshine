@@ -211,4 +211,4 @@ std::string OverlayDraw::ShaderSource(std::string &error) {
   return MslPrelude(error) + body;
 }
 
-}
+} // namespace outshine::Render

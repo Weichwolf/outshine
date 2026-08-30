@@ -37,5 +37,5 @@ private:
   size_t Standing_ = 0;
 };
 
-}
+} // namespace outshine::Core
 #endif

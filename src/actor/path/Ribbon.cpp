@@ -16,7 +16,7 @@ void Put(std::vector<float> &into, double a, double b, double c) {
   into.push_back((float)c);
 }
 
-}
+} // namespace
 
 Ribbon
 Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM) {
@@ -176,4 +176,4 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
   return out;
 }
 
-}
+} // namespace outshine

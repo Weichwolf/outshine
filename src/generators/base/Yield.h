@@ -47,5 +47,5 @@ private:
   uint32_t Claims_[Claim::kOutcomes] = {0, 0, 0, 0};
 };
 
-}
+} // namespace outshine::Generators
 #endif

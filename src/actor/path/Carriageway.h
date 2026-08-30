@@ -23,6 +23,6 @@ struct Astride {
 [[nodiscard]] Astride
 StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM);
 
-}
+} // namespace outshine
 
 #endif

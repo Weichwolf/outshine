@@ -48,5 +48,5 @@ private:
   double RetryAfterS_ = 0.0;
 };
 
-}
+} // namespace outshine::Data
 #endif

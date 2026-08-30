@@ -14,5 +14,5 @@ public:
   void Cancel(Data::Ticket) override {}
 };
 
-}
+} // namespace outshine
 #endif

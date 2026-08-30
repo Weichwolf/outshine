@@ -70,4 +70,4 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
   return false;
 }
 
-}
+} // namespace outshine::Core

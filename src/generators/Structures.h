@@ -12,6 +12,6 @@ public:
   [[nodiscard]] bool make(const Ask &ask, Geometry &into) const override;
 };
 
-}
+} // namespace outshine::Generators
 
 #endif

@@ -41,4 +41,4 @@ void CookTile(const float *soup,
   }
 }
 
-}
+} // namespace outshine::Ground

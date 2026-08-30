@@ -36,6 +36,6 @@ struct Demand {
                           double speedMs,
                           double wantedMs);
 
-}
+} // namespace outshine::Pilot
 
 #endif

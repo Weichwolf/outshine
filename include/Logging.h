@@ -31,6 +31,6 @@ public:
                      std::span<const LogField> fields) = 0;
 };
 
-}
+} // namespace outshine
 
 #endif

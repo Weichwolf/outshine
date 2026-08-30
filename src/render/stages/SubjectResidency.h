@@ -115,6 +115,6 @@ private:
   uint32_t BulkBytes_ = 0;
 };
 
-}
+} // namespace outshine::Render
 
 #endif

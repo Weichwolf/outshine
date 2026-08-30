@@ -18,5 +18,5 @@ public:
   static size_t Sample();
 };
 
-}
+} // namespace outshine
 #endif

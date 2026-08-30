@@ -61,5 +61,5 @@ private:
   double AnchorEcef_[3];
 };
 
-}
+} // namespace outshine::Generators
 #endif

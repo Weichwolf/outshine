@@ -18,7 +18,7 @@ uint64_t TileKey(int x, int y) {
   return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
 }
 
-}
+} // namespace
 
 OsmField::OsmField(int zoom, std::span<const std::string> layers)
     : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
@@ -241,4 +241,4 @@ std::string_view OsmField::Str(const Feature &f, const char *key) const {
   return {};
 }
 
-}
+} // namespace outshine::Ground

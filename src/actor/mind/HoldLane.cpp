@@ -11,4 +11,4 @@ Doing HoldsLane::Act(double) {
   return Asked_.AtEnd ? Doing::Done : Doing::Running;
 }
 
-}
+} // namespace outshine::Control

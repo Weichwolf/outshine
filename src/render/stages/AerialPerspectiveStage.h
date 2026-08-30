@@ -76,5 +76,5 @@ private:
   bool Declared_ = false;
 };
 
-}
+} // namespace outshine::Render
 #endif

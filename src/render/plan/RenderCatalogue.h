@@ -704,5 +704,5 @@ static_assert(TopologicalOrderHolds(),
 static_assert(EveryFusionIsAdjacentAndFed(),
               "a declared fusion names the next stage and that stage reads what this one writes");
 
-}
+} // namespace outshine::Render
 #endif

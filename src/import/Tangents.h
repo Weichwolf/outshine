@@ -19,5 +19,5 @@ struct TangentSubject {
 [[nodiscard]] bool
 GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error);
 
-}
+} // namespace outshine::Gltf
 #endif

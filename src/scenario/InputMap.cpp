@@ -35,7 +35,7 @@ static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay 
   return all;
 }
 
-}
+} // namespace
 
 size_t InputMap::Events() {
   return kEventCount;
@@ -118,4 +118,4 @@ size_t InputMap::BoundTo(std::string_view action) const {
   return bound;
 }
 
-}
+} // namespace outshine

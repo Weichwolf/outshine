@@ -137,5 +137,5 @@ private:
   int SettleFrames_ = 1;
 };
 
-}
+} // namespace outshine::Render
 #endif

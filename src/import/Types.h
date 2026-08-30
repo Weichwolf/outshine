@@ -320,5 +320,5 @@ enum class CarriedUvSets { FirstOnly, Both };
                            UvSet &out,
                            std::string &why);
 
-}
+} // namespace outshine::Gltf
 #endif

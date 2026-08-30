@@ -35,7 +35,7 @@ void PlanesOf(const float mvp[16], float out[24]) {
   }
 }
 
-}
+} // namespace
 
 bool SubjectCullStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
@@ -105,4 +105,4 @@ std::string SubjectCullStage::KernelSource(std::string &error) {
   return Kernel(error);
 }
 
-}
+} // namespace outshine::Render

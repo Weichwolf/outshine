@@ -24,5 +24,5 @@ namespace outshine {
                               std::vector<std::string> &trace,
                               std::string &error);
 
-}
+} // namespace outshine
 #endif

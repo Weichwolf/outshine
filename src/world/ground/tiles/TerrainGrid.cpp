@@ -58,4 +58,4 @@ TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, 
   return mesh;
 }
 
-}
+} // namespace outshine::Ground

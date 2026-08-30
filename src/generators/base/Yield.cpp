@@ -21,4 +21,4 @@ Claim Yield::Place(const Body &body) noexcept {
   return claim;
 }
 
-}
+} // namespace outshine::Generators

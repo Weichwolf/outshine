@@ -23,5 +23,5 @@ public:
   static const char *Name(Purpose purpose);
 };
 
-}
+} // namespace outshine
 #endif

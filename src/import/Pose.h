@@ -77,5 +77,5 @@ private:
   double StartS_ = 0, EndS_ = 0;
 };
 
-}
+} // namespace outshine::Gltf
 #endif

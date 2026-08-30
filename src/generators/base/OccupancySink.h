@@ -49,5 +49,5 @@ private:
   float MaxRadiusM_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

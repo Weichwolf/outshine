@@ -82,7 +82,7 @@ static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == (size_t)Family::kCount,
   return std::string(from.substr(first, last - first));
 }
 
-}
+} // namespace
 
 Family FamilyNamed(std::string_view declared) {
   size_t at = 0;
@@ -270,4 +270,4 @@ Glyph Typeface::Shape(char32_t code, double sizePx, Family family) const {
   return glyph;
 }
 
-}
+} // namespace outshine::Ui

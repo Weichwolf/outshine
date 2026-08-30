@@ -27,6 +27,6 @@ struct Measure {
   std::string Unit;
 };
 
-}
+} // namespace outshine
 
 #endif

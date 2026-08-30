@@ -22,5 +22,5 @@ public:
   void Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept override;
 };
 
-}
+} // namespace outshine::Generators
 #endif

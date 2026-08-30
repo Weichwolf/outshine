@@ -24,7 +24,7 @@ std::atomic<size_t> gFootless{0};
 std::atomic<size_t> gPlinthSteps{0};
 std::atomic<size_t> gFloorRim{0};
 std::atomic<size_t> gOverBudget{0};
-}
+} // namespace
 
 size_t BuildingMesh::BuriedTaken() {
   return gBuried.exchange(0u);
@@ -874,7 +874,7 @@ void Pavement(const BuildingShape &s,
   }
 }
 
-}
+} // namespace
 
 void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept {
   if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
@@ -889,4 +889,4 @@ void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) con
   }
 }
 
-}
+} // namespace outshine::Generators

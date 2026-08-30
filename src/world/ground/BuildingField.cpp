@@ -162,7 +162,7 @@ Frontage NearestStreet(const OsmField &field,
   return out;
 }
 
-}
+} // namespace
 
 GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                      const OsmField &field,
@@ -307,4 +307,4 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   Mesher_->Mesh(plan, Verts_);
 }
 
-}
+} // namespace outshine::Ground

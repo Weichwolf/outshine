@@ -212,4 +212,4 @@ const Camera &Loaded::camera(void) const {
   return Held_->Eye;
 }
 
-}
+} // namespace outshine

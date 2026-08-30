@@ -146,5 +146,5 @@ private:
   uint32_t Extent_ = 0;
 };
 
-}
+} // namespace outshine::Ground
 #endif

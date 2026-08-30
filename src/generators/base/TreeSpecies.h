@@ -115,5 +115,5 @@ private:
   float Lai_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

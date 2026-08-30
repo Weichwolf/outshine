@@ -70,5 +70,5 @@ inline void Mat4LookAt(float *m, const float *eye, const float *ctr, const float
   m[14] = (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]);
 }
 
-}
+} // namespace outshine
 #endif

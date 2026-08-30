@@ -111,6 +111,6 @@ static_assert(AsideRatePerM(0.7195, 30.0).value() > 0.0, "which is positive");
                                Corridor &out,
                                std::string &error);
 
-}
+} // namespace outshine::Sim
 
 #endif

@@ -93,4 +93,4 @@ float LeafAngleDistribution::Fit(float sinEl) const {
   return G0_ + G1_ * std::pow(s, Gp_);
 }
 
-}
+} // namespace outshine::Generators

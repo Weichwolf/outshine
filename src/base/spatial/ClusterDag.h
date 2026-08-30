@@ -117,5 +117,5 @@ DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau, const 
          DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
 }
 
-}
+} // namespace outshine
 #endif

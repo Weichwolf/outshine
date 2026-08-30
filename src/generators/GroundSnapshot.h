@@ -40,6 +40,6 @@ struct Fields {
 [[nodiscard]] std::shared_ptr<const GroundTable>
 TableOf(const outshine::Ground::VegetationTemplates &templates);
 
-}
+} // namespace outshine::Generators
 
 #endif

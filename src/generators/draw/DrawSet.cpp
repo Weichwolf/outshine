@@ -27,4 +27,4 @@ void DrawSet::Draw(const Ground &ground,
   }
 }
 
-}
+} // namespace outshine::Generators

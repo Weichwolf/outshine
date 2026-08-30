@@ -129,4 +129,4 @@ bool GroundMaterials::Load(const char *path) {
   return true;
 }
 
-}
+} // namespace outshine::Ground

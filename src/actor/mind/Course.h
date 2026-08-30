@@ -44,6 +44,6 @@ struct Sighting {
 [[nodiscard]] Sighting
 Sight(const ReferenceLine &along, const Where &from, double chordM, double asideM = 0.0);
 
-}
+} // namespace outshine::Pilot
 
 #endif

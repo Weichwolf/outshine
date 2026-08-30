@@ -169,7 +169,7 @@ void Refine(std::vector<En> &tris, int passes) {
   }
 }
 
-}
+} // namespace
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
@@ -362,4 +362,4 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
   return out;
 }
 
-}
+} // namespace outshine::Generators

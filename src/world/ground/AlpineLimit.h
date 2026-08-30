@@ -50,5 +50,5 @@ private:
   bool Ready_ = false;
 };
 
-}
+} // namespace outshine
 #endif

@@ -84,5 +84,5 @@ private:
   double AtS_ = 0.0;
 };
 
-}
+} // namespace outshine::Core
 #endif

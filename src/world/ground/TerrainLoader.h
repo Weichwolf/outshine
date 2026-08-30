@@ -12,7 +12,7 @@
 namespace outshine::Data {
 class SourceSet;
 class Transport;
-}
+} // namespace outshine::Data
 
 namespace outshine::Ground {
 
@@ -100,6 +100,6 @@ private:
 [[nodiscard]] TilePool::Config
 GroundPoolConfig(double lat, double lon, int workers = 0, double patienceS = 0.0);
 
-}
+} // namespace outshine::Ground
 
 #endif

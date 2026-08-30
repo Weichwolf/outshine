@@ -59,5 +59,5 @@ private:
   Answer Answer_;
 };
 
-}
+} // namespace outshine::Data
 #endif

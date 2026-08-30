@@ -45,5 +45,5 @@ static_assert(offsetof(ChunkVtx, pos) == 0, "aPos offset");
 static_assert(offsetof(ChunkVtx, uv) == 12, "aUV offset");
 static_assert(offsetof(ChunkVtx, norm) == 20, "aNorm offset");
 
-}
+} // namespace outshine
 #endif

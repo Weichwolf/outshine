@@ -39,5 +39,5 @@ private:
   const BuildingShape &Shape_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

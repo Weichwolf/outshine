@@ -26,5 +26,5 @@ public:
   virtual double VisibilityM(double latDeg, double lonDeg) const = 0;
 };
 
-}
+} // namespace outshine
 #endif

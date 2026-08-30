@@ -37,7 +37,7 @@ namespace outshine::Sim {
 namespace {
 constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
-}
+} // namespace
 
 bool AssembleDrive(const Scene &scene,
                    const Assembled &cast,
@@ -336,4 +336,4 @@ bool AssembleDrive(const Scene &scene,
   out.Ready = true;
   return true;
 }
-}
+} // namespace outshine::Sim

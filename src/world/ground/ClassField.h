@@ -142,5 +142,5 @@ private:
   long Submits_[2] = {0, 0};
 };
 
-}
+} // namespace outshine::Ground
 #endif

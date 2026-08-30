@@ -36,7 +36,7 @@ Numbered(const Setting &attribute, const std::string &on, double &value, std::st
   return true;
 }
 
-}
+} // namespace
 
 bool Assemble(const Scenario &declared,
               Scene &into,
@@ -248,4 +248,4 @@ bool Assemble(const Scenario &declared,
   return true;
 }
 
-}
+} // namespace outshine

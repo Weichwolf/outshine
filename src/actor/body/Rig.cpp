@@ -110,4 +110,4 @@ void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensi
   }
 }
 
-}
+} // namespace outshine::Physics

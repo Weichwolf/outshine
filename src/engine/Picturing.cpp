@@ -31,7 +31,7 @@ private:
   std::vector<Surrounds::Standing> *Into_;
 };
 
-}
+} // namespace
 
 bool Engine::State::Grows(double atLat, double atLon) {
   Published.Places("generators: bodies already placed", (double)World.Placed, "bodies");
@@ -1587,4 +1587,4 @@ bool Engine::saveScreenshot(std::string_view path) {
   return S_->Picture.Standing->Screenshot(std::string(path), S_->Error);
 }
 
-}
+} // namespace outshine

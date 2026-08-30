@@ -17,7 +17,7 @@ constexpr double kShoreToleranceM = 5.0;
 
 constexpr double kLiftM = 0.15;
 
-}
+} // namespace
 
 bool WaterField::TileGroundResolved(const GroundQuery &ground,
                                     const OsmField &field,
@@ -302,4 +302,4 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
   }
 }
 
-}
+} // namespace outshine::Ground

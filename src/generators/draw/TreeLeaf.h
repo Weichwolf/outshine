@@ -12,5 +12,5 @@ public:
   static void Build(const TreeSpecies::Leaf &leaf, TreeMesh &out);
 };
 
-}
+} // namespace outshine::Generators
 #endif

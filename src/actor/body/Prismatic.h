@@ -23,6 +23,6 @@ struct Reaction {
 
 [[nodiscard]] double PressedForM(const Prismatic &joint, double loadN);
 
-}
+} // namespace outshine::Physics
 
 #endif

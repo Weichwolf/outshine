@@ -18,4 +18,4 @@ bool ParticipatingMediumMsl(std::string &into, std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine::Render

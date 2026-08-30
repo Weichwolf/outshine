@@ -10,7 +10,7 @@ constexpr size_t kMostDoors = 256;
 constexpr size_t kMostStandings = 256;
 constexpr size_t kMostFired = 256;
 
-}
+} // namespace
 
 std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Volume> volumes,
                                                              std::span<const Event> events) {
@@ -180,4 +180,4 @@ size_t TriggerField::Unheard(std::string_view event) const {
   return 0;
 }
 
-}
+} // namespace outshine

@@ -111,7 +111,7 @@ void Unit(double v[3]) {
   }
 }
 
-}
+} // namespace
 
 void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   double ahead[3] = {aheadM[0], aheadM[1], aheadM[2]};
@@ -158,4 +158,4 @@ void Lie(Rigid &body, const double aheadM[3], const double upM[3]) {
   for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
 }
 
-}
+} // namespace outshine::Physics

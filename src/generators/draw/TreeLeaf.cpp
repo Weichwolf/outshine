@@ -238,7 +238,7 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
-}
+} // namespace
 
 void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   out.LeafVerts.clear();
@@ -253,4 +253,4 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   }
 }
 
-}
+} // namespace outshine::Generators

@@ -62,4 +62,4 @@ void Keyframes::At(double abscissa, double *out) const {
   }
 }
 
-}
+} // namespace outshine

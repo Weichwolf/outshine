@@ -389,7 +389,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
   return true;
 }
 
-}
+} // namespace
 
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
@@ -576,4 +576,4 @@ bool Move(SceneRenderer &renderer,
   return true;
 }
 
-}
+} // namespace outshine::Render

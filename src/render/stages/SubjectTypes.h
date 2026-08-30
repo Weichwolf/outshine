@@ -118,6 +118,6 @@ struct SubjectMesh : SubjectPose {
   std::span<const float> ClusterSpheres;
 };
 
-}
+} // namespace outshine::Render
 
 #endif

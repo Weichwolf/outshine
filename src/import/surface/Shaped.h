@@ -13,5 +13,5 @@ namespace outshine::Gltf {
 [[nodiscard]] Render::Shape
 Shaped(const Subject &from, const outshine::Geometry &also, Render::ShapeStore &into);
 
-}
+} // namespace outshine::Gltf
 #endif

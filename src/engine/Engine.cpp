@@ -92,7 +92,7 @@ const Travelling_ kAssemblers[kTravels] = {
   return "an unnamed way";
 }
 
-}
+} // namespace
 
 bool Engine::State::Routes(void) {
   const Scenario &declared = Session.Declared;
@@ -405,4 +405,4 @@ const std::string &Engine::error() const {
   return S_->Error;
 }
 
-}
+} // namespace outshine

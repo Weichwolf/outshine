@@ -98,4 +98,4 @@ void CookShape(ShapeStore &into, std::span<const Material> surfaces) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       std::memory_order_relaxed);
 }
-}
+} // namespace outshine::Render

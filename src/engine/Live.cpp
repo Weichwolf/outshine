@@ -90,7 +90,7 @@ bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
   return true;
 }
 
-}
+} // namespace
 
 Live::Live(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
@@ -1035,4 +1035,4 @@ bool Live::Draw(std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine::Core

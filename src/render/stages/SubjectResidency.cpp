@@ -20,7 +20,7 @@ inline constexpr std::string_view kTopologyStagingFoundNoRoom =
     "the topology's staging buffer found no room on the device: {}";
 inline constexpr std::string_view kTopologyStagingDidNotMap =
     "the topology's staging buffer did not map: {}";
-}
+} // namespace Says
 
 namespace {
 
@@ -45,7 +45,7 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
 
 constexpr bool kChainIsReadable = false;
 
-}
+} // namespace
 
 std::atomic<size_t> gUploads{0};
 std::atomic<size_t> gUploadBytes{0};
@@ -323,4 +323,4 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   return bound;
 }
 
-}
+} // namespace outshine::Render

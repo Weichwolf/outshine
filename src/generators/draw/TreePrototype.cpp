@@ -19,7 +19,7 @@ float SrgbToLinear(float v) {
   return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
 }
 
-}
+} // namespace
 
 TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   TreeLook look;
@@ -110,4 +110,4 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   return proto;
 }
 
-}
+} // namespace outshine::Generators

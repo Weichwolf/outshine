@@ -71,6 +71,6 @@ struct DriveProduct {
                                  Sink &say,
                                  DriveProduct &out);
 
-}
+} // namespace outshine::Sim
 
 #endif

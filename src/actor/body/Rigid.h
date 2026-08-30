@@ -39,6 +39,6 @@ void Step(Rigid &body, const Wrench &wrench, double dtS);
 
 [[nodiscard]] double EnergyJ(const Rigid &body, const double gravityMs2[3]);
 
-}
+} // namespace outshine::Physics
 
 #endif

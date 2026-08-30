@@ -56,4 +56,4 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   return true;
 }
 
-}
+} // namespace outshine::Generators

@@ -402,7 +402,7 @@ void Basis::Emit(std::vector<double> &out) const {
   }
 }
 
-}
+} // namespace
 
 bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error) {
   out.clear();
@@ -437,4 +437,4 @@ bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, s
   return true;
 }
 
-}
+} // namespace outshine::Gltf

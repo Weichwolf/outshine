@@ -240,7 +240,7 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-}
+} // namespace
 
 [[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
@@ -703,4 +703,4 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine

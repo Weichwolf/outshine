@@ -36,4 +36,4 @@ const char *Name(Necessity need) noexcept {
   return "";
 }
 
-}
+} // namespace outshine::Data

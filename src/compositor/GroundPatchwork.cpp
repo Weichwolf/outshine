@@ -262,4 +262,4 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   return out;
 }
 
-}
+} // namespace outshine

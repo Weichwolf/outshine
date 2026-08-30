@@ -15,5 +15,5 @@ public:
   [[nodiscard]] virtual bool Full() const noexcept = 0;
 };
 
-}
+} // namespace outshine::Generators
 #endif

@@ -102,5 +102,5 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   return SheenLobeMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 #endif

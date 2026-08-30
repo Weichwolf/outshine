@@ -49,5 +49,5 @@ struct SourceDecl {
   int RetryBudget = 0;
 };
 
-}
+} // namespace outshine::Data
 #endif

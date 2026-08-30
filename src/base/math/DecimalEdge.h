@@ -51,5 +51,5 @@ enum class Edge { Zero, Infinity };
   return lead + shift < 0 ? Edge::Zero : Edge::Infinity;
 }
 
-}
+} // namespace outshine
 #endif

@@ -47,7 +47,7 @@ struct Geometry::Held {
   }
 };
 
-}
+} // namespace outshine
 
 namespace outshine {
 
@@ -91,7 +91,7 @@ namespace {
   return true;
 }
 
-}
+} // namespace
 
 bool Geometry::setPositions(int part, std::span<const float> metres) {
   if (part < 0 || part >= (int)Held_->Live || metres.size() % 3 != 0) { return false; }
@@ -363,4 +363,4 @@ bool Geometry::wellFormed() const {
   return true;
 }
 
-}
+} // namespace outshine

@@ -178,6 +178,6 @@ inline void IridescenceFresnel(double cosTheta1,
   return IridescenceLobeMsl(ignored);
 }
 
-}
+} // namespace outshine::Render
 
 #endif

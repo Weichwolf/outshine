@@ -78,5 +78,5 @@ private:
   float GrowHeight_ = 0.0f;
 };
 
-}
+} // namespace outshine::Generators
 #endif

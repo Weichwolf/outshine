@@ -41,4 +41,4 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
          Held_.setNormals(part, normalM) && Held_.setTriangles(part, run);
 }
 
-}
+} // namespace outshine::Generators

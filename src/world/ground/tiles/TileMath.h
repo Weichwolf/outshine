@@ -35,5 +35,5 @@ static_assert(Postings::rank() == 2,
   return (float)((a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy);
 }
 
-}
+} // namespace outshine::Ground
 #endif

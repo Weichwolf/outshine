@@ -20,7 +20,7 @@ double Clock() {
   return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
 }
 
-}
+} // namespace
 
 void ClassField::Open(double lat, double lon) {
   Frame_ = TangentFrame::At(lat, lon);
@@ -223,4 +223,4 @@ bool ClassField::Complete() const {
          !Coarse_.Stale && !Submitted_;
 }
 
-}
+} // namespace outshine::Ground

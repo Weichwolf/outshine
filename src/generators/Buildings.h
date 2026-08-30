@@ -26,5 +26,5 @@ private:
   ContactMaterial Contact_;
 };
 
-}
+} // namespace outshine::Generators
 #endif

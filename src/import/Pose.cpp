@@ -17,7 +17,7 @@ const char *PathName(AnimationPath path) {
   return "unknown";
 }
 
-}
+} // namespace
 
 bool Pose::Build(const Document &document, int animation, Pose &out, std::string &error) {
   const int one[1] = {animation};
@@ -205,4 +205,4 @@ void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
   }
 }
 
-}
+} // namespace outshine::Gltf

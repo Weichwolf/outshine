@@ -27,4 +27,4 @@ bool LoadShaderText(std::string_view treePath, std::string &into, std::string &e
   return true;
 }
 
-}
+} // namespace outshine::Render

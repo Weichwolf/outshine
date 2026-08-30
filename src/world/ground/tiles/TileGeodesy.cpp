@@ -9,7 +9,7 @@ namespace {
 constexpr double kDeg2Rad = kPi / 180.0;
 constexpr double kRad2Deg = 180.0 / kPi;
 
-}
+} // namespace
 
 TileIndex TileIndex::Of(Geo g, int z) {
   if (g.LatDeg < -kMercatorLatMaxDeg || g.LatDeg > kMercatorLatMaxDeg) {
@@ -153,4 +153,4 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
   return map;
 }
 
-}
+} // namespace outshine::Ground

@@ -25,7 +25,7 @@ namespace {
   return (Spread(held[0]) << 2) | (Spread(held[1]) << 1) | Spread(held[2]);
 }
 
-}
+} // namespace
 
 Cooked CookClusters(std::span<const float> positionsM,
                     std::span<const uint32_t> indices,
@@ -105,7 +105,7 @@ Cooked CookClusters(std::span<const float> positionsM,
   return out;
 }
 
-}
+} // namespace outshine
 
 namespace outshine {
 namespace {
@@ -125,7 +125,7 @@ struct CellHash {
   }
 };
 
-}
+} // namespace
 
 Cooked CookDag(std::span<const float> positionsM,
                std::span<const uint32_t> indices,
@@ -268,4 +268,4 @@ Cooked CookDag(std::span<const float> positionsM,
   return out;
 }
 
-}
+} // namespace outshine

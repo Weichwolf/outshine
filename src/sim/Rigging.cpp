@@ -14,7 +14,7 @@ bool Refuse(Rigged &out, const std::string &why) {
   return false;
 }
 
-}
+} // namespace
 
 Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   Rigged out;
@@ -223,4 +223,4 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   return out;
 }
 
-}
+} // namespace outshine::Sim

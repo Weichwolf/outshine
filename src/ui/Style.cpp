@@ -194,7 +194,7 @@ Value ReadValue(std::string_view text) {
   return value;
 }
 
-}
+} // namespace
 
 Property PropertyNamed(std::string_view name) {
   const std::string lowered = Lower(name);
@@ -575,7 +575,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
          !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
 }
 
-}
+} // namespace
 
 std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   std::vector<Declaration> out;
@@ -729,7 +729,7 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   return true;
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -901,7 +901,7 @@ const Boundary kBoundaries[] = {
      "this engine runs a declared handler and never a document's own program"},
 };
 
-}
+} // namespace
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
@@ -935,4 +935,4 @@ bool Selects(const Rule &rule, const Markup &markup, int node) {
   return !rule.Chain.empty() && ChainSelects(rule, markup, rule.Chain.size() - 1, node);
 }
 
-}
+} // namespace outshine::Ui

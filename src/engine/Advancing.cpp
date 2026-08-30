@@ -401,4 +401,4 @@ Result Engine::run() {
   return (S_->Error.empty()) ? Result{} : std::unexpected(S_->Error);
 }
 
-}
+} // namespace outshine

@@ -430,4 +430,4 @@ const Scenario &Engine::declaration() const {
   return S_->Session.Declared;
 }
 
-}
+} // namespace outshine

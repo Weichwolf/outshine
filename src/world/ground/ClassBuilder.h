@@ -101,5 +101,5 @@ private:
   std::thread Thread_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

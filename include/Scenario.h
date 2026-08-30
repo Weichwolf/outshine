@@ -551,6 +551,6 @@ struct Scenario {
   [[nodiscard]] const Asset *subject(void) const;
 };
 
-}
+} // namespace outshine
 
 #endif

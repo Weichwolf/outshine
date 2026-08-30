@@ -60,11 +60,6 @@ they differ, the decision is written down with its reason — the reason is the 
 neither faces the question, the item says exactly that and says why the choice is mine.
 
 **A measurement of THIS tree outranks both.**
-
-They are not authorities to obey; they are the only two bodies of evidence that exist for these
-questions, and both were paid for over a decade of shipping. Ignoring them is not independence,
-it is choosing to learn something twice.
-
 **THE DOOR SPEAKS FILAMENT AND CESIUM; THE MOTOR HOLDS RAGE AND UNREAL.** A client's knowledge
 has to transfer, so `include/` uses the names a reader already owns — **Filament** for the renderer
 (`Engine` · `Scene` · `View` · `Camera` · `Renderer` · `Material` · `MaterialInstance` ·
@@ -104,19 +99,16 @@ commit, which is why they cannot be skipped quietly — an empty answer is visib
    outcome available: now there are two, and neither is right
 3. **If it draws, LOOK AT IT before believing any number.** A count needs a hypothesis to mean
    anything and an image needs none: five cases once passed `more than one colour` on a sky
-   gradient over an empty world, and one glance said so where the counter could not. A case that
-   renders keeps its picture where an eye can reach it, and the expectation is WRITTEN DOWN before
-   the looking so that being wrong is visible rather than rationalised
+   gradient over an empty world. `make shots` keeps every picture under its own DIGEST, so a frame
+   that moved says so — and the expectation is written down before the looking
 4. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
    what it reads if the change is bad. A change with no such number is a guess wearing a commit
    message
 
-**The third question outranks anything already written down.** A cause recorded in an item, a
-comment or a commit is a HYPOTHESIS until it is measured again — including a cause written on this
-page. They fail that test often enough that the habit is worth more than any one of them: state the
-measurement before the work, so being wrong is visible on the day rather than a month later. Which
-causes have failed and what replaced them is the commits' to remember, and the count is `board/`'s
-if it is worth counting at all.
+**The third question outranks anything already written down.** A cause recorded in an item or a
+commit is a HYPOTHESIS until it is measured again — including one written on this page. They fail
+that test often enough that the habit is worth more than any of them: state the measurement before
+the work, so being wrong is visible on the day rather than a month later.
 
 ## The craft
 
@@ -134,9 +126,10 @@ These are C++ truths rather than decisions about outshine, and they do not move.
 - **SIMD- and optimisation-friendly**: contiguous, one-width, pointer-free layouts; fast path on
   the hot path; batch over per-item; bounded terms on the frame path — no alloc, lock, disk or
   unbounded block
-- **The code carries NO comments.** `src/`, `include/` and `apps/` hold no `//`, no block, no TODO,
-  no board number: names and structure carry the meaning, a number's origin lives in its item and
-  its commit. Prose may stand in a PROOF — any source carrying `Covers("`
+- **`make` DELETES the comments.** `include/` and `src/client/` keep Doxygen because both are
+  DOORS; the rest of `src/` keeps nothing, and seeing that on every build is what forces code that
+  speaks for itself. `git log -p` holds every line removed. Prose stands in a PROOF — any source
+  carrying `Covers("`
 - **A name is a promise.** A word that means something else in Unreal or RAGE spends a reader's
   knowledge against them. The engine's vocabulary is LAW — body, joint, degree of freedom, drive,
   constraint, force, contact, integration — and a car, a wheel, a seat or a door is a SUBJECT a
@@ -144,14 +137,13 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   job is to make one concrete thing
 - **WHERE SDL3 SUPPLIES THE STRUCTURE OR THE FUNCTION, IT IS THE ONE USED.** SDL3 is a hard
   dependency rather than a choice, so a second mechanism beside one it already carries is not
-  insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII
-  handle over an SDL type is ownership and stays; a scheme that re-decides what SDL already decides
-  is a finding. Measured example: `SubjectResidency` keeps a ring of transfer buffers with its own
-  index, depth and overflow refusal, and `SDL_MapGPUTransferBuffer`'s `cycle` flag already renames a
-  buffer the GPU may still be reading -- the driver knows whether the last copy has finished and the
-  ring only guesses at a depth
+  insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII handle
+  over an SDL type is ownership and stays; a scheme that re-decides what SDL decides is a finding
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population. No
   magic numbers; calibration measures, never decides
+- **A diagnostic is a declared LABEL**, never a free literal: `namespace Says` at the top of the
+  file, `std::format` at the site. The compiler checks the placeholders and a file's ways of
+  refusing read as a list
 - **A failure is loud.** Accepting a declaration and doing nothing with it is worse than refusing
   it. Something is always drawn; delete on the day you replace; artefacts to the system temp dir,
   never the tree
@@ -189,8 +181,8 @@ Four architectural commitments. Everything else is a decision an item can revisi
 | `include/` | the door — **a header is public only if a client cannot use the engine without it** |
 | `src/` | the library. **The directory IS the dependency tier**, declared in `test/run.sh` and enforced by `--audit-layers`, which also refuses a cycle |
 | `src/generators/` | a library with its own door: a client registers its own beside them, and the tier links with none of the engine behind it |
-| `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora; `harness/` their scorers and the claims; `outshine/` is ours |
-| `src/client/` | **THE ONE CLIENT**: `build/outshine-client`, the engine through its own door, and the camera that measures it. There is no `apps/` -- a product is a SCENARIO plus one command, so a second program would be a second door |
+| `test/` | **the vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora; `harness/` their scorers; `outshine/` is ours. `harness/claims/` is a LINTER over the repository and runs from `make lint` |
+| `src/client/` | **THE ONE CLIENT**: `build/outshine-client`, the engine through its own door and the camera that measures it. A product is a SCENARIO plus one command, so a second program would be a second door |
 | `board/` | one flat directory of work items — see below |
 | `Makefile` | the ONE way in: `strip · db · lint · doc · shots · test · suite · clean` |
 
@@ -212,13 +204,11 @@ refactor is INFORMATION, and it is never made green by editing the case.
 | **INPUT** | nothing is supplied | that we survive it |
 
 **A BENCHMARK IS A TOOL, NOT A GATE.** A PROOF states an invariant and its negative control goes
-RED — the refit takes zero bytes, sixty-four casters cost what one costs, sixteen bodies draw
-sixteen rows. A BENCHMARK states a RATE, and a rate has no negative control: it is faster or
-slower, never wrong. So a rate can never earn a tick. It BOUNDS a decision —
-"this is the number the change has to beat" — and it is quoted in the item that spends it. It
-never enters `test/gate.sh`, never becomes a case, and is used surgically rather than run by
-habit. Every instrument also states what it does NOT cover, on the page where it prints, because
-the mistake it guards against is real and was made here: a subject's rate quoted about a world.
+RED. A BENCHMARK states a RATE, and a rate has no negative control: it is faster or slower, never
+wrong, so it can never earn a tick. It BOUNDS a decision — "this is the number the change has to
+beat" — and is quoted in the item that spends it. Every instrument states what it does NOT cover on
+the page where it prints, because the mistake it guards against was made here: a subject's rate
+quoted about a world.
 
 **`build/outshine-client` IS THE INSTRUMENT AND `test/outshine/places/` SCORES IT.** The camera
 lives in `src/client`, whose `reaches` names `base` alone -- so it is held to the same door a
@@ -232,14 +222,25 @@ Every case is a scenario with an invariant oracle whose truth does not depend on
 tick is only earned when its proof stands AND its negative control goes red** — a control that
 passes proves nothing, and that is the trap that costs most here.
 
-`test/run.sh` is the only test runner. **`test/gate.sh` is the fast gate** — under a minute,
-printing what it does NOT cover, so the next item comes off the screen rather than out of memory.
+**`make` IS THE ONLY DOOR** and nothing is started by reaching past it:
+
+| | |
+|---|---|
+| `make` | strip · the library · the generators · the tools beside them |
+| `make lint` | clang-format · clang-tidy · the repository's own rules · Doxygen — each held to a baseline that may only SHRINK |
+| `make shots` | six places through `build/outshine-client`, pictures to `build/shots` |
+| `make test` · `make suite SUITE=x` | the fast gate · one suite |
+| `make db` · `make doc` | `compile_commands.json` · the door's documentation |
+
+A strict analysis over 57 000 lines is red on day one and switched off in the first week, so the
+count is recorded and a commit may only lower it: new code is held to zero because anything it
+adds shows in the total.
 
 ## How I work
 
 **Order: repair the VISION first if it is short of the benchmark · rebuild onto it · then close
-the feature gaps.** A refactor toward a target short of the benchmark spends the effort and
-arrives somewhere that still has to be left.
+the feature gaps.** A refactor toward a target short of the benchmark arrives somewhere that still
+has to be left.
 
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body; fields `Type` ·
 `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` · `Supersedes`. Filename
@@ -264,14 +265,13 @@ named no step toward the benchmark. Closing is DELETING the file: what it said i
 and `git log` is the logbook.
 
 **Grep `board/` AND the history before filing.** The directory holds what is open; `git log` holds
-what was closed, withdrawn and REMOVED — and a removal is a decision that this work does not move
-the engine. Filing it again without seeing that decision overrules it by accident. A duplicate is
-worked, never written twice; a defect found while working something else becomes an item in the
-same round, even if it closes in that round too.
+what was closed, withdrawn and REMOVED — and filing a removal again overrules that decision by
+accident. A duplicate is worked, never written twice; a defect found while working something else
+becomes an item in the same round.
 
 ## What goes wrong
 
-Measured failure modes, each of which has cost a day here.
+Measured failure modes, each of which cost a day here.
 
 | trap | what it looks like | the guard |
 |---|---|---|

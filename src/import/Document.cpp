@@ -372,7 +372,7 @@ bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   return false;
 }
 
-}
+} // namespace
 
 struct AttributeShape {
   ElementType Element;
@@ -1976,4 +1976,4 @@ bool Document::ViewTransform(int cameraNode, Transform &out) const {
   return world.Inverse(out);
 }
 
-}
+} // namespace outshine::Gltf

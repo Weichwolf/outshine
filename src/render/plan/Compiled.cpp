@@ -126,7 +126,7 @@ std::string Decimal(float value) {
   return text;
 }
 
-}
+} // namespace
 
 std::optional<Stage> Compiled::StageByName(std::string_view name) {
   for (size_t s = 0; s < kStageCount; ++s) {
@@ -373,4 +373,4 @@ bool Compiled::CompileInto(const PlanSpec &spec,
   return true;
 }
 
-}
+} // namespace outshine::Render

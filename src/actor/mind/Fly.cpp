@@ -41,4 +41,4 @@ Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked) {
   return out;
 }
 
-}
+} // namespace outshine::Pilot

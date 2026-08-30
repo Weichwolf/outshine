@@ -57,5 +57,5 @@ private:
   std::vector<bool> ValueIsNum_;
 };
 
-}
+} // namespace outshine::Ground
 #endif

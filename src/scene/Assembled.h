@@ -44,6 +44,6 @@ struct Assembled {
   }
 };
 
-}
+} // namespace outshine
 
 #endif

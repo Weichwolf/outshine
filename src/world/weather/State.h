@@ -11,5 +11,5 @@ struct State {
   EnvironmentBlock Env;
 };
 
-}
+} // namespace outshine
 #endif

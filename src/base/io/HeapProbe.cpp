@@ -17,7 +17,7 @@ namespace {
 std::atomic<size_t> gPeakLive{0};
 std::atomic<double> gCostMs{0.0};
 
-}
+} // namespace
 
 size_t HeapProbe::LiveBytes() {
 #if defined(__APPLE__)
@@ -61,4 +61,4 @@ double HeapProbe::SampleCostMs() {
   return gCostMs.load(std::memory_order_relaxed);
 }
 
-}
+} // namespace outshine

@@ -48,6 +48,6 @@ struct DrawShape {
   return SDL_CreateGPUShader(device, &wanted);
 }
 
-}
+} // namespace outshine::Render
 
 #endif

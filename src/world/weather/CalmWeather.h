@@ -26,5 +26,5 @@ public:
   }
 };
 
-}
+} // namespace outshine
 #endif

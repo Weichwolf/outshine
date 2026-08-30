@@ -31,5 +31,5 @@ public:
   [[noreturn]] static void Exhausted(const char *item);
 };
 
-}
+} // namespace outshine
 #endif

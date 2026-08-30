@@ -39,5 +39,5 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   return held;
 }
 
-}
+} // namespace outshine::Render
 #endif

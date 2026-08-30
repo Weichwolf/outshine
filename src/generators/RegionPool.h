@@ -70,5 +70,5 @@ private:
   size_t Bytes_ = 0;
 };
 
-}
+} // namespace outshine::Generators
 #endif

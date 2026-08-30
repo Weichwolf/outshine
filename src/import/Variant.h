@@ -20,5 +20,5 @@ private:
   std::optional<std::string> Name_;
 };
 
-}
+} // namespace outshine::Gltf
 #endif

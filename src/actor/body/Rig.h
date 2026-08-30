@@ -74,6 +74,6 @@ struct Reading {
 
 void Resist(Wrench &into, const Rigid &body, double dragArea, double mediumDensity);
 
-}
+} // namespace outshine::Physics
 
 #endif

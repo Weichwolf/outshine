@@ -20,4 +20,4 @@ Underneath GroundSupport::At(double lat, double lon) const {
   return out;
 }
 
-}
+} // namespace outshine::Sim

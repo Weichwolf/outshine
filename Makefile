@@ -37,8 +37,10 @@ LLVM_BIN := /opt/homebrew/opt/llvm/bin
 all: strip       ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
 
-strip:           ## delete every comment src/ may not keep -- see test/strip-comments.py
+strip:           ## delete every comment src/ may not keep, and reflow what that left behind
 	@cd $(SELF_DIR) && python3 test/strip-comments.py
+	@cd $(SELF_DIR) && find src include -name '*.cpp' -o -name '*.h' | grep -v '/shaders/' \
+	  | xargs $(LLVM_BIN)/clang-format -i
 
 db:              ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db

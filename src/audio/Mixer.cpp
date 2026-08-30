@@ -150,7 +150,7 @@ void Voiced(const Sound &sound,
   into = made.back();
 }
 
-}
+} // namespace
 
 struct Reverberation {
   std::vector<std::vector<double>> Combs;
@@ -347,4 +347,4 @@ bool Mixer::Fills(std::span<float> stereo,
   return true;
 }
 
-}
+} // namespace outshine::Audio

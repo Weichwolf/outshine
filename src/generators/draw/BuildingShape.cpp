@@ -496,7 +496,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   }
 }
 
-}
+} // namespace
 
 void BuildingShape::ToBox(const En &p, double *u, double *v) const {
   const double e = p.E - Centre.E, n = p.N - Centre.N;
@@ -593,4 +593,4 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
   return out;
 }
 
-}
+} // namespace outshine::Generators

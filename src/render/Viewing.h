@@ -44,7 +44,7 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
   out[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-}
+} // namespace Aiming
 
 inline bool
 Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
@@ -101,5 +101,5 @@ inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
   }
 }
 
-}
+} // namespace outshine::Render
 #endif

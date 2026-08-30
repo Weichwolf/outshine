@@ -26,5 +26,5 @@ struct Cooked {
                              uint32_t mostTriangles,
                              uint32_t mostLevels);
 
-}
+} // namespace outshine
 #endif

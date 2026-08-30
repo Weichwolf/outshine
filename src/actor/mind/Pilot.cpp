@@ -54,4 +54,4 @@ Demand Hold(const ReferenceLine &along,
   return out;
 }
 
-}
+} // namespace outshine::Pilot

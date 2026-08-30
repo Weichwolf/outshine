@@ -26,7 +26,7 @@ float SizeFactor(uint64_t bits, float sigma) {
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16) - 1.0f) * 2.4494897f;
 }
 
-}
+} // namespace
 
 Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit)
     : PerM2_(perM2ByRow), Limit_(limit) {
@@ -163,4 +163,4 @@ bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) co
   return Consider(ground, lattice, cell, out) == Outcome::Placed;
 }
 
-}
+} // namespace outshine::Generators

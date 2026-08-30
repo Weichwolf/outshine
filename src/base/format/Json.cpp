@@ -326,4 +326,4 @@ bool Json::Ref::StrEquals(const char *s) const {
   return n.StrLen == l && !std::memcmp(Doc->Text_.c_str() + n.Str, s, l);
 }
 
-}
+} // namespace outshine

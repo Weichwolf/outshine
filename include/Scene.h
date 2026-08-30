@@ -51,7 +51,7 @@ struct TagCatalogue {
 namespace tags {
 inline constexpr Tag Does = TagCatalogue::Does;
 inline constexpr Tag Offers = TagCatalogue::Offers;
-}
+} // namespace tags
 
 static_assert(TagCatalogue::under(tags::Does, 1).within(tags::Does) &&
                   !tags::Does.within(TagCatalogue::under(tags::Does, 1)),
@@ -133,7 +133,7 @@ static_assert(EveryOwnedRelationIsExclusive(),
               "the felling stack pushes one entry per owned in-edge, and its reserve is "
               "capacity x owned-relations ONLY while each entity has at most one owner "
               "per owned relation -- widen the reserve before you relax this");
-}
+} // namespace scene_register_checked
 
 inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
@@ -204,5 +204,5 @@ private:
   std::unique_ptr<Kept> Kept_;
 };
 
-}
+} // namespace outshine
 #endif

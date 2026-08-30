@@ -125,4 +125,4 @@ Snapped SnapshotOver(const Tile &region,
   return done(out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting);
 }
 
-}
+} // namespace outshine::Generators

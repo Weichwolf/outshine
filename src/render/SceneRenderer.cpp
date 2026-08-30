@@ -20,7 +20,7 @@ constexpr bool kGpuValidation = true;
 #else
 constexpr bool kGpuValidation = false;
 #endif
-}
+} // namespace
 
 namespace {
 
@@ -117,7 +117,7 @@ float HalfToFloat(uint16_t bits) {
   return value;
 }
 
-}
+} // namespace
 
 void SceneRenderer::SetCameraBasis(const double eye[3],
                                    const double fwd[3],
@@ -1203,4 +1203,4 @@ SceneRenderer::Presented() const {
   return std::optional<Shown>(Shown_);
 }
 
-}
+} // namespace outshine::Render

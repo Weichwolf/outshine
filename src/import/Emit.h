@@ -22,5 +22,5 @@ struct Emission {
 
 [[nodiscard]] bool GlbFits(size_t jsonBytes, size_t binaryBytes);
 
-}
+} // namespace outshine::Gltf
 #endif

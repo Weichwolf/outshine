@@ -31,7 +31,7 @@ double HeadingOf(const outshine::Physics::Rigid &body) {
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   return std::atan2(-ahead[2], ahead[0]);
 }
-}
+} // namespace
 
 const Ridden &DriveTick(const Corridor &way,
                         const Rigged &stood,
@@ -297,4 +297,4 @@ const Ridden &DriveTick(const Corridor &way,
   return out;
 }
 
-}
+} // namespace outshine::Sim

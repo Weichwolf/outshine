@@ -48,5 +48,5 @@ inline float FaceUvX(Facade kind, int ident) {
   return -(float)((int)kind + kFacadeStride * ident);
 }
 
-}
+} // namespace outshine
 #endif

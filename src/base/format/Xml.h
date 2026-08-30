@@ -159,6 +159,6 @@ private:
 static_assert(std::ranges::forward_range<Xml::Ref::Siblings>,
               "a scenario is read by walking children once, and the walk is a range");
 
-}
+} // namespace outshine
 
 #endif

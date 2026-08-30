@@ -231,5 +231,5 @@ private:
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 
-}
+} // namespace outshine::Gltf
 #endif

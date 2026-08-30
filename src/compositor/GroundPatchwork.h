@@ -56,6 +56,6 @@ void NormalsFrom(const std::vector<float> &positionM,
 [[nodiscard]] std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles,
                                                                  const Around &over);
 
-}
+} // namespace outshine
 
 #endif

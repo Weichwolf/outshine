@@ -179,7 +179,7 @@ private:
   double Shift = 0;
 };
 
-}
+} // namespace
 
 std::vector<double>
 PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThePage) {
@@ -226,4 +226,4 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
   return true;
 }
 
-}
+} // namespace outshine::Ui

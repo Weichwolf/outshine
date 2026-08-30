@@ -33,6 +33,6 @@ Shed(const Shearing &through, double loadN, double acrossMs, double alongMs, dou
 
 [[nodiscard]] double Brushed(double linearN, double holdN);
 
-}
+} // namespace outshine::Physics
 
 #endif

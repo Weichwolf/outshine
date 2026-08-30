@@ -34,7 +34,7 @@ struct OwnedSurface {
   OwnedSurface &operator=(const OwnedSurface &) = delete;
 };
 
-}
+} // namespace
 
 bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
   out = Raster();
@@ -87,4 +87,4 @@ bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> 
   return SDL_ReadIO(io.Stream, out.data(), out.size()) == out.size();
 }
 
-}
+} // namespace outshine::Core

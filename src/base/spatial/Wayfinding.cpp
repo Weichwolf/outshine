@@ -26,7 +26,7 @@ double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   return apart - 360.0 * std::floor(apart / 360.0 + 0.5);
 }
 
-}
+} // namespace
 
 double ApartM(
     double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg, double sphereRadiusM) {
@@ -498,7 +498,7 @@ namespace {
   return true;
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -510,7 +510,7 @@ struct Filed {
 static_assert(sizeof(Filed) == 8);
 static_assert(std::is_trivially_copyable_v<Filed>);
 
-}
+} // namespace
 
 std::expected<Network::Swept, std::string_view>
 Network::Crossings(std::vector<Crossing> &into) const {
@@ -947,4 +947,4 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   return out;
 }
 
-}
+} // namespace outshine::Path

@@ -87,7 +87,7 @@ void Resolve(std::string_view raw, std::string &out) {
   }
 }
 
-}
+} // namespace
 
 bool ClosesItself(std::string_view tag) {
   static const char *const kVoid[] = {"area",
@@ -294,4 +294,4 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   return true;
 }
 
-}
+} // namespace outshine::Ui

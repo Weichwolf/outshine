@@ -379,5 +379,5 @@ struct Engine::State {
   [[nodiscard]] bool Routes(void);
 };
 
-}
+} // namespace outshine
 #endif

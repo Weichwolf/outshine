@@ -54,5 +54,5 @@ struct Shot {
 [[nodiscard]] double ControlVariation();
 [[nodiscard]] Shot Take(const Place &place, bool tells);
 
-}
+} // namespace outshine::Shots
 #endif

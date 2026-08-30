@@ -73,5 +73,5 @@ constexpr SurfaceState StateOf(const Material &material) {
   return state.CullsBack() && winding == Winding::Trusted;
 }
 
-}
+} // namespace outshine
 #endif
