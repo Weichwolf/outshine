@@ -34,10 +34,23 @@ bool Posed::Reads(const std::string &path, const std::string &variant, AssetAnim
   return true;
 }
 
+// A SWEEP THAT ONLY MEASURES MUST NOT DISTURB THE MOTION HISTORY. Deriving a camera over an
+// animation poses every frame and poses back, and each of those wrote `PreviousPositionsM_` -- so
+// the restored frame 0 carried the LAST frame as its predecessor and every covered pixel reported
+// motion on a still. Measured on Khronos's AnimatedCube: 346.7 px of velocity per frame at frame
+// 0, over all 97468 covered pixels.
+bool Posed::Measures(int frame, double fps, std::string &error) {
+  return PoseInto(frame, fps, false, error);
+}
+
 bool Posed::Poses(int frame, double fps, std::string &error) {
+  return PoseInto(frame, fps, true, error);
+}
+
+bool Posed::PoseInto(int frame, double fps, bool records, std::string &error) {
   if (Moves_) {
     const bool first = Assembled_.VertexCount() == 0;
-    if (!first) {
+    if (!first && records) {
       const Heap::Tagged copying("pose-previous");
       PreviousPositionsM_ = Assembled_.PositionsM();
     }
@@ -45,7 +58,7 @@ bool Posed::Poses(int frame, double fps, std::string &error) {
     const Heap::Tagged building("pose-build");
     if (Assembled_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                         Span<const double>(Weights_.data(), Weights_.size()), Variant_)) {
-      if (first) { PreviousPositionsM_ = Assembled_.PositionsM(); }
+      if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       return true;
     }
   } else if (Assembled_.Build(File_, Variant_)) {

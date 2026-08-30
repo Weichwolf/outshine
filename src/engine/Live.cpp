@@ -536,6 +536,12 @@ bool Live::Pose(int frame, std::string &error) {
   return true;
 }
 
+bool Live::Measure(int frame, std::string &error) {
+  if (!Held_.Measures(frame, Declared_.Fps, error)) { return false; }
+  Reshape();
+  return true;
+}
+
 void Live::Eye(const Render::Viewpoint &from) {
   Eye_ = from;
   HaveEye_ = true;
@@ -565,10 +571,10 @@ bool Live::PartVolumes(std::string &error) {
   fold();
   for (int frame = 0; frame < Held_.Frames(); ++frame) {
     if (frame == Held_.At()) { continue; }
-    if (!Pose(frame, error)) { return false; }
+    if (!Measure(frame, error)) { return false; }
     fold();
   }
-  if (Held_.Frames() > 1 && !Pose(Held_.At(), error)) { return false; }
+  if (Held_.Frames() > 1 && !Measure(Held_.At(), error)) { return false; }
   return true;
 }
 
@@ -756,7 +762,7 @@ bool Live::Stand(std::string &error) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int frame = 1; frame < Held_.Frames(); ++frame) {
-      if (!Pose(frame, error)) { return false; }
+      if (!Measure(frame, error)) { return false; }
       double posedLeast[3], posedMost[3];
       Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
@@ -764,7 +770,7 @@ bool Live::Stand(std::string &error) {
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
       }
     }
-    if (Held_.Frames() > 1 && !Pose(0, error)) { return false; }
+    if (Held_.Frames() > 1 && !Measure(0, error)) { return false; }
     Gltf::Viewpoint fitted;
     if (!Gltf::FramingFor(least, most, fitted, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";

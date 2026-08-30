@@ -44,6 +44,7 @@ public:
   // either.
   [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
   [[nodiscard]] Gltf::Subject &Assembled() { return Assembled_; }
+  [[nodiscard]] bool Measures(int frame, double fps, std::string &error);
   [[nodiscard]] const std::vector<double> &Previous() const { return PreviousPositionsM_; }
   [[nodiscard]] bool Moves() const { return Moves_; }
   [[nodiscard]] bool Stands() const { return Read_; }
@@ -60,6 +61,7 @@ private:
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
   std::vector<double> Weights_;
+  [[nodiscard]] bool PoseInto(int frame, double fps, bool records, std::string &error);
   std::vector<double> PreviousPositionsM_;
   bool Moves_ = false;
   bool Read_ = false;

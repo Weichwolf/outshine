@@ -217,6 +217,7 @@ private:
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(int frame, std::string &error);
+  [[nodiscard]] bool Measure(int frame, std::string &error);
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
   [[nodiscard]] bool Submit(std::string &error);
