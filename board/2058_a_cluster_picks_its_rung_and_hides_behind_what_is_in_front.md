@@ -40,11 +40,28 @@ coarsened positions, rebuilds the index, and writes `ParentCenter`, `ParentRadiu
 onto every child and `SelfErr` and `Level` onto every parent -- and **`git grep` finds no caller
 outside its own declaration and definition.** It is in `test/unreached-baseline`'s 184.
 
-The fourth unwired capability found in one night, and the one that blocks the rest of this item.
-Wiring it is not a change of function name: `CookDag` GROWS both the position array and the index
-array, while Shape.cpp writes the cut back IN PLACE and refuses anything that does not fit
-(`cut.Index.size() != local.size()`). The part's vertex and index ranges have to grow with it, and
-that is the work.
+The fourth unwired capability found in one night. **But it is not merely unwired -- it is
+INCOMPLETE FOR THIS TREE'S VERTICES, and that is the finding.**
+
+`Cooked` carries `Clusters`, `Index`, `PositionsM` and `FirstOwnVertex`. **Positions and nothing
+else.** A coarse level invents vertices at the average of the ones it merges, and this tree's
+`ShapePart` carries up to six PARALLEL streams beside the positions:
+
+    PositionsM  Normals  Tangents  Uv  Uv1  Colours
+
+all of them `std::span<const float>` -- VIEWS into buffers the shape does not own. Wiring `CookDag`
+as it stands would draw every coarse rung with correct positions and garbage in every other
+attribute.
+
+**Unreal does not face this because Nanite owns its vertices outright**: a Nanite mesh is its own
+representation built at cook time, not a view over the source buffers, so a simplified rung
+carries whatever attributes the cooker chose to average. That is the structural answer and it is
+the size of this item, not a line in it.
+
+So the work is, in order: coarsen the ATTRIBUTES beside the positions (the same cell averaging,
+normals renormalised); give the shape OWNERSHIP of the coarse vertices rather than a span into
+somebody else's array; then grow the part's index range, which Shape.cpp today refuses outright
+(`cut.Index.size() != local.size()`).
 
 ## What was measured
 
