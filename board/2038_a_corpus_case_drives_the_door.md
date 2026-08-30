@@ -291,73 +291,63 @@ regresses to 1 failure and the other four stand where they were. So the rule is 
 the next round tunes it against ALL FIVE rather than against one, which is the whole lesson of this
 one.
 
-**AND THE REMAINING DIFFERENCE IS ONE GLOBAL FACTOR.** Mean red in the buffer the metric reads,
-old path against door path, on two cases of DIFFERENT kinds:
+**THE FACTOR OF 1.674 WAS NOT A COVERAGE AND THE ANCHOR WAS THE WRONG NUMBER.** Written here was
 
     BoomBox         lit      0.003953406  ->  0.002363626     ratio 1.673
     BoxInterleaved  flat     0.004304506  ->  0.002571654     ratio 1.674
 
-The same number for a LIT case and a FLAT one. That is not a shading difference -- those two take
-different variants and different code paths -- it is a scale applied after both. The plan's exposure
-is 1.0 on both sides, so it is not that either.
+read as a scale applied to the whole frame, and the derivation that turned it into a COVERAGE
+divided each mean by BoxInterleaved's emitted radiance, 0.0407009, on the stated ground that "the
+run written into the frame is IDENTICAL on both paths". **That ground was false, and it is what
+made a shade difference look like a size difference.** Measured:
 
-**THAT IS WHAT THE NEXT ROUND LOOKS FOR: one factor of 1.674, applied to the whole frame.** It is
-the narrowest the question has ever been, and it is narrow because the readings are QUANTITIES with
-a ratio between them rather than distances from an oracle. Every earlier round asked "what is
-wrong"; this one asks "where is 1.674 applied", which has an answer that can be searched for.
+    coverage_fraction_outshine   0.10575955
+    coverage_fraction_oracle     0.10575846      five digits -- the geometry was never in question
 
-## THE NEXT ROUND'S FIRST FOUR LINES, so it starts from a measurement and not from a memory
+0.004304506 is the value that agrees with the oracle at a `picture_p99_delta_code` of ZERO.
+0.002571654 is the LIT path over a surface whose oracle is a Diffuse BSDF, and it decomposes
+exactly: the reading was (0.04326, 0.01279, 0.01279) against an oracle of (0.04070, 0, 0), so
+F = 0.04 + 0.96*(1-nv)^5 = 0.2514 and diffuse = 0.8*(1-0.2514) = 0.5989 -- both measured channels
+to four digits, and the two grey channels are `subjectLit.msl`'s ambient specular on a material
+that has none. So the number this item told the next round to VERIFY AN ASSEMBLY AGAINST was the
+broken one, and a round that reached it would have called the defect the fix.
 
-    1. 1.674 IS NOT A COLOUR, IT IS A COVERAGE. The run written into the frame is IDENTICAL on
-       both paths -- BoxInterleaved's emitted radiance is 0.040700871 and `slotBase x world` is
-       0.8 x 0.050876088 = 0.040700870, exact to the last digit. Dividing each path's mean by it
-       leaves the fraction of the frame the subject covers:
-           old  0.004304506 / 0.0407009 = 0.1058
-           door 0.002571654 / 0.0407009 = 0.0632
-       Two things the driver never passed were found and are part of that: the ROLL (an eye and a
-       look-at point say nothing about which way is up) and the ORTHOGRAPHIC projection (a case
-       declaring one was drawn in perspective, the largest coverage difference available). Adding
-       both measured WORSE on all five -- and the reading was CONFOUNDED: the engine in the tree
-       carries only the flat-draw rule, not the per-part slot split, so the node overrides those
-       cases depend on were being declared and dropped. A measurement taken against an incomplete
-       baseline says nothing, and this one was taken three times before that was noticed.
+**The lesson is the ground, not the arithmetic.** A ratio between two quantities is only a scale if
+what is being scaled is the same thing on both sides; here it was not, and nothing in the reading
+said so. `coverage_fraction_outshine` was already being printed and answers the question directly.
 
-       The subject is drawn SMALLER through the door. `picture_p99_delta_code` was reading a size
-       difference all along, and `disagreement_p99_px` reads 0.000 only on AlphaBlendModeTest --
-       whose camera comes from its manifest. The next round measures the projection on a case
-       whose camera does NOT: `derived` from the provenance, or the file's own.
-    0. EVERY CASE NOW STANDS AND RENDERS THROUGH THE DOOR. "the case stands through the door"
-       fell from 99 failures to ZERO when the transmissive passes stopped being gated on the
-       CASE's bounce count -- the engine refuses a plan whose surface is a thin transmissive sheet
-       and whose passes do not draw it, and rightly. The 99 moved into the picture metrics, so the
-       PASS count did not change and the threshold did: 444 of 444 declare, assemble, aim and draw
-       through `include/` alone. What is left is agreement, not capability.
+## THE NEXT ROUND'S FIRST LINES, so it starts from a measurement and not from a memory
 
-           picture_p99_delta_code   234 -> 306
-           plan_passes                0 ->  96      the transmissive plans run more passes
-           surface identity           0 ->  81      the per-part slot split, unmodelled here
-           the case stands            99 ->   0
+    0. EVERY CASE STANDS AND RENDERS THROUGH THE DOOR, and what is left is agreement. Standing on
+       the 151 prepared Khronos cases, converted harness against this engine:
 
-    1b. THE 306 ARE A COVERAGE DIFFERENCE, so measure the PROJECTION and not the colour. On
-        BoxInterleaved the subject covered 0.0632 of the frame against the old path's 0.1058 --
-        the run written into it was identical to the last digit, so the pixels differ because the
-        SHAPE does. The suspects, none measured: the field of view's round trip through degrees;
-        the aspect the engine derives it against; `RenderPlan::Fill`, which defaults to 0.9 and
-        which the driver never sets. Each is one print of the eye the engine ended up with.
+           green                      34
+           picture_p99_delta_code     57
+           plan_passes                19      down from 101 once headless stopped presenting
+           surface identity           17
+           a declared grid moves      10
+           velocity_pixels_moving     10
 
-        **`Fill` IS NOT INERT.** Declaring it as 0.0 turned the whole frame BLACK -- mean red
-        0.000000000 -- so it reaches the camera even when an eye is declared, which contradicts
-        the reading of `Look()` that says it is consulted only when none is. That is one clean
-        measurement. The follow-up sweep over 0.9, 0.6 and 1.0 read black for ALL THREE, which
-        means the harness copy had been broken by the edits around the sweep rather than that the
-        values agree: an unreliable reading, discarded rather than reported. Repeat it from a clean
-        assembly -- it is the cheapest of the three suspects to settle.
+       The SAME 151 with the harness still in the tree read 150 green, one red -- SpecularTest,
+       35 codes against a bound of 6.4354338, which fails identically on the engine before this
+       round's changes and is therefore not theirs.
 
-    1a. THE ENGINE SIDE IS IN THE TREE NOW, so there is no assembly left to get wrong: the node
-        key and the per-part slot split stand in `include/Scenario.h` and `Live::Build`, verified
-        to change nothing when nothing declares them (492 tests, 484 PASS, exactly the baseline).
-        The conversion is now ONE FILE -- `Parity.cpp` -- and a measurement costs a copy and a
-        build rather than a reassembly of five pieces.
+    1. VERIFY THE ASSEMBLY AGAINST A PICTURE, NEVER AGAINST A MEAN. The anchor is
+       `BoxInterleaved -> CHECKS 28 FAILURES 0`, which is what the standing harness reads and what
+       the converted one now reads too. A mean is one number over a frame and agrees with itself
+       in a hundred wrong ways; `picture_p99_delta_code = 0` is the oracle's own picture.
+
+    2. THE 57 ARE A SHADE DIFFERENCE. BoxInterleaved's was reached by giving `SurfaceOverride` a
+       PART key -- a file that names neither its material nor its node had no way to be addressed,
+       which its manifest states plainly and this runner did not read. What the remaining 57 have
+       in common is not yet measured; the first cut is which of them declare `kind` other than
+       `diffuse`, because that arm is the one just proven.
+
+    3. THE ENGINE SIDE IS IN THE TREE, so there is no assembly left to get wrong: the node key,
+       the PART key and the per-part slot split stand in `include/Scenario.h` and `Live::Build`,
+       and a headless plan no longer carries a present pass or the offscreen canvas that received
+       it. The conversion is ONE FILE -- `Parity.cpp` -- and a measurement costs a copy and a
+       build rather than a reassembly of five pieces.
 
     1c. VERIFY THE ASSEMBLY BEFORE MEASURING IT. Reassembling the conversion by hand -- engine
         pieces, driver, harness -- has produced a broken build or a broken result FOUR times in
