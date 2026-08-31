@@ -173,6 +173,31 @@ one where the oracle has none, they count too.
 osm2cdr's own page says an export "is always an approximation through heuristics". The number that
 means something is HOW MANY ROADS HOLD, and that it never falls.
 
+## THE SCORE IS BUILT AND BOTH CONTROLS BEHAVE
+
+`test/scripts/score_opendrive_a9.py` implements the shape above and was proven on the oracle against
+ITSELF before anything of ours was fed to it:
+
+    positive control   Nord against Nord    85 of 85 road(s) held
+    negative control   Nord against Sued     0 of 85 road(s) held
+
+**The negative control is a sharp one** and that is why it was chosen: two sections of the SAME
+motorway, surveyed by the same company in the same year to the same standard, differing only in
+where they are. A metric that cannot separate those separates nothing. `CLAUDE.md`'s trap -- a
+control that passes proves nothing -- is what this answers.
+
+The tolerances, each declared with an origin rather than tuned:
+
+    width          1.875 m       half a lane of 3.75
+    gradient       0.5 per cent  a difference, so datum-free
+    superelevation 0.5 per cent  a difference, so datum-free
+    a station matches within 8 m; beyond that the two are different roads
+    a road is HELD at 90 per cent of the stations either side carries
+
+**Absolute height is not scored and will not be until a DGM stands beside it.** The A9 is surveyed
+on WGS84 and this tree's ground comes from its own tile source; a height difference would measure
+the geoid rather than us, and fitting an offset would remove exactly the error being looked for.
+
 ## The quantities, each with its own tolerance and its own origin
 
 The tolerance is a DECLARED number with a derivation, never a dial turned until the score looks
@@ -238,15 +263,15 @@ the rule the goal asks for, carrying its own reason, visible rather than asserte
 - [ ] The oracle is flattened ONCE into a station table, so the score does not re-read 10 MB of XML
 - [ ] The client hands out our own stations for a declared window, headless and deterministic --
       two runs, byte-identical rows
-- [ ] `test/scripts/score_opendrive_a9.py` prints per road: the agreeing fraction, the worst
+- [x] `test/scripts/score_opendrive_a9.py` prints per road: the agreeing fraction, the worst
       station, and HELD or APART -- then `N held` and the bar
+- [x] Negative control: scoring Nord against Sued goes red -- 0 of 85 against 85 of 85 for the
+      positive. Both were run before anything of ours was scored
 - [ ] The held count is a baseline that may only RISE, and it is quoted in the item that spends it
 - [ ] The work does not stop at "it runs": each quantity is developed against the corpus until its
       DECLARED threshold is undercut, and the threshold is written down with its origin BEFORE the
       first score is read. A threshold moved to make a score pass is the falsification this tree
       names in `CLAUDE.md`
-- [ ] Negative control: scoring the A9 against the SUED section's roads goes red. A control that
-      passes proves nothing
 - [ ] Measurement that shows this is wrong: the score rises while the picture gets worse, or a road
       holds while laying no carriageway at all -- which is what the union denominator exists to stop
 
