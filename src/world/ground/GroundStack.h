@@ -47,7 +47,7 @@ public:
 
   [[nodiscard]] bool Opened() const { return Opened_; }
 
-  static constexpr std::size_t kHoldsBytes = 1536u * 1024u * 1024u;
+  static constexpr std::size_t kHoldsBytes = std::size_t{1536} * 1024u * 1024u;
 
   [[nodiscard]] std::size_t OverCeiling() const { return Overflowed_; }
 
