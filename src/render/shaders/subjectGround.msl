@@ -50,11 +50,16 @@ constexpr constant float kGroundNoEdgeM = 1.0e30;
 // THE SAME WALK THE CPU MAKES, and the same order: the fine grid first, the coarse one only where
 // the fine grid names nothing. Both loops are bounded by a count the packer wrote, so nothing here
 // is unbounded on the frame path.
-static inline int groundClassAt(device const uint *words, float2 at, thread float &edgeM) {
+static inline int groundClassAt(device const uint *words,
+                                float2 at,
+                                thread float &edgeM,
+                                thread int &runnerUp) {
   int best = -1;
   int bestRank = -1;
+  int second = -1;
   int secondRank = -1;
   edgeM = kGroundNoEdgeM;
+  runnerUp = -1;
   for (uint b = 0; b < 2u; ++b) {
     const uint head = words[b];
     if (head == 0u) { continue; }
@@ -99,28 +104,48 @@ static inline int groundClassAt(device const uint *words, float2 at, thread floa
         continue;
       }
       if (rank > bestRank) {
+        second = best;
         secondRank = bestRank;
         best = tpl;
         bestRank = rank;
         edgeM = d;
       } else if (rank > secondRank) {
+        second = tpl;
         secondRank = rank;
       }
     }
     if (best >= 0) { break; }
   }
+  runnerUp = second;
   return best;
+}
+
+static inline float3 groundAlbedo(device const float *palette, int which, uint rows) {
+  const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
+  return float3(palette[4u + row * 4u + 0u],
+                palette[4u + row * 4u + 1u],
+                palette[4u + row * 4u + 2u]);
 }
 
 fragment SFrag fsGroundLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   float edgeM = kGroundNoEdgeM;
-  const int which = groundClassAt(groundClasses, in.uv, edgeM);
+  int runnerUp = -1;
+  const int which = groundClassAt(groundClasses, in.uv, edgeM, runnerUp);
   const uint rows = as_type<uint>(groundPalette[0]);
-  const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
-  const float3 albedo = float3(groundPalette[4u + row * 4u + 0u],
-                               groundPalette[4u + row * 4u + 1u],
-                               groundPalette[4u + row * 4u + 2u]);
+
+  // ONE PIXEL OF COVERAGE, and the pixel is what sets the width. `fwidth` on the frame coordinates
+  // IS the footprint of this pixel in METRES, so the blend spans exactly the pixel the edge crosses
+  // -- a hard border that does not crawl, rather than a soft one. The mesh does not appear in this
+  // number at any point, which is the whole difference from the vertex tint it replaced.
+  const float2 stepM = fwidth(in.uv);
+  const float acrossM = 0.5 * max(max(stepM.x, stepM.y), 1.0e-4);
+  const float3 albedo =
+      edgeM < kGroundNoEdgeM
+          ? mix(groundAlbedo(groundPalette, runnerUp, rows),
+                groundAlbedo(groundPalette, which, rows),
+                smoothstep(-acrossM, acrossM, edgeM))
+          : groundAlbedo(groundPalette, which, rows);
   SFrag o;
   o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p, albedo, in.ls,
                        shadowMap, shadowSampler),

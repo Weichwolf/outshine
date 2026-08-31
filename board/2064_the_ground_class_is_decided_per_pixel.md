@@ -184,8 +184,15 @@ albedos the vertex tint read, so the two pictures differ in boundaries and in no
       `SubjectMaterial` that `Picturing` sets by surface INDEX
 - [x] The packed structure is a storage buffer and `Evaluate` runs in the ground fragment shader
 - [x] The 17 materials are a palette buffer the shader indexes
-- [ ] `distM` gives the border one pixel of coverage. It is computed and returned and still
-      DISCARDED -- the border is hard and therefore aliased, which is the honest state
+- [x] `distM` gives the border one pixel of coverage, and the pixel is what sets the width.
+      `fwidth(in.uv)` on the frame coordinates IS this pixel's footprint in METRES, so the blend
+      between the winning class and the runner-up spans exactly the pixel the edge crosses. The
+      mesh appears nowhere in that number, which is the whole difference from the vertex tint:
+      a border a camera can walk up to without it widening.
+
+          ZurichPlan  9016575a -> 0ab81e1b -> 29e00474
+                      p50 5.72 -> 6.65 -> 6.73 ms
+          outshine/places 9 PASS
 - [ ] the vegetation placer evaluates the SAME structure
 - [ ] Measurement: the width in pixels of the transition across a known edge. The mesh no longer
       decides it, so it is 1 px by construction -- but that is an argument and not a measurement,
