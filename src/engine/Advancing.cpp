@@ -168,10 +168,9 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
 
 bool Engine::State::Updates(void) {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
-    const double atLat =
-        Ticking.Drove ? Ticking.Drive.Way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
-    const double atLon =
-        Ticking.Drove ? Ticking.Drive.Way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
+    double atLat = 0.0;
+    double atLon = 0.0;
+    WhereTheEyeStands(atLat, atLon);
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
       World.Stack.Restand(atLat, atLon, Ground::kStreamBudgetMs);

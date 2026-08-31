@@ -371,6 +371,7 @@ struct Engine::State {
   void Falls(void);
   [[nodiscard]] bool Composes(void);
   bool Grows(double atLat, double atLon);
+  void WhereTheEyeStands(double &atLat, double &atLon) const;
   [[nodiscard]] bool Stood(void);
   [[nodiscard]] bool Updates(void);
   [[nodiscard]] bool Draws(void);

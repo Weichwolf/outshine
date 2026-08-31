@@ -40,6 +40,26 @@ private:
 
 } // namespace
 
+void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
+  const Sim::Corridor &way = Ticking.Drive.Way;
+  const bool overADrive = Ticking.Drove && !way.Fine.empty();
+  const double anchorLat = overADrive ? way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
+  const double anchorLon = overADrive ? way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
+  atLat = anchorLat;
+  atLon = anchorLon;
+  if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return; }
+  const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
+  const double *const eye = Picture.Standing->Watching().EyeM;
+  double held[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
+                 eye[1] * anchored.UpEcef()[axis] - eye[2] * anchored.NorthEcef()[axis];
+  }
+  const Ground::Geo above = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+  atLat = above.LatDeg;
+  atLon = above.LonDeg;
+}
+
 bool Engine::State::Grows(double atLat, double atLon) {
   Published.Places("generators: bodies already placed", (double)World.Placed, "bodies");
   Published.Places(
@@ -385,18 +405,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   double atLat = anchorLat;
   double atLon = anchorLon;
-  if (Picture.Standing->Watched()) {
-    const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
-    const double *const eye = Picture.Standing->Watching().EyeM;
-    double held[3];
-    for (int axis = 0; axis < 3; ++axis) {
-      held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
-                   eye[1] * anchored.UpEcef()[axis] - eye[2] * anchored.NorthEcef()[axis];
-    }
-    const Ground::Geo above = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
-    atLat = above.LatDeg;
-    atLon = above.LonDeg;
-  }
+  WhereTheEyeStands(atLat, atLon);
   Published.Places(
       "the ring centres this far from the world's anchor",
       std::hypot((atLat - anchorLat) * 111132.0,

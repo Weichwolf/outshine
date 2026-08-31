@@ -58,6 +58,35 @@ barely moves and the tail is where the truth was: a still camera never rebuilds 
 never streams a tile it has not got, which is why it flattered every number this repository has
 printed.
 
+## AND THE WORLD FOLLOWED THE SCENARIO WHILE THE PATCHWORK FOLLOWED THE EYE
+
+Two holders of one question. `Picturing.cpp:385-398` already laid the patchwork around the
+CAMERA's position, computed from the eye against the anchor. `Advancing.cpp:170-174` restood the
+ground stack at `Session.Declared.Ground.Origin` -- the SCENARIO's. While the camera stood still
+the two agreed; the moment it walked they did not, and CLAUDE.md names exactly this: *the second
+holder is what makes two subsystems disagree about the same place*.
+
+The computation is now `Engine::State::WhereTheEyeStands` and both read it. What that exposes, at
+120 frames a place against a 16.67 ms budget:
+
+| place | p50 | p95 | p99 | over |
+|---|---|---|---|---|
+| CentralPark | 7.23 | 7.58 | 18.51 | 2 |
+| Heidelberg | 3.70 | **26.12** | **2493.00** | 8 |
+| OldTown | 3.01 | 6.00 | **1831.54** | 2 |
+| Shibuya | 4.02 | 7.50 | **1413.01** | 3 |
+| Jura | 4.06 | 4.79 | 14.29 | 1 |
+| Venice | 3.30 | 4.19 | **920.13** | 2 |
+
+**A frame that crosses a tile boundary costs up to 2.5 SECONDS.** Four of six places have a p99 in
+whole seconds. The p50 does not move at all, which is why a mean or a median would have shown
+nothing -- CLAUDE.md refuses both for exactly this reason and was right.
+
+**It is the REBUILD, not the streaming.** The world's fields grow from 180.8 MB to 182.3 MB over
+the whole 600 m walk and `world: times a round stopped at that ceiling` stays 0 -- nothing is being
+fetched. The seconds are spent re-laying a world that was already resident, serially, which is
+board:2056's subject measured on its own case for the first time.
+
 ## AND THE VARIATION WAS READ FROM THE WRONG FRAME, the moment the camera moved
 
 `shot.VariationAlongRows` was read AFTER the timed loop, from whatever was in the framebuffer.
