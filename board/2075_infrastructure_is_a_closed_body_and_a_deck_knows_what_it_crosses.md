@@ -214,3 +214,26 @@ geometry had never been wrong.
 
 That is the second measurement defect of this kind in this item, after the four hypotheses about the
 dashed line. Both cost the same way: a number was believed before it was asked where it came from.
+
+## THE CULLING HALF OF "SUB-TILE PIECES" IS ALREADY FINER THAN THE ASK
+
+The goal says one body per tile is the wrong unit and an infrastructure body must be cut into
+sub-tile pieces that stream and cull on their own. **Half of that is already true, by a mechanism
+finer than the ask**, and building parts for it would buy draws and no culling:
+
+    Kaiserberg   cook: clusters in all        56 302
+                 ring: a frustum would keep   11 997      79 per cent thrown away
+                 cull: jobs it swept          56 302      one per cluster, on the device
+                 parts the geometry holds          4      ground, walls, roofs, water, streets
+
+`CookClusters` cuts the whole world into clusters of about ninety-five triangles and
+`subjectCull.msl` tests every one against the frustum and the depth pyramid. A PART is a material
+boundary here, not a cull unit -- so cutting the streets into sub-tile parts would add draw calls
+and remove nothing from the cull that is not already removed.
+
+**What is NOT met is STREAMING.** The world's geometry is assembled and handed over as ONE unit per
+rebuild -- 5.36 M street triangles among it -- so a piece the camera cannot see still costs its
+share of a 2.0 s rebuild. That is the rebuild architecture rather than the road's, and it belongs to
+board:2056 with the phases already measured there.
+
+Recorded rather than built, because a part that culls nothing is a part that only costs.
