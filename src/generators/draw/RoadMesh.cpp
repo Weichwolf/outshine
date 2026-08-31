@@ -114,6 +114,7 @@ namespace {
 constexpr double kLayWithinM = 0.5;
 constexpr double kLayTightestM = 5.5;
 constexpr double kSagittaM = 0.20;
+constexpr int kProfilePasses = 24;
 constexpr double kLeastStepM = 2.0;
 constexpr double kMostStepM = 32.0;
 
@@ -239,6 +240,44 @@ bool LayPiece(Span<const double> eastNorthM,
 }
 
 } // namespace
+
+void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCrestK) {
+  if (along.Size() < 3 || !(mostGradient > 0.0) || !(leastCrestK > 0.0)) { return; }
+
+  std::vector<double> reached(along.Size(), 0.0);
+  for (size_t one = 1; one < along.Size(); ++one) {
+    const double spanE = along[one].EastM - along[one - 1u].EastM;
+    const double spanS = along[one].SouthM - along[one - 1u].SouthM;
+    reached[one] = reached[one - 1u] + std::sqrt(spanE * spanE + spanS * spanS);
+  }
+
+  std::vector<double> grade(along.Size() - 1u, 0.0);
+  for (size_t one = 0; one + 1u < along.Size(); ++one) {
+    const double span = reached[one + 1u] - reached[one];
+    grade[one] = span > 1.0e-9 ? (along[one + 1u].GradeM - along[one].GradeM) / span : 0.0;
+    grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
+  }
+
+  for (int pass = 0; pass < kProfilePasses; ++pass) {
+    for (size_t one = 0; one + 2u < along.Size(); ++one) {
+      const double span = 0.5 * (reached[one + 2u] - reached[one]);
+      if (!(span > 1.0e-9)) { continue; }
+      const double most = span / (100.0 * leastCrestK);
+      const double apart = grade[one + 1u] - grade[one];
+      if (std::fabs(apart) <= most) { continue; }
+      const double give = 0.5 * (std::fabs(apart) - most) * (apart > 0.0 ? 1.0 : -1.0);
+      grade[one] += give;
+      grade[one + 1u] -= give;
+      grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
+      grade[one + 1u] = std::clamp(grade[one + 1u], -mostGradient, mostGradient);
+    }
+  }
+
+  for (size_t one = 1; one < along.Size(); ++one) {
+    along[one].GradeM =
+        along[one - 1u].GradeM + grade[one - 1u] * (reached[one] - reached[one - 1u]);
+  }
+}
 
 void SweepRoad(Span<const RoadStation> along,
                double halfWidthM,

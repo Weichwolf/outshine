@@ -334,3 +334,33 @@ The right order, and only one part is missing:
 `kRoadAboveM` is deleted: it lifted every road one metre unconditionally, which was a z-fighting
 hack from before the height was exact. A carriageway's top now sits ON the interpolated triangle and
 its 0.30 m body reaches into the ground, which is the one interpenetration the goal allows.
+
+
+## THE STAMP IS APPLIED, AND FOUR THINGS WERE MEASURED ON THE WAY
+
+The ground is now pressed to a building's pad: every ring vertex inside a footprint takes the pad's
+plateau, cosine-blended out over a 6 m apron. It presses DOWNWARD only, and the reason is a measured
+one -- a camera stands on the height the ground QUERY answers, not on the pressed surface, so a pad
+that raised the ground would bury the camera. Filling waits for the query to know about stamps.
+
+    Heidelberg   ring vertices a pad pressed   41 514
+                 and the deepest it pressed    17.24 m
+                 footprints worth a stamp      18 154 of 43 986   41 per cent
+
+Three findings came with it, each cheaper to write down than to rediscover:
+
+**The plateau is a FRAME-UP, not an ASL.** `Footprint::SeatM` is metres above the ellipsoid and the
+ring's vertices are frame-relative; writing one into the other is a units defect that Manhattan
+showed and Heidelberg hid.
+
+**A water body cannot be stamped the same way.** Pressing the bed to `LevelM - 1.5` turned the
+Neckar green: the bed went down and the lid went with it. Reverted. The bank is a ragged
+intersection between a flat lid and a coarse terrain, and it has to be decided as ONE thing rather
+than by pressing half of it.
+
+**RenderCentralPark is UNPREPARED and it is NOT the stamp.** With the stamp switched off entirely
+the frame still reads a horizontal variation of **0.9564** against a bar of **1.0**. The picture was
+looked at: Manhattan's skyline, the park, the Met. The check's proxy -- variation along the rows --
+stands for "the frame holds geometry", and a flat park seen from above genuinely has little of it.
+The proxy is at its limit here, and the guard earned its place (a picture of nothing passed for
+months), so the answer is a better proxy rather than a lower bar.

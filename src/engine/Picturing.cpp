@@ -5,6 +5,7 @@
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
+#include <array>
 #include <unordered_map>
 #include <utility>
 #include <chrono>
@@ -23,6 +24,12 @@ static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
               "re-derived rather than kept");
 
 namespace {
+
+double DrapeCellM(size_t rung) {
+  double cellM = 32.0;
+  for (size_t step = 0; step < rung; ++step) { cellM *= 8.0; }
+  return cellM;
+}
 
 [[nodiscard]] uint64_t WayEndKey(double latDeg, double lonDeg) {
   constexpr int64_t kBias = 0x20000000;
@@ -619,7 +626,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const int64_t east = (int64_t)std::llround((double)inFrame[at] * 4.0);
       const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
-      const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+      const auto atE = (uint64_t)(east + 0x20000000LL);
+      const auto atS = (uint64_t)(south + 0x20000000LL);
+      const uint64_t key = (atE << 32) | atS;
       const auto stood = met.find(key);
       if (stood == met.end()) {
         met.emplace(key, inFrame[at + 1]);
@@ -645,7 +654,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double leanDeg =
               std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) * 180.0 /
               std::numbers::pi;
-          if (leanDeg > leaning) { leaning = leanDeg; }
+          leaning = std::max(leaning, leanDeg);
           leanSum += leanDeg;
           ++leanCount;
         }
@@ -749,7 +758,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      "fraction");
     Published.Places(
         "class field: the materials are loaded", wearing.Ready() ? 1.0 : 0.0, "yes/no");
-    Published.Places("out of, for a class", (double)(inFrame.size() / 3), "vertices");
+    Published.Places("out of, for a class", (double)inFrame.size() / 3.0, "vertices");
   }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
   Published.Places("and how far out it lies", sankAt, "m");
@@ -846,8 +855,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
         const double y = (double)held[at];
-        if (y < least) { least = y; }
-        if (y > most) { most = y; }
+        least = std::min(least, y);
+        most = std::max(most, y);
       }
       Published.Places("the ground ring's lowest vertex", least, "m");
       Published.Places("the ground ring's highest", most, "m");
@@ -866,6 +875,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr int kRampPasses = 12;
   constexpr int kChordPasses = 4;
   constexpr double kChordWithinM = 0.20;
+  constexpr double kLeastCrestK = 10.0;
+  constexpr double kPadApronM = 6.0;
+  constexpr size_t kDrapeRungs = 6;
   constexpr double kTrimMostWidths = 4.0;
   constexpr double kFitWithinM = 0.5;
   constexpr double kStampWorthM = 0.25;
@@ -1189,6 +1201,140 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
 
+  {
+    const Ground::BuildingField &pads = World.Stack.Footprints();
+    const Ground::OsmField *const shapes = World.Stack.Vectors();
+    size_t pressed = 0;
+    double deepestM = 0.0;
+    if (shapes != nullptr && !pads.Footprints().empty()) {
+      struct Pad {
+        std::vector<double> RingEastSouthM;
+        double LowE = 0.0, HighE = 0.0, LowS = 0.0, HighS = 0.0;
+        double PlateauM = 0.0;
+      };
+
+      std::vector<Pad> pad;
+      std::unordered_map<uint64_t, std::vector<uint32_t>> padsAt;
+      pad.reserve(pads.Footprints().size());
+      const std::span<const double> points = shapes->Points();
+      for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
+        if (one.PointCount < 3 || !(one.SeatM > 0.0f)) { continue; }
+        if ((double)one.SeatM - (double)one.BaseM < kStampWorthM) { continue; }
+        Pad made;
+        made.RingEastSouthM.reserve((size_t)one.PointCount * 2u);
+        made.LowE = 1.0e30;
+        made.HighE = -1.0e30;
+        made.LowS = 1.0e30;
+        made.HighS = -1.0e30;
+        bool whole = true;
+        for (uint32_t corner = 0; corner < one.PointCount; ++corner) {
+          const size_t held = ((size_t)one.FirstPoint + corner) * 2u;
+          if (held + 1 >= points.size()) {
+            whole = false;
+            break;
+          }
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
+          standing.Place(points[held], points[held + 1], 0.0, &eastM, &upM, &northM);
+          made.RingEastSouthM.push_back(eastM);
+          made.RingEastSouthM.push_back(-northM);
+          made.LowE = std::min(made.LowE, eastM);
+          made.HighE = std::max(made.HighE, eastM);
+          made.LowS = std::min(made.LowS, -northM);
+          made.HighS = std::max(made.HighS, -northM);
+        }
+        if (!whole) { continue; }
+        {
+          const size_t first = (size_t)one.FirstPoint * 2u;
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
+          standing.Place(
+              points[first], points[first + 1], (double)one.SeatM, &eastM, &upM, &northM);
+          made.PlateauM = upM;
+        }
+        const auto which = (uint32_t)pad.size();
+        const auto fromE = (int64_t)std::floor((made.LowE - kPadApronM) / kDrapeGridM);
+        const auto toE = (int64_t)std::floor((made.HighE + kPadApronM) / kDrapeGridM);
+        const auto fromS = (int64_t)std::floor((made.LowS - kPadApronM) / kDrapeGridM);
+        const auto toS = (int64_t)std::floor((made.HighS + kPadApronM) / kDrapeGridM);
+        for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
+          for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
+            const auto atE = (uint64_t)(cellE + 0x20000000LL);
+            const auto atS = (uint64_t)(cellS + 0x20000000LL);
+            const uint64_t key = (atE << 32) | atS;
+            padsAt[key].push_back(which);
+          }
+        }
+        pad.push_back(std::move(made));
+      }
+      Published.Places("ground: pads that may press it", (double)pad.size(), "pads");
+
+      for (size_t one = 0; one + 2 < inFrame.size(); one += 3) {
+        const double eastM = inFrame[one];
+        const double southM = inFrame[one + 2];
+        const auto cellE = (int64_t)std::floor(eastM / kDrapeGridM);
+        const auto cellS = (int64_t)std::floor(southM / kDrapeGridM);
+        const auto atE = (uint64_t)(cellE + 0x20000000LL);
+        const auto atS = (uint64_t)(cellS + 0x20000000LL);
+        const auto bucket = padsAt.find((atE << 32) | atS);
+        if (bucket == padsAt.end()) { continue; }
+        double wanted = inFrame[one + 1];
+        double weight = 0.0;
+        for (const uint32_t which : bucket->second) {
+          const Pad &held = pad[which];
+          if (eastM < held.LowE - kPadApronM || eastM > held.HighE + kPadApronM ||
+              southM < held.LowS - kPadApronM || southM > held.HighS + kPadApronM) {
+            continue;
+          }
+          bool inside = false;
+          double nearest = 1.0e30;
+          const size_t corners = held.RingEastSouthM.size() / 2u;
+          for (size_t edge = 0, last = corners - 1u; edge < corners; last = edge++) {
+            const double aE = held.RingEastSouthM[edge * 2u];
+            const double aS = held.RingEastSouthM[edge * 2u + 1u];
+            const double bE = held.RingEastSouthM[last * 2u];
+            const double bS = held.RingEastSouthM[last * 2u + 1u];
+            if ((aS > southM) != (bS > southM) &&
+                eastM < (bE - aE) * (southM - aS) / (bS - aS) + aE) {
+              inside = !inside;
+            }
+            const double runE = bE - aE;
+            const double runS = bS - aS;
+            const double runM = runE * runE + runS * runS;
+            const double part =
+                runM > 1.0e-9
+                    ? std::clamp(((eastM - aE) * runE + (southM - aS) * runS) / runM, 0.0, 1.0)
+                    : 0.0;
+            const double offE = eastM - (aE + runE * part);
+            const double offS = southM - (aS + runS * part);
+            nearest = std::min(nearest, std::sqrt(offE * offE + offS * offS));
+          }
+          double share = 0.0;
+          if (inside) {
+            share = 1.0;
+          } else if (nearest < kPadApronM) {
+            share = 0.5 * (1.0 + std::cos(std::numbers::pi * nearest / kPadApronM));
+          }
+          if (share <= weight) { continue; }
+          weight = share;
+          wanted = held.PlateauM;
+        }
+        if (!(weight > 0.0)) { continue; }
+        const double was = inFrame[one + 1];
+        if (wanted >= was) { continue; }
+        const double now = was + (wanted - was) * weight;
+        inFrame[one + 1] = (float)now;
+        if (std::fabs(now - was) > 0.01) {
+          ++pressed;
+          deepestM = std::max(deepestM, std::fabs(now - was));
+        }
+      }
+    }
+    Published.Places("ground: ring vertices a pad pressed", (double)pressed, "vertices");
+    Published.Places("ground: and the deepest it pressed", deepestM, "m");
+  }
   (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
   (void)ground.setNormals(ringPart,
                           std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
@@ -1202,7 +1348,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   std::unordered_map<uint64_t, float> drawnGround;
-  std::unordered_map<uint64_t, std::vector<uint32_t>> facesAt;
+  std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs> facesAt;
   {
     Published.Places(
         "rebuild: of that, the ring and the buildings into the frame",
@@ -1215,7 +1361,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const auto east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
       const auto south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
-      const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+      const auto atE = (uint64_t)(east + 0x20000000LL);
+      const auto atS = (uint64_t)(south + 0x20000000LL);
+      const uint64_t key = (atE << 32) | atS;
       std::pair<double, uint32_t> &cell = summed[key];
       cell.first += (double)inFrame[at + 1];
       ++cell.second;
@@ -1227,11 +1375,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       if (one.second.second > 1) { ++crowded; }
     }
     Published.Places(
-        "ring: vertices the drape grid holds", (double)(inFrame.size() / 3), "vertices");
+        "ring: vertices the drape grid holds", (double)inFrame.size() / 3.0, "vertices");
     Published.Places("ring: cells they fall into", (double)summed.size(), "cells");
     Published.Places("ring: cells holding more than one", (double)crowded, "cells");
 
-    facesAt.reserve(laid->Index.size() / 3u);
+    facesAt[0].reserve(laid->Index.size() / 3u);
+    size_t rungTaken[kDrapeRungs] = {};
     for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
       double lowE = 1.0e30;
       double highE = -1.0e30;
@@ -1250,89 +1399,103 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         highS = std::max(highS, (double)inFrame[held + 2]);
       }
       if (!whole) { continue; }
-      const auto fromE = (int64_t)std::floor(lowE / kDrapeGridM);
-      const auto toE = (int64_t)std::floor(highE / kDrapeGridM);
-      const auto fromS = (int64_t)std::floor(lowS / kDrapeGridM);
-      const auto toS = (int64_t)std::floor(highS / kDrapeGridM);
+      const double across = std::max(highE - lowE, highS - lowS);
+      size_t rung = 0;
+      while (rung + 1u < kDrapeRungs && across > 2.0 * DrapeCellM(rung)) { ++rung; }
+      const double cellM = DrapeCellM(rung);
+      const auto fromE = (int64_t)std::floor(lowE / cellM);
+      const auto toE = (int64_t)std::floor(highE / cellM);
+      const auto fromS = (int64_t)std::floor(lowS / cellM);
+      const auto toS = (int64_t)std::floor(highS / cellM);
       if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
+      ++rungTaken[rung];
       for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
         for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-          const uint64_t key =
-              ((uint64_t)(cellE + 0x20000000) << 32) | (uint64_t)(cellS + 0x20000000);
-          facesAt[key].push_back((uint32_t)one);
+          const auto atE = (uint64_t)(cellE + 0x20000000LL);
+          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          facesAt[rung][(atE << 32) | atS].push_back((uint32_t)one);
         }
       }
+    }
+    for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
+      Published.Places(std::string("ring: drape triangles on rung ") + (char)('0' + rung),
+                       (double)rungTaken[rung],
+                       "triangles");
     }
     Published.Places(
-        "ring: triangles the drape can reach", (double)(laid->Index.size() / 3u), "triangles");
+        "ring: triangles the drape can reach", (double)laid->Index.size() / 3.0, "triangles");
   }
-  const auto drapedOver = [&drawnGround, &facesAt, &inFrame, &laid](
-                              double eastM, double southM, double fallback) {
-    {
-      const auto cellE = (int64_t)std::floor(eastM / kDrapeGridM);
-      const auto cellS = (int64_t)std::floor(southM / kDrapeGridM);
-      const uint64_t key = ((uint64_t)(cellE + 0x20000000) << 32) | (uint64_t)(cellS + 0x20000000);
-      const auto bucket = facesAt.find(key);
-      if (bucket != facesAt.end()) {
-        for (const uint32_t at : bucket->second) {
-          const size_t a = (size_t)laid->Index[at] * 3u;
-          const size_t b = (size_t)laid->Index[at + 1u] * 3u;
-          const size_t c = (size_t)laid->Index[at + 2u] * 3u;
-          if (c + 2 >= inFrame.size()) { continue; }
-          const double aE = inFrame[a];
-          const double aS = inFrame[a + 2];
-          const double spanBE = (double)inFrame[b] - aE;
-          const double spanBS = (double)inFrame[b + 2] - aS;
-          const double spanCE = (double)inFrame[c] - aE;
-          const double spanCS = (double)inFrame[c + 2] - aS;
-          const double twice = spanBE * spanCS - spanCE * spanBS;
-          if (std::fabs(twice) < 1.0e-9) { continue; }
-          const double intoE = eastM - aE;
-          const double intoS = southM - aS;
-          const double towardB = (intoE * spanCS - spanCE * intoS) / twice;
-          const double towardC = (spanBE * intoS - intoE * spanBS) / twice;
-          if (towardB < -1.0e-6 || towardC < -1.0e-6 || towardB + towardC > 1.0 + 1.0e-6) {
-            continue;
+  const auto drapedOver =
+      [&drawnGround, &facesAt, &inFrame, &laid](double eastM, double southM, double fallback) {
+        for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
+          const double cellM = DrapeCellM(rung);
+          const auto cellE = (int64_t)std::floor(eastM / cellM);
+          const auto cellS = (int64_t)std::floor(southM / cellM);
+          const auto atE = (uint64_t)(cellE + 0x20000000LL);
+          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          const auto bucket = facesAt[rung].find((atE << 32) | atS);
+          if (bucket != facesAt[rung].end()) {
+            for (const uint32_t at : bucket->second) {
+              const size_t a = (size_t)laid->Index[at] * 3u;
+              const size_t b = (size_t)laid->Index[at + 1u] * 3u;
+              const size_t c = (size_t)laid->Index[at + 2u] * 3u;
+              if (c + 2 >= inFrame.size()) { continue; }
+              const double aE = inFrame[a];
+              const double aS = inFrame[a + 2];
+              const double spanBE = (double)inFrame[b] - aE;
+              const double spanBS = (double)inFrame[b + 2] - aS;
+              const double spanCE = (double)inFrame[c] - aE;
+              const double spanCS = (double)inFrame[c + 2] - aS;
+              const double twice = spanBE * spanCS - spanCE * spanBS;
+              if (std::fabs(twice) < 1.0e-9) { continue; }
+              const double intoE = eastM - aE;
+              const double intoS = southM - aS;
+              const double towardB = (intoE * spanCS - spanCE * intoS) / twice;
+              const double towardC = (spanBE * intoS - intoE * spanBS) / twice;
+              if (towardB < -1.0e-6 || towardC < -1.0e-6 || towardB + towardC > 1.0 + 1.0e-6) {
+                continue;
+              }
+              return (double)inFrame[a + 1] * (1.0 - towardB - towardC) +
+                     (double)inFrame[b + 1] * towardB + (double)inFrame[c + 1] * towardC;
+            }
           }
-          return (double)inFrame[a + 1] * (1.0 - towardB - towardC) +
-                 (double)inFrame[b + 1] * towardB + (double)inFrame[c + 1] * towardC;
         }
-      }
-    }
-    const double atE = eastM / kDrapeGridM;
-    const double atS = southM / kDrapeGridM;
-    const auto west = (int64_t)std::floor(atE);
-    const auto north = (int64_t)std::floor(atS);
-    const double alongE = atE - (double)west;
-    const double alongS = atS - (double)north;
-    const auto held = [&drawnGround](int64_t east, int64_t south, double *out) {
-      const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
-      const auto stood = drawnGround.find(key);
-      if (stood == drawnGround.end()) { return false; }
-      *out = (double)stood->second;
-      return true;
-    };
-    double corner[4] = {0.0, 0.0, 0.0, 0.0};
-    if (held(west, north, &corner[0]) && held(west + 1, north, &corner[1]) &&
-        held(west, north + 1, &corner[2]) && held(west + 1, north + 1, &corner[3])) {
-      const double above = corner[0] + (corner[1] - corner[0]) * alongE;
-      const double below = corner[2] + (corner[3] - corner[2]) * alongE;
-      return above + (below - above) * alongS;
-    }
-    const auto east = (int64_t)std::llround(atE);
-    const auto south = (int64_t)std::llround(atS);
-    double summed = 0.0;
-    size_t took = 0;
-    for (int64_t dy = -1; dy <= 1; ++dy) {
-      for (int64_t dx = -1; dx <= 1; ++dx) {
-        double stood = 0.0;
-        if (!held(east + dx, south + dy, &stood)) { continue; }
-        summed += stood;
-        ++took;
-      }
-    }
-    return took > 0 ? summed / (double)took : fallback;
-  };
+        const double atE = eastM / kDrapeGridM;
+        const double atS = southM / kDrapeGridM;
+        const auto west = (int64_t)std::floor(atE);
+        const auto north = (int64_t)std::floor(atS);
+        const double alongE = atE - (double)west;
+        const double alongS = atS - (double)north;
+        const auto held = [&drawnGround](int64_t east, int64_t south, double *out) {
+          const auto atE = (uint64_t)(east + 0x20000000LL);
+          const auto atS = (uint64_t)(south + 0x20000000LL);
+          const uint64_t key = (atE << 32) | atS;
+          const auto stood = drawnGround.find(key);
+          if (stood == drawnGround.end()) { return false; }
+          *out = (double)stood->second;
+          return true;
+        };
+        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        if (held(west, north, &corner[0]) && held(west + 1, north, &corner[1]) &&
+            held(west, north + 1, &corner[2]) && held(west + 1, north + 1, &corner[3])) {
+          const double above = corner[0] + (corner[1] - corner[0]) * alongE;
+          const double below = corner[2] + (corner[3] - corner[2]) * alongE;
+          return above + (below - above) * alongS;
+        }
+        const auto east = (int64_t)std::llround(atE);
+        const auto south = (int64_t)std::llround(atS);
+        double summed = 0.0;
+        size_t took = 0;
+        for (int64_t dy = -1; dy <= 1; ++dy) {
+          for (int64_t dx = -1; dx <= 1; ++dx) {
+            double stood = 0.0;
+            if (!held(east + dx, south + dy, &stood)) { continue; }
+            summed += stood;
+            ++took;
+          }
+        }
+        return took > 0 ? summed / (double)took : fallback;
+      };
 
   {
     Published.Places(
@@ -1706,6 +1869,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           if (added == 0) { break; }
         }
 
+        if (lane.MaxGradient > 0.0f) {
+          Generators::DesignProfile(Span<Generators::RoadStation>(along.data(), along.size()),
+                                    (double)lane.MaxGradient,
+                                    kLeastCrestK);
+        }
+
         {
           fitEastNorth.clear();
           fitEastNorth.reserve(along.size() * 2u);
@@ -1924,7 +2093,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
         const int64_t east = (int64_t)std::llround((double)inFrame[at] / kGapGridM);
         const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] / kGapGridM);
-        const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+        const auto atE = (uint64_t)(east + 0x20000000LL);
+        const auto atS = (uint64_t)(south + 0x20000000LL);
+        const uint64_t key = (atE << 32) | atS;
         const auto stood = highest.find(key);
         if (stood == highest.end() || inFrame[at + 1] > stood->second) {
           highest[key] = inFrame[at + 1];
@@ -1936,7 +2107,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
         const int64_t east = (int64_t)std::llround((double)pavement.PositionM[at] / kGapGridM);
         const int64_t south = (int64_t)std::llround((double)pavement.PositionM[at + 2] / kGapGridM);
-        const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
+        const auto atE = (uint64_t)(east + 0x20000000LL);
+        const auto atS = (uint64_t)(south + 0x20000000LL);
+        const uint64_t key = (atE << 32) | atS;
         const auto stood = highest.find(key);
         if (stood == highest.end()) { continue; }
         const double under = (double)stood->second - (double)pavement.PositionM[at + 1];

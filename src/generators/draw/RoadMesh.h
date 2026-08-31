@@ -44,6 +44,8 @@ struct RoadRefusals {
   size_t TooShort = 0;
 };
 
+void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCrestK);
+
 void SweepRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
