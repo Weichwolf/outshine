@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <numbers>
 
 namespace outshine::Ground {
 
@@ -189,26 +190,73 @@ Frontage NearestStreet(const OsmField &field,
   return out;
 }
 
+bool InsideRing(std::span<const double> pts, const OsmField::Ring &ring, double lat, double lon) {
+  bool in = false;
+  for (uint32_t k = 0, j = ring.Count - 1; k < ring.Count; j = k++) {
+    const double kLat = pts[((size_t)ring.First + k) * 2];
+    const double kLon = pts[((size_t)ring.First + k) * 2 + 1];
+    const double jLat = pts[((size_t)ring.First + j) * 2];
+    const double jLon = pts[((size_t)ring.First + j) * 2 + 1];
+    if ((kLat > lat) == (jLat > lat)) { continue; }
+    if (lon < (jLon - kLon) * (lat - kLat) / (jLat - kLat) + kLon) { in = !in; }
+  }
+  return in;
+}
+
+constexpr int kInteriorGrid = 4;
+constexpr double kInteriorSpanM = 20.0;
+constexpr double kMetresPerDegree = 111320.0;
+
 } // namespace
 
 GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                      const OsmField &field,
                                      const OsmField::Ring &ring,
-                                     std::vector<double> *corners) {
+                                     std::vector<double> *corners,
+                                     double *highestAslM) {
   const std::span<const double> pts = field.Points();
   if (corners) { corners->clear(); }
+  if (highestAslM) { *highestAslM = 0.0; }
   if (ring.Count == 0) { return GroundSample::Missing(); }
   double lowest = 1.0e9;
+  double highest = -1.0e9;
+  double southest = 1.0e9, northest = -1.0e9, westest = 1.0e9, eastest = -1.0e9;
   int coarsest = 0;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    const GroundSample g =
-        ground.At(pts[((size_t)ring.First + k) * 2], pts[((size_t)ring.First + k) * 2 + 1]);
+    const double lat = pts[((size_t)ring.First + k) * 2];
+    const double lon = pts[((size_t)ring.First + k) * 2 + 1];
+    const GroundSample g = ground.At(lat, lon);
     double aslM = 0.0;
     if (!g.TryAslM(&aslM)) { return g; }
     if (corners) { corners->push_back(aslM); }
     lowest = std::min(lowest, aslM);
+    highest = std::max(highest, aslM);
+    southest = std::min(southest, lat);
+    northest = std::max(northest, lat);
+    westest = std::min(westest, lon);
+    eastest = std::max(eastest, lon);
     coarsest = std::max(coarsest, g.CoarseBy());
   }
+
+  const double tall = (northest - southest) * kMetresPerDegree;
+  const double wide = (eastest - westest) * kMetresPerDegree *
+                      std::cos(0.5 * (northest + southest) * std::numbers::pi / 180.0);
+  if (std::max(tall, wide) >= kInteriorSpanM) {
+    for (int row = 1; row < kInteriorGrid; ++row) {
+      for (int column = 1; column < kInteriorGrid; ++column) {
+        const double lat = southest + (northest - southest) * (double)row / (double)kInteriorGrid;
+        const double lon = westest + (eastest - westest) * (double)column / (double)kInteriorGrid;
+        if (!InsideRing(pts, ring, lat, lon)) { continue; }
+        const GroundSample g = ground.At(lat, lon);
+        double aslM = 0.0;
+        if (!g.TryAslM(&aslM)) { continue; }
+        lowest = std::min(lowest, aslM);
+        highest = std::max(highest, aslM);
+        coarsest = std::max(coarsest, g.CoarseBy());
+      }
+    }
+  }
+  if (highestAslM) { *highestAslM = highest; }
   return GroundSample::At(lowest).Coarser(coarsest);
 }
 
@@ -266,7 +314,8 @@ int BuildingField::Build(const GroundQuery &ground,
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
 
       double base = 0.0;
-      if (!RingBase(ground, field, ring, &Corners_).TryAslM(&base)) {
+      double seat = 0.0;
+      if (!RingBase(ground, field, ring, &Corners_, &seat).TryAslM(&base)) {
         NoGround_++;
         continue;
       }
@@ -294,6 +343,8 @@ int BuildingField::Build(const GroundQuery &ground,
         DefaultHeights_++;
       }
       fp.BaseM = (float)base;
+      fp.FootM = (float)base;
+      fp.SeatM = (float)seat;
       Prints_.push_back(fp);
       const auto meshFrom = std::chrono::steady_clock::now();
       Raise(field, fp);
@@ -332,6 +383,8 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.RingLatLon =
       Span<const double>(pts.data() + (size_t)f.FirstPoint * 2, (size_t)f.PointCount * 2);
   plan.BaseAslM = f.BaseM;
+  plan.SeatAslM = f.SeatM;
+  plan.FootAslM = f.FootM;
   plan.CornerAslM = Span<const double>(Corners_.data(), Corners_.size());
   plan.HeightM = f.HeightM;
   plan.HeightMeasured = f.Source == HeightSource::Osm;

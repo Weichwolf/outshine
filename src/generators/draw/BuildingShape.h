@@ -33,6 +33,8 @@ struct BuildingShape {
   int Storeys = 1;
   double FloorM = 2.9;
   double FootM = 0.0;
+  double SeatM = 0.0;
+  double SoleM = 0.0;
   double EavesM = 0.0;
   double RiseM = 0.0;
   double BreakFracV = 0.0;
@@ -48,7 +50,7 @@ struct BuildingShape {
 
   [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
 
-  [[nodiscard]] double TopM() const { return FootM + EavesM + RiseM; }
+  [[nodiscard]] double TopM() const { return SeatM + FootM + EavesM + RiseM; }
 
   [[nodiscard]] En AxisV() const { return {-AxisU.N, AxisU.E}; }
 

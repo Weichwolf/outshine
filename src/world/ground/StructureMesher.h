@@ -45,6 +45,9 @@ struct StructurePlan {
   Span<const double> RingLatLon;
   double BaseAslM = 0.0;
 
+  double SeatAslM = 0.0;
+  double FootAslM = 0.0;
+
   Span<const double> CornerAslM;
 
   double HeightM = 0.0;

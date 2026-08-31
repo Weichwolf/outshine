@@ -280,12 +280,27 @@ def cases(only):
 
 
 def scored(ours, reference):
+    """Agreement over the pixels either picture LIGHTS, never over the whole frame.
+
+    Most of this corpus is a subject on black, and a frame that is 70 per cent background scores 70
+    per cent for drawing NOTHING. Measured: PointLightIntensityTest drew a completely black frame
+    against an oracle of six lit boxes and read 57.6729% -- BETTER than the 11.3325% it read when it
+    drew the subject in the wrong place. A metric that rewards an empty frame is a metric being read
+    without its picture.
+
+    The denominator is every pixel non-black in EITHER image. Taking only the reference's would make
+    anything painted on its background free; taking the union counts a missing subject and an
+    invented one alike. A pixel black in both agrees by construction and says nothing, so it is not
+    counted rather than counted as agreement."""
     a = np.asarray(Image.open(ours).convert("RGB")).astype(np.int16)
     b = np.asarray(Image.open(reference).convert("RGB")).astype(np.int16)
     if a.shape != b.shape:
         return None, None, None
     apart = np.abs(a - b).max(axis=2)
-    return float((apart <= kMostDelta).mean()), int(apart.max()), int((apart > kMostDelta).sum())
+    lit = (a.max(axis=2) > 0) | (b.max(axis=2) > 0)
+    if not lit.any():
+        return 1.0, 0, 0
+    return float((apart[lit] <= kMostDelta).mean()), int(apart.max()), int((apart > kMostDelta).sum())
 
 
 def main():
@@ -335,9 +350,11 @@ def main():
 
     print(f"\n{held} held, {len(red)} apart, {skipped} set aside with a reason, {unscored} "
           f"unscored (no reference or no prepared subject)")
-    print(f"the bar is {kLeastAgreeing * 100:.2f}% of pixels within {kMostDelta} of 255; the worst "
-          f"pixel is REPORTED and never gated, because one pixel at 255 is a hole rather than a "
-          f"tolerance")
+    print(f"the bar is {kLeastAgreeing * 100:.2f}% within {kMostDelta} of 255 OVER THE PIXELS "
+          f"EITHER PICTURE LIGHTS -- a pixel black in both agrees by construction and is not "
+          f"counted, because a frame that is mostly background scores its background")
+    print(f"the worst pixel is REPORTED and never gated, because one pixel at 255 is a hole rather "
+          f"than a tolerance")
     return 1 if red else 0
 
 

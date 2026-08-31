@@ -25,6 +25,8 @@ public:
     uint32_t FirstPoint = 0, PointCount = 0;
     float HeightM = 0.0f;
     float BaseM = 0.0f;
+    float SeatM = 0.0f;
+    float FootM = 0.0f;
     HeightSource Source = HeightSource::Default;
     Frontage Street;
   };
@@ -73,7 +75,8 @@ private:
   static GroundSample RingBase(const GroundQuery &ground,
                                const OsmField &field,
                                const OsmField::Ring &ring,
-                               std::vector<double> *corners);
+                               std::vector<double> *corners,
+                               double *highestAslM = nullptr);
   [[nodiscard]] bool TileGroundResolved(
       const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);

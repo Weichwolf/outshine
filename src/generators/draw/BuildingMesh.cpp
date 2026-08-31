@@ -107,14 +107,14 @@ struct Vtx {
 }
 
 double EavesZ(const BuildingShape &s) {
-  return s.FootM + s.EavesM;
+  return s.SeatM + s.FootM + s.EavesM;
 }
 
 Vtx Wall(const BuildingShape &s, const En &p, double z, double bays, Fields stand) {
   return {p,
           z,
           FacadeUvX(StyleOf(s.Use), stand, (float)bays),
-          FacadeUvY(s.Ident, (float)((z - s.FootM) / s.FloorM))};
+          FacadeUvY(s.Ident, (float)((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
@@ -240,7 +240,12 @@ private:
 
 class Site2Ground {
 public:
-  Site2Ground(Span<const double> ringLatLon, Span<const double> cornerAslM, double baseAslM) {
+  Site2Ground(Span<const double> ringLatLon,
+              Span<const double> cornerAslM,
+              double baseAslM,
+              double seatAslM,
+              double footAslM)
+      : HighM_(seatAslM - baseAslM), LowM_(footAslM - baseAslM) {
     const size_t n = std::min(cornerAslM.Size(), ringLatLon.Size() / 2);
     if (n < 3) { return; }
     double m[3][4] = {};
@@ -274,8 +279,13 @@ public:
 
   double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
 
+  double High() const { return HighM_; }
+
+  double Low() const { return LowM_; }
+
 private:
   double Const_ = 0.0, SlopeE_ = 0.0, SlopeN_ = 0.0;
+  double HighM_ = 0.0, LowM_ = 0.0;
 };
 
 double EdgeLength(const En &p, const En &q) {
@@ -456,6 +466,8 @@ void SampleGround(const BuildingShape &s,
 double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
+  lowest = std::min(lowest, ground.Low());
+  highest = std::max(highest, ground.High());
   const double spread = highest - lowest;
   return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
@@ -469,7 +481,7 @@ void Plinth(const BuildingShape &s,
   const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
   if (out.size() != s.Ring.size()) { return; }
   const size_t n = s.Ring.size();
-  const double lowZ = PlinthFootZ(s, ground);
+  const double lowZ = s.SoleM;
   const bool overhung = wide.size() == n;
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
@@ -685,13 +697,10 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   double lowest = 0.0, highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
-  const double seat = highest + kPlinthM;
-  double deepest = 0.0;
-  for (int step = 0; step < 5; ++step) {
-    const double u = ((double)(step % 3) - 1.0) * 0.5 * s.HalfUm;
-    const double v = ((double)(step / 3) - 0.5) * 0.5 * s.HalfVm;
-    deepest = std::max(deepest, ground.At(s.FromBox(u, v)) - seat);
-  }
+  const double seatZ = ground.High();
+  const double seat = std::max(seatZ, highest) + kPlinthM;
+
+  const double deepest = seatZ - seat;
   if (deepest > 0.0) {
     gBuried.fetch_add(1u, std::memory_order_relaxed);
     const size_t mm = (size_t)(deepest * 1000.0);
@@ -753,7 +762,7 @@ void Box(const BuildingShape &s,
          const std::vector<En> &ring,
          const Site2Ground &ground,
          Site &site) {
-  const double lowZ = PlinthFootZ(s, ground);
+  const double lowZ = s.SoleM;
   const double topZ = s.TopM();
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
@@ -785,7 +794,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
       mostN = std::max(mostN, p.N);
     }
     const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
-    const double highM = s.TopM() - PlinthFootZ(s, ground);
+    const double highM = s.TopM() - s.SoleM;
     const double asDetailed = std::min(ArchitectureReachM(focalPx),
                                        FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
     if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {
@@ -801,8 +810,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
   }
   gRaised.fetch_add(1u, std::memory_order_relaxed);
   const RoofSurface roof(s);
-  const double plinthZ = PlinthTopZ(s, ground);
-  const double lowZ = s.OnGround() ? plinthZ : s.FootM - kSinkM;
+  const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
   const std::vector<En> crownInner = RoofSurface::Widened(s.Ring, -kParapetThickM);
   const std::vector<En> crownOut = RoofSurface::Widened(s.Ring, kCorniceM);
@@ -812,12 +820,12 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
                           : crowned                ? EavesZ(s) - 0.34
                                                    : EavesZ(s) + s.RiseM;
   if (s.OnGround()) {
-    Plinth(s, roof, overhang, ground, plinthZ, site);
+    Plinth(s, roof, overhang, ground, s.SeatM, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
     if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
     gFloorRim.fetch_add(foot.empty() ? s.Ring.size() : foot.size(), std::memory_order_relaxed);
-    Floor(s, foot.empty() ? s.Ring : foot, PlinthFootZ(s, ground), site);
+    Floor(s, foot.empty() ? s.Ring : foot, s.SoleM, site);
   } else {
     Floor(s, s.Ring, lowZ, site);
   }
@@ -891,14 +899,19 @@ void Pavement(const BuildingShape &s,
 
 void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
   if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
-  const Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
+  Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
   if (mass.Parts.empty()) { return; }
 
   Site site(plan, into);
-  const Site2Ground ground(plan.RingLatLon, plan.CornerAslM, plan.BaseAslM);
+  const Site2Ground ground(
+      plan.RingLatLon, plan.CornerAslM, plan.BaseAslM, plan.SeatAslM, plan.FootAslM);
+  for (BuildingShape &part : mass.Parts) {
+    part.SeatM = PlinthTopZ(part, ground);
+    part.SoleM = PlinthFootZ(part, ground);
+  }
   for (const BuildingShape &part : mass.Parts) {
     RaisePart(part, ground, site);
-    Pavement(part, plan.Street, ground, PlinthTopZ(part, ground), site);
+    Pavement(part, plan.Street, ground, part.SeatM, site);
   }
 }
 
