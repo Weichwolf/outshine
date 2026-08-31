@@ -137,14 +137,64 @@ never been placed.
 - [ ] A land class that means TREES scatters the generator its template already names, at a
       density the frame budget allows, with an impostor beyond it. The ground keeps its floor
       material underneath -- this item adds a layer, it does not repaint one.
-- [ ] `outshine/places/RenderCentralPark` goes from UNPREPARED to PASS on its own bar, without
-      the bar moving. It reads 0.8423 against 1.0 today.
+- [x] `outshine/places/RenderCentralPark` goes from UNPREPARED to PASS on its own bar, without
+      the bar moving -- **and it was NOT the trees that did it.** board:2064 put the class
+      evaluation in the fragment shader and the park's own shape appeared: bounded woodland,
+      lawns, paths, water. `varies by 0.7991 -> 1.113` against a bar of 1.0 that never moved,
+      `outshine/places` 8 PASS 1 UNPREPARED -> 9 PASS. The box is honestly ticked and the reason
+      is written here so nobody reads it as evidence for a canopy.
 - [ ] Measurement that shows this is wrong: the Koenigstuhl's pixels at Heidelberg's declared
-      hour. They read (143, 123, 108) today, R > G, and must read G > R once a canopy stands over
-      them. An aerial photograph of that hill in June is unambiguously green.
+      hour. They read (143, 123, 108) when this item was filed, R > G, and must read G > R once a
+      canopy stands over them. **Re-measured after board:2064: (102, 94, 95), still R > G.** The
+      per-pixel class moved the hill toward neutral and did not make it green, which is right --
+      it changed where a class applies and not what stands on it.
 - [ ] Negative control: a place whose classes are all mineral -- rock, scree, paving -- gains no
       instances and its pixels do not move.
 - [ ] The frame budget is stated with the answer, because this is the first item that adds
       geometry to every vegetated square metre of the world. `Forest` is a RECURSIVE generator and
       CLAUDE.md lists high geometry with recursive generators FIRST among the five things the
       budget is laid out for; that is what it is for, and what it costs is the item's to say.
+
+## THE TREES ARE PLACED AND NOTHING READS THEM
+
+Measured on Heidelberg, one rebuild:
+
+    generators: bodies they placed          1316 bodies
+    instances its draw sources made         1311 instances
+    restand: instances it carries              1 instances
+
+`Picturing.cpp:129` fills `World.Instances` through an `Instancing` sink and
+`Picturing.cpp:135` publishes its size. **`grep -rn "World\.Instances" src/` returns those two
+lines and nothing else.** `Generators::Forest` -- a complete `Making`, species table, alpine limit,
+density per row -- is reached by nothing outside `src/generators/`, and `ForestDraw` hands
+`{Em, Nm, AslM, YawRad, Scale}` per tree into a vector no consumer opens.
+
+So the ground wears the floor not because the trees are missing but because the trees are DROPPED,
+1311 of them per rebuild. That is the ninth complete-but-unwired capability found this session and
+it is the one this item is about.
+
+## WHAT BLOCKS THE CANOPY, and it is two numbers rather than any code
+
+A crown needs an ALBEDO and a SHAPE, and this tree has an origin for neither:
+
+- **the foliage albedo.** `ground-materials.json` locks every one of its seventeen albedos to a
+  measured broadband value with a measured chromaticity, by two independent paths that agree to
+  0.011 per channel. `vegetation.json` carries `bladeClasses.graminoid.greenLinear` for a GRASS
+  BLADE, sourced the same way. **There is no broadleaf or conifer canopy reflectance anywhere in
+  this tree.** Using the graminoid green would be a stand-in with a named weakness -- the practice
+  this tree already uses for `kWet` -- and it is the cheapest honest option; sourcing an ECOSTRESS
+  canopy spectrum through the file's own path B is the right one
+- **the crown geometry.** `Forest::Stem` carries `HeightM`, `HeightSigma` and `TrunkRadiusM` and
+  says nothing about a crown's radius or its profile. A crown that reads from ABOVE needs a
+  horizontal extent, and every number in it would be `[SET]` with no measurement behind it
+
+**Neither was invented.** A canopy painted from two made-up numbers would look better in the next
+screenshot and would be exactly the "Symptombehandlung" this tree refuses -- and it would poison
+the one measurement this item declares, because the Koenigstuhl would go green for a reason that
+has nothing to do with a tree standing on it.
+
+- [ ] a foliage albedo with an ORIGIN, or the graminoid green named as a stand-in with its weakness
+      written where the number is read
+- [ ] a crown shape whose numbers say where they come from, even if that is `[SET]` with a reason
+- [ ] `World.Instances` reaches the geometry, and the count that reaches it is published beside the
+      count that was made -- 1311 and 1 today
