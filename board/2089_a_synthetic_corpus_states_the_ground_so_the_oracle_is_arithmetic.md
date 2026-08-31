@@ -168,3 +168,30 @@ see at cell scale.
 All three are the same missing idea from different sides: the derivation lays PIECES and never makes
 them one BODY. Cut and fill is the ground yielding to the road; welding is the road being one thing
 where two of its pieces meet.
+
+## The pressing approach is DEAD, and the measurement is what killed it
+
+Tried, measured, taken back out. The tree already presses the ground under BUILDINGS -- a ring, a
+plateau, an apron -- so the obvious first move was to press it under a road corridor too: one press
+per station pair, its target running along the alignment instead of standing at a plateau, allowed
+to fill as well as cut, its apron set from the 1:1.5 batter.
+
+It cut 39.119 m and it did not uncover the road. Why, measured on `cross-plane30`:
+
+    ring: vertices the drape grid holds       182 952 vertices over ~8 km
+    ground: ring vertices a pad pressed           222 vertices
+    ground: corridor pieces that may press         26 pieces
+
+**~19 m between neighbouring ground vertices, and a residential carriageway is 9 m wide.** A trench
+narrower than the mesh spacing cannot be dug by MOVING vertices -- there are none inside it to move,
+and the 222 that moved are nearly all apron. Pressing works for a building because a building is
+wider than the mesh; it can never work for a road.
+
+So the corridor has to bring its OWN surface and be stitched into the ground along its boundary,
+which is what the civil-engineering consensus says in the first place: the corridor surface REPLACES
+the terrain inside its boundary. Not "the terrain is nudged toward it".
+
+What was KEPT from the attempt, because it is right on its own and cost nothing: the frame now hands
+the ground over AFTER the streets block rather than before it. Alignment and profile are designed,
+then the ground is handed over -- the engineering order. Proved pixel-neutral: all 246 cells HELD
+across the move.
