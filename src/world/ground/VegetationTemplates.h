@@ -71,6 +71,13 @@ public:
 
   size_t RuleCount() const { return Rules_.size(); }
 
+  struct WaterBand {
+    float RunM = 0.0f;
+    float ClearanceM = 0.0f;
+  };
+
+  [[nodiscard]] const std::vector<WaterBand> &WaterBands() const { return WaterBands_; }
+
   const std::vector<std::string> &Layers() const { return Layers_; }
 
   const std::vector<std::string> &AreaLayers() const { return AreaLayers_; }
@@ -80,6 +87,7 @@ private:
   std::vector<float> Friction_;
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;
+  std::vector<WaterBand> WaterBands_;
   std::vector<std::string> Layers_, AreaLayers_;
   AlpineLimit Limit_;
   std::string Error_;

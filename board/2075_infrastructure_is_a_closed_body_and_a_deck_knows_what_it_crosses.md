@@ -178,3 +178,39 @@ SURFACE and it needs geometry of its own**, built from the ends of every way tha
 is the one thing in this item neither reference solves for us -- RAGE authors intersections by hand
 and Unreal's splines are laid by an artist -- which is why it went out to research rather than being
 invented here.
+
+## A DECK OVER WATER STANDS ON WHAT IT SPANS
+
+A channel is a POLYGON, so `Path::Network` finds no crossing there and a deck over the Koehlbrand
+would stand on the terrain -- which at a harbour IS the water. The bridge is its own measurement
+instead: **how far it runs over a water CLASS is what says whether a punt or a container ship passes
+under it**, and the clearance for that span is declared in `vegetation.json` with the headroom it
+comes from.
+
+    runM <= 20      0.00 m   a culvert; no headroom is required
+    runM <= 60      4.40 m   CEMT class I-III
+    runM <= 150     5.25 m   CEMT class IV
+    runM <= 300     9.10 m   CEMT class Vb
+    beyond         42.00 m   the clearance every high bridge over the Nord-Ostsee-Kanal holds
+
+Measured at Koehlbrand:
+
+    stations under a bridge asked   4 575
+    of those a class named          2 232
+    and of those, water             1 241
+    decks a WATERWAY raised           229
+    the clearance the widest took   42.00 m
+
+**UNDER-BUILT BY DESIGN AND NAMED IN THE FILE**: the Koehlbrandbruecke leaves 53 m over a 325 m
+channel and this table gives it 42. A per-fairway figure would be truthful; this is plausible, which
+is the standard the owner set for a world built from a patchy map.
+
+## AND THE MEASUREMENT WAS PUBLISHED BEFORE THE WORK IT MEASURED
+
+`decks a WATERWAY raised` read **0** while the mechanism was already raising 229 of them. The
+counters were published beside the crossing measures, which are computed BEFORE the sweep loop, so
+they were read while still zero. The digest was identical across the "fix", which is what said the
+geometry had never been wrong.
+
+That is the second measurement defect of this kind in this item, after the four hypotheses about the
+dashed line. Both cost the same way: a number was believed before it was asked where it came from.

@@ -16,6 +16,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Rules_.clear();
   Layers_.clear();
   AreaLayers_.clear();
+  WaterBands_.clear();
   Error_.clear();
   Unmapped_ = 0;
 
@@ -225,6 +226,14 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
   for (const std::string &l : Layers_) {
     if (!hasLine[l]) { AreaLayers_.push_back(l); }
+  }
+
+  {
+    const Json::Ref bands = doc.Root()["waterClearance"];
+    for (size_t i = 0; i < bands.Size(); i++) {
+      WaterBands_.push_back(WaterBand{.RunM = (float)bands[i]["runM"].Num(0.0),
+                                      .ClearanceM = (float)bands[i]["clearanceM"].Num(0.0)});
+    }
   }
 
   if (!Limit_.Load(doc.Root())) {

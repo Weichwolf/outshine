@@ -1194,6 +1194,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<Generators::RoadStation> along;
     std::vector<double> lifted;
+    const int waterRow = World.Stack.Materials().Find("water");
+    size_t decksOverWater = 0;
+    size_t askedOverBridge = 0;
+    size_t namedOverBridge = 0;
+    size_t wetOverBridge = 0;
+    double mostOverWaterM = 0.0;
     Generators::RoadRaised pavement;
     size_t laidWays = 0;
     size_t refusedWays = 0;
@@ -1414,6 +1420,49 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           lifted[at] = std::max(lifted[at], need);
         }
         for (size_t at = 0; at < along.size(); ++at) { along[at].GradeM += lifted[at]; }
+        if (lane.Bridge && waterRow >= 0 && classStructure) {
+          double overWaterM = 0.0;
+          for (size_t at = 1; at < along.size(); ++at) {
+            double lat = 0.0;
+            double lon = 0.0;
+            const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
+            const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
+            standing.Geo(midE, -midS, &lat, &lon);
+            double edgeM = 0.0;
+            int second = -1;
+            const int which =
+                World.Stack.Classes().ClassAt(*classStructure, lat, lon, &edgeM, &second);
+            ++askedOverBridge;
+            if (which < 0 || (size_t)which >= World.Stack.Vegetation().TemplateCount()) {
+              continue;
+            }
+            ++namedOverBridge;
+            if (World.Stack.Vegetation().Rows()[(size_t)which].GroundClass != waterRow) {
+              continue;
+            }
+            ++wetOverBridge;
+            const double spanE = along[at].EastM - along[at - 1].EastM;
+            const double spanS = along[at].SouthM - along[at - 1].SouthM;
+            overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
+          }
+          if (overWaterM > 0.0) {
+            double clear = 0.0;
+            for (const Ground::VegetationTemplates::WaterBand &band :
+                 World.Stack.Vegetation().WaterBands()) {
+              clear = (double)band.ClearanceM;
+              if (overWaterM <= (double)band.RunM) { break; }
+            }
+            if (clear > 0.0) {
+              double stood = -1.0e30;
+              for (const Generators::RoadStation &one : along) {
+                stood = std::max(stood, one.GradeM);
+              }
+              deckM[laneAt] = std::max(deckM[laneAt], stood + clear);
+              ++decksOverWater;
+              mostOverWaterM = std::max(mostOverWaterM, clear);
+            }
+          }
+        }
         if (lane.Bridge) {
           double deck = deckM[laneAt];
           for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
@@ -1494,6 +1543,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           "streets: how far on average", compared > 0 ? summed / (double)compared : 0.0, "m");
       Published.Places("streets: vertices compared", (double)compared, "vertices");
     }
+    Published.Places("streets: stations under a bridge asked", (double)askedOverBridge, "stations");
+    Published.Places("streets: of those a class named", (double)namedOverBridge, "stations");
+    Published.Places("streets: and of those, water", (double)wetOverBridge, "stations");
+    Published.Places("streets: the water class the table names", (double)waterRow, "index");
+    Published.Places("streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
+    Published.Places("streets: decks a WATERWAY raised", (double)decksOverWater, "decks");
+    Published.Places("streets: and the clearance the widest one took", mostOverWaterM, "m");
     Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
     Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
     Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");
