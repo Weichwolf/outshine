@@ -70,10 +70,45 @@ while its own geometry reports seventeen million corners, and until that is unde
 number to bound. The heap tags cannot stand in for it -- `world-ground` measures ALLOCATION through
 a phase, so its 2.38 GB is churn rather than residency.
 
+## WHERE THE BYTES ARE, and the ceiling that now stands over them
+
+Shibuya's 1.18 GB, per field:
+
+| field | bytes | share |
+|---|---|---|
+| **buildings** | 922 747 648 | **78.1 %** |
+| OSM features | 189 559 526 | 16.0 % |
+| land classes | 66 186 612 | 5.6 % |
+| streets | 2 622 208 | 0.2 % |
+| water | 27 392 | 0.002 % |
+
+`GroundStack::kHoldsBytes` is **1.5 GB**, derived rather than chosen: 1.18 GB of fields stands at
+2.85 GB resident, and the target carries 8 GB for everything including the operating system and
+the driver. 1.5 GB of fields leaves the resident set near 3.2 GB.
+
+**The control fired and it corrected the code first.** At a ceiling of 512 MB:
+
+| where the test sits | held | overshoot |
+|---|---|---|
+| AFTER the ingest | 1.18 GB | **220 %** -- a brake, not a bound: it stops once already over and creeps a tile per round |
+| BEFORE the ingest | **626 MB** | 17 %, which is one round's worth of tiles |
+
+Buildings fall from 923 MB to 365 MB and 370 rounds stop at the ceiling. The bound holds.
+
+## AND THE CONTROL FOUND WHAT THE CEILING STILL LACKS
+
+At 512 MB, Shibuya renders `varies by 0.096 of 255` -- a picture of almost nothing. Ingest walks
+tiles in z/x/y KEY order, not by distance, so a ceiling fills with whatever sorts first and
+**starves the near world**. A ceiling without an ordering throws away the wrong thing.
+
+That is this item's third box in its own words -- *what exceeds it YIELDS, least-needed first* --
+and the control has now measured why it is not optional.
+
 ## What will be true
 
-- [ ] ONE ceiling is declared for the world's resident set, in bytes, and it is the number a reader
-      finds when they ask what this engine costs
+- [x] ONE ceiling is declared for the world's resident set, in bytes, and it is the number a reader
+      finds when they ask what this engine costs -- `GroundStack::kHoldsBytes`, 1.5 GB, published
+      beside what the fields actually hold
 - [ ] `world-ground` and `tile-worker` stand under it, because they are 99 per cent of the bytes
 - [ ] what exceeds it YIELDS, least-needed first, and the count of what yielded is published
 - [ ] Shibuya holds under a stated figure rather than at whatever it reaches, and the figure is in

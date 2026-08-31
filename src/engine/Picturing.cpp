@@ -468,6 +468,21 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("building triangles the world meshed", (double)triangles, "triangles");
     }
     Published.Places("world: the bytes its fields hold", (double)World.Stack.HeapBytes(), "bytes");
+    Published.Places(
+        "world: of that, the land classes", (double)World.Stack.Classes().HeapBytes(), "bytes");
+    Published.Places("world: the buildings", (double)World.Stack.Footprints().HeapBytes(), "bytes");
+    Published.Places("world: the water", (double)World.Stack.WaterBodies().HeapBytes(), "bytes");
+    Published.Places("world: the streets", (double)World.Stack.Ways().HeapBytes(), "bytes");
+    Published.Places("world: the ceiling its fields stand under",
+                     (double)Ground::GroundStack::kHoldsBytes,
+                     "bytes");
+    Published.Places("world: times a round stopped at that ceiling",
+                     (double)World.Stack.OverCeiling(),
+                     "rounds");
+    Published.Places("world: and the OSM features",
+                     World.Stack.Vectors() != nullptr ? (double)World.Stack.Vectors()->HeapBytes()
+                                                      : 0.0,
+                     "bytes");
     Published.Places("tiles laid bare on the ellipsoid",
                      (double)(sees->Pending + sees->Absent + sees->Refused),
                      "tiles");

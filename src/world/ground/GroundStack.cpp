@@ -103,6 +103,10 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
   (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
   for (;;) {
+    if (HeapBytes() > kHoldsBytes) {
+      ++Overflowed_;
+      break;
+    }
     const size_t before =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     (void)Ways_.Ingest(*Vectors_, Templates_);

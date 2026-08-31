@@ -47,6 +47,10 @@ public:
 
   [[nodiscard]] bool Opened() const { return Opened_; }
 
+  static constexpr std::size_t kHoldsBytes = 1536u * 1024u * 1024u;
+
+  [[nodiscard]] std::size_t OverCeiling() const { return Overflowed_; }
+
   [[nodiscard]] std::size_t HeapBytes() const {
     return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
            Ways_.HeapBytes() + (Vectors_ ? Vectors_->HeapBytes() : 0u);
@@ -91,6 +95,7 @@ private:
   ClassField Cls_;
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
+  std::size_t Overflowed_ = 0;
   std::unique_ptr<OsmField> Vectors_;
   BuildingField Footprints_;
   WaterField WaterBodies_;
