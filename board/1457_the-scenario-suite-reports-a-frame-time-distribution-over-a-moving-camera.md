@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: scenario, test
 Tags: perf, instrument
 Supersedes: 1578, 1593
@@ -14,6 +14,26 @@ of one declaration produced the same pictures, and what residency and memory did
 one. The suite exists and its verdict is a distribution with its population, its domain and the
 device named; determinism is two runs compared picture by picture; memory is read across 600
 frames against a declared ceiling; no sanitiser is in the path.
+
+## THE CAMERA DOES NOT MOVE, and every frame time this tree quotes is a still one
+
+`src/client/PlaceCamera.cpp` sets no motion of any kind -- `grep OrbitDegPerFrame` in it finds
+nothing, no view is switched, and the seven places each declare ONE view. `Take()` writes the
+picture and then times 120 `advance` + `render` calls **of the same still frame**.
+
+CLAUDE.md's own aim reads *"holding 720p60, measured as p50/p95/p99 over a moving camera and never
+as a mean"*. The distribution is there and the mean is correctly refused, but the moving camera is
+not: every p50 this repository has ever printed -- 1.74 ms at Heidelberg, 9.80 at Shibuya, 2.29 at
+Venice -- is a stationary number, and a stationary camera is the case a renderer is BEST at. It
+never rebuilds the world, never streams a tile it has not got, never crosses a boundary.
+
+**And it blocks board:2059.** That item's last box is *a tile already held is DROPPED when the
+camera walks away from it*, which cannot be exercised, let alone measured, by a camera that never
+walks anywhere. Writing eviction against this instrument would be writing it blind.
+
+`Engine::setView(std::string_view)` already selects among declared views, so a path is a scenario
+that declares several and a client that steps through them -- declared rather than coded, and the
+picture stays where it is because it is written BEFORE the timed loop.
 
 **The blocker this item carried is gone, and it left an instrument nobody reads.** At
 35829990 `Renderer::DrawsInto` takes the first present mode the device offers that does not
