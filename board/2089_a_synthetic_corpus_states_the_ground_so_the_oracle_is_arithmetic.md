@@ -156,10 +156,14 @@ drive both toward zero has not done the thing.
 
 Two more, from the same first pass:
 
-`hairpin` on `flat` -- ONE declared polyline, `(-80,0) (0,0) (-80,16)`, comes out as FOUR
-disconnected fragments with visible gaps between them. Splitting a way at a corner tighter than its
-class can drive is a defensible decision; leaving the pieces UNJOINED is not, because the network is
-then not continuous, and continuity is the thing the whole derivation is for.
+`hairpin` on `flat` -- ONE declared polyline, `(-80,0) (0,0) (-80,16)`, came out as FOUR
+disconnected fragments with visible gaps between them. **Repaired 2026-08-31.** `SweepRoad` cut the
+way at the vertex the fit called undrivable and then resumed at the vertex AFTER it -- `from += upTo
++ 1u` -- so the segment across the corner was never laid by anybody. The pieces now SHARE the corner
+vertex (`from += upTo`), which is what welding means here. Blast radius exactly as claimed: 25 of
+246 cells moved and every one of them is `corner`, `doubleBack`, `hairpin` or `roundabout`.
+What is still open at that corner is the MITRE: `RaiseJunction` is called and
+`junction bodies raised` still reads 0, so the outside of a tight corner keeps a notch.
 
 `roundabout` on `flat` -- the ring lays and the four approaches lay, and where an approach meets the
 ring there is an overlap rather than a junction: one arm stops short of the ring with a gap you can

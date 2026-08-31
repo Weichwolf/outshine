@@ -371,7 +371,7 @@ void SweepRoad(Span<const RoadStation> along,
         RaiseJunction(Span<const RoadGate>(corner, 2), wearsLinear, into);
       }
     }
-    from += upTo + 1u;
+    from += upTo;
   }
 }
 } // namespace outshine::Generators
