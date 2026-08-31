@@ -68,3 +68,24 @@ of them clear the pixel budget for full architecture once they are their true he
 
 The DEM's own resolution. Seating on the true maximum of a coarse height field is still seating on a
 coarse height field, and a building on a cliff edge will show it.
+
+## AND THE SEAT IS THE MEAN, not the highest
+
+Corrected by the owner and the reason is construction rather than geometry: **a building site
+balances cut against fill, and the balance is at the MEAN.** Seating on the highest point stands
+every house proud of its own plot; seating on the lowest buries it. `RingBase` now averages every
+sample it takes -- the ring's corners and the interior grid alike -- and that average is the seat.
+
+Some buildings really are cut into a hill and this rule does not describe them. It describes the
+usual case, which is what a default is for, and the exception is named where the number is.
+
+    Heidelberg  0c7c65e9 -> aa1e9e9f,  1 048 513 -> 1 039 527 triangles
+
+The count falls slightly because a house seated at the mean is a little lower than one seated at its
+highest corner, so a few no longer clear the pixel budget for full architecture.
+
+**WHAT THIS DOES NOT YET DO, and the owner named it:** levelling a pad means CUTTING the terrain,
+and the ground ring's vertices stand 24.86 m apart while a house is 15 m across -- so a pad for a
+house cannot be expressed in the ring at all today. Until the ground is refined where a structure
+stands, the mean seat leaves the uphill side of a slope building buried. That is the same sub-tile
+refinement board:2075's goal already asks for, and the two are one piece of work.

@@ -458,6 +458,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "track",
           "rank": 80,
           "widthM": 3.0,
@@ -549,6 +550,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "path",
           "rank": 80,
           "widthM": 1.5,
@@ -558,6 +560,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "bridleway",
           "rank": 80,
           "widthM": 1.5,
@@ -939,6 +942,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "footway",
           "rank": 80,
           "widthM": 1.8,
@@ -948,6 +952,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "steps",
           "rank": 81,
           "widthM": 1.5,
@@ -957,6 +962,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "cycleway",
           "rank": 81,
           "widthM": 2.0,
@@ -966,6 +972,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "service",
           "rank": 81,
           "widthM": 3.5,
@@ -975,6 +982,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "living_street",
           "rank": 82,
           "widthM": 4.75,
@@ -984,6 +992,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "pedestrian",
           "rank": 82,
           "widthM": 6.0,
@@ -993,6 +1002,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "residential",
           "rank": 83,
           "widthM": 5.5,
@@ -1002,6 +1012,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "unclassified",
           "rank": 83,
           "widthM": 5.5,
@@ -1011,6 +1022,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "tertiary",
           "rank": 84,
           "widthM": 6.5,
@@ -1021,48 +1033,56 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "rail",
           "rank": 84,
           "widthM": 3.8
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "light_rail",
           "rank": 84,
           "widthM": 3.8
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "tram",
           "rank": 84,
           "widthM": 3.0
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "narrow_gauge",
           "rank": 84,
           "widthM": 2.5
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "subway",
           "rank": 84,
           "widthM": 3.8
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "monorail",
           "rank": 84,
           "widthM": 3.0
         },
         {
           "layer": "streets",
+          "clearanceM": 5.70,
           "kind": "funicular",
           "rank": 84,
           "widthM": 3.0
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "secondary",
           "rank": 85,
           "widthM": 7.5,
@@ -1073,6 +1093,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "primary",
           "rank": 86,
           "widthM": 9.5,
@@ -1083,12 +1104,14 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "taxiway",
           "rank": 87,
           "widthM": 23.0
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "trunk",
           "rank": 87,
           "widthM": 11.5,
@@ -1099,6 +1122,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "motorway",
           "rank": 88,
           "widthM": 12.0,
@@ -1109,6 +1133,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "runway",
           "rank": 88,
           "widthM": 45.0
@@ -1120,6 +1145,7 @@
         },
         {
           "layer": "streets",
+          "clearanceM": 4.50,
           "kind": "busway",
           "rank": 84,
           "widthM": 6.5
@@ -1330,6 +1356,7 @@
     }
   },
   "osmGradientOrigin": "maxGradient is the maximum LONGITUDINAL grade of a line feature of this kind, as a rise over run, and it is what the road's own vertical alignment is bounded by -- the terrain is cut and filled until the road holds it. It is NOT derived from the vehicle: the grade a car can hold at its top speed is 0.15 %, which is not a road, and the grade it can hold from rest is 23.4 %, which is a wall -- the class is what decides, and the vehicle only says whether it can drive what the class built. THE FIVE CARRIAGEWAY KINDS TAKE THIS NUMBER AND minRadiusM FROM ONE TABLE ROW EACH, under the single mapping osmRadiusOrigin writes down: motorway is EKA 1B, and trunk, primary, secondary and tertiary are EKL 1 to EKL 4. Fetched: RAA 2008 gives Hoechstlaengsneigung 4.0 % (EKA 1A), 4.5 % (EKA 1B), 4.5 % (EKA 2) and 6.0 % (EKA 3); RAL 2012 gives 4.5 % (EKL 1), 5.5 % (EKL 2), 6.5 % (EKL 3) and 8.0 % (EKL 4), reproduced in KIT ISE, Bemessungsgrundlagen im Strassenwesen -- Teil: Strassenentwurf, 04/2013, Abbildung 5.2. Three of these numbers were corrected against the fetched tables. They read 4.0 / 6.0 / 7.0 for motorway, primary and secondary, and cited RAL for the last two -- but RAL prints no 6.0 row and no 7.0 row at all, and motorway's 4.0 named EKA 1A while its radius named EKA 1B. A road described by two numbers from two different table rows is two roads. THE KINDS BELOW TERTIARY ARE NOT VERIFIED AGAINST A FETCHED TABLE and are marked as such rather than given a citation that does not reproduce them: residential and unclassified 10 %, living_street and pedestrian 10 %, service 12 %, cycleway 6 %, footway and track 15 %, path and bridleway 20 %, steps 50 %. RASt 06 is the standard that governs them and it has not been fetched; the figures are of the right order and their origin is open. Steps at 50 % is a stair and is there so that a kind with no row cannot silently become a road.",
+  "osmClearanceOrigin": "The LICHTE HOEHE a structure must leave over this kind of way, in metres, and it is what decides how high a deck carrying something ELSE stands above it. 4.50 m over a road is the German carriageway clearance (RAS-Q, RIL 800); 5.70 m over an electrified standard-gauge railway is the structure gauge to the catenary. Neither is this engine's invention and neither is tuned to make a picture look right. WHAT IS MISSING, named: a navigable waterway asks for a per-fairway figure -- the Koehlbrandbruecke leaves 53 m for sea-going ships against a CEMT class IV barge's 5.25 m -- and water is not a street kind, so a bridge over a channel is UNDER-built until a waterway row carries its own (board:2075).",
   "osmRadiusOrigin": "minRadiusM is the smallest horizontal centreline radius a road of this kind is designed to carry, in metres, and it is a property of the ROAD CLASS and never of the vehicle -- the vehicle's own bound is the rear-axle centreline circle its turning circle and wheelbase imply, which is four to six metres for a car and says nothing about whether a polyline claiming to be a motorway is one. The values are tabulated, not derived: RAA 2008 gives Kurvenmindestradius 900 m (EKA 1A), 720 m (EKA 1B), 470 m (EKA 2) and 280 m (EKA 3) at a Hoechstquerneigung of 6.0 % throughout; RAL 2012 gives 500 m (EKL 1, Ve 110), 400 m (EKL 2, Ve 100), 300 m (EKL 3, Ve 90) and 200 m (EKL 4, Ve 70). The one judgement here is the MAPPING, and it is that OSM's five carriageway kinds take the standards' classes in order: motorway is the general Autobahn class EKA 1B rather than the 900 m Ueberregionalautobahn, because the tag does not distinguish one from the other and a bound must not refuse a road that is legal; trunk, primary, secondary and tertiary take EKL 1 to EKL 4. Below tertiary the kinds are RASt 06 territory, no minimum is tabulated here, and a way of such a kind carries no class bound at all -- the vehicle's own is what is left. The fahrdynamische Grundgleichung v^2/(R*g) = f_R + q (KIT ISE, Bemessungsgrundlagen im Strassenwesen -- Teil: Strassenentwurf, 04/2013, section 4.2) is what makes these numbers checkable rather than a list: at q = 0.06 the tabulated pairs imply a radial Kraftschlussbeiwert f_R of 0.130 (EKL 1), 0.137 (EKL 2), 0.152 (EKL 3), 0.133 (EKL 4) and 0.125 (EKA 1B at the RAA's 130 km/h Richtgeschwindigkeit) -- one coefficient within a fifth of itself across two standards and five classes, which is the consistency check the table has to pass and does.",
   "osmLaneOrigin": "lanes is the number of running lanes ACROSS the whole declared width, and oneway says whether they all run the same way. Both come from the same cross-sections the widths do: RAA RQ 28 is 2 x 3.75 m running lanes plus a 2.5 m hard shoulder per ONE-WAY carriageway, so motorway is 2 lanes oneway in 12.0 m; RAL RQ 11.5 and RQ 9.5 are two-way with 2 x 3.5 m; RASt 06's 6.5 m tertiary and 5.5 m residential are two-way at 3.25 and 2.75 m. A link is one lane because a ramp is. Service, track and everything narrower is a single shared lane. This is what stops a car driving down the centre line: its lane is width / lanes, and its own line is offset from the reference line by (lanes - 1) x laneWidth / 2 toward the driving side."
 }

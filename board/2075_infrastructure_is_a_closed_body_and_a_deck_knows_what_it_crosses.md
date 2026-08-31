@@ -77,3 +77,60 @@ ramps that reach it, and both are questions about a NETWORK.
 
 Rail. The tiles carry `rail`, `tram`, `subway` and `light_rail` as street kinds with widths, so they
 sweep as roads today; a track bed, ballast and catenary are their own item.
+
+## A DECK STANDS AT ITS CLEARANCE AND A RAMP CLIMBS TO IT
+
+The chain is built and each link is measured on a place chosen to show it.
+
+**The crossing.** `Path::Network` is reached at last -- it lays every ribbon way, sweeps for
+crossings, and already refuses to JOIN one where either side spans. That same judgement, drawn to a
+different end, IS the overpass: a crossing it leaves alone is one way passing over another.
+
+    Heidelberg   11 873 crossings found,   242 decks raised
+    Kaiserberg   18 555 crossings found,   718 decks raised
+
+**The clearance.** It is DECLARED per road kind in `vegetation.json` beside the width and the lane
+count that were already there, with its origin in the file's own `origins` block -- 4.50 m over a
+road is the German carriageway clearance (RAS-Q, RIL 800), 5.70 m over an electrified standard-gauge
+railway is the structure gauge to the catenary. **`make` deletes comments in `src/`, so a table of
+origins cannot live there at all**; the tree's own rule forces the declaration into the asset file,
+which is where the goal says it belongs.
+
+    the most a deck stands over what it crosses: 6.70 m = 5.70 rail + 1.00 road-above
+
+**The ramp.** A deck at its clearance with the ways either side on the ground is a cliff -- looked
+at, at Kaiserberg, and it is exactly what the first raised deck showed. `maxGradient` is declared
+for 16 of 29 road kinds and was read by NOTHING: motorway 4.5 per cent, primary 5.5, residential 10,
+track 15, the German design figures. A relaxation over way ENDPOINTS pins a deck's two ends and
+pulls every neighbour up until no way exceeds its own class's gradient. Heights only rise, so a
+pinned deck cannot be dragged down, and the sweep still refuses to sink below the ground: a ramp
+that has run out of length meets the hill and follows it.
+
+    Kaiserberg   1 472 ways lifted off the ground, the most by 14.878 m
+
+**Looked at, and the cliff is gone.** The relaxation runs over way endpoints rather than the
+network's nodes, which stay behind their own door -- widening it would have bought nothing this
+needs.
+
+## FOUR HYPOTHESES ABOUT ONE ARTEFACT, and the fifth was a measurement
+
+A dashed black line runs along every carriageway's far edge. Guessed and refuted in turn: the ground
+poking through between stations; a saw-tooth from my own chord lift accumulating over adjacent
+segments; the drape's 32 m quantisation disagreeing with the drawn mesh; the sweep's end caps at
+every way boundary. **Each was tested by changing it and looking, and none of them moved the
+artefact.**
+
+Sampling the pixels settled it in one step: each band reads road (140,145,160) -> BLACK (20,23,19)
+-> ground, one to two pixels wide. That is the slab's own far side face, correctly in shadow at a
+ratio of 0.14, aliased at its width. **Not a defect.** The two experiments were taken back.
+
+The cost of guessing four times before measuring once is written here because it was paid here.
+
+## THE STANDARD THIS IS HELD TO
+
+Stated by the owner and it is the right one for a world built from a patchy map: **the generated
+world need not be TRUTHFUL, it must be PLAUSIBLE**, and the compromise that is right 99 per cent of
+the time beats the rule that is exactly right on the cases OSM happens to describe.
+
+That is why the camera is the oracle here and no ground truth is invoked: there is none for most of
+the Earth, and a rule that only works where OSM is complete is not a rule.

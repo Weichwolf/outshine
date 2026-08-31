@@ -76,7 +76,7 @@ private:
                                const OsmField &field,
                                const OsmField::Ring &ring,
                                std::vector<double> *corners,
-                               double *highestAslM = nullptr);
+                               double *seatAslM = nullptr);
   [[nodiscard]] bool TileGroundResolved(
       const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);

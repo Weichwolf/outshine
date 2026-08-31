@@ -24,6 +24,8 @@ public:
     Shape Form = Shape::Ribbon;
     int32_t Lanes = 0;
     int32_t Layer = 0;
+    float ClearanceM = 0.0f;
+    float MaxGradient = 0.0f;
     bool Bridge = false;
   };
 

@@ -1,6 +1,7 @@
 #include "Log.h"
 #include <bit>
 #include <memory>
+#include <algorithm>
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
@@ -18,6 +19,13 @@ static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
               "re-derived rather than kept");
 
 namespace {
+
+[[nodiscard]] uint64_t WayEndKey(double latDeg, double lonDeg) {
+  constexpr int64_t kBias = 0x20000000;
+  const auto y = (int64_t)std::llround(latDeg * 100000.0);
+  const auto x = (int64_t)std::llround(lonDeg * 100000.0);
+  return ((uint64_t)(y + kBias) << 32) | (uint64_t)(x + kBias);
+}
 
 class Instancing final : public Generators::DrawSink {
 public:
@@ -816,7 +824,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   constexpr double kRoadAboveM = 1.0;
   constexpr double kRoadStepM = 16.0;
-  constexpr double kLayerClearM = 4.5;
+  constexpr double kNodeSnapM = 2.0;
+  constexpr int kRampPasses = 12;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
   if (!tinted.empty()) {
@@ -1184,12 +1193,171 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const Ground::StreetField &ways = World.Stack.Ways();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<Generators::RoadStation> along;
+    std::vector<double> lifted;
     Generators::RoadRaised pavement;
     size_t laidWays = 0;
     size_t refusedWays = 0;
+
+    std::vector<double> deckM(ways.Ways().size(), -1.0e30);
+    size_t crossingsSeen = 0;
+    size_t decksRaised = 0;
+    double mostRaisedM = 0.0;
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
+      Path::Network net(kNodeSnapM, Data::kWgs84A);
+      std::vector<size_t> netToLane;
+      netToLane.reserve(ways.Ways().size());
+      for (size_t at = 0; at < ways.Ways().size(); ++at) {
+        const Ground::StreetField::Way &lane = ways.Ways()[at];
+        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+        const size_t first = (size_t)lane.FirstPoint * 2;
+        if (first + (size_t)lane.PointCount * 2 > points.size()) { continue; }
+        net.Lay(points.subspan(first, (size_t)lane.PointCount * 2),
+                Path::WayClass{.HalfWidthM = (double)lane.HalfWidthM,
+                               .MaxGradient = 0.0,
+                               .MinRadiusM = 0.0,
+                               .Friction = 0.0,
+                               .Lanes = lane.Lanes,
+                               .Spans = lane.Bridge});
+        netToLane.push_back(at);
+      }
+      std::vector<Path::Network::Crossing> crossed;
+      if (net.Crossings(crossed)) {
+        crossingsSeen = crossed.size();
+        for (const Path::Network::Crossing &one : crossed) {
+          if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { continue; }
+          const size_t a = netToLane[one.OverWay];
+          const size_t b = netToLane[one.UnderWay];
+          const Ground::StreetField::Way &first = ways.Ways()[a];
+          const Ground::StreetField::Way &second = ways.Ways()[b];
+          if (first.Bridge == second.Bridge) { continue; }
+          const size_t spans = first.Bridge ? a : b;
+          const Ground::StreetField::Way &below = first.Bridge ? second : first;
+          double aslM = 0.0;
+          if (!World.Stack.Ground().At(one.LatDeg, one.LonDeg).TryAslM(&aslM)) { continue; }
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
+          standing.Place(one.LatDeg, one.LonDeg, aslM, &eastM, &upM, &northM);
+          const double onDrawn = drapedOver(eastM, -northM, upM);
+          const double need = onDrawn + (double)below.ClearanceM + kRoadAboveM;
+          if (need > deckM[spans]) {
+            if (deckM[spans] < -1.0e29) { ++decksRaised; }
+            deckM[spans] = need;
+            mostRaisedM = std::max(mostRaisedM, need - onDrawn);
+          }
+        }
+      }
+    }
+    std::unordered_map<uint64_t, double> endM;
+    size_t rampsRaised = 0;
+    double steepestRamp = 0.0;
+    if (vectors != nullptr && decksRaised > 0) {
+      const std::span<const double> points = vectors->Points();
+      const auto endsOf = [&](const Ground::StreetField::Way &lane, uint64_t out[2], double at[4]) {
+        const size_t first = (size_t)lane.FirstPoint * 2u;
+        const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+        if (last + 1 >= points.size()) { return false; }
+        at[0] = points[first];
+        at[1] = points[first + 1];
+        at[2] = points[last];
+        at[3] = points[last + 1];
+        out[0] = WayEndKey(at[0], at[1]);
+        out[1] = WayEndKey(at[2], at[3]);
+        return true;
+      };
+      const auto groundAt = [&](double lat, double lon, double *out) {
+        double aslM = 0.0;
+        if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { return false; }
+        double eastM = 0.0;
+        double upM = 0.0;
+        double northM = 0.0;
+        standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
+        *out = drapedOver(eastM, -northM, upM) + kRoadAboveM;
+        return true;
+      };
+      for (size_t at = 0; at < ways.Ways().size(); ++at) {
+        const Ground::StreetField::Way &lane = ways.Ways()[at];
+        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+        uint64_t key[2] = {0, 0};
+        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        if (!endsOf(lane, key, corner)) { continue; }
+        for (int side = 0; side < 2; ++side) {
+          double stood = 0.0;
+          const size_t axis = (size_t)side * 2u;
+          if (!groundAt(corner[axis], corner[axis + 1u], &stood)) { continue; }
+          const auto found = endM.find(key[side]);
+          if (found == endM.end()) {
+            endM.emplace(key[side], stood);
+          } else {
+            found->second = std::max(found->second, stood);
+          }
+        }
+        if (lane.Bridge && deckM[at] > -1.0e29) {
+          for (const uint64_t one : key) {
+            const auto found = endM.find(one);
+            if (found == endM.end()) {
+              endM.emplace(one, deckM[at]);
+            } else {
+              found->second = std::max(found->second, deckM[at]);
+            }
+          }
+        }
+      }
+      for (int pass = 0; pass < kRampPasses; ++pass) {
+        for (const Ground::StreetField::Way &lane : ways.Ways()) {
+          if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+          if (!(lane.MaxGradient > 0.0f)) { continue; }
+          uint64_t key[2] = {0, 0};
+          double corner[4] = {0.0, 0.0, 0.0, 0.0};
+          if (!endsOf(lane, key, corner)) { continue; }
+          const auto low = endM.find(key[0]);
+          const auto high = endM.find(key[1]);
+          if (low == endM.end() || high == endM.end()) { continue; }
+          const double perLon = 111320.0 * std::cos(corner[0] * std::numbers::pi / 180.0);
+          const double runE = (corner[3] - corner[1]) * perLon;
+          const double runN = (corner[2] - corner[0]) * 111132.0;
+          const double runM = std::sqrt(runE * runE + runN * runN);
+          const double mostM = runM * (double)lane.MaxGradient;
+          const double apartM = high->second - low->second;
+          if (apartM > mostM) {
+            low->second = high->second - mostM;
+          } else if (-apartM > mostM) {
+            high->second = low->second - mostM;
+          }
+        }
+      }
       for (const Ground::StreetField::Way &lane : ways.Ways()) {
+        if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
+        uint64_t key[2] = {0, 0};
+        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
+        double stood[2] = {0.0, 0.0};
+        if (!groundAt(corner[0], corner[1], &stood[0]) ||
+            !groundAt(corner[2], corner[3], &stood[1])) {
+          continue;
+        }
+        double rose = 0.0;
+        for (int side = 0; side < 2; ++side) {
+          const auto found = endM.find(key[side]);
+          if (found == endM.end()) { continue; }
+          rose = std::max(rose, found->second - stood[side]);
+        }
+        if (rose > 0.05) {
+          ++rampsRaised;
+          steepestRamp = std::max(steepestRamp, rose);
+        }
+      }
+    }
+    Published.Places("streets: ways a ramp lifted off the ground", (double)rampsRaised, "ways");
+    Published.Places("streets: and the most one was lifted", steepestRamp, "m");
+    Published.Places("streets: crossings the plan found", (double)crossingsSeen, "crossings");
+    Published.Places("streets: decks a crossing raised", (double)decksRaised, "decks");
+    Published.Places("streets: and the most one stands over what it crosses", mostRaisedM, "m");
+    if (vectors != nullptr) {
+      const std::span<const double> points = vectors->Points();
+      for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
+        const Ground::StreetField::Way &lane = ways.Ways()[laneAt];
         if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
             !(lane.HalfWidthM > 0.0f)) {
           ++refusedWays;
@@ -1204,7 +1372,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double upM = 0.0;
           double northM = 0.0;
           standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
-          along.push_back({eastM, -northM, drapedOver(eastM, -northM, upM) + kRoadAboveM});
+          along.push_back({.EastM = eastM,
+                           .SouthM = -northM,
+                           .GradeM = drapedOver(eastM, -northM, upM) + kRoadAboveM});
           return true;
         };
         for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
@@ -1232,21 +1402,43 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ++refusedWays;
           continue;
         }
+        lifted.assign(along.size(), 0.0);
+        for (size_t at = 1; at < along.size(); ++at) {
+          const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
+          const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
+          const double chord = 0.5 * (along[at - 1].GradeM + along[at].GradeM);
+          const double overM = drapedOver(midE, midS, chord - kRoadAboveM) + kRoadAboveM;
+          if (overM <= chord) { continue; }
+          const double need = overM - chord;
+          lifted[at - 1] = std::max(lifted[at - 1], need);
+          lifted[at] = std::max(lifted[at], need);
+        }
+        for (size_t at = 0; at < along.size(); ++at) { along[at].GradeM += lifted[at]; }
         if (lane.Bridge) {
-          double runM = 0.0;
-          std::vector<double> reached(along.size(), 0.0);
-          for (size_t at = 1; at < along.size(); ++at) {
-            const double spanE = along[at].EastM - along[at - 1].EastM;
-            const double spanS = along[at].SouthM - along[at - 1].SouthM;
-            runM += std::sqrt(spanE * spanE + spanS * spanS);
-            reached[at] = runM;
-          }
-          const double fromM = along.front().GradeM;
-          const double toM = along.back().GradeM;
-          const double lift = (double)lane.Layer * kLayerClearM;
-          for (size_t at = 0; at < along.size(); ++at) {
-            const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
-            along[at].GradeM = fromM + (toM - fromM) * along01 + lift;
+          double deck = deckM[laneAt];
+          for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
+          for (Generators::RoadStation &one : along) { one.GradeM = deck; }
+        } else if (!endM.empty()) {
+          const size_t first = (size_t)lane.FirstPoint * 2;
+          const size_t last = first + ((size_t)lane.PointCount - 1u) * 2;
+          if (last + 1 < points.size()) {
+            const auto from = endM.find(WayEndKey(points[first], points[first + 1]));
+            const auto to = endM.find(WayEndKey(points[last], points[last + 1]));
+            if (from != endM.end() && to != endM.end()) {
+              double runM = 0.0;
+              std::vector<double> reached(along.size(), 0.0);
+              for (size_t at = 1; at < along.size(); ++at) {
+                const double spanE = along[at].EastM - along[at - 1].EastM;
+                const double spanS = along[at].SouthM - along[at - 1].SouthM;
+                runM += std::sqrt(spanE * spanE + spanS * spanS);
+                reached[at] = runM;
+              }
+              for (size_t at = 0; at < along.size(); ++at) {
+                const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
+                const double wanted = from->second + (to->second - from->second) * along01;
+                along[at].GradeM = std::max(along[at].GradeM, wanted);
+              }
+            }
           }
         }
         ++laidWays;

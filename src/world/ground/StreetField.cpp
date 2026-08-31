@@ -60,6 +60,8 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
       w.Lanes = rule->Lanes;
       w.Bridge = field.Num(f, "bridge", 0.0) > 0.5;
       w.Layer = (int32_t)field.Num(f, "layer", 0.0);
+      w.ClearanceM = rule->ClearanceM;
+      w.MaxGradient = rule->MaxGradient;
       Bridges_ += w.Bridge ? 1 : 0;
       Layered_ += w.Layer != 0 ? 1 : 0;
       LayerSaid_ += field.Str(f, "layer").empty() ? 0 : 1;

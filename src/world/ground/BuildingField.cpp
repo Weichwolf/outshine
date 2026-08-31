@@ -213,13 +213,15 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                      const OsmField &field,
                                      const OsmField::Ring &ring,
                                      std::vector<double> *corners,
-                                     double *highestAslM) {
+                                     double *seatAslM) {
   const std::span<const double> pts = field.Points();
   if (corners) { corners->clear(); }
-  if (highestAslM != nullptr) { *highestAslM = 0.0; }
+  if (seatAslM != nullptr) { *seatAslM = 0.0; }
   if (ring.Count == 0) { return GroundSample::Missing(); }
   double lowest = 1.0e9;
   double highest = -1.0e9;
+  double summed = 0.0;
+  size_t took = 0;
   double southest = 1.0e9;
   double northest = -1.0e9;
   double westest = 1.0e9;
@@ -234,6 +236,8 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
     if (corners) { corners->push_back(aslM); }
     lowest = std::min(lowest, aslM);
     highest = std::max(highest, aslM);
+    summed += aslM;
+    ++took;
     southest = std::min(southest, lat);
     northest = std::max(northest, lat);
     westest = std::min(westest, lon);
@@ -255,11 +259,13 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
         if (!g.TryAslM(&aslM)) { continue; }
         lowest = std::min(lowest, aslM);
         highest = std::max(highest, aslM);
+        summed += aslM;
+        ++took;
         coarsest = std::max(coarsest, g.CoarseBy());
       }
     }
   }
-  if (highestAslM != nullptr) { *highestAslM = highest; }
+  if (seatAslM != nullptr) { *seatAslM = took > 0 ? summed / (double)took : highest; }
   return GroundSample::At(lowest).Coarser(coarsest);
 }
 
