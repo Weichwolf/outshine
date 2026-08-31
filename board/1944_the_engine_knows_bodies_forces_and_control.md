@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Progress: actors
 Area: core
 Tags: benchmark, target

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: render
 Tags: performance, shadow, light, measured
