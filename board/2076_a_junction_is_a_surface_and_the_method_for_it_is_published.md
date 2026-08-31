@@ -94,5 +94,33 @@ zero by a polygon rather than by a bigger cap.
     outshine/places 10 PASS, tidy baseline 4428, both unmoved
 
 - [x] the ways are trimmed back so their bodies stop short of one another
-- [ ] a junction BODY fills the gap, and its corners are the trimmed ends
-- [ ] `ends STILL crossing` reaches zero
+- [x] a junction BODY fills the gap, and its corners are the trimmed ends
+- [ ] `ends STILL crossing` reaches zero -- 3 581 of 12 720 today, and they are the ends where the
+      cap bit rather than ends the junction missed
+
+## STEP FOUR IS BUILT, and the shared corners more than doubled
+
+Each way's trimmed end is recorded as a GATE while it is swept -- where the carriageway stops, which
+way it points and how wide it is -- so a junction's rim is the roads' OWN corners rather than a
+second set beside them. `RaiseJunction` takes the gates at a node in bearing order and fans a closed
+slab from their common centre; the centre stands at the mean of the gates' grades, which is what
+makes a junction on a slope tilt with the roads reaching it instead of sitting level and cutting
+into one of them.
+
+    Kaiserberg   junction bodies raised          8 131
+                 vertices two bodies SHARE      87 504 -> 188 822
+                 vertices in all             2 869 232          = 6.6 per cent
+                 triangles                   5 451 046 -> 5 590 530
+
+**Nodes are built in a DECLARED order** -- sorted by key -- because a hash map's order is the
+machine's, and determinism outside the shaders is not optional here.
+
+**LOOKED AT, from directly above, where a junction cannot hide**: Zurich's old town reads as a
+CONTINUOUS network -- filled corners, no gaps, no stars where several ways meet. That is the picture
+a road network makes from the air, and it is the first time this tree has drawn one.
+
+And a third ordering defect was found the same way as the two before it: the junction build sat
+beside the trim measures, which run BEFORE the sweep that fills the gates, so it would have built
+8 131 junctions out of an empty map. Three of these in one item now. The pattern is worth the
+sentence: **in a function this long, WHERE a block sits is a decision, and it is invisible in the
+diff.**

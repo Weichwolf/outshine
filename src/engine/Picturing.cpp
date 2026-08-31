@@ -1362,6 +1362,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("streets: crossings the plan found", (double)crossingsSeen, "crossings");
     Published.Places("streets: decks a crossing raised", (double)decksRaised, "decks");
     Published.Places("streets: and the most one stands over what it crosses", mostRaisedM, "m");
+    std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> gates;
     std::vector<double> trimM(ways.Ways().size() * 2u, 0.0);
     size_t endsTrimmed = 0;
     size_t endsStillCrossing = 0;
@@ -1620,6 +1621,31 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                               profile,
                               wears,
                               pavement);
+        {
+          const size_t first = (size_t)lane.FirstPoint * 2u;
+          const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+          if (last + 1 < points.size()) {
+            const uint64_t key[2] = {WayEndKey(points[first], points[first + 1]),
+                                     WayEndKey(points[last], points[last + 1])};
+            for (int side = 0; side < 2; ++side) {
+              const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
+              const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
+              double outE = to.EastM - at.EastM;
+              double outS = to.SouthM - at.SouthM;
+              const double run = std::sqrt(outE * outE + outS * outS);
+              if (!(run > 1.0e-6)) { continue; }
+              outE /= run;
+              outS /= run;
+              gates[key[side]].push_back(
+                  Generators::RoadGate{.EastM = at.EastM,
+                                       .SouthM = at.SouthM,
+                                       .GradeM = at.GradeM,
+                                       .OutE = outE,
+                                       .OutS = outS,
+                                       .HalfWidthM = (double)lane.HalfWidthM});
+            }
+          }
+        }
       }
     }
     {
@@ -1660,6 +1686,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
     Published.Places("streets: decks a WATERWAY raised", (double)decksOverWater, "decks");
     Published.Places("streets: and the clearance the widest one took", mostOverWaterM, "m");
+    size_t junctionsRaised = 0;
+    {
+      std::vector<uint64_t> nodes;
+      nodes.reserve(gates.size());
+      for (const auto &one : gates) {
+        if (one.second.size() >= 2) { nodes.push_back(one.first); }
+      }
+      std::ranges::sort(nodes);
+      const float sealed[3] = {0.5f, 0.5f, 0.5f};
+      const int asphalt = World.Stack.Materials().Find("asphalt");
+      const float *wears = sealed;
+      if (asphalt >= 0) { wears = World.Stack.Materials().At((size_t)asphalt).Albedo; }
+      for (const uint64_t node : nodes) {
+        const std::vector<Generators::RoadGate> &met = gates[node];
+        Generators::RaiseJunction(
+            Span<const Generators::RoadGate>(met.data(), met.size()), wears, pavement);
+        ++junctionsRaised;
+      }
+    }
+    Published.Places("streets: junction bodies raised", (double)junctionsRaised, "junctions");
     Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
     Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
     Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");

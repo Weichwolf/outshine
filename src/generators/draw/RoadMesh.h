@@ -23,6 +23,17 @@ struct RoadRaised {
   std::vector<uint32_t> Index;
 };
 
+struct RoadGate {
+  double EastM = 0.0;
+  double SouthM = 0.0;
+  double GradeM = 0.0;
+  double OutE = 0.0;
+  double OutS = 0.0;
+  double HalfWidthM = 0.0;
+};
+
+void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into);
+
 void RaiseRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,

@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+#include <vector>
 
 namespace outshine::Generators {
 
@@ -104,6 +106,54 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
 }
 
 } // namespace
+
+void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into) {
+  if (gates.Size() < 2) { return; }
+  double centreE = 0.0;
+  double centreS = 0.0;
+  double centreGrade = 0.0;
+  for (size_t at = 0; at < gates.Size(); ++at) {
+    centreE += gates[at].EastM;
+    centreS += gates[at].SouthM;
+    centreGrade += gates[at].GradeM;
+  }
+  centreE /= (double)gates.Size();
+  centreS /= (double)gates.Size();
+  centreGrade /= (double)gates.Size();
+
+  std::vector<size_t> order(gates.Size());
+  for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
+  std::ranges::sort(order, [&gates](size_t a, size_t b) {
+    return std::atan2(gates[a].OutS, gates[a].OutE) < std::atan2(gates[b].OutS, gates[b].OutE);
+  });
+
+  const auto first = (uint32_t)(into.PositionM.size() / 3);
+  Push(into, centreE, centreGrade, centreS, wearsLinear);
+  Push(into, centreE, centreGrade - kSealedDepthM, centreS, wearsLinear);
+  for (const size_t at : order) {
+    const RoadGate &gate = gates[at];
+    const double sideE = -gate.OutS * gate.HalfWidthM;
+    const double sideS = gate.OutE * gate.HalfWidthM;
+    for (const double hand : {1.0, -1.0}) {
+      Push(into, gate.EastM + sideE * hand, gate.GradeM, gate.SouthM + sideS * hand, wearsLinear);
+      Push(into,
+           gate.EastM + sideE * hand,
+           gate.GradeM - kSealedDepthM,
+           gate.SouthM + sideS * hand,
+           wearsLinear);
+    }
+  }
+
+  const auto rim = (uint32_t)(gates.Size() * 2u);
+  for (uint32_t at = 0; at < rim; ++at) {
+    const uint32_t here = first + 2u + at * 2u;
+    const uint32_t next = first + 2u + ((at + 1u) % rim) * 2u;
+    Facet(into, first, here, next);
+    Facet(into, first + 1u, next + 1u, here + 1u);
+    Facet(into, here, here + 1u, next + 1u);
+    Facet(into, here, next + 1u, next);
+  }
+}
 
 void RaiseRoad(Span<const RoadStation> along,
                double halfWidthM,
