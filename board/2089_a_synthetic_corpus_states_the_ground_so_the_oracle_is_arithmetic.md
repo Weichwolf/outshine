@@ -65,6 +65,30 @@ stand there.
     crossfall within [min, e_max]                                     RAS-Q / RAA
     a cut or fill matches the daylight batter                         RAS-Q
 
+## THE DECLARED RELIEF REACHES THE FIELD AND NOT THE RING -- what is RULED OUT
+
+`<world><relief/></world>` is read, written and round-tripped, and `TerrainTiles::RawGrid`
+synthesises the height field at the SOURCE, before the cache and before the fetch, so both the drawn
+mesh and the height query read one ground. The flat null control renders correctly. A `sineRidge`
+does not, and the loss is bounded to one hop with these ruled out by measurement:
+
+    the shaped branch runs                  2 176 times          not skipped
+    the parameters that arrive              amp 20, wave 400     not lost in the handover
+    the field it fills                      -20.000 .. +20.000   the synthesis is exact
+    the pool's declaration under its lock   applied per job      not a data race
+    the field's side                        256 and 257 alike    not TerrainMesh's stride check
+    PostingM's indexing                     as the fill writes   not a transposed read
+    the ring that is drawn                  0.021 m              flat
+
+So it is between `TerrainGrid::Holding` and the vertices `LayPatchwork` returns, and what stands
+there is `TerrainMesh::Over` and `ChunkBuildEcef`. The latter DETECTS the column count by scanning
+for where the east coordinate falls back, and refuses the whole tile when that detection fails --
+`if (!(C >= 2 && R >= 2 && nVertices % C == 0)) return 0;` -- which is the shape of a defect that
+would flatten exactly like this. It is the first thing to instrument next.
+
+Writing down what is ruled out is the point: the next pass starts with six answers rather than
+seven questions.
+
 ## What will be true
 
 - [ ] The terrain is a declared function, not a fetched tile, so a cell runs offline and in

@@ -105,7 +105,7 @@ double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
 
 TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   if (IsShaped()) {
-    constexpr uint32_t kShapedSide = 256;
+    constexpr uint32_t kShapedSide = 257;
     TerrainField field(kShapedSide, kShapedSide);
     const TerrainField::Writable postings = field.Field();
     for (uint32_t row = 0; row < kShapedSide; ++row) {
