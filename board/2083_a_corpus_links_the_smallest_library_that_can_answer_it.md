@@ -1,0 +1,107 @@
+Type: feature
+State: open
+Area: test, generators, process
+Tags: layering, plugins, measured, benchmark
+
+# A corpus links the SMALLEST library that can answer it
+
+**Benchmark** — Unreal: a module declares its dependencies in `Build.cs` and a test target links the
+modules it names, so a test of PCG does not pull in the renderer. RAGE: the game layer links
+`rage::` and not the other way round. **Both agree**, and both enforce it by making the wrong link
+FAIL rather than by asking people to be careful.
+
+## The owner's rule, and it is the right one
+
+> The Khronos tests may use `outshine-client`; everything else links only the generator library.
+
+That is not a convenience. It is the only way to PROVE where a capability lives: a score that can be
+computed while linking `libgenerators.a` alone has shown that the derivation is in the generators.
+One that needs the engine has shown the opposite, and no amount of prose about tiers can substitute.
+
+## What is measured today
+
+The build already gets the hard half right. `libgenerators.a` is DERIVED -- `linkreach.sh` walks
+`liboutshine.a` and closes the generator archive over what the linker actually reaches -- and
+`run.sh` says why in its own words: **"a claim that they WOULD link is weaker than an archive that
+does"**. `TheGeneratorsLinkWithoutTheEngine` passes.
+
+**And the corpora ignore all of it.** `test/run.sh` keeps a hand-written include set AND a
+hand-written source list PER SUITE:
+
+    run.sh:216-225    -Iinclude -Isrc/base/math -Isrc/base/geo ... per suite, by hand
+    run.sh:279-284    the SOURCES per suite, by hand -- and
+                      `harness/khronos/validator` lists src/engine/Picturing.cpp among them
+
+The Makefile's own head warns against exactly this: **"THE LAYERING IS THE BUILD AND IT IS DECLARED
+ONCE, in `src/<tier>/reaches` ... so this file keeps NO second map -- one went stale, left three
+layers out of the archive and broke `make` at HEAD (board:1584)."** The Makefile keeps no second
+map. `run.sh` keeps one, and it is large.
+
+## THE SPLIT, and the one move that matters
+
+Libraries follow the `reaches` graph rather than a new map:
+
+| archive | tiers | why it is one thing |
+|---|---|---|
+| `libbase.a` | `src/base` | math, geo, format, spatial, io -- reaches nothing |
+| `libworld.a` | `src/content` `src/world` | tiles, OSM fields, elevation, materials, sky, weather. DATA, no verbs |
+| **`libgenerators.a`** | `src/generators` **+ `src/actor/path`** | polyline -> `ReferenceLine` -> `Ribbon` -> a finished `Geometry` |
+| `librender.a` | `src/render` `src/import` | the device side |
+| `liboutshine.a` | `src/engine` `src/scene` `src/scenario` `src/sim` `src/ui` `src/audio` `src/host` `src/compositor` | the motor |
+| `outshine-client` | `src/client` | the one product |
+
+**`src/actor/path` moves into the generators, and that is the whole point.** `ReferenceLine`, `Fit`,
+`Ribbon` and `Carriageway` CONSTRUCT GEOMETRY FROM A POLYLINE. By this tree's own definition that is
+a generator -- "a generator's whole job is to MAKE one concrete thing" -- and they sit in `actor`
+only because the driving side reached them first. Moving them:
+
+- lets the OSM corpus validator link `libgenerators.a` and nothing else, which is the owner's rule
+  and the proof that the derivation lives there
+- **ends the twin board:1499 measures**: the world path and the sim path stop deriving the same road
+  twice, because there is one library that lays it
+- costs `src/sim/reaches` one word. `generators` reaches `base content world`; `sim` reaching
+  `generators` closes no cycle
+
+## How a corpus declares what it links
+
+Three kinds, and the kind is a property of the QUESTION rather than a preference:
+
+| kind | links | because |
+|---|---|---|
+| render corpora -- Khronos glTF, `outshine/places` | `outshine-client` | the question is what a picture looks like, and a picture needs the device |
+| derivation corpora -- OSM/OpenDRIVE, `outshine/geo` | `libgenerators.a` | the question is what we DERIVE, and if the answer needs the engine the answer is in the wrong place |
+| language corpora -- test262, WPT | the reader's own tier | the question is what a string means |
+
+## What will be true
+
+- [ ] `src/actor/path` is a generator tier, and `sim` reaches it through the generators
+- [ ] The per-suite SOURCE list in `run.sh` is derived from `reaches` the way the archive already
+      is, so the second map goes
+- [ ] The OSM corpus validator links `libgenerators.a` and nothing else, and its link FAILS if the
+      derivation is not there. That failure IS the claim
+- [ ] Negative control: moving one derivation back into `src/engine` breaks the validator's link.
+      A validator that still links proves nothing about where the code lives
+- [ ] `include/Generate.h` is what a generator builds against -- see below
+
+## AND THE DOOR NEEDS TWO THINGS BEFORE A ROAD CAN STAND IN IT
+
+`include/Generate.h` already declares the contract and it is the right shape: `Ask` in,
+`Generates::make` once, a finished `Geometry` out, `Makers` as the registry, `writeGlb` so a result
+can leave as a standard file. **Exactly one generator implements it** -- `src/generators/Structures.h`
+-- and the rest are reached by internal machinery (`GeneratorSet`, `Yield`, `Occupy`, `Proposes`),
+which is a SECOND interface beside the public one.
+
+Two gaps explain why infrastructure never stood in the door:
+
+    struct Ask { double EastM, NorthM, ExtentM; uint64_t Seed; };
+
+1. **It cannot say where on Earth.** A window with no origin, and no ground beneath it. An OSM
+   generator needs a georeference and a height; today it takes them from `Ground &` internally,
+   which is past the door. The fix is an ABSTRACT sampler in the `Ask` -- the generator asks, the
+   caller supplies -- so the tier never links the engine's terrain
+2. **It carries no DECLARATION.** The goal says an inferred number lives in a table with its
+   origin; with nothing in the `Ask` to carry one, the rule ends up in the generator's body, which
+   is what the goal forbids in as many words
+
+`Ships` then enumerates each generator, and its `static_assert` already refuses a blank or repeated
+name.

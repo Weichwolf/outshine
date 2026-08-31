@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <chrono>
 
+#include "Fit.h"
+#include "ReferenceLine.h"
+
 #include "EngineHeld.h"
 
 namespace outshine {
@@ -827,6 +830,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kNodeSnapM = 2.0;
   constexpr int kRampPasses = 12;
   constexpr double kTrimMostWidths = 4.0;
+  constexpr double kFitWithinM = 0.5;
+  constexpr double kFitTightestM = 8.0;
   constexpr double kLeastRoadM = 2.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
@@ -1205,6 +1210,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Generators::RoadRaised pavement;
     size_t laidWays = 0;
     size_t refusedWays = 0;
+    size_t fitLaid = 0;
+    size_t fitRefused = 0;
+    size_t fitUndrivable = 0;
+    std::vector<double> fitOffsetM;
+    std::vector<double> fitRadiusM;
+    std::vector<double> fitEastNorth;
 
     std::vector<double> deckM(ways.Ways().size(), -1.0e30);
     size_t crossingsSeen = 0;
@@ -1521,6 +1532,25 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (size_t at = 0; at < along.size(); ++at) { along[at].GradeM += lifted[at]; }
 
         {
+          fitEastNorth.clear();
+          fitEastNorth.reserve(along.size() * 2u);
+          for (const Generators::RoadStation &one : along) {
+            fitEastNorth.push_back(one.EastM);
+            fitEastNorth.push_back(-one.SouthM);
+          }
+          ReferenceLine fitted;
+          const Fitted got = Fit(fitEastNorth, kFitWithinM, kFitTightestM, fitted);
+          if (!got.Laid) {
+            ++fitRefused;
+          } else {
+            ++fitLaid;
+            fitOffsetM.push_back(got.WorstOffsetM);
+            if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
+            fitUndrivable += got.Undrivable;
+          }
+        }
+
+        {
           std::vector<double> reached(along.size(), 0.0);
           for (size_t at = 1; at < along.size(); ++at) {
             const double spanE = along[at].EastM - along[at - 1].EastM;
@@ -1731,6 +1761,24 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
     }
     Published.Places("streets: junction bodies raised", (double)junctionsRaised, "junctions");
+    if (!fitOffsetM.empty()) {
+      std::ranges::sort(fitOffsetM);
+      std::ranges::sort(fitRadiusM);
+      const auto pick = [](const std::vector<double> &of, double part) {
+        return of.empty() ? 0.0 : of[(size_t)((double)(of.size() - 1u) * part)];
+      };
+      Published.Places("streets: ways a reference line was fitted to", (double)fitLaid, "ways");
+      Published.Places("streets: and ways the fit refused", (double)fitRefused, "ways");
+      Published.Places("streets: the offset a fitted line needed, p50", pick(fitOffsetM, 0.5), "m");
+      Published.Places(
+          "streets: the offset a fitted line needed, p95", pick(fitOffsetM, 0.95), "m");
+      Published.Places("streets: the offset a fitted line needed, worst", fitOffsetM.back(), "m");
+      Published.Places(
+          "streets: the radius a fitted line found, tightest", pick(fitRadiusM, 0.0), "m");
+      Published.Places("streets: the radius a fitted line found, p50", pick(fitRadiusM, 0.5), "m");
+      Published.Places(
+          "streets: stations the fit calls undrivable", (double)fitUndrivable, "stations");
+    }
     Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
     Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
     Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");
