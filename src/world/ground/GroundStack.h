@@ -58,6 +58,10 @@ public:
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 
+  void Declares(std::span<const OsmField::Declared> these) {
+    Declared_.assign(these.begin(), these.end());
+  }
+
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
 
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
@@ -92,6 +96,7 @@ private:
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;
   std::unique_ptr<GroundStream> Ground_;
+  std::vector<OsmField::Declared> Declared_;
   ClassField Cls_;
   GroundMaterials Materials_;
   VegetationTemplates Templates_;

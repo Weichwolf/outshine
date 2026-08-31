@@ -59,7 +59,7 @@ std::string WriteScenario(const Scenario &declared) {
     Number(said, "lon", declared.Ground.Origin.LongitudeDeg);
     Number(said, "patienceS", declared.Ground.PatienceS);
     Number(said, "sightM", declared.Ground.SightM);
-    if (declared.Ground.Shape.Kind.empty()) {
+    if (declared.Ground.Shape.Kind.empty() && declared.Ground.Osm.empty()) {
       said += "/>\n";
     } else {
       said += ">\n    ";
@@ -70,7 +70,22 @@ std::string WriteScenario(const Scenario &declared) {
       Number(said, "gradient", declared.Ground.Shape.Gradient);
       Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
       Number(said, "seed", (double)declared.Ground.Shape.Seed);
-      said += "/>\n  </world>\n";
+      said += "/>\n";
+      for (const Structure &one : declared.Ground.Osm) {
+        said += "    ";
+        said += one.Area ? "<area" : "<way";
+        Said(said, "kind", one.Kind);
+        if (one.WidthM > 0.0) { Number(said, "widthM", one.WidthM); }
+        if (one.HeightM > 0.0) { Number(said, "heightM", one.HeightM); }
+        std::string shape;
+        for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
+          if (!shape.empty()) { shape += " "; }
+          shape += std::to_string(one.LatLon[at]) + "," + std::to_string(one.LatLon[at + 1]);
+        }
+        Said(said, "points", shape);
+        said += "/>\n";
+      }
+      said += "  </world>\n";
     }
   }
   if (declared.Render.Declared) {

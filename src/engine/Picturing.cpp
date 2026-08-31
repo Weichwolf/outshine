@@ -213,6 +213,24 @@ bool Engine::State::Composes(void) {
     Published.Places("ground: and this a kilometre east", eastM, "m");
   }
 
+  if (!Session.Declared.Ground.Osm.empty()) {
+    std::vector<Ground::OsmField::Declared> told;
+    told.reserve(Session.Declared.Ground.Osm.size());
+    for (const Structure &one : Session.Declared.Ground.Osm) {
+      Ground::OsmField::Declared made;
+      made.Layer = one.Area ? (one.Kind == "water" ? "water" : "buildings") : "streets";
+      made.Key = one.Area ? (one.Kind == "water" ? "natural" : "building") : "highway";
+      made.Value = one.Kind;
+      made.WidthM = one.WidthM;
+      made.HeightM = one.HeightM;
+      made.Area = one.Area;
+      made.LatLon = one.LatLon;
+      told.push_back(std::move(made));
+    }
+    World.Stack.Declares(std::span<const Ground::OsmField::Declared>(told));
+    Published.Places("ground: structures a scenario declared", (double)told.size(), "structures");
+  }
+
   World.Stack.ShapesFootprintsWith(&World.Shaper);
   {
     const double fovDeg =

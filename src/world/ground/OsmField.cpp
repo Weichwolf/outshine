@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <chrono>
 #include "OsmField.h"
 
@@ -225,6 +226,70 @@ int OsmField::Layer(const char *name) const {
     if (Layers_[i] == name) { return (int)i; }
   }
   return -1;
+}
+
+void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
+  Features_.clear();
+  Rings_.clear();
+  Points_.clear();
+  Tiles_.clear();
+  Tags_.clear();
+  CentreX_ = tx;
+  CentreY_ = ty;
+
+  const auto number = [this](double how) {
+    Values_.push_back(Value{.Num = how, .Str = 0, .IsNum = true});
+    return (uint32_t)(Values_.size() - 1u);
+  };
+  const auto words = [this](std::string_view how) {
+    Values_.push_back(
+        Value{.Num = 0.0, .Str = Intern(Strings_, StringIndex_, how), .IsNum = false});
+    return (uint32_t)(Values_.size() - 1u);
+  };
+
+  for (const Declared &one : these) {
+    if (one.LatLon.size() < 4) { continue; }
+    Feature made;
+    made.FirstRing = (uint32_t)Rings_.size();
+    made.RingCount = 1;
+    made.FirstTag = (uint32_t)Tags_.size();
+    made.Tile = 0;
+    made.Layer = (uint16_t)(Layer(one.Layer.c_str()) < 0 ? 0 : Layer(one.Layer.c_str()));
+    made.Type = one.Area ? 3u : 2u;
+    made.MinLat = made.MaxLat = one.LatLon[0];
+    made.MinLon = made.MaxLon = one.LatLon[1];
+
+    Ring ring;
+    ring.First = (uint32_t)(Points_.size() / 2u);
+    ring.Count = (uint32_t)(one.LatLon.size() / 2u);
+    ring.Exterior = one.Area;
+    for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
+      made.MinLat = std::min(made.MinLat, one.LatLon[at]);
+      made.MaxLat = std::max(made.MaxLat, one.LatLon[at]);
+      made.MinLon = std::min(made.MinLon, one.LatLon[at + 1]);
+      made.MaxLon = std::max(made.MaxLon, one.LatLon[at + 1]);
+      Points_.push_back(one.LatLon[at]);
+      Points_.push_back(one.LatLon[at + 1]);
+    }
+    Rings_.push_back(ring);
+
+    Tags_.push_back(Intern(Keys_, KeyIndex_, one.Key));
+    Tags_.push_back(words(one.Value));
+    if (one.WidthM > 0.0) {
+      Tags_.push_back(Intern(Keys_, KeyIndex_, "width"));
+      Tags_.push_back(number(one.WidthM));
+    }
+    if (one.HeightM > 0.0) {
+      Tags_.push_back(Intern(Keys_, KeyIndex_, "height"));
+      Tags_.push_back(number(one.HeightM));
+    }
+    made.TagCount = (uint32_t)Tags_.size() - made.FirstTag;
+    Features_.push_back(made);
+  }
+
+  Tiles_.push_back(Tile{
+      .Z = Zoom_, .X = tx, .Y = ty, .FirstFeature = 0, .FeatureCount = (uint32_t)Features_.size()});
+  Pending_ = 0;
 }
 
 double OsmField::Num(const Feature &f, const char *key, double def) const {

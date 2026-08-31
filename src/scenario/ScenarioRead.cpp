@@ -44,8 +44,11 @@ const Element kGrammar[] = {
      "input state layer"},
     {"scenario/layer", "", "path"},
     {"scenario/scene", ""},
-    {"scenario/world", "relief"},
-    {"scenario/world/relief", "", "kind"},
+    {.Path = "scenario/world", .Children = "relief osm"},
+    {.Path = "scenario/world/relief", .Children = "", .Required = "kind"},
+    {.Path = "scenario/world/osm", .Children = "way area"},
+    {.Path = "scenario/world/osm/way", .Children = "", .Required = "kind"},
+    {.Path = "scenario/world/osm/area", .Children = "", .Required = "kind"},
     {"scenario/render", "keep output stage"},
     {"scenario/render/keep", "", "name"},
     {"scenario/render/output", "", "name"},
@@ -224,6 +227,30 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
     into.Ground.Shape.Gradient = relief.Num("gradient", into.Ground.Shape.Gradient);
     into.Ground.Shape.BearingDeg = relief.Num("bearingDeg", into.Ground.Shape.BearingDeg);
     into.Ground.Shape.Seed = (uint64_t)relief.Num("seed", (double)into.Ground.Shape.Seed);
+  }
+  const Xml::Ref osm = from.Child("osm");
+  if (osm.Valid()) {
+    const auto take = [&into](const Xml::Ref &node, bool area) {
+      Structure made;
+      made.Kind = node.Attr("kind", "");
+      made.WidthM = node.Num("widthM", 0.0);
+      made.HeightM = node.Num("heightM", 0.0);
+      made.Area = area;
+      const std::string said = node.Attr("points", "");
+      size_t at = 0;
+      while (at < said.size()) {
+        const size_t comma = said.find(',', at);
+        if (comma == std::string::npos) { break; }
+        size_t space = said.find(' ', comma);
+        if (space == std::string::npos) { space = said.size(); }
+        made.LatLon.push_back(std::strtod(said.c_str() + at, nullptr));
+        made.LatLon.push_back(std::strtod(said.c_str() + comma + 1, nullptr));
+        at = space + 1;
+      }
+      if (made.LatLon.size() >= 4) { into.Ground.Osm.push_back(std::move(made)); }
+    };
+    for (const Xml::Ref one : osm.Children("way")) { take(one, false); }
+    for (const Xml::Ref one : osm.Children("area")) { take(one, true); }
   }
 }
 

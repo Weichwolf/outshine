@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include <cmath>
+#include <numbers>
 #include <string>
 
 #include "Sink.h"
@@ -105,7 +106,17 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
     WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
-  (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
+  if (Declared_.empty()) {
+    (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
+  } else {
+    const double turn = std::numbers::pi;
+    const double side = std::ldexp(1.0, Vectors_->Zoom());
+    const double bent = lat * turn / 180.0;
+    const auto tx = (int)std::floor((lon + 180.0) / 360.0 * side);
+    const auto ty = (int)std::floor((1.0 - std::log(std::tan(bent) + 1.0 / std::cos(bent)) / turn) /
+                                    2.0 * side);
+    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), tx, ty);
+  }
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
   for (;;) {
     if (HeapBytes() > kHoldsBytes) {

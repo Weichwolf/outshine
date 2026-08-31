@@ -78,12 +78,39 @@ struct Relief {
   uint64_t Seed = 0;
 };
 
+/// One piece of map a scenario states itself, instead of fetching it.
+///
+/// A corpus needs an input it can vary one thing at a time -- a hairpin on a flat plain, the same
+/// hairpin on a cliff -- and real map data cannot be varied at all. What it must never state is the
+/// ANSWER: the terrain function and the design standards do that.
+struct Structure {
+  /// What the map would call it: `residential`, `motorway`, `track`, `building`, `water`.
+  std::string Kind;
+
+  /// The carriageway's width in metres where the map states one, and zero where it does not --
+  /// which is the case a derivation has to survive.
+  double WidthM = 0.0;
+
+  /// How tall, in metres, for anything that rises.
+  double HeightM = 0.0;
+
+  /// Whether it encloses ground rather than running over it.
+  bool Area = false;
+
+  /// The shape, as latitude and longitude in degrees, in pairs.
+  std::vector<double> LatLon;
+};
+
 struct WorldSettings {
   bool Declared = false;
   Georeference Origin;
 
   /// The ground as a function, when a scenario states one instead of fetching tiles.
   Relief Shape;
+
+  /// The map a scenario states itself. Empty means the map is fetched, which is every scenario that
+  /// is not a test.
+  std::vector<Structure> Osm;
   double GravityMs2 = 9.80665;
   double AirDensityKgM3 = 1.2250;
   Weather Sky;

@@ -46,6 +46,18 @@ public:
 
   [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
+  struct Declared {
+    std::string Layer;
+    std::string Key;
+    std::string Value;
+    double WidthM = 0.0;
+    double HeightM = 0.0;
+    bool Area = false;
+    std::vector<double> LatLon;
+  };
+
+  void Declare(std::span<const Declared> these, int tx, int ty);
+
   [[nodiscard]] int Zoom() const { return Zoom_; }
 
   [[nodiscard]] long MissingLayers() const { return Missing_; }
