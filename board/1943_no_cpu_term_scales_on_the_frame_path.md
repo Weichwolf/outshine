@@ -120,3 +120,6 @@ geometry: lights, shadows, the queries the frame makes, and the distribution it 
 - [ ] the frame publishes p50/p95/p99 over a moving camera, not a mean (board:1457)
 - [ ] geometry carries its own detail ladder and the pool holding it is a slot table
       (board:1512)
+
+
+**FOLDED IN 1926**, the light-and-shadow half of this. Its own words: "'light and shadow are GPU-side' is the intent; it is not measurable as written". This item states the measurable version over the whole frame path, and 1926's benchmark already pointed here.

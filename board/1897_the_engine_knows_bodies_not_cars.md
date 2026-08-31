@@ -135,3 +135,6 @@ Proving test when it lands: a scenario that declares a body with a thrust actuat
 at all stands, is placed by integration, and moves under a control command. Negative control:
 the same scenario against an engine whose `Advance` places only `Drive.State.Body` -- the body
 never moves.
+
+
+**FOLDED IN 1944**, which said the same in 29 lines: RAGE keeps `CVehicle` in the game layer, Unreal keeps wheeled movement in a plugin, so no vehicle noun stands inside the engine. Same benchmark, same claim, one item.
