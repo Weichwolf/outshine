@@ -162,8 +162,15 @@ way at the vertex the fit called undrivable and then resumed at the vertex AFTER
 + 1u` -- so the segment across the corner was never laid by anybody. The pieces now SHARE the corner
 vertex (`from += upTo`), which is what welding means here. Blast radius exactly as claimed: 25 of
 246 cells moved and every one of them is `corner`, `doubleBack`, `hairpin` or `roundabout`.
-What is still open at that corner is the MITRE: `RaiseJunction` is called and
-`junction bodies raised` still reads 0, so the outside of a tight corner keeps a notch.
+**The mitre followed, 2026-08-31.** `RaiseJunction` fanned its rim in GATE order -- sorted by the
+direction each gate faces -- and pushed each gate's two edge points as a pair. Where those two
+orders disagree the quad ties a bowtie, and a close-up of `corner` showed exactly that: a folded
+triangle standing out of the plane at the apex. The rim points are now sorted by their OWN angle
+around the junction centre, which is the only ordering a fan can use. 37 of 246 cells moved and all
+of them are `corner`, `doubleBack`, `fork`, `hairpin` or `roundabout`; `tee` and `cross` held,
+because a symmetric junction is the case where the two orderings happen to agree.
+(The counter `junction bodies raised` reads 0 for these on purpose -- it counts the junctions
+Picturing raises where ways MEET, not the mitres SweepRoad raises at a cut.)
 
 `roundabout` on `flat` -- the ring lays and the four approaches lay, and where an approach meets the
 ring there is an overlap rather than a junction: one arm stops short of the ring with a gap you can

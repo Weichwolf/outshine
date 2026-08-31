@@ -75,30 +75,37 @@ void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadR
   centreS /= (double)gates.Size();
   centreGrade /= (double)gates.Size();
 
-  std::vector<size_t> order(gates.Size());
-  for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-  std::ranges::sort(order, [&gates](size_t a, size_t b) {
-    return std::atan2(gates[a].OutS, gates[a].OutE) < std::atan2(gates[b].OutS, gates[b].OutE);
-  });
+  struct Corner {
+    double EastM, SouthM, GradeM, AroundRad;
+  };
 
-  const auto first = (uint32_t)(into.PositionM.size() / 3);
-  Push(into, centreE, centreGrade, centreS, wearsLinear);
-  Push(into, centreE, centreGrade - kSealedDepthM, centreS, wearsLinear);
-  for (const size_t at : order) {
+  std::vector<Corner> around;
+  around.reserve(gates.Size() * 2u);
+  for (size_t at = 0; at < gates.Size(); ++at) {
     const RoadGate &gate = gates[at];
     const double sideE = -gate.OutS * gate.HalfWidthM;
     const double sideS = gate.OutE * gate.HalfWidthM;
     for (const double hand : {1.0, -1.0}) {
-      Push(into, gate.EastM + sideE * hand, gate.GradeM, gate.SouthM + sideS * hand, wearsLinear);
-      Push(into,
-           gate.EastM + sideE * hand,
-           gate.GradeM - kSealedDepthM,
-           gate.SouthM + sideS * hand,
-           wearsLinear);
+      const double eastM = gate.EastM + sideE * hand;
+      const double southM = gate.SouthM + sideS * hand;
+      around.push_back(Corner{.EastM = eastM,
+                              .SouthM = southM,
+                              .GradeM = gate.GradeM,
+                              .AroundRad = std::atan2(southM - centreS, eastM - centreE)});
     }
   }
+  std::ranges::sort(around,
+                    [](const Corner &a, const Corner &b) { return a.AroundRad < b.AroundRad; });
 
-  const auto rim = (uint32_t)(gates.Size() * 2u);
+  const auto first = (uint32_t)(into.PositionM.size() / 3);
+  Push(into, centreE, centreGrade, centreS, wearsLinear);
+  Push(into, centreE, centreGrade - kSealedDepthM, centreS, wearsLinear);
+  for (const Corner &one : around) {
+    Push(into, one.EastM, one.GradeM, one.SouthM, wearsLinear);
+    Push(into, one.EastM, one.GradeM - kSealedDepthM, one.SouthM, wearsLinear);
+  }
+
+  const auto rim = (uint32_t)around.size();
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t here = first + 2u + at * 2u;
     const uint32_t next = first + 2u + ((at + 1u) % rim) * 2u;
