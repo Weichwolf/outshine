@@ -59,7 +59,18 @@ std::string WriteScenario(const Scenario &declared) {
     Number(said, "lon", declared.Ground.Origin.LongitudeDeg);
     Number(said, "patienceS", declared.Ground.PatienceS);
     Number(said, "sightM", declared.Ground.SightM);
-    said += "/>\n";
+    if (declared.Ground.Shape.Kind.empty()) {
+      said += "/>\n";
+    } else {
+      said += ">\n    <relief";
+      Said(said, "kind", declared.Ground.Shape.Kind);
+      Number(said, "amplitudeM", declared.Ground.Shape.AmplitudeM);
+      Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);
+      Number(said, "gradient", declared.Ground.Shape.Gradient);
+      Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
+      Number(said, "seed", (double)declared.Ground.Shape.Seed);
+      said += "/>\n  </world>\n";
+    }
   }
   if (declared.Render.Declared) {
     said += "  <render";

@@ -44,7 +44,8 @@ const Element kGrammar[] = {
      "input state layer"},
     {"scenario/layer", "", "path"},
     {"scenario/scene", ""},
-    {"scenario/world", ""},
+    {"scenario/world", "relief"},
+    {"scenario/world/relief", "", "kind"},
     {"scenario/render", "keep output stage"},
     {"scenario/render/keep", "", "name"},
     {"scenario/render/output", "", "name"},
@@ -215,6 +216,15 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.Sky.CloudBaseAglM = from.Num("cloudBaseAglM", into.Ground.Sky.CloudBaseAglM);
   into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
   into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
+  const Xml::Ref relief = from.Child("relief");
+  if (relief.Valid()) {
+    into.Ground.Shape.Kind = relief.Attr("kind", into.Ground.Shape.Kind.c_str());
+    into.Ground.Shape.AmplitudeM = relief.Num("amplitudeM", into.Ground.Shape.AmplitudeM);
+    into.Ground.Shape.WavelengthM = relief.Num("wavelengthM", into.Ground.Shape.WavelengthM);
+    into.Ground.Shape.Gradient = relief.Num("gradient", into.Ground.Shape.Gradient);
+    into.Ground.Shape.BearingDeg = relief.Num("bearingDeg", into.Ground.Shape.BearingDeg);
+    into.Ground.Shape.Seed = (uint64_t)relief.Num("seed", (double)into.Ground.Shape.Seed);
+  }
 }
 
 void ReadRender(const Xml::Ref &from, Scenario &into) {

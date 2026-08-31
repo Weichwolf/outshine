@@ -193,6 +193,20 @@ bool Engine::State::Composes(void) {
     return false;
   }
 
+  if (!Session.Declared.Ground.Shape.Kind.empty()) {
+    Ground::GroundStream::Shaped how;
+    how.Kind = Session.Declared.Ground.Shape.Kind;
+    how.AmplitudeM = Session.Declared.Ground.Shape.AmplitudeM;
+    how.WavelengthM = Session.Declared.Ground.Shape.WavelengthM;
+    how.Gradient = Session.Declared.Ground.Shape.Gradient;
+    how.BearingDeg = Session.Declared.Ground.Shape.BearingDeg;
+    how.FocusLatDeg = atLat;
+    how.FocusLonDeg = atLon;
+    how.Seed = Session.Declared.Ground.Shape.Seed;
+    World.Stack.Ground().Shapes(how);
+    Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
+  }
+
   World.Stack.ShapesFootprintsWith(&World.Shaper);
   {
     const double fovDeg =

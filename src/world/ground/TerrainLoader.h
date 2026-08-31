@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "GroundQuery.h"
@@ -83,6 +85,23 @@ public:
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 
+  struct Shaped {
+    std::string Kind;
+    double AmplitudeM = 0.0;
+    double WavelengthM = 0.0;
+    double Gradient = 0.0;
+    double BearingDeg = 0.0;
+    double FocusLatDeg = 0.0;
+    double FocusLonDeg = 0.0;
+    uint64_t Seed = 0;
+  };
+
+  void Shapes(const Shaped &how);
+
+  [[nodiscard]] bool IsShaped() const noexcept { return !Shape_.Kind.empty(); }
+
+  [[nodiscard]] double ShapedAslM(double latDeg, double lonDeg) const noexcept;
+
 private:
   struct Held;
   friend struct Held;
@@ -96,6 +115,8 @@ private:
 
   TilePool &Tiles_;
   GroundSurface Surface_;
+  Shaped Shape_;
+  mutable std::unordered_map<uint64_t, std::vector<float>> Shaped_;
   std::unique_ptr<Held> Held_;
 };
 

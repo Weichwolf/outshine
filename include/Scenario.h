@@ -49,9 +49,41 @@ struct Weather {
   double WindMs = 0.0;
 };
 
+/// A ground STATED as a function of place instead of fetched as tiles.
+///
+/// A corpus that generates its own input can only grade itself unless something outside it states
+/// the answer, and for terrain that something is arithmetic: on `z = f(x, y)` the correct height is
+/// known at every point, so "the road hovers" becomes a subtraction rather than a look. It is also
+/// how a case runs offline and in milliseconds.
+struct Relief {
+  /// Which function. Empty means the ground is fetched, which is every scenario that is not a test.
+  std::string Kind;
+
+  /// How far the function reaches from its middle, in metres. What it means depends on `Kind`: the
+  /// height of a ridge, the throw of an escarpment, the strength of a noise field.
+  double AmplitudeM = 0.0;
+
+  /// The length of one period, in metres, for anything periodic.
+  double WavelengthM = 0.0;
+
+  /// A constant slope, as a ratio rather than a percentage, added under whatever else the function
+  /// does. On its own it is a plane.
+  double Gradient = 0.0;
+
+  /// Which way the slope or the ridge faces, in degrees clockwise from north.
+  double BearingDeg = 0.0;
+
+  /// The seed every random choice in the function descends from, so one declaration is one ground
+  /// twice.
+  uint64_t Seed = 0;
+};
+
 struct WorldSettings {
   bool Declared = false;
   Georeference Origin;
+
+  /// The ground as a function, when a scenario states one instead of fetching tiles.
+  Relief Shape;
   double GravityMs2 = 9.80665;
   double AirDensityKgM3 = 1.2250;
   Weather Sky;
