@@ -296,6 +296,18 @@ void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
       Tags_.push_back(Intern(Keys_, KeyIndex_, "height"));
       Tags_.push_back(number(one.HeightM));
     }
+    if (one.Bridge) {
+      Tags_.push_back(Intern(Keys_, KeyIndex_, "bridge"));
+      Tags_.push_back(number(1.0));
+    }
+    if (one.Tunnel) {
+      Tags_.push_back(Intern(Keys_, KeyIndex_, "tunnel"));
+      Tags_.push_back(number(1.0));
+    }
+    if (one.Level != 0) {
+      Tags_.push_back(Intern(Keys_, KeyIndex_, "layer"));
+      Tags_.push_back(number((double)one.Level));
+    }
     made.TagCount = (uint32_t)Tags_.size() - made.FirstTag;
     Features_.push_back(made);
   }

@@ -53,6 +53,9 @@ public:
     double WidthM = 0.0;
     double HeightM = 0.0;
     bool Area = false;
+    bool Bridge = false;
+    bool Tunnel = false;
+    int Level = 0;
     std::vector<double> LatLon;
   };
 

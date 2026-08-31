@@ -228,6 +228,9 @@ bool Engine::State::Composes(void) {
       made.WidthM = one.WidthM;
       made.HeightM = one.HeightM;
       made.Area = one.Area;
+      made.Bridge = one.Bridge;
+      made.Tunnel = one.Tunnel;
+      made.Level = one.Level;
       made.LatLon = one.LatLon;
       told.push_back(std::move(made));
     }

@@ -81,6 +81,9 @@ std::string WriteScenario(const Scenario &declared) {
         Said(said, "kind", one.Kind);
         if (one.WidthM > 0.0) { Number(said, "widthM", one.WidthM); }
         if (one.HeightM > 0.0) { Number(said, "heightM", one.HeightM); }
+        if (one.Bridge) { Said(said, "bridge", "yes"); }
+        if (one.Tunnel) { Said(said, "tunnel", "yes"); }
+        if (one.Level != 0) { Number(said, "level", (double)one.Level); }
         std::string shape;
         for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
           if (!shape.empty()) { shape += " "; }

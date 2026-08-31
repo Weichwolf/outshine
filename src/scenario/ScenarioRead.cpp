@@ -236,6 +236,9 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
       made.WidthM = node.Num("widthM", 0.0);
       made.HeightM = node.Num("heightM", 0.0);
       made.Area = area;
+      made.Bridge = std::string(node.Attr("bridge", "no")) == "yes";
+      made.Tunnel = std::string(node.Attr("tunnel", "no")) == "yes";
+      made.Level = (int)node.Num("level", 0.0);
       const std::string said = node.Attr("points", "");
       size_t at = 0;
       while (at < said.size()) {

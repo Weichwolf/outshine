@@ -133,3 +133,38 @@ whole town seen from altitude, which is the wrong instrument for the question.
 - [ ] Negative control: a deliberately broken cell -- a road laid 1 m above its own terrain -- goes
       red in every geometric oracle above
 - [ ] Real data resumes only when the grid is green, and the grid stays in the gate afterwards
+
+## What it found on the first pass, 2026-08-31
+
+The corpus renders. 25 structures x 10 terrains, each cell one declared relief plus a handful of
+declared ways and areas, no network, ~4 s a cell. The FIRST look at a hard cell found the defect the
+grid was built to find.
+
+`cross` on `plane30` draws ONE arm of a crossroads. Both ways are laid -- `ways laid as ribbons 2`,
+`ways it refused 0` -- so the second is not missing, it is BURIED:
+
+    the deepest the ground stands over one     43.502 m
+    how far on average                         22.525 m   over 72 vertices
+
+The profile is designed with a bounded gradient, which is right, and the ground is then never cut to
+meet it, which is the whole defect. The consensus answer is the one already written above: design
+the alignment, CUT where the design surface is under the terrain and FILL where it is over, and let
+the corridor surface replace the terrain inside its boundary. Today only the road moves.
+
+**The number to beat: deepest 43.502 m, mean 22.525 m, on `cross-plane30`.** A repair that does not
+drive both toward zero has not done the thing.
+
+Two more, from the same first pass:
+
+`hairpin` on `flat` -- ONE declared polyline, `(-80,0) (0,0) (-80,16)`, comes out as FOUR
+disconnected fragments with visible gaps between them. Splitting a way at a corner tighter than its
+class can drive is a defensible decision; leaving the pieces UNJOINED is not, because the network is
+then not continuous, and continuity is the thing the whole derivation is for.
+
+`roundabout` on `flat` -- the ring lays and the four approaches lay, and where an approach meets the
+ring there is an overlap rather than a junction: one arm stops short of the ring with a gap you can
+see at cell scale.
+
+All three are the same missing idea from different sides: the derivation lays PIECES and never makes
+them one BODY. Cut and fill is the ground yielding to the road; welding is the road being one thing
+where two of its pieces meet.

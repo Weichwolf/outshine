@@ -88,127 +88,929 @@
   {
    "id": "straight",
    "family": "way",
-   "what": "a straight way, 200 m"
+   "what": "a straight way, 200 m",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "corner",
    "family": "way",
-   "what": "a right-angle corner"
+   "what": "a right-angle corner",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -80,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       80
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "hairpin",
    "family": "way",
-   "what": "a corner at 8 m, tighter than a car can turn"
+   "what": "a corner at 8 m, tighter than a car can turn",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -80,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      [
+       -80,
+       16
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "doubleBack",
    "family": "way",
-   "what": "a way that reverses onto itself: the 0 m radius"
+   "what": "a way that reverses onto itself: the 0 m radius",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -80,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       24
+      ],
+      [
+       -80,
+       24
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "tee",
    "family": "way",
-   "what": "a T junction"
+   "what": "a T junction",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       80
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "cross",
    "family": "way",
-   "what": "a crossroads"
+   "what": "a crossroads",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       -100
+      ],
+      [
+       0,
+       100
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "fork",
    "family": "way",
-   "what": "a Y fork at 10 degrees, where the trim cap bit"
+   "what": "a Y fork at 10 degrees, where the trim cap bit",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       0
+      ],
+      [
+       80,
+       45
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       0
+      ],
+      [
+       80,
+       -45
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "roundabout",
    "family": "way",
-   "what": "a roundabout"
+   "what": "a roundabout",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       20.0,
+       0.0
+      ],
+      [
+       17.32,
+       10.0
+      ],
+      [
+       10.0,
+       17.32
+      ],
+      [
+       0.0,
+       20.0
+      ],
+      [
+       -10.0,
+       17.32
+      ],
+      [
+       -17.32,
+       10.0
+      ],
+      [
+       -20.0,
+       0.0
+      ],
+      [
+       -17.32,
+       -10.0
+      ],
+      [
+       -10.0,
+       -17.32
+      ],
+      [
+       -0.0,
+       -20.0
+      ],
+      [
+       10.0,
+       -17.32
+      ],
+      [
+       17.32,
+       -10.0
+      ],
+      [
+       20.0,
+       0.0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -90,
+       0
+      ],
+      [
+       -20,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       20,
+       0
+      ],
+      [
+       90,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       -90
+      ],
+      [
+       0,
+       -20
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       20
+      ],
+      [
+       0,
+       90
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "crossNoNode",
    "family": "way",
-   "what": "two ways crossing with NO node -- a bridge or a tunnel, never a junction"
+   "what": "two ways crossing with NO node -- a bridge or a tunnel, never a junction",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       -6
+      ],
+      [
+       100,
+       6
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -6,
+       -100
+      ],
+      [
+       6,
+       100
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "bridgeOverWay",
    "family": "vertical",
-   "what": "a bridge over a way"
+   "what": "a bridge over a way",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       -100
+      ],
+      [
+       0,
+       100
+      ]
+     ],
+     "bridge": true,
+     "level": 1
+    }
+   ]
   },
   {
    "id": "bridgeOverWater",
    "family": "vertical",
-   "what": "a bridge over water"
+   "what": "a bridge over water",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "water",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ],
+     "widthM": 14
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       -100
+      ],
+      [
+       0,
+       100
+      ]
+     ],
+     "bridge": true,
+     "level": 1
+    }
+   ]
   },
   {
    "id": "tunnel",
    "family": "vertical",
-   "what": "a tunnel with two portals"
+   "what": "a tunnel with two portals",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ],
+     "tunnel": true
+    }
+   ]
   },
   {
    "id": "embankment",
    "family": "vertical",
-   "what": "a way the ground must be FILLED to carry"
+   "what": "a way the ground must be FILLED to carry",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "cutting",
    "family": "vertical",
-   "what": "a way the ground must be CUT to carry"
+   "what": "a way the ground must be CUT to carry",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       -100
+      ],
+      [
+       0,
+       100
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "houseSquare",
    "family": "building",
-   "what": "a square building"
+   "what": "a square building",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -10.0,
+       -10.0
+      ],
+      [
+       10.0,
+       -10.0
+      ],
+      [
+       10.0,
+       10.0
+      ],
+      [
+       -10.0,
+       10.0
+      ]
+     ],
+     "heightM": 9
+    }
+   ]
   },
   {
    "id": "houseOnFall",
    "family": "building",
-   "what": "a building on the fall line: the pad"
+   "what": "a building on the fall line: the pad",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -12.0,
+       -8.0
+      ],
+      [
+       12.0,
+       -8.0
+      ],
+      [
+       12.0,
+       8.0
+      ],
+      [
+       -12.0,
+       8.0
+      ]
+     ],
+     "heightM": 12
+    }
+   ]
   },
   {
    "id": "houseAtWay",
    "family": "building",
-   "what": "a building touching a way"
+   "what": "a building touching a way",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -10.0,
+       10.0
+      ],
+      [
+       10.0,
+       10.0
+      ],
+      [
+       10.0,
+       30.0
+      ],
+      [
+       -10.0,
+       30.0
+      ]
+     ],
+     "heightM": 9
+    }
+   ]
   },
   {
    "id": "housesShared",
    "family": "building",
-   "what": "two buildings sharing a wall"
+   "what": "two buildings sharing a wall",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -20.0,
+       -10.0
+      ],
+      [
+       0.0,
+       -10.0
+      ],
+      [
+       0.0,
+       10.0
+      ],
+      [
+       -20.0,
+       10.0
+      ]
+     ],
+     "heightM": 9
+    },
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       0.0,
+       -10.0
+      ],
+      [
+       20.0,
+       -10.0
+      ],
+      [
+       20.0,
+       10.0
+      ],
+      [
+       0.0,
+       10.0
+      ]
+     ],
+     "heightM": 12
+    }
+   ]
   },
   {
    "id": "courtyard",
    "family": "building",
-   "what": "a ring with a hole"
+   "what": "a ring with a hole",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -30.0,
+       15.0
+      ],
+      [
+       30.0,
+       15.0
+      ],
+      [
+       30.0,
+       25.0
+      ],
+      [
+       -30.0,
+       25.0
+      ]
+     ],
+     "heightM": 9
+    },
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -30.0,
+       -25.0
+      ],
+      [
+       30.0,
+       -25.0
+      ],
+      [
+       30.0,
+       -15.0
+      ],
+      [
+       -30.0,
+       -15.0
+      ]
+     ],
+     "heightM": 9
+    },
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       -30.0,
+       -15.0
+      ],
+      [
+       -20.0,
+       -15.0
+      ],
+      [
+       -20.0,
+       15.0
+      ],
+      [
+       -30.0,
+       15.0
+      ]
+     ],
+     "heightM": 9
+    },
+    {
+     "family": "area",
+     "kind": "building",
+     "points": [
+      [
+       20.0,
+       -15.0
+      ],
+      [
+       30.0,
+       -15.0
+      ],
+      [
+       30.0,
+       15.0
+      ],
+      [
+       20.0,
+       15.0
+      ]
+     ],
+     "heightM": 9
+    }
+   ]
   },
   {
    "id": "water",
    "family": "surface",
-   "what": "a water polygon"
+   "what": "a water polygon",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "water",
+     "points": [
+      [
+       -30.0,
+       -20.0
+      ],
+      [
+       30.0,
+       -20.0
+      ],
+      [
+       30.0,
+       20.0
+      ],
+      [
+       -30.0,
+       20.0
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "waterAtWay",
    "family": "surface",
-   "what": "water meeting a way"
+   "what": "water meeting a way",
+   "parts": [
+    {
+     "family": "area",
+     "kind": "water",
+     "points": [
+      [
+       -30.0,
+       5.0
+      ],
+      [
+       30.0,
+       5.0
+      ],
+      [
+       30.0,
+       45.0
+      ],
+      [
+       -30.0,
+       45.0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       -10
+      ],
+      [
+       100,
+       -10
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "track",
    "family": "surface",
-   "what": "an unsealed track -- becomes a CLASS, never a body"
+   "what": "an unsealed track -- becomes a CLASS, never a body",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "track",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       60,
+       60
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "deadEnd",
    "family": "way",
-   "what": "a dead end"
+   "what": "a dead end",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    }
+   ]
   },
   {
    "id": "withWidth",
    "family": "way",
-   "what": "a way whose width OSM states"
+   "what": "a way whose width OSM states",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ],
+     "widthM": 14
+    }
+   ]
   },
   {
    "id": "withoutWidth",
    "family": "way",
-   "what": "a way whose width must be inferred"
+   "what": "a way whose width must be inferred",
+   "parts": [
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       -100,
+       0
+      ],
+      [
+       100,
+       0
+      ]
+     ]
+    }
+   ]
   }
  ],
  "cells": [
@@ -1216,5 +2018,6 @@
    "structure": "withoutWidth",
    "terrain": "noiseCliff"
   }
- ]
+ ],
+ "units": "structure parts are metres east and north of the cell origin; the runner turns them into lat/lon"
 }

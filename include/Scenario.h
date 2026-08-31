@@ -97,6 +97,15 @@ struct Structure {
   /// Whether it encloses ground rather than running over it.
   bool Area = false;
 
+  /// Whether the map calls it a bridge, so it carries over what it crosses rather than through it.
+  bool Bridge = false;
+
+  /// Whether the map calls it a tunnel, in which case nothing is drawn on the surface.
+  bool Tunnel = false;
+
+  /// Which level it runs on where two things cross: negative under, positive over, zero at grade.
+  int Level = 0;
+
   /// The shape, as latitude and longitude in degrees, in pairs.
   std::vector<double> LatLon;
 };
