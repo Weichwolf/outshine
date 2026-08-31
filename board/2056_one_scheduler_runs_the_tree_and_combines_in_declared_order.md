@@ -162,3 +162,37 @@ twenty-seven-folded the phase that held 78 per cent of it. The scheduler is stil
 of rebuild is still a frame that misses by 45x -- but the goal's stated cause was wrong twice over
 now, and a planner must be built against what the measurement says rather than what the sentence
 said.
+
+## AND WHAT IS LEFT IS NOT PARALLEL WORK, IT IS REDUNDANT WORK
+
+With the DEM cache derived, the same rebuild reads:
+
+    rebuild: the buildings, streets and water took   653.113 ms
+      of that, the census over every triangle         72.045 ms
+      of that, the streets and the water              66.911 ms      (was 1996)
+      -> the buildings                              ~514     ms
+    rebuild: of that, walking it into the proxy      267.208 ms
+      of that, standing and submitting INSIDE Build  201.710 ms
+
+The buildings are now the largest single item. What they actually did that round:
+
+    buildings: floats in the soup                 15 788 288
+    buildings: the field's last delta began at    15 786 752
+    buildings: and ran for                             1 536      <- 512 corners
+    buildings: corners the soup holds              1 973 536
+
+**One ten-thousandth of the soup changed and all of it was re-walked.** 1 973 536 corners at
+roughly 260 ns each is the ~514 ms, and `Grounds()` builds a fresh `outshine::Geometry` every
+time -- the whole world is copied to add 512 corners.
+
+**This is the same shape as the DEM cache and it changes what this item is.** Four cores would
+make a redundant copy four times faster and it would still be redundant. The reference both
+benchmarks actually implement is not "walk it in parallel": Unreal's proxies are updated
+INCREMENTALLY per primitive and RAGE re-submits only what moved. A planner is owed for work that
+must happen; this work must not happen at all.
+
+So the order this item should run in is now measured rather than assumed:
+
+1. the rebuild touches only what CHANGED -- the field already knows, it publishes the delta;
+2. what remains after that is the work a planner is for, and its size is not yet known because
+   nobody has seen a rebuild that only does new work.
