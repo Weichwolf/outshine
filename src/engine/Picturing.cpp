@@ -1367,6 +1367,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t endsTrimmed = 0;
     size_t endsStillCrossing = 0;
     double deepestTrimM = 0.0;
+    std::vector<double> shortByM;
+    std::vector<double> forkDeg;
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
 
@@ -1420,15 +1422,38 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 ((double)other.HalfM + (double)mine.HalfM * cosBetween) / sinBetween;
             back = std::max(back, reach);
           }
+          double sharpest = 180.0;
+          for (const Leaving &other : leaving) {
+            if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+            const double between = std::acos(std::clamp(
+                (double)mine.DirE * other.DirE + (double)mine.DirN * other.DirN, -1.0, 1.0));
+            sharpest = std::min(sharpest, 180.0 - between * 180.0 / std::numbers::pi);
+          }
           const double capped = std::min(back, (double)mine.HalfM * kTrimMostWidths);
           trimM[(size_t)mine.Way * 2u + mine.Side] = capped;
           if (capped > 0.01) {
             ++endsTrimmed;
             deepestTrimM = std::max(deepestTrimM, capped);
           }
-          if (back > capped + 0.01) { ++endsStillCrossing; }
+          if (back > capped + 0.01) {
+            ++endsStillCrossing;
+            shortByM.push_back(back - capped);
+            forkDeg.push_back(sharpest);
+          }
         }
       }
+    }
+    if (!shortByM.empty()) {
+      std::ranges::sort(shortByM);
+      std::ranges::sort(forkDeg);
+      const auto pick = [](const std::vector<double> &of, double part) {
+        return of[(size_t)((double)(of.size() - 1u) * part)];
+      };
+      Published.Places("streets: what a capped end was short by, p50", pick(shortByM, 0.5), "m");
+      Published.Places("streets: and p95", pick(shortByM, 0.95), "m");
+      Published.Places("streets: and the most", shortByM.back(), "m");
+      Published.Places("streets: the fork angle where the cap bit, p50", pick(forkDeg, 0.5), "deg");
+      Published.Places("streets: and the sharpest", forkDeg.front(), "deg");
     }
     Published.Places("streets: way ends a junction trimmed", (double)endsTrimmed, "ends");
     Published.Places("streets: and the deepest trim", deepestTrimM, "m");

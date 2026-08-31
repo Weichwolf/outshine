@@ -23,6 +23,42 @@ the corpus's own extent and reports a DISTRIBUTION, the same way a frame time is
     what bounds the score        the corpus extent, and the licence that let it be fetched
     what does NOT bound it       where a camera happens to stand
 
+## STEP 0 IS MEASURED: Hamburg answers the PLAN and refuses the HEIGHT
+
+Fetched rather than believed, and it moved the item in both directions.
+
+**The row that said `brid:Bridge` with `lod3MultiSurface` and 2 170 objects is WRONG.** Hamburg's
+bridges do not live in CityGML at all. `HH_WFS_Brueckenbauwerke` (dl-de/by-2.0, EPSG:25832) is an
+INVENTORY of engineering structures, and a road bridge in it is a `gml:Point` with TWO numbers and
+no dimension of any kind -- identity, `bauwerksart`, `baujahr`, ownership, nothing measured. The
+2 170 was most likely `fhh` = 2 276 remembered loosely; the LoD3.0-HH download beside it is a
+GEBAEUDEmodell. **A source read from a search result is a hypothesis, and this one cost a fetch to
+refute rather than a week to discover.**
+
+**And the same service answers the plan half outright**, which nearly went in the bin with it:
+
+    de.hh.up:fhh_polygone           1 624   POLYGON footprints, closed rings
+    de.hh.up:fhh                    2 276   points
+    de.hh.up:strassenbruecken         883   points
+    de.hh.up:fussgaengerbruecken      608
+    de.hh.up:stuetzbauwerke           287
+    de.hh.up:sonstige_bauwerke        109
+    de.hh.up:verkehrszeichenbruecken   46
+    de.hh.up:laermschutzbauwerke       33
+    de.hh.up:tunnel                    14
+
+A footprint is width by length. The first polygon fetched, `Neuengammer Durchstichbrücke`, is a
+closed five-point ring whose edges measure **8.47 m and 23.88 m** -- a deck plan, which is exactly
+the datum-free quantity the score wants and the one an OSM `width` tag almost never carries.
+
+**The trap in it is `stadium`.** That very first polygon reads `Bauwerk beseitigt` -- demolished.
+Scoring against it would grade this tree for failing to build a bridge that is not there, so the
+oracle is filtered to `Bauwerk unter Verkehr` before anything is compared.
+
+**Verdict.** Hamburg is a **TRUTH**-grade oracle for PRESENCE, POSITION and PLAN EXTENT, and holds
+no height whatsoever. The height half falls to the fallback the goal already names: Duisburg's
+LiDAR class 17, where a return is a measurement rather than somebody's model.
+
 ## THERE IS GROUND TRUTH, credential-free, over extents far larger than any camera
 
 Researched, and it corrected the assumption that German open data carries no bridges.
