@@ -323,7 +323,26 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
     return tri < wallTris ? wallRun[tri * 3 + corner]
                           : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
   };
-  std::unordered_map<uint64_t, uint32_t> seenAt;
+
+  struct AtCm {
+    int64_t X = 0, Y = 0, Z = 0;
+
+    bool operator==(const AtCm &other) const noexcept {
+      return X == other.X && Y == other.Y && Z == other.Z;
+    }
+  };
+
+  struct AtCmHash {
+    size_t operator()(const AtCm &of) const noexcept {
+      uint64_t mixed = 1469598103934665603ull;
+      mixed = (mixed ^ (uint64_t)of.X) * 1099511628211ull;
+      mixed = (mixed ^ (uint64_t)of.Y) * 1099511628211ull;
+      mixed = (mixed ^ (uint64_t)of.Z) * 1099511628211ull;
+      return (size_t)mixed;
+    }
+  };
+
+  std::unordered_map<AtCm, uint32_t, AtCmHash> seenAt;
   std::vector<uint32_t> welded;
   welded.reserve(vertices);
   size_t coincident = 0;
@@ -332,8 +351,7 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
     const int64_t cx = (int64_t)std::llround((double)held[0] * 100.0);
     const int64_t cy = (int64_t)std::llround((double)held[1] * 100.0);
     const int64_t cz = (int64_t)std::llround((double)held[2] * 100.0);
-    const uint64_t key =
-        (uint64_t)(cx * 73856093LL) ^ (uint64_t)(cy * 19349663LL) ^ (uint64_t)(cz * 83492791LL);
+    const AtCm key{.X = cx, .Y = cy, .Z = cz};
     const auto found = seenAt.find(key);
     if (found == seenAt.end()) {
       const uint32_t made = (uint32_t)seenAt.size();
@@ -371,17 +389,34 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
     }
   }
   {
-    std::unordered_map<uint64_t, uint32_t> whole;
+    struct Corner {
+      uint32_t Bits[6] = {0, 0, 0, 0, 0, 0};
+
+      bool operator==(const Corner &other) const noexcept {
+        for (size_t part = 0; part < 6; ++part) {
+          if (Bits[part] != other.Bits[part]) { return false; }
+        }
+        return true;
+      }
+    };
+
+    struct CornerHash {
+      size_t operator()(const Corner &of) const noexcept {
+        size_t mixed = 1469598103934665603ull;
+        for (const uint32_t one : of.Bits) { mixed = (mixed ^ one) * 1099511628211ull; }
+        return mixed;
+      }
+    };
+
+    std::unordered_map<Corner, uint32_t, CornerHash> whole;
     size_t exact = 0;
     for (size_t one = 0; one < vertices; ++one) {
-      uint64_t key = 1469598103934665603ull;
       const float *const held = placeAt(one);
       const float *const aim = turnAt(one);
+      Corner key;
       for (size_t part = 0; part < 3; ++part) {
-        key = (key ^ std::bit_cast<uint32_t>(held[part])) * 1099511628211ull;
-      }
-      for (size_t part = 0; part < 3; ++part) {
-        key = (key ^ std::bit_cast<uint32_t>(aim[part])) * 1099511628211ull;
+        key.Bits[part] = std::bit_cast<uint32_t>(held[part]);
+        key.Bits[part + 3] = std::bit_cast<uint32_t>(aim[part]);
       }
       if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
       ++exact;
