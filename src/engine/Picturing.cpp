@@ -1281,6 +1281,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::vector<double> tightDemandM;
     size_t fitUnsplittable = 0;
     size_t fitCuts = 0;
+    size_t sweptPieces = 0;
+    size_t sweptCuts = 0;
+    size_t sweptRefused = 0;
     std::vector<double> fitOffsetM;
     std::vector<double> fitRadiusM;
     std::vector<double> fitEastNorth;
@@ -1774,11 +1777,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
           wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
         }
-        Generators::RaiseRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
+        Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
                               (double)lane.HalfWidthM,
                               profile,
                               wears,
-                              pavement);
+                              std::atan(Generators::kCrossfall),
+                              pavement,
+                              &sweptPieces,
+                              &sweptCuts,
+                              &sweptRefused);
         {
           const size_t first = (size_t)lane.FirstPoint * 2u;
           const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
@@ -1875,6 +1882,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "streets: corners too tight to drive, cut instead", (double)fitTooTight, "corners");
       Published.Places("streets: cuts the split made", (double)fitCuts, "cuts");
+      Published.Places("streets: pieces the sweep laid on a line", (double)sweptPieces, "pieces");
+      Published.Places("streets: cuts the sweep made", (double)sweptCuts, "cuts");
+      Published.Places("streets: pieces the sweep could not lay", (double)sweptRefused, "pieces");
       Published.Places(
           "streets: pieces the split still could not lay", (double)fitUnsplittable, "pieces");
       if (!tightDemandM.empty()) {

@@ -8,6 +8,8 @@
 
 namespace outshine::Generators {
 
+inline constexpr double kCrossfall = 0.025;
+
 enum class RoadProfile : uint8_t { Rounded, Simple, Kerbed };
 
 struct RoadStation {
@@ -33,6 +35,16 @@ struct RoadGate {
 };
 
 void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into);
+
+void SweepRoad(Span<const RoadStation> along,
+               double halfWidthM,
+               RoadProfile profile,
+               const float wearsLinear[3],
+               double crossfall,
+               RoadRaised &into,
+               size_t *piecesLaid,
+               size_t *cutsMade,
+               size_t *piecesRefused);
 
 void RaiseRoad(Span<const RoadStation> along,
                double halfWidthM,
