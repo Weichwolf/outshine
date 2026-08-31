@@ -273,3 +273,27 @@ tight to drive is a NODE, not a corner — board:1499 measured that every fit re
 **2077 — a deck scored against a measured one.** Hamburg refuted: `HH_WFS_Brueckenbauwerke` is a 2D
 inventory, 1 624 footprint polygons and no height, filter `stadium = Bauwerk unter Verkehr`. It
 answers PRESENCE and PLAN EXTENT. Heights fall to Duisburg LiDAR class 17, not fetched.
+
+
+## THE DRAPE SAMPLES SIX TIMES COARSER THAN THE MESH IT DRAPES ON
+
+The owner saw roads hovering over the hillside at Heidelberg and named the cause: the tiles carry
+different LOD, and a height sampled at one resolution does not sit on a surface drawn at another.
+Measured, and it is worse than a mismatch -- there were THREE upward biases stacked:
+
+    ring: vertices the drape grid holds     653 400
+    ring: cells they fall into              103 041
+    ring: cells holding more than one       103 039      99.998 per cent
+
+Six and a third drawn vertices fall into every 32 m drape cell. And the cell kept the **HIGHEST** of
+them, and a missing cell fell back to a 3x3 **MAXIMUM** -- so the surface a road was laid on was an
+upper envelope of local maxima, systematically above the ground, most on the steepest slopes.
+
+Two of the three are repaired: the cell now holds the MEAN and the fallback averages what it finds.
+**The third is the owner's point and is not repaired**: a mean over 32 m is still metres from the
+triangle actually drawn, and one grid cannot serve tiles at different LOD at once. The fix is a
+sample at the TILE'S OWN resolution -- a grid per rung, or the drawn triangle interpolated directly.
+
+Nothing else can be trusted until it is: a road that is level across, a stamp that presses the
+ground, a body welded to the terrain all measure against a surface, and today that surface is not
+the one being drawn.

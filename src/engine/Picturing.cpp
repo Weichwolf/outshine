@@ -6,6 +6,7 @@
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <unordered_map>
+#include <utility>
 #include <chrono>
 
 #include "Fit.h"
@@ -1207,16 +1208,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             .count(),
         "ms");
     censusAt = std::chrono::steady_clock::now();
-    drawnGround.reserve(inFrame.size() / 3);
+    std::unordered_map<uint64_t, std::pair<double, uint32_t>> summed;
+    summed.reserve(inFrame.size() / 3);
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const int64_t east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
-      const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
+      const auto east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
+      const auto south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
       const uint64_t key = ((uint64_t)(east + 0x20000000) << 32) | (uint64_t)(south + 0x20000000);
-      const auto stood = drawnGround.find(key);
-      if (stood == drawnGround.end() || inFrame[at + 1] > stood->second) {
-        drawnGround[key] = inFrame[at + 1];
-      }
+      std::pair<double, uint32_t> &cell = summed[key];
+      cell.first += (double)inFrame[at + 1];
+      ++cell.second;
     }
+    drawnGround.reserve(summed.size());
+    size_t crowded = 0;
+    for (const auto &one : summed) {
+      drawnGround[one.first] = (float)(one.second.first / (double)one.second.second);
+      if (one.second.second > 1) { ++crowded; }
+    }
+    Published.Places(
+        "ring: vertices the drape grid holds", (double)(inFrame.size() / 3), "vertices");
+    Published.Places("ring: cells they fall into", (double)summed.size(), "cells");
+    Published.Places("ring: cells holding more than one", (double)crowded, "cells");
   }
   const auto drapedOver = [&drawnGround](double eastM, double southM, double fallback) {
     const double atE = eastM / kDrapeGridM;
@@ -1241,17 +1252,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
     const auto east = (int64_t)std::llround(atE);
     const auto south = (int64_t)std::llround(atS);
-    double highest = fallback;
-    bool found = false;
+    double summed = 0.0;
+    size_t took = 0;
     for (int64_t dy = -1; dy <= 1; ++dy) {
       for (int64_t dx = -1; dx <= 1; ++dx) {
         double stood = 0.0;
         if (!held(east + dx, south + dy, &stood)) { continue; }
-        if (!found || stood > highest) { highest = stood; }
-        found = true;
+        summed += stood;
+        ++took;
       }
     }
-    return highest;
+    return took > 0 ? summed / (double)took : fallback;
   };
 
   {
