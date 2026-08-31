@@ -222,3 +222,32 @@ taken outside the frame.
 
 Kept anyway, on principle rather than for the gain: the three censuses now run only when they were
 asked for. A number nobody ordered should cost nothing. Digest 0da91522 unchanged, 8 PASS.
+
+## THE PRODUCT PATH, PROFILED AT LAST -- and the measurement problem was that I passed two flags
+
+`--measures` prints the phase timers; `--audit` additionally runs `CensusOverEveryTriangle`. I had
+always passed both, so every phase number above carried the census. Passing only `--measures`:
+
+    rebuild: the buildings, streets and water took      72.1 ms     (653 with --audit)
+      of that, the census over every triangle            8.0 ms
+      of that, the streets and the water                64.1 ms
+    rebuild: of that, walking it into the proxy        268.1 ms     <-- the cost
+      of that, standing and submitting INSIDE Build    201.8 ms
+    rebuild: shaping what was built                     59.7 ms
+
+**The geometry is not the cost. Handing it over is.** Buildings, streets and water together are
+72 ms; walking the result into the proxy is 268, and 202 of that is inside `Build` -- shaping the
+`outshine::Geometry` into what the renderer takes and submitting it.
+
+So the three earlier attributions in this item -- `CarryIntoTheFrame`, the vertex censuses, and by
+implication the whole "buildings are 514 ms" reading -- were all measuring the audit census. They
+are corrected here rather than left standing: **the buildings phase is 72 ms, not 653.**
+
+What this item is actually owed, measured on the product path:
+
+    standing and submitting INSIDE Build   201.8 ms
+    shaping what was built                  59.7 ms
+    the streets and the water               64.1 ms
+
+That is where a planner would earn its keep, and it is `Live::Build`'s submission path rather than
+anything in `Grounds()`.
