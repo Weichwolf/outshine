@@ -1,3 +1,8 @@
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
 #include "TerrainTiles.h"
 
 #include <algorithm>
@@ -66,7 +71,53 @@ void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField 
   victim->Seq = ++Seq_;
 }
 
+double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
+  const double perLon = 111320.0 * std::cos(Shape_.FocusLatDeg * 3.14159265358979323846 / 180.0);
+  const double eastM = (lonDeg - Shape_.FocusLonDeg) * perLon;
+  const double northM = (latDeg - Shape_.FocusLatDeg) * 111132.0;
+  const double facing = Shape_.BearingDeg * 3.14159265358979323846 / 180.0;
+  const double along = eastM * std::sin(facing) + northM * std::cos(facing);
+  const double across = eastM * std::cos(facing) - northM * std::sin(facing);
+  const double wave = Shape_.WavelengthM > 1.0 ? Shape_.WavelengthM : 1.0;
+  const double turn = 2.0 * 3.14159265358979323846;
+  double up = Shape_.Gradient * along;
+  if (Shape_.Kind == "sineRidge") {
+    up += Shape_.AmplitudeM * std::cos(turn * across / wave);
+  } else if (Shape_.Kind == "sineValley") {
+    up -= Shape_.AmplitudeM * std::cos(turn * across / wave);
+  } else if (Shape_.Kind == "sineGrid") {
+    up += Shape_.AmplitudeM * std::sin(turn * along / wave) * std::sin(turn * across / wave);
+  } else if (Shape_.Kind == "escarpment" || Shape_.Kind == "noiseEscarpment") {
+    up += Shape_.AmplitudeM * std::tanh(across / (0.25 * wave));
+  }
+  if (Shape_.Kind == "noise" || Shape_.Kind == "noiseEscarpment") {
+    double octave = 1.0;
+    double weight = 0.5;
+    for (int step = 0; step < 5; ++step) {
+      up += Shape_.AmplitudeM * weight * std::sin(turn * along * octave / wave) *
+            std::cos(turn * across * octave / wave);
+      octave *= 2.0;
+      weight *= 0.5;
+    }
+  }
+  return up;
+}
+
 TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
+  if (IsShaped()) {
+    constexpr uint32_t kShapedSide = 256;
+    TerrainField field(kShapedSide, kShapedSide);
+    const TerrainField::Writable postings = field.Field();
+    for (uint32_t row = 0; row < kShapedSide; ++row) {
+      for (uint32_t col = 0; col < kShapedSide; ++col) {
+        const double fx = (double)col / (double)(kShapedSide - 1u);
+        const double fy = (double)row / (double)(kShapedSide - 1u);
+        const Geo at = TileFracToGeo(z, (long)x, (long)y, fx, fy);
+        postings[row, col] = (float)ShapedAslM(at.LatDeg, at.LonDeg);
+      }
+    }
+    return TerrainGrid::Holding(std::move(field));
+  }
   if (const TerrainField *cached = CacheLookup(z, x, y)) {
     return TerrainGrid::Holding(TerrainField(*cached));
   }

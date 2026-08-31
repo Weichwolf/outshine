@@ -194,7 +194,7 @@ bool Engine::State::Composes(void) {
   }
 
   if (!Session.Declared.Ground.Shape.Kind.empty()) {
-    Ground::GroundStream::Shaped how;
+    Ground::ShapedGround how;
     how.Kind = Session.Declared.Ground.Shape.Kind;
     how.AmplitudeM = Session.Declared.Ground.Shape.AmplitudeM;
     how.WavelengthM = Session.Declared.Ground.Shape.WavelengthM;
@@ -203,7 +203,7 @@ bool Engine::State::Composes(void) {
     how.FocusLatDeg = atLat;
     how.FocusLonDeg = atLon;
     how.Seed = Session.Declared.Ground.Shape.Seed;
-    World.Stack.Ground().Shapes(how);
+    World.Stack.Pool().Shapes(how);
     Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
     double hereM = 0.0;
     double eastM = 0.0;

@@ -255,7 +255,6 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
 }
 
 GroundSample GroundStream::Resident(double lat, double lon) const {
-  if (IsShaped()) { return GroundSample::At(ShapedAslM(lat, lon)); }
   lon = Wrapped180(lon);
   Geo place;
   place.LatDeg = lat;
@@ -318,49 +317,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   return victim;
 }
 
-void GroundStream::Shapes(const Shaped &how) {
-  Shape_ = how;
-}
-
-double GroundStream::ShapedAslM(double latDeg, double lonDeg) const noexcept {
-  const double perLon = 111320.0 * std::cos(Shape_.FocusLatDeg * kPi / 180.0);
-  const double eastM = (lonDeg - Shape_.FocusLonDeg) * perLon;
-  const double northM = (latDeg - Shape_.FocusLatDeg) * 111132.0;
-  const double facing = Shape_.BearingDeg * kPi / 180.0;
-  const double along = eastM * std::sin(facing) + northM * std::cos(facing);
-  const double across = eastM * std::cos(facing) - northM * std::sin(facing);
-  double up = Shape_.Gradient * along;
-  const std::string &kind = Shape_.Kind;
-  const double wave = Shape_.WavelengthM > 1.0 ? Shape_.WavelengthM : 1.0;
-  if (kind == "sineRidge") {
-    up += Shape_.AmplitudeM * std::cos(2.0 * kPi * across / wave);
-  } else if (kind == "sineValley") {
-    up -= Shape_.AmplitudeM * std::cos(2.0 * kPi * across / wave);
-  } else if (kind == "sineGrid") {
-    up += Shape_.AmplitudeM * std::sin(2.0 * kPi * along / wave) *
-          std::sin(2.0 * kPi * across / wave);
-  } else if (kind == "escarpment") {
-    up += Shape_.AmplitudeM * std::tanh(across / (0.25 * wave));
-  } else if (kind == "noise" || kind == "noiseEscarpment") {
-    double octave = 1.0;
-    double weight = 0.5;
-    for (int step = 0; step < 5; ++step) {
-      const double sx = along * octave / wave;
-      const double sy = across * octave / wave;
-      const auto grain = (double)((uint64_t)(std::floor(sx) * 73856093LL) ^
-                                  (uint64_t)(std::floor(sy) * 19349663LL) ^ Shape_.Seed);
-      up += Shape_.AmplitudeM * weight * std::sin(sx * 6.28318530718 + grain * 1.0e-9) *
-            std::cos(sy * 6.28318530718 + grain * 1.0e-9);
-      octave *= 2.0;
-      weight *= 0.5;
-    }
-    if (kind == "noiseEscarpment") { up += Shape_.AmplitudeM * std::tanh(across / (0.25 * wave)); }
-  }
-  return up;
-}
-
 GroundSample GroundStream::At(double lat, double lon) const {
-  if (IsShaped()) { return GroundSample::At(ShapedAslM(lat, lon)); }
   lon = Wrapped180(lon);
   Geo place;
   place.LatDeg = lat;
@@ -383,24 +340,6 @@ double GroundStream::PostM(double latDeg) const {
 GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   GroundBlock block;
   if (z != Surface_.Z) { return block; }
-  if (IsShaped()) {
-    const int side = (Surface_.Grid < 2 ? 2 : Surface_.Grid) + 1;
-    const auto key = ((uint64_t)(x + 0x20000000LL) << 32) | (uint64_t)(y + 0x20000000LL);
-    auto held = Shaped_.find(key);
-    if (held == Shaped_.end()) {
-      std::vector<float> nodes((size_t)side * (size_t)side, 0.0f);
-      for (int row = 0; row < side; ++row) {
-        for (int col = 0; col < side; ++col) {
-          const double fx = (double)col / (double)(side - 1);
-          const double fy = (double)row / (double)(side - 1);
-          const Geo at = TileFracToGeo(z, x, y, fx, fy);
-          nodes[(size_t)row * (size_t)side + (size_t)col] = (float)ShapedAslM(at.LatDeg, at.LonDeg);
-        }
-      }
-      held = Shaped_.emplace(key, std::move(nodes)).first;
-    }
-    return GroundBlock::Over(held->second.data(), z, x, y, side, (uint32_t)side);
-  }
   long hx = x, hy = y;
   if (!WrapTile(z, &hx, &hy)) { return block; }
   Held_->Pending = false;

@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TILES_TERRAINTILES_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "TerrainGrid.h"
@@ -62,17 +63,36 @@ public:
     int DemCacheTiles = 0;
   };
 
+  struct Shaped {
+    std::string Kind;
+    double AmplitudeM = 0.0;
+    double WavelengthM = 0.0;
+    double Gradient = 0.0;
+    double BearingDeg = 0.0;
+    double FocusLatDeg = 0.0;
+    double FocusLonDeg = 0.0;
+    uint64_t Seed = 0;
+  };
+
   TerrainTiles(TerrainSource &source, EnuFrame frame, Config config);
+
+  void Shapes(const Shaped &how) { Shape_ = how; }
+
+  [[nodiscard]] bool IsShaped() const noexcept { return !Shape_.Kind.empty(); }
+
+  [[nodiscard]] double ShapedAslM(double latDeg, double lonDeg) const noexcept;
 
   TerrainGrid StitchedGrid(int z, uint32_t x, uint32_t y);
 
   TerrainMesh MeshOf(int z, uint32_t x, uint32_t y);
 
-  uint32_t Stride() const { return Config_.Stride; }
+  [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 
   size_t HeapBytes() const;
 
 private:
+  Shaped Shape_;
+
   enum class Side { West, East, North, South };
   enum class Corner { NorthWest, NorthEast, SouthWest, SouthEast };
 

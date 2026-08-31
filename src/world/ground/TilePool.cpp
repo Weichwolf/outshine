@@ -524,8 +524,26 @@ void TilePool::Work(int slot) {
     const auto t0 = std::chrono::steady_clock::now();
     tAwaited = 0;
     switch (job.Kind) {
-      case Rank::Mesh:
+      case Rank::Mesh: {
+        ShapedGround told;
+        {
+          const std::scoped_lock lock(QueueMutex_);
+          told = Shape_;
+        }
+        if (!told.Kind.empty()) {
+          TerrainTiles::Shaped how;
+          how.Kind = told.Kind;
+          how.AmplitudeM = told.AmplitudeM;
+          how.WavelengthM = told.WavelengthM;
+          how.Gradient = told.Gradient;
+          how.BearingDeg = told.BearingDeg;
+          how.FocusLatDeg = told.FocusLatDeg;
+          how.FocusLonDeg = told.FocusLonDeg;
+          how.Seed = told.Seed;
+          tiles.Shapes(how);
+        }
         RunMesh(tiles, job, &result);
+      }
         result.Holds = true;
         break;
       case Rank::Fetch:
@@ -650,6 +668,11 @@ TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
   job.Key = key;
   Result result;
   return Poll(std::move(job), &result);
+}
+
+void TilePool::Shapes(const ShapedGround &how) {
+  const std::scoped_lock lock(QueueMutex_);
+  Shape_ = how;
 }
 
 TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) {

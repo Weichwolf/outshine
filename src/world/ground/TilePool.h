@@ -27,11 +27,24 @@ namespace outshine::Ground {
 
 class TerrainTiles;
 
+struct ShapedGround {
+  std::string Kind;
+  double AmplitudeM = 0.0;
+  double WavelengthM = 0.0;
+  double Gradient = 0.0;
+  double BearingDeg = 0.0;
+  double FocusLatDeg = 0.0;
+  double FocusLonDeg = 0.0;
+  uint64_t Seed = 0;
+};
+
 using outshine::TileBuild;
 
 class TilePool : public TileMeshes {
 public:
   using Reply = TileMeshes::Reply;
+
+  void Shapes(const ShapedGround &how);
 
   struct Ledger {
     long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
@@ -133,6 +146,8 @@ private:
   void Work(int slot);
   void Carry(void);
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
+
+  ShapedGround Shape_;
   [[nodiscard]] Reply Poll(Job &&job, Result *out);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(int z, uint32_t x, uint32_t y) const;
