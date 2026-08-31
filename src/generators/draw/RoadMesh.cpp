@@ -69,10 +69,16 @@ Section SectionOf(double halfM, RoadProfile profile) {
   return made;
 }
 
+constexpr double kSnapM = 0.001;
+
+double Snapped(double metres) {
+  return std::round(metres / kSnapM) * kSnapM;
+}
+
 void Push(RoadRaised &into, double eastM, double upM, double southM) {
-  into.PositionM.push_back((float)eastM);
-  into.PositionM.push_back((float)upM);
-  into.PositionM.push_back((float)southM);
+  into.PositionM.push_back((float)Snapped(eastM));
+  into.PositionM.push_back((float)Snapped(upM));
+  into.PositionM.push_back((float)Snapped(southM));
   into.NormalM.insert(into.NormalM.end(), {0.0f, 1.0f, 0.0f});
 }
 

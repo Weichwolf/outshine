@@ -1499,6 +1499,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places(
         "streets: ways whose layer is a STRING", (double)ways.LayerSaidCount(), "ways");
     Published.Places("streets: ways it refused", (double)refusedWays, "ways");
+    {
+      std::unordered_map<uint64_t, uint32_t> corner;
+      corner.reserve(pavement.PositionM.size() / 3);
+      size_t shared = 0;
+      for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
+        uint64_t keyed = 1469598103934665603ULL;
+        for (size_t axis = 0; axis < 3; ++axis) {
+          keyed =
+              (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * 1099511628211ULL;
+        }
+        if (++corner[keyed] == 2u) { shared += 2; }
+      }
+      const size_t corners = pavement.PositionM.size() / 3u;
+      Published.Places("streets: vertices two bodies SHARE", (double)shared, "vertices");
+      Published.Places("streets: vertices in all", (double)corners, "vertices");
+    }
     Published.Places("streets: triangles", (double)(pavement.Index.size() / 3), "triangles");
     if (pavement.Index.size() >= 3) {
       Material tarmac;

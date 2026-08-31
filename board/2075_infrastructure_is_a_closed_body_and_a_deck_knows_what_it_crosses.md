@@ -150,3 +150,23 @@ hand, and if its example files are public they are a corpus with real geometry r
 
 **Held here deliberately until that answer lands**, because building the water case now would be
 building it twice.
+
+## TWO BODIES THAT MEET SHARE 3.4 PER CENT OF THEIR CORNERS
+
+The goal asks for vertices snapped to one grid so a junction is a SHARED corner rather than two that
+nearly touch. The sweep snaps every position to the millimetre, so two stations at the same place
+now produce the same bytes. Measured at Kaiserberg:
+
+    vertices two bodies SHARE      94 068
+    vertices in all             2 736 516      = 3.4 per cent
+
+**The snap is not the problem and raising its resolution would not move that number.** Two ways
+meeting at an OSM node have DIFFERENT directions, so their profile rings are rotated against each
+other and their corners are simply not at the same place. Snapping can only weld what already
+coincides, and at a junction almost nothing does.
+
+So the number says what the next piece of work is rather than what is broken: **a junction is a
+SURFACE and it needs geometry of its own**, built from the ends of every way that meets there. That
+is the one thing in this item neither reference solves for us -- RAGE authors intersections by hand
+and Unreal's splines are laid by an artist -- which is why it went out to research rather than being
+invented here.
