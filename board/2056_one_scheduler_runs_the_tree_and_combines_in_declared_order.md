@@ -100,3 +100,54 @@ world that is already resident, on one thread, which is precisely what this item
 
 So the goal's sentence -- *fertig, wenn der Neuaufbau mit Kernen skaliert* -- finally has a
 measurement to be judged against, and it is a p99 rather than a mean.
+
+## AND THE FIRST 27x CAME FROM A CONSTANT, NOT FROM CORES
+
+With the rebuild finally visible on a moving camera, its phases said where the seconds were:
+
+    rebuild: the buildings, streets and water took   2557.498 ms
+      of that, the streets and the water             1996.332 ms   78 per cent
+      of that, walking it into the proxy              300.268 ms
+      of that, the census over every triangle          61.925 ms
+    rebuild: of the streams, PACKING them                0.000 ms
+
+**Packing the streams -- this item's goal names it as 748.6 ms of a single thread -- measures
+zero.** The seconds are the streets: 20 205 ways, 93 729 vertices, and about 186 000 ground
+samples at 10.7 microseconds each.
+
+`GroundStream::TileAt` (TerrainLoader.cpp:277) LINEAR-SCANS a cache of `kGroundSlots` tiles and a
+miss DECODES AND STITCHES a whole DEM tile. The constant was **12**. A street walk touches far
+more than twelve tiles, so it thrashed.
+
+Swept, and the curve is a THRESHOLD rather than a slope:
+
+| slots | streets and water |
+|---|---|
+| 12 | 1996.3 ms |
+| 24 | 1843.6 ms |
+| 48 | 728.3 ms |
+| **96** | **71.2 ms** |
+| 192 | 72.6 ms |
+| 256 | 72.4 ms |
+
+The working set is between 48 and 96 tiles and above 96 more buys nothing, so **96 is derived**.
+It costs 1.55 MB against 0.19 MB -- 1.36 MB for 27x on the dominant phase.
+
+| place | p99 before | p99 after |
+|---|---|---|
+| Heidelberg | 2493.00 | **478.25** |
+| OldTown | 1831.54 | **290.46** |
+| Shibuya | 1413.01 | **755.15** |
+| Venice | 920.13 | **475.92** |
+| Jura | 14.29 | **4.99** |
+| **CentralPark** | 18.51 | **27.95** |
+
+**CentralPark got WORSE** -- p95 7.58 to 18.94 and eight frames over budget against two. It is the
+one place whose p99 was already in milliseconds rather than seconds, and it is not explained. It
+is written here rather than averaged away.
+
+**What this does to the item.** Four cores would have quartered the rebuild. A constant
+twenty-seven-folded the phase that held 78 per cent of it. The scheduler is still owed -- 760 ms
+of rebuild is still a frame that misses by 45x -- but the goal's stated cause was wrong twice over
+now, and a planner must be built against what the measurement says rather than what the sentence
+said.

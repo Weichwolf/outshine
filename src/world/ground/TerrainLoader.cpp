@@ -29,7 +29,7 @@ constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 
 constexpr int kPoolDemCacheTiles = 16;
 
-constexpr int kGroundSlots = 12;
+constexpr int kGroundSlots = 96;
 constexpr int kCoarseDrop = 3;
 constexpr int kCoarseSlots = 4;
 
