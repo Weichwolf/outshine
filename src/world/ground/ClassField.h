@@ -20,6 +20,10 @@ class VegetationTemplates;
 
 class ClassField {
 public:
+  void Declares(std::span<const OsmField::Declared> these) {
+    Declared_.assign(these.begin(), these.end());
+  }
+
   void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
 
   void Open(double lat, double lon);
@@ -91,6 +95,8 @@ public:
   size_t HeapBytes() const;
 
 private:
+  std::vector<OsmField::Declared> Declared_;
+
   struct Tier {
     std::unique_ptr<OsmField> Field;
     int TileRadius;

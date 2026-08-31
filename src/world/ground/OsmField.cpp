@@ -1,4 +1,6 @@
+#include <cmath>
 #include <cstdint>
+#include <numbers>
 #include <chrono>
 #include "OsmField.h"
 
@@ -228,12 +230,23 @@ int OsmField::Layer(const char *name) const {
   return -1;
 }
 
+void OsmField::Declare(std::span<const Declared> these, double latDeg, double lonDeg) {
+  const double turn = std::numbers::pi;
+  const double side = std::ldexp(1.0, Zoom_);
+  const double bent = latDeg * turn / 180.0;
+  Declare(
+      these,
+      (int)std::floor((lonDeg + 180.0) / 360.0 * side),
+      (int)std::floor((1.0 - std::log(std::tan(bent) + 1.0 / std::cos(bent)) / turn) / 2.0 * side));
+}
+
 void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
   Features_.clear();
   Rings_.clear();
   Points_.clear();
   Tiles_.clear();
   Tags_.clear();
+  Settled_.clear();
   CentreX_ = tx;
   CentreY_ = ty;
 
@@ -289,6 +302,7 @@ void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
 
   Tiles_.push_back(Tile{
       .Z = Zoom_, .X = tx, .Y = ty, .FirstFeature = 0, .FeatureCount = (uint32_t)Features_.size()});
+  Settle(tx, ty);
   Pending_ = 0;
 }
 

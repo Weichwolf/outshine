@@ -60,6 +60,7 @@ public:
 
   void Declares(std::span<const OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
+    Cls_.Declares(these);
   }
 
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }

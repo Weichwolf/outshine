@@ -183,8 +183,14 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  (void)Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius, budgetMs);
-  (void)Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius, budgetMs);
+  if (Declared_.empty()) {
+    (void)Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius, budgetMs);
+    (void)Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius, budgetMs);
+  } else {
+    const std::span<const OsmField::Declared> these(Declared_);
+    Fine_.Field->Declare(these, camLat, camLon);
+    Coarse_.Field->Declare(these, camLat, camLon);
+  }
   const double t1 = Clock();
   Ingest(Fine_);
   Ingest(Coarse_);

@@ -58,6 +58,8 @@ public:
 
   void Declare(std::span<const Declared> these, int tx, int ty);
 
+  void Declare(std::span<const Declared> these, double latDeg, double lonDeg);
+
   [[nodiscard]] int Zoom() const { return Zoom_; }
 
   [[nodiscard]] long MissingLayers() const { return Missing_; }
