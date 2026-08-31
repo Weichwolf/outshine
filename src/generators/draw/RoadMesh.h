@@ -19,12 +19,14 @@ struct RoadStation {
 struct RoadRaised {
   std::vector<float> PositionM;
   std::vector<float> NormalM;
+  std::vector<float> ColourRgba;
   std::vector<uint32_t> Index;
 };
 
 void RaiseRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
+               const float wearsLinear[3],
                RoadRaised &into);
 
 } // namespace outshine::Generators

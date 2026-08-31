@@ -34,9 +34,17 @@ inference below is this tree's own and the reason is written where each number i
 | `layer` | **NO** -- absent as a number AND as a string | 0 of 25 763 ways at Koehlbrand |
 | `lanes`, `width` | through the rule table, per KIND rather than per way | `vegetation.json` |
 
-**`layer` is not in the vector tiles.** That is the one tag that would have said which way passes
-over which, and it is not there. So an overpass has to be inferred from the plan crossing plus
-`bridge`, and the inference is the item's substance rather than a detail of it.
+**`layer` is not in the vector tiles** -- and the sentence that followed it here was WRONG and is
+corrected. I wrote that OSM does not carry it. **OSM carries it on 94.3 per cent of the 7 111 049
+ways tagged `bridge=yes`**; what does not carry it is the SHORTBREAD schema that
+`https://tiles.versatiles.org/tiles/osm/` implements, which exposes `bridge` and `tunnel` as
+booleans and drops the ordering. Only 0.03 per cent carry a `height`, so a deck's height was never
+in OSM to begin with -- but which way passes over which was, and this tree throws it away at the
+tile.
+
+That changes the shape of the answer: the ordering is a SOURCE question with a known answer, and
+only the height is an inference. Wilkie, Sewall and Lin (IEEE TVCG 2012) publish a greedy method for
+over- and underpasses that works WITHOUT `layer`, which is what to use until the source carries it.
 
 ## What was built and what it proved
 

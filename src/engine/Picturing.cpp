@@ -1450,9 +1450,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           profile =
               lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
         }
+        const float unnamed[3] = {0.5f, 0.5f, 0.5f};
+        const float *wears = unnamed;
+        if (lane.CoverRow >= 0 &&
+            (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
+          wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
+        }
         Generators::RaiseRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
                               (double)lane.HalfWidthM,
                               profile,
+                              wears,
                               pavement);
       }
     }
@@ -1518,10 +1525,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("streets: triangles", (double)(pavement.Index.size() / 3), "triangles");
     if (pavement.Index.size() >= 3) {
       Material tarmac;
-      tarmac.BaseColour[0] = 0.16f;
-      tarmac.BaseColour[1] = 0.16f;
-      tarmac.BaseColour[2] = 0.17f;
-      tarmac.Roughness = 0.92f;
+      for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
+      {
+        const int asphalt = World.Stack.Materials().Find("asphalt");
+        tarmac.Roughness =
+            asphalt >= 0 ? World.Stack.Materials().At((size_t)asphalt).Roughness : 0.65f;
+      }
       const MaterialInstance paved = ground.addSurface("streets", tarmac);
       const int pavedPart = ground.addPart("streets", paved);
       const bool tookPaving =
@@ -1532,6 +1541,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ground.setNormals(
               pavedPart,
               std::span<const float>(pavement.NormalM.data(), pavement.NormalM.size())) &&
+          ground.setColours(
+              pavedPart,
+              std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
           ground.setTriangles(
               pavedPart, std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
       Published.Places("streets: the surface they were given", (double)paved.index(), "index");

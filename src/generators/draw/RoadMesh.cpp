@@ -75,11 +75,13 @@ double Snapped(double metres) {
   return std::round(metres / kSnapM) * kSnapM;
 }
 
-void Push(RoadRaised &into, double eastM, double upM, double southM) {
+void Push(RoadRaised &into, double eastM, double upM, double southM, const float wearsLinear[3]) {
   into.PositionM.push_back((float)Snapped(eastM));
   into.PositionM.push_back((float)Snapped(upM));
   into.PositionM.push_back((float)Snapped(southM));
   into.NormalM.insert(into.NormalM.end(), {0.0f, 1.0f, 0.0f});
+  into.ColourRgba.insert(into.ColourRgba.end(),
+                         {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
 }
 
 void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
@@ -106,6 +108,7 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
 void RaiseRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
+               const float wearsLinear[3],
                RoadRaised &into) {
   if (along.Size() < 2 || !(halfWidthM > 0.0)) { return; }
   const Section cut = SectionOf(halfWidthM, profile);
@@ -133,14 +136,16 @@ void RaiseRoad(Span<const RoadStation> along,
       Push(into,
            here.EastM + outE * cut.Held[at].AcrossM,
            here.GradeM + cut.Held[at].UpM,
-           here.SouthM + outS * cut.Held[at].AcrossM);
+           here.SouthM + outS * cut.Held[at].AcrossM,
+           wearsLinear);
     }
     for (size_t at = 0; at < across; ++at) {
       const size_t mirrored = across - 1u - at;
       Push(into,
            here.EastM + outE * cut.Held[mirrored].AcrossM,
            here.GradeM + cut.Held[mirrored].UpM - cut.DepthM,
-           here.SouthM + outS * cut.Held[mirrored].AcrossM);
+           here.SouthM + outS * cut.Held[mirrored].AcrossM,
+           wearsLinear);
     }
   }
 
