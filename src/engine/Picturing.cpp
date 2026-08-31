@@ -868,7 +868,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kFitWithinM = 0.5;
   constexpr double kStampWorthM = 0.25;
   constexpr double kGroundCellM = 25.0;
-  constexpr double kFitTightestM = 8.0;
+  constexpr double kFitTightestM = 5.5;
   constexpr double kLeastRoadM = 2.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;

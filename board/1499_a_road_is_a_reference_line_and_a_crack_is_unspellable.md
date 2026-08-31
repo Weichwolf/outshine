@@ -61,6 +61,46 @@ its collision come off one spline; RAGE's map geometry and its nodes come off on
 **The repair is not a new derivation.** It is the world path asking the one that exists, through
 the generators' door, and `RoadStation`/`RoadProfile`/`RaiseRoad`/`RaiseJunction` going.
 
+## WHAT THE FIT SAYS ABOUT OUR WAYS, and it is not what the deletion needed
+
+Before deleting the second derivation, the first has to be able to carry the ways. Measured at
+Kaiserberg, and the parameter that decides it was mine and had no origin:
+
+    kFitTightestM   refused        offset p95
+        8.0 m       6 391  24.1%     0.867 m     <- guessed
+        3.0 m       4 189  15.6%     0.952
+        1.0 m       1 121   4.2%     1.001       <- and 1 m is not a road, it is "fit anything"
+        5.5 m       5 328  20.1%     0.903       <- DECLARED: a passenger car's kerb-to-kerb
+                                                    turning circle is about 11 m across
+
+The floor is the binding constraint and accuracy is what a lower one costs. **5.5 m is the value
+with an origin**, and at it the fit lays 21 197 ways with a median offset of 4 mm and a p95 under a
+metre, and refuses 5 328.
+
+**A hypothesis of mine was refuted on the way and is worth keeping.** The sweep DENSIFIES a way to
+one station every 16 m so the terrain can be sampled, and the refusals mention vertices four metres
+apart, so the densification looked like the cause. Fitting the way's OWN nodes instead:
+
+    original nodes, 5.5 m   5 171 refused  19.5%   p95 2.239 m   worst 146.807 m
+    densified,      5.5 m   5 328 refused  20.1%   p95 0.903 m   worst  18.317 m
+
+Barely fewer refusals and two and a half times the error, with a worst case eight times worse. **The
+densification HELPS the fit** -- more constraints leave the arc less room to wander -- and the
+hypothesis was wrong.
+
+## SO THE DELETION IS BLOCKED BY A FINDING ABOUT THE INPUT, NOT ABOUT THE FITTER
+
+One OSM way in five in this city carries a corner tighter than a car can turn. `Fit` says so in its
+own words -- "a corner tighter than the lock is a route that doubles back on itself, and that is a
+finding about the graph" -- and it is right: a driveway, a parking aisle, a switchback and a mapping
+artefact all look like this.
+
+**The answer is not a smaller floor.** It is that a vertex a vehicle cannot drive round is not a
+CORNER, it is a NODE: the way is split there and the junction body board:2076 already builds fills
+the gap. That unifies two things this tree treats separately and it is the shape the deletion needs.
+
+Until then the second derivation cannot go, because deleting it would drop one way in five.
+
 ## What will be true
 
 - [ ] `Picturing.cpp` derives NO road geometry of its own: the world path lays its ways through
