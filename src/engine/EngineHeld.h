@@ -273,6 +273,10 @@ struct Surrounds {
   uint64_t LaidFrom = 0;
   size_t LaidResident = 0;
   uint64_t LaidClasses = 0;
+
+  std::vector<float> WallPlaces, WallFacing, RoofPlaces, RoofFacing;
+  size_t WallCarried = 0, RoofCarried = 0;
+  double CarriedFrom[2] = {1.0e30, 1.0e30};
   bool EverLaid = false;
   size_t Relaid = 0;
   size_t Asked = 0;

@@ -253,15 +253,19 @@ bool Engine::State::Asks(void) {
   return true;
 }
 
-void CarryIntoTheFrame(const std::vector<float> &corners,
-                       const double anchor[3],
-                       const TangentFrame &standing,
-                       std::vector<float> &places,
-                       std::vector<float> &turned) {
+size_t CarryIntoTheFrame(const std::vector<float> &corners,
+                         const double anchor[3],
+                         const TangentFrame &standing,
+                         std::vector<float> &places,
+                         std::vector<float> &turned,
+                         size_t already) {
   const size_t count = corners.size() / kTileVertexFloats;
+  if (already > count || places.size() != already * 3 || turned.size() != already * 3) {
+    already = 0;
+  }
   places.resize(count * 3);
   turned.resize(count * 3);
-  for (size_t at = 0; at < count; ++at) {
+  for (size_t at = already; at < count; ++at) {
     const float *const one = corners.data() + at * kTileVertexFloats;
     const double held[3] = {
         anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
@@ -281,6 +285,7 @@ void CarryIntoTheFrame(const std::vector<float> &corners,
     turned[at * 3 + 1] = (float)alongUp;
     turned[at * 3 + 2] = (float)(-alongNorth);
   }
+  return count;
 }
 
 void CensusOverEveryTriangle(Core::Ledger &Published,
@@ -840,13 +845,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("buildings: over this many ring vertices", (double)within, "vertices");
       }
     }
+    const auto builtAt = std::chrono::steady_clock::now();
     if (built.WallRun.size() + built.RoofRun.size() >= 3) {
-      std::vector<float> wallPlaces;
-      std::vector<float> wallFacing;
-      std::vector<float> roofPlaces;
-      std::vector<float> roofFacing;
-      CarryIntoTheFrame(built.WallCorners, anchor, standing, wallPlaces, wallFacing);
-      CarryIntoTheFrame(built.RoofCorners, anchor, standing, roofPlaces, roofFacing);
+      if (World.CarriedFrom[0] != anchorLat || World.CarriedFrom[1] != anchorLon) {
+        World.WallCarried = 0;
+        World.RoofCarried = 0;
+        World.CarriedFrom[0] = anchorLat;
+        World.CarriedFrom[1] = anchorLon;
+      }
+      std::vector<float> &wallPlaces = World.WallPlaces;
+      std::vector<float> &wallFacing = World.WallFacing;
+      std::vector<float> &roofPlaces = World.RoofPlaces;
+      std::vector<float> &roofFacing = World.RoofFacing;
+      World.WallCarried = CarryIntoTheFrame(
+          built.WallCorners, anchor, standing, wallPlaces, wallFacing, World.WallCarried);
+      World.RoofCarried = CarryIntoTheFrame(
+          built.RoofCorners, anchor, standing, roofPlaces, roofFacing, World.RoofCarried);
       const std::vector<uint32_t> &wallRun = built.WallRun;
       const std::vector<uint32_t> &roofRun = built.RoofRun;
       const size_t wallVerts = wallPlaces.size() / 3;
@@ -935,8 +949,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: parts the geometry holds", (double)ground.parts(), "parts");
       Published.Places("buildings: triangles this rebuild meshed", (double)triangles, "triangles");
+      Published.Places(
+          "rebuild: of that, carrying the buildings into the frame",
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - builtAt)
+              .count(),
+          "ms");
       Published.Places("buildings: corners the soup holds", (double)vertices, "corners");
-      {
+      if (declared.Render.Audits) {
         double up = 0.0;
         double down = 0.0;
         double sideways = 0.0;
@@ -968,7 +987,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("buildings: normals in all", (double)vertices, "normals");
         (void)inward;
       }
-      {
+      if (declared.Render.Audits) {
         size_t needles = 0;
         size_t reaching = 0;
         double longest = 0.0;
@@ -1034,7 +1053,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          (double)Generators::BuildingMesh::DeepestBuriedMmTaken(),
                          "mm");
       }
-      {
+      if (declared.Render.Audits) {
         double least = 1.0e30;
         double most = -1.0e30;
         double nearest = 1.0e30;

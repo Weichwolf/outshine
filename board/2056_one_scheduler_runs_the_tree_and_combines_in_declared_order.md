@@ -196,3 +196,29 @@ So the order this item should run in is now measured rather than assumed:
 1. the rebuild touches only what CHANGED -- the field already knows, it publishes the delta;
 2. what remains after that is the work a planner is for, and its size is not yet known because
    nobody has seen a rebuild that only does new work.
+
+## AND THEN I PROFILED THE INSTRUMENT FOR HALF AN HOUR
+
+The rebuild's phase measures publish only under `--audit`, and `--audit` COSTS:
+
+    Heidelberg without --audit    p99   455 ms
+    Heidelberg with    --audit    p99  1018 ms
+
+More than half of every phase number above is the price of looking. Two attributions followed from
+it, both argued with arithmetic, both wrong:
+
+| guessed | the arithmetic offered | what the test said |
+|---|---|---|
+| `CarryIntoTheFrame` is the 514 ms | 1 973 536 corners at 260 ns | made incremental -- **no gain** |
+| the three vertex censuses are the 619 ms | three passes over 2 M | gated -- **no gain** |
+
+The three censuses are about 30 ms, not 600. `CensusOverEveryTriangle` -- already gated -- is the
+560 ms that `--audit` adds.
+
+**So where the remaining ~450 ms of a non-audit rebuild goes is NOT KNOWN, and this instrument
+cannot say without changing it.** That is the next step and it is a measurement problem before it
+is a scheduler problem: a phase timer that costs nothing when nobody is reading it, or a profile
+taken outside the frame.
+
+Kept anyway, on principle rather than for the gain: the three censuses now run only when they were
+asked for. A number nobody ordered should cost nothing. Digest 0da91522 unchanged, 8 PASS.
