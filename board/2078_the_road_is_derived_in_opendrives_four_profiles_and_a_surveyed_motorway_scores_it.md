@@ -81,6 +81,20 @@ The OSM readers under `src/world/ground/` move with it. `src/generators/reaches`
 SEMANTICS: a field that knows what `highway=motorway` means is a generator's knowledge, not a
 world's, and the engine reaches `world`.
 
+## AND `Picturing` IS NOT A WORD EITHER REFERENCE OWNS
+
+Neither Unreal nor RAGE has such a class. Unreal assembles in `UWorld` and `ULevel`, hands the
+renderer an `FScene`, and keeps GENERATION outside both, in PCG. RAGE has `CGameWorld`,
+`fwSceneGraph` and `gtaDrawable`, with the map data a pipeline that feeds them. `CLAUDE.md`: **a
+name is a promise**, and a word that means nothing in either reference spends a reader's knowledge
+just as surely as a word that means something else -- they must learn a new noun for a thing both
+references already name.
+
+**It needs an invented name because it is not one thing.** 2 401 lines that DERIVE and then
+ASSEMBLE. Once the derivation leaves for the generators, what remains is exactly what both
+references do name -- the assembly of a world for the renderer -- and it should take that name
+rather than keep one coined to cover a mixture.
+
 ## THE DERIVATION IS A GENERATOR, and today it is in the wrong tier
 
 Measured, and it is the structural finding of this item:
@@ -157,6 +171,8 @@ takes the design speed of the class, exactly as the goal demands.
       `e75ee549`
 - [ ] The derivation moves out of `Picturing.cpp` and behind the generators' door as a generator
       that emits the four profiles. The 2 401 / 237 split above is the number that must move
+- [ ] What remains after the derivation leaves is named for what Unreal and RAGE call it, and
+      `Picturing` is retired rather than renamed in place
 - [ ] **The engine tier names no street and no building.** 90 + 69 in `Picturing.cpp` and 1-2 each
       in four more files today; `src/render` already stands at zero, so the target is not a wish
 - [ ] The oracle is flattened ONCE into a station table, so the score does not re-read 10 MB of XML
