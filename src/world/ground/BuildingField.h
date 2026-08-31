@@ -61,6 +61,10 @@ public:
 
   int DefaultHeights() const { return DefaultHeights_; }
 
+  [[nodiscard]] const std::vector<double> &SeatSpreadM() const { return SeatSpread_; }
+
+  [[nodiscard]] const std::vector<double> &FootprintAcrossM() const { return Across_; }
+
   int Deferrals() const { return Mark_.Deferrals(); }
 
   size_t HeapBytes() const {
@@ -94,6 +98,8 @@ private:
   double Anchor_[3] = {0, 0, 0};
   bool Anchored_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
+  std::vector<double> SeatSpread_;
+  std::vector<double> Across_;
 };
 
 } // namespace outshine::Ground

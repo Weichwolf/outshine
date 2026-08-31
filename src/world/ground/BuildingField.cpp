@@ -329,6 +329,26 @@ int BuildingField::Build(const GroundQuery &ground,
         continue;
       }
 
+      {
+        const std::span<const double> ringPts = field.Points();
+        double lowLat = 1.0e9;
+        double highLat = -1.0e9;
+        double lowLon = 1.0e9;
+        double highLon = -1.0e9;
+        for (uint32_t k = 0; k < ring.Count; k++) {
+          const double atLat = ringPts[2 * ((size_t)ring.First + k)];
+          const double atLon = ringPts[2 * ((size_t)ring.First + k) + 1];
+          lowLat = std::min(lowLat, atLat);
+          highLat = std::max(highLat, atLat);
+          lowLon = std::min(lowLon, atLon);
+          highLon = std::max(highLon, atLon);
+        }
+        const double perLonM =
+            111320.0 * std::cos(0.5 * (lowLat + highLat) * std::numbers::pi / 180.0);
+        SeatSpread_.push_back(seat - base);
+        Across_.push_back(std::max((highLat - lowLat) * 111132.0, (highLon - lowLon) * perLonM));
+      }
+
       double standBackM = -1.0;
       const Frontage street = NearestStreet(field, ring, ways, &standBackM);
 

@@ -831,6 +831,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr int kRampPasses = 12;
   constexpr double kTrimMostWidths = 4.0;
   constexpr double kFitWithinM = 0.5;
+  constexpr double kStampWorthM = 0.25;
+  constexpr double kGroundCellM = 25.0;
   constexpr double kFitTightestM = 8.0;
   constexpr double kLeastRoadM = 2.0;
   constexpr double kGapGridM = 20.0;
@@ -859,6 +861,33 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "buildings: the field's last delta began at", (double)prints.AddedFirst(), "floats");
       Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
+      {
+        std::vector<double> fill = prints.SeatSpreadM();
+        std::vector<double> across = prints.FootprintAcrossM();
+        if (!fill.empty()) {
+          std::ranges::sort(fill);
+          std::ranges::sort(across);
+          const auto pick = [](const std::vector<double> &of, double part) {
+            return of[(size_t)((double)(of.size() - 1u) * part)];
+          };
+          size_t wouldStamp = 0;
+          for (const double filled : fill) {
+            if (filled > kStampWorthM) { ++wouldStamp; }
+          }
+          size_t underOneCell = 0;
+          for (const double wide : across) {
+            if (wide < kGroundCellM) { ++underOneCell; }
+          }
+          Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
+          Published.Places("buildings: a stamp would fill, p95", pick(fill, 0.95), "m");
+          Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
+          Published.Places("buildings: footprints worth a stamp", (double)wouldStamp, "footprints");
+          Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
+          Published.Places("buildings: footprints narrower than a ground cell",
+                           (double)underOneCell,
+                           "footprints");
+        }
+      }
       Published.Places("buildings: footprints the field holds",
                        (double)prints.Footprints().size(),
                        "footprints");
