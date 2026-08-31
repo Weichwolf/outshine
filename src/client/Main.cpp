@@ -292,8 +292,9 @@ int main(int argc, char **argv) {
     std::printf(
         "NOT COVERED: a section the WRITER drops. It is missing from the first text, so\n"
         "the second read has nothing to read and the second text matches -- measured, with\n"
-        "<clock> removed every place lost 59 bytes and this still said 0 apart. What holds\n"
-        "that half is test/scripts/grammar_vs_writer.py.\n");
+        "<clock> removed every place lost 59 bytes and this still said 0 apart. The half\n"
+        "it cannot see is held by a lint rule reading the grammar against the writer, and\n"
+        "that rule names itself where lint prints.\n");
     return apart == 0 ? 0 : 1;
   }
   if (verb == "places") {
