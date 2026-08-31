@@ -46,11 +46,5 @@ void SweepRoad(Span<const RoadStation> along,
                size_t *cutsMade,
                size_t *piecesRefused);
 
-void RaiseRoad(Span<const RoadStation> along,
-               double halfWidthM,
-               RoadProfile profile,
-               const float wearsLinear[3],
-               RoadRaised &into);
-
 } // namespace outshine::Generators
 #endif

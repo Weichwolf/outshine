@@ -1,6 +1,5 @@
 Type: task
 State: active
-Parent: 1498
 Area: generators, base/curve
 Tags: scope, geometry
 Supersedes: 1531, 1534

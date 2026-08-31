@@ -1,6 +1,5 @@
 Type: bug
 State: open
-Parent: 1573
 Area: render
 Tags: measured, picture, driver, material
 

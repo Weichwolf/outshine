@@ -1,6 +1,5 @@
 Type: bug
 State: open
-Parent: 1803
 Area: clients
 Tags: driver, paths, shipping, shaders
 

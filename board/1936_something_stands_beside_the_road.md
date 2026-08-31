@@ -1,6 +1,5 @@
 Type: feature
 State: open
-Parent: 1573
 Area: world, generators, compositor
 Tags: picture, driver, measured
 
