@@ -205,6 +205,12 @@ bool Engine::State::Composes(void) {
     how.Seed = Session.Declared.Ground.Shape.Seed;
     World.Stack.Ground().Shapes(how);
     Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
+    double hereM = 0.0;
+    double eastM = 0.0;
+    (void)World.Stack.Ground().At(atLat, atLon).TryAslM(&hereM);
+    (void)World.Stack.Ground().At(atLat, atLon + 0.0138).TryAslM(&eastM);
+    Published.Places("ground: the relief says this at the origin", hereM, "m");
+    Published.Places("ground: and this a kilometre east", eastM, "m");
   }
 
   World.Stack.ShapesFootprintsWith(&World.Shaper);
