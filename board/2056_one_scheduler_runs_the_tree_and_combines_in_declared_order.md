@@ -70,3 +70,33 @@ The frame path. `Live::Advance` and the render stages are not moved onto the pla
 what is moved is the REBUILD, where the 748.6 ms is. A frame-path scheduler is a different question
 with a different bound (no alloc, no lock, no unbounded block) and it comes after a measurement
 that says the frame needs one -- today's frame is 9.6 ms of a 16.7 ms budget.
+
+## THE CASE IS MEASURED NOW, on a moving camera, and it is SECONDS
+
+The number this item's goal quotes -- 748.6 ms of one thread packing channels -- was disproven the
+day it was written: 778.9 ms of Shibuya's 907.8 ms was atmospheric integration on the CPU, and
+channel packing was 0.018 ms. What was missing was a case where the rebuild happens AT ALL while a
+frame is being timed, because `make shots` timed a still camera and a still camera never rebuilds.
+
+board:1457 gave the places a declared walking path and made the ground restand where the eye
+stands rather than where the scenario was declared. With that, 120 frames a place against a
+16.67 ms budget:
+
+| place | p50 | p95 | p99 | over |
+|---|---|---|---|---|
+| Heidelberg | 3.70 | **26.12** | **2493.00** | 8 |
+| OldTown | 3.01 | 6.00 | **1831.54** | 2 |
+| Shibuya | 4.02 | 7.50 | **1413.01** | 3 |
+| Venice | 3.30 | 4.19 | **920.13** | 2 |
+| CentralPark | 7.23 | 7.58 | 18.51 | 2 |
+| Jura | 4.06 | 4.79 | 14.29 | 1 |
+
+**A single frame that crosses a tile boundary costs up to 2.5 seconds**, and the p50 does not move
+at all -- the whole cost lives in the tail, which is why this was invisible for as long as it was.
+
+**It is not streaming.** The world's fields grow 180.8 MB to 182.3 MB across the entire 600 m walk
+and no round stops at the memory ceiling: nothing is being fetched. The seconds go into re-laying a
+world that is already resident, on one thread, which is precisely what this item exists to fix.
+
+So the goal's sentence -- *fertig, wenn der Neuaufbau mit Kernen skaliert* -- finally has a
+measurement to be judged against, and it is a p99 rather than a mean.
