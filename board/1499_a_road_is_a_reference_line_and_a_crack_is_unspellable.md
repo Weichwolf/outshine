@@ -99,7 +99,35 @@ artefact all look like this.
 CORNER, it is a NODE: the way is split there and the junction body board:2076 already builds fills
 the gap. That unifies two things this tree treats separately and it is the shape the deletion needs.
 
-Until then the second derivation cannot go, because deleting it would drop one way in five.
+**And the blocker is now fully characterised, which is what makes it actionable.** `Refusal`
+already carries `DemandedM`, `AtVertex` and `Undrivable`, and `Fit` already passes them out, so the
+refusals can be sorted by KIND without touching an interface:
+
+    ways the fit refused                          5 433
+    of those, a corner too tight to drive         5 433      100 per cent
+    the radius such a corner demanded, p50        2.094 m
+    and the tightest                              0.000 m
+
+**Every single refusal is the tightness kind. Not one is malformed input.** So splitting at those
+corners takes the refusal rate to ZERO rather than merely lowering it -- there is no second family
+waiting behind the first.
+
+The median wants a 2.09 m radius, which is a driveway apron or a parking aisle rather than a road.
+**The tightest wants 0.000 m**, which is a way that reverses exactly onto itself at a node: a
+switchback mapped as two overlapping segments, or an artefact. Those are not corners to be fitted at
+any radius; they are places the graph says something the ground does not.
+
+Where the split has to be made is inside `Align`, at the one site that returns the tightness
+refusal, and it has to be a CHOICE rather than a change: the driving side wants that refusal --
+a route with a corner a car cannot take is a finding for a driver -- while the world side wants a
+node. One function, two callers, and the caller says which.
+
+(The counts here read 5 433 against the 5 328 measured minutes earlier, unchanged code. That
+difference is board:2086, the world's own content wandering between runs, and it is why none of
+these numbers is a ceiling yet.)
+
+Until the split exists the second derivation cannot go, because deleting it would drop one way in
+five.
 
 ## What will be true
 

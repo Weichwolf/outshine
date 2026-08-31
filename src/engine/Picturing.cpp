@@ -1277,6 +1277,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t fitLaid = 0;
     size_t fitRefused = 0;
     size_t fitUndrivable = 0;
+    size_t fitTooTight = 0;
+    std::vector<double> tightDemandM;
     std::vector<double> fitOffsetM;
     std::vector<double> fitRadiusM;
     std::vector<double> fitEastNorth;
@@ -1606,6 +1608,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const Fitted got = Fit(fitEastNorth, kFitWithinM, kFitTightestM, fitted);
           if (!got.Laid) {
             ++fitRefused;
+            if (got.Undrivable > 0) {
+              ++fitTooTight;
+              if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
+            }
           } else {
             ++fitLaid;
             fitOffsetM.push_back(got.WorstOffsetM);
@@ -1833,6 +1839,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       };
       Published.Places("streets: ways a reference line was fitted to", (double)fitLaid, "ways");
       Published.Places("streets: and ways the fit refused", (double)fitRefused, "ways");
+      Published.Places(
+          "streets: of those, a corner too tight to drive", (double)fitTooTight, "ways");
+      if (!tightDemandM.empty()) {
+        std::ranges::sort(tightDemandM);
+        Published.Places("streets: the radius such a corner demanded, p50",
+                         tightDemandM[tightDemandM.size() / 2u],
+                         "m");
+        Published.Places("streets: and the tightest", tightDemandM.front(), "m");
+      }
       Published.Places("streets: the offset a fitted line needed, p50", pick(fitOffsetM, 0.5), "m");
       Published.Places(
           "streets: the offset a fitted line needed, p95", pick(fitOffsetM, 0.95), "m");
