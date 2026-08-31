@@ -224,9 +224,10 @@ int BuildingField::Build(const GroundQuery &ground,
   const uint32_t firstPrint = (uint32_t)Prints_.size();
   int added = 0;
 
-  const TileWatermark::Next next = Mark_.Ask(feats, field.Tiles(), [&](size_t from, size_t to) {
-    return TileGroundResolved(ground, field, from, to, layer);
-  });
+  const TileWatermark::Next next = Mark_.Ask(
+      feats, field.Tiles(), field.CentreX(), field.CentreY(), [&](size_t from, size_t to) {
+        return TileGroundResolved(ground, field, from, to, layer);
+      });
   if (!next.Found) { return (int)Prints_.size(); }
   Mark_.Take(next.Tile);
 

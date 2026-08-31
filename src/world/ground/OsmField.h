@@ -40,6 +40,10 @@ public:
 
   [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs);
 
+  [[nodiscard]] int CentreX() const { return CentreX_; }
+
+  [[nodiscard]] int CentreY() const { return CentreY_; }
+
   [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
@@ -83,6 +87,8 @@ public:
   [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 
 private:
+  int CentreX_ = 0, CentreY_ = 0;
+
   struct Value {
     double Num = 0.0;
     uint32_t Str = 0;

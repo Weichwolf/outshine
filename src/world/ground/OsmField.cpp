@@ -44,6 +44,8 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
   centre.LonDeg = lon;
   centre.LatDeg = lat;
   if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) { return 0; }
+  CentreX_ = (int)cx;
+  CentreY_ = (int)cy;
 
   const long n = 1L << Zoom_;
   int added = 0;

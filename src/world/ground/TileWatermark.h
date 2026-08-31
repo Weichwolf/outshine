@@ -22,6 +22,8 @@ public:
   template <typename Consumable>
   Next Ask(std::span<const OsmField::Feature> feats,
            std::span<const OsmField::Tile> tiles,
+           int centreX,
+           int centreY,
            Consumable consumable) {
     Candidates_.clear();
     size_t at = Mark_;
@@ -32,11 +34,17 @@ public:
       if (!Taken(tile)) { Candidates_.push_back(Next{at, end, tile, true}); }
       at = end;
     }
-    const auto key = [tiles](const Next &one) {
-      if (one.Tile >= tiles.size()) { return (unsigned long long)one.Tile; }
+    const auto key = [tiles, centreX, centreY](const Next &one) {
+      if (one.Tile >= tiles.size()) {
+        return (unsigned long long)one.Tile | ((unsigned long long)0xffffu << 48);
+      }
       const OsmField::Tile &which = tiles[one.Tile];
-      return ((unsigned long long)(uint32_t)which.Z << 56) ^
-             ((unsigned long long)(uint32_t)which.X << 28) ^ (unsigned long long)(uint32_t)which.Y;
+      const long across = (long)which.X - (long)centreX;
+      const long down = (long)which.Y - (long)centreY;
+      const unsigned long long away =
+          (unsigned long long)(across * across + down * down) & 0xffffull;
+      return (away << 48) ^ ((unsigned long long)(uint32_t)which.Z << 40) ^
+             ((unsigned long long)(uint32_t)which.X << 20) ^ (unsigned long long)(uint32_t)which.Y;
     };
     std::sort(Candidates_.begin(), Candidates_.end(), [&key](const Next &a, const Next &b) {
       return key(a) < key(b);

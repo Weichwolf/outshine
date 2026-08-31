@@ -95,7 +95,46 @@ the driver. 1.5 GB of fields leaves the resident set near 3.2 GB.
 
 Buildings fall from 923 MB to 365 MB and 370 rounds stop at the ceiling. The bound holds.
 
-## AND THE CONTROL FOUND WHAT THE CEILING STILL LACKS
+## NEAREST FIRST, and the ceiling becomes a bound worth having
+
+`TileWatermark::Ask` sorted its candidates by the z/x/y tile word -- an order with nothing to do
+with where the camera stands. Now by squared distance from the field's centre tile, with the same
+z/x/y word breaking ties so the order stays DECLARED rather than incidental; determinism does not
+get an exception here.
+
+`OsmField` remembers the tile its last `Build` centred on, which is the one number the watermark
+was missing.
+
+| Shibuya under a 512 MB ceiling | triangles | varies by |
+|---|---|---|
+| by tile key | -- | **0.096** -- a picture of almost nothing |
+| **by distance** | 2 646 181 | **1.428** |
+| no ceiling at all (1.5 GB) | 8 831 673 | 1.436 |
+
+**A third of the geometry and a picture the case's own measure cannot tell apart.** Looked at: a
+full dense city to the horizon, towers, streets, roofs.
+
+## SO THE CEILING MOVES TO WHERE IT BINDS
+
+At 1.5 GB Shibuya reaches 1.18 GB and never touches it. A bound that does not bind at the densest
+place this tree stands is a number with no effect -- the same shape as the seven blind checks this
+session found elsewhere. Measured either way:
+
+| Shibuya | 1.5 GB | **512 MB** |
+|---|---|---|
+| fields held | 1.18 GB | 625 MB |
+| **maximum resident set** | 2.85 GB | **1.97 GB** |
+| triangles | 8 831 673 | 2 646 181 |
+| varies by | 1.436 | 1.428 |
+| rounds stopped | 0 | 374 |
+
+`kHoldsBytes` is **512 MB**, derived from the measurement rather than from the device's 8 GB:
+it is the smallest bound at which the densest place still draws a picture indistinguishable from
+an unbounded one. The 22 per cent overshoot is one round's ingest -- the test sits BEFORE a tile
+is taken, so the last one taken may cross. `outshine/places` holds 8 PASS either way and
+CentralPark's variation is 0.7992 against 0.7991, its own refusal unmoved.
+
+## THE CONTROL FOUND WHAT THE CEILING LACKED
 
 At 512 MB, Shibuya renders `varies by 0.096 of 255` -- a picture of almost nothing. Ingest walks
 tiles in z/x/y KEY order, not by distance, so a ceiling fills with whatever sorts first and
@@ -110,7 +149,15 @@ and the control has now measured why it is not optional.
       finds when they ask what this engine costs -- `GroundStack::kHoldsBytes`, 1.5 GB, published
       beside what the fields actually hold
 - [ ] `world-ground` and `tile-worker` stand under it, because they are 99 per cent of the bytes
-- [ ] what exceeds it YIELDS, least-needed first, and the count of what yielded is published
+- [x] what exceeds it YIELDS, least-needed first, and the count of what yielded is published --
+      the ingest order is nearest-first and `world: times a round stopped at that ceiling` reads
+      374 on Shibuya. What is REFUSED is the farthest; nothing already held is dropped yet, which
+      is the difference between a bound and an eviction and is the box below.
+- [ ] A tile already held is DROPPED when the camera walks away from it. Today the bound refuses
+      what has not arrived; it cannot shrink a set that is already too large, so a long drive
+      still ends at the ceiling with the wrong tiles in it.
+- [x] Shibuya holds under a stated figure rather than at whatever it reaches -- 625 MB against a
+      stated 512 MB, at 1.97 GB resident where it was 2.85 GB
 - [ ] Shibuya holds under a stated figure rather than at whatever it reaches, and the figure is in
       the commit that sets it
 

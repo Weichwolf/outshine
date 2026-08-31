@@ -63,9 +63,10 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
 
   const int poly = field.Layer(OsmLayer::WaterPolygons);
   const int line = field.Layer(OsmLayer::WaterLines);
-  const TileWatermark::Next next = Mark_.Ask(feats, field.Tiles(), [&](size_t from, size_t to) {
-    return TileGroundResolved(ground, field, from, to, poly, line);
-  });
+  const TileWatermark::Next next = Mark_.Ask(
+      feats, field.Tiles(), field.CentreX(), field.CentreY(), [&](size_t from, size_t to) {
+        return TileGroundResolved(ground, field, from, to, poly, line);
+      });
   if (!next.Found) { return (uint32_t)Surfaces_.size(); }
   Mark_.Take(next.Tile);
   Mark_.Advance(feats);
