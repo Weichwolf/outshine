@@ -670,6 +670,11 @@ TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
   return Poll(std::move(job), &result);
 }
 
+ShapedGround TilePool::Shaped() const {
+  const std::scoped_lock lock(QueueMutex_);
+  return Shape_;
+}
+
 void TilePool::Shapes(const ShapedGround &how) {
   const std::scoped_lock lock(QueueMutex_);
   Shape_ = how;

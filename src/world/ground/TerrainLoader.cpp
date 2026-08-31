@@ -286,6 +286,21 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   }
   held.Pending = false;
   const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+  {
+    const ShapedGround told = Tiles_.Shaped();
+    if (!told.Kind.empty()) {
+      TerrainTiles::Shaped how;
+      how.Kind = told.Kind;
+      how.AmplitudeM = told.AmplitudeM;
+      how.WavelengthM = told.WavelengthM;
+      how.Gradient = told.Gradient;
+      how.BearingDeg = told.BearingDeg;
+      how.FocusLatDeg = told.FocusLatDeg;
+      how.FocusLonDeg = told.FocusLonDeg;
+      how.Seed = told.Seed;
+      held.Stitched->Shapes(how);
+    }
+  }
   const TerrainGrid grid = held.Stitched->StitchedGrid(Surface_.Z, (uint32_t)x, (uint32_t)y);
   held.StitchMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();

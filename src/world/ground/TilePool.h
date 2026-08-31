@@ -46,6 +46,8 @@ public:
 
   void Shapes(const ShapedGround &how);
 
+  [[nodiscard]] ShapedGround Shaped() const;
+
   struct Ledger {
     long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
     long long Evictions = 0;
