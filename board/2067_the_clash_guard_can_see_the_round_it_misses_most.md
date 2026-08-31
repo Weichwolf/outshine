@@ -35,9 +35,14 @@ happens.
 
 ## What will be true
 
-- [ ] The preload loop opens and closes rounds like `advance()` does, so a measure published in it
+- [x] The preload loop opens and closes rounds like `advance()` does, so a measure published in it
       belongs to a bounded interval. Then the ledger's first-wins rule stops silently freezing the
-      first touch of the world into every number a picture reports.
+      first touch of the world into every number a picture reports. Done: `Engine.cpp` calls
+      `Published.Opens()` at the top of each preload iteration, and `Opens()` no longer CLEARS the
+      clash list -- a clash is a defect that happened, not a per-round counter. Exemplar, 2026-08-31:
+      `streets: features it walked at all` read 0 while a probe past the ledger showed the same run
+      walking 2; after the fix it reads 2. The frozen zero had already been believed once, in the
+      commit that said a declared field lays nothing.
 - [ ] Negative control that goes RED: publish one name twice with different values inside preload
       and require the guard to name it. Today that control passes green, which is why this item
       exists.

@@ -364,6 +364,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return Result{};
   }
   for (;;) {
+    S_->Published.Opens();
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
     const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
     const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;

@@ -21,10 +21,7 @@ public:
     Clashed_.clear();
   }
 
-  void Opens() {
-    ++Round_;
-    Clashed_.clear();
-  }
+  void Opens() { ++Round_; }
 
   [[nodiscard]] const std::vector<std::string> &Clashed() const { return Clashed_; }
 

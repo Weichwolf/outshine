@@ -218,8 +218,12 @@ bool Engine::State::Composes(void) {
     told.reserve(Session.Declared.Ground.Osm.size());
     for (const Structure &one : Session.Declared.Ground.Osm) {
       Ground::OsmField::Declared made;
-      made.Layer = one.Area ? (one.Kind == "water" ? "water" : "buildings") : "streets";
-      made.Key = one.Area ? (one.Kind == "water" ? "natural" : "building") : "highway";
+      const bool wet = one.Kind == "water";
+      const Ground::OsmLayer holds =
+          one.Area ? (wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings)
+                   : (wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets);
+      made.Layer = OsmLayerName(holds);
+      made.Key = "kind";
       made.Value = one.Kind;
       made.WidthM = one.WidthM;
       made.HeightM = one.HeightM;
