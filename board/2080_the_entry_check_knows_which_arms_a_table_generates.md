@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Area: test, render
 Tags: measured, guard, regression
 

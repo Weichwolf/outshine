@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: world, generators, render
 Tags: geometry, measured, determinism, benchmark
 
