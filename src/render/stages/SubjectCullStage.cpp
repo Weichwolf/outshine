@@ -1,5 +1,8 @@
 #include "SubjectCullStage.h"
 
+#include <cstdint>
+#include <string>
+
 #include <atomic>
 #include <cmath>
 #include <cstdio>
@@ -30,7 +33,7 @@ static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4
 
 std::string Kernel(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/subjectCull.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/subjectCull.msl", body, error)) { return {}; }
   return MslPrelude(error) + body;
 }
 
@@ -120,8 +123,8 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.PyramidAt[level] = Pyramid_.At[level];
   }
   into.Occludes = PyramidBuffer_ != nullptr && Stood_ ? 1u : 0u;
-  const float *const up = &into.Planes[2 * 4];
-  const float *const down = &into.Planes[3 * 4];
+  const float *const up = into.Planes + (size_t)(2U * 4U);
+  const float *const down = into.Planes + (size_t)(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
   const float yfov = std::acos(std::fmin(std::fmax(-between, -1.0f), 1.0f));
   const float halfTangent = std::tan(0.5f * yfov);

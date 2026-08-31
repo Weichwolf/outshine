@@ -1,5 +1,8 @@
 #include "DepthPyramidStage.h"
 
+#include <cstdint>
+#include <string>
+
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
@@ -16,7 +19,7 @@ struct Reducing {
 
 std::string DepthPyramidStage::KernelSource(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/depthPyramid.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/depthPyramid.msl", body, error)) { return {}; }
   return MslPrelude(error) + body;
 }
 
@@ -65,7 +68,7 @@ bool DepthPyramidStage::Configure(const Gpu &gpu,
 void DepthPyramidStage::Encode(const PassRecording &into) {
   if (!Stands() || into.Dispatch == nullptr) { return; }
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound{Depth_, Held_};
+  const SDL_GPUTextureSamplerBinding bound{.texture = Depth_, .sampler = Held_};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     Reducing over;

@@ -26,8 +26,6 @@ public:
 
   void Encode(const PassRecording &into);
 
-  [[nodiscard]] const PyramidShape &Shape() const { return Shape_; }
-
   [[nodiscard]] bool Stands() const { return Pipe && Into_ != nullptr; }
 
 private:

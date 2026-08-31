@@ -1,5 +1,8 @@
 #include "IrradianceStage.h"
 
+#include <cstdint>
+#include <string>
+
 #include <cstdio>
 #include <cstring>
 
@@ -39,7 +42,7 @@ std::string Kernel(std::string &error) {
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
       !LoadShaderText("src/render/shaders/irradiance.msl", body, error)) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + declared + core + body;
 }
@@ -106,7 +109,8 @@ void IrradianceStage::Encode(const PassRecording &into) {
   pushed.GroundRadiusKm = Standing_.Declared.BottomRadiusKm + kMediumGroundLiftKm;
   SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, (uint32_t)sizeof pushed);
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
+  const SDL_GPUTextureSamplerBinding bound[2] = {{.texture = Transmittance, .sampler = Lut},
+                                                 {.texture = MultiScatter, .sampler = Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
   SDL_DispatchGPUCompute(into.Dispatch, 1u, 1u, 1u);
   Settled_ = true;

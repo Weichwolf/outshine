@@ -55,6 +55,13 @@ def main():
             if "virtual" in line or "override" in line:
                 for name in re.findall(r"(\w+)\s*\(", line):
                     dispatched.add(name)
+            # A MEMBER POINTER IN A TABLE is reached exactly as a virtual is, and leaves the same
+            # absence: the relocation belongs to the DATA that holds the address, not to a caller.
+            # `SceneRenderer::kExecutors` is twenty rows of them, so without this every render
+            # stage's Configure and Encode counts as dead and ADDING a stage raises a ceiling that
+            # may only fall.
+            for name in re.findall(r"&\s*\w+::(\w+)\b", line):
+                dispatched.add(name)
     suspect = []
     for name, plain in demangled(sorted(defines - called)).items():
         if name.startswith("___") or name.startswith("_GLOBAL__"):
