@@ -1,0 +1,29 @@
+{
+ "schema": "outshine/measured-corpus-manifest",
+ "schemaVersion": 1,
+ "id": "opendrive/a9",
+ "title": "Two surveyed sections of the German Autobahn A9, in ASAM OpenDRIVE 1.4",
+ "source": {
+  "kind": "opendrive-testfeld-a9",
+  "of": "3D Mapping Solutions, via the MDM portal, mirrored by tum-gis",
+  "licence": "GeoNutzV",
+  "commit": "e75ee549659a277b55116d30561561720438fa29"
+ },
+ "grade": "TRUTH",
+ "surveyed": "2017-04-04",
+ "georeference": "+proj=tmerc +lat_0=0 +lon_0=9 +k=0.9996 +x_0=500000 +y_0=0 +datum=WGS84 +units=m +no_defs",
+ "files": {
+  "2017-04-04_Testfeld_A9_Nord.xodr": {
+   "bytes": 10808489,
+   "sha256": "473c6db878690906cc04ad28a12b81c30c74162912d3999cbf6c363ec85c79d4"
+  },
+  "2017-04-04_Testfeld_A9_Sued.xodr": {
+   "bytes": 9766787,
+   "sha256": "28318b98d7dcf80b0ab5c7b002a232fb985d8bf1f335e8d0714201053e0469d6"
+  },
+  "GeoNutzV_130319.pdf": {
+   "bytes": 48713,
+   "sha256": "18ff7cc4342298f2e0d5a887887a910e5af27359335e62c861146ae04f80f89e"
+  }
+ }
+}

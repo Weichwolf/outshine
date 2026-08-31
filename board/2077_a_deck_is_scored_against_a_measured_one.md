@@ -5,6 +5,11 @@ Tags: corpora, infrastructure, measured
 
 # A deck is scored against a MEASURED one, not against an eye
 
+**board:2078 is now the spine for the ROAD** -- a surveyed motorway in ASAM OpenDRIVE, which grades
+plan, gradient, superelevation and width against a measurement. This item keeps what that corpus
+cannot answer: **the BRIDGE**. The A9 sections carry no deck this tree has to infer a clearance for,
+and 2078's oracle says nothing about whether a deck stands high enough over what it crosses.
+
 **Benchmark** — Unreal's automation compares screenshots bit for bit; RAGE's replay plays a drive
 back frame for frame. **Both agree that a picture is judged against a RECORDING**, and this tree
 already lives by that for the places. What it has no recording of is a STRUCTURE: the bridge deck

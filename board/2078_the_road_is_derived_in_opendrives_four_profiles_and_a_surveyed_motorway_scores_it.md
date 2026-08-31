@@ -53,6 +53,24 @@ valid/invalid cases, which is a corpus that ships its own NEGATIVE CONTROLS -- t
 most often lacks. It grades rule conformance rather than reconstruction, and it costs an XML reader,
 so it is not this item.
 
+## THE DERIVATION IS A GENERATOR, and today it is in the wrong tier
+
+Measured, and it is the structural finding of this item:
+
+    src/engine/Picturing.cpp        2 401 lines   plan, trim, ramps, decks, clearances, junctions
+    src/generators/draw/RoadMesh.cpp   237 lines   the sweep, and nothing else
+
+**Everything that GUESSES is in the engine and everything that only extrudes is in the library.**
+That is backwards. `CLAUDE.md` puts the generators in their own tier with their own door -- a client
+registers its own beside them and the tier links with NONE of the engine behind it -- and a
+heuristic that turns a public map into a road is exactly what a generator is for. It takes data and
+makes one concrete thing, which is the one place this tree allows a generator to be concrete.
+
+So the derivation moves behind `include/Generate.h`: OSM ways and a terrain sampler IN, the four
+profiles OUT, and the sweep reads the profiles instead of re-deriving them. The engine keeps
+placing and drawing. **This is what makes the corpus reachable at all**: a score that had to boot a
+renderer to ask what gradient we inferred would be a score nobody runs.
+
 ## THE SCORING, and it is the Khronos render corpus's shape
 
 `test/scripts/render_corpus.py` already solved the hard half of this and its docstring records what
@@ -105,14 +123,22 @@ takes the design speed of the class, exactly as the goal demands.
 
 ## What will be true
 
-- [ ] The two .xodr are fetched by `test/scripts/fetch_opendrive_a9.py` into the system temp root
-      and pinned by `sha256` into `test/opendrive/a9/manifest.json` -- nothing in the tree
+- [x] The two .xodr are fetched by `test/scripts/fetch_opendrive_a9.py` into the system temp root
+      and pinned by `sha256` into `test/opendrive/a9/manifest.json` -- nothing in the tree.
+      **Done**: Nord `473c6db8...`, Sued `28318b98...`, GeoNutzV_130319.pdf `18ff7cc4...`, at commit
+      `e75ee549`
+- [ ] The derivation moves out of `Picturing.cpp` and behind the generators' door as a generator
+      that emits the four profiles. The 2 401 / 237 split above is the number that must move
 - [ ] The oracle is flattened ONCE into a station table, so the score does not re-read 10 MB of XML
 - [ ] The client hands out our own stations for a declared window, headless and deterministic --
       two runs, byte-identical rows
 - [ ] `test/scripts/score_opendrive_a9.py` prints per road: the agreeing fraction, the worst
       station, and HELD or APART -- then `N held` and the bar
 - [ ] The held count is a baseline that may only RISE, and it is quoted in the item that spends it
+- [ ] The work does not stop at "it runs": each quantity is developed against the corpus until its
+      DECLARED threshold is undercut, and the threshold is written down with its origin BEFORE the
+      first score is read. A threshold moved to make a score pass is the falsification this tree
+      names in `CLAUDE.md`
 - [ ] Negative control: scoring the A9 against the SUED section's roads goes red. A control that
       passes proves nothing
 - [ ] Measurement that shows this is wrong: the score rises while the picture gets worse, or a road
