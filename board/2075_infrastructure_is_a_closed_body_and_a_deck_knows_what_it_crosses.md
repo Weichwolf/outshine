@@ -134,3 +134,19 @@ the time beats the rule that is exactly right on the cases OSM happens to descri
 
 That is why the camera is the oracle here and no ground truth is invoked: there is none for most of
 the Earth, and a rule that only works where OSM is complete is not a rule.
+
+## THE SHAPE THIS MAY WANT, and it is being researched rather than guessed
+
+A bridge over WATER gets no height today, and the reason is structural rather than a missing case:
+the deck's height comes from what the network says it crosses, and water is not in the network. The
+Koehlbrandbruecke crosses a POLYGON, not a course, so there is no centreline to cross.
+
+Rather than bolt a water test onto the side of it, the question was put to research: **has anyone
+solved OSM -> real 3D infrastructure, and is there a corpus to be scored against?** The owner's read
+is that it lands on a heuristic mapping from OSM to ASAM OpenDRIVE's ROAD MODEL -- not its XML, but
+its shape: a reference line, lane sections, an elevation profile and junctions as first-class
+objects with connecting roads. That is a description of the very thing this item is assembling by
+hand, and if its example files are public they are a corpus with real geometry rather than an eye.
+
+**Held here deliberately until that answer lands**, because building the water case now would be
+building it twice.

@@ -103,6 +103,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       return false;
     }
     const GroundMaterials::Material &lm = mats.At((size_t)(li >= 0 ? li : gi));
+    row->GroundClass = gi;
     for (int c = 0; c < 3; c++) {
       row->Ground[c] = gm.Albedo[c];
       row->Litter[c] = lm.Albedo[c];

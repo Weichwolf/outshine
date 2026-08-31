@@ -24,6 +24,7 @@ public:
     float Dry[4];
     float Param[4];
     float Edge[4];
+    int GroundClass = -1;
   };
 
   struct Rule {
