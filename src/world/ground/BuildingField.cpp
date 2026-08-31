@@ -216,11 +216,14 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                      double *highestAslM) {
   const std::span<const double> pts = field.Points();
   if (corners) { corners->clear(); }
-  if (highestAslM) { *highestAslM = 0.0; }
+  if (highestAslM != nullptr) { *highestAslM = 0.0; }
   if (ring.Count == 0) { return GroundSample::Missing(); }
   double lowest = 1.0e9;
   double highest = -1.0e9;
-  double southest = 1.0e9, northest = -1.0e9, westest = 1.0e9, eastest = -1.0e9;
+  double southest = 1.0e9;
+  double northest = -1.0e9;
+  double westest = 1.0e9;
+  double eastest = -1.0e9;
   int coarsest = 0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const double lat = pts[((size_t)ring.First + k) * 2];
@@ -256,7 +259,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
       }
     }
   }
-  if (highestAslM) { *highestAslM = highest; }
+  if (highestAslM != nullptr) { *highestAslM = highest; }
   return GroundSample::At(lowest).Coarser(coarsest);
 }
 

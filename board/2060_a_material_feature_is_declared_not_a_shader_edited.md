@@ -81,3 +81,23 @@ which is the whole reason the guard is worth its twenty lines.
 The shader TEXT. Generating the variant set does not make the lobes declarative; `metalRoughBrdf`,
 `sheenLobe` and `iridescenceLobe` stay hand-written functions, and that is right -- Unreal's graph
 generates the permutation, not the BRDF.
+
+## THE FRAGMENT HALF IS A TABLE NOW, and it was the thing blocking a fourth axis
+
+`SubjectDraw::FragmentEntry` was two `if`s over three nested `switch`es naming nineteen entries by
+hand. It is one table over three axes -- the SHADING ARM (flat, lit, mapped), whether the layout
+carries a uv, and the `SurfaceKind` -- with a row's index DERIVED from its own axes, so a row in the
+wrong place is a compile error rather than a pipeline that renders the wrong thing:
+
+    static_assert(EveryFragmentArmIsAtItsOwnIndex(), ...)
+
+Thirty rows, total over 3 x 2 x 5, no hole and therefore no default to fall through. A mapped arm is
+always textured -- a tangent frame is for a normal MAP -- and its untextured rows name the same
+entry, which is what the layout would have given them anyway.
+
+**This was blocking board:2064.** That item needs a fourth axis, a material DOMAIN, because it has
+to route the ground to a shader that decides the class per pixel and Unreal routes a Landscape
+exactly that way. Adding a domain to the cascade would have doubled the nesting; adding a column to
+a table is a column.
+
+Heidelberg `0c7c65e9`, bit-identical across the change.

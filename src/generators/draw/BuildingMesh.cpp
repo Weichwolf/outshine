@@ -279,9 +279,9 @@ public:
 
   double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
 
-  double High() const { return HighM_; }
+  [[nodiscard]] double High() const { return HighM_; }
 
-  double Low() const { return LowM_; }
+  [[nodiscard]] double Low() const { return LowM_; }
 
 private:
   double Const_ = 0.0, SlopeE_ = 0.0, SlopeN_ = 0.0;
@@ -475,7 +475,6 @@ double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
 void Plinth(const BuildingShape &s,
             const RoofSurface &roof,
             const std::vector<En> &wide,
-            const Site2Ground &ground,
             double topZ,
             Site &site) {
   const std::vector<En> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
@@ -758,10 +757,7 @@ constexpr double kBoxTris = 12.0;
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
 
-void Box(const BuildingShape &s,
-         const std::vector<En> &ring,
-         const Site2Ground &ground,
-         Site &site) {
+void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
   const double lowZ = s.SoleM;
   const double topZ = s.TopM();
   for (size_t i = 0; i < 4; i++) {
@@ -802,7 +798,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     }
     if (outM > asDetailed) {
       gBoxes.fetch_add(1u, std::memory_order_relaxed);
-      Box(s, Hull(s.Ring), ground, site);
+      Box(s, Hull(s.Ring), site);
       return;
     }
   } else {
@@ -820,7 +816,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
                           : crowned                ? EavesZ(s) - 0.34
                                                    : EavesZ(s) + s.RiseM;
   if (s.OnGround()) {
-    Plinth(s, roof, overhang, ground, s.SeatM, site);
+    Plinth(s, roof, overhang, s.SeatM, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
     if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }

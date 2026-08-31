@@ -1,5 +1,7 @@
 #include "SubjectDraw.h"
 
+#include "FragmentArms.h"
+
 #include <atomic>
 #include <chrono>
 
@@ -114,36 +116,7 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device,
 } // namespace
 
 const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
-  const bool textured = CarriesUv(layout);
-  if (CarriesTangent(layout)) {
-    switch (kind) {
-      case SurfaceKind::Masked: return "fsMappedMasked";
-      case SurfaceKind::Blended: return "fsMappedBlended";
-      case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: return "fsMappedTransmissive";
-      case SurfaceKind::Opaque: break;
-    }
-    return "fsMapped";
-  }
-  if (CarriesNormal(layout)) {
-    switch (kind) {
-      case SurfaceKind::Masked: return textured ? "fsLitMaskedTextured" : "fsLitMasked";
-      case SurfaceKind::Blended: return textured ? "fsLitBlendedTextured" : "fsLitBlended";
-      case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive:
-        return textured ? "fsLitTransmissiveTextured" : "fsLitTransmissive";
-      case SurfaceKind::Opaque: break;
-    }
-    return textured ? "fsLitTextured" : "fsLit";
-  }
-  switch (kind) {
-    case SurfaceKind::Masked: return textured ? "fsMaskedTextured" : "fsMasked";
-    case SurfaceKind::Blended: return textured ? "fsBlendedTextured" : "fsBlended";
-    case SurfaceKind::ThinTransmissive:
-    case SurfaceKind::Refractive: return "fsTransmissive";
-    case SurfaceKind::Opaque: break;
-  }
-  return textured ? "fsTextured" : "fs";
+  return FragmentArmNamed(ShadingArmOf(layout), CarriesUv(layout), kind);
 }
 
 const char *SubjectDraw::VertexEntry(VertexLayout layout) {
