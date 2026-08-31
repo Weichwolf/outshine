@@ -18,31 +18,29 @@ one.
 The front door says: **outshine loads a scenario and runs it.** Run exactly that way, it renders
 nothing and says nothing until the third call.
 
-Measured 2026-08-25 at a3ebe3e0, the command the owner's brief prescribes:
+Measured 2026-08-25 at a3ebe3e0 against `outshine-driver` (since deleted): `Assemble()` returned
+TRUE and `Advance()` then refused "no scenario is standing" -- two arrival routes, one of which
+stood no picture.
+
+**Measured again 2026-08-31, and the route is worse than refusing.** Through the door as it stands
+today -- `outshine-client run <scenario>` -- EVERY scenario file segfaulted:
 
 ```
-build/outshine-driver --headless --into DIR --assets .../apps-driver-f31
-DRIVING 0.00000,0.00000 -> 0.00000,0.00000, 1280x720, headless
-NO DRIVE DECLARED
-STOPPED after 0 frames: no scenario is standing, so there is nothing to advance
-0 stills
+build/outshine-client measures probe.xml
+EXC_BAD_ACCESS (address=0x44)  libSDL3`METAL_DrawIndexedPrimitivesIndirect + 56
 ```
 
-`Engine::Assemble()` returned TRUE. `Engine::Advance()` then refused. Both are right about their
-own state and the door is wrong: there are two arrival routes and only one of them stands a
-picture.
+Bisected by deleting one section at a time: the killer is a scenario with **no `<lighting>`**.
+`shots` never sees it because `ScenarioFor` sets `Lit.Declared = true` for every place -- a gate
+blind to a path, and the corpus runner is built on the path it cannot see.
 
-| call | what it sets | stands a picture |
-|---|---|---|
-| `bool Engine::Read(std::string_view path) {` (src/engine/Engine.cpp:372) | `S_->Declared`, `S_->Carried` | no |
-| `Engine::Declare(const Scenario &scenario)` | `S_->Standing` | yes |
-| `bool Engine::Assemble() {` (:139) | the scene store, and the drive | no |
-| `bool Engine::Advance() {` (:535) | `if (!S_->Standing) { ... "no scenario is standing" }` | refuses |
-
-`the driver client (deleted):126` calls `Read`, and `Declare` only when `--from/--to` were given
-(:138). Without a route override the product cannot produce one frame. That is the whole of the
-zero-still result, and it is not the route search: the route search is a different, later defect
-(board:1862).
+Cause: `Declaring.cpp` put the sun-from-clock computation INSIDE `if (scenario.Lit.Declared)`, so an
+undeclared `<lighting>` meant no sun, no irradiance stage, a null `SkyIrradiance_`, and
+`SubjectDraw` then skipped a fragment storage binding its own pipeline demands -- silently. The
+driver dereferenced the hole. Repaired: the flag now gates only what the scenario STATES, and the
+sun over a declared place stands from the clock either way, which is what the invariant already
+said. The silent skip at src/render/stages/SubjectDraw.cpp:938 is still silent and is the second
+half.
 
 ## What will be true
 
@@ -54,3 +52,8 @@ zero-still result, and it is not the route search: the route search is a differe
       and the still carries the subject.
 - [ ] Negative control: remove the stand from the arrival route -> `Assemble` refuses by name at
       the call that failed, never silently.
+- [x] A scenario declaring no `<lighting>` renders instead of crashing -- the engine's own sun
+      stands in the section's place. Measured: `measures probe_bare.xml` exit 139 -> exit 0, the
+      nine places unmoved.
+- [ ] `SubjectDraw` REFUSES by name when a pipeline wants a storage buffer nothing handed it,
+      instead of binding nothing and letting the driver find the hole.

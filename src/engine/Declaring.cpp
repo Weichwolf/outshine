@@ -188,8 +188,12 @@ Result Engine::declare(const Scenario &scenario) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
     declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
-    const bool anglePut =
-        scenario.Lit.Key.ElevationDeg != 0.0 || scenario.Lit.Key.BearingDeg != 0.0;
+    for (int at = 0; at < 3; ++at) { declared.IndirectLight[at] = scenario.Lit.IndirectLight[at]; }
+    declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;
+  }
+  {
+    const bool anglePut = scenario.Lit.Declared && (scenario.Lit.Key.ElevationDeg != 0.0 ||
+                                                    scenario.Lit.Key.BearingDeg != 0.0);
     if (scenario.Ground.Declared && anglePut && scenario.Time.Declared) {
       S_->Error = "this scenario declares a clock AND hand-sets the key light to " +
                   Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
@@ -218,8 +222,6 @@ Result Engine::declare(const Scenario &scenario) {
       declared.KeyBearingDeg = (double)sun.SunAzDeg;
       declared.KeyFromClock = true;
     }
-    for (int at = 0; at < 3; ++at) { declared.IndirectLight[at] = scenario.Lit.IndirectLight[at]; }
-    declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;
   }
 
   std::vector<const Surface *> ordered;
