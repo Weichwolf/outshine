@@ -168,13 +168,37 @@ bool LayPiece(Span<const double> eastNorthM,
               RoadProfile profile,
               const float wearsLinear[3],
               double crossfall,
-              RoadRaised &into) {
+              RoadRaised &into,
+              RoadRefusals *why) {
   ReferenceLine line;
-  const Fitted laid = Fit(std::span<const double>(eastNorthM.Data(), eastNorthM.Size()),
-                          kLayWithinM,
-                          kLayTightestM,
-                          line);
-  if (!laid.Laid || !(line.LengthM() > 0.0)) { return false; }
+  double tightestM = 0.0;
+  if (eastNorthM.Size() == 4) {
+    const double runE = eastNorthM[2] - eastNorthM[0];
+    const double runN = eastNorthM[3] - eastNorthM[1];
+    const double runM = std::sqrt(runE * runE + runN * runN);
+    if (!(runM > 0.0)) {
+      if (why != nullptr) { ++why->TooShort; }
+      return false;
+    }
+    const Placed from{
+        .EastM = eastNorthM[0], .NorthM = eastNorthM[1], .HeadingRad = std::atan2(runN, runE)};
+    const Segment straight{.Shape = Curve::Straight, .LengthM = runM};
+    std::string laidWhy;
+    if (!line.Lay(from, std::span<const Segment>(&straight, 1), laidWhy)) {
+      if (why != nullptr) { ++why->Fit; }
+      return false;
+    }
+  } else {
+    const Fitted laid = Fit(std::span<const double>(eastNorthM.Data(), eastNorthM.Size()),
+                            kLayWithinM,
+                            kLayTightestM,
+                            line);
+    if (!laid.Laid || !(line.LengthM() > 0.0)) {
+      if (why != nullptr) { ++why->Fit; }
+      return false;
+    }
+    tightestM = laid.TightestRadiusM;
+  }
 
   const double wholeM = reachedM[reachedM.Size() - 1u] - reachedM[0];
   std::vector<Knot> rise;
@@ -191,15 +215,24 @@ bool LayPiece(Span<const double> eastNorthM,
     }
     rise.push_back(Knot{.AlongM = part * line.LengthM(), .Value = gradeM[one], .RatePerM = rate});
   }
-  std::string why;
-  if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), why)) { return false; }
+  std::string said;
+  if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
+    if (why != nullptr) { ++why->Rise; }
+    return false;
+  }
   const Knot bank[2] = {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
                         Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}};
-  if (!line.Bank(std::span<const Knot>(bank, 2), why)) { return false; }
+  if (!line.Bank(std::span<const Knot>(bank, 2), said)) {
+    if (why != nullptr) { ++why->Bank; }
+    return false;
+  }
 
-  const Ribbon woven = Sweep(
-      line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(laid.TightestRadiusM));
-  if (!woven.Woven) { return false; }
+  const Ribbon woven =
+      Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM));
+  if (!woven.Woven) {
+    if (why != nullptr) { ++why->Sweep; }
+    return false;
+  }
   Pour(woven, wearsLinear, into);
   return true;
 }
@@ -214,7 +247,8 @@ void SweepRoad(Span<const RoadStation> along,
                RoadRaised &into,
                size_t *piecesLaid,
                size_t *cutsMade,
-               size_t *piecesRefused) {
+               size_t *piecesRefused,
+               RoadRefusals *why) {
   if (along.Size() < 3 || !(halfWidthM > 0.0)) { return; }
 
   std::vector<double> eastNorth;
@@ -246,7 +280,7 @@ void SweepRoad(Span<const RoadStation> along,
             probe);
     const size_t upTo = got.Laid ? along.Size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
-    if (count >= 3u) {
+    if (count >= 2u) {
       if (LayPiece(Span<const double>(eastNorth.data() + from * 2u, count * 2u),
                    Span<const double>(grade.data() + from, count),
                    Span<const double>(reached.data() + from, count),
@@ -254,13 +288,15 @@ void SweepRoad(Span<const RoadStation> along,
                    profile,
                    wearsLinear,
                    crossfall,
-                   into)) {
+                   into,
+                   why)) {
         if (piecesLaid != nullptr) { ++*piecesLaid; }
       } else if (piecesRefused != nullptr) {
         ++*piecesRefused;
       }
     } else if (piecesRefused != nullptr) {
       ++*piecesRefused;
+      if (why != nullptr) { ++why->TooShort; }
     }
     if (got.Laid) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {

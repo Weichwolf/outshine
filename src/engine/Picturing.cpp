@@ -1284,6 +1284,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t sweptPieces = 0;
     size_t sweptCuts = 0;
     size_t sweptRefused = 0;
+    Generators::RoadRefusals sweptWhy;
     std::vector<double> fitOffsetM;
     std::vector<double> fitRadiusM;
     std::vector<double> fitEastNorth;
@@ -1785,7 +1786,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                               pavement,
                               &sweptPieces,
                               &sweptCuts,
-                              &sweptRefused);
+                              &sweptRefused,
+                              &sweptWhy);
         {
           const size_t first = (size_t)lane.FirstPoint * 2u;
           const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
@@ -1885,6 +1887,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("streets: pieces the sweep laid on a line", (double)sweptPieces, "pieces");
       Published.Places("streets: cuts the sweep made", (double)sweptCuts, "cuts");
       Published.Places("streets: pieces the sweep could not lay", (double)sweptRefused, "pieces");
+      Published.Places("streets: of those, the fit refused", (double)sweptWhy.Fit, "pieces");
+      Published.Places("streets: of those, the rise refused", (double)sweptWhy.Rise, "pieces");
+      Published.Places("streets: of those, the bank refused", (double)sweptWhy.Bank, "pieces");
+      Published.Places("streets: of those, the sweep refused", (double)sweptWhy.Sweep, "pieces");
+      Published.Places("streets: of those, too short to lay", (double)sweptWhy.TooShort, "pieces");
       Published.Places(
           "streets: pieces the split still could not lay", (double)fitUnsplittable, "pieces");
       if (!tightDemandM.empty()) {

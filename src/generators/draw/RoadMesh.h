@@ -36,6 +36,14 @@ struct RoadGate {
 
 void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into);
 
+struct RoadRefusals {
+  size_t Fit = 0;
+  size_t Rise = 0;
+  size_t Bank = 0;
+  size_t Sweep = 0;
+  size_t TooShort = 0;
+};
+
 void SweepRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
@@ -44,7 +52,8 @@ void SweepRoad(Span<const RoadStation> along,
                RoadRaised &into,
                size_t *piecesLaid,
                size_t *cutsMade,
-               size_t *piecesRefused);
+               size_t *piecesRefused,
+               RoadRefusals *why);
 
 } // namespace outshine::Generators
 #endif
