@@ -1742,8 +1742,10 @@ bool Engine::render(Extent frame) {
       "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
   S_->Published.Places(
       "cull: jobs it swept", (double)Render::SubjectCullStage::JobsSweptTaken(), "jobs");
-  {
-    float nearest = 0.0f, farthest = 0.0f, mean = 0.0f;
+  if (S_->Session.Declared.Render.Audits) {
+    float nearest = 0.0f;
+    float farthest = 0.0f;
+    float mean = 0.0f;
     if (S_->Picture.Standing->Pyramid(nearest, farthest, mean) == Render::ReadState::Ready) {
       S_->Published.Places("cull: the pyramid's nearest depth", (double)nearest, "0..1");
       S_->Published.Places("cull: its farthest", (double)farthest, "0..1");

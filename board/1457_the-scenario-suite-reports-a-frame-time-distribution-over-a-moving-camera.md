@@ -87,7 +87,34 @@ the whole 600 m walk and `world: times a round stopped at that ceiling` stays 0 
 fetched. The seconds are spent re-laying a world that was already resident, serially, which is
 board:2056's subject measured on its own case for the first time.
 
-## THE INSTRUMENT DOES NOT REPEAT ON ITS HEAVIEST PLACE, and the gate records one run
+## THE INSTRUMENT DID NOT REPEAT BECAUSE I HAD PUT A GPU STALL IN EVERY FRAME
+
+`ReadPyramid` -- added the same night to prove the depth pyramid was not reading zero -- sat in
+`Engine::render()`, ungated. It reads 640x360 floats back from the device every frame, and a
+readback is a pipeline stall.
+
+    Heidelberg p50   with it 4.0 ms     without 2.58, 2.58, 2.59
+
+**1.4 ms a frame, a third of the p50**, and the variance with it. Gated on declared audits:
+
+| place | with the stall | without |
+|---|---|---|
+| CentralPark | 7.33 / 18.94 / 27.95, 8 over | **5.87 / 6.31 / 8.30, 1 over** |
+| Heidelberg | 3.79 / 12.93 / 478.25 | 2.56 / 11.74 / 467.19 |
+| OldTown | 3.14 / 5.97 / 290.46 | 2.10 / 3.16 / 271.77 |
+| Shibuya | 4.01 / 7.53 / 755.15 | 3.41 / 6.87 / 705.38 |
+| Venice | 3.30 / 4.44 / 475.92 | 2.44 / 3.18 / 435.19 |
+| Jura | 4.09 / 4.63 / 4.99 | 3.19 / 3.42 / 10.45 |
+
+**So CentralPark's unrepeatability was mine.** It carries the most geometry, so it carried the
+stall hardest -- 8.30 against 27.95, one frame over budget against eight. The "warm-up" written
+here two hours ago was wrong as well, and both readings are corrected rather than left standing.
+
+The readback itself was RIGHT to write: without it nobody would have noticed that the pyramid read
+0.000 under a perfectly stable digest. What was wrong was leaving a measuring instrument inside the
+thing it measures.
+
+## AND THE GATE STILL RECORDS ONE RUN
 
 Three consecutive runs, same binary, same tree:
 
