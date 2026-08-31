@@ -35,6 +35,39 @@ walks anywhere. Writing eviction against this instrument would be writing it bli
 that declares several and a client that steps through them -- declared rather than coded, and the
 picture stays where it is because it is written BEFORE the timed loop.
 
+## THE CAMERA WALKS NOW, and the tail it was hiding is real
+
+The path is DECLARED: twenty-four views along the place's own bearing, 25 m apart, stepped through
+with `Engine::setView`. The picture is untouched -- it is written before the timed loop and always
+from `station`, and every digest held: Heidelberg 0da91522, Shibuya 732bd2de.
+
+Six places, 120 frames each, 16.67 ms budget:
+
+| place | p50 | p95 | p99 | over |
+|---|---|---|---|---|
+| CentralPark | 7.23 | 8.42 | 9.73 | 0 |
+| Heidelberg | 3.32 | 4.24 | **11.84** | **1** |
+| OldTown | 2.88 | 3.65 | **13.56** | **1** |
+| Shibuya | 4.11 | 5.12 | 8.20 | **1** |
+| Jura | 4.01 | 4.58 | 4.66 | 0 |
+| Venice | 3.22 | 4.56 | **9.41** | **1** |
+
+Standing still, Heidelberg's p99 was around 7 ms and nothing missed. **Walking, the p99 is 11.84
+and one frame in 120 misses the budget outright.** Four of six places miss at least one. The p50
+barely moves and the tail is where the truth was: a still camera never rebuilds the world and
+never streams a tile it has not got, which is why it flattered every number this repository has
+printed.
+
+## AND THE VARIATION WAS READ FROM THE WRONG FRAME, the moment the camera moved
+
+`shot.VariationAlongRows` was read AFTER the timed loop, from whatever was in the framebuffer.
+While the camera stood still that was the same frame as the saved picture; the moment it walked it
+described the LAST frame of the path while sitting beside the FIRST frame's digest. It fell from
+2.327 to 2.180 and that is how it was caught. Read before the walk now.
+
+Ninth number this session that described something other than its name -- and the first one built
+rather than found.
+
 **The blocker this item carried is gone, and it left an instrument nobody reads.** At
 35829990 `Renderer::DrawsInto` takes the first present mode the device offers that does not
 queue -- MAILBOX, then IMMEDIATE, then VSYNC -- and refuses by name if it takes none

@@ -7,6 +7,7 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <numbers>
 #include <filesystem>
 
 #include <SDL3/SDL.h>
@@ -26,6 +27,24 @@ constexpr double kPlanAboveM = 4000.0;
 constexpr double kPitchDeg = -6.0;
 constexpr double kFovDeg = 55.0;
 constexpr int kTimedFrames = 120;
+
+/// THE FRAME BUDGET IS JUDGED OVER A MOVING CAMERA, which CLAUDE.md's aim says in those words and
+/// this instrument did not do: it timed 120 frames of one still view. A still camera is the case a
+/// renderer is best at -- it never rebuilds the world, never streams a tile it has not got. The
+/// path is DECLARED as views the scenario carries and stepped through with `setView`, so the
+/// picture is untouched: it is written before the timed loop and always from `station`.
+constexpr int kWalkViews = 24;
+constexpr double kWalkStepM = 25.0;
+
+void WalkedTo(
+    double fromLat, double fromLon, double bearingDeg, double alongM, double &lat, double &lon) {
+  constexpr double kMetresPerDegree = 111320.0;
+  const double heading = bearingDeg * std::numbers::pi / 180.0;
+  lat = fromLat + alongM * std::cos(heading) / kMetresPerDegree;
+  const double shrink = std::cos(fromLat * std::numbers::pi / 180.0);
+  lon =
+      fromLon + alongM * std::sin(heading) / (kMetresPerDegree * (shrink > 1.0e-6 ? shrink : 1.0));
+}
 
 constexpr std::array<Place, 7> kPlaces{{
     {"OldTown", 49.3777, 10.179, 70.0, Place::Seen::Eye, 0.0, "2026-06-21T11:19:00Z"},
@@ -123,6 +142,16 @@ Scenario ScenarioFor(const Place &place) {
     watches.Sees.FarM = kPlanAboveM * 2.0;
   }
   stands.Views.push_back(watches);
+
+  for (int step = 1; step <= kWalkViews; ++step) {
+    View along = watches;
+    along.Id = "walk" + std::to_string(step - 1);
+    double lat = place.LatDeg, lon = place.LonDeg;
+    WalkedTo(place.LatDeg, place.LonDeg, place.BearingDeg, (double)step * kWalkStepM, lat, lon);
+    along.Sees.Stands.Geodetic.LatitudeDeg = lat;
+    along.Sees.Stands.Geodetic.LongitudeDeg = lon;
+    stands.Views.push_back(along);
+  }
   return stands;
 }
 
@@ -233,9 +262,18 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     shot.Kept = !failed;
   }
 
+  {
+    std::vector<std::uint8_t> pixels;
+    if (engine.renderer().readPixels(pixels).has_value()) {
+      shot.VariationAlongRows = VariationAlongRows(pixels, kWidePx, kHighPx);
+    }
+  }
+
   std::vector<double> heldMs;
   heldMs.reserve((std::size_t)kTimedFrames);
   for (int at = 0; at < kTimedFrames; ++at) {
+    const int step = at * kWalkViews / kTimedFrames;
+    (void)engine.setView("walk" + std::to_string(step));
     const auto before = std::chrono::steady_clock::now();
     if (!engine.advance() || !engine.renderer().render(Extent{})) { break; }
     heldMs.push_back(
@@ -257,10 +295,6 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
 
   shot.Measures = engine.measures();
 
-  std::vector<std::uint8_t> pixels;
-  if (engine.renderer().readPixels(pixels).has_value()) {
-    shot.VariationAlongRows = VariationAlongRows(pixels, kWidePx, kHighPx);
-  }
   return shot;
 }
 
