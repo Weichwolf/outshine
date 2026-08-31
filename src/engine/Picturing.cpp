@@ -55,7 +55,8 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
     held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
                  eye[1] * anchored.UpEcef()[axis] - eye[2] * anchored.NorthEcef()[axis];
   }
-  const Ground::Geo above = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+  const Ground::Geo above =
+      Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
   atLat = above.LatDeg;
   atLon = above.LonDeg;
 }

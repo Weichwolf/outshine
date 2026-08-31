@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdio>
 #include <numbers>
+#include <string>
 #include <filesystem>
 
 #include <SDL3/SDL.h>
@@ -146,7 +147,8 @@ Scenario ScenarioFor(const Place &place) {
   for (int step = 1; step <= kWalkViews; ++step) {
     View along = watches;
     along.Id = "walk" + std::to_string(step - 1);
-    double lat = place.LatDeg, lon = place.LonDeg;
+    double lat = place.LatDeg;
+    double lon = place.LonDeg;
     WalkedTo(place.LatDeg, place.LonDeg, place.BearingDeg, (double)step * kWalkStepM, lat, lon);
     along.Sees.Stands.Geodetic.LatitudeDeg = lat;
     along.Sees.Stands.Geodetic.LongitudeDeg = lon;

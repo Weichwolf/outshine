@@ -95,7 +95,10 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
-    const double w = q[0], x = q[1], y = q[2], z = q[3];
+    const double w = q[0];
+    const double x = q[1];
+    const double y = q[2];
+    const double z = q[3];
     bodyFromWorld[0] = 1.0 - 2.0 * (y * y + z * z);
     bodyFromWorld[1] = 2.0 * (x * y + z * w);
     bodyFromWorld[2] = 2.0 * (x * z - y * w);
@@ -314,7 +317,9 @@ void Engine::State::Inspected(void) {
   {
     std::vector<float> depth;
     if (Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
-      double least = 1.0e30, most = -1.0e30, written = 0.0;
+      double least = 1.0e30;
+      double most = -1.0e30;
+      double written = 0.0;
       for (const float one : depth) {
         if ((double)one < least) { least = (double)one; }
         if ((double)one > most) { most = (double)one; }
@@ -328,7 +333,8 @@ void Engine::State::Inspected(void) {
     }
   }
   {
-    uint32_t kept = 0, batches = 0;
+    uint32_t kept = 0;
+    uint32_t batches = 0;
     if (Picture.Device.ReadKeptIndices(kept, batches) == Render::ReadState::Ready) {
       Published.Places("cull: indices the subject cull kept", (double)kept, "indices");
       Published.Places("cull: batches that kept any", (double)batches, "batches");
@@ -352,9 +358,11 @@ void Engine::State::Inspected(void) {
   {
     std::vector<float> velocity;
     if (Picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
-      double moving = 0.0, furthest = 0.0;
+      double moving = 0.0;
+      double furthest = 0.0;
       for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
-        const double across = (double)velocity[at], down = (double)velocity[at + 1];
+        const double across = (double)velocity[at];
+        const double down = (double)velocity[at + 1];
         if (across <= -1.0e3 || down <= -1.0e3) { continue; }
         const double moved = std::sqrt(across * across + down * down);
         if (moved > 0.0) { moving += 1.0; }
