@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <span>
+#include <utility>
 #include <string>
 #include <cstddef>
 #include <cstdint>
@@ -304,6 +305,33 @@ void SweepRoad(Span<const RoadStation> along,
       break;
     }
     if (cutsMade != nullptr) { ++*cutsMade; }
+    {
+      const size_t at = from + upTo;
+      if (at > 0 && at + 1u < along.Size()) {
+        const auto facing = [&](size_t one, size_t two) {
+          const double runE = along[two].EastM - along[one].EastM;
+          const double runS = along[two].SouthM - along[one].SouthM;
+          const double runM = std::sqrt(runE * runE + runS * runS);
+          return runM > 1.0e-9 ? std::pair<double, double>{runE / runM, runS / runM}
+                               : std::pair<double, double>{0.0, 0.0};
+        };
+        const auto back = facing(at, at - 1u);
+        const auto on = facing(at, at + 1u);
+        const RoadGate corner[2] = {RoadGate{.EastM = along[at].EastM,
+                                             .SouthM = along[at].SouthM,
+                                             .GradeM = along[at].GradeM,
+                                             .OutE = back.first,
+                                             .OutS = back.second,
+                                             .HalfWidthM = halfWidthM},
+                                    RoadGate{.EastM = along[at].EastM,
+                                             .SouthM = along[at].SouthM,
+                                             .GradeM = along[at].GradeM,
+                                             .OutE = on.first,
+                                             .OutS = on.second,
+                                             .HalfWidthM = halfWidthM}};
+        RaiseJunction(Span<const RoadGate>(corner, 2), wearsLinear, into);
+      }
+    }
     from += upTo + 1u;
   }
 }
