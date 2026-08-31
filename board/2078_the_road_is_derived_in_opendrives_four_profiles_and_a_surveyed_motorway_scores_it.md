@@ -88,7 +88,7 @@ has stood open for a long time saying, in as many words, "the mechanism is ASAM 
 reference line's plan view is a sequence of line, arc and spiral; elevation along `s` and the roll
 angle are sequences of cubic polynomials". It is not a plan. It is BUILT:
 
-    src/actor/path/          1 497 lines
+    src/base/curve/ and src/generators/path/          1 497 lines
       ReferenceLine.h        enum class Curve { Straight, Arc, Spiral }        <- planView
                              Placed{ CurvaturePerM, CurvatureRatePerM,
                                      Slope, SlopeRatePerM,                     <- elevationProfile

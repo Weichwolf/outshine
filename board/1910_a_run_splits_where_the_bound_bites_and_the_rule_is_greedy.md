@@ -1,7 +1,7 @@
 Type: issue
 State: open
 Parent: 1499
-Area: actor/path
+Area: base/curve, generators/path
 Tags: geometry, alignment
 
 # A run that must split, splits by a rule that is argued
@@ -11,7 +11,7 @@ Tags: geometry, alignment
 `Align` groups same-sign turns into one run and fits one arc to it (board:1795). When the arc
 cannot hold every vertex within the declared accuracy, the run is shortened:
 
-    src/actor/path/Alignment.cpp   for (;;) { held = BendOver(..., at, last, ...);
+    src/generators/path/Alignment.cpp   for (;;) { held = BendOver(..., at, last, ...);
                                               if (held->AwayM <= withinM || last == at) break;
                                               --last; }
 

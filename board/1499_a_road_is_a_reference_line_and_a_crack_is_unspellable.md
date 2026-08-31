@@ -1,7 +1,7 @@
 Type: task
 State: active
 Parent: 1498
-Area: generators, actor/path
+Area: generators, base/curve
 Tags: scope, geometry
 Supersedes: 1531, 1534
 
@@ -21,7 +21,7 @@ is what the curve is EVALUATED into, never the primary thing. The assumption tha
 a road has a design speed, and curvature and its rate are bounded by it, which is what OSM's
 `highway=*` classes imply.
 
-Stands: `src/actor/path/ReferenceLine` with elevation and cross-slope; `Ribbon` sweeps the
+Stands: `src/base/curve/ReferenceLine` with elevation and cross-slope; `Ribbon` sweeps the
 cross-section into a SOLID (carriageway, shoulders, thickness along the surface normal, closed
 end caps) and every top-surface vertex is placed by the same `StandAt` the physics stands on —
 0 vertices differ beyond float over 401 stations.
@@ -32,14 +32,14 @@ Measured 2026-08-31, and it is the reason this item goes active rather than stay
 
 **The chain this item describes is complete:**
 
-    src/actor/path/Fit.h        Simplify(polyline, withinM)
+    src/generators/path/Fit.h        Simplify(polyline, withinM)
                                 Fit(eastNorthM, withinM, tightestM, classTightestM, into)
                                 -> Fitted{ WorstOffsetM, TightestRadiusM, Undrivable,
                                            UnderClass, SharpestTurnRad, Runs, ... }
-    src/actor/path/ReferenceLine.h   Curve{Straight, Arc, Spiral}; Placed carries curvature,
+    src/base/curve/ReferenceLine.h   Curve{Straight, Arc, Spiral}; Placed carries curvature,
                                      slope and bank WITH THEIR RATES; Knot; Segment
-    src/actor/path/Ribbon.h          Sweep(line, Section{HalfWidth, Shoulder, Thickness}, ...)
-    src/actor/path/Carriageway.h     Stand / StandAt
+    src/generators/path/Ribbon.h          Sweep(line, Section{HalfWidth, Shoulder, Thickness}, ...)
+    src/base/curve/Carriageway.h     Stand / StandAt
     src/sim/CorridorLay.h            Corridor{ ReferenceLine, Fitted, SpeedProfile, fine
                                      Stations with lane half width, edge and friction },
                                      Laying{ Holes, LanelessKinds, GradelessKinds, WorstGradeM,

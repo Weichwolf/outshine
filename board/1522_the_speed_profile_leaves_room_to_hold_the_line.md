@@ -1,7 +1,7 @@
 Type: bug
 State: open
 Parent: 1498
-Area: actor/path
+Area: base/curve, generators/path
 Tags: instrument, measured
 Supersedes: 1825
 

@@ -45,12 +45,12 @@ Libraries follow the `reaches` graph rather than a new map:
 |---|---|---|
 | `libbase.a` | `src/base` | math, geo, format, spatial, io -- reaches nothing |
 | `libworld.a` | `src/content` `src/world` | tiles, OSM fields, elevation, materials, sky, weather. DATA, no verbs |
-| **`libgenerators.a`** | `src/generators` **+ `src/actor/path`** | polyline -> `ReferenceLine` -> `Ribbon` -> a finished `Geometry` |
+| **`libgenerators.a`** | `src/generators` **+ `src/base/curve` and `src/generators/path`** | polyline -> `ReferenceLine` -> `Ribbon` -> a finished `Geometry` |
 | `librender.a` | `src/render` `src/import` | the device side |
 | `liboutshine.a` | `src/engine` `src/scene` `src/scenario` `src/sim` `src/ui` `src/audio` `src/host` `src/compositor` | the motor |
 | `outshine-client` | `src/client` | the one product |
 
-**`src/actor/path` splits at its own seam, and the measurement decided where.** The first version of
+**`src/base/curve` and `src/generators/path` splits at its own seam, and the measurement decided where.** The first version of
 this item said the whole directory becomes a generator. Two greps refuted it.
 
 **It includes NOTHING but the standard library and its own headers** -- no tier at all -- so what
@@ -108,7 +108,7 @@ Three kinds, and the kind is a property of the QUESTION rather than a preference
 
 ## What will be true
 
-- [ ] `src/actor/path` is split: `Angle`, `ReferenceLine`, `Carriageway`, `SpeedProfile` become a
+- [ ] `src/base/curve` and `src/generators/path` is split: `Angle`, `ReferenceLine`, `Carriageway`, `SpeedProfile` become a
       base-tier curve that reaches nothing, and `Fit`, `Alignment`, `Ribbon` become generators.
       `src/sim/reaches` gains `generators`; `actor` gains nothing
 - [ ] The per-suite SOURCE list in `run.sh` is derived from `reaches` the way the archive already
@@ -126,6 +126,20 @@ Three kinds, and the kind is a property of the QUESTION rather than a preference
 can leave as a standard file. **Exactly one generator implements it** -- `src/generators/Structures.h`
 -- and the rest are reached by internal machinery (`GeneratorSet`, `Yield`, `Occupy`, `Proposes`),
 which is a SECOND interface beside the public one.
+
+**And the one generator that DOES stand in it proves both gaps rather than disproving them.**
+`Structures::make` opens:
+
+    const double lat = ask.NorthM;
+    const double lon = ask.EastM;
+    ...
+    plan.CornerAslM = {0.0, 0.0, 0.0, 0.0};
+    plan.BaseAslM   = 0.0;
+
+It reads two fields whose names end in `M` as DEGREES, and it builds at sea level because it has no
+ground to ask. So the georeference is already being smuggled through the door in fields named for
+metres, and the height is simply absent. A name is a promise, and this one is broken inside the
+public header rather than behind it.
 
 Two gaps explain why infrastructure never stood in the door:
 

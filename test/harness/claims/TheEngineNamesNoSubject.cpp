@@ -107,8 +107,12 @@ constexpr Forbidden kSubjects[] = {
     {"Street", 30, "OSM's word for a road, and it decides nothing about a law"},
     {"Bridge", 4, "what a deck DOES is span; a bridge is what a map calls the result"},
     {"Tunnel", 1, "the same, one sign apart"},
-    {"Kerb", 7, "a profile's edge, which is a number in a cross-section"},
-    {"Carriageway", 13, "the surface a corridor sweeps, named for what drives on it"},
+    {"Kerb", 5, "a profile's edge, which is a number in a cross-section"},
+    {"Carriageway",
+     12,
+     "the surface a corridor sweeps, named for what drives on it. Two of the thirteen left with "
+     "Ribbon and Fit when board:2083 moved the makers into the generators, where a subject noun "
+     "is exempt by design"},
 };
 
 } // namespace

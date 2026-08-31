@@ -20,7 +20,7 @@ Where they stand, ten heaviest (STATE.md prints the same list, generated):
     16  src/world/generators/draw/BuildingShape.cpp     5  src/render/stages/ParticipatingMedium.h
     14  src/world/generators/draw/BuildingMesh.cpp      5  src/render/stages/IridescenceLobe.h
      6  src/render/Framing.h                      4  src/render/stages/SubjectDraw.h
-     5  src/world/ground/World.cpp                      4  src/actor/path/ReferenceLine.h
+     5  src/world/ground/World.cpp                      4  src/base/curve/ReferenceLine.h
 
 The generators carry a third: that is where a shape decision lives and where the argument is a
 paragraph rather than a citation.
