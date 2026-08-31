@@ -25,10 +25,23 @@ using outshine::Test::Lines;
 // builds out of those, and it is named in the scenario, in the client, or in a generator -- never
 // in `src/` or `include/`.
 //
-// THE COUNT IS DECLARED AND MAY ONLY FALL, which is the same instrument as `--audit-access` and
-// `EXPECT_FAIL`. A claim demanding zero today would be a claim nobody could turn green, so it
-// would be turned off instead. A declared count refuses in BOTH directions: every word that
-// leaves does so in a commit that says why, and every word that arrives does too.
+// THE WALK MATCHES AN IDENTIFIER COMPONENT, NOT A BARE WORD, and board:2079 is what that cost.
+// The first version of this claim grepped `\bWord\b`, and C++ does not name things in bare words:
+// a word boundary after `Road` fails on `RoadStation`, so the claim read ZERO while `src/engine`
+// named roads thirty-two times. `Terrain` declared zero against two hundred and fourteen, with a
+// comment beside the row asserting the rule held. A green claim is read as evidence, so a blind
+// one is worse than none.
+//
+// The pattern is `Word([^a-z]|$)`: the word followed by anything that is not a lower-case letter.
+// `RoadStation` and `kRoadAboveM` match; `Carriageway` and `Cartesian` do not, which a plain
+// substring walk would have swept up instead. Case matters, so a local called `road` is left to
+// the reader the way `Engine` always was.
+//
+// TWO ZONES, because one number could not decide anything. `src/engine` and `include/` are the
+// MOTOR and the DOOR and they must hold ZERO -- that rule has stood for weeks and both references
+// keep it: Unreal's engine module has no road, RAGE's `fwEntity` has no bridge. Everywhere else
+// carries a DECLARED count that may only fall, which is where a data tier's `TerrainGrid` and a
+// path's `Carriageway` live while they are decided.
 //
 // WHAT IS DELIBERATELY NOT ON THE LIST, because a blacklist that cries wolf gets ignored:
 //   Drive     CLAUDE.md's own vocabulary -- EFFORT or MOTION on a degree of freedom. A drive is
@@ -56,40 +69,46 @@ struct Forbidden {
   const char *Why;
 };
 
-// Each count is what the tree held when the claim was written. They may only fall.
+constexpr const char *kMotor = "src/engine include";
+constexpr const char *kRest = "src --exclude-dir=generators --exclude-dir=engine";
+
+size_t Named(const char *word, const char *where) {
+  const std::string counted =
+      outshine::Test::Ask(std::string("grep -rohE '") + word + "([^a-z]|$)' " + where +
+                          " --include='*.h' --include='*.cpp' 2>/dev/null | wc -l | tr -d ' '");
+  return counted.empty() ? 0u : (size_t)std::strtoul(counted.c_str(), nullptr, 10);
+}
+
+// The count is what the REST held when the walk was fixed. The motor's own count is always zero.
 constexpr Forbidden kSubjects[] = {
-    {"Car", 6, "the assembly itself; RAGE's CVehicle lives in the game layer"},
-    {"Seat", 16, "RAGE's CSeatManager is game-layer; the law is a claimable SLOT with a state"},
-    {"Door", 13, "an assembly of a body and a revolute joint with a drive"},
+    {"Car", 12, "the assembly itself; RAGE's CVehicle lives in the game layer"},
+    {"Seat", 39, "RAGE's CSeatManager is game-layer; the law is a claimable SLOT with a state"},
+    {"Door", 17, "an assembly of a body and a revolute joint with a drive"},
     {"Steering", 8, "a lever ratio on a drive -- a ratio in the same statement, not a part"},
-    {"Brake", 4, "a drive that may not add energy -- the same law as a motor, one sign apart"},
+    {"Brake", 24, "a drive that may not add energy -- the same law as a motor, one sign apart"},
     {"Throttle", 2, "a control command over time, not a part"},
     {"Tyre", 0, "moved onto Contact by board:1897 and must not come back"},
-    {"Wheel", 0, "the noun that implies an axle, a pair and a symmetry"},
+    {"Wheel", 2, "the noun that implies an axle, a pair and a symmetry"},
     {"Chassis", 0, "a body"},
     {"Axle", 0, "a joint between two bodies"},
     {"Pedal", 0, "a control command over time"},
     {"Forest", 0, "a generator's subject; the engine holds a Making and never what it depicts"},
-    {"Terrain", 0, "the same, and CLAUDE.md's own words: the engine knows no terrain"},
-    {"Building",
-     6,
-     "NOT a house: all six are the PARTICIPLE -- ClassBuilder's Stage::Building "
-     "and TriangleBvh's struct Building, which is work in progress. A word list "
-     "cannot tell a noun from a gerund, so this row carries its measured count and "
-     "the reason. The house is BuildingField in the DATA tier, which is OSM's own "
-     "layer name, and src/engine and src/render hold neither"},
-    {"Road", 0, "a corridor is a reference line; a road is what OSM calls one"},
+    {"Terrain",
+     214,
+     "TerrainGrid 69, TerrainField 40, TerrainMesh 34, TerrainBytes 31, TerrainTiles 24, and the "
+     "rest -- every one in the DATA tier and none in the motor. Whether a height field is a law or "
+     "a subject is board:2079's to decide; what is settled is that the engine does not say it"},
+    {"Building", 17, "the house is BuildingField in the data tier and BuildingMesh in a generator"},
+    {"Road", 8, "a corridor is a reference line; a road is what OSM calls one"},
     {"River", 0, "a ribbon with a width; what it depicts is the generator's business"},
     {"Mountain", 0, "ground is a height field and a slope, and it has no proper nouns"},
-    {"Tree",
-     20,
-     "every one is a DATA STRUCTURE and not a subject: sixteen are the markup and "
-     "layout tree, four are TreeNodeBytes accounting a std::map's nodes. The world's "
-     "tree belongs to the generators and reaches the engine as a Making -- src/engine "
-     "named Forest nine times and Tree twelve until this row was written, all of it "
-     "put there by the shipped-forest wiring and all of it moved to "
-     "Generators::Shipping"},
+    {"Tree", 18, "a data structure, and the world's tree belongs to the generators"},
     {"Walker", 0, "an assembly; walking is CONTROL over time"},
+    {"Street", 30, "OSM's word for a road, and it decides nothing about a law"},
+    {"Bridge", 4, "what a deck DOES is span; a bridge is what a map calls the result"},
+    {"Tunnel", 1, "the same, one sign apart"},
+    {"Kerb", 7, "a profile's edge, which is a number in a cross-section"},
+    {"Carriageway", 13, "the surface a corridor sweeps, named for what drives on it"},
 };
 
 } // namespace
@@ -98,38 +117,44 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  size_t rose = 0, fell = 0;
-  std::printf("  %-10s %6s %6s\n", "word", "now", "owed");
+  size_t rose = 0, fell = 0, inMotor = 0;
+  std::printf("  %-12s %7s %7s %7s\n", "word", "motor", "rest", "owed");
   for (const Forbidden &one : kSubjects) {
-    const std::string counted = Ask(std::string("grep -rowh '\\b") + one.Word +
-                                    "' src/ include/ --include='*.h' --include='*.cpp' "
-                                    "--exclude-dir=generators 2>/dev/null | wc -l | tr -d ' '");
-    const size_t now = counted.empty() ? 0u : (size_t)std::strtoul(counted.c_str(), nullptr, 10);
-    const char *moved = now > one.Standing ? "  ROSE" : (now < one.Standing ? "  fell" : "");
-    if (now > one.Standing) { ++rose; }
-    if (now < one.Standing) { ++fell; }
-    std::printf("  %-10s %6zu %6zu%s%s\n",
-                one.Word,
-                now,
-                one.Standing,
-                moved,
-                now != one.Standing ? "" : "");
-    if (now != one.Standing) { std::printf("             %s\n", one.Why); }
+    const size_t motor = Named(one.Word, kMotor);
+    const size_t rest = Named(one.Word, kRest);
+    inMotor += motor;
+    if (rest > one.Standing) { ++rose; }
+    if (rest < one.Standing) { ++fell; }
+    const char *moved =
+        motor > 0 ? "  IN THE MOTOR"
+                  : (rest > one.Standing ? "  ROSE" : (rest < one.Standing ? "  fell" : ""));
+    std::printf("  %-12s %7zu %7zu %7zu%s\n", one.Word, motor, rest, one.Standing, moved);
+    if (motor > 0 || rest != one.Standing) { std::printf("               %s\n", one.Why); }
   }
+  std::printf("\n  %zu subject noun(s) in src/engine and include/, where the count is ZERO\n",
+              inMotor);
+
+  CHECK(inMotor == 0,
+        "**THE MOTOR AND THE DOOR NAME NO SUBJECT**: outshine's engine may not know a street, a "
+        "bridge or a house -- its vocabulary is body, mesh, material, instance, tile, and what a "
+        "thing IS belongs to whoever generated it. Unreal's engine module has no road and RAGE's "
+        "fwEntity has no bridge. This is RED by measurement rather than by aspiration: the walk "
+        "that reported zero could not see a compound, and board:2078 moves the derivation out of "
+        "src/engine/Picturing.cpp, which holds almost all of it");
 
   CHECK(rose == 0,
-        "**THE ENGINE NAMES NO SUBJECT, AND THE COUNT MAY ONLY FALL**: a subject noun in `src/` "
-        "or `include/` decides the shape of everything downstream -- a wheel implies an axle, an "
-        "axle implies a pair, and a machine with one driven wheel or a track cannot then be said "
-        "at all. Unreal puts wheeled movement in a plugin and RAGE puts CVehicle in the game "
-        "layer; both keep the engine speaking laws");
+        "**OUTSIDE THE MOTOR THE COUNT MAY ONLY FALL**: a subject noun decides the shape of "
+        "everything downstream -- a wheel implies an axle, an axle implies a pair, and a machine "
+        "with one driven wheel or a track cannot then be said at all. Unreal puts wheeled movement "
+        "in a plugin and RAGE puts CVehicle in the game layer; both keep the engine speaking laws");
   CHECK(fell == 0,
         "**A COUNT THAT FELL IS RECORDED WHERE IT FELL**: this is not a failure, it is the claim "
         "asking for its own number to be updated in the commit that removed the word, so the "
         "next reader sees what the tree holds rather than what it once held");
 
-  Covers("the engine's vocabulary: no subject noun -- car, seat, door, steering, brake, throttle, "
-         "tyre, wheel, chassis, axle, pedal, walker -- grows in `src/` or `include/`, and every "
-         "one that leaves is recorded in the commit that removed it");
+  Covers("the engine's vocabulary: `src/engine` and `include/` name NO subject -- car, seat, door, "
+         "steering, brake, throttle, tyre, wheel, chassis, axle, pedal, walker, street, road, "
+         "bridge, tunnel, kerb, carriageway, building, terrain -- and outside them the count may "
+         "only fall. The walk matches an identifier COMPONENT, so a compound cannot hide a word");
   return Report();
 }
