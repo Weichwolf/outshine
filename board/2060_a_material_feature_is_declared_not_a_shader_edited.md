@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Area: render
 Tags: shaders, permutations
 
