@@ -126,8 +126,35 @@ node. One function, two callers, and the caller says which.
 difference is board:2086, the world's own content wandering between runs, and it is why none of
 these numbers is a ceiling yet.)
 
-Until the split exists the second derivation cannot go, because deleting it would drop one way in
-five.
+## THE SPLIT IS BUILT AND IT TAKES THE REFUSALS TO ZERO
+
+Done as the item said it had to be, and with no interface changed at all: `Fitted` already names the
+vertex it could not bend around, so the CALLER cuts there and lays each piece. The driving side is
+untouched and still gets its refusal, because a corner a car cannot take is a finding for a driver.
+
+    pieces a reference line was laid to           26 262
+    ways the fit refused                               0      <- was 5 433
+    corners too tight to drive, cut instead        8 151
+    cuts the split made                            8 151
+    pieces the split still could not lay              59      0.22 per cent
+    the offset a laid line needed  p50             0.165 m
+                                   p95             1.026
+                                 worst            18.317
+    the radius a laid line found   tightest        5.500 m    clamped at the declared floor
+                                   p50           121.848
+
+**Zero refusals.** About one way in three carries a cut, and the p95 offset rises from 0.903 m to
+1.026 m -- a short piece fits less well than a long one, which is the price and it is small.
+
+The 59 that still will not lay are pieces left with fewer than three vertices by a cut, or two cuts
+close enough to leave nothing between them. They are named rather than hidden, and they are the
+number the deletion has to answer for.
+
+**So the blocker is gone in principle**: a way that cannot be laid as one line can be laid as
+several, and what stands between the pieces is exactly what board:2076 already builds -- a junction
+body. What remains before `RoadStation` and its three companions can be deleted is the SWEEP: the
+pieces have to be swept by `Ribbon` with the elevation and bank the world computes, and a body has
+to close where each cut was made.
 
 ## What will be true
 

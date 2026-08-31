@@ -1279,6 +1279,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t fitUndrivable = 0;
     size_t fitTooTight = 0;
     std::vector<double> tightDemandM;
+    size_t fitUnsplittable = 0;
+    size_t fitCuts = 0;
     std::vector<double> fitOffsetM;
     std::vector<double> fitRadiusM;
     std::vector<double> fitEastNorth;
@@ -1604,20 +1606,51 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             fitEastNorth.push_back(one.EastM);
             fitEastNorth.push_back(-one.SouthM);
           }
-          ReferenceLine fitted;
-          const Fitted got = Fit(fitEastNorth, kFitWithinM, kFitTightestM, fitted);
-          if (!got.Laid) {
-            ++fitRefused;
-            if (got.Undrivable > 0) {
-              ++fitTooTight;
-              if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
+          size_t from = 0;
+          size_t cuts = 0;
+          bool wholeWay = true;
+          while (from * 2u + 6u <= fitEastNorth.size()) {
+            ReferenceLine fitted;
+            const Fitted got = Fit(Span<const double>(fitEastNorth.data() + from * 2u,
+                                                      fitEastNorth.size() - from * 2u),
+                                   kFitWithinM,
+                                   kFitTightestM,
+                                   fitted);
+            if (got.Laid) {
+              ++fitLaid;
+              fitOffsetM.push_back(got.WorstOffsetM);
+              if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
+              fitUndrivable += got.Undrivable;
+              break;
             }
-          } else {
-            ++fitLaid;
-            fitOffsetM.push_back(got.WorstOffsetM);
-            if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
-            fitUndrivable += got.Undrivable;
+            if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
+              if (wholeWay) { ++fitRefused; }
+              ++fitUnsplittable;
+              break;
+            }
+            const size_t upTo = got.TightestDemandedAtVertex;
+            if (upTo + 1u >= 3u) {
+              ReferenceLine piece;
+              const Fitted head =
+                  Fit(Span<const double>(fitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
+                      kFitWithinM,
+                      kFitTightestM,
+                      piece);
+              if (head.Laid) {
+                ++fitLaid;
+                fitOffsetM.push_back(head.WorstOffsetM);
+                if (head.TightestRadiusM > 0.0) { fitRadiusM.push_back(head.TightestRadiusM); }
+              } else {
+                ++fitUnsplittable;
+              }
+            }
+            ++fitTooTight;
+            ++cuts;
+            if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
+            from += upTo + 1u;
+            wholeWay = false;
           }
+          fitCuts += cuts;
         }
 
         {
@@ -1840,7 +1873,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("streets: ways a reference line was fitted to", (double)fitLaid, "ways");
       Published.Places("streets: and ways the fit refused", (double)fitRefused, "ways");
       Published.Places(
-          "streets: of those, a corner too tight to drive", (double)fitTooTight, "ways");
+          "streets: corners too tight to drive, cut instead", (double)fitTooTight, "corners");
+      Published.Places("streets: cuts the split made", (double)fitCuts, "cuts");
+      Published.Places(
+          "streets: pieces the split still could not lay", (double)fitUnsplittable, "pieces");
       if (!tightDemandM.empty()) {
         std::ranges::sort(tightDemandM);
         Published.Places("streets: the radius such a corner demanded, p50",
