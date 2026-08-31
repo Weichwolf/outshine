@@ -125,6 +125,9 @@ double Live::Framing() const {
 namespace {}
 
 void Live::Reshape() {
+  if (EverShaped_ && ShapedAt_ == Held_.Changed()) { return; }
+  ShapedAt_ = Held_.Changed();
+  EverShaped_ = true;
   const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
   Shaped_ = Held_.HoldsBuilt()
                 ? (alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
@@ -238,7 +241,7 @@ bool Live::Build(std::string &error) {
       }
       if (!arriving.Poses(0.0, error)) { return false; }
       AssetReads_ += 1;
-      if (!Held_.Assembled().Append(arriving.Assembled())) {
+      if (!Held_.Appends(arriving.Assembled())) {
         error = "the subject '" + joining + "' would not append onto the one before it";
         return false;
       }
@@ -327,7 +330,7 @@ bool Live::Build(std::string &error) {
         Table_.Slots.push_back(joining.Slots.front());
       }
       const size_t before = Held_.Assembled().Parts().size();
-      if (!Held_.Assembled().Append(*Declared_.Built)) {
+      if (!Held_.Appends(*Declared_.Built)) {
         error = Held_.Assembled().Error();
         return false;
       }
@@ -1018,8 +1021,6 @@ bool Live::Restand(outshine::Geometry &&built,
   const bool stood = Build(error);
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
-  StandMs_ = 0.0;
-  SubmitMs_ = 0.0;
   Carrying_ = 0;
   Declared_.Surfacing = wore;
   return stood;

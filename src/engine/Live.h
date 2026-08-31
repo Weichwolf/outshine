@@ -331,6 +331,8 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
+  uint64_t ShapedAt_ = 0;
+  bool EverShaped_ = false;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double ReshapeMs_ = 0.0, ComposeMs_ = 0.0;
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;

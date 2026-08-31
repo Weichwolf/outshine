@@ -16,6 +16,7 @@ void Posed::Clears() {
   Moves_ = false;
   Frames_ = 1;
   AtS_ = 0.0;
+  Changed_ += 1;
 }
 
 bool Posed::Reads(const std::string &path,
@@ -38,6 +39,7 @@ bool Posed::Reads(const std::string &path,
     if (Frames_ < 1) { Frames_ = 1; }
   }
   Read_ = true;
+  Changed_ += 1;
   return true;
 }
 
@@ -71,6 +73,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
                          Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                          Span<const double>(Weights_.data(), Weights_.size()),
                          Variant_)) {
+      Changed_ += 1;
       if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       {
         uint64_t keyed = 1469598103934665603ull;
@@ -82,6 +85,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
       return true;
     }
   } else if (Assembled_.Build(File_, Variant_)) {
+    Changed_ += 1;
     return true;
   }
   error = Assembled_.Error();

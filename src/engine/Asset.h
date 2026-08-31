@@ -26,12 +26,23 @@ public:
                            std::string &error);
   [[nodiscard]] bool Poses(double seconds, std::string &error);
 
-  void Carries(const Gltf::Subject &built) { Assembled_ = built; }
+  void Carries(const Gltf::Subject &built) {
+    Assembled_ = built;
+    Changed_ += 1;
+  }
 
   void Carries(outshine::Geometry &&built) {
     Built_ = std::move(built);
     HoldsBuilt_ = true;
+    Changed_ += 1;
   }
+
+  [[nodiscard]] bool Appends(const Gltf::Subject &more) {
+    Changed_ += 1;
+    return Assembled_.Append(more);
+  }
+
+  [[nodiscard]] uint64_t Changed() const { return Changed_; }
 
   [[nodiscard]] bool HoldsBuilt() const { return HoldsBuilt_; }
 
@@ -40,8 +51,6 @@ public:
   [[nodiscard]] const Gltf::Document &File() const { return File_; }
 
   [[nodiscard]] const Gltf::Subject &Assembled() const { return Assembled_; }
-
-  [[nodiscard]] Gltf::Subject &Assembled() { return Assembled_; }
 
   [[nodiscard]] bool Measures(double seconds, std::string &error);
 
@@ -76,6 +85,7 @@ private:
   Gltf::Subject Assembled_;
   outshine::Geometry Built_;
   bool HoldsBuilt_ = false;
+  uint64_t Changed_ = 0;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;

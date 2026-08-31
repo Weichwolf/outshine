@@ -251,3 +251,44 @@ What this item is actually owed, measured on the product path:
 
 That is where a planner would earn its keep, and it is `Live::Build`'s submission path rather than
 anything in `Grounds()`.
+
+## THE SHAPE WAS BUILT TWICE PER REBUILD, and 152 ms of Shibuya's hand-over was the second one
+
+Once the product path could be read, the 405 ms of `standing and submitting INSIDE Build` split:
+
+    settling placements and lights   152.167 ms
+    laying the surface                 0.870 ms
+    streams to the device            252.122 ms
+
+and `settling placements and lights` came to within 4 microseconds of `stand: shaping it a second
+time` (152.163). That is not a coincidence -- `Live::Stand` opens with `Reshape()`, and `Live::Build`
+had already called it 400 lines earlier. `Reshape()` is a pure function of `Held_` and `ShapeParts_`
+and neither moves between the two calls, so the second one rebuilt an identical `Render::Shape`.
+
+Two of those three numbers could not be read at all before this: `Restand(Geometry&&)` ZEROED
+`StandMs_` and `SubmitMs_` right after `Build` returned. That zeroing was correct when it was
+written -- 7f90617b removed a second stand-and-submit from `Restand` itself and the zeroes said
+"this path no longer does it twice" -- but `Build` stands and submits INSIDE, writing those same
+three fields, and the zeroes then deleted `Build`'s own measurement. The sentence stayed true; the
+numbers stopped being.
+
+**The fix is a stamp on the source, not a deleted call.** `Stand()` is also reached from the frame
+path, where `Held_` really has moved, so removing its `Reshape()` would be right for one caller and
+wrong for the other. `Core::Posed` now carries `Changed()`, a counter bumped by every mutator that
+`Reshape` reads through -- `Clears`, `Reads`, both `Carries`, `PoseInto`, and a new `Appends` that
+replaces the non-const `Assembled()` door so no mutation can slip past the counter. `Reshape()`
+records the stamp it shaped and returns when it matches.
+
+    Shibuya, product path             before      after
+    stand: shaping it a second time  152.163     0.001 ms
+    settling placements and lights   152.167     0.003 ms
+    walking it into the proxy          565.5     410.7 ms
+
+Picture 732bd2de, bit-identical.
+
+**What is left, and it is one item rather than a scheduler:** `and the streams to the device`
+250.9 ms, which is `Render::Place`. Inside it, `SubjectProxy.cpp:520` walks EVERY BYTE of every
+index and every attribute stream through an FNV loop one byte at a time to publish
+`restand: the geometry handed over, digested`. Shibuya hands over 587 MB. That is a DIAGNOSTIC on
+the product path, the same shape of defect as the depth-pyramid readback, and it is measured next
+rather than assumed.
