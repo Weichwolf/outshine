@@ -87,6 +87,23 @@ the whole 600 m walk and `world: times a round stopped at that ceiling` stays 0 
 fetched. The seconds are spent re-laying a world that was already resident, serially, which is
 board:2056's subject measured on its own case for the first time.
 
+## THE INSTRUMENT DOES NOT REPEAT ON ITS HEAVIEST PLACE, and the gate records one run
+
+Three consecutive runs, same binary, same tree:
+
+    Heidelberg    p99 453.01  479.87  468.73     over budget  5,  5,  5
+    CentralPark   p99  29.10   22.64   17.64     over budget 50, 15,  3
+
+Heidelberg repeats to 3 per cent. CentralPark falls monotonically and its over-budget count goes
+fifty, fifteen, three -- warm-up rather than the scene, and it is the place carrying 3.9 M building
+triangles. A single run is what a case records, so for that one place the row is whatever state the
+machine happened to be in.
+
+**A distribution that does not repeat is not a distribution.** This item owes a repeatability
+statement beside the numbers: how many runs, and which places the figure is good for. Until then a
+p99 from CentralPark cannot be compared with another p99 from CentralPark, which is exactly the
+mistake made once already in board:2056 and corrected there.
+
 ## AND THE VARIATION WAS READ FROM THE WRONG FRAME, the moment the camera moved
 
 `shot.VariationAlongRows` was read AFTER the timed loop, from whatever was in the framebuffer.

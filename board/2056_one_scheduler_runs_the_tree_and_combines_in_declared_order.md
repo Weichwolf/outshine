@@ -142,9 +142,20 @@ It costs 1.55 MB against 0.19 MB -- 1.36 MB for 27x on the dominant phase.
 | Jura | 14.29 | **4.99** |
 | **CentralPark** | 18.51 | **27.95** |
 
-**CentralPark got WORSE** -- p95 7.58 to 18.94 and eight frames over budget against two. It is the
-one place whose p99 was already in milliseconds rather than seconds, and it is not explained. It
-is written here rather than averaged away.
+**CentralPark did NOT get worse -- that reading was noise taken for signal, and the correction is
+the more useful finding.** Three consecutive runs of the same binary on the same tree:
+
+    CentralPark   p99 29.10   22.64   17.64      over budget 50, 15, 3
+    Heidelberg    p99 453.01  479.87  468.73     over budget  5,  5, 5
+
+Heidelberg repeats to 3 per cent. **CentralPark falls monotonically across runs and its
+over-budget count drops from fifty to three** -- that is warm-up, not geometry, and it is the
+place with 3.9 M building triangles.
+
+So the instrument is repeatable for five of six places and NOT for the heaviest, while the gate
+records exactly ONE run. Every p99 comparison in this item holds for the five and is void for
+CentralPark. **A distribution that does not repeat is not a distribution**, and this instrument
+does not yet say which of its places it can measure.
 
 **What this does to the item.** Four cores would have quartered the rebuild. A constant
 twenty-seven-folded the phase that held 78 per cent of it. The scheduler is still owed -- 760 ms
