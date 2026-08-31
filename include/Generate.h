@@ -12,11 +12,51 @@
 
 namespace outshine {
 
+/// What a generator may ask about the ground it is standing something on, supplied by whoever owns
+/// that ground rather than reached for.
+///
+/// A generator that read the engine's terrain directly would link the engine, and the generators
+/// are a tier that links with none of it -- that separation is what lets a corpus score a
+/// derivation without booting a renderer. So the caller passes an answerer and the generator asks.
+class Samples {
+public:
+  virtual ~Samples() = default;
+  Samples(const Samples &) = delete;
+  Samples &operator=(const Samples &) = delete;
+
+  /// The ground's height above the ellipsoid at a place, or a refusal.
+  ///
+  /// @param latDeg latitude in degrees
+  /// @param lonDeg longitude in degrees
+  /// @param into   the height in metres, written only when the answer is yes
+  /// @return whether the ground is KNOWN there. False is not zero: a tile that has not arrived and
+  ///         a sea-level plain are different answers, and a generator that cannot tell them apart
+  ///         builds a house at zero.
+  [[nodiscard]] virtual bool heightAslM(double latDeg, double lonDeg, double &into) const = 0;
+
+protected:
+  Samples() = default;
+};
+
+/// Where a generator is asked to make something, and what it may ask about that place.
 struct Ask {
-  double EastM = 0.0;
-  double NorthM = 0.0;
+  /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
+  /// and a local metre offset with no origin cannot say. The fields carried metres in their names
+  /// and degrees in their values until board:2083 measured it.
+  double LatDeg = 0.0;
+
+  /// The centre's longitude, in degrees.
+  double LonDeg = 0.0;
+
+  /// How far the window reaches, in metres.
   double ExtentM = 0.0;
+
+  /// The seed every random choice descends from, so one declaration makes one world twice.
   uint64_t Seed = 0;
+
+  /// The ground beneath, or nothing when the caller has none to offer. A generator that needs a
+  /// height and is given no answerer refuses rather than assuming a plain at zero.
+  const Samples *Ground = nullptr;
 };
 
 /// A generator's request that the ground become FLAT under what it made, and OPTIONAL by design: a

@@ -324,10 +324,25 @@ Result Engine::declare(const Scenario &scenario) {
 }
 
 bool Engine::generated(const Scenario &scenario) {
+  class Stands final : public Samples {
+  public:
+    explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
+
+    [[nodiscard]] bool heightAslM(double latDeg, double lonDeg, double &into) const override {
+      return From_.At(latDeg, lonDeg).TryAslM(&into);
+    }
+
+  private:
+    const GroundQuery &From_;
+  };
+
+  const Stands stands(S_->World.Stack.Ground());
+
   Ask ask;
-  ask.EastM = scenario.Ground.Origin.LongitudeDeg;
-  ask.NorthM = scenario.Ground.Origin.LatitudeDeg;
+  ask.LatDeg = scenario.Ground.Origin.LatitudeDeg;
+  ask.LonDeg = scenario.Ground.Origin.LongitudeDeg;
   ask.ExtentM = scenario.Ground.Origin.RadiusM;
+  ask.Ground = &stands;
 
   Geometry made;
   const auto asked = [&](const std::string &kind) {

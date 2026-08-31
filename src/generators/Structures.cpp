@@ -27,8 +27,8 @@ constexpr double kMetresPerDegree = 111320.0;
 bool Structures::make(const Ask &ask, Geometry &into) const {
   const double sideM = ask.ExtentM > 0.0 && ask.ExtentM < 200.0 ? ask.ExtentM : 12.0;
   const double halfDeg = 0.5 * sideM / kMetresPerDegree;
-  const double lat = ask.NorthM;
-  const double lon = ask.EastM;
+  const double lat = ask.LatDeg;
+  const double lon = ask.LonDeg;
 
   const double ring[kCorners * 2] = {lat - halfDeg,
                                      lon - halfDeg,
