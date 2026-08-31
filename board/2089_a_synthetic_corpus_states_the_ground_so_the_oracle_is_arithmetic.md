@@ -89,6 +89,42 @@ would flatten exactly like this. It is the first thing to instrument next.
 Writing down what is ruled out is the point: the next pass starts with six answers rather than
 seven questions.
 
+## THE OSM HALF: the seam, and the storage it has to fill
+
+The terrain half is done and the structures follow the SAME pattern -- declare in the door,
+synthesise at the source -- so the search is over and only the build remains. Written down because
+finding these seams was the expensive part.
+
+`OsmField` is the source. It has one entry today, `Accept(tx, ty, vectorTile)`, which takes raw MVT
+bytes; a declared structure must NOT go through an encoder, so it fills the arrays directly:
+
+    Points_    lat, lon pairs, appended in order
+    Rings_     Ring{First, Count, Exterior}      -- a way is one ring, Exterior false
+    Features_  Feature{FirstRing, RingCount, FirstTag, TagCount, Tile, Layer, Type, bbox}
+    Tiles_     Tile{Z, X, Y, FirstFeature, FeatureCount}
+    Tags_      indices into Keys_ / Values_, interned through Intern()
+    Keys_ Strings_ Values_ with KeyIndex_ / StringIndex_
+
+`Type` is what the consumers switch on -- `BuildingField` takes `f.Type == 3`, so a building is 3
+and a way is not. `Layer` indexes `Layers_`, which the field is constructed with.
+
+The door mirrors `<relief>`:
+
+    <world>
+      <relief kind="sineRidge" .../>
+      <osm>
+        <way kind="residential" widthM="6">lat,lon lat,lon ...</way>
+        <area kind="building" heightM="8">lat,lon ...</area>
+      </osm>
+    </world>
+
+and the reader, the writer and the round trip come with it, as the relief's did.
+
+**And the camera is decided rather than inherited.** A cell is ONE structure on 200 m of ground,
+seen obliquely from 80 m, filling the frame, flat-shaded, no atmosphere -- because a 30 cm gap is
+what has to be visible, and in a twelve-kilometre vista it is not. The first grid renders were a
+whole town seen from altitude, which is the wrong instrument for the question.
+
 ## What will be true
 
 - [ ] The terrain is a declared function, not a fetched tile, so a cell runs offline and in
