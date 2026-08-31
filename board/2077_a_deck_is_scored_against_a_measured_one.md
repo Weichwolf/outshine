@@ -13,7 +13,7 @@ and 2078's oracle says nothing about whether a deck stands high enough over what
 **Benchmark** — Unreal's automation compares screenshots bit for bit; RAGE's replay plays a drive
 back frame for frame. **Both agree that a picture is judged against a RECORDING**, and this tree
 already lives by that for the places. What it has no recording of is a STRUCTURE: the bridge deck
-heights board:2075 infers are judged by eye today, and an eye cannot tell 42 m from 53 m at a
+heights board:2082 infers are judged by eye today, and an eye cannot tell 42 m from 53 m at a
 kilometre.
 
 ## A PLACE IS A CAMERA; A CORPUS IS AN EXTENT, AND ONLY THE SECOND BOUNDS THE SCORE

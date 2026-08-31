@@ -88,4 +88,4 @@ highest corner, so a few no longer clear the pixel budget for full architecture.
 and the ground ring's vertices stand 24.86 m apart while a house is 15 m across -- so a pad for a
 house cannot be expressed in the ring at all today. Until the ground is refined where a structure
 stands, the mean seat leaves the uphill side of a slope building buried. That is the same sub-tile
-refinement board:2075's goal already asks for, and the two are one piece of work.
+refinement board:2082's goal already asks for, and the two are one piece of work.

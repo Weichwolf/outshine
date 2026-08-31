@@ -3,6 +3,12 @@ State: active
 Area: world, generators
 Tags: infrastructure, osm, measured, picture
 
+**Filed as 2075 in error and renumbered to 2082.** 2075 had already been ISSUED and closed, and this
+tree's rule is that a number is issued ONCE and never again -- taking it from the DIRECTORY, which
+remembers only what is open, reuses the number of something closed and two things then share an
+identity for good. `ACommitSayingClosedRemovedTheItem` caught it: 31 closures announced since the
+claim was written, one of them still standing on the board.
+
 # Infrastructure is a CLOSED BODY and a deck knows what it crosses
 
 **GOAL.** Infrastructure is geometry held to a building's standard: every road, bridge, ramp, tunnel

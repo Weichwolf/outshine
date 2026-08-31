@@ -20,7 +20,7 @@ be, and it meshes ASAM OpenDRIVE rather than inventing a road model.
 Two ways meeting at an OSM node have different directions, so their profile rings are rotated
 against each other and their corners are not in the same place. Snapping welds only what already
 coincides, and at a junction almost nothing does. Every way sweeps straight through the intersection
-and the bodies interpenetrate, which is what board:2075's goal forbids in as many words.
+and the bodies interpenetrate, which is what board:2082's goal forbids in as many words.
 
 ## THE METHOD EXISTS AND IS IMPLEMENTED FOUR TIMES
 
