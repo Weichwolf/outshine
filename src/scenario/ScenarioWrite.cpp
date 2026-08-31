@@ -71,8 +71,12 @@ std::string WriteScenario(const Scenario &declared) {
       Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
       Number(said, "seed", (double)declared.Ground.Shape.Seed);
       said += "/>\n";
-      for (const Structure &one : declared.Ground.Osm) {
+      if (!declared.Ground.Osm.empty()) {
         said += "    ";
+        said += "<osm>\n";
+      }
+      for (const Structure &one : declared.Ground.Osm) {
+        said += "      ";
         said += one.Area ? "<area" : "<way";
         Said(said, "kind", one.Kind);
         if (one.WidthM > 0.0) { Number(said, "widthM", one.WidthM); }
@@ -85,6 +89,7 @@ std::string WriteScenario(const Scenario &declared) {
         Said(said, "points", shape);
         said += "/>\n";
       }
+      if (!declared.Ground.Osm.empty()) { said += "    </osm>\n"; }
       said += "  </world>\n";
     }
   }

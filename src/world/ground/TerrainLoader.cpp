@@ -188,10 +188,10 @@ void GroundStream::KeepCoarse(long x, long y) const {
   const TerrainField *field = grid.TryField();
   if (held.Pending) { return; }
   const uint32_t stride = held.Stitched->Stride();
-  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
-  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
-  const int gc = field ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const int gr = field != nullptr ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
+  const int gc = field != nullptr ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   victim->X = x;
   victim->Y = y;
@@ -309,10 +309,10 @@ const Tile *GroundStream::TileAt(long x, long y) const {
     Log::Error("world", "ground_grid_failed", {{"z", Surface_.Z}, {"x", (int)x}, {"y", (int)y}});
   }
   const uint32_t stride = held.Stitched->Stride();
-  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
-  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
-  const int gc = field ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const int gr = field != nullptr ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
+  const int gc = field != nullptr ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   if (held.Pending) { return nullptr; }
   held.Builds++;
