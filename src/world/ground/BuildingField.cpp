@@ -37,7 +37,8 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
   const bool onStreet = standBackM >= 0.0 && standBackM <= kOnTheStreetM;
 
   const bool aPlot = areaM2 >= 70.0;
-  int least = 1, most = 2;
+  int least = 1;
+  int most = 2;
   if (onStreet && aPlot && acrossM <= 14.0) {
     least = 3;
     most = 5;
@@ -59,11 +60,15 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
 
 double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
+  const double refLat = pts[(size_t)ring.First * 2];
+  const double refLon = pts[(size_t)ring.First * 2 + 1];
   double a = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const uint32_t j = (k + 1) % ring.Count;
-    double ek = 0.0, nk = 0.0, ej = 0.0, nj = 0.0;
+    double ek = 0.0;
+    double nk = 0.0;
+    double ej = 0.0;
+    double nj = 0.0;
     EnuOffsetM(refLat,
                refLon,
                pts[((size_t)ring.First + k) * 2],
@@ -83,10 +88,15 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
 
 double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
-  double e0 = 1e30, e1 = -1e30, n0 = 1e30, n1 = -1e30;
+  const double refLat = pts[(size_t)ring.First * 2];
+  const double refLon = pts[(size_t)ring.First * 2 + 1];
+  double e0 = 1e30;
+  double e1 = -1e30;
+  double n0 = 1e30;
+  double n1 = -1e30;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    double e = 0.0, n = 0.0;
+    double e = 0.0;
+    double n = 0.0;
     EnuOffsetM(refLat,
                refLon,
                pts[((size_t)ring.First + k) * 2],
@@ -108,10 +118,13 @@ Frontage NearestStreet(const OsmField &field,
   Frontage out;
   *standBackM = -1.0;
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
-  double cE = 0.0, cN = 0.0;
+  const double refLat = pts[(size_t)ring.First * 2];
+  const double refLon = pts[(size_t)ring.First * 2 + 1];
+  double cE = 0.0;
+  double cN = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    double e = 0.0, n = 0.0;
+    double e = 0.0;
+    double n = 0.0;
     EnuOffsetM(refLat,
                refLon,
                pts[((size_t)ring.First + k) * 2],
@@ -125,20 +138,31 @@ Frontage NearestStreet(const OsmField &field,
   cN /= (double)ring.Count;
 
   const double padDeg = (kOnTheStreetM + 60.0) / 111000.0;
-  double best = 1.0e30, bE = 0.0, bN = 0.0, bDirE = 0.0, bDirN = 0.0, bHalf = 0.0;
+  double best = 1.0e30;
+  double bE = 0.0;
+  double bN = 0.0;
+  double bDirE = 0.0;
+  double bDirN = 0.0;
+  double bHalf = 0.0;
   for (const WayLine &w : ways) {
     if (w.HalfWidthM * 2.0 < kCarriagewayM) { continue; }
     if (refLat < w.MinLat - padDeg || refLat > w.MaxLat + padDeg) { continue; }
     if (refLon < w.MinLon - padDeg || refLon > w.MaxLon + padDeg) { continue; }
     for (size_t k = 0; k + 3 < w.LatLon.Size(); k += 2) {
-      double aE = 0.0, aN = 0.0, bE2 = 0.0, bN2 = 0.0;
+      double aE = 0.0;
+      double aN = 0.0;
+      double bE2 = 0.0;
+      double bN2 = 0.0;
       EnuOffsetM(refLat, refLon, w.LatLon[k], w.LatLon[k + 1], aE, aN);
       EnuOffsetM(refLat, refLon, w.LatLon[k + 2], w.LatLon[k + 3], bE2, bN2);
-      const double dE = bE2 - aE, dN = bN2 - aN, len2 = dE * dE + dN * dN;
+      const double dE = bE2 - aE;
+      const double dN = bN2 - aN;
+      const double len2 = dE * dE + dN * dN;
       if (len2 < 1.0e-6) { continue; }
       double t = ((cE - aE) * dE + (cN - aN) * dN) / len2;
       t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
-      const double pE = aE + dE * t, pN = aN + dN * t;
+      const double pE = aE + dE * t;
+      const double pN = aN + dN * t;
       const double d = std::hypot(cE - pE, cN - pN);
       if (d >= best) { continue; }
       best = d;
@@ -152,7 +176,8 @@ Frontage NearestStreet(const OsmField &field,
   }
   if (best > 1.0e29 || best <= bHalf) { return out; }
 
-  const double toE = (bE - cE) / best, toN = (bN - cN) / best;
+  const double toE = (bE - cE) / best;
+  const double toN = (bN - cN) / best;
   out.Known = true;
   out.KerbEm = bE - toE * bHalf;
   out.KerbNm = bN - toN * bHalf;

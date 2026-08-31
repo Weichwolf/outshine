@@ -31,20 +31,22 @@ public:
       const uint32_t tile = feats[at].Tile;
       size_t end = at;
       while (end < feats.size() && feats[end].Tile == tile) { end++; }
-      if (!Taken(tile)) { Candidates_.push_back(Next{at, end, tile, true}); }
+      if (!Taken(tile)) {
+        Candidates_.push_back(Next{.From = at, .To = end, .Tile = tile, .Found = true});
+      }
       at = end;
     }
     const auto key = [tiles, centreX, centreY](const Next &one) {
-      if (one.Tile >= tiles.size()) {
-        return (unsigned long long)one.Tile | ((unsigned long long)0xffffu << 48);
-      }
+      if (one.Tile >= tiles.size()) { return 0xffffffffffffffffull; }
       const OsmField::Tile &which = tiles[one.Tile];
-      const long across = (long)which.X - (long)centreX;
-      const long down = (long)which.Y - (long)centreY;
+      const long across = static_cast<long>(which.X) - static_cast<long>(centreX);
+      const long down = static_cast<long>(which.Y) - static_cast<long>(centreY);
       const unsigned long long away =
-          (unsigned long long)(across * across + down * down) & 0xffffull;
-      return (away << 48) ^ ((unsigned long long)(uint32_t)which.Z << 40) ^
-             ((unsigned long long)(uint32_t)which.X << 20) ^ (unsigned long long)(uint32_t)which.Y;
+          static_cast<unsigned long long>(across * across + down * down) & 0xffffull;
+      const unsigned long long zoom = static_cast<unsigned long long>(which.Z) & 0xffull;
+      const unsigned long long sideways = static_cast<unsigned long long>(which.X) & 0xfffffull;
+      const unsigned long long along = static_cast<unsigned long long>(which.Y) & 0xfffffull;
+      return (away << 48u) | (zoom << 40u) | (sideways << 20u) | along;
     };
     std::sort(Candidates_.begin(), Candidates_.end(), [&key](const Next &a, const Next &b) {
       return key(a) < key(b);
