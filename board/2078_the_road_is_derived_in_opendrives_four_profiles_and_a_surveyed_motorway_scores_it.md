@@ -53,6 +53,34 @@ valid/invalid cases, which is a corpus that ships its own NEGATIVE CONTROLS -- t
 most often lacks. It grades rule conformance rather than reconstruction, and it costs an XML reader,
 so it is not this item.
 
+## THE ENGINE MAY NOT KNOW A ROAD OR A HOUSE, and the violation is one file
+
+The rule is the owner's and it is sharper than "the derivation is misplaced": **outshine's engine
+must not know a street, a building, or any other thing a world happens to contain.** Its vocabulary
+is body, mesh, material, instance, tile. A generator knows roads -- that is what generators are FOR,
+and `CLAUDE.md` already carves out the exception in as many words: a generator's whole job is to
+make one concrete thing. It hands the engine a FINISHED result.
+
+Measured across the tiers, by files naming `street`/`road` and `building`:
+
+    src/render/**                        0        0     <- already holds the rule, entirely
+    src/engine/Asset.cpp                 0        1
+    src/engine/Engine.cpp                1        0
+    src/engine/Advancing.cpp             1        1
+    src/engine/EngineHeld.h              1        2
+    src/engine/Picturing.cpp            90       69     <- the violation, and it is one file
+    src/world/ground/**                 12 files with the OSM readers
+    src/generators/**                   12       15     <- where it belongs
+
+`src/render` proves the rule is reachable rather than aspirational: one tier down it already holds
+at zero. **The number that must go to zero is the engine tier's**, and 159 of its 167 mentions are
+in `Picturing.cpp` alone.
+
+The OSM readers under `src/world/ground/` move with it. `src/generators/reaches` already names
+`world`, so a generator may keep reading tiles and elevation from there -- what may not stay is the
+SEMANTICS: a field that knows what `highway=motorway` means is a generator's knowledge, not a
+world's, and the engine reaches `world`.
+
 ## THE DERIVATION IS A GENERATOR, and today it is in the wrong tier
 
 Measured, and it is the structural finding of this item:
@@ -129,6 +157,8 @@ takes the design speed of the class, exactly as the goal demands.
       `e75ee549`
 - [ ] The derivation moves out of `Picturing.cpp` and behind the generators' door as a generator
       that emits the four profiles. The 2 401 / 237 split above is the number that must move
+- [ ] **The engine tier names no street and no building.** 90 + 69 in `Picturing.cpp` and 1-2 each
+      in four more files today; `src/render` already stands at zero, so the target is not a wish
 - [ ] The oracle is flattened ONCE into a station table, so the score does not re-read 10 MB of XML
 - [ ] The client hands out our own stations for a declared window, headless and deterministic --
       two runs, byte-identical rows
