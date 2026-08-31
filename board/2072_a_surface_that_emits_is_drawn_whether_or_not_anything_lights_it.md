@@ -56,13 +56,33 @@ is an emitter fed by the emissive image. Nine others state `gltf-base-colour` an
 
 ## What will be true
 
-- [ ] a part is sent down the LIT path when its surface emits from a MAP, whatever the scene holds,
-      because emission is a term of the surface. With no lights the lit path's gathered terms are
-      zero and the emission is what remains, which is the physics
-- [ ] `MultiUVTest` draws the three logos with NO environment declared at all
-- [ ] Negative control: the same subject with its emissive map removed draws what it drew before,
-      so the change reaches emitters and nothing else
-- [ ] the three cases are re-scored and what remains apart is named
+- [x] a part is sent down the LIT path when its surface emits from a MAP, whatever the scene holds
+      -- `Lit()` is now `HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba) && !Row.Unlit`. With
+      no lights the lit path's gathered terms are zero and the emission is what remains
+- [x] `MultiUVTest` draws the three logos with NO environment declared at all, and HOLDS at
+      100.0000%, worst pixel 5
+- [x] Negative control, and it is 174 cases wide: the whole corpus moves exactly two rows and no
+      other case changes by a digit. 123 held -> 124, 53 apart -> 52
+- [ ] the three cases are re-scored and what remains apart is named -- two remain and the reason is
+      the box below
+
+    MultiUVTest                     88.4148% -> 100.0000%  HELD
+    TextureLinearInterpolationTest  89.0897% ->  94.4393%
+    EmissiveStrengthTest             0.4444% ->   0.4444%  unmoved
+
+## EmissiveStrengthTest DID NOT MOVE, and it is a third field the translator overwrites
+
+Its emitting materials carry NO emissive texture -- `emissiveFactor [0.1, 0.5, 0.9]` with
+`KHR_materials_emissive_strength: 4` and nothing else -- so `Emissive.Rgba` is false and the routing
+above does not reach it, correctly: a CONSTANT emission is what `in.emitted` is for.
+
+What reaches it is the translator, which writes `emissionR="1" emissionG="1" emissionB="1"` for every
+part of every `emission` case. That REPLACES the file's own factor and its strength, so four
+materials that differ only in their emissive strength are all handed the same flat white. Looked at:
+three white quads in a grey room, where the oracle has three of different brightness.
+
+- [ ] a `gltf-emissive` case wears the material the FILE declares rather than a flat white, because
+      the oracle rendered the file's own emissiveFactor and its strength
 
 ## What this does NOT cover
 

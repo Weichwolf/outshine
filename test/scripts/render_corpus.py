@@ -75,9 +75,15 @@ def wears(material, worn, names):
         for at, colour in enumerate(material.get("colourLinearByMaterialIndex", [])):
             by_material[at] = colour
     elif kind == "emission":
+        # `kind` says an emitter and `source` says WHICH SOCKET FEEDS IT, and reading only the first
+        # sends the same row to two different oracles. `gltf-base-colour` wants the base-colour image
+        # through an unlit shader; `gltf-emissive` wants the EMISSIVE image, and KHR_materials_unlit
+        # states that an unlit material ignores emissiveFactor and emissiveTexture -- so declaring
+        # unlit there asks the engine to drop the one socket the case exists to read (board:2071).
+        unlit = "" if material.get("source") == "gltf-emissive" else 'unlit="yes" '
         return ['      <wears part="%d" keepsMaps="yes">'
-                '<row unlit="yes" r="1" g="1" b="1" '
-                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % part
+                '<row %sr="1" g="1" b="1" '
+                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % (part, unlit)
                 for part in range(len(worn))]
     for part, material_at in enumerate(worn):
         colour = by_material.get(material_at)
