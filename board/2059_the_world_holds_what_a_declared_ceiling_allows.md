@@ -153,6 +153,13 @@ and the control has now measured why it is not optional.
       the ingest order is nearest-first and `world: times a round stopped at that ceiling` reads
       374 on Shibuya. What is REFUSED is the farthest; nothing already held is dropped yet, which
       is the difference between a bound and an eviction and is the box below.
+- [ ] **THE WORLD'S FOCUS FOLLOWS SOMETHING THAT MOVES.** board:1457 gave the places a walking
+      camera, and it does NOT unblock this box: `Advancing.cpp:170-174` restands the ground at
+      `Session.Declared.Ground.Origin` -- the SCENARIO's origin -- unless a drive is declared. A
+      walking VIEW does not move the world's centre, so no tile is streamed in and none becomes
+      far. Eviction stays unexercised until either a place declares a `scenario/drive`, which the
+      grammar already carries, or the ground restands where the camera stands.
+      **That choice is this box's first sentence and it is not made yet.**
 - [ ] A tile already held is DROPPED when the camera walks away from it. Today the bound refuses
       what has not arrived; it cannot shrink a set that is already too large, so a long drive
       still ends at the ceiling with the wrong tiles in it.
