@@ -64,3 +64,35 @@ from exactly that number.
 Lane-level geometry. SUMO computes per-LANE polylines at a default 3.2 m and connects them through
 the junction; this tree sweeps one carriageway per way. Lanes are their own item and the driving
 simulation will want them.
+
+## STEP THREE OF FOUR IS BUILT: the ways come back from the node
+
+The trim is the part that removes the interpenetration; the polygon is the part that fills what it
+leaves. Step three is built and measured at Kaiserberg:
+
+    way ends a junction trimmed      12 720
+    the deepest trim                     24.00 m
+    ends STILL crossing, cap bit      3 581      = 28 per cent
+
+**So 72 per cent of junction ends no longer plough through their neighbour, from 100 per cent.**
+
+Each end is trimmed by `(wOther + wMine * cos) / sin` over every other way at the node -- the
+outermost crossing of the thickened edges -- which is the same expression `NBNodeShapeComputer` and
+`osm2streets` arrive at. It runs away with the cotangent when two ways meet almost head on, so it is
+capped at four half-widths: **a trim longer than the road is worse than the overlap it removes**,
+and the count of ends the cap bit is published rather than hidden, because those are exactly the
+bodies still passing through one another.
+
+Two ways that are collinear at a node are not trimmed at all (`sin < 1e-3`), which is right: a way
+split for a tag change is one road and has no junction.
+
+**The vertex-sharing number FELL, 94 068 -> 87 504, and that is the trim working.** Pulling the ends
+back opens the gap the junction body will stand in; sharing cannot rise until that body exists and
+its corners ARE the trimmed ends. The number to watch is `ends STILL crossing`, and it must reach
+zero by a polygon rather than by a bigger cap.
+
+    outshine/places 10 PASS, tidy baseline 4428, both unmoved
+
+- [x] the ways are trimmed back so their bodies stop short of one another
+- [ ] a junction BODY fills the gap, and its corners are the trimmed ends
+- [ ] `ends STILL crossing` reaches zero

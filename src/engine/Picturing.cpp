@@ -826,6 +826,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kRoadStepM = 16.0;
   constexpr double kNodeSnapM = 2.0;
   constexpr int kRampPasses = 12;
+  constexpr double kTrimMostWidths = 4.0;
+  constexpr double kLeastRoadM = 2.0;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
   if (!tinted.empty()) {
@@ -1360,6 +1362,77 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("streets: crossings the plan found", (double)crossingsSeen, "crossings");
     Published.Places("streets: decks a crossing raised", (double)decksRaised, "decks");
     Published.Places("streets: and the most one stands over what it crosses", mostRaisedM, "m");
+    std::vector<double> trimM(ways.Ways().size() * 2u, 0.0);
+    size_t endsTrimmed = 0;
+    size_t endsStillCrossing = 0;
+    double deepestTrimM = 0.0;
+    if (vectors != nullptr) {
+      const std::span<const double> points = vectors->Points();
+
+      struct Leaving {
+        uint32_t Way = 0;
+        uint8_t Side = 0;
+        float DirE = 0.0f;
+        float DirN = 0.0f;
+        float HalfM = 0.0f;
+      };
+
+      std::unordered_map<uint64_t, std::vector<Leaving>> meeting;
+      for (size_t at = 0; at < ways.Ways().size(); ++at) {
+        const Ground::StreetField::Way &lane = ways.Ways()[at];
+        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+        if (!(lane.HalfWidthM > 0.0f)) { continue; }
+        const size_t first = (size_t)lane.FirstPoint * 2u;
+        const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+        if (last + 1 >= points.size()) { continue; }
+        for (int side = 0; side < 2; ++side) {
+          const size_t here = side == 0 ? first : last;
+          const size_t next = side == 0 ? first + 2u : last - 2u;
+          const double perLon = 111320.0 * std::cos(points[here] * std::numbers::pi / 180.0);
+          double outE = (points[next + 1] - points[here + 1]) * perLon;
+          double outN = (points[next] - points[here]) * 111132.0;
+          const double run = std::sqrt(outE * outE + outN * outN);
+          if (!(run > 1.0e-6)) { continue; }
+          outE /= run;
+          outN /= run;
+          meeting[WayEndKey(points[here], points[here + 1])].push_back(
+              Leaving{.Way = (uint32_t)at,
+                      .Side = (uint8_t)side,
+                      .DirE = (float)outE,
+                      .DirN = (float)outN,
+                      .HalfM = lane.HalfWidthM});
+        }
+      }
+      for (const auto &node : meeting) {
+        const std::vector<Leaving> &leaving = node.second;
+        if (leaving.size() < 2) { continue; }
+        for (const Leaving &mine : leaving) {
+          double back = 0.0;
+          for (const Leaving &other : leaving) {
+            if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+            const double cosBetween =
+                (double)mine.DirE * other.DirE + (double)mine.DirN * other.DirN;
+            const double sinBetween =
+                std::fabs((double)mine.DirE * other.DirN - (double)mine.DirN * other.DirE);
+            if (sinBetween < 1.0e-3) { continue; }
+            const double reach =
+                ((double)other.HalfM + (double)mine.HalfM * cosBetween) / sinBetween;
+            back = std::max(back, reach);
+          }
+          const double capped = std::min(back, (double)mine.HalfM * kTrimMostWidths);
+          trimM[(size_t)mine.Way * 2u + mine.Side] = capped;
+          if (capped > 0.01) {
+            ++endsTrimmed;
+            deepestTrimM = std::max(deepestTrimM, capped);
+          }
+          if (back > capped + 0.01) { ++endsStillCrossing; }
+        }
+      }
+    }
+    Published.Places("streets: way ends a junction trimmed", (double)endsTrimmed, "ends");
+    Published.Places("streets: and the deepest trim", deepestTrimM, "m");
+    Published.Places(
+        "streets: ends STILL crossing, the cap bit", (double)endsStillCrossing, "ends");
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
@@ -1420,6 +1493,43 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           lifted[at] = std::max(lifted[at], need);
         }
         for (size_t at = 0; at < along.size(); ++at) { along[at].GradeM += lifted[at]; }
+
+        {
+          std::vector<double> reached(along.size(), 0.0);
+          for (size_t at = 1; at < along.size(); ++at) {
+            const double spanE = along[at].EastM - along[at - 1].EastM;
+            const double spanS = along[at].SouthM - along[at - 1].SouthM;
+            reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
+          }
+          const double wholeM = reached.back();
+          const double fromM = trimM[laneAt * 2u];
+          const double toM = wholeM - trimM[laneAt * 2u + 1u];
+          if (toM - fromM >= kLeastRoadM && (fromM > 0.01 || toM < wholeM - 0.01)) {
+            const auto standAt = [&](double alongM) {
+              size_t at = 1;
+              while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
+              const double span = reached[at] - reached[at - 1];
+              const double part = span > 1.0e-9 ? (alongM - reached[at - 1]) / span : 0.0;
+              const Generators::RoadStation &from = along[at - 1];
+              const Generators::RoadStation &to = along[at];
+              return Generators::RoadStation{
+                  .EastM = from.EastM + (to.EastM - from.EastM) * part,
+                  .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                  .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+            };
+            std::vector<Generators::RoadStation> kept;
+            kept.push_back(standAt(fromM));
+            for (size_t at = 0; at < along.size(); ++at) {
+              if (reached[at] > fromM && reached[at] < toM) { kept.push_back(along[at]); }
+            }
+            kept.push_back(standAt(toM));
+            along.swap(kept);
+          }
+        }
+        if (along.size() < 2) {
+          ++refusedWays;
+          continue;
+        }
         if (lane.Bridge && waterRow >= 0 && classStructure) {
           double overWaterM = 0.0;
           for (size_t at = 1; at < along.size(); ++at) {
