@@ -23,6 +23,7 @@
 #include "NormalFromMap.h"
 #include "SceneTargets.h"
 #include "ShaderPrelude.h"
+#include "VertexArms.h"
 #include "SurfaceState.h"
 #include "ShaderFile.h"
 
@@ -146,25 +147,7 @@ const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
 }
 
 const char *SubjectDraw::VertexEntry(VertexLayout layout) {
-  switch (layout) {
-    case VertexLayout::Position: return "vs";
-    case VertexLayout::PositionUv: return "vsTextured";
-    case VertexLayout::PositionUvUv1: return "vsTexturedTwo";
-    case VertexLayout::PositionNormal: return "vsLit";
-    case VertexLayout::PositionNormalUv: return "vsLitTextured";
-    case VertexLayout::PositionNormalUvUv1: return "vsLitTexturedTwo";
-    case VertexLayout::PositionNormalUvTangent: return "vsMapped";
-    case VertexLayout::PositionNormalUvUv1Tangent: return "vsMappedTwo";
-    case VertexLayout::PositionColour: return "vsTinted";
-    case VertexLayout::PositionUvColour: return "vsTexturedTinted";
-    case VertexLayout::PositionUvUv1Colour: return "vsTexturedTwoTinted";
-    case VertexLayout::PositionNormalColour: return "vsLitTinted";
-    case VertexLayout::PositionNormalUvColour: return "vsLitTexturedTinted";
-    case VertexLayout::PositionNormalUvUv1Colour: return "vsLitTexturedTwoTinted";
-    case VertexLayout::PositionNormalUvTangentColour: return "vsMappedTinted";
-    case VertexLayout::PositionNormalUvUv1TangentColour: return "vsMappedTwoTinted";
-  }
-  return "vs";
+  return VertexArmName(layout);
 }
 
 std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
@@ -197,7 +180,8 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
          "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " + (options.IdentityIndex >= 0 ? "1" : "0") +
          "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
          std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex) + "\n" + bindings +
-         body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped;
+         body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped +
+         VertexArmsMsl();
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {

@@ -21,19 +21,6 @@ vertex LOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
   return o; \
 }
 
-SUBJECT_LIT_ARM(vsLit, SUBJECT_NO_COLOUR_ATTRIBUTE,
-                float2(0.0), float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_LIT_ARM(vsLitTextured, SUBJECT_UV_ATTRIBUTE,
-                v.uv, float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_LIT_ARM(vsLitTexturedTwo, SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE,
-                v.uv, v.uv1, SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_LIT_ARM(vsLitTinted, SUBJECT_COLOUR_ATTRIBUTE,
-                float2(0.0), float2(0.0), v.colour)
-SUBJECT_LIT_ARM(vsLitTexturedTinted, SUBJECT_UV_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
-                v.uv, float2(0.0), v.colour)
-SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
-                SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
-                v.uv, v.uv1, v.colour)
 
 static inline float3 shadeRow(constant M &surface, constant Lights &lights,
                               device const float *skyIrradiance,

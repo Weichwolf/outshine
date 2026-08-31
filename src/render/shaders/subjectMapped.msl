@@ -24,11 +24,6 @@ vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
   return o; \
 }
 
-SUBJECT_MAPPED_ARM(vsMapped, SUBJECT_NO_COLOUR_ATTRIBUTE, float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_MAPPED_ARM(vsMappedTwo, SUBJECT_UV1_ATTRIBUTE, v.uv1, SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_MAPPED_ARM(vsMappedTinted, SUBJECT_COLOUR_ATTRIBUTE, float2(0.0), v.colour)
-SUBJECT_MAPPED_ARM(vsMappedTwoTinted, SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
-                   v.uv1, v.colour)
 
 static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
                                   sampler normalSampler, MOut in, bool front) {

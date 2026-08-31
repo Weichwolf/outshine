@@ -26,11 +26,44 @@ they should be invoked FROM.
 
 ## What will be true
 
-- [ ] the axes and the combinations that stand are ONE table, and both the shader arms and the
-      names the renderer asks for are generated from it
+- [x] the axes and the combinations that stand are ONE table, and both the shader arms and the
+      names the renderer asks for are generated from it -- **for the VERTEX arms**
+- [ ] the same for the FRAGMENT entries. Nineteen of them, and unlike the vertex arms they are
+      hand-written BODIES with different logic per alpha kind rather than macro invocations, so
+      generating them means macro-ising the bodies first. That is the larger half and it is what
+      remains of this item.
 - [ ] a new material feature is a row, and no .msl and no string literal is edited to add it
 - [ ] the pictures do not move, because a generated variant set that draws differently is a
       different variant set
+
+## THE VERTEX HALF IS ONE TABLE, and the pictures did not move
+
+`src/render/stages/VertexArms.h` holds the sixteen rows as
+`(Layout, Normal, Tangent, Uv, Uv1, Colour)`. Both sides are generated from it:
+
+- the NAME, by the rule `vs` + base + `Textured` + `Two` + `Tinted`, with the one exception the
+  hand-written switch already carried -- a `Mapped` arm always has a uv, so its name does not
+  spell it;
+- the MSL invocation, with the attribute list and the three value expressions.
+
+Two `static_asserts` hold the table to the truth: every `VertexLayout` has a row, and every row
+sits at the index its own layout names, so the lookup is not a search. A missing arm now fails to
+COMPILE rather than at pipeline creation.
+
+Sixteen `SUBJECT_*_ARM` lines left the three .msl files and a sixteen-case switch left
+`SubjectDraw.cpp`. **Heidelberg renders 0da91522 and Shibuya 732bd2de, both unchanged, and
+`outshine/places` holds 8 PASS.** A generated variant set that draws differently would be a
+different variant set; this one is the same one.
+
+## AND THE GUARD BELOW WENT BLIND TO IT
+
+`entries_vs_shaders.py` reads TEXT -- entry points spelled in an .msl, names spelled as string
+literals beside the renderer. It went from `38 define, 37 name` to `23 define, 22 name` and
+reported **0 named and undefined**, because BOTH of its inputs lost the same fifteen names at
+once. It stayed green through exactly the change it exists to catch, approached from the other
+side.
+
+It now prints what it does not cover. The eighth check this session found that could not fail.
 
 ## What holds until then
 

@@ -17,19 +17,6 @@ vertex SOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]], \
   return o; \
 }
 
-SUBJECT_EMITTED_ARM(vs, SUBJECT_NO_COLOUR_ATTRIBUTE,
-                    float2(0.0), float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_EMITTED_ARM(vsTextured, SUBJECT_UV_ATTRIBUTE,
-                    v.uv, float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_EMITTED_ARM(vsTexturedTwo, SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE,
-                    v.uv, v.uv1, SUBJECT_NO_VERTEX_COLOUR)
-SUBJECT_EMITTED_ARM(vsTinted, SUBJECT_COLOUR_ATTRIBUTE,
-                    float2(0.0), float2(0.0), v.colour)
-SUBJECT_EMITTED_ARM(vsTexturedTinted, SUBJECT_UV_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
-                    v.uv, float2(0.0), v.colour)
-SUBJECT_EMITTED_ARM(vsTexturedTwoTinted,
-                    SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
-                    v.uv, v.uv1, v.colour)
 
 fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;

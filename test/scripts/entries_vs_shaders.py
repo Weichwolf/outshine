@@ -34,6 +34,19 @@ def main():
     unreached = sorted(one for one in defined if one.startswith(("fs", "vs")) and one not in asked)
     print(f"{len(defined)} entry point(s) the shaders define, {len(asked)} the renderer names, "
           f"{len(missing)} named and undefined, {len(unreached)} defined and unnamed")
+    # WHAT THIS DOES NOT COVER, and it went blind to it the day the vertex arms were generated
+    # (board:2060). This reads TEXT: entry points spelled in an .msl and names spelled as string
+    # literals beside the renderer. The sixteen vertex arms are now GENERATED from
+    # VertexArms.h's table, so they appear in neither -- both of this check's inputs lost the
+    # same fifteen names at once and the difference stayed zero. It stayed GREEN through the
+    # change it exists to catch, from the other side.
+    #
+    # What holds them instead is stricter: two static_asserts in VertexArms.h prove every
+    # VertexLayout has a row and every row sits at its own index, so a missing arm fails to
+    # COMPILE rather than at pipeline creation. This check is now about the HAND-WRITTEN
+    # fragment entries, and it says so rather than implying a coverage it lost.
+    print("  NOT COVERED: the vertex arms, generated from VertexArms.h and held by its "
+          "static_asserts instead. This counts the hand-written entries.")
     for one in missing:
         print(f"  NAMED AND UNDEFINED  {one}")
     for one in unreached:
