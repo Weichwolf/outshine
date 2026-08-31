@@ -81,8 +81,24 @@ part of every `emission` case. That REPLACES the file's own factor and its stren
 materials that differ only in their emissive strength are all handed the same flat white. Looked at:
 three white quads in a grey room, where the oracle has three of different brightness.
 
-- [ ] a `gltf-emissive` case wears the material the FILE declares rather than a flat white, because
-      the oracle rendered the file's own emissiveFactor and its strength
+- [x] a `gltf-emissive` case wears the material the FILE declares rather than a flat white -- the
+      arm now writes NO `<wears>` at all for those three, because anything it writes replaces the
+      file's own factor and its strength
+
+    EmissiveStrengthTest            0.4444% ->  91.3529%   five graded quads on black, LOOKED AT
+    TextureLinearInterpolationTest 89.0897% ->  99.9998%   HELD
+    MultiUVTest                   100.0000% -> 100.0000%   unmoved, its factor already being [1,1,1]
+
+**The corpus over this whole round: 123 held -> 125, 53 apart -> 51**, and a line-by-line diff moves
+exactly four rows, every one of them upward:
+
+    MultiUVTest                     0.0000% -> 100.0000%  HELD
+    TextureLinearInterpolationTest 89.0897% ->  99.9998%  HELD
+    EmissiveStrengthTest            0.4444% ->  91.3529%
+    DirectionalLight               85.7584% ->  86.9599%
+
+What remains apart in the first three is board:2073: their manifests declare a PARALLEL projection
+and the engine draws something else, so they are still scored through the wrong camera.
 
 ## What this does NOT cover
 
