@@ -198,3 +198,56 @@ has nothing to do with a tree standing on it.
 - [ ] a crown shape whose numbers say where they come from, even if that is `[SET]` with a reason
 - [ ] `World.Instances` reaches the geometry, and the count that reaches it is published beside the
       count that was made -- 1311 and 1 today
+
+## THE CANOPY'S NUMBERS HAVE A SOURCE, and ECOSTRESS is the WRONG one
+
+Researched rather than guessed, and the first answer it overturned was my own suggestion. ECOSTRESS's
+vegetation subset is LEAF-ONLY and Californian: no *Picea* at all and no green *Fagus sylvatica*, so
+the library this tree's ground materials are derived from cannot carry a European canopy.
+
+**The spectra: Hovi et al. 2017**, Mendeley Data, CC BY, anonymous download, 350-2500 nm at 1 nm,
+directional-hemispherical reflectance AND transmittance, twenty-six European and boreal species --
+Norway spruce, Scots pine, silver birch, common oak among them. Transmittance is the part that
+matters: a canopy is not a wall of leaves and a two-stream needs both. USGS splib07 is public domain
+but carries bidirectional reflectance FACTORS rather than DHR, which is not the quantity the path
+needs.
+
+**The broadband anchor: Cescatti 2012 or Hollinger 2010**, measured at flux towers:
+
+| | shortwave albedo |
+|---|---|
+| deciduous broadleaf forest | **0.134 +- 0.013** |
+| evergreen needleleaf forest | **0.096 +- 0.022** |
+
+**And the shortwave level must NOT come from the model.** A two-stream over measured leaf optics
+lands within 0.007 of Kuusinen's measured PAR canopy albedos in the VISIBLE -- which is the band
+this renderer works in -- and over-predicts the SHORTWAVE by 1.2 to 1.4x. So the split is the same
+one `ground-materials.json` already makes: chromaticity and the visible level from the spectrum,
+`albedoBroadband` from a measurement, never both from one place.
+
+**A trap worth writing down**, because it is this tree's own green-negative-control shape: CLM's leaf
+table is 20-60 per cent too dark in the near infrared, and that error partly CANCELS the two-stream's
+brightness error. Swapping in measured leaf optics without also correcting the canopy model makes the
+shortwave answer WORSE. The chain agreed with measurement for the wrong reason.
+
+**Two numbers are the FLOOR, not the ceiling.** Broadleaf clusters tightly; conifer does not --
+Norway spruce 0.080 against Scots pine 0.115 in the SAME forest. If this ever splits further it
+splits spruce from pine, not region from region.
+
+## THE GEOGRAPHY THAT MATTERS IS THE CLASSIFICATION, not the albedo
+
+The intuition that a canopy is geo-dependent is right and the useful lookup is not the one it
+suggests. MODIS MCD43A3 albedo needs an Earthdata Login -- verified, the granule GET redirects to
+`urs.earthdata.nasa.gov` OAuth -- and a number this tree cannot RE-DERIVE without a credential is a
+number it should not carry.
+
+What is credential-free is the CLASSIFICATION: CGLS-LC100's Forest-Type layer, CC-BY, an anonymous
+range GET. And it is needed, because **OSM's `leaf_type` covers only about 13 per cent of forest
+polygons** -- so for the other 87 the engine does not know whether it is looking at spruce or beech,
+which is exactly the fork the two numbers above sit on.
+
+- [ ] `foliage.json` beside `ground-materials.json`, same two-path discipline: chromaticity and
+      visible level from Hovi's measured spectra through a two-stream, `albedoBroadband` from
+      Cescatti 2012, each with its citation and its spread
+- [ ] the leaf type comes from OSM where it is tagged and from CGLS-LC100 where it is not, and the
+      count of each is published

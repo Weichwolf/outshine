@@ -1,5 +1,7 @@
 #include "ClassField.h"
 
+#include "OsmLayer.h"
+
 #include <span>
 
 #include "Capacity.h"
@@ -82,6 +84,10 @@ void ClassField::Ingest(Tier &t) {
       continue;
     }
 
+    if (layer == OsmLayerName(OsmLayer::Streets) ||
+        layer == OsmLayerName(OsmLayer::StreetPolygons)) {
+      continue;
+    }
     if (t.Field->Num(f, "tunnel", 0.0) > 0.5) { continue; }
     if (f.Type != 2 && f.Type != 3) { continue; }
     if (f.Type == 2 && rule->WidthM <= 0.0f) {

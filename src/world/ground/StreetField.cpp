@@ -57,6 +57,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
       w.HalfWidthM = ribbon ? rule->WidthM * 0.5f : 0.0f;
       w.CoverRow = (int32_t)rule->Tpl;
       w.Form = ribbon ? Shape::Ribbon : Shape::Area;
+      w.Lanes = rule->Lanes;
       Ways_.push_back(w);
     }
   }

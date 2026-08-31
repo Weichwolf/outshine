@@ -22,6 +22,7 @@ public:
     float HalfWidthM = 0.0f;
     int32_t CoverRow = -1;
     Shape Form = Shape::Ribbon;
+    int32_t Lanes = 0;
   };
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
