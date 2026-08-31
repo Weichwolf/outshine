@@ -80,10 +80,15 @@ def wears(material, worn, names):
         # through an unlit shader; `gltf-emissive` wants the EMISSIVE image, and KHR_materials_unlit
         # states that an unlit material ignores emissiveFactor and emissiveTexture -- so declaring
         # unlit there asks the engine to drop the one socket the case exists to read (board:2071).
-        unlit = "" if material.get("source") == "gltf-emissive" else 'unlit="yes" '
+        if material.get("source") == "gltf-emissive":
+            # AND NOTHING IS WORN AT ALL. The oracle rendered the FILE's own emissiveFactor and its
+            # KHR_materials_emissive_strength, so a row of flat white hands five materials that
+            # differ only in strength the same radiance -- EmissiveStrengthTest read 0.4444% with
+            # three blown quads in a lit room against an oracle of five graded quads on black.
+            return []
         return ['      <wears part="%d" keepsMaps="yes">'
-                '<row %sr="1" g="1" b="1" '
-                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % (part, unlit)
+                '<row unlit="yes" r="1" g="1" b="1" '
+                'emissionR="1" emissionG="1" emissionB="1"/></wears>' % part
                 for part in range(len(worn))]
     for part, material_at in enumerate(worn):
         colour = by_material.get(material_at)
