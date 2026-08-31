@@ -206,3 +206,21 @@ What was KEPT from the attempt, because it is right on its own and cost nothing:
 the ground over AFTER the streets block rather than before it. Alignment and profile are designed,
 then the ground is handed over -- the engineering order. Proved pixel-neutral: all 246 cells HELD
 across the move.
+
+## What the second pass found
+
+`bridgeOverWay` and `bridgeOverWater` were declared WRONG BY ME, not built wrong: the whole 200 m
+way carried `bridge=yes`, so the engine ramped the whole way, which is the correct answer to a
+declaration no map would ever make. A map marks the SPAN. Both structures now declare three ways --
+approach, span with `bridge=yes level=1`, approach -- and the picture is what a bridge looks like:
+at grade, up over the span, back down. The engine was right and the corpus was lying to it.
+
+Two seam artefacts, same class, both sub-metre and both now visible because the larger faults stopped
+hiding them:
+
+    the mitre at a cut corner        a hairline where the junction body meets the carriageway
+    the ends of two ways that meet   a thin dark slit at the same kind of seam
+
+`RaiseJunction` lays its top at the station's GRADE while the carriageway carries crossfall and a
+sealed thickness, so the two surfaces meet a few millimetres apart. One cause, two places. Not
+chased yet, and named here so it is not rediscovered as two separate things.
