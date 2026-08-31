@@ -62,7 +62,8 @@ std::string WriteScenario(const Scenario &declared) {
     if (declared.Ground.Shape.Kind.empty()) {
       said += "/>\n";
     } else {
-      said += ">\n    <relief";
+      said += ">\n    ";
+      said += "<relief";
       Said(said, "kind", declared.Ground.Shape.Kind);
       Number(said, "amplitudeM", declared.Ground.Shape.AmplitudeM);
       Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);

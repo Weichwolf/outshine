@@ -111,7 +111,8 @@ void Usage() {
       "                                   stand each place, draw it, keep the picture\n"
       "  places                           name the places it knows\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] <scenario> [name]   read a declared scenario, stand it, draw it\n"
+      "  run [--rows] [--into <folder>] <scenario> [name]\n"
+      "                                   read a declared scenario, stand it, draw it\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               ask the Earth how high it is there\n"
       "  help                             this\n\n"
@@ -184,10 +185,21 @@ int TakeShots(int argc, char **argv) {
 
 int RunScenario(int argc, char **argv, bool everyMeasure) {
   bool rows = false;
-  while (argc > 0 && std::strcmp(argv[0], "--rows") == 0) {
-    rows = true;
-    --argc;
-    ++argv;
+  std::string into = "khronos";
+  while (argc > 0 && argv[0][0] == '-') {
+    if (std::strcmp(argv[0], "--rows") == 0) {
+      rows = true;
+      --argc;
+      ++argv;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--into") == 0 && argc > 1) {
+      into = argv[1];
+      argc -= 2;
+      argv += 2;
+      continue;
+    }
+    break;
   }
   if (argc < 1) {
     std::printf("outshine-client: name a scenario to run\n");
@@ -204,7 +216,7 @@ int RunScenario(int argc, char **argv, bool everyMeasure) {
     std::printf("outshine-client: %s did not assemble -- %s\n", argv[0], engine.error().c_str());
     return 1;
   }
-  const Shot shot = outshine::Shots::Draw(engine, named, true, "khronos");
+  const Shot shot = outshine::Shots::Draw(engine, named, true, into.c_str());
   if (rows) {
     Row(shot, named.c_str());
   } else {
