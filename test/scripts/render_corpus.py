@@ -108,10 +108,77 @@ def derived_camera(entry):
     return {}
 
 
+kKnownCameraSources = ("manifest", "derived", "gltf")
+
+
+def node_local(node):
+    """One node's local transform as a 4x4, glTF's own frame.
+
+    `matrix` is COLUMN-MAJOR in the file, which is the one place a reader silently transposes and
+    gets a camera that looks somewhere plausible."""
+    if "matrix" in node:
+        return np.array(node["matrix"], dtype=float).reshape(4, 4).T
+    made = np.eye(4)
+    x, y, z, w = node.get("rotation", [0.0, 0.0, 0.0, 1.0])
+    made[:3, :3] = np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ]) @ np.diag(node.get("scale", [1.0, 1.0, 1.0]))
+    made[:3, 3] = node.get("translation", [0.0, 0.0, 0.0])
+    return made
+
+
+def gltf_camera(entry):
+    """The camera the FILE carries, which four manifests name as their source.
+
+    They named it and nothing read it: the translator knew `manifest` and `derived` and fell through
+    to [0,0,3] for anything else, so MultiUVTest -- whose whole point is three faces of one cube in
+    one picture -- was scored on a frame with no subject in it at all (board:2071).
+
+    A glTF camera sits at a NODE and looks down -Z with +Y up, and the node may hang under others:
+    this asset's camera is a child of a rotated parent, so the chain has to be composed rather than
+    the holder read on its own."""
+    if entry.suffix != ".gltf":
+        return {}
+    file = json.loads(entry.read_text())
+    cameras, nodes = file.get("cameras", []), file.get("nodes", [])
+    holder = next((at for at, one in enumerate(nodes) if "camera" in one), None)
+    if holder is None or not cameras:
+        return {}
+    above = {}
+    for at, one in enumerate(nodes):
+        for child in one.get("children", []):
+            above[child] = at
+    chain, at = [], holder
+    while at is not None:
+        chain.append(at)
+        at = above.get(at)
+    world = np.eye(4)
+    for at in reversed(chain):
+        world = world @ node_local(nodes[at])
+    stands = world[:3, 3]
+    forward = world[:3, :3] @ np.array([0.0, 0.0, -1.0])
+    up = world[:3, :3] @ np.array([0.0, 1.0, 0.0])
+    told = {"positionM": list(stands), "lookAtM": list(stands + forward), "upM": list(up)}
+    lens = cameras[nodes[holder]["camera"]].get("perspective", {})
+    if lens.get("yfov"):
+        told["yfovRad"] = lens["yfov"]
+    return told
+
+
 def scenario_for(manifest, entry):
     scene = manifest.get("scene", {})
     camera = scene.get("camera", {})
+    source = camera.get("source", "manifest")
+    if source not in kKnownCameraSources:
+        raise ValueError(f"the manifest names camera source '{source}' and this translator knows "
+                         f"{kKnownCameraSources} -- a source it cannot honour is refused, because "
+                         f"falling back to a default camera scores the harness's own framing "
+                         f"(board:2071)")
     camera = {**camera, **derived_camera(entry)}
+    if source == "gltf":
+        camera = {**camera, **gltf_camera(entry)}
     render = manifest.get("renders", {}).get("default", {})
     at = camera.get("positionM", [0.0, 0.0, 3.0])
     look = camera.get("lookAtM", [0.0, 0.0, 0.0])

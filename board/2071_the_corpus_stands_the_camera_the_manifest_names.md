@@ -49,15 +49,53 @@ again silently, which is the actual defect.
 
 ## What will be true
 
-- [ ] `camera.source: "gltf"` stands the camera the FILE carries -- the node's world transform down
-      its parent chain, position and forward and up in glTF's frame, `yfov` from the perspective
-      block
-- [ ] a `camera.source` the translator does not know is REFUSED with its name, never defaulted. A
-      harness that picks its own camera scores its own choice
-- [ ] `MultiUVTest` shows the three faces the manifest describes, and its score is reported against
-      the oracle rather than against a frame with no subject in it
+- [x] `camera.source: "gltf"` stands the camera the FILE carries -- `gltf_camera()` composes the
+      holder node's world transform down its parent chain, which this asset needs because its
+      camera is a CHILD of a rotated parent, and reads `yfov` from the perspective block
+- [x] a `camera.source` the translator does not know is REFUSED with its name, never defaulted
+- [x] `MultiUVTest` shows the three faces the manifest describes -- LOOKED AT: the cube stands on a
+      black field seen from a corner, three faces in view, at `[7.481, 5.344, 6.508]` and 28.84
+      degrees, which is the file's own camera
 - [ ] Negative control: a manifest whose `source` is misspelt goes RED naming the spelling, and the
-      same manifest spelt right goes green
+      same manifest spelt right goes green -- the refusal is written and NOT yet exercised
+
+## Measured after
+
+    MultiUVTest        0.0000% -> 88.4148%
+    DirectionalLight  85.7584% -> 86.9599%
+
+The whole corpus is 123 held, 53 apart both before and after, and a line-by-line diff of the two
+runs moves exactly those two rows and nothing else. Neither case HOLDS yet, which this item said it
+would not cover -- and looking at `MultiUVTest` says why, below.
+
+## WHAT THE RIGHT CAMERA THEN SHOWED, and it is a second field the translator does not read
+
+The picture is the cube at the manifest's framing wearing FLAT COLOUR FACES and no glTF logo. The
+colours are `uv0.png`, the base-colour image. The oracle is black with three green logos, which is
+`uv1.png` through the EMISSIVE socket -- and the manifest states exactly that:
+`material.source: "gltf-emissive"`.
+
+`wears()` branches on `material.kind` and never reads `material.source`. `kind: "emission"` covers
+two different oracles:
+
+| `material.source` | the oracle's emitter is fed by | the row we write |
+|---|---|---|
+| `gltf-base-colour` | the base-colour image | `r=1 g=1 b=1` -- right |
+| **`gltf-emissive`** | the **emissive** image | `r=1 g=1 b=1` -- the wrong texture |
+
+Nine manifests say `gltf-base-colour` and three say `gltf-emissive`. **All three of the latter are
+APART**, and they are the three whose oracle reads the socket we do not hand over:
+
+    EmissiveStrengthTest            0.4444%
+    MultiUVTest                    88.4148%   (after the camera)
+    TextureLinearInterpolationTest 89.0897%
+
+That is the same shape as the camera: a field the manifest STATES, the translator does not read, and
+a default that is silently plausible. It is the third instance in this one file and it is the next
+box.
+
+- [ ] `material.source: "gltf-emissive"` hands the emissive image rather than the base colour, and
+      the three cases are scored on the socket their oracle actually reads
 
 ## What this does NOT cover
 
