@@ -359,3 +359,45 @@ work is. Shibuya's rebuild, honestly attributed:
 to a scheduler.** The largest item overall is the building meshing at 879 ms, which happens during
 streaming and is `builtAhead`. Neither is the "single thread packing channels" this item was filed
 on: `rebuild: of the streams, packing them` reads 0.000 ms.
+
+## THE PREMISE MOVED, and the honest statement is that this item no longer has the biggest number
+
+This item was filed on "748.6 of 776 ms of Shibuya's rebuild is a single thread packing channels".
+Two of those words are now measurably wrong. `rebuild: of the streams, packing them` reads
+**0.000 ms**, and Shibuya's rebuild is **352 ms**, not 776 -- 565 of the old figure was the double
+reshape and the geometry digest, both closed above. What is left, and every piece of it measured on
+the product path:
+
+| phase | ms | who owns it |
+|---|---|---|
+| **cooking 23207 clusters** | **132** | board:2058 -- it is INSIDE `CookClusters`, one part |
+| the ground ring generated | 79 | world |
+| the streets and the water | 48 | world, already behind `TilePool`'s hands |
+| the streams to the device | 55 | render |
+| the reshape proper | ~15 | -- |
+
+**No phase left is a trivially parallel loop.** `CookShape` iterates `into.Parts`, and Shibuya has
+FIVE parts of wildly unequal size, so posting that loop to a planner buys five hands on a load one
+of them carries. The parallelism is one level down, inside `CookClusters`, and that is 2058's.
+
+And the building meshing -- `meshMs=879` in the world log, the largest single number in a Shibuya
+run -- **is not in the rebuild frame at all.** `BuildingField::MeshMs_` is cumulative and never
+reset, so 879 ms is the whole run across thirteen `Build` calls, spread through the 15.0 s of
+streaming. The arithmetic settles it: the rebuild's five phases sum to 352 against a p99 of 359, so
+879 ms cannot be inside it. Parallelising it would buy time that is already hidden behind a fetch.
+
+## `Work::Graph` IS REACHED BY NOTHING
+
+`grep -rn "Work::" src/ test/ include/` outside its own two files returns EMPTY. The tree's one
+scheduler -- steps, dependencies, hands, a ready queue and a condition variable, all complete -- has
+no caller and no case. That is this item's first box, and it is the seventh complete-but-unwired
+capability found this session.
+
+**It is deliberately not being wired today.** Wiring an untested scheduler into the rebuild would
+put an unproven combine on the determinism-critical path to save a phase that measurement says is
+not the cost. The order this item now wants:
+
+1. board:2058 takes `CookClusters` -- the 132 ms, and the only phase with real internal parallelism
+2. `TilePool` and `ClassBuilder` post to `Work::Graph` instead of owning hands, with the places'
+   six digests at 1, 2 and 6 hands as the oracle. IO stays separate, as the invariant requires
+3. `kMostSteps 64` / `kMostAfter 8` fall out of the header once something real declares against them
