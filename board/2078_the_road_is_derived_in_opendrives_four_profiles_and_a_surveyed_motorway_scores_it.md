@@ -81,6 +81,37 @@ The OSM readers under `src/world/ground/` move with it. `src/generators/reaches`
 SEMANTICS: a field that knows what `highway=motorway` means is a generator's knowledge, not a
 world's, and the engine reaches `world`.
 
+## THE MACHINERY ALREADY STANDS, AND I BUILT A SECOND ONE BESIDE IT
+
+**This item was filed as "build an OSM -> OpenDRIVE generator" and that was wrong.** `board:1499`
+has stood open for a long time saying, in as many words, "the mechanism is ASAM OpenDRIVE's: the
+reference line's plan view is a sequence of line, arc and spiral; elevation along `s` and the roll
+angle are sequences of cubic polynomials". It is not a plan. It is BUILT:
+
+    src/actor/path/          1 497 lines
+      ReferenceLine.h        enum class Curve { Straight, Arc, Spiral }        <- planView
+                             Placed{ CurvaturePerM, CurvatureRatePerM,
+                                     Slope, SlopeRatePerM,                     <- elevationProfile
+                                     BankRad, BankRatePerM }                   <- lateralProfile
+                             Knot{ AlongM, Value, RatePerM }                   <- the cubics
+                             Segment{ Shape, EntryCurvature, ExitCurvature }   <- the clothoid
+      Ribbon.h               Sweep(line, Section{HalfWidth, Shoulder, Thickness}, from, to, step)
+      Carriageway.h          Stand / StandAt over the line
+      Alignment · Fit · SpeedProfile
+
+    src/generators/Infrastructure.cpp    45 lines, Proposes() returns 0, emits nothing
+    src/engine/Picturing.cpp          2 401 lines, calls NONE of the above
+
+**A complete capability no declaration reaches is `CLAUDE.md`'s named commonest defect here, and
+writing a second one is named as the worst outcome available.** That is exactly what happened:
+`RoadStation`, `RoadProfile`, `RaiseRoad`, `RaiseJunction` are a raw polyline with a constant
+crossfall -- no curvature, no spiral, no bank, no `s`. The one already standing is strictly better
+and is the one both references would recognise.
+
+**So this item is NOT the derivation.** `board:1499` owns that and always did. This item is the
+ORACLE and the SCORE -- the surveyed motorway, and the number that says how far the derivation is
+from it. The two do not overlap and neither is a duplicate of the other.
+
 ## AND `Picturing` IS NOT A WORD EITHER REFERENCE OWNS
 
 Neither Unreal nor RAGE has such a class. Unreal assembles in `UWorld` and `ULevel`, hands the
@@ -169,8 +200,10 @@ takes the design speed of the class, exactly as the goal demands.
       and pinned by `sha256` into `test/opendrive/a9/manifest.json` -- nothing in the tree.
       **Done**: Nord `473c6db8...`, Sued `28318b98...`, GeoNutzV_130319.pdf `18ff7cc4...`, at commit
       `e75ee549`
-- [ ] The derivation moves out of `Picturing.cpp` and behind the generators' door as a generator
-      that emits the four profiles. The 2 401 / 237 split above is the number that must move
+- [ ] **The second implementation is DELETED**, not kept beside the first: `RoadStation`,
+      `RoadProfile`, `RaiseRoad` and `RaiseJunction` go, and what `Picturing.cpp` does today is
+      done by `ReferenceLine` + `Ribbon::Sweep` through `Infrastructure`'s door. Deleting is
+      board:1499's work; this item only has to be able to SCORE whichever one stands
 - [ ] What remains after the derivation leaves is named for what Unreal and RAGE call it, and
       `Picturing` is retired rather than renamed in place
 - [ ] **The engine tier names no street and no building.** 90 + 69 in `Picturing.cpp` and 1-2 each
