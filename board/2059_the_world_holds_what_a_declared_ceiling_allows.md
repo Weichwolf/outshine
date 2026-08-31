@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Area: world
 Tags: memory, streaming, measured
 
