@@ -95,6 +95,8 @@ public:
                               std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
+  void Digests(bool yes) { Scratch_.Digests = yes; }
+
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
 
   [[nodiscard]] double ReshapeMs() const { return ReshapeMs_; }

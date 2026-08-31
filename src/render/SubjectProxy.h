@@ -103,6 +103,7 @@ private:
                                  std::string &error);
 
 struct SubjectScratch {
+  bool Digests = false;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
   std::vector<SubjectLight> Lights;
@@ -130,6 +131,8 @@ struct SubjectScratch {
 [[nodiscard]] double PackedMs();
 
 [[nodiscard]] double HandedGeometryDigest();
+
+[[nodiscard]] double DigestedMs();
 [[nodiscard]] double HandedMs();
 
 bool Place(SceneRenderer &renderer,

@@ -292,3 +292,70 @@ index and every attribute stream through an FNV loop one byte at a time to publi
 `restand: the geometry handed over, digested`. Shibuya hands over 587 MB. That is a DIAGNOSTIC on
 the product path, the same shape of defect as the depth-pyramid readback, and it is measured next
 rather than assumed.
+
+## AND THE OTHER 194 ms WAS A DIAGNOSTIC: the geometry digest ran on the product path
+
+`Render::Place` walked every byte of the index buffer and of all six attribute streams through an
+FNV loop, one byte at a time, to publish `restand: the geometry handed over, digested`. Shibuya
+hands over 587 MB. Nothing but that one publication reads it -- no case uses it as an oracle -- and
+the picture digest `make shots` already writes is the determinism witness CLAUDE.md names.
+
+It is now timed and gated. The gate rides `SubjectScratch`, which `Place` and `Move` already take,
+rather than a fourth file-static beside `gPackMs`/`gHandMs`/`gGeometryDigest`; `Live::Digests(bool)`
+sets it and `Picturing` passes `declared.Render.Audits`. When it is off the digest stores 0 rather
+than a stale value, so the measure cannot lie about a run that did not happen.
+
+    Shibuya                          with --audit    product path
+    digesting what it handed over       194.197           0.000 ms
+    and the streams to the device       262.440          54.582 ms
+
+**Shibuya's whole hand-over, across the two changes in this item:**
+
+    walking it into the proxy          565.5 -> 410.7 -> 213.9 ms
+      shaping what was built           147.9    147.3    147.3
+      standing and submitting INSIDE   251.7 ->  55.4 ->  55.4
+        streams to the device          250.9    250.9     54.6
+    p99                                585.78            359.22 ms
+
+Picture 732bd2de throughout; `outshine/places` 8 PASS 1 UNPREPARED throughout.
+
+## a tenth foreign number: `the census over every triangle` was not a census
+
+The audit-gated `CensusOverEveryTriangle` advances the timestamp it takes by reference, so the span
+published under that name never contained the census at all -- in either mode. It covered the ~200
+lines after it: the roof and wall triangle counts, the ring carried into the frame, and the drape
+grid the buildings are stood on. Split and renamed to what each half does:
+
+    rebuild: of that, the ring and the buildings into the frame   8.593 ms
+    rebuild: of that, the drape the buildings stand on            2.901 ms
+
+Both are small. The point is not the 11.5 ms, it is that a name promised an audit and delivered
+somebody else's work -- and I read that number twice today as evidence about the census.
+
+**What is left in Shibuya's 214 ms:** `shaping what was built` 147 ms, which is one `Gltf::Shaped`
+over the whole world. That is the next measurement, and it is still not a scheduler.
+
+## and `shaping what was built` is not shaping: it CONTAINS the cluster cook
+
+`Reshape()` -> `Gltf::Shaped(...)` -> `Viewed(into)`, and `Viewed`'s first line is
+`Render::CookShape(into, into.Surfaces)`. So the 147 ms published as `rebuild: shaping what was
+built` contains the 132 ms published as `rebuild: cutting it into clusters` -- one measure nested
+inside another with nothing on either saying so, and the reshape proper is about 15 ms.
+
+That is the third name today that described something other than itself, and it changes where the
+work is. Shibuya's rebuild, honestly attributed:
+
+    the ground ring generated                       79 ms
+    the streets and the water                       48
+    the ring and the buildings into the frame        8.6
+    the drape the buildings stand on                 2.9
+    walking it into the proxy                      214
+      cooking 23207 clusters over 2.6 M triangles  132   <-- inside "shaping what was built"
+      the reshape proper                           ~15
+      the streams to the device                     55
+    (and 879 ms of building meshing during the stream, ahead of all of this)
+
+**The largest item inside the rebuild is the cluster cook, and it belongs to board:2058 rather than
+to a scheduler.** The largest item overall is the building meshing at 879 ms, which happens during
+streaming and is `builtAhead`. Neither is the "single thread packing channels" this item was filed
+on: `rebuild: of the streams, packing them` reads 0.000 ms.

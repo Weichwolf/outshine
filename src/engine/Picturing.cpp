@@ -1090,6 +1090,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   std::unordered_map<uint64_t, float> drawnGround;
   {
+    Published.Places(
+        "rebuild: of that, the ring and the buildings into the frame",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
+            .count(),
+        "ms");
+    censusAt = std::chrono::steady_clock::now();
     drawnGround.reserve(inFrame.size() / 3);
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const int64_t east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
@@ -1121,7 +1127,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   {
     Published.Places(
-        "rebuild: of that, the census over every triangle",
+        "rebuild: of that, the drape the buildings stand on",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
             .count(),
         "ms");
@@ -1370,6 +1376,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
+  Picture.Standing->Digests(declared.Render.Audits);
   if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
@@ -1410,6 +1417,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places(
       "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");
+  Published.Places("rebuild: digesting what it handed over", Render::DigestedMs(), "ms");
   Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
   Published.Places("rebuild: uploads the residency made",
                    (double)Render::SubjectResidency::UploadsTaken(),

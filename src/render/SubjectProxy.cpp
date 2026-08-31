@@ -439,9 +439,14 @@ bool Show(SceneRenderer &renderer,
          Place(renderer, proxy, view, scratch, error);
 }
 
+namespace {
+
 std::atomic<double> gPackMs{0.0};
 std::atomic<unsigned long long> gGeometryDigest{0};
 std::atomic<double> gHandMs{0.0};
+std::atomic<double> gDigestMs{0.0};
+
+} // namespace
 
 double PackedMs() {
   return gPackMs.load(std::memory_order_relaxed);
@@ -449,6 +454,10 @@ double PackedMs() {
 
 double HandedMs() {
   return gHandMs.load(std::memory_order_relaxed);
+}
+
+double DigestedMs() {
+  return gDigestMs.load(std::memory_order_relaxed);
 }
 
 double HandedGeometryDigest() {
@@ -517,7 +526,8 @@ bool Place(SceneRenderer &renderer,
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
-  {
+  if (scratch.Digests) {
+    const auto digestedFrom = std::chrono::steady_clock::now();
     unsigned long long digest = 1469598103934665603ull;
     const auto eat = [&digest](const void *from, size_t bytes) {
       const auto *at = static_cast<const unsigned char *>(from);
@@ -531,6 +541,13 @@ bool Place(SceneRenderer &renderer,
       }
     }
     gGeometryDigest.store(digest, std::memory_order_relaxed);
+    gDigestMs.store(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
+            .count(),
+        std::memory_order_relaxed);
+  } else {
+    gGeometryDigest.store(0, std::memory_order_relaxed);
+    gDigestMs.store(0.0, std::memory_order_relaxed);
   }
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
@@ -587,13 +604,21 @@ bool Move(SceneRenderer &renderer,
   pose.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
-  {
+  if (scratch.Digests) {
+    const auto digestedFrom = std::chrono::steady_clock::now();
     unsigned long long digest = 1469598103934665603ull;
     const auto *at = reinterpret_cast<const unsigned char *>(scratch.Vertices.data());
     for (size_t one = 0; one < scratch.Vertices.size() * sizeof(float); ++one) {
       digest = (digest ^ at[one]) * 1099511628211ull;
     }
     gGeometryDigest.store(digest, std::memory_order_relaxed);
+    gDigestMs.store(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
+            .count(),
+        std::memory_order_relaxed);
+  } else {
+    gGeometryDigest.store(0, std::memory_order_relaxed);
+    gDigestMs.store(0.0, std::memory_order_relaxed);
   }
   pose.Positions = scratch.Vertices;
   if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
