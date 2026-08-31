@@ -50,10 +50,44 @@ Libraries follow the `reaches` graph rather than a new map:
 | `liboutshine.a` | `src/engine` `src/scene` `src/scenario` `src/sim` `src/ui` `src/audio` `src/host` `src/compositor` | the motor |
 | `outshine-client` | `src/client` | the one product |
 
-**`src/actor/path` moves into the generators, and that is the whole point.** `ReferenceLine`, `Fit`,
-`Ribbon` and `Carriageway` CONSTRUCT GEOMETRY FROM A POLYLINE. By this tree's own definition that is
-a generator -- "a generator's whole job is to MAKE one concrete thing" -- and they sit in `actor`
-only because the driving side reached them first. Moving them:
+**`src/actor/path` splits at its own seam, and the measurement decided where.** The first version of
+this item said the whole directory becomes a generator. Two greps refuted it.
+
+**It includes NOTHING but the standard library and its own headers** -- no tier at all -- so what
+lives there is not generator work by dependency, and the question has to be asked file by file. The
+test is this tree's own: does it MAKE one concrete thing, or is it a TYPE others share?
+
+| file | what it is | where |
+|---|---|---|
+| `Angle.h` | `kTurn`, `Wrapped` | a primitive |
+| `ReferenceLine` | the curve itself: `Lay`, `Rise`, `At`, `Placed` | a shared TYPE |
+| `Carriageway` | `Stand` / `StandAt` ON that curve | a query on the type |
+| `SpeedProfile` | `Envelope` over that curve | a plan, and a type |
+| **`Fit`** | polyline **->** `ReferenceLine` | it MAKES one |
+| **`Alignment`** | polyline **->** `Aligned` / `Laid` | it MAKES one |
+| **`Ribbon`** | `ReferenceLine` **->** a mesh | it MAKES one |
+
+And the consumers settle it:
+
+    actor/mind/Course.h                   ReferenceLine.h            <- the TYPE only
+    actor/mind/{Fly,Walk,Rail,Drive}.h    SpeedProfile.h             <- the TYPE only
+    sim/Rigging.h                         SpeedProfile.h
+    sim/CorridorLay.{h,cpp}               Fit, Alignment, Ribbon + the types
+    sim/DriveAssembly.cpp                 Fit, Carriageway
+    engine/Picturing.cpp                  Fit
+
+**`actor/mind` needs no maker at all**, so the driving mind never reaches the generators -- which is
+what the first version of this item would have forced, and it was wrong. The types go to `base`
+where everything may see them; the three makers go to the generators; `src/sim/reaches` gains
+`generators` for `CorridorLay`, and that is the whole cost.
+
+**One naming debt goes with it and is NOT paid in the same move**: `Carriageway` is a subject noun
+by board:2079's own list, and putting it in `base` puts a road in the most generic tier there is.
+What the file actually holds is standing on a line at an offset, which is a law. Renaming it is its
+own commit, because a blind rename over a word four types share is a trap this tree has already
+paid for.
+
+Moving them:
 
 - lets the OSM corpus validator link `libgenerators.a` and nothing else, which is the owner's rule
   and the proof that the derivation lives there
@@ -74,7 +108,9 @@ Three kinds, and the kind is a property of the QUESTION rather than a preference
 
 ## What will be true
 
-- [ ] `src/actor/path` is a generator tier, and `sim` reaches it through the generators
+- [ ] `src/actor/path` is split: `Angle`, `ReferenceLine`, `Carriageway`, `SpeedProfile` become a
+      base-tier curve that reaches nothing, and `Fit`, `Alignment`, `Ribbon` become generators.
+      `src/sim/reaches` gains `generators`; `actor` gains nothing
 - [ ] The per-suite SOURCE list in `run.sh` is derived from `reaches` the way the archive already
       is, so the second map goes
 - [ ] The OSM corpus validator links `libgenerators.a` and nothing else, and its link FAILS if the
