@@ -629,11 +629,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (int channel = 0; channel < 3; ++channel) {
           classPalette[4u + row * 4u + (size_t)channel] = wearing.Rows()[row].Ground[channel];
         }
+        classPalette[4u + row * 4u + 3u] = wearing.Rows()[row].Mix[2];
       }
       for (int channel = 0; channel < 3; ++channel) {
         classPalette[4u + wearing.TemplateCount() * 4u + (size_t)channel] =
             (float)fallback.GroundAlbedo[channel];
       }
+      classPalette[4u + wearing.TemplateCount() * 4u + 3u] = 0.0f;
       tinted.resize((inFrame.size() / 3) * 4);
       classUv.resize((inFrame.size() / 3) * 2);
       for (size_t at = 0, one = 0; at + 2 < laid->PositionM.size(); at += 3, ++one) {

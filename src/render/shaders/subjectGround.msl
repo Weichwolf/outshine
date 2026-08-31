@@ -120,11 +120,12 @@ static inline int groundClassAt(device const uint *words,
   return best;
 }
 
-static inline float3 groundAlbedo(device const float *palette, int which, uint rows) {
+static inline float4 groundWears(device const float *palette, int which, uint rows) {
   const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
-  return float3(palette[4u + row * 4u + 0u],
+  return float4(palette[4u + row * 4u + 0u],
                 palette[4u + row * 4u + 1u],
-                palette[4u + row * 4u + 2u]);
+                palette[4u + row * 4u + 2u],
+                palette[4u + row * 4u + 3u]);
 }
 
 fragment SFrag fsGroundLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
@@ -140,15 +141,32 @@ fragment SFrag fsGroundLit(LOut in [[stage_in]], bool front [[front_facing]], SU
   // number at any point, which is the whole difference from the vertex tint it replaced.
   const float2 stepM = fwidth(in.uv);
   const float acrossM = 0.5 * max(max(stepM.x, stepM.y), 1.0e-4);
-  const float3 albedo =
+  const float4 wears =
       edgeM < kGroundNoEdgeM
-          ? mix(groundAlbedo(groundPalette, runnerUp, rows),
-                groundAlbedo(groundPalette, which, rows),
+          ? mix(groundWears(groundPalette, runnerUp, rows),
+                groundWears(groundPalette, which, rows),
                 smoothstep(-acrossM, acrossM, edgeM))
-          : groundAlbedo(groundPalette, which, rows);
+          : groundWears(groundPalette, which, rows);
   SFrag o;
-  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p, albedo, in.ls,
-                       shadowMap, shadowSampler),
+  // THE SPECULAR IS SCALED BY THE CLASS, which is what KHR_materials_specular's factor means: it
+  // multiplies F0 and the weight together. A dry soil comes out fully Lambertian, an asphalt keeps
+  // its lobe, and the wet classes sit between -- the dial `ground-materials.json` already derived.
+  o.col = float4(shadeRow(surface,
+                          lights,
+                          skyIrradiance,
+                          in.lp,
+                          shadingNormal,
+                          in.p,
+                          wears.rgb,
+                          surface.metalness,
+                          surface.roughness,
+                          float3(surface.f0) * wears.w,
+                          surface.specularWeight * wears.w,
+                          surface.emissive,
+                          float3(0.0),
+                          in.ls,
+                          shadowMap,
+                          shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);

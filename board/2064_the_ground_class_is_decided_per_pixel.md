@@ -199,3 +199,45 @@ albedos the vertex tint read, so the two pictures differ in boundaries and in no
       and the negative control on the vertex-tinted build is what would make it one
 - [ ] the CPU `Evaluate` and the shader's are ONE source. They are two today, ported by hand, and
       the packed format is the only thing holding them together
+
+## THE WHITE WASH OVER EVERY HILLSIDE WAS THE SPECULAR NOBODY SCALED
+
+Found by looking at a picture and asked about as a leftover cloud layer. It is not: the stage list
+holds twenty-two stages and none of them draws cloud or fog, and `cloudCover`, `cloudLow`,
+`cloudMid`, `cloudHigh` and `cloudBaseAglM` are READ from a scenario into `Scenario::Sky` while
+`grep -rn "\.Clouds(" src/` returns nothing -- an accepted declaration that does nothing, which is
+its own finding.
+
+The aerosol was cleared too: board:2062 measured sun:sky at 7.72:1 after the 10x Mie scale against
+a clear day's ~6.8:1, and its own bound is that BELOW ~5:1 the picture reads as haze. 7.72 is above
+it.
+
+**What it actually was:** the ground ring wears a default-constructed `Material` --
+`Metalness 0`, `Roughness 1`, **`SpecularFactor 1`**, `Ior 1.5`. At a grazing view the Fresnel term
+takes a dielectric F0 of 0.04 to nearly 1, and `ground-materials.json` says so in words:
+
+> at a 11.2 deg sun and a near-horizontal view the half-vector stands ~83 deg off the normal, where
+> even alpha = 0.95 puts 0.455 sr^-1 into the lobe against 0.031 diffuse. Narrowing a lobe that is
+> already grazing-dominated does not remove it; only a scale does.
+
+That file DERIVES the scale -- `specularScale = (surface == "coherent") ? 1 : smoothstep(0.05, 0.85,
+moisture)` -- and `GroundMaterials.cpp:90-93` computes it and `VegetationTemplates.cpp:116` stores
+it in `Row::Mix[2]`. **`grep -rn "SpecularScale" src/` finds those three lines and no reader.** The
+number was computed for years and never left the CPU.
+
+It is the palette's fourth float now, blended across a border with the albedo, and `fsGroundLit`
+multiplies `surface.f0` and `surface.specularWeight` by it -- which IS what
+`KHR_materials_specular`'s factor means. Dry soil comes out fully Lambertian; asphalt and water keep
+their lobe; the wet classes sit on the dial the file derived.
+
+    Heidelberg  ad2efca7 -> 3a33c79e
+    outshine/places 9 PASS, tidy baseline 4442, both unmoved
+
+LOOKED AT: the hillside is a clean saturated brown where a pale film lay over it, the roofs are
+crisp, and the Neckar still carries its sheen -- which is the negative control, because water is a
+coherent surface and keeps scale 1.
+
+**What the wash was hiding**, and it is a SEPARATE defect: the pale grey-blue sheets on the slope
+are ROADS. `Picturing` lays one quad per pair of OSM way POINTS with no subdivision, so a 100 m
+straight on a curved hill is one flat plane cutting through it. That is a different item and it is
+the honest answer to "the roads lie on the ground".
