@@ -115,8 +115,9 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device,
 
 } // namespace
 
-const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
-  return FragmentArmNamed(ShadingArmOf(layout), CarriesUv(layout), kind);
+const char *
+SubjectDraw::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
+  return FragmentArmNamed(domain, ShadingArmOf(layout), CarriesUv(layout), kind);
 }
 
 const char *SubjectDraw::VertexEntry(VertexLayout layout) {
@@ -129,12 +130,13 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
 }
 
 std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string &error) {
-  std::string bindings, body, lit, litTextured, mapped;
+  std::string bindings, body, lit, litTextured, mapped, ground;
   if (!LoadShaderText("src/render/shaders/subjectBindings.msl", bindings, error) ||
       !LoadShaderText("src/render/shaders/subject.msl", body, error) ||
       !LoadShaderText("src/render/shaders/subjectLit.msl", lit, error) ||
       !LoadShaderText("src/render/shaders/subjectLitTextured.msl", litTextured, error) ||
-      !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error)) {
+      !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error) ||
+      !LoadShaderText("src/render/shaders/subjectGround.msl", ground, error)) {
     return std::string();
   }
   const std::string brdf = MetalRoughBrdfMsl(error);
@@ -154,7 +156,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
          "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
          std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex) + "\n" + bindings +
          body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped +
-         VertexArmsMsl();
+         ground + VertexArmsMsl();
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
@@ -209,64 +211,72 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
       targets[identityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     }
 
-    for (const VertexLayoutRow &row : kVertexLayouts) {
-      const VertexLayout layout = row.Layout;
-      const VertexShape shape = ShapeOf(layout, WritesVelocity);
-      const OwnedShader vertex(
-          Device, MakeShader(Device, source, VertexEntry(layout), SDL_GPU_SHADERSTAGE_VERTEX));
-      const OwnedShader fragment(
-          Device,
-          MakeShader(Device, source, FragmentEntry(kind, layout), SDL_GPU_SHADERSTAGE_FRAGMENT));
-      if (!vertex || !fragment) {
-        error = std::string("the subject's shader did not compile at ") + VertexEntry(layout) +
-                "/" + FragmentEntry(kind, layout) + ": " + SDL_GetError();
-        return false;
-      }
-      SDL_GPUGraphicsPipelineCreateInfo wanted{};
-      wanted.vertex_shader = vertex.Get();
-      wanted.fragment_shader = fragment.Get();
-      wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-      wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers;
-      wanted.vertex_input_state.num_vertex_buffers = shape.Count;
-      wanted.vertex_input_state.vertex_attributes = shape.Attributes;
-      wanted.vertex_input_state.num_vertex_attributes = shape.Count;
-      wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-      wanted.rasterizer_state.front_face = kGltfFrontFace;
-      wanted.target_info.color_target_descriptions = targets;
-      wanted.target_info.num_color_targets = (Uint32)Colours.size();
-      wanted.target_info.has_depth_stencil_target = true;
-      wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-      wanted.depth_stencil_state.enable_depth_test = true;
-      wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
-
-      wanted.depth_stencil_state.enable_depth_write = !blends;
-
-      for (const bool cullsBack : {false, true}) {
-        wanted.rasterizer_state.cull_mode =
-            cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
-        SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
-        if (!made) {
-          error = std::string("the subject's pipeline was refused at ") +
-                  FragmentEntry(kind, layout) + ": " + SDL_GetError();
+    for (const SurfaceDomain domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
+      for (const VertexLayoutRow &row : kVertexLayouts) {
+        const VertexLayout layout = row.Layout;
+        if (!DomainPresents(domain, ShadingArmOf(layout), CarriesUv(layout), kind)) { continue; }
+        const VertexShape shape = ShapeOf(layout, WritesVelocity);
+        const char *const entry = FragmentEntry(domain, kind, layout);
+        const OwnedShader vertex(
+            Device, MakeShader(Device, source, VertexEntry(layout), SDL_GPU_SHADERSTAGE_VERTEX));
+        const OwnedShader fragment(Device,
+                                   MakeShader(Device, source, entry, SDL_GPU_SHADERSTAGE_FRAGMENT));
+        if (!vertex || !fragment) {
+          error = std::string("the subject's shader did not compile at ") + VertexEntry(layout) +
+                  "/" + entry + ": " + SDL_GetError();
           return false;
         }
-        Pipelines[PipelineAt(layout, kind, cullsBack)] = OwnedPipeline(Device, made);
-        ++Built;
+        SDL_GPUGraphicsPipelineCreateInfo wanted{};
+        wanted.vertex_shader = vertex.Get();
+        wanted.fragment_shader = fragment.Get();
+        wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+        wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers;
+        wanted.vertex_input_state.num_vertex_buffers = shape.Count;
+        wanted.vertex_input_state.vertex_attributes = shape.Attributes;
+        wanted.vertex_input_state.num_vertex_attributes = shape.Count;
+        wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+        wanted.rasterizer_state.front_face = kGltfFrontFace;
+        wanted.target_info.color_target_descriptions = targets;
+        wanted.target_info.num_color_targets = (Uint32)Colours.size();
+        wanted.target_info.has_depth_stencil_target = true;
+        wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+        wanted.depth_stencil_state.enable_depth_test = true;
+        wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+
+        wanted.depth_stencil_state.enable_depth_write = !blends;
+
+        for (const bool cullsBack : {false, true}) {
+          wanted.rasterizer_state.cull_mode =
+              cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
+          SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
+          if (!made) {
+            error = std::string("the subject's pipeline was refused at ") + entry + ": " +
+                    SDL_GetError();
+            return false;
+          }
+          Pipelines[PipelineAt(domain, layout, kind, cullsBack)] = OwnedPipeline(Device, made);
+          ++Built;
+        }
       }
     }
   }
   return true;
 }
 
-size_t SubjectDraw::PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack) {
-  const size_t at = static_cast<size_t>(kind);
-  return (static_cast<size_t>(layout) * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + at;
+size_t SubjectDraw::PipelineAt(SurfaceDomain domain,
+                               VertexLayout layout,
+                               SurfaceKind kind,
+                               bool cullsBack) {
+  const size_t placed =
+      (static_cast<size_t>(domain) * kVertexLayoutCount) + static_cast<size_t>(layout);
+  return (placed * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + static_cast<size_t>(kind);
 }
 
 void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
+  slot.Domain = material.Domain;
   slot.ReadsSecondUv = material.ReadsSecondUv();
   slot.Colour = Bound().Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
   slot.Normal =
@@ -892,7 +902,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     const bool secondUv = CarriesUv1(wanted);
     const bool tinted = CarriesColour(wanted);
 
-    const size_t wantedPipeline = PipelineAt(wanted, surface.Kind, surface.CullsBack);
+    const size_t wantedPipeline =
+        PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack);
     if (wantedPipeline != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Pipelines[wantedPipeline].Get());
 

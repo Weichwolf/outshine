@@ -95,6 +95,8 @@ public:
                               std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
+  void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
+
   void Digests(bool yes) { Scratch_.Digests = yes; }
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }
@@ -333,6 +335,7 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
+  int GroundSurface_ = -1;
   uint64_t ShapedAt_ = 0;
   bool EverShaped_ = false;
   double BuildMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;

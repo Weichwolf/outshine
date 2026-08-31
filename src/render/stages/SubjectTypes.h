@@ -53,8 +53,13 @@ struct SubjectTexture {
   outshine::UvSet Set = outshine::UvSet::First;
 };
 
+enum class SurfaceDomain : std::uint8_t { Subject, Ground };
+
+inline constexpr std::size_t kSurfaceDomains = 2;
+
 struct SubjectMaterial {
   Material Row;
+  SurfaceDomain Domain = SurfaceDomain::Subject;
   SubjectTexture Colour;
 
   SubjectTexture SpecularStrength;

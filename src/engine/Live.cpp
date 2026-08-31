@@ -217,6 +217,13 @@ bool Live::Build(std::string &error) {
             .count();
     const auto resolvedFrom = std::chrono::steady_clock::now();
     Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
+    if (GroundSurface_ >= 0) {
+      for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
+        if (Table_.Material[slot] == GroundSurface_) {
+          Table_.Slots[slot].Domain = Render::SurfaceDomain::Ground;
+        }
+      }
+    }
     ResolveMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
             .count();

@@ -32,7 +32,8 @@ public:
   [[nodiscard]] static std::string DepthOnlySource();
   [[nodiscard]] static std::string DepthOnlySource(std::string &error);
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
-  [[nodiscard]] static const char *FragmentEntry(SurfaceKind kind, VertexLayout layout);
+  [[nodiscard]] static const char *
+  FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
                                          .VertexStorageBuffers = 1,
                                          .FragmentSamplers = kSubjectImages,
@@ -237,6 +238,7 @@ private:
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
 
+    SurfaceDomain Domain = SurfaceDomain::Subject;
     bool ReadsSecondUv = false;
   };
 
@@ -253,12 +255,13 @@ public:
 private:
   [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
 
-  [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
+  [[nodiscard]] static size_t
+  PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
   static constexpr size_t kSurfaceKinds = 5;
 
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
-  static constexpr size_t kPipelines = kVertexLayoutCount * 2 * kSurfaceKinds;
+  static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
   SDL_GPUDevice *Device = nullptr;
   std::array<OwnedPipeline, kPipelines> Pipelines;

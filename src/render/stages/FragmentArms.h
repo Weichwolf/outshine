@@ -6,6 +6,7 @@
 #include <SurfaceState.h>
 
 #include "DrawList.h"
+#include "SubjectTypes.h"
 
 namespace outshine::Render {
 
@@ -13,9 +14,10 @@ enum class ShadingArm : std::uint8_t { Flat, Lit, Mapped };
 
 inline constexpr std::size_t kShadingArms = 3;
 inline constexpr std::size_t kSurfaceKinds = 5;
-inline constexpr std::size_t kFragmentArms = kShadingArms * 2u * kSurfaceKinds;
+inline constexpr std::size_t kFragmentArms = kSurfaceDomains * kShadingArms * 2u * kSurfaceKinds;
 
 struct FragmentArm {
+  SurfaceDomain Domain;
   ShadingArm Shading;
   bool Textured;
   SurfaceKind Kind;
@@ -23,145 +25,347 @@ struct FragmentArm {
 };
 
 [[nodiscard]] constexpr std::size_t
-FragmentArmAt(ShadingArm shading, bool textured, SurfaceKind kind) {
-  return ((static_cast<std::size_t>(shading) * 2u) + (textured ? 1u : 0u)) * kSurfaceKinds +
-         static_cast<std::size_t>(kind);
+FragmentArmAt(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceKind kind) {
+  const std::size_t shaded =
+      (static_cast<std::size_t>(domain) * kShadingArms) + static_cast<std::size_t>(shading);
+  return ((shaded * 2u) + (textured ? 1u : 0u)) * kSurfaceKinds + static_cast<std::size_t>(kind);
+}
+
+[[nodiscard]] constexpr bool
+DomainPresents(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceKind kind) {
+  if (domain == SurfaceDomain::Subject) { return true; }
+  return shading == ShadingArm::Lit && !textured && kind == SurfaceKind::Opaque;
 }
 
 inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
-    {.Shading = ShadingArm::Flat, .Textured = false, .Kind = SurfaceKind::Opaque, .Entry = "fs"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = "fs"},
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = false,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsMasked"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = false,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsBlended"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = false,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsTransmissive"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = false,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsTransmissive"},
 
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = true,
      .Kind = SurfaceKind::Opaque,
      .Entry = "fsTextured"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = true,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsMaskedTextured"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = true,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsBlendedTextured"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = true,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsTransmissive"},
-    {.Shading = ShadingArm::Flat,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Flat,
      .Textured = true,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsTransmissive"},
 
-    {.Shading = ShadingArm::Lit, .Textured = false, .Kind = SurfaceKind::Opaque, .Entry = "fsLit"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = "fsLit"},
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = false,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsLitMasked"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = false,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsLitBlended"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = false,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsLitTransmissive"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = false,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsLitTransmissive"},
 
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::Opaque,
      .Entry = "fsLitTextured"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsLitMaskedTextured"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsLitBlendedTextured"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsLitTransmissiveTextured"},
-    {.Shading = ShadingArm::Lit,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsLitTransmissiveTextured"},
 
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = false,
      .Kind = SurfaceKind::Opaque,
      .Entry = "fsMapped"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = false,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsMappedMasked"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = false,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsMappedBlended"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = false,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsMappedTransmissive"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = false,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsMappedTransmissive"},
 
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = true,
      .Kind = SurfaceKind::Opaque,
      .Entry = "fsMapped"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = true,
      .Kind = SurfaceKind::Masked,
      .Entry = "fsMappedMasked"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = true,
      .Kind = SurfaceKind::Blended,
      .Entry = "fsMappedBlended"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = true,
      .Kind = SurfaceKind::ThinTransmissive,
      .Entry = "fsMappedTransmissive"},
-    {.Shading = ShadingArm::Mapped,
+    {.Domain = SurfaceDomain::Subject,
+     .Shading = ShadingArm::Mapped,
      .Textured = true,
      .Kind = SurfaceKind::Refractive,
      .Entry = "fsMappedTransmissive"},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = false,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = true,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = true,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = true,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = true,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Flat,
+     .Textured = true,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = "fsGroundLit"},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = false,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = true,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = true,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = true,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = true,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Lit,
+     .Textured = true,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = false,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = false,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = false,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = false,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = false,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
+
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = true,
+     .Kind = SurfaceKind::Opaque,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = true,
+     .Kind = SurfaceKind::Masked,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = true,
+     .Kind = SurfaceKind::Blended,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = true,
+     .Kind = SurfaceKind::ThinTransmissive,
+     .Entry = nullptr},
+    {.Domain = SurfaceDomain::Ground,
+     .Shading = ShadingArm::Mapped,
+     .Textured = true,
+     .Kind = SurfaceKind::Refractive,
+     .Entry = nullptr},
 };
 
 constexpr bool EveryFragmentArmIsAtItsOwnIndex() {
   for (std::size_t at = 0; at < kFragmentArms; ++at) {
     const FragmentArm &one = kFragmentArmRows[at];
-    if (FragmentArmAt(one.Shading, one.Textured, one.Kind) != at) { return false; }
-    if (one.Entry == nullptr) { return false; }
+    if (FragmentArmAt(one.Domain, one.Shading, one.Textured, one.Kind) != at) { return false; }
+    if (DomainPresents(one.Domain, one.Shading, one.Textured, one.Kind) != (one.Entry != nullptr)) {
+      return false;
+    }
   }
   return true;
 }
 
 static_assert(EveryFragmentArmIsAtItsOwnIndex(),
               "a fragment arm's index is derived from its own axes, so the table is total over "
-              "them and no combination falls through to a default");
+              "them and no combination falls through to a default -- and a row carries an entry "
+              "exactly when its domain presents it");
 
 [[nodiscard]] constexpr ShadingArm ShadingArmOf(VertexLayout layout) {
   if (CarriesTangent(layout)) { return ShadingArm::Mapped; }
@@ -170,8 +374,8 @@ static_assert(EveryFragmentArmIsAtItsOwnIndex(),
 }
 
 [[nodiscard]] constexpr const char *
-FragmentArmNamed(ShadingArm shading, bool textured, SurfaceKind kind) {
-  return kFragmentArmRows[FragmentArmAt(shading, textured, kind)].Entry;
+FragmentArmNamed(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceKind kind) {
+  return kFragmentArmRows[FragmentArmAt(domain, shading, textured, kind)].Entry;
 }
 
 } // namespace outshine::Render

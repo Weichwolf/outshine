@@ -1376,6 +1376,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
+  Picture.Standing->GroundIs(ringSurface.index());
   Picture.Standing->Digests(declared.Render.Audits);
   if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
   Published.Places(

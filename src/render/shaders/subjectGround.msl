@@ -1,0 +1,16 @@
+// THE GROUND'S OWN FAMILY, routed by the material's DOMAIN the way Unreal routes a Landscape. It
+// begins as the same shading `fsLit` does on purpose: the routing is the risky half and it is
+// proven by a picture that does not move. What comes next is the class evaluated PER PIXEL from the
+// packed structure, so a field edge lands where the evaluation flips rather than being interpolated
+// across a mesh whose vertices stand 24.86 m apart (board:2064).
+fragment SFrag fsGroundLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const float3 shadingNormal = facing(in.n, front);
+  SFrag o;
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p,
+                       surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}

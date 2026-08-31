@@ -93,3 +93,50 @@ is why this item exists at all, and a second one beside it would be worse than n
       on the vertex-tinted build still reads ~11.
 - [ ] The CPU `Evaluate` and the shader's are ONE source (board:1580), or the two disagree about
       where a border is and the vegetation stands in the wrong field.
+
+## THE CHOICE, written down before a line
+
+**A material DOMAIN, and it is Unreal's own answer rather than a compromise.** Unreal routes a
+Landscape to its own shader by the material's DOMAIN -- `MD_Surface`, `MD_DeferredDecal`,
+`MD_PostProcess`, and Landscape's own layer blending sits behind that routing. A domain is exactly
+"which shader family this surface belongs to", it is orthogonal to the alpha axis the way
+`SurfaceKind` is orthogonal to the vertex layout, and it is a PROPERTY rather than a spelling.
+
+The two routes this item weighed:
+
+| route | verdict |
+|---|---|
+| the ground reaches the device by its OWN path, its own primitive and its own stage | what both references do at the largest scale, and what a second geometry stream, a second residency and a second cull would cost. RAGE's terrain is its own shaders because RAGE's terrain is its own STREAM; this tree's ground ring already rides the world stream, so the second stream would be the invention |
+| **an engine-internal DOMAIN on `SubjectMaterial`, set by surface INDEX** | **taken.** It is the axis Unreal already has for this exact question, it selects a fragment entry from the table board:2060 just made, and it decides nothing about geometry -- which is right, because the ground's geometry is not the problem |
+
+The domain does NOT go on `include/Material.h`: that is a strict glTF metallic-roughness row and
+this engine reads all of glTF 2.0. It goes on `Render::SubjectMaterial`, which is engine-internal,
+and `Picturing` sets it by the index `addSurface("ground", ...)` returns rather than by that name.
+
+**What made this affordable was board:2060.** `FragmentEntry` was two `if`s over three nested
+`switch`es; a fourth axis there would have doubled the nesting. It is a table over its axes now, and
+a domain is a column.
+
+## THE ROUTING STANDS, and the picture did not move
+
+The risky half of this item was never the evaluation -- it was getting the ground to a shader of its
+own without inventing a second geometry path. That half is done and it is PROVEN by a picture that
+does not move:
+
+- `Render::SurfaceDomain { Subject, Ground }` on `SubjectMaterial`, engine-internal
+- `Live::GroundIs(int)` takes the index `addSurface` handed back, and `Build` marks the slot whose
+  material index matches -- by INDEX, never by the surface's name
+- the fragment table gains the domain as a column, and `DomainPresents` declares what a domain can
+  BE: the ground reaches the device as one part carrying position, normal and colour, and it is
+  opaque. So the pipeline table grows by TWO pipelines rather than by a hundred and sixty, and the
+  `static_assert` holds a row's entry to exactly the rows its domain presents
+- `src/render/shaders/subjectGround.msl` carries `fsGroundLit`, and it is the same shading `fsLit`
+  does -- on purpose, so the routing is the only thing under test
+
+    Heidelberg  0c7c65e9 -> 0c7c65e9    bit-identical
+    outshine/places  8 PASS 1 UNPREPARED
+    tidy baseline 4443 -> 4442
+
+**What is left is the evaluation itself**, and the three things this item already found are still
+sitting there unreached: `ClassStructure::Words()` and `Bytes()` with no caller, `Evaluate` already
+shader-shaped, and `distM` discarded at both call sites.
