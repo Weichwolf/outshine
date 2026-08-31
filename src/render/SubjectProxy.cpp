@@ -236,7 +236,7 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
 
 [[nodiscard]] bool Lit(const SubjectProxy &proxy, const Shape &subject, size_t part) {
   const SubjectMaterial &wearing = proxy.Slots()[proxy.Slot(part)];
-  return subject.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba) &&
+  return subject.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba != nullptr) &&
          !wearing.Row.Unlit;
 }
 
