@@ -131,6 +131,17 @@ if ! python3 test/scripts/grammar_vs_reader.py; then
   exit 1
 fi
 
+# AND THE GRAMMAR AGAINST ITS OWN WRITER, which is the half `roundtrip` cannot see. Reading a place,
+# writing it, reading that back and writing it again holds even when the writer DROPS a section --
+# measured: with `<clock>` removed every place lost 59 bytes and `roundtrip` still said `0 place(s)
+# apart`. A child declared and never written is a capability the engine can be told and can never
+# hand back. It carries a baseline because 64 of them stand today; the baseline may only fall.
+if ! python3 test/scripts/grammar_vs_writer.py; then
+  printf 'lint: the scenario grammar declares a child its writer cannot write back, and the\n' >&2
+  printf 'lint: count GREW. A declaration that cannot be handed back is not declared.\n' >&2
+  exit 1
+fi
+
 # THE SHADER VARIANTS AGAINST THE NAMES THAT ASK FOR THEM. The subject's variant set is written
 # twice -- as `fragment SFrag` entries in the .msl files and as string literals the renderer hands
 # the driver -- and the two agree by hand. A name asked for and not defined is a pipeline that fails

@@ -16,26 +16,19 @@ import pathlib
 import re
 import sys
 
-TREE = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import scenario_grammar as grammar
 
 
 def main():
-    source = (TREE / "src" / "scenario" / "ScenarioRead.cpp").read_text()
-    # A ROW'S CHILD LIST MAY BE SEVERAL ADJACENT LITERALS, which C concatenates and a regex over
-    # one of them silently truncates. Joining them is the difference between reading the grammar and
-    # reading its first line.
-    allowed = {}
-    for row in re.finditer(r'\{"(scenario[^"]*)",((?:\s*"[^"]*")*)', source):
-        joined = "".join(re.findall(r'"([^"]*)"', row.group(2)))
-        allowed[row.group(1)] = set(joined.split())
+    source = grammar.READER.read_text()
+    allowed = grammar.declared()
     read = set()
     for name in re.findall(r'(?:\.Child|\.Children)\("(\w+)"\)', source):
         read.add(name)
     for name in re.findall(r'Declares\([^,]+,\s*"(\w+)"\)', source):
         read.add(name)
-    every = set()
-    for children in allowed.values():
-        every |= children
+    every = grammar.children()
     astray = sorted(one for one in read if one not in every)
     print(f"{len(allowed)} path(s) in the grammar, {len(read)} child name(s) the reader reads, "
           f"{len(astray)} it reads and no path declares")
