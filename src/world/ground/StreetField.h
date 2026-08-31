@@ -23,6 +23,8 @@ public:
     int32_t CoverRow = -1;
     Shape Form = Shape::Ribbon;
     int32_t Lanes = 0;
+    int32_t Layer = 0;
+    bool Bridge = false;
   };
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
@@ -43,6 +45,12 @@ public:
 
   long TunnelCount() const { return Tunnels_; }
 
+  [[nodiscard]] long BridgeCount() const { return Bridges_; }
+
+  [[nodiscard]] long LayeredCount() const { return Layered_; }
+
+  [[nodiscard]] long LayerSaidCount() const { return LayerSaid_; }
+
   size_t HeapBytes() const {
     return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
@@ -55,6 +63,7 @@ private:
   std::vector<Way> Ways_;
   TileRanges ByTile_;
   TileWatermark Mark_;
+  long Bridges_ = 0, Layered_ = 0, LayerSaid_ = 0;
   long Unwidthed_ = 0, Tunnels_ = 0, Unruled_ = 0, Looked_ = 0;
 };
 

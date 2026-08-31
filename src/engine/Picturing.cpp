@@ -816,6 +816,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   constexpr double kRoadAboveM = 1.0;
   constexpr double kRoadStepM = 16.0;
+  constexpr double kLayerClearM = 4.5;
   constexpr double kGapGridM = 20.0;
   constexpr double kDrapeGridM = 32.0;
   if (!tinted.empty()) {
@@ -1231,6 +1232,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ++refusedWays;
           continue;
         }
+        if (lane.Bridge) {
+          double runM = 0.0;
+          std::vector<double> reached(along.size(), 0.0);
+          for (size_t at = 1; at < along.size(); ++at) {
+            const double spanE = along[at].EastM - along[at - 1].EastM;
+            const double spanS = along[at].SouthM - along[at - 1].SouthM;
+            runM += std::sqrt(spanE * spanE + spanS * spanS);
+            reached[at] = runM;
+          }
+          const double fromM = along.front().GradeM;
+          const double toM = along.back().GradeM;
+          const double lift = (double)lane.Layer * kLayerClearM;
+          for (size_t at = 0; at < along.size(); ++at) {
+            const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
+            along[at].GradeM = fromM + (toM - fromM) * along01 + lift;
+          }
+        }
         ++laidWays;
         const bool sealed = lane.CoverRow >= 0 &&
                             (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount() &&
@@ -1284,6 +1302,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places(
         "streets: features a rule gave no width", (double)ways.UnwidthedCount(), "features");
     Published.Places("streets: features that are tunnels", (double)ways.TunnelCount(), "features");
+    Published.Places("streets: ways OSM calls a bridge", (double)ways.BridgeCount(), "ways");
+    Published.Places("streets: ways that state a layer", (double)ways.LayeredCount(), "ways");
+    Published.Places(
+        "streets: ways whose layer is a STRING", (double)ways.LayerSaidCount(), "ways");
     Published.Places("streets: ways it refused", (double)refusedWays, "ways");
     Published.Places("streets: triangles", (double)(pavement.Index.size() / 3), "triangles");
     if (pavement.Index.size() >= 3) {

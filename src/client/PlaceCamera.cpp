@@ -47,7 +47,7 @@ void WalkedTo(
       fromLon + alongM * std::sin(heading) / (kMetresPerDegree * (shrink > 1.0e-6 ? shrink : 1.0));
 }
 
-constexpr std::array<Place, 7> kPlaces{{
+constexpr std::array<Place, 9> kPlaces{{
     {"OldTown", 49.3777, 10.179, 70.0, Place::Seen::Eye, 0.0, "2026-06-21T11:19:00Z"},
     {"Heidelberg", 49.4147, 8.6968, 108.50, Place::Seen::Eye, 0.0, "2026-06-21T11:25:00Z"},
     {"Shibuya", 35.6595, 139.7005, 40.0, Place::Seen::Eye, 0.0, "2026-06-21T02:41:00Z"},
@@ -55,6 +55,8 @@ constexpr std::array<Place, 7> kPlaces{{
     {"Venice", 45.438, 12.3358, 30.0, Place::Seen::Eye, 0.0, "2026-06-21T11:11:00Z"},
     {"Jura", 47.2492, 7.5108, 156.53, Place::Seen::Eye, 0.0, "2026-06-21T11:30:00Z"},
     {"ZurichPlan", 47.3667, 8.5500, 0.0, Place::Seen::Plan, 3000.0, "2026-06-21T11:26:00Z"},
+    {"Kaiserberg", 51.4436, 6.8103, 0.0, Place::Seen::Plan, 1400.0, "2026-06-21T11:32:00Z"},
+    {"Koehlbrand", 53.5150, 9.9150, 40.0, Place::Seen::Eye, 0.0, "2026-06-21T11:34:00Z"},
 }};
 
 } // namespace
