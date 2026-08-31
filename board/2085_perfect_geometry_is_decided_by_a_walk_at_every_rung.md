@@ -39,20 +39,21 @@ thousand edges carry more than two triangles, which is not a surface at all. Nob
 because the walk costs 11.3 s of Shibuya's load and is off by default -- so it is a TOOL, and what
 this item makes it is a GATE with declared ceilings that may only fall.
 
-## AND THE WALK WAS LYING BY 1 683 EDGES, because a HASH was the identity of a POSITION
+## THE WALK KEYED A POSITION BY A HASH, and the number that repair seemed to buy was NOT ITS OWN
 
 Found while writing the case that would hold these numbers, which is exactly what a ceiling is for:
-the count moved between two runs while the picture's digest did not.
-
-    solid: building edges on MORE than two    84 981    <- with the hash as the key
-                                              83 298    <- with the coordinate as the key
+the count moved between runs while the picture's digest did not.
 
 The weld keyed a vertex by `(cx * 73856093) ^ (cy * 19349663) ^ (cz * 83492791)` -- a SPATIAL HASH,
 not a coordinate. Two distinct positions that collide were welded into ONE, and every such merge
-invents edges that then appear to carry more than two triangles. **1 683 of the non-manifold edges
-were the hash's own collisions**, and because the collision count depends on the whole set of
-coordinates, the number moved whenever anything anywhere in the world changed. It was never a
-property of the geometry.
+invents edges that then appear to carry more than two triangles. A hash is not an identity, and a
+walk that treats it as one reports defects that are artefacts of its own key.
+
+**The repair stands on principle and its measured effect does not.** A drop of 1 683 edges was
+credited to it and then withdrawn: board:2086 measures the world's own content varying by 2 947
+footprints between runs while the digest holds, which is what actually moved the number. What can be
+said is that the key can no longer merge two different positions; what cannot yet be said is how
+many it was merging.
 
 The second walk had the same defect: `solid: corners identical in POSITION AND NORMAL` keyed on an
 FNV-1a of six floats, so a collision would have counted two DIFFERENT corners as identical. At this
