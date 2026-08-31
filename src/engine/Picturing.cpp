@@ -877,6 +877,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kChordWithinM = 0.20;
   constexpr double kLeastCrestK = 10.0;
   constexpr double kPadApronM = 6.0;
+  constexpr double kFlyingM = 1.0;
   constexpr size_t kDrapeRungs = 6;
   constexpr double kTrimMostWidths = 4.0;
   constexpr double kFitWithinM = 0.5;
@@ -2215,6 +2216,30 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const size_t corners = pavement.PositionM.size() / 3u;
       Published.Places("streets: vertices two bodies SHARE", (double)shared, "vertices");
       Published.Places("streets: vertices in all", (double)corners, "vertices");
+    }
+    {
+      std::vector<double> aboveM;
+      aboveM.reserve(pavement.PositionM.size() / 3u);
+      size_t flying = 0;
+      for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
+        const double under =
+            drapedOver(pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -1.0e30);
+        if (under < -1.0e29) { continue; }
+        const double aloft = (double)pavement.PositionM[vertex + 1] - under;
+        aboveM.push_back(aloft);
+        if (aloft > kFlyingM) { ++flying; }
+      }
+      if (!aboveM.empty()) {
+        std::ranges::sort(aboveM);
+        const auto pick = [&aboveM](double part) {
+          return aboveM[(size_t)((double)(aboveM.size() - 1u) * part)];
+        };
+        Published.Places("streets: a vertex stands over the ground, p50", pick(0.5), "m");
+        Published.Places("streets: a vertex stands over the ground, p95", pick(0.95), "m");
+        Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
+        Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
+        Published.Places("streets: vertices FLYING, over the bar", (double)flying, "vertices");
+      }
     }
     Published.Places("streets: triangles", (double)(pavement.Index.size() / 3), "triangles");
     if (pavement.Index.size() >= 3) {
