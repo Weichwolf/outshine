@@ -155,3 +155,24 @@ Two gaps explain why infrastructure never stood in the door:
 
 `Ships` then enumerates each generator, and its `static_assert` already refuses a blank or repeated
 name.
+
+
+## FOLDED IN
+
+**2088 — `Picturing` dissolves into three.** Unreal: `UWorld` holds, `FScene` is what the renderer
+sees, PCG generates outside both. RAGE: `CGameWorld`, `fwSceneGraph`, map pipeline outside. Both
+agree: derive, hold, hand over. `Picturing.cpp` is 2 574 lines doing all three, which is why it
+needed a name neither reference owns. The derivation moves first — it makes the other two small, and
+this item's validator cannot link `libgenerators.a` alone until it has. Negative control: the places
+suite draws the same pictures, digest for digest.
+
+**2080 — the entry check cannot see a generated table.** `entries_vs_shaders.py` reads literals;
+`FragmentArms.h` replaced them with a table, so 24 entries are defined and 4 named. The vertex arms
+already had this treatment and the comment records it. Fix: exclude them and NAME what holds them
+instead — the static_asserts. Also `test/lint.sh:74` runs the claims with `|| true`, so `make lint`
+prints `14 FAIL` and exits 0.
+
+**2081 — the map guard and the map disagree about what a map is for.** `CLAUDE.md` cites 6 resolvable
+paths and the claim demands 20; the page was deliberately rewritten to be AIM and not state. The
+resolution half passes. Position: the count goes, the resolution stays — but the owner set both, so
+it is a decision, not a repair.

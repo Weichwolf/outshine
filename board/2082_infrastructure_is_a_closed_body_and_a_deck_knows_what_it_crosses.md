@@ -243,3 +243,33 @@ share of a 2.0 s rebuild. That is the rebuild architecture rather than the road'
 board:2056 with the phases already measured there.
 
 Recorded rather than built, because a part that culls nothing is a part that only costs.
+
+
+## FOLDED IN, because they were facets of this and not items of their own
+
+**2087 — laid the way civil engineering lays it.** Neither reference derives a road; the road CAD
+packages (Civil 3D, OpenRoads, Vectorworks Landmark) agree completely: alignment, profile, assembly,
+**daylighting**, corridor surface. We have the first two, the cross-section is too thin, daylighting
+is missing. That one gap is why a road inherits the hillside instead of being level across it: the
+batter is what absorbs the slope. Numbers to verify: crossfall min 2.5 % (RAS-Q; A9 measures 2.76),
+superelevation max 6 % (RAA; A9 p95 5.8), `e = v²/(127R) − f`, batter 1:1.5.
+
+**2084 — a generator returns a STAMP and the ground applies it.** In the door already:
+`Stamp{ring, plateau, falloff}` and an optional `stamps()` defaulting to nothing. The generator
+declares because it does not own the ground; the ground applies, in declared order, because two
+overlapping stamps disagree. **Blocked by tessellation**: 90.8 % of footprints are narrower than a
+25 m ground cell, so moving existing vertices cannot express nine buildings in ten.
+
+**2085 — perfect geometry is decided by a walk.** `--audit` already walks it and is red: 8 308 hole
+edges, 83 298 non-manifold, 64 degenerate, 97 needles. Of six properties the tree decides three;
+consistent winding, self-intersection and BODY-VERSUS-BODY OVERLAP are undecided, and the last is the
+owner's rule. Ceilings are blocked by board:2086.
+
+**2076 — the junction is a surface.** Built: thicken, intersect, trim back, polygon from the trimmed
+ends (osm2streets, SUMO `NBNodeShapeComputer`, StreetGen, Wilkie/Sewall/Lin). 8 131 junction bodies,
+shared corners 87 504 → 188 822. Open: 3 581 ends still cross, and the answer is that a corner too
+tight to drive is a NODE, not a corner — board:1499 measured that every fit refusal is that kind.
+
+**2077 — a deck scored against a measured one.** Hamburg refuted: `HH_WFS_Brueckenbauwerke` is a 2D
+inventory, 1 624 footprint polygons and no height, filter `stadium = Bauwerk unter Verkehr`. It
+answers PRESENCE and PLAN EXTENT. Heights fall to Duisburg LiDAR class 17, not fetched.
