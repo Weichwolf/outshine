@@ -34,7 +34,7 @@ FragmentArmAt(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceKi
 [[nodiscard]] constexpr bool
 DomainPresents(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceKind kind) {
   if (domain == SurfaceDomain::Subject) { return true; }
-  return shading == ShadingArm::Lit && !textured && kind == SurfaceKind::Opaque;
+  return shading == ShadingArm::Lit && textured && kind == SurfaceKind::Opaque;
 }
 
 inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
@@ -250,7 +250,7 @@ inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
      .Shading = ShadingArm::Lit,
      .Textured = false,
      .Kind = SurfaceKind::Opaque,
-     .Entry = "fsGroundLit"},
+     .Entry = nullptr},
     {.Domain = SurfaceDomain::Ground,
      .Shading = ShadingArm::Lit,
      .Textured = false,
@@ -276,7 +276,7 @@ inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
      .Shading = ShadingArm::Lit,
      .Textured = true,
      .Kind = SurfaceKind::Opaque,
-     .Entry = nullptr},
+     .Entry = "fsGroundLit"},
     {.Domain = SurfaceDomain::Ground,
      .Shading = ShadingArm::Lit,
      .Textured = true,

@@ -289,7 +289,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
     item.ClusterCount = where.ClusterCount;
 
     VertexRunsCarried carried;
-    carried.Uv = where.HasUv && proxy.Slots()[slot].ReadsAnyImage();
+    carried.Uv = where.HasUv && (proxy.Slots()[slot].ReadsAnyImage() ||
+                                 proxy.Slots()[slot].Domain == SurfaceDomain::Ground);
     carried.Normal = Lit(proxy, subject, part);
 
     carried.Tangent =

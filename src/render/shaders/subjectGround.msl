@@ -1,13 +1,129 @@
-// THE GROUND'S OWN FAMILY, routed by the material's DOMAIN the way Unreal routes a Landscape. It
-// begins as the same shading `fsLit` does on purpose: the routing is the risky half and it is
-// proven by a picture that does not move. What comes next is the class evaluated PER PIXEL from the
-// packed structure, so a field edge lands where the evaluation flips rather than being interpolated
-// across a mesh whose vertices stand 24.86 m apart (board:2064).
+// THE GROUND'S OWN FAMILY, routed by the material's DOMAIN the way Unreal routes a Landscape, and
+// the class is decided HERE rather than interpolated from a mesh whose vertices stand 24.86 m apart.
+// The structure is `ClassStructure::Words()` -- the same packed, pointer-free array the CPU walks,
+// so the two cannot disagree about where a border is (board:1580). `in.uv` carries (east, north) in
+// that structure's own frame: the mapping is linear, so a uv interpolates it EXACTLY and no frame
+// arithmetic happens twice.
+
+struct GroundGrid {
+  uint W, H, CellsAt, SeedsAt, RefsAt, EdgesAt;
+  float OrgE, OrgN, CellM;
+};
+
+static inline GroundGrid groundGridAt(device const uint *w, uint head) {
+  GroundGrid g;
+  g.W = w[head + 0];
+  g.H = w[head + 1];
+  g.OrgE = as_type<float>(w[head + 2]);
+  g.OrgN = as_type<float>(w[head + 3]);
+  g.CellM = as_type<float>(w[head + 4]);
+  g.CellsAt = w[head + 5];
+  g.SeedsAt = w[head + 6];
+  g.RefsAt = w[head + 7];
+  g.EdgesAt = w[head + 8];
+  return g;
+}
+
+static inline int groundCrossX(float2 a, float2 b, float cy, float xa, float xb) {
+  if ((a.y <= cy) == (b.y <= cy)) { return 0; }
+  const float xi = a.x + (cy - a.y) * (b.x - a.x) / (b.y - a.y);
+  if (xi < xa || xi >= xb) { return 0; }
+  return b.y > a.y ? 1 : -1;
+}
+
+static inline int groundCrossY(float2 a, float2 b, float cx, float ya, float yb) {
+  if ((a.x <= cx) == (b.x <= cx)) { return 0; }
+  const float yi = a.y + (cx - a.x) * (b.y - a.y) / (b.x - a.x);
+  if (yi < ya || yi >= yb) { return 0; }
+  return b.x > a.x ? -1 : 1;
+}
+
+static inline float groundSegDist(float2 p, float2 a, float2 b) {
+  const float2 d = b - a;
+  const float l2 = dot(d, d);
+  const float t = l2 > 0.0 ? clamp(dot(p - a, d) / l2, 0.0, 1.0) : 0.0;
+  return length(a + t * d - p);
+}
+
+constexpr constant float kGroundNoEdgeM = 1.0e30;
+
+// THE SAME WALK THE CPU MAKES, and the same order: the fine grid first, the coarse one only where
+// the fine grid names nothing. Both loops are bounded by a count the packer wrote, so nothing here
+// is unbounded on the frame path.
+static inline int groundClassAt(device const uint *words, float2 at, thread float &edgeM) {
+  int best = -1;
+  int bestRank = -1;
+  int secondRank = -1;
+  edgeM = kGroundNoEdgeM;
+  for (uint b = 0; b < 2u; ++b) {
+    const uint head = words[b];
+    if (head == 0u) { continue; }
+    const GroundGrid g = groundGridAt(words, head);
+    const int i = int(floor((at.x - g.OrgE) / g.CellM));
+    const int j = int(floor((at.y - g.OrgN) / g.CellM));
+    if (i < 0 || j < 0 || uint(i) >= g.W || uint(j) >= g.H) { continue; }
+    const uint ci = g.CellsAt + (uint(j) * g.W + uint(i)) * 2u;
+    const uint c0 = words[ci];
+    const uint seeds = (c0 >> 16) & 0xFFu;
+    const uint seedFirst = words[ci + 1u];
+    if ((c0 & 0xFFu) != 0xFFu) {
+      best = int(c0 & 0xFFu);
+      bestRank = int((c0 >> 8) & 0xFFu);
+    }
+    const float2 corner = float2(g.OrgE + float(i) * g.CellM, g.OrgN + float(j) * g.CellM);
+    for (uint s = 0; s < seeds; ++s) {
+      const uint seedAt = g.SeedsAt + (seedFirst + s) * 3u;
+      const uint w0 = words[seedAt];
+      const uint refFirst = words[seedAt + 1u];
+      const float halfW = as_type<float>(words[seedAt + 2u]);
+      const int tpl = int(w0 & 0xFFu);
+      const int rank = int((w0 >> 8) & 0xFFu);
+      const uint refs = (w0 >> 16) & 0xFFu;
+      int wind = int((w0 >> 24) & 0xFFu) - 128;
+      float d = kGroundNoEdgeM;
+      for (uint r = 0; r < refs; ++r) {
+        const uint edge = g.EdgesAt + words[g.RefsAt + refFirst + r] * 4u;
+        const float2 p0 = float2(as_type<float>(words[edge]), as_type<float>(words[edge + 1u]));
+        const float2 p1 =
+            float2(as_type<float>(words[edge + 2u]), as_type<float>(words[edge + 3u]));
+        if (halfW <= 0.0) {
+          wind += groundCrossX(p0, p1, corner.y, corner.x, at.x);
+          wind += groundCrossY(p0, p1, at.x, corner.y, at.y);
+        }
+        d = min(d, groundSegDist(at, p0, p1));
+      }
+      if (halfW > 0.0) {
+        if (d > halfW) { continue; }
+        d = halfW - d;
+      } else if (wind == 0) {
+        continue;
+      }
+      if (rank > bestRank) {
+        secondRank = bestRank;
+        best = tpl;
+        bestRank = rank;
+        edgeM = d;
+      } else if (rank > secondRank) {
+        secondRank = rank;
+      }
+    }
+    if (best >= 0) { break; }
+  }
+  return best;
+}
+
 fragment SFrag fsGroundLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
+  float edgeM = kGroundNoEdgeM;
+  const int which = groundClassAt(groundClasses, in.uv, edgeM);
+  const uint rows = as_type<uint>(groundPalette[0]);
+  const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
+  const float3 albedo = float3(groundPalette[4u + row * 4u + 0u],
+                               groundPalette[4u + row * 4u + 1u],
+                               groundPalette[4u + row * 4u + 2u]);
   SFrag o;
-  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p,
-                       surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
+  o.col = float4(shade(surface, lights, skyIrradiance, in.lp, shadingNormal, in.p, albedo, in.ls,
+                       shadowMap, shadowSampler),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);

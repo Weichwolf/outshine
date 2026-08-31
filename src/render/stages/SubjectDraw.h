@@ -34,11 +34,13 @@ public:
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
+  static constexpr size_t kSubjectFragmentStorage = 3;
+
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
                                          .VertexStorageBuffers = 1,
                                          .FragmentSamplers = kSubjectImages,
                                          .FragmentUniformBuffers = kSubjectFragmentUniforms,
-                                         .FragmentStorageBuffers = 1};
+                                         .FragmentStorageBuffers = kSubjectFragmentStorage};
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
@@ -171,6 +173,11 @@ public:
 
   void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
 
+  void GroundFrom(SDL_GPUBuffer *classes, SDL_GPUBuffer *palette) {
+    GroundClasses_ = classes;
+    GroundPalette_ = palette;
+  }
+
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
@@ -276,6 +283,8 @@ private:
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
   SDL_GPUBuffer *SkyIrradiance_ = nullptr;
+  SDL_GPUBuffer *GroundClasses_ = nullptr;
+  SDL_GPUBuffer *GroundPalette_ = nullptr;
 
   [[nodiscard]] SubjectResidency &Bound() { return At_ != nullptr ? *At_ : Own_; }
 

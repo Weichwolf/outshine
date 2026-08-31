@@ -612,13 +612,30 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      "deg");
   }
   std::vector<float> tinted;
+  std::vector<float> classUv;
+  std::vector<float> classPalette;
+  std::shared_ptr<const ClassStructure> classStructure;
   {
     const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
     const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
     const Render::Medium fallback;
     size_t named = 0;
     if (classes && wearing.Ready()) {
+      classStructure = classes;
+      classPalette.assign(4u + (wearing.TemplateCount() + 1u) * 4u, 0.0f);
+      const auto rows = (uint32_t)wearing.TemplateCount();
+      classPalette[0] = std::bit_cast<float>(rows);
+      for (size_t row = 0; row < wearing.TemplateCount(); ++row) {
+        for (int channel = 0; channel < 3; ++channel) {
+          classPalette[4u + row * 4u + (size_t)channel] = wearing.Rows()[row].Ground[channel];
+        }
+      }
+      for (int channel = 0; channel < 3; ++channel) {
+        classPalette[4u + wearing.TemplateCount() * 4u + (size_t)channel] =
+            (float)fallback.GroundAlbedo[channel];
+      }
       tinted.resize((inFrame.size() / 3) * 4);
+      classUv.resize((inFrame.size() / 3) * 2);
       for (size_t at = 0, one = 0; at + 2 < laid->PositionM.size(); at += 3, ++one) {
         const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
                                 laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
@@ -628,6 +645,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         int second = -1;
         const int which =
             World.Stack.Classes().ClassAt(*classes, where.LatDeg, where.LonDeg, &edgeM, &second);
+        {
+          double eastM = 0.0;
+          double northM = 0.0;
+          World.Stack.Classes().ToEnu(where.LatDeg, where.LonDeg, &eastM, &northM);
+          classUv[one * 2] = (float)eastM;
+          classUv[one * 2 + 1] = (float)northM;
+        }
         const bool stands = which >= 0 && (size_t)which < wearing.TemplateCount();
         if (stands) { ++named; }
         const Ground::VegetationTemplates::Row &wore = wearing.Rows()[stands ? (size_t)which : 0];
@@ -1087,6 +1111,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!tinted.empty()) {
     (void)ground.setColours(ringPart, std::span<const float>(tinted.data(), tinted.size()));
   }
+  if (!classUv.empty()) {
+    (void)ground.setTexture(ringPart, std::span<const float>(classUv.data(), classUv.size()), 0);
+  }
 
   std::unordered_map<uint64_t, float> drawnGround;
   {
@@ -1377,6 +1404,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "ms");
   phaseAt = std::chrono::steady_clock::now();
   Picture.Standing->GroundIs(ringSurface.index());
+  if (classStructure && !classPalette.empty() &&
+      !Picture.Standing->GroundClasses(classStructure->Words(),
+                                       classStructure->Bytes() / sizeof(uint32_t),
+                                       classPalette.data(),
+                                       classPalette.size(),
+                                       Error)) {
+    return false;
+  }
   Picture.Standing->Digests(declared.Render.Audits);
   if (!Picture.Standing->Restand(std::move(ground), drivenParts, wearing, Error)) { return false; }
   Published.Places(

@@ -140,3 +140,55 @@ does not move:
 **What is left is the evaluation itself**, and the three things this item already found are still
 sitting there unreached: `ClassStructure::Words()` and `Bytes()` with no caller, `Evaluate` already
 shader-shaped, and `distM` discarded at both call sites.
+
+## AND THE CLASS IS DECIDED PER PIXEL. CentralPark passes on its own bar.
+
+`groundClassAt` in `src/render/shaders/subjectGround.msl` is the same walk `ClassStructure::Evaluate`
+makes, over the same packed words -- the fine grid first, the coarse one only where the fine names
+nothing, both loops bounded by counts the packer wrote. `ClassStructure::Words()` had no caller when
+this item was filed; it is the storage buffer now.
+
+**The frame arithmetic happens ONCE, on the CPU, and rides in as a uv.** The alternative was to hand
+the shader the two tangent frames and let it convert -- a second answer to a question the CPU has
+already answered, and board:1580's exact defect. `Picturing` writes `ClassField::ToEnu(lat, lon)`
+into the ring's uv0; the mapping is linear so a uv interpolates it EXACTLY, and `SubjectProxy` keeps
+the run for a material that samples no image because its domain is Ground.
+
+The palette is a second buffer: a count, then one row of four floats per class, then the medium's own
+ground albedo LAST as the row an unmapped pixel wears. The albedos are the ones the vertex tint
+already read, so a change of WHERE a class applies cannot be confused with a change of what it
+looks like.
+
+    outshine/places   8 PASS 1 UNPREPARED  ->  9 PASS 0 FAIL 0 UNPREPARED
+    CentralPark       varies by 0.799      ->  1.113   against a bar of 1.0 that did not move
+    Heidelberg        0c7c65e9             ->  9fc2894e
+    ZurichPlan        p50 5.72             ->  6.65 ms
+
+**LOOKED AT, on all three.** ZurichPlan was soft brown and olive blobs bleeding into one another; it
+is now sharp-edged parcels -- fields, woodland, parks, the courtyards between blocks, a defined
+forest edge on the Zurichberg and a clean lake shore. Central Park has its own SHAPE: bounded
+woodland, lawns, paths, water, the museum. Heidelberg's foreground carries a straight field boundary
+where a gradient was.
+
+CentralPark had stood red at 0.7991 against 1.0 for this whole session and it is the case's own
+oracle, unmoved, that now passes.
+
+## What is NOT fixed, and it is the next thing
+
+**The albedos read as desert.** Woodland is brown where it should be dark green and lawn is straw
+where it should be green. The class is now decided in the right PLACE; what each class WEARS is a
+separate question and this item deliberately did not touch it -- the palette hands over exactly the
+albedos the vertex tint read, so the two pictures differ in boundaries and in nothing else.
+
+- [x] The ground reaches the device by a GROUND path -- an engine-internal domain on
+      `SubjectMaterial` that `Picturing` sets by surface INDEX
+- [x] The packed structure is a storage buffer and `Evaluate` runs in the ground fragment shader
+- [x] The 17 materials are a palette buffer the shader indexes
+- [ ] `distM` gives the border one pixel of coverage. It is computed and returned and still
+      DISCARDED -- the border is hard and therefore aliased, which is the honest state
+- [ ] the vegetation placer evaluates the SAME structure
+- [ ] Measurement: the width in pixels of the transition across a known edge. The mesh no longer
+      decides it, so it is 1 px by construction -- but that is an argument and not a measurement,
+      and the negative control on the vertex-tinted build is what would make it one
+- [ ] the CPU `Evaluate` and the shader's are ONE source. They are two today, ported by hand, and
+      the packed format is the only thing holding them together

@@ -258,6 +258,12 @@ public:
 
   void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? (float)deg : FovDeg_; }
 
+  [[nodiscard]] bool SetGroundClasses(const uint32_t *words,
+                                      size_t wordCount,
+                                      const float *palette,
+                                      size_t paletteFloats,
+                                      std::string &error);
+
   void SetOrthoM(double m) { OrthoM_ = (float)m; }
 
   void SetNearM(double m) { NearM_ = m > 0.0 ? (float)m : NearM_; }
@@ -378,6 +384,10 @@ private:
   MediumRadianceStage Radiance_;
   IrradianceStage SkyIrradianceStage_;
   DepthPyramidStage PyramidStage_;
+  OwnedBuffer GroundClasses_;
+  OwnedBuffer GroundPalette_;
+  uint32_t GroundClassBytes_ = 0;
+  uint32_t GroundPaletteBytes_ = 0;
   OwnedBuffer IrradianceBuffer_;
   OwnedBuffer Pyramid_;
   SkyStage Sky_;

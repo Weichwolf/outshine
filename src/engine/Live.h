@@ -97,6 +97,15 @@ public:
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
 
+  [[nodiscard]] bool GroundClasses(const uint32_t *words,
+                                   size_t wordCount,
+                                   const float *palette,
+                                   size_t paletteFloats,
+                                   std::string &error) {
+    return Renderer_ == nullptr ||
+           Renderer_->SetGroundClasses(words, wordCount, palette, paletteFloats, error);
+  }
+
   void Digests(bool yes) { Scratch_.Digests = yes; }
 
   [[nodiscard]] double BuildMs() const { return BuildMs_; }

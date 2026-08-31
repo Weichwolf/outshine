@@ -774,7 +774,7 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
   Floor(s, ring, lowZ, site);
 }
 
-void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
+void RaisePart(const BuildingShape &s, Site &site) {
   const double outM = site.ReachM();
   const size_t whole = (size_t)outM;
   for (size_t seen = gFarthestM.load(); whole > seen;) {
@@ -906,7 +906,7 @@ void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept 
     part.SoleM = PlinthFootZ(part, ground);
   }
   for (const BuildingShape &part : mass.Parts) {
-    RaisePart(part, ground, site);
+    RaisePart(part, site);
     Pavement(part, plan.Street, ground, part.SeatM, site);
   }
 }

@@ -935,8 +935,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
           {Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
            AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
-      if (SkyIrradiance_ != nullptr) {
-        SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, &SkyIrradiance_, 1u);
+      if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
+        SDL_GPUBuffer *const storage[kSubjectFragmentStorage] = {
+            SkyIrradiance_, GroundClasses_, GroundPalette_};
+        SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage, kSubjectFragmentStorage);
       }
       SDL_PushGPUFragmentUniformData(
           into.Commands, 0, surface.Row.data(), (uint32_t)(surface.Row.size() * sizeof(float)));

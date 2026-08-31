@@ -777,9 +777,93 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
   Radiance_.Encode(into);
 }
 
+namespace {
+
+constexpr uint32_t kLeastGroundBytes = 16;
+
+[[nodiscard]] bool StandsBuffer(SDL_GPUDevice *device,
+                                OwnedBuffer &held,
+                                uint32_t &heldBytes,
+                                uint32_t bytes,
+                                const void *from,
+                                const char *what,
+                                std::string &error) {
+  if (!held || heldBytes < bytes) {
+    SDL_GPUBufferCreateInfo wanted{};
+    wanted.usage = (SDL_GPUBufferUsageFlags)SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+    wanted.size = bytes;
+    SDL_GPUBuffer *made = SDL_CreateGPUBuffer(device, &wanted);
+    if (made == nullptr) {
+      error = std::string("the ") + what + " has no buffer: " + SDL_GetError();
+      return false;
+    }
+    held = OwnedBuffer(device, made);
+    heldBytes = bytes;
+  }
+  if (from == nullptr || bytes == 0) { return true; }
+  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  wantedTransfer.size = bytes;
+  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(device, &wantedTransfer);
+  if (staging == nullptr) {
+    error = std::string("the ") + what + " has no staging buffer: " + SDL_GetError();
+    return false;
+  }
+  std::memcpy(SDL_MapGPUTransferBuffer(device, staging, false), from, bytes);
+  SDL_UnmapGPUTransferBuffer(device, staging);
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  const SDL_GPUTransferBufferLocation source{.transfer_buffer = staging, .offset = 0};
+  const SDL_GPUBufferRegion into{.buffer = held.Get(), .offset = 0, .size = bytes};
+  SDL_UploadToGPUBuffer(copy, &source, &into, false);
+  SDL_EndGPUCopyPass(copy);
+  SDL_SubmitGPUCommandBuffer(commands);
+  SDL_ReleaseGPUTransferBuffer(device, staging);
+  return true;
+}
+
+} // namespace
+
+bool SceneRenderer::SetGroundClasses(const uint32_t *words,
+                                     size_t wordCount,
+                                     const float *palette,
+                                     size_t paletteFloats,
+                                     std::string &error) {
+  if (Handles_.Device == nullptr) { return true; }
+  const size_t wanted = wordCount * sizeof(uint32_t);
+  const size_t wantedPalette = paletteFloats * sizeof(float);
+  const auto classBytes =
+      (uint32_t)(wanted > kLeastGroundBytes ? wanted : (size_t)kLeastGroundBytes);
+  const auto paletteBytes =
+      (uint32_t)(wantedPalette > kLeastGroundBytes ? wantedPalette : (size_t)kLeastGroundBytes);
+  if (!StandsBuffer(Handles_.Device,
+                    GroundClasses_,
+                    GroundClassBytes_,
+                    classBytes,
+                    words,
+                    "ground class structure",
+                    error) ||
+      !StandsBuffer(Handles_.Device,
+                    GroundPalette_,
+                    GroundPaletteBytes_,
+                    paletteBytes,
+                    palette,
+                    "ground palette",
+                    error)) {
+    return false;
+  }
+  Subjects_.GroundFrom(GroundClasses_.Get(), GroundPalette_.Get());
+  if (DrawsGlass_) { Glass_.GroundFrom(GroundClasses_.Get(), GroundPalette_.Get()); }
+  return true;
+}
+
 bool SceneRenderer::ConfigureIrradiance(std::string &error) {
   Subjects_.SkyFrom(IrradianceBuffer_.Get());
   if (DrawsGlass_) { Glass_.SkyFrom(IrradianceBuffer_.Get()); }
+  {
+    std::string ignored;
+    (void)SetGroundClasses(nullptr, 0, nullptr, 0, ignored);
+  }
   return SkyIrradianceStage_.Configure(Handles_,
                                        TransmittanceLut_.Get(),
                                        MultiScatterLut_.Get(),
