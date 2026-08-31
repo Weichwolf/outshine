@@ -187,12 +187,39 @@ good. Each starts UNSET and is written down with its reason before the first sco
 | **superelevation** | **yes** | `lateralProfile` | see below |
 | absolute elevation | **NO** | `elevationProfile` | not scored until the datum is settled |
 
-**The first thing this corpus attacks is a constant of ours.** `kCrossfall = 0.025` in
-`RoadMesh.cpp` is SET and nothing measures it; the A9's superelevation has a median of **+1.84 per
-cent** over 606 records. That median MIXES the straight road's roof camber with curve banking, so it
-does not refute 2.5 per cent on its own -- separating the two is the work, and superelevation on a
-curve is not a taste at all but `e = v^2 / (127 R) - f`, a rule that carries its own reason and
-takes the design speed of the class, exactly as the goal demands.
+## THE FIRST NUMBER THE CORPUS PRODUCED, and it corrected the item that asked for it
+
+The table is flattened once by `test/scripts/opendrive_oracle.py`: every road walked at one metre,
+plan, elevation, superelevation and the summed width of the `driving`, `entry` and `exit` lanes.
+
+    248 road(s), 117 813 station(s)      Nord 85 / 57 547, Sued 163 / 60 266, none refused
+    station spacing   p01 0.9991  p50 1.0000  p99 1.0009  max 1.0017 m
+
+**The spacing is the table checking itself**: `paramPoly3` with `pRange="arcLength"` should advance
+one metre of curve per metre of `s`, and it does, to under two millimetres. A plan evaluation that
+were wrong would show here first.
+
+Then the question this item was filed on. **`kCrossfall = 0.025` is SET in `RoadMesh.cpp` and
+nothing measures it.** The first version of this item quoted the A9's superelevation median as
+**+1.84 per cent** and reasoned from it -- and that number is MEANINGLESS: it is the SIGNED median
+over every station, where a left-hand curve cancels a right-hand one. The comparable quantity is the
+MAGNITUDE, and it has to be taken where the camber is not competing with banking, so it is binned by
+the radius computed from the heading change between consecutive stations:
+
+    radius band        stations   p50 |superelevation|
+    straight R>5000      16 597          2.76 per cent
+    R 2000-5000           4 296          3.41
+    R 1000-2000          22 465          3.15
+    R 500-1000           11 213          4.05
+    R<500                 2 806          5.61
+
+**On the straight the A9 measures 2.76 per cent, and this tree sets 2.50.** So the constant is LOW
+rather than high, which is the opposite of what the first reading said. It is also close enough that
+the right repair is to give it an ORIGIN rather than a new value: 2.5 per cent is the German design
+minimum for drainage and the built road exceeds it, which is what a built road does.
+
+And the monotone rise across the bands is `e = v^2 / (127 R) - f` showing up in the measurement --
+the rule the goal asks for, carrying its own reason, visible rather than asserted.
 
 ## What will be true
 
