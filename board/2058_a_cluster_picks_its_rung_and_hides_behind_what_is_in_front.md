@@ -186,3 +186,34 @@ to rasterise in a compute shader than to hand a triangle pipeline; CLAUDE.md's o
 
 Streaming. Nanite pages clusters in and out under a budget; this tree has no eviction for subject
 geometry at all (`grep Evict src/render/` finds none) and that is its own item.
+
+## WHY EVERY CLUSTER IS A ROOT, and it is one call
+
+`cook: clusters with no parent above them` reads **23 207** on Shibuya against
+`cook: clusters in all` **23 207**. Every cluster is a root, so there is exactly ONE rung and no
+selection can choose between rungs -- which is why this item's second box cannot be built as it
+stands.
+
+The reason is `Shape.cpp:109`: it calls `CookClusters`, the FLAT cut. **`CookDag` exists, is
+complete, builds levels, and `grep -rn "CookDag" src/ test/` finds its declaration, its definition
+and NO CALLER** (board:2075).
+
+## AND WHAT BLOCKS THE SWITCH IS OWNERSHIP, measured rather than assumed
+
+`CookDag` merges vertices into cells and APPENDS the averaged positions -- `firstMade =
+out.PositionsM.size() / 3`. A parent cluster therefore indexes vertices that do not exist in the
+source, so every attribute stream must be coarsened alongside the positions, and the shape must OWN
+what it coarsens.
+
+**The glTF subject path already owns it.** `Shaped.cpp:16-30` narrows all six streams into the
+`ShapeStore` and the parts span into it. The WORLD path does not: `FillFrom(const Geometry&)` points
+`made.PositionsM` at the Geometry's own arrays.
+
+So the order is now measured rather than guessed:
+
+1. `CookDag` takes the attribute streams and averages them the way it averages positions
+2. the SUBJECT path switches to it and is proven on the Khronos corpus, where the data is owned
+3. the WORLD path pays for ownership -- Shibuya hands over 587 MB, so that copy is roughly 100 ms
+   against a reshape that is 15 ms today, and Unreal builds Nanite's structure OFFLINE for exactly
+   this reason. Whether this tree rebuilds the world's clusters every time is the question that
+   step asks, and it is a different item's to answer
