@@ -11,7 +11,19 @@ already lives by that for the places. What it has no recording of is a STRUCTURE
 heights board:2075 infers are judged by eye today, and an eye cannot tell 42 m from 53 m at a
 kilometre.
 
-## THERE IS GROUND TRUTH, credential-free, for the places this tree already stands at
+## A PLACE IS A CAMERA; A CORPUS IS AN EXTENT, AND ONLY THE SECOND BOUNDS THE SCORE
+
+The seven places say where a picture is TAKEN. They say nothing about how many decks may be
+JUDGED, and reading them as a limit would throw away almost the whole oracle: **Hamburg's CityGML
+set alone carries 2 170 `brid:Bridge` objects**, and this tree stands one camera in it. The
+comparison needs no camera at all -- infrastructure is raised from a declared window headless,
+which is this tree's fast path rather than a degraded one -- so the case scores EVERY bridge inside
+the corpus's own extent and reports a DISTRIBUTION, the same way a frame time is reported.
+
+    what bounds the score        the corpus extent, and the licence that let it be fetched
+    what does NOT bound it       where a camera happens to stand
+
+## THERE IS GROUND TRUTH, credential-free, over extents far larger than any camera
 
 Researched, and it corrected the assumption that German open data carries no bridges.
 
@@ -39,17 +51,26 @@ wrong against.** Kaiserberg's decks are measured at 32.92 to 40.18 m NHN.
 
 ## What will be true
 
-- [ ] One place's bridge decks are scored against a measured height, and the case states its grade:
-      **TRUTH**, because a LiDAR class-17 return is a measurement carried further than ours
+- [ ] EVERY bridge in one corpus extent is scored against its measured height -- not one per
+      camera place -- and the case states its grade: **TRUTH**, because a LiDAR class-17 return is
+      a measurement carried further than ours
+- [ ] The score is a DISTRIBUTION over the decks it judged -- p50/p95 of the height error and the
+      count -- because a single worst deck says nothing about whether the rule is right
 - [ ] The oracle is prepared by the tree's own preparer into the system temp root, never committed,
       like every other corpus here
 - [ ] `streets: and the most one stands over what it crosses` is replaced by, or joined by, a number
       that compares deck by deck rather than reporting a maximum
+- [ ] The window the corpus is scored over is DECLARED, so growing the score is adding a window
+      rather than adding a camera
 - [ ] ODbL's share-alike is checked BEFORE any OSM-derived geometry is committed. Nothing derived
       from OSM is in this repository today and that should stay deliberate rather than accidental
 
 ## What this does NOT cover
 
-Scoring the whole world. These four places have open 3D bridge data because Germany and Switzerland
-publish it; most of the Earth does not. The corpus proves the RULE on the places that can judge it,
-and everywhere else the standard stays the owner's: plausible rather than truthful.
+Scoring the whole world. Germany and Switzerland publish open 3D bridge data and most of the Earth
+does not, so the corpus proves the RULE over the extents that can judge it -- thousands of decks,
+not four -- and everywhere else the standard stays the owner's: plausible rather than truthful.
+
+It also does not cover the PICTURE. A deck at the measured height can still look wrong, and that is
+what `make shots` and its digests are for. The two are different oracles and neither substitutes for
+the other.
