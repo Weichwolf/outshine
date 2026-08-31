@@ -46,7 +46,26 @@ plainly exists is the eighth measure this session that says something other than
 shipping it would have been the same fault I spent the day naming in other people's code and my
 own.
 
-**That contradiction is this item's first step**, before any ceiling: a field reports nothing held
+## THE CONTRADICTION IS RESOLVED, and it was the ledger rather than the field
+
+`GroundStack::HeapBytes()` was never wrong. It was PUBLISHED behind `Grounds()`'s early return, so
+the number a reader saw was the FIRST rebuild's -- taken when the fields were empty, before a
+single footprint had landed. The same staleness cost board:2063 a night and made
+`building triangles the world meshed` read 0 on a warm start; this is its third instance.
+
+Published before the early return instead, it reads:
+
+    Heidelberg   world: the bytes its fields hold      180 831 228      181 MB
+    Shibuya      world: the bytes its fields hold    1 181 143 386     1.18 GB
+    Shibuya      maximum resident set size                             2.85 GB
+    Shibuya      heap taken under tile-worker                          1.50 GB
+    Shibuya      heap taken under world-ground                         6.34 GB   churn, not residency
+
+**So the world's resident set is 1.18 GB and there is now a number to bound.** The 6.34 GB under
+`world-ground` remains allocation THROUGH a phase and cannot be a ceiling; the 1.18 GB is what the
+fields actually hold and it is what a ceiling governs.
+
+**That contradiction WAS this item's first step**, before any ceiling: a field reports nothing held
 while its own geometry reports seventeen million corners, and until that is understood there is no
 number to bound. The heap tags cannot stand in for it -- `world-ground` measures ALLOCATION through
 a phase, so its 2.38 GB is churn rather than residency.

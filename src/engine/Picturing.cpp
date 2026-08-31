@@ -467,6 +467,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
       Published.Places("building triangles the world meshed", (double)triangles, "triangles");
     }
+    Published.Places("world: the bytes its fields hold", (double)World.Stack.HeapBytes(), "bytes");
     Published.Places("tiles laid bare on the ellipsoid",
                      (double)(sees->Pending + sees->Absent + sees->Refused),
                      "tiles");
