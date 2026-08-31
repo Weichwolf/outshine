@@ -297,3 +297,40 @@ sample at the TILE'S OWN resolution -- a grid per rung, or the drawn triangle in
 Nothing else can be trusted until it is: a road that is level across, a stamp that presses the
 ground, a body welded to the terrain all measure against a surface, and today that surface is not
 the one being drawn.
+
+
+## HOW EVERYONE ELSE DOES THE VERTICAL, and it is not what this tree does
+
+**Civil 3D / OpenRoads**: the profile is DESIGNED -- tangents joined by PARABOLIC VERTICAL CURVES
+whose length comes from `K = L / A` (A the algebraic difference of grades), with minimum K from
+RAA/RAL or AASHTO. The terrain is then cut AND filled to meet it, and a daylight slope returns to
+existing ground. **Unreal**, *Deform Landscape to Splines*: the landscape is raised and lowered to
+the spline within a half-width and a falloff. **Cities: Skylines**: the same, live.
+
+**They agree on the rule and it inverts what is here: the road does not follow the ground. The road
+is DESIGNED and the ground yields, in BOTH directions.**
+
+So the two things this tree does to the vertical are both wrong in the same way -- they only go UP,
+because the ground could not be moved:
+
+    the ramp relaxation raised an end to satisfy a gradient      140.465 m at Heidelberg, now
+                                                                 capped at 14.000 m, the height of
+                                                                 the tallest deck this world has
+    the chord lift raised both ends of a span whose ground
+    bulged above it                                              replaced by inserting a station
+
+**Inserting a station is the fallback for having no right to move the ground.** It makes the road
+follow the dirt instead of being smooth, and a road that follows the dirt is one that shimmers in
+motion -- exactly what a temporal filter turns into a smear.
+
+The right order, and only one part is missing:
+
+1. take the rise from the terrain COARSELY, then smooth it into tangents and vertical curves bounded
+   by `maxGradient` and a minimum K -- **this is the missing part**
+2. insert stations only to DRAW that curve, by the sagitta rule the sweep already uses
+3. press the ground to the design surface both ways, with a daylight slope outward -- board:2084's
+   stamp, already in the door
+
+`kRoadAboveM` is deleted: it lifted every road one metre unconditionally, which was a z-fighting
+hack from before the height was exact. A carriageway's top now sits ON the interpolated triangle and
+its 0.30 m body reaches into the ground, which is the one interpenetration the goal allows.

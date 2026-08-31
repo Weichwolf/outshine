@@ -861,10 +861,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       bare.BaseColour[channel] = held.GroundAlbedo[channel];
     }
   }
-  constexpr double kRoadAboveM = 1.0;
   constexpr double kRoadStepM = 16.0;
   constexpr double kNodeSnapM = 2.0;
   constexpr int kRampPasses = 12;
+  constexpr int kChordPasses = 4;
+  constexpr double kChordWithinM = 0.20;
   constexpr double kTrimMostWidths = 4.0;
   constexpr double kFitWithinM = 0.5;
   constexpr double kStampWorthM = 0.25;
@@ -1201,6 +1202,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   std::unordered_map<uint64_t, float> drawnGround;
+  std::unordered_map<uint64_t, std::vector<uint32_t>> facesAt;
   {
     Published.Places(
         "rebuild: of that, the ring and the buildings into the frame",
@@ -1228,8 +1230,75 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "ring: vertices the drape grid holds", (double)(inFrame.size() / 3), "vertices");
     Published.Places("ring: cells they fall into", (double)summed.size(), "cells");
     Published.Places("ring: cells holding more than one", (double)crowded, "cells");
+
+    facesAt.reserve(laid->Index.size() / 3u);
+    for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
+      double lowE = 1.0e30;
+      double highE = -1.0e30;
+      double lowS = 1.0e30;
+      double highS = -1.0e30;
+      bool whole = true;
+      for (size_t corner = 0; corner < 3; ++corner) {
+        const size_t held = (size_t)laid->Index[one + corner] * 3u;
+        if (held + 2 >= inFrame.size()) {
+          whole = false;
+          break;
+        }
+        lowE = std::min(lowE, (double)inFrame[held]);
+        highE = std::max(highE, (double)inFrame[held]);
+        lowS = std::min(lowS, (double)inFrame[held + 2]);
+        highS = std::max(highS, (double)inFrame[held + 2]);
+      }
+      if (!whole) { continue; }
+      const auto fromE = (int64_t)std::floor(lowE / kDrapeGridM);
+      const auto toE = (int64_t)std::floor(highE / kDrapeGridM);
+      const auto fromS = (int64_t)std::floor(lowS / kDrapeGridM);
+      const auto toS = (int64_t)std::floor(highS / kDrapeGridM);
+      if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
+      for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
+        for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
+          const uint64_t key =
+              ((uint64_t)(cellE + 0x20000000) << 32) | (uint64_t)(cellS + 0x20000000);
+          facesAt[key].push_back((uint32_t)one);
+        }
+      }
+    }
+    Published.Places(
+        "ring: triangles the drape can reach", (double)(laid->Index.size() / 3u), "triangles");
   }
-  const auto drapedOver = [&drawnGround](double eastM, double southM, double fallback) {
+  const auto drapedOver = [&drawnGround, &facesAt, &inFrame, &laid](
+                              double eastM, double southM, double fallback) {
+    {
+      const auto cellE = (int64_t)std::floor(eastM / kDrapeGridM);
+      const auto cellS = (int64_t)std::floor(southM / kDrapeGridM);
+      const uint64_t key = ((uint64_t)(cellE + 0x20000000) << 32) | (uint64_t)(cellS + 0x20000000);
+      const auto bucket = facesAt.find(key);
+      if (bucket != facesAt.end()) {
+        for (const uint32_t at : bucket->second) {
+          const size_t a = (size_t)laid->Index[at] * 3u;
+          const size_t b = (size_t)laid->Index[at + 1u] * 3u;
+          const size_t c = (size_t)laid->Index[at + 2u] * 3u;
+          if (c + 2 >= inFrame.size()) { continue; }
+          const double aE = inFrame[a];
+          const double aS = inFrame[a + 2];
+          const double spanBE = (double)inFrame[b] - aE;
+          const double spanBS = (double)inFrame[b + 2] - aS;
+          const double spanCE = (double)inFrame[c] - aE;
+          const double spanCS = (double)inFrame[c + 2] - aS;
+          const double twice = spanBE * spanCS - spanCE * spanBS;
+          if (std::fabs(twice) < 1.0e-9) { continue; }
+          const double intoE = eastM - aE;
+          const double intoS = southM - aS;
+          const double towardB = (intoE * spanCS - spanCE * intoS) / twice;
+          const double towardC = (spanBE * intoS - intoE * spanBS) / twice;
+          if (towardB < -1.0e-6 || towardC < -1.0e-6 || towardB + towardC > 1.0 + 1.0e-6) {
+            continue;
+          }
+          return (double)inFrame[a + 1] * (1.0 - towardB - towardC) +
+                 (double)inFrame[b + 1] * towardB + (double)inFrame[c + 1] * towardC;
+        }
+      }
+    }
     const double atE = eastM / kDrapeGridM;
     const double atS = southM / kDrapeGridM;
     const auto west = (int64_t)std::floor(atE);
@@ -1275,7 +1344,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const Ground::StreetField &ways = World.Stack.Ways();
     const Ground::OsmField *const vectors = World.Stack.Vectors();
     std::vector<Generators::RoadStation> along;
-    std::vector<double> lifted;
+    std::vector<Generators::RoadStation> finer;
+    size_t chordAdded = 0;
     const int waterRow = World.Stack.Materials().Find("water");
     size_t decksOverWater = 0;
     size_t askedOverBridge = 0;
@@ -1342,7 +1412,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double northM = 0.0;
           standing.Place(one.LatDeg, one.LonDeg, aslM, &eastM, &upM, &northM);
           const double onDrawn = drapedOver(eastM, -northM, upM);
-          const double need = onDrawn + (double)below.ClearanceM + kRoadAboveM;
+          const double need = onDrawn + (double)below.ClearanceM;
           if (need > deckM[spans]) {
             if (deckM[spans] < -1.0e29) { ++decksRaised; }
             deckM[spans] = need;
@@ -1352,6 +1422,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
     }
     std::unordered_map<uint64_t, double> endM;
+    std::unordered_map<uint64_t, double> groundEndM;
     size_t rampsRaised = 0;
     double steepestRamp = 0.0;
     if (vectors != nullptr && decksRaised > 0) {
@@ -1375,7 +1446,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double upM = 0.0;
         double northM = 0.0;
         standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
-        *out = drapedOver(eastM, -northM, upM) + kRoadAboveM;
+        *out = drapedOver(eastM, -northM, upM);
         return true;
       };
       for (size_t at = 0; at < ways.Ways().size(); ++at) {
@@ -1391,8 +1462,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const auto found = endM.find(key[side]);
           if (found == endM.end()) {
             endM.emplace(key[side], stood);
+            groundEndM.emplace(key[side], stood);
           } else {
             found->second = std::max(found->second, stood);
+            const auto seeded = groundEndM.find(key[side]);
+            if (seeded != groundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
           }
         }
         if (lane.Bridge && deckM[at] > -1.0e29) {
@@ -1406,6 +1480,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           }
         }
       }
+      double mostDeckM = 0.0;
+      for (const auto &one : endM) {
+        const auto seeded = groundEndM.find(one.first);
+        if (seeded == groundEndM.end()) { continue; }
+        mostDeckM = std::max(mostDeckM, one.second - seeded->second);
+      }
+      Published.Places("streets: the highest deck a ramp must reach", mostDeckM, "m");
       for (int pass = 0; pass < kRampPasses; ++pass) {
         for (const Ground::StreetField::Way &lane : ways.Ways()) {
           if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
@@ -1422,10 +1503,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double runM = std::sqrt(runE * runE + runN * runN);
           const double mostM = runM * (double)lane.MaxGradient;
           const double apartM = high->second - low->second;
+          const auto capped = [&](uint64_t at, double toM) {
+            const auto seeded = groundEndM.find(at);
+            return seeded == groundEndM.end() ? toM : std::min(toM, seeded->second + mostDeckM);
+          };
           if (apartM > mostM) {
-            low->second = high->second - mostM;
+            low->second = capped(low->first, high->second - mostM);
           } else if (-apartM > mostM) {
-            high->second = low->second - mostM;
+            high->second = capped(high->first, low->second - mostM);
           }
         }
       }
@@ -1571,9 +1656,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double upM = 0.0;
           double northM = 0.0;
           standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
-          along.push_back({.EastM = eastM,
-                           .SouthM = -northM,
-                           .GradeM = drapedOver(eastM, -northM, upM) + kRoadAboveM});
+          along.push_back(
+              {.EastM = eastM, .SouthM = -northM, .GradeM = drapedOver(eastM, -northM, upM)});
           return true;
         };
         for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
@@ -1601,18 +1685,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ++refusedWays;
           continue;
         }
-        lifted.assign(along.size(), 0.0);
-        for (size_t at = 1; at < along.size(); ++at) {
-          const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
-          const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
-          const double chord = 0.5 * (along[at - 1].GradeM + along[at].GradeM);
-          const double overM = drapedOver(midE, midS, chord - kRoadAboveM) + kRoadAboveM;
-          if (overM <= chord) { continue; }
-          const double need = overM - chord;
-          lifted[at - 1] = std::max(lifted[at - 1], need);
-          lifted[at] = std::max(lifted[at], need);
+        for (int pass = 0; pass < kChordPasses; ++pass) {
+          size_t added = 0;
+          finer.clear();
+          finer.reserve(along.size() * 2u);
+          for (size_t at = 1; at < along.size(); ++at) {
+            finer.push_back(along[at - 1u]);
+            const double midE = 0.5 * (along[at - 1u].EastM + along[at].EastM);
+            const double midS = 0.5 * (along[at - 1u].SouthM + along[at].SouthM);
+            const double chord = 0.5 * (along[at - 1u].GradeM + along[at].GradeM);
+            const double overM = drapedOver(midE, midS, chord);
+            if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
+            finer.push_back(
+                Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+            ++added;
+          }
+          finer.push_back(along.back());
+          along.swap(finer);
+          chordAdded += added;
+          if (added == 0) { break; }
         }
-        for (size_t at = 0; at < along.size(); ++at) { along[at].GradeM += lifted[at]; }
 
         {
           fitEastNorth.clear();
@@ -1895,6 +1987,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "streets: corners too tight to drive, cut instead", (double)fitTooTight, "corners");
       Published.Places("streets: cuts the split made", (double)fitCuts, "cuts");
+      Published.Places("streets: stations a chord asked for", (double)chordAdded, "stations");
       Published.Places("streets: pieces the sweep laid on a line", (double)sweptPieces, "pieces");
       Published.Places("streets: cuts the sweep made", (double)sweptCuts, "cuts");
       Published.Places("streets: pieces the sweep could not lay", (double)sweptRefused, "pieces");
