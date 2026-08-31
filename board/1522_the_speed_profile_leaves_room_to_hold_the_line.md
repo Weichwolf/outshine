@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1498
 Area: base/curve, generators/path
 Tags: instrument, measured

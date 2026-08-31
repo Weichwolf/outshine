@@ -1781,7 +1781,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                               (double)lane.HalfWidthM,
                               profile,
                               wears,
-                              0.0,
+                              std::atan(Generators::kCrossfall),
                               pavement,
                               &sweptPieces,
                               &sweptCuts,

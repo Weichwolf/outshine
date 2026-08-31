@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: world
 Tags: instrument, perf
 Supersedes: 1501, 1502, 1504, 1518, 1524

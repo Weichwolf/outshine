@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: apps, scenario
 Tags: scope, driver, product
 

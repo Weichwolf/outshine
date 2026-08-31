@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1597
 Area: world
 Tags: scope, presence

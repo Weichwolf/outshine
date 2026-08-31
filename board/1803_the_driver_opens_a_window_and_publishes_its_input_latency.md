@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1573
 Area: apps, clients
 Tags: driver, instrument

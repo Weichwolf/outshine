@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Progress: perception
 Area: sim
 Tags: benchmark, target
