@@ -25,13 +25,14 @@ constexpr uint32_t kRoundConstants[64] = {
 void Compress(uint32_t state[8], const uint8_t block[64]) {
   uint32_t w[64];
   for (int i = 0; i < 16; i++) {
-    w[i] = (static_cast<uint32_t>(block[i * 4]) << 24) |
-           (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
-           (static_cast<uint32_t>(block[i * 4 + 2]) << 8) | static_cast<uint32_t>(block[i * 4 + 3]);
+    w[i] = (static_cast<uint32_t>(block[i * 4]) << 24u) |
+           (static_cast<uint32_t>(block[i * 4 + 1]) << 16u) |
+           (static_cast<uint32_t>(block[i * 4 + 2]) << 8u) |
+           static_cast<uint32_t>(block[i * 4 + 3]);
   }
   for (int i = 16; i < 64; i++) {
-    const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
-    const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+    const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3u);
+    const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10u);
     w[i] = w[i - 16] + s0 + w[i - 7] + s1;
   }
   uint32_t a = state[0];
@@ -102,8 +103,8 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   for (int i = 0; i < 8; i++) {
     for (int n = 0; n < 4; n++) {
       const auto byte = static_cast<uint8_t>(state[i] >> (24 - 8 * n));
-      out[static_cast<size_t>(i * 8 + n * 2)] = kHex[byte >> 4];
-      out[static_cast<size_t>(i * 8 + n * 2 + 1)] = kHex[byte & 15];
+      out[static_cast<size_t>(i * 8 + n * 2)] = kHex[byte >> 4u];
+      out[static_cast<size_t>(i * 8 + n * 2 + 1)] = kHex[byte & 15u];
     }
   }
   return out;

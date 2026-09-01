@@ -34,8 +34,8 @@ constexpr size_t kMostKept = 1024;
 thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
-  return (static_cast<uint64_t>(1) << 62) | (static_cast<uint64_t>(z & 31) << 56) |
-         (static_cast<uint64_t>(x & 0xFFFFFFFu) << 28) | static_cast<uint64_t>(y & 0xFFFFFFFu);
+  return (static_cast<uint64_t>(1) << 62u) | (static_cast<uint64_t>(z & 31) << 56u) |
+         (static_cast<uint64_t>(x & 0xFFFFFFFu) << 28u) | static_cast<uint64_t>(y & 0xFFFFFFFu);
 }
 
 uint64_t RequestKey(const std::string &key) {
@@ -43,7 +43,7 @@ uint64_t RequestKey(const std::string &key) {
   for (const char c : key) {
     h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * 1099511628211ull;
   }
-  return (static_cast<uint64_t>(3) << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
+  return (static_cast<uint64_t>(3) << 62u) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
 
 } // namespace

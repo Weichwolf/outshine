@@ -112,7 +112,7 @@ void Voiced(const Sound &sound,
       case Makes::Noise:
         for (size_t frame = 0; frame < frames; ++frame) {
           kept.Seed = kept.Seed * 1664525u + 1013904223u;
-          out[frame] = static_cast<double>(kept.Seed >> 8) / 8388608.0 - 1.0;
+          out[frame] = static_cast<double>(kept.Seed >> 8u) / 8388608.0 - 1.0;
         }
         break;
       case Makes::Gain: {

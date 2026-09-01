@@ -17,9 +17,9 @@ constexpr double kMetresPerDegree = 111320.0;
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
   uint64_t held =
       seed * 6364136223846793005ull + static_cast<uint64_t>(at) * 1442695040888963407ull + 1u;
-  held ^= held >> 33;
+  held ^= held >> 33u;
   held *= 0xff51afd7ed558ccdull;
-  held ^= held >> 33;
+  held ^= held >> 33u;
   return static_cast<double>(held & 0xFFFFFFull) / static_cast<double>(0xFFFFFF);
 }
 

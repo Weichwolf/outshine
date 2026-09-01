@@ -96,24 +96,24 @@ SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
 }
 
 float HalfToFloat(uint16_t bits) {
-  const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16;
-  const uint32_t exponent = (bits >> 10) & 0x1Fu;
+  const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16u;
+  const uint32_t exponent = (bits >> 10u) & 0x1Fu;
   uint32_t mantissa = bits & 0x3FFu;
   uint32_t assembled = 0;
   if (exponent == 0) {
     if (mantissa != 0) {
       int shift = 0;
       while ((mantissa & 0x400u) == 0) {
-        mantissa <<= 1;
+        mantissa <<= 1u;
         ++shift;
       }
       mantissa &= 0x3FFu;
-      assembled = (static_cast<uint32_t>(127 - 15 - shift + 1) << 23) | (mantissa << 13);
+      assembled = (static_cast<uint32_t>(127 - 15 - shift + 1) << 23u) | (mantissa << 13u);
     }
   } else if (exponent == 0x1Fu) {
-    assembled = 0x7F800000u | (mantissa << 13);
+    assembled = 0x7F800000u | (mantissa << 13u);
   } else {
-    assembled = ((exponent + 127 - 15) << 23) | (mantissa << 13);
+    assembled = ((exponent + 127 - 15) << 23u) | (mantissa << 13u);
   }
   assembled |= sign;
   float value = 0;

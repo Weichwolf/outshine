@@ -9,11 +9,11 @@ namespace {
 
 uint32_t Hash2(int32_t i, int32_t j) {
   uint32_t h = static_cast<uint32_t>(i) * 0x8da6b343u ^ static_cast<uint32_t>(j) * 0xd8163841u;
-  h ^= h >> 15;
+  h ^= h >> 15u;
   h *= 0x2c1b3c6du;
-  h ^= h >> 12;
+  h ^= h >> 12u;
   h *= 0x297a2d39u;
-  h ^= h >> 15;
+  h ^= h >> 15u;
   return h;
 }
 

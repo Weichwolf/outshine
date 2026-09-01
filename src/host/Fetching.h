@@ -22,7 +22,7 @@ public:
 
     std::string UserAgent = "outshine/1 (game engine; non-commercial research)";
 
-    size_t MaxBodyBytes = 64u << 20;
+    size_t MaxBodyBytes = 64u << 20u;
   };
 
   explicit Fetching(const Config &config);

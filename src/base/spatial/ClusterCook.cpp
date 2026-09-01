@@ -8,10 +8,10 @@ namespace {
 
 [[nodiscard]] uint32_t Spread(uint32_t bits) {
   bits &= 0x3ffu;
-  bits = (bits | (bits << 16)) & 0x030000ffu;
-  bits = (bits | (bits << 8)) & 0x0300f00fu;
-  bits = (bits | (bits << 4)) & 0x030c30c3u;
-  bits = (bits | (bits << 2)) & 0x09249249u;
+  bits = (bits | (bits << 16u)) & 0x030000ffu;
+  bits = (bits | (bits << 8u)) & 0x0300f00fu;
+  bits = (bits | (bits << 4u)) & 0x030c30c3u;
+  bits = (bits | (bits << 2u)) & 0x09249249u;
   return bits;
 }
 
@@ -22,7 +22,7 @@ namespace {
     const float held01 = part < 0.0f ? 0.0f : (part > 1.0f ? 1.0f : part);
     held[axis] = static_cast<uint32_t>(held01 * 1023.0f);
   }
-  return (Spread(held[0]) << 2) | (Spread(held[1]) << 1) | Spread(held[2]);
+  return (Spread(held[0]) << 2u) | (Spread(held[1]) << 1u) | Spread(held[2]);
 }
 
 } // namespace

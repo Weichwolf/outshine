@@ -14,7 +14,7 @@ bool LoadShaderText(std::string_view treePath, std::string &into, std::string &e
     return false;
   }
   into.clear();
-  char block[1 << 14];
+  char block[1u << 14u];
   for (size_t read = std::fread(block, 1, sizeof block, file); read > 0;
        read = std::fread(block, 1, sizeof block, file)) {
     into.append(block, read);

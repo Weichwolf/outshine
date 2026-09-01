@@ -35,11 +35,11 @@ enum class VertexLayout : uint8_t {
 
 enum class VertexAttribute : uint8_t {
   None = 0,
-  Uv = 1u << 0,
-  Uv1 = 1u << 1,
-  Normal = 1u << 2,
-  Tangent = 1u << 3,
-  Colour = 1u << 4
+  Uv = 1u << 0u,
+  Uv1 = 1u << 1u,
+  Normal = 1u << 2u,
+  Tangent = 1u << 3u,
+  Colour = 1u << 4u
 };
 
 [[nodiscard]] constexpr VertexAttribute operator|(VertexAttribute a, VertexAttribute b) {

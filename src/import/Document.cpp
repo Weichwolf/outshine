@@ -158,7 +158,7 @@ std::string Number(size_t value) {
   for (const char one : body) {
     const int six = SixBitsOf(one);
     if (six < 0) { return false; }
-    held = (held << 6) | static_cast<uint32_t>(six);
+    held = (held << 6u) | static_cast<uint32_t>(six);
     bits += 6;
     if (bits < 8) { continue; }
     bits -= 8;

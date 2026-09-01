@@ -46,7 +46,7 @@
 namespace outshine {
 
 inline constexpr size_t kParkedBound = 8;
-inline constexpr size_t kMostSaveBytes = 1 << 20;
+inline constexpr size_t kMostSaveBytes = 1u << 20u;
 
 class Collecting : public Sink {
 public:

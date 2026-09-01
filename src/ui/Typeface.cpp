@@ -13,7 +13,7 @@ namespace {
 
 constexpr int kSheetEdge = 2048;
 constexpr int kPad = 1;
-constexpr size_t kCellSlots = 1u << 14;
+constexpr size_t kCellSlots = 1u << 14u;
 
 struct Named {
   const char *Spelled;
@@ -60,8 +60,9 @@ static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == static_cast<size_t>(Family::
               "every family the catalogue offers names the file it is set in");
 
 [[nodiscard]] uint64_t Keyed(Family family, int sizePx, char32_t code) {
-  return (static_cast<uint64_t>(family) << 56) |
-         (static_cast<uint64_t>(static_cast<uint32_t>(sizePx)) << 32) | static_cast<uint64_t>(code);
+  return (static_cast<uint64_t>(family) << 56u) |
+         (static_cast<uint64_t>(static_cast<uint32_t>(sizePx)) << 32u) |
+         static_cast<uint64_t>(code);
 }
 
 [[nodiscard]] std::string Lowered(std::string_view from) {
@@ -186,7 +187,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   static const Cell kNotdef;
   if (Cells_.empty()) { return kNotdef; }
   const uint64_t key = Keyed(family, sizePx, code);
-  size_t slot = static_cast<size_t>(key * 0x9E3779B97F4A7C15ull >> 50) & (kCellSlots - 1u);
+  size_t slot = static_cast<size_t>(key * 0x9E3779B97F4A7C15ull >> 50u) & (kCellSlots - 1u);
   for (size_t step = 0; step < kCellSlots; ++step) {
     const Cell &held = Cells_[slot];
     if (held.Held && held.Key == key) { return held; }

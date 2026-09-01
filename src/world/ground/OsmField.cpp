@@ -19,7 +19,7 @@ namespace outshine::Ground {
 namespace {
 
 uint64_t TileKey(int x, int y) {
-  return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 32) | static_cast<uint32_t>(y);
+  return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 32u) | static_cast<uint32_t>(y);
 }
 
 } // namespace

@@ -15,8 +15,8 @@ struct Reader {
     int s = 0;
     while (P < End) {
       const uint8_t b = *P++;
-      r |= static_cast<uint64_t>(b & 0x7f) << s;
-      if ((b & 0x80) == 0) { return r; }
+      r |= static_cast<uint64_t>(b & 0x7fu) << s;
+      if ((b & 0x80u) == 0) { return r; }
       s += 7;
       if (s > 63) { break; }
     }
@@ -28,8 +28,8 @@ struct Reader {
     if (P >= End) { return false; }
     const uint64_t k = Varint();
     if (!Ok) { return false; }
-    num = static_cast<uint32_t>(k >> 3);
-    wire = static_cast<uint32_t>(k & 7);
+    num = static_cast<uint32_t>(k >> 3u);
+    wire = static_cast<uint32_t>(k & 7u);
     return true;
   }
 
@@ -77,7 +77,7 @@ struct Reader {
 };
 
 int32_t ZigZag(uint64_t v) {
-  return static_cast<int32_t>((v >> 1) ^ (~(v & 1) + 1));
+  return static_cast<int32_t>((v >> 1u) ^ (~(v & 1u) + 1));
 }
 
 } // namespace
@@ -229,8 +229,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         Rings_.push_back(r);
       };
       while (gi < geom.size()) {
-        const uint32_t cmd = geom[gi] & 7;
-        const uint32_t cnt = geom[gi] >> 3;
+        const uint32_t cmd = geom[gi] & 7u;
+        const uint32_t cnt = geom[gi] >> 3u;
         gi++;
         if (cmd == 1 || cmd == 2) {
           for (uint32_t k = 0; k < cnt; k++) {

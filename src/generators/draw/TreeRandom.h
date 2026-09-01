@@ -11,14 +11,14 @@ public:
 
   uint32_t Next() {
     uint32_t x = State_;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
+    x ^= x << 13u;
+    x ^= x >> 17u;
+    x ^= x << 5u;
     State_ = x;
     return x;
   }
 
-  float Unit() { return static_cast<float>(Next() >> 8) * (1.0f / 16777216.0f); }
+  float Unit() { return static_cast<float>(Next() >> 8u) * (1.0f / 16777216.0f); }
 
   float Signed() { return Unit() * 2.0f - 1.0f; }
 

@@ -183,8 +183,8 @@ bool ReadColour(std::string_view text, uint32_t &out) {
     } else {
       return false;
     }
-    out = (static_cast<uint32_t>(channel[0]) << 24) | (static_cast<uint32_t>(channel[1]) << 16) |
-          (static_cast<uint32_t>(channel[2]) << 8) | static_cast<uint32_t>(channel[3]);
+    out = (static_cast<uint32_t>(channel[0]) << 24u) | (static_cast<uint32_t>(channel[1]) << 16u) |
+          (static_cast<uint32_t>(channel[2]) << 8u) | static_cast<uint32_t>(channel[3]);
     return true;
   }
   const std::string lowered = Lower(text);

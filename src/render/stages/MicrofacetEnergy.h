@@ -27,11 +27,11 @@ inline constexpr int kEnergySamples = 2048;
   for (int i = 0; i < kEnergySamples; ++i) {
     const double u1 = (i + 0.5) / kEnergySamples;
     auto bits = static_cast<unsigned>(i);
-    bits = (bits << 16) | (bits >> 16);
-    bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
-    bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
-    bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
-    bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
     const double u2 = static_cast<double>(bits) * 2.3283064365386963e-10;
 
     const double cosH = std::sqrt((1.0 - u1) / (1.0 + (a2 - 1.0) * u1));

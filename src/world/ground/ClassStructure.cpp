@@ -125,11 +125,11 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
     if (i < 0 || j < 0 || i >= B.W || j >= B.H) { continue; }
     const size_t ci = (static_cast<size_t>(j) * B.W + static_cast<size_t>(i)) * 2;
     const uint32_t c0 = B.Cells[ci];
-    const uint32_t nseed = (c0 >> 16) & 0xFF;
+    const uint32_t nseed = (c0 >> 16u) & 0xFFu;
     const uint32_t seedFirst = B.Cells[ci + 1];
-    if ((c0 & 0xFF) != 0xFF) {
-      best = static_cast<int>(c0 & 0xFF);
-      bestRank = static_cast<int>((c0 >> 8) & 0xFF);
+    if ((c0 & 0xFFu) != 0xFF) {
+      best = static_cast<int>(c0 & 0xFFu);
+      bestRank = static_cast<int>((c0 >> 8u) & 0xFFu);
     }
     const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
     const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
@@ -138,10 +138,10 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
       const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
       float halfW;
       std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
-      const int tpl = static_cast<int>(w0 & 0xFF);
-      const int rank = static_cast<int>((w0 >> 8) & 0xFF);
-      const uint32_t nref = (w0 >> 16) & 0xFF;
-      int wind = static_cast<int>((w0 >> 24) & 0xFF) - 128;
+      const int tpl = static_cast<int>(w0 & 0xFFu);
+      const int rank = static_cast<int>((w0 >> 8u) & 0xFFu);
+      const uint32_t nref = (w0 >> 16u) & 0xFFu;
+      int wind = static_cast<int>((w0 >> 24u) & 0xFFu) - 128;
       double d = kNoEdgeM;
       for (uint32_t r = 0; r < nref; r++) {
         const float *p = &B.Edges[static_cast<size_t>(B.Refs[refFirst + r]) * 4];

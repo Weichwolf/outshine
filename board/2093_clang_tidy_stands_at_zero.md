@@ -38,6 +38,22 @@ schedule and it may only fall.**
 
 ## How it is tested while it falls
 
+**THE CONTROL FOUND A DETERMINISM DEFECT, WHICH IS WHAT A CONTROL IS FOR.** Twice, a sweep moved
+Venice's digest while every changed line was semantically a no-op -- `held >>= 8` becoming
+`held >>= 8u` on a `uint32_t`. Reproduced by reverting one header and re-applying it.
+
+The build set no `-ffp-contract`, so clang may FUSE a multiply and an add, and WHETHER it does
+depends on inlining. A source edit that changes nothing about the program still changes which
+operations get fused, which changes the last bit of a float, which changes a pixel. The picture was
+therefore a function of codegen decisions rather than of the declaration -- against the invariant
+that says determinism is compulsory outside the shaders.
+
+`-ffp-contract=off` in `test/run.sh` repairs it. Proved: with the header change and without it, the
+digests are now IDENTICAL, and stable across repeated renders.
+
+    control digests, before   Venice d99e6aaf   OldTown ecb4e513
+    control digests, now      Venice c713d304   OldTown b0f9f7d7
+
 `make lint` is the measure. The RENDER check while sweeping is **Venice and OldTown only** -- the two
 fastest places -- because a mechanical sweep over thousands of casts has to be proved not to move a
 pixel, and proving that twice quickly beats proving it nine times slowly. The full nine run before

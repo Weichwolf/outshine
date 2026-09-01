@@ -24,8 +24,8 @@ public:
 
   [[nodiscard]] constexpr bool within(Tag parent) const {
     uint32_t mask = 0xFFFFFFFFu;
-    for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8) {
-      mask <<= 8;
+    for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8u) {
+      mask <<= 8u;
     }
     return parent.Value_ != 0 && (Value_ & mask) == parent.Value_;
   }
@@ -44,7 +44,7 @@ struct TagCatalogue {
   static constexpr Tag Offers{0x02000000};
 
   [[nodiscard]] static constexpr Tag under(Tag family, uint32_t ordinal) {
-    return Tag(family.Value_ | ((ordinal & 0xFFu) << 16));
+    return Tag(family.Value_ | ((ordinal & 0xFFu) << 16u));
   }
 };
 

@@ -41,7 +41,7 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   }
   if (at + length > text.size()) { return text.size() - at; }
   for (size_t i = 1; i < length; ++i) {
-    code = (code << 6) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
+    code = (code << 6u) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
   }
   return length;
 }

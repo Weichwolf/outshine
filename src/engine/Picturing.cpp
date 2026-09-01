@@ -98,7 +98,7 @@ public:
   [[nodiscard]] bool Full() const noexcept override { return Into_->size() >= kMostInstances; }
 
 private:
-  static constexpr size_t kMostInstances = 1u << 20;
+  static constexpr size_t kMostInstances = 1u << 20u;
   std::vector<Surrounds::Standing> *Into_;
 };
 
@@ -620,7 +620,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
     const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
                           static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
-                          (static_cast<uint64_t>(over.Levels) << 56);
+                          (static_cast<uint64_t>(over.Levels) << 56u);
     World.Stack.Pool().Focus(atLat, atLon);
     ++World.Asked;
     Around asking = over;

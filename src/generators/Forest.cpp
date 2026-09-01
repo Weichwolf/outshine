@@ -23,7 +23,7 @@ float Unit16(uint64_t bits) {
 }
 
 float SizeFactor(uint64_t bits, float sigma) {
-  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16) - 1.0f) * 2.4494897f;
+  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16u) - 1.0f) * 2.4494897f;
 }
 
 } // namespace
@@ -74,7 +74,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const double eastM =
       (static_cast<double>(cell.I) + 0.25 + 0.5 * static_cast<double>(Unit24(place))) * lattice.Em;
   const double northM =
-      (static_cast<double>(cell.J) + 0.25 + 0.5 * static_cast<double>(Unit24(place >> 24))) *
+      (static_cast<double>(cell.J) + 0.25 + 0.5 * static_cast<double>(Unit24(place >> 24u))) *
       lattice.Nm;
 
   int row = 0;
@@ -104,7 +104,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   if (woody <= 0.0) { return Outcome::AboveTreeline; }
   if (steep >= 1.0) { return Outcome::TooSteep; }
 
-  if (static_cast<double>(Unit24(draw >> 24)) >= woody * (1.0 - steep)) {
+  if (static_cast<double>(Unit24(draw >> 24u)) >= woody * (1.0 - steep)) {
     return Outcome::WoodyDraw;
   }
 
@@ -117,7 +117,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   out->RadiusM = stem.TrunkRadiusM * size;
   out->HeightM = static_cast<float>(stem.HeightM * static_cast<double>(size));
   out->MassKg = stem.MassKg * size * size * size;
-  out->YawRad = Unit16(place >> 48) * 2.0f * std::numbers::pi_v<float>;
+  out->YawRad = Unit16(place >> 48u) * 2.0f * std::numbers::pi_v<float>;
   out->Contact = stem.Contact;
   return Outcome::Placed;
 }

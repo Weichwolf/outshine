@@ -29,9 +29,9 @@ uint32_t PlaceHash(double latDeg, double lonDeg) {
   uint32_t h =
       static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * 1.0e6))) * 2654435761u;
   h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * 1.0e6))) * 2246822519u;
-  h ^= h >> 13;
+  h ^= h >> 13u;
   h *= 3266489917u;
-  return h ^ (h >> 16);
+  return h ^ (h >> 16u);
 }
 
 int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latDeg, double lonDeg) {

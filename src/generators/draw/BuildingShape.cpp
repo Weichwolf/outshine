@@ -38,11 +38,11 @@ constexpr double kParapetM = 0.90;
 constexpr double kParapetLeastHalfVm = 2.2;
 
 uint32_t Mix(uint32_t x) {
-  x ^= x >> 16;
+  x ^= x >> 16u;
   x *= 0x7feb352du;
-  x ^= x >> 15;
+  x ^= x >> 15u;
   x *= 0x846ca68bu;
-  x ^= x >> 16;
+  x ^= x >> 16u;
   return x;
 }
 
@@ -53,7 +53,7 @@ uint32_t SeedOfPlace(double latDeg, double lonDeg) {
 }
 
 double UnitOf(uint32_t seed, int stream) {
-  return static_cast<double>(Mix(seed + static_cast<uint32_t>(stream) * 0x85ebca6bu) >> 8) *
+  return static_cast<double>(Mix(seed + static_cast<uint32_t>(stream) * 0x85ebca6bu) >> 8u) *
          (1.0 / 16777216.0);
 }
 

@@ -138,7 +138,8 @@ struct Placer {
     const auto rounded = static_cast<float>(availableWidth);
     uint32_t bits = 0;
     std::memcpy(&bits, &rounded, sizeof bits);
-    return (static_cast<uint64_t>(static_cast<uint32_t>(node)) << 32) | static_cast<uint64_t>(bits);
+    return (static_cast<uint64_t>(static_cast<uint32_t>(node)) << 32u) |
+           static_cast<uint64_t>(bits);
   }
 
   struct DepthHeld {
@@ -297,7 +298,7 @@ void Placer::Measure(
 double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
   ++Intrinsics;
   const uint64_t key =
-      (static_cast<uint64_t>(static_cast<uint32_t>(node)) << 1) | (ownSize ? 1u : 0u);
+      (static_cast<uint64_t>(static_cast<uint32_t>(node)) << 1u) | (ownSize ? 1u : 0u);
   const auto seen = MinContents.find(key);
   if (seen != MinContents.end()) {
     ++IntrinsicHits;
@@ -443,7 +444,7 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   }
   if (at + length > text.size()) { return text.size() - at; }
   for (size_t i = 1; i < length; ++i) {
-    code = (code << 6) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
+    code = (code << 6u) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
   }
   return length;
 }

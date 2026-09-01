@@ -224,10 +224,10 @@ private:
     const uint64_t facing =
         (static_cast<uint64_t>(
              static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[0] * 4096.0))))
-         << 42) ^
+         << 42u) ^
         (static_cast<uint64_t>(
              static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[1] * 4096.0))))
-         << 21) ^
+         << 21u) ^
         static_cast<uint64_t>(
             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[2] * 4096.0))));
     const uint64_t key = (static_cast<uint64_t>(at) * 1099511628211ull) ^ facing;
@@ -716,7 +716,8 @@ void Box(Site &site,
 }
 
 void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
-  const double along = ((static_cast<double>(s.Seed >> 9 & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
+  const double along =
+      ((static_cast<double>(s.Seed >> 9u & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
   const double eaves = EavesZ(s);
   const double stack = eaves + roof.HeightAt(foot) + kChimneyOverRidgeM;
@@ -727,7 +728,8 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double halfU = std::min(2.6, 0.30 * s.HalfUm);
   const double halfV = std::min(1.9, 0.30 * s.HalfVm);
   if (halfU < 0.9 || halfV < 0.7) { return; }
-  const double along = ((static_cast<double>(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
+  const double along =
+      ((static_cast<double>(s.Seed >> 13u & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
 }

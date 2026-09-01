@@ -9,11 +9,11 @@ namespace outshine::Render {
 
 enum class ViewLayer : uint8_t { Background, World, Overlay };
 
-inline constexpr int kViewportBits = 8;
-inline constexpr int kViewLayerBits = 4;
-inline constexpr int kSurfaceKindBits = 4;
-inline constexpr int kDepthBits = 24;
-inline constexpr int kMaterialBits = 24;
+inline constexpr uint32_t kViewportBits = 8;
+inline constexpr uint32_t kViewLayerBits = 4;
+inline constexpr uint32_t kSurfaceKindBits = 4;
+inline constexpr uint32_t kDepthBits = 24;
+inline constexpr uint32_t kMaterialBits = 24;
 static_assert(kViewportBits + kViewLayerBits + kSurfaceKindBits + kDepthBits + kMaterialBits == 64,
               "the five fields are the whole key");
 

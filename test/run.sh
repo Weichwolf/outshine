@@ -37,7 +37,7 @@ PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
 CXX=${CXX:-c++}
 CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
-OPT=-O2
+OPT="-O2 -ffp-contract=off"
 
 TIMEOUT_S=120
 ALLOWED_SKIPS=""

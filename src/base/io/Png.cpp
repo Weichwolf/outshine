@@ -12,8 +12,8 @@ constexpr uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
 constexpr size_t kMaxSide = 16384;
 
 uint32_t Big(const uint8_t *at) {
-  return (static_cast<uint32_t>(at[0]) << 24) | (static_cast<uint32_t>(at[1]) << 16) |
-         (static_cast<uint32_t>(at[2]) << 8) | static_cast<uint32_t>(at[3]);
+  return (static_cast<uint32_t>(at[0]) << 24u) | (static_cast<uint32_t>(at[1]) << 16u) |
+         (static_cast<uint32_t>(at[2]) << 8u) | static_cast<uint32_t>(at[3]);
 }
 
 int Paeth(int left, int above, int corner) {

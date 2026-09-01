@@ -369,9 +369,9 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         seedHead[ci] = static_cast<int32_t>(B.Seeds.size() / 3);
         seedCount[ci]++;
         B.Seeds.push_back(
-            static_cast<uint32_t>(f.Tpl) | (static_cast<uint32_t>(f.Rank) << 8) | (nce << 16) |
+            static_cast<uint32_t>(f.Tpl) | (static_cast<uint32_t>(f.Rank) << 8u) | (nce << 16u) |
             (static_cast<uint32_t>(static_cast<uint8_t>(std::max(-128, std::min(127, wind)) + 128))
-             << 24));
+             << 24u));
         B.Seeds.push_back(refFirst);
         {
           const float hw = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
@@ -395,8 +395,9 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
       seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3 + 1]);
       seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3 + 2]);
     }
-    B.Cells[ci * 2] = static_cast<uint32_t>(base[ci]) | (static_cast<uint32_t>(baseRank[ci]) << 8) |
-                      (static_cast<uint32_t>(seedCount[ci]) << 16);
+    B.Cells[ci * 2] = static_cast<uint32_t>(base[ci]) |
+                      (static_cast<uint32_t>(baseRank[ci]) << 8u) |
+                      (static_cast<uint32_t>(seedCount[ci]) << 16u);
     B.Cells[ci * 2 + 1] = first;
   }
   B.Seeds.swap(seeds);
