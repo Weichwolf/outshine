@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "math/Vec2.h"
 #include "ClassBuilder.h"
 #include "OsmField.h"
 #include "TilePool.h"
@@ -37,7 +38,7 @@ public:
 
   const Vec3 &OriginEcef() const { return Frame_.OriginEcef(); }
 
-  const double *Cam() const { return Cam_; }
+  const Vec2 &Cam() const { return Cam_; }
 
   const Vec3 &EastEcef() const { return Frame_.EastEcef(); }
 
@@ -145,7 +146,7 @@ private:
   std::shared_ptr<const ClassStructure> Published_;
 
   TangentFrame Frame_;
-  double Cam_[2] = {0, 0};
+  Vec2 Cam_ = {{0, 0}};
   bool Opened_ = false;
 
   std::unordered_set<std::string> Unknown_;

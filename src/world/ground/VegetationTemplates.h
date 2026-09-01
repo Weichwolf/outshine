@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 #define OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 
+#include "math/Vec4.h"
 #include "math/Vec3.h"
 #include <cstdint>
 #include <string>
@@ -16,15 +17,15 @@ namespace outshine::Ground {
 class VegetationTemplates {
 public:
   struct Row {
-    float Ground[4];
-    float Litter[4];
-    float GroundSurf[4];
-    float LitterSurf[4];
-    float Mix[4];
-    float Grass[4];
-    float Dry[4];
-    float Param[4];
-    float Edge[4];
+    Vec4f Ground;
+    Vec4f Litter;
+    Vec4f GroundSurf;
+    Vec4f LitterSurf;
+    Vec4f Mix;
+    Vec4f Grass;
+    Vec4f Dry;
+    Vec4f Param;
+    Vec4f Edge;
     int GroundClass = -1;
   };
 

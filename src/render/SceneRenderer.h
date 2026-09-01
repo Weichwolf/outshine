@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
+#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Heap.h"
 #include "Scenario.h"
@@ -411,8 +412,8 @@ private:
 
   static constexpr int kJitterPeriod = 8;
   int JitterAt_ = 0;
-  float Jitter_[2] = {0.0f, 0.0f};
-  float PrevJitter_[2] = {0.0f, 0.0f};
+  Vec2f Jitter_ = {{0.0f, 0.0f}};
+  Vec2f PrevJitter_ = {{0.0f, 0.0f}};
   bool CameraFull_ = false;
 
   double RegionX_ = 0, RegionY_ = 0, RegionW_ = 0, RegionH_ = 0, RegionAspect_ = 0;

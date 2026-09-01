@@ -1,5 +1,6 @@
 #ifndef OUTSHINE_WORLD_GROUND_CHUNKVTX_H
 #define OUTSHINE_WORLD_GROUND_CHUNKVTX_H
+#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -9,7 +10,7 @@ namespace outshine {
 
 struct ChunkVtx {
   Vec3f pos;
-  float uv[2];
+  Vec2f uv;
   Vec3f norm;
 };
 

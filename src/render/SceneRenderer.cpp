@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "Heap.h"
 #include <chrono>
 
@@ -766,7 +767,7 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
 
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
   Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneLinear)));
-  const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
+  const Vec2f delta = {{Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]}};
   Tonemap_.BindTemporal(
       LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta, HistoryHeld_);
   Picture(true, into);

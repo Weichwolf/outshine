@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "OverlayDraw.h"
 
 #include <cstdint>
@@ -188,7 +189,7 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Pipe || Count == 0 || !Verts || WidthPx <= 0 || HeightPx <= 0) { return; }
 
   struct Frame {
-    float TargetPx[2];
+    Vec2f TargetPx;
     float EncodesSrgb;
     float Pad;
   } frame{.TargetPx = {static_cast<float>(WidthPx), static_cast<float>(HeightPx)},

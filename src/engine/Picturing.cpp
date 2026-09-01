@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Log.h"
 #include <atomic>
@@ -1820,7 +1821,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         uint64_t key[2] = {0, 0};
         double corner[4] = {0.0, 0.0, 0.0, 0.0};
         if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
-        double stood[2] = {0.0, 0.0};
+        Vec2 stood = {{0.0, 0.0}};
         if (!groundAt(corner[0], corner[1], &stood[0]) ||
             !groundAt(corner[2], corner[3], &stood[1])) {
           continue;
@@ -2250,7 +2251,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           Vec3f wears = {{0.5f, 0.5f, 0.5f}};
           if (lane.CoverRow >= 0 &&
               static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
-            const float *const cover =
+            const Vec4f &cover =
                 World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
             wears = {{cover[0], cover[1], cover[2]}};
           }

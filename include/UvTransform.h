@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_SHADE_UVTRANSFORM_H
 #define OUTSHINE_CONTENT_SHADE_UVTRANSFORM_H
 
+#include "math/Vec2.h"
 #include <cmath>
 #include <cstdint>
 
@@ -24,9 +25,9 @@ struct UvTransform {
 };
 
 struct UvTransformProperties {
-  double OffsetUv[2] = {0.0, 0.0};
+  Vec2 OffsetUv;
   double RotationRad = 0.0;
-  double ScaleUv[2] = {1.0, 1.0};
+  Vec2 ScaleUv = {{1.0, 1.0}};
 
   [[nodiscard]] bool operator==(const UvTransformProperties &) const = default;
 };

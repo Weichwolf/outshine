@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "math/Vec2.h"
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -33,7 +34,7 @@ public:
                     SDL_GPUTexture *velocity,
                     int width,
                     int height,
-                    const float jitterDelta[2],
+                    const Vec2f &jitterDelta,
                     bool historyHeld) {
     History = history;
     Velocity = velocity;
@@ -55,7 +56,7 @@ private:
   bool Temporal = false;
   bool HistoryHeld = false;
   int Width = 0, Height = 0;
-  float JitterDelta[2] = {0.0f, 0.0f};
+  Vec2f JitterDelta = {{0.0f, 0.0f}};
   SDL_GPUSampler *Exact = nullptr;
 };
 

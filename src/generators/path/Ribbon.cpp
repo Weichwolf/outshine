@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "Ribbon.h"
 
 #include <cmath>
@@ -83,7 +84,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       out.Error = "the reference line places nothing at " + std::to_string(atM) + " m";
       return out;
     }
-    const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
+    const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
 
     Astride stood[kRibbonAcross];
     for (size_t which = 0; which < kRibbonAcross; ++which) {

@@ -1,3 +1,4 @@
+#include "math/Vec4.h"
 #include "Track.h"
 
 #include <cmath>
@@ -20,7 +21,7 @@ void Normalise(std::span<double> quaternion) {
 
 void Slerp(const double *from, const double *to, double weight, std::span<double> out) {
   double cosine = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
-  double target[4] = {to[0], to[1], to[2], to[3]};
+  Vec4 target = {{to[0], to[1], to[2], to[3]}};
   if (cosine < 0) {
     cosine = -cosine;
     for (double &at : target) { at = -at; }

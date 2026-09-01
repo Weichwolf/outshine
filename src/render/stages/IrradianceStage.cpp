@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "IrradianceStage.h"
 
 #include <cstdint>
@@ -17,7 +18,7 @@ struct Pushed {
   Medium Declared;
   float CosSunZenith = 0.0f;
   float GroundRadiusKm = 0.0f;
-  float Pad[2] = {0.0f, 0.0f};
+  Vec2f Pad = {{0.0f, 0.0f}};
 };
 
 static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium's alignment");

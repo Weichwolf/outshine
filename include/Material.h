@@ -3,6 +3,7 @@
 
 #include <limits>
 
+#include "math/Vec4.h"
 #include "math/Vec3.h"
 #include "Texture.h"
 
@@ -11,7 +12,7 @@ namespace outshine {
 enum class AlphaMode { Opaque, Masked, Blended };
 
 struct Material {
-  float BaseColour[4] = {0.5f, 0.5f, 0.5f, 1.0f};
+  Vec4f BaseColour = {{0.5f, 0.5f, 0.5f, 1.0f}};
   float Metalness = 0.0f;
   float Roughness = 1.0f;
   float Transmission = 0.0f;

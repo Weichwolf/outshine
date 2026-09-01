@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 #define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 
+#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include <cmath>
 #include <cstdint>
@@ -14,7 +15,7 @@ enum class TexelKind { Value, Direction };
 inline uint32_t IndexChannelsOf(std::span<const float> texels) {
   uint32_t mask = 0;
   for (uint32_t channel = 0; channel < 4; ++channel) {
-    float seen[2] = {0.0f, 0.0f};
+    Vec2f seen = {{0.0f, 0.0f}};
     uint32_t distinct = 0;
     bool third = false;
     for (size_t at = channel; at < texels.size(); at += 4) {

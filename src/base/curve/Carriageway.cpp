@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "Carriageway.h"
 #include "math/Vec3.h"
 
@@ -13,7 +14,7 @@ Astride Surface(const Placed &on, double alongM, double acrossM, double halfWidt
   out.AcrossM = acrossM;
   out.On = halfWidthM <= 0.0 || std::fabs(acrossM) <= halfWidthM;
 
-  const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
+  const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
   const double bank = std::tan(on.BankRad);
   out.HeightM = on.HeightM - out.AcrossM * bank;
 
@@ -43,7 +44,7 @@ Astride Stand(const ReferenceLine &over,
   if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return {}; }
   Placed on;
   if (!over.At(alongM, on)) { return {}; }
-  const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
+  const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
   const double acrossM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
   return Surface(on, alongM, acrossM, halfWidthM);
 }

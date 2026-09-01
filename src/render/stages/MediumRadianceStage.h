@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "math/Vec2.h"
 #include "KernelShape.h"
 
 #include "Gpu.h"
@@ -35,7 +36,7 @@ private:
     Medium Declared;
     float CosSunZenith = 2.0f;
     float EyeHeightM = -1.0f;
-    float Pad[2] = {0.0f, 0.0f};
+    Vec2f Pad = {{0.0f, 0.0f}};
   };
 
   static_assert(sizeof(Standing) == sizeof(Medium) + 4 * sizeof(float),

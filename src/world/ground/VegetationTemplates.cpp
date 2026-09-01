@@ -83,7 +83,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
 
   Table_.reserve(tpls.Size() + 1);
 
-  const auto fillSurf = [](float *dst, const GroundMaterials::Material &m) {
+  const auto fillSurf = [](Vec4f &dst, const GroundMaterials::Material &m) {
     dst[0] = m.GrainSizeM;
     dst[1] = m.HeightAmplitudeM;
     dst[2] = m.DetailCoarseM;

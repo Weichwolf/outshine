@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "Course.h"
 #include "Angle.h"
 
@@ -43,7 +44,7 @@ Where Locate(const ReferenceLine &along,
 
   Placed on;
   if (!along.At(bestM, on)) { return out; }
-  const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
+  const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
   out.Found = true;
   out.AlongM = bestM;
   out.OffsetM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];

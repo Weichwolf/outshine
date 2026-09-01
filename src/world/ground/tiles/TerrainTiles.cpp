@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+#include "math/Vec4.h"
 #include "TerrainTiles.h"
 
 #include <algorithm>
@@ -226,10 +227,10 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr) { return grid; }
 
-  const float rawCorners[4] = {field->AtM(0u, 0u),
-                               field->AtM(0u, field->Cols() - 1u),
-                               field->AtM(field->Rows() - 1u, 0u),
-                               field->AtM(field->Rows() - 1u, field->Cols() - 1u)};
+  const Vec4f rawCorners = {{field->AtM(0u, 0u),
+                             field->AtM(0u, field->Cols() - 1u),
+                             field->AtM(field->Rows() - 1u, 0u),
+                             field->AtM(field->Rows() - 1u, field->Cols() - 1u)}};
 
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
   const uint32_t n = 1u << static_cast<uint32_t>(z);

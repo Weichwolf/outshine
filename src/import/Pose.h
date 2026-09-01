@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "math/Vec4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
 #include "Track.h"
@@ -39,7 +40,7 @@ public:
   struct FactorAt {
     int Material = -1;
     MaterialFactor Factor = MaterialFactor::BaseColour;
-    double Values[4] = {0, 0, 0, 0};
+    Vec4 Values = {{0, 0, 0, 0}};
   };
 
   void FactorsAt(double seconds, std::vector<FactorAt> &factors) const;

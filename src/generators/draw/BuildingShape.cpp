@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "BuildingShape.h"
 
 #include <algorithm>
@@ -354,8 +355,8 @@ struct PartOrder {
 
 size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
   if (ring.size() < 3) { return 0; }
-  double least[2] = {ring[0].E, ring[0].N};
-  double most[2] = {ring[0].E, ring[0].N};
+  Vec2 least = {{ring[0].E, ring[0].N}};
+  Vec2 most = {{ring[0].E, ring[0].N}};
   for (const En &p : ring) {
     least[0] = std::min(least[0], p.E);
     least[1] = std::min(least[1], p.N);
@@ -372,8 +373,8 @@ size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
     for (size_t at = 0; at < ring.size() && ring.size() > 3; ++at) {
       const size_t before = (at + ring.size() - 1) % ring.size();
       const size_t after = (at + 1) % ring.size();
-      const double toward[2] = {ring[at].E - ring[before].E, ring[at].N - ring[before].N};
-      const double onward[2] = {ring[after].E - ring[at].E, ring[after].N - ring[at].N};
+      const Vec2 toward = {{ring[at].E - ring[before].E, ring[at].N - ring[before].N}};
+      const Vec2 onward = {{ring[after].E - ring[at].E, ring[after].N - ring[at].N}};
       const double reach = std::sqrt(toward[0] * toward[0] + toward[1] * toward[1]);
       const double turn = std::fabs(toward[0] * onward[1] - toward[1] * onward[0]);
       if (reach > together && turn > 2.0 * flat) { continue; }

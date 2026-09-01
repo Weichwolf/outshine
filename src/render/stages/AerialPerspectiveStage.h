@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 #define OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 
+#include "math/Vec4.h"
+#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include <string>
 
@@ -48,12 +50,12 @@ public:
 
 private:
   struct Pushed {
-    float Right[4];
-    float Up[4];
-    float Fwd[4];
-    float WorldUp[4];
-    float SunDir[4];
-    float TanHalf[2];
+    Vec4f Right;
+    Vec4f Up;
+    Vec4f Fwd;
+    Vec4f WorldUp;
+    Vec4f SunDir;
+    Vec2f TanHalf;
     float Illuminance;
     float EyeRadiusKm;
     float NearM;

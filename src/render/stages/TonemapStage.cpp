@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "TonemapStage.h"
 #include "math/Vec3.h"
 
@@ -83,8 +84,8 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
     if (History == nullptr || Velocity == nullptr) { return; }
 
     struct {
-      float JitterDelta[2];
-      float Texel[2];
+      Vec2f JitterDelta;
+      Vec2f Texel;
       float HistoryHeld;
       Vec3f Pad;
     } uniforms{.JitterDelta = {JitterDelta[0], JitterDelta[1]},

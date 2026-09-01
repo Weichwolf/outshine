@@ -1,3 +1,4 @@
+#include "math/Vec4.h"
 #include "SubjectCullStage.h"
 
 #include <cstdint>
@@ -16,7 +17,7 @@ namespace {
 
 struct CullView {
   float Planes[24];
-  float Shift[4];
+  Vec4f Shift;
   uint32_t Jobs;
   float ErrorPerMetre;
   uint32_t Pad[2];

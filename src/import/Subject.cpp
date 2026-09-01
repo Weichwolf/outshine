@@ -1,3 +1,4 @@
+#include "math/Vec4.h"
 #include "math/Mat4.h"
 #include "Heap.h"
 #include "Units.h"
@@ -114,7 +115,7 @@ struct BasisKey {
 };
 
 BasisKey KeyOf(double x, double y, double z, double w) {
-  const double basis[4] = {x, y, z, w};
+  const Vec4 basis = {{x, y, z, w}};
   BasisKey key;
   for (size_t at = 0; at < 4; ++at) {
     const double folded = basis[at] == 0.0 ? 0.0 : basis[at];
@@ -1354,7 +1355,7 @@ bool DeclaredPlacement(const Document &document,
 double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const {
   double total = 0;
   for (size_t triangle = 0; triangle * 3 + 2 < Indices_.size(); ++triangle) {
-    double raster[3][2];
+    std::array<Vec2, 3> raster;
     for (int corner = 0; corner < 3; ++corner) {
       const size_t vertex = Indices_[triangle * 3 + static_cast<size_t>(corner)];
       const Vec3 point = {

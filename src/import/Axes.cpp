@@ -1,3 +1,4 @@
+#include "math/Vec4.h"
 #include "Axes.h"
 #include "math/Vec3.h"
 
@@ -11,7 +12,7 @@ void InEcef(const Vec3 &gltf, Vec3 &out) {
 
 void PlacedInEcef(const double gltf[16], double out[16]) {
   constexpr int kAxis[4] = {1, 0, 2, 3};
-  constexpr double kSign[4] = {1.0, 1.0, -1.0, 1.0};
+  constexpr Vec4 kSign = {{1.0, 1.0, -1.0, 1.0}};
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {
       out[column * 4 + row] = kSign[row] * gltf[kAxis[column] * 4 + kAxis[row]] * kSign[column];

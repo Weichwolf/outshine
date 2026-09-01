@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "Document.h"
 
 #include <cstdint>
@@ -323,7 +324,7 @@ bool ResolveMaterialPointer(std::string_view pointer,
   return false;
 }
 
-bool ReadUvPair(const Json::Ref &declared, const char *property, double out[2], std::string &why) {
+bool ReadUvPair(const Json::Ref &declared, const char *property, Vec2 &out, std::string &why) {
   if (!declared.Valid()) { return true; }
   if (declared.GetKind() != Json::Kind::Array || declared.Size() != 2) {
     why = std::string("declares a KHR_texture_transform ") + property +

@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "ClassBuilder.h"
 
 #include <algorithm>
@@ -39,7 +40,7 @@ constexpr float kCurveTolM = 0.60f;
 constexpr int kCurveMaxSplit = 8;
 
 void CatmullPoint(
-    const float *p0, const float *p1, const float *p2, const float *p3, float u, float *out) {
+    const float *p0, const float *p1, const float *p2, const float *p3, float u, Vec2f &out) {
   const auto knot = [](float t, const float *a, const float *b) {
     const float dx = b[0] - a[0];
     const float dy = b[1] - a[1];
@@ -50,11 +51,11 @@ void CatmullPoint(
   const float t2 = knot(t1, p1, p2);
   const float t3 = knot(t2, p2, p3);
   const float t = t1 + u * (t2 - t1);
-  float a1[2];
-  float a2[2];
-  float a3[2];
-  float b1[2];
-  float b2[2];
+  Vec2f a1;
+  Vec2f a2;
+  Vec2f a3;
+  Vec2f b1;
+  Vec2f b2;
   for (int a = 0; a < 2; a++) {
     a1[a] = ((t1 - t) * p0[a] + (t - t0) * p1[a]) / (t1 - t0);
     a2[a] = ((t2 - t) * p1[a] + (t - t1) * p2[a]) / (t2 - t1);
@@ -86,7 +87,7 @@ void CurveRing(
     const float *p1 = P(s);
     const float *p2 = P(s + 1);
     const float *p3 = P(s + 2);
-    float mid[2];
+    Vec2f mid;
     CatmullPoint(p0, p1, p2, p3, 0.5f, mid);
     const float cx = 0.5f * (p1[0] + p2[0]);
     const float cy = 0.5f * (p1[1] + p2[1]);
@@ -97,7 +98,7 @@ void CurveRing(
       n = std::min(n, kCurveMaxSplit);
     }
     for (int k = 0; k < n; k++) {
-      float q[2];
+      Vec2f q;
       CatmullPoint(p0, p1, p2, p3, static_cast<float>(k) / static_cast<float>(n), q);
       out.push_back(q[0]);
       out.push_back(q[1]);
