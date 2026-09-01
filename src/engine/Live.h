@@ -189,8 +189,7 @@ public:
   [[nodiscard]] bool
   ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error);
 
-  [[nodiscard]] bool
-  PlacedBounds(std::span<double, 3> least, std::span<double, 3> most, std::string &error);
+  [[nodiscard]] bool PlacedBounds(Vec3 &least, Vec3 &most, std::string &error);
 
   void SkyEye(double aboveGroundM);
 

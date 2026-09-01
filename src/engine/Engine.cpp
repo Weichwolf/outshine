@@ -117,10 +117,11 @@ bool Engine::State::Routes() {
       held.PositionM[axis] = stands.Stands.AtM[axis];
       held.InertiaKgM2[axis] = stands.InertiaKgM2[axis];
     }
-    held.OrientationQ[0] = stands.Stands.FacingXyzw[3];
-    held.OrientationQ[1] = stands.Stands.FacingXyzw[0];
-    held.OrientationQ[2] = stands.Stands.FacingXyzw[1];
-    held.OrientationQ[3] = stands.Stands.FacingXyzw[2];
+    const Quat &facing = stands.Stands.Facing;
+    held.OrientationQ[0] = facing.W;
+    held.OrientationQ[1] = facing.X;
+    held.OrientationQ[2] = facing.Y;
+    held.OrientationQ[3] = facing.Z;
     Ticking.Freestanding.push_back(held);
   }
   if (!declared.Routed.Declared) { return true; }

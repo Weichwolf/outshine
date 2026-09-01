@@ -423,7 +423,7 @@ private:
 
   [[nodiscard]] Placed PictureRect() const;
   Vec3 Eye_ = {{0, 0, 0}};
-  double Fwd_[3] = {0, 0, 0}, Right_[3] = {0, 0, 0}, Up_[3] = {0, 0, 0};
+  Vec3 Fwd_, Right_, Up_;
   float FovDeg_ = 60.0f;
   float OrthoM_ = 0.0f;
   float NearM_ = kNearM;

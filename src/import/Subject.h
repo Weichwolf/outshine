@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_SUBJECT_H
 #define OUTSHINE_IMPORT_SUBJECT_H
 
+#include "Vec3.h"
 #include "Viewing.h"
 #include <Geometry.h>
 #include <span>
@@ -31,10 +32,8 @@ using Viewpoint = Render::Viewpoint;
 
 [[nodiscard]] bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out);
 
-[[nodiscard]] bool FramingFor(const double minM[3],
-                              const double maxM[3],
-                              Viewpoint &out,
-                              double fill = Render::kFramingFill);
+[[nodiscard]] bool
+FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill = Render::kFramingFill);
 
 [[nodiscard]] bool
 DeclaredPlacement(const Document &document, int cameraIndex, Viewpoint &out, std::string &error);
@@ -139,12 +138,12 @@ public:
 
   void BoundsOf(size_t parts, double least[3], double most[3]) const;
 
-  [[nodiscard]] const double *MinM() const { return Min_; }
+  [[nodiscard]] const Vec3 &MinM() const { return Min_; }
 
-  [[nodiscard]] const double *MaxM() const { return Max_; }
+  [[nodiscard]] const Vec3 &MaxM() const { return Max_; }
 
   [[nodiscard]] double RadiusM() const;
-  void CentreM(double out[3]) const;
+  void CentreM(Vec3 &out) const;
 
   [[nodiscard]] [[nodiscard]] bool Frame(Viewpoint &out, double fill = Render::kFramingFill) const;
 
@@ -228,7 +227,8 @@ private:
   std::vector<PlacedLight> Lights_;
   std::vector<Material> Surfaces_;
   std::vector<uint8_t> TangentWanted_;
-  double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
+  Vec3 Min_;
+  Vec3 Max_;
 };
 
 } // namespace outshine::Gltf

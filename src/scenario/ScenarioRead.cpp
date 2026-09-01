@@ -190,10 +190,10 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
   return true;
 }
 
-void ReadVector(
-    const Xml::Ref &from, const char *x, const char *y, const char *z, double *into, size_t count) {
-  const char *names[4] = {x, y, z, "w"};
-  for (size_t at = 0; at < count && at < 4; ++at) { into[at] = from.Num(names[at], into[at]); }
+void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *z, Vec3 &into) {
+  into[0] = from.Num(x, into[0]);
+  into[1] = from.Num(y, into[1]);
+  into[2] = from.Num(z, into[2]);
 }
 
 void ReadStanding(const Xml::Ref &from, Standing &into) {
@@ -206,9 +206,11 @@ void ReadStanding(const Xml::Ref &from, Standing &into) {
     into.BearingDeg = from.Num("bearingDeg", into.BearingDeg);
     into.PitchDeg = from.Num("pitchDeg", into.PitchDeg);
   }
-  ReadVector(from, "x", "y", "z", into.AtM, 3);
-  ReadVector(from, "qx", "qy", "qz", into.FacingXyzw, 3);
-  into.FacingXyzw[3] = from.Num("qw", into.FacingXyzw[3]);
+  ReadVector(from, "x", "y", "z", into.AtM);
+  into.Facing.X = from.Num("qx", into.Facing.X);
+  into.Facing.Y = from.Num("qy", into.Facing.Y);
+  into.Facing.Z = from.Num("qz", into.Facing.Z);
+  into.Facing.W = from.Num("qw", into.Facing.W);
   const double evenly = from.Num("scale", 0.0);
   if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
 }
@@ -574,7 +576,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     Region made;
     made.Id = one.Attr("id");
     made.Kind = one.Attr("kind");
-    ReadVector(one, "x", "y", "z", made.OriginM, 3);
+    ReadVector(one, "x", "y", "z", made.OriginM);
     made.RadiusM = one.Num("radiusM", 0.0);
     made.Streams = one.Flag("streams", true);
     for (const Xml::Ref uses : one.Children("uses")) { made.Uses.push_back(uses.Attr("what")); }
@@ -585,7 +587,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Id = one.Attr("id");
     made.From = one.Attr("from");
     made.To = one.Attr("to");
-    ReadVector(one, "x", "y", "z", made.AtM, 3);
+    ReadVector(one, "x", "y", "z", made.AtM);
     into.Doors.push_back(made);
   }
 
@@ -595,7 +597,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
     made.Shape = one.Attr("shape", "box");
-    ReadVector(one, "x", "y", "z", made.AtM, 3);
+    ReadVector(one, "x", "y", "z", made.AtM);
     made.ExtentM[0] = one.Num("extentX", 0.0);
     made.ExtentM[1] = one.Num("extentY", 0.0);
     made.ExtentM[2] = one.Num("extentZ", 0.0);
@@ -720,9 +722,9 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Sees.SensitivityIso = one.Num("sensitivityIso", 0.0);
     if (Declares(one, "lookAt")) {
       made.Sees.LooksAt = true;
-      ReadVector(one.Child("lookAt"), "x", "y", "z", made.Sees.LookAtM, 3);
+      ReadVector(one.Child("lookAt"), "x", "y", "z", made.Sees.LookAtM);
     }
-    if (Declares(one, "up")) { ReadVector(one.Child("up"), "x", "y", "z", made.Sees.UpM, 3); }
+    if (Declares(one, "up")) { ReadVector(one.Child("up"), "x", "y", "z", made.Sees.UpM); }
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
   }
@@ -754,7 +756,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     for (const Xml::Ref touch : one.Children("contact")) {
       Contact wheel;
       wheel.At = touch.Attr("at");
-      ReadVector(touch, "x", "y", "z", wheel.AtM, 3);
+      ReadVector(touch, "x", "y", "z", wheel.AtM);
       wheel.Strut.ReachM = touch.Num("reachM", 0.0);
       wheel.Strut.StiffnessNPerM = touch.Num("stiffnessNPerM", 0.0);
       wheel.Strut.DampingNsPerM = touch.Num("dampingNsPerM", 0.0);
@@ -803,7 +805,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     for (const Xml::Ref where : one.Children("slot")) {
       Slot advertised;
       advertised.At = where.Attr("at");
-      ReadVector(where, "x", "y", "z", advertised.AtM, 3);
+      ReadVector(where, "x", "y", "z", advertised.AtM);
       made.Slots.push_back(advertised);
     }
     into.Bodies.push_back(made);

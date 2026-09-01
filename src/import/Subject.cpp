@@ -30,10 +30,6 @@ namespace outshine::Gltf {
 
 namespace {
 
-double Length(const double v[3]) {
-  return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-}
-
 [[nodiscard]] bool RunIsStatable(std::span<const float> run,
                                  size_t vertices,
                                  size_t components,
@@ -282,10 +278,10 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Transform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
-      const double local[3] = {
+      const Vec3 &local = {
           elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]};
-      double global[3];
-      placed.Direction(local, global);
+      Vec3 global;
+      placed.Direction(local.data(), global.data());
       (void)Normalise(global);
       for (int axis = 0; axis < 3; ++axis) {
         into[vertex * 4 + static_cast<size_t>(axis)] = global[axis];
@@ -541,17 +537,17 @@ static bool InstanceTransforms(const Document &document,
   }
   out.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    const double t[3] = {translation.empty() ? 0.0 : translation[at * 3 + 0],
-                         translation.empty() ? 0.0 : translation[at * 3 + 1],
-                         translation.empty() ? 0.0 : translation[at * 3 + 2]};
+    const Vec3 &t = {translation.empty() ? 0.0 : translation[at * 3 + 0],
+                     translation.empty() ? 0.0 : translation[at * 3 + 1],
+                     translation.empty() ? 0.0 : translation[at * 3 + 2]};
     const double r[4] = {rotation.empty() ? 0.0 : rotation[at * 4 + 0],
                          rotation.empty() ? 0.0 : rotation[at * 4 + 1],
                          rotation.empty() ? 0.0 : rotation[at * 4 + 2],
                          rotation.empty() ? 1.0 : rotation[at * 4 + 3]};
-    const double sc[3] = {scale.empty() ? 1.0 : scale[at * 3 + 0],
-                          scale.empty() ? 1.0 : scale[at * 3 + 1],
-                          scale.empty() ? 1.0 : scale[at * 3 + 2]};
-    out.push_back(world * Transform::FromTrs(t, r, sc));
+    const Vec3 &sc = {scale.empty() ? 1.0 : scale[at * 3 + 0],
+                      scale.empty() ? 1.0 : scale[at * 3 + 1],
+                      scale.empty() ? 1.0 : scale[at * 3 + 2]};
+    out.push_back(world * Transform::FromTrs(t.data(), r, sc.data()));
   }
   return true;
 }
@@ -630,13 +626,13 @@ bool Subject::Flatten(const Document &document,
       placed.NodeName = node.Name;
       placed.LightName = declared.Name;
       placed.Light = declared.Light;
-      const double origin[3] = {0, 0, 0};
-      double position[3];
-      placement.Point(origin, position);
+      const Vec3 origin = {{0, 0, 0}};
+      Vec3 position;
+      placement.Point(origin.data(), position.data());
 
-      const double axis[3] = {0, 0, -1};
-      double beam[3];
-      placement.Direction(axis, beam);
+      const Vec3 axis = {{0, 0, -1}};
+      Vec3 beam;
+      placement.Direction(axis.data(), beam.data());
       if (!Normalise(beam)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and its transform collapses the beam to zero length");
@@ -768,8 +764,8 @@ bool Subject::Flatten(const Document &document,
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
           double local[3] = {
               elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]};
-          double global[3];
-          place.At(vertex).Point(local, global);
+          Vec3 global;
+          place.At(vertex).Point(local, global.data());
           for (double axis : global) { atPos.push_back(axis); }
         }
 
@@ -875,9 +871,9 @@ bool Subject::Flatten(const Document &document,
           for (size_t vertex = 0; vertex < vertices; ++vertex) {
             double local[3] = {
                 directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]};
-            double global[3];
+            Vec3 global;
 
-            if (!place.At(vertex).Normal(local, global)) {
+            if (!place.At(vertex).Normal(local, global.data())) {
               global[0] = global[1] = global[2] = 0.0;
             }
 
@@ -1265,36 +1261,36 @@ void Subject::BoundsOf(size_t parts, double least[3], double most[3]) const {
 }
 
 double Subject::RadiusM() const {
-  const double span[3] = {Max_[0] - Min_[0], Max_[1] - Min_[1], Max_[2] - Min_[2]};
+  const Vec3 span = Max_ - Min_;
   return 0.5 * Length(span);
 }
 
-void Subject::CentreM(double out[3]) const {
-  for (int axis = 0; axis < 3; ++axis) { out[axis] = 0.5 * (Min_[axis] + Max_[axis]); }
+void Subject::CentreM(Vec3 &out) const {
+  out = (Min_ + Max_) * 0.5;
 }
 
 bool Subject::Frame(Viewpoint &out, double fill) const {
   return FramingFor(Min_, Max_, out, fill);
 }
 
-bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, double fill) {
-  const double span[3] = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
+bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill) {
+  const Vec3 &span = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
   const double radius = 0.5 * Length(span);
   if (!(radius > 0)) { return false; }
-  double centre[3];
+  Vec3 centre;
   for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
 
   const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
 
-  const double toEye[3] = {std::cos(elevation) * std::cos(azimuth),
-                           std::sin(elevation),
-                           std::cos(elevation) * std::sin(azimuth)};
+  const Vec3 &toEye = {std::cos(elevation) * std::cos(azimuth),
+                       std::sin(elevation),
+                       std::cos(elevation) * std::sin(azimuth)};
 
   const double yfov =
       2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
   const double distance = radius / std::sin(0.5 * yfov) / (fill > 0 ? fill : Render::kFramingFill);
-  double eye[3];
+  Vec3 eye;
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
 
   if (!Viewpoint::LookAt(eye, centre, 0.0, out)) { return false; }
@@ -1361,11 +1357,11 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
     double raster[3][2];
     for (int corner = 0; corner < 3; ++corner) {
       const size_t vertex = Indices_[triangle * 3 + static_cast<size_t>(corner)];
-      const double point[3] = {
+      const Vec3 &point = {
           Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]};
-      double ndc[3];
-      clip.Point(point, ndc);
-      viewport.Raster(ndc, raster[corner]);
+      Vec3 ndc;
+      clip.Point(point.data(), ndc.data());
+      viewport.Raster(ndc.data(), raster[corner]);
     }
     total += 0.5 * std::fabs((raster[1][0] - raster[0][0]) * (raster[2][1] - raster[0][1]) -
                              (raster[2][0] - raster[0][0]) * (raster[1][1] - raster[0][1]));

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 #define OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 
+#include "Vec3.h"
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -39,8 +40,8 @@ public:
   };
 
   struct Blade {
-    float Green[3];
-    float Dry[3];
+    Vec3f Green;
+    Vec3f Dry;
   };
 
   [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);

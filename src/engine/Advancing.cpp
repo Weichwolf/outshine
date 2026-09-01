@@ -23,9 +23,7 @@ bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const View &seen = Session.Views->Active();
   if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return true; }
-  double station[3] = {seen.Sees.Stands.AtM[0] + seen.OffsetM[0],
-                       seen.Sees.Stands.AtM[1] + seen.OffsetM[1],
-                       seen.Sees.Stands.AtM[2] + seen.OffsetM[2]};
+  Vec3 station = seen.Sees.Stands.AtM + seen.OffsetM;
   if (seen.Sees.Stands.GlobeAnchor) {
     double heightM = seen.Sees.Stands.Geodetic.HeightM;
     if (seen.Sees.Stands.SamplesHeight) {
@@ -65,7 +63,7 @@ bool Engine::State::Watches() {
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");
   Published.Places("the standing eye, south", station[2], "m");
-  double ahead[3];
+  Vec3 ahead;
   if (seen.Sees.Stands.GlobeAnchor) {
     const double bearing = seen.Sees.Stands.BearingDeg * std::numbers::pi / 180.0;
     const double pitch = seen.Sees.Stands.PitchDeg * std::numbers::pi / 180.0;
@@ -73,15 +71,12 @@ bool Engine::State::Watches() {
     ahead[1] = std::sin(pitch);
     ahead[2] = -std::cos(pitch) * std::cos(bearing);
   } else {
-    const double *const q = seen.Sees.Stands.FacingXyzw;
-    ahead[0] = 2.0 * (q[0] * q[2] + q[3] * q[1]);
-    ahead[1] = 2.0 * (q[1] * q[2] - q[3] * q[0]);
-    ahead[2] = -(1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
+    const Quat &q = seen.Sees.Stands.Facing;
+    ahead[0] = 2.0 * (q.X * q.Z + q.W * q.Y);
+    ahead[1] = 2.0 * (q.Y * q.Z - q.W * q.X);
+    ahead[2] = -(1.0 - 2.0 * (q.X * q.X + q.Y * q.Y));
   }
-  const double aimed[3] = {station[0] + ahead[0], station[1] + ahead[1], station[2] + ahead[2]};
-  const double onto[3] = {seen.Sees.LooksAt ? seen.Sees.LookAtM[0] : aimed[0],
-                          seen.Sees.LooksAt ? seen.Sees.LookAtM[1] : aimed[1],
-                          seen.Sees.LooksAt ? seen.Sees.LookAtM[2] : aimed[2]};
+  const Vec3 onto = seen.Sees.LooksAt ? seen.Sees.LookAtM : station + ahead;
   Render::Viewpoint standing;
   if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.UpM, standing)) { return true; }
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
@@ -152,14 +147,14 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   const double *const centreM = Ticking.Drive.Stood.CentreM;
   const double seatM[3] = {
       seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1], seen.OffsetM[2] - centreM[2]};
-  double at[3];
+  Vec3 at;
   for (int axis = 0; axis < 3; ++axis) {
     at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seatM[0] +
                bodyFromWorld[4 + axis] * seatM[1] + bodyFromWorld[8 + axis] * seatM[2];
   }
-  const double ahead[3] = {
-      at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9], at[2] - bodyFromWorld[10]};
-  double eye[3] = {at[0], at[1], at[2]};
+  const Vec3 ahead = {
+      {at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9], at[2] - bodyFromWorld[10]}};
+  Vec3 eye = at;
   if (seen.DistanceM > 0.0) {
     const double back = seen.DistanceM;
     for (int axis = 0; axis < 3; ++axis) {

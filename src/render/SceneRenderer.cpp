@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Heap.h"
 #include <chrono>
 
@@ -34,9 +35,9 @@ constexpr bool kGpuValidation = false;
 namespace {
 
 void MvpCamRel(float *m,
-               const double R[3],
-               const double Uc[3],
-               const double F[3],
+               const Vec3 &R,
+               const Vec3 &Uc,
+               const Vec3 &F,
                double w,
                double h,
                float fovDeg,
@@ -951,9 +952,9 @@ void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassR
   const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
   const float tanHalfW =
       tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
-  float right[3];
-  float up[3];
-  float fwd[3];
+  Vec3f right;
+  Vec3f up;
+  Vec3f fwd;
   for (int axis = 0; axis < 3; ++axis) {
     right[axis] = static_cast<float>(Right_[axis]);
     up[axis] = static_cast<float>(Up_[axis]);
@@ -969,9 +970,9 @@ void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into
   const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
   const float tanHalfW =
       tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
-  float right[3];
-  float up[3];
-  float fwd[3];
+  Vec3f right;
+  Vec3f up;
+  Vec3f fwd;
   for (int axis = 0; axis < 3; ++axis) {
     right[axis] = static_cast<float>(Right_[axis]);
     up[axis] = static_cast<float>(Up_[axis]);

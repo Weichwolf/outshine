@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 #define OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 
+#include "Vec3.h"
 #include <string>
 
 #include "KernelShape.h"
@@ -36,11 +37,8 @@ public:
 
   void Eye(const Medium &medium, float eyeHeightM);
 
-  void SetBasis(const float right[3],
-                const float upAxis[3],
-                const float fwd[3],
-                float tanHalfW,
-                float tanHalfH);
+  void SetBasis(
+      const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH);
 
   void SetNear(float nearM) { Pushed_.NearM = nearM; }
 

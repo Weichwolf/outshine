@@ -27,46 +27,21 @@ struct Viewpoint {
   double ZNearM = 0;
   double ZFarM = 0;
 
-  [[nodiscard]] static bool LookAt(std::span<const double, 3> eyeM,
-                                   std::span<const double, 3> aimM,
-                                   double rollRad,
-                                   Viewpoint &out);
-  [[nodiscard]] static bool LookAt(std::span<const double, 3> eyeM,
-                                   std::span<const double, 3> aimM,
-                                   std::span<const double, 3> upM,
-                                   Viewpoint &out);
+  [[nodiscard]] static bool
+  LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad, Viewpoint &out);
+  [[nodiscard]] static bool
+  LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &upM, Viewpoint &out);
 };
 
-namespace Aiming {
-
-inline bool Normalise(std::span<double, 3> v) {
-  const double len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-  if (!(len > 0.0)) { return false; }
-  for (int axis = 0; axis < 3; ++axis) { v[axis] /= len; }
-  return true;
-}
-
-inline void
-Cross(std::span<const double, 3> a, std::span<const double, 3> b, std::span<double, 3> out) {
-  out[0] = a[1] * b[2] - a[2] * b[1];
-  out[1] = a[2] * b[0] - a[0] * b[2];
-  out[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-} // namespace Aiming
-
-inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
-                              std::span<const double, 3> aimM,
-                              double rollRad,
-                              Viewpoint &out) {
-  std::array<double, 3> forward = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
-  if (!Aiming::Normalise(forward)) { return false; }
-  Vec3 worldUp = {{0, 1, 0}};
-  std::array<double, 3> right{};
-  Aiming::Cross(forward, worldUp.Row(), right);
-  if (!Aiming::Normalise(right)) { return false; }
-  std::array<double, 3> up{};
-  Aiming::Cross(right, forward, up);
+inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad, Viewpoint &out) {
+  Vec3 forward = aimM - eyeM;
+  if (!Normalise(forward)) { return false; }
+  const Vec3 worldUp = {{0, 1, 0}};
+  Vec3 right;
+  Cross(forward, worldUp, right);
+  if (!Normalise(right)) { return false; }
+  Vec3 up;
+  Cross(right, forward, up);
 
   const double turn = std::cos(rollRad);
   const double lean = std::sin(rollRad);
@@ -79,17 +54,14 @@ inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
   return true;
 }
 
-inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
-                              std::span<const double, 3> aimM,
-                              std::span<const double, 3> upM,
-                              Viewpoint &out) {
-  std::array<double, 3> forward = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
-  if (!Aiming::Normalise(forward)) { return false; }
-  std::array<double, 3> right{};
-  Aiming::Cross(forward, upM, right);
-  if (!Aiming::Normalise(right)) { return false; }
-  std::array<double, 3> up{};
-  Aiming::Cross(right, forward, up);
+inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &upM, Viewpoint &out) {
+  Vec3 forward = aimM - eyeM;
+  if (!Normalise(forward)) { return false; }
+  Vec3 right;
+  Cross(forward, upM, right);
+  if (!Normalise(right)) { return false; }
+  Vec3 up;
+  Cross(right, forward, up);
   for (int axis = 0; axis < 3; ++axis) {
     out.EyeM[axis] = eyeM[axis];
     out.Forward[axis] = forward[axis];

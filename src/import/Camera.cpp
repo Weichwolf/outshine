@@ -9,8 +9,7 @@ namespace outshine {
 namespace {
 
 [[nodiscard]] bool StandingOf(const Camera &from, Render::Viewpoint &out) {
-  const double aim[3] = {from.LookAtM[0], from.LookAtM[1], from.LookAtM[2]};
-  if (!Render::Viewpoint::LookAt(from.Stands.AtM, aim, from.UpM, out)) { return false; }
+  if (!Render::Viewpoint::LookAt(from.Stands.AtM, from.LookAtM, from.UpM, out)) { return false; }
   out.ZNearM = from.NearM;
   out.ZFarM = from.FarM;
   if (from.Orthographic) {

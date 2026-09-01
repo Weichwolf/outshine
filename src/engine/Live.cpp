@@ -401,8 +401,8 @@ bool Live::Build(std::string &error) {
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
-    std::array<double, 3> least{};
-    std::array<double, 3> most{};
+    Vec3 least;
+    Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
     Shaped_.BoundsOf(Joined_, least.data(), most.data());
     BoundsMs_ =
@@ -582,7 +582,7 @@ bool Live::PartVolumes(std::string &error) {
   return true;
 }
 
-bool Live::PlacedBounds(std::span<double, 3> least, std::span<double, 3> most, std::string &error) {
+bool Live::PlacedBounds(Vec3 &least, Vec3 &most, std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
   bool first = true;
@@ -623,11 +623,11 @@ bool Live::Look(std::string &error) {
     return Render::Aim(
         *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
   }
-  std::array<double, 3> least{};
-  std::array<double, 3> most{};
+  Vec3 least;
+  Vec3 most;
   if (!PlacedBounds(least, most, error)) { return false; }
   Gltf::Viewpoint fromFile;
-  if (!Gltf::FramingFor(least.data(), most.data(), fromFile, Framing())) {
+  if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
@@ -751,8 +751,8 @@ bool Live::Stand(std::string &error) {
   if (declared) { eye = placed; }
   Looking_.Eye = eye;
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
-    std::array<double, 3> least{};
-    std::array<double, 3> most{};
+    Vec3 least;
+    Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
     Shaped_.BoundsOf(Joined_, least.data(), most.data());
     BoundsMs_ =
@@ -770,7 +770,7 @@ bool Live::Stand(std::string &error) {
     }
     if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
     Gltf::Viewpoint fitted;
-    if (!Gltf::FramingFor(least.data(), most.data(), fitted, Framing())) {
+    if (!Gltf::FramingFor(least, most, fitted, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }

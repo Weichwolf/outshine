@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_SKYSTAGE_H
 #define OUTSHINE_RENDER_STAGES_SKYSTAGE_H
 
+#include "Vec3.h"
 #include <string>
 
 #include "KernelShape.h"
@@ -33,11 +34,8 @@ public:
 
   [[nodiscard]] bool Stands() const { return Declared_; }
 
-  void SetBasis(const float right[3],
-                const float upAxis[3],
-                const float fwd[3],
-                float tanHalfW,
-                float tanHalfH);
+  void SetBasis(
+      const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH);
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 

@@ -87,11 +87,8 @@ void SkyStage::Eye(const Medium &medium, float eyeHeightM) {
                         (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
 }
 
-void SkyStage::SetBasis(const float right[3],
-                        const float upAxis[3],
-                        const float fwd[3],
-                        float tanHalfW,
-                        float tanHalfH) {
+void SkyStage::SetBasis(
+    const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH) {
   for (int axis = 0; axis < 3; ++axis) {
     Pushed_.Right[axis] = right[axis];
     Pushed_.Up[axis] = upAxis[axis];

@@ -42,10 +42,10 @@ void StandingAs(std::string &into, const char *element, const outshine::Standing
     Number(into, "x", stands.AtM[0]);
     Number(into, "y", stands.AtM[1]);
     Number(into, "z", stands.AtM[2]);
-    Number(into, "qx", stands.FacingXyzw[0]);
-    Number(into, "qy", stands.FacingXyzw[1]);
-    Number(into, "qz", stands.FacingXyzw[2]);
-    Number(into, "qw", stands.FacingXyzw[3]);
+    Number(into, "qx", stands.Facing.X);
+    Number(into, "qy", stands.Facing.Y);
+    Number(into, "qz", stands.Facing.Z);
+    Number(into, "qw", stands.Facing.W);
   }
   into += "/>\n";
 }

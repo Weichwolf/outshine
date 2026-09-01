@@ -7,6 +7,8 @@
 #include <vector>
 
 #include "Material.h"
+#include "Quat.h"
+#include "Vec3.h"
 
 namespace outshine {
 
@@ -182,7 +184,7 @@ struct RenderPlan {
 struct Lighting {
   bool Declared = false;
   Light Key;
-  double IndirectLight[3] = {0.0, 0.0, 0.0};
+  Vec3 IndirectLight;
   double ShadowRadiusM = 0.0;
 };
 
@@ -218,9 +220,9 @@ struct LongitudeLatitudeHeight {
 };
 
 struct Standing {
-  double AtM[3] = {0.0, 0.0, 0.0};
-  double FacingXyzw[4] = {0.0, 0.0, 0.0, 1.0};
-  double ScaleXyz[3] = {1.0, 1.0, 1.0};
+  Vec3 AtM;
+  Quat Facing;
+  Vec3 ScaleXyz = {{1.0, 1.0, 1.0}};
 
   bool GlobeAnchor = false;
   LongitudeLatitudeHeight Geodetic;
@@ -279,7 +281,7 @@ struct Instance {
 struct Region {
   std::string Id;
   std::string Kind;
-  double OriginM[3] = {0.0, 0.0, 0.0};
+  Vec3 OriginM;
   double RadiusM = 0.0;
   bool Streams = true;
   std::vector<std::string> Uses;
@@ -289,15 +291,15 @@ struct Door {
   std::string Id;
   std::string From;
   std::string To;
-  double AtM[3] = {0.0, 0.0, 0.0};
+  Vec3 AtM;
 };
 
 struct Volume {
   std::string Id;
   std::string In;
   std::string Shape;
-  double AtM[3] = {0.0, 0.0, 0.0};
-  double ExtentM[3] = {0.0, 0.0, 0.0};
+  Vec3 AtM;
+  Vec3 ExtentM;
   std::string Fires;
   std::string When;
   double DwellS = 0.0;
@@ -400,8 +402,8 @@ struct Camera {
   [[nodiscard]] bool clipMatrix(double aspect, double outM16[16]) const;
 
   bool LooksAt = false;
-  double LookAtM[3] = {0.0, 0.0, 0.0};
-  double UpM[3] = {0.0, 1.0, 0.0};
+  Vec3 LookAtM;
+  Vec3 UpM = {{0.0, 1.0, 0.0}};
 
   double ApertureFStops = 0.0;
   double ShutterS = 0.0;
@@ -436,7 +438,7 @@ struct View {
   std::string In;
   std::string Follows;
   std::string Person;
-  double OffsetM[3] = {0.0, 0.0, 0.0};
+  Vec3 OffsetM;
   double DistanceM = 0.0;
   double RisesBy = 0.35;
   double PitchLimitDeg = 89.0;
@@ -462,7 +464,7 @@ struct Slip {
 
 struct Contact {
   std::string At;
-  double AtM[3] = {0.0, 0.0, 0.0};
+  Vec3 AtM;
   Prismatic Strut;
   Slip Touches;
 };
@@ -473,7 +475,7 @@ struct Drive {
   Drives Does = Drives::Effort;
   bool Opposes = false;
   bool Turns = true;
-  double AxisXyz[3] = {0.0, 1.0, 0.0};
+  Vec3 AxisXyz = {{0.0, 1.0, 0.0}};
   double PeakNm = 0.0;
   double PeakN = 0.0;
   double Ratio = 1.0;
@@ -482,7 +484,7 @@ struct Drive {
 
 struct Slot {
   std::string At;
-  double AtM[3] = {0.0, 0.0, 0.0};
+  Vec3 AtM;
 };
 
 struct Body {
@@ -497,8 +499,8 @@ struct Body {
 
   double AssetGround = 0.0;
   double AssetCentreX = 0.0, AssetCentreZ = 0.0;
-  double CentreOfMassM[3] = {0.0, 0.0, 0.0};
-  double InertiaKgM2[3] = {0.0, 0.0, 0.0};
+  Vec3 CentreOfMassM;
+  Vec3 InertiaKgM2;
   std::vector<Contact> Contacts;
   std::vector<Drive> Driven;
   double DragCoefficient = 0.0;
