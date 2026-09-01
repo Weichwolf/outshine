@@ -14,6 +14,8 @@ to be right: the ground is a function of place and the correct height is known e
 WHAT THIS DOES NOT COVER: a digest is agreement with a previous run and NEVER correctness. It says
 a cell moved, not that it is right. What makes a cell right is a person looking at its picture, and
 the arithmetic oracles that are still to come.
+The ORACLES below are arithmetic and none of them is a digest. A digest says a cell moved; an oracle
+says a cell is wrong. Their thresholds carry their derivation where they stand.
 """
 import argparse
 import json
@@ -79,6 +81,35 @@ bearingDeg="45" pitchDeg="-32"/>
 """
 
 
+ORACLES = [
+    ("streets: the deepest the ground stands over one", 3.0,
+     "no ground stands over a carriageway. The measure grids at 4 m, so on the steepest declared "
+     "terrain (30 %) up to 1.2 m of any reading is the grid rather than burial; 3.0 m leaves that "
+     "room and still fails the 43.5 m this corpus found on its first pass."),
+    ("streets: ways it refused", 0.0, "a declared way is laid or the refusal is a defect"),
+    ("streets: pieces the sweep could not lay", 0.0, "every piece of every laid way is swept"),
+    ("streets: features no rule named", 0.0, "the corpus declares only kinds the table names"),
+    ("streets: ends STILL crossing, the cap bit", 0.0, "no way end is left crossing another"),
+    ("ground: yields the budget REFUSED", 0.0,
+     "a cell is small enough that the frame budget never has to refuse a corridor"),
+]
+
+
+def measures_of(lines):
+    out = {}
+    for line in lines:
+        held = line.strip()
+        for what, _, _ in ORACLES:
+            if held.startswith(what):
+                tail = held[len(what):].split()
+                if tail:
+                    try:
+                        out[what] = float(tail[0])
+                    except ValueError:
+                        pass
+    return out
+
+
 def main():
     ask = argparse.ArgumentParser()
     ask.add_argument("--pin", action="store_true", help="write the digests instead of scoring them")
@@ -94,21 +125,21 @@ def main():
     scratch = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / "outshine-osm-grid"
     scratch.mkdir(parents=True, exist_ok=True)
 
-    held, apart, drew, absent = 0, [], {}, 0
+    held, apart, drew, absent, wrong = 0, [], {}, 0, []
     for cell in grid["cells"]:
         name = f"{cell['structure']}-{cell['terrain']}"
         if "absent" in cell:
             absent += 1
-            print(f"ABSENT {name:26s} {cell['absent']}")
             continue
         if told.only and told.only != name:
             continue
         wrote = scratch / f"{name}.scn"
         wrote.write_text(scenario_for(lands[cell["terrain"]], builds[cell["structure"]]))
-        ran = subprocess.run([str(CLIENT), "run", "--rows", "--into", "osm", str(wrote), name],
+        ran = subprocess.run([str(CLIENT), "measures", "--rows", "--into", "osm", str(wrote), name],
                              capture_output=True, text=True, timeout=900)
+        lines = ran.stdout.splitlines()
         digest = ""
-        for line in ran.stdout.splitlines():
+        for line in lines:
             if line.startswith("ROW"):
                 digest = line.split("\t")[2]
         if not digest:
@@ -116,6 +147,15 @@ def main():
             print(f"APART {name:26s} the client drew nothing")
             continue
         drew[name] = digest
+
+        read = measures_of(lines)
+        broke = [f"{what} = {read[what]:.3f} > {most:.3f}"
+                 for what, most, _ in ORACLES if what in read and read[what] > most]
+        if broke:
+            wrong.append((name, broke))
+            print(f"WRONG {name:26s} {digest}   {'; '.join(broke)}")
+            continue
+
         was = pinned.get(name)
         if told.pin or was is None:
             print(f"PIN   {name:26s} {digest}")
@@ -130,11 +170,15 @@ def main():
         pinned.update(drew)
         pinned_at.write_text(json.dumps(pinned, indent=1, sort_keys=True) + "\n")
         print(f"\n{len(drew)} cell(s) pinned into test/outshine/osm/digests.json")
-        return 0
 
-    print(f"\n{held} of {len(grid['cells']) - absent} cell(s) held, {len(apart)} apart, "
-          f"{absent} absent. A digest is agreement across time and never correctness.")
-    return 1 if apart else 0
+    total = len(grid["cells"]) - absent
+    print(f"\n{held} of {total} cell(s) held, {len(apart)} apart, {len(wrong)} WRONG, "
+          f"{absent} absent.")
+    print("A digest is agreement across time and never correctness. The oracles below it are "
+          "arithmetic and they are the ones that say WRONG:")
+    for what, most, why in ORACLES:
+        print(f"  <= {most:<7.3f} {what}\n      {why}")
+    return 1 if (apart or wrong) else 0
 
 
 if __name__ == "__main__":

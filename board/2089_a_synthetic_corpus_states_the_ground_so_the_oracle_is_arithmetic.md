@@ -224,3 +224,45 @@ hiding them:
 `RaiseJunction` lays its top at the station's GRADE while the carriageway carries crossfall and a
 sealed thickness, so the two surfaces meet a few millimetres apart. One cause, two places. Not
 chased yet, and named here so it is not rediscovered as two separate things.
+
+## The ground yields, and the corpus scores itself
+
+`src/compositor/GroundYield.{h,cpp}` -- a triangle soup, a list of what the scenario imposes on it,
+and one verb. It refines the ring RED-GREEN along each yield (crack-free: a neighbour with one or
+two split edges is closed rather than split further), then presses every vertex to the corridor
+surface: `cut = road + out/1.5` rising away from the carriageway, `fill = road - out/1.5` falling
+away, and nothing at all beyond where the batter meets the ground. No cosine blend -- a batter is a
+straight slope and the daylight line is where it lands.
+
+The refinement is GRADED: 3 m at the carriageway, growing at 0.35 per metre out, capped at 40 m.
+The batter is smooth and does not need the carriageway's resolution, and grading it is what made a
+40 m cut affordable at all.
+
+    cross-plane30   the deepest the ground stands over one   43.502 m -> 2.013 m
+                    how far on average                       22.525 m -> 3.812 m
+    embankment-valley                                        a road across a sag now stands on FILL
+
+**The measure was moved after the yield and its grid went from 20 m to 4 m.** Before, it was taken
+in the streets block against the ring as assembled, so it could not see the yield at all -- it read
+43.502 m while the road was already free. And 20 m of grid on a 30 % slope carries up to 6 m of
+slope INSIDE the reading. At 4 m that is 1.2 m, which is why the oracle's threshold is 3.0.
+
+**The runner now scores six arithmetic oracles per cell** and prints WRONG beside HELD. A digest says
+a cell moved; an oracle says a cell is wrong. Standing 2026-09-01, before the graded refinement:
+**224 of 246 HELD, 0 APART, 22 WRONG.**
+
+## The 22 split into exactly two causes
+
+**Thirteen were the budget.** A 40 m cut wants a 240 m batter; ungraded that is 51 000 triangles per
+corridor, so the frame budget refused 18 of them and the road stayed buried. Graded refinement
+removes the refusals.
+
+**Nine are one architectural fault and every one of them is a MULTI-WAY structure** -- tee, cross,
+fork, roundabout, crossNoNode, bridgeOverWay. Not one single-way structure fails. The profiles are
+designed PER WAY, so where two ways meet they disagree about the height of the ground they share,
+and the earthwork of one buries the other: `tee-valley` fills 14.278 m and then reads 14.421 m of
+burial, with a mean of only 1.739 m -- a local spike, not a systemic offset.
+
+A corridor network is levelled as a NETWORK: the ways incident on a junction are pinned to one
+common elevation and each profile is designed against that pin. That is the next work, and the
+corpus has already named the nine cells that will prove it.
