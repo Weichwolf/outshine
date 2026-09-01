@@ -5,6 +5,7 @@
 
 #include <Scenario.h>
 
+#include "Vec3.h"
 #include "Drive.h"
 #include "Rig.h"
 #include "SpeedProfile.h"
@@ -17,11 +18,11 @@ struct Rigged {
   Pilot::Axles Axles;
   Envelope Envelope;
   double TightestM = 0.0;
-  double CentreM[3] = {0.0, 0.0, 0.0};
-  double SeatM[3] = {0.0, 0.0, 0.0};
+  Vec3 CentreM;
+  Vec3 SeatM;
   double StandsAtM = 0.0;
   double MetresPerAssetUnit = 0.0;
-  double ModelShiftM[3] = {0.0, 0.0, 0.0};
+  Vec3 ModelShiftM;
   std::string Error;
 };
 

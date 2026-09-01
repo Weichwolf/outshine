@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "WaterField.h"
+#include "Vec3.h"
 
 #include "Geodesy.h"
 #include "TerrainLoader.h"

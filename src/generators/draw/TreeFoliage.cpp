@@ -1,4 +1,5 @@
 #include "TreeFoliage.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -36,8 +37,8 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
         &shape.LeafVerts[static_cast<size_t>(shape.LeafIdx[i + 1]) * TreeMesh::kLeafFloats];
     const float *c =
         &shape.LeafVerts[static_cast<size_t>(shape.LeafIdx[i + 2]) * TreeMesh::kLeafFloats];
-    const double e0[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
-    const double e1[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+    const Vec3 e0 = {{b[0] - a[0], b[1] - a[1], b[2] - a[2]}};
+    const Vec3 e1 = {{c[0] - a[0], c[1] - a[1], c[2] - a[2]}};
     const double cx = e0[1] * e1[2] - e0[2] * e1[1];
     const double cy = e0[2] * e1[0] - e0[0] * e1[2];
     const double cz = e0[0] * e1[1] - e0[1] * e1[0];
@@ -48,8 +49,8 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   const size_t points = plant.LeafPoints.size();
   const double oneM2 = lamina * static_cast<double>(ScaleM_) * static_cast<double>(ScaleM_);
   const auto h = static_cast<double>(species.HeightM());
-  CrownProjM2_ = 0.25 * std::numbers::pi * static_cast<double>(plant.BoxMax.X - plant.BoxMin.X) *
-                 h * static_cast<double>(plant.BoxMax.Z - plant.BoxMin.Z) * h;
+  CrownProjM2_ = 0.25 * std::numbers::pi * static_cast<double>(plant.BoxMax[0] - plant.BoxMin[0]) *
+                 h * static_cast<double>(plant.BoxMax[2] - plant.BoxMin[2]) * h;
   if (points == 0 || oneM2 <= 0.0) { return; }
   double want = static_cast<double>(species.Lai()) * CrownProjM2_ / oneM2;
   want *= static_cast<double>(mult > 0 ? mult : 1);
@@ -70,9 +71,15 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
     for (long k = 0; k < n; ++k) {
       const float roll = kGolden * static_cast<float>(Inst_.size()) / static_cast<float>(kFloats) +
                          rng.Signed() * 0.35f;
-      Inst_.insert(
-          Inst_.end(),
-          {p.Pos.X, p.Pos.Y, p.Pos.Z, std::fmod(roll, kTau), p.Dir.X, p.Dir.Y, p.Dir.Z, 0.0f});
+      Inst_.insert(Inst_.end(),
+                   {p.Pos[0],
+                    p.Pos[1],
+                    p.Pos[2],
+                    std::fmod(roll, kTau),
+                    p.Dir[0],
+                    p.Dir[1],
+                    p.Dir[2],
+                    0.0f});
     }
   }
   AreaM2_ = oneM2 * static_cast<double>(Count());

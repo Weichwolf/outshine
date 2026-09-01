@@ -25,8 +25,8 @@ public:
                                std::string &error);
 
   void Declare(const Medium &medium,
-               const float sunDir[3],
-               const float up[3],
+               const Vec3f &sunDir,
+               const Vec3f &up,
                float illuminanceLux,
                float eyeHeightM);
 

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_TRIGGERS_H
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
+#include "Vec3.h"
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -27,7 +28,7 @@ public:
   [[nodiscard]] bool
   Listen(std::string_view event, std::span<const std::string_view> reads, std::string &error);
 
-  void Probe(uint32_t body, const double atM[3], double nowS);
+  void Probe(uint32_t body, const Vec3 &atM, double nowS);
 
   [[nodiscard]] std::span<const Fired> Drain();
 
@@ -47,8 +48,8 @@ private:
     uint16_t Event = 0;
     When Opens = When::Enter;
     uint8_t Sphere = 0;
-    double AtM[3] = {0.0, 0.0, 0.0};
-    double ExtentM[3] = {0.0, 0.0, 0.0};
+    Vec3 AtM;
+    Vec3 ExtentM;
     double DwellS = 0.0;
   };
 
@@ -61,7 +62,7 @@ private:
 
   std::vector<std::vector<Standing>> InsideDoor_;
 
-  [[nodiscard]] static bool Inside(const Door &door, const double atM[3]);
+  [[nodiscard]] static bool Inside(const Door &door, const Vec3 &atM);
 
   std::vector<Door> Doors_;
   std::vector<std::string> Events_;

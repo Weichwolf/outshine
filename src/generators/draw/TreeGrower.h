@@ -6,7 +6,7 @@
 #include "TreeRandom.h"
 #include "TreeSkeleton.h"
 #include "TreeSpecies.h"
-#include "TreeVec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 
@@ -25,7 +25,7 @@ private:
   static constexpr int kBranchSides = 8;
 
   struct Tip {
-    TreeVec3 Dir, Up, Pos;
+    Vec3f Dir, Up, Pos;
     float Radius = 0.0f;
 
     float Step = 0.0f;
@@ -40,7 +40,7 @@ private:
   struct Request {
     int ParentNode = -1;
     float Roll = 0.0f;
-    TreeVec3 Dir, Up;
+    Vec3f Dir, Up;
     float Radius = 0.0f;
     bool Foliate = true;
   };
@@ -49,17 +49,17 @@ private:
   SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int node, float roll, int parentStep);
 
   void SpawnShoot(const Tip &parent, const Request &request, const TreeSpecies::Growth &g);
-  void EmitLeafPoints(TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count, float roll);
+  void EmitLeafPoints(Vec3f pos, Vec3f dir, Vec3f up, float radius, int count, float roll);
 
   void SetCrown(const TreeSpecies &species, float growHeight);
   void SeedLeaders(const TreeSpecies::Growth &g, int bareSteps);
 
-  [[nodiscard]] float Escape(TreeVec3 p) const;
-  [[nodiscard]] TreeVec3 Inward(TreeVec3 p) const;
+  [[nodiscard]] float Escape(Vec3f p) const;
+  [[nodiscard]] Vec3f Inward(Vec3f p) const;
 
-  [[nodiscard]] float RoomInside(TreeVec3 from, TreeVec3 dir, float want) const;
+  [[nodiscard]] float RoomInside(Vec3f from, Vec3f dir, float want) const;
   [[nodiscard]] RingCap LeaderEnd() const;
-  int AddNode(int shoot, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius);
+  int AddNode(int shoot, Vec3f pos, Vec3f dir, Vec3f up, float radius);
   void GrowOnce(const TreeSpecies::Growth &g, float heightM);
 
   void MeasureReach();
@@ -71,7 +71,7 @@ private:
 
   TreeSkeleton *Plant_ = nullptr;
   std::vector<Tip> Queue_;
-  std::vector<TreeVec3> TrunkProfile_;
+  std::vector<Vec3f> TrunkProfile_;
   TreeRandom Rng_{1};
   int Passes_ = 0;
   float DbhErrorRel_ = 0.0f;

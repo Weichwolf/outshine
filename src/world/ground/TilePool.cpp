@@ -1,4 +1,5 @@
 #include "TilePool.h"
+#include "Vec3.h"
 
 #include "CookedTile.h"
 
@@ -398,7 +399,7 @@ enum class Miss { None, Hole, Wait, Refused };
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
   Chunk chunk = {};
-  double origin[3] = {0.0, 0.0, 0.0};
+  Vec3 origin;
   const char *stage = "source";
   Miss miss = MissOf(mesh.Where());
   if (miss == Miss::None &&

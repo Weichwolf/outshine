@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "Shape.h"
+#include "Vec3.h"
 
 #include <atomic>
 #include <chrono>

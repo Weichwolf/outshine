@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "LightVisibilityStage.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <cstdint>
@@ -58,7 +58,7 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
     for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
   };
   {
-    const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
+    const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
     Vec3 least = {{1.0e30, 1.0e30, 1.0e30}};
     Vec3 most = {{-1.0e30, -1.0e30, -1.0e30}};
     size_t counted = 0;
@@ -77,7 +77,7 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
     }
     if (counted > 0) {
       for (int axis = 0; axis < 3; ++axis) {
-        centre[axis] = 0.5 * (least[axis] + most[axis]) + (anchor != nullptr ? anchor[axis] : 0.0);
+        centre[axis] = 0.5 * (least[axis] + most[axis]) + anchor[axis];
       }
     }
   }
@@ -212,7 +212,7 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
                                 const PassRecording &into) {
   if (Subjects_ == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
-  const double *const Anchor = Subjects_->AnchorM();
+  const Vec3 &Anchor = Subjects_->AnchorM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
   if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx ||
       into.Pass == nullptr) {

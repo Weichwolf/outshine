@@ -1,8 +1,8 @@
-#include "Vec3.h"
 #include "Heap.h"
 #include <chrono>
 
 #include "SceneRenderer.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <expected>

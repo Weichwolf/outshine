@@ -37,11 +37,9 @@ inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad
   Vec3 forward = aimM - eyeM;
   if (!Normalise(forward)) { return false; }
   const Vec3 worldUp = {{0, 1, 0}};
-  Vec3 right;
-  Cross(forward, worldUp, right);
+  Vec3 right = Cross(forward, worldUp);
   if (!Normalise(right)) { return false; }
-  Vec3 up;
-  Cross(right, forward, up);
+  const Vec3 up = Cross(right, forward);
 
   const double turn = std::cos(rollRad);
   const double lean = std::sin(rollRad);
@@ -57,11 +55,9 @@ inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad
 inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &upM, Viewpoint &out) {
   Vec3 forward = aimM - eyeM;
   if (!Normalise(forward)) { return false; }
-  Vec3 right;
-  Cross(forward, upM, right);
+  Vec3 right = Cross(forward, upM);
   if (!Normalise(right)) { return false; }
-  Vec3 up;
-  Cross(right, forward, up);
+  const Vec3 up = Cross(right, forward);
   for (int axis = 0; axis < 3; ++axis) {
     out.EyeM[axis] = eyeM[axis];
     out.Forward[axis] = forward[axis];

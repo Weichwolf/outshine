@@ -30,11 +30,11 @@ Reading Bear(Rig &of,
       continue;
     }
 
-    double normal[3] = {ground.NormalM[0], ground.NormalM[1], ground.NormalM[2]};
+    Vec3 normal = {{ground.NormalM[0], ground.NormalM[1], ground.NormalM[2]}};
     if (!Normalise(normal)) { continue; }
 
-    double worldM[3];
-    double worldMs[3];
+    Vec3 worldM;
+    Vec3 worldMs;
     Place(body, mount.AtM, worldM);
     Carry(body, mount.AtM, worldMs);
 
@@ -55,14 +55,13 @@ Reading Bear(Rig &of,
     }
 
     const double steerRad = with.MotionRad * mount.Steering.Applied.Ratio;
-    const double aheadBody[3] = {-std::sin(steerRad), 0.0, -std::cos(steerRad)};
-    double ahead[3];
+    const Vec3 aheadBody = {{-std::sin(steerRad), 0.0, -std::cos(steerRad)}};
+    Vec3 ahead;
     Turn(body.OrientationQ, aheadBody, ahead);
     const double onNormal = Dot(ahead, normal);
     for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= onNormal * normal[axis]; }
     if (!Normalise(ahead)) { continue; }
-    double across[3];
-    Cross(normal, ahead, across);
+    Vec3 across = Cross(normal, ahead);
     if (!Normalise(across)) { continue; }
 
     const double alongMs = Dot(worldMs, ahead);
@@ -85,16 +84,16 @@ Reading Bear(Rig &of,
     out.WorstSlipRad = std::fmax(out.WorstSlipRad, std::fabs(of.HeldSlipRad[which]));
     out.WorstRatio = std::fmax(out.WorstRatio, shed.Ratio);
 
-    double forceN[3];
+    Vec3 forceN;
     for (int axis = 0; axis < 3; ++axis) {
       forceN[axis] =
           normal[axis] * against.LoadN + ahead[axis] * shed.AlongN + across[axis] * shed.AcrossN;
     }
 
-    double normalBody[3];
+    Vec3 normalBody;
     Unturn(body.OrientationQ, normal, normalBody);
     const double standOffM = mount.Strut.ReachM - against.PressedM;
-    double patchM[3];
+    Vec3 patchM;
     for (int axis = 0; axis < 3; ++axis) {
       patchM[axis] = mount.AtM[axis] - normalBody[axis] * standOffM;
     }

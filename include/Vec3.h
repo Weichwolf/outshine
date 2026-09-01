@@ -47,6 +47,9 @@ template <typename Number> struct Vector3 {
 
   /// The components as writable contiguous storage.
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
+
+  /// Two vectors are the same vector when their components are.
+  [[nodiscard]] constexpr bool operator==(const Vector3 &) const = default;
 };
 
 /// The scene's vector: 64-bit, because a world position in a `float` is a defect.
@@ -109,23 +112,40 @@ Cross(std::span<const double, 3> a, std::span<const double, 3> b, std::span<doub
 }
 
 /// The scalar product of two vectors.
-[[nodiscard]] inline double Dot(const Vec3 &a, const Vec3 &b) {
-  return Dot(a.Row(), b.Row());
+template <typename Number>
+[[nodiscard]] constexpr Number Dot(const Vector3<Number> &a, const Vector3<Number> &b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-/// Writes the vector product of @p a and @p b into @p out.
-inline void Cross(const Vec3 &a, const Vec3 &b, Vec3 &out) {
-  Cross(a.Row(), b.Row(), out.Row());
+/// The vector product of @p a and @p b.
+template <typename Number>
+[[nodiscard]] constexpr Vector3<Number> Cross(const Vector3<Number> &a, const Vector3<Number> &b) {
+  return {{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]}};
 }
+
+static_assert(Dot(Vec3{{1.0, 2.0, 3.0}}, Vec3{{4.0, 5.0, 6.0}}) == 32.0,
+              "the scalar product is checked where it is written, not where it is used");
+
+static_assert(Cross(Vec3{{1.0, 0.0, 0.0}}, Vec3{{0.0, 1.0, 0.0}})[2] == 1.0 &&
+                  Cross(Vec3{{0.0, 1.0, 0.0}}, Vec3{{1.0, 0.0, 0.0}})[2] == -1.0,
+              "east crossed into up gives south and not its negative -- a swapped sign here turns "
+              "every normal in the tree inside out, and this is the one place it can be caught "
+              "without running anything");
+
+static_assert((Vec3{{1.0, 2.0, 3.0}} - Vec3{{1.0, 1.0, 1.0}}) * 2.0 == Vec3{{0.0, 2.0, 4.0}},
+              "difference and scale compose the way the arithmetic they replace did");
 
 /// The euclidean length of a vector.
-[[nodiscard]] inline double Length(const Vec3 &v) {
-  return Length(v.Row());
+template <typename Number> [[nodiscard]] Number Length(const Vector3<Number> &v) {
+  return std::sqrt(Dot(v, v));
 }
 
 /// Divides a vector by its own length, and refuses a vector that has none.
-[[nodiscard]] inline bool Normalise(Vec3 &v) {
-  return Normalise(v.Row());
+template <typename Number> [[nodiscard]] bool Normalise(Vector3<Number> &v) {
+  const Number length = Length(v);
+  if (!(length > Number{0})) { return false; }
+  for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
+  return true;
 }
 
 } // namespace outshine

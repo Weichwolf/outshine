@@ -1,8 +1,9 @@
 #include "Axes.h"
+#include "Vec3.h"
 
 namespace outshine::Gltf {
 
-void InEcef(const double gltf[3], double out[3]) {
+void InEcef(const Vec3 &gltf, Vec3 &out) {
   out[0] = gltf[1];
   out[1] = gltf[0];
   out[2] = -gltf[2];

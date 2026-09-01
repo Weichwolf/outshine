@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "Vec3.h"
 #include "ReferenceLine.h"
 
 namespace outshine {
@@ -26,7 +27,7 @@ struct Ribbon {
   double FromM = 0.0;
   double ToM = 0.0;
 
-  double OriginM[3] = {0.0, 0.0, 0.0};
+  Vec3 OriginM;
   std::vector<float> PositionM;
   std::vector<float> NormalM;
   std::vector<float> AcrossM;

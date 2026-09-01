@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "Vec3.h"
 #include "SurfaceState.h"
 
 #include "FrameContext.h"
@@ -203,7 +204,7 @@ public:
 
   [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
 
-  [[nodiscard]] const double *AnchorM() const { return Anchor; }
+  [[nodiscard]] const Vec3 &AnchorM() const { return Anchor; }
 
   [[nodiscard]] const double *ModelM() const { return Model; }
 
@@ -313,7 +314,7 @@ private:
 
   std::vector<SubjectLight> Placed;
   SubjectEnvironment IndirectLight;
-  double Anchor[3] = {0, 0, 0};
+  Vec3 Anchor;
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   std::vector<double> Placed_;
   std::vector<double> Before_;

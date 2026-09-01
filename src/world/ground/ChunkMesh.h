@@ -1,5 +1,6 @@
 #ifndef OUTSHINE_WORLD_GROUND_CHUNKMESH_H
 #define OUTSHINE_WORLD_GROUND_CHUNKMESH_H
+#include "Vec3.h"
 #include "ChunkSurface.h"
 #include "ChunkVtx.h"
 #include "Heap.h"
@@ -21,8 +22,8 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
                           uint32_t y,
                           int grid,
                           Chunk *out,
-                          double origin_out[3]) {
-  if ((out == nullptr) || (origin_out == nullptr)) { return 0; }
+                          Vec3 &origin_out) {
+  if (out == nullptr) { return 0; }
   out->verts = 0;
   out->nverts = 0;
   out->gridverts = 0;
@@ -87,9 +88,9 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   double olen = sqrt(origin_out[0] * origin_out[0] + origin_out[1] * origin_out[1] +
                      origin_out[2] * origin_out[2]);
   olen = std::max(olen, 1.0);
-  const float radial[3] = {static_cast<float>(origin_out[0] / olen),
-                           static_cast<float>(origin_out[1] / olen),
-                           static_cast<float>(origin_out[2] / olen)};
+  const Vec3f radial = {{static_cast<float>(origin_out[0] / olen),
+                         static_cast<float>(origin_out[1] / olen),
+                         static_cast<float>(origin_out[2] / olen)}};
 
   auto *nv = static_cast<float *>(
       Heap::Take("terrain node normals", static_cast<size_t>(NN) * 3 * sizeof(float)));
@@ -103,8 +104,8 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       const double *E = pe + (static_cast<size_t>(j) * gc + i1) * 3;
       const double *Nn = pe + (static_cast<size_t>(j0) * gc + i) * 3;
       const double *Sn = pe + (static_cast<size_t>(j1) * gc + i) * 3;
-      const double te[3] = {E[0] - W[0], E[1] - W[1], E[2] - W[2]};
-      const double tn[3] = {Nn[0] - Sn[0], Nn[1] - Sn[1], Nn[2] - Sn[2]};
+      const Vec3 te = {{E[0] - W[0], E[1] - W[1], E[2] - W[2]}};
+      const Vec3 tn = {{Nn[0] - Sn[0], Nn[1] - Sn[1], Nn[2] - Sn[2]}};
       double nx = te[1] * tn[2] - te[2] * tn[1];
       double ny = te[2] * tn[0] - te[0] * tn[2];
       double nz = te[0] * tn[1] - te[1] * tn[0];

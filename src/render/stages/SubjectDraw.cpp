@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "SubjectDraw.h"
+#include "Vec3.h"
 
 #include "FragmentArms.h"
 

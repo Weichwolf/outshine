@@ -1,4 +1,5 @@
 #include "TonemapStage.h"
+#include "Vec3.h"
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
@@ -85,7 +86,7 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
       float JitterDelta[2];
       float Texel[2];
       float HistoryHeld;
-      float Pad[3];
+      Vec3f Pad;
     } uniforms{.JitterDelta = {JitterDelta[0], JitterDelta[1]},
                .Texel = {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
                          Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},

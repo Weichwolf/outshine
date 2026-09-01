@@ -241,14 +241,21 @@ LayerToolchain() {
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
-# ONE case is exempt, by name and with its reason: the heap ledger measures the tree's own
-# operator new, and ASan REPLACES that allocator -- sanitising it would measure ASan, not
-# the instrument. The exemption is a case, never a layer (board:1743).
-SANITISER_EXEMPT="unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther"
-
+# THE SANITISED SET IS NAMED FROM THE LAYERS THAT EXIST, and it went blind once already: it named
+# six `unit/...` layers that were deleted with the suites they belonged to, so every case built
+# unsanitised while the gate still printed a sanitised phase. A layer name here is checked against
+# nothing, which is why the list is re-read whenever a suite is added or removed.
+#
+# `outshine/places` is the one layer deliberately left out, and the reason is the CLOCK rather than
+# the coverage: it renders nine places through Metal and already costs 88 s, so a second build under
+# ASan would put the fast gate out of reach of being run before every commit. Its oracle is the
+# picture digest, which catches a wandering frame the sanitiser could not see anyway.
 LayerSanitiser() {
   case "$1" in
-    unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/claims | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/khronos/validator | harness/geographiclib/geodesic)
+      printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -2189,9 +2196,6 @@ for testSource in $TESTS; do
   fi
 
   sanitiser=$(LayerSanitiser "$layer")
-  for exempt in $SANITISER_EXEMPT; do
-    [ "$id" = "$exempt" ] && sanitiser=""
-  done
   if [ -n "$sanitiser" ]; then
     before=$(Now)
     OBJDIR=$BUILD/obj-sanitised

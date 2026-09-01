@@ -1,3 +1,4 @@
+#include "TreeFrame.h"
 #include "TreeLeaf.h"
 
 #include <algorithm>
@@ -20,9 +21,9 @@ class Sink {
 public:
   explicit Sink(TreeMesh &m) : Mesh_(m) {}
 
-  uint32_t Vert(TreeVec3 p, TreeVec3 n, float u, float v) {
+  uint32_t Vert(Vec3f p, Vec3f n, float u, float v) {
     const auto idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
-    Mesh_.LeafVerts.insert(Mesh_.LeafVerts.end(), {p.X, p.Y, p.Z, n.X, n.Y, n.Z, u, v});
+    Mesh_.LeafVerts.insert(Mesh_.LeafVerts.end(), {p[0], p[1], p[2], n[0], n[1], n[2], u, v});
     return idx;
   }
 
@@ -61,15 +62,15 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   return w;
 }
 
-void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang, float lenScale) {
+void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, float ang, float lenScale) {
   int n = p.Segments;
   n = std::max(n, 4);
   const int nv = (n + 1) * 3;
-  std::vector<TreeVec3> pos(static_cast<size_t>(nv));
-  std::vector<TreeVec3> nrm(static_cast<size_t>(nv));
+  std::vector<Vec3f> pos(static_cast<size_t>(nv));
+  std::vector<Vec3f> nrm(static_cast<size_t>(nv));
   std::vector<float> uu(static_cast<size_t>(nv));
-  const TreeVec3 dir = Vec3(std::sin(ang), std::cos(ang), 0.0f);
-  const TreeVec3 side = Vec3(std::cos(ang), -std::sin(ang), 0.0f);
+  const Vec3f dir = Vec3f{{std::sin(ang), std::cos(ang), 0.0f}};
+  const Vec3f side = Vec3f{{std::cos(ang), -std::sin(ang), 0.0f}};
   const float len = p.Length * lenScale;
   for (int i = 0; i <= n; ++i) {
     const float t = static_cast<float>(i) / static_cast<float>(n);
@@ -79,13 +80,13 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
     const float skf = p.BaseSkew * (1.0f - t);
     const float wl = w * (1.0f + skf * 0.9f);
     const float wr = w * (1.0f - skf * 0.9f);
-    const TreeVec3 c = base + (dir * (t * len) + Vec3(0, 0, z));
+    const Vec3f c = base + (dir * (t * len) + Vec3f{{0, 0, z}});
     const int b3 = i * 3;
-    pos[static_cast<size_t>(b3) + 0] = c + (side * (-wl) + Vec3(0, 0, fz));
+    pos[static_cast<size_t>(b3) + 0] = c + (side * (-wl) + Vec3f{{0, 0, fz}});
     uu[static_cast<size_t>(b3) + 0] = 0.0f;
     pos[static_cast<size_t>(b3) + 1] = c;
     uu[static_cast<size_t>(b3) + 1] = 0.5f;
-    pos[static_cast<size_t>(b3) + 2] = c + (side * wr + Vec3(0, 0, fz));
+    pos[static_cast<size_t>(b3) + 2] = c + (side * wr + Vec3f{{0, 0, fz}});
     uu[static_cast<size_t>(b3) + 2] = 1.0f;
   }
   for (int i = 0; i < n; ++i) {
@@ -94,8 +95,8 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
     const int tri[4][3] = {
         {a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
     for (auto k : tri) {
-      const TreeVec3 fn = Cross(pos[static_cast<size_t>(k[1])] - pos[static_cast<size_t>(k[0])],
-                                pos[static_cast<size_t>(k[2])] - pos[static_cast<size_t>(k[0])]);
+      const Vec3f fn = Cross(pos[static_cast<size_t>(k[1])] - pos[static_cast<size_t>(k[0])],
+                             pos[static_cast<size_t>(k[2])] - pos[static_cast<size_t>(k[0])]);
       for (int e = 0; e < 3; ++e) {
         nrm[static_cast<size_t>(k[e])] = nrm[static_cast<size_t>(k[e])] + fn;
       }
@@ -104,7 +105,7 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
   std::vector<uint32_t> idx(static_cast<size_t>(nv));
   for (int i = 0; i < nv; ++i) {
     idx[static_cast<size_t>(i)] = sink.Vert(pos[static_cast<size_t>(i)],
-                                            Normalize(nrm[static_cast<size_t>(i)]),
+                                            DirectionOrUp(nrm[static_cast<size_t>(i)]),
                                             uu[static_cast<size_t>(i)],
                                             static_cast<float>(i / 3) / static_cast<float>(n));
   }
@@ -134,11 +135,11 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   const float spread = p.PalmateSpread * kDeg;
 
   const int nv = 1 + r * (a + 1);
-  std::vector<TreeVec3> pos(static_cast<size_t>(nv));
-  std::vector<TreeVec3> nrm(static_cast<size_t>(nv));
+  std::vector<Vec3f> pos(static_cast<size_t>(nv));
+  std::vector<Vec3f> nrm(static_cast<size_t>(nv));
   std::vector<float> uu(static_cast<size_t>(nv));
   std::vector<float> vv(static_cast<size_t>(nv));
-  pos[0] = Vec3(0, 0, 0);
+  pos[0] = Vec3f{{0, 0, 0}};
   uu[0] = 0.5f;
   vv[0] = 0.0f;
 
@@ -157,10 +158,10 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
         outl *= 1.0f - p.Serration * 0.10f * saw;
       }
       const float rr = outl * static_cast<float>(i) / static_cast<float>(r);
-      const TreeVec3 dir = Vec3(std::sin(th), std::cos(th), 0.0f);
+      const Vec3f dir = Vec3f{{std::sin(th), std::cos(th), 0.0f}};
       const float z = -p.Curve * p.Length * static_cast<float>(i * i) / static_cast<float>(r * r);
       const int idx = 1 + (i - 1) * (a + 1) + j;
-      pos[static_cast<size_t>(idx)] = dir * rr + Vec3(0, 0, z);
+      pos[static_cast<size_t>(idx)] = dir * rr + Vec3f{{0, 0, z}};
       uu[static_cast<size_t>(idx)] = t;
       vv[static_cast<size_t>(idx)] = static_cast<float>(i) / static_cast<float>(r);
     }
@@ -169,7 +170,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   for (int j = 0; j < a; ++j) {
     const size_t b = at(1, j);
     const size_t c = at(1, j + 1);
-    const TreeVec3 fn = Cross(pos[b] - pos[0], pos[c] - pos[0]);
+    const Vec3f fn = Cross(pos[b] - pos[0], pos[c] - pos[0]);
     nrm[0] = nrm[0] + fn;
     nrm[b] = nrm[b] + fn;
     nrm[c] = nrm[c] + fn;
@@ -179,7 +180,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
       const size_t q[4] = {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)};
       const size_t tr[2][3] = {{q[0], q[1], q[2]}, {q[0], q[2], q[3]}};
       for (const auto &k : tr) {
-        const TreeVec3 fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);
+        const Vec3f fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);
         for (int e = 0; e < 3; ++e) { nrm[k[e]] = nrm[k[e]] + fn; }
       }
     }
@@ -187,7 +188,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   std::vector<uint32_t> idx(static_cast<size_t>(nv));
   for (int i = 0; i < nv; ++i) {
     idx[static_cast<size_t>(i)] = sink.Vert(pos[static_cast<size_t>(i)],
-                                            Normalize(nrm[static_cast<size_t>(i)]),
+                                            DirectionOrUp(nrm[static_cast<size_t>(i)]),
                                             uu[static_cast<size_t>(i)],
                                             vv[static_cast<size_t>(i)]);
   }
@@ -210,11 +211,11 @@ void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   const float fwd = p.NeedleFwd;
   TreeRandom rng(99u);
   const float sw = len * 0.010f;
-  const TreeVec3 up = Vec3(0, 0, 1);
-  const uint32_t s0 = sink.Vert(Vec3(-sw, 0, 0), up, 0.47f, 0.0f);
-  const uint32_t s1 = sink.Vert(Vec3(sw, 0, 0), up, 0.53f, 0.0f);
-  const uint32_t s2 = sink.Vert(Vec3(sw, len, 0), up, 0.53f, 1.0f);
-  const uint32_t s3 = sink.Vert(Vec3(-sw, len, 0), up, 0.47f, 1.0f);
+  const Vec3f up = Vec3f{{0, 0, 1}};
+  const uint32_t s0 = sink.Vert(Vec3f{{-sw, 0, 0}}, up, 0.47f, 0.0f);
+  const uint32_t s1 = sink.Vert(Vec3f{{sw, 0, 0}}, up, 0.53f, 0.0f);
+  const uint32_t s2 = sink.Vert(Vec3f{{sw, len, 0}}, up, 0.53f, 1.0f);
+  const uint32_t s3 = sink.Vert(Vec3f{{-sw, len, 0}}, up, 0.47f, 1.0f);
   sink.Tri(s0, s1, s2);
   sink.Tri(s0, s2, s3);
   for (int i = 0; i < n; ++i) {
@@ -222,10 +223,10 @@ void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
     const float y = t * len;
     const int side = ((i % 2) != 0) ? 1 : -1;
     const float sx = static_cast<float>(side) * (1.0f - fwd) + rng.Signed() * 0.05f;
-    const TreeVec3 dir = Normalize(Vec3(sx, fwd + rng.Signed() * 0.10f, 0.0f));
-    const TreeVec3 base = Vec3(0, y, 0);
-    const TreeVec3 tip = base + dir * (nl * (0.8f + 0.35f * rng.Unit()));
-    const TreeVec3 perp = Normalize(Vec3(dir.Y, -dir.X, 0.0f)) * nw;
+    const Vec3f dir = DirectionOrUp(Vec3f{{sx, fwd + rng.Signed() * 0.10f, 0.0f}});
+    const Vec3f base = Vec3f{{0, y, 0}};
+    const Vec3f tip = base + dir * (nl * (0.8f + 0.35f * rng.Unit()));
+    const Vec3f perp = DirectionOrUp(Vec3f{{dir[1], -dir[0], 0.0f}}) * nw;
     const uint32_t a = sink.Vert(base - perp, up, 0.0f, t);
     const uint32_t b = sink.Vert(base + perp, up, 1.0f, t);
     const uint32_t c = sink.Vert(tip, up, 0.5f, t);
@@ -237,11 +238,11 @@ void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
   const int pairs = p.Leaflets > 0 ? p.Leaflets : 5;
   const float len = p.Length;
   const float rw = len * 0.006f;
-  const TreeVec3 up = Vec3(0, 0, 1);
-  const uint32_t r0 = sink.Vert(Vec3(-rw, 0, 0), up, 0.48f, 0.0f);
-  const uint32_t r1 = sink.Vert(Vec3(rw, 0, 0), up, 0.52f, 0.0f);
-  const uint32_t r2 = sink.Vert(Vec3(rw, len * 0.95f, 0), up, 0.52f, 1.0f);
-  const uint32_t r3 = sink.Vert(Vec3(-rw, len * 0.95f, 0), up, 0.48f, 1.0f);
+  const Vec3f up = Vec3f{{0, 0, 1}};
+  const uint32_t r0 = sink.Vert(Vec3f{{-rw, 0, 0}}, up, 0.48f, 0.0f);
+  const uint32_t r1 = sink.Vert(Vec3f{{rw, 0, 0}}, up, 0.52f, 0.0f);
+  const uint32_t r2 = sink.Vert(Vec3f{{rw, len * 0.95f, 0}}, up, 0.52f, 1.0f);
+  const uint32_t r3 = sink.Vert(Vec3f{{-rw, len * 0.95f, 0}}, up, 0.48f, 1.0f);
   sink.Tri(r0, r1, r2);
   sink.Tri(r0, r2, r3);
   const float ls = 0.34f;
@@ -249,11 +250,11 @@ void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
   for (int i = 0; i < pairs; ++i) {
     const float t =
         0.14f + 0.78f * (pairs > 1 ? static_cast<float>(i) / static_cast<float>(pairs - 1) : 0.5f);
-    const TreeVec3 base = Vec3(0, t * len, 0);
+    const Vec3f base = Vec3f{{0, t * len, 0}};
     BuildBlade(sink, p, base, ang, ls);
     BuildBlade(sink, p, base, -ang, ls);
   }
-  BuildBlade(sink, p, Vec3(0, len * 0.93f, 0), 0.0f, ls);
+  BuildBlade(sink, p, Vec3f{{0, len * 0.93f, 0}}, 0.0f, ls);
 }
 
 void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
@@ -263,7 +264,7 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
     const float t = (n > 1) ? static_cast<float>(i) / static_cast<float>(n - 1) : 0.5f;
     const float ang = -spread + 2.0f * spread * t;
     const float ls = 0.62f + 0.38f * (1.0f - std::fabs(2.0f * t - 1.0f));
-    BuildBlade(sink, p, Vec3(0, 0, 0), ang, ls);
+    BuildBlade(sink, p, Vec3f{{0, 0, 0}}, ang, ls);
   }
 }
 
@@ -278,7 +279,7 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
     case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
     case TreeSpecies::LeafKind::PalmateCompound: BuildPalmateCompound(sink, leaf); break;
     case TreeSpecies::LeafKind::Needle: BuildNeedleShoot(sink, leaf); break;
-    case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3(0, 0, 0), 0.0f, 1.0f); break;
+    case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3f{{0, 0, 0}}, 0.0f, 1.0f); break;
   }
 }
 

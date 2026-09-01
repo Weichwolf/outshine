@@ -278,8 +278,8 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Transform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
-      const Vec3 &local = {
-          elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]};
+      const Vec3 local = {
+          {elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]}};
       Vec3 global;
       placed.Direction(local, global);
       (void)Normalise(global);
@@ -1273,7 +1273,7 @@ bool Subject::Frame(Viewpoint &out, double fill) const {
 }
 
 bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill) {
-  const Vec3 &span = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
+  const Vec3 span = {{maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]}};
   const double radius = 0.5 * Length(span);
   if (!(radius > 0)) { return false; }
   Vec3 centre;
@@ -1282,9 +1282,9 @@ bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill)
   const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
 
-  const Vec3 &toEye = {std::cos(elevation) * std::cos(azimuth),
+  const Vec3 toEye = {{std::cos(elevation) * std::cos(azimuth),
                        std::sin(elevation),
-                       std::cos(elevation) * std::sin(azimuth)};
+                       std::cos(elevation) * std::sin(azimuth)}};
 
   const double yfov =
       2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);
@@ -1356,11 +1356,11 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
     double raster[3][2];
     for (int corner = 0; corner < 3; ++corner) {
       const size_t vertex = Indices_[triangle * 3 + static_cast<size_t>(corner)];
-      const Vec3 &point = {
-          Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]};
+      const Vec3 point = {
+          {Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]}};
       Vec3 ndc;
       clip.Point(point, ndc);
-      viewport.Raster(ndc.data(), raster[corner]);
+      viewport.Raster(ndc, raster[corner]);
     }
     total += 0.5 * std::fabs((raster[1][0] - raster[0][0]) * (raster[2][1] - raster[0][1]) -
                              (raster[2][0] - raster[0][0]) * (raster[1][1] - raster[0][1]));

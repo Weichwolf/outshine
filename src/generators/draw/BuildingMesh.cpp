@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "BuildingMesh.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <cmath>

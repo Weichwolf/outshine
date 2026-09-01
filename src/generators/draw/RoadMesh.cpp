@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "RoadMesh.h"
+#include "Vec3.h"
 
 #include "Fit.h"
 #include "ReferenceLine.h"

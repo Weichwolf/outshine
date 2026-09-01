@@ -1,4 +1,5 @@
 #include "GroundPatchwork.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <vector>
@@ -219,9 +220,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           for (int axis = 0; axis < 3; ++axis) { out.OriginEcef[axis] = built.OriginEcef[axis]; }
           anchored = true;
         }
-        const double shift[3] = {built.OriginEcef[0] - out.OriginEcef[0],
-                                 built.OriginEcef[1] - out.OriginEcef[1],
-                                 built.OriginEcef[2] - out.OriginEcef[2]};
+        const Vec3 shift = {{built.OriginEcef[0] - out.OriginEcef[0],
+                             built.OriginEcef[1] - out.OriginEcef[1],
+                             built.OriginEcef[2] - out.OriginEcef[2]}};
         const auto first = static_cast<uint32_t>(out.PositionM.size() / 3);
         for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
              vertex += kTileVertexFloats) {

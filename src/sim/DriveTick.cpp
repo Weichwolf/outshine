@@ -1,4 +1,5 @@
 #include "DriveTick.h"
+#include "Vec3.h"
 
 #include "HoldLane.h"
 
@@ -28,8 +29,8 @@ constexpr double kResectM = 4.0;
 constexpr double kFromM = 50.0;
 
 double HeadingOf(const outshine::Physics::Rigid &body) {
-  const double aheadBody[3] = {0.0, 0.0, -1.0};
-  double ahead[3];
+  const Vec3 aheadBody = {{0.0, 0.0, -1.0}};
+  Vec3 ahead;
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   return std::atan2(-ahead[2], ahead[0]);
 }
@@ -53,7 +54,7 @@ const Ridden &DriveTick(const Corridor &way,
   reins.SettleS = outshine::Pilot::kSettleS;
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;
-  const double gravity[3] = {0.0, -stood.Envelope.GravityMs2, 0.0};
+  const Vec3 gravity = {{0.0, -stood.Envelope.GravityMs2, 0.0}};
   out.Found = true;
 
   const double eastM = body.PositionM[0];
@@ -152,7 +153,7 @@ const Ridden &DriveTick(const Corridor &way,
   outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
   size_t offMade = 0;
   for (size_t which = 0; which < rig.Count; ++which) {
-    double worldM[3];
+    Vec3 worldM;
     outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
     const double edgeM = here.EdgeM;
     const double armEastM = worldM[0] - eastM;

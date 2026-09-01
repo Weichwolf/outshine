@@ -1,9 +1,9 @@
-#include "Vec3.h"
 #include "Shape.h"
 #include <array>
 #include <atomic>
 #include <chrono>
 #include "SubjectProxy.h"
+#include "Vec3.h"
 
 #include <cstddef>
 #include <cstdint>

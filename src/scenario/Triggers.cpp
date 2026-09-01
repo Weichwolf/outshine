@@ -1,4 +1,5 @@
 #include "Triggers.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <cstddef>
@@ -112,7 +113,7 @@ bool TriggerField::Listen(std::string_view event,
   return false;
 }
 
-bool TriggerField::Inside(const Door &door, const double atM[3]) {
+bool TriggerField::Inside(const Door &door, const Vec3 &atM) {
   if (door.Sphere != 0) {
     double away = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
@@ -127,7 +128,7 @@ bool TriggerField::Inside(const Door &door, const double atM[3]) {
   return true;
 }
 
-void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
+void TriggerField::Probe(uint32_t body, const Vec3 &atM, double nowS) {
   const auto fire = [&](uint16_t event) {
     if (Heard_[event] == 0) { ++Unheard_[event]; }
     if (Ring_.size() >= kMostFired) {

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 #define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 
+#include "Vec3.h"
 #include <cmath>
 #include <cstdint>
 #include <span>
@@ -76,7 +77,7 @@ inline void HalveInPlace(std::span<const float> from,
       }
       if (kind != TexelKind::Direction) { continue; }
 
-      float direction[3];
+      Vec3f direction;
       float length = 0.0f;
       for (int axis = 0; axis < 3; ++axis) {
         direction[axis] = into[at + static_cast<size_t>(axis)] * 2.0f - 1.0f;

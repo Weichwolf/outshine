@@ -1,4 +1,5 @@
 #include "TreePrototype.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <optional>
@@ -16,7 +17,7 @@
 namespace outshine::Generators {
 namespace {
 
-const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
+const Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
 
 float SrgbToLinear(float v) {
   return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
@@ -106,10 +107,10 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
     out.BarkVertCount = static_cast<uint32_t>(mesh.BarkVertexCount());
     out.BarkIdx = mesh.BarkIdx;
   }
-  proto.Crown_.HalfWidth = std::fmax(std::fmax(-plant.BoxMin.X, plant.BoxMax.X),
-                                     std::fmax(-plant.BoxMin.Z, plant.BoxMax.Z));
-  proto.Crown_.Bottom = plant.BoxMin.Y;
-  proto.Crown_.Top = plant.BoxMax.Y;
+  proto.Crown_.HalfWidth = std::fmax(std::fmax(-plant.BoxMin[0], plant.BoxMax[0]),
+                                     std::fmax(-plant.BoxMin[2], plant.BoxMax[2]));
+  proto.Crown_.Bottom = plant.BoxMin[1];
+  proto.Crown_.Top = plant.BoxMax[1];
   proto.Crown_.HeightM = static_cast<float>(proto.HeightM_);
   if (proto.Ranks_[0].BarkVertCount == 0) { return std::nullopt; }
   return proto;

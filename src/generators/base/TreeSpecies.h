@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 
+#include "Vec3.h"
 #include "GrowthForm.h"
 
 namespace outshine::Generators {
@@ -66,12 +67,12 @@ public:
   };
 
   struct Shading {
-    float BarkColor[3] = {0.40f, 0.31f, 0.23f};
+    Vec3f BarkColor = {{0.40f, 0.31f, 0.23f}};
     float BarkDark = 0.62f;
     float BarkFreq = 4.0f;
     float BarkRidge = 0.2f;
     int BarkStyle = 0;
-    float LeafTint[3] = {1.0f, 1.0f, 1.0f};
+    Vec3f LeafTint = {{1.0f, 1.0f, 1.0f}};
     float WindAmp = 0.012f, WindFreq = 1.6f;
   };
 

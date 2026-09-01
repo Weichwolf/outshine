@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Heap.h"
 #include <chrono>
 #include <numbers>
@@ -91,18 +92,18 @@ bool Engine::State::Watches() {
   return true;
 }
 
-bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) {
+bool Engine::State::Carries(const Physics::Rigid &body, const Vec3 &shiftM) {
   return Carries(0, body, shiftM);
 }
 
-bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]) {
+bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
-    const std::array<double, 4> &q = body.OrientationQ;
-    const double w = q[0];
-    const double x = q[1];
-    const double y = q[2];
-    const double z = q[3];
+    const Quat &q = body.OrientationQ;
+    const double w = q.W;
+    const double x = q.X;
+    const double y = q.Y;
+    const double z = q.Z;
     bodyFromWorld[0] = 1.0 - 2.0 * (y * y + z * z);
     bodyFromWorld[1] = 2.0 * (x * y + z * w);
     bodyFromWorld[2] = 2.0 * (x * z - y * w);
@@ -130,7 +131,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Session.Volumes) {
-    Session.Volumes->Probe(0, body.PositionM.data(), Ticking.ElapsedS);
+    Session.Volumes->Probe(0, body.PositionM, Ticking.ElapsedS);
     for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
       ++Session.Fired;
       Published.Places(
@@ -144,9 +145,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   const View &seen = Session.Views->Active();
   if (seen.Sees.Placed) { return Watches(); }
 
-  const double *const centreM = Ticking.Drive.Stood.CentreM;
-  const double seatM[3] = {
-      seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1], seen.OffsetM[2] - centreM[2]};
+  const Vec3 seatM = seen.OffsetM - Ticking.Drive.Stood.CentreM;
   Vec3 at;
   for (int axis = 0; axis < 3; ++axis) {
     at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seatM[0] +
@@ -236,7 +235,7 @@ bool Engine::State::Updates() {
 bool Engine::State::Draws() {
   if (!Ticking.Drove && !Ticking.Freestanding.empty() && Picture.Standing &&
       Picture.Standing->Stands()) {
-    const double unshifted[3] = {0.0, 0.0, 0.0};
+    const Vec3 unshifted;
     if (!Picture.Standing->Carries(Ticking.Freestanding.size(), Error)) { return false; }
     for (size_t which = 0; which < Ticking.Freestanding.size(); ++which) {
       if (!Carries(which, Ticking.Freestanding[which], unshifted)) { return false; }

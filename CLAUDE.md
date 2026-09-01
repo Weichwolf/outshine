@@ -119,6 +119,14 @@ These are C++ truths rather than decisions about outshine, and they do not move.
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std`; a warning is an error
 - **What the compiler can decide is a `static_assert`, never a case** — layout, size, trait,
   catalogue completeness, an enum's exhaustiveness. Stricter than a suite, and unskippable
+- **`constexpr` WHEREVER IT IS POSSIBLE, and the same for the values it feeds.** A number the
+  compiler can compute belongs in the binary rather than in the frame, and a function that is
+  `constexpr` is a function a `static_assert` can INTERROGATE — so this rule and the one above it
+  are one rule: constexpr is what makes the assert possible, and the assert is what makes the
+  constexpr worth writing. `consteval` where the answer must not reach run time at all. A table
+  built at startup is a table that could have been built at compile time, and a derivation left to
+  run time is a derivation nothing checks. **clang-tidy does the rest** — every rule that a checker
+  already enforces stays out of this page
 - **The type system over checkers**: `std::span` / `std::string_view` at boundaries, `std::mdspan`
   for field and instance views, `std::expected` where a refusal carries its reason
 - **Private is the DEFAULT** and a wider door justifies itself; a public data member is an

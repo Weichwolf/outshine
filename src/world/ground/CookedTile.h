@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Vec3.h"
 #include "ClusterDag.h"
 
 namespace outshine::Ground {
@@ -11,7 +12,7 @@ namespace outshine::Ground {
 void CookTile(const float *soup,
               int nverts,
               int gridverts,
-              const double origin[3],
+              const Vec3 &origin,
               std::vector<float> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters);

@@ -1,5 +1,5 @@
-#include "Vec3.h"
 #include "BuildingField.h"
+#include "Vec3.h"
 
 #include <chrono>
 

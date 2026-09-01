@@ -1,3 +1,4 @@
+#include "TreeFrame.h"
 #include "TreeMesher.h"
 
 #include <algorithm>
@@ -16,14 +17,14 @@ namespace {
 
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 
-TreeVec3 RingDir(const TreeSkeleton::Node &node, float angle) {
-  const TreeVec3 b = Normalize(Cross(node.Dir, node.Up));
+Vec3f RingDir(const TreeSkeleton::Node &node, float angle) {
+  const Vec3f b = DirectionOrUp(Cross(node.Dir, node.Up));
   return node.Up * std::cos(angle) + b * std::sin(angle);
 }
 
 } // namespace
 
-int TreeMesher::AddVert(TreeVec3 p) {
+int TreeMesher::AddVert(Vec3f p) {
   Verts_.push_back(p);
   return static_cast<int>(Verts_.size()) - 1;
 }
@@ -34,11 +35,11 @@ int TreeMesher::AddFace(int a, int b, int c, int d) {
   return static_cast<int>(Faces_.size()) - 1;
 }
 
-TreeVec3 TreeMesher::FaceCentroid(int fi) const {
+Vec3f TreeMesher::FaceCentroid(int fi) const {
   const Face &f = Faces_[static_cast<size_t>(fi)];
   const int n = f.D < 0 ? 3 : 4;
   const int idx[4] = {f.A, f.B, f.C, f.D};
-  TreeVec3 s;
+  Vec3f s;
   for (int i = 0; i < n; ++i) { s = s + Verts_[static_cast<size_t>(idx[i])]; }
   return s * (1.0f / static_cast<float>(n));
 }
@@ -60,13 +61,13 @@ bool TreeMesher::ChordHolds(const TreeSkeleton &plant, int from, int last, int s
     const int a = b - stride;
     const TreeSkeleton::Node &na = plant.Nodes[static_cast<size_t>(a)];
     const TreeSkeleton::Node &nb = plant.Nodes[static_cast<size_t>(b)];
-    const TreeVec3 chord = nb.Pos - na.Pos;
+    const Vec3f chord = nb.Pos - na.Pos;
     const float span = Dot(chord, chord);
     if (span <= 0.0f) { continue; }
     for (int i = a + 1; i < b; ++i) {
       const TreeSkeleton::Node &n = plant.Nodes[static_cast<size_t>(i)];
       const float t = Dot(n.Pos - na.Pos, chord) / span;
-      const TreeVec3 off = n.Pos - (na.Pos + chord * t);
+      const Vec3f off = n.Pos - (na.Pos + chord * t);
 
       if (Length(off) + std::fabs(n.Radius - (na.Radius + (nb.Radius - na.Radius) * t)) > tol) {
         return false;
@@ -171,7 +172,7 @@ bool TreeMesher::Collar(int face,
   const int o[4] = {parent.A, parent.B, parent.C, parent.D};
   if (parent.D < 0) { return false; }
 
-  const TreeVec3 ctr = anchor.Pos;
+  const Vec3f ctr = anchor.Pos;
   const float r = anchor.Radius < room ? anchor.Radius : room;
 
   Dead_[static_cast<size_t>(face)] = 1;
@@ -184,8 +185,8 @@ bool TreeMesher::Collar(int face,
   Ring(first, first.Radius, sides, out);
   Wall(inner, out, sides);
 
-  const TreeVec3 b = Normalize(Cross(anchor.Dir, anchor.Up));
-  const TreeVec3 rel = Verts_[static_cast<size_t>(o[0])] - ctr;
+  const Vec3f b = DirectionOrUp(Cross(anchor.Dir, anchor.Up));
+  const Vec3f rel = Verts_[static_cast<size_t>(o[0])] - ctr;
   float a0 = std::atan2(Dot(rel, b), Dot(rel, anchor.Up));
   if (a0 < 0) { a0 += kTau; }
   int s = static_cast<int>(std::lround(a0 / kTau * static_cast<float>(sides))) % sides;
@@ -281,17 +282,17 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
 }
 
 void TreeMesher::Export(TreeMesh &out) {
-  Normals_.assign(Verts_.size(), TreeVec3{});
+  Normals_.assign(Verts_.size(), Vec3f{});
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
     if (Dead_[fi] != 0u) { continue; }
     const Face &f = Faces_[fi];
     const int tri[2][3] = {{f.A, f.B, f.C}, {f.A, f.C, f.D}};
     const int nt = f.D < 0 ? 1 : 2;
     for (int ti = 0; ti < nt; ++ti) {
-      const TreeVec3 a = Verts_[static_cast<size_t>(tri[ti][0])];
-      const TreeVec3 b = Verts_[static_cast<size_t>(tri[ti][1])];
-      const TreeVec3 c = Verts_[static_cast<size_t>(tri[ti][2])];
-      const TreeVec3 fn = Cross(b - a, c - a);
+      const Vec3f a = Verts_[static_cast<size_t>(tri[ti][0])];
+      const Vec3f b = Verts_[static_cast<size_t>(tri[ti][1])];
+      const Vec3f c = Verts_[static_cast<size_t>(tri[ti][2])];
+      const Vec3f fn = Cross(b - a, c - a);
       for (int e = 0; e < 3; ++e) {
         Normals_[static_cast<size_t>(tri[ti][e])] = Normals_[static_cast<size_t>(tri[ti][e])] + fn;
       }
@@ -299,15 +300,15 @@ void TreeMesher::Export(TreeMesh &out) {
   }
   out.BarkVerts.resize(Verts_.size() * TreeMesh::kBarkFloats);
   for (size_t i = 0; i < Verts_.size(); ++i) {
-    const TreeVec3 p = Verts_[i];
-    const TreeVec3 n = Normalize(Normals_[i]);
+    const Vec3f p = Verts_[i];
+    const Vec3f n = DirectionOrUp(Normals_[i]);
     float *o = &out.BarkVerts[i * TreeMesh::kBarkFloats];
-    o[0] = p.X;
-    o[1] = p.Y;
-    o[2] = p.Z;
-    o[3] = n.X;
-    o[4] = n.Y;
-    o[5] = n.Z;
+    o[0] = p[0];
+    o[1] = p[1];
+    o[2] = p[2];
+    o[3] = n[0];
+    o[4] = n[1];
+    o[5] = n[2];
   }
   out.BarkIdx.clear();
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {

@@ -1,4 +1,5 @@
 #include "CookedTile.h"
+#include "Vec3.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +20,7 @@ constexpr size_t kTileSoupFloats = 8;
 void CookTile(const float *soup,
               int nverts,
               int gridverts,
-              const double origin[3],
+              const Vec3 &origin,
               std::vector<float> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters) {

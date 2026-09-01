@@ -1,4 +1,5 @@
 #include "ClusterCook.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,7 +21,7 @@ namespace {
   return bits;
 }
 
-[[nodiscard]] uint32_t Morton(const float at[3], const float least[3], const float span[3]) {
+[[nodiscard]] uint32_t Morton(const Vec3f &at, const Vec3f &least, const Vec3f &span) {
   uint32_t held[3];
   for (int axis = 0; axis < 3; ++axis) {
     const float part = span[axis] > 0.0f ? (at[axis] - least[axis]) / span[axis] : 0.0f;
@@ -39,8 +40,8 @@ Cooked CookClusters(std::span<const float> positionsM,
   const size_t triangles = indices.size() / 3;
   if (triangles == 0 || positionsM.size() < 3 || mostTriangles == 0) { return out; }
 
-  float least[3] = {positionsM[0], positionsM[1], positionsM[2]};
-  float most[3] = {positionsM[0], positionsM[1], positionsM[2]};
+  Vec3f least = {{positionsM[0], positionsM[1], positionsM[2]}};
+  Vec3f most = {{positionsM[0], positionsM[1], positionsM[2]}};
   for (size_t vertex = 0; vertex * 3 + 2 < positionsM.size(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
       const float held = positionsM[vertex * 3 + static_cast<size_t>(axis)];
@@ -48,7 +49,7 @@ Cooked CookClusters(std::span<const float> positionsM,
       most[axis] = held > most[axis] ? held : most[axis];
     }
   }
-  const float span[3] = {most[0] - least[0], most[1] - least[1], most[2] - least[2]};
+  const Vec3f span = most - least;
 
   struct Sorted {
     uint32_t Code = 0;
@@ -59,7 +60,7 @@ Cooked CookClusters(std::span<const float> positionsM,
   order.reserve(triangles);
   const size_t vertices = positionsM.size() / 3;
   for (size_t triangle = 0; triangle < triangles; ++triangle) {
-    float centre[3] = {0.0f, 0.0f, 0.0f};
+    Vec3f centre;
     for (int corner = 0; corner < 3; ++corner) {
       const uint32_t at = indices[triangle * 3 + static_cast<size_t>(corner)];
       if (static_cast<size_t>(at) >= vertices) { continue; }
@@ -81,8 +82,8 @@ Cooked CookClusters(std::span<const float> positionsM,
     made.Count = static_cast<uint32_t>((upTo - at) * 3);
     made.ParentErr = kDagRootErr;
 
-    float low[3] = {0.0f, 0.0f, 0.0f};
-    float high[3] = {0.0f, 0.0f, 0.0f};
+    Vec3f low;
+    Vec3f high;
     bool any = false;
     for (size_t step = at; step < upTo; ++step) {
       const uint32_t triangle = order[step].Triangle;
@@ -147,8 +148,8 @@ Cooked CookDag(std::span<const float> positionsM,
   for (uint32_t level = 1; level <= mostLevels; ++level) {
     if (coarseIndex.size() < 3) { break; }
 
-    float least[3] = {out.PositionsM[0], out.PositionsM[1], out.PositionsM[2]};
-    float most[3] = {least[0], least[1], least[2]};
+    Vec3f least = {{out.PositionsM[0], out.PositionsM[1], out.PositionsM[2]}};
+    Vec3f most = {{least[0], least[1], least[2]}};
     for (const uint32_t index : coarseIndex) {
       for (int axis = 0; axis < 3; ++axis) {
         const float held =
@@ -238,11 +239,11 @@ Cooked CookDag(std::span<const float> positionsM,
     const Cooked above = CookClusters(out.PositionsM, kept, mostTriangles);
     if (above.Clusters.empty()) { break; }
 
-    float wholeCentre[3] = {0.0f, 0.0f, 0.0f};
+    Vec3f wholeCentre;
     float wholeRadius = 0.0f;
     {
-      float low[3];
-      float high[3];
+      Vec3f low;
+      Vec3f high;
       for (int axis = 0; axis < 3; ++axis) {
         low[axis] = out.PositionsM[static_cast<size_t>(kept[0]) * 3 + static_cast<size_t>(axis)];
         high[axis] = low[axis];

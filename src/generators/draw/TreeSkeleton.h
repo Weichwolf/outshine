@@ -4,12 +4,12 @@
 #include <cstdint>
 #include <vector>
 
-#include "TreeVec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 
 struct LeafPoint {
-  TreeVec3 Pos, Dir;
+  Vec3f Pos, Dir;
 };
 
 enum class RingCap : uint8_t { Base, Point, Cut, Broken };
@@ -17,7 +17,7 @@ enum class RingCap : uint8_t { Base, Point, Cut, Broken };
 class TreeSkeleton {
 public:
   struct Node {
-    TreeVec3 Pos, Dir, Up;
+    Vec3f Pos, Dir, Up;
     float Radius = 0.0f;
   };
 
@@ -36,7 +36,7 @@ public:
   std::vector<Shoot> Shoots;
   std::vector<LeafPoint> LeafPoints;
 
-  TreeVec3 BoxMin, BoxMax;
+  Vec3f BoxMin, BoxMax;
 
   float FootRadius = 0.0f;
   float DbhRadius = 0.0f;
@@ -47,8 +47,8 @@ public:
     Nodes.clear();
     Shoots.clear();
     LeafPoints.clear();
-    BoxMin = TreeVec3{};
-    BoxMax = TreeVec3{};
+    BoxMin = Vec3f{};
+    BoxMax = Vec3f{};
     FootRadius = 0.0f;
     DbhRadius = 0.0f;
   }

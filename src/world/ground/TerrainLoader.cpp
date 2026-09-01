@@ -1,4 +1,5 @@
 #include "TerrainLoader.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <chrono>
@@ -257,7 +258,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const double bySouth = (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, southAt) -
                           TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, northAt)) /
                          acrossNorthM;
-  double normal[3] = {-byEast, 1.0, bySouth};
+  Vec3 normal = {{-byEast, 1.0, bySouth}};
   const double length =
       std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
   if (length > 0.0) {

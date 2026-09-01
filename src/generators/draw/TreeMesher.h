@@ -6,7 +6,7 @@
 
 #include "TreeMesh.h"
 #include "TreeSkeleton.h"
-#include "TreeVec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 
@@ -26,9 +26,9 @@ private:
     int Sides = 0;
   };
 
-  int AddVert(TreeVec3 p);
+  int AddVert(Vec3f p);
   int AddFace(int a, int b, int c, int d);
-  [[nodiscard]] TreeVec3 FaceCentroid(int fi) const;
+  [[nodiscard]] Vec3f FaceCentroid(int fi) const;
 
   [[nodiscard]] int SidesFor(float radius, int declared) const;
 
@@ -49,13 +49,13 @@ private:
   void Export(TreeMesh &out);
 
   float PixelGrow_ = 0.0f;
-  std::vector<TreeVec3> Verts_;
+  std::vector<Vec3f> Verts_;
   std::vector<Face> Faces_;
   std::vector<uint8_t> Dead_;
   std::vector<uint8_t> Drawn_;
   std::vector<Band> Bands_;
   std::vector<int> Stations_;
-  std::vector<TreeVec3> Normals_;
+  std::vector<Vec3f> Normals_;
 };
 
 } // namespace outshine::Generators

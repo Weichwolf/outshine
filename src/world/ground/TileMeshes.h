@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Vec3.h"
 #include "ClusterDag.h"
 
 namespace outshine {
@@ -14,7 +15,7 @@ struct TileBuild {
   std::vector<float> Verts;
   std::vector<uint32_t> Idx;
   std::vector<DagCluster> Clusters;
-  double OriginEcef[3] = {0.0, 0.0, 0.0};
+  Vec3 OriginEcef;
   float ErrM = 0.0f;
 };
 

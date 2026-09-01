@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_CURVE_CARRIAGEWAY_H
 #define OUTSHINE_BASE_CURVE_CARRIAGEWAY_H
 
+#include "Vec3.h"
 #include "ReferenceLine.h"
 
 namespace outshine {
@@ -10,7 +11,7 @@ struct Astride {
   double AlongM = 0.0;
   double AcrossM = 0.0;
   double HeightM = 0.0;
-  double NormalM[3] = {0.0, 1.0, 0.0};
+  Vec3 NormalM = {{0.0, 1.0, 0.0}};
 };
 
 [[nodiscard]] Astride Stand(const ReferenceLine &over,

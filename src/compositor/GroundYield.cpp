@@ -1,4 +1,5 @@
 #include "GroundYield.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -685,8 +686,8 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
     const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
     if (moved[face[0]] == 0u && moved[face[1]] == 0u && moved[face[2]] == 0u) { continue; }
-    double edgeA[3] = {};
-    double edgeB[3] = {};
+    Vec3 edgeA = {{}};
+    Vec3 edgeB = {{}};
     for (int axis = 0; axis < 3; ++axis) {
       edgeA[axis] =
           static_cast<double>(
@@ -699,9 +700,9 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
           static_cast<double>(
               positionM[static_cast<size_t>(face[0]) * 3u + static_cast<uint32_t>(axis)]);
     }
-    const double up[3] = {edgeA[1] * edgeB[2] - edgeA[2] * edgeB[1],
-                          edgeA[2] * edgeB[0] - edgeA[0] * edgeB[2],
-                          edgeA[0] * edgeB[1] - edgeA[1] * edgeB[0]};
+    const Vec3 up = {{edgeA[1] * edgeB[2] - edgeA[2] * edgeB[1],
+                      edgeA[2] * edgeB[0] - edgeA[0] * edgeB[2],
+                      edgeA[0] * edgeB[1] - edgeA[1] * edgeB[0]}};
     for (const uint32_t one : face) {
       if (moved[one] == 0u) { continue; }
       for (int axis = 0; axis < 3; ++axis) {

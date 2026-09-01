@@ -191,8 +191,8 @@ public:
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
     SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
-    Sky_.Declare(Medium_, toSun.data(), up.data(), illuminanceLux, eyeHeightM);
-    Aerial_.Declare(Medium_, toSun.data(), up.data(), illuminanceLux, eyeHeightM);
+    Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
+    Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
 
   void SetSkyEye(float eyeHeightM) {

@@ -1,4 +1,5 @@
 #include "AerialPerspectiveStage.h"
+#include "Vec3.h"
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
@@ -55,8 +56,8 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu,
 }
 
 void AerialPerspectiveStage::Declare(const Medium &medium,
-                                     const float sunDir[3],
-                                     const float up[3],
+                                     const Vec3f &sunDir,
+                                     const Vec3f &up,
                                      float illuminanceLux,
                                      float eyeHeightM) {
   for (int axis = 0; axis < 3; ++axis) {
