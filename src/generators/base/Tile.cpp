@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Tile.h"
 
 #include <cmath>
@@ -68,7 +69,7 @@ void Tile::Geo(double eastM, double northM, double *lat, double *lon) const {
   *lon = AnchorLon_ + eastM / (kMPerDeg * std::cos(atLat * kDeg2Rad));
 }
 
-void Tile::AnchorEcef(double aslM, double out[3]) const {
+void Tile::AnchorEcef(double aslM, Vec3 &out) const {
   GeoToEcef(AnchorLat_, AnchorLon_, aslM, out);
 }
 

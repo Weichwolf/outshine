@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Vec3.h"
 #include "Span.h"
 
 namespace outshine {
@@ -54,7 +55,7 @@ struct StructurePlan {
   bool HeightMeasured = false;
   Frontage Street;
 
-  const double *AnchorEcef = nullptr;
+  Vec3 AnchorEcef;
 
   double FocalPx = 0.0;
 };

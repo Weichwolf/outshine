@@ -169,7 +169,7 @@ public:
     return Renderer_->ReadPyramid(nearest, farthest, mean);
   }
 
-  [[nodiscard]] const double *ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
 
   [[nodiscard]] bool Carry(size_t body,
                            std::span<const double, 16> worldFromBodyM,
@@ -204,7 +204,7 @@ public:
 
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
 
-  void Grounding(std::span<const double, 3> albedo) {
+  void Grounding(const Vec3 &albedo) {
     for (int channel = 0; channel < 3; ++channel) { GroundAlbedo_[channel] = albedo[channel]; }
   }
 
@@ -365,12 +365,11 @@ private:
   std::array<double, 3> AmbientStood_ = {0.0, 0.0, 0.0};
   std::array<double, 3> GroundStood_ = {0.0, 0.0, 0.0};
 
-  void
-  SunThroughTheAir(double cosSun, std::span<float, 3> sunReach, std::span<float, 3> skylight) const;
+  void SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const;
 
   mutable double AirStoodAt_ = -2.0;
-  mutable std::array<float, 3> SunReachStood_ = {0.0f, 0.0f, 0.0f};
-  mutable std::array<float, 3> SkylightStood_ = {0.0f, 0.0f, 0.0f};
+  mutable Vec3f SunReachStood_;
+  mutable Vec3f SkylightStood_;
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

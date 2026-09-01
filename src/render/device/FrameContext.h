@@ -1,13 +1,16 @@
 #ifndef OUTSHINE_RENDER_DEVICE_FRAMECONTEXT_H
 #define OUTSHINE_RENDER_DEVICE_FRAMECONTEXT_H
 
+#include "Vec3.h"
+#include "Vec3.h"
+
 namespace outshine::Render {
 
 struct FrameContext {
-  alignas(16) double PreViewTranslation[3];
+  alignas(16) Vec3 PreViewTranslation;
   alignas(16) float Mvp16[16];
 
-  alignas(16) double PrevPreViewTranslation[3];
+  alignas(16) Vec3 PrevPreViewTranslation;
   alignas(16) float PrevMvp16[16];
 };
 

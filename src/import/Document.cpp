@@ -1007,8 +1007,11 @@ bool Document::ReadJson(const char *text,
       for (size_t k = 0; k < 3 && k < translation.Size(); ++k) {
         node.Translation[k] = translation[k].Num(0.0);
       }
-      for (size_t k = 0; k < 4 && k < rotation.Size(); ++k) {
-        node.Rotation[k] = rotation[k].Num(0.0);
+      if (rotation.Size() >= 4) {
+        node.Rotation = {.X = rotation[size_t{0}].Num(0.0),
+                         .Y = rotation[size_t{1}].Num(0.0),
+                         .Z = rotation[size_t{2}].Num(0.0),
+                         .W = rotation[size_t{3}].Num(0.0)};
       }
       for (size_t k = 0; k < 3 && k < scale.Size(); ++k) { node.Scale[k] = scale[k].Num(1.0); }
     }

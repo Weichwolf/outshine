@@ -384,7 +384,7 @@ struct Engine::State {
   [[nodiscard]] bool Draws();
   void Tells();
   void Blocks(const Gltf::Subject &standing);
-  [[nodiscard]] bool Blocked(const double sourceM[3]) const;
+  [[nodiscard]] bool Blocked(const Vec3 &sourceM) const;
   [[nodiscard]] bool Routes();
 };
 

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_TILE_H
 #define OUTSHINE_GENERATORS_BASE_TILE_H
 
+#include "Vec3.h"
 #include <cstdint>
 
 namespace outshine::Generators {
@@ -38,7 +39,7 @@ public:
     return eastM >= 0.0 && northM >= 0.0 && eastM < SpanEm_ && northM < SpanNm_;
   }
 
-  void AnchorEcef(double aslM, double out[3]) const;
+  void AnchorEcef(double aslM, Vec3 &out) const;
 
   static Tile Of(int zoom, double lat, double lon);
 

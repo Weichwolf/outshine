@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Log.h"
 #include <atomic>
 #include <bit>
@@ -125,7 +126,7 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
   if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return; }
   const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
   const Vec3 &eye = Picture.Standing->Watching().EyeM;
-  double held[3];
+  Vec3 held;
   for (int axis = 0; axis < 3; ++axis) {
     held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
                  eye[1] * anchored.UpEcef()[axis] - eye[2] * anchored.NorthEcef()[axis];
@@ -383,7 +384,7 @@ bool Engine::State::Asks() {
 }
 
 size_t CarryIntoTheFrame(const std::vector<float> &corners,
-                         const double anchor[3],
+                         const Vec3 &anchor,
                          const TangentFrame &standing,
                          std::vector<float> &places,
                          std::vector<float> &turned,
@@ -396,9 +397,9 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
   turned.resize(count * 3);
   for (size_t at = already; at < count; ++at) {
     const float *const one = corners.data() + at * kTileVertexFloats;
-    const double held[3] = {anchor[0] + static_cast<double>(one[0]),
-                            anchor[1] + static_cast<double>(one[1]),
-                            anchor[2] + static_cast<double>(one[2])};
+    const Vec3 held = {{anchor[0] + static_cast<double>(one[0]),
+                        anchor[1] + static_cast<double>(one[1]),
+                        anchor[2] + static_cast<double>(one[2])}};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
@@ -406,8 +407,8 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
     places[at * 3 + 2] = static_cast<float>(-northM);
-    const double aim[3] = {
-        static_cast<double>(one[5]), static_cast<double>(one[6]), static_cast<double>(one[7])};
+    const Vec3 aim = {
+        {static_cast<double>(one[5]), static_cast<double>(one[6]), static_cast<double>(one[7])}};
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;
@@ -717,9 +718,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   double lowest = 1.0e9;
   double tallestOut = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-    const double held[3] = {laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
-                            laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
-                            laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])};
+    const Vec3 held = {{laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
+                        laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
+                        laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])}};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
@@ -833,9 +834,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tinted.resize((inFrame.size() / 3) * 4);
       classUv.resize((inFrame.size() / 3) * 2);
       for (size_t at = 0, one = 0; at + 2 < laid->PositionM.size(); at += 3, ++one) {
-        const double held[3] = {laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
-                                laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
-                                laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])};
+        const Vec3 held = {{laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
+                            laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
+                            laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])}};
         const Ground::Geo where =
             Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
         double edgeM = 0.0;
@@ -927,16 +928,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                        "triangles");
     }
     if (!tinted.empty()) {
-      double wornSum[3] = {0.0, 0.0, 0.0};
+      Vec3 wornSum;
       const size_t worn = tinted.size() / 4;
       for (size_t one = 0; one < worn; ++one) {
         for (int channel = 0; channel < 3; ++channel) {
           wornSum[channel] += static_cast<double>(tinted[one * 4 + static_cast<size_t>(channel)]);
         }
       }
-      const double wornMean[3] = {wornSum[0] / static_cast<double>(worn),
-                                  wornSum[1] / static_cast<double>(worn),
-                                  wornSum[2] / static_cast<double>(worn)};
+      const Vec3 wornMean = {{wornSum[0] / static_cast<double>(worn),
+                              wornSum[1] / static_cast<double>(worn),
+                              wornSum[2] / static_cast<double>(worn)}};
       Picture.Standing->Grounding(wornMean);
       Published.Places(
           "lighting: the ground it bounces off, red", 1000.0 * wornMean[0], "albedo/1000");
@@ -1013,9 +1014,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::swap(laid->Index[at + 1], laid->Index[at + 2]);
     }
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
-      const double held[3] = {static_cast<double>(laid->NormalM[at]),
-                              static_cast<double>(laid->NormalM[at + 1]),
-                              static_cast<double>(laid->NormalM[at + 2])};
+      const Vec3 held = {{static_cast<double>(laid->NormalM[at]),
+                          static_cast<double>(laid->NormalM[at + 1]),
+                          static_cast<double>(laid->NormalM[at + 2])}};
       double alongEast = 0.0;
       double alongUp = 0.0;
       double alongNorth = 0.0;
@@ -1129,7 +1130,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {
     const Ground::BuildingField &prints = World.Stack.Footprints();
     const Raised &built = prints.Built();
-    const double *const anchor = prints.Anchor();
+    const Vec3 &anchor = prints.Anchor();
     {
       double away = 0.0;
       for (int axis = 0; axis < 3; ++axis) {
@@ -2246,11 +2247,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             profile =
                 lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
           }
-          const float unnamed[3] = {0.5f, 0.5f, 0.5f};
-          const float *wears = unnamed;
+          Vec3f wears = {{0.5f, 0.5f, 0.5f}};
           if (lane.CoverRow >= 0 &&
               static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
-            wears = World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
+            const float *const cover =
+                World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
+            wears = {{cover[0], cover[1], cover[2]}};
           }
           if (lane.Bridge) {
             Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
@@ -2442,9 +2444,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (one.second.size() >= 2) { nodes.push_back(one.first); }
       }
       std::ranges::sort(nodes);
-      const float sealed[3] = {0.5f, 0.5f, 0.5f};
       const int asphalt = World.Stack.Materials().Find("asphalt");
-      const float *wears = sealed;
+      Vec3f wears = {{0.5f, 0.5f, 0.5f}};
       if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
       for (const uint64_t node : nodes) {
         const std::vector<Generators::RoadGate> &met = gates[node];
@@ -3222,11 +3223,11 @@ void Engine::State::Tells() {
   Session.Told.store(next, std::memory_order_release);
 }
 
-bool Engine::State::Blocked(const double sourceM[3]) const {
+bool Engine::State::Blocked(const Vec3 &sourceM) const {
   if (World.Blocking.Empty() || !Picture.Standing) { return false; }
   const Render::Viewpoint &eye = Picture.Standing->Aimed();
-  float fromM[3];
-  float along[3];
+  Vec3f fromM;
+  Vec3f along;
   double awayM = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     const double step = sourceM[axis] - eye.EyeM[axis];
@@ -3319,9 +3320,9 @@ bool Engine::render(Extent frame) {
     const double across = up * aspect;
     size_t kept = 0;
     for (const DagCluster &one : S_->Picture.Standing->Shown().Clusters) {
-      const double to[3] = {static_cast<double>(one.SelfCenter[0]) - eye.EyeM[0],
-                            static_cast<double>(one.SelfCenter[1]) - eye.EyeM[1],
-                            static_cast<double>(one.SelfCenter[2]) - eye.EyeM[2]};
+      const Vec3 to = {{static_cast<double>(one.SelfCenter[0]) - eye.EyeM[0],
+                        static_cast<double>(one.SelfCenter[1]) - eye.EyeM[1],
+                        static_cast<double>(one.SelfCenter[2]) - eye.EyeM[2]}};
       const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
       const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
       const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];

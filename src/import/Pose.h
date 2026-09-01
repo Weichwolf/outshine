@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Quat.h"
+#include "Vec3.h"
 #include "Track.h"
 #include "Span.h"
 #include "Transform.h"
@@ -50,9 +52,9 @@ public:
 
 private:
   struct Viewpoint {
-    double Translation[3] = {0, 0, 0};
-    double Rotation[4] = {0, 0, 0, 1};
-    double Scale[3] = {1, 1, 1};
+    Vec3 Translation;
+    Quat Rotation;
+    Vec3 Scale = {{1, 1, 1}};
     bool HasMatrix = false;
     double Matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 

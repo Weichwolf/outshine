@@ -1,6 +1,9 @@
 #ifndef OUTSHINE_IMPORT_TRANSFORM_H
 #define OUTSHINE_IMPORT_TRANSFORM_H
 
+#include "Quat.h"
+#include "Vec3.h"
+
 namespace outshine::Gltf {
 
 struct Transform {
@@ -8,16 +11,15 @@ struct Transform {
 
   static Transform Identity() { return {}; }
 
-  static Transform
-  FromTrs(const double translation[3], const double rotation[4], const double scale[3]);
+  static Transform FromTrs(const Vec3 &translation, const Quat &rotation, const Vec3 &scale);
   static Transform FromColumnMajor(const double m[16]);
 
   Transform operator*(const Transform &after) const;
 
-  void Point(const double point[3], double out[3]) const;
-  void Direction(const double direction[3], double out[3]) const;
+  void Point(const Vec3 &point, Vec3 &out) const;
+  void Direction(const Vec3 &direction, Vec3 &out) const;
 
-  [[nodiscard]] bool Normal(const double normal[3], double out[3]) const;
+  [[nodiscard]] bool Normal(const Vec3 &normal, Vec3 &out) const;
 
   [[nodiscard]] double LinearDeterminant() const;
 

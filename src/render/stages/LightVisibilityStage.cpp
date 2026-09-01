@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "LightVisibilityStage.h"
 
 #include <cmath>
@@ -17,7 +18,7 @@ bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std:
   return ConfigureDepthOnly(gpu, error);
 }
 
-void LightVisibilityStage::Declare(const float toSun[3], const float up[3], double radiusM) {
+void LightVisibilityStage::Declare(const Vec3f &toSun, const Vec3f &up, double radiusM) {
   for (int axis = 0; axis < 3; ++axis) {
     ToSun_[axis] = static_cast<double>(toSun[axis]);
     Up_[axis] = static_cast<double>(up[axis]);
@@ -25,9 +26,9 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
   RadiusM_ = radiusM;
   double sunLength = 0.0;
   double crossLength = 0.0;
-  const double cross[3] = {Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
-                           Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
-                           Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]};
+  const Vec3 cross = {{Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
+                       Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
+                       Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]}};
   for (int axis = 0; axis < 3; ++axis) {
     sunLength += ToSun_[axis] * ToSun_[axis];
     crossLength += cross[axis] * cross[axis];
@@ -35,31 +36,31 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
   Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
 }
 
-void LightVisibilityStage::Build(const double preView[3]) {
-  double forward[3] = {-ToSun_[0], -ToSun_[1], -ToSun_[2]};
+void LightVisibilityStage::Build(const Vec3 &preView) {
+  Vec3 forward = {{-ToSun_[0], -ToSun_[1], -ToSun_[2]}};
   double length = 0.0;
   for (double axis : forward) { length += axis * axis; }
   length = std::sqrt(length);
   for (double &axis : forward) { axis /= length; }
 
-  double right[3] = {Up_[1] * forward[2] - Up_[2] * forward[1],
-                     Up_[2] * forward[0] - Up_[0] * forward[2],
-                     Up_[0] * forward[1] - Up_[1] * forward[0]};
+  Vec3 right = {{Up_[1] * forward[2] - Up_[2] * forward[1],
+                 Up_[2] * forward[0] - Up_[0] * forward[2],
+                 Up_[0] * forward[1] - Up_[1] * forward[0]}};
   const double rLength = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
   for (double &axis : right) { axis /= rLength; }
-  const double upward[3] = {forward[1] * right[2] - forward[2] * right[1],
-                            forward[2] * right[0] - forward[0] * right[2],
-                            forward[0] * right[1] - forward[1] * right[0]};
+  const Vec3 upward = {{forward[1] * right[2] - forward[2] * right[1],
+                        forward[2] * right[0] - forward[0] * right[2],
+                        forward[0] * right[1] - forward[1] * right[0]}};
 
   const double texelM = 2.0 * RadiusM_ / static_cast<double>(kShadowAtlasPx);
-  double centre[3] = {0.0, 0.0, 0.0};
+  Vec3 centre;
   const auto reported = [this, &centre] {
     for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
   };
   {
     const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
-    double least[3] = {1.0e30, 1.0e30, 1.0e30};
-    double most[3] = {-1.0e30, -1.0e30, -1.0e30};
+    Vec3 least = {{1.0e30, 1.0e30, 1.0e30}};
+    Vec3 most = {{-1.0e30, -1.0e30, -1.0e30}};
     size_t counted = 0;
     if (Subjects_ != nullptr) {
       const std::vector<double> &placed = Subjects_->Placements();
@@ -80,7 +81,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
       }
     }
   }
-  double centreLight[3] = {0.0, 0.0, 0.0};
+  Vec3 centreLight;
   for (int axis = 0; axis < 3; ++axis) {
     centreLight[0] += right[axis] * centre[axis];
     centreLight[1] += upward[axis] * centre[axis];
@@ -206,7 +207,7 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
 }
 
 void LightVisibilityStage::Cast(const double lightFromWorld16[16],
-                                const double preView[3],
+                                const Vec3 &preView,
                                 int atlasPx,
                                 const PassRecording &into) {
   if (Subjects_ == nullptr) { return; }

@@ -8,23 +8,24 @@
 
 #include <Scenario.h>
 
+#include "Vec3.h"
 #include "BusGraph.h"
 
 namespace outshine::Audio {
 
 struct Heard {
   std::string Id;
-  double AtM[3] = {0.0, 0.0, 0.0};
-  double VelocityMs[3] = {0.0, 0.0, 0.0};
+  Vec3 AtM;
+  Vec3 VelocityMs;
   double Blocked = 0.0;
   bool Standing = false;
 };
 
 struct Listening {
-  double AtM[3] = {0.0, 0.0, 0.0};
-  double VelocityMs[3] = {0.0, 0.0, 0.0};
-  double ForwardXyz[3] = {0.0, 0.0, -1.0};
-  double RightXyz[3] = {1.0, 0.0, 0.0};
+  Vec3 AtM;
+  Vec3 VelocityMs;
+  Vec3 ForwardXyz = {{0.0, 0.0, -1.0}};
+  Vec3 RightXyz = {{1.0, 0.0, 0.0}};
 };
 
 class Mixer {

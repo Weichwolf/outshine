@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Vec3.h"
 #include "Span.h"
 
 namespace outshine::Generators {
@@ -35,7 +36,7 @@ struct RoadGate {
   double HalfWidthM = 0.0;
 };
 
-void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into);
+void RaiseJunction(Span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into);
 
 struct RoadRefusals {
   size_t Fit = 0;
@@ -50,7 +51,7 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
 void SweepRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
-               const float wearsLinear[3],
+               const Vec3f &wearsLinear,
                double crossfall,
                RoadRaised &into,
                size_t *piecesLaid,

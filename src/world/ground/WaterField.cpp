@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "WaterField.h"
 
 #include "Geodesy.h"
@@ -51,7 +52,7 @@ bool WaterField::TileGroundResolved(
   return true;
 }
 
-void WaterField::AnchorAt(const double ecef[3]) {
+void WaterField::AnchorAt(const Vec3 &ecef) {
   assert(Surfaces_.empty() && Courses_.empty());
   for (int c = 0; c < 3; c++) { Anchor_[c] = ecef[c]; }
   Anchored_ = true;
@@ -176,16 +177,16 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     if (n < 3) { continue; }
     const double refLat = ring[static_cast<size_t>(s.FirstPoint) * 2];
     const double refLon = ring[static_cast<size_t>(s.FirstPoint) * 2 + 1];
-    double up[3];
+    Vec3 up;
     {
-      double e[3];
-      double nn[3];
+      Vec3 e;
+      Vec3 nn;
       EnuAxesEcef(refLat, refLon, e, nn, up);
     }
 
     p3.resize(static_cast<size_t>(n) * 3);
     for (uint32_t k = 0; k < n; k++) {
-      double p[3];
+      Vec3 p;
       GeoToEcef(ring[(static_cast<size_t>(s.FirstPoint) + k) * 2],
                 ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
                 s.LevelM + kLiftM,
@@ -256,9 +257,9 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     if (c.PointCount < 2) { continue; }
     const double refLat = ring[static_cast<size_t>(c.FirstPoint) * 2];
     const double refLon = ring[static_cast<size_t>(c.FirstPoint) * 2 + 1];
-    double up[3];
-    double ea[3];
-    double no[3];
+    Vec3 up;
+    Vec3 ea;
+    Vec3 no;
     EnuAxesEcef(refLat, refLon, ea, no, up);
     std::vector<double> L(static_cast<size_t>(c.PointCount) * 3);
     std::vector<double> R(static_cast<size_t>(c.PointCount) * 3);
@@ -296,7 +297,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       const double lat = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2];
       const double lon = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2 + 1];
       const double lev = static_cast<double>(Levels_[c.FirstLevel + k]) + kLiftM;
-      double base[3];
+      Vec3 base;
       GeoToEcef(lat, lon, lev, base);
       for (int cc = 0; cc < 3; cc++) {
         L[static_cast<size_t>(k) * 3 + cc] = base[cc] - Anchor_[cc] + ea[cc] * px + no[cc] * py;

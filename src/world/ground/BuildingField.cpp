@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "BuildingField.h"
 
 #include <chrono>
@@ -293,7 +294,7 @@ bool BuildingField::TileGroundResolved(
   return true;
 }
 
-void BuildingField::AnchorAt(const double ecef[3]) {
+void BuildingField::AnchorAt(const Vec3 &ecef) {
   assert(Prints_.empty());
   for (int c = 0; c < 3; c++) { Anchor_[c] = ecef[c]; }
   Anchored_ = true;

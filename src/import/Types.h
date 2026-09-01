@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <vector>
 
+#include "Quat.h"
+#include "Vec3.h"
 #include "Span.h"
 
 #include "Keyframes.h"
@@ -129,9 +131,9 @@ struct Node {
 
   bool HasMatrix = false;
   double Matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  double Translation[3] = {0, 0, 0};
-  double Rotation[4] = {0, 0, 0, 1};
-  double Scale[3] = {1, 1, 1};
+  Vec3 Translation;
+  Quat Rotation;
+  Vec3 Scale = {{1, 1, 1}};
 
   int InstanceTranslation = -1;
   int InstanceRotation = -1;

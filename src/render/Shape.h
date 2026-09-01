@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SHAPE_H
 
 #include <cstddef>
+#include "Vec3.h"
 #include "ClusterCook.h"
 #include "SurfaceState.h"
 #include <cstdint>
@@ -62,7 +63,7 @@ struct Shape {
 
   [[nodiscard]] bool Empty() const { return Parts.empty() || Indices.empty(); }
 
-  void BoundsOf(size_t parts, double leastM[3], double mostM[3]) const;
+  void BoundsOf(size_t parts, Vec3 &leastM, Vec3 &mostM) const;
 };
 
 struct ShapeStore {

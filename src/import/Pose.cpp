@@ -1,3 +1,4 @@
+#include <array>
 #include "Pose.h"
 
 #include "Document.h"
@@ -54,11 +55,9 @@ bool Pose::Build(const Document &document,
     const Node &source = document.Nodes()[node];
     Viewpoint &held = out.Nodes_[node];
     held.HasMatrix = source.HasMatrix;
-    for (size_t at = 0; at < 3; ++at) {
-      held.Translation[at] = source.Translation[at];
-      held.Scale[at] = source.Scale[at];
-    }
-    for (size_t at = 0; at < 4; ++at) { held.Rotation[at] = source.Rotation[at]; }
+    held.Translation = source.Translation;
+    held.Scale = source.Scale;
+    held.Rotation = source.Rotation;
     for (size_t at = 0; at < 16; ++at) { held.Matrix[at] = source.Matrix[at]; }
 
     held.WeightFirst = document.MorphWeightsFirst(node);
@@ -185,12 +184,19 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
     for (const std::unique_ptr<Channel> &channel : Channels_) {
       if (std::cmp_not_equal(channel->Node, node)) { continue; }
       switch (channel->Path) {
-        case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation); break;
-        case AnimationPath::Rotation: channel->Curve.At(seconds, posed.Rotation); break;
-        case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale); break;
+        case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation.Row()); break;
+        case AnimationPath::Rotation: {
+          std::array<double, 4> sampled = {0.0, 0.0, 0.0, 1.0};
+          channel->Curve.At(seconds, sampled);
+          posed.Rotation = {.X = sampled[0], .Y = sampled[1], .Z = sampled[2], .W = sampled[3]};
+          break;
+        }
+        case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale.Row()); break;
 
         case AnimationPath::MaterialFactor: break;
-        case AnimationPath::Weights: channel->Curve.At(seconds, &weights[posed.WeightFirst]); break;
+        case AnimationPath::Weights:
+          channel->Curve.At(seconds, std::span(weights).subspan(posed.WeightFirst));
+          break;
       }
     }
     locals[node] = posed.HasMatrix
@@ -207,7 +213,7 @@ void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
     sampled.Material = channel->Material;
     sampled.Factor = channel->Factor;
 
-    double all[4] = {0, 0, 0, 0};
+    std::array<double, 4> all = {0, 0, 0, 0};
     channel->Curve.At(seconds, all);
     const size_t width = FactorComponents(channel->Factor);
     for (size_t component = 0; component < width && component < 4; ++component) {

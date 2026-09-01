@@ -136,7 +136,7 @@ public:
 
   [[nodiscard]] size_t TriangleCount() const { return Indices_.size() / 3; }
 
-  void BoundsOf(size_t parts, double least[3], double most[3]) const;
+  void BoundsOf(size_t parts, Vec3 &least, Vec3 &most) const;
 
   [[nodiscard]] const Vec3 &MinM() const { return Min_; }
 

@@ -1,6 +1,8 @@
 #include "Structures.h"
 
 #include <cmath>
+
+#include "Vec3.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -42,7 +44,7 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
                                      lat + halfDeg,
                                      lon - halfDeg};
   const double corners[kCorners] = {0.0, 0.0, 0.0, 0.0};
-  double anchor[3] = {0.0, 0.0, 0.0};
+  Vec3 anchor;
 
   StructurePlan plan;
   plan.RingLatLon = Span<const double>(ring, kCorners * 2);

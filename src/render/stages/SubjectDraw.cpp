@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "SubjectDraw.h"
 
 #include "FragmentArms.h"
@@ -305,7 +306,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
 
   const auto identity = static_cast<float>(Slots.size() + 1u);
 
-  float f0[3];
+  Vec3f f0;
   DielectricF0(row, f0);
 
   const float scalars[] = {material.Coverage(),

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
+#include "Vec3.h"
 #include "OsmField.h"
 
 #include <algorithm>
@@ -35,7 +36,7 @@ public:
 
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
-  void AnchorAt(const double ecef[3]);
+  void AnchorAt(const Vec3 &ecef);
 
   int Build(const GroundQuery &ground, const OsmField &field, Span<const WayLine> ways);
 
@@ -47,7 +48,7 @@ public:
 
   [[nodiscard]] double MeshMs() const { return MeshMs_; }
 
-  [[nodiscard]] const double *Anchor() const { return Anchor_; }
+  [[nodiscard]] const Vec3 &Anchor() const { return Anchor_; }
 
   [[nodiscard]] const std::vector<Footprint> &Footprints() const { return Prints_; }
 
@@ -95,7 +96,7 @@ private:
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
 
   std::vector<double> Corners_;
-  double Anchor_[3] = {0, 0, 0};
+  Vec3 Anchor_;
   bool Anchored_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
   std::vector<double> SeatSpread_;

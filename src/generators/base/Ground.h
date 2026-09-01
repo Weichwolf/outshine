@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 
+#include "Vec3.h"
 #include "ClassStructure.h"
 #include "Cover.h"
 #include "FeatureField.h"
@@ -44,7 +45,7 @@ public:
 
   [[nodiscard]] const GroundTable &Table() const noexcept { return *Table_; }
 
-  [[nodiscard]] const double *AnchorEcef() const noexcept { return AnchorEcef_; }
+  [[nodiscard]] const Vec3 &AnchorEcef() const noexcept { return AnchorEcef_; }
 
   [[nodiscard]] size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
 
@@ -58,7 +59,7 @@ private:
   std::shared_ptr<const ClassStructure> Classes_;
   std::shared_ptr<const FeatureField> Features_;
   std::shared_ptr<const GroundTable> Table_;
-  double AnchorEcef_[3];
+  Vec3 AnchorEcef_;
 };
 
 } // namespace outshine::Generators

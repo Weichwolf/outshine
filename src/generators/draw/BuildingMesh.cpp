@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "BuildingMesh.h"
 
 #include <algorithm>
@@ -130,7 +131,7 @@ public:
   Site(const StructurePlan &plan, Raised &into) : Out_(into) {
     const double lat = plan.RingLatLon[0];
     const double lon = plan.RingLatLon[1];
-    double origin[3];
+    Vec3 origin;
     GeoToEcef(lat, lon, plan.BaseAslM, origin);
     EnuAxesEcef(lat, lon, East_, North_, Up_);
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
@@ -179,7 +180,7 @@ public:
     const double e2 = c.P.E - a.P.E;
     const double n2 = c.P.N - a.P.N;
     const double z2 = c.Z - a.Z;
-    double nrm[3] = {n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2};
+    Vec3 nrm = {{n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2}};
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
     if (len < 1.0e-12) { return; }
     Face_.push_back(ia);
@@ -223,7 +224,7 @@ public:
   }
 
 private:
-  [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const double nrm[3]) {
+  [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
     std::vector<float> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     const uint64_t facing =
         (static_cast<uint64_t>(
@@ -255,7 +256,7 @@ private:
   std::unordered_map<uint64_t, uint32_t> Welded_;
   std::unordered_map<uint64_t, uint32_t> Corners_[2];
   std::vector<uint32_t> Face_;
-  double Origin_[3], East_[3], North_[3], Up_[3];
+  Vec3 Origin_, East_, North_, Up_;
   double ReachM_ = 0.0;
   double FocalPx_ = 0.0;
 };
@@ -276,7 +277,7 @@ public:
       double nn = 0.0;
       EnuOffsetM(ringLatLon[0], ringLatLon[1], ringLatLon[k * 2], ringLatLon[k * 2 + 1], e, nn);
       const double z = cornerAslM[k] - baseAslM;
-      const double b[3] = {1.0, e, nn};
+      const Vec3 b = {{1.0, e, nn}};
       for (int r = 0; r < 3; r++) {
         for (int c = 0; c < 3; c++) { m[r][c] += b[r] * b[c]; }
         m[r][3] += b[r] * z;
@@ -967,7 +968,7 @@ void Pavement(const BuildingShape &s,
 } // namespace
 
 void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
-  if (plan.RingLatLon.Size() < 6 || (plan.AnchorEcef == nullptr)) { return; }
+  if (plan.RingLatLon.Size() < 6) { return; }
   Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
   if (mass.Parts.empty()) { return; }
 

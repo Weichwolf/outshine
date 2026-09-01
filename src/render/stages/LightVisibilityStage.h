@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "Vec3.h"
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -17,7 +18,7 @@ class LightVisibilityStage {
 public:
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
-  void Declare(const float toSun[3], const float up[3], double radiusM);
+  void Declare(const Vec3f &toSun, const Vec3f &up, double radiusM);
 
   void Prepare(const FrameContext &ctx);
 
@@ -30,13 +31,13 @@ public:
   [[nodiscard]] static std::string DepthOnlySource();
   [[nodiscard]] static std::string DepthOnlySource(std::string &error);
 
-  void Build(const double preView[3]);
+  void Build(const Vec3 &preView);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
 
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
 
-  [[nodiscard]] const double *StoodAtM() const { return StoodAtM_; }
+  [[nodiscard]] const Vec3 &StoodAtM() const { return StoodAtM_; }
 
   [[nodiscard]] bool Standing() const { return Declared_; }
 
@@ -47,16 +48,16 @@ private:
   uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
   void Cast(const double lightFromWorld16[16],
-            const double preView[3],
+            const Vec3 &preView,
             int atlasPx,
             const PassRecording &into);
 
   size_t CastBatches_ = 0;
-  double StoodAtM_[3] = {0.0, 0.0, 0.0};
+  Vec3 StoodAtM_;
   SubjectDraw *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;
-  double ToSun_[3] = {0, 0, 1};
-  double Up_[3] = {0, 1, 0};
+  Vec3 ToSun_ = {{0, 0, 1}};
+  Vec3 Up_ = {{0, 1, 0}};
   double RadiusM_ = 0.0;
   double LightFromWorld_[16] = {};
 

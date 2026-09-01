@@ -2,6 +2,7 @@
 #define OUTSHINE_IMPORT_KEYFRAMES_H
 
 #include <cstddef>
+#include <span>
 
 namespace outshine {
 
@@ -32,7 +33,7 @@ public:
 
   [[nodiscard]] Interpolation How() const { return How_; }
 
-  void At(double abscissa, double *out) const;
+  void At(double abscissa, std::span<double> out) const;
 
   [[nodiscard]] bool Span(double abscissa, size_t &keyframe, double &weight) const;
 
@@ -40,7 +41,7 @@ public:
 
   [[nodiscard]] double AtScalar(double abscissa) const {
     double v = 0.0;
-    At(abscissa, &v);
+    At(abscissa, std::span(&v, 1));
     return v;
   }
 

@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Shape.h"
 
 #include <atomic>
@@ -26,8 +27,8 @@ size_t CookedClusters() {
   return gClusters.load(std::memory_order_relaxed);
 }
 
-void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
-  const auto fold = [this](size_t upTo, double least[3], double most[3]) {
+void Shape::BoundsOf(size_t parts, Vec3 &leastM, Vec3 &mostM) const {
+  const auto fold = [this](size_t upTo, Vec3 &least, Vec3 &most) {
     bool any = false;
     for (size_t part = 0; part < upTo && part < Parts.size(); ++part) {
       const ShapePart &one = Parts[part];
@@ -50,8 +51,8 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
   }
   (void)fold(Parts.size(), leastM, mostM);
   if (parts == 0 || parts >= Parts.size()) { return; }
-  double least[3];
-  double most[3];
+  Vec3 least;
+  Vec3 most;
   if (!fold(parts, least, most)) { return; }
   for (int axis = 0; axis < 3; ++axis) {
     leastM[axis] = least[axis];

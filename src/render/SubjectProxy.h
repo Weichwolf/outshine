@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
 #define OUTSHINE_RENDER_SUBJECTPROXY_H
 
+#include "Vec3.h"
 #include "Shape.h"
 #include "Viewing.h"
 #include <array>
@@ -24,7 +25,7 @@ struct Eye {
 
 class SubjectProxy {
 public:
-  void Stands(const Shape &subject, const double anchorEcefM[3]);
+  void Stands(const Shape &subject, const Vec3 &anchorEcefM);
 
   void Posed(const std::vector<double> *previousPositionsM) { Previous_ = previousPositionsM; }
 
@@ -50,7 +51,7 @@ public:
 
   [[nodiscard]] size_t Placements() const { return Placed_ ? PartPlacement_.size() : 0; }
 
-  [[nodiscard]] std::span<const double, 3> Anchor() const { return AnchorEcefM_; }
+  [[nodiscard]] const Vec3 &Anchor() const { return AnchorEcefM_; }
 
   [[nodiscard]] const std::array<float, 3> &Emitted(size_t part) const {
     return EmittedRadiance_[part];
@@ -71,7 +72,7 @@ public:
   [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
 
 private:
-  double AnchorEcefM_[3] = {0.0, 0.0, 0.0};
+  Vec3 AnchorEcefM_;
   const Shape *Shape_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
@@ -113,7 +114,7 @@ struct SubjectScratch {
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
                        const Shape &subject,
                        const Eye &view,
-                       std::span<const double, 3> anchorEcefM,
+                       const Vec3 &anchorEcefM,
                        std::string &error);
 
 [[nodiscard]] bool Show(SceneRenderer &renderer,

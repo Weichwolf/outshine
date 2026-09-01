@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "RoadMesh.h"
 
 #include "Fit.h"
@@ -31,7 +32,7 @@ double Snapped(double metres) {
   return std::round(metres / kSnapM) * kSnapM;
 }
 
-void Push(RoadRaised &into, double eastM, double upM, double southM, const float wearsLinear[3]) {
+void Push(RoadRaised &into, double eastM, double upM, double southM, const Vec3f &wearsLinear) {
   into.PositionM.push_back(static_cast<float>(Snapped(eastM)));
   into.PositionM.push_back(static_cast<float>(Snapped(upM)));
   into.PositionM.push_back(static_cast<float>(Snapped(southM)));
@@ -45,14 +46,14 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
   const float *pa = at(a);
   const float *pb = at(b);
   const float *pc = at(c);
-  const double u[3] = {static_cast<double>(pb[0]) - pa[0],
-                       static_cast<double>(pb[1]) - pa[1],
-                       static_cast<double>(pb[2]) - pa[2]};
-  const double v[3] = {static_cast<double>(pc[0]) - pa[0],
-                       static_cast<double>(pc[1]) - pa[1],
-                       static_cast<double>(pc[2]) - pa[2]};
-  const double n[3] = {
-      u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]};
+  const Vec3 u = {{static_cast<double>(pb[0]) - pa[0],
+                   static_cast<double>(pb[1]) - pa[1],
+                   static_cast<double>(pb[2]) - pa[2]}};
+  const Vec3 v = {{static_cast<double>(pc[0]) - pa[0],
+                   static_cast<double>(pc[1]) - pa[1],
+                   static_cast<double>(pc[2]) - pa[2]}};
+  const Vec3 n = {
+      {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
   const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
   if (!(run > 1.0e-12)) { return; }
   for (const uint32_t one : {a, b, c}) {
@@ -66,7 +67,7 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
 
 } // namespace
 
-void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadRaised &into) {
+void RaiseJunction(Span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into) {
   if (gates.Size() < 2) { return; }
   double centreE = 0.0;
   double centreS = 0.0;
@@ -158,7 +159,7 @@ Section SectionFor(double halfWidthM, RoadProfile profile) {
   return cut;
 }
 
-void Pour(const Ribbon &woven, const float wearsLinear[3], RoadRaised &into) {
+void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
   const auto firstVertex = static_cast<uint32_t>(into.PositionM.size() / 3u);
   const size_t vertices = woven.PositionM.size() / 3u;
   for (size_t one = 0; one < vertices; ++one) {
@@ -181,7 +182,7 @@ bool LayPiece(Span<const double> eastNorthM,
               Span<const double> reachedM,
               double halfWidthM,
               RoadProfile profile,
-              const float wearsLinear[3],
+              const Vec3f &wearsLinear,
               double crossfall,
               RoadRaised &into,
               RoadRefusals *why) {
@@ -321,7 +322,7 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
 void SweepRoad(Span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
-               const float wearsLinear[3],
+               const Vec3f &wearsLinear,
                double crossfall,
                RoadRaised &into,
                size_t *piecesLaid,

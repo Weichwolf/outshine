@@ -281,7 +281,7 @@ bool Subject::SuppliedTangentsFor(const Document &document,
       const Vec3 &local = {
           elements[vertex * 4], elements[vertex * 4 + 1], elements[vertex * 4 + 2]};
       Vec3 global;
-      placed.Direction(local.data(), global.data());
+      placed.Direction(local, global);
       (void)Normalise(global);
       for (int axis = 0; axis < 3; ++axis) {
         into[vertex * 4 + static_cast<size_t>(axis)] = global[axis];
@@ -416,9 +416,9 @@ bool Subject::FlatNormalsFor(Part &part) {
       edge[1][axis] = Positions_[static_cast<size_t>(of[2]) * 3 + axis] -
                       Positions_[static_cast<size_t>(of[0]) * 3 + axis];
     }
-    double face[3] = {edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
-                      edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
-                      edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]};
+    Vec3 face = {{edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
+                  edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
+                  edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]}};
     const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
 
     if (length > 0.0) {
@@ -537,17 +537,17 @@ static bool InstanceTransforms(const Document &document,
   }
   out.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    const Vec3 &t = {translation.empty() ? 0.0 : translation[at * 3 + 0],
+    const Vec3 t = {{translation.empty() ? 0.0 : translation[at * 3 + 0],
                      translation.empty() ? 0.0 : translation[at * 3 + 1],
-                     translation.empty() ? 0.0 : translation[at * 3 + 2]};
-    const double r[4] = {rotation.empty() ? 0.0 : rotation[at * 4 + 0],
-                         rotation.empty() ? 0.0 : rotation[at * 4 + 1],
-                         rotation.empty() ? 0.0 : rotation[at * 4 + 2],
-                         rotation.empty() ? 1.0 : rotation[at * 4 + 3]};
-    const Vec3 &sc = {scale.empty() ? 1.0 : scale[at * 3 + 0],
+                     translation.empty() ? 0.0 : translation[at * 3 + 2]}};
+    const Quat r = {.X = rotation.empty() ? 0.0 : rotation[at * 4 + 0],
+                    .Y = rotation.empty() ? 0.0 : rotation[at * 4 + 1],
+                    .Z = rotation.empty() ? 0.0 : rotation[at * 4 + 2],
+                    .W = rotation.empty() ? 1.0 : rotation[at * 4 + 3]};
+    const Vec3 sc = {{scale.empty() ? 1.0 : scale[at * 3 + 0],
                       scale.empty() ? 1.0 : scale[at * 3 + 1],
-                      scale.empty() ? 1.0 : scale[at * 3 + 2]};
-    out.push_back(world * Transform::FromTrs(t.data(), r, sc.data()));
+                      scale.empty() ? 1.0 : scale[at * 3 + 2]}};
+    out.push_back(world * Transform::FromTrs(t, r, sc));
   }
   return true;
 }
@@ -628,11 +628,11 @@ bool Subject::Flatten(const Document &document,
       placed.Light = declared.Light;
       const Vec3 origin = {{0, 0, 0}};
       Vec3 position;
-      placement.Point(origin.data(), position.data());
+      placement.Point(origin, position);
 
       const Vec3 axis = {{0, 0, -1}};
       Vec3 beam;
-      placement.Direction(axis.data(), beam.data());
+      placement.Direction(axis, beam);
       if (!Normalise(beam)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and its transform collapses the beam to zero length");
@@ -762,10 +762,9 @@ bool Subject::Flatten(const Document &document,
         const VertexPlacement place{.Node = placedWorld,
                                     .Skinned = skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          double local[3] = {
-              elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]};
+          Vec3 local = {{elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]}};
           Vec3 global;
-          place.At(vertex).Point(local, global.data());
+          place.At(vertex).Point(local, global);
           for (double axis : global) { atPos.push_back(axis); }
         }
 
@@ -869,11 +868,11 @@ bool Subject::Flatten(const Document &document,
             directions[at] += morphedNormals[at];
           }
           for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            double local[3] = {
-                directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]};
+            Vec3 local = {
+                {directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]}};
             Vec3 global;
 
-            if (!place.At(vertex).Normal(local, global.data())) {
+            if (!place.At(vertex).Normal(local, global)) {
               global[0] = global[1] = global[2] = 0.0;
             }
 
@@ -1240,7 +1239,7 @@ bool Subject::Append(const Subject &other) {
   return true;
 }
 
-void Subject::BoundsOf(size_t parts, double least[3], double most[3]) const {
+void Subject::BoundsOf(size_t parts, Vec3 &least, Vec3 &most) const {
   for (int axis = 0; axis < 3; ++axis) {
     least[axis] = Min_[axis];
     most[axis] = Max_[axis];
@@ -1360,7 +1359,7 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
       const Vec3 &point = {
           Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]};
       Vec3 ndc;
-      clip.Point(point.data(), ndc.data());
+      clip.Point(point, ndc);
       viewport.Raster(ndc.data(), raster[corner]);
     }
     total += 0.5 * std::fabs((raster[1][0] - raster[0][0]) * (raster[2][1] - raster[0][1]) -

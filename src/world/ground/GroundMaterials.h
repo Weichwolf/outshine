@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
 #define OUTSHINE_WORLD_GROUND_GROUNDMATERIALS_H
 
+#include "Vec3.h"
 #include <string_view>
 #include <cstddef>
 #include <string>
@@ -12,7 +13,7 @@ class GroundMaterials {
 public:
   struct Material {
     std::string Name;
-    float Albedo[3];
+    Vec3f Albedo;
     float VisibleRatio;
     float Roughness;
     float PeakFriction;

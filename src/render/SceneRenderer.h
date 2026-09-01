@@ -153,7 +153,7 @@ public:
 
   void ForgetSubjectStaging() { Subjects_.ForgetStagedCount(); }
 
-  [[nodiscard]] const double *ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
+  [[nodiscard]] const Vec3 &ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return Subjects_.SetPlacements(models, rows, error) &&
@@ -183,7 +183,7 @@ public:
   }
 
   void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
-    Shadow_.Declare(toSun.data(), up.data(), radiusM);
+    Shadow_.Declare(toSun, up, radiusM);
   }
 
   void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {

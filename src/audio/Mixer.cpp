@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Mixer.h"
 
 #include <algorithm>
@@ -65,11 +66,8 @@ struct Running {
   return refM / (refM + heard.Rolloff * (atM - refM));
 }
 
-[[nodiscard]] double Doppler(const Heard &source,
-                             const Listening &ear,
-                             const double awayXyz[3],
-                             double awayM,
-                             double speedMs) {
+[[nodiscard]] double Doppler(
+    const Heard &source, const Listening &ear, const Vec3 &awayXyz, double awayM, double speedMs) {
   if (!(awayM > 0.0) || !(speedMs > 0.0)) { return 1.0; }
   double earToward = 0.0;
   double sourceAway = 0.0;
@@ -292,7 +290,7 @@ bool Mixer::Fills(std::span<float> stereo,
     double leftShare = 0.5;
     double rightShare = 0.5;
     if (standing != nullptr && sound.Heard.Positional) {
-      double awayXyz[3];
+      Vec3 awayXyz;
       double awayM = 0.0;
       for (int axis = 0; axis < 3; ++axis) {
         awayXyz[axis] = standing->AtM[axis] - ear.AtM[axis];

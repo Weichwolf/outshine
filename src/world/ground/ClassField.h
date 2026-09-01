@@ -35,13 +35,13 @@ public:
     return Published_;
   }
 
-  const double *OriginEcef() const { return Frame_.OriginEcef(); }
+  const Vec3 &OriginEcef() const { return Frame_.OriginEcef(); }
 
   const double *Cam() const { return Cam_; }
 
-  const double *EastEcef() const { return Frame_.EastEcef(); }
+  const Vec3 &EastEcef() const { return Frame_.EastEcef(); }
 
-  const double *NorthEcef() const { return Frame_.NorthEcef(); }
+  const Vec3 &NorthEcef() const { return Frame_.NorthEcef(); }
 
   void Project(double lat, double lon, double *e, double *n) const {
     Frame_.Project(lat, lon, e, n);

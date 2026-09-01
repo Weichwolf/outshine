@@ -1,3 +1,4 @@
+#include "Vec3.h"
 #include "Shape.h"
 #include <array>
 #include <atomic>
@@ -22,7 +23,7 @@
 
 namespace outshine::Render {
 
-void SubjectProxy::Stands(const Shape &subject, const double anchorEcefM[3]) {
+void SubjectProxy::Stands(const Shape &subject, const Vec3 &anchorEcefM) {
   Shape_ = &subject;
   for (int axis = 0; axis < 3; ++axis) { AnchorEcefM_[axis] = anchorEcefM[axis]; }
   const size_t parts = subject.Parts.size();
@@ -124,7 +125,7 @@ bool Moved(SceneRenderer &renderer,
 
 namespace {
 
-void Anchored(std::span<const double, 3> anchorEcefM, const Vec3 &gltf, Vec3 &out) {
+void Anchored(const Vec3 &anchorEcefM, const Vec3 &gltf, Vec3 &out) {
   for (int axis = 0; axis < 3; ++axis) { out[axis] = gltf[axis]; }
   for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
@@ -135,8 +136,8 @@ void Anchored(std::span<const double, 3> anchorEcefM, const Vec3 &gltf, Vec3 &ou
                                    bool standsInside,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
-  double framedLeast[3];
-  double framedMost[3];
+  Vec3 framedLeast;
+  Vec3 framedMost;
   subject.BoundsOf(framedParts, framedLeast, framedMost);
   size_t beyond = subject.VertexCount();
   if (framedParts > 0 && framedParts < subject.Parts.size()) {
@@ -218,8 +219,8 @@ SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error)
 double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   if (part.PositionsM.size() < 3) { return 0.0; }
-  double low[3];
-  double high[3];
+  Vec3 low;
+  Vec3 high;
   for (int axis = 0; axis < 3; ++axis) {
     low[axis] = high[axis] = static_cast<double>(part.PositionsM[static_cast<size_t>(axis)]);
   }
@@ -383,9 +384,9 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
   out.reserve(proxy.Lights().size());
   for (size_t at = 0; at < proxy.Lights().size(); ++at) {
     const outshine::PunctualLight &declared = proxy.Lights()[at];
-    const double gltfDirection[3] = {
-        declared.Direction[0], declared.Direction[1], declared.Direction[2]};
-    double direction[3];
+    const Vec3 gltfDirection = {
+        {declared.Direction[0], declared.Direction[1], declared.Direction[2]}};
+    Vec3 direction;
     for (int axis = 0; axis < 3; ++axis) { direction[axis] = gltfDirection[axis]; }
     const double length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
                                     direction[2] * direction[2]);
@@ -410,7 +411,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
 bool Aim(SceneRenderer &renderer,
          const Shape &subject,
          const Eye &view,
-         std::span<const double, 3> anchorEcefM,
+         const Vec3 &anchorEcefM,
          std::string &error) {
   const Viewpoint &eye = view.Eye;
   if (!SetProjection(renderer, eye, error)) { return false; }

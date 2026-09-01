@@ -27,7 +27,7 @@ bool Keyframes::Span(double abscissa, size_t &keyframe, double &weight) const {
   return true;
 }
 
-void Keyframes::At(double abscissa, double *out) const {
+void Keyframes::At(double abscissa, std::span<double> out) const {
   if (!Valid()) { return; }
   if (Count_ == 1 || abscissa <= Frames_[0]) {
     const double *v = Value(0);

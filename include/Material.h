@@ -3,6 +3,7 @@
 
 #include <limits>
 
+#include "Vec3.h"
 #include "Texture.h"
 
 namespace outshine {
@@ -15,7 +16,7 @@ struct Material {
   float Roughness = 1.0f;
   float Transmission = 0.0f;
   float Ior = 1.5f;
-  float Emission[3] = {0.0f, 0.0f, 0.0f};
+  Vec3f Emission;
   AlphaMode Alpha = AlphaMode::Opaque;
 
   bool DoubleSided = false;
@@ -27,9 +28,9 @@ struct Material {
   bool NeedsTangents = false;
 
   float SpecularFactor = 1.0f;
-  float SpecularColour[3] = {1.0f, 1.0f, 1.0f};
+  Vec3f SpecularColour = {{1.0f, 1.0f, 1.0f}};
 
-  float SheenColour[3] = {0.0f, 0.0f, 0.0f};
+  Vec3f SheenColour;
   float SheenRoughness = 0.0f;
 
   float Clearcoat = 0.0f;
@@ -44,7 +45,7 @@ struct Material {
   float IridescenceThicknessMaxNm = 400.0f;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
-  float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
+  Vec3f AttenuationColour = {{1.0f, 1.0f, 1.0f}};
 
   SurfaceMap BaseColourMap;
   SurfaceMap NormalMap;
@@ -55,7 +56,7 @@ struct Material {
   SurfaceMap SpecularTintMap;
 };
 
-inline void DielectricF0(const Material &material, float out[3]) {
+inline void DielectricF0(const Material &material, Vec3f &out) {
   if (material.Ior == 0.0f) {
     out[0] = out[1] = out[2] = 0.0f;
     return;

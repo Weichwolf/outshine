@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_GEO_GEODESY_H
 
 #include <cmath>
+#include "Vec3.h"
 #include "Units.h"
 
 namespace outshine {
@@ -91,7 +92,7 @@ struct Geodesic {
   return out;
 }
 
-inline void GeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) {
+inline void GeoToEcef(double latDeg, double lonDeg, double altM, Vec3 &out) {
   const double a = 6378137.0;
   const double e2 = 6.69437999014e-3;
   const double lat = latDeg * kDeg2Rad;
@@ -104,7 +105,7 @@ inline void GeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) 
   out[2] = (N * (1.0 - e2) + altM) * sl;
 }
 
-inline void EnuAxesEcef(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
+inline void EnuAxesEcef(double latDeg, double lonDeg, Vec3 &E, Vec3 &N, Vec3 &U) {
   const double P = latDeg * kDeg2Rad;
   const double L = lonDeg * kDeg2Rad;
   const double sP = std::sin(P);

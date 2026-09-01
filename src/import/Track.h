@@ -25,7 +25,7 @@ public:
 
   [[nodiscard]] size_t KeyframeCount() const { return Curve_.Count(); }
 
-  void At(double seconds, double *out) const;
+  void At(double seconds, std::span<double> out) const;
 
 private:
   outshine::Keyframes Curve_;

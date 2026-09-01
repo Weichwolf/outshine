@@ -148,41 +148,33 @@ namespace {
 
 constexpr double kSolarIlluminanceLx = 133000.0;
 
-double Photopic(std::span<const float, 3> triple) {
+double Photopic(const Vec3f &triple) {
   return 0.2126 * static_cast<double>(triple[0]) + 0.7152 * static_cast<double>(triple[1]) +
          0.0722 * static_cast<double>(triple[2]);
 }
 
 } // namespace
 
-void Live::SunThroughTheAir(double cosSun,
-                            std::span<float, 3> sunReach,
-                            std::span<float, 3> skylight) const {
+void Live::SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const {
   if (std::fabs(cosSun - AirStoodAt_) > 1.0e-6) {
     const Render::Medium medium;
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
-    const auto toSun = [&](float radiusKm, float cosZenith, std::span<float, 3> out) {
-      Render::MediumTransmittance(
-          medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out.data());
+    const auto toSun = [&](float radiusKm, float cosZenith, Vec3f &out) {
+      Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
     };
-    const auto secondOrder = [&](float radiusKm, float cosZenith, std::span<float, 3> out) {
-      std::array<float, 3> luminance{};
-      std::array<float, 3> transfer{};
+    const auto secondOrder = [&](float radiusKm, float cosZenith, Vec3f &out) {
+      Vec3f luminance;
+      Vec3f transfer;
       const float unitU = cosZenith * 0.5f + 0.5f;
       const float unitV =
           (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-      Render::MediumMultiScatterTexel(
-          medium, unitU, unitV, toSun, luminance.data(), transfer.data());
+      Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
       for (int channel = 0; channel < 3; ++channel) {
         out[channel] = luminance[channel] / (1.0f - transfer[channel]);
       }
     };
-    Render::MediumSkyIrradiance(medium,
-                                stoodAt,
-                                static_cast<float>(cosSun),
-                                toSun,
-                                secondOrder,
-                                std::span<float, 3>(SkylightStood_).data());
+    Render::MediumSkyIrradiance(
+        medium, stoodAt, static_cast<float>(cosSun), toSun, secondOrder, SkylightStood_);
     toSun(stoodAt, static_cast<float>(cosSun), SunReachStood_);
     AirStoodAt_ = cosSun;
   }
@@ -195,8 +187,8 @@ void Live::SunThroughTheAir(double cosSun,
 double Live::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
   const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
-  std::array<float, 3> sunReach{};
-  std::array<float, 3> skylight{};
+  Vec3f sunReach;
+  Vec3f skylight;
   SunThroughTheAir(cosSun, sunReach, skylight);
   const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
   return kSolarIlluminanceLx * (straightDown * Photopic(sunReach) + Photopic(skylight));
@@ -404,7 +396,7 @@ bool Live::Build(std::string &error) {
     Vec3 least;
     Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least.data(), most.data());
+    Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
@@ -660,10 +652,10 @@ bool Live::Stand(std::string &error) {
     return ms;
   };
   Stood_ = Render::SubjectProxy{};
-  std::array<double, 3> anchorEcefM = {Data::kWgs84A, 0.0, 0.0};
+  const Vec3 anchorEcefM = {{Data::kWgs84A, 0.0, 0.0}};
   Reshape();
   ReshapeAgainMs_ = sinceStand();
-  Stood_.Stands(Shaped_, anchorEcefM.data());
+  Stood_.Stands(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();
   std::array<double, 16> standingM16 = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
@@ -703,8 +695,8 @@ bool Live::Stand(std::string &error) {
     key.Kind = LightKind::Directional;
     key.Intensity = static_cast<float>(Declared_.KeyLux);
     if (Declared_.KeyFromClock) {
-      std::array<float, 3> sunReach{};
-      std::array<float, 3> skylight{};
+      Vec3f sunReach;
+      Vec3f skylight;
       SunThroughTheAir(std::sin(elevation), sunReach, skylight);
       key.Intensity = static_cast<float>(kSolarIlluminanceLx);
       for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = sunReach[channel]; }
@@ -722,8 +714,8 @@ bool Live::Stand(std::string &error) {
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
     const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
     const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-    std::array<float, 3> sunReach{};
-    std::array<float, 3> skylight{};
+    Vec3f sunReach;
+    Vec3f skylight;
     SunThroughTheAir(cosSun, sunReach, skylight);
     const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
     for (int channel = 0; channel < 3; ++channel) {
@@ -754,15 +746,15 @@ bool Live::Stand(std::string &error) {
     Vec3 least;
     Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least.data(), most.data());
+    Shaped_.BoundsOf(Joined_, least, most);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int sample = 1; sample < Sweeps(); ++sample) {
       if (!Measure(Seconds(sample), error)) { return false; }
-      std::array<double, 3> posedLeast{};
-      std::array<double, 3> posedMost{};
-      Shaped_.BoundsOf(Joined_, posedLeast.data(), posedMost.data());
+      Vec3 posedLeast;
+      Vec3 posedMost;
+      Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];

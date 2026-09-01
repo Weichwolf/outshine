@@ -10,7 +10,7 @@ namespace {
 
 constexpr double kSameRotationCosine = 1.0 - 1e-12;
 
-void Normalise(double *quaternion) {
+void Normalise(std::span<double> quaternion) {
   const double square = quaternion[0] * quaternion[0] + quaternion[1] * quaternion[1] +
                         quaternion[2] * quaternion[2] + quaternion[3] * quaternion[3];
   if (!(square > 0)) { return; }
@@ -18,7 +18,7 @@ void Normalise(double *quaternion) {
   for (size_t at = 0; at < 4; ++at) { quaternion[at] /= magnitude; }
 }
 
-void Slerp(const double *from, const double *to, double weight, double *out) {
+void Slerp(const double *from, const double *to, double weight, std::span<double> out) {
   double cosine = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
   double target[4] = {to[0], to[1], to[2], to[3]};
   if (cosine < 0) {
@@ -62,8 +62,8 @@ bool Track::Build(AnimationPath path,
   return out.Curve_.Valid();
 }
 
-void Track::At(double seconds, double *out) const {
-  if (!Valid() || out == nullptr) { return; }
+void Track::At(double seconds, std::span<double> out) const {
+  if (!Valid() || out.size() < Components()) { return; }
   size_t span = 0;
   double weight = 0.0;
 

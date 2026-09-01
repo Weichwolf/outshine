@@ -415,6 +415,16 @@ UpToDate() {
 
 OBJDIR=$BUILD/obj
 
+# THE COMPILE OF INDEPENDENT UNITS IS THE ONE PLACE THIS BUILD MAY USE THE WHOLE MACHINE, and it
+# was using one core of six: 86 s wall for 78 s of user time over 178 units. Unreal schedules its
+# action graph across every core and RAGE's build does the same, because a translation unit reads
+# only headers and writes only its own object -- there is nothing to serialise. What IS ordered
+# stays ordered: `OBJECTS` is appended in the loop over the DECLARED unit list rather than as
+# compiles finish, so the archive sees the same sequence at any width, and each unit's diagnostics
+# go to its own file and are printed in that same declared order afterwards. A parallel build whose
+# error text arrives interleaved is a build that reads differently twice.
+JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
+
 BuildGroup() {
   group=$1
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
@@ -433,6 +443,18 @@ BuildGroup() {
   # property, so it is computed once here rather than once per unit: at 157 units that was
   # three processes each for a value that could not differ between them.
   setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
+  groupPool=$OBJDIR/pool.$$
+  groupFailed=$OBJDIR/failed.$$
+  groupSaid=
+  rm -f "$groupPool" "$groupFailed"
+  mkfifo "$groupPool"
+  exec 9<>"$groupPool"
+  rm -f "$groupPool"
+  poolAt=0
+  while [ "$poolAt" -lt "$JOBS" ]; do
+    printf '.\n' >&9
+    poolAt=$((poolAt + 1))
+  done
   for unit in $groupUnits; do
     [ -e "$unit" ] || continue
     unitFolder=${unit%/*}
@@ -448,10 +470,27 @@ BuildGroup() {
         "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
     fi
     if ! UpToDate "$unitObject" "$unit"; then
-      $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
+      read -r _poolToken <&9
+      {
+        $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
+          -c -o "$unitObject" >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
+        printf '.\n' >&9
+      } &
+      groupSaid="$groupSaid $unitObject.log"
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
+  wait
+  exec 9>&- 9<&-
+  for said in $groupSaid; do
+    [ -s "$said" ] && cat "$said" >&2
+    rm -f "$said"
+  done
+  if [ -s "$groupFailed" ]; then
+    rm -f "$groupFailed"
+    return 1
+  fi
+  rm -f "$groupFailed"
   return 0
 }
 

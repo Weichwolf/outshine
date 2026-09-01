@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Vec3.h"
 #include "Span.h"
 
 namespace outshine {
@@ -17,10 +18,10 @@ constexpr uint32_t kBvhNoEscape = 0xFFFFFFFFu;
 constexpr uint32_t kBvhLeafTriangles = 4;
 
 struct BvhNode {
-  float MinM[3] = {0, 0, 0};
+  Vec3f MinM;
 
   uint32_t Escape = kBvhNoEscape;
-  float MaxM[3] = {0, 0, 0};
+  Vec3f MaxM;
 
   uint32_t Leaf = kBvhInterior;
 
@@ -32,9 +33,9 @@ struct BvhNode {
 };
 
 struct BvhTriangle {
-  float V0[3] = {0, 0, 0};
-  float E1[3] = {0, 0, 0};
-  float E2[3] = {0, 0, 0};
+  Vec3f V0;
+  Vec3f E1;
+  Vec3f E2;
 };
 
 static_assert(sizeof(BvhNode) == 32, "the traversal reads a 32-byte node");
@@ -45,7 +46,7 @@ public:
   [[nodiscard]] static TriangleBvh Over(Span<const float> positionsM, Span<const uint32_t> indices);
 
   [[nodiscard]] bool
-  Occludes(const float originM[3], const float direction[3], float nearM, float distanceM) const;
+  Occludes(const Vec3f &originM, const Vec3f &direction, float nearM, float distanceM) const;
 
   [[nodiscard]] Span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
 
