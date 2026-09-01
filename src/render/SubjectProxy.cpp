@@ -124,9 +124,7 @@ bool Moved(SceneRenderer &renderer,
 
 namespace {
 
-void Anchored(std::span<const double, 3> anchorEcefM,
-              std::span<const double, 3> gltf,
-              std::span<double, 3> out) {
+void Anchored(std::span<const double, 3> anchorEcefM, const Vec3 &gltf, Vec3 &out) {
   for (int axis = 0; axis < 3; ++axis) { out[axis] = gltf[axis]; }
   for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
 }
@@ -400,8 +398,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);
     }
-    const std::array<double, 3> gltfPosition = {
-        declared.Position[0], declared.Position[1], declared.Position[2]};
+    const Vec3 gltfPosition = {{declared.Position[0], declared.Position[1], declared.Position[2]}};
     Anchored(proxy.Anchor(), gltfPosition, placed.PositionEcefM);
     out.push_back(placed);
   }
@@ -421,17 +418,9 @@ bool Aim(SceneRenderer &renderer,
       !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {
     return false;
   }
-  std::array<double, 3> position{};
-  std::array<double, 3> forward{};
-  std::array<double, 3> right{};
-  std::array<double, 3> up{};
+  Vec3 position;
   Anchored(anchorEcefM, eye.EyeM, position);
-  for (int axis = 0; axis < 3; ++axis) {
-    forward[axis] = eye.Forward[axis];
-    right[axis] = eye.Right[axis];
-    up[axis] = eye.Up[axis];
-  }
-  renderer.SetCameraBasis(position.data(), forward.data(), right.data(), up.data());
+  renderer.SetCameraBasis(position.data(), eye.Forward.data(), eye.Right.data(), eye.Up.data());
   return true;
 }
 

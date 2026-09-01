@@ -15,16 +15,16 @@ struct Vec3 {
 
   [[nodiscard]] constexpr double &operator[](size_t axis) { return Axis[axis]; }
 
-  [[nodiscard]] constexpr operator std::span<const double, 3>() const { return Axis; }
+  [[nodiscard]] constexpr std::span<const double, 3> Row() const { return Axis; }
 
-  [[nodiscard]] constexpr operator std::span<double, 3>() { return Axis; }
+  [[nodiscard]] constexpr std::span<double, 3> Row() { return Axis; }
 
   [[nodiscard]] constexpr const double *data() const { return Axis.data(); }
 
   [[nodiscard]] constexpr double *data() { return Axis.data(); }
 };
 
-static_assert(sizeof(Vec3) == 24 && alignof(Vec3) == alignof(double),
+static_assert(sizeof(Vec3) == 3 * sizeof(double) && alignof(Vec3) == alignof(double),
               "a vector is three doubles and nothing else -- where a record wants its rows on a "
               "128-bit boundary for whole-row NEON loads it says alignas(16) on the MEMBER, so the "
               "alignment is a decision of the record rather than a tax on every vector");
@@ -56,11 +56,27 @@ Cross(std::span<const double, 3> a, std::span<const double, 3> b, std::span<doub
   return std::sqrt(Dot(v, v));
 }
 
+[[nodiscard]] inline double Dot(const Vec3 &a, const Vec3 &b) {
+  return Dot(a.Row(), b.Row());
+}
+
+inline void Cross(const Vec3 &a, const Vec3 &b, Vec3 &out) {
+  Cross(a.Row(), b.Row(), out.Row());
+}
+
+[[nodiscard]] inline double Length(const Vec3 &v) {
+  return Length(v.Row());
+}
+
 [[nodiscard]] inline bool Normalise(std::span<double, 3> v) {
   const double length = Length(v);
   if (!(length > 0.0)) { return false; }
   for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
   return true;
+}
+
+[[nodiscard]] inline bool Normalise(Vec3 &v) {
+  return Normalise(v.Row());
 }
 
 } // namespace outshine

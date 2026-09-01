@@ -40,7 +40,7 @@ void Place(const Rigid &body, std::span<const double, 3> atBodyM, std::span<doub
 
 void Carry(const Rigid &body, std::span<const double, 3> atBodyM, std::span<double, 3> worldMs) {
   std::array<double, 3> spun{};
-  Cross(body.SpinBodyRadS, atBodyM, spun);
+  Cross(body.SpinBodyRadS.Row(), atBodyM, spun);
   std::array<double, 3> turned{};
   Turn(body.OrientationQ, spun, turned);
   for (int axis = 0; axis < 3; ++axis) { worldMs[axis] = body.VelocityMs[axis] + turned[axis]; }
@@ -73,13 +73,13 @@ void Step(Rigid &body, const Wrench &wrench, double dtS) {
   }
 
   std::array<double, 3> torqueBody{};
-  Unturn(body.OrientationQ, wrench.TorqueNm, torqueBody);
+  Unturn(body.OrientationQ, wrench.TorqueNm.Row(), torqueBody);
   std::array<double, 3> momentum{};
   for (int axis = 0; axis < 3; ++axis) {
     momentum[axis] = body.InertiaKgM2[axis] * body.SpinBodyRadS[axis];
   }
   std::array<double, 3> gyroscopic{};
-  Cross(body.SpinBodyRadS, momentum, gyroscopic);
+  Cross(body.SpinBodyRadS.Row(), momentum, gyroscopic);
   for (int axis = 0; axis < 3; ++axis) {
     if (!(body.InertiaKgM2[axis] > 0.0)) { continue; }
     body.SpinBodyRadS[axis] += (torqueBody[axis] - gyroscopic[axis]) / body.InertiaKgM2[axis] * dtS;

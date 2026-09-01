@@ -63,7 +63,7 @@ inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
   if (!Aiming::Normalise(forward)) { return false; }
   Vec3 worldUp = {{0, 1, 0}};
   std::array<double, 3> right{};
-  Aiming::Cross(forward, worldUp, right);
+  Aiming::Cross(forward, worldUp.Row(), right);
   if (!Aiming::Normalise(right)) { return false; }
   std::array<double, 3> up{};
   Aiming::Cross(right, forward, up);

@@ -634,28 +634,18 @@ bool Live::Look(std::string &error) {
     return false;
   }
   framed = fromFile;
-  std::array<double, 3> centre = {
-      (least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5};
+  const Vec3 centre = {
+      {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5}};
   const double turn = Around_ * std::numbers::pi / 180.0;
   const double cosine = std::cos(turn);
   const double sine = std::sin(turn);
-  const auto spun = [cosine, sine](std::span<const double, 3> from, std::span<double, 3> out) {
-    out[0] = from[0] * cosine + from[2] * sine;
-    out[1] = from[1];
-    out[2] = -from[0] * sine + from[2] * cosine;
+  const auto spun = [cosine, sine](const Vec3 &from) {
+    return Vec3{{from[0] * cosine + from[2] * sine, from[1], -from[0] * sine + from[2] * cosine}};
   };
-  std::array<double, 3> offset = {
-      framed.EyeM[0] - centre[0], framed.EyeM[1] - centre[1], framed.EyeM[2] - centre[2]};
-  std::array<double, 3> turned{};
-  spun(offset, turned);
-  for (int axis = 0; axis < 3; ++axis) { framed.EyeM[axis] = centre[axis] + turned[axis]; }
-  std::array<double, 3> basis{};
-  spun(framed.Forward, basis);
-  for (int axis = 0; axis < 3; ++axis) { framed.Forward[axis] = basis[axis]; }
-  spun(framed.Right, basis);
-  for (int axis = 0; axis < 3; ++axis) { framed.Right[axis] = basis[axis]; }
-  spun(framed.Up, basis);
-  for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
+  framed.EyeM = centre + spun(framed.EyeM - centre);
+  framed.Forward = spun(framed.Forward);
+  framed.Right = spun(framed.Right);
+  framed.Up = spun(framed.Up);
   Looking_ = {.Eye = framed, .StandsInside = false, .FramedParts = Joined_};
   Render::ShapeStore aiming;
   return Render::Aim(

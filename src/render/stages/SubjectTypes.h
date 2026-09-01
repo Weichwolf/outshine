@@ -9,18 +9,19 @@
 #include "UvTransform.h"
 
 #include "DrawList.h"
+#include "Vec3.h"
 
 namespace outshine::Render {
 
 struct SubjectLight {
   outshine::PunctualLight Light;
-  double PositionEcefM[3] = {0, 0, 0};
+  Vec3 PositionEcefM = {{0, 0, 0}};
 };
 
 struct SubjectEnvironment {
-  double RadianceLinear[3] = {0, 0, 0};
-  double GroundLinear[3] = {0, 0, 0};
-  double UpUnit[3] = {0, 1, 0};
+  Vec3 RadianceLinear = {{0, 0, 0}};
+  Vec3 GroundLinear = {{0, 0, 0}};
+  Vec3 UpUnit = {{0, 1, 0}};
 
   double SkyLux = 0.0;
   double CosSunZenith = 0.0;
@@ -113,7 +114,7 @@ struct SubjectPose {
 
   SubjectStream PrevVerts;
   uint32_t VertexCount = 0;
-  double Anchor[3] = {0, 0, 0};
+  Vec3 Anchor = {{0, 0, 0}};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
