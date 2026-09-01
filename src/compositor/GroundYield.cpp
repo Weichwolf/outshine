@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <utility>
 #include <vector>
 #include <cmath>
 #include <numbers>
@@ -23,6 +24,18 @@ constexpr double kRiseM = 1.0;
 constexpr double kNearM = 16.0;
 constexpr int kSewPasses = 6;
 constexpr double kSewCellM = 16.0;
+constexpr int kCutPasses = 5;
+constexpr double kOffEndM = 0.02;
+
+uint64_t EdgeKey(double aE, double aS, double bE, double bS) {
+  const auto one = (uint64_t)((int64_t)std::llround(aE / kWeldM) + 0x2000000000LL);
+  const auto two = (uint64_t)((int64_t)std::llround(aS / kWeldM) + 0x2000000000LL);
+  const auto three = (uint64_t)((int64_t)std::llround(bE / kWeldM) + 0x2000000000LL);
+  const auto four = (uint64_t)((int64_t)std::llround(bS / kWeldM) + 0x2000000000LL);
+  const uint64_t from = (one << 24U) ^ two;
+  const uint64_t to = (three << 24U) ^ four;
+  return from < to ? (from * 0x9e3779b97f4a7c15ULL) ^ to : (to * 0x9e3779b97f4a7c15ULL) ^ from;
+}
 
 uint64_t PlaceKey(double eastM, double southM) {
   const auto atE = (int64_t)std::llround(eastM / kWeldM);
@@ -89,6 +102,14 @@ public:
     return point;
   }
 
+  [[nodiscard]] uint32_t Along(uint32_t a, uint32_t b, double part) const {
+    Lerp(*Mesh_.PositionM, 3u, a, b, part);
+    Lerp(*Mesh_.NormalM, 3u, a, b, part);
+    if (Mesh_.ColourRgba != nullptr) { Lerp(*Mesh_.ColourRgba, 4u, a, b, part); }
+    if (Mesh_.Uv != nullptr) { Lerp(*Mesh_.Uv, 2u, a, b, part); }
+    return (uint32_t)(Mesh_.PositionM->size() / 3u) - 1u;
+  }
+
   [[nodiscard]] uint32_t Midpoint(uint32_t a, uint32_t b) const {
     Lerp(*Mesh_.PositionM, 3u, a, b);
     Lerp(*Mesh_.NormalM, 3u, a, b);
@@ -115,9 +136,15 @@ private:
   }
 
   static void Lerp(std::vector<float> &held, uint32_t wide, uint32_t a, uint32_t b) {
+    Lerp(held, wide, a, b, 0.5);
+  }
+
+  static void Lerp(std::vector<float> &held, uint32_t wide, uint32_t a, uint32_t b, double part) {
     if (held.empty()) { return; }
     for (uint32_t axis = 0; axis < wide; ++axis) {
-      held.push_back(0.5f * (held[(size_t)a * wide + axis] + held[(size_t)b * wide + axis]));
+      const auto from = (double)held[(size_t)a * wide + axis];
+      const auto to = (double)held[(size_t)b * wide + axis];
+      held.push_back((float)(from + (to - from) * part));
     }
   }
 
@@ -265,6 +292,172 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
         lay(a, b, onBc);
         lay(a, onBc, onCa);
         lay(onCa, onBc, c);
+        break;
+      }
+    }
+    told.TrianglesAdded += (next.size() - index.size()) / 3u;
+    index.swap(next);
+  }
+}
+
+bool MeetsAt(double aE,
+             double aS,
+             double bE,
+             double bS,
+             double cE,
+             double cS,
+             double dE,
+             double dS,
+             double *part) {
+  const double runE = bE - aE;
+  const double runS = bS - aS;
+  const double overE = dE - cE;
+  const double overS = dS - cS;
+  const double under = runE * overS - runS * overE;
+  if (std::fabs(under) < 1.0e-12) { return false; }
+  const double mine = ((cE - aE) * overS - (cS - aS) * overE) / under;
+  const double yours = ((cE - aE) * runS - (cS - aS) * runE) / under;
+  if (mine <= kOffEndM || mine >= 1.0 - kOffEndM || yours < 0.0 || yours > 1.0) { return false; }
+  *part = mine;
+  return true;
+}
+
+void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
+  std::unordered_map<uint64_t, std::vector<uint32_t>> seamsAt;
+  std::vector<double> seams;
+  for (const Yields &one : these) {
+    const size_t corners = one.SeamEastSouthM.size() / 2u;
+    for (size_t at = 0, last = corners > 0 ? corners - 1u : 0; at < corners; last = at++) {
+      const double aE = one.SeamEastSouthM[last * 2u];
+      const double aS = one.SeamEastSouthM[last * 2u + 1u];
+      const double bE = one.SeamEastSouthM[at * 2u];
+      const double bS = one.SeamEastSouthM[at * 2u + 1u];
+      const auto which = (uint32_t)(seams.size() / 4u);
+      seams.push_back(aE);
+      seams.push_back(aS);
+      seams.push_back(bE);
+      seams.push_back(bS);
+      const auto fromE = (int64_t)std::floor(std::min(aE, bE) / kSewCellM);
+      const auto toE = (int64_t)std::floor(std::max(aE, bE) / kSewCellM);
+      const auto fromS = (int64_t)std::floor(std::min(aS, bS) / kSewCellM);
+      const auto toS = (int64_t)std::floor(std::max(aS, bS) / kSewCellM);
+      if ((toE - fromE + 1) * (toS - fromS + 1) > 256) { continue; }
+      for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
+        for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
+          const auto atE = (uint64_t)(cellE + 0x20000000LL);
+          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          seamsAt[(atE << 32U) | atS].push_back(which);
+        }
+      }
+    }
+  }
+  if (seams.empty()) { return; }
+
+  std::vector<uint32_t> &index = *mesh.Index;
+  const Attributes lerp(mesh);
+  std::vector<uint32_t> next;
+
+  for (int pass = 0; pass < kCutPasses; ++pass) {
+    const float *positionM = mesh.PositionM->data();
+    std::unordered_map<uint64_t, std::pair<uint32_t, double>> split;
+    for (size_t at = 0; at + 2 < index.size(); at += 3) {
+      for (int edge = 0; edge < 3; ++edge) {
+        const uint32_t a = index[at + (size_t)edge];
+        const uint32_t b = index[at + (size_t)((edge + 1) % 3)];
+        const auto aE = (double)positionM[(size_t)a * 3u];
+        const auto aS = (double)positionM[(size_t)a * 3u + 2u];
+        const auto bE = (double)positionM[(size_t)b * 3u];
+        const auto bS = (double)positionM[(size_t)b * 3u + 2u];
+        const uint64_t key = EdgeKey(aE, aS, bE, bS);
+        if (split.contains(key)) { continue; }
+        const auto atE =
+            (uint64_t)((int64_t)std::floor(0.5 * (aE + bE) / kSewCellM) + 0x20000000LL);
+        const auto atS =
+            (uint64_t)((int64_t)std::floor(0.5 * (aS + bS) / kSewCellM) + 0x20000000LL);
+        const auto bucket = seamsAt.find((atE << 32U) | atS);
+        if (bucket == seamsAt.end()) { continue; }
+        double part = 0.0;
+        bool met = false;
+        for (const uint32_t which : bucket->second) {
+          if (MeetsAt(aE,
+                      aS,
+                      bE,
+                      bS,
+                      seams[(size_t)which * 4u],
+                      seams[(size_t)which * 4u + 1u],
+                      seams[(size_t)which * 4u + 2u],
+                      seams[(size_t)which * 4u + 3u],
+                      &part)) {
+            met = true;
+            break;
+          }
+        }
+        if (!met) { continue; }
+        split.emplace(key,
+                      std::pair<uint32_t, double>{
+                          0xffffffffu, aE < bE || (aE == bE && aS < bS) ? part : 1.0 - part});
+      }
+    }
+    if (split.empty()) { break; }
+    told.Passes = std::max(told.Passes, (size_t)pass + 1u);
+
+    const auto cutOf = [&](uint32_t a, uint32_t b) {
+      const float *held = mesh.PositionM->data();
+      const auto aE = (double)held[(size_t)a * 3u];
+      const auto aS = (double)held[(size_t)a * 3u + 2u];
+      const auto bE = (double)held[(size_t)b * 3u];
+      const auto bS = (double)held[(size_t)b * 3u + 2u];
+      const auto found = split.find(EdgeKey(aE, aS, bE, bS));
+      if (found == split.end()) { return 0xffffffffu; }
+      if (found->second.first == 0xffffffffu) {
+        const bool forward = aE < bE || (aE == bE && aS < bS);
+        found->second.first =
+            lerp.Along(a, b, forward ? found->second.second : 1.0 - found->second.second);
+        ++told.VerticesAdded;
+      }
+      return found->second.first;
+    };
+
+    next.clear();
+    next.reserve(index.size() * 2u);
+    for (size_t at = 0; at + 2 < index.size(); at += 3) {
+      const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
+      const uint32_t cut[3] = {
+          cutOf(face[0], face[1]), cutOf(face[1], face[2]), cutOf(face[2], face[0])};
+      const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
+                       (cut[2] != 0xffffffffu ? 1 : 0);
+      const auto lay = [&next](uint32_t a, uint32_t b, uint32_t c) {
+        next.push_back(a);
+        next.push_back(b);
+        next.push_back(c);
+      };
+      if (cuts == 0) {
+        lay(face[0], face[1], face[2]);
+        continue;
+      }
+      if (cuts == 3) {
+        lay(face[0], cut[0], cut[2]);
+        lay(cut[0], face[1], cut[1]);
+        lay(cut[2], cut[1], face[2]);
+        lay(cut[0], cut[1], cut[2]);
+        continue;
+      }
+      if (cuts == 1) {
+        for (int edge = 0; edge < 3; ++edge) {
+          if (cut[edge] == 0xffffffffu) { continue; }
+          lay(face[edge], cut[edge], face[(edge + 2) % 3]);
+          lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
+        }
+        continue;
+      }
+      for (int edge = 0; edge < 3; ++edge) {
+        if (cut[edge] != 0xffffffffu) { continue; }
+        const uint32_t a = face[edge];
+        const uint32_t b = face[(edge + 1) % 3];
+        const uint32_t c = face[(edge + 2) % 3];
+        lay(a, b, cut[(edge + 1) % 3]);
+        lay(a, cut[(edge + 1) % 3], cut[(edge + 2) % 3]);
+        lay(cut[(edge + 2) % 3], cut[(edge + 1) % 3], c);
         break;
       }
     }
@@ -545,6 +738,7 @@ void YieldGround(std::span<const Yields> these,
   told.Taken = taking.size();
   const std::span<const Yields> held(taking);
   Refine(held, finestM, mesh, told);
+  Cut(held, mesh, told);
   Sew(held, mesh, told);
   Press(held, mesh, told);
   {

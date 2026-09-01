@@ -33,6 +33,48 @@ double DrapeCellM(size_t rung) {
   return cellM;
 }
 
+constexpr int kClassPasses = 4;
+
+[[nodiscard]] uint64_t EdgeKey(uint32_t a, uint32_t b) {
+  return a < b ? ((uint64_t)a << 32U) | b : ((uint64_t)b << 32U) | a;
+}
+
+void Divided(const uint32_t face[3], const uint32_t cut[3], std::vector<uint32_t> &into) {
+  const auto lay = [&into](uint32_t a, uint32_t b, uint32_t c) {
+    into.push_back(a);
+    into.push_back(b);
+    into.push_back(c);
+  };
+  const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
+                   (cut[2] != 0xffffffffu ? 1 : 0);
+  if (cuts == 0) {
+    lay(face[0], face[1], face[2]);
+    return;
+  }
+  if (cuts == 3) {
+    lay(face[0], cut[0], cut[2]);
+    lay(cut[0], face[1], cut[1]);
+    lay(cut[2], cut[1], face[2]);
+    lay(cut[0], cut[1], cut[2]);
+    return;
+  }
+  if (cuts == 1) {
+    for (int edge = 0; edge < 3; ++edge) {
+      if (cut[edge] == 0xffffffffu) { continue; }
+      lay(face[edge], cut[edge], face[(edge + 2) % 3]);
+      lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
+    }
+    return;
+  }
+  for (int edge = 0; edge < 3; ++edge) {
+    if (cut[edge] != 0xffffffffu) { continue; }
+    lay(face[edge], face[(edge + 1) % 3], cut[(edge + 1) % 3]);
+    lay(face[edge], cut[(edge + 1) % 3], cut[(edge + 2) % 3]);
+    lay(cut[(edge + 2) % 3], cut[(edge + 1) % 3], face[(edge + 2) % 3]);
+    return;
+  }
+}
+
 [[nodiscard]] uint64_t WayEndKey(double latDeg, double lonDeg) {
   constexpr int64_t kBias = 0x20000000;
   const auto y = (int64_t)std::llround(latDeg * 100000.0);
@@ -721,6 +763,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {
     const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
     const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
+    std::vector<int> classOf;
+    std::vector<double> atGeo;
+    size_t classDivided = 0;
     const Render::Medium fallback;
     size_t named = 0;
     if (classes && wearing.Ready()) {
@@ -764,7 +809,68 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         tinted[one * 4 + 1] = stands ? wore.Ground[1] : (float)fallback.GroundAlbedo[1];
         tinted[one * 4 + 2] = stands ? wore.Ground[2] : (float)fallback.GroundAlbedo[2];
         tinted[one * 4 + 3] = 1.0f;
+        classOf.push_back(which);
+        atGeo.push_back(where.LatDeg);
+        atGeo.push_back(where.LonDeg);
       }
+      for (int pass = 0; pass < kClassPasses; ++pass) {
+        std::unordered_map<uint64_t, uint32_t> split;
+        for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
+          for (int edge = 0; edge < 3; ++edge) {
+            const uint32_t a = laid->Index[at + (size_t)edge];
+            const uint32_t b = laid->Index[at + (size_t)((edge + 1) % 3)];
+            if (classOf[a] == classOf[b]) { continue; }
+            split.emplace(EdgeKey(a, b), 0xffffffffu);
+          }
+        }
+        if (split.empty()) { break; }
+        const auto halve = [&](uint32_t a, uint32_t b) {
+          const auto found = split.find(EdgeKey(a, b));
+          if (found == split.end()) { return 0xffffffffu; }
+          if (found->second != 0xffffffffu) { return found->second; }
+          const auto made = (uint32_t)(inFrame.size() / 3u);
+          for (int axis = 0; axis < 3; ++axis) {
+            inFrame.push_back(0.5f * (inFrame[(size_t)a * 3u + (size_t)axis] +
+                                      inFrame[(size_t)b * 3u + (size_t)axis]));
+            laid->NormalM.push_back(0.5f * (laid->NormalM[(size_t)a * 3u + (size_t)axis] +
+                                            laid->NormalM[(size_t)b * 3u + (size_t)axis]));
+          }
+          const double lat = 0.5 * (atGeo[(size_t)a * 2u] + atGeo[(size_t)b * 2u]);
+          const double lon = 0.5 * (atGeo[(size_t)a * 2u + 1u] + atGeo[(size_t)b * 2u + 1u]);
+          atGeo.push_back(lat);
+          atGeo.push_back(lon);
+          double edgeM = 0.0;
+          int second = -1;
+          const int names = World.Stack.Classes().ClassAt(*classes, lat, lon, &edgeM, &second);
+          classOf.push_back(names);
+          double eastM = 0.0;
+          double northM = 0.0;
+          World.Stack.Classes().ToEnu(lat, lon, &eastM, &northM);
+          classUv.push_back((float)eastM);
+          classUv.push_back((float)northM);
+          const bool named = names >= 0 && (size_t)names < wearing.TemplateCount();
+          const Ground::VegetationTemplates::Row &wore = wearing.Rows()[named ? (size_t)names : 0];
+          for (int channel = 0; channel < 3; ++channel) {
+            tinted.push_back(named ? wore.Ground[channel]
+                                   : (float)fallback.GroundAlbedo[(size_t)channel]);
+          }
+          tinted.push_back(1.0f);
+          found->second = made;
+          return made;
+        };
+        std::vector<uint32_t> finer;
+        finer.reserve(laid->Index.size() * 2u);
+        for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
+          const uint32_t face[3] = {laid->Index[at], laid->Index[at + 1u], laid->Index[at + 2u]};
+          const uint32_t cut[3] = {
+              halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])};
+          Divided(face, cut, finer);
+        }
+        classDivided += (finer.size() - laid->Index.size()) / 3u;
+        laid->Index.swap(finer);
+      }
+      Published.Places(
+          "class field: triangles the boundary divided", (double)classDivided, "triangles");
     }
     if (!tinted.empty()) {
       double wornSum[3] = {0.0, 0.0, 0.0};
@@ -790,6 +896,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "lighting: the ground's bounced radiance, red", lighting.GroundLinear[0], "cd/m2");
     Published.Places("lighting: bounce green", lighting.GroundLinear[1], "cd/m2");
     Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
+    Published.Places(
+        "class field: the vegetation table is ready", wearing.Ready() ? 1.0 : 0.0, "yes/no");
+    Published.Places(
+        "class field: rows the table carries", (double)wearing.TemplateCount(), "rows");
     Published.Places("the ring's vertices a land class names", (double)named, "vertices");
     Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
     Published.Places("class field: the version the colours used",
@@ -2363,8 +2473,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     if (shapes != nullptr) {
       const std::span<const double> points = shapes->Points();
       for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
-        if (one.PointCount < 3 || !(one.SeatM > 0.0f)) { continue; }
-        if ((double)one.SeatM - (double)one.BaseM < kStampWorthM) { continue; }
+        if (one.PointCount < 3) { continue; }
         Yields made;
         made.RingEastSouthM.reserve((size_t)one.PointCount * 2u);
         made.LowE = 1.0e30;
@@ -2400,6 +2509,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           made.PlateauM = upM;
         }
         made.ApronM = kPadApronM;
+        made.YieldM = std::fabs((double)one.SeatM - (double)one.BaseM);
+        made.SeamEastSouthM = made.RingEastSouthM;
         yielding.push_back(std::move(made));
       }
     }

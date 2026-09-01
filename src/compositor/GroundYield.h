@@ -30,9 +30,13 @@ struct GroundMesh {
   std::vector<float> *ColourRgba = nullptr;
   std::vector<float> *Uv = nullptr;
   std::vector<uint32_t> *Index = nullptr;
+
+  int (*ClassAt)(const void *with, double eastM, double southM) = nullptr;
+  const void *With = nullptr;
 };
 
 struct Yielded {
+  size_t Divided = 0;
   size_t Seams = 0;
   size_t SeamsShared = 0;
   size_t Taken = 0;
@@ -44,6 +48,8 @@ struct Yielded {
   double RaisedM = 0.0;
   size_t Passes = 0;
 };
+
+void DivideOnClass(const GroundMesh &mesh, double finestM, Yielded &told);
 
 void YieldGround(std::span<const Yields> these,
                  double finestM,
