@@ -55,28 +55,29 @@ void Resolve(std::string_view raw, std::string &out) {
     } else if (!name.empty() && name[0] == '#') {
       const bool hex = name.size() > 1 && (name[1] == 'x' || name[1] == 'X');
       const std::string_view digits = name.substr(hex ? 2 : 1);
-      long code = 0;
-      (void)std::from_chars(digits.data(), digits.data() + digits.size(), code, hex ? 16 : 10);
-      if (code <= 0 || code > 0x10FFFF) {
+      long parsed = 0;
+      (void)std::from_chars(digits.data(), digits.data() + digits.size(), parsed, hex ? 16 : 10);
+      if (parsed <= 0 || parsed > 0x10FFFF) {
         out.push_back('&');
         ++at;
         continue;
       }
+      const auto code = static_cast<uint32_t>(parsed);
 
-      if (code < 0x80) {
+      if (code < 0x80u) {
         out.push_back(static_cast<char>(code));
-      } else if (code < 0x800) {
+      } else if (code < 0x800u) {
         out.push_back(static_cast<char>(0xC0u | (code >> 6)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3F)));
-      } else if (code < 0x10000) {
+        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
+      } else if (code < 0x10000u) {
         out.push_back(static_cast<char>(0xE0u | (code >> 12)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3F)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3F)));
+        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
       } else {
         out.push_back(static_cast<char>(0xF0u | (code >> 18)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 12) & 0x3F)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3F)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3F)));
+        out.push_back(static_cast<char>(0x80u | ((code >> 12) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
       }
     } else {
       out.push_back('&');

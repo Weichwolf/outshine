@@ -109,7 +109,9 @@ int64_t Network::ColumnIn(const RowShape &shape, double lonDeg) {
 }
 
 int64_t Network::KeyAt(int64_t row, int64_t column) {
-  return (row << 32) ^ (column & 0xffffffffLL);
+  const auto high = static_cast<uint64_t>(row) << 32u;
+  const auto low = static_cast<uint64_t>(column) & 0xffffffffULL;
+  return static_cast<int64_t>(high ^ low);
 }
 
 int64_t Network::CellOf(double latDeg, double lonDeg) const {

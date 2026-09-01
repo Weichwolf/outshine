@@ -142,7 +142,9 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
   for (int corner = 0; corner < 8; ++corner) {
     double along = 0;
     for (int axis = 0; axis < 3; ++axis) {
-      const double at = (corner & (1u << axis)) != 0 ? framedMost[axis] : framedLeast[axis];
+      const double at = (static_cast<uint32_t>(corner) & (1u << static_cast<uint32_t>(axis))) != 0
+                            ? framedMost[axis]
+                            : framedLeast[axis];
       along += (at - eye.EyeM[axis]) * eye.Forward[axis];
     }
     if (first || along < least) {

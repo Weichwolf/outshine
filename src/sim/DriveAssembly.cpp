@@ -99,7 +99,7 @@ bool AssembleDrive(const Scene &scene,
 
   const double tileGroundM = outshine::Ground::kMercatorGirthM *
                              std::cos(middleLat * outshine::kPi / 180.0) /
-                             static_cast<double>(1L << kZoom);
+                             static_cast<double>(1L << static_cast<uint32_t>(kZoom));
   const int kCorridorRing = 2;
   const long steps = static_cast<long>(std::ceil(straightM / tileGroundM)) + 1;
   const long square = static_cast<long>(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
@@ -168,8 +168,8 @@ bool AssembleDrive(const Scene &scene,
   }
   stack.SetVegetation(&widths);
 
-  const double quantumM =
-      outshine::Ground::kMercatorGirthM / (static_cast<double>(1L << kZoom) * 4096.0);
+  const double quantumM = outshine::Ground::kMercatorGirthM /
+                          (static_cast<double>(1L << static_cast<uint32_t>(kZoom)) * 4096.0);
   Network roads(1.05 * quantumM, world.Origin.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);

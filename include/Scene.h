@@ -75,8 +75,9 @@ struct RelationRule {
   Relation Requires = kNoRelation;
 };
 
-inline constexpr uint8_t kEveryRole = static_cast<uint8_t>(
-    RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) | RoleBit(Role::Assignment));
+inline constexpr uint8_t kEveryRole =
+    static_cast<uint8_t>(unsigned{RoleBit(Role::Body)} | unsigned{RoleBit(Role::Mind)} |
+                         unsigned{RoleBit(Role::Tool)} | unsigned{RoleBit(Role::Assignment)});
 
 inline constexpr RelationRule kRules[kRelations] = {
     {.Named = Relation::IsA,

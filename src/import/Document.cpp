@@ -162,7 +162,7 @@ std::string Number(size_t value) {
     bits += 6;
     if (bits < 8) { continue; }
     bits -= 8;
-    out.push_back(static_cast<uint8_t>((held >> bits) & 0xFFu));
+    out.push_back(static_cast<uint8_t>((held >> static_cast<uint32_t>(bits)) & 0xFFu));
   }
   return true;
 }

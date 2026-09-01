@@ -77,8 +77,10 @@ void TreeMesher::RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &s
   const int last = shoot.First + shoot.Count - 1;
   int stride = 1;
   if (PixelGrow_ > 0.0f) {
-    for (int trial = 2; from + trial <= last && ChordHolds(plant, from, last, trial); trial <<= 1) {
-      stride = trial;
+    for (uint32_t trial = 2; from + static_cast<int>(trial) <= last &&
+                             ChordHolds(plant, from, last, static_cast<int>(trial));
+         trial <<= 1u) {
+      stride = static_cast<int>(trial);
     }
   }
   for (int i = last; i > from; i -= stride) { Stations_.push_back(i); }

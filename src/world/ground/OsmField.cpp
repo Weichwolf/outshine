@@ -52,7 +52,7 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
   CentreX_ = static_cast<int>(cx);
   CentreY_ = static_cast<int>(cy);
 
-  const long n = 1L << Zoom_;
+  const long n = 1L << static_cast<uint32_t>(Zoom_);
   int added = 0;
   const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
 

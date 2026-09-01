@@ -22,14 +22,14 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
 std::optional<Tile> Schedule::At(size_t i, double lat, double lon) const {
   if (i >= Offsets_.size()) { return std::nullopt; }
   const Tile centre = Tile::Of(Zoom_, lat, lon);
-  const int side = 1u << Zoom_;
+  const int side = 1u << static_cast<uint32_t>(Zoom_);
   const int y = centre.Y() + Offsets_[i].Y;
   if (y < 0 || y >= side) { return std::nullopt; }
   return Tile(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
 }
 
 Tile Schedule::Broadest() const {
-  return Tile(Zoom_, 0, 1u << (Zoom_ - 1));
+  return Tile(Zoom_, 0, 1u << static_cast<uint32_t>(Zoom_ - 1));
 }
 
 std::optional<Tile> Schedule::Widest(double lat, double lon) const {

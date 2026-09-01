@@ -30,7 +30,7 @@ constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 constexpr int kPoolDemCacheTiles = 16;
 
 constexpr int kGroundSlots = 96;
-constexpr int kCoarseDrop = 3;
+constexpr uint32_t kCoarseDrop = 3;
 constexpr int kCoarseSlots = 4;
 
 constexpr int kGroundStitchGrids = 5;
@@ -241,7 +241,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const double southAt = clamped(v + step);
   const double northAt = clamped(v - step);
   const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
-                       static_cast<double>(static_cast<long>(1) << zoom) /
+                       static_cast<double>(1ULL << static_cast<uint32_t>(zoom)) /
                        static_cast<double>(Surface_.Grid);
   const double acrossEastM = (eastAt - westAt) * static_cast<double>(tile.Postings) * spanM;
   const double acrossNorthM = (southAt - northAt) * static_cast<double>(tile.Postings) * spanM;
@@ -276,8 +276,8 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
   const int zoom = Surface_.Z - kCoarseDrop;
-  long cx = hx >> kCoarseDrop;
-  const long cy = hy >> kCoarseDrop;
+  long cx = static_cast<uint64_t>(hx) >> kCoarseDrop;
+  const long cy = static_cast<uint64_t>(hy) >> kCoarseDrop;
   if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
     if (const Tile *coarse = CoarseResident(cx, cy)) {
       return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
@@ -343,7 +343,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
     return nullptr;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
-  KeepCoarse(x >> kCoarseDrop, y >> kCoarseDrop);
+  KeepCoarse(static_cast<uint64_t>(x) >> kCoarseDrop, static_cast<uint64_t>(y) >> kCoarseDrop);
   return victim;
 }
 
@@ -368,7 +368,7 @@ GroundSample GroundStream::At(double lat, double lon) const {
 
 double GroundStream::PostM(double latDeg) const {
   return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) /
-         static_cast<double>(static_cast<long>(1) << Surface_.Z) /
+         static_cast<double>(1ULL << static_cast<uint32_t>(Surface_.Z)) /
          static_cast<double>(Surface_.Grid);
 }
 
@@ -407,7 +407,7 @@ void GroundBlock::AslMRow(
   const double ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
 
-  const auto width = static_cast<double>(static_cast<long>(1) << Zoom_);
+  const auto width = static_cast<double>(1ULL << static_cast<uint32_t>(Zoom_));
   if ((tx1 - tx0) * lonStepDeg < 0.0) { tx1 += lonStepDeg > 0.0 ? width : -width; }
   const double fy = ty - static_cast<double>(Y_);
   const double fx0 = tx0 - static_cast<double>(X_);

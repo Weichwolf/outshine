@@ -101,7 +101,7 @@ bool FeatureField::Contains(const Feature &f, double eastM, double northM) const
       if (eastM < (ej - ei) * (northM - ni) / (nj - ni) + ei) { crossings++; }
     }
   }
-  return (crossings & 1) != 0;
+  return (static_cast<uint32_t>(crossings) & 1) != 0;
 }
 
 size_t FeatureField::HeapBytes() const {

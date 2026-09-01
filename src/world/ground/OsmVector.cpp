@@ -15,7 +15,7 @@ struct Reader {
     int s = 0;
     while (P < End) {
       const uint8_t b = *P++;
-      r |= static_cast<uint64_t>(b & 0x7fu) << s;
+      r |= static_cast<uint64_t>(b & 0x7fu) << static_cast<uint32_t>(s);
       if ((b & 0x80u) == 0) { return r; }
       s += 7;
       if (s > 63) { break; }

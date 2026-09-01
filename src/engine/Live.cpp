@@ -577,10 +577,10 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
     if (held.Empty) { continue; }
     const std::array<double, 16> &placed =
         part < Stood_.Parts() ? Stood_.Placement(part) : identity;
-    for (int corner = 0; corner < 8; ++corner) {
-      const double from[3] = {((corner & 1) != 0) ? held.MostM[0] : held.LeastM[0],
-                              ((corner & 2) != 0) ? held.MostM[1] : held.LeastM[1],
-                              ((corner & 4) != 0) ? held.MostM[2] : held.LeastM[2]};
+    for (uint32_t corner = 0; corner < 8u; ++corner) {
+      const double from[3] = {((corner & 1u) != 0) ? held.MostM[0] : held.LeastM[0],
+                              ((corner & 2u) != 0) ? held.MostM[1] : held.LeastM[1],
+                              ((corner & 4u) != 0) ? held.MostM[2] : held.LeastM[2]};
       for (int axis = 0; axis < 3; ++axis) {
         const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
                            placed[8 + axis] * from[2] + placed[12 + axis];

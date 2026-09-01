@@ -35,6 +35,12 @@ CheckOptions:
   # asks for three characters, which is wrong in a maths kernel -- `e` and `n` are the clearest
   # names an east and a north will ever have. At one character it still refuses the genuinely
   # nameless and stops arguing about vector algebra.
+  # `bugprone-signed-bitwise` fires on SDL's OWN macros -- SDL_GPU_BUFFERUSAGE_VERTEX is (1u << 0)
+  # and the shift amount is a signed literal. That is not the hazard the check exists for, which is
+  # a signed VARIABLE in a bitwise expression, where the sign bit is a trap. The check keeps that
+  # half; a positive integer literal is well defined and is ignored.
+  bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
+
   readability-identifier-length.MinimumVariableNameLength: 1
   readability-identifier-length.MinimumParameterNameLength: 1
   readability-identifier-length.MinimumLoopCounterNameLength: 1

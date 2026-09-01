@@ -138,7 +138,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
 
   const int steps = z - sourceZ;
   if (steps < 0 || steps >= 24) { return TerrainGrid::Refused(); }
-  const uint32_t subDiv = 1u << steps;
+  const uint32_t subDiv = 1u << static_cast<uint32_t>(steps);
   const uint32_t subX = x & (subDiv - 1);
   const uint32_t subY = y & (subDiv - 1);
 
@@ -194,7 +194,7 @@ TerrainGrid::State TerrainTiles::StitchCorner(
     TerrainField &self, float selfRawM, int z, uint32_t x, uint32_t y, Corner corner) {
   const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
   const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
-  const uint32_t n = 1u << z;
+  const uint32_t n = 1u << static_cast<uint32_t>(z);
   if ((west && x == 0) || (!west && x + 1 >= n)) { return TerrainGrid::State::Decoded; }
   if ((north && y == 0) || (!north && y + 1 >= n)) { return TerrainGrid::State::Decoded; }
 
@@ -232,7 +232,7 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
                                field->AtM(field->Rows() - 1u, field->Cols() - 1u)};
 
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
-  const uint32_t n = 1u << z;
+  const uint32_t n = 1u << static_cast<uint32_t>(z);
   if (x > 0) { worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West)); }
   if (x + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East)); }
   if (y > 0) { worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North)); }

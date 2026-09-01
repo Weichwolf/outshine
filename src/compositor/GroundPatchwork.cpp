@@ -114,12 +114,12 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   bool anchored = false;
 
   const int levels = over.Levels < 1 ? 1 : over.Levels;
-  const long widest = kBlockTiles * (1L << (levels - 1));
+  const long widest = kBlockTiles * (1L << static_cast<uint32_t>(levels - 1));
   long maskX0 = 0;
   long maskY0 = 0;
   {
     const int coarsest = over.Zoom - (levels - 1) < 1 ? 1 : over.Zoom - (levels - 1);
-    const long span = 1L << (over.Zoom - coarsest);
+    const long span = 1L << static_cast<uint32_t>(over.Zoom - coarsest);
     const Ground::TileFrac at = Ground::ToTileFracClamped(
         Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, coarsest);
     maskX0 = 2 *
@@ -142,7 +142,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   for (int level = 0; level < levels; ++level) {
     const int zoom = over.Zoom - level;
     if (zoom < 1) { break; }
-    const long span = 1L << level;
+    const long span = 1L << static_cast<uint32_t>(level);
     const Ground::TileFrac at =
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, zoom);
     const long originX =

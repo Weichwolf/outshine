@@ -15,7 +15,7 @@ Coverage WebTileSource::Covers(const Request &request) const noexcept {
   if (!request.Where().TryTile(&z, &x, &y)) { return Coverage::Outside; }
   if (z < Decl_.MinZoom || z > kDeepestTileZoom) { return Coverage::Outside; }
   if (z > Decl_.MaxZoom && !Decl_.AncestorFill) { return Coverage::Outside; }
-  const uint32_t side = 1u << z;
+  const uint32_t side = 1u << static_cast<uint32_t>(z);
   if (x >= side || y >= side) { return Coverage::Outside; }
   return Coverage::Inside;
 }
@@ -27,7 +27,8 @@ Address WebTileSource::Serves(const Request &request) const noexcept {
   if (!request.Where().TryTile(&z, &x, &y)) { return request.Where(); }
   if (z <= Decl_.MaxZoom) { return request.Where(); }
   const int steps = z - Decl_.MaxZoom;
-  return Address::Tile(Decl_.MaxZoom, x >> steps, y >> steps);
+  return Address::Tile(
+      Decl_.MaxZoom, x >> static_cast<uint32_t>(steps), y >> static_cast<uint32_t>(steps));
 }
 
 Ticket WebTileSource::Begin(const Address &at, Transport &transport) const {
