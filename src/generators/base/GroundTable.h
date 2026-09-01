@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "Material.h"
+#include "scene/Material.h"
 #include "Span.h"
 
 namespace outshine::Generators {

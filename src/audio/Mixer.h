@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "math/Vec3.h"
 #include "BusGraph.h"

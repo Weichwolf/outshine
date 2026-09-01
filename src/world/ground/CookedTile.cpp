@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <string>
 
-#include <Geometry.h>
-#include <Material.h>
+#include <scene/Geometry.h>
+#include <scene/Material.h>
 #include <vector>
 
 namespace outshine::Ground {

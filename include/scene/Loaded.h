@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include "Geometry.h"
-#include "Scenario.h"
+#include "scenario/Scenario.h"
 
 namespace outshine {
 

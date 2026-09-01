@@ -1,4 +1,4 @@
-#include <Scene.h>
+#include <scene/Scene.h>
 
 #include <cstddef>
 #include <cstdint>

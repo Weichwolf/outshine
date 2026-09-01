@@ -1,7 +1,7 @@
 #include <numbers>
 
 #include "math/Mat4.h"
-#include "Scenario.h"
+#include "scenario/Scenario.h"
 #include "Subject.h"
 #include "Viewing.h"
 

@@ -337,11 +337,11 @@ Result Engine::declare(const Scenario &scenario) {
 }
 
 bool Engine::generated(const Scenario &scenario) {
-  class Stands final : public Samples {
+  class Stands final : public Generators::HeightSampler {
   public:
     explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
 
-    [[nodiscard]] bool heightAslM(double latDeg, double lonDeg, double &into) const override {
+    [[nodiscard]] bool sampleHeightAslM(double latDeg, double lonDeg, double &into) const override {
       return From_.At(latDeg, lonDeg).TryAslM(&into);
     }
 
@@ -351,27 +351,27 @@ bool Engine::generated(const Scenario &scenario) {
 
   const Stands stands(S_->World.Stack.Ground());
 
-  Ask ask;
-  ask.LatDeg = scenario.Ground.Origin.LatitudeDeg;
-  ask.LonDeg = scenario.Ground.Origin.LongitudeDeg;
-  ask.ExtentM = scenario.Ground.Origin.RadiusM;
-  ask.Ground = &stands;
+  Generators::Request asked;
+  asked.LatDeg = scenario.Ground.Origin.LatitudeDeg;
+  asked.LonDeg = scenario.Ground.Origin.LongitudeDeg;
+  asked.ExtentM = scenario.Ground.Origin.RadiusM;
+  asked.Ground = &stands;
 
   Geometry made;
-  const auto asked = [&](const std::string &kind) {
-    const Generates *const stood = S_->World.Offering.named(kind);
+  const auto offered = [&](const std::string &kind) {
+    const Generators::Generator *const stood = S_->World.Offering.named(kind);
     if (stood == nullptr) { return true; }
-    if (stood->make(ask, made)) { return true; }
+    if (stood->make(asked, made)) { return true; }
     S_->Error = "the generator of kind '" + kind + "' refused to make anything";
     return false;
   };
 
   for (const Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated") { continue; }
-    if (!asked(shown.Uri)) { return false; }
+    if (!offered(shown.Uri)) { return false; }
   }
   for (const Generator &named : scenario.Generators) {
-    if (!asked(named.Kind)) { return false; }
+    if (!offered(named.Kind)) { return false; }
   }
   return made.parts() == 0 || setGeometry(made);
 }

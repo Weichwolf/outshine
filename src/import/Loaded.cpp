@@ -1,4 +1,4 @@
-#include "Loaded.h"
+#include "scene/Loaded.h"
 
 #include <cstdint>
 #include <cstring>
@@ -83,20 +83,20 @@ struct Loaded::Held {
     if (from.Rgba == nullptr || from.Width == 0 || from.Height == 0) { return; }
     into.Image = Keeps(from);
     into.Set = from.Set;
-    into.Samples.Magnify =
+    into.HeightSampler.Magnify =
         from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.Samples.Minify =
+    into.HeightSampler.Minify =
         from.Minify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.Samples.Mip = from.Mip == Render::SubjectMip::None      ? MipFilter::None
-                       : from.Mip == Render::SubjectMip::Nearest ? MipFilter::Nearest
-                                                                 : MipFilter::Linear;
+    into.HeightSampler.Mip = from.Mip == Render::SubjectMip::None      ? MipFilter::None
+                             : from.Mip == Render::SubjectMip::Nearest ? MipFilter::Nearest
+                                                                       : MipFilter::Linear;
     const auto wrapped = [](Render::SubjectWrap held) {
       return held == Render::SubjectWrap::ClampToEdge      ? Wrap::ClampToEdge
              : held == Render::SubjectWrap::MirroredRepeat ? Wrap::MirroredRepeat
                                                            : Wrap::Repeat;
     };
-    into.Samples.WrapU = wrapped(from.WrapU);
-    into.Samples.WrapV = wrapped(from.WrapV);
+    into.HeightSampler.WrapU = wrapped(from.WrapU);
+    into.HeightSampler.WrapV = wrapped(from.WrapV);
   }
 
   [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {

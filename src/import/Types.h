@@ -15,9 +15,9 @@
 
 #include "Keyframes.h"
 
-#include "Material.h"
-#include "PunctualLight.h"
-#include "UvTransform.h"
+#include "scene/Material.h"
+#include "scene/PunctualLight.h"
+#include "scene/UvTransform.h"
 
 namespace outshine::Gltf {
 

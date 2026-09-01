@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENE_TRAITS_H
 #define OUTSHINE_SCENE_TRAITS_H
 
-#include <Scene.h>
+#include <scene/Scene.h>
 
 #include <cstddef>
 #include <cstdint>

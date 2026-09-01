@@ -238,7 +238,7 @@ void Engine::offers(Host *host) {
 
 namespace {}
 
-void Engine::offers(const Generates &maker) {
+void Engine::offers(const Generators::Generator &maker) {
   (void)S_->World.Offering.offers(maker);
 }
 

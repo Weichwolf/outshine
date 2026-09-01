@@ -1,7 +1,7 @@
 #include <cmath>
 #include "ScenarioRead.h"
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include <cstdint>
 #include <cstdlib>

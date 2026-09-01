@@ -6,7 +6,7 @@
 #include "math/Vec3.h"
 #include <array>
 #include <cmath>
-#include "Scenario.h"
+#include "scenario/Scenario.h"
 #include <numbers>
 #include <cstdint>
 

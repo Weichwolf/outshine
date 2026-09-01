@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "math/Mat4.h"
-#include "Material.h"
+#include "scene/Material.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
 

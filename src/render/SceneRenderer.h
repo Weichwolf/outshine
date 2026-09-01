@@ -4,7 +4,7 @@
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Heap.h"
-#include "Scenario.h"
+#include "scenario/Scenario.h"
 #include <span>
 #include <cstdint>
 #include <memory>

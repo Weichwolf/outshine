@@ -29,11 +29,11 @@ constexpr double kMetresPerDegree = 111320.0;
 
 } // namespace
 
-bool Structures::make(const Ask &ask, Geometry &into) const {
-  const double sideM = ask.ExtentM > 0.0 && ask.ExtentM < 200.0 ? ask.ExtentM : 12.0;
+bool Structures::make(const Request &asked, Geometry &into) const {
+  const double sideM = asked.ExtentM > 0.0 && asked.ExtentM < 200.0 ? asked.ExtentM : 12.0;
   const double halfDeg = 0.5 * sideM / kMetresPerDegree;
-  const double lat = ask.LatDeg;
-  const double lon = ask.LonDeg;
+  const double lat = asked.LatDeg;
+  const double lon = asked.LonDeg;
 
   const double ring[kCorners * 2] = {lat - halfDeg,
                                      lon - halfDeg,
@@ -50,7 +50,7 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
   plan.RingLatLon = Span<const double>(ring, kCorners * 2);
   plan.CornerAslM = Span<const double>(corners, kCorners);
   plan.BaseAslM = 0.0;
-  plan.HeightM = 6.0 + 12.0 * Spun(ask.Seed, 1u);
+  plan.HeightM = 6.0 + 12.0 * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;
   plan.AnchorEcef = anchor;
 

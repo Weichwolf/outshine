@@ -4,7 +4,7 @@
 #include <span>
 #include <string>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "SourceSet.h"
 

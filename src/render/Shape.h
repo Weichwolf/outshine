@@ -4,13 +4,13 @@
 #include <cstddef>
 #include "math/Vec3.h"
 #include "ClusterCook.h"
-#include "SurfaceState.h"
+#include "scene/SurfaceState.h"
 #include <cstdint>
 #include <span>
 #include <vector>
 
-#include <Material.h>
-#include <PunctualLight.h>
+#include <scene/Material.h>
+#include <scene/PunctualLight.h>
 #include <string_view>
 
 namespace outshine::Render {

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include <Geometry.h>
+#include <scene/Geometry.h>
 
 namespace outshine {
 

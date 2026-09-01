@@ -5,8 +5,8 @@
 #include <cmath>
 #include <vector>
 
-#include <Geometry.h>
-#include <Scenario.h>
+#include <scene/Geometry.h>
+#include <scenario/Scenario.h>
 
 #include "Document.h"
 #include "Pose.h"

@@ -5,7 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include <Outshine.h>
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "Check.h"
 

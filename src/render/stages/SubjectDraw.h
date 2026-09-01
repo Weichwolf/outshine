@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "math/Vec3.h"
-#include "SurfaceState.h"
+#include "scene/SurfaceState.h"
 
 #include "FrameContext.h"
 #include "Gpu.h"

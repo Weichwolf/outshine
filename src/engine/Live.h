@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <Outshine.h>
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "Asset.h"
 #include "Document.h"
@@ -23,7 +23,7 @@
 #include "Pose.h"
 #include "SceneRenderer.h"
 #include "Style.h"
-#include "Material.h"
+#include "scene/Material.h"
 #include "Subject.h"
 #include "Surfacing.h"
 

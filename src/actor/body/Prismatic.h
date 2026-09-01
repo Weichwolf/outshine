@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ACTOR_BODY_PRISMATIC_H
 #define OUTSHINE_ACTOR_BODY_PRISMATIC_H
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 namespace outshine::Physics {
 

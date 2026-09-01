@@ -3,13 +3,13 @@
 
 #include "math/Vec3.h"
 #include "Viewing.h"
-#include <Geometry.h>
+#include <scene/Geometry.h>
 #include <span>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "PunctualLight.h"
+#include "scene/PunctualLight.h"
 #include "Span.h"
 
 #include "Viewport.h"

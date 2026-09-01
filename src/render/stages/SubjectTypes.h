@@ -5,8 +5,8 @@
 #include "ClusterDag.h"
 #include <span>
 
-#include "PunctualLight.h"
-#include "UvTransform.h"
+#include "scene/PunctualLight.h"
+#include "scene/UvTransform.h"
 
 #include "DrawList.h"
 #include "math/Vec3.h"

@@ -6,10 +6,10 @@
 
 #include "Assembled.h"
 #include "Traits.h"
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "Column.h"
-#include <Scene.h>
+#include <scene/Scene.h>
 
 namespace outshine {
 

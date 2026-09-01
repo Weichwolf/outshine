@@ -25,7 +25,7 @@ struct Sampler {
 struct SurfaceMap {
   int Image = -1;
   UvSet Set = UvSet::First;
-  Sampler Samples;
+  Sampler HeightSampler;
   UvTransformProperties Uv;
 
   [[nodiscard]] bool bound() const { return Image >= 0; }

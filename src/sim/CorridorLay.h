@@ -8,7 +8,7 @@
 #include <type_traits>
 #include <vector>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "GroundQuery.h"
 

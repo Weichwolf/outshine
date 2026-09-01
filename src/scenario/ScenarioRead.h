@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "Xml.h"
 

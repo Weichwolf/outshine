@@ -18,7 +18,7 @@
 #include <SDL3/SDL.h>
 
 #include <Outshine.h>
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 #include <vector>
 
 #include "Sha256.h"

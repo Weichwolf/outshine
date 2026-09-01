@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include <Event.h>
+#include <scenario/Event.h>
 
 namespace outshine::Core {
 

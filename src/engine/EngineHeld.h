@@ -260,7 +260,7 @@ struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
   Generators::Structures Shipped;
-  Makers Offering;
+  Generators::Registry Offering;
   Generators::Shipping Shipping;
 
   struct Standing {

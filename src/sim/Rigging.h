@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "math/Vec3.h"
 #include "Drive.h"

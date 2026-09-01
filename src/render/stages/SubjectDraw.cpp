@@ -32,7 +32,7 @@
 #include "SceneTargets.h"
 #include "ShaderPrelude.h"
 #include "VertexArms.h"
-#include "SurfaceState.h"
+#include "scene/SurfaceState.h"
 #include "ShaderFile.h"
 
 namespace outshine::Render {

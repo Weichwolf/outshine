@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATE_H
 #define OUTSHINE_GENERATE_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -8,9 +9,9 @@
 #include <string_view>
 #include <vector>
 
-#include "Geometry.h"
+#include "scene/Geometry.h"
 
-namespace outshine {
+namespace outshine::Generators {
 
 /// What a generator may ask about the ground it is standing something on, supplied by whoever owns
 /// that ground rather than reached for.
@@ -18,11 +19,11 @@ namespace outshine {
 /// A generator that read the engine's terrain directly would link the engine, and the generators
 /// are a tier that links with none of it -- that separation is what lets a corpus score a
 /// derivation without booting a renderer. So the caller passes an answerer and the generator asks.
-class Samples {
+class HeightSampler {
 public:
-  virtual ~Samples() = default;
-  Samples(const Samples &) = delete;
-  Samples &operator=(const Samples &) = delete;
+  virtual ~HeightSampler() = default;
+  HeightSampler(const HeightSampler &) = delete;
+  HeightSampler &operator=(const HeightSampler &) = delete;
 
   /// The ground's height above the ellipsoid at a place, or a refusal.
   ///
@@ -32,14 +33,14 @@ public:
   /// @return whether the ground is KNOWN there. False is not zero: a tile that has not arrived and
   ///         a sea-level plain are different answers, and a generator that cannot tell them apart
   ///         builds a house at zero.
-  [[nodiscard]] virtual bool heightAslM(double latDeg, double lonDeg, double &into) const = 0;
+  [[nodiscard]] virtual bool sampleHeightAslM(double latDeg, double lonDeg, double &into) const = 0;
 
 protected:
-  Samples() = default;
+  HeightSampler() = default;
 };
 
 /// Where a generator is asked to make something, and what it may ask about that place.
-struct Ask {
+struct Request {
   /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
   /// and a local metre offset with no origin cannot say. The fields carried metres in their names
   /// and degrees in their values until board:2083 measured it.
@@ -56,7 +57,7 @@ struct Ask {
 
   /// The ground beneath, or nothing when the caller has none to offer. A generator that needs a
   /// height and is given no answerer refuses rather than assuming a plain at zero.
-  const Samples *Ground = nullptr;
+  const HeightSampler *Ground = nullptr;
 };
 
 /// A generator's request that the ground become FLAT under what it made, and OPTIONAL by design: a
@@ -84,14 +85,14 @@ struct Stamp {
   double FalloffM = 0.0;
 };
 
-class Generates {
+class Generator {
 public:
-  virtual ~Generates() = default;
-  Generates(const Generates &) = delete;
-  Generates &operator=(const Generates &) = delete;
+  virtual ~Generator() = default;
+  Generator(const Generator &) = delete;
+  Generator &operator=(const Generator &) = delete;
 
   [[nodiscard]] virtual std::string_view kind() const = 0;
-  [[nodiscard]] virtual bool make(const Ask &ask, Geometry &into) const = 0;
+  [[nodiscard]] virtual bool make(const Request &asked, Geometry &into) const = 0;
 
   /// What the ground must BECOME for this to stand, or nothing at all. The default answers nothing,
   /// so a generator that needs no plateau says so by saying nothing and never has to know this verb
@@ -103,31 +104,32 @@ public:
   ///             window and the caller collects across generators
   /// @return whether anything was appended. False and an empty `into` mean the same thing; the
   ///         return exists so a caller need not compare sizes to find out.
-  [[nodiscard]] virtual bool stamps(const Ask &ask, std::vector<Stamp> &into) const {
-    (void)ask;
+  [[nodiscard]] virtual bool stamps(const Request &asked, std::vector<Stamp> &into) const {
+    (void)asked;
     (void)into;
     return false;
   }
 
 protected:
-  Generates() = default;
+  Generator() = default;
 };
 
-enum class Ships { Structures, kCount };
+/// The generators this engine ships with, and the catalogue is CLOSED: a client registers its own
+/// beside them rather than adding a value here.
+enum class Shipped : uint8_t { Structures, kCount };
 
-inline constexpr std::string_view kShipped[] = {"structures"};
+/// The name each shipped kind answers to in a declaration, in the order the enum names them.
+inline constexpr std::array<std::string_view, static_cast<size_t>(Shipped::kCount)> kShipped = {
+    "structures"};
 
-static_assert(sizeof kShipped / sizeof kShipped[0] == static_cast<size_t>(Ships::kCount),
-              "every shipped generator the catalogue enumerates carries a name");
-
-[[nodiscard]] constexpr std::string_view nameOf(Ships which) {
+[[nodiscard]] constexpr std::string_view nameOf(Shipped which) {
   return kShipped[static_cast<size_t>(which)];
 }
 
 [[nodiscard]] constexpr bool EveryShippedKindIsSpelled() {
-  for (size_t at = 0; at < static_cast<size_t>(Ships::kCount); ++at) {
+  for (size_t at = 0; at < static_cast<size_t>(Shipped::kCount); ++at) {
     if (kShipped[at].empty()) { return false; }
-    for (size_t over = at + 1; over < static_cast<size_t>(Ships::kCount); ++over) {
+    for (size_t over = at + 1; over < static_cast<size_t>(Shipped::kCount); ++over) {
       if (kShipped[at] == kShipped[over]) { return false; }
     }
   }
@@ -140,25 +142,25 @@ static_assert(EveryShippedKindIsSpelled(),
 
 [[nodiscard]] bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &error);
 
-class Makers {
+class Registry {
 public:
-  [[nodiscard]] bool offers(const Generates &maker);
+  [[nodiscard]] bool offers(const Generator &maker);
 
-  [[nodiscard]] const Generates *named(std::string_view kind) const;
+  [[nodiscard]] const Generator *named(std::string_view kind) const;
   [[nodiscard]] size_t count() const;
 
-  Makers();
-  ~Makers();
-  Makers(Makers &&) noexcept;
-  Makers &operator=(Makers &&) noexcept;
-  Makers(const Makers &) = delete;
-  Makers &operator=(const Makers &) = delete;
+  Registry();
+  ~Registry();
+  Registry(Registry &&) noexcept;
+  Registry &operator=(Registry &&) noexcept;
+  Registry(const Registry &) = delete;
+  Registry &operator=(const Registry &) = delete;
 
 private:
   struct Kept;
   std::unique_ptr<Kept> Kept_;
 };
 
-} // namespace outshine
+} // namespace outshine::Generators
 
 #endif

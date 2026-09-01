@@ -5,8 +5,8 @@
 
 #include "Assembled.h"
 #include "Column.h"
-#include <Scenario.h>
-#include <Scene.h>
+#include <scenario/Scenario.h>
+#include <scene/Scene.h>
 
 #include "CorridorLay.h"
 #include "DriveTick.h"

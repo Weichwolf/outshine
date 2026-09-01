@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <Geometry.h>
+#include <scene/Geometry.h>
 
 namespace outshine::Generators {
 

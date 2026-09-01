@@ -11,7 +11,7 @@
 #include <ranges>
 #include <span>
 
-#include <Geometry.h>
+#include <scene/Geometry.h>
 
 #include <numbers>
 #include <algorithm>

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 #include "Rigid.h"
 #include "CorridorLay.h"

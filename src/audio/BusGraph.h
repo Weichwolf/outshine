@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 namespace outshine::Audio {
 

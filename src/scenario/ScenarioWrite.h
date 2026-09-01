@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <Scenario.h>
+#include <scenario/Scenario.h>
 
 namespace outshine {
 

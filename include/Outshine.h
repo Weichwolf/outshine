@@ -12,13 +12,12 @@
 
 #include <SDL3/SDL.h>
 
-#include "Generate.h"
-#include "Geometry.h"
 #include "Logging.h"
-
-#include <Event.h>
-#include <Scene.h>
-#include <Scenario.h>
+#include "generate/Generate.h"
+#include "scenario/Event.h"
+#include "scenario/Scenario.h"
+#include "scene/Geometry.h"
+#include "scene/Scene.h"
 
 namespace outshine {
 
@@ -100,7 +99,7 @@ public:
 
   [[nodiscard]] Result drawsInto(SDL_Window *presents);
   void offers(Host *host);
-  void offers(const Generates &maker);
+  void offers(const Generators::Generator &maker);
   [[nodiscard]] Result setView(std::string_view view);
   [[nodiscard]] Result handleEvent(const SDL_Event &event);
   [[nodiscard]] Result drawsInto(Extent offscreen);

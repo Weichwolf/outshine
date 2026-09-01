@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "Image.h"
-#include "Material.h"
+#include "scene/Material.h"
 #include "stages/SubjectTypes.h"
 #include "Shape.h"
 
