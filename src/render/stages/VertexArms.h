@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_VERTEXARMS_H
 #define OUTSHINE_RENDER_STAGES_VERTEXARMS_H
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ struct VertexArm {
   bool Colour;
 };
 
-inline constexpr VertexArm kVertexArms[] = {
+inline constexpr std::array<VertexArm, kVertexLayouts.size()> kVertexArms = {{
     {.Layout = VertexLayout::Position,
      .Normal = false,
      .Tangent = false,
@@ -115,9 +116,9 @@ inline constexpr VertexArm kVertexArms[] = {
      .Uv = true,
      .Uv1 = true,
      .Colour = true},
-};
+}};
 
-inline constexpr std::size_t kVertexArmCount = sizeof kVertexArms / sizeof kVertexArms[0];
+inline constexpr std::size_t kVertexArmCount = kVertexArms.size();
 
 static_assert(kVertexArmCount ==
                   static_cast<std::size_t>(VertexLayout::PositionNormalUvUv1TangentColour) + 1u,

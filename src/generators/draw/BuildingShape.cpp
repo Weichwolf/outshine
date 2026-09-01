@@ -1,6 +1,7 @@
 #include "math/Vec2.h"
 #include "BuildingShape.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -453,8 +454,8 @@ En UnitFrom(const En &a, const En &b) {
   Piece b;
   for (size_t i = 0; i < ring.size(); i++) {
     if (!IsReflex(ring, i)) { continue; }
-    const En dirs[2] = {UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
-                        UnitFrom(ring[i], ring[(i + 1) % ring.size()])};
+    const std::array<En, 2> dirs = {{UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
+                                     UnitFrom(ring[i], ring[(i + 1) % ring.size()])}};
     for (const En &dir : dirs) {
       Piece lo;
       Piece hi;
@@ -475,11 +476,12 @@ En UnitFrom(const En &a, const En &b) {
   return true;
 }
 
-int RowCut(const Piece &whole, const BuildingShape &box, Piece *out, int room) {
+int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
   const double lengthM = 2.0 * box.HalfUm;
 
   if (lengthM < 2.2 * kPlotM || box.HalfUm < 2.4 * box.HalfVm || box.Fill < 0.80) { return 0; }
-  const int want = std::min(room, static_cast<int>(std::lround(lengthM / kPlotM)));
+  const int want =
+      std::min(static_cast<int>(out.size()), static_cast<int>(std::lround(lengthM / kPlotM)));
   if (want < 2) { return 0; }
   const double step = lengthM / static_cast<double>(want);
   const double wholeM2 = std::fabs(SignedArea(whole.P));
@@ -567,8 +569,8 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
     return out;
   }
 
-  Piece row[kMaxParts];
-  const int plots = RowCut(WholeOf(out.Outline), one, row, kMaxParts);
+  std::array<Piece, kMaxParts> row{};
+  const int plots = RowCut(WholeOf(out.Outline), one, row);
   Piece main;
   Piece wing;
   const bool winged = plots == 0 && one.Fill < 0.94 && WingCut(WholeOf(out.Outline), &main, &wing);

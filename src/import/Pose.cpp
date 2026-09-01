@@ -27,8 +27,8 @@ const char *PathName(AnimationPath path) {
 } // namespace
 
 bool Pose::Build(const Document &document, int animation, Pose &out, std::string &error) {
-  const int one[1] = {animation};
-  return Build(document, Span<const int>(one, 1), out, error);
+  const std::array<int, 1> one = {{animation}};
+  return Build(document, Span<const int>(one.data(), 1), out, error);
 }
 
 bool Pose::Build(const Document &document,

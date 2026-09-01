@@ -2,6 +2,7 @@
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -57,9 +58,9 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu,
 void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecording &into) {
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding images[kCompositeImages] = {
-      {.texture = Opaque, .sampler = Exact}, {.texture = Transmissive, .sampler = Exact}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kCompositeImages);
+  const std::array<SDL_GPUTextureSamplerBinding, kCompositeImages> images = {
+      {{.texture = Opaque, .sampler = Exact}, {.texture = Transmissive, .sampler = Exact}}};
+  SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kCompositeImages);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 

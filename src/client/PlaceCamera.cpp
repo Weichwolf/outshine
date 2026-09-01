@@ -329,9 +329,11 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   if (engine.renderer().saveScreenshot(writing).has_value()) {
     std::string bytes;
     if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
-      char block[65536];
+      std::array<char, 65536> block{};
       std::size_t read = 0;
-      while ((read = std::fread(block, 1, sizeof block, held)) > 0) { bytes.append(block, read); }
+      while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
+        bytes.append(block.data(), read);
+      }
       std::fclose(held);
     }
     shot.Digest = Sha256Hex(bytes).substr(0, 8);

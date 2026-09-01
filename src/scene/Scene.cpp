@@ -1,3 +1,4 @@
+#include <span>
 #include <scene/Scene.h>
 
 #include <cstddef>
@@ -23,15 +24,15 @@ struct Scene::Kept {
   bool link(Entity from, Relation how, Entity to);
   bool relink(Entity from, Relation how, Entity to);
   Entity targetOf(Entity of, Relation how) const;
-  size_t targets(Entity of, Relation how, Entity into[], size_t room) const;
-  size_t sources(Entity to, Relation how, Entity into[], size_t room) const;
-  size_t entitiesWithRole(Role role, Entity into[], size_t room) const;
-  size_t linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const;
-  size_t entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const;
+  size_t targets(Entity of, Relation how, std::span<Entity> into) const;
+  size_t sources(Entity to, Relation how, std::span<Entity> into) const;
+  size_t entitiesWithRole(Role role, std::span<Entity> into) const;
+  size_t linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const;
+  size_t entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const;
   Entity instantiate(Entity prefab);
   Entity copyOf(Entity instance, Entity prefabChild) const;
   bool offerSeats(Entity at, Tag activity, size_t seats);
-  size_t entitiesOffering(Tag activity, Entity into[], size_t room) const;
+  size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
   bool claimSeat(Entity by, Entity at);
   bool takeSeat(Entity by, Entity at);
   bool releaseSeat(Entity by, Entity at);
@@ -70,13 +71,13 @@ struct Scene::Kept {
     uint32_t Generation = 0;
     bool Held = false;
     Role Is = Role::Body;
-    Tag Given[kTagsPerEntity] = {};
+    std::array<Tag, kTagsPerEntity> Given = {{}};
     size_t GivenCount = 0;
-    Pair Pairs[kPairsPerEntity] = {};
+    std::array<Pair, kPairsPerEntity> Pairs = {{}};
     size_t PairCount = 0;
     Tag Offers{};
     size_t SeatCount = 0;
-    Taken Seats[kSeatsPerOffer] = {};
+    std::array<Taken, kSeatsPerOffer> Seats = {{}};
     std::array<uint32_t, kRelations> InHead = NoRefs<kRelations>();
     uint32_t RoleNext = kNoRef, RolePrev = kNoRef;
     uint32_t OfferNext = kNoRef, OfferPrev = kNoRef;
@@ -351,7 +352,7 @@ bool Scene::Kept::Permit(Relation how, Entity from, Entity to, bool retarget) {
   if (rule.SourceDoes.value() != 0 && !hasTag(from, rule.SourceDoes)) {
     return Refuse({Named(how), " asks the source to do something, and it does nothing"});
   }
-  if (rule.Requires != kNoRelation && targets(from, rule.Requires, nullptr, 0) == 0) {
+  if (rule.Requires != kNoRelation && targets(from, rule.Requires, {}) == 0) {
     return Refuse({Named(how),
                    " stands only on ",
                    Named(rule.Requires),
@@ -422,27 +423,27 @@ Entity Scene::Kept::targetOf(Entity of, Relation how) const {
   return kNoEntity;
 }
 
-size_t Scene::Kept::targets(Entity of, Relation how, Entity into[], size_t room) const {
+size_t Scene::Kept::targets(Entity of, Relation how, std::span<Entity> into) const {
   const Slot *slot = Held(of);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
   for (size_t at = 0; at < slot->PairCount; ++at) {
     ++Touched_;
     if (slot->Pairs[at].How != how) { continue; }
-    if (into != nullptr && found < room) { into[found] = slot->Pairs[at].To; }
+    if (found < into.size()) { into[found] = slot->Pairs[at].To; }
     ++found;
   }
   return found;
 }
 
-size_t Scene::Kept::sources(Entity to, Relation how, Entity into[], size_t room) const {
+size_t Scene::Kept::sources(Entity to, Relation how, std::span<Entity> into) const {
   const Slot *slot = Held(to);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
   for (uint32_t in = slot->InHead[static_cast<size_t>(how)]; in != kNoRef; in = At(in).InNext) {
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
-    if (into != nullptr && found < room) {
+    if (found < into.size()) {
       into[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
     }
     ++found;
@@ -450,11 +451,11 @@ size_t Scene::Kept::sources(Entity to, Relation how, Entity into[], size_t room)
   return found;
 }
 
-size_t Scene::Kept::entitiesWithRole(Role role, Entity into[], size_t room) const {
+size_t Scene::Kept::entitiesWithRole(Role role, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
-    if (into != nullptr && found < room) {
+    if (found < into.size()) {
       into[found] = Entity{.Index = at, .Generation = Slots_[at].Generation};
     }
     ++found;
@@ -462,29 +463,27 @@ size_t Scene::Kept::entitiesWithRole(Role role, Entity into[], size_t room) cons
   return found;
 }
 
-size_t Scene::Kept::linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const {
+size_t Scene::Kept::linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const {
   size_t found = 0;
   for (uint32_t ref = RelHead_[static_cast<size_t>(how)]; ref != kNoRef; ref = At(ref).RelNext) {
     ++Touched_;
     const uint32_t source = ref / kPairsPerEntity;
-    if (found < room) {
-      if (from != nullptr) {
-        from[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
-      }
-      if (to != nullptr) { to[found] = At(ref).To; }
+    if (found < from.size()) {
+      from[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
     }
+    if (found < to.size()) { to[found] = At(ref).To; }
     ++found;
   }
   return found;
 }
 
-size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const {
+size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
     const Entity one{.Index = at, .Generation = Slots_[at].Generation};
     if (!hasTag(one, tag)) { continue; }
-    if (into != nullptr && found < room) { into[found] = one; }
+    if (found < into.size()) { into[found] = one; }
     ++found;
   }
   return found;
@@ -567,15 +566,13 @@ bool Scene::Kept::offerSeats(Entity at, Tag activity, size_t seats) {
   return true;
 }
 
-size_t Scene::Kept::entitiesOffering(Tag activity, Entity into[], size_t room) const {
+size_t Scene::Kept::entitiesOffering(Tag activity, std::span<Entity> into) const {
   size_t found = 0;
   for (uint32_t at = OfferHead_; at != kNoRef; at = Slots_[at].OfferNext) {
     ++Touched_;
     const Slot &slot = Slots_[at];
     if (!slot.Offers.within(activity)) { continue; }
-    if (into != nullptr && found < room) {
-      into[found] = Entity{.Index = at, .Generation = slot.Generation};
-    }
+    if (found < into.size()) { into[found] = Entity{.Index = at, .Generation = slot.Generation}; }
     ++found;
   }
   return found;
@@ -705,24 +702,24 @@ Entity Scene::targetOf(Entity of, Relation how) const {
   return Kept_->targetOf(of, how);
 }
 
-size_t Scene::targets(Entity of, Relation how, Entity into[], size_t room) const {
-  return Kept_->targets(of, how, into, room);
+size_t Scene::targets(Entity of, Relation how, std::span<Entity> into) const {
+  return Kept_->targets(of, how, into);
 }
 
-size_t Scene::sources(Entity to, Relation how, Entity into[], size_t room) const {
-  return Kept_->sources(to, how, into, room);
+size_t Scene::sources(Entity to, Relation how, std::span<Entity> into) const {
+  return Kept_->sources(to, how, into);
 }
 
-size_t Scene::entitiesWithRole(Role role, Entity into[], size_t room) const {
-  return Kept_->entitiesWithRole(role, into, room);
+size_t Scene::entitiesWithRole(Role role, std::span<Entity> into) const {
+  return Kept_->entitiesWithRole(role, into);
 }
 
-size_t Scene::linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const {
-  return Kept_->linkedPairs(how, from, to, room);
+size_t Scene::linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const {
+  return Kept_->linkedPairs(how, from, to);
 }
 
-size_t Scene::entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const {
-  return Kept_->entitiesWithTagAndRole(tag, role, into, room);
+size_t Scene::entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const {
+  return Kept_->entitiesWithTagAndRole(tag, role, into);
 }
 
 Entity Scene::instantiate(Entity prefab) {
@@ -737,8 +734,8 @@ bool Scene::offerSeats(Entity at, Tag activity, size_t seats) {
   return Kept_->offerSeats(at, activity, seats);
 }
 
-size_t Scene::entitiesOffering(Tag activity, Entity into[], size_t room) const {
-  return Kept_->entitiesOffering(activity, into, room);
+size_t Scene::entitiesOffering(Tag activity, std::span<Entity> into) const {
+  return Kept_->entitiesOffering(activity, into);
 }
 
 bool Scene::claimSeat(Entity by, Entity at) {

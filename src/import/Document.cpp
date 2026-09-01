@@ -1,6 +1,7 @@
 #include "math/Vec2.h"
 #include "Document.h"
 
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <ios>
@@ -1023,7 +1024,8 @@ bool Document::ReadJson(const char *text,
           instancing["TRANSLATION"].Valid() ? instancing["TRANSLATION"].Int(-1) : -1;
       node.InstanceRotation = instancing["ROTATION"].Valid() ? instancing["ROTATION"].Int(-1) : -1;
       node.InstanceScale = instancing["SCALE"].Valid() ? instancing["SCALE"].Int(-1) : -1;
-      const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
+      const std::array<int, 3> named = {
+          {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale}};
       size_t count = 0;
       for (const int accessor : named) {
         if (accessor < 0) { continue; }

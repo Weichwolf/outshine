@@ -1,6 +1,7 @@
 #include "math/Vec2.h"
 #include "MediumRadianceStage.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -23,9 +24,9 @@ struct Pushed {
 static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium's alignment");
 
 std::string Kernel(std::string &error) {
-  char declared[512];
-  std::snprintf(declared,
-                sizeof declared,
+  std::array<char, 512> declared{};
+  std::snprintf(declared.data(),
+                declared.size(),
                 "constant uint kSkyViewSteps = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
@@ -38,7 +39,7 @@ std::string Kernel(std::string &error) {
       !LoadShaderText("src/render/shaders/mediumRadiance.msl", body, error)) {
     return {};
   }
-  return MslPrelude(error) + declared + core + body;
+  return MslPrelude(error) + declared.data() + core + body;
 }
 
 } // namespace
@@ -106,9 +107,9 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
                        std::fmax(0.0f, Standing_.EyeHeightM) / 1000.0f;
   SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, static_cast<uint32_t>(sizeof pushed));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound[2] = {{.texture = Transmittance, .sampler = Lut},
-                                           {.texture = MultiScatter, .sampler = Lut}};
-  SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
+  std::array<SDL_GPUTextureSamplerBinding, 2> bound = {
+      {{.texture = Transmittance, .sampler = Lut}, {.texture = MultiScatter, .sampler = Lut}}};
+  SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch,
                          (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
                          (kSkyViewLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY,

@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include <array>
 #include <string_view>
 #include <expected>
 #include <vector>
@@ -39,9 +40,9 @@ Result Engine::save(std::string_view path) const {
                   "would load as a lie";
       return std::unexpected(S_->Error);
     }
-    char digits[64];
-    const auto written = std::to_chars(digits, digits + sizeof digits, *value);
-    lines.push_back(row.What + " " + std::string(digits, written.ptr) + "\n");
+    std::array<char, 64> digits{};
+    const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), *value);
+    lines.push_back(row.What + " " + std::string(digits.data(), written.ptr) + "\n");
   }
   std::sort(lines.begin(), lines.end());
   std::string text = "outshine-save 1 " + S_->Session.Declared.Named.Name + " " +

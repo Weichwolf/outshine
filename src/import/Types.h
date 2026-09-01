@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_TYPES_H
 #define OUTSHINE_IMPORT_TYPES_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -9,6 +10,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "math/Mat4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
 #include "Span.h"
@@ -130,7 +132,7 @@ struct Node {
   int Light = -1;
 
   bool HasMatrix = false;
-  double Matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 Matrix = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   Vec3 Translation;
   Quat Rotation;
   Vec3 Scale = {{1, 1, 1}};

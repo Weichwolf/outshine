@@ -3,6 +3,7 @@
 #include "Ephemeris.h"
 #include "CivilTime.h"
 
+#include <array>
 #include <algorithm>
 #include <cstdint>
 #include <ctime>
@@ -30,7 +31,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
                : std::unexpected(S_->Error);
   }
   if (S_->Session.Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
-    Core::InputPump::Fired fired[2];
+    std::array<Core::InputPump::Fired, 2> fired{};
     const size_t many = S_->Session.Pump.Translate(event, fired);
     if (S_->Offered == nullptr) { return std::unexpected(S_->Error); }
     bool acted = false;

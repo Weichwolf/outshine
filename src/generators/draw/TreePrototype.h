@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_TREEPROTOTYPE_H
 #define OUTSHINE_GENERATORS_DRAW_TREEPROTOTYPE_H
 
+#include <span>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -53,7 +54,7 @@ public:
                 "the tree's material row IS the engine's material row -- one width, one "
                 "spelling");
 
-  static void MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]);
+  static void MaterialRow(const TreeLook &look, std::span<float, kMaterialRowFloats> out);
 
   [[nodiscard]] const std::vector<Rank> &Ranks() const { return Ranks_; }
 

@@ -2,6 +2,7 @@
 
 #include "OsmLayer.h"
 
+#include <array>
 #include <algorithm>
 #include <algorithm>
 #include <cstddef>
@@ -175,7 +176,7 @@ ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, dou
 }
 
 void ClassField::SubmitDue(double camE, double camN) {
-  const ClassGrain order[2] = {ClassGrain::Fine, ClassGrain::Coarse};
+  const std::array<ClassGrain, 2> order = {{ClassGrain::Fine, ClassGrain::Coarse}};
   for (ClassGrain grain : order) {
     Tier &t = TierOf(grain);
     const double cx = t.OrgE + t.HalfCells * t.CellM;

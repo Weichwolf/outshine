@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_SHADE_UVTRANSFORM_H
 
 #include "math/Vec2.h"
+#include <array>
 #include <cmath>
 #include <cstdint>
 
@@ -17,7 +18,7 @@ enum class UvSet : uint8_t { First, Second };
 constexpr int kUvSets = 2;
 
 struct UvTransform {
-  double M[6] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0};
+  std::array<double, 6> M = {{1.0, 0.0, 0.0, 0.0, 1.0, 0.0}};
 
   [[nodiscard]] UvPoint Apply(UvPoint uv) const {
     return UvPoint{.U = M[0] * uv.U + M[1] * uv.V + M[2], .V = M[3] * uv.U + M[4] * uv.V + M[5]};

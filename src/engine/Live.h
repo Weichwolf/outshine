@@ -3,6 +3,7 @@
 
 #include <span>
 #include <array>
+#include "math/Mat4.h"
 #include "Shape.h"
 #include <cstdint>
 #include <memory>
@@ -171,13 +172,9 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
 
-  [[nodiscard]] bool Carry(size_t body,
-                           std::span<const double, 16> worldFromBodyM,
-                           std::span<const double, 16> built,
-                           std::string &error);
-  [[nodiscard]] bool Carry(std::span<const double, 16> worldFromBodyM,
-                           std::span<const double, 16> built,
-                           std::string &error);
+  [[nodiscard]] bool
+  Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error);
+  [[nodiscard]] bool Carry(const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error);
 
   [[nodiscard]] bool Present(std::string &error);
   [[nodiscard]] bool Settle(std::string &error);
@@ -334,8 +331,8 @@ private:
   Render::Viewpoint Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
-  std::vector<std::array<double, 16>> SentBody_;
-  std::array<double, 16> SentBuilt_{};
+  std::vector<Mat4> SentBody_;
+  Mat4 SentBuilt_{};
 
   struct Volume {
     bool Empty = true;

@@ -1,5 +1,6 @@
 #include "Xml.h"
 
+#include <array>
 #include <algorithm>
 
 #include <cstdint>
@@ -215,7 +216,7 @@ bool Xml::Parse(const char *text, size_t length) {
   Text_.assign(text, length);
   Nodes_.emplace_back();
 
-  uint32_t stack[kXmlMaxDepth];
+  std::array<uint32_t, kXmlMaxDepth> stack{};
   size_t depth = 0;
   size_t at = 0;
   bool closed = false;

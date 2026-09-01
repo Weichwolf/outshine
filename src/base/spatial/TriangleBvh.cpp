@@ -1,6 +1,7 @@
 #include "TriangleBvh.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -87,8 +88,8 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
     }
     if (widest > 0.0f) {
       const float scale = static_cast<float>(kBins) / widest;
-      Box binBox[kBins];
-      uint32_t binCount[kBins] = {};
+      std::array<Box, kBins> binBox{};
+      std::array<uint32_t, kBins> binCount = {{}};
       const auto BinOf = [&](uint32_t tri) {
         const float offset = work.Centroids[tri][static_cast<size_t>(axis)] - centroidBox.Min[axis];
         const int at = static_cast<int>(offset * scale);

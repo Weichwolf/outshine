@@ -2,6 +2,7 @@
 
 #include "Pilot.h"
 
+#include <array>
 #include <algorithm>
 #include <numbers>
 #include <chrono>
@@ -185,19 +186,19 @@ bool LayCorridor(const Path::Route &route,
     const auto at = static_cast<size_t>(fitted.UndrivableAtM);
     for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size();
          ++which) {
-      char atLine[96];
-      std::snprintf(atLine,
-                    sizeof atLine,
+      std::array<char, 96> atLine{};
+      std::snprintf(atLine.data(),
+                    atLine.size(),
                     "AT %zu  %.7f %.7f",
                     which,
                     route.Legs[which].At.LatDeg,
                     route.Legs[which].At.LonDeg);
-      say.Say(atLine);
+      say.Say(atLine.data());
     }
     if (at >= 1 && at + 1 < route.Legs.size()) {
-      char legs[96];
-      std::snprintf(legs,
-                    sizeof legs,
+      std::array<char, 96> legs{};
+      std::snprintf(legs.data(),
+                    legs.size(),
                     "LEGS in %.2f m  out %.2f m",
                     Path::ApartM(route.Legs[at - 1].At.LatDeg,
                                  route.Legs[at - 1].At.LonDeg,
@@ -209,7 +210,7 @@ bool LayCorridor(const Path::Route &route,
                                  route.Legs[at + 1].At.LatDeg,
                                  route.Legs[at + 1].At.LonDeg,
                                  sphereRadiusM));
-      say.Say(legs);
+      say.Say(legs.data());
     }
   }
   if (!fitted.Laid) {

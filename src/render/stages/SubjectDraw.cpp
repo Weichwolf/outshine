@@ -72,8 +72,8 @@ namespace {
 
 struct VertexShape {
   static constexpr uint32_t kRuns = 7;
-  SDL_GPUVertexBufferDescription Buffers[kRuns];
-  SDL_GPUVertexAttribute Attributes[kRuns];
+  std::array<SDL_GPUVertexBufferDescription, kRuns> Buffers{};
+  std::array<SDL_GPUVertexAttribute, kRuns> Attributes{};
   uint32_t Count = 0;
 };
 
@@ -101,7 +101,7 @@ SDL_GPUVertexElementFormat FormatOf(uint32_t floats) {
 }
 
 VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
-  VertexRun runs[kMostVertexRuns] = {};
+  std::array<VertexRun, kMostVertexRuns> runs = {{}};
   const uint32_t count = RunsOf(layout, writesVelocity, runs);
   VertexShape shape;
   for (uint32_t at = 0; at < count; ++at) {
@@ -206,7 +206,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
     }
 
     const bool blends = kind == SurfaceKind::Blended;
-    SDL_GPUColorTargetDescription targets[kMaxColourAttachments] = {};
+    std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
     targets[0].format = gpu.HdrFormat;
     if (blends) { targets[0].blend_state = OverBlend(); }
 
@@ -241,13 +241,13 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
         wanted.vertex_shader = vertex.Get();
         wanted.fragment_shader = fragment.Get();
         wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-        wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers;
+        wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers.data();
         wanted.vertex_input_state.num_vertex_buffers = shape.Count;
-        wanted.vertex_input_state.vertex_attributes = shape.Attributes;
+        wanted.vertex_input_state.vertex_attributes = shape.Attributes.data();
         wanted.vertex_input_state.num_vertex_attributes = shape.Count;
         wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
         wanted.rasterizer_state.front_face = kGltfFrontFace;
-        wanted.target_info.color_target_descriptions = targets;
+        wanted.target_info.color_target_descriptions = targets.data();
         wanted.target_info.num_color_targets = static_cast<Uint32>(Colours.size());
         wanted.target_info.has_depth_stencil_target = true;
         wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
@@ -309,42 +309,42 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   Vec3f f0;
   DielectricF0(row, f0);
 
-  const float scalars[] = {material.Coverage(),
-                           material.State().CoverageCut(),
-                           row.Metalness,
-                           row.Roughness,
-                           row.BaseColour[0],
-                           row.BaseColour[1],
-                           row.BaseColour[2],
-                           row.BaseColour[3],
-                           row.Emission[0],
-                           row.Emission[1],
-                           row.Emission[2],
-                           material.NormalScale,
-                           identity,
-                           f0[0],
-                           f0[1],
-                           f0[2],
-                           DielectricF90(row),
-                           row.Transmission,
-                           row.Thickness,
-                           row.AttenuationDistance,
-                           row.AttenuationColour[0],
-                           row.AttenuationColour[1],
-                           row.AttenuationColour[2],
-                           row.SheenColour[0],
-                           row.SheenColour[1],
-                           row.SheenColour[2],
-                           row.SheenRoughness,
-                           row.Clearcoat,
-                           row.ClearcoatRoughness,
-                           row.Anisotropy,
-                           row.AnisotropyRotationRad,
-                           row.Iridescence,
-                           row.IridescenceIor,
-                           row.IridescenceThicknessMinNm,
-                           row.IridescenceThicknessMaxNm};
-  static_assert(sizeof scalars / sizeof scalars[0] == static_cast<size_t>(kSurfaceScalars),
+  const std::array scalars = {material.Coverage(),
+                              material.State().CoverageCut(),
+                              row.Metalness,
+                              row.Roughness,
+                              row.BaseColour[0],
+                              row.BaseColour[1],
+                              row.BaseColour[2],
+                              row.BaseColour[3],
+                              row.Emission[0],
+                              row.Emission[1],
+                              row.Emission[2],
+                              material.NormalScale,
+                              identity,
+                              f0[0],
+                              f0[1],
+                              f0[2],
+                              DielectricF90(row),
+                              row.Transmission,
+                              row.Thickness,
+                              row.AttenuationDistance,
+                              row.AttenuationColour[0],
+                              row.AttenuationColour[1],
+                              row.AttenuationColour[2],
+                              row.SheenColour[0],
+                              row.SheenColour[1],
+                              row.SheenColour[2],
+                              row.SheenRoughness,
+                              row.Clearcoat,
+                              row.ClearcoatRoughness,
+                              row.Anisotropy,
+                              row.AnisotropyRotationRad,
+                              row.Iridescence,
+                              row.IridescenceIor,
+                              row.IridescenceThicknessMinNm,
+                              row.IridescenceThicknessMaxNm};
+  static_assert(scalars.size() == static_cast<size_t>(kSurfaceScalars),
                 "the surface row and its declared length are one statement");
   std::ranges::copy(scalars, slot.Row.begin());
 
@@ -456,8 +456,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   BatchLayout.clear();
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = mesh.Anchor[axis]; }
   if (ModelStamp_ != Frame_) {
-    const double *const from = ModelStamp_ == 0u ? mesh.Model : Model;
-    for (int part = 0; part < 16; part++) { ModelBefore_[part] = from[part]; }
+    ModelBefore_ = ModelStamp_ == 0u ? mesh.Model : Model;
     ModelStamp_ = Frame_;
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
@@ -554,13 +553,13 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   {
     const Heap::Tagged uploading("mesh-upload");
-    SubjectResidency::Crossing run[] = {
-        {.Into = &Bound().Idx,
-         .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Index)],
-         .Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-         .From = mesh.Indices,
-         .Bytes = Bound().NIdx * static_cast<uint32_t>(sizeof(uint32_t))}};
-    if (!Bound().Cross(run, 1, false, error)) {
+    std::array run = {SubjectResidency::Crossing{
+        .Into = &Bound().Idx,
+        .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Index)],
+        .Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .From = mesh.Indices,
+        .Bytes = Bound().NIdx * static_cast<uint32_t>(sizeof(uint32_t))}};
+    if (!Bound().Cross(run, false, error)) {
       Bound().NIdx = 0;
       return false;
     }
@@ -599,7 +598,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
     return made;
   };
 
-  SubjectResidency::Crossing streams[] = {
+  std::array streams = {
       crossing(&Bound().Vtx,
                &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Vertex)],
                pose.Verts,
@@ -642,7 +641,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
                positionBytes),
   };
   if (!HandPlacements(deferred, error)) { return false; }
-  if (!Bound().Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
+  if (!Bound().Cross(streams, deferred, error)) {
     Bound().NIdx = 0;
     return false;
   }
@@ -685,24 +684,27 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
   }
 
   const auto read = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-  SubjectResidency::Crossing cut[] = {
-      {.Into = &Bound().ClusterSpheres,
-       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterSpheres)],
-       .Usage = read,
-       .From = mesh.ClusterSpheres.data(),
-       .Bytes = static_cast<uint32_t>(mesh.ClusterSpheres.size() * sizeof(float))},
-      {.Into = &Bound().ClusterJobs,
-       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterJobs)],
-       .Usage = read,
-       .From = jobs.data(),
-       .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
-      {.Into = &Bound().ClusterBatches,
-       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterBatches)],
-       .Usage = read,
-       .From = rows.data(),
-       .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
+  std::array cut = {
+      SubjectResidency::Crossing{
+          .Into = &Bound().ClusterSpheres,
+          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterSpheres)],
+          .Usage = read,
+          .From = mesh.ClusterSpheres.data(),
+          .Bytes = static_cast<uint32_t>(mesh.ClusterSpheres.size() * sizeof(float))},
+      SubjectResidency::Crossing{
+          .Into = &Bound().ClusterJobs,
+          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterJobs)],
+          .Usage = read,
+          .From = jobs.data(),
+          .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
+      SubjectResidency::Crossing{
+          .Into = &Bound().ClusterBatches,
+          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterBatches)],
+          .Usage = read,
+          .From = rows.data(),
+          .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
   };
-  if (!Bound().Cross(cut, sizeof cut / sizeof cut[0], false, error)) {
+  if (!Bound().Cross(cut, false, error)) {
     Args_.clear();
     Jobs_ = 0;
     return false;
@@ -736,13 +738,13 @@ bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
   if (Args_.empty() || !Bound().DrawArgs) { return true; }
   for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
   const auto bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
-  SubjectResidency::Crossing table[] = {
-      {.Into = &Bound().DrawArgs,
-       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],
-       .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
-       .From = Args_.data(),
-       .Bytes = bytes}};
-  return Bound().Cross(table, 1, deferred, error);
+  std::array table = {SubjectResidency::Crossing{
+      .Into = &Bound().DrawArgs,
+      .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],
+      .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
+      .From = Args_.data(),
+      .Bytes = bytes}};
+  return Bound().Cross(table, deferred, error);
 }
 
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
@@ -757,22 +759,22 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
   Rows_.assign(needed * 32u, 0.0f);
   for (size_t row = 0; row < needed; ++row) {
     const bool placed = row * 16u + 16u <= Placed_.size();
-    const double *const now = placed ? Placed_.data() + row * 16u : Model;
+    const double *const now = placed ? Placed_.data() + row * 16u : Model.data();
     const bool carried = placed ? row < Stamped_.size() && Stamped_[row] != 0u : ModelStamp_ != 0u;
-    const double *const was = !carried ? now : (placed ? Before_.data() + row * 16u : ModelBefore_);
+    const double *const was =
+        !carried ? now : (placed ? Before_.data() + row * 16u : ModelBefore_.data());
     for (size_t at = 0; at < 16u; ++at) {
       Rows_[row * 32u + at] = static_cast<float>(now[at]);
       Rows_[row * 32u + 16u + at] = static_cast<float>(was[at]);
     }
   }
-  SubjectResidency::Crossing rows[] = {
-      {.Into = &Bound().Placed,
-       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Placements)],
-       .Usage =
-           SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-       .From = Rows_.data(),
-       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(float))}};
-  return Bound().Cross(rows, 1, deferred, error);
+  std::array rows = {SubjectResidency::Crossing{
+      .Into = &Bound().Placed,
+      .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Placements)],
+      .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+      .From = Rows_.data(),
+      .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(float))}};
+  return Bound().Cross(rows, deferred, error);
 }
 
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
@@ -794,8 +796,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   }
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = pose.Anchor[axis]; }
   if (ModelStamp_ != Frame_) {
-    const double *const from = ModelStamp_ == 0u ? pose.Model : Model;
-    for (int part = 0; part < 16; part++) { ModelBefore_[part] = from[part]; }
+    ModelBefore_ = ModelStamp_ == 0u ? pose.Model : Model;
     ModelStamp_ = Frame_;
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
@@ -872,7 +873,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (Bound().NIdx == 0 || Batches.empty() || !Bound().Vtx || !Bound().Idx || !Bound().Emit) {
     return;
   }
-  float uniform[kUniFloats] = {};
+  std::array<float, kUniFloats> uniform = {{}};
   const auto place = [this, &ctx, &uniform, &into] {
     for (int axis = 0; axis < 3; ++axis) {
       uniform[48 + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
@@ -882,7 +883,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
     for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
     ++UniformPushes_;
-    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform.data(), sizeof uniform);
   };
   place();
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
@@ -921,7 +922,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     if (wantedPipeline != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Pipelines[wantedPipeline].Get());
 
-      SDL_GPUBufferBinding runs[VertexShape::kRuns] = {};
+      std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
       uint32_t count = 0;
       runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Vtx.Get(), .offset = 0};
       if (textured) {
@@ -942,26 +943,26 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       if (WritesVelocity) {
         runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Prev.Get(), .offset = 0};
       }
-      SDL_BindGPUVertexBuffers(into.Pass, 0, runs, count);
+      SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
       bound = wantedPipeline;
     }
     if (!slotBound || boundSlot != batch.MaterialSlot) {
-      const SDL_GPUTextureSamplerBinding images[kSubjectImages] = {
-          {.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
-          {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
-          {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
-          {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
-          {.texture = surface.SpecularStrength.Image.Get(),
-           .sampler = surface.SpecularStrength.Sample.Get()},
-          {.texture = surface.SpecularTint.Image.Get(),
-           .sampler = surface.SpecularTint.Sample.Get()},
+      const std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> images = {
+          {{.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
+           {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
+           {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
+           {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
+           {.texture = surface.SpecularStrength.Image.Get(),
+            .sampler = surface.SpecularStrength.Sample.Get()},
+           {.texture = surface.SpecularTint.Image.Get(),
+            .sampler = surface.SpecularTint.Sample.Get()},
 
-          {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
-           .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
+           {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
+            .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
 
-          {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-           .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}};
-      SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
+           {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+            .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
+      SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kSubjectImages);
       if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
         SDL_GPUBuffer *const storage[kSubjectFragmentStorage] = {
             SkyIrradiance_, GroundClasses_, GroundPalette_};

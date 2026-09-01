@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_FRAGMENTARMS_H
 #define OUTSHINE_RENDER_STAGES_FRAGMENTARMS_H
 
+#include <array>
 #include <cstddef>
 
 #include <scene/SurfaceState.h>
@@ -37,7 +38,7 @@ DomainPresents(SurfaceDomain domain, ShadingArm shading, bool textured, SurfaceK
   return shading == ShadingArm::Lit && textured && kind == SurfaceKind::Opaque;
 }
 
-inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
+inline constexpr std::array<FragmentArm, kFragmentArms> kFragmentArmRows = {{
     {.Domain = SurfaceDomain::Subject,
      .Shading = ShadingArm::Flat,
      .Textured = false,
@@ -349,7 +350,7 @@ inline constexpr FragmentArm kFragmentArmRows[kFragmentArms] = {
      .Textured = true,
      .Kind = SurfaceKind::Refractive,
      .Entry = nullptr},
-};
+}};
 
 constexpr bool EveryFragmentArmIsAtItsOwnIndex() {
   for (std::size_t at = 0; at < kFragmentArms; ++at) {

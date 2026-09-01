@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_ENGINEHELD_H
 #define OUTSHINE_ENGINE_ENGINEHELD_H
 
+#include <array>
 #include <Outshine.h>
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -89,18 +90,18 @@ private:
   std::vector<Measure> Took;
 
   [[nodiscard]] static std::string Rounded(double how) {
-    char held[32];
-    std::snprintf(held, sizeof held, "%.6g", how);
-    return held;
+    std::array<char, 32> held{};
+    std::snprintf(held.data(), held.size(), "%.6g", how);
+    return held.data();
   }
 
   std::string Why;
 };
 
 [[nodiscard]] inline std::string Said(double value) {
-  char held[32] = {};
-  std::snprintf(held, sizeof held, "%.5f", value);
-  return held;
+  std::array<char, 32> held = {{}};
+  std::snprintf(held.data(), held.size(), "%.5f", value);
+  return held.data();
 }
 
 [[nodiscard]] inline std::string Beneath(const std::string &under, const std::string &named) {
@@ -119,9 +120,11 @@ SlurpFile(const std::string &held, std::string &text, std::string &error) {
     return false;
   }
   text.clear();
-  char block[4096];
+  std::array<char, 4096> block{};
   size_t read = 0;
-  while ((read = std::fread(block, 1, sizeof block, file)) > 0) { text.append(block, read); }
+  while ((read = std::fread(block.data(), 1, block.size(), file)) > 0) {
+    text.append(block.data(), read);
+  }
   std::fclose(file);
   return true;
 }
@@ -139,16 +142,15 @@ public:
   }
 
   [[nodiscard]] bool Call(const Script::Value &callee,
-                          const Script::Value *args,
-                          size_t count,
+                          std::span<const Script::Value> args,
                           Script::Value &out) override {
     out = Script::Value();
     if (Client_ == nullptr || callee.What != Script::Kind::Ref) { return false; }
     const size_t which = static_cast<size_t>(callee.Ref) - 1;
     if (callee.Ref <= 0 || which >= Named_.size()) { return false; }
 
-    std::vector<Argument> handed(count);
-    for (size_t at = 0; at < count; ++at) {
+    std::vector<Argument> handed(args.size());
+    for (size_t at = 0; at < args.size(); ++at) {
       if (args[at].What == Script::Kind::Text) {
         handed[at].Is = Argument::Kind::Text;
         handed[at].Text = args[at].Text;
@@ -244,7 +246,7 @@ struct Kept {
   Audio::Mixer Sounding;
   bool Mixing = false;
   std::vector<Audio::Heard> Sources[2];
-  Audio::Listening Ear[2];
+  std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
 };
 

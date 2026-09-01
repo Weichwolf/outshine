@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ACTOR_BODY_RIG_H
 #define OUTSHINE_ACTOR_BODY_RIG_H
 
+#include <array>
 #include <cstddef>
 
 #include "math/Vec3.h"
@@ -44,18 +45,18 @@ struct Controls {
 };
 
 struct Rig {
-  Mount Mounts[kMaxMounts];
+  std::array<Mount, kMaxMounts> Mounts{};
   size_t Count = 0;
-  double HeldSlipRad[kMaxMounts] = {0.0};
+  std::array<double, kMaxMounts> HeldSlipRad = {{0.0}};
 };
 
 struct Reading {
   size_t Count = 0;
-  bool Touching[kMaxMounts] = {false};
-  double LoadN[kMaxMounts] = {0.0};
-  double PressedM[kMaxMounts] = {0.0};
-  double SlipRad[kMaxMounts] = {0.0};
-  double RatioOfHold[kMaxMounts] = {0.0};
+  std::array<bool, kMaxMounts> Touching = {{false}};
+  std::array<double, kMaxMounts> LoadN = {{0.0}};
+  std::array<double, kMaxMounts> PressedM = {{0.0}};
+  std::array<double, kMaxMounts> SlipRad = {{0.0}};
+  std::array<double, kMaxMounts> RatioOfHold = {{0.0}};
   size_t Airborne = 0;
   size_t OffTheSurface = 0;
   double HeaviestN = 0.0;

@@ -4,6 +4,7 @@
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -56,7 +57,7 @@ bool TonemapStage::Configure(const Gpu &gpu,
     return false;
   }
 
-  SDL_GPUColorTargetDescription target[2] = {};
+  std::array<SDL_GPUColorTargetDescription, 2> target = {{}};
   target[0].format = options.Temporal ? linear : gpu.SurfaceFormat;
   target[1].format = gpu.SurfaceFormat;
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
@@ -66,7 +67,7 @@ bool TonemapStage::Configure(const Gpu &gpu,
   pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
   pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = target;
+  pipeline.target_info.color_target_descriptions = target.data();
   pipeline.target_info.num_color_targets = options.Temporal ? 2u : 1u;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
   if (made == nullptr) {
@@ -95,16 +96,16 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
                .Pad = {0.0f, 0.0f, 0.0f}};
 
     SDL_PushGPUFragmentUniformData(into.Commands, 0, &uniforms, sizeof uniforms);
-    const SDL_GPUTextureSamplerBinding images[kTemporalImages] = {
-        {.texture = Scene, .sampler = Exact},
-        {.texture = Depth, .sampler = Exact},
-        {.texture = History, .sampler = Exact},
-        {.texture = Velocity, .sampler = Exact}};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kTemporalImages);
+    const std::array<SDL_GPUTextureSamplerBinding, kTemporalImages> images = {
+        {{.texture = Scene, .sampler = Exact},
+         {.texture = Depth, .sampler = Exact},
+         {.texture = History, .sampler = Exact},
+         {.texture = Velocity, .sampler = Exact}}};
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kTemporalImages);
   } else {
-    const SDL_GPUTextureSamplerBinding images[kTonemapImages] = {
-        {.texture = Scene, .sampler = Exact}, {.texture = Depth, .sampler = Exact}};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kTonemapImages);
+    const std::array<SDL_GPUTextureSamplerBinding, kTonemapImages> images = {
+        {{.texture = Scene, .sampler = Exact}, {.texture = Depth, .sampler = Exact}}};
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kTonemapImages);
   }
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }

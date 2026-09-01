@@ -1,4 +1,6 @@
 #include "InputPump.h"
+#include <span>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -22,9 +24,9 @@ struct AxisRow {
 };
 
 struct Resolved {
-  KeyRow Keys[12];
-  PadRow Buttons[2];
-  AxisRow Axes[6];
+  std::array<KeyRow, 12> Keys{};
+  std::array<PadRow, 2> Buttons{};
+  std::array<AxisRow, 6> Axes{};
   ptrdiff_t MouseLeft, MouseRight, MouseX, MouseY;
   bool Whole;
 };
@@ -79,7 +81,7 @@ bool InputPump::Open(const InputMap &declared) {
   return true;
 }
 
-size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
+size_t InputPump::Translate(const SDL_Event &event, std::span<Fired, 2> out) const {
   if (Map_ == nullptr) { return 0; }
   const auto fire = [&](ptrdiff_t at, InputMap::Kind what, float value, size_t held) {
     const uint16_t action = Map_->ActionAt(static_cast<size_t>(at));

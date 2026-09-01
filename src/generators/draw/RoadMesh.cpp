@@ -5,6 +5,7 @@
 #include "ReferenceLine.h"
 #include "Ribbon.h"
 
+#include <array>
 #include <cmath>
 #include <span>
 #include <utility>
@@ -236,9 +237,10 @@ bool LayPiece(Span<const double> eastNorthM,
     if (why != nullptr) { ++why->Rise; }
     return false;
   }
-  const Knot bank[2] = {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
-                        Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}};
-  if (!line.Bank(std::span<const Knot>(bank, 2), said)) {
+  const std::array<Knot, 2> bank = {
+      {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
+       Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}}};
+  if (!line.Bank(std::span<const Knot>(bank.data(), 2), said)) {
     if (why != nullptr) { ++why->Bank; }
     return false;
   }
@@ -396,19 +398,19 @@ void SweepRoad(Span<const RoadStation> along,
         };
         const auto back = facing(at, at - 1u);
         const auto on = facing(at, at + 1u);
-        const RoadGate corner[2] = {RoadGate{.EastM = along[at].EastM,
-                                             .SouthM = along[at].SouthM,
-                                             .GradeM = along[at].GradeM,
-                                             .OutE = back.first,
-                                             .OutS = back.second,
-                                             .HalfWidthM = halfWidthM},
-                                    RoadGate{.EastM = along[at].EastM,
-                                             .SouthM = along[at].SouthM,
-                                             .GradeM = along[at].GradeM,
-                                             .OutE = on.first,
-                                             .OutS = on.second,
-                                             .HalfWidthM = halfWidthM}};
-        RaiseJunction(Span<const RoadGate>(corner, 2), wearsLinear, into);
+        const std::array<RoadGate, 2> corner = {{RoadGate{.EastM = along[at].EastM,
+                                                          .SouthM = along[at].SouthM,
+                                                          .GradeM = along[at].GradeM,
+                                                          .OutE = back.first,
+                                                          .OutS = back.second,
+                                                          .HalfWidthM = halfWidthM},
+                                                 RoadGate{.EastM = along[at].EastM,
+                                                          .SouthM = along[at].SouthM,
+                                                          .GradeM = along[at].GradeM,
+                                                          .OutE = on.first,
+                                                          .OutS = on.second,
+                                                          .HalfWidthM = halfWidthM}}};
+        RaiseJunction(Span<const RoadGate>(corner.data(), 2), wearsLinear, into);
       }
     }
     from += upTo;

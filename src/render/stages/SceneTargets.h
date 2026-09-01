@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_SCENETARGETS_H
 #define OUTSHINE_RENDER_STAGES_SCENETARGETS_H
 
+#include <array>
 #include <cstdio>
 #include <string>
 
@@ -26,10 +27,12 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
 }
 
 [[nodiscard]] inline std::string VelocityStaticDefine() {
-  char made[48];
-  std::snprintf(
-      made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", static_cast<double>(kVelocityStatic));
-  return {made};
+  std::array<char, 48> made{};
+  std::snprintf(made.data(),
+                made.size(),
+                "#define VELOCITY_STATIC %.9ef\n",
+                static_cast<double>(kVelocityStatic));
+  return {made.data()};
 }
 
 [[nodiscard]] inline std::string VelocityStaticMsl(std::string &error) {

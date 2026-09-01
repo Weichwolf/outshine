@@ -2,6 +2,7 @@
 #define OUTSHINE_COMPOSITOR_GROUNDPATCHWORK_H
 
 #include "math/Vec3.h"
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -45,8 +46,8 @@ struct Patchwork {
   size_t ClustersDrawn = 0;
   size_t Skipped = 0;
   size_t Bare = 0;
-  int PendingAtZoom[24] = {};
-  int WantedAtZoom[24] = {};
+  std::array<int, 24> PendingAtZoom = {{}};
+  std::array<int, 24> WantedAtZoom = {{}};
   size_t Overlapped = 0;
   long ReachTiles = 0;
   int CoarsestZoom = 0;

@@ -1,3 +1,4 @@
+#include "math/Mat4.h"
 #include "Shape.h"
 #include <array>
 #include <atomic>
@@ -40,8 +41,7 @@ bool SubjectProxy::Carries(size_t instances) {
   if (instances == 0 || Shape_ == nullptr) { return false; }
   const size_t parts = Parts();
   if (instances == Instances_) { return true; }
-  std::vector<std::array<double, 16>> moved(parts * instances,
-                                            {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  std::vector<Mat4> moved(parts * instances, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   const size_t kept = instances < Instances_ ? instances : Instances_;
   for (size_t part = 0; part < parts; ++part) {
     for (size_t one = 0; one < kept; ++one) {
@@ -72,11 +72,11 @@ bool SubjectProxy::Emits(size_t part, const std::array<float, 3> &radiance) {
   return true;
 }
 
-bool SubjectProxy::Places(size_t part, const double placement[16]) {
+bool SubjectProxy::Places(size_t part, const Mat4 &placement) {
   return Places(part, 0, placement);
 }
 
-bool SubjectProxy::Places(size_t part, size_t instance, const double placement[16]) {
+bool SubjectProxy::Places(size_t part, size_t instance, const Mat4 &placement) {
   if (instance >= Instances_) { return false; }
   const size_t row = part * Instances_ + instance;
   if (row >= PartPlacement_.size()) { return false; }
@@ -88,7 +88,7 @@ bool SubjectProxy::Places(size_t part, size_t instance, const double placement[1
 bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error) {
   const size_t rows = proxy.Placements();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
-  double ecef[16];
+  Mat4 ecef{};
   for (size_t part = 0; part < rows; ++part) {
     for (int at = 0; at < 16; ++at) { ecef[at] = proxy.Placement(part)[at]; }
     renderer.MoveSubjectPlacement(part, ecef);
@@ -102,7 +102,7 @@ bool MovedInstance(SceneRenderer &renderer,
                    size_t instance,
                    size_t fromPart,
                    size_t toPart,
-                   const double ecef[16],
+                   const Mat4 &ecef,
                    std::string &error) {
   if (instances == 0 || instance >= instances) { return true; }
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
@@ -116,7 +116,7 @@ bool Moved(SceneRenderer &renderer,
            size_t rows,
            size_t from,
            size_t to,
-           const double ecef[16],
+           const Mat4 &ecef,
            std::string &error) {
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }

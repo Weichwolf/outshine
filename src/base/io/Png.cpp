@@ -1,5 +1,6 @@
 #include "Png.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 
@@ -12,7 +13,7 @@ namespace outshine::Io {
 
 namespace {
 
-constexpr uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+constexpr std::array<uint8_t, 8> kSignature = {{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}};
 constexpr size_t kMaxSide = 16384;
 
 uint32_t Big(const uint8_t *at) {
@@ -42,7 +43,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
     return Refuse("a PNG is at least a signature and one chunk, and this is " +
                   std::to_string(length) + " bytes");
   }
-  if (std::memcmp(bytes, kSignature, sizeof(kSignature)) != 0) {
+  if (std::memcmp(bytes, kSignature.data(), sizeof(kSignature)) != 0) {
     return Refuse("these bytes do not begin with the PNG signature, so they are not a PNG");
   }
 

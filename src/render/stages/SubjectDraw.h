@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "scene/SurfaceState.h"
 
@@ -53,15 +54,15 @@ public:
 
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
-  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double *lightFromWorld) {
+  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const Mat4 &lightFromWorld) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
-    Shadowed_ = atlas != nullptr && exact != nullptr && lightFromWorld != nullptr;
+    Shadowed_ = atlas != nullptr && exact != nullptr;
     if (!Shadowed_) { return; }
-    for (int at = 0; at < 16; ++at) { LightFromWorld_[at] = lightFromWorld[at]; }
+    LightFromWorld_ = lightFromWorld;
   }
 
-  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}); }
 
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
@@ -97,12 +98,12 @@ public:
     return true;
   }
 
-  void MovePlacement(size_t slot, const double model[16]) {
+  void MovePlacement(size_t slot, const Mat4 &model) {
     if ((slot + 1) * 16u > Placed_.size()) { return; }
     Before_.resize(Placed_.size(), 0.0);
     Stamped_.resize(Placed_.size() / 16u, 0u);
     if (Stamped_[slot] != Frame_) {
-      const double *const carry = Stamped_[slot] == 0u ? model : Placed_.data() + slot * 16u;
+      const double *const carry = Stamped_[slot] == 0u ? model.data() : Placed_.data() + slot * 16u;
       for (size_t at = 0; at < 16u; ++at) { Before_[slot * 16u + at] = carry[at]; }
       Stamped_[slot] = Frame_;
     }
@@ -206,7 +207,7 @@ public:
 
   [[nodiscard]] const Vec3 &AnchorM() const { return Anchor; }
 
-  [[nodiscard]] const double *ModelM() const { return Model; }
+  [[nodiscard]] const Mat4 &ModelM() const { return Model; }
 
   [[nodiscard]] uint32_t HeldBytes() const { return At_ != nullptr ? 0u : Own_.HeldBytes(); }
 
@@ -299,7 +300,7 @@ private:
 
   SDL_GPUTexture *Atlas_ = nullptr;
   SDL_GPUSampler *AtlasSampler_ = nullptr;
-  double LightFromWorld_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   bool Shadowed_ = false;
   size_t ShadowedFrames_ = 0;
   size_t UniformPushes_ = 0;
@@ -315,11 +316,11 @@ private:
   std::vector<SubjectLight> Placed;
   SubjectEnvironment IndirectLight;
   Vec3 Anchor;
-  double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::vector<double> Placed_;
   std::vector<double> Before_;
   std::vector<uint64_t> Stamped_;
-  double ModelBefore_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 ModelBefore_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   uint64_t ModelStamp_ = 0;
   uint64_t Frame_ = 1;
   std::vector<float> Rows_;

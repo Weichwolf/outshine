@@ -1,5 +1,8 @@
+#include "math/Mat4.h"
 #include "math/Vec2.h"
 #include "Heap.h"
+#include <span>
+#include <array>
 #include <chrono>
 
 #include "SceneRenderer.h"
@@ -35,7 +38,7 @@ constexpr bool kGpuValidation = false;
 
 namespace {
 
-void MvpCamRel(float *m,
+void MvpCamRel(Mat4f &m,
                const Vec3 &R,
                const Vec3 &Uc,
                const Vec3 &F,
@@ -50,24 +53,24 @@ void MvpCamRel(float *m,
   const float asp = static_cast<float>(w) / static_cast<float>(h);
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
-  const float v[16] = {static_cast<float>(R[0]),
-                       static_cast<float>(Uc[0]),
-                       -static_cast<float>(F[0]),
-                       0,
-                       static_cast<float>(R[1]),
-                       static_cast<float>(Uc[1]),
-                       -static_cast<float>(F[1]),
-                       0,
-                       static_cast<float>(R[2]),
-                       static_cast<float>(Uc[2]),
-                       -static_cast<float>(F[2]),
-                       0,
-                       0,
-                       0,
-                       0,
-                       1};
+  const Mat4f v = {{static_cast<float>(R[0]),
+                    static_cast<float>(Uc[0]),
+                    -static_cast<float>(F[0]),
+                    0,
+                    static_cast<float>(R[1]),
+                    static_cast<float>(Uc[1]),
+                    -static_cast<float>(F[1]),
+                    0,
+                    static_cast<float>(R[2]),
+                    static_cast<float>(Uc[2]),
+                    -static_cast<float>(F[2]),
+                    0,
+                    0,
+                    0,
+                    0,
+                    1}};
 
-  float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0};
+  Mat4f p = {{f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0}};
 
   const float ndcX = w > 0 ? 2.0f * jitterX / static_cast<float>(w) : 0.0f;
   const float ndcY = h > 0 ? 2.0f * jitterY / static_cast<float>(h) : 0.0f;
@@ -78,7 +81,7 @@ void MvpCamRel(float *m,
     const float hh = 0.5f * orthoM;
     const float zf = 60000.0f;
     const float rz = 1.0f / (zf - zn);
-    float q[16] = {1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1};
+    Mat4f q = {{1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1}};
     q[12] = ndcX;
     q[13] = ndcY;
     for (int i = 0; i < 16; i++) { p[i] = q[i]; }
@@ -147,67 +150,67 @@ void SceneRenderer::SetCameraBasis(const Vec3 &eye,
   CameraFull_ = true;
 }
 
-const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
-    {.Named = Stage::MediumTransmittance,
-     .Configure = &SceneRenderer::ConfigureMediumTransmittance,
-     .Encode = &SceneRenderer::EncodeMediumTransmittance},
-    {.Named = Stage::MediumMultiScatter,
-     .Configure = &SceneRenderer::ConfigureMediumMultiScatter,
-     .Encode = &SceneRenderer::EncodeMediumMultiScatter},
-    {.Named = Stage::MediumRadiance,
-     .Configure = &SceneRenderer::ConfigureMediumRadiance,
-     .Encode = &SceneRenderer::EncodeMediumRadiance},
-    {.Named = Stage::Irradiance,
-     .Configure = &SceneRenderer::ConfigureIrradiance,
-     .Encode = &SceneRenderer::EncodeIrradiance},
-    {.Named = Stage::SubjectCull,
-     .Configure = &SceneRenderer::ConfigureSubjectCull,
-     .Encode = &SceneRenderer::EncodeSubjectCull},
-    {.Named = Stage::SubjectScan,
-     .Configure = &SceneRenderer::ConfigureSubjectCull,
-     .Encode = &SceneRenderer::EncodeSubjectScan},
-    {.Named = Stage::SubjectCompact,
-     .Configure = &SceneRenderer::ConfigureSubjectCull,
-     .Encode = &SceneRenderer::EncodeSubjectCompact},
-    {.Named = Stage::LightVisibility,
-     .Configure = &SceneRenderer::ConfigureLightVisibility,
-     .Encode = &SceneRenderer::EncodeLightVisibility},
-    {.Named = Stage::Sky,
-     .Configure = &SceneRenderer::ConfigureSky,
-     .Encode = &SceneRenderer::EncodeSky},
-    {.Named = Stage::Subjects,
-     .Configure = &SceneRenderer::ConfigureSubjects,
-     .Encode = &SceneRenderer::EncodeSubjects},
-    {.Named = Stage::SubjectsTransmissive,
-     .Configure = &SceneRenderer::ConfigureGlass,
-     .Encode = &SceneRenderer::EncodeGlass},
-    {.Named = Stage::CompositeTransmission,
-     .Configure = &SceneRenderer::ConfigureCompositeTransmission,
-     .Encode = &SceneRenderer::EncodeCompositeTransmission},
-    {.Named = Stage::AerialPerspective,
-     .Configure = &SceneRenderer::ConfigureAerialPerspective,
-     .Encode = &SceneRenderer::EncodeAerialPerspective},
-    {.Named = Stage::DepthPyramid,
-     .Configure = &SceneRenderer::ConfigureDepthPyramid,
-     .Encode = &SceneRenderer::EncodeDepthPyramid},
-    {.Named = Stage::TemporalResolve,
-     .Configure = &SceneRenderer::ConfigureTemporalResolve,
-     .Encode = nullptr},
-    {.Named = Stage::Tonemap,
-     .Configure = &SceneRenderer::ConfigureTonemap,
-     .Encode = &SceneRenderer::EncodeTonemap},
-    {.Named = Stage::Overlay,
-     .Configure = &SceneRenderer::ConfigureOverlay,
-     .Encode = &SceneRenderer::EncodeOverlay},
-    {.Named = Stage::Present,
-     .Configure = &SceneRenderer::ConfigurePresent,
-     .Encode = &SceneRenderer::EncodePresent},
-};
-const size_t SceneRenderer::kExecutorCount = sizeof kExecutors / sizeof kExecutors[0];
+const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
+    {{
+        {.Named = Stage::MediumTransmittance,
+         .Configure = &SceneRenderer::ConfigureMediumTransmittance,
+         .Encode = &SceneRenderer::EncodeMediumTransmittance},
+        {.Named = Stage::MediumMultiScatter,
+         .Configure = &SceneRenderer::ConfigureMediumMultiScatter,
+         .Encode = &SceneRenderer::EncodeMediumMultiScatter},
+        {.Named = Stage::MediumRadiance,
+         .Configure = &SceneRenderer::ConfigureMediumRadiance,
+         .Encode = &SceneRenderer::EncodeMediumRadiance},
+        {.Named = Stage::Irradiance,
+         .Configure = &SceneRenderer::ConfigureIrradiance,
+         .Encode = &SceneRenderer::EncodeIrradiance},
+        {.Named = Stage::SubjectCull,
+         .Configure = &SceneRenderer::ConfigureSubjectCull,
+         .Encode = &SceneRenderer::EncodeSubjectCull},
+        {.Named = Stage::SubjectScan,
+         .Configure = &SceneRenderer::ConfigureSubjectCull,
+         .Encode = &SceneRenderer::EncodeSubjectScan},
+        {.Named = Stage::SubjectCompact,
+         .Configure = &SceneRenderer::ConfigureSubjectCull,
+         .Encode = &SceneRenderer::EncodeSubjectCompact},
+        {.Named = Stage::LightVisibility,
+         .Configure = &SceneRenderer::ConfigureLightVisibility,
+         .Encode = &SceneRenderer::EncodeLightVisibility},
+        {.Named = Stage::Sky,
+         .Configure = &SceneRenderer::ConfigureSky,
+         .Encode = &SceneRenderer::EncodeSky},
+        {.Named = Stage::Subjects,
+         .Configure = &SceneRenderer::ConfigureSubjects,
+         .Encode = &SceneRenderer::EncodeSubjects},
+        {.Named = Stage::SubjectsTransmissive,
+         .Configure = &SceneRenderer::ConfigureGlass,
+         .Encode = &SceneRenderer::EncodeGlass},
+        {.Named = Stage::CompositeTransmission,
+         .Configure = &SceneRenderer::ConfigureCompositeTransmission,
+         .Encode = &SceneRenderer::EncodeCompositeTransmission},
+        {.Named = Stage::AerialPerspective,
+         .Configure = &SceneRenderer::ConfigureAerialPerspective,
+         .Encode = &SceneRenderer::EncodeAerialPerspective},
+        {.Named = Stage::DepthPyramid,
+         .Configure = &SceneRenderer::ConfigureDepthPyramid,
+         .Encode = &SceneRenderer::EncodeDepthPyramid},
+        {.Named = Stage::TemporalResolve,
+         .Configure = &SceneRenderer::ConfigureTemporalResolve,
+         .Encode = nullptr},
+        {.Named = Stage::Tonemap,
+         .Configure = &SceneRenderer::ConfigureTonemap,
+         .Encode = &SceneRenderer::EncodeTonemap},
+        {.Named = Stage::Overlay,
+         .Configure = &SceneRenderer::ConfigureOverlay,
+         .Encode = &SceneRenderer::EncodeOverlay},
+        {.Named = Stage::Present,
+         .Configure = &SceneRenderer::ConfigurePresent,
+         .Encode = &SceneRenderer::EncodePresent},
+    }};
 
 const SceneRenderer::Executor *SceneRenderer::ExecutorOf(Stage stage) {
-  for (size_t at = 0; at < kExecutorCount; ++at) {
-    if (kExecutors[at].Named == stage) { return &kExecutors[at]; }
+  for (const Executor &one : kExecutors) {
+    if (one.Named == stage) { return &one; }
   }
   return nullptr;
 }
@@ -996,7 +999,7 @@ static float RadicalInverse(int index, int base) {
 void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const Compiled::Pass &declared = Plan_->Passes()[pass];
   if (declared.Kind == PassKind::Compute) {
-    SDL_GPUStorageTextureReadWriteBinding written[kMaxColourAttachments] = {};
+    std::array<SDL_GPUStorageTextureReadWriteBinding, kMaxColourAttachments> written = {{}};
     uint32_t writtenCount = 0;
     for (const Resource wanted : declared.Targets) {
       SDL_GPUStorageTextureReadWriteBinding &binding = written[writtenCount++];
@@ -1004,7 +1007,7 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.cycle = false;
     }
 
-    SDL_GPUStorageBufferReadWriteBinding tables[kMaxColourAttachments] = {};
+    std::array<SDL_GPUStorageBufferReadWriteBinding, kMaxColourAttachments> tables = {{}};
     uint32_t tableCount = 0;
     for (const Resource wanted : declared.Buffers) {
       SDL_GPUBuffer *const held = BufferFor(wanted);
@@ -1016,14 +1019,15 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     const PassRecording into{
         .Commands = commands,
         .Pass = nullptr,
-        .Dispatch = SDL_BeginGPUComputePass(commands, written, writtenCount, tables, tableCount)};
+        .Dispatch = SDL_BeginGPUComputePass(
+            commands, written.data(), writtenCount, tables.data(), tableCount)};
     for (size_t at = 0; at < declared.Count; ++at) {
       EncodeStage(Plan_->Order()[declared.First + at], into);
     }
     SDL_EndGPUComputePass(into.Dispatch);
     return;
   }
-  SDL_GPUColorTargetInfo colours[kMaxColourAttachments] = {};
+  std::array<SDL_GPUColorTargetInfo, kMaxColourAttachments> colours = {{}};
   uint32_t colourCount = 0;
   for (const Resource wanted : declared.Targets) {
     SDL_GPUColorTargetInfo &attachment = colours[colourCount++];
@@ -1056,7 +1060,7 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const PassRecording into{
       .Commands = commands,
       .Pass = SDL_BeginGPURenderPass(
-          commands, colours, colourCount, declared.Depth != kNoEdge ? &depth : nullptr),
+          commands, colours.data(), colourCount, declared.Depth != kNoEdge ? &depth : nullptr),
       .Dispatch = nullptr};
   for (size_t at = 0; at < declared.Count; ++at) {
     EncodeStage(Plan_->Order()[declared.First + at], into);
@@ -1338,7 +1342,7 @@ ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mea
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
+ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> out) {
   if (!Ready_ || !IrradianceBuffer_) { return ReadState::Failed; }
   Readback read;
   if (read.FromBuffer(Device_.Get(),
@@ -1347,7 +1351,7 @@ ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  std::memcpy(out, read.Rows(), kIrradianceFloats * sizeof(float));
+  std::memcpy(out.data(), read.Rows(), kIrradianceFloats * sizeof(float));
   return ReadState::Ready;
 }
 

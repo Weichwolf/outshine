@@ -1,6 +1,8 @@
+#include "math/Mat4.h"
 #include "LightVisibilityStage.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -122,9 +124,7 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
-  if (Held_ && stands == CastAt_ && std::memcmp(Static_, CastFrom_, sizeof Static_) == 0) {
-    return;
-  }
+  if (Held_ && stands == CastAt_ && Static_ == CastFrom_) { return; }
   Casting_ = true;
   CastAt_ = stands;
   for (int at = 0; at < 16; ++at) { CastFrom_[at] = Static_[at]; }
@@ -206,7 +206,7 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   return true;
 }
 
-void LightVisibilityStage::Cast(const double lightFromWorld[16],
+void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
                                 const Vec3 &preView,
                                 int atlasPx,
                                 const PassRecording &into) {
@@ -233,12 +233,12 @@ void LightVisibilityStage::Cast(const double lightFromWorld[16],
   SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
 
-  float uniform[20] = {};
+  std::array<float, 20> uniform = {{}};
   for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
   for (int axis = 0; axis < 3; ++axis) {
     uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);
   }
-  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform.data(), sizeof uniform);
 
   CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {

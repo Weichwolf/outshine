@@ -1,5 +1,6 @@
 #include "Emit.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -39,9 +40,9 @@ void PadTo4(std::vector<uint8_t> &out, uint8_t filler) {
 }
 
 std::string Number(double value) {
-  char text[40];
-  std::snprintf(text, sizeof text, "%.9g", value);
-  return text;
+  std::array<char, 40> text{};
+  std::snprintf(text.data(), text.size(), "%.9g", value);
+  return text.data();
 }
 
 std::string Integer(size_t value) {
@@ -60,9 +61,9 @@ std::string Quoted(std::string_view text) {
       case '\t': out += "\\t"; break;
       default:
         if (code < 0x20) {
-          char escape[8];
-          std::snprintf(escape, sizeof escape, "\\u%04x", code);
-          out += escape;
+          std::array<char, 8> escape{};
+          std::snprintf(escape.data(), escape.size(), "\\u%04x", code);
+          out += escape.data();
         } else {
           out += raw;
         }

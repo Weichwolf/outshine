@@ -1,6 +1,9 @@
+#include "math/Mat4.h"
 #include "math/Vec4.h"
 #include "SubjectCullStage.h"
 
+#include <span>
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -16,18 +19,18 @@ namespace outshine::Render {
 namespace {
 
 struct CullView {
-  float Planes[24];
+  std::array<float, 24> Planes{};
   Vec4f Shift;
   uint32_t Jobs;
   float ErrorPerMetre;
-  uint32_t Pad[2];
+  std::array<uint32_t, 2> Pad{};
 
-  float Clip[16];
-  uint32_t PyramidWide[4];
-  uint32_t PyramidHigh[4];
-  uint32_t PyramidAt[4];
+  Mat4f Clip{};
+  std::array<uint32_t, 4> PyramidWide{};
+  std::array<uint32_t, 4> PyramidHigh{};
+  std::array<uint32_t, 4> PyramidAt{};
   uint32_t Occludes;
-  uint32_t Pad2[3];
+  std::array<uint32_t, 3> Pad2{};
 };
 
 static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4 aligned");
@@ -41,7 +44,7 @@ std::string Kernel(std::string &error) {
 std::atomic<float> gErrorPerMetre{0.0f};
 std::atomic<uint32_t> gJobsSwept{0};
 
-void PlanesOf(const float mvp[16], float out[24]) {
+void PlanesOf(const Mat4f &mvp, std::span<float, 24> out) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
   for (int at = 0; at < 6; ++at) {
     const int axis = at / 2;
@@ -125,8 +128,8 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.PyramidAt[level] = Pyramid_.At[level];
   }
   into.Occludes = PyramidBuffer_ != nullptr && Stood_ ? 1u : 0u;
-  const float *const up = into.Planes + static_cast<size_t>(2U * 4U);
-  const float *const down = into.Planes + static_cast<size_t>(3U * 4U);
+  const float *const up = into.Planes.data() + static_cast<size_t>(2U * 4U);
+  const float *const down = into.Planes.data() + static_cast<size_t>(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
   const float yfov = std::acos(std::fmin(std::fmax(-between, -1.0f), 1.0f));
   const float halfTangent = std::tan(0.5f * yfov);

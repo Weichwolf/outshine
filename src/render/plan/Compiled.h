@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_PLAN_COMPILED_H
 #define OUTSHINE_RENDER_PLAN_COMPILED_H
 
+#include <array>
 #include <string_view>
 #include <expected>
 #include <memory>
@@ -120,12 +121,12 @@ public:
 private:
   Compiled() = default;
 
-  bool HeldStage_[kStageCount] = {};
-  bool HeldResource_[kResourceCount] = {};
-  bool Stored_[kResourceCount] = {};
-  bool Fused_[kStageCount] = {};
-  Resource Bound_[kResourceCount] = {};
-  TexelFormat Format_[kResourceCount] = {};
+  std::array<bool, kStageCount> HeldStage_ = {{}};
+  std::array<bool, kResourceCount> HeldResource_ = {{}};
+  std::array<bool, kResourceCount> Stored_ = {{}};
+  std::array<bool, kStageCount> Fused_ = {{}};
+  std::array<Resource, kResourceCount> Bound_ = {{}};
+  std::array<TexelFormat, kResourceCount> Format_ = {{}};
   std::vector<Stage> Order_;
   std::vector<Pass> Passes_;
   std::vector<std::string> Merges_;

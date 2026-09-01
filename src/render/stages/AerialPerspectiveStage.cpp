@@ -3,6 +3,7 @@
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
+#include <array>
 #include <string>
 #include <cstdint>
 
@@ -92,11 +93,11 @@ void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound[4] = {{.texture = Scene, .sampler = Exact},
-                                                 {.texture = Depth, .sampler = Exact},
-                                                 {.texture = SkyView, .sampler = Lut},
-                                                 {.texture = Veil, .sampler = Lut}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 4);
+  const std::array<SDL_GPUTextureSamplerBinding, 4> bound = {{{.texture = Scene, .sampler = Exact},
+                                                              {.texture = Depth, .sampler = Exact},
+                                                              {.texture = SkyView, .sampler = Lut},
+                                                              {.texture = Veil, .sampler = Lut}}};
+  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 4);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }

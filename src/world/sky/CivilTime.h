@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_SKY_CIVILTIME_H
 #define OUTSHINE_WORLD_SKY_CIVILTIME_H
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstddef>
@@ -34,7 +35,7 @@ constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
 }
 
 constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
-  constexpr unsigned kLen[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  constexpr std::array<unsigned, 13> kLen = {{0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}};
   return (m == 2 && IsLeapYear(y)) ? 29u : kLen[m];
 }
 
@@ -45,8 +46,9 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
     if (++n > 20) { return false; }
   }
   if (n != 20) { return false; }
-  const char sep[20] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, 'T', 0, 0, ':', 0, 0, ':', 0, 0, 'Z'};
-  int v[20];
+  const std::array<char, 20> sep = {
+      {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, 'T', 0, 0, ':', 0, 0, ':', 0, 0, 'Z'}};
+  std::array<int, 20> v{};
   for (int i = 0; i < 20; i++) {
     if (sep[i] != 0) {
       if (s[i] != sep[i]) { return false; }

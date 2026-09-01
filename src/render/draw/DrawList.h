@@ -135,7 +135,8 @@ struct VertexRun {
 
 inline constexpr uint32_t kMostVertexRuns = 7;
 
-[[nodiscard]] constexpr uint32_t RunsOf(VertexLayout layout, bool writesVelocity, VertexRun *out) {
+[[nodiscard]] constexpr uint32_t
+RunsOf(VertexLayout layout, bool writesVelocity, std::span<VertexRun> out) {
   uint32_t n = 0;
   out[n++] = VertexRun{.Floats = 3, .Location = 0};
   if (CarriesUv(layout)) { out[n++] = VertexRun{.Floats = 2, .Location = 1}; }
@@ -150,7 +151,7 @@ inline constexpr uint32_t kMostVertexRuns = 7;
 [[nodiscard]] constexpr uint32_t RichestRunCount() {
   uint32_t most = 0;
   for (const VertexLayoutRow &row : kVertexLayouts) {
-    VertexRun runs[16] = {};
+    std::array<VertexRun, 16> runs = {{}};
     const uint32_t n = RunsOf(row.Layout, true, runs);
     most = n > most ? n : most;
   }

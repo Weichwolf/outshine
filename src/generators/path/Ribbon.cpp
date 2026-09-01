@@ -1,6 +1,7 @@
 #include "math/Vec2.h"
 #include "Ribbon.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -55,10 +56,10 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     return out;
   }
 
-  const double acrossAt[kRibbonAcross] = {-(section.HalfWidthM + section.ShoulderM),
-                                          -section.HalfWidthM,
-                                          section.HalfWidthM,
-                                          section.HalfWidthM + section.ShoulderM};
+  const std::array<double, kRibbonAcross> acrossAt = {{-(section.HalfWidthM + section.ShoulderM),
+                                                       -section.HalfWidthM,
+                                                       section.HalfWidthM,
+                                                       section.HalfWidthM + section.ShoulderM}};
 
   out.PositionM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
   out.NormalM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
@@ -86,7 +87,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     }
     const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
 
-    Astride stood[kRibbonAcross];
+    std::array<Astride, kRibbonAcross> stood{};
     for (size_t which = 0; which < kRibbonAcross; ++which) {
       stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];

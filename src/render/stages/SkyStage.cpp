@@ -1,6 +1,7 @@
 #include "SkyStage.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <cstdint>
 #include <numbers>
 #include <cstdio>
@@ -38,7 +39,7 @@ bool SkyStage::Configure(const Gpu &gpu,
     return false;
   }
 
-  SDL_GPUColorTargetDescription targets[2] = {};
+  std::array<SDL_GPUColorTargetDescription, 2> targets = {{}};
   targets[0].format = gpu.HdrFormat;
   targets[1] = VelocityTarget(true);
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
@@ -48,7 +49,7 @@ bool SkyStage::Configure(const Gpu &gpu,
   pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
   pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = targets;
+  pipeline.target_info.color_target_descriptions = targets.data();
   pipeline.target_info.num_color_targets = 2;
   pipeline.target_info.has_depth_stencil_target = true;
   pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
@@ -103,9 +104,9 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound[2] = {{.texture = SkyView, .sampler = Lut},
-                                                 {.texture = Veil, .sampler = Lut}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 2);
+  const std::array<SDL_GPUTextureSamplerBinding, 2> bound = {
+      {{.texture = SkyView, .sampler = Lut}, {.texture = Veil, .sampler = Lut}}};
+  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 2);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }

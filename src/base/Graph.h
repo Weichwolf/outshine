@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_GRAPH_H
 #define OUTSHINE_BASE_GRAPH_H
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -38,16 +39,16 @@ private:
   struct Step {
     Does Act = nullptr;
     void *With = nullptr;
-    uint32_t After[kMostAfter] = {0};
+    std::array<uint32_t, kMostAfter> After = {{0}};
     uint8_t Afters = 0;
     std::atomic<uint32_t> Owed{0};
-    uint32_t Feeds[kMostAfter] = {0};
+    std::array<uint32_t, kMostAfter> Feeds = {{0}};
     uint8_t Fed = 0;
   };
 
   void Serves(bool untilDone);
 
-  Step Held_[kMostSteps];
+  std::array<Step, kMostSteps> Held_{};
   size_t Steps_ = 0;
   unsigned Hands_ = 0;
   std::vector<std::thread> Hand_;

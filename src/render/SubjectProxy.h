@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
 #define OUTSHINE_RENDER_SUBJECTPROXY_H
 
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Shape.h"
 #include "Viewing.h"
@@ -33,8 +34,8 @@ public:
                            std::span<const SubjectMaterial> slots,
                            std::string &error);
   [[nodiscard]] bool Emits(size_t part, const std::array<float, 3> &radiance);
-  [[nodiscard]] bool Places(size_t part, const double placement[16]);
-  [[nodiscard]] bool Places(size_t part, size_t instance, const double placement[16]);
+  [[nodiscard]] bool Places(size_t part, const Mat4 &placement);
+  [[nodiscard]] bool Places(size_t part, size_t instance, const Mat4 &placement);
   [[nodiscard]] bool Carries(size_t instances);
 
   void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }
@@ -59,9 +60,7 @@ public:
 
   [[nodiscard]] uint32_t Slot(size_t part) const { return PartSurface_[part]; }
 
-  [[nodiscard]] const std::array<double, 16> &Placement(size_t row) const {
-    return PartPlacement_[row];
-  }
+  [[nodiscard]] const Mat4 &Placement(size_t row) const { return PartPlacement_[row]; }
 
   [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
 
@@ -76,7 +75,7 @@ private:
   const Shape *Shape_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
-  std::vector<std::array<double, 16>> PartPlacement_;
+  std::vector<Mat4> PartPlacement_;
   size_t Instances_ = 1;
   bool Placed_ = false;
   std::vector<SubjectMaterial> Surfaces_;
@@ -91,7 +90,7 @@ private:
                          size_t rows,
                          size_t from,
                          size_t to,
-                         const double ecef[16],
+                         const Mat4 &ecef,
                          std::string &error);
 
 [[nodiscard]] bool MovedInstance(SceneRenderer &renderer,
@@ -100,7 +99,7 @@ private:
                                  size_t instance,
                                  size_t fromPart,
                                  size_t toPart,
-                                 const double ecef[16],
+                                 const Mat4 &ecef,
                                  std::string &error);
 
 struct SubjectScratch {

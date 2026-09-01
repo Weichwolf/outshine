@@ -1,6 +1,7 @@
 #include "math/Vec2.h"
 #include "OverlayDraw.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -42,7 +43,7 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   buffer.pitch = sizeof(OverlayQuad);
 
   buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_INSTANCE;
-  SDL_GPUVertexAttribute attributes[kAttributes] = {};
+  std::array<SDL_GPUVertexAttribute, kAttributes> attributes = {{}};
   for (uint32_t i = 0; i < kAttributes; ++i) {
     attributes[i].location = i;
     attributes[i].buffer_slot = 0;
@@ -66,7 +67,7 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
   pipeline.vertex_input_state.vertex_buffer_descriptions = &buffer;
   pipeline.vertex_input_state.num_vertex_buffers = 1;
-  pipeline.vertex_input_state.vertex_attributes = attributes;
+  pipeline.vertex_input_state.vertex_attributes = attributes.data();
   pipeline.vertex_input_state.num_vertex_attributes = kAttributes;
   pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
   pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
@@ -80,8 +81,8 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   }
   Pipe = OwnedPipeline(gpu.Device, made);
 
-  static const uint8_t kWhite[4] = {255, 255, 255, 255};
-  return SetAtlas(gpu, kWhite, 1, 1, error);
+  static const std::array<uint8_t, 4> kWhite = {{255, 255, 255, 255}};
+  return SetAtlas(gpu, kWhite.data(), 1, 1, error);
 }
 
 bool OverlayDraw::SetAtlas(

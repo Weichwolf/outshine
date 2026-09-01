@@ -1,5 +1,6 @@
 #include "Address.h"
 
+#include <array>
 #include <charconv>
 #include <system_error>
 #include <string>
@@ -17,9 +18,9 @@ char *Wrote(char *at, char *end, long long value) {
 } // namespace
 
 std::string Address::Text() const {
-  char text[48];
-  char *at = text;
-  char *const end = text + sizeof text;
+  std::array<char, 48> text{};
+  char *at = text.data();
+  char *const end = text.data() + text.size();
   if (How_ == Scheme::TileZxy) {
     at = Wrote(at, end, static_cast<long long>(Z_));
     if (at < end) { *at++ = '/'; }
@@ -31,7 +32,7 @@ std::string Address::Text() const {
     if (at < end) { *at++ = '/'; }
     at = Wrote(at, end, static_cast<long long>(X_));
   }
-  return {text, static_cast<size_t>(at - text)};
+  return {text.data(), static_cast<size_t>(at - text.data())};
 }
 
 } // namespace outshine::Data

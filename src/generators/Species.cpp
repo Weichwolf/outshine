@@ -1,5 +1,6 @@
 #include "Species.h"
 
+#include <array>
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -15,8 +16,10 @@ namespace {
 [[nodiscard]] bool Slurp(const std::string &path, std::string &into) {
   FILE *file = fopen(path.c_str(), "rb");
   if (file == nullptr) { return false; }
-  char block[8192];
-  for (size_t read; (read = fread(block, 1, sizeof block, file)) > 0;) { into.append(block, read); }
+  std::array<char, 8192> block{};
+  for (size_t read; (read = fread(block.data(), 1, block.size(), file)) > 0;) {
+    into.append(block.data(), read);
+  }
   fclose(file);
   return !into.empty();
 }

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_DEPTHPYRAMID_H
 #define OUTSHINE_RENDER_STAGES_DEPTHPYRAMID_H
 
+#include <array>
 #include <cstdint>
 
 namespace outshine::Render {
@@ -8,9 +9,9 @@ namespace outshine::Render {
 inline constexpr uint32_t kPyramidLevels = 4u;
 
 struct PyramidShape {
-  uint32_t Wide[kPyramidLevels] = {};
-  uint32_t High[kPyramidLevels] = {};
-  uint32_t At[kPyramidLevels] = {};
+  std::array<uint32_t, kPyramidLevels> Wide = {{}};
+  std::array<uint32_t, kPyramidLevels> High = {{}};
+  std::array<uint32_t, kPyramidLevels> At = {{}};
   uint32_t Texels = 0;
 };
 

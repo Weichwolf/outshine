@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_YIELD_H
 #define OUTSHINE_GENERATORS_BASE_YIELD_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -46,7 +47,7 @@ private:
   OccupancySink *Space_;
   Span<Note> Notes_;
   BodyRange Range_;
-  uint32_t Claims_[Claim::kOutcomes] = {0, 0, 0, 0};
+  std::array<uint32_t, Claim::kOutcomes> Claims_ = {{0, 0, 0, 0}};
 };
 
 } // namespace outshine::Generators

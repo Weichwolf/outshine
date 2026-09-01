@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENE_TRAITS_H
 #define OUTSHINE_SCENE_TRAITS_H
 
+#include <array>
 #include <scene/Scene.h>
 
 #include <cstddef>
@@ -10,8 +11,8 @@ namespace outshine {
 
 struct Traits {
   static constexpr size_t kMost = 16;
-  uint32_t Keys[kMost] = {};
-  double Values[kMost] = {};
+  std::array<uint32_t, kMost> Keys = {{}};
+  std::array<double, kMost> Values = {{}};
   size_t Count = 0;
 
   [[nodiscard]] const double *Named(uint32_t key) const {

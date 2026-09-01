@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENE_H
 #define OUTSHINE_SCENE_H
 
+#include <span>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -79,7 +80,7 @@ inline constexpr uint8_t kEveryRole =
     static_cast<uint8_t>(unsigned{RoleBit(Role::Body)} | unsigned{RoleBit(Role::Mind)} |
                          unsigned{RoleBit(Role::Tool)} | unsigned{RoleBit(Role::Assignment)});
 
-inline constexpr RelationRule kRules[kRelations] = {
+inline constexpr std::array<RelationRule, kRelations> kRules = {{
     {.Named = Relation::IsA,
      .Exclusive = true,
      .Acyclic = true,
@@ -128,7 +129,7 @@ inline constexpr RelationRule kRules[kRelations] = {
      .TargetRoles = RoleBit(Role::Body),
      .SourceDoes = {},
      .Requires = kNoRelation},
-};
+}};
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {
   return kRules[static_cast<size_t>(relation)];
@@ -219,18 +220,19 @@ public:
   [[nodiscard]] bool link(Entity from, Relation how, Entity to);
   [[nodiscard]] bool relink(Entity from, Relation how, Entity to);
   [[nodiscard]] Entity targetOf(Entity of, Relation how) const;
-  [[nodiscard]] size_t targets(Entity of, Relation how, Entity into[], size_t room) const;
+  [[nodiscard]] size_t targets(Entity of, Relation how, std::span<Entity> into) const;
 
-  [[nodiscard]] size_t sources(Entity to, Relation how, Entity into[], size_t room) const;
-  [[nodiscard]] size_t entitiesWithRole(Role role, Entity into[], size_t room) const;
-  [[nodiscard]] size_t linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const;
-  [[nodiscard]] size_t entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const;
+  [[nodiscard]] size_t sources(Entity to, Relation how, std::span<Entity> into) const;
+  [[nodiscard]] size_t entitiesWithRole(Role role, std::span<Entity> into) const;
+  [[nodiscard]] size_t
+  linkedPairs(Relation how, std::span<Entity> from, std::span<Entity> to) const;
+  [[nodiscard]] size_t entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const;
 
   [[nodiscard]] Entity instantiate(Entity prefab);
   [[nodiscard]] Entity copyOf(Entity instance, Entity prefabChild) const;
 
   [[nodiscard]] bool offerSeats(Entity at, Tag activity, size_t seats);
-  [[nodiscard]] size_t entitiesOffering(Tag activity, Entity into[], size_t room) const;
+  [[nodiscard]] size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
   [[nodiscard]] bool claimSeat(Entity by, Entity at);
   [[nodiscard]] bool takeSeat(Entity by, Entity at);
   [[nodiscard]] bool releaseSeat(Entity by, Entity at);

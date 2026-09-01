@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SIM_DRIVETICK_H
 #define OUTSHINE_SIM_DRIVETICK_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -101,8 +102,8 @@ struct DriveState {
   double CalmAtM = 0.0;
   static constexpr size_t kOffsetBins = 512;
   static constexpr double kOffsetBinM = 0.005;
-  uint32_t OffsetBin[kOffsetBins] = {0};
-  uint32_t ClearBin[kOffsetBins] = {0};
+  std::array<uint32_t, kOffsetBins> OffsetBin = {{0}};
+  std::array<uint32_t, kOffsetBins> ClearBin = {{0}};
   double LastReachedM = -1.0;
   double StalledForS = 0.0;
   double CalmAimM = 0.0;

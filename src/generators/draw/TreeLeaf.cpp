@@ -1,6 +1,7 @@
 #include "TreeFrame.h"
 #include "TreeLeaf.h"
 
+#include <array>
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>
@@ -177,7 +178,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   }
   for (int i = 1; i < r; ++i) {
     for (int j = 0; j < a; ++j) {
-      const size_t q[4] = {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)};
+      const std::array<size_t, 4> q = {{at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)}};
       const size_t tr[2][3] = {{q[0], q[1], q[2]}, {q[0], q[2], q[3]}};
       for (const auto &k : tr) {
         const Vec3f fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);

@@ -46,6 +46,18 @@ template <typename Number> struct Matrix4 {
   /// The component at @p row of @p column, for writing.
   [[nodiscard]] constexpr Number &At(size_t row, size_t column) { return Column[column * 4 + row]; }
 
+  /// The first component, so a transform reads in a range-for.
+  [[nodiscard]] constexpr auto begin() const { return Column.begin(); }
+
+  /// One past the last component.
+  [[nodiscard]] constexpr auto end() const { return Column.end(); }
+
+  /// The first component, writable.
+  [[nodiscard]] constexpr auto begin() { return Column.begin(); }
+
+  /// One past the last component, writable.
+  [[nodiscard]] constexpr auto end() { return Column.end(); }
+
   /// The sixteen components as a fixed-extent view.
   [[nodiscard]] constexpr std::span<const Number, 16> Row() const { return Column; }
 

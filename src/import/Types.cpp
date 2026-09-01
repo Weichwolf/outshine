@@ -1,3 +1,4 @@
+#include <array>
 #include "Types.h"
 
 #include <cstring>
@@ -105,13 +106,16 @@ size_t PathComponents(AnimationPath path) {
 }
 
 Span<const AnimatablePointer> AnimatablePointers() {
-  static const AnimatablePointer kPointers[] = {
-      {.Tail = "emissiveFactor", .Factor = MaterialFactor::Emissive},
-      {.Tail = "pbrMetallicRoughness/baseColorFactor", .Factor = MaterialFactor::BaseColour},
-      {.Tail = "pbrMetallicRoughness/metallicFactor", .Factor = MaterialFactor::Metalness},
-      {.Tail = "pbrMetallicRoughness/roughnessFactor", .Factor = MaterialFactor::Roughness},
+  static constexpr std::array kPointers = {
+      AnimatablePointer{.Tail = "emissiveFactor", .Factor = MaterialFactor::Emissive},
+      AnimatablePointer{.Tail = "pbrMetallicRoughness/baseColorFactor",
+                        .Factor = MaterialFactor::BaseColour},
+      AnimatablePointer{.Tail = "pbrMetallicRoughness/metallicFactor",
+                        .Factor = MaterialFactor::Metalness},
+      AnimatablePointer{.Tail = "pbrMetallicRoughness/roughnessFactor",
+                        .Factor = MaterialFactor::Roughness},
   };
-  return {kPointers, sizeof kPointers / sizeof kPointers[0]};
+  return {kPointers.data(), kPointers.size()};
 }
 
 size_t FactorComponents(MaterialFactor factor) {

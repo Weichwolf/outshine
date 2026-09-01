@@ -52,7 +52,9 @@ constexpr int kClassPasses = 4;
   return a < b ? (static_cast<uint64_t>(a) << 32U) | b : (static_cast<uint64_t>(b) << 32U) | a;
 }
 
-void Divided(const uint32_t face[3], const uint32_t cut[3], std::vector<uint32_t> &into) {
+void Divided(std::span<const uint32_t, 3> face,
+             std::span<const uint32_t, 3> cut,
+             std::vector<uint32_t> &into) {
   const auto lay = [&into](uint32_t a, uint32_t b, uint32_t c) {
     into.push_back(a);
     into.push_back(b);
@@ -487,8 +489,8 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
   std::unordered_map<uint64_t, int> edges;
   size_t degenerate = 0;
   for (size_t tri = 0; tri < triangles; ++tri) {
-    const uint32_t corner[3] = {
-        welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]};
+    const std::array<uint32_t, 3> corner = {
+        {welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]}};
     if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
       ++degenerate;
       continue;
@@ -512,7 +514,7 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
   }
   {
     struct Corner {
-      uint32_t Bits[6] = {0, 0, 0, 0, 0, 0};
+      std::array<uint32_t, 6> Bits = {{0, 0, 0, 0, 0, 0}};
 
       bool operator==(const Corner &other) const noexcept {
         for (size_t part = 0; part < 6; ++part) {
@@ -916,9 +918,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         std::vector<uint32_t> finer;
         finer.reserve(laid->Index.size() * 2u);
         for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
-          const uint32_t face[3] = {laid->Index[at], laid->Index[at + 1u], laid->Index[at + 2u]};
-          const uint32_t cut[3] = {
-              halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])};
+          const std::array<uint32_t, 3> face = {
+              {laid->Index[at], laid->Index[at + 1u], laid->Index[at + 2u]}};
+          const std::array<uint32_t, 3> cut = {
+              {halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])}};
           Divided(face, cut, finer);
         }
         classDivided += (finer.size() - laid->Index.size()) / 3u;
@@ -1492,7 +1495,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("ring: cells holding more than one", static_cast<double>(crowded), "cells");
 
     facesAt[0].reserve(laid->Index.size() / 3u);
-    size_t rungTaken[kDrapeRungs] = {};
+    std::array<size_t, kDrapeRungs> rungTaken = {{}};
     for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
       double lowE = 1.0e30;
       double highE = -1.0e30;
@@ -1590,7 +1593,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           *out = static_cast<double>(stood->second);
           return true;
         };
-        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
         if (held(west, north, &corner[0]) && held(west + 1, north, &corner[1]) &&
             held(west, north + 1, &corner[2]) && held(west + 1, north + 1, &corner[3])) {
           const double above = corner[0] + (corner[1] - corner[0]) * alongE;
@@ -1729,7 +1732,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double steepestRamp = 0.0;
     if (vectors != nullptr && decksRaised > 0) {
       const std::span<const double> points = vectors->Points();
-      const auto endsOf = [&](const Ground::StreetField::Way &lane, uint64_t out[2], double at[4]) {
+      const auto endsOf = [&](const Ground::StreetField::Way &lane,
+                              std::span<uint64_t, 2> out,
+                              std::span<double, 4> at) {
         const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
         const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
         if (last + 1 >= points.size()) { return false; }
@@ -1754,8 +1759,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t at = 0; at < ways.Ways().size(); ++at) {
         const Ground::StreetField::Way &lane = ways.Ways()[at];
         if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-        uint64_t key[2] = {0, 0};
-        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        std::array<uint64_t, 2> key = {{0, 0}};
+        std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
         if (!endsOf(lane, key, corner)) { continue; }
         for (int side = 0; side < 2; ++side) {
           double stood = 0.0;
@@ -1793,8 +1798,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (const Ground::StreetField::Way &lane : ways.Ways()) {
           if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
           if (!(lane.MaxGradient > 0.0f)) { continue; }
-          uint64_t key[2] = {0, 0};
-          double corner[4] = {0.0, 0.0, 0.0, 0.0};
+          std::array<uint64_t, 2> key = {{0, 0}};
+          std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
           if (!endsOf(lane, key, corner)) { continue; }
           const auto low = endM.find(key[0]);
           const auto high = endM.find(key[1]);
@@ -1818,8 +1823,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
       for (const Ground::StreetField::Way &lane : ways.Ways()) {
         if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
-        uint64_t key[2] = {0, 0};
-        double corner[4] = {0.0, 0.0, 0.0, 0.0};
+        std::array<uint64_t, 2> key = {{0, 0}};
+        std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
         if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
         Vec2 stood = {{0.0, 0.0}};
         if (!groundAt(corner[0], corner[1], &stood[0]) ||
@@ -2365,8 +2370,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
             const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
             if (last + 1 < points.size()) {
-              const uint64_t key[2] = {WayEndKey(points[first], points[first + 1]),
-                                       WayEndKey(points[last], points[last + 1])};
+              const std::array<uint64_t, 2> key = {{WayEndKey(points[first], points[first + 1]),
+                                                    WayEndKey(points[last], points[last + 1])}};
               for (int side = 0; side < 2; ++side) {
                 const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
                 const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
@@ -2814,7 +2819,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const size_t began = places.size();
         const bool whole = true;
         for (uint32_t step = 1; step + 1 < lake.PointCount && whole; ++step) {
-          const uint32_t corners[3] = {0u, step, step + 1u};
+          const std::array<uint32_t, 3> corners = {{0u, step, step + 1u}};
           for (const uint32_t corner : corners) {
             const size_t at = (static_cast<size_t>(lake.FirstPoint) + corner) * 2;
             double eastM = 0.0;

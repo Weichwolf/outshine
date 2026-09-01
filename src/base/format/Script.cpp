@@ -1,5 +1,6 @@
 #include "Script.h"
 
+#include <array>
 #include <charconv>
 
 #include "DecimalEdge.h"
@@ -34,13 +35,13 @@ std::string Value::AsText() const {
     case Kind::Number: break;
   }
 
-  char held[32];
+  std::array<char, 32> held{};
   if (Number == std::floor(Number) && std::fabs(Number) < 1e15) {
-    std::snprintf(held, sizeof held, "%lld", static_cast<long long>(Number));
+    std::snprintf(held.data(), held.size(), "%lld", static_cast<long long>(Number));
   } else {
-    std::snprintf(held, sizeof held, "%g", Number);
+    std::snprintf(held.data(), held.size(), "%g", Number);
   }
-  return held;
+  return held.data();
 }
 
 namespace {
@@ -931,11 +932,11 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
     case Node::Shape::Call: {
       Value callee;
       if (!Evaluate(node.A, host, callee, error)) { return false; }
-      Value args[kMaxArgs];
+      std::array<Value, kMaxArgs> args{};
       for (size_t i = 0; i < node.Parts.size() && i < kMaxArgs; ++i) {
         if (!Evaluate(node.Parts[i], host, args[i], error)) { return false; }
       }
-      if (!host.Call(callee, args, node.Parts.size(), out)) {
+      if (!host.Call(callee, std::span(args).first(std::min(node.Parts.size(), kMaxArgs)), out)) {
         error = "the host does not answer this call, and a call that quietly did nothing is the "
                 "defect a refusal here prevents";
         return false;

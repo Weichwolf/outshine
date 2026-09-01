@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_OCCUPANCYSINK_H
 #define OUTSHINE_GENERATORS_BASE_OCCUPANCYSINK_H
 
+#include <array>
 #include <cstdint>
 
 #include "ContactMaterial.h"
@@ -51,7 +52,7 @@ private:
   Storage Store_;
   double SpanEm_ = 0.0, SpanNm_ = 0.0;
   int CellsE_ = 0, CellsN_ = 0;
-  uint32_t Claims_[Claim::kOutcomes] = {0, 0, 0, 0};
+  std::array<uint32_t, Claim::kOutcomes> Claims_ = {{0, 0, 0, 0}};
   float MaxRadiusM_ = 0.0f;
 };
 

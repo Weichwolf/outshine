@@ -1,8 +1,10 @@
 #ifndef OUTSHINE_RENDER_STAGES_LIGHTVISIBILITYSTAGE_H
 #define OUTSHINE_RENDER_STAGES_LIGHTVISIBILITYSTAGE_H
 
+#include <array>
 #include <string>
 
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "FrameContext.h"
 #include "Gpu.h"
@@ -33,7 +35,7 @@ public:
 
   void Build(const Vec3 &preView);
 
-  [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
+  [[nodiscard]] const Mat4 &LightFromWorld() const { return LightFromWorld_; }
 
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
 
@@ -47,10 +49,8 @@ public:
 private:
   uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void Cast(const double lightFromWorld[16],
-            const Vec3 &preView,
-            int atlasPx,
-            const PassRecording &into);
+  void
+  Cast(const Mat4 &lightFromWorld, const Vec3 &preView, int atlasPx, const PassRecording &into);
 
   size_t CastBatches_ = 0;
   Vec3 StoodAtM_;
@@ -59,10 +59,10 @@ private:
   Vec3 ToSun_ = {{0, 0, 1}};
   Vec3 Up_ = {{0, 1, 0}};
   double RadiusM_ = 0.0;
-  double LightFromWorld_[16] = {};
+  Mat4 LightFromWorld_ = {{}};
 
-  double Static_[16] = {};
-  double CastFrom_[16] = {};
+  Mat4 Static_ = {{}};
+  Mat4 CastFrom_ = {{}};
   uint64_t CastAt_ = 0;
   bool Held_ = false;
   bool Casting_ = true;

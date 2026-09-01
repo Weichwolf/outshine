@@ -1,7 +1,9 @@
 #ifndef OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
 #define OUTSHINE_RENDER_STAGES_SUBJECTTYPES_H
 
+#include <array>
 #include <cstdint>
+#include "math/Mat4.h"
 #include "ClusterDag.h"
 #include <span>
 
@@ -115,7 +117,7 @@ struct SubjectPose {
   SubjectStream PrevVerts;
   uint32_t VertexCount = 0;
   Vec3 Anchor = {{0, 0, 0}};
-  double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 };
 
 struct SubjectMesh : SubjectPose {

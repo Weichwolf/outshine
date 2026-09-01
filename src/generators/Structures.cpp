@@ -1,5 +1,6 @@
 #include "Structures.h"
 
+#include <array>
 #include <cmath>
 
 #include "math/Vec3.h"
@@ -35,20 +36,20 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   const double lat = asked.LatDeg;
   const double lon = asked.LonDeg;
 
-  const double ring[kCorners * 2] = {lat - halfDeg,
-                                     lon - halfDeg,
-                                     lat - halfDeg,
-                                     lon + halfDeg,
-                                     lat + halfDeg,
-                                     lon + halfDeg,
-                                     lat + halfDeg,
-                                     lon - halfDeg};
-  const double corners[kCorners] = {0.0, 0.0, 0.0, 0.0};
+  const std::array<double, kCorners * 2> ring = {{lat - halfDeg,
+                                                  lon - halfDeg,
+                                                  lat - halfDeg,
+                                                  lon + halfDeg,
+                                                  lat + halfDeg,
+                                                  lon + halfDeg,
+                                                  lat + halfDeg,
+                                                  lon - halfDeg}};
+  const std::array<double, kCorners> corners = {{0.0, 0.0, 0.0, 0.0}};
   Vec3 anchor;
 
   StructurePlan plan;
-  plan.RingLatLon = Span<const double>(ring, kCorners * 2);
-  plan.CornerAslM = Span<const double>(corners, kCorners);
+  plan.RingLatLon = Span<const double>(ring.data(), kCorners * 2);
+  plan.CornerAslM = Span<const double>(corners.data(), kCorners);
   plan.BaseAslM = 0.0;
   plan.HeightM = 6.0 + 12.0 * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;

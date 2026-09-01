@@ -3,6 +3,7 @@
 
 #include "math/Vec2.h"
 #include "math/Vec3.h"
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <span>
@@ -49,16 +50,16 @@ inline void HalveInPlace(std::span<const float> from,
       const uint32_t x1 = fromWidth > 1 ? x * 2u + 1u : 0u;
       const uint32_t y0 = fromHeight > 1 ? y * 2u : 0u;
       const uint32_t y1 = fromHeight > 1 ? y * 2u + 1u : 0u;
-      const size_t source[4] = {(static_cast<size_t>(y0) * fromWidth + x0) * 4u,
-                                (static_cast<size_t>(y0) * fromWidth + x1) * 4u,
-                                (static_cast<size_t>(y1) * fromWidth + x0) * 4u,
-                                (static_cast<size_t>(y1) * fromWidth + x1) * 4u};
+      const std::array<size_t, 4> source = {{(static_cast<size_t>(y0) * fromWidth + x0) * 4u,
+                                             (static_cast<size_t>(y0) * fromWidth + x1) * 4u,
+                                             (static_cast<size_t>(y1) * fromWidth + x0) * 4u,
+                                             (static_cast<size_t>(y1) * fromWidth + x1) * 4u}};
       const size_t at = (static_cast<size_t>(y) * toWidth + x) * 4u;
       for (size_t channel = 0; channel < 4; ++channel) {
-        const float sample[4] = {from[source[0] + channel],
-                                 from[source[1] + channel],
-                                 from[source[2] + channel],
-                                 from[source[3] + channel]};
+        const std::array<float, 4> sample = {{from[source[0] + channel],
+                                              from[source[1] + channel],
+                                              from[source[2] + channel],
+                                              from[source[3] + channel]}};
         const float mean = 0.25f * (sample[0] + sample[1] + sample[2] + sample[3]);
         if (((indexChannels >> channel) & 1u) == 0u) {
           into[at + channel] = mean;

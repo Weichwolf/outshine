@@ -1,5 +1,6 @@
 #include "Compiled.h"
 
+#include <array>
 #include <algorithm>
 #include <cstdio>
 #include <vector>
@@ -17,11 +18,11 @@ namespace {
 
 struct Pull {
   const PlanSpec &Spec;
-  bool Declared[kStageCount] = {};
-  bool HeldStage[kStageCount] = {};
-  bool HeldResource[kResourceCount] = {};
-  bool Seen[kResourceCount] = {};
-  Resource Bound[kResourceCount] = {};
+  std::array<bool, kStageCount> Declared = {{}};
+  std::array<bool, kStageCount> HeldStage = {{}};
+  std::array<bool, kResourceCount> HeldResource = {{}};
+  std::array<bool, kResourceCount> Seen = {{}};
+  std::array<Resource, kResourceCount> Bound = {{}};
   std::vector<Resource> Wanted;
   std::vector<std::string> Aliases;
   std::string Error;
@@ -131,9 +132,9 @@ const char *FormatName(TexelFormat f) {
 }
 
 std::string Decimal(float value) {
-  char text[32] = {};
-  std::snprintf(text, sizeof text, "%.9g", static_cast<double>(value));
-  return text;
+  std::array<char, 32> text = {{}};
+  std::snprintf(text.data(), text.size(), "%.9g", static_cast<double>(value));
+  return text.data();
 }
 
 } // namespace
@@ -312,7 +313,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
     }
     for (size_t at = 0; at < pass.Count; ++at) {
       const StageRow &row = Row(plan->Order_[pass.First + at]);
-      const Resource *const edges[2] = {row.Writes, row.Contributes};
+      const Resource *const edges[2] = {row.Writes.data(), row.Contributes.data()};
       for (const Resource *edge : edges) {
         for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
           const Resource target = edge[e];
@@ -340,7 +341,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
   }
 
   {
-    size_t attachedInPasses[kResourceCount] = {};
+    std::array<size_t, kResourceCount> attachedInPasses = {{}};
     for (const Pass &pass : plan->Passes_) {
       for (const Resource target : pass.Targets) {
         ++attachedInPasses[static_cast<size_t>(target)];

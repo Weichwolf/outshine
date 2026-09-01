@@ -1,5 +1,6 @@
 #include "Tangents.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -60,8 +61,8 @@ struct Vector {
 struct TriangleInfo {
   Vector Os, Ot;
   double MagS = 0, MagT = 0;
-  int Neighbour[3] = {-1, -1, -1};
-  int Group[3] = {-1, -1, -1};
+  std::array<int, 3> Neighbour = {{-1, -1, -1}};
+  std::array<int, 3> Group = {{-1, -1, -1}};
 
   size_t FirstCorner = 0;
   bool OrientPreserving = false;
@@ -150,10 +151,10 @@ private:
 };
 
 struct AttributeKey {
-  uint64_t Bits[8] = {};
+  std::array<uint64_t, 8> Bits = {{}};
 
   [[nodiscard]] bool operator<(const AttributeKey &other) const {
-    return std::memcmp(Bits, other.Bits, sizeof Bits) < 0;
+    return std::memcmp(Bits.data(), other.Bits.data(), sizeof Bits) < 0;
   }
 };
 
@@ -171,8 +172,8 @@ void Basis::Weld() {
     const Vector normal = NormalOf(Corner_[corner]);
     const Vector texture = TexCoordOf(Corner_[corner]);
     AttributeKey key;
-    const double components[8] = {
-        position.X, position.Y, position.Z, normal.X, normal.Y, normal.Z, texture.X, texture.Y};
+    const std::array<double, 8> components = {
+        {position.X, position.Y, position.Z, normal.X, normal.Y, normal.Z, texture.X, texture.Y}};
     for (size_t at = 0; at < 8; ++at) { key.Bits[at] = BitsOf(components[at]); }
     const auto found = seen.find(key);
     if (found != seen.end()) {

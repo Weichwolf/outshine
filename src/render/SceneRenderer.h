@@ -1,10 +1,12 @@
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
+#include "math/Mat4.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Heap.h"
 #include "scenario/Scenario.h"
+#include <array>
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -109,7 +111,7 @@ public:
 
   [[nodiscard]] ReadState ReadKeptIndices(uint32_t &kept, uint32_t &batches);
 
-  [[nodiscard]] ReadState ReadSkyIrradiance(float out[kIrradianceFloats]);
+  [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
   [[nodiscard]] ReadState ReadPyramid(float &nearest, float &farthest, float &mean);
 
@@ -138,7 +140,7 @@ public:
            (!DrawsGlass_ || Glass_.PlacementRows(rows, error));
   }
 
-  void MoveSubjectPlacement(size_t slot, const double model[16]) {
+  void MoveSubjectPlacement(size_t slot, const Mat4 &model) {
     Subjects_.MovePlacement(slot, model);
     if (DrawsGlass_) { Glass_.MovePlacement(slot, model); }
   }
@@ -285,7 +287,7 @@ public:
   }
 
 private:
-  Effort Spent_[kStageCount] = {};
+  std::array<Effort, kStageCount> Spent_ = {{}};
 
   void Create(Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
@@ -297,8 +299,8 @@ private:
     void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
   };
 
-  static const Executor kExecutors[];
-  static const size_t kExecutorCount;
+  static constexpr size_t kExecutorCount = 18;
+  static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   void Picture(bool picture, const PassRecording &into);
   [[nodiscard]] bool ConfigureSubjects(std::string &error);
@@ -340,7 +342,7 @@ private:
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
-  bool Touched_[kResourceCount] = {};
+  std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
 
   [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
@@ -404,7 +406,7 @@ private:
   std::string WhyNot_;
   int Width_ = 0, Height_ = 0;
 
-  OwnedTexture LinearTex_[2];
+  std::array<OwnedTexture, 2> LinearTex_{};
   int LinearAt_ = 0;
   bool HistoryHeld_ = false;
 
@@ -434,7 +436,7 @@ private:
   SDL_GPUFence *Landed_[kFramesInFlight] = {};
   int LandedAt_ = 0;
   Vec3 PrevEye_ = {{0, 0, 0}};
-  float PrevMvp_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4f PrevMvp_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 };
 
 } // namespace outshine::Render

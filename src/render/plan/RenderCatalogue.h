@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_RENDER_PLAN_RENDERCATALOGUE_H
 #define OUTSHINE_RENDER_PLAN_RENDERCATALOGUE_H
 
+#include <array>
+#include <span>
 #include <cstddef>
 #include <cstdint>
 
@@ -158,14 +160,14 @@ struct StageRow {
   PassKind Kind;
   const char *Name;
 
-  Resource Reads[kMaxEdges];
-  Resource Writes[kMaxEdges];
-  Resource Contributes[kMaxEdges];
+  std::array<Resource, kMaxEdges> Reads{};
+  std::array<Resource, kMaxEdges> Writes{};
+  std::array<Resource, kMaxEdges> Contributes{};
 
   Stage FusesInto;
 
-  Resource ReadsLastFrame[kMaxEdges] = {
-      kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge};
+  std::array<Resource, kMaxEdges> ReadsLastFrame = {
+      {kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge}};
 };
 
 inline constexpr Stage kNoFusion = Stage::kCount;
@@ -185,16 +187,16 @@ public:
 
   [[nodiscard]] constexpr bool Empty() const { return Count_ == 0; }
 
-  [[nodiscard]] constexpr const Resource *begin() const { return Items_; }
+  [[nodiscard]] constexpr const Resource *begin() const { return Items_.data(); }
 
-  [[nodiscard]] constexpr const Resource *end() const { return Items_ + Count_; }
+  [[nodiscard]] constexpr const Resource *end() const { return Items_.data() + Count_; }
 
 private:
-  Resource Items_[kMaxColourAttachments] = {};
+  std::array<Resource, kMaxColourAttachments> Items_ = {{}};
   size_t Count_ = 0;
 };
 
-inline constexpr ResourceRow kResources[] = {
+inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> kResources = {{
     {.Id = Resource::LinearSampler,
      .Kind = ResourceKind::Given,
      .Fallback = FallbackKind::None,
@@ -410,7 +412,7 @@ inline constexpr ResourceRow kResources[] = {
      .Format = TexelFormat::Table,
      .Name = "drawArguments",
      .Stride = static_cast<uint32_t>(sizeof(SDL_GPUIndexedIndirectDrawCommand))},
-};
+}};
 
 [[nodiscard]] constexpr bool IsBuffer(const ResourceRow &row) {
   return row.Format == TexelFormat::Table;
@@ -427,7 +429,7 @@ static_assert(ElementsAreStated(),
               "a table states a stride and a picture states a texel format -- one row states the "
               "wrong one of the two");
 
-inline constexpr StageRow kStages[] = {
+inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStages = {{
     {.Id = Stage::MediumTransmittance,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
@@ -657,7 +659,7 @@ inline constexpr StageRow kStages[] = {
      .Writes = {kNoEdge},
      .Contributes = {Resource::Surface, kNoEdge},
      .FusesInto = kNoFusion},
-};
+}};
 
 inline constexpr int kTemporalSettleFrames = 128;
 
@@ -672,7 +674,7 @@ constexpr size_t kStageCount = static_cast<size_t>(Stage::kCount);
   return kStages[static_cast<size_t>(s)];
 }
 
-[[nodiscard]] constexpr bool Names(const Resource (&edges)[kMaxEdges], Resource wanted) {
+[[nodiscard]] constexpr bool Names(std::span<const Resource, kMaxEdges> edges, Resource wanted) {
   for (size_t i = 0; i < kMaxEdges && edges[i] != kNoEdge; ++i) {
     if (edges[i] == wanted) { return true; }
   }
@@ -759,9 +761,9 @@ constexpr bool EveryFusionIsAdjacentAndFed() {
   return true;
 }
 
-static_assert(sizeof kResources / sizeof kResources[0] == kResourceCount,
+static_assert(kResources.size() == kResourceCount,
               "every resource of the enumeration carries a row and no row is orphaned");
-static_assert(sizeof kStages / sizeof kStages[0] == kStageCount,
+static_assert(kStages.size() == kStageCount,
               "every stage of the enumeration carries a row and no row is orphaned");
 static_assert(EveryRowIsAtItsOwnIndex(),
               "a row sits at the index its own id names, so Row() is a lookup and not a search");

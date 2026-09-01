@@ -1,3 +1,4 @@
+#include <array>
 #include <algorithm>
 #include <atomic>
 #include "RoofSurface.h"
@@ -103,7 +104,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   return nearest <= marginM * marginM;
 }
 
-int Deduped(Line *lines, int n) {
+int Deduped(std::span<Line> lines, int n) {
   int kept = 0;
   for (int i = 0; i < n; i++) {
     const double reach = std::hypot(lines[i].A, lines[i].B);
@@ -122,13 +123,13 @@ int Deduped(Line *lines, int n) {
   return kept;
 }
 
-int CreasesUncounted(const BuildingShape &s, Line *lines);
+int CreasesUncounted(const BuildingShape &s, std::span<Line> lines);
 
-int CreasesOf(const BuildingShape &s, Line *lines) {
+int CreasesOf(const BuildingShape &s, std::span<Line> lines) {
   return Deduped(lines, CreasesUncounted(s, lines));
 }
 
-int CreasesUncounted(const BuildingShape &s, Line *lines) {
+int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
   const double d = s.HalfUm - s.HalfVm;
   switch (s.Roof) {
     case RoofKind::Flat:
@@ -275,7 +276,7 @@ size_t RoofSurface::BreaksMergedTaken() {
 
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
-  Line lines[kMaxCreases];
+  std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
   double u0 = 0.0;
   double v0 = 0.0;
@@ -310,7 +311,7 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   const size_t first = tris.size();
 
-  Line lines[kMaxCreases];
+  std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
   std::vector<std::vector<En>> cells;
   cells.emplace_back(plan.begin(), plan.end());

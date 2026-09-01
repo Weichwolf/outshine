@@ -1,3 +1,4 @@
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Heap.h"
 #include <chrono>
@@ -97,7 +98,7 @@ bool Engine::State::Carries(const Physics::Rigid &body, const Vec3 &shiftM) {
 }
 
 bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM) {
-  double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 bodyFromWorld = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   {
     const Quat &q = body.OrientationQ;
     const double w = q.W;
@@ -121,7 +122,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   }
 
   if (!Picture.Standing) { return true; }
-  const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  const Mat4 stillM = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   if (!Picture.Standing->Carry(which, bodyFromWorld, stillM, Error)) { return false; }
   if (which > 0) { return true; }
   Published.Places("the body, east", body.PositionM[0], "m");
@@ -360,7 +361,7 @@ void Engine::State::Inspected() {
     }
   }
   {
-    float held[Render::kIrradianceFloats] = {};
+    std::array<float, Render::kIrradianceFloats> held = {{}};
     if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
       static const char *const kNamed[Render::kIrradianceFloats] = {
           "the device's sky irradiance, red",

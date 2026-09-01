@@ -1,6 +1,7 @@
 #include "BuildingMesh.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <atomic>
@@ -596,7 +597,7 @@ void Covering(const BuildingShape &s,
   roof.Cover(plan, tris);
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-    Vtx v[3];
+    std::array<Vtx, 3> v{};
     for (int k = 0; k < 3; k++) {
       v[k] = Face(s,
                   tris[i + static_cast<size_t>(k)],
@@ -689,7 +690,7 @@ void Box(Site &site,
          double lowZ,
          double highZ,
          Facade side) {
-  En c[4];
+  std::array<En, 4> c{};
   const En u{.E = s.AxisU.E * halfU, .N = s.AxisU.N * halfU};
   const En v{.E = -s.AxisU.N * halfV, .N = s.AxisU.E * halfV};
   c[0] = {.E = centre.E - u.E - v.E, .N = centre.N - u.N - v.N};

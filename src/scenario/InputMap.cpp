@@ -1,3 +1,4 @@
+#include <array>
 #include "InputMap.h"
 #include <cstddef>
 #include <string>
@@ -14,33 +15,33 @@ struct KnownEvent {
   InputMap::Kind What;
 };
 
-constexpr KnownEvent kEvents[] = {
-    {.Name = "KeyW", .What = InputMap::Kind::Button},
-    {.Name = "KeyA", .What = InputMap::Kind::Button},
-    {.Name = "KeyS", .What = InputMap::Kind::Button},
-    {.Name = "KeyD", .What = InputMap::Kind::Button},
-    {.Name = "Space", .What = InputMap::Kind::Button},
-    {.Name = "Escape", .What = InputMap::Kind::Button},
-    {.Name = "ArrowUp", .What = InputMap::Kind::Button},
-    {.Name = "ArrowDown", .What = InputMap::Kind::Button},
-    {.Name = "ArrowLeft", .What = InputMap::Kind::Button},
-    {.Name = "ArrowRight", .What = InputMap::Kind::Button},
-    {.Name = "PageUp", .What = InputMap::Kind::Button},
-    {.Name = "PageDown", .What = InputMap::Kind::Button},
-    {.Name = "MouseLeft", .What = InputMap::Kind::Button},
-    {.Name = "MouseRight", .What = InputMap::Kind::Button},
-    {.Name = "GamepadSouth", .What = InputMap::Kind::Button},
-    {.Name = "GamepadEast", .What = InputMap::Kind::Button},
-    {.Name = "MouseX", .What = InputMap::Kind::Axis},
-    {.Name = "MouseY", .What = InputMap::Kind::Axis},
-    {.Name = "AxisLeftX", .What = InputMap::Kind::Axis},
-    {.Name = "AxisLeftY", .What = InputMap::Kind::Axis},
-    {.Name = "AxisRightX", .What = InputMap::Kind::Axis},
-    {.Name = "AxisRightY", .What = InputMap::Kind::Axis},
-    {.Name = "TriggerLeft", .What = InputMap::Kind::Axis},
-    {.Name = "TriggerRight", .What = InputMap::Kind::Axis},
+static constexpr std::array kEvents = {
+    KnownEvent{.Name = "KeyW", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "KeyA", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "KeyS", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "KeyD", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "Space", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "Escape", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "ArrowUp", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "ArrowDown", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "ArrowLeft", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "ArrowRight", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "PageUp", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "PageDown", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "MouseLeft", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "MouseRight", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "GamepadSouth", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "GamepadEast", .What = InputMap::Kind::Button},
+    KnownEvent{.Name = "MouseX", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "MouseY", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "AxisLeftX", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "AxisLeftY", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "AxisRightX", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "AxisRightY", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "TriggerLeft", .What = InputMap::Kind::Axis},
+    KnownEvent{.Name = "TriggerRight", .What = InputMap::Kind::Axis},
 };
-constexpr size_t kEventCount = sizeof kEvents / sizeof kEvents[0];
+constexpr size_t kEventCount = kEvents.size();
 static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay outside");
 
 [[nodiscard]] std::string Catalogue() {

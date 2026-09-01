@@ -129,9 +129,9 @@ inline void IridescenceFresnel(double cosTheta1,
 [[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) { return {}; }
-  char constants[1024];
-  std::snprintf(constants,
-                sizeof constants,
+  std::array<char, 1024> constants{};
+  std::snprintf(constants.data(),
+                constants.size(),
                 "constant float kIriOutsideIor = %.17g;\n"
                 "constant float kIriF0Ceiling = %.17g;\n"
                 "constant float3 kIriVal = float3(%.6g, %.6g, %.6g);\n"
@@ -168,7 +168,7 @@ inline void IridescenceFresnel(double cosTheta1,
                 kXyzToRec709[0][2],
                 kXyzToRec709[1][2],
                 kXyzToRec709[2][2]);
-  return std::string(constants) + body;
+  return std::string(constants.data()) + body;
 }
 
 [[nodiscard]] inline std::string IridescenceLobeMsl() {

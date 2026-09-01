@@ -1,10 +1,12 @@
 #ifndef OUTSHINE_IMPORT_POSE_H
 #define OUTSHINE_IMPORT_POSE_H
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "math/Mat4.h"
 #include "math/Vec4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
@@ -57,7 +59,7 @@ private:
     Quat Rotation;
     Vec3 Scale = {{1, 1, 1}};
     bool HasMatrix = false;
-    double Matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    Mat4 Matrix = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 
     size_t WeightFirst = 0;
     size_t WeightCount = 0;

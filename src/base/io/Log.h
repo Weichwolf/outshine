@@ -1,5 +1,6 @@
 #ifndef OUTSHINE_BASE_IO_LOG_H
 #define OUTSHINE_BASE_IO_LOG_H
+#include <array>
 #include <span>
 #include <initializer_list>
 #include <string>
@@ -65,7 +66,7 @@ private:
   static LogLevel Level_;
   static thread_local LogSink *ThreadSink_;
   static thread_local double TimeS_;
-  static thread_local char Unit_[32];
+  static thread_local std::array<char, 32> Unit_;
 };
 
 class LogUnitScope {

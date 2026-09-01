@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_FORMAT_SCRIPT_H
 #define OUTSHINE_BASE_FORMAT_SCRIPT_H
 
+#include <span>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -78,11 +79,9 @@ struct Host {
     return false;
   }
 
-  [[nodiscard]] virtual bool
-  Call(const Value &callee, const Value *args, size_t count, Value &out) {
+  [[nodiscard]] virtual bool Call(const Value &callee, std::span<const Value> args, Value &out) {
     (void)callee;
     (void)args;
-    (void)count;
     (void)out;
     return false;
   }

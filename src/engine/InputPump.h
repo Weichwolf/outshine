@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_INPUTPUMP_H
 #define OUTSHINE_ENGINE_INPUTPUMP_H
 
+#include <span>
 #include <cstddef>
 #include <cstdint>
 
@@ -20,7 +21,7 @@ public:
     float Value = 0.0f;
   };
 
-  [[nodiscard]] size_t Translate(const SDL_Event &event, Fired out[2]) const;
+  [[nodiscard]] size_t Translate(const SDL_Event &event, std::span<Fired, 2> out) const;
 
 private:
   const InputMap *Map_ = nullptr;

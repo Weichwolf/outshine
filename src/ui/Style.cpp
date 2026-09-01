@@ -1,3 +1,4 @@
+#include <array>
 #include <charconv>
 #include "Style.h"
 
@@ -171,7 +172,7 @@ int HexOf(char c) {
 bool ReadColour(std::string_view text, uint32_t &out) {
   if (!text.empty() && text[0] == '#') {
     const std::string_view digits = text.substr(1);
-    int channel[4] = {0, 0, 0, 255};
+    std::array<int, 4> channel = {{0, 0, 0, 255}};
     if (digits.size() == 3 || digits.size() == 4) {
       for (size_t at = 0; at < digits.size(); ++at) {
         const int one = HexOf(digits[at]);
@@ -392,7 +393,7 @@ void Expand(std::string_view name,
     }
     size_t numbers = 0;
     size_t basisAt = parts.size();
-    std::string_view bare[2];
+    std::array<std::string_view, 2> bare{};
     for (size_t at = 0; at < parts.size(); ++at) {
       if (Bare(parts[at])) {
         if (numbers >= 2) { return true; }

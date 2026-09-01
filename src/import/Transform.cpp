@@ -1,16 +1,16 @@
+#include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Transform.h"
 #include "math/Quat.h"
 
+#include <array>
 #include <cmath>
 #include <cstring>
 
 namespace outshine::Gltf {
 
-Transform Transform::FromColumnMajor(const double m[16]) {
-  Transform t;
-  std::memcpy(t.M, m, sizeof t.M);
-  return t;
+Transform Transform::FromColumnMajor(const Mat4 &m) {
+  return Transform{.M = m};
 }
 
 Transform Transform::FromTrs(const Vec3 &translation, const Quat &rotation, const Vec3 &scale) {
@@ -21,7 +21,7 @@ Transform Transform::FromTrs(const Vec3 &translation, const Quat &rotation, cons
   const double y = rotation.Y * unit;
   const double z = rotation.Z * unit;
   const double w = rotation.W * unit;
-  const double basis[9] = {
+  const std::array<double, 9> basis = {{
       1 - 2 * (y * y + z * z),
       2 * (x * y + z * w),
       2 * (x * z - y * w),
@@ -31,7 +31,7 @@ Transform Transform::FromTrs(const Vec3 &translation, const Quat &rotation, cons
       2 * (x * z + y * w),
       2 * (y * z - x * w),
       1 - 2 * (x * x + y * y),
-  };
+  }};
   Transform t;
   for (int column = 0; column < 3; ++column) {
     for (int row = 0; row < 3; ++row) {
@@ -90,8 +90,8 @@ bool Transform::Normal(const Vec3 &normal, Vec3 &out) const {
 }
 
 bool Transform::Inverse(Transform &out) const {
-  const double *m = M;
-  double inv[16];
+  const Mat4 &m = M;
+  Mat4 inv{};
   inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
            m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
   inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] -

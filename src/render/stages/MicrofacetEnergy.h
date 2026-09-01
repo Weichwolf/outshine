@@ -100,32 +100,32 @@ inline constexpr int kEnergyViewSteps = 16;
     const double roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1);
     for (int v = 0; v < kEnergyViewSteps; ++v) {
       const double nv = static_cast<double>(v) / (kEnergyViewSteps - 1);
-      char cell[32];
-      std::snprintf(cell,
-                    sizeof cell,
+      std::array<char, 32> cell{};
+      std::snprintf(cell.data(),
+                    cell.size(),
                     "%s%.6ff",
                     albedo.empty() ? "" : ", ",
                     GgxDirectionalAlbedo(nv, roughness));
-      albedo += cell;
+      albedo += cell.data();
     }
   }
   std::string average;
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
-    char cell[32];
-    std::snprintf(cell,
-                  sizeof cell,
+    std::array<char, 32> cell{};
+    std::snprintf(cell.data(),
+                  cell.size(),
                   "%s%.6ff",
                   average.empty() ? "" : ", ",
                   GgxEnergyAverage(static_cast<double>(r) / (kEnergyRoughnessSteps - 1)));
-    average += cell;
+    average += cell.data();
   }
-  char head[256];
-  std::snprintf(head,
-                sizeof head,
+  std::array<char, 256> head{};
+  std::snprintf(head.data(),
+                head.size(),
                 "constant int kEnergyRoughnessSteps = %d;\nconstant int kEnergyViewSteps = %d;\n",
                 kEnergyRoughnessSteps,
                 kEnergyViewSteps);
-  return std::string(head) + "constant float kGgxAlbedo[] = { " + albedo + " };\n" +
+  return std::string(head.data()) + "constant float kGgxAlbedo[] = { " + albedo + " };\n" +
          "constant float kGgxAlbedoAverage[] = { " + average + " };\n" + body;
 }
 

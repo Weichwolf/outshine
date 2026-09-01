@@ -1,18 +1,20 @@
 #ifndef OUTSHINE_IMPORT_TRANSFORM_H
 #define OUTSHINE_IMPORT_TRANSFORM_H
 
+#include <array>
+#include "math/Mat4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
 
 namespace outshine::Gltf {
 
 struct Transform {
-  double M[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 M = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
 
   static Transform Identity() { return {}; }
 
   static Transform FromTrs(const Vec3 &translation, const Quat &rotation, const Vec3 &scale);
-  static Transform FromColumnMajor(const double m[16]);
+  static Transform FromColumnMajor(const Mat4 &m);
 
   Transform operator*(const Transform &after) const;
 

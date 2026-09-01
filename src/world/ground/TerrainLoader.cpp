@@ -1,6 +1,7 @@
 #include "TerrainLoader.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -143,8 +144,8 @@ struct GroundStream::Held {
   TilePool &Pool;
   Oracle Source;
   std::unique_ptr<TerrainTiles> Stitched;
-  Tile Ground[kGroundSlots];
-  Tile Coarse[kCoarseSlots];
+  std::array<Tile, kGroundSlots> Ground{};
+  std::array<Tile, kCoarseSlots> Coarse{};
   uint64_t Clock = 0;
   long Builds = 0;
   long Decodes = 0;

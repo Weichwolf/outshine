@@ -1,5 +1,6 @@
 #include "ScenarioWrite.h"
 
+#include <array>
 #include <cstdio>
 #include <string>
 
@@ -8,9 +9,9 @@ namespace outshine {
 namespace {
 
 void Number(std::string &into, const char *named, double how) {
-  char said[64];
-  std::snprintf(said, sizeof said, " %s=\"%.12g\"", named, how);
-  into += said;
+  std::array<char, 64> said{};
+  std::snprintf(said.data(), said.size(), " %s=\"%.12g\"", named, how);
+  into += said.data();
 }
 
 void Said(std::string &into, const char *named, const std::string &how) {

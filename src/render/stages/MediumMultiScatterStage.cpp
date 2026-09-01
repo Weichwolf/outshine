@@ -1,5 +1,6 @@
 #include "MediumMultiScatterStage.h"
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -12,9 +13,9 @@ namespace outshine::Render {
 namespace {
 
 std::string Kernel(std::string &error) {
-  char declared[512];
-  std::snprintf(declared,
-                sizeof declared,
+  std::array<char, 512> declared{};
+  std::snprintf(declared.data(),
+                declared.size(),
                 "constant uint kMultiScatterSteps = %uu;\n"
                 "constant uint kMultiScatterGrid = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
@@ -29,7 +30,7 @@ std::string Kernel(std::string &error) {
       !LoadShaderText("src/render/shaders/mediumMultiScatter.msl", body, error)) {
     return {};
   }
-  return MslPrelude(error) + declared + core + body;
+  return MslPrelude(error) + declared.data() + core + body;
 }
 
 } // namespace

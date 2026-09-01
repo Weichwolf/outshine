@@ -1,6 +1,7 @@
 #include "ClusterCook.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -22,7 +23,7 @@ namespace {
 }
 
 [[nodiscard]] uint32_t Morton(const Vec3f &at, const Vec3f &least, const Vec3f &span) {
-  uint32_t held[3];
+  std::array<uint32_t, 3> held{};
   for (int axis = 0; axis < 3; ++axis) {
     const float part = span[axis] > 0.0f ? (at[axis] - least[axis]) / span[axis] : 0.0f;
     const float held01 = std::clamp(part, 0.0f, 1.0f);
@@ -118,7 +119,7 @@ namespace outshine {
 namespace {
 
 struct Cell {
-  int At[3] = {0, 0, 0};
+  std::array<int, 3> At = {{0, 0, 0}};
 
   [[nodiscard]] bool operator==(const Cell &other) const {
     return At[0] == other.At[0] && At[1] == other.At[1] && At[2] == other.At[2];

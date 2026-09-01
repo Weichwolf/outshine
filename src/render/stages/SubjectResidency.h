@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_SUBJECTRESIDENCY_H
 #define OUTSHINE_RENDER_STAGES_SUBJECTRESIDENCY_H
 
+#include <span>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -91,8 +92,8 @@ struct SubjectResidency {
   bool HasTangent = false;
   bool HasColour = false;
 
-  [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
-  [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
+  [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
+  [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
 
   void DropStaged() {

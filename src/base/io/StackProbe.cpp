@@ -1,5 +1,6 @@
 #include "StackProbe.h"
 
+#include <array>
 #include <cstddef>
 #include <atomic>
 #include <cstdint>
@@ -26,7 +27,7 @@ struct Slot {
 };
 
 Slot &SlotOf(StackProbe::Purpose p) {
-  static Slot slots[StackProbe::kPurposeCount];
+  static std::array<Slot, StackProbe::kPurposeCount> slots{};
   return slots[static_cast<int>(p)];
 }
 

@@ -1,6 +1,7 @@
 #include "GroundYield.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -160,7 +161,7 @@ private:
   const GroundMesh &Mesh_;
 };
 
-double LongestEdgeM(const float *positionM, const uint32_t face[3]) {
+double LongestEdgeM(const float *positionM, std::span<const uint32_t, 3> face) {
   double most = 0.0;
   for (int at = 0; at < 3; ++at) {
     const uint32_t a = face[at];
@@ -184,7 +185,7 @@ double WantedEdgeM(const Buckets &buckets,
                    std::span<const Yields> these,
                    double finestM,
                    const float *positionM,
-                   const uint32_t face[3]) {
+                   std::span<const uint32_t, 3> face) {
   double centreE = 0.0;
   double centreS = 0.0;
   for (int at = 0; at < 3; ++at) {
@@ -228,7 +229,7 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
     std::unordered_map<uint64_t, uint32_t> split;
     bool any = false;
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
-      const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
+      const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
       const double wanted = WantedEdgeM(buckets, these, finestM, positionM, face);
       if (!(wanted > 0.0)) { continue; }
       if (LongestEdgeM(positionM, face) <= wanted) { continue; }
@@ -266,9 +267,9 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
     next.clear();
     next.reserve(index.size() * 2u);
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
-      const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
-      const uint32_t cut[3] = {
-          midpoint(face[0], face[1]), midpoint(face[1], face[2]), midpoint(face[2], face[0])};
+      const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
+      const std::array<uint32_t, 3> cut = {
+          {midpoint(face[0], face[1]), midpoint(face[1], face[2]), midpoint(face[2], face[0])}};
       const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
                        (cut[2] != 0xffffffffu ? 1 : 0);
       const auto lay = [&next](uint32_t a, uint32_t b, uint32_t c) {
@@ -434,9 +435,9 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
     next.clear();
     next.reserve(index.size() * 2u);
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
-      const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
-      const uint32_t cut[3] = {
-          cutOf(face[0], face[1]), cutOf(face[1], face[2]), cutOf(face[2], face[0])};
+      const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
+      const std::array<uint32_t, 3> cut = {
+          {cutOf(face[0], face[1]), cutOf(face[1], face[2]), cutOf(face[2], face[0])}};
       const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
                        (cut[2] != 0xffffffffu ? 1 : 0);
       const auto lay = [&next](uint32_t a, uint32_t b, uint32_t c) {
@@ -684,7 +685,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     normalM[at * 3u + 2u] = 0.0f;
   }
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
-    const uint32_t face[3] = {index[at], index[at + 1u], index[at + 2u]};
+    const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
     if (moved[face[0]] == 0u && moved[face[1]] == 0u && moved[face[2]] == 0u) { continue; }
     Vec3 edgeA = {{}};
     Vec3 edgeB = {{}};

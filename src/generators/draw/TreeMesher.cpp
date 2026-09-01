@@ -1,6 +1,8 @@
+#include <span>
 #include "TreeFrame.h"
 #include "TreeMesher.h"
 
+#include <array>
 #include <algorithm>
 #include <algorithm>
 #include <cstddef>
@@ -38,7 +40,7 @@ int TreeMesher::AddFace(int a, int b, int c, int d) {
 Vec3f TreeMesher::FaceCentroid(int fi) const {
   const Face &f = Faces_[static_cast<size_t>(fi)];
   const int n = f.D < 0 ? 3 : 4;
-  const int idx[4] = {f.A, f.B, f.C, f.D};
+  const std::array<int, 4> idx = {{f.A, f.B, f.C, f.D}};
   Vec3f s;
   for (int i = 0; i < n; ++i) { s = s + Verts_[static_cast<size_t>(idx[i])]; }
   return s * (1.0f / static_cast<float>(n));
@@ -104,7 +106,7 @@ float TreeMesher::RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &s
   return 0.9f * std::sqrt(along * along + around * around);
 }
 
-void TreeMesher::Ring(const TreeSkeleton::Node &node, float radius, int sides, int *out) {
+void TreeMesher::Ring(const TreeSkeleton::Node &node, float radius, int sides, std::span<int> out) {
   for (int j = 0; j < sides; ++j) {
     out[j] =
         AddVert(node.Pos +
@@ -112,14 +114,14 @@ void TreeMesher::Ring(const TreeSkeleton::Node &node, float radius, int sides, i
   }
 }
 
-void TreeMesher::Wall(const int *from, const int *to, int sides) {
+void TreeMesher::Wall(std::span<const int> from, std::span<const int> to, int sides) {
   for (int j = 0; j < sides; ++j) {
     AddFace(from[j], from[(j + 1) % sides], to[(j + 1) % sides], to[j]);
   }
 }
 
-void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) {
-  float splinter[kMaxSides];
+void TreeMesher::BreakProfile(uint32_t seed, int sides, std::span<float> out) {
+  std::array<float, kMaxSides> splinter{};
   TreeRandom rng(seed);
   for (float &i : splinter) { i = rng.Unit(); }
   for (int j = 0; j < sides; ++j) {
@@ -135,8 +137,11 @@ void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) {
   }
 }
 
-void TreeMesher::Cap(
-    const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap, uint32_t seed) {
+void TreeMesher::Cap(const TreeSkeleton::Node &node,
+                     std::span<const int> ring,
+                     int sides,
+                     RingCap cap,
+                     uint32_t seed) {
   float apex = 0.0f;
   switch (cap) {
     case RingCap::Base: apex = -0.6f; break;
@@ -146,7 +151,7 @@ void TreeMesher::Cap(
     case RingCap::Broken: apex = 1.4f; break;
   }
   const int ci = AddVert(node.Pos + node.Dir * (node.Radius * apex));
-  float splinter[kMaxSides] = {};
+  std::array<float, kMaxSides> splinter = {{}};
   if (cap == RingCap::Broken) { BreakProfile(seed, sides, splinter); }
   for (int j = 0; j < sides; ++j) {
     if (cap == RingCap::Broken) {
@@ -166,10 +171,10 @@ bool TreeMesher::Collar(int face,
                         const TreeSkeleton::Node &first,
                         int sides,
                         float room,
-                        int *out) {
+                        std::span<int> out) {
   if (face < 0 || (Dead_[static_cast<size_t>(face)] != 0u)) { return false; }
   const Face parent = Faces_[static_cast<size_t>(face)];
-  const int o[4] = {parent.A, parent.B, parent.C, parent.D};
+  const std::array<int, 4> o = {{parent.A, parent.B, parent.C, parent.D}};
   if (parent.D < 0) { return false; }
 
   const Vec3f ctr = anchor.Pos;
@@ -177,7 +182,7 @@ bool TreeMesher::Collar(int face,
 
   Dead_[static_cast<size_t>(face)] = 1;
 
-  int inner[kMaxSides];
+  std::array<int, kMaxSides> inner{};
   for (int j = 0; j < sides; ++j) {
     const float a = kTau * static_cast<float>(j) / static_cast<float>(sides);
     inner[j] = AddVert(ctr + RingDir(anchor, a) * r);
@@ -221,8 +226,8 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     Drawn_[i] = plant.Shoots[i].Count >= 2 && plant.Shoots[i].Reach > PixelGrow_ ? 1 : 0;
   }
 
-  int ring[kMaxSides];
-  int next[kMaxSides];
+  std::array<int, kMaxSides> ring{};
+  std::array<int, kMaxSides> next{};
   for (size_t i = 0; i < plant.Shoots.size(); ++i) {
     if (Drawn_[i] == 0u) { continue; }
     const TreeSkeleton::Shoot &shoot = plant.Shoots[i];

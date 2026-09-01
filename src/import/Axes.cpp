@@ -1,3 +1,5 @@
+#include <array>
+#include "math/Mat4.h"
 #include "math/Vec4.h"
 #include "Axes.h"
 #include "math/Vec3.h"
@@ -10,8 +12,8 @@ void InEcef(const Vec3 &gltf, Vec3 &out) {
   out[2] = -gltf[2];
 }
 
-void PlacedInEcef(const double gltf[16], double out[16]) {
-  constexpr int kAxis[4] = {1, 0, 2, 3};
+void PlacedInEcef(const Mat4 &gltf, Mat4 &out) {
+  constexpr std::array<int, 4> kAxis = {{1, 0, 2, 3}};
   constexpr Vec4 kSign = {{1.0, 1.0, -1.0, 1.0}};
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {

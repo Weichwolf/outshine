@@ -1,5 +1,6 @@
 #include "MediumTransmittanceStage.h"
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -12,9 +13,9 @@ namespace outshine::Render {
 namespace {
 
 std::string Kernel(std::string &error) {
-  char declared[256];
-  std::snprintf(declared,
-                sizeof declared,
+  std::array<char, 256> declared{};
+  std::snprintf(declared.data(),
+                declared.size(),
                 "constant uint kTransmittanceSteps = %uu;\n"
                 "constant float kMediumSampleSegment = %.9g;\n",
                 static_cast<unsigned>(kTransmittanceSteps),
@@ -25,7 +26,7 @@ std::string Kernel(std::string &error) {
       !LoadShaderText("src/render/shaders/mediumTransmittance.msl", body, error)) {
     return {};
   }
-  return MslPrelude(error) + declared + core + body;
+  return MslPrelude(error) + declared.data() + core + body;
 }
 
 } // namespace

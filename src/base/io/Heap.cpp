@@ -1,5 +1,6 @@
 #include "Heap.h"
 
+#include <array>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -30,7 +31,7 @@ struct TagRow {
   std::atomic<size_t> Taken{0};
 };
 
-TagRow gTags[kTagSlots];
+std::array<TagRow, kTagSlots> gTags{};
 
 TagRow *RowFor(const char *tag) {
   if (gTags[0].Name.load(std::memory_order_relaxed) == nullptr) {
@@ -77,23 +78,23 @@ inline void Returned(void *block) noexcept {
 }
 
 [[noreturn]] void End(const char *item, const char *bytes) {
-  char line[256];
-  std::snprintf(line,
-                sizeof line,
+  std::array<char, 256> line{};
+  std::snprintf(line.data(),
+                line.size(),
                 "outshine heap exhausted: item=%s bytes=%s liveBytes=%zu breakBytes=%zu\n",
                 item,
                 bytes,
                 HeapProbe::LiveBytes(),
                 HeapProbe::BreakBytes());
-  std::fputs(line, stderr);
+  std::fputs(line.data(), stderr);
   std::fflush(stderr);
   std::abort();
 }
 
 [[noreturn]] void EndWithCount(const char *item, size_t bytes) {
-  char count[24];
-  std::snprintf(count, sizeof count, "%zu", bytes);
-  End(item, count);
+  std::array<char, 24> count{};
+  std::snprintf(count.data(), count.size(), "%zu", bytes);
+  End(item, count.data());
 }
 
 void *TakeAligned(const char *item, size_t bytes, size_t alignment) {

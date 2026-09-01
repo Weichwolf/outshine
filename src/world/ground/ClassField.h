@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_CLASSFIELD_H
 #define OUTSHINE_WORLD_GROUND_CLASSFIELD_H
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -152,7 +153,7 @@ private:
   std::unordered_set<std::string> Unknown_;
   long UnknownFeats_ = 0;
   double StreamMs_ = 0.0, IngestMs_ = 0.0, BuildMsMax_ = 0.0;
-  long Submits_[2] = {0, 0};
+  std::array<long, 2> Submits_ = {{0, 0}};
 };
 
 } // namespace outshine::Ground

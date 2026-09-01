@@ -1,4 +1,5 @@
 #include "Telemetry.h"
+#include <array>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -6,9 +7,9 @@
 namespace outshine {
 
 void TelemetryRow::Push(double v) {
-  char b[32];
-  snprintf(b, sizeof b, "%.6f", v);
-  Fields_.emplace_back(b);
+  std::array<char, 32> b{};
+  snprintf(b.data(), b.size(), "%.6f", v);
+  Fields_.emplace_back(b.data());
 }
 
 void TelemetryRow::Push(int v) {

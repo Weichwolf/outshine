@@ -3,6 +3,7 @@
 
 #include "math/Vec3.h"
 #include "Viewing.h"
+#include <array>
 #include <scene/Geometry.h>
 #include <span>
 #include <cstdint>
@@ -125,7 +126,7 @@ public:
 
   struct Undrawn {
     size_t Primitives = 0;
-    size_t ByMode[7] = {0, 0, 0, 0, 0, 0, 0};
+    std::array<size_t, 7> ByMode = {{0, 0, 0, 0, 0, 0, 0}};
   };
 
   [[nodiscard]] const Undrawn &NotDrawn() const { return Undrawn_; }

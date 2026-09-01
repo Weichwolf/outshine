@@ -1,5 +1,6 @@
 #include "Assembly.h"
 
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <vector>
@@ -120,7 +121,7 @@ bool Assemble(const Scenario::Document &declared,
     Traits resolved;
     {
       constexpr size_t kDeepest = 8;
-      Entity chain[kDeepest];
+      std::array<Entity, kDeepest> chain{};
       size_t depth = 0;
       Entity at = prefab;
       for (; !(at == kNoEntity) && depth < kDeepest; ++depth) {

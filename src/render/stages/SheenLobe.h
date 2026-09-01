@@ -83,18 +83,18 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
     const double roughness = (r + 0.5) / kSheenAlbedoSteps;
     for (int v = 0; v < kSheenAlbedoSteps; ++v) {
       const double nv = (v + 0.5) / kSheenAlbedoSteps;
-      char cell[32];
-      std::snprintf(cell,
-                    sizeof cell,
+      std::array<char, 32> cell{};
+      std::snprintf(cell.data(),
+                    cell.size(),
                     "%s%.6ff",
                     table.empty() ? "" : ", ",
                     SheenDirectionalAlbedo(nv, roughness));
-      table += cell;
+      table += cell.data();
     }
   }
-  char head[192];
-  std::snprintf(head, sizeof head, "constant int kSheenSteps = %d;\n", kSheenAlbedoSteps);
-  return std::string(head) + "constant float kSheenAlbedo[] = { " + table + " };\n" + body;
+  std::array<char, 192> head{};
+  std::snprintf(head.data(), head.size(), "constant int kSheenSteps = %d;\n", kSheenAlbedoSteps);
+  return std::string(head.data()) + "constant float kSheenAlbedo[] = { " + table + " };\n" + body;
 }
 
 [[nodiscard]] inline std::string SheenLobeMsl() {

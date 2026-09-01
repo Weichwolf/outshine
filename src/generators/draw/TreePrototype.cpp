@@ -1,6 +1,7 @@
 #include "TreePrototype.h"
 #include "math/Vec3.h"
 
+#include <span>
 #include <cmath>
 #include <optional>
 #include <cstddef>
@@ -47,7 +48,7 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   return look;
 }
 
-void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]) {
+void TreePrototype::MaterialRow(const TreeLook &look, std::span<float, kMaterialRowFloats> out) {
   constexpr float kModeSlope = 1.5f;
   constexpr float kNearFloor = 0.80f;
   constexpr float kFarFloor = 0.95f;

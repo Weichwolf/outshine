@@ -5,6 +5,7 @@
 #include "math/Vec3.h"
 #include "Subject.h"
 
+#include <array>
 #include <algorithm>
 #include <algorithm>
 #include <cstdint>
@@ -107,10 +108,10 @@ void Triangulate(PrimitiveMode mode,
 }
 
 struct BasisKey {
-  uint64_t Bits[4] = {};
+  std::array<uint64_t, 4> Bits = {{}};
 
   bool operator<(const BasisKey &other) const {
-    return std::memcmp(Bits, other.Bits, sizeof Bits) < 0;
+    return std::memcmp(Bits.data(), other.Bits.data(), sizeof Bits) < 0;
   }
 };
 
@@ -159,7 +160,9 @@ bool Subject::MorphDeltasFor(const Document &document,
 
 Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &world) {
   if (skin.InverseBind.empty()) { return world; }
-  return world * Transform::FromColumnMajor(&skin.InverseBind[joint * 16]);
+  Mat4 bind;
+  std::copy_n(skin.InverseBind.begin() + static_cast<ptrdiff_t>(joint * 16), 16, bind.begin());
+  return world * Transform::FromColumnMajor(bind);
 }
 
 bool Subject::BlendSkinFor(const Document &document,
@@ -374,9 +377,9 @@ bool Subject::FlatNormalsFor(Part &part) {
 
   std::vector<char> owned(before, 0);
   for (size_t triangle = 0; triangle + 2 < part.IndexCount; triangle += 3) {
-    uint32_t of[3] = {Indices_[part.FirstIndex + triangle],
-                      Indices_[part.FirstIndex + triangle + 1],
-                      Indices_[part.FirstIndex + triangle + 2]};
+    std::array<uint32_t, 3> of = {{Indices_[part.FirstIndex + triangle],
+                                   Indices_[part.FirstIndex + triangle + 1],
+                                   Indices_[part.FirstIndex + triangle + 2]}};
     for (size_t corner = 0; corner < 3; ++corner) {
       const uint32_t vertex = of[corner];
       if (vertex < before && (owned[vertex] == 0)) {
@@ -509,7 +512,8 @@ static bool InstanceTransforms(const Document &document,
                                const Transform &world,
                                std::vector<Transform> &out) {
   out.clear();
-  const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
+  const std::array<int, 3> named = {
+      {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale}};
   bool any = false;
   for (const int accessor : named) { any = any || accessor >= 0; }
   if (!any) {

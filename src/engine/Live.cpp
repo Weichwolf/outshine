@@ -1,6 +1,7 @@
 #include <span>
 #include <array>
 #include <chrono>
+#include "math/Mat4.h"
 #include "Live.h"
 
 #include "Shaped.h"
@@ -580,12 +581,11 @@ bool Live::PlacedBounds(Vec3 &least, Vec3 &most, std::string &error) {
   bool first = true;
   std::array<double, 3> leastM = {0.0, 0.0, 0.0};
   std::array<double, 3> mostM = {0.0, 0.0, 0.0};
-  const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  const Mat4 identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < framed; ++part) {
     const Volume &held = PartBounds_[part];
     if (held.Empty) { continue; }
-    const std::array<double, 16> &placed =
-        part < Stood_.Parts() ? Stood_.Placement(part) : identity;
+    const Mat4 &placed = part < Stood_.Parts() ? Stood_.Placement(part) : identity;
     for (uint32_t corner = 0; corner < 8u; ++corner) {
       std::array<double, 3> from = {((corner & 1u) != 0) ? held.MostM[0] : held.LeastM[0],
                                     ((corner & 2u) != 0) ? held.MostM[1] : held.LeastM[1],
@@ -657,17 +657,15 @@ bool Live::Stand(std::string &error) {
   ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();
-  std::array<double, 16> standing = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  Mat4 standing;
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
-    if (!Stood_.Places(part, standing.data())) { return false; }
+    if (!Stood_.Places(part, standing)) { return false; }
   }
   Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
               .StandsInside = HaveEye_,
               .FramedParts = Joined_};
-  for (std::array<double, 16> &one : SentBody_) {
-    one.fill(std::numeric_limits<double>::quiet_NaN());
-  }
-  SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
+  for (Mat4 &one : SentBody_) { one.Column.fill(std::numeric_limits<double>::quiet_NaN()); }
+  SentBuilt_.Column.fill(std::numeric_limits<double>::quiet_NaN());
   if (Held_.Moves()) { Stood_.Posed(&Held_.Previous()); }
   PlacesMs_ = sinceStand();
   if (!Stood_.Wears(Table_.PartSlot, Table_.Slots, error)) { return false; }
@@ -919,25 +917,20 @@ bool Live::Carries(size_t bodies, std::string &error) {
     if (!Submit(error)) { return false; }
   }
   if (SentBody_.size() != bodies) {
-    std::array<double, 16> unsent{};
-    unsent.fill(std::numeric_limits<double>::quiet_NaN());
+    Mat4 unsent{};
+    unsent.Column.fill(std::numeric_limits<double>::quiet_NaN());
     SentBody_.resize(bodies, unsent);
   }
   return true;
 }
 
-bool Live::Carry(std::span<const double, 16> worldFromBodyM,
-                 std::span<const double, 16> built,
-                 std::string &error) {
+bool Live::Carry(const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
   return Carry(0, worldFromBodyM, built, error);
 }
 
-bool Live::Carry(size_t body,
-                 std::span<const double, 16> worldFromBodyM,
-                 std::span<const double, 16> built,
-                 std::string &error) {
+bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std::string &error) {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
-  std::array<double, 16> bodyM{};
+  Mat4 bodyM{};
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {
       bodyM[column * 4 + row] = column < 3 ? worldFromBodyM[column * 4 + row] * perUnit
@@ -957,8 +950,8 @@ bool Live::Carry(size_t body,
     return false;
   }
   if (SentBody_.empty()) {
-    std::array<double, 16> unsent{};
-    unsent.fill(std::numeric_limits<double>::quiet_NaN());
+    Mat4 unsent{};
+    unsent.Column.fill(std::numeric_limits<double>::quiet_NaN());
     SentBody_.resize(1, unsent);
   }
   if (body >= SentBody_.size() || body >= Stood_.Instances()) {
@@ -978,35 +971,29 @@ bool Live::Carry(size_t body,
   const size_t joined = Joined_ < parts ? Joined_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
-      if (!Stood_.Places(part, body, bodyM.data())) { return false; }
+      if (!Stood_.Places(part, body, bodyM)) { return false; }
     }
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      if (!Stood_.Places(part, body, built.data())) { return false; }
+      if (!Stood_.Places(part, body, built)) { return false; }
     }
   }
   PartBounds_.clear();
   Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
 
-  std::array<double, 16> ecef{};
   if (bodyMoved && joined > 0) {
-    for (int at = 0; at < 16; ++at) { ecef[at] = bodyM[at]; }
-    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, ecef.data(), error)) {
+    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, bodyM, error)) {
       return false;
     }
   }
   if (builtMoved && joined < parts) {
-    for (int at = 0; at < 16; ++at) { ecef[at] = built[at]; }
-    if (!Render::MovedInstance(
-            *Renderer_, rows, instances, body, joined, parts, ecef.data(), error)) {
+    if (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, built, error)) {
       return false;
     }
   }
-  for (int at = 0; at < 16; ++at) {
-    SentBody_[body][at] = bodyM[at];
-    SentBuilt_[at] = built[at];
-  }
+  SentBody_[body] = bodyM;
+  SentBuilt_ = built;
   return true;
 }
 

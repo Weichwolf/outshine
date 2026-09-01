@@ -1,5 +1,6 @@
 #include "Wayfinding.h"
 
+#include <array>
 #include <algorithm>
 #include <algorithm>
 #include <cstddef>
@@ -151,8 +152,8 @@ size_t Network::Cross() {
       continue;
     }
     ++Joined_;
-    const uint32_t sides[2] = {held.OverAt, held.UnderAt};
-    const uint32_t ways[2] = {held.OverWay, held.UnderWay};
+    const std::array<uint32_t, 2> sides = {{held.OverAt, held.UnderAt}};
+    const std::array<uint32_t, 2> ways = {{held.OverWay, held.UnderWay}};
     for (int side = 0; side < 2; ++side) {
       const Way &way = Ways_[ways[side]];
       const uint32_t local = sides[side] - static_cast<uint32_t>(way.First);

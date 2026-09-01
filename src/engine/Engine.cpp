@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include <array>
 #include <memory>
 #include <expected>
 #include <cstddef>
@@ -82,12 +83,12 @@ struct Travelling_ {
 
 constexpr size_t kTravels = 4;
 
-const Travelling_ kAssemblers[kTravels] = {
+const std::array<Travelling_, kTravels> kAssemblers = {{
     {.By = Scenario::Travels::Walk, .Named = "foot", .How = nullptr},
     {.By = Scenario::Travels::Drive, .Named = "road", .How = &Sim::AssembleDrive},
     {.By = Scenario::Travels::Fly, .Named = "air", .How = nullptr},
     {.By = Scenario::Travels::Rail, .Named = "rail", .How = nullptr},
-};
+}};
 
 [[nodiscard]] Assembler Assembles(Scenario::Travels by) {
   for (const Travelling_ &one : kAssemblers) {

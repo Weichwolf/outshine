@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_TREEMESHER_H
 #define OUTSHINE_GENERATORS_DRAW_TREEMESHER_H
 
+#include <span>
 #include <cstdint>
 #include <vector>
 
@@ -34,17 +35,21 @@ private:
 
   void RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot, int from);
   [[nodiscard]] bool ChordHolds(const TreeSkeleton &plant, int from, int last, int stride) const;
-  void Ring(const TreeSkeleton::Node &node, float radius, int sides, int *out);
-  void Wall(const int *from, const int *to, int sides);
-  static void BreakProfile(uint32_t seed, int sides, float *out);
-  void Cap(const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap, uint32_t seed);
+  void Ring(const TreeSkeleton::Node &node, float radius, int sides, std::span<int> out);
+  void Wall(std::span<const int> from, std::span<const int> to, int sides);
+  static void BreakProfile(uint32_t seed, int sides, std::span<float> out);
+  void Cap(const TreeSkeleton::Node &node,
+           std::span<const int> ring,
+           int sides,
+           RingCap cap,
+           uint32_t seed);
 
   [[nodiscard]] bool Collar(int face,
                             const TreeSkeleton::Node &anchor,
                             const TreeSkeleton::Node &first,
                             int sides,
                             float room,
-                            int *out);
+                            std::span<int> out);
   [[nodiscard]] static float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot);
   void Export(TreeMesh &out);
 

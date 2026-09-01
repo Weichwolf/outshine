@@ -3,6 +3,7 @@
 
 #include "HoldLane.h"
 
+#include <array>
 #include <algorithm>
 #include <cstddef>
 #include <type_traits>
@@ -150,7 +151,7 @@ const Ridden &DriveTick(const Corridor &way,
     controls.ResistingN = taken->Brake * stood.Envelope.BrakeN;
   }
 
-  outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
+  std::array<outshine::Physics::Footing, outshine::Physics::kMaxMounts> under{};
   size_t offMade = 0;
   for (size_t which = 0; which < rig.Count; ++which) {
     Vec3 worldM;
@@ -190,7 +191,7 @@ const Ridden &DriveTick(const Corridor &way,
   outshine::Physics::Fall(wrench, body, gravity);
   outshine::Physics::Resist(wrench, body, stood.Envelope.DragArea, stood.Envelope.AirDensity);
   const outshine::Physics::Reading read =
-      outshine::Physics::Bear(rig, body, under, controls, wrench, dtS);
+      outshine::Physics::Bear(rig, body, under.data(), controls, wrench, dtS);
 
   if (at.AlongM >= kFromM) {
     const double inLaneM = at.OffsetM - reins.AsideM;

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_SPAN_H
 #define OUTSHINE_BASE_SPATIAL_SPAN_H
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
