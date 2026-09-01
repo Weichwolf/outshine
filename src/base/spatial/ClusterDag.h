@@ -33,7 +33,8 @@ BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], fl
     *rad = 0.0f;
     return;
   }
-  float lo[3], hi[3];
+  float lo[3];
+  float hi[3];
   for (int a = 0; a < 3; a++) {
     lo[a] = verts[a];
     hi[a] = verts[a];
@@ -82,8 +83,9 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
   const double u2 = static_cast<double>(up[0]) * up[0] + static_cast<double>(up[1]) * up[1] +
                     static_cast<double>(up[2]) * up[2];
   if (u2 < 1.0e-12) { return 1.0f; }
-  const double dx = static_cast<double>(ctr[0]) - eye[0], dy = static_cast<double>(ctr[1]) - eye[1],
-               dz = static_cast<double>(ctr[2]) - eye[2];
+  const double dx = static_cast<double>(ctr[0]) - eye[0];
+  const double dy = static_cast<double>(ctr[1]) - eye[1];
+  const double dz = static_cast<double>(ctr[2]) - eye[2];
   const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
   if (!(d > 1.0e-6) || static_cast<double>(rad) >= d) { return 1.0f; }
   const double iu = 1.0 / std::sqrt(u2);
@@ -92,7 +94,8 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
                       iu / d;
   const double theta = std::acos(cosT < -1.0 ? -1.0 : (cosT > 1.0 ? 1.0 : cosT));
   const double alpha = std::asin(static_cast<double>(rad) / d);
-  const double lo = theta - alpha, hi = theta + alpha;
+  const double lo = theta - alpha;
+  const double hi = theta + alpha;
   const double kHalfPi = 0.5 * std::numbers::pi;
   if (lo <= kHalfPi && hi >= kHalfPi) { return 1.0f; }
   return static_cast<float>(std::max(std::sin(lo < 0.0 ? 0.0 : lo),
@@ -103,8 +106,9 @@ inline float DagSse(
     const float ctr[3], float rad, float err, const double eye[3], float fPx, const float up[3]) {
   if (!(err > 0.0f)) { return 0.0f; }
   if (err >= kDagRootErr) { return kDagRootErr; }
-  const double dx = static_cast<double>(ctr[0]) - eye[0], dy = static_cast<double>(ctr[1]) - eye[1],
-               dz = static_cast<double>(ctr[2]) - eye[2];
+  const double dx = static_cast<double>(ctr[0]) - eye[0];
+  const double dy = static_cast<double>(ctr[1]) - eye[1];
+  const double dz = static_cast<double>(ctr[2]) - eye[2];
   double d = std::sqrt(dx * dx + dy * dy + dz * dz) - static_cast<double>(rad);
   if (d < 0.05) { d = 0.05; }
   return static_cast<float>(static_cast<double>(err) *

@@ -19,9 +19,11 @@ Ground::Ground(const Tile &region, const Snapshot &snapshot)
 }
 
 Cover Ground::CoverAt(double eastM, double northM) const noexcept {
-  double lat = 0.0, lon = 0.0;
+  double lat = 0.0;
+  double lon = 0.0;
   Region_.Geo(eastM, northM, &lat, &lon);
-  double e = 0.0, n = 0.0;
+  double e = 0.0;
+  double n = 0.0;
   Classes_->Frame().Project(lat, lon, &e, &n);
   double edgeM = 0.0;
   int runnerUp = -1;

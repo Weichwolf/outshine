@@ -40,7 +40,8 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 }
 
 int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs) {
-  uint32_t cx = 0, cy = 0;
+  uint32_t cx = 0;
+  uint32_t cy = 0;
   Pending_ = 0;
   Refused_ = 0;
 
@@ -57,7 +58,8 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++) {
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
-      const long tx = static_cast<long>(cx) + dx, ty = static_cast<long>(cy) + dy;
+      const long tx = static_cast<long>(cx) + dx;
+      const long ty = static_cast<long>(cy) + dy;
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) { continue; }
@@ -353,7 +355,8 @@ void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
 
 double OsmField::Num(const Feature &f, const char *key, double def) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
+    const uint32_t k = Tags_[f.FirstTag + i];
+    const uint32_t v = Tags_[f.FirstTag + i + 1];
     if (Keys_[k] == key && Values_[v].IsNum) { return Values_[v].Num; }
   }
   return def;
@@ -361,7 +364,8 @@ double OsmField::Num(const Feature &f, const char *key, double def) const {
 
 std::string_view OsmField::Str(const Feature &f, const char *key) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
+    const uint32_t k = Tags_[f.FirstTag + i];
+    const uint32_t v = Tags_[f.FirstTag + i + 1];
     if (Keys_[k] == key && !Values_[v].IsNum) { return Strings_[Values_[v].Str]; }
   }
   return {};

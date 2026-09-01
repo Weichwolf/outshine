@@ -51,7 +51,9 @@ BrdfFresnel(const std::array<double, 3> &f0, double f90, double vh) {
 [[nodiscard]] inline double
 BrdfAnisotropicDistribution(double nh, double th, double bh, double at, double ab) {
   const double a2 = at * ab;
-  const double fx = ab * th, fy = at * bh, fz = a2 * nh;
+  const double fx = ab * th;
+  const double fy = at * bh;
+  const double fz = a2 * nh;
   const double dot = fx * fx + fy * fy + fz * fz;
   if (!(dot > 0.0)) { return 0.0; }
   const double w2 = a2 / dot;

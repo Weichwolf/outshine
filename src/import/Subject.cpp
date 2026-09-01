@@ -480,7 +480,8 @@ bool ClipOf(const Viewpoint &from, double viewportAspect, Transform &out) {
   lens.YMagM = from.YMagM;
   lens.ZNearM = from.ZNearM;
   lens.ZFarM = from.ZFarM;
-  Transform projection, view;
+  Transform projection;
+  Transform view;
   if (!lens.Projection(viewportAspect, projection)) { return false; }
   if (!ViewOf(from, view)) { return false; }
   out = projection * view;
@@ -534,7 +535,9 @@ bool InstanceTransforms(const Document &document,
     out.push_back(world);
     return true;
   }
-  std::vector<double> translation, rotation, scale;
+  std::vector<double> translation;
+  std::vector<double> rotation;
+  std::vector<double> scale;
   if (node.InstanceTranslation >= 0 &&
       !document.ReadElements(node.InstanceTranslation, translation)) {
     return false;
@@ -716,8 +719,12 @@ bool Subject::Flatten(const Document &document,
         part.Material = primitive.MaterialUnder(activeVariant);
         part.FirstVertex = 0;
         part.FirstIndex = 0;
-        std::vector<double> &atPos = Scratch_.Pos, &atNor = Scratch_.Nor, &atUv = Scratch_.Uv,
-                            &atUv1 = Scratch_.Uv1, &atCol = Scratch_.Col, &atTan = Scratch_.Tan;
+        std::vector<double> &atPos = Scratch_.Pos;
+        std::vector<double> &atNor = Scratch_.Nor;
+        std::vector<double> &atUv = Scratch_.Uv;
+        std::vector<double> &atUv1 = Scratch_.Uv1;
+        std::vector<double> &atCol = Scratch_.Col;
+        std::vector<double> &atTan = Scratch_.Tan;
         std::vector<uint32_t> &atIdx = Scratch_.Idx;
         atPos.clear();
         atNor.clear();

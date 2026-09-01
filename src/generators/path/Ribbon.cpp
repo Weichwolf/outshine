@@ -159,8 +159,10 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     }
     const uint32_t under = static_cast<uint32_t>(kRibbonAcross);
     for (uint32_t which = 0; which + 1 < static_cast<uint32_t>(kRibbonAcross); ++which) {
-      const uint32_t topA = base + which, topB = base + which + 1;
-      const uint32_t botA = base + under + which, botB = base + under + which + 1;
+      const uint32_t topA = base + which;
+      const uint32_t topB = base + which + 1;
+      const uint32_t botA = base + under + which;
+      const uint32_t botB = base + under + which + 1;
       if (atEnd) {
         out.Index.insert(out.Index.end(), {topA, botA, topB, topB, botA, botB});
       } else {

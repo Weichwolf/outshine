@@ -23,7 +23,8 @@ constexpr int kMinBranchSteps = 3;
 constexpr float kCapReach = 2.4f;
 
 TreeVec3 RadialAt(TreeVec3 dir, TreeVec3 up, float roll) {
-  TreeVec3 n, b;
+  TreeVec3 n;
+  TreeVec3 b;
   FrameFrom(dir, up, n, b);
   return n * std::cos(roll) + b * std::sin(roll);
 }
@@ -156,7 +157,8 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
 
 void TreeGrower::EmitLeafPoints(
     TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count, float roll) {
-  TreeVec3 n, b;
+  TreeVec3 n;
+  TreeVec3 b;
   FrameFrom(dir, up, n, b);
   if (count < 1) { count = 1; }
   constexpr float kAzimuthJitterRad = 0.30f;
@@ -252,7 +254,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     float leafRoll = t.Roll;
 
     {
-      TreeVec3 n, b;
+      TreeVec3 n;
+      TreeVec3 b;
       FrameFrom(t.Dir, t.Up, n, b);
       t.Up = n;
     }
@@ -269,7 +272,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       if (static_cast<int>(Plant_->Nodes.size()) >= kMaxNodes) { break; }
       const TreeVec3 oldDir = t.Dir;
 
-      TreeVec3 nf, bf;
+      TreeVec3 nf;
+      TreeVec3 bf;
       FrameFrom(t.Dir, t.Up, nf, bf);
       const float wr = g.Wander * kDeg;
       const float ub = (t.Order == 0) ? g.LeaderBias : g.BranchUpBias;
@@ -380,7 +384,8 @@ void TreeGrower::MeasureReach() {
 
 void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (Plant_->Nodes.empty()) { return; }
-  TreeVec3 mn = Vec3(1e30f, 1e30f, 1e30f), mx = Vec3(-1e30f, -1e30f, -1e30f);
+  TreeVec3 mn = Vec3(1e30f, 1e30f, 1e30f);
+  TreeVec3 mx = Vec3(-1e30f, -1e30f, -1e30f);
   auto cover = [&mn, &mx](TreeVec3 p, TreeVec3 half) {
     mn = Vec3(std::fmin(mn.X, p.X - half.X),
               std::fmin(mn.Y, p.Y - half.Y),
@@ -432,7 +437,8 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (heightM <= 0.0f) { return; }
   const float yb = 1.3f / heightM;
   for (size_t i = 1; i < TrunkProfile_.size(); ++i) {
-    const float ya = (TrunkProfile_[i - 1].X - y0) * s, yc = (TrunkProfile_[i].X - y0) * s;
+    const float ya = (TrunkProfile_[i - 1].X - y0) * s;
+    const float yc = (TrunkProfile_[i].X - y0) * s;
     if (yb > yc) { continue; }
     float u = yc > ya ? (yb - ya) / (yc - ya) : 0.0f;
     if (u < 0.0f) { u = 0.0f; }

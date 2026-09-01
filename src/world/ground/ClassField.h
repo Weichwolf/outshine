@@ -49,7 +49,8 @@ public:
 
   [[nodiscard]] int
   ClassAt(const ClassStructure &held, double lat, double lon, double *edgeM, int *runnerUp) const {
-    double e = 0.0, n = 0.0;
+    double e = 0.0;
+    double n = 0.0;
     Project(lat, lon, &e, &n);
     return held.Evaluate(e, n, edgeM, runnerUp);
   }

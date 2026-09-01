@@ -96,7 +96,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
   if (!bytes || len == 0) { return false; }
 
   Reader top{.P = bytes, .End = bytes + len, .Ok = true};
-  uint32_t num = 0, wire = 0;
+  uint32_t num = 0;
+  uint32_t wire = 0;
   while (top.Field(num, wire)) {
     if (num != 3 || wire != 2) {
       if (!top.Skip(wire)) { return false; }
@@ -107,7 +108,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
 
     Reader probe = L;
     std::string name;
-    uint32_t n2 = 0, w2 = 0;
+    uint32_t n2 = 0;
+    uint32_t w2 = 0;
     while (probe.Field(n2, w2)) {
       if (n2 == 1 && w2 == 2) {
         Reader s = probe.Bytes();
@@ -132,7 +134,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         double val = 0.0;
         std::string str;
         bool isNum = false;
-        uint32_t vn = 0, vw = 0;
+        uint32_t vn = 0;
+        uint32_t vw = 0;
         while (v.Field(vn, vw)) {
           if (vn == 1 && vw == 2) {
             Reader s = v.Bytes();
@@ -183,7 +186,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       Feature f{};
       f.FirstTag = static_cast<uint32_t>(Tags_.size());
       f.FirstRing = static_cast<uint32_t>(Rings_.size());
-      uint32_t fn = 0, fw = 0;
+      uint32_t fn = 0;
+      uint32_t fw = 0;
       std::vector<uint32_t> geom;
       while (F.Field(fn, fw)) {
         if (fn == 2 && fw == 2) {
@@ -210,7 +214,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       }
       f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
 
-      int32_t cx = 0, cy = 0;
+      int32_t cx = 0;
+      int32_t cy = 0;
       size_t gi = 0;
       uint32_t ringFirst = 0;
       int ringCount = 0;
@@ -224,7 +229,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         Rings_.push_back(r);
       };
       while (gi < geom.size()) {
-        const uint32_t cmd = geom[gi] & 7, cnt = geom[gi] >> 3;
+        const uint32_t cmd = geom[gi] & 7;
+        const uint32_t cnt = geom[gi] >> 3;
         gi++;
         if (cmd == 1 || cmd == 2) {
           for (uint32_t k = 0; k < cnt; k++) {
@@ -277,7 +283,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
 
 double OsmVector::Num(const Feature &f, const char *key, double def) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
+    const uint32_t k = Tags_[f.FirstTag + i];
+    const uint32_t v = Tags_[f.FirstTag + i + 1];
     if (k >= Keys_.size() || v >= Values_.size()) { continue; }
     if (Keys_[k] == key && ValueIsNum_[v]) { return Values_[v]; }
   }
@@ -287,7 +294,8 @@ double OsmVector::Num(const Feature &f, const char *key, double def) const {
 OsmVector::Tag OsmVector::TagAt(const Feature &f, uint32_t i) const {
   Tag t{};
   if (i * 2 + 1 >= f.TagCount) { return t; }
-  const uint32_t k = Tags_[f.FirstTag + i * 2], v = Tags_[f.FirstTag + i * 2 + 1];
+  const uint32_t k = Tags_[f.FirstTag + i * 2];
+  const uint32_t v = Tags_[f.FirstTag + i * 2 + 1];
   if (k >= Keys_.size() || v >= Values_.size()) { return t; }
   t.Key = Keys_[k];
   t.IsNum = ValueIsNum_[v];
@@ -301,7 +309,8 @@ OsmVector::Tag OsmVector::TagAt(const Feature &f, uint32_t i) const {
 
 std::string_view OsmVector::Str(const Feature &f, const char *key) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i], v = Tags_[f.FirstTag + i + 1];
+    const uint32_t k = Tags_[f.FirstTag + i];
+    const uint32_t v = Tags_[f.FirstTag + i + 1];
     if (k >= Keys_.size() || v >= ValueStrs_.size()) { continue; }
     if (Keys_[k] == key && !ValueIsNum_[v]) { return ValueStrs_[v]; }
   }

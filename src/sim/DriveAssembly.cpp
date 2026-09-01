@@ -257,8 +257,10 @@ bool AssembleDrive(const Scene &scene,
                "segments");
   }
 
-  size_t atFrom = 0, atTo = 0;
-  double fromAwayM = 0.0, toAwayM = 0.0;
+  size_t atFrom = 0;
+  size_t atTo = 0;
+  double fromAwayM = 0.0;
+  double toAwayM = 0.0;
   if (!roads.Nearest(Waypoint{.LatDeg = fromLatDeg, .LonDeg = fromLonDeg}, atFrom, fromAwayM) ||
       !roads.Nearest(Waypoint{.LatDeg = toLatDeg, .LonDeg = toLonDeg}, atTo, toAwayM)) {
     say.Refuse("a waypoint resolves to no node of the network");

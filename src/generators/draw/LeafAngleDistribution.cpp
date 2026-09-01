@@ -36,11 +36,14 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   const double azStep = 2.0 * kPi / static_cast<double>(kAzimuths);
   for (int d = 0; d < kElevations; ++d) {
     const double el = static_cast<double>(d) * kPi / 180.0;
-    const double se = std::sin(el), ce = std::cos(el);
+    const double se = std::sin(el);
+    const double ce = std::cos(el);
     double acc = 0.0;
     for (int a = 0; a < kAzimuths; ++a) {
       const double az = (static_cast<double>(a) + 0.5) * azStep;
-      const double sx = ce * std::cos(az), sy = se, sz = ce * std::sin(az);
+      const double sx = ce * std::cos(az);
+      const double sy = se;
+      const double sz = ce * std::sin(az);
       double sum = 0.0;
       for (const LeafPoint &p : plant.LeafPoints) {
         const double d0 = static_cast<double>(p.Dir.X) * sx + static_cast<double>(p.Dir.Y) * sy +
@@ -54,11 +57,17 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
         static_cast<float>(2.0 / kPi * acc / static_cast<double>(kAzimuths));
   }
 
-  double bestErr = 1e30, bestG0 = 0.0, bestG1 = 0.0, bestP = 1.0;
+  double bestErr = 1e30;
+  double bestG0 = 0.0;
+  double bestG1 = 0.0;
+  double bestP = 1.0;
   std::vector<double> x(static_cast<size_t>(kElevations));
   for (int step = 0; step <= 1150; ++step) {
     const double p = 0.25 + static_cast<double>(step) * 0.005;
-    double sx = 0.0, sxx = 0.0, sy = 0.0, sxy = 0.0;
+    double sx = 0.0;
+    double sxx = 0.0;
+    double sy = 0.0;
+    double sxy = 0.0;
     for (int d = 0; d < kElevations; ++d) {
       const double s = std::sin(static_cast<double>(d) * kPi / 180.0);
       const double v = std::pow(s, p);

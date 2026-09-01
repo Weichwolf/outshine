@@ -22,16 +22,21 @@ static_assert(Postings::rank() == 2,
               "a field is two extents that travel together, never a pointer beside a stride");
 
 [[nodiscard]] inline float Bilinear(Postings field, double gx, double gy) {
-  const size_t rows = field.extent(0), cols = field.extent(1);
+  const size_t rows = field.extent(0);
+  const size_t cols = field.extent(1);
   if (field.data_handle() == nullptr || cols == 0 || rows == 0) { return 0.f; }
   gx = ClampD(gx, 0.0, static_cast<double>(cols) - 1.0);
   gy = ClampD(gy, 0.0, static_cast<double>(rows) - 1.0);
-  const size_t x0 = static_cast<size_t>(gx), y0 = static_cast<size_t>(gy);
+  const size_t x0 = static_cast<size_t>(gx);
+  const size_t y0 = static_cast<size_t>(gy);
   const size_t x1 = x0 + 1 < cols ? x0 + 1 : x0;
   const size_t y1 = y0 + 1 < rows ? y0 + 1 : y0;
-  const double fx = gx - static_cast<double>(x0), fy = gy - static_cast<double>(y0);
-  const double a = field[y0, x0], b = field[y0, x1];
-  const double c = field[y1, x0], d = field[y1, x1];
+  const double fx = gx - static_cast<double>(x0);
+  const double fy = gy - static_cast<double>(y0);
+  const double a = field[y0, x0];
+  const double b = field[y0, x1];
+  const double c = field[y1, x0];
+  const double d = field[y1, x1];
   return static_cast<float>((a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy);
 }
 

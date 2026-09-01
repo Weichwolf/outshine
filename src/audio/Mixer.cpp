@@ -63,7 +63,8 @@ struct Running {
                              double awayM,
                              double speedMs) {
   if (!(awayM > 0.0) || !(speedMs > 0.0)) { return 1.0; }
-  double earToward = 0.0, sourceAway = 0.0;
+  double earToward = 0.0;
+  double sourceAway = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     earToward += ear.VelocityMs[axis] * awayXyz[axis] / awayM;
     sourceAway += source.VelocityMs[axis] * awayXyz[axis] / awayM;
@@ -280,9 +281,11 @@ bool Mixer::Fills(std::span<float> stereo,
     double gain = Held_->Routing.GainOf(sound.Id);
     double pitch = 1.0;
     double dullHz = 0.0;
-    double leftShare = 0.5, rightShare = 0.5;
+    double leftShare = 0.5;
+    double rightShare = 0.5;
     if (standing != nullptr && sound.Heard.Positional) {
-      double awayXyz[3], awayM = 0.0;
+      double awayXyz[3];
+      double awayM = 0.0;
       for (int axis = 0; axis < 3; ++axis) {
         awayXyz[axis] = standing->AtM[axis] - ear.AtM[axis];
         awayM += awayXyz[axis] * awayXyz[axis];

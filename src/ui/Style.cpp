@@ -175,7 +175,8 @@ bool ReadColour(std::string_view text, uint32_t &out) {
       }
     } else if (digits.size() == 6 || digits.size() == 8) {
       for (size_t at = 0; at + 1 < digits.size(); at += 2) {
-        const int high = HexOf(digits[at]), low = HexOf(digits[at + 1]);
+        const int high = HexOf(digits[at]);
+        const int low = HexOf(digits[at + 1]);
         if (high < 0 || low < 0) { return false; }
         channel[at / 2] = high * 16 + low;
       }
@@ -384,7 +385,8 @@ void Expand(std::string_view name,
       one(Property::FlexBasis, "auto");
       return true;
     }
-    size_t numbers = 0, basisAt = parts.size();
+    size_t numbers = 0;
+    size_t basisAt = parts.size();
     std::string_view bare[2];
     for (size_t at = 0; at < parts.size(); ++at) {
       if (Bare(parts[at])) {
@@ -405,7 +407,8 @@ void Expand(std::string_view name,
     }
 
     if (numbers == 2 && basisAt < parts.size()) {
-      size_t first = parts.size(), second = parts.size();
+      size_t first = parts.size();
+      size_t second = parts.size();
       for (size_t at = 0; at < parts.size(); ++at) {
         if (!Bare(parts[at])) { continue; }
         if (first == parts.size()) {
@@ -444,7 +447,8 @@ void Expand(std::string_view name,
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 3) { return false; }
     std::string_view width = "medium";
-    bool sawStyle = false, drawn = true;
+    bool sawStyle = false;
+    bool drawn = true;
     for (const std::string_view part : parts) {
       if (part == "none" || part == "hidden") {
         sawStyle = true;

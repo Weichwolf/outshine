@@ -45,7 +45,8 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
   }
   (void)fold(Parts.size(), leastM, mostM);
   if (parts == 0 || parts >= Parts.size()) { return; }
-  double least[3], most[3];
+  double least[3];
+  double most[3];
   if (!fold(parts, least, most)) { return; }
   for (int axis = 0; axis < 3; ++axis) {
     leastM[axis] = least[axis];

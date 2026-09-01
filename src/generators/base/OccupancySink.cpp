@@ -10,7 +10,8 @@ namespace {
 constexpr uint32_t kNoBody = 0xffffffffu;
 
 [[nodiscard]] bool CylindersCut(const Body &a, const Body &b) {
-  const double de = a.Em - b.Em, dn = a.Nm - b.Nm;
+  const double de = a.Em - b.Em;
+  const double dn = a.Nm - b.Nm;
   const double reach = static_cast<double>(a.RadiusM) + static_cast<double>(b.RadiusM);
   if (de * de + dn * dn >= reach * reach) { return false; }
   return a.BaseAslM < b.BaseAslM + static_cast<double>(b.HeightM) &&
@@ -50,8 +51,10 @@ int OccupancySink::CellOf(double m, int cells) const noexcept {
 
 bool OccupancySink::Clear(const Body &body) const noexcept {
   const double reach = static_cast<double>(body.RadiusM) + static_cast<double>(MaxRadiusM_);
-  const int e0 = CellOf(body.Em - reach, CellsE_), e1 = CellOf(body.Em + reach, CellsE_);
-  const int n0 = CellOf(body.Nm - reach, CellsN_), n1 = CellOf(body.Nm + reach, CellsN_);
+  const int e0 = CellOf(body.Em - reach, CellsE_);
+  const int e1 = CellOf(body.Em + reach, CellsE_);
+  const int n0 = CellOf(body.Nm - reach, CellsN_);
+  const int n1 = CellOf(body.Nm + reach, CellsN_);
   for (int n = n0; n <= n1; n++) {
     for (int e = e0; e <= e1; e++) {
       for (uint32_t i = Store_.Cells[static_cast<size_t>(n) * static_cast<size_t>(CellsE_) +

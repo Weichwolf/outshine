@@ -220,16 +220,20 @@ void Basis::Measure() {
     const Vector t1 = TexCoordOf(Corner_[triangle * 3]);
     const Vector t2 = TexCoordOf(Corner_[triangle * 3 + 1]);
     const Vector t3 = TexCoordOf(Corner_[triangle * 3 + 2]);
-    const double t21x = t2.X - t1.X, t21y = t2.Y - t1.Y;
-    const double t31x = t3.X - t1.X, t31y = t3.Y - t1.Y;
-    const Vector d1 = v2 - v1, d2 = v3 - v1;
+    const double t21x = t2.X - t1.X;
+    const double t21y = t2.Y - t1.Y;
+    const double t31x = t3.X - t1.X;
+    const double t31y = t3.Y - t1.Y;
+    const Vector d1 = v2 - v1;
+    const Vector d2 = v3 - v1;
     const double signedArea = t21x * t31y - t21y * t31x;
     const Vector os = d1 * t31y - d2 * t21y;
     const Vector ot = d1 * -t31x + d2 * t21x;
     info.OrientPreserving = signedArea > 0;
     if (!NotZero(signedArea)) { continue; }
     const double area = std::fabs(signedArea);
-    const double lengthS = Length(os), lengthT = Length(ot);
+    const double lengthS = Length(os);
+    const double lengthT = Length(ot);
     const double sign = info.OrientPreserving ? 1.0 : -1.0;
     if (NotZero(lengthS)) { info.Os = os * (sign / lengthS); }
     if (NotZero(lengthT)) { info.Ot = ot * (sign / lengthT); }

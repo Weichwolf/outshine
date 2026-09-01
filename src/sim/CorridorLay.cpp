@@ -36,7 +36,11 @@ bool LayCorridor(const Path::Route &route,
   auto &corridor = out.Line;
   auto &fitted = out.Fitted;
   auto &profile = out.Profile;
-  std::vector<double> roadM, halfWidthM, laneHalfM, asideM, frictionM;
+  std::vector<double> roadM;
+  std::vector<double> halfWidthM;
+  std::vector<double> laneHalfM;
+  std::vector<double> asideM;
+  std::vector<double> frictionM;
   auto &stations = out.Fine;
   constexpr double fineM = Corridor::kFineM;
   auto &spanM = out.SpanM;
@@ -225,7 +229,8 @@ bool LayCorridor(const Path::Route &route,
 
   std::vector<double> heightM(static_cast<size_t>(posts) + 1, 0.0);
   std::vector<bool> known(static_cast<size_t>(posts) + 1, false);
-  long holes = 0, waited = 0;
+  long holes = 0;
+  long waited = 0;
   const auto sampling = std::chrono::steady_clock::now();
   for (long post = 0; post <= posts; ++post) {
     const double atM = static_cast<double>(post) * fitted.LengthM / static_cast<double>(posts);
@@ -256,7 +261,8 @@ bool LayCorridor(const Path::Route &route,
       std::chrono::duration<double>(std::chrono::steady_clock::now() - sampling).count();
 
   long resolved = 0;
-  double lowestM = 0.0, highestM = 0.0;
+  double lowestM = 0.0;
+  double highestM = 0.0;
   bool haveAny = false;
   for (size_t post = 0; post < heightM.size(); ++post) {
     if (!known[post]) { continue; }
@@ -340,7 +346,8 @@ bool LayCorridor(const Path::Route &route,
       "stations whose road kind declares no lane count", static_cast<double>(laneless), "stations");
   out.Made.LanelessKinds = laneless;
 
-  double steppedM = 0.0, steppedAtM = 0.0;
+  double steppedM = 0.0;
+  double steppedAtM = 0.0;
   for (size_t post = 1; post < asideM.size(); ++post) {
     const double step = std::fabs(asideM[post] - asideM[post - 1]);
     if (step > steppedM) {
@@ -368,7 +375,8 @@ bool LayCorridor(const Path::Route &route,
   }
   {
     long gripless = 0;
-    double leastGrip = 1.0e9, mostGrip = 0.0;
+    double leastGrip = 1.0e9;
+    double mostGrip = 0.0;
     for (const Station &one : stations) {
       if (!(one.Friction > 0.0)) {
         ++gripless;
@@ -496,7 +504,8 @@ bool LayCorridor(const Path::Route &route,
                static_cast<double>(clamped),
                "stations");
 
-    double leftM = 0.0, worstOverM = 0.0;
+    double leftM = 0.0;
+    double worstOverM = 0.0;
     for (size_t fine = 1; fine < stations.size(); ++fine) {
       leftM = std::fmax(leftM, std::fabs(stations[fine].AsideM - stations[fine - 1].AsideM));
       const double asideReachM = std::fabs(stations[fine].AsideM) + 0.5 * carWidthM;
@@ -510,7 +519,8 @@ bool LayCorridor(const Path::Route &route,
   }
 
   narrowestLaneM = 1.0e9;
-  double widestLaneM = 0.0, mostAsideM = 0.0;
+  double widestLaneM = 0.0;
+  double mostAsideM = 0.0;
   for (size_t post = 0; post < laneHalfM.size(); ++post) {
     narrowestLaneM =
         2.0 * laneHalfM[post] < narrowestLaneM ? 2.0 * laneHalfM[post] : narrowestLaneM;
@@ -524,7 +534,8 @@ bool LayCorridor(const Path::Route &route,
              0.5 * narrowestLaneM - 0.5 * carWidthM,
              "m");
 
-  double narrowestHalfM = 1.0e9, widestHalfM = 0.0;
+  double narrowestHalfM = 1.0e9;
+  double widestHalfM = 0.0;
   for (const double half : halfWidthM) {
     narrowestHalfM = half < narrowestHalfM ? half : narrowestHalfM;
     widestHalfM = half > widestHalfM ? half : widestHalfM;
@@ -535,7 +546,8 @@ bool LayCorridor(const Path::Route &route,
   out.Made.NarrowestHalfM = narrowestHalfM;
 
   long undeclared = 0;
-  double gentlestLimit = 1.0, gentlestAtM = 0.0;
+  double gentlestLimit = 1.0;
+  double gentlestAtM = 0.0;
   for (size_t post = 0; post < gradeLimit.size(); ++post) {
     if (!(gradeLimit[post] > 0.0)) {
       ++undeclared;
@@ -604,7 +616,11 @@ bool LayCorridor(const Path::Route &route,
   }
   say.Number("sweeps the shaping needed", static_cast<double>(shapingPasses), "sweeps");
 
-  double cutM = 0.0, fillM = 0.0, cutAtM = 0.0, fillAtM = 0.0, movedM = 0.0;
+  double cutM = 0.0;
+  double fillM = 0.0;
+  double cutAtM = 0.0;
+  double fillAtM = 0.0;
+  double movedM = 0.0;
   for (size_t post = 0; post < roadM.size(); ++post) {
     const double byM = roadM[post] - heightM[post];
     movedM += std::fabs(byM);
@@ -645,7 +661,8 @@ bool LayCorridor(const Path::Route &route,
 
   std::vector<outshine::Knot> rise;
   rise.reserve(roadM.size());
-  double worstGradeM = 0.0, worstGradeAtM = 0.0;
+  double worstGradeM = 0.0;
+  double worstGradeAtM = 0.0;
   for (size_t post = 0; post < roadM.size(); ++post) {
     const double atM = static_cast<double>(post) * spanM;
     const size_t before = post > 0 ? post - 1 : post;

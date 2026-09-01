@@ -58,7 +58,9 @@ void Raise(std::atomic<size_t> &target, size_t value) {
 } // namespace
 
 void StackProbe::Enter(Purpose purpose) {
-  uintptr_t base = 0, end = 0, current = 0;
+  uintptr_t base = 0;
+  uintptr_t end = 0;
+  uintptr_t current = 0;
   ThisStack(&base, &end, &current);
   const uintptr_t deepest = end + kToolchainCookie;
   if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) { return; }

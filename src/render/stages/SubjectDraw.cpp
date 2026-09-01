@@ -130,7 +130,12 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
 }
 
 std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string &error) {
-  std::string bindings, body, lit, litTextured, mapped, ground;
+  std::string bindings;
+  std::string body;
+  std::string lit;
+  std::string litTextured;
+  std::string mapped;
+  std::string ground;
   if (!LoadShaderText("src/render/shaders/subjectBindings.msl", bindings, error) ||
       !LoadShaderText("src/render/shaders/subject.msl", body, error) ||
       !LoadShaderText("src/render/shaders/subjectLit.msl", lit, error) ||

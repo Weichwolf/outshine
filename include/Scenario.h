@@ -153,7 +153,7 @@ struct Compositor {
 struct Patch {
   double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
 
-  [[nodiscard]] bool whole(void) const {
+  [[nodiscard]] bool whole() const {
     return LeftFrac == 0.0 && TopFrac == 0.0 && WidthFrac == 1.0 && HeightFrac == 1.0;
   }
 };
@@ -407,7 +407,7 @@ struct Camera {
   double ShutterS = 0.0;
   double SensitivityIso = 0.0;
 
-  [[nodiscard]] bool exposed(void) const {
+  [[nodiscard]] bool exposed() const {
     return ApertureFStops > 0.0 && ShutterS > 0.0 && SensitivityIso > 0.0;
   }
 
@@ -417,7 +417,7 @@ struct Camera {
     SensitivityIso = sensitivityIso;
   }
 
-  [[nodiscard]] double exposureScale(void) const;
+  [[nodiscard]] double exposureScale() const;
 };
 
 struct View {
@@ -431,7 +431,7 @@ struct View {
 
   void setScene(std::string named) { In = std::move(named); }
 
-  [[nodiscard]] const std::string &scene(void) const { return In; }
+  [[nodiscard]] const std::string &scene() const { return In; }
 
   std::string In;
   std::string Follows;
@@ -520,8 +520,10 @@ struct Body {
   }
 
   [[nodiscard]] double spanM() const {
-    double aheadM = 0.0, behindM = 0.0;
-    int ahead = 0, behind = 0;
+    double aheadM = 0.0;
+    double behindM = 0.0;
+    int ahead = 0;
+    int behind = 0;
     for (const Contact &one : Contacts) {
       if (one.AtM[2] < CentreOfMassM[2]) {
         aheadM += one.AtM[2];
@@ -537,7 +539,8 @@ struct Body {
   }
 
   [[nodiscard]] double acrossM() const {
-    double leastM = 0.0, mostM = 0.0;
+    double leastM = 0.0;
+    double mostM = 0.0;
     for (const Contact &one : Contacts) {
       leastM = one.AtM[0] < leastM ? one.AtM[0] : leastM;
       mostM = one.AtM[0] > mostM ? one.AtM[0] : mostM;
@@ -624,7 +627,7 @@ struct Scenario {
   double WheelStepPx = 48.0;
   std::vector<Persisted> State;
 
-  [[nodiscard]] const Asset *subject(void) const;
+  [[nodiscard]] const Asset *subject() const;
 };
 
 } // namespace outshine

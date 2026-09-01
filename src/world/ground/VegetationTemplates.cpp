@@ -128,7 +128,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     const Json::Ref t = tpls[i];
     Names_.push_back(t["name"].Str("?"));
 
-    const Json::Ref g = t["ground"], gr = t["grass"];
+    const Json::Ref g = t["ground"];
+    const Json::Ref gr = t["grass"];
     const std::string bname = gr["class"].Str("");
     auto bit = bladeByName.find(bname);
     if (bit == bladeByName.end()) {

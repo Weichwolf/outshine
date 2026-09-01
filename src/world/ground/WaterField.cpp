@@ -173,11 +173,12 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
   for (const Surface &s : Surfaces_) {
     const uint32_t n = s.PointCount;
     if (n < 3) { continue; }
-    const double refLat = ring[static_cast<size_t>(s.FirstPoint) * 2],
-                 refLon = ring[static_cast<size_t>(s.FirstPoint) * 2 + 1];
+    const double refLat = ring[static_cast<size_t>(s.FirstPoint) * 2];
+    const double refLon = ring[static_cast<size_t>(s.FirstPoint) * 2 + 1];
     double up[3];
     {
-      double e[3], nn[3];
+      double e[3];
+      double nn[3];
       EnuAxesEcef(refLat, refLon, e, nn, up);
     }
 
@@ -221,8 +222,9 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     while (poly.size() >= 3 && guard-- > 0) {
       bool clipped = false;
       for (size_t k = 0; k < poly.size(); k++) {
-        const uint32_t a2 = poly[(k + poly.size() - 1) % poly.size()], b2 = poly[k],
-                       c2 = poly[(k + 1) % poly.size()];
+        const uint32_t a2 = poly[(k + poly.size() - 1) % poly.size()];
+        const uint32_t b2 = poly[k];
+        const uint32_t c2 = poly[(k + 1) % poly.size()];
         if (cross(a2, b2, c2) <= 0.0) { continue; }
         bool clear = true;
         for (uint32_t q : poly) {
@@ -251,15 +253,21 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
 
   for (const Course &c : Courses_) {
     if (c.PointCount < 2) { continue; }
-    const double refLat = ring[static_cast<size_t>(c.FirstPoint) * 2],
-                 refLon = ring[static_cast<size_t>(c.FirstPoint) * 2 + 1];
-    double up[3], ea[3], no[3];
+    const double refLat = ring[static_cast<size_t>(c.FirstPoint) * 2];
+    const double refLon = ring[static_cast<size_t>(c.FirstPoint) * 2 + 1];
+    double up[3];
+    double ea[3];
+    double no[3];
     EnuAxesEcef(refLat, refLon, ea, no, up);
-    std::vector<double> L(static_cast<size_t>(c.PointCount) * 3),
-        R(static_cast<size_t>(c.PointCount) * 3);
+    std::vector<double> L(static_cast<size_t>(c.PointCount) * 3);
+    std::vector<double> R(static_cast<size_t>(c.PointCount) * 3);
     for (uint32_t k = 0; k < c.PointCount; k++) {
-      double e0 = 0.0, n0 = 0.0, e1 = 0.0, n1 = 0.0;
-      const uint32_t a = k > 0 ? k - 1 : k, b = k + 1 < c.PointCount ? k + 1 : k;
+      double e0 = 0.0;
+      double n0 = 0.0;
+      double e1 = 0.0;
+      double n1 = 0.0;
+      const uint32_t a = k > 0 ? k - 1 : k;
+      const uint32_t b = k + 1 < c.PointCount ? k + 1 : k;
       EnuOffsetM(refLat,
                  refLon,
                  ring[(static_cast<size_t>(c.FirstPoint) + a) * 2],
@@ -272,7 +280,8 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
                  ring[(static_cast<size_t>(c.FirstPoint) + b) * 2 + 1],
                  e1,
                  n1);
-      double tx = e1 - e0, ty = n1 - n0;
+      double tx = e1 - e0;
+      double ty = n1 - n0;
       const double tl = std::sqrt(tx * tx + ty * ty);
       if (tl < 1e-9) {
         tx = 1.0;
@@ -281,9 +290,10 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
         tx /= tl;
         ty /= tl;
       }
-      const double px = -ty * c.HalfWidthM, py = tx * c.HalfWidthM;
-      const double lat = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2],
-                   lon = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2 + 1];
+      const double px = -ty * c.HalfWidthM;
+      const double py = tx * c.HalfWidthM;
+      const double lat = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2];
+      const double lon = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2 + 1];
       const double lev = static_cast<double>(Levels_[c.FirstLevel + k]) + kLiftM;
       double base[3];
       GeoToEcef(lat, lon, lev, base);

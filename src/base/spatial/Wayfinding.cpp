@@ -60,7 +60,8 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   way.MinLat = way.MaxLat = latLonPairs[0];
   way.MinLon = way.MaxLon = latLonPairs[1];
   for (size_t which = 0; which < points; ++which) {
-    const double lat = latLonPairs[2 * which], lon = latLonPairs[2 * which + 1];
+    const double lat = latLonPairs[2 * which];
+    const double lon = latLonPairs[2 * which + 1];
     way.MinLat = lat < way.MinLat ? lat : way.MinLat;
     way.MaxLat = lat > way.MaxLat ? lat : way.MaxLat;
     way.MinLon = lon < way.MinLon ? lon : way.MinLon;
@@ -141,9 +142,12 @@ size_t Network::Cross() {
     for (int side = 0; side < 2; ++side) {
       const Way &way = Ways_[ways[side]];
       const uint32_t local = sides[side] - static_cast<uint32_t>(way.First);
-      const double fromLat = Points_[2 * sides[side]], fromLon = Points_[2 * sides[side] + 1];
-      const double toLat = Points_[2 * sides[side] + 2], toLon = Points_[2 * sides[side] + 3];
-      const double runLat = toLat - fromLat, runLon = LonApartDeg(toLon, fromLon);
+      const double fromLat = Points_[2 * sides[side]];
+      const double fromLon = Points_[2 * sides[side] + 1];
+      const double toLat = Points_[2 * sides[side] + 2];
+      const double toLon = Points_[2 * sides[side] + 3];
+      const double runLat = toLat - fromLat;
+      const double runLon = LonApartDeg(toLon, fromLon);
       const double square = runLat * runLat + runLon * runLon;
       const double along =
           square > 0.0
@@ -405,7 +409,8 @@ bool Network::Weave(std::string &error) {
     const double perLatM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg + 1.0, end.LonDeg, RadiusM_);
     const double perLonM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg, end.LonDeg + 1.0, RadiusM_);
 
-    size_t bestFrom = Nodes_.size(), bestTo = Nodes_.size();
+    size_t bestFrom = Nodes_.size();
+    size_t bestTo = Nodes_.size();
     double bestM = reachM;
     const int64_t rowHere = RowOver(end.LatDeg, tieReachM);
     const int64_t rowReach = static_cast<int64_t>(std::ceil(reachM / tieReachM)) + 1;
@@ -419,18 +424,21 @@ bool Network::Weave(std::string &error) {
         const auto seen = byEdgeCell.find(KeyAt(row, column));
         if (seen == byEdgeCell.end()) { continue; }
         for (const auto &held : seen->second) {
-          const size_t near = held.first, over = held.second;
+          const size_t near = held.first;
+          const size_t over = held.second;
           if (near == loose || over == loose) { continue; }
           {
             const double ax = (Nodes_[near].LonDeg - end.LonDeg) * perLonM;
             const double ay = (Nodes_[near].LatDeg - end.LatDeg) * perLatM;
             const double bx = (Nodes_[over].LonDeg - end.LonDeg) * perLonM;
             const double by = (Nodes_[over].LatDeg - end.LatDeg) * perLatM;
-            const double dx = bx - ax, dy = by - ay;
+            const double dx = bx - ax;
+            const double dy = by - ay;
             const double span = dx * dx + dy * dy;
             double along = span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0;
             along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
-            const double cx = ax + along * dx, cy = ay + along * dy;
+            const double cx = ax + along * dx;
+            const double cy = ay + along * dy;
             const double awayM = std::sqrt(cx * cx + cy * cy);
             const double touchM = end.HalfWidthM + Nodes_[near].HalfWidthM;
             if (awayM >= bestM || awayM > touchM) { continue; }
@@ -490,7 +498,10 @@ namespace {
                                 double dy,
                                 double *atX,
                                 double *atY) {
-  const double rx = bx - ax, ry = by - ay, sx = dx - cx, sy = dy - cy;
+  const double rx = bx - ax;
+  const double ry = by - ay;
+  const double sx = dx - cx;
+  const double sy = dy - cy;
   const double denominator = rx * sy - ry * sx;
   if (denominator == 0.0) { return false; }
   const double along = ((cx - ax) * sy - (cy - ay) * sx) / denominator;
@@ -524,7 +535,10 @@ Network::Crossings(std::vector<Crossing> &into) const {
 
   const double aboutLon = Points_[1];
   std::vector<double> lon(points, 0.0);
-  double westLon = 1.0e9, eastLon = -1.0e9, southLat = 1.0e9, northLat = -1.0e9;
+  double westLon = 1.0e9;
+  double eastLon = -1.0e9;
+  double southLat = 1.0e9;
+  double northLat = -1.0e9;
   for (size_t at = 0; at < points; ++at) {
     double away = Points_[2 * at + 1] - aboutLon;
     while (away > 180.0) { away -= 360.0; }
@@ -541,7 +555,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
   for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
   if (segments < 2) { return swept; }
 
-  std::vector<uint32_t> segWay(segments, 0), segAt(segments, 0);
+  std::vector<uint32_t> segWay(segments, 0);
+  std::vector<uint32_t> segAt(segments, 0);
   {
     size_t made = 0;
     for (size_t which = 0; which < Ways_.size(); ++which) {
@@ -591,7 +606,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
     const double hi = std::fmax(lon[first], lon[first + 1]);
     const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
     const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
-    const uint32_t from = squareOf(lo, bottom), to = squareOf(hi, top);
+    const uint32_t from = squareOf(lo, bottom);
+    const uint32_t to = squareOf(hi, top);
     for (uint32_t y = from / static_cast<uint32_t>(wide); y <= to / static_cast<uint32_t>(wide);
          ++y) {
       for (uint32_t x = from % static_cast<uint32_t>(wide); x <= to % static_cast<uint32_t>(wide);
@@ -619,12 +635,16 @@ Network::Crossings(std::vector<Crossing> &into) const {
   }
 
   for (size_t cell = 0; cell < cells; ++cell) {
-    const uint32_t begins = holds[cell], ends = holds[cell + 1u];
+    const uint32_t begins = holds[cell];
+    const uint32_t ends = holds[cell + 1u];
     for (uint32_t one = begins; one + 1u < ends; ++one) {
       const Filed &ours = inCell[one];
-      const size_t mine = ours.Seg, firstA = segAt[mine];
-      const double ax = lon[firstA], ay = Points_[2 * firstA];
-      const double bx = lon[firstA + 1], by = Points_[2 * firstA + 2];
+      const size_t mine = ours.Seg;
+      const size_t firstA = segAt[mine];
+      const double ax = lon[firstA];
+      const double ay = Points_[2 * firstA];
+      const double bx = lon[firstA + 1];
+      const double by = Points_[2 * firstA + 2];
       for (uint32_t two = one + 1u; two < ends; ++two) {
         const Filed &yours = inCell[two];
         const size_t theirs = yours.Seg;
@@ -632,9 +652,12 @@ Network::Crossings(std::vector<Crossing> &into) const {
         if (ours.Square != yours.Square) { continue; }
         ++swept.PairsTested;
         const size_t firstB = segAt[theirs];
-        const double cx = lon[firstB], cy = Points_[2 * firstB];
-        const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
-        double atX = 0.0, atY = 0.0;
+        const double cx = lon[firstB];
+        const double cy = Points_[2 * firstB];
+        const double dx = lon[firstB + 1];
+        const double dy = Points_[2 * firstB + 2];
+        double atX = 0.0;
+        double atY = 0.0;
         if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
         if (squareOf(atX, atY) != ours.Square) { continue; }
         double back = atX;
@@ -789,8 +812,10 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     return out;
   }
 
-  size_t start = 0, finish = 0;
-  double startAwayM = 0.0, finishAwayM = 0.0;
+  size_t start = 0;
+  size_t finish = 0;
+  double startAwayM = 0.0;
+  double finishAwayM = 0.0;
   if (!Nearest(from, start, startAwayM) || !Nearest(to, finish, finishAwayM)) {
     out.Error = "a network with no nodes has nothing to start from";
     return out;
@@ -866,7 +891,8 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
 
     const Node &here = Nodes_[node];
     const bool hasBack = state < edges;
-    double backEast = 0.0, backNorth = 0.0;
+    double backEast = 0.0;
+    double backNorth = 0.0;
     if (hasBack) {
       const Node &was = Nodes_[leaves[state]];
       backEast = LonApartDeg(here.LonDeg, was.LonDeg) * std::cos(here.LatDeg * kDegToRad);

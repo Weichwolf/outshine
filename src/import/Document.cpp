@@ -1810,7 +1810,8 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
     return accessor.Normalized ? Normalise(value, accessor.Component) : value;
   };
   for (size_t component = 0; component < components; ++component) {
-    double least = 0.0, most = 0.0;
+    double least = 0.0;
+    double most = 0.0;
     for (size_t element = 0; element < accessor.Count; ++element) {
       const double value = narrow(held[element * components + component]);
       if (element == 0 || value < least) { least = value; }
@@ -1845,7 +1846,8 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   const size_t rows = ElementRows(accessor.Element);
   const size_t columns = ElementColumns(accessor.Element);
   const size_t componentBytes = ComponentBytes(accessor.Component);
-  size_t stride = 0, element = 0;
+  size_t stride = 0;
+  size_t element = 0;
   if (!ElementBytes(accessor, stride, element)) { return false; }
   const size_t columnBytes = (columns > 1) ? element / columns : 0;
 
@@ -1907,7 +1909,8 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
     return false;
   }
 
-  Span<const uint8_t> indices, values;
+  Span<const uint8_t> indices;
+  Span<const uint8_t> values;
   if (!ViewSpan(sparse.IndicesBufferView, indices)) { return false; }
   if (!ViewSpan(sparse.ValuesBufferView, values)) { return false; }
   if (sparse.IndicesByteOffset > indices.Size() ||

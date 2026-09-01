@@ -32,7 +32,8 @@ Reading Bear(Rig &of,
     double normal[3] = {ground.NormalM[0], ground.NormalM[1], ground.NormalM[2]};
     if (!Normalise(normal)) { continue; }
 
-    double worldM[3], worldMs[3];
+    double worldM[3];
+    double worldMs[3];
     Place(body, mount.AtM, worldM);
     Carry(body, mount.AtM, worldMs);
 

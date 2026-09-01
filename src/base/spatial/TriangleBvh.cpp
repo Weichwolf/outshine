@@ -36,7 +36,9 @@ struct Box {
   }
 
   [[nodiscard]] float HalfArea() const {
-    const float dx = Max[0] - Min[0], dy = Max[1] - Min[1], dz = Max[2] - Min[2];
+    const float dx = Max[0] - Min[0];
+    const float dy = Max[1] - Min[1];
+    const float dz = Max[2] - Min[2];
     if (dx < 0.0f || dy < 0.0f || dz < 0.0f) { return 0.0f; }
     return dx * dy + dy * dz + dz * dx;
   }
@@ -258,7 +260,8 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
 
   for (size_t at = Nodes_.size(); at > 0; --at) {
     BvhNode &node = Nodes_[at - 1];
-    float least[3] = {0, 0, 0}, most[3] = {0, 0, 0};
+    float least[3] = {0, 0, 0};
+    float most[3] = {0, 0, 0};
     bool began = false;
     const auto widen = [&least, &most, &began](const float point[3]) {
       for (int axis = 0; axis < 3; ++axis) {
@@ -268,7 +271,8 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
       began = true;
     };
     if (node.IsLeaf()) {
-      const uint32_t first = node.FirstTriangle(), count = node.TriangleCount();
+      const uint32_t first = node.FirstTriangle();
+      const uint32_t count = node.TriangleCount();
       for (uint32_t which = 0; which < count; ++which) {
         const BvhTriangle &tri = Tris_[static_cast<size_t>(first) + which];
         float point[3];

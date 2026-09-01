@@ -3,7 +3,8 @@
 namespace outshine {
 
 size_t Keyframes::Segment(double abscissa) const {
-  size_t lo = 0, hi = Count_ - 1;
+  size_t lo = 0;
+  size_t hi = Count_ - 1;
   while (hi - lo > 1) {
     const size_t mid = (lo + hi) / 2;
     if (abscissa < Frames_[mid]) {
@@ -41,7 +42,8 @@ void Keyframes::At(double abscissa, double *out) const {
   const size_t k = Segment(abscissa);
   const double td = Frames_[k + 1] - Frames_[k];
   const double t = (abscissa - Frames_[k]) / td;
-  const double *a = Value(k), *b = Value(k + 1);
+  const double *a = Value(k);
+  const double *b = Value(k + 1);
   if (How_ == Interpolation::Step) {
     for (size_t c = 0; c < Components_; c++) { out[c] = a[c]; }
     return;
@@ -51,12 +53,14 @@ void Keyframes::At(double abscissa, double *out) const {
     return;
   }
 
-  const double t2 = t * t, t3 = t2 * t;
+  const double t2 = t * t;
+  const double t3 = t2 * t;
   const double h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
   const double h10 = (t3 - 2.0 * t2 + t) * td;
   const double h01 = -2.0 * t3 + 3.0 * t2;
   const double h11 = (t3 - t2) * td;
-  const double *m0 = OutTangent(k), *m1 = InTangent(k + 1);
+  const double *m0 = OutTangent(k);
+  const double *m1 = InTangent(k + 1);
   for (size_t c = 0; c < Components_; c++) {
     out[c] = h00 * a[c] + h10 * m0[c] + h01 * b[c] + h11 * m1[c];
   }

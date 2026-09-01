@@ -11,7 +11,8 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
     for (int x = -r; x <= r; x++) { Offsets_.push_back(Offset{.X = x, .Y = y}); }
   }
   std::stable_sort(Offsets_.begin(), Offsets_.end(), [](const Offset &a, const Offset &b) {
-    const int da = a.X * a.X + a.Y * a.Y, db = b.X * b.X + b.Y * b.Y;
+    const int da = a.X * a.X + a.Y * a.Y;
+    const int db = b.X * b.X + b.Y * b.Y;
     if (da != db) { return da < db; }
     if (a.Y != b.Y) { return a.Y < b.Y; }
     return a.X < b.X;

@@ -20,7 +20,8 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
     Up_[axis] = static_cast<double>(up[axis]);
   }
   RadiusM_ = radiusM;
-  double sunLength = 0.0, crossLength = 0.0;
+  double sunLength = 0.0;
+  double crossLength = 0.0;
   double cross[3] = {Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
                      Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
                      Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]};
@@ -54,7 +55,8 @@ void LightVisibilityStage::Build(const double preView[3]) {
   };
   {
     const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
-    double least[3] = {1.0e30, 1.0e30, 1.0e30}, most[3] = {-1.0e30, -1.0e30, -1.0e30};
+    double least[3] = {1.0e30, 1.0e30, 1.0e30};
+    double most[3] = {-1.0e30, -1.0e30, -1.0e30};
     size_t counted = 0;
     if (Subjects_ != nullptr) {
       const std::vector<double> &placed = Subjects_->Placements();

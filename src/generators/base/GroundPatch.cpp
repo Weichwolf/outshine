@@ -40,9 +40,12 @@ GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<cons
 double GroundPatch::HeightAslM(double eastM, double northM) const noexcept {
   const double u = Clamped(eastM / SpacingEm_, 0.0, static_cast<double>(Side_ - 1));
   const double v = Clamped(northM / SpacingNm_, 0.0, static_cast<double>(Side_ - 1));
-  const int i0 = static_cast<int>(u), j0 = static_cast<int>(v);
-  const int i1 = i0 + 1 < Side_ ? i0 + 1 : i0, j1 = j0 + 1 < Side_ ? j0 + 1 : j0;
-  const double fu = u - static_cast<double>(i0), fv = v - static_cast<double>(j0);
+  const int i0 = static_cast<int>(u);
+  const int j0 = static_cast<int>(v);
+  const int i1 = i0 + 1 < Side_ ? i0 + 1 : i0;
+  const int j1 = j0 + 1 < Side_ ? j0 + 1 : j0;
+  const double fu = u - static_cast<double>(i0);
+  const double fv = v - static_cast<double>(j0);
   const double a =
       AslM_[static_cast<size_t>(j0) * static_cast<size_t>(Side_) + static_cast<size_t>(i0)];
   const double b =
@@ -65,7 +68,8 @@ void GroundPatch::GradientAt(double eastM,
 }
 
 double GroundPatch::SlopeDeg(double eastM, double northM) const noexcept {
-  double de = 0.0, dn = 0.0;
+  double de = 0.0;
+  double dn = 0.0;
   GradientAt(eastM, northM, &de, &dn);
   return std::atan(std::sqrt(de * de + dn * dn)) * kRad2Deg;
 }

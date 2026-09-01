@@ -74,13 +74,13 @@ inline float DielectricF90(const Material &material) {
 
 class MaterialInstance {
 public:
-  MaterialInstance(void) = default;
+  MaterialInstance() = default;
 
   explicit MaterialInstance(int at) : At_(at) {}
 
-  [[nodiscard]] bool bound(void) const { return At_ >= 0; }
+  [[nodiscard]] bool bound() const { return At_ >= 0; }
 
-  [[nodiscard]] int index(void) const { return At_; }
+  [[nodiscard]] int index() const { return At_; }
 
   [[nodiscard]] bool operator==(const MaterialInstance &) const = default;
 

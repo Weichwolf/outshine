@@ -52,13 +52,20 @@ bool AlpineLimit::Load(const Json::Ref &root) {
 }
 
 double AlpineLimit::Noise(double e, double n) const {
-  const double x = e / JitterScaleM_, y = n / JitterScaleM_;
-  const double fx = std::floor(x), fy = std::floor(y);
-  const int32_t i = static_cast<int32_t>(fx), j = static_cast<int32_t>(fy);
-  const double ux = x - fx, uy = y - fy;
-  const double sx = ux * ux * (3.0 - 2.0 * ux), sy = uy * uy * (3.0 - 2.0 * uy);
-  const double a = U(Hash2(i, j)), b = U(Hash2(i + 1, j));
-  const double c = U(Hash2(i, j + 1)), d = U(Hash2(i + 1, j + 1));
+  const double x = e / JitterScaleM_;
+  const double y = n / JitterScaleM_;
+  const double fx = std::floor(x);
+  const double fy = std::floor(y);
+  const int32_t i = static_cast<int32_t>(fx);
+  const int32_t j = static_cast<int32_t>(fy);
+  const double ux = x - fx;
+  const double uy = y - fy;
+  const double sx = ux * ux * (3.0 - 2.0 * ux);
+  const double sy = uy * uy * (3.0 - 2.0 * uy);
+  const double a = U(Hash2(i, j));
+  const double b = U(Hash2(i + 1, j));
+  const double c = U(Hash2(i, j + 1));
+  const double d = U(Hash2(i + 1, j + 1));
   return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
 }
 

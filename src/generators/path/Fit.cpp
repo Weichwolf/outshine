@@ -10,19 +10,25 @@ namespace outshine {
 namespace {
 
 double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
-  const double fromE = points[2 * from], fromN = points[2 * from + 1];
-  const double toE = points[2 * to], toN = points[2 * to + 1];
-  const double atE = points[2 * point], atN = points[2 * point + 1];
-  const double runE = toE - fromE, runN = toN - fromN;
+  const double fromE = points[2 * from];
+  const double fromN = points[2 * from + 1];
+  const double toE = points[2 * to];
+  const double toN = points[2 * to + 1];
+  const double atE = points[2 * point];
+  const double atN = points[2 * point + 1];
+  const double runE = toE - fromE;
+  const double runN = toN - fromN;
   const double runSquared = runE * runE + runN * runN;
   if (runSquared <= 0.0) {
-    const double e = atE - fromE, n = atN - fromN;
+    const double e = atE - fromE;
+    const double n = atN - fromN;
     return std::sqrt(e * e + n * n);
   }
   double part = ((atE - fromE) * runE + (atN - fromN) * runN) / runSquared;
   if (part < 0.0) { part = 0.0; }
   if (part > 1.0) { part = 1.0; }
-  const double e = atE - (fromE + part * runE), n = atN - (fromN + part * runN);
+  const double e = atE - (fromE + part * runE);
+  const double n = atN - (fromN + part * runN);
   return std::sqrt(e * e + n * n);
 }
 
@@ -200,7 +206,8 @@ Fitted Fit(std::span<const double> eastNorthM,
     if (!into.Nearest(eastM, northM, 0.5 * out.LengthM, out.LengthM, alongM)) { continue; }
     Placed on;
     if (!into.At(alongM, on)) { continue; }
-    const double east = eastM - on.EastM, north = northM - on.NorthM;
+    const double east = eastM - on.EastM;
+    const double north = northM - on.NorthM;
     const double awayM = std::sqrt(east * east + north * north);
     if (awayM <= out.WorstOffsetM) { continue; }
     out.WorstOffsetM = awayM;

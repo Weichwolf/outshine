@@ -11,7 +11,9 @@ void NormalsFrom(const std::vector<float> &positionM,
                  std::vector<float> &into) {
   into.assign(positionM.size(), 0.0f);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
-    const uint32_t a = index[at], b = index[at + 1], c = index[at + 2];
+    const uint32_t a = index[at];
+    const uint32_t b = index[at + 1];
+    const uint32_t c = index[at + 2];
     if (static_cast<size_t>(c) * 3 + 2 >= positionM.size()) { continue; }
     const float abx = positionM[b * 3] - positionM[a * 3];
     const float aby = positionM[b * 3 + 1] - positionM[a * 3 + 1];
@@ -113,7 +115,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
 
   const int levels = over.Levels < 1 ? 1 : over.Levels;
   const long widest = kBlockTiles * (1L << (levels - 1));
-  long maskX0 = 0, maskY0 = 0;
+  long maskX0 = 0;
+  long maskY0 = 0;
   {
     const int coarsest = over.Zoom - (levels - 1) < 1 ? 1 : over.Zoom - (levels - 1);
     const long span = 1L << (over.Zoom - coarsest);
@@ -130,7 +133,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
   std::vector<uint8_t> covering(static_cast<size_t>(widest) * static_cast<size_t>(widest), 0u);
   const auto marked = [&covering, widest, maskX0, maskY0](long fx, long fy) -> uint8_t * {
-    const long ix = fx - maskX0, iy = fy - maskY0;
+    const long ix = fx - maskX0;
+    const long iy = fy - maskY0;
     if (ix < 0 || iy < 0 || ix >= widest || iy >= widest) { return nullptr; }
     return &covering[static_cast<size_t>(iy) * static_cast<size_t>(widest) +
                      static_cast<size_t>(ix)];
@@ -150,10 +154,14 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     std::vector<std::pair<long, long>> standing;
     for (long row = 0; row < kBlockTiles; ++row) {
       for (long column = 0; column < kBlockTiles; ++column) {
-        long x = originX + column, y = originY + row;
-        const long heldX0 = x * span, heldX1 = heldX0 + span - 1;
-        const long heldY0 = y * span, heldY1 = heldY0 + span - 1;
-        bool covered = true, touches = false;
+        long x = originX + column;
+        long y = originY + row;
+        const long heldX0 = x * span;
+        const long heldX1 = heldX0 + span - 1;
+        const long heldY0 = y * span;
+        const long heldY1 = heldY0 + span - 1;
+        bool covered = true;
+        bool touches = false;
         for (long fy = heldY0; fy <= heldY1; ++fy) {
           for (long fx = heldX0; fx <= heldX1; ++fx) {
             const uint8_t *const cell = marked(fx, fy);

@@ -108,7 +108,8 @@ void ReferenceLine::Read(
     return;
   }
 
-  size_t low = 0, high = through.size() - 1;
+  size_t low = 0;
+  size_t high = through.size() - 1;
   while (low < high) {
     const size_t mid = (low + high + 1) / 2;
     if (through[mid].AlongM <= alongM) {
@@ -169,7 +170,8 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
     return out;
   }
 
-  double east = 0.0, north = 0.0;
+  double east = 0.0;
+  double north = 0.0;
   const double half = 0.5 * byM;
   for (size_t node = 0; node < kNodes; ++node) {
     const double at = half * (kAbscissa[node] + 1.0);
@@ -285,7 +287,8 @@ bool ReferenceLine::Nearest(
     into = away(there);
     return true;
   };
-  double leftAway = 0.0, rightAway = 0.0;
+  double leftAway = 0.0;
+  double rightAway = 0.0;
   if (awayAt(leftM, leftAway) && awayAt(rightM, rightAway)) {
     for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
       if (leftAway < rightAway) {
@@ -313,7 +316,8 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
   if (Laid_.empty()) { return false; }
   if (!(alongM >= 0.0) || alongM > Length_) { return false; }
 
-  size_t low = 0, high = Laid_.size() - 1;
+  size_t low = 0;
+  size_t high = Laid_.size() - 1;
   while (low < high) {
     const size_t mid = (low + high + 1) / 2;
     if (Laid_[mid].AlongM <= alongM) {

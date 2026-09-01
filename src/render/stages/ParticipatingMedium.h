@@ -158,7 +158,8 @@ inline void MediumMultiScatterTexel(const Medium &medium,
     for (int step = 0; step < kMultiScatterSteps; ++step) {
       const float along = stride * (static_cast<float>(step) + kMediumLuminanceSegment);
       const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
-      float scattering[3], extinction[3];
+      float scattering[3];
+      float extinction[3];
       MediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
 
       const float hereKm = heightKm + medium.BottomRadiusKm;

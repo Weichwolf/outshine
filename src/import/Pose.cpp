@@ -65,7 +65,8 @@ bool Pose::Build(const Document &document,
   }
 
   bool first = true;
-  std::vector<double> times, values;
+  std::vector<double> times;
+  std::vector<double> values;
 
   struct Claim {
     int Node = -1;

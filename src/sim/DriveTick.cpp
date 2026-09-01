@@ -264,7 +264,8 @@ const Ridden &DriveTick(const Corridor &way,
     out.LeftAcrossM = at.OffsetM;
     out.LeftSteerRad = controls.MotionRad;
     out.LeftKinematicSteerRad = std::atan(stood.Axles.WheelbaseM * at.CurvaturePerM);
-    double frontSlip = 0.0, rearSlip = 0.0;
+    double frontSlip = 0.0;
+    double rearSlip = 0.0;
     for (size_t which = 0; which < read.Count && which < 4; ++which) {
       const double slip = std::fabs(read.SlipRad[which]);
       double &into = which < 2 ? frontSlip : rearSlip;

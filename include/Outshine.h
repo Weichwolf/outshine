@@ -33,7 +33,7 @@ struct Loading {
   double MeanFetchMs = 0.0;
   double ElapsedS = 0.0;
 
-  [[nodiscard]] double share(void) const {
+  [[nodiscard]] double share() const {
     const size_t wants = GroundWanted + VectorWanted;
     return wants == 0
                ? 1.0
@@ -54,8 +54,8 @@ enum class Buffer { Colour, Linear, Depth, ShadingNormal, SurfaceIdentity, Veloc
 
 class SwapChain {
 public:
-  [[nodiscard]] Extent extent(void) const;
-  [[nodiscard]] bool presents(void) const;
+  [[nodiscard]] Extent extent() const;
+  [[nodiscard]] bool presents() const;
 
   void logsTo(LogSink *sink);
 
@@ -70,16 +70,16 @@ private:
 class Renderer {
 public:
   [[nodiscard]] Result beginFrame(SwapChain &into);
-  [[nodiscard]] Result endFrame(void);
+  [[nodiscard]] Result endFrame();
 
-  [[nodiscard]] Result flushAndWait(void);
+  [[nodiscard]] Result flushAndWait();
 
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
 
-  [[nodiscard]] int settleFrames(void) const;
+  [[nodiscard]] int settleFrames() const;
 
 private:
   friend class Engine;
@@ -105,14 +105,14 @@ public:
   [[nodiscard]] Result handleEvent(const SDL_Event &event);
   [[nodiscard]] Result drawsInto(Extent offscreen);
   void setRoots(Roots roots);
-  [[nodiscard]] Renderer renderer(void);
-  [[nodiscard]] SwapChain swapChain(void);
-  [[nodiscard]] Result inspect(void);
-  [[nodiscard]] bool settled(void) const;
+  [[nodiscard]] Renderer renderer();
+  [[nodiscard]] SwapChain swapChain();
+  [[nodiscard]] Result inspect();
+  [[nodiscard]] bool settled() const;
   [[nodiscard]] Result preload(double patienceS);
   [[nodiscard]] Result preload(double patienceS, const std::function<void(const Loading &)> &tell);
-  [[nodiscard]] Loading loading(void) const;
-  [[nodiscard]] double loadProgress(void) const;
+  [[nodiscard]] Loading loading() const;
+  [[nodiscard]] double loadProgress() const;
 
   [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;
   [[nodiscard]] Result mix(std::span<float> stereo, int rate);
@@ -125,16 +125,16 @@ public:
   /// asymmetry is how a grammar and its reader drift. With this, `read -> write -> read` is a
   /// counter-control a client can run: the two texts are the same one, or a section is missing a
   /// spelling.
-  [[nodiscard]] std::string writeScenario(void) const;
+  [[nodiscard]] std::string writeScenario() const;
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
   [[nodiscard]] Result declare(const Scenario &scenario);
   [[nodiscard]] Result setSurfaces(const std::vector<Surface> &surfaces);
 
-  [[nodiscard]] const Scenario &declaration(void) const;
-  [[nodiscard]] Scene &scene(void);
-  [[nodiscard]] const Scene &scene(void) const;
-  [[nodiscard]] const std::vector<std::string> &unacted(void) const;
-  [[nodiscard]] const std::vector<Measure> &measures(void) const;
+  [[nodiscard]] const Scenario &declaration() const;
+  [[nodiscard]] Scene &scene();
+  [[nodiscard]] const Scene &scene() const;
+  [[nodiscard]] const std::vector<std::string> &unacted() const;
+  [[nodiscard]] const std::vector<Measure> &measures() const;
 
   void keepSamples(size_t steps);
   void stepTimesMs(std::vector<double> &out) const;
@@ -144,7 +144,7 @@ public:
 
   [[nodiscard]] Result advance();
   [[nodiscard]] Result advance(double elapsedS);
-  [[nodiscard]] double stepSeconds(void) const;
+  [[nodiscard]] double stepSeconds() const;
   [[nodiscard]] Result run();
 
   [[nodiscard]] Result park();
@@ -152,12 +152,12 @@ public:
   [[nodiscard]] Result discard(std::string_view name);
   [[nodiscard]] Result save(std::string_view path) const;
   [[nodiscard]] Result restore(std::string_view path);
-  [[nodiscard]] std::vector<std::string> parked(void) const;
+  [[nodiscard]] std::vector<std::string> parked() const;
 
   void logsTo(LogSink *sink);
 
-  [[nodiscard]] bool standing(void) const;
-  [[nodiscard]] const std::string &error(void) const;
+  [[nodiscard]] bool standing() const;
+  [[nodiscard]] const std::string &error() const;
 
 private:
   friend class Renderer;
@@ -165,19 +165,19 @@ private:
   [[nodiscard]] bool saveScreenshot(std::string_view path);
   [[nodiscard]] bool readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] bool readPixels(Buffer which, std::vector<float> &out);
-  [[nodiscard]] bool beginFrame(void);
-  [[nodiscard]] bool endFrame(void);
-  [[nodiscard]] bool flushAndWait(void);
-  [[nodiscard]] Extent canvas(void) const;
+  [[nodiscard]] bool beginFrame();
+  [[nodiscard]] bool endFrame();
+  [[nodiscard]] bool flushAndWait();
+  [[nodiscard]] Extent canvas() const;
 
   [[nodiscard]] bool camera(Camera &out) const;
-  [[nodiscard]] bool presenting(void) const;
+  [[nodiscard]] bool presenting() const;
 
   friend class SwapChain;
   struct State;
   [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);
   [[nodiscard]] bool generated(const Scenario &scenario);
-  void ships(void);
+  void ships();
   std::unique_ptr<State> S_;
 };
 

@@ -114,7 +114,8 @@ private:
 
   void Edges(const Box &box, const Clip &clip, double opacity) {
     const uint32_t colour = box.BorderColour;
-    const double right = box.X + box.Width, bottom = box.Y + box.Height;
+    const double right = box.X + box.Width;
+    const double bottom = box.Y + box.Height;
     const auto edge = [&](double x, double y, double w, double h) {
       Add({.X = x,
            .Y = y,

@@ -39,7 +39,8 @@ VersatilesVector::VersatilesVector() : WebTileSource(Declared()) {}
 
 std::string VersatilesVector::Url(const Address &at) const {
   int z = 0;
-  uint32_t x = 0, y = 0;
+  uint32_t x = 0;
+  uint32_t y = 0;
   if (!at.TryTile(&z, &x, &y)) { return std::string(); }
   return std::format(Says::kTile, z, x, y);
 }

@@ -77,7 +77,8 @@ Buildings::Over(const Ground &ground, double eastM, double northM) const noexcep
 bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const FeatureField::Feature *f = Over(ground, eastM, northM);
   if (!f) { return false; }
-  float topAslM = 0.0f, baseM = 0.0f;
+  float topAslM = 0.0f;
+  float baseM = 0.0f;
   if (!f->Top.TryAslM(&topAslM) || !f->Base.TryAslM(&baseM)) { return false; }
 
   const double e = 0.5 * (static_cast<double>(f->MinEm) + static_cast<double>(f->MaxEm));

@@ -264,11 +264,13 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
 
   const uint32_t indexChannels = kind == TexelKind::Direction ? 0u : IndexChannelsOf(linear);
   std::vector<float> level = linear;
-  uint32_t levelWidth = width, levelHeight = height;
+  uint32_t levelWidth = width;
+  uint32_t levelHeight = height;
   for (uint32_t which = 0; which < levels; ++which) {
     if (which > 0) {
       std::vector<float> smaller;
-      uint32_t smallerWidth = 0, smallerHeight = 0;
+      uint32_t smallerWidth = 0;
+      uint32_t smallerHeight = 0;
       HalveInPlace(level,
                    levelWidth,
                    levelHeight,

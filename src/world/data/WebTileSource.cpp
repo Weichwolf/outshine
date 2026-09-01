@@ -10,7 +10,8 @@ constexpr int kDeepestTileZoom = 30;
 Coverage WebTileSource::Covers(const Request &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   int z = 0;
-  uint32_t x = 0, y = 0;
+  uint32_t x = 0;
+  uint32_t y = 0;
   if (!request.Where().TryTile(&z, &x, &y)) { return Coverage::Outside; }
   if (z < Decl_.MinZoom || z > kDeepestTileZoom) { return Coverage::Outside; }
   if (z > Decl_.MaxZoom && !Decl_.AncestorFill) { return Coverage::Outside; }
@@ -21,7 +22,8 @@ Coverage WebTileSource::Covers(const Request &request) const noexcept {
 
 Address WebTileSource::Serves(const Request &request) const noexcept {
   int z = 0;
-  uint32_t x = 0, y = 0;
+  uint32_t x = 0;
+  uint32_t y = 0;
   if (!request.Where().TryTile(&z, &x, &y)) { return request.Where(); }
   if (z <= Decl_.MaxZoom) { return request.Where(); }
   const int steps = z - Decl_.MaxZoom;

@@ -222,7 +222,8 @@ bool Xml::Parse(const char *text, size_t length) {
       const size_t from = at;
       while (at < length && Text_[at] != '<') { ++at; }
       if (depth > 0) {
-        size_t start = from, stop = at;
+        size_t start = from;
+        size_t stop = at;
         while (start < stop && Space(Text_[start])) { ++start; }
         while (stop > start && Space(Text_[stop - 1])) { --stop; }
         if (stop > start) {

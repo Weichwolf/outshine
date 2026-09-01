@@ -533,7 +533,8 @@ double Placer::Runs(int node,
       size_t take = text.size() - at;
       if (contentWidth > 0) {
         double width = 0;
-        size_t lastSpace = std::string::npos, cursor = at;
+        size_t lastSpace = std::string::npos;
+        size_t cursor = at;
         while (cursor < text.size()) {
           char32_t code = 0;
           const size_t step = NextCodePoint(text, cursor, code);
@@ -701,7 +702,8 @@ double Placer::Flex(int node,
                               len(Property::PaddingRight, contentWidth, 0);
     if (!haveBase) {
       if (column) {
-        double w = 0, h = 0;
+        double w = 0;
+        double h = 0;
         Measure(child, &style, contentWidth, w, h);
         item.Base = h;
       } else {
@@ -725,7 +727,8 @@ double Placer::Flex(int node,
           item.Style.Has(Property::Overflow) ? item.Style.Of(Property::Overflow) : Value{};
       if (spilling.How != Unit::Auto && spilling.Word != kHidden && spilling.Word != kScroll) {
         if (column) {
-          double w = 0, h = 0;
+          double w = 0;
+          double h = 0;
           Measure(child, &style, contentWidth, w, h);
           item.Floor = h;
         } else {
@@ -816,7 +819,8 @@ double Placer::Flex(int node,
       }
     }
     for (size_t pass = 0; pass <= line.Count; ++pass) {
-      double held = gap * static_cast<double>(line.Count - 1), factors = 0;
+      double held = gap * static_cast<double>(line.Count - 1);
+      double factors = 0;
       size_t loose = 0;
       for (size_t i = 0; i < line.Count; ++i) {
         const Item &one = items[line.From + i];
@@ -863,7 +867,8 @@ double Placer::Flex(int node,
         if (column) {
           one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
         } else {
-          double w = 0, h = 0;
+          double w = 0;
+          double h = 0;
           Measure(one.Node, &style, one.Main, w, h);
           one.Cross = h;
         }
@@ -881,7 +886,8 @@ double Placer::Flex(int node,
   }
 
   const uint32_t alignLines = Aligned(style.Word(Property::AlignContent, kStretch), reversed);
-  double lineAt = 0, betweenLines = gap;
+  double lineAt = 0;
+  double betweenLines = gap;
   const double crossSlack = crossRoom - linesDeep;
   if (crossRoom > 0 && crossSlack > 0 && lines.size() > 0) {
     if (alignLines == kStretch) {
@@ -930,7 +936,8 @@ double Placer::Flex(int node,
     for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
       lineUsed += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
     }
-    double cursor = 0, between = gap;
+    double cursor = 0;
+    double between = gap;
     const double slack = definiteMain ? mainRoom - lineUsed : 0.0;
     if (slack > 0) {
       if (justify == kFlexEnd) {
@@ -1367,7 +1374,8 @@ int Layout::Hit(double x, double y) const {
     for (int up = box.Parent; up >= 0 && seen; up = Boxes_[static_cast<size_t>(up)].Parent) {
       const Box &over = Boxes_[static_cast<size_t>(up)];
       if (!over.Clips) { continue; }
-      const double left = over.X + over.Border.Left, top = over.Y + over.Border.Top;
+      const double left = over.X + over.Border.Left;
+      const double top = over.Y + over.Border.Top;
       const double right = over.X + over.Width - over.Border.Right;
       const double bottom = over.Y + over.Height - over.Border.Bottom;
       seen = x >= left && x < right && y >= top && y < bottom;

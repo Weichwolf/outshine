@@ -59,7 +59,9 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
   const int64_t year = v[0] * 1000 + v[1] * 100 + v[2] * 10 + v[3];
   const unsigned mon = static_cast<unsigned>(v[5] * 10 + v[6]);
   const unsigned day = static_cast<unsigned>(v[8] * 10 + v[9]);
-  const int hour = v[11] * 10 + v[12], min = v[14] * 10 + v[15], sec = v[17] * 10 + v[18];
+  const int hour = v[11] * 10 + v[12];
+  const int min = v[14] * 10 + v[15];
+  const int sec = v[17] * 10 + v[18];
   if (mon < 1 || mon > 12) { return false; }
   if (day < 1 || day > DaysInMonth(year, mon)) { return false; }
 
@@ -76,7 +78,8 @@ inline const char *FormatIsoUtc(int64_t unixS, char *buf, size_t n) {
     days -= 1;
   }
   int64_t y;
-  unsigned m, d;
+  unsigned m;
+  unsigned d;
   CivilFromDays(days, y, m, d);
   snprintf(buf,
            n,

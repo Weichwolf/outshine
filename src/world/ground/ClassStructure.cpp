@@ -36,11 +36,13 @@ inline int CrossY(float x0, float y0, float x1, float y1, double cx, double ya, 
 }
 
 double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
-  const double dx = static_cast<double>(x1) - x0, dy = static_cast<double>(y1) - y0;
+  const double dx = static_cast<double>(x1) - x0;
+  const double dy = static_cast<double>(y1) - y0;
   const double l2 = dx * dx + dy * dy;
   double t = l2 > 0.0 ? ((px - x0) * dx + (py - y0) * dy) / l2 : 0.0;
   t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
-  const double qx = x0 + t * dx - px, qy = y0 + t * dy - py;
+  const double qx = x0 + t * dx - px;
+  const double qy = y0 + t * dy - py;
   return std::sqrt(qx * qx + qy * qy);
 }
 
@@ -77,8 +79,9 @@ void ClassStructure::Pack(int unmappedRow) {
     if (B.W == 0) { continue; }
     Words_[h + 0] = static_cast<uint32_t>(B.W);
     Words_[h + 1] = static_cast<uint32_t>(B.H);
-    const float oe = static_cast<float>(B.OrgE), on = static_cast<float>(B.OrgN),
-                cm = static_cast<float>(B.CellM);
+    const float oe = static_cast<float>(B.OrgE);
+    const float on = static_cast<float>(B.OrgN);
+    const float cm = static_cast<float>(B.CellM);
     std::memcpy(&Words_[h + 2], &oe, 4);
     std::memcpy(&Words_[h + 3], &on, 4);
     std::memcpy(&Words_[h + 4], &cm, 4);
@@ -108,7 +111,10 @@ void ClassStructure::Probe() {
 }
 
 int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) const {
-  int best = -1, bestRank = -1, second = -1, secondRank = -1;
+  int best = -1;
+  int bestRank = -1;
+  int second = -1;
+  int secondRank = -1;
   double bestDist = kNoEdgeM;
   const Grid *grids[2] = {Fine_.get(), Coarse_.get()};
   for (int b = 0; b < 2; b++) {
@@ -125,8 +131,8 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
       best = static_cast<int>(c0 & 0xFF);
       bestRank = static_cast<int>((c0 >> 8) & 0xFF);
     }
-    const double cx = B.OrgE + static_cast<double>(i) * B.CellM,
-                 cy = B.OrgN + static_cast<double>(j) * B.CellM;
+    const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
+    const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
     for (uint32_t s = 0; s < nseed; s++) {
       const uint32_t w0 = B.Seeds[(seedFirst + s) * 3];
       const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];

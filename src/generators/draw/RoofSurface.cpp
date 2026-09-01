@@ -49,8 +49,9 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   while (poly.size() > 2 && guard-- > 0) {
     bool cut = false;
     for (size_t i = 0; i < poly.size(); i++) {
-      const uint32_t a = poly[(i + poly.size() - 1) % poly.size()], b = poly[i],
-                     c = poly[(i + 1) % poly.size()];
+      const uint32_t a = poly[(i + poly.size() - 1) % poly.size()];
+      const uint32_t b = poly[i];
+      const uint32_t c = poly[(i + 1) % poly.size()];
       if (cross(a, b, c) <= 0.0) { continue; }
       bool clean = true;
       for (uint32_t o : poly) {
@@ -85,11 +86,13 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   if (in) { return true; }
   double nearest = 1.0e30;
   for (size_t i = 0, j = n - 1; i < n; j = i++) {
-    const double ex = ring[j].E - ring[i].E, ny = ring[j].N - ring[i].N;
+    const double ex = ring[j].E - ring[i].E;
+    const double ny = ring[j].N - ring[i].N;
     const double run = ex * ex + ny * ny;
     double along = run > 0.0 ? ((p.E - ring[i].E) * ex + (p.N - ring[i].N) * ny) / run : 0.0;
     along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
-    const double dx = p.E - (ring[i].E + along * ex), dy = p.N - (ring[i].N + along * ny);
+    const double dx = p.E - (ring[i].E + along * ex);
+    const double dy = p.N - (ring[i].N + along * ny);
     nearest = std::min(nearest, dx * dx + dy * dy);
   }
   return nearest <= marginM * marginM;
@@ -156,7 +159,9 @@ void Refine(std::vector<En> &tris, int passes) {
     std::vector<En> out;
     out.reserve(tris.size() * 4);
     for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-      const En a = tris[i], b = tris[i + 1], c = tris[i + 2];
+      const En a = tris[i];
+      const En b = tris[i + 1];
+      const En c = tris[i + 2];
       const En ab{.E = 0.5 * (a.E + b.E), .N = 0.5 * (a.N + b.N)};
       const En bc{.E = 0.5 * (b.E + c.E), .N = 0.5 * (b.N + c.N)};
       const En ca{.E = 0.5 * (c.E + a.E), .N = 0.5 * (c.N + a.N)};
@@ -174,9 +179,12 @@ void Refine(std::vector<En> &tris, int passes) {
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
 double RoofSurface::HeightAt(const En &enu) const noexcept {
-  double u = 0.0, v = 0.0;
+  double u = 0.0;
+  double v = 0.0;
   Shape_.ToBox(enu, &u, &v);
-  const double hu = Shape_.HalfUm, hv = Shape_.HalfVm, rise = Shape_.RiseM;
+  const double hu = Shape_.HalfUm;
+  const double hv = Shape_.HalfVm;
+  const double rise = Shape_.RiseM;
   double f = 0.0;
   switch (Shape_.Roof) {
     case RoofKind::Flat: return 0.0;
@@ -184,7 +192,9 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
     case RoofKind::Hip: f = std::min(hv - std::fabs(v), hu - std::fabs(u)) / hv; break;
     case RoofKind::Shed: f = 0.5 * (v / hv) + 0.5; break;
     case RoofKind::Mansard: {
-      const double b = Shape_.BreakFracV * hv, a = std::fabs(v), br = Shape_.BreakRiseM;
+      const double b = Shape_.BreakFracV * hv;
+      const double a = std::fabs(v);
+      const double br = Shape_.BreakRiseM;
       return a >= b ? br * (hv - a) / std::max(hv - b, 1.0e-3)
                     : br + (rise - br) * (b - a) / std::max(b, 1.0e-3);
     }
@@ -221,8 +231,12 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
   const size_t n = poly.size();
   out.reserve(n + 2);
   for (size_t i = 0; i < n; i++) {
-    const En &a = poly[i], &b = poly[(i + 1) % n];
-    double ua = 0.0, va = 0.0, ub = 0.0, vb = 0.0;
+    const En &a = poly[i];
+    const En &b = poly[(i + 1) % n];
+    double ua = 0.0;
+    double va = 0.0;
+    double ub = 0.0;
+    double vb = 0.0;
     shape.ToBox(a, &ua, &va);
     shape.ToBox(b, &ub, &vb);
     const double da = (line.A * ua + line.B * va - line.C) * sign;
@@ -258,7 +272,10 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
   at.clear();
   Line lines[kMaxCreases];
   const int n = CreasesOf(Shape_, lines);
-  double u0 = 0.0, v0 = 0.0, u1 = 0.0, v1 = 0.0;
+  double u0 = 0.0;
+  double v0 = 0.0;
+  double u1 = 0.0;
+  double v1 = 0.0;
   Shape_.ToBox(from, &u0, &v0);
   Shape_.ToBox(to, &u1, &v1);
   for (int i = 0; i < n; i++) {
@@ -340,12 +357,18 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const En &p = ring[i];
     const En &a = ring[before];
     const En &b = ring[(i + 1) % n];
-    const double e0 = p.E - a.E, n0 = p.N - a.N, l0 = std::hypot(e0, n0);
-    const double e1 = b.E - p.E, n1 = b.N - p.N, l1 = std::hypot(e1, n1);
+    const double e0 = p.E - a.E;
+    const double n0 = p.N - a.N;
+    const double l0 = std::hypot(e0, n0);
+    const double e1 = b.E - p.E;
+    const double n1 = b.N - p.N;
+    const double l1 = std::hypot(e1, n1);
     if (l0 < 1.0e-6 || l1 < 1.0e-6) { return {}; }
 
-    const double a0 = n0 / l0, b0 = -e0 / l0;
-    const double a1 = n1 / l1, b1 = -e1 / l1;
+    const double a0 = n0 / l0;
+    const double b0 = -e0 / l0;
+    const double a1 = n1 / l1;
+    const double b1 = -e1 / l1;
     const double d0 = before < held.size() && held[before] ? 0.0 : byM;
     const double d1 = i < held.size() && held[i] ? 0.0 : byM;
     const double det = a0 * b1 - b0 * a1;

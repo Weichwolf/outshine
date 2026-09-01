@@ -59,14 +59,16 @@ Span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
 namespace {
 
 double SegmentGapM2(double em, double nm, double e0, double n0, double e1, double n1) {
-  const double de = e1 - e0, dn = n1 - n0;
+  const double de = e1 - e0;
+  const double dn = n1 - n0;
   const double len2 = de * de + dn * dn;
   double t = 0.0;
   if (len2 > 0.0) {
     t = ((em - e0) * de + (nm - n0) * dn) / len2;
     t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
   }
-  const double ge = em - (e0 + t * de), gn = nm - (n0 + t * dn);
+  const double ge = em - (e0 + t * de);
+  const double gn = nm - (n0 + t * dn);
   return ge * ge + gn * gn;
 }
 
@@ -91,7 +93,10 @@ bool FeatureField::Contains(const Feature &f, double eastM, double northM) const
     const Span<const Vertex> v = Vertices(r);
     if (v.Size() < 3) { continue; }
     for (size_t i = 0, j = v.Size() - 1; i < v.Size(); j = i++) {
-      const double ei = v[i].Em, ni = v[i].Nm, ej = v[j].Em, nj = v[j].Nm;
+      const double ei = v[i].Em;
+      const double ni = v[i].Nm;
+      const double ej = v[j].Em;
+      const double nj = v[j].Nm;
       if ((ni > northM) == (nj > northM)) { continue; }
       if (eastM < (ej - ei) * (northM - ni) / (nj - ni) + ei) { crossings++; }
     }

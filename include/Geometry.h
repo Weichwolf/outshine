@@ -29,7 +29,7 @@ private:
 
 class LightManager {
 public:
-  [[nodiscard]] int count(void) const;
+  [[nodiscard]] int count() const;
   [[nodiscard]] const PunctualLight &getLight(int lamp) const;
   [[nodiscard]] bool setLight(int lamp, const PunctualLight &light);
   [[nodiscard]] std::string_view nameOf(int lamp) const;
@@ -45,7 +45,7 @@ private:
 
 class RenderableManager {
 public:
-  [[nodiscard]] int count(void) const;
+  [[nodiscard]] int count() const;
   [[nodiscard]] std::string_view nameOf(int part) const;
   [[nodiscard]] MaterialInstance getMaterial(int part) const;
   [[nodiscard]] bool setMaterial(int part, MaterialInstance surface);
@@ -72,9 +72,9 @@ public:
   int addPart(std::string_view named, MaterialInstance material);
   void clear();
 
-  [[nodiscard]] TransformManager transforms(void);
-  [[nodiscard]] LightManager lights(void);
-  [[nodiscard]] RenderableManager renderables(void);
+  [[nodiscard]] TransformManager transforms();
+  [[nodiscard]] LightManager lights();
+  [[nodiscard]] RenderableManager renderables();
 
   [[nodiscard]] MaterialInstance addSurface(std::string_view named, const Material &surface);
   int addLamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);

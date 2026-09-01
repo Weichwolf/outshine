@@ -113,7 +113,8 @@ struct GroundStream::Held {
       switch (Held_.Pool.BytesBlocking(request, &landing)) {
         case TilePool::Reply::Ready: {
           int az = 0;
-          uint32_t ax = 0, ay = 0;
+          uint32_t ax = 0;
+          uint32_t ay = 0;
           if (!landing.At.TryTile(&az, &ax, &ay)) { return TerrainBytes::Wire(); }
           return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
         }
@@ -230,15 +231,17 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, zoom);
-  const double u = f.X - static_cast<double>(static_cast<long>(f.X)),
-               v = f.Y - static_cast<double>(static_cast<long>(f.Y));
+  const double u = f.X - static_cast<double>(static_cast<long>(f.X));
+  const double v = f.Y - static_cast<double>(static_cast<long>(f.Y));
   const double step = tile.Postings > 0 ? 1.0 / static_cast<double>(tile.Postings) : 0.0;
   const double here = TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, v);
   if (!(step > 0.0)) { return GroundSample::At(here); }
 
   const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
-  const double eastAt = clamped(u + step), westAt = clamped(u - step);
-  const double southAt = clamped(v + step), northAt = clamped(v - step);
+  const double eastAt = clamped(u + step);
+  const double westAt = clamped(u - step);
+  const double southAt = clamped(v + step);
+  const double northAt = clamped(v - step);
   const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
                        static_cast<double>(static_cast<long>(1) << zoom) /
                        static_cast<double>(Surface_.Grid);
@@ -269,12 +272,14 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
-  long hx = static_cast<long>(f.X), hy = static_cast<long>(f.Y);
+  long hx = static_cast<long>(f.X);
+  long hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
   const int zoom = Surface_.Z - kCoarseDrop;
-  long cx = hx >> kCoarseDrop, cy = hy >> kCoarseDrop;
+  long cx = hx >> kCoarseDrop;
+  long cy = hy >> kCoarseDrop;
   if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
     if (const Tile *coarse = CoarseResident(cx, cy)) {
       return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
@@ -350,7 +355,8 @@ GroundSample GroundStream::At(double lat, double lon) const {
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
-  long hx = static_cast<long>(f.X), hy = static_cast<long>(f.Y);
+  long hx = static_cast<long>(f.X);
+  long hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
@@ -371,7 +377,8 @@ double GroundStream::PostM(double latDeg) const {
 GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   GroundBlock block;
   if (z != Surface_.Z) { return block; }
-  long hx = x, hy = y;
+  long hx = x;
+  long hy = y;
   if (!WrapTile(z, &hx, &hy)) { return block; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
@@ -398,13 +405,15 @@ void GroundBlock::AslMRow(
   to.LatDeg = latDeg;
   to.LonDeg = Wrapped180(lonFromDeg + lonStepDeg);
   const TileFrac fromFrac = ToTileFracClamped(from, Zoom_);
-  const double tx0 = fromFrac.X, ty = fromFrac.Y;
+  const double tx0 = fromFrac.X;
+  const double ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
 
   const double width = static_cast<double>(static_cast<long>(1) << Zoom_);
   if ((tx1 - tx0) * lonStepDeg < 0.0) { tx1 += lonStepDeg > 0.0 ? width : -width; }
   const double fy = ty - static_cast<double>(Y_);
-  const double fx0 = tx0 - static_cast<double>(X_), fxStep = tx1 - tx0;
+  const double fx0 = tx0 - static_cast<double>(X_);
+  const double fxStep = tx1 - tx0;
   for (int i = 0; i < count; i++) {
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + static_cast<double>(i) * fxStep, fy);
   }

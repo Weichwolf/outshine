@@ -28,7 +28,7 @@ struct SurfaceMap {
   Sampler Samples;
   UvTransformProperties Uv;
 
-  [[nodiscard]] bool bound(void) const { return Image >= 0; }
+  [[nodiscard]] bool bound() const { return Image >= 0; }
 
   [[nodiscard]] bool operator==(const SurfaceMap &) const = default;
 };
@@ -38,7 +38,7 @@ struct ImageView {
   int HeightPx = 0;
   std::span<const uint8_t> Rgba;
 
-  [[nodiscard]] bool stands(void) const {
+  [[nodiscard]] bool stands() const {
     return WidthPx > 0 && HeightPx > 0 &&
            Rgba.size() >= static_cast<size_t>(WidthPx) * static_cast<size_t>(HeightPx) * 4u;
   }

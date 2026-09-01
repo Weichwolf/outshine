@@ -74,7 +74,8 @@ static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == static_cast<size_t>(Family::
 }
 
 [[nodiscard]] std::string Trimmed(std::string_view from) {
-  size_t first = 0, last = from.size();
+  size_t first = 0;
+  size_t last = from.size();
   const auto space = [](char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '"' || c == '\'';
   };
@@ -203,7 +204,11 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   TTF_Font *set = Set(family, sizePx);
   if (set == nullptr) { return Cells_[slot] = cut; }
 
-  int minx = 0, maxx = 0, miny = 0, maxy = 0, advance = 0;
+  int minx = 0;
+  int maxx = 0;
+  int miny = 0;
+  int maxy = 0;
+  int advance = 0;
   if (!TTF_GetGlyphMetrics(set, static_cast<Uint32>(code), &minx, &maxx, &miny, &maxy, &advance)) {
     return Cells_[slot] = cut;
   }
@@ -218,7 +223,8 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
 
   SDL_Surface *rgba =
       ink->format == SDL_PIXELFORMAT_RGBA32 ? ink : SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);
-  int leftPx = 0, topPx = 0;
+  int leftPx = 0;
+  int topPx = 0;
   if (rgba != nullptr && Packs(rgba->w, rgba->h, leftPx, topPx)) {
     const uint8_t *from = static_cast<const uint8_t *>(rgba->pixels);
     for (int row = 0; row < rgba->h; ++row) {

@@ -90,7 +90,8 @@ void Overlay::Wheeled(double xPx, double yPx, double byPx, bool &again) {
   Scrolled_.resize(Laid_.size());
   for (size_t at = Laid_.size(); at > 0; --at) {
     Laid &laid = Laid_[at - 1];
-    const double x = xPx - laid.LeftPx, y = yPx - laid.TopPx;
+    const double x = xPx - laid.LeftPx;
+    const double y = yPx - laid.TopPx;
     const int scroller = laid.Placed.Scroller(x, y);
     if (scroller < 0) { continue; }
     const double most = laid.Placed.ScrollableBy(scroller);

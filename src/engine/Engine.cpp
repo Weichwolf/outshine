@@ -193,7 +193,8 @@ Result Engine::drawsInto(SDL_Window *presents) {
                 "draws nowhere is declared with an Extent instead";
     return std::unexpected(S_->Error);
   }
-  int widthPx = 0, heightPx = 0;
+  int widthPx = 0;
+  int heightPx = 0;
   SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx);
   S_->Picture.Targeted = true;
   const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, presents);

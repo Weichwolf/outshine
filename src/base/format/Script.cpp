@@ -90,7 +90,8 @@ constexpr const char *kMarks[] = {"++", "--", "==", "!=", "<=", ">=", "&&", "||"
                                   "-",  "*",  "/",  "%",  "<",  ">",  "=",  "!"};
 
 std::string Where(std::string_view text, size_t at) {
-  size_t line = 1, column = 1;
+  size_t line = 1;
+  size_t column = 1;
   for (size_t i = 0; i < at && i < text.size(); ++i) {
     if (text[i] == '\n') {
       ++line;
@@ -1003,7 +1004,8 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
         out = Value::OfNumber((node.Spelling == "==") == same ? 1.0 : 0.0);
         return true;
       }
-      const double a = left.Number, b = right.Number;
+      const double a = left.Number;
+      const double b = right.Number;
       double answer = 0.0;
       if (node.Spelling == "+") {
         answer = a + b;
@@ -1063,7 +1065,8 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
       return true;
     }
     case Node::Shape::AssignMember: {
-      Value object, held;
+      Value object;
+      Value held;
       if (!Evaluate(node.A, host, object, error)) { return false; }
       if (!Evaluate(node.B, host, held, error)) { return false; }
       if (!host.SetMember(object, node.Spelling, held)) {
@@ -1081,7 +1084,8 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
       return node.C == 0 ? true : Perform(node.C - 1, host, error);
     }
     case Node::Shape::While: {
-      const size_t condition = node.A, body = node.B;
+      const size_t condition = node.A;
+      const size_t body = node.B;
       for (;;) {
         Value held;
         if (!Evaluate(condition, host, held, error)) { return false; }

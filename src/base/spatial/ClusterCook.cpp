@@ -237,7 +237,8 @@ Cooked CookDag(std::span<const float> positionsM,
     float wholeCentre[3] = {0.0f, 0.0f, 0.0f};
     float wholeRadius = 0.0f;
     {
-      float low[3], high[3];
+      float low[3];
+      float high[3];
       for (int axis = 0; axis < 3; ++axis) {
         low[axis] = out.PositionsM[static_cast<size_t>(kept[0]) * 3 + static_cast<size_t>(axis)];
         high[axis] = low[axis];

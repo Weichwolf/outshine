@@ -58,7 +58,8 @@ void ClassField::Ingest(Tier &t) {
   if (havePts > t.PtsDone) {
     t.Pts.resize(havePts * 2);
     for (size_t i = t.PtsDone; i < havePts; i++) {
-      double e = 0, n = 0;
+      double e = 0;
+      double n = 0;
       Project(pts[i * 2], pts[i * 2 + 1], &e, &n);
       t.Pts[i * 2] = static_cast<float>(e);
       t.Pts[i * 2 + 1] = static_cast<float>(n);
@@ -167,7 +168,8 @@ void ClassField::SubmitDue(double camE, double camN) {
   const ClassGrain order[2] = {ClassGrain::Fine, ClassGrain::Coarse};
   for (ClassGrain grain : order) {
     Tier &t = TierOf(grain);
-    const double cx = t.OrgE + t.HalfCells * t.CellM, cy = t.OrgN + t.HalfCells * t.CellM;
+    const double cx = t.OrgE + t.HalfCells * t.CellM;
+    const double cy = t.OrgN + t.HalfCells * t.CellM;
     const bool drifted =
         t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
     if (t.Have && !t.Stale && !drifted) { continue; }
@@ -205,7 +207,8 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
   StreamMs_ = t1 - t0;
   IngestMs_ = t2 - t1;
 
-  double camE = 0, camN = 0;
+  double camE = 0;
+  double camN = 0;
   Project(camLat, camLon, &camE, &camN);
   Cam_[0] = camE;
   Cam_[1] = camN;

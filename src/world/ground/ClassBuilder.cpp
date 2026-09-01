@@ -34,12 +34,20 @@ constexpr int kCurveMaxSplit = 8;
 void CatmullPoint(
     const float *p0, const float *p1, const float *p2, const float *p3, float u, float *out) {
   auto knot = [](float t, const float *a, const float *b) {
-    const float dx = b[0] - a[0], dy = b[1] - a[1];
+    const float dx = b[0] - a[0];
+    const float dy = b[1] - a[1];
     return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + 1.0e-6f);
   };
-  const float t0 = 0.0f, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+  const float t0 = 0.0f;
+  const float t1 = knot(t0, p0, p1);
+  const float t2 = knot(t1, p1, p2);
+  const float t3 = knot(t2, p2, p3);
   const float t = t1 + u * (t2 - t1);
-  float a1[2], a2[2], a3[2], b1[2], b2[2];
+  float a1[2];
+  float a2[2];
+  float a3[2];
+  float b1[2];
+  float b2[2];
   for (int a = 0; a < 2; a++) {
     a1[a] = ((t1 - t) * p0[a] + (t - t0) * p1[a]) / (t1 - t0);
     a2[a] = ((t2 - t) * p1[a] + (t - t1) * p2[a]) / (t2 - t1);
@@ -67,10 +75,14 @@ void CurveRing(
   };
   const int spans = closed ? static_cast<int>(count) : static_cast<int>(count) - 1;
   for (int s = 0; s < spans; s++) {
-    const float *p0 = P(s - 1), *p1 = P(s), *p2 = P(s + 1), *p3 = P(s + 2);
+    const float *p0 = P(s - 1);
+    const float *p1 = P(s);
+    const float *p2 = P(s + 1);
+    const float *p3 = P(s + 2);
     float mid[2];
     CatmullPoint(p0, p1, p2, p3, 0.5f, mid);
-    const float cx = 0.5f * (p1[0] + p2[0]), cy = 0.5f * (p1[1] + p2[1]);
+    const float cx = 0.5f * (p1[0] + p2[0]);
+    const float cy = 0.5f * (p1[1] + p2[1]);
     const float dev = std::sqrt((mid[0] - cx) * (mid[0] - cx) + (mid[1] - cy) * (mid[1] - cy));
     int n = 1;
     if (dev > kCurveTolM) {
@@ -177,7 +189,8 @@ void ClassBuilder::Run() {
 
 void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflow) {
   Workspace &work = Workspace_;
-  const int W = job.HalfCells * 2, H = job.HalfCells * 2;
+  const int W = job.HalfCells * 2;
+  const int H = job.HalfCells * 2;
   const double cell = job.CellM;
   B.W = W;
   B.H = H;
@@ -185,11 +198,13 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   B.OrgE = std::floor(job.CamE / cell - job.HalfCells) * cell;
   B.OrgN = std::floor(job.CamN / cell - job.HalfCells) * cell;
 
-  std::vector<uint8_t> &base = work.Base, &baseRank = work.BaseRank;
+  std::vector<uint8_t> &base = work.Base;
+  std::vector<uint8_t> &baseRank = work.BaseRank;
   base.assign(static_cast<size_t>(W) * H, 0xFF);
   baseRank.assign(static_cast<size_t>(W) * H, 0);
 
-  std::vector<int32_t> &seedHead = work.SeedHead, &seedNext = work.SeedNext;
+  std::vector<int32_t> &seedHead = work.SeedHead;
+  std::vector<int32_t> &seedNext = work.SeedNext;
   std::vector<uint32_t> &seedCount = work.SeedCount;
   seedHead.assign(static_cast<size_t>(W) * H, -1);
   seedNext.clear();
@@ -200,9 +215,11 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   std::vector<uint32_t> &byY = work.ByY;
   std::vector<uint32_t> &act = work.Act;
 
-  std::vector<int32_t> &ceHead = work.CellHead, &ceNext = work.CellNext;
-  std::vector<uint32_t> &ceStamp = work.CellStamp, &ceEdge = work.CellEdge,
-                        &ceCount = work.CellCount;
+  std::vector<int32_t> &ceHead = work.CellHead;
+  std::vector<int32_t> &ceNext = work.CellNext;
+  std::vector<uint32_t> &ceStamp = work.CellStamp;
+  std::vector<uint32_t> &ceEdge = work.CellEdge;
+  std::vector<uint32_t> &ceCount = work.CellCount;
   std::fill(ceStamp.begin(), ceStamp.end(), 0u);
   uint32_t stamp = 0;
   std::vector<Hit> &hits = work.Hits;
@@ -218,7 +235,8 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         CurveRing(job.Pts.data(), ring.First, ring.Count, true, curve);
         const size_t nc = curve.size() / 2;
         for (size_t s = 0; s < nc; s++) {
-          const size_t a = s, b = (s + 1) % nc;
+          const size_t a = s;
+          const size_t b = (s + 1) % nc;
           ex.push_back(curve[a * 2]);
           ex.push_back(curve[a * 2 + 1]);
           ex.push_back(curve[b * 2]);
@@ -246,7 +264,8 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
     const int j0 = std::max(0, static_cast<int>(std::floor((f.MinN - B.OrgN) / cell)));
     const int j1 = std::min(H - 1, static_cast<int>(std::floor((f.MaxN - B.OrgN) / cell)));
     if (i0 > i1 || j0 > j1) { continue; }
-    const int bw = i1 - i0 + 1, bh = j1 - j0 + 1;
+    const int bw = i1 - i0 + 1;
+    const int bh = j1 - j0 + 1;
 
     stamp++;
     if (ceHead.size() < static_cast<size_t>(bw) * bh) {

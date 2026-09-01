@@ -99,8 +99,11 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
     out.ModelShiftM[2] = -declared.AssetCentreZ * out.MetresPerAssetUnit;
   }
 
-  double driven = 0.0, frontMounts = 0.0, rearMounts = 0.0;
-  double frontArmM = 0.0, rearArmM = 0.0;
+  double driven = 0.0;
+  double frontMounts = 0.0;
+  double rearMounts = 0.0;
+  double frontArmM = 0.0;
+  double rearArmM = 0.0;
   for (const Contact &one : declared.Contacts) {
     const double armM = one.AtM[2] - out.CentreM[2];
     driven += armM > 0.0 ? 1.0 : 0.0;

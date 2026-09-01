@@ -184,11 +184,12 @@ bool TreeMesher::Collar(int face,
   if (a0 < 0) { a0 += kTau; }
   int s = static_cast<int>(std::lround(a0 / kTau * static_cast<float>(sides))) % sides;
   if (s < 0) { s += sides; }
-  int ia = 0, ib = 0;
+  int ia = 0;
+  int ib = 0;
   while (ia < 4 || ib < sides) {
     const int oc = o[ia % 4];
-    const float ta = static_cast<float>(ia) / 4.0f,
-                tb = static_cast<float>(ib) / static_cast<float>(sides);
+    const float ta = static_cast<float>(ia) / 4.0f;
+    const float tb = static_cast<float>(ib) / static_cast<float>(sides);
     if (ib >= sides || (ia < 4 && ta <= tb)) {
       AddFace(oc, o[(ia + 1) % 4], inner[(s + ib) % sides], -1);
       ia++;
@@ -213,7 +214,8 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     Drawn_[i] = plant.Shoots[i].Count >= 2 && plant.Shoots[i].Reach > PixelGrow_ ? 1 : 0;
   }
 
-  int ring[kMaxSides], next[kMaxSides];
+  int ring[kMaxSides];
+  int next[kMaxSides];
   for (size_t i = 0; i < plant.Shoots.size(); ++i) {
     if (!Drawn_[i]) { continue; }
     const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
@@ -280,9 +282,9 @@ void TreeMesher::Export(TreeMesh &out) {
     const int tri[2][3] = {{f.A, f.B, f.C}, {f.A, f.C, f.D}};
     const int nt = f.D < 0 ? 1 : 2;
     for (int ti = 0; ti < nt; ++ti) {
-      const TreeVec3 a = Verts_[static_cast<size_t>(tri[ti][0])],
-                     b = Verts_[static_cast<size_t>(tri[ti][1])],
-                     c = Verts_[static_cast<size_t>(tri[ti][2])];
+      const TreeVec3 a = Verts_[static_cast<size_t>(tri[ti][0])];
+      const TreeVec3 b = Verts_[static_cast<size_t>(tri[ti][1])];
+      const TreeVec3 c = Verts_[static_cast<size_t>(tri[ti][2])];
       const TreeVec3 fn = Cross(b - a, c - a);
       for (int e = 0; e < 3; ++e) {
         Normals_[static_cast<size_t>(tri[ti][e])] = Normals_[static_cast<size_t>(tri[ti][e])] + fn;

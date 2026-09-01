@@ -24,7 +24,7 @@ public:
 
   [[nodiscard]] constexpr bool Emits() const { return Emits_; }
 
-  constexpr float CoverageCut() const { return CoverageCut_; }
+  [[nodiscard]] constexpr float CoverageCut() const { return CoverageCut_; }
 
 private:
   constexpr SurfaceState() = default;

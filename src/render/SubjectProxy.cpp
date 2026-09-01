@@ -128,7 +128,8 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
                                    bool standsInside,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
-  double framedLeast[3], framedMost[3];
+  double framedLeast[3];
+  double framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
   size_t beyond = subject.VertexCount();
   if (framedParts > 0 && framedParts < subject.Parts.size()) {
@@ -208,7 +209,8 @@ SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error)
 double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   if (part.PositionsM.size() < 3) { return 0.0; }
-  double low[3], high[3];
+  double low[3];
+  double high[3];
   for (int axis = 0; axis < 3; ++axis) {
     low[axis] = high[axis] = static_cast<double>(part.PositionsM[static_cast<size_t>(axis)]);
   }
@@ -408,7 +410,10 @@ bool Aim(SceneRenderer &renderer,
       !ClearsNearPlane(subject, eye, view.FramedParts, view.StandsInside, error)) {
     return false;
   }
-  double position[3], forward[3], right[3], up[3];
+  double position[3];
+  double forward[3];
+  double right[3];
+  double up[3];
   Anchored(anchorEcefM, eye.EyeM, position);
   for (int axis = 0; axis < 3; ++axis) {
     forward[axis] = eye.Forward[axis];

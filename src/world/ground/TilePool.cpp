@@ -122,7 +122,8 @@ double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   const double cx = (FocusLonDeg_ + 180.0) / 360.0 * n;
   const double lat = FocusLatDeg_ * std::numbers::pi / 180.0;
   const double cy = (1.0 - std::asinh(std::tan(lat)) / std::numbers::pi) * 0.5 * n;
-  const double dx = static_cast<double>(x) + 0.5 - cx, dy = static_cast<double>(y) + 0.5 - cy;
+  const double dx = static_cast<double>(x) + 0.5 - cx;
+  const double dy = static_cast<double>(y) + 0.5 - cy;
   return dx * dx + dy * dy;
 }
 
@@ -350,7 +351,8 @@ public:
 private:
   static TerrainBytes Answered(TilePool::Landing &landing) {
     int az = 0;
-    uint32_t ax = 0, ay = 0;
+    uint32_t ax = 0;
+    uint32_t ay = 0;
     if (!landing.At.TryTile(&az, &ax, &ay)) { return TerrainBytes::Wire(); }
     return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
   }
@@ -514,7 +516,8 @@ void TilePool::Work(int slot) {
       if (Stopping_) { break; }
       size_t best = 0;
       for (size_t i = 1; i < Queue_.size(); i++) {
-        const Job &a = Queue_[i], &b = Queue_[best];
+        const Job &a = Queue_[i];
+        const Job &b = Queue_[best];
         if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
             (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
           best = i;

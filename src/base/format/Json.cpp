@@ -90,7 +90,8 @@ int32_t Json::ParseValueInside() {
         P_++;
         break;
       }
-      uint32_t koff = 0, klen = 0;
+      uint32_t koff = 0;
+      uint32_t klen = 0;
       bool kesc = false;
       if (obj) {
         if (!ParseString(koff, klen, kesc)) { return -1; }
@@ -125,7 +126,8 @@ int32_t Json::ParseValueInside() {
   }
 
   if (c == '"') {
-    uint32_t off = 0, len = 0;
+    uint32_t off = 0;
+    uint32_t len = 0;
     bool esc = false;
     if (!ParseString(off, len, esc)) { return -1; }
     Node &n = Nodes_[static_cast<size_t>(id)];

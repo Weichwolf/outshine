@@ -43,7 +43,8 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.RingCount = 1;
     rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = count});
     for (uint32_t k = 0; k < count; k++) {
-      double eastM = 0.0, northM = 0.0;
+      double eastM = 0.0;
+      double northM = 0.0;
       region.Enu(points[(static_cast<size_t>(firstPoint) + k) * 2],
                  points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
                  &eastM,
@@ -109,7 +110,10 @@ Snapped SnapshotOver(const Tile &region,
   const double stepE = region.SpanEm() / static_cast<double>(side - 1);
   const double stepN = region.SpanNm() / static_cast<double>(side - 1);
   for (int j = 0; j < side; j++) {
-    double lat = 0.0, lonFrom = 0.0, latAgain = 0.0, lonNext = 0.0;
+    double lat = 0.0;
+    double lonFrom = 0.0;
+    double latAgain = 0.0;
+    double lonNext = 0.0;
     region.Geo(0.0, static_cast<double>(j) * stepN, &lat, &lonFrom);
     region.Geo(stepE, static_cast<double>(j) * stepN, &latAgain, &lonNext);
     block.AslMRow(lat, lonFrom, lonNext - lonFrom, side, row.data());

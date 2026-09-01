@@ -124,7 +124,8 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
 
   TerrainBytes answer = Source_.Take(z, x, y);
   int sourceZ = 0;
-  uint32_t sourceX = 0, sourceY = 0;
+  uint32_t sourceX = 0;
+  uint32_t sourceY = 0;
   std::vector<uint8_t> png;
   if (!answer.TryTake(&sourceZ, &sourceX, &sourceY, &png)) {
     switch (answer.Where()) {

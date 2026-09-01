@@ -21,7 +21,9 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
     return false;
   }
 
-  std::vector<float> positionsM(vertices * 3), uv(vertices * 2), normalM(vertices * 3);
+  std::vector<float> positionsM(vertices * 3);
+  std::vector<float> uv(vertices * 2);
+  std::vector<float> normalM(vertices * 3);
   std::vector<uint32_t> run(vertices);
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
     const float *const at = soup + vertex * kSoupFloatsPerVertex;

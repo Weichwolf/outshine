@@ -152,14 +152,17 @@ bool SpeedProfile::Over(const ReferenceLine &along,
     const double to = seams[which + 1];
     if (!(to > from)) { continue; }
     const double centre = 0.5 * (from + to);
-    Placed head, middle;
+    Placed head;
+    Placed middle;
     if (!along.At(from, head) || !along.At(centre, middle)) { continue; }
     Placed tail = middle;
     tail.CurvaturePerM = 2.0 * middle.CurvaturePerM - head.CurvaturePerM;
     tail.CurvatureRatePerM = 2.0 * middle.CurvatureRatePerM - head.CurvatureRatePerM;
     tail.SlopeRatePerM = 2.0 * middle.SlopeRatePerM - head.SlopeRatePerM;
 
-    Held byHead = Held::Free, byMiddle = Held::Free, byTail = Held::Free;
+    Held byHead = Held::Free;
+    Held byMiddle = Held::Free;
+    Held byTail = Held::Free;
     const double atHead = HeldAt(head, byHead);
     const double atMiddle = HeldAt(middle, byMiddle);
     const double atTail = HeldAt(tail, byTail);

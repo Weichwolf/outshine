@@ -34,8 +34,14 @@ void Compress(uint32_t state[8], const uint8_t block[64]) {
     const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
     w[i] = w[i - 16] + s0 + w[i - 7] + s1;
   }
-  uint32_t a = state[0], b = state[1], c = state[2], d = state[3];
-  uint32_t e = state[4], f = state[5], g = state[6], h = state[7];
+  uint32_t a = state[0];
+  uint32_t b = state[1];
+  uint32_t c = state[2];
+  uint32_t d = state[3];
+  uint32_t e = state[4];
+  uint32_t f = state[5];
+  uint32_t g = state[6];
+  uint32_t h = state[7];
   for (int i = 0; i < 64; i++) {
     const uint32_t s1 = Rotr(e, 6) ^ Rotr(e, 11) ^ Rotr(e, 25);
     const uint32_t ch = (e & f) ^ (~e & g);

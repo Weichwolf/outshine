@@ -124,7 +124,8 @@ Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
 class Site {
 public:
   Site(const StructurePlan &plan, Raised &into) : Out_(into) {
-    const double lat = plan.RingLatLon[0], lon = plan.RingLatLon[1];
+    const double lat = plan.RingLatLon[0];
+    const double lon = plan.RingLatLon[1];
     double origin[3];
     GeoToEcef(lat, lon, plan.BaseAslM, origin);
     EnuAxesEcef(lat, lon, East_, North_, Up_);
@@ -161,11 +162,19 @@ public:
   }
 
   void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
-    const Vtx a = Snapped(given0), b = Snapped(given1), c = Snapped(given2);
-    const uint32_t ia = Index(a), ib = Index(b), ic = Index(c);
+    const Vtx a = Snapped(given0);
+    const Vtx b = Snapped(given1);
+    const Vtx c = Snapped(given2);
+    const uint32_t ia = Index(a);
+    const uint32_t ib = Index(b);
+    const uint32_t ic = Index(c);
     if (ia == ib || ib == ic || ic == ia) { return; }
-    const double e1 = b.P.E - a.P.E, n1 = b.P.N - a.P.N, z1 = b.Z - a.Z;
-    const double e2 = c.P.E - a.P.E, n2 = c.P.N - a.P.N, z2 = c.Z - a.Z;
+    const double e1 = b.P.E - a.P.E;
+    const double n1 = b.P.N - a.P.N;
+    const double z1 = b.Z - a.Z;
+    const double e2 = c.P.E - a.P.E;
+    const double n2 = c.P.N - a.P.N;
+    const double z2 = c.Z - a.Z;
     double nrm[3] = {n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2};
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
     if (len < 1.0e-12) { return; }
@@ -185,8 +194,8 @@ public:
     std::map<std::pair<uint32_t, uint32_t>, int> counted;
     for (size_t at = 0; at + 2 < Face_.size(); at += 3) {
       for (int side = 0; side < 3; ++side) {
-        const uint32_t from = Face_[at + static_cast<size_t>(side)],
-                       to = Face_[at + static_cast<size_t>((side + 1) % 3)];
+        const uint32_t from = Face_[at + static_cast<size_t>(side)];
+        const uint32_t to = Face_[at + static_cast<size_t>((side + 1) % 3)];
         const bool ahead = from < to;
         const std::pair<uint32_t, uint32_t> key{ahead ? from : to, ahead ? to : from};
         walked[key] += ahead ? 1 : -1;
@@ -259,7 +268,8 @@ public:
     if (n < 3) { return; }
     double m[3][4] = {};
     for (size_t k = 0; k < n; k++) {
-      double e = 0.0, nn = 0.0;
+      double e = 0.0;
+      double nn = 0.0;
       EnuOffsetM(ringLatLon[0], ringLatLon[1], ringLatLon[k * 2], ringLatLon[k * 2 + 1], e, nn);
       const double z = cornerAslM[k] - baseAslM;
       const double b[3] = {1.0, e, nn};
@@ -333,8 +343,10 @@ void FrontWall(const BuildingShape &s,
                double highZ,
                Site &site) {
   const double door = std::floor(0.5 * bays);
-  const double t0 = door / bays, t1 = (door + 1.0) / bays;
-  const En a = Along(p, q, t0), b = Along(p, q, t1);
+  const double t0 = door / bays;
+  const double t1 = (door + 1.0) / bays;
+  const En a = Along(p, q, t0);
+  const En b = Along(p, q, t1);
   if (door > 0.0) { WallPanel(s, p, a, 0.0, door, lowZ, highZ, Fields::Front, site); }
   WallPanel(s, a, b, door, door + 1.0, lowZ, highZ, Fields::Entrance, site);
   if (door + 1.0 < bays) { WallPanel(s, b, q, door + 1.0, bays, lowZ, highZ, Fields::Front, site); }
@@ -418,7 +430,8 @@ void Walls(const BuildingShape &s,
   const size_t n = s.Ring.size();
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
-    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i];
+    const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
@@ -455,7 +468,8 @@ void SampleGround(const BuildingShape &s,
   bool first = true;
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
-    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i];
+    const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     const int steps = 1 + static_cast<int>(len / kGroundStepM);
     for (int step = 0; step < steps; ++step) {
@@ -474,7 +488,8 @@ void SampleGround(const BuildingShape &s,
 }
 
 double PlinthFootZ(const BuildingShape &s, const Site2Ground &ground) {
-  double lowest = 0.0, highest = 0.0;
+  double lowest = 0.0;
+  double highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
   lowest = std::min(lowest, ground.Low());
   highest = std::max(highest, ground.High());
@@ -505,8 +520,10 @@ void Plinth(const BuildingShape &s,
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
-      const En oa = Along(out[i], out[j], was), ob = Along(out[i], out[j], now);
-      const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
+      const En oa = Along(out[i], out[j], was);
+      const En ob = Along(out[i], out[j], now);
+      const En ra = Along(s.Ring[i], s.Ring[j], was);
+      const En rb = Along(s.Ring[i], s.Ring[j], now);
       was = now;
       gPlinthSteps.fetch_add(1u, std::memory_order_relaxed);
       site.Quad(Face(s, oa, lowZ, Facade::Plinth),
@@ -539,7 +556,8 @@ void Gables(const BuildingShape &s,
   const double eaves = EavesZ(s);
   std::vector<double> breaks;
   for (size_t i = 0; i < n; i++) {
-    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
+    const En &p = s.Ring[i];
+    const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
@@ -549,8 +567,10 @@ void Gables(const BuildingShape &s,
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
-      const En a = Along(p, q, was), b = Along(p, q, now);
-      const double ha = std::max(roof.HeightAt(a), 0.0), hb = std::max(roof.HeightAt(b), 0.0);
+      const En a = Along(p, q, was);
+      const En b = Along(p, q, now);
+      const double ha = std::max(roof.HeightAt(a), 0.0);
+      const double hb = std::max(roof.HeightAt(b), 0.0);
       was = now;
       if (ha < 0.03 && hb < 0.03) { continue; }
       site.Quad(Wall(s, a, eaves, 0.0, Fields::Back),
@@ -595,11 +615,15 @@ void Eaves(const BuildingShape &s,
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
-      const En wa = Along(wide[i], wide[j], was), wb = Along(wide[i], wide[j], now);
-      const En ra = Along(s.Ring[i], s.Ring[j], was), rb = Along(s.Ring[i], s.Ring[j], now);
+      const En wa = Along(wide[i], wide[j], was);
+      const En wb = Along(wide[i], wide[j], now);
+      const En ra = Along(s.Ring[i], s.Ring[j], was);
+      const En rb = Along(s.Ring[i], s.Ring[j], now);
       was = now;
-      const double za = eaves + roof.HeightAt(wa), zb = eaves + roof.HeightAt(wb);
-      const double rza = eaves + roof.HeightAt(ra), rzb = eaves + roof.HeightAt(rb);
+      const double za = eaves + roof.HeightAt(wa);
+      const double zb = eaves + roof.HeightAt(wb);
+      const double rza = eaves + roof.HeightAt(ra);
+      const double rzb = eaves + roof.HeightAt(rb);
       site.Quad(Face(s, ra, rza, Facade::Soffit),
                 Face(s, rb, rzb, Facade::Soffit),
                 Face(s, wb, zb, Facade::Soffit),
@@ -618,7 +642,9 @@ void Crown(const BuildingShape &s,
            Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
-  const double band = eaves - 0.34, lo = eaves, hi = eaves + s.RiseM;
+  const double band = eaves - 0.34;
+  const double lo = eaves;
+  const double hi = eaves + s.RiseM;
   for (size_t i = 0; i < n; i++) {
     const size_t j = (i + 1) % n;
     site.Quad(Face(s, out[i], band, Facade::Ledge),
@@ -698,7 +724,8 @@ void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
 }
 
 void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
-  const double halfU = std::min(2.6, 0.30 * s.HalfUm), halfV = std::min(1.9, 0.30 * s.HalfVm);
+  const double halfU = std::min(2.6, 0.30 * s.HalfUm);
+  const double halfV = std::min(1.9, 0.30 * s.HalfVm);
   if (halfU < 0.9 || halfV < 0.7) { return; }
   const double along = ((static_cast<double>(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
@@ -706,7 +733,8 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
 }
 
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
-  double lowest = 0.0, highest = 0.0;
+  double lowest = 0.0;
+  double highest = 0.0;
   SampleGround(s, ground, &lowest, &highest);
   const double seatZ = ground.High();
   const double seat = std::max(seatZ, highest) + kPlinthM;
@@ -739,16 +767,28 @@ constexpr double kBoxTris = 12.0;
 [[nodiscard]] std::vector<En> Hull(const std::vector<En> &ring) {
   const size_t n = ring.size();
   double bestArea = 1.0e300;
-  double axE = 1.0, axN = 0.0, minU = 0.0, maxU = 0.0, minV = 0.0, maxV = 0.0;
+  double axE = 1.0;
+  double axN = 0.0;
+  double minU = 0.0;
+  double maxU = 0.0;
+  double minV = 0.0;
+  double maxV = 0.0;
   for (size_t i = 0; i < n; i++) {
-    const En &a = ring[i], &b = ring[(i + 1) % n];
-    const double dE = b.E - a.E, dN = b.N - a.N;
+    const En &a = ring[i];
+    const En &b = ring[(i + 1) % n];
+    const double dE = b.E - a.E;
+    const double dN = b.N - a.N;
     const double len = std::hypot(dE, dN);
     if (len < 1.0e-6) { continue; }
-    const double uE = dE / len, uN = dN / len;
-    double loU = 1.0e300, hiU = -1.0e300, loV = 1.0e300, hiV = -1.0e300;
+    const double uE = dE / len;
+    const double uN = dN / len;
+    double loU = 1.0e300;
+    double hiU = -1.0e300;
+    double loV = 1.0e300;
+    double hiV = -1.0e300;
     for (const En &p : ring) {
-      const double u = p.E * uE + p.N * uN, v = -p.E * uN + p.N * uE;
+      const double u = p.E * uE + p.N * uN;
+      const double v = -p.E * uN + p.N * uE;
       loU = std::min(loU, u);
       hiU = std::max(hiU, u);
       loV = std::min(loV, v);
@@ -796,7 +836,10 @@ void RaisePart(const BuildingShape &s, Site &site) {
   }
   const double focalPx = site.FocalPx();
   if (focalPx > 0.0) {
-    double leastE = 1.0e300, mostE = -1.0e300, leastN = 1.0e300, mostN = -1.0e300;
+    double leastE = 1.0e300;
+    double mostE = -1.0e300;
+    double leastN = 1.0e300;
+    double mostN = -1.0e300;
     for (const En &p : s.Ring) {
       leastE = std::min(leastE, p.E);
       mostE = std::max(mostE, p.E);
@@ -874,22 +917,31 @@ void Pavement(const BuildingShape &s,
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
     if (s.Party[i]) { continue; }
-    const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
-    const double e = q.E - p.E, nn = q.N - p.N, len = std::hypot(e, nn);
+    const En &p = s.Ring[i];
+    const En &q = s.Ring[(i + 1) % n];
+    const double e = q.E - p.E;
+    const double nn = q.N - p.N;
+    const double len = std::hypot(e, nn);
     if (len < 1.2) { continue; }
     if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) { continue; }
-    double bp = StandBack(street, p), bq = StandBack(street, q);
+    double bp = StandBack(street, p);
+    double bq = StandBack(street, q);
     if (bp > -kPavementLeastM || bq > -kPavementLeastM) { continue; }
     if (bp < -kPavementMostM && bq < -kPavementMostM) { continue; }
     bp = std::max(bp, -kFootwayMostM);
     bq = std::max(bq, -kFootwayMostM);
 
-    const En pk = OntoKerb(street, p, bp + kKerbTopM), qk = OntoKerb(street, q, bq + kKerbTopM);
-    const En pe = OntoKerb(street, p, bp), qe = OntoKerb(street, q, bq);
+    const En pk = OntoKerb(street, p, bp + kKerbTopM);
+    const En qk = OntoKerb(street, q, bq + kKerbTopM);
+    const En pe = OntoKerb(street, p, bp);
+    const En qe = OntoKerb(street, q, bq);
     const auto walk = [&](const En &at) {
       return std::min(ground.At(at) + kKerbUpM, plinthZ - 0.05);
     };
-    const double zp = walk(p), zq = walk(q), zpk = walk(pk), zqk = walk(qk);
+    const double zp = walk(p);
+    const double zq = walk(q);
+    const double zpk = walk(pk);
+    const double zqk = walk(qk);
     site.Quad(Face(s, p, zp, Facade::Pavement),
               Face(s, pk, zpk, Facade::Pavement),
               Face(s, qk, zqk, Facade::Pavement),

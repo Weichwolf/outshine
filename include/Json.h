@@ -83,7 +83,7 @@ private:
   size_t Depth_ = 0;
   [[nodiscard]] bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);
   void Skip();
-  std::string Decode(uint32_t off, uint32_t len, bool escaped) const;
+  [[nodiscard]] std::string Decode(uint32_t off, uint32_t len, bool escaped) const;
 
   std::string Text_;
   std::vector<Node> Nodes_;

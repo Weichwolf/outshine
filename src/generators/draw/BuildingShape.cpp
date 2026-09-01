@@ -60,7 +60,8 @@ double UnitOf(uint32_t seed, int stream) {
 std::vector<En> RingInMetres(Span<const double> latLon) {
   std::vector<En> ring;
   if (latLon.Size() < 6) { return ring; }
-  const double refLat = latLon[0], refLon = latLon[1];
+  const double refLat = latLon[0];
+  const double refLon = latLon[1];
   ring.reserve(latLon.Size() / 2);
   for (size_t k = 0; k + 1 < latLon.Size(); k += 2) {
     En p;
@@ -80,7 +81,8 @@ std::vector<En> RingInMetres(Span<const double> latLon) {
 double SignedArea(const std::vector<En> &ring) {
   double a = 0.0;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
-    const En &p = ring[i], &q = ring[(i + 1) % n];
+    const En &p = ring[i];
+    const En &q = ring[(i + 1) % n];
     a += p.E * q.N - q.E * p.N;
   }
   return 0.5 * a;
@@ -108,8 +110,13 @@ void DropSpurs(Piece *p) {
     again = false;
     for (size_t i = 0; i < p->P.size(); i++) {
       const size_t n = p->P.size();
-      const En &a = p->P[(i + n - 1) % n], &b = p->P[i], &c = p->P[(i + 1) % n];
-      const double e1 = b.E - a.E, n1 = b.N - a.N, e2 = c.E - b.E, n2 = c.N - b.N;
+      const En &a = p->P[(i + n - 1) % n];
+      const En &b = p->P[i];
+      const En &c = p->P[(i + 1) % n];
+      const double e1 = b.E - a.E;
+      const double n1 = b.N - a.N;
+      const double e2 = c.E - b.E;
+      const double n2 = c.N - b.N;
       const double area2 = std::fabs(e1 * n2 - e2 * n1);
       if (area2 > kOnCutM * std::max(1.0, std::hypot(e1, n1) + std::hypot(e2, n2))) { continue; }
       if (e1 * e2 + n1 * n2 >= 0.0) { continue; }
@@ -136,7 +143,8 @@ void DropSpurs(Piece *p) {
     if (sg[i] != 0) { last = sg[i]; }
   }
   if (last == 0) { return false; }
-  int crossings = 0, cur = last;
+  int crossings = 0;
+  int cur = last;
   for (size_t i = 0; i < n; i++) {
     if (sg[i] == 0) { continue; }
     if (sg[i] != cur) { crossings++; }
@@ -149,7 +157,8 @@ void DropSpurs(Piece *p) {
     out->Party.clear();
     for (size_t i = 0; i < n; i++) {
       const size_t j = (i + 1) % n;
-      const int si = sg[i] * side, sj = sg[j] * side;
+      const int si = sg[i] * side;
+      const int sj = sg[j] * side;
       if (si >= 0) {
         out->P.push_back(in.P[i]);
         out->Party.push_back(si == 0 && sj < 0 ? 1u : in.Party[i]);
@@ -167,7 +176,8 @@ void DropSpurs(Piece *p) {
   DropSpurs(back);
   if (front->P.size() < 3 || back->P.size() < 3) { return false; }
 
-  double t0 = 1.0e30, t1 = -1.0e30;
+  double t0 = 1.0e30;
+  double t1 = -1.0e30;
   for (const En &p : front->P) {
     if (std::fabs(SideOf(at, normal, p)) > kOnCutM) { continue; }
     const double t = (p.E - at.E) * -normal.N + (p.N - at.N) * normal.E;
@@ -186,15 +196,21 @@ void DropSpurs(Piece *p) {
 void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
   double best = 1.0e30;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
-    const En &p = ring[i], &q = ring[(i + 1) % n];
-    double ax = q.E - p.E, ay = q.N - p.N;
+    const En &p = ring[i];
+    const En &q = ring[(i + 1) % n];
+    double ax = q.E - p.E;
+    double ay = q.N - p.N;
     const double len = std::hypot(ax, ay);
     if (len < kSameCornerM) { continue; }
     ax /= len;
     ay /= len;
-    double u0 = 1e30, u1 = -1e30, v0 = 1e30, v1 = -1e30;
+    double u0 = 1e30;
+    double u1 = -1e30;
+    double v0 = 1e30;
+    double v1 = -1e30;
     for (const En &r : ring) {
-      const double u = r.E * ax + r.N * ay, v = -r.E * ay + r.N * ax;
+      const double u = r.E * ax + r.N * ay;
+      const double v = -r.E * ay + r.N * ax;
       u0 = std::min(u0, u);
       u1 = std::max(u1, u);
       v0 = std::min(v0, v);
@@ -203,7 +219,8 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
     const double area = (u1 - u0) * (v1 - v0);
     if (area >= best) { continue; }
     best = area;
-    const double cu = 0.5 * (u0 + u1), cv = 0.5 * (v0 + v1);
+    const double cu = 0.5 * (u0 + u1);
+    const double cv = 0.5 * (v0 + v1);
     out->Centre = {.E = cu * ax - cv * ay, .N = cu * ay + cv * ax};
     out->AxisU = {.E = ax, .N = ay};
     out->HalfUm = 0.5 * (u1 - u0);
@@ -333,7 +350,8 @@ struct PartOrder {
 
 size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
   if (ring.size() < 3) { return 0; }
-  double least[2] = {ring[0].E, ring[0].N}, most[2] = {ring[0].E, ring[0].N};
+  double least[2] = {ring[0].E, ring[0].N};
+  double most[2] = {ring[0].E, ring[0].N};
   for (const En &p : ring) {
     least[0] = std::min(least[0], p.E);
     least[1] = std::min(least[1], p.N);
@@ -408,12 +426,16 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
 
 [[nodiscard]] bool IsReflex(const std::vector<En> &ring, size_t i) {
   const size_t n = ring.size();
-  const En &a = ring[(i + n - 1) % n], &b = ring[i], &c = ring[(i + 1) % n];
+  const En &a = ring[(i + n - 1) % n];
+  const En &b = ring[i];
+  const En &c = ring[(i + 1) % n];
   return (b.E - a.E) * (c.N - b.N) - (c.E - b.E) * (b.N - a.N) < 0.0;
 }
 
 En UnitFrom(const En &a, const En &b) {
-  const double e = b.E - a.E, n = b.N - a.N, l = std::hypot(e, n);
+  const double e = b.E - a.E;
+  const double n = b.N - a.N;
+  const double l = std::hypot(e, n);
   return l < 1.0e-6 ? En{.E = 1.0, .N = 0.0} : En{.E = e / l, .N = n / l};
 }
 
@@ -422,13 +444,15 @@ En UnitFrom(const En &a, const En &b) {
   const double wholeM2 = std::fabs(SignedArea(ring));
   double bestLen = 1.0e30;
   bool found = false;
-  Piece a, b;
+  Piece a;
+  Piece b;
   for (size_t i = 0; i < ring.size(); i++) {
     if (!IsReflex(ring, i)) { continue; }
     const En dirs[2] = {UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
                         UnitFrom(ring[i], ring[(i + 1) % ring.size()])};
     for (const En &dir : dirs) {
-      Piece lo, hi;
+      Piece lo;
+      Piece hi;
       double len = 0.0;
       if (!CutPiece(whole, ring[i], {.E = dir.N, .N = -dir.E}, &lo, &hi, &len)) { continue; }
       if (len < 1.0 || len >= bestLen) { continue; }
@@ -458,7 +482,8 @@ int RowCut(const Piece &whole, const BuildingShape &box, Piece *out, int room) {
   int made = 0;
   for (int k = 1; k < want; k++) {
     const En at = box.FromBox(-box.HalfUm + step * static_cast<double>(k), 0.0);
-    Piece plot, beyond;
+    Piece plot;
+    Piece beyond;
     double len = 0.0;
     if (!CutPiece(rest, at, box.AxisU, &plot, &beyond, &len)) { break; }
     if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, 0.4 * kPlotM * kPlotM)) { break; }
@@ -484,10 +509,14 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   double best = 0.35;
   for (size_t i = 0; i < n; i++) {
     if (s->Party[i]) { continue; }
-    const En &p = s->Ring[i], &q = s->Ring[(i + 1) % n];
-    const double e = q.E - p.E, nn = q.N - p.N, len = std::hypot(e, nn);
+    const En &p = s->Ring[i];
+    const En &q = s->Ring[(i + 1) % n];
+    const double e = q.E - p.E;
+    const double nn = q.N - p.N;
+    const double len = std::hypot(e, nn);
     if (len < 2.2) { continue; }
-    const double outE = nn / len, outN = -e / len;
+    const double outE = nn / len;
+    const double outN = -e / len;
     const double look = outE * street.ToStreetE + outN * street.ToStreetN;
     if (look <= best) { continue; }
     const double standBack =
@@ -501,7 +530,8 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
 } // namespace
 
 void BuildingShape::ToBox(const En &p, double *u, double *v) const {
-  const double e = p.E - Centre.E, n = p.N - Centre.N;
+  const double e = p.E - Centre.E;
+  const double n = p.N - Centre.N;
   *u = e * AxisU.E + n * AxisU.N;
   *v = -e * AxisU.N + n * AxisU.E;
 }
@@ -534,7 +564,8 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
 
   Piece row[kMaxParts];
   const int plots = RowCut(WholeOf(out.Outline), one, row, kMaxParts);
-  Piece main, wing;
+  Piece main;
+  Piece wing;
   const bool winged = plots == 0 && one.Fill < 0.94 && WingCut(WholeOf(out.Outline), &main, &wing);
 
   if (plots > 1) {

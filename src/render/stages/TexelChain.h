@@ -43,8 +43,10 @@ inline void HalveInPlace(std::span<const float> from,
   into.assign(static_cast<size_t>(toWidth) * toHeight * 4u, 0.0f);
   for (uint32_t y = 0; y < toHeight; ++y) {
     for (uint32_t x = 0; x < toWidth; ++x) {
-      const uint32_t x0 = fromWidth > 1 ? x * 2u : 0u, x1 = fromWidth > 1 ? x * 2u + 1u : 0u;
-      const uint32_t y0 = fromHeight > 1 ? y * 2u : 0u, y1 = fromHeight > 1 ? y * 2u + 1u : 0u;
+      const uint32_t x0 = fromWidth > 1 ? x * 2u : 0u;
+      const uint32_t x1 = fromWidth > 1 ? x * 2u + 1u : 0u;
+      const uint32_t y0 = fromHeight > 1 ? y * 2u : 0u;
+      const uint32_t y1 = fromHeight > 1 ? y * 2u + 1u : 0u;
       const size_t source[4] = {(static_cast<size_t>(y0) * fromWidth + x0) * 4u,
                                 (static_cast<size_t>(y0) * fromWidth + x1) * 4u,
                                 (static_cast<size_t>(y1) * fromWidth + x0) * 4u,
@@ -61,7 +63,8 @@ inline void HalveInPlace(std::span<const float> from,
           continue;
         }
 
-        float best = sample[0], distance = std::fabs(sample[0] - mean);
+        float best = sample[0];
+        float distance = std::fabs(sample[0] - mean);
         for (int which = 1; which < 4; ++which) {
           const float other = std::fabs(sample[which] - mean);
           if (other < distance || (other == distance && sample[which] < best)) {

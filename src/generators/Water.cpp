@@ -33,7 +33,9 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Water) { continue; }
     yield.Count(Surfaces);
-    double e = 0.0, n = 0.0, count = 0.0;
+    double e = 0.0;
+    double n = 0.0;
+    double count = 0.0;
     for (const FeatureField::Ring &r : features.Rings(f)) {
       for (const FeatureField::Vertex &v : features.Vertices(r)) {
         e += static_cast<double>(v.Em);

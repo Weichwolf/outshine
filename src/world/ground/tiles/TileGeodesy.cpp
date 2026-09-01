@@ -78,8 +78,10 @@ Ecef GeoToEcefWgs84(Geo g) {
 
   const double phi = g.LatDeg * kDeg2Rad;
   const double lam = g.LonDeg * kDeg2Rad;
-  const double sphi = std::sin(phi), cphi = std::cos(phi);
-  const double slam = std::sin(lam), clam = std::cos(lam);
+  const double sphi = std::sin(phi);
+  const double cphi = std::cos(phi);
+  const double slam = std::sin(lam);
+  const double clam = std::cos(lam);
 
   const double N = a / std::sqrt(1.0 - e2 * sphi * sphi);
 
@@ -111,9 +113,11 @@ Geo EcefToGeoWgs84(Ecef p) {
 
   const double ep2 = e2 / (1.0 - e2);
   const double theta = std::atan2(p.Z * a, pxy * b);
-  const double st = std::sin(theta), ct = std::cos(theta);
+  const double st = std::sin(theta);
+  const double ct = std::cos(theta);
   const double lat = std::atan2(p.Z + ep2 * b * st * st * st, pxy - e2 * a * ct * ct * ct);
-  const double slat = std::sin(lat), clat = std::cos(lat);
+  const double slat = std::sin(lat);
+  const double clat = std::cos(lat);
   const double N = a / std::sqrt(1.0 - e2 * slat * slat);
 
   g.LatDeg = kRad2Deg * lat;
@@ -141,7 +145,8 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
   bottomRight.LatDeg = b.MinLatDeg;
 
   TileEnuMap map;
-  Enu etl, ebr;
+  Enu etl;
+  Enu ebr;
   if (!frame.TryFromGeo(topLeft, &etl) || !frame.TryFromGeo(bottomRight, &ebr)) { return map; }
 
   map.OriginE_ = etl.E;

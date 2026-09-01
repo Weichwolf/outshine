@@ -42,8 +42,11 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
     return Refuse("these bytes do not begin with the PNG signature, so they are not a PNG");
   }
 
-  uint32_t wide = 0, high = 0;
-  uint8_t depth = 0, colour = 0, interlace = 0;
+  uint32_t wide = 0;
+  uint32_t high = 0;
+  uint8_t depth = 0;
+  uint8_t colour = 0;
+  uint8_t interlace = 0;
   bool haveHead = false;
   std::vector<uint8_t> squeezed;
 

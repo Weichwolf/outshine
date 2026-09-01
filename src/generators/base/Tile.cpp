@@ -33,8 +33,10 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   Seed_ = Mix((static_cast<uint64_t>(zoom) << 58) ^
               (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 29) ^
               static_cast<uint64_t>(static_cast<uint32_t>(y)));
-  const double south = TileLatDeg(y + 1, zoom), north = TileLatDeg(y, zoom);
-  const double west = TileLonDeg(x, zoom), east = TileLonDeg(x + 1, zoom);
+  const double south = TileLatDeg(y + 1, zoom);
+  const double north = TileLatDeg(y, zoom);
+  const double west = TileLonDeg(x, zoom);
+  const double east = TileLonDeg(x + 1, zoom);
   AnchorLat_ = south;
   AnchorLon_ = west;
   SpanNm_ = (north - south) * kMPerDeg;

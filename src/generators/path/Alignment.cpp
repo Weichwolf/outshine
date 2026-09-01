@@ -22,8 +22,10 @@ struct Turned {
                          double bHeading,
                          double &atEast,
                          double &atNorth) {
-  const double aRunE = std::cos(aHeading), aRunN = std::sin(aHeading);
-  const double bRunE = std::cos(bHeading), bRunN = std::sin(bHeading);
+  const double aRunE = std::cos(aHeading);
+  const double aRunN = std::sin(aHeading);
+  const double bRunE = std::cos(bHeading);
+  const double bRunN = std::sin(bHeading);
   const double cross = aRunE * bRunN - aRunN * bRunE;
   if (std::fabs(cross) < 1.0e-12) { return false; }
   const double alongA = ((bEast - aEast) * bRunN - (bNorth - aNorth) * bRunE) / cross;
@@ -83,7 +85,8 @@ constexpr double kMostClothoidShare = 1.0;
 }
 
 [[nodiscard]] double AwayM(double fromE, double fromN, double toE, double toN) {
-  const double east = toE - fromE, north = toN - fromN;
+  const double east = toE - fromE;
+  const double north = toN - fromN;
   return std::sqrt(east * east + north * north);
 }
 
@@ -175,11 +178,15 @@ constexpr double kMostClothoidShare = 1.0;
         AllowedAt(withinAtM, at, withinM) / (ShiftShare(swing) / std::cos(half) - 1.0);
     bend.RadiusM = byAccuracy < byRoom ? byAccuracy : byRoom;
   } else {
-    double low = tightestM, high = byRoom;
+    double low = tightestM;
+    double high = byRoom;
     for (int step = 0; step < 96; ++step) {
       const double oneThird = low + (high - low) / 3.0;
       const double twoThirds = high - (high - low) / 3.0;
-      double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
+      double aE = 0.0;
+      double aN = 0.0;
+      double bE = 0.0;
+      double bN = 0.0;
       centreOf(oneThird, aE, aN);
       centreOf(twoThirds, bE, bN);
       if (FurthestShareOfArc(points, at, last, aE, aN, oneThird, withinAtM, withinM) <
@@ -203,7 +210,8 @@ constexpr double kMostClothoidShare = 1.0;
         .AtVertex = at,
         .Undrivable = 1});
   }
-  double centreE = 0.0, centreN = 0.0;
+  double centreE = 0.0;
+  double centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
   bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
   bend.AwayShare =
@@ -364,7 +372,8 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
 
   std::vector<Segment> along;
   along.reserve(4 * aligned.Bends.size() + 2);
-  double atEast = eastNorthM[0], atNorth = eastNorthM[1];
+  double atEast = eastNorthM[0];
+  double atNorth = eastNorthM[1];
   double heading = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
   const Bend *untransitioned = nullptr;
   for (const Bend &bend : aligned.Bends) {
