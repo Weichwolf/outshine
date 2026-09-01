@@ -29,14 +29,12 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   char made[48];
   std::snprintf(
       made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", static_cast<double>(kVelocityStatic));
-  return std::string(made);
+  return {made};
 }
 
 [[nodiscard]] inline std::string VelocityStaticMsl(std::string &error) {
   std::string held;
-  if (!LoadShaderText("src/render/shaders/velocityStatic.msl", held, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/velocityStatic.msl", held, error)) { return {}; }
   return held;
 }
 

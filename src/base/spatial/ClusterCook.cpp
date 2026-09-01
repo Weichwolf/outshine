@@ -70,8 +70,7 @@ Cooked CookClusters(std::span<const float> positionsM,
     order.push_back(
         Sorted{.Code = Morton(centre, least, span), .Triangle = static_cast<uint32_t>(triangle)});
   }
-  std::sort(
-      order.begin(), order.end(), [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });
+  std::ranges::sort(order, [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });
 
   out.Index.reserve(indices.size());
   out.Clusters.reserve((triangles + mostTriangles - 1) / mostTriangles);
@@ -165,8 +164,8 @@ Cooked CookDag(std::span<const float> positionsM,
     }
     if (!(widest > 0.0f)) { break; }
     std::vector<uint32_t> distinct(coarseIndex.begin(), coarseIndex.end());
-    std::sort(distinct.begin(), distinct.end());
-    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    std::ranges::sort(distinct);
+    distinct.erase(std::ranges::unique(distinct).begin(), distinct.end());
     const double spacingM =
         static_cast<double>(widest) /
         std::sqrt(static_cast<double>(distinct.size() > 1 ? distinct.size() : 2));

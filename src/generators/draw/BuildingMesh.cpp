@@ -185,7 +185,7 @@ public:
     Face_.push_back(ia);
     Face_.push_back(ib);
     Face_.push_back(ic);
-    for (int c2 = 0; c2 < 3; c2++) { nrm[c2] /= len; }
+    for (double &c2 : nrm) { c2 /= len; }
     const int side = nrm[2] > kSteepestRoof ? 1 : 0;
     std::vector<uint32_t> &run = side == 1 ? Out_.RoofRun : Out_.WallRun;
     run.push_back(Corner(side, a, ia, nrm));
@@ -368,10 +368,11 @@ void BreaksBoth(const RoofSurface &roof,
   if (overhung) {
     roof.BreaksAlong(wp, wq, other);
     at.insert(at.end(), other.begin(), other.end());
-    std::sort(at.begin(), at.end());
-    at.erase(std::unique(at.begin(),
-                         at.end(),
-                         [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
+    std::ranges::sort(at);
+    at.erase(std::ranges::unique(at,
+
+                                 [](double a, double b) { return std::fabs(a - b) < 1.0e-3; })
+                 .begin(),
              at.end());
   }
 }
@@ -439,7 +440,7 @@ void Walls(const BuildingShape &s,
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
     const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
-    if (static_cast<int>(i) == s.FrontEdge && bays >= 2.0) {
+    if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
@@ -456,7 +457,7 @@ void Walls(const BuildingShape &s,
                 bays * now,
                 lowZ,
                 topZ,
-                static_cast<int>(i) == s.FrontEdge ? Fields::Entrance : Fields::Back,
+                std::cmp_equal(i, s.FrontEdge) ? Fields::Entrance : Fields::Back,
                 site);
       was = now;
     }
@@ -484,8 +485,8 @@ void SampleGround(const BuildingShape &s,
         first = false;
         continue;
       }
-      if (at < *lowest) { *lowest = at; }
-      if (at > *highest) { *highest = at; }
+      *lowest = std::min(at, *lowest);
+      *highest = std::max(at, *highest);
     }
   }
   if (first) { *lowest = *highest = 0.0; }

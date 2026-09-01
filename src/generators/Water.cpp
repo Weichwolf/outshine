@@ -8,10 +8,10 @@ Span<const char *const> Water::NoteNames() const noexcept {
   static constexpr const char *const kNames[kNotes] = {
       "waterSurfaces", "waterUntested", "levelBelowGround", "deepestM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return Span<const char *const>(kNames, kNotes);
+  return {kNames, kNotes};
 }
 
-WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) const noexcept {
+WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) noexcept {
   const FeatureField &features = ground.Features();
   bool wet = false;
   float levelAslM = 0.0f;

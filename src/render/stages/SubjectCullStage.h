@@ -49,11 +49,11 @@ private:
   SDL_GPUBuffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
   bool Stood_ = false;
-  [[nodiscard]] bool Pipeline(const Gpu &gpu,
-                              const char *entry,
-                              const ComputeShape &shape,
-                              OwnedComputePipeline &into,
-                              std::string &error);
+  [[nodiscard]] static bool Pipeline(const Gpu &gpu,
+                                     const char *entry,
+                                     const ComputeShape &shape,
+                                     OwnedComputePipeline &into,
+                                     std::string &error);
   [[nodiscard]] uint32_t Standing(const FrameContext &ctx, void *view);
 
   SubjectDraw *Subjects_ = nullptr;

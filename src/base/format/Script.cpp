@@ -809,7 +809,7 @@ const Boundary kBoundaries[] = {
 
 } // namespace
 
-[[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
+[[nodiscard]] static bool EcmaDecimalShaped(std::string_view held) {
   size_t at = 0;
   size_t whole = 0;
   while (at < held.size() && held[at] >= '0' && held[at] <= '9') {
@@ -838,7 +838,7 @@ const Boundary kBoundaries[] = {
   return at == held.size();
 }
 
-[[nodiscard]] double TextToNumber(const std::string &text) {
+[[nodiscard]] static double TextToNumber(const std::string &text) {
   std::string_view held(text);
   while (!held.empty() && (held.front() == ' ' || held.front() == '\t' || held.front() == '\n' ||
                            held.front() == '\r')) {
@@ -1048,8 +1048,8 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
   const Node &node = Nodes_[at];
   switch (node.What) {
     case Node::Shape::Block: {
-      for (size_t at2 = 0; at2 < Nodes_[at].Parts.size(); ++at2) {
-        if (!Perform(Nodes_[at].Parts[at2], host, error)) { return false; }
+      for (unsigned long Part : Nodes_[at].Parts) {
+        if (!Perform(Part, host, error)) { return false; }
       }
       return true;
     }

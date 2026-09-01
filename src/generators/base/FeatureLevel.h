@@ -5,7 +5,7 @@ namespace outshine::Generators {
 
 class FeatureLevel {
 public:
-  static FeatureLevel None() { return FeatureLevel(); }
+  static FeatureLevel None() { return {}; }
 
   static FeatureLevel At(float aslM) {
     FeatureLevel level;

@@ -20,8 +20,8 @@ public:
   [[nodiscard]] uint32_t Proposes(double areaM2) const noexcept override;
 
 private:
-  [[nodiscard]] const FeatureField::Feature *
-  Over(const Ground &ground, double eastM, double northM) const noexcept;
+  [[nodiscard]] static const FeatureField::Feature *
+  Over(const Ground &ground, double eastM, double northM) noexcept;
 
   ContactMaterial Contact_;
 };

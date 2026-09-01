@@ -34,9 +34,9 @@ public:
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
   [[nodiscard]] Span<const Way> OfTile(int tile) const {
-    if (tile < 0) { return Span<const Way>(); }
+    if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
-    return Span<const Way>(Ways_.data() + r.First, r.Count);
+    return {Ways_.data() + r.First, r.Count};
   }
 
   [[nodiscard]] long UnwidthedCount() const { return Unwidthed_; }

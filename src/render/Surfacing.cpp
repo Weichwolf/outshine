@@ -17,7 +17,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
     SubjectMaterial slot;
     slot.Row = row;
     out.Slots.push_back(slot);
-    out.Decoded.push_back(SurfaceRasters());
+    out.Decoded.emplace_back();
     out.Material.push_back(0);
     return;
   }
@@ -36,7 +36,7 @@ void ResolveDeclaredSurface(const Shape &geometry,
                         ? geometry.Surfaces[static_cast<size_t>(material)]
                         : row;
       out.Slots.push_back(surface);
-      out.Decoded.push_back(SurfaceRasters());
+      out.Decoded.emplace_back();
       out.Material.push_back(material);
     }
     out.PartSlot[part] = static_cast<uint32_t>(slot);

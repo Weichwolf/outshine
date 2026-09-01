@@ -39,9 +39,9 @@ Astride Stand(const ReferenceLine &over,
               double nearM,
               double windowM) {
   double alongM = 0.0;
-  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return Astride(); }
+  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return {}; }
   Placed on;
-  if (!over.At(alongM, on)) { return Astride(); }
+  if (!over.At(alongM, on)) { return {}; }
   const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
   const double acrossM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
   return Surface(on, alongM, acrossM, halfWidthM);
@@ -49,7 +49,7 @@ Astride Stand(const ReferenceLine &over,
 
 Astride StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM) {
   Placed on;
-  if (!over.At(alongM, on)) { return Astride(); }
+  if (!over.At(alongM, on)) { return {}; }
   return Surface(on, alongM, acrossM, halfWidthM);
 }
 

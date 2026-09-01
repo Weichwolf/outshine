@@ -13,7 +13,7 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
   for (int y = -r; y <= r; y++) {
     for (int x = -r; x <= r; x++) { Offsets_.push_back(Offset{.X = x, .Y = y}); }
   }
-  std::stable_sort(Offsets_.begin(), Offsets_.end(), [](const Offset &a, const Offset &b) {
+  std::ranges::stable_sort(Offsets_, [](const Offset &a, const Offset &b) {
     const int da = a.X * a.X + a.Y * a.Y;
     const int db = b.X * b.X + b.Y * b.Y;
     if (da != db) { return da < db; }
@@ -32,7 +32,7 @@ std::optional<Tile> Schedule::At(size_t i, double lat, double lon) const {
 }
 
 Tile Schedule::Broadest() const {
-  return Tile(Zoom_, 0, 1u << static_cast<uint32_t>(Zoom_ - 1));
+  return {Zoom_, 0, static_cast<int>(1u << static_cast<uint32_t>(Zoom_ - 1))};
 }
 
 std::optional<Tile> Schedule::Widest(double lat, double lon) const {

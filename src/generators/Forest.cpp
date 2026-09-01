@@ -1,5 +1,6 @@
 #include "Forest.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
@@ -51,15 +52,15 @@ Span<const char *const> Forest::NoteNames() const noexcept {
   static_assert(Forest::kSpeciesTableBytes == 1536, "the species table's bytes");
 
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return Span<const char *const>(kNames, kNotes);
+  return {kNames, kNotes};
 }
 
 Forest::Lattice Forest::Of(const Tile &region) {
   Lattice l;
   l.Cols = static_cast<int>(region.SpanEm() / kCellM + 0.5);
   l.Rows = static_cast<int>(region.SpanNm() / kCellM + 0.5);
-  if (l.Cols < 1) { l.Cols = 1; }
-  if (l.Rows < 1) { l.Rows = 1; }
+  l.Cols = std::max(l.Cols, 1);
+  l.Rows = std::max(l.Rows, 1);
   l.Em = region.SpanEm() / static_cast<double>(l.Cols);
   l.Nm = region.SpanNm() / static_cast<double>(l.Rows);
   return l;
@@ -151,11 +152,11 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
 uint32_t Forest::Proposes(double areaM2) const noexcept {
   double densest = 0.0;
   for (size_t i = 0; i < PerM2_.Size(); i++) {
-    if (static_cast<double>(PerM2_[i]) > densest) { densest = static_cast<double>(PerM2_[i]); }
+    densest = std::max(static_cast<double>(PerM2_[i]), densest);
   }
   const double cellM2 = kCellM * kCellM;
   double p = densest * cellM2;
-  if (p > 1.0) { p = 1.0; }
+  p = std::min(p, 1.0);
   const double n = areaM2 / cellM2;
   const double mean = n * p;
   const double sd = std::sqrt(n * p * (1.0 - p));

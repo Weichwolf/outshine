@@ -7,7 +7,7 @@ namespace outshine::Generators {
 
 class Cover {
 public:
-  static Cover None() { return Cover(); }
+  static Cover None() { return {}; }
 
   static Cover Of(int row, int runnerUpRow) {
     Cover c;

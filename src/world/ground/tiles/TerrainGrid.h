@@ -67,17 +67,15 @@ public:
 
   static TerrainGrid FromTerrariumPng(const uint8_t *png, size_t len);
 
-  static TerrainGrid NotHere() { return TerrainGrid(State::NotHere, TerrainField()); }
+  static TerrainGrid NotHere() { return {State::NotHere, TerrainField()}; }
 
-  static TerrainGrid Undecodable() { return TerrainGrid(State::Undecodable, TerrainField()); }
+  static TerrainGrid Undecodable() { return {State::Undecodable, TerrainField()}; }
 
-  static TerrainGrid Deferred() { return TerrainGrid(State::Deferred, TerrainField()); }
+  static TerrainGrid Deferred() { return {State::Deferred, TerrainField()}; }
 
-  static TerrainGrid Refused() { return TerrainGrid(State::Refused, TerrainField()); }
+  static TerrainGrid Refused() { return {State::Refused, TerrainField()}; }
 
-  static TerrainGrid Holding(TerrainField &&field) {
-    return TerrainGrid(State::Decoded, std::move(field));
-  }
+  static TerrainGrid Holding(TerrainField &&field) { return {State::Decoded, std::move(field)}; }
 
   [[nodiscard]] State Where() const { return Where_; }
 

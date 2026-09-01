@@ -62,7 +62,7 @@ public:
 
   [[nodiscard]] size_t StoppedAt() const { return P_; }
 
-  [[nodiscard]] Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
+  [[nodiscard]] Ref Root() const { return {this, Nodes_.empty() ? -1 : 0}; }
 
 private:
   friend class Ref;

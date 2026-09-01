@@ -31,7 +31,7 @@ std::string Address::Text() const {
     if (at < end) { *at++ = '/'; }
     at = Wrote(at, end, static_cast<long long>(X_));
   }
-  return std::string(text, static_cast<size_t>(at - text));
+  return {text, static_cast<size_t>(at - text)};
 }
 
 } // namespace outshine::Data

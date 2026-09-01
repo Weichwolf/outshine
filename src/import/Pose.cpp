@@ -2,6 +2,7 @@
 
 #include "Document.h"
 #include <string>
+#include <utility>
 #include <vector>
 #include <cstddef>
 #include <memory>
@@ -182,7 +183,7 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Viewpoint posed = Nodes_[node];
     for (const std::unique_ptr<Channel> &channel : Channels_) {
-      if (static_cast<size_t>(channel->Node) != node) { continue; }
+      if (std::cmp_not_equal(channel->Node, node)) { continue; }
       switch (channel->Path) {
         case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation); break;
         case AnimationPath::Rotation: channel->Curve.At(seconds, posed.Rotation); break;

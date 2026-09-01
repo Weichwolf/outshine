@@ -12,7 +12,7 @@ class TangentFrame {
 public:
   TangentFrame() : TangentFrame(0.0, 0.0) {}
 
-  static TangentFrame At(double latDeg, double lonDeg) { return TangentFrame(latDeg, lonDeg); }
+  static TangentFrame At(double latDeg, double lonDeg) { return {latDeg, lonDeg}; }
 
   [[nodiscard]] double AnchorLat() const { return Lat_; }
 

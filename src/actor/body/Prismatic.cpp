@@ -1,5 +1,7 @@
 #include "Prismatic.h"
 
+#include <algorithm>
+
 namespace outshine::Physics {
 
 Reaction Press(const Prismatic &joint, double clearanceM, double closingMs) {
@@ -24,7 +26,7 @@ Reaction Press(const Prismatic &joint, double clearanceM, double closingMs) {
   out.DampingN = joint.DampingNsPerM * closingMs;
 
   out.LoadN = out.ElasticN + out.StopN + out.DampingN;
-  if (out.LoadN < 0.0) { out.LoadN = 0.0; }
+  out.LoadN = std::max(out.LoadN, 0.0);
   out.PastLimit = joint.LimitN > 0.0 && out.LoadN > joint.LimitN;
   return out;
 }

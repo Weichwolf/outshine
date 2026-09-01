@@ -112,7 +112,7 @@ bool TriggerField::Listen(std::string_view event,
   return false;
 }
 
-bool TriggerField::Inside(const Door &door, const double atM[3]) const {
+bool TriggerField::Inside(const Door &door, const double atM[3]) {
   if (door.Sphere != 0) {
     double away = 0.0;
     for (int axis = 0; axis < 3; ++axis) {

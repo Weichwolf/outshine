@@ -1,5 +1,6 @@
 #include "OccupancySink.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -88,7 +89,7 @@ Claim OccupancySink::Place(const Body &body) noexcept {
                       static_cast<size_t>(CellOf(body.Em, CellsE_));
   Store_.Links[slot] = Store_.Cells[cell];
   Store_.Cells[cell] = slot;
-  if (body.RadiusM > MaxRadiusM_) { MaxRadiusM_ = body.RadiusM; }
+  MaxRadiusM_ = std::max(body.RadiusM, MaxRadiusM_);
   return Claim::Of(BodyId(slot));
 }
 

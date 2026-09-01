@@ -268,42 +268,42 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
 }
 
 Json::Ref Json::Ref::operator[](size_t i) const {
-  if (!Valid()) { return Ref(); }
+  if (!Valid()) { return {}; }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
-  if (i >= n.Count) { return Ref(); }
-  return Ref(Doc, Doc->Kids_[n.First + i]);
+  if (i >= n.Count) { return {}; }
+  return {Doc, Doc->Kids_[n.First + i]};
 }
 
 std::string_view Json::Ref::Source() const {
-  if (!Valid()) { return std::string_view(); }
+  if (!Valid()) { return {}; }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
-  if (n.To <= n.From || n.To > Doc->Text_.size()) { return std::string_view(); }
+  if (n.To <= n.From || n.To > Doc->Text_.size()) { return {}; }
   return std::string_view(Doc->Text_).substr(n.From, n.To - n.From);
 }
 
 std::string Json::Ref::Key(size_t i) const {
-  if (!Valid()) { return std::string(); }
+  if (!Valid()) { return {}; }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
-  if (n.K != Kind::Object || i >= n.Count) { return std::string(); }
+  if (n.K != Kind::Object || i >= n.Count) { return {}; }
   const Json::Node &c = Doc->Nodes_[static_cast<size_t>(Doc->Kids_[n.First + i])];
   return Doc->Decode(c.Key, c.KeyLen, c.KeyEscaped);
 }
 
 Json::Ref Json::Ref::operator[](const char *key) const {
-  if (!Valid() || (key == nullptr)) { return Ref(); }
+  if (!Valid() || (key == nullptr)) { return {}; }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
-  if (n.K != Kind::Object) { return Ref(); }
+  if (n.K != Kind::Object) { return {}; }
   const size_t klen = std::strlen(key);
   for (uint32_t i = 0; i < n.Count; i++) {
     const int32_t kid = Doc->Kids_[n.First + i];
     const Json::Node &c = Doc->Nodes_[static_cast<size_t>(kid)];
     if (c.KeyEscaped) {
-      if (Doc->Decode(c.Key, c.KeyLen, true) == key) { return Ref(Doc, kid); }
+      if (Doc->Decode(c.Key, c.KeyLen, true) == key) { return {Doc, kid}; }
     } else if (c.KeyLen == klen && (std::memcmp(Doc->Text_.c_str() + c.Key, key, klen) == 0)) {
-      return Ref(Doc, kid);
+      return {Doc, kid};
     }
   }
-  return Ref();
+  return {};
 }
 
 double Json::Ref::Num(double def) const {

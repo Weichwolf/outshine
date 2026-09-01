@@ -8,11 +8,11 @@ namespace outshine::Generators {
 Span<const char *const> Infrastructure::NoteNames() const noexcept {
   static constexpr const char *const kNames[kNotes] = {"ways", "widestWayM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return Span<const char *const>(kNames, kNotes);
+  return {kNames, kNotes};
 }
 
 std::optional<Infrastructure::Made>
-Infrastructure::MadeAt(const Ground &ground, double eastM, double northM) const noexcept {
+Infrastructure::MadeAt(const Ground &ground, double eastM, double northM) noexcept {
   const FeatureField &features = ground.Features();
   std::optional<Made> made;
   for (size_t i = 0; i < features.Count(); i++) {

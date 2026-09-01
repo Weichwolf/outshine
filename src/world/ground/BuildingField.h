@@ -52,9 +52,9 @@ public:
   [[nodiscard]] const std::vector<Footprint> &Footprints() const { return Prints_; }
 
   [[nodiscard]] Span<const Footprint> OfTile(int tile) const {
-    if (tile < 0) { return Span<const Footprint>(); }
+    if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
-    return Span<const Footprint>(Prints_.data() + r.First, r.Count);
+    return {Prints_.data() + r.First, r.Count};
   }
 
   [[nodiscard]] int OsmHeights() const { return OsmHeights_; }
@@ -81,8 +81,8 @@ private:
                                const OsmField::Ring &ring,
                                std::vector<double> *corners,
                                double *seatAslM = nullptr);
-  [[nodiscard]] bool TileGroundResolved(
-      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
+  [[nodiscard]] static bool TileGroundResolved(
+      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer);
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;

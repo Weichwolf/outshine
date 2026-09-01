@@ -16,8 +16,8 @@ public:
     double SurfaceAslM = 0.0;
   };
 
-  [[nodiscard]] std::optional<Made>
-  MadeAt(const Ground &ground, double eastM, double northM) const noexcept;
+  [[nodiscard]] static std::optional<Made>
+  MadeAt(const Ground &ground, double eastM, double northM) noexcept;
 
   enum Note { Ways, WidestM, kNotes };
 

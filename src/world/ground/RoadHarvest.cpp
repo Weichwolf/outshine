@@ -1,8 +1,10 @@
 #include "RoadHarvest.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace outshine::Ground {
@@ -20,7 +22,7 @@ Reaped Reap(const OsmField &field,
 
   std::vector<double> along;
   for (const OsmField::Feature &feature : field.Features()) {
-    if (static_cast<int>(feature.Layer) != streets) { continue; }
+    if (std::cmp_not_equal(feature.Layer, streets)) { continue; }
     if (feature.Type != 2) {
       ++out.NotALine;
       continue;
@@ -34,7 +36,7 @@ Reaped Reap(const OsmField &field,
     const auto widthM = static_cast<double>(rule->WidthM);
     if (widthM < bodyWidthM) {
       ++out.TooNarrow;
-      if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }
+      out.WidestRefusedM = std::max(widthM, out.WidestRefusedM);
       continue;
     }
     const std::string_view kind = field.Str(feature, "kind");
@@ -54,8 +56,8 @@ Reaped Reap(const OsmField &field,
     out.Tunnels += tunnel > 0.5 ? 1u : 0u;
     if (layer != 0.0) {
       ++out.Layered;
-      if (layer < out.DeepestLayer) { out.DeepestLayer = layer; }
-      if (layer > out.HighestLayer) { out.HighestLayer = layer; }
+      out.DeepestLayer = std::min(layer, out.DeepestLayer);
+      out.HighestLayer = std::max(layer, out.HighestLayer);
     }
     if (!(rule->MinRadiusM > 0.0f)) {
       ++out.Undesigned;

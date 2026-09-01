@@ -94,7 +94,7 @@ void CurveRing(
     int n = 1;
     if (dev > kCurveTolM) {
       n = static_cast<int>(std::ceil(std::sqrt(dev / kCurveTolM)));
-      if (n > kCurveMaxSplit) { n = kCurveMaxSplit; }
+      n = std::min(n, kCurveMaxSplit);
     }
     for (int k = 0; k < n; k++) {
       float q[2];
@@ -119,7 +119,7 @@ ClassBuilder::ClassBuilder()
 
 ClassBuilder::~ClassBuilder() {
   {
-    const std::lock_guard<std::mutex> lk(Mu_);
+    const std::scoped_lock lk(Mu_);
     Stop_ = true;
   }
   Cv_.notify_all();
@@ -128,7 +128,7 @@ ClassBuilder::~ClassBuilder() {
 
 void ClassBuilder::Submit(Job job) {
   {
-    const std::lock_guard<std::mutex> lk(Mu_);
+    const std::scoped_lock lk(Mu_);
     assert(Stage_ == Stage::Idle);
     Pending_ = std::move(job);
     Stage_ = Stage::Building;
@@ -137,7 +137,7 @@ void ClassBuilder::Submit(Job job) {
 }
 
 std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
-  const std::lock_guard<std::mutex> lk(Mu_);
+  const std::scoped_lock lk(Mu_);
   if (Stage_ != Stage::Done) { return {}; }
   std::optional<Handback> out = std::move(Result_);
   Result_.reset();
@@ -187,7 +187,7 @@ void ClassBuilder::Run() {
 
     StackProbe::Mark();
     {
-      const std::lock_guard<std::mutex> lk(Mu_);
+      const std::scoped_lock lk(Mu_);
       Result_ = std::move(y);
       Stage_ = Stage::Done;
     }
@@ -227,7 +227,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   std::vector<uint32_t> &ceStamp = work.CellStamp;
   std::vector<uint32_t> &ceEdge = work.CellEdge;
   std::vector<uint32_t> &ceCount = work.CellCount;
-  std::fill(ceStamp.begin(), ceStamp.end(), 0u);
+  std::ranges::fill(ceStamp, 0u);
   uint32_t stamp = 0;
   std::vector<Hit> &hits = work.Hits;
 
@@ -312,7 +312,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
 
     byY.resize(ne);
     for (uint32_t e = 0; e < static_cast<uint32_t>(ne); e++) { byY[e] = e; }
-    std::sort(byY.begin(), byY.end(), [&ex](uint32_t a, uint32_t b) {
+    std::ranges::sort(byY, [&ex](uint32_t a, uint32_t b) {
       return std::min(ex[static_cast<size_t>(a) * 4 + 1], ex[static_cast<size_t>(a) * 4 + 3]) <
              std::min(ex[static_cast<size_t>(b) * 4 + 1], ex[static_cast<size_t>(b) * 4 + 3]);
     });
@@ -344,7 +344,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
                               (static_cast<double>(p[3]) - static_cast<double>(p[1]));
         hits.push_back(Hit{.X = xi, .Dir = p[3] > p[1] ? 1 : -1});
       }
-      std::sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) { return a.X < b.X; });
+      std::ranges::sort(hits, [](const Hit &a, const Hit &b) { return a.X < b.X; });
 
       int wind = 0;
       size_t hi = 0;

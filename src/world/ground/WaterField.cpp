@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <span>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace outshine::Ground {
@@ -23,19 +24,15 @@ constexpr double kLiftM = 0.15;
 
 } // namespace
 
-bool WaterField::TileGroundResolved(const GroundQuery &ground,
-                                    const OsmField &field,
-                                    size_t from,
-                                    size_t to,
-                                    int poly,
-                                    int line) const {
+bool WaterField::TileGroundResolved(
+    const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int poly, int line) {
   const std::span<const double> pts = field.Points();
   const std::span<const OsmField::Feature> feats = field.Features();
   for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
     if (field.Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    const bool isLine = f.Type == 2 && static_cast<int>(f.Layer) == line;
-    const bool isPoly = f.Type == 3 && static_cast<int>(f.Layer) == poly;
+    const bool isLine = f.Type == 2 && std::cmp_equal(f.Layer, line);
+    const bool isPoly = f.Type == 3 && std::cmp_equal(f.Layer, poly);
     if (!isLine && !isPoly) { continue; }
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
@@ -85,7 +82,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
     const OsmField::Feature &f = feats[c];
 
     if (field.Num(f, "tunnel", 0.0) > 0.5) { continue; }
-    if (f.Type == 2 && static_cast<int>(f.Layer) == line) {
+    if (f.Type == 2 && std::cmp_equal(f.Layer, line)) {
       for (uint32_t r = 0; r < f.RingCount; r++) {
         const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
         if (ring.Count < 2 || ring.Count > 512) { continue; }
@@ -124,7 +121,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
       }
       continue;
     }
-    if (f.Type != 3 || static_cast<int>(f.Layer) != poly) { continue; }
+    if (f.Type != 3 || std::cmp_not_equal(f.Layer, poly)) { continue; }
 
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
@@ -148,7 +145,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
         continue;
       }
 
-      std::sort(hs.begin(), hs.end());
+      std::ranges::sort(hs);
       const double level =
           hs[static_cast<size_t>(kLevelPercentile * static_cast<double>(hs.size() - 1))];
       for (const double h : hs) {
@@ -313,10 +310,10 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
                             &L[static_cast<size_t>(k) * 3],
                             &R[static_cast<size_t>(k + 1) * 3],
                             &L[static_cast<size_t>(k + 1) * 3]};
-      for (int t = 0; t < 6; t++) {
-        out.push_back(static_cast<float>(q[t][0]));
-        out.push_back(static_cast<float>(q[t][1]));
-        out.push_back(static_cast<float>(q[t][2]));
+      for (auto &t : q) {
+        out.push_back(static_cast<float>(t[0]));
+        out.push_back(static_cast<float>(t[1]));
+        out.push_back(static_cast<float>(t[2]));
         out.push_back(static_cast<float>(up[0]));
         out.push_back(static_cast<float>(up[1]));
         out.push_back(static_cast<float>(up[2]));

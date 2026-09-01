@@ -27,7 +27,7 @@ public:
   [[nodiscard]] const std::string *ActionNamed(uint16_t action) const;
 
   [[nodiscard]] const std::string *ActionOf(std::string_view event) const;
-  [[nodiscard]] bool KindOf(std::string_view event, Kind &out) const;
+  [[nodiscard]] static bool KindOf(std::string_view event, Kind &out);
   [[nodiscard]] size_t BoundTo(std::string_view action) const;
 
 private:

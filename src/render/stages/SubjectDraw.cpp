@@ -2,6 +2,7 @@
 
 #include "FragmentArms.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 
@@ -146,7 +147,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
       !LoadShaderText("src/render/shaders/subjectLitTextured.msl", litTextured, error) ||
       !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error) ||
       !LoadShaderText("src/render/shaders/subjectGround.msl", ground, error)) {
-    return std::string();
+    return {};
   }
   const std::string brdf = MetalRoughBrdfMsl(error);
   const std::string sheen = SheenLobeMsl(error);
@@ -154,7 +155,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
   const std::string energy = MicrofacetEnergyMsl(error);
   const std::string normalMap = NormalFromMapMsl(error);
   if (brdf.empty() || sheen.empty() || iridescence.empty() || energy.empty() || normalMap.empty()) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + VelocityStaticDefine() + VelocityStaticMsl(error) +
          "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
@@ -176,7 +177,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Colours.clear();
   for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
   const auto attachmentIndex = [this](Resource which) -> long {
-    const auto at = std::find(Colours.begin(), Colours.end(), which);
+    const auto at = std::ranges::find(Colours, which);
     return at == Colours.end() ? -1 : static_cast<long>(at - Colours.begin());
   };
   WritesVelocity = attachmentIndex(Resource::SceneVelocity) >= 0;
@@ -344,7 +345,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
                            row.IridescenceThicknessMaxNm};
   static_assert(sizeof scalars / sizeof scalars[0] == static_cast<size_t>(kSurfaceScalars),
                 "the surface row and its declared length are one statement");
-  std::copy(std::begin(scalars), std::end(scalars), slot.Row.begin());
+  std::ranges::copy(scalars, slot.Row.begin());
 
   const SubjectTexture *const images[kSubjectMaterialImages] = {&material.Colour,
                                                                 &material.Normal,
@@ -871,7 +872,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     return;
   }
   float uniform[kUniFloats] = {};
-  const auto place = [this, &ctx, &uniform, &into]() {
+  const auto place = [this, &ctx, &uniform, &into] {
     for (int axis = 0; axis < 3; ++axis) {
       uniform[48 + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
       uniform[52 + axis] = static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);

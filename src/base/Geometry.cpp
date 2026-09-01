@@ -49,7 +49,7 @@ struct Geometry::Held {
   std::vector<Placed> Lamps;
 
   [[nodiscard]] const Piece *At(int part) const {
-    return part >= 0 && part < static_cast<int>(Live) ? &Parts[static_cast<size_t>(part)] : nullptr;
+    return part >= 0 && std::cmp_less(part, Live) ? &Parts[static_cast<size_t>(part)] : nullptr;
   }
 };
 
@@ -100,34 +100,42 @@ namespace {
 } // namespace
 
 bool Geometry::setPositions(int part, std::span<const float> metres) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || metres.size() % 3 != 0) { return false; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
+    return false;
+  }
   return Into(Held_->Parts[static_cast<size_t>(part)].PositionsM, metres);
 }
 
 bool Geometry::setNormals(int part, std::span<const float> unit) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || unit.size() % 3 != 0) { return false; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || unit.size() % 3 != 0) {
+    return false;
+  }
   return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
 }
 
 bool Geometry::setTexture(int part, std::span<const float> uv, int set) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || uv.size() % 2 != 0) { return false; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || uv.size() % 2 != 0) { return false; }
   if (set != 0 && set != 1) { return false; }
   Geometry::Held::Piece &piece = Held_->Parts[static_cast<size_t>(part)];
   return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
 }
 
 bool Geometry::setTangents(int part, std::span<const float> xyzw) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || xyzw.size() % 4 != 0) { return false; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || xyzw.size() % 4 != 0) {
+    return false;
+  }
   return Into(Held_->Parts[static_cast<size_t>(part)].Tangents, xyzw);
 }
 
 bool Geometry::setColours(int part, std::span<const float> rgba) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || rgba.size() % 4 != 0) { return false; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || rgba.size() % 4 != 0) {
+    return false;
+  }
   return Into(Held_->Parts[static_cast<size_t>(part)].Colours, rgba);
 }
 
 bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live) || indices.size() % 3 != 0) {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || indices.size() % 3 != 0) {
     return false;
   }
   Held_->Parts[static_cast<size_t>(part)].Indices.assign(indices.begin(), indices.end());
@@ -207,17 +215,17 @@ bool RenderableManager::setMaterial(int part, MaterialInstance surface) {
 }
 
 void Geometry::relight(int lamp, const PunctualLight &light) {
-  if (lamp < 0 || lamp >= static_cast<int>(Held_->Lamps.size())) { return; }
+  if (lamp < 0 || std::cmp_greater_equal(lamp, Held_->Lamps.size())) { return; }
   Held_->Lamps[static_cast<size_t>(lamp)].Light = light;
 }
 
 void Geometry::resurface(int part, MaterialInstance surface) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live)) { return; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return; }
   Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
 }
 
 void Geometry::place(int part, const double modelM16[16]) {
-  if (part < 0 || part >= static_cast<int>(Held_->Live)) { return; }
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return; }
   for (size_t at = 0; at < 16u; ++at) {
     Held_->Parts[static_cast<size_t>(part)].PlacedM[at] = modelM16[at];
   }
@@ -276,7 +284,7 @@ int Geometry::surfaces() const {
 }
 
 std::string_view Geometry::surfaceNameOf(int surface) const {
-  return surface >= 0 && surface < static_cast<int>(Held_->Surfaces.size())
+  return surface >= 0 && std::cmp_less(surface, Held_->Surfaces.size())
              ? std::string_view(Held_->Surfaces[static_cast<size_t>(surface)].Named)
              : std::string_view();
 }
@@ -284,7 +292,7 @@ std::string_view Geometry::surfaceNameOf(int surface) const {
 const Material &Geometry::surfaceAt(MaterialInstance surface) const {
   static const Material plain;
   const int at = surface.index();
-  return at >= 0 && at < static_cast<int>(Held_->Surfaces.size())
+  return at >= 0 && std::cmp_less(at, Held_->Surfaces.size())
              ? Held_->Surfaces[static_cast<size_t>(at)].Surface
              : plain;
 }
@@ -294,21 +302,21 @@ int Geometry::lamps() const {
 }
 
 std::string_view Geometry::lampNameOf(int lamp) const {
-  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+  return lamp >= 0 && std::cmp_less(lamp, Held_->Lamps.size())
              ? std::string_view(Held_->Lamps[static_cast<size_t>(lamp)].Named)
              : std::string_view();
 }
 
 const PunctualLight &Geometry::lampAt(int lamp) const {
   static const PunctualLight dark;
-  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+  return lamp >= 0 && std::cmp_less(lamp, Held_->Lamps.size())
              ? Held_->Lamps[static_cast<size_t>(lamp)].Light
              : dark;
 }
 
 const double *Geometry::lampPlacementOf(int lamp) const {
   static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+  return lamp >= 0 && std::cmp_less(lamp, Held_->Lamps.size())
              ? Held_->Lamps[static_cast<size_t>(lamp)].PlacedM
              : still;
 }
@@ -345,8 +353,8 @@ std::span<const float> Geometry::normalsOf(int part) const {
 
 std::span<const float> Geometry::textureOf(int part, int set) const {
   const Held::Piece *piece = Held_->At(part);
-  if (piece == nullptr || (set != 0 && set != 1)) { return std::span<const float>(); }
-  return std::span<const float>(set == 0 ? piece->Uv : piece->Uv1);
+  if (piece == nullptr || (set != 0 && set != 1)) { return {}; }
+  return {set == 0 ? piece->Uv : piece->Uv1};
 }
 
 std::span<const float> Geometry::tangentsOf(int part) const {

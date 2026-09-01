@@ -1,5 +1,6 @@
 #include "TreeGrower.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <numbers>
 #include <cmath>
@@ -115,7 +116,7 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   if (Form_.BreakFrac > 0.0f) {
     steps = static_cast<int>(Form_.BreakFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
   }
-  if (steps < 1) { steps = 1; }
+  steps = std::max(steps, 1);
 
   for (int i = 0; i < n; ++i) {
     constexpr float kRollJitterRad = 0.35f;
@@ -162,7 +163,7 @@ void TreeGrower::EmitLeafPoints(
   TreeVec3 n;
   TreeVec3 b;
   FrameFrom(dir, up, n, b);
-  if (count < 1) { count = 1; }
+  count = std::max(count, 1);
   constexpr float kAzimuthJitterRad = 0.30f;
   constexpr float kSeatOfRadius = 0.95f;
   constexpr float kForwardTilt = 0.40f;
@@ -212,7 +213,7 @@ void TreeGrower::SpawnShoot(const Tip &parent,
       RadialAt(upper.Dir, upper.Up, request.Roll) * (0.5f * (upper.Radius + lower.Radius));
 
   int steps = static_cast<int>(static_cast<float>(parent.Steps) * g.OrderLen);
-  if (steps < kMinBranchSteps) { steps = kMinBranchSteps; }
+  steps = std::max(steps, kMinBranchSteps);
   const float len = RoomInside(from, request.Dir, static_cast<float>(steps) * parent.Step);
 
   if (len < 2.0f * request.Radius) { return; }
@@ -250,8 +251,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
   const int bareSteps = static_cast<int>(Form_.BoleFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
   SeedLeaders(g, bareSteps);
 
-  for (size_t head = 0; head < Queue_.size(); ++head) {
-    Tip t = Queue_[head];
+  for (auto t : Queue_) {
     Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
     float leafRoll = t.Roll;
 
@@ -443,7 +443,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
     const float yc = (TrunkProfile_[i].X - y0) * s;
     if (yb > yc) { continue; }
     float u = yc > ya ? (yb - ya) / (yc - ya) : 0.0f;
-    if (u < 0.0f) { u = 0.0f; }
+    u = std::max(u, 0.0f);
     Plant_->DbhRadius =
         (TrunkProfile_[i - 1].Y + (TrunkProfile_[i].Y - TrunkProfile_[i - 1].Y) * u) * s;
     return;

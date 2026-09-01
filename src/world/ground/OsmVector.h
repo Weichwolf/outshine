@@ -41,7 +41,7 @@ public:
     bool IsNum = false;
   };
 
-  [[nodiscard]] uint32_t TagCount(const Feature &f) const { return f.TagCount / 2; }
+  [[nodiscard]] static uint32_t TagCount(const Feature &f) { return f.TagCount / 2; }
 
   [[nodiscard]] Tag TagAt(const Feature &f, uint32_t i) const;
 

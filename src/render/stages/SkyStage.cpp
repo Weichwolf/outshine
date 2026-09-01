@@ -124,7 +124,7 @@ std::string SkyStage::ShaderSource(std::string &error) {
   if (!LoadShaderText("src/render/shaders/mediumLayout.msl", layout, error) ||
       !LoadShaderText("src/render/stages/MediumCore.h", core, error) ||
       !LoadShaderText("src/render/shaders/sky.msl", body, error)) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + VelocityStaticDefine() +
          "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" + layout + core + body;

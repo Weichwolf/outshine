@@ -128,9 +128,7 @@ inline void IridescenceFresnel(double cosTheta1,
 
 [[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) { return {}; }
   char constants[1024];
   std::snprintf(constants,
                 sizeof constants,

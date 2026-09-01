@@ -114,9 +114,9 @@ private:
     bool IsNum = false;
   };
 
-  uint32_t Intern(std::vector<std::string> &pool,
-                  std::unordered_map<std::string, uint32_t> &index,
-                  std::string_view s);
+  static uint32_t Intern(std::vector<std::string> &pool,
+                         std::unordered_map<std::string, uint32_t> &index,
+                         std::string_view s);
   [[nodiscard]] bool
   AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode);
   void Settle(int x, int y);

@@ -304,7 +304,7 @@ bool Live::Build(std::string &error) {
           if (slot >= Table_.Slots.size()) { continue; }
           for (const SurfaceOverride &said : Declared_.Overriding) {
             const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
-            const bool byPart = said.Part >= 0 && static_cast<size_t>(said.Part) == part;
+            const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
             if (!byNode && !byPart) { continue; }
             Render::SubjectMaterial made =
                 said.KeepsMaps ? Table_.Slots[slot] : Render::SubjectMaterial{};
@@ -316,7 +316,7 @@ bool Live::Build(std::string &error) {
               const int carried = slot < Table_.Material.size() ? Table_.Material[slot] : -1;
               Table_.Slots.push_back(made);
               Table_.Material.push_back(carried);
-              Table_.Decoded.push_back(Render::SurfaceRasters());
+              Table_.Decoded.emplace_back();
               Table_.PartSlot[part] = static_cast<uint32_t>(Table_.Slots.size() - 1u);
             }
             ++took;
@@ -372,7 +372,7 @@ bool Live::Build(std::string &error) {
         made.Row = also.surfaceAt(MaterialInstance(surface));
         Table_.Slots.push_back(made);
         Table_.Material.push_back(-1);
-        Table_.Decoded.push_back(Render::SurfaceRasters());
+        Table_.Decoded.emplace_back();
       }
       const size_t before = Table_.PartSlot.size();
       Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
@@ -495,7 +495,7 @@ bool Live::Build(std::string &error) {
                                 Declared_.PictureHeightFrac,
                                 0.0);
     auto insideFrom = std::chrono::steady_clock::now();
-    const auto sinceInside = [&insideFrom]() {
+    const auto sinceInside = [&insideFrom] {
       const double ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
               .count();
@@ -548,7 +548,7 @@ bool Live::PartVolumes(std::string &error) {
   const size_t parts = Shaped_.Parts.size();
   if (parts == 0) { return true; }
   PartBounds_.assign(parts, Volume{});
-  const auto fold = [this, parts]() {
+  const auto fold = [this, parts] {
     for (size_t part = 0; part < parts; ++part) {
       const Render::ShapePart &one = Shaped_.Parts[part];
       Volume &held = PartBounds_[part];
@@ -653,7 +653,7 @@ bool Live::Look(std::string &error) {
 
 bool Live::Stand(std::string &error) {
   auto standFrom = std::chrono::steady_clock::now();
-  const auto sinceStand = [&standFrom]() {
+  const auto sinceStand = [&standFrom] {
     const double ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - standFrom)
             .count();
@@ -1066,7 +1066,7 @@ bool Live::Restand(const Gltf::Subject &built,
   Stoodup_ = false;
   Carrying_ = carried;
   auto phaseAt = std::chrono::steady_clock::now();
-  const auto since = [&phaseAt]() {
+  const auto since = [&phaseAt] {
     const double ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
             .count();

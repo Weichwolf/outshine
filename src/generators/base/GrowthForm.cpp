@@ -1,5 +1,6 @@
 #include "GrowthForm.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <optional>
@@ -37,7 +38,7 @@ float GrowthForm::Reach(CrownEnvelope envelope, float t) {
   if (envelope == CrownEnvelope::Free) { return 1.0f; }
   if (t > 1.0f) { return 0.0f; }
   if (envelope == CrownEnvelope::Cut) { return 1.0f; }
-  if (t < kFloor) { t = kFloor; }
+  t = std::max(t, kFloor);
   const Profile p = kProfiles[static_cast<size_t>(envelope)];
   const float peak = p.A / (p.A + p.B);
   const float denom = std::pow(peak, p.A) * std::pow(1.0f - peak, p.B);

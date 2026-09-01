@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include "RoofSurface.h"
 
@@ -229,7 +230,7 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
   return true;
 }
 
-std::vector<En>
+static std::vector<En>
 ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line, double sign) {
   std::vector<En> out;
   const size_t n = poly.size();
@@ -298,11 +299,11 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
       gBreaksDropped.fetch_add(1u, std::memory_order_relaxed);
     }
   }
-  std::sort(at.begin(), at.end());
+  std::ranges::sort(at);
   const size_t before = at.size();
-  at.erase(std::unique(
-               at.begin(), at.end(), [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }),
-           at.end());
+  at.erase(
+      std::ranges::unique(at, [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }).begin(),
+      at.end());
   gBreaksMerged.fetch_add(before - at.size(), std::memory_order_relaxed);
 }
 

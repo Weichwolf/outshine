@@ -31,7 +31,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   SlowestBound_ = Bound{};
   Fastest_ = Bound{};
   Why_.clear();
-  for (size_t at = 0; at < static_cast<size_t>(Held::kCount); ++at) { Bound_[at] = 0; }
+  for (unsigned long &at : Bound_) { at = 0; }
   Bin_.fill(0);
   BinMs_ = 0.0;
 

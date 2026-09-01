@@ -56,7 +56,7 @@ bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out, std::string &e
   for (const auto &entry : holds) {
     if (entry.path().extension() == ".json") { named.push_back(entry.path().string()); }
   }
-  std::sort(named.begin(), named.end());
+  std::ranges::sort(named);
   if (named.empty()) {
     error = std::string("the species directory '") + path +
             "' holds no .json -- a world carries 0 or 1..N species and this is neither";

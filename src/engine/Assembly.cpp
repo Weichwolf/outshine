@@ -100,7 +100,7 @@ bool Assemble(const Scenario &declared,
       error = "the kind's defaults found no column seat for '" + kind.Name + "'";
       return false;
     }
-    out.Prefabs.push_back({kind.Name, prefab});
+    out.Prefabs.emplace_back(kind.Name, prefab);
   }
 
   for (const Instance &instance : declared.Instances) {
@@ -159,7 +159,7 @@ bool Assemble(const Scenario &declared,
       error = "the instance's traits found no column seat for '" + instance.Id + "'";
       return false;
     }
-    out.Instances.push_back({instance.Id, stood});
+    out.Instances.emplace_back(instance.Id, stood);
   }
 
   for (const Instance &instance : declared.Instances) {

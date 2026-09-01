@@ -1,6 +1,7 @@
 #include "Course.h"
 #include "Angle.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace outshine::Pilot {
@@ -78,7 +79,7 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, dou
       atM = lengthM;
       out.AtEnd = true;
     }
-    if (atM < from.AlongM) { atM = from.AlongM; }
+    atM = std::max(atM, from.AlongM);
   }
   if (!along.At(atM, there)) { return out; }
   const Placed aimed = Beside(there, asideM);

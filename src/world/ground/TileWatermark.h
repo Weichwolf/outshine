@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_TILEWATERMARK_H
 #define OUTSHINE_WORLD_GROUND_TILEWATERMARK_H
 
+#include <algorithm>
 #include <span>
 #include <algorithm>
 #include <cstdint>
@@ -62,14 +63,14 @@ public:
 
   void Take(uint32_t tile) {
     Takes_++;
-    Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile);
+    Ahead_.insert(std::ranges::lower_bound(Ahead_, tile), tile);
   }
 
   void Advance(std::span<const OsmField::Feature> feats) {
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
       const uint32_t tile = feats[Mark_].Tile;
       while (Mark_ < feats.size() && feats[Mark_].Tile == tile) { Mark_++; }
-      Ahead_.erase(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile));
+      Ahead_.erase(std::ranges::lower_bound(Ahead_, tile));
     }
   }
 
@@ -84,9 +85,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ahead_); }
 
 private:
-  [[nodiscard]] bool Taken(uint32_t tile) const {
-    return std::binary_search(Ahead_.begin(), Ahead_.end(), tile);
-  }
+  [[nodiscard]] bool Taken(uint32_t tile) const { return std::ranges::binary_search(Ahead_, tile); }
 
   std::vector<uint32_t> Ahead_;
   size_t Mark_ = 0;

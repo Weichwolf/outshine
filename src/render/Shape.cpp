@@ -10,9 +10,9 @@
 
 namespace outshine::Render {
 
-std::atomic<double> gCookMs{0.0};
-std::atomic<size_t> gRootless{0};
-std::atomic<size_t> gClusters{0};
+static std::atomic<double> gCookMs{0.0};
+static std::atomic<size_t> gRootless{0};
+static std::atomic<size_t> gClusters{0};
 
 double CookedMs() {
   return gCookMs.load(std::memory_order_relaxed);

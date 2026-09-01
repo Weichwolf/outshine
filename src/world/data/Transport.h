@@ -16,19 +16,19 @@ class Wire {
 public:
   enum class State { Working, Answered, Unreachable, Never };
 
-  static Wire Working() { return Wire(State::Working, 0, {}, 0.0); }
+  static Wire Working() { return {State::Working, 0, {}, 0.0}; }
 
   static Wire Answered(int status, std::vector<uint8_t> body) {
-    return Wire(State::Answered, status, std::move(body), 0.0);
+    return {State::Answered, status, std::move(body), 0.0};
   }
 
   static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
-    return Wire(State::Answered, status, std::move(body), retryAfterS);
+    return {State::Answered, status, std::move(body), retryAfterS};
   }
 
-  static Wire Unreachable() { return Wire(State::Unreachable, 0, {}, 0.0); }
+  static Wire Unreachable() { return {State::Unreachable, 0, {}, 0.0}; }
 
-  static Wire Never() { return Wire(State::Never, 0, {}, 0.0); }
+  static Wire Never() { return {State::Never, 0, {}, 0.0}; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 

@@ -2,6 +2,7 @@
 
 #include "CookedTile.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <atomic>
 #include <mutex>
@@ -90,7 +91,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
 
 TilePool::~TilePool() {
   {
-    const std::lock_guard<std::mutex> lock(QueueMutex_);
+    const std::scoped_lock lock(QueueMutex_);
     Stopping_ = true;
   }
   Wake_.notify_all();
@@ -122,7 +123,7 @@ TilePool::~TilePool() {
 }
 
 void TilePool::Focus(double latDeg, double lonDeg) {
-  const std::lock_guard<std::mutex> lock(QueueMutex_);
+  const std::scoped_lock lock(QueueMutex_);
   FocusLatDeg_ = latDeg;
   FocusLonDeg_ = lonDeg;
 }
@@ -140,10 +141,10 @@ double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
 TilePool::Ledger TilePool::Counters() const {
   Ledger out;
   {
-    const std::lock_guard<std::mutex> lock(LedgerMutex_);
+    const std::scoped_lock lock(LedgerMutex_);
     out = Ledger_;
   }
-  const std::lock_guard<std::mutex> queue(QueueMutex_);
+  const std::scoped_lock queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
   out.QueueDepth = static_cast<long long>(Queue_.size());
@@ -156,7 +157,7 @@ TilePool::Ledger TilePool::Counters() const {
 }
 
 size_t TilePool::ByteCacheBytes() const {
-  const std::lock_guard<std::mutex> lock(CacheMutex_);
+  const std::scoped_lock lock(CacheMutex_);
   size_t bytes = CapacityBytes(Cache_);
   for (const CacheEntry &e : Cache_) { bytes += e.Key.capacity() + CapacityBytes(e.Data); }
   return bytes;
@@ -171,7 +172,7 @@ size_t TilePool::DemCacheBytes() const {
 }
 
 size_t TilePool::SchedulerBytes() const {
-  const std::lock_guard<std::mutex> lock(QueueMutex_);
+  const std::scoped_lock lock(QueueMutex_);
   size_t bytes = CapacityBytes(Queue_);
   for (const Job &j : Queue_) { bytes += j.Ask ? j.Ask->Key().capacity() : 0; }
   bytes += TreeNodeBytes<uint64_t>(Posted_.size());
@@ -184,7 +185,7 @@ size_t TilePool::SchedulerBytes() const {
 }
 
 void TilePool::RefuseUntil(const std::string &key, double untilMs) {
-  const std::lock_guard<std::mutex> lock(CacheMutex_);
+  const std::scoped_lock lock(CacheMutex_);
   const auto found = CacheAt_.find(key);
   if (found != CacheAt_.end()) {
     Cache_[found->second].RefusedUntilMs = untilMs;
@@ -199,7 +200,7 @@ void TilePool::RefuseUntil(const std::string &key, double untilMs) {
 }
 
 TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
-  const std::lock_guard<std::mutex> lock(CacheMutex_);
+  const std::scoped_lock lock(CacheMutex_);
   const auto found = CacheAt_.find(key);
   if (found == CacheAt_.end()) { return Reply::Pending; }
   CacheEntry &e = Cache_[found->second];
@@ -214,7 +215,7 @@ TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
 
 void TilePool::Remember(
     const std::string &key, const uint8_t *data, size_t len, const Data::Address &at, bool absent) {
-  const std::lock_guard<std::mutex> lock(CacheMutex_);
+  const std::scoped_lock lock(CacheMutex_);
   if (CacheAt_.find(key) != CacheAt_.end()) { return; }
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
@@ -233,7 +234,7 @@ void TilePool::Remember(
     evicted++;
   }
   if (evicted > 0) {
-    const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.Evictions += evicted;
   }
   CacheEntry e;
@@ -249,7 +250,7 @@ void TilePool::Remember(
 
 TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) {
   if (!tCarries) {
-    const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.FetchOnCompute++;
   }
   const std::string key = request.Key();
@@ -296,7 +297,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - entered).count();
   tFetchBlockedMs += blockedMs;
   {
-    const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.Fetches++;
     Ledger_.FetchMs += pollMs;
     Ledger_.FetchBlockedMs += blockedMs;
@@ -435,7 +436,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
                {"y", static_cast<int>(job.Y)},
                {"stage", stage},
                {"rc", static_cast<int>(mesh.Where())}});
-    const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }
 
@@ -468,12 +469,12 @@ void TilePool::Carry() {
     const double spanMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     {
-      const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+      const std::scoped_lock ledger(LedgerMutex_);
       Ledger_.FetchMs += spanMs;
       Ledger_.FetchBlockedMs += tFetchBlockedMs - blockedBefore;
     }
     {
-      const std::lock_guard<std::mutex> lock(QueueMutex_);
+      const std::scoped_lock lock(QueueMutex_);
       if (result.State == Reply::Pending) {
         Posted_.erase(job.Key);
       } else if (Posted_.find(job.Key) != Posted_.end()) {
@@ -482,7 +483,7 @@ void TilePool::Carry() {
         while (Kept_.size() > kMostKept) {
           const uint64_t oldest = Kept_.front();
           Kept_.pop_front();
-          if (std::find(Kept_.begin(), Kept_.end(), oldest) != Kept_.end()) { continue; }
+          if (std::ranges::find(Kept_, oldest) != Kept_.end()) { continue; }
           Done_.erase(oldest);
           Posted_.erase(oldest);
         }
@@ -589,7 +590,7 @@ void TilePool::Work(int slot) {
 
     const double cpuMs = spanMs - (tFetchBlockedMs - blockedBefore);
     {
-      const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+      const std::scoped_lock ledger(LedgerMutex_);
       if (job.Kind == Rank::Mesh) {
         Ledger_.MeshTiles++;
         Ledger_.MeshCpuMs += cpuMs;
@@ -599,12 +600,12 @@ void TilePool::Work(int slot) {
     StackProbe::Mark();
     ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
     {
-      const std::lock_guard<std::mutex> lock(QueueMutex_);
+      const std::scoped_lock lock(QueueMutex_);
 
       if (result.State == Reply::Pending) {
         Posted_.erase(job.Key);
         {
-          const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+          const std::scoped_lock ledger(LedgerMutex_);
           if (job.Kind == Rank::Mesh) { Ledger_.MeshDropped++; }
         }
         Landed_.notify_all();
@@ -619,7 +620,7 @@ void TilePool::Work(int slot) {
         while (Kept_.size() > kMostKept) {
           const uint64_t oldest = Kept_.front();
           Kept_.pop_front();
-          if (std::find(Kept_.begin(), Kept_.end(), oldest) != Kept_.end()) { continue; }
+          if (std::ranges::find(Kept_, oldest) != Kept_.end()) { continue; }
           Done_.erase(oldest);
           Posted_.erase(oldest);
         }
@@ -672,7 +673,7 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
 TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
   const uint64_t key = MeshKey(z, x, y);
   {
-    const std::lock_guard<std::mutex> lock(QueueMutex_);
+    const std::scoped_lock lock(QueueMutex_);
     const auto done = Done_.find(key);
     if (done != Done_.end()) { return done->second.State; }
     if (Posted_.find(key) != Posted_.end()) { return Reply::Pending; }
@@ -733,13 +734,13 @@ bool TilePool::AwaitLanding(double seconds) {
 
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
   const uint64_t key = MeshKey(z, x, y);
-  const std::lock_guard<std::mutex> lock(QueueMutex_);
+  const std::scoped_lock lock(QueueMutex_);
   Posted_.erase(key);
   Done_.erase(key);
 }
 
 bool TilePool::Known(uint64_t key) {
-  const std::lock_guard<std::mutex> lock(QueueMutex_);
+  const std::scoped_lock lock(QueueMutex_);
   return Done_.find(key) != Done_.end() || Posted_.find(key) != Posted_.end();
 }
 

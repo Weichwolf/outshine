@@ -115,7 +115,7 @@ const std::string *InputMap::ActionOf(std::string_view event) const {
   return at < 0 ? nullptr : ActionNamed(ActionAt(static_cast<size_t>(at)));
 }
 
-bool InputMap::KindOf(std::string_view event, Kind &out) const {
+bool InputMap::KindOf(std::string_view event, Kind &out) {
   const ptrdiff_t at = EventIndexOf(event);
   if (at < 0) { return false; }
   out = kEvents[at].What;

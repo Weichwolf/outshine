@@ -47,13 +47,9 @@ public:
   [[nodiscard]] bool
   Occludes(const float originM[3], const float direction[3], float nearM, float distanceM) const;
 
-  [[nodiscard]] Span<const BvhNode> Nodes() const {
-    return Span<const BvhNode>(Nodes_.data(), Nodes_.size());
-  }
+  [[nodiscard]] Span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
 
-  [[nodiscard]] Span<const BvhTriangle> Triangles() const {
-    return Span<const BvhTriangle>(Tris_.data(), Tris_.size());
-  }
+  [[nodiscard]] Span<const BvhTriangle> Triangles() const { return {Tris_.data(), Tris_.size()}; }
 
   [[nodiscard]] bool Refit(Span<const float> positionsM);
 

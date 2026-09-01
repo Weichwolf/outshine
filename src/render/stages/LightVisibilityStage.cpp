@@ -38,22 +38,22 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
 void LightVisibilityStage::Build(const double preView[3]) {
   double forward[3] = {-ToSun_[0], -ToSun_[1], -ToSun_[2]};
   double length = 0.0;
-  for (int axis = 0; axis < 3; ++axis) { length += forward[axis] * forward[axis]; }
+  for (double axis : forward) { length += axis * axis; }
   length = std::sqrt(length);
-  for (int axis = 0; axis < 3; ++axis) { forward[axis] /= length; }
+  for (double &axis : forward) { axis /= length; }
 
   double right[3] = {Up_[1] * forward[2] - Up_[2] * forward[1],
                      Up_[2] * forward[0] - Up_[0] * forward[2],
                      Up_[0] * forward[1] - Up_[1] * forward[0]};
   const double rLength = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
-  for (int axis = 0; axis < 3; ++axis) { right[axis] /= rLength; }
+  for (double &axis : right) { axis /= rLength; }
   const double upward[3] = {forward[1] * right[2] - forward[2] * right[1],
                             forward[2] * right[0] - forward[0] * right[2],
                             forward[0] * right[1] - forward[1] * right[0]};
 
   const double texelM = 2.0 * RadiusM_ / static_cast<double>(kShadowAtlasPx);
   double centre[3] = {0.0, 0.0, 0.0};
-  const auto reported = [this, &centre]() {
+  const auto reported = [this, &centre] {
     for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
   };
   {
@@ -94,7 +94,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
   reported();
   const double nearAlong = centreLight[2] - depthM;
   const double farAlong = centreLight[2] + depthM;
-  for (int i = 0; i < 16; ++i) { LightFromWorld_[i] = 0.0; }
+  for (double &i : LightFromWorld_) { i = 0.0; }
   for (int axis = 0; axis < 3; ++axis) {
     LightFromWorld_[axis * 4 + 0] = right[axis] / RadiusM_;
     LightFromWorld_[axis * 4 + 1] = upward[axis] / RadiusM_;
@@ -142,9 +142,7 @@ std::string LightVisibilityStage::DepthOnlySource() {
 
 std::string LightVisibilityStage::DepthOnlySource(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/subjectDepthOnly.msl", body, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/subjectDepthOnly.msl", body, error)) { return {}; }
   return MslPrelude(error) + body;
 }
 

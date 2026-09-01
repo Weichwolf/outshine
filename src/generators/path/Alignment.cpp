@@ -1,6 +1,7 @@
 #include "Alignment.h"
 #include "Angle.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <expected>
@@ -68,7 +69,7 @@ constexpr double kMostClothoidShare = 1.0;
   const double solved = (-0.5 + std::sqrt(0.25 + 4.0 * square * (roomM - bareM))) / (2.0 * square);
   double held = solved < least ? least : solved;
   const double most = SpiralAtMost(radiusM);
-  if (held > most) { held = most; }
+  held = std::min(held, most);
   const double sweptOut = radiusM * swing;
   return held < sweptOut ? held : sweptOut;
 }
@@ -166,7 +167,7 @@ constexpr double kMostClothoidShare = 1.0;
   const double roomM = intoM < outOfM ? intoM : outOfM;
   const bool againstAStraight =
       at > 1 || last + 2 < points.size() / 2 || std::fabs(intoM - outOfM) > 1.0e-6;
-  const double byRoom = roomM / (TangentFor(1.0, swing, SpiralAtLeast(1.0, againstAStraight)));
+  const double byRoom = roomM / TangentFor(1.0, swing, SpiralAtLeast(1.0, againstAStraight));
   if (!(byRoom > tightestM)) {
     return std::unexpected(
         Refusal{.Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) + " leave " +

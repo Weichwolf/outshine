@@ -1,4 +1,5 @@
 #include "Heap.h"
+#include <algorithm>
 #include <bit>
 #include <string>
 #include <cstdint>
@@ -38,7 +39,7 @@ bool Posed::Reads(const std::string &path,
     if (!Gltf::Pose::Build(File_, clip, Motion_, error)) { return false; }
     Moves_ = Motion_.EndS() > 0.0;
     Frames_ = Moves_ ? static_cast<int>(Motion_.EndS() * fps + 0.5) : 1;
-    if (Frames_ < 1) { Frames_ = 1; }
+    Frames_ = std::max(Frames_, 1);
   }
   Read_ = true;
   Changed_ += 1;

@@ -7,7 +7,7 @@ class WaterDepth {
 public:
   enum class State { Dry, Fields, LevelBelowGround };
 
-  static WaterDepth Dry() { return WaterDepth(State::Dry, 0.0); }
+  static WaterDepth Dry() { return {State::Dry, 0.0}; }
 
   static WaterDepth Between(double levelAslM, double groundAslM) {
     return levelAslM >= groundAslM ? WaterDepth(State::Fields, levelAslM - groundAslM)

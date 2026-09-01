@@ -1,5 +1,7 @@
 #include "TreeMesher.h"
 
+#include <algorithm>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
@@ -43,7 +45,7 @@ TreeVec3 TreeMesher::FaceCentroid(int fi) const {
 
 int TreeMesher::SidesFor(float radius, int declared) const {
   int cap = declared < kMaxSides ? declared : kMaxSides;
-  if (cap < 3) { cap = 3; }
+  cap = std::max(cap, 3);
   if (PixelGrow_ <= 0.0f || radius <= 0.0f) { return cap; }
   const float c = 1.0f - 0.5f * PixelGrow_ / radius;
   if (c <= -1.0f) { return 3; }
@@ -87,15 +89,15 @@ void TreeMesher::RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &s
   }
   for (int i = last; i > from; i -= stride) { Stations_.push_back(i); }
   Stations_.push_back(from);
-  std::reverse(Stations_.begin(), Stations_.end());
+  std::ranges::reverse(Stations_);
 }
 
-float TreeMesher::RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const {
+float TreeMesher::RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) {
   const TreeSkeleton::Node &upper = plant.Nodes[static_cast<size_t>(shoot.ParentNode)];
   const TreeSkeleton::Node &lower = plant.Nodes[static_cast<size_t>(shoot.ParentNode - 1)];
   int sides = plant.Shoots[static_cast<size_t>(shoot.Parent)].Sides;
-  if (sides > kMaxSides) { sides = kMaxSides; }
-  if (sides < 3) { sides = 3; }
+  sides = std::min(sides, kMaxSides);
+  sides = std::max(sides, 3);
   const float along = 0.5f * Length(upper.Pos - lower.Pos);
   const float around = upper.Radius * std::sin(kTau * 0.5f / static_cast<float>(sides));
   return 0.9f * std::sqrt(along * along + around * around);
@@ -115,10 +117,10 @@ void TreeMesher::Wall(const int *from, const int *to, int sides) {
   }
 }
 
-void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) const {
+void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) {
   float splinter[kMaxSides];
   TreeRandom rng(seed);
-  for (int i = 0; i < kMaxSides; ++i) { splinter[i] = rng.Unit(); }
+  for (float &i : splinter) { i = rng.Unit(); }
   for (int j = 0; j < sides; ++j) {
     const float at = kTau * static_cast<float>(j) / static_cast<float>(sides);
     const float arc = kTau * 0.5f / static_cast<float>(sides);

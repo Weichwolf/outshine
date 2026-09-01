@@ -44,7 +44,7 @@ std::string TerrariumDem::Url(const Address &at) const {
   int z = 0;
   uint32_t x = 0;
   uint32_t y = 0;
-  if (!at.TryTile(&z, &x, &y)) { return std::string(); }
+  if (!at.TryTile(&z, &x, &y)) { return {}; }
   return std::format(Says::kTile, z, x, y);
 }
 

@@ -163,7 +163,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
 
   size_t at = 0;
   std::string text;
-  const auto flush = [&]() {
+  const auto flush = [&] {
     if (text.empty()) { return; }
     push({.Kind = NodeKind::Text,
           .Name = "",

@@ -61,7 +61,7 @@ private:
 
   std::vector<std::vector<Standing>> InsideDoor_;
 
-  [[nodiscard]] bool Inside(const Door &door, const double atM[3]) const;
+  [[nodiscard]] static bool Inside(const Door &door, const double atM[3]);
 
   std::vector<Door> Doors_;
   std::vector<std::string> Events_;

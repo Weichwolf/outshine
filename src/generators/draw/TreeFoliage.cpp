@@ -1,5 +1,6 @@
 #include "TreeFoliage.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <numbers>
 #include <cmath>
@@ -53,7 +54,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   double want = static_cast<double>(species.Lai()) * CrownProjM2_ / oneM2;
   want *= static_cast<double>(mult > 0 ? mult : 1);
 
-  if (want > static_cast<double>(kMaxInstances)) { want = static_cast<double>(kMaxInstances); }
+  want = std::min(want, static_cast<double>(kMaxInstances));
   PerPoint_ = want > 0.0 ? want / static_cast<double>(points)
                          : static_cast<double>(leaf.CardsPerPoint) *
                                static_cast<double>(mult > 0 ? mult : 1);

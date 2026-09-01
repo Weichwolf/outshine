@@ -2,6 +2,8 @@
 
 #include "OsmLayer.h"
 
+#include <algorithm>
+#include <algorithm>
 #include <cstddef>
 #include <mutex>
 #include <cstdint>
@@ -45,7 +47,7 @@ size_t ClassField::Tier::HeapBytes() const {
 }
 
 size_t ClassField::HeapBytes() const {
-  const std::lock_guard<std::mutex> lk(Mu_);
+  const std::scoped_lock lk(Mu_);
   return Fine_.HeapBytes() + Coarse_.HeapBytes() + Builder_.HeapBytes() +
          (Published_ ? Published_->Bytes() : 0);
 }
@@ -147,11 +149,11 @@ void ClassField::Ingest(Tier &t) {
     t.Feats.push_back(rec);
   }
   t.FeatsDone = feats.size();
-  std::stable_sort(t.Feats.begin(),
-                   t.Feats.end(),
-                   [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
-                     return a.Rank < b.Rank;
-                   });
+  std::ranges::stable_sort(t.Feats,
+
+                           [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
+                             return a.Rank < b.Rank;
+                           });
   t.Stale = true;
 }
 
@@ -230,7 +232,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
     t.Have = true;
     Submitted_.reset();
     const double buildMs = done->Structure->Measured().BuildMs;
-    if (buildMs > BuildMsMax_) { BuildMsMax_ = buildMs; }
+    BuildMsMax_ = std::max(buildMs, BuildMsMax_);
     Log::Debug("world",
                "class_built",
                {{"version", static_cast<double>(done->Structure->Version())},
@@ -241,7 +243,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
                  static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
                                      CapacityBytes(t.Feats)) /
                      1024.0}});
-    const std::lock_guard<std::mutex> lk(Mu_);
+    const std::scoped_lock lk(Mu_);
     Published_ = std::move(done->Structure);
   }
 

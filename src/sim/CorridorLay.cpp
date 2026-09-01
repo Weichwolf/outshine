@@ -2,6 +2,7 @@
 
 #include "Pilot.h"
 
+#include <algorithm>
 #include <numbers>
 #include <chrono>
 #include <cmath>
@@ -10,6 +11,7 @@
 #include "Angle.h"
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Carriageway.h"
@@ -78,7 +80,7 @@ bool LayCorridor(const Path::Route &route,
     classTightestM[at] = mine <= 0.0 || before <= 0.0 ? 0.0 : (mine < before ? mine : before);
     if (classTightestM[at] > 0.0) { ++designed; }
     const double half = route.Legs[keptAt[at]].HalfWidthM;
-    if (half > roadWithinM) { roadWithinM = half; }
+    roadWithinM = std::max(half, roadWithinM);
   }
   if (!(roadWithinM > quantumM)) { roadWithinM = quantumM; }
 
@@ -101,8 +103,8 @@ bool LayCorridor(const Path::Route &route,
     const double intoM = std::sqrt(eastIn * eastIn + northIn * northIn);
     const double outOfM = std::sqrt(eastOut * eastOut + northOut * northOut);
     const double heldM = JunctionKerbM(half, other, turn, intoM < outOfM ? intoM : outOfM);
-    if (heldM > withinAtM[at]) { withinAtM[at] = heldM; }
-    if (withinAtM[at] > widestJunctionM) { widestJunctionM = withinAtM[at]; }
+    withinAtM[at] = std::max(heldM, withinAtM[at]);
+    widestJunctionM = std::max(withinAtM[at], widestJunctionM);
   }
   say.Number("the widest a junction lets an arc leave its corner", widestJunctionM, "m");
   say.Number("vertices the route offered before simplifying",
@@ -388,7 +390,7 @@ bool LayCorridor(const Path::Route &route,
       mostGrip = one.Friction > mostGrip ? one.Friction : mostGrip;
     }
     say.Number("the least grip the route's surface offers",
-               gripless < static_cast<long>(stations.size()) ? leastGrip : 0.0,
+               std::cmp_less(gripless, stations.size()) ? leastGrip : 0.0,
                "x");
     say.Number("the most", mostGrip, "x");
     if (gripless > 0) {
@@ -448,7 +450,7 @@ bool LayCorridor(const Path::Route &route,
     }
     for (size_t fine = 1; fine < roomM.size(); ++fine) {
       const double reachable = roomM[fine - 1] + most;
-      if (roomM[fine] > reachable) { roomM[fine] = reachable; }
+      roomM[fine] = std::min(roomM[fine], reachable);
     }
     say.Number("the tracking error the lane centre keeps clear of the edge", budgetM, "m");
     say.Number("the most a narrowing pulled the lane centre in ahead of itself", leadM, "m");

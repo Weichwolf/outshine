@@ -53,7 +53,7 @@ void NormalsFrom(const std::vector<float> &positionM,
 
 constexpr long kBlockTiles = 4;
 
-void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
+static void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   const int side = grid < 2 ? 2 : grid;
   const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
   const Ground::Geo middle{.LonDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
@@ -207,7 +207,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         if (!ofTheGround && !over.Asking) { ++out.Bare; }
         if (over.Asking) {
           ++out.Tiles;
-          if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
+          if (ofTheGround) { standing.emplace_back(heldX0, heldY0); }
           continue;
         }
         if (!ofTheGround) {
@@ -272,7 +272,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                             ? static_cast<double>(built.ErrM)
                             : out.WorstErrM;
         ++out.Tiles;
-        if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
+        if (ofTheGround) { standing.emplace_back(heldX0, heldY0); }
       }
     }
     for (const auto &one : standing) {

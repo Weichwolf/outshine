@@ -1,5 +1,6 @@
 #include "TerrainLoader.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -53,7 +54,7 @@ int DerivedThreads(int workers) {
   if (workers > 0 && workers <= 32) { return workers; }
   const unsigned hw = std::thread::hardware_concurrency();
   int n = hw > 3u ? static_cast<int>(hw) - 2 : 1;
-  if (n > kMaxTileThreads) { n = kMaxTileThreads; }
+  n = std::min(n, kMaxTileThreads);
   return n;
 }
 

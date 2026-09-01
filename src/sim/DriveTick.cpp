@@ -2,6 +2,7 @@
 
 #include "HoldLane.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <type_traits>
 
@@ -101,8 +102,8 @@ const Ridden &DriveTick(const Corridor &way,
     }
     const double roomM = here.EdgeM - 0.5 * drive.CarWidthM - way.BudgetM;
     if (roomM > 0.0) {
-      if (drive.HeldAsideM > roomM) { drive.HeldAsideM = roomM; }
-      if (drive.HeldAsideM < -roomM) { drive.HeldAsideM = -roomM; }
+      drive.HeldAsideM = std::min(drive.HeldAsideM, roomM);
+      drive.HeldAsideM = std::max(drive.HeldAsideM, -roomM);
     }
     reins.AsideM = drive.HeldAsideM;
     aimStillMovingM = wantAsideM - drive.HeldAsideM;
@@ -119,9 +120,9 @@ const Ridden &DriveTick(const Corridor &way,
     const double thereMs = profile.At(atM);
     if (thereMs < speedMs && overM > 0.0) {
       const double askMs2 = (speedMs * speedMs - thereMs * thereMs) / (2.0 * overM);
-      if (askMs2 > needMs2) { needMs2 = askMs2; }
+      needMs2 = std::max(askMs2, needMs2);
     }
-    if (thereMs < wantedMs) { wantedMs = thereMs; }
+    wantedMs = std::min(thereMs, wantedMs);
   }
   outshine::Control::Sight sees;
   sees.Along = &corridor;
@@ -270,7 +271,7 @@ const Ridden &DriveTick(const Corridor &way,
     for (size_t which = 0; which < read.Count && which < 4; ++which) {
       const double slip = std::fabs(read.SlipRad[which]);
       double &into = which < 2 ? frontSlip : rearSlip;
-      if (slip > into) { into = slip; }
+      into = std::max(slip, into);
     }
     out.LeftAimStillMovingM = aimStillMovingM;
     out.LeftWantAsideM = wantedAsideM;

@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <numbers>
 #include <span>
+#include <utility>
 #include <vector>
 #include <ratio>
 
@@ -277,11 +278,11 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
 }
 
 bool BuildingField::TileGroundResolved(
-    const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const {
+    const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) {
   const std::span<const OsmField::Feature> feats = field.Features();
   for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
-    if (f.Type != 3 || static_cast<int>(f.Layer) != layer) { continue; }
+    if (f.Type != 3 || std::cmp_not_equal(f.Layer, layer)) { continue; }
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
@@ -322,7 +323,7 @@ int BuildingField::Build(const GroundQuery &ground,
 
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
-    if (f.Type != 3 || static_cast<int>(f.Layer) != layer) { continue; }
+    if (f.Type != 3 || std::cmp_not_equal(f.Layer, layer)) { continue; }
     const double h = field.Num(f, "height", 0.0);
 
     for (uint32_t r = 0; r < f.RingCount; r++) {

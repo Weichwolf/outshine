@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 #define OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 
+#include <algorithm>
 #include <numbers>
 #include <algorithm>
 #include <cmath>
@@ -43,8 +44,8 @@ BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], fl
     for (int a = 0; a < 3; a++) {
       const float v =
           verts[static_cast<size_t>(i) * static_cast<size_t>(stride) + static_cast<size_t>(a)];
-      if (v < lo[a]) { lo[a] = v; }
-      if (v > hi[a]) { hi[a] = v; }
+      lo[a] = std::min(v, lo[a]);
+      hi[a] = std::max(v, hi[a]);
     }
   }
   double r2 = 0.0;
@@ -110,7 +111,7 @@ inline float DagSse(
   const double dy = static_cast<double>(ctr[1]) - eye[1];
   const double dz = static_cast<double>(ctr[2]) - eye[2];
   double d = std::sqrt(dx * dx + dy * dy + dz * dz) - static_cast<double>(rad);
-  if (d < 0.05) { d = 0.05; }
+  d = std::max(d, 0.05);
   return static_cast<float>(static_cast<double>(err) *
                             static_cast<double>(DagCrossFactor(ctr, rad, eye, up)) *
                             static_cast<double>(fPx) / d);

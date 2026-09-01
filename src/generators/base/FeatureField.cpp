@@ -52,11 +52,11 @@ FeatureField::FeatureField(Span<const Feature> features,
 }
 
 Span<const FeatureField::Ring> FeatureField::Rings(const Feature &f) const {
-  return Span<const Ring>(Rings_.data() + f.FirstRing, f.RingCount);
+  return {Rings_.data() + f.FirstRing, f.RingCount};
 }
 
 Span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
-  return Span<const Vertex>(Vertices_.data() + r.First, r.Count);
+  return {Vertices_.data() + r.First, r.Count};
 }
 
 namespace {

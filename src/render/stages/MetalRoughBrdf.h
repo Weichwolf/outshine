@@ -119,9 +119,7 @@ struct BrdfGeometry {
 
 [[nodiscard]] inline std::string MetalRoughBrdfMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/metalRoughBrdf.msl", body, error)) { return {}; }
   char constants[256];
   std::snprintf(constants, sizeof constants, "constant float kPi = %.17g;\n", kPi);
   return std::string(constants) + body;

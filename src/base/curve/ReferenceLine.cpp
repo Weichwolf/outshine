@@ -146,8 +146,8 @@ std::vector<double> ReferenceLine::Seams() const {
   for (const Knot &one : Rise_) { at.push_back(one.AlongM); }
   for (const Knot &one : Bank_) { at.push_back(one.AlongM); }
   at.push_back(Length_);
-  std::sort(at.begin(), at.end());
-  at.erase(std::unique(at.begin(), at.end()), at.end());
+  std::ranges::sort(at);
+  at.erase(std::ranges::unique(at).begin(), at.end());
   return at;
 }
 
@@ -253,8 +253,8 @@ bool ReferenceLine::Nearest(
 
   double lowM = nearM - windowM;
   double highM = nearM + windowM;
-  if (lowM < 0.0) { lowM = 0.0; }
-  if (highM > Length_) { highM = Length_; }
+  lowM = std::max(lowM, 0.0);
+  highM = std::min(highM, Length_);
   if (!(highM > lowM)) { return false; }
 
   const auto away = [eastM, northM](const Placed &there) {
@@ -280,8 +280,8 @@ bool ReferenceLine::Nearest(
 
   double lowBracket = bestM - kResectionCoarseM;
   double highBracket = bestM + kResectionCoarseM;
-  if (lowBracket < lowM) { lowBracket = lowM; }
-  if (highBracket > highM) { highBracket = highM; }
+  lowBracket = std::max(lowBracket, lowM);
+  highBracket = std::min(highBracket, highM);
 
   const double shrink = 0.6180339887498949;
   double leftM = highBracket - shrink * (highBracket - lowBracket);

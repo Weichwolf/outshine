@@ -75,7 +75,7 @@ public:
           Settle();
         }
 
-        [[nodiscard]] Ref operator*() const { return Ref(From_, At_); }
+        [[nodiscard]] Ref operator*() const { return {From_, At_}; }
 
         Iterator &operator++();
 
@@ -102,9 +102,9 @@ public:
       Siblings(const Xml *from, uint32_t first, const char *name)
           : From_(from), First_(first), Name_(name) {}
 
-      [[nodiscard]] Iterator begin() const { return Iterator(From_, First_, Name_); }
+      [[nodiscard]] Iterator begin() const { return {From_, First_, Name_}; }
 
-      [[nodiscard]] Iterator end() const { return Iterator(); }
+      [[nodiscard]] static Iterator end() { return {}; }
 
     private:
       const Xml *From_ = nullptr;
@@ -130,7 +130,7 @@ public:
 
   [[nodiscard]] bool Parse(const char *text, size_t length);
 
-  [[nodiscard]] Ref Root() const { return Ref(this, Root_); }
+  [[nodiscard]] Ref Root() const { return {this, Root_}; }
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
@@ -142,7 +142,7 @@ private:
   friend class Ref;
 
   [[nodiscard]] std::string Span(uint32_t off, uint32_t len) const {
-    return std::string(Text_.data() + off, len);
+    return {Text_.data() + off, len};
   }
 
   [[nodiscard]] bool Refuse(const std::string &why, size_t at);

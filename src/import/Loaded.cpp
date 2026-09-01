@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "Document.h"
@@ -103,8 +104,8 @@ struct Loaded::Held {
     const std::span<const uint8_t> pixels(from.Rgba, bytes);
     for (int at = 0; at < Handed.images(); ++at) {
       const ImageView held = Handed.imageAt(at);
-      if (held.WidthPx != static_cast<int>(from.Width) ||
-          held.HeightPx != static_cast<int>(from.Height)) {
+      if (std::cmp_not_equal(held.WidthPx, from.Width) ||
+          std::cmp_not_equal(held.HeightPx, from.Height)) {
         continue;
       }
       if (held.Rgba.size() >= bytes && std::memcmp(held.Rgba.data(), from.Rgba, bytes) == 0) {

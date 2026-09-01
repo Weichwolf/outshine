@@ -3,7 +3,10 @@
 #include "Vec3.h"
 #include "Subject.h"
 
+#include <algorithm>
+#include <algorithm>
 #include <cstdint>
+#include <ranges>
 #include <span>
 
 #include <Geometry.h>
@@ -15,6 +18,7 @@
 #include <cstring>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 #include <utility>
 
@@ -422,42 +426,18 @@ bool Subject::FlatNormalsFor(Part &part) {
     const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
 
     if (length > 0.0) {
-      for (size_t axis = 0; axis < 3; ++axis) { face[axis] /= length; }
+      for (double &axis : face) { axis /= length; }
     } else {
       face[0] = face[1] = face[2] = 0.0;
     }
-    for (size_t corner = 0; corner < 3; ++corner) {
+    for (unsigned int corner : of) {
       for (size_t axis = 0; axis < 3; ++axis) {
-        Normals_[static_cast<size_t>(of[corner]) * 3 + axis] = face[axis];
+        Normals_[static_cast<size_t>(corner) * 3 + axis] = face[axis];
       }
     }
   }
   part.HasNormal = true;
   part.VertexCount += VertexCount() - before;
-  return true;
-}
-
-bool ViewpointLookAtGONE(const double eyeM[3],
-                         const double aimM[3],
-                         double rollRad,
-                         Viewpoint &out) {
-  double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
-  if (!Normalise(forward)) { return false; }
-  const double worldUp[3] = {0, 1, 0};
-  double right[3];
-  Cross(forward, worldUp, right);
-  if (!Normalise(right)) { return false; }
-  double up[3];
-  Cross(right, forward, up);
-
-  const double turn = std::cos(rollRad);
-  const double lean = std::sin(rollRad);
-  for (int axis = 0; axis < 3; ++axis) {
-    out.EyeM[axis] = eyeM[axis];
-    out.Forward[axis] = forward[axis];
-    out.Right[axis] = right[axis] * turn + up[axis] * lean;
-    out.Up[axis] = up[axis] * turn - right[axis] * lean;
-  }
   return true;
 }
 
@@ -526,10 +506,10 @@ bool Subject::Build(const Document &document,
   return Flatten(document, pose.Data(), (weights.Size() != 0u) ? weights.Data() : nullptr, variant);
 }
 
-bool InstanceTransforms(const Document &document,
-                        const Node &node,
-                        const Transform &world,
-                        std::vector<Transform> &out) {
+static bool InstanceTransforms(const Document &document,
+                               const Node &node,
+                               const Transform &world,
+                               std::vector<Transform> &out) {
   out.clear();
   const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
   bool any = false;
@@ -638,9 +618,7 @@ bool Subject::Flatten(const Document &document,
     }
     const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
     if (!node.Visible) { continue; }
-    for (auto child = node.Children.rbegin(); child != node.Children.rend(); ++child) {
-      pending.push_back(*child);
-    }
+    for (int child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
       Transform placement;
       if (!placementOf(nodeIndex, placement)) {
@@ -792,7 +770,7 @@ bool Subject::Flatten(const Document &document,
               elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]};
           double global[3];
           place.At(vertex).Point(local, global);
-          for (int axis = 0; axis < 3; ++axis) { atPos.push_back(global[axis]); }
+          for (double axis : global) { atPos.push_back(axis); }
         }
 
         const struct {
@@ -821,7 +799,7 @@ bool Subject::Flatten(const Document &document,
                           std::to_string(coordinates.size() / 2) + " pairs over " +
                           std::to_string(vertices) + " vertices");
           }
-          std::copy(coordinates.begin(), coordinates.end(), set.Into->begin());
+          std::ranges::copy(coordinates, set.Into->begin());
         }
 
         const int colour = primitive.Find("COLOR_0");
@@ -1008,8 +986,8 @@ void Subject::Bound() {
   for (size_t vertex = 1; vertex < VertexCount(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
       const double value = Positions_[vertex * 3 + static_cast<size_t>(axis)];
-      if (value < Min_[axis]) { Min_[axis] = value; }
-      if (value > Max_[axis]) { Max_[axis] = value; }
+      Min_[axis] = std::min(value, Min_[axis]);
+      Max_[axis] = std::max(value, Max_[axis]);
     }
   }
 }
@@ -1115,7 +1093,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   bool anyNormal = false;
   bool anyTangent = false;
   bool anyColour = false;
-  for (size_t index = 0; index < static_cast<size_t>(what.parts()); ++index) {
+  for (size_t index = 0; std::cmp_less(index, what.parts()); ++index) {
     const int slot = static_cast<int>(index);
     const std::span<const float> pPos = what.positionsOf(slot);
     const std::span<const float> pNormals = what.normalsOf(slot);

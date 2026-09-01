@@ -74,9 +74,7 @@ NormalFromMap(const SuppliedFrame &supplied, const Direction &tap, double scale,
 
 [[nodiscard]] inline std::string NormalFromMapMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) { return {}; }
   return body;
 }
 

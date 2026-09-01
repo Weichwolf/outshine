@@ -50,7 +50,7 @@ Tile Tile::Of(int zoom, double lat, double lon) {
   const int x = static_cast<int>(std::floor((lon + 180.0) / 360.0 * scale));
   const int y =
       static_cast<int>(std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale));
-  return Tile(zoom, x, y);
+  return {zoom, x, y};
 }
 
 uint64_t Tile::Seed(uint64_t stream) const {

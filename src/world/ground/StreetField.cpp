@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <span>
 #include <cstddef>
+#include <utility>
 
 namespace outshine::Ground {
 
@@ -28,8 +29,8 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   Looked_ += static_cast<long>(next.To - next.From);
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
-    const bool ribbon = f.Type == 2 && static_cast<int>(f.Layer) == lines;
-    const bool area = f.Type == 3 && static_cast<int>(f.Layer) == areas;
+    const bool ribbon = f.Type == 2 && std::cmp_equal(f.Layer, lines);
+    const bool area = f.Type == 3 && std::cmp_equal(f.Layer, areas);
     if (!ribbon && !area) { continue; }
 
     if (field.Num(f, "tunnel", 0.0) > 0.5) {

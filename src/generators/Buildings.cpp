@@ -17,7 +17,7 @@ Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 Span<const char *const> Buildings::NoteNames() const noexcept {
   static constexpr const char *const kNames[kNotes] = {"footprints", "roofless", "highestRoofAglM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return Span<const char *const>(kNames, kNotes);
+  return {kNames, kNotes};
 }
 
 void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
@@ -59,7 +59,7 @@ uint32_t Buildings::Proposes(double areaM2) const noexcept {
 }
 
 const FeatureField::Feature *
-Buildings::Over(const Ground &ground, double eastM, double northM) const noexcept {
+Buildings::Over(const Ground &ground, double eastM, double northM) noexcept {
   const FeatureField &features = ground.Features();
   const FeatureField::Feature *highest = nullptr;
   float highestAslM = 0.0f;

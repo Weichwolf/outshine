@@ -196,9 +196,8 @@ void Basis::MarkDegenerate() {
 void Basis::MoveDegenerateLast() {
   std::vector<size_t> order(Triangles_.size());
   for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-  std::stable_partition(order.begin(), order.end(), [this](size_t triangle) {
-    return !Triangles_[triangle].Degenerate;
-  });
+  std::ranges::stable_partition(
+      order, [this](size_t triangle) { return !Triangles_[triangle].Degenerate; });
   std::vector<size_t> corners(Corner_.size());
   std::vector<TriangleInfo> triangles(Triangles_.size());
   Healthy_ = 0;
@@ -378,7 +377,7 @@ void Basis::FillSpaces() {
           members.push_back(other);
         }
       }
-      std::sort(members.begin(), members.end());
+      std::ranges::sort(members);
       size_t which = 0;
       while (which < subgroups.size() && subgroups[which] != members) { ++which; }
       if (which == subgroups.size()) {

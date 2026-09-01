@@ -54,7 +54,7 @@ void DrawList::Clear() {
 }
 
 void DrawList::Compile() {
-  std::sort(Draws_.begin(), Draws_.end(), [](const DrawItem &a, const DrawItem &b) {
+  std::ranges::sort(Draws_, [](const DrawItem &a, const DrawItem &b) {
     const DrawKey left = DrawKey::Of(a.Order);
     const DrawKey right = DrawKey::Of(b.Order);
     return left == right ? a.Submitted < b.Submitted : left < right;

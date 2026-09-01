@@ -79,7 +79,7 @@ public:
     return HeldResource_[static_cast<size_t>(resource)];
   }
 
-  [[nodiscard]] uint32_t Stride(Resource resource) const {
+  [[nodiscard]] static uint32_t Stride(Resource resource) {
     return kResources[static_cast<size_t>(resource)].Stride;
   }
 

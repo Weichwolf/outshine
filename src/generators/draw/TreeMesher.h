@@ -36,7 +36,7 @@ private:
   [[nodiscard]] bool ChordHolds(const TreeSkeleton &plant, int from, int last, int stride) const;
   void Ring(const TreeSkeleton::Node &node, float radius, int sides, int *out);
   void Wall(const int *from, const int *to, int sides);
-  void BreakProfile(uint32_t seed, int sides, float *out) const;
+  static void BreakProfile(uint32_t seed, int sides, float *out);
   void Cap(const TreeSkeleton::Node &node, const int *ring, int sides, RingCap cap, uint32_t seed);
 
   [[nodiscard]] bool Collar(int face,
@@ -45,7 +45,7 @@ private:
                             int sides,
                             float room,
                             int *out);
-  [[nodiscard]] float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const;
+  [[nodiscard]] static float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot);
   void Export(TreeMesh &out);
 
   float PixelGrow_ = 0.0f;

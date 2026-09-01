@@ -40,13 +40,13 @@ bool Xml::Refuse(const std::string &why, size_t at) {
 }
 
 std::string Xml::Ref::Name() const {
-  if (!Valid()) { return std::string(); }
+  if (!Valid()) { return {}; }
   const Node &node = From_->Nodes_[At_];
   return From_->Span(node.NameOff, node.NameLen);
 }
 
 std::string Xml::Ref::Text() const {
-  if (!Valid()) { return std::string(); }
+  if (!Valid()) { return {}; }
   const Node &node = From_->Nodes_[At_];
   return From_->Span(node.TextOff, node.TextLen);
 }
@@ -87,7 +87,7 @@ bool Xml::Ref::Spelt(const char *attribute) const {
 
 std::string Xml::Ref::Attr(const char *attribute, const char *whenAbsent) const {
   const uint32_t which = Asking(attribute);
-  if (which == kNoAttribute) { return std::string(whenAbsent); }
+  if (which == kNoAttribute) { return {whenAbsent}; }
   const Attribute &one = From_->Attributes_[which];
   return From_->Span(one.ValueOff, one.ValueLen);
 }
@@ -124,22 +124,22 @@ size_t Xml::Ref::AttributeCount() const {
 }
 
 std::string Xml::Ref::AttributeAt(size_t which) const {
-  if (!Valid()) { return std::string(); }
+  if (!Valid()) { return {}; }
   const Node &node = From_->Nodes_[At_];
-  if (which >= node.Attributes) { return std::string(); }
+  if (which >= node.Attributes) { return {}; }
   const Attribute &one = From_->Attributes_[node.FirstAttribute + which];
   return From_->Span(one.NameOff, one.NameLen);
 }
 
 Xml::Ref Xml::Ref::First() const {
-  if (!Valid()) { return Ref(); }
-  return Ref(From_, From_->Nodes_[At_].FirstChild);
+  if (!Valid()) { return {}; }
+  return {From_, From_->Nodes_[At_].FirstChild};
 }
 
 Xml::Ref Xml::Ref::Next() const {
-  if (!Valid()) { return Ref(); }
+  if (!Valid()) { return {}; }
   ++From_->SiblingSteps_;
-  return Ref(From_, From_->Nodes_[At_].NextSibling);
+  return {From_, From_->Nodes_[At_].NextSibling};
 }
 
 Xml::Ref Xml::Ref::Child(const char *name) const {
@@ -169,8 +169,8 @@ Xml::Ref::Siblings::Iterator &Xml::Ref::Siblings::Iterator::operator++() {
 }
 
 Xml::Ref::Siblings Xml::Ref::Children(const char *name) const {
-  if (!Valid()) { return Siblings(); }
-  return Siblings(From_, From_->Nodes_[At_].FirstChild, name);
+  if (!Valid()) { return {}; }
+  return {From_, From_->Nodes_[At_].FirstChild, name};
 }
 
 size_t Xml::Ref::Count(const char *name) const {
@@ -188,7 +188,7 @@ size_t Xml::Ref::Count(const char *name) const {
 }
 
 Xml::Ref Xml::Ref::At(const char *name, size_t which) const {
-  if (!Valid() || name == nullptr) { return Ref(); }
+  if (!Valid() || name == nullptr) { return {}; }
   const size_t want = std::strlen(name);
   size_t seen = 0;
   for (uint32_t at = From_->Nodes_[At_].FirstChild; at != 0; at = From_->Nodes_[at].NextSibling) {
@@ -197,10 +197,10 @@ Xml::Ref Xml::Ref::At(const char *name, size_t which) const {
     if (node.NameLen != want || std::memcmp(From_->Text_.data() + node.NameOff, name, want) != 0) {
       continue;
     }
-    if (seen == which) { return Ref(From_, at); }
+    if (seen == which) { return {From_, at}; }
     ++seen;
   }
-  return Ref();
+  return {};
 }
 
 bool Xml::Parse(const char *text, size_t length) {
@@ -213,7 +213,7 @@ bool Xml::Parse(const char *text, size_t length) {
   if (text == nullptr) { return Refuse("there is no document to read", 0); }
 
   Text_.assign(text, length);
-  Nodes_.push_back(Node());
+  Nodes_.emplace_back();
 
   uint32_t stack[kXmlMaxDepth];
   size_t depth = 0;
@@ -295,7 +295,7 @@ bool Xml::Parse(const char *text, size_t length) {
                     at);
     }
 
-    Nodes_.push_back(Node());
+    Nodes_.emplace_back();
     const auto made = static_cast<uint32_t>(Nodes_.size() - 1);
     Nodes_[made].NameOff = static_cast<uint32_t>(name);
     Nodes_[made].NameLen = static_cast<uint32_t>(stop - name);

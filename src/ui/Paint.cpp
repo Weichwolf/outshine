@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace outshine::Ui {
@@ -200,7 +201,7 @@ PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThe
   for (const Box &box : layout.Boxes()) {
     if (!box.Text.empty()) { lines.push_back(&box); }
   }
-  std::sort(lines.begin(), lines.end(), [](const Box *a, const Box *b) { return a->Y < b->Y; });
+  std::ranges::sort(lines, [](const Box *a, const Box *b) { return a->Y < b->Y; });
 
   double start = 0;
   for (const Box *line : lines) {
@@ -228,7 +229,7 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
 
   const double window = page.HeightPx > 0 ? page.HeightPx : layout.ViewportHeight();
   Painter painter(layout, font, Quads_, Beyond_, page.OffsetY);
-  for (int at = 0; at < static_cast<int>(layout.Boxes().size()); ++at) {
+  for (int at = 0; std::cmp_less(at, layout.Boxes().size()); ++at) {
     if (layout.Boxes()[static_cast<size_t>(at)].Parent != -1) { continue; }
     painter.Walk(
         at, {.X = 0, .Y = page.OffsetY, .Width = layout.ViewportWidth(), .Height = window}, 1.0);

@@ -1,5 +1,7 @@
 #include "Wayfinding.h"
 
+#include <algorithm>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -179,7 +181,7 @@ size_t Network::Cross() {
   for (size_t which = 0; which < Ways_.size(); ++which) {
     Way &way = Ways_[which];
     std::vector<Cut> &cuts = perWay[which];
-    std::sort(cuts.begin(), cuts.end(), [](const Cut &one, const Cut &two) {
+    std::ranges::sort(cuts, [](const Cut &one, const Cut &two) {
       return one.After != two.After ? one.After < two.After : one.Along < two.Along;
     });
     const size_t began = laid.size() / 2;
@@ -231,7 +233,7 @@ bool Network::Weave(std::string &error) {
   {
     std::vector<size_t> order(Ways_.size());
     for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-    std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
+    std::ranges::sort(order, [this](size_t a, size_t b) {
       const Way &wa = Ways_[a];
       const Way &wb = Ways_[b];
       const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
@@ -314,9 +316,7 @@ bool Network::Weave(std::string &error) {
       byCell[CellOf(latDeg, lonDeg)].push_back(found);
     } else {
       const Way &from = Ways_[WayOf_[point]];
-      if (from.HalfWidthM > Nodes_[found].HalfWidthM) {
-        Nodes_[found].HalfWidthM = from.HalfWidthM;
-      }
+      Nodes_[found].HalfWidthM = std::max(from.HalfWidthM, Nodes_[found].HalfWidthM);
       if (from.Friction > 0.0 &&
           (Nodes_[found].Friction <= 0.0 || from.Friction < Nodes_[found].Friction)) {
         Nodes_[found].Friction = from.Friction;
@@ -351,7 +351,7 @@ bool Network::Weave(std::string &error) {
   double tieReachM = SnapM_;
   for (const Node &held : Nodes_) {
     const double reachM = 2.0 * held.HalfWidthM;
-    if (reachM > tieReachM) { tieReachM = reachM; }
+    tieReachM = std::max(reachM, tieReachM);
   }
 
   std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>> byEdgeCell;
@@ -378,7 +378,7 @@ bool Network::Weave(std::string &error) {
           }
           ++IndexedCells_;
           byEdgeCell[KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns)]
-              .push_back({from, static_cast<uint32_t>(edge.To)});
+              .emplace_back(from, static_cast<uint32_t>(edge.To));
         }
       }
     }
@@ -401,7 +401,7 @@ bool Network::Weave(std::string &error) {
         const int64_t key = KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns);
         std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell[key];
         if (holding) {
-          cell.push_back({one, two});
+          cell.emplace_back(one, two);
           continue;
         }
         for (size_t at = 0; at < cell.size(); ++at) {
@@ -807,7 +807,7 @@ Network::Pieces Network::InPieces() const {
       }
     }
     ++out.Count;
-    if (held > out.Largest) { out.Largest = held; }
+    out.Largest = std::max(held, out.Largest);
     if (held < 4) {
       ++out.UnderFour;
       out.InUnderFour += held;
@@ -879,7 +879,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     const size_t state = edges + which;
     if (awayM >= best[state]) { continue; }
     best[state] = awayM;
-    open.push(Step{awayM + goalM(seed), state});
+    open.emplace(awayM + goalM(seed), state);
   }
 
   size_t reached = 0;
@@ -940,7 +940,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
       if (through >= best[next]) { continue; }
       best[next] = through;
       came[next] = state;
-      open.push(Step{through + goalM(edge.To), next});
+      open.emplace(through + goalM(edge.To), next);
     }
   }
 
@@ -968,7 +968,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
       return out;
     }
   }
-  std::reverse(back.begin(), back.end());
+  std::ranges::reverse(back);
 
   out.Legs.reserve(back.size());
   double alongM = 0.0;

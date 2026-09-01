@@ -23,7 +23,7 @@ void Slerp(const double *from, const double *to, double weight, double *out) {
   double target[4] = {to[0], to[1], to[2], to[3]};
   if (cosine < 0) {
     cosine = -cosine;
-    for (size_t at = 0; at < 4; ++at) { target[at] = -target[at]; }
+    for (double &at : target) { at = -at; }
   }
   if (cosine > kSameRotationCosine) {
     for (size_t at = 0; at < 4; ++at) { out[at] = from[at] + (target[at] - from[at]) * weight; }

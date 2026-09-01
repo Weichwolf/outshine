@@ -92,9 +92,7 @@ inline constexpr int kEnergyViewSteps = 16;
 
 [[nodiscard]] inline std::string MicrofacetEnergyMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) {
-    return std::string();
-  }
+  if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) { return {}; }
   std::string albedo;
   albedo.reserve(kEnergyRoughnessSteps * kEnergyViewSteps * 12);
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {

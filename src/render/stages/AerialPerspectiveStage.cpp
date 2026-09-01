@@ -117,7 +117,7 @@ std::string AerialPerspectiveStage::ShaderSource(std::string &error) {
       !LoadShaderText("src/render/stages/MediumCore.h", core, error) ||
       !LoadShaderText("src/render/shaders/medium.msl", medium, error) ||
       !LoadShaderText("src/render/shaders/aerialPerspective.msl", body, error)) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" +
          layout + core + medium + body;

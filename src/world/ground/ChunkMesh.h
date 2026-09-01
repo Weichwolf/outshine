@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
+
 namespace outshine::Ground {
 
 inline int ChunkBuildEcef(const TerrainMesh &mesh,
@@ -84,7 +86,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
 
   double olen = sqrt(origin_out[0] * origin_out[0] + origin_out[1] * origin_out[1] +
                      origin_out[2] * origin_out[2]);
-  if (olen < 1.0) { olen = 1.0; }
+  olen = std::max(olen, 1.0);
   const float radial[3] = {static_cast<float>(origin_out[0] / olen),
                            static_cast<float>(origin_out[1] / olen),
                            static_cast<float>(origin_out[2] / olen)};
@@ -142,7 +144,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
           const float sv = static_cast<float>(r - r0) / static_cast<float>(r1 - r0);
           const float su = static_cast<float>(c - c0) / static_cast<float>(c1 - c0);
           const float d = fabsf(ChunkCellHeight(cell, su, sv) - W3_MH(r, c));
-          if (d > err) { err = d; }
+          err = std::max(d, err);
         }
       }
     }

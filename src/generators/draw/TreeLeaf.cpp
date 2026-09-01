@@ -1,5 +1,6 @@
 #include "TreeLeaf.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <numbers>
@@ -43,7 +44,7 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   }
   const float a = p.Widest * 1.5f + 0.80f;
   float b = (1.0f - p.Widest) * 1.5f + 0.95f - p.Tip * 1.25f;
-  if (b < 0.55f) { b = 0.55f; }
+  b = std::max(b, 0.55f);
   const float peak = std::pow(p.Widest, a) * std::pow(1.0f - p.Widest, b);
   float w = (peak > 1e-6f) ? std::pow(t, a) * std::pow(1.0f - t, b) / peak : 0.0f;
   w *= p.Width;
@@ -62,7 +63,7 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
 
 void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang, float lenScale) {
   int n = p.Segments;
-  if (n < 4) { n = 4; }
+  n = std::max(n, 4);
   const int nv = (n + 1) * 3;
   std::vector<TreeVec3> pos(static_cast<size_t>(nv));
   std::vector<TreeVec3> nrm(static_cast<size_t>(nv));
@@ -92,12 +93,11 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
     const int d = (i + 1) * 3;
     const int tri[4][3] = {
         {a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
-    for (int k = 0; k < 4; ++k) {
-      const TreeVec3 fn =
-          Cross(pos[static_cast<size_t>(tri[k][1])] - pos[static_cast<size_t>(tri[k][0])],
-                pos[static_cast<size_t>(tri[k][2])] - pos[static_cast<size_t>(tri[k][0])]);
+    for (auto k : tri) {
+      const TreeVec3 fn = Cross(pos[static_cast<size_t>(k[1])] - pos[static_cast<size_t>(k[0])],
+                                pos[static_cast<size_t>(k[2])] - pos[static_cast<size_t>(k[0])]);
       for (int e = 0; e < 3; ++e) {
-        nrm[static_cast<size_t>(tri[k][e])] = nrm[static_cast<size_t>(tri[k][e])] + fn;
+        nrm[static_cast<size_t>(k[e])] = nrm[static_cast<size_t>(k[e])] + fn;
       }
     }
   }
@@ -128,9 +128,9 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
 void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   const int r = 6;
   int a = p.Segments;
-  if (a < 16) { a = 16; }
+  a = std::max(a, 16);
   int nl = p.PalmateLobes;
-  if (nl < 3) { nl = 3; }
+  nl = std::max(nl, 3);
   const float spread = p.PalmateSpread * kDeg;
 
   const int nv = 1 + r * (a + 1);
@@ -178,9 +178,9 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
     for (int j = 0; j < a; ++j) {
       const size_t q[4] = {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)};
       const size_t tr[2][3] = {{q[0], q[1], q[2]}, {q[0], q[2], q[3]}};
-      for (int k = 0; k < 2; ++k) {
-        const TreeVec3 fn = Cross(pos[tr[k][1]] - pos[tr[k][0]], pos[tr[k][2]] - pos[tr[k][0]]);
-        for (int e = 0; e < 3; ++e) { nrm[tr[k][e]] = nrm[tr[k][e]] + fn; }
+      for (const auto &k : tr) {
+        const TreeVec3 fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);
+        for (int e = 0; e < 3; ++e) { nrm[k[e]] = nrm[k[e]] + fn; }
       }
     }
   }
@@ -203,8 +203,8 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
 void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   const float len = p.Length;
   int n = static_cast<int>(len / 0.0085f);
-  if (n < 44) { n = 44; }
-  if (n > 180) { n = 180; }
+  n = std::max(n, 44);
+  n = std::min(n, 180);
   const float nl = len * p.NeedleLen;
   const float nw = std::fmax(p.NeedleWidth * 0.26f, 0.0042f);
   const float fwd = p.NeedleFwd;

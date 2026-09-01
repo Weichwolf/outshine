@@ -1,6 +1,7 @@
 #include "Pilot.h"
 #include "Angle.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace outshine::Pilot {
@@ -12,9 +13,9 @@ double ReachOf(const Holding &with, double speedMs, double curvatureRatePerM) {
   const double ramp = std::fabs(curvatureRatePerM);
   if (with.HoldWithinM > 0.0 && ramp > 0.0) {
     const double byLag = std::cbrt(6.0 * with.HoldWithinM / ramp);
-    if (byLag < reachM) { reachM = byLag; }
+    reachM = std::min(byLag, reachM);
   }
-  if (reachM < with.LeastReachM) { reachM = with.LeastReachM; }
+  reachM = std::max(reachM, with.LeastReachM);
   return reachM;
 }
 

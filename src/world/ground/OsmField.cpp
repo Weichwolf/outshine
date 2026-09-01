@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -68,7 +69,7 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
       const long ty = static_cast<long>(cy) + dy;
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
-      if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) { continue; }
+      if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 
       const double spentMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -91,14 +92,12 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
 }
 
 bool OsmField::Settled(int x, int y) const {
-  return std::find(Settled_.begin(), Settled_.end(), TileKey(x, y)) != Settled_.end();
+  return std::ranges::find(Settled_, TileKey(x, y)) != Settled_.end();
 }
 
 void OsmField::Settle(int x, int y) {
   const uint64_t key = TileKey(x, y);
-  if (std::find(Settled_.begin(), Settled_.end(), key) == Settled_.end()) {
-    Settled_.push_back(key);
-  }
+  if (std::ranges::find(Settled_, key) == Settled_.end()) { Settled_.push_back(key); }
 }
 
 int OsmField::TileIndex(int x, int y) const {
@@ -111,7 +110,7 @@ int OsmField::TileIndex(int x, int y) const {
 std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   if (index < 0 || static_cast<size_t>(index) >= Tiles_.size()) { return {}; }
   const Tile &t = Tiles_[static_cast<size_t>(index)];
-  return std::span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
+  return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
 bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode) {

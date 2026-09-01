@@ -13,9 +13,9 @@ class Fetched {
 public:
   enum class State { Working, Settled };
 
-  static Fetched Working() { return Fetched(State::Working, Meaning::Retry, {}); }
+  static Fetched Working() { return {State::Working, Meaning::Retry, {}}; }
 
-  static Fetched Meant(Meaning what) { return Fetched(State::Settled, what, {}); }
+  static Fetched Meant(Meaning what) { return {State::Settled, what, {}}; }
 
   static Fetched MeantAfter(Meaning what, double retryAfterS) {
     Fetched made(State::Settled, what, {});
@@ -24,7 +24,7 @@ public:
   }
 
   static Fetched Delivered(std::vector<uint8_t> bytes) {
-    return Fetched(State::Settled, Meaning::Bytes, std::move(bytes));
+    return {State::Settled, Meaning::Bytes, std::move(bytes)};
   }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }

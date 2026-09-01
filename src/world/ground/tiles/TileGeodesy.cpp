@@ -1,5 +1,6 @@
 #include "TileGeodesy.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -14,7 +15,7 @@ constexpr double kRad2Deg = 180.0 / kPi;
 
 TileIndex TileIndex::Of(Geo g, int z) {
   if (g.LatDeg < -kMercatorLatMaxDeg || g.LatDeg > kMercatorLatMaxDeg) {
-    return TileIndex(State::OutsideMercatorBand, 0, 0);
+    return {State::OutsideMercatorBand, 0, 0};
   }
 
   const double n = std::ldexp(1.0, z);
@@ -23,11 +24,11 @@ TileIndex TileIndex::Of(Geo g, int z) {
 
   double xc = std::floor(xf);
   double yc = std::floor(yf);
-  if (xc < 0) { xc = 0; }
-  if (yc < 0) { yc = 0; }
-  if (xc > n - 1) { xc = n - 1; }
-  if (yc > n - 1) { yc = n - 1; }
-  return TileIndex(State::Inside, static_cast<uint32_t>(xc), static_cast<uint32_t>(yc));
+  xc = std::max<double>(xc, 0);
+  yc = std::max<double>(yc, 0);
+  xc = std::min(xc, n - 1);
+  yc = std::min(yc, n - 1);
+  return {State::Inside, static_cast<uint32_t>(xc), static_cast<uint32_t>(yc)};
 }
 
 GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
@@ -128,12 +129,11 @@ Geo EcefToGeoWgs84(Ecef p) {
 
 EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
   if (originLatDeg < -89.9 || originLatDeg > 89.9) {
-    return EnuFrame(State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0);
+    return {State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0};
   }
 
   const double mpd = kPi * kWgs84A / 180.0;
-  return EnuFrame(
-      State::Usable, originLatDeg, originLonDeg, mpd, std::cos(originLatDeg * kDeg2Rad) * mpd);
+  return {State::Usable, originLatDeg, originLonDeg, mpd, std::cos(originLatDeg * kDeg2Rad) * mpd};
 }
 
 TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent) {

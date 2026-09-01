@@ -9,8 +9,8 @@ namespace outshine::Generators {
 
 class Water : public Making {
 public:
-  [[nodiscard]] WaterDepth
-  DepthAt(const Ground &ground, double eastM, double northM) const noexcept;
+  [[nodiscard]] static WaterDepth
+  DepthAt(const Ground &ground, double eastM, double northM) noexcept;
 
   enum Note { Surfaces, Untested, LevelBelowGround, DeepestM, kNotes };
 

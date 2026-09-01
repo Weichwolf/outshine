@@ -1,13 +1,14 @@
 #ifndef OUTSHINE_WORLD_GROUND_CHUNKSURFACE_H
 #define OUTSHINE_WORLD_GROUND_CHUNKSURFACE_H
 #include <array>
+#include <utility>
 #include <stdint.h>
 
 namespace outshine::Ground {
 
 inline int ChunkNodes(uint32_t postings, int grid) {
   const int wanted = (grid < 2 ? 2 : grid) + 1;
-  return static_cast<int>(postings) < wanted ? static_cast<int>(postings) : wanted;
+  return std::cmp_less(postings, wanted) ? static_cast<int>(postings) : wanted;
 }
 
 inline uint32_t ChunkNodePosting(int k, uint32_t postings, int nodes) {

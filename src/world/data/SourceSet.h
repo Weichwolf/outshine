@@ -54,7 +54,7 @@ public:
 
   [[nodiscard]] Delivery Collect(Query &query, Transport &transport);
 
-  void Abandon(Query &query, Transport &transport) const;
+  static void Abandon(Query &query, Transport &transport);
 
   struct Ledger {
     long long Asked = 0, Delivered = 0, HandedOver = 0, Vacant = 0, Undeclared = 0;

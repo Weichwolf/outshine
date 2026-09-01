@@ -702,8 +702,7 @@ constexpr bool EveryRowIsAtItsOwnIndex() {
 }
 
 constexpr bool EveryReadHasAProducer() {
-  for (size_t s = 0; s < kStageCount; ++s) {
-    const StageRow &row = kStages[s];
+  for (const auto &row : kStages) {
     for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) {
       if (Row(row.Reads[e]).Kind == ResourceKind::Given) { continue; }
       if (ProducerCount(row.Reads[e]) == 0) { return false; }
@@ -716,8 +715,8 @@ constexpr bool EveryDerivedResourceHasOneWriter() {
   for (size_t r = 0; r < kResourceCount; ++r) {
     const auto id = static_cast<Resource>(r);
     size_t writers = 0;
-    for (size_t s = 0; s < kStageCount; ++s) {
-      if (Names(kStages[s].Writes, id)) { ++writers; }
+    for (const auto &kStage : kStages) {
+      if (Names(kStage.Writes, id)) { ++writers; }
     }
     const ResourceKind kind = kResources[r].Kind;
     if (kind == ResourceKind::Derived && writers != 1) { return false; }

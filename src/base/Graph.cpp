@@ -11,13 +11,13 @@ namespace outshine::Work {
 Graph::Graph(unsigned hands) : Hands_(hands == 0 ? 1u : hands) {
   Hand_.reserve(Hands_);
   for (unsigned at = 0; at + 1u < Hands_; ++at) {
-    Hand_.emplace_back([this]() { Serves(false); });
+    Hand_.emplace_back([this] { Serves(false); });
   }
 }
 
 Graph::~Graph() {
   {
-    const std::lock_guard<std::mutex> held(Guard_);
+    const std::scoped_lock held(Guard_);
     Closing_ = true;
   }
   Woke_.notify_all();
@@ -29,11 +29,11 @@ Graph::~Graph() {
 void Graph::Clears() {
   Steps_ = 0;
   Error_.clear();
-  for (size_t at = 0; at < kMostSteps; ++at) {
-    Held_[at].Act = nullptr;
-    Held_[at].Afters = 0;
-    Held_[at].Fed = 0;
-    Held_[at].Owed.store(0, std::memory_order_relaxed);
+  for (auto &at : Held_) {
+    at.Act = nullptr;
+    at.Afters = 0;
+    at.Fed = 0;
+    at.Owed.store(0, std::memory_order_relaxed);
   }
 }
 
@@ -70,7 +70,7 @@ void Graph::Serves(bool untilDone) {
     uint32_t next = 0xFFFFFFFFu;
     {
       std::unique_lock<std::mutex> held(Guard_);
-      Woke_.wait(held, [this, untilDone]() {
+      Woke_.wait(held, [this, untilDone] {
         return Closing_ || !Ready_.empty() ||
                (untilDone && Left_.load(std::memory_order_acquire) == 0);
       });
@@ -89,7 +89,7 @@ void Graph::Serves(bool untilDone) {
       }
     }
     {
-      const std::lock_guard<std::mutex> held(Guard_);
+      const std::scoped_lock held(Guard_);
       for (const uint32_t one2 : freed) { Ready_.push_back(one2); }
       Left_.fetch_sub(1u, std::memory_order_acq_rel);
     }
@@ -101,7 +101,7 @@ bool Graph::Runs() {
   if (Steps_ == 0) { return true; }
   Left_.store(Steps_, std::memory_order_relaxed);
   {
-    const std::lock_guard<std::mutex> held(Guard_);
+    const std::scoped_lock held(Guard_);
     Ready_.clear();
     for (size_t at = 0; at < Steps_; ++at) {
       Held_[at].Owed.store(Held_[at].Afters, std::memory_order_relaxed);

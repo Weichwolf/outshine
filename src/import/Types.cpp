@@ -111,7 +111,7 @@ Span<const AnimatablePointer> AnimatablePointers() {
       {.Tail = "pbrMetallicRoughness/metallicFactor", .Factor = MaterialFactor::Metalness},
       {.Tail = "pbrMetallicRoughness/roughnessFactor", .Factor = MaterialFactor::Roughness},
   };
-  return Span<const AnimatablePointer>(kPointers, sizeof kPointers / sizeof kPointers[0]);
+  return {kPointers, sizeof kPointers / sizeof kPointers[0]};
 }
 
 size_t FactorComponents(MaterialFactor factor) {

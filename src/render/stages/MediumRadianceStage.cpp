@@ -35,7 +35,7 @@ std::string Kernel(std::string &error) {
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
       !LoadShaderText("src/render/shaders/mediumRadiance.msl", body, error)) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + declared + core + body;
 }

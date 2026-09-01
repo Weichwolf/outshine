@@ -76,7 +76,7 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
 
 [[nodiscard]] inline std::string SheenLobeMsl(std::string &error) {
   std::string body;
-  if (!LoadShaderText("src/render/shaders/sheenLobe.msl", body, error)) { return std::string(); }
+  if (!LoadShaderText("src/render/shaders/sheenLobe.msl", body, error)) { return {}; }
   std::string table;
   table.reserve(kSheenAlbedoSteps * kSheenAlbedoSteps * 12);
   for (int r = 0; r < kSheenAlbedoSteps; ++r) {

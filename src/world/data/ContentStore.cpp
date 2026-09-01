@@ -23,7 +23,7 @@ constexpr const char *kDefaultLeaf = "outshine-content";
 [[nodiscard]] std::string DefaultDirectory() {
   std::error_code ec;
   const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
-  if (ec) { return std::string(kDefaultLeaf); }
+  if (ec) { return {kDefaultLeaf}; }
   return (base / kDefaultLeaf).string();
 }
 
@@ -67,9 +67,7 @@ ContentStore::ContentStore(const Config &config)
     entries.push_back(std::move(e));
   }
   if (total <= static_cast<uintmax_t>(CapBytes_)) { return; }
-  std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
-    return a.When < b.When;
-  });
+  std::ranges::sort(entries, [](const Entry &a, const Entry &b) { return a.When < b.When; });
   for (const Entry &e : entries) {
     if (total <= static_cast<uintmax_t>(CapBytes_)) { break; }
     std::error_code removeError;

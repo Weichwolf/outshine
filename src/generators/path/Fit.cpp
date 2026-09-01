@@ -2,6 +2,7 @@
 #include "Alignment.h"
 #include "Angle.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <numbers>
@@ -30,8 +31,8 @@ double AwayFromChordM(std::span<const double> points, size_t point, size_t from,
     return std::sqrt(e * e + n * n);
   }
   double part = ((atE - fromE) * runE + (atN - fromN) * runN) / runSquared;
-  if (part < 0.0) { part = 0.0; }
-  if (part > 1.0) { part = 1.0; }
+  part = std::max(part, 0.0);
+  part = std::min(part, 1.0);
   const double e = atE - (fromE + part * runE);
   const double n = atN - (fromN + part * runN);
   return std::sqrt(e * e + n * n);

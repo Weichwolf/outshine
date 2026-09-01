@@ -1,6 +1,7 @@
 #include "Units.h"
 #include "LeafAngleDistribution.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <numbers>
 #include <cmath>
@@ -87,7 +88,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
     for (int d = 0; d < kElevations; ++d) {
       const double r = std::fabs(g0 + g1 * x[static_cast<size_t>(d)] -
                                  static_cast<double>(Samples_[static_cast<size_t>(d)]));
-      if (r > err) { err = r; }
+      err = std::max(r, err);
     }
     if (err < bestErr) {
       bestErr = err;

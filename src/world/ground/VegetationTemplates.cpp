@@ -173,7 +173,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     Row row{};
     if (!substrate(u, &row)) { return false; }
     Unmapped_ = static_cast<int>(Table_.size());
-    Names_.push_back("unmapped");
+    Names_.emplace_back("unmapped");
     Table_.push_back(row);
   }
 

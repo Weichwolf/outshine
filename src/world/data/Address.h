@@ -10,9 +10,9 @@ enum class Scheme : uint8_t { TileZxy, WholeWorld };
 
 class Address {
 public:
-  static Address Tile(int z, uint32_t x, uint32_t y) { return Address(Scheme::TileZxy, z, x, y); }
+  static Address Tile(int z, uint32_t x, uint32_t y) { return {Scheme::TileZxy, z, x, y}; }
 
-  static Address Whole(uint32_t index) { return Address(Scheme::WholeWorld, 0, index, 0); }
+  static Address Whole(uint32_t index) { return {Scheme::WholeWorld, 0, index, 0}; }
 
   [[nodiscard]] Scheme How() const noexcept { return How_; }
 

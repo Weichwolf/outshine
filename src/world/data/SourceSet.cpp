@@ -27,14 +27,14 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   }
   Sources_.push_back(std::move(source));
 
-  std::sort(Sources_.begin(),
-            Sources_.end(),
-            [](const std::unique_ptr<Source> &a, const std::unique_ptr<Source> &b) {
-              const SourceDecl &da = a->Declaration();
-              const SourceDecl &db = b->Declaration();
-              if (da.Kind != db.Kind) { return da.Kind < db.Kind; }
-              return da.Order < db.Order;
-            });
+  std::ranges::sort(Sources_,
+
+                    [](const std::unique_ptr<Source> &a, const std::unique_ptr<Source> &b) {
+                      const SourceDecl &da = a->Declaration();
+                      const SourceDecl &db = b->Declaration();
+                      if (da.Kind != db.Kind) { return da.Kind < db.Kind; }
+                      return da.Order < db.Order;
+                    });
   return Registration::Accepted;
 }
 
@@ -54,14 +54,14 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     return Delivery::Waiting();
   }
   if (query.Candidates_.empty()) {
-    const std::lock_guard<std::mutex> lock(LedgerMutex_);
+    const std::scoped_lock lock(LedgerMutex_);
     Ledger_.Undeclared++;
     return Delivery::NoSource();
   }
   for (;;) {
     if (query.Current_ == nullptr) {
       if (query.Next_ >= query.Candidates_.size()) {
-        const std::lock_guard<std::mutex> lock(LedgerMutex_);
+        const std::scoped_lock lock(LedgerMutex_);
         Ledger_.Vacant++;
         return Delivery::Nothing();
       }
@@ -72,7 +72,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       if (decl.Keeps == Cacheability::Forever) {
         std::vector<uint8_t> kept;
         if (Store_.TryRead(ContentKey(decl, query.At_), &kept)) {
-          const std::lock_guard<std::mutex> lock(LedgerMutex_);
+          const std::scoped_lock lock(LedgerMutex_);
           Ledger_.Asked++;
           Ledger_.Delivered++;
           Ledger_.FromStore++;
@@ -81,7 +81,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         }
       }
       {
-        const std::lock_guard<std::mutex> lock(LedgerMutex_);
+        const std::scoped_lock lock(LedgerMutex_);
         Ledger_.Asked++;
       }
       query.Ticket_ = query.Current_->Begin(query.At_, transport);
@@ -95,7 +95,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     std::vector<uint8_t> bytes;
     if (!answer.TryTake(&what, &bytes)) {
       {
-        const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+        const std::scoped_lock ledger(LedgerMutex_);
         ++Ledger_.Refused;
       }
       return Delivery::WireAfter(kRetryCapMs);
@@ -107,7 +107,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         if (decl.Keeps == Cacheability::Forever) {
           Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());
         }
-        const std::lock_guard<std::mutex> lock(LedgerMutex_);
+        const std::scoped_lock lock(LedgerMutex_);
         Ledger_.Delivered++;
         Ledger_.DeliveredBytes += static_cast<long long>(bytes.size());
         return Delivery::From(decl.Id, query.At_, std::move(bytes));
@@ -116,7 +116,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
 
         query.Current_ = nullptr;
         {
-          const std::lock_guard<std::mutex> lock(LedgerMutex_);
+          const std::scoped_lock lock(LedgerMutex_);
           Ledger_.HandedOver++;
         }
         continue;
@@ -124,7 +124,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         if (query.Attempts_ < decl.RetryBudget) {
           query.Attempts_++;
           {
-            const std::lock_guard<std::mutex> lock(LedgerMutex_);
+            const std::scoped_lock lock(LedgerMutex_);
             Ledger_.Retried++;
           }
           query.Ticket_ = Ticket::None;
@@ -139,7 +139,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
 
         query.Current_ = nullptr;
         {
-          const std::lock_guard<std::mutex> lock(LedgerMutex_);
+          const std::scoped_lock lock(LedgerMutex_);
           Ledger_.Refused++;
         }
         return Delivery::WireAfter(std::fmax(answer.RetryAfterS() * 1000.0, kRetryCapMs));
@@ -147,7 +147,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
   }
 }
 
-void SourceSet::Abandon(Query &query, Transport &transport) const {
+void SourceSet::Abandon(Query &query, Transport &transport) {
   if (query.Ticket_ != Ticket::None) { transport.Cancel(query.Ticket_); }
   query.Ticket_ = Ticket::None;
   query.Current_ = nullptr;
@@ -155,7 +155,7 @@ void SourceSet::Abandon(Query &query, Transport &transport) const {
 }
 
 SourceSet::Ledger SourceSet::Counters() const {
-  const std::lock_guard<std::mutex> lock(LedgerMutex_);
+  const std::scoped_lock lock(LedgerMutex_);
   return Ledger_;
 }
 

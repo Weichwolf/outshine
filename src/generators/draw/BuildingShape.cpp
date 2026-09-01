@@ -396,10 +396,10 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   if (s.Ring.size() < 3) { return BuildingShape{}; }
   const double signed2 = SignedArea(s.Ring);
   if (signed2 < 0.0) {
-    std::reverse(s.Ring.begin(), s.Ring.end());
+    std::ranges::reverse(s.Ring);
 
-    std::reverse(s.Party.begin(), s.Party.end());
-    std::rotate(s.Party.begin(), s.Party.begin() + 1, s.Party.end());
+    std::ranges::reverse(s.Party);
+    std::ranges::rotate(s.Party, s.Party.begin() + 1);
   }
   s.AreaM2 = std::fabs(signed2);
   MinAreaBox(s.Ring, &s);
@@ -552,7 +552,7 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
     out.Outline.clear();
     return out;
   }
-  if (SignedArea(out.Outline) < 0.0) { std::reverse(out.Outline.begin(), out.Outline.end()); }
+  if (SignedArea(out.Outline) < 0.0) { std::ranges::reverse(out.Outline); }
 
   const uint32_t seed = SeedOfPlace(ringLatLon[0], ringLatLon[1]);
   const double topM = std::max(heightM, 2.6);

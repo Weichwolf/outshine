@@ -1,5 +1,7 @@
 #include "Walk.h"
 
+#include <algorithm>
+
 namespace outshine::Pilot {
 
 double TightestPerM(const Gait &of, double speedMs) {
@@ -12,11 +14,11 @@ Stride Walk(const Gait &of, const Demand &asked, double speedMs) {
   if (!asked.Held) { return out; }
   out.SpeedMs = asked.SpeedMs < of.TopMs ? asked.SpeedMs : of.TopMs;
   out.HeadingRateRadS = asked.CurvaturePerM * speedMs;
-  if (out.HeadingRateRadS > of.TurnRateRadS) { out.HeadingRateRadS = of.TurnRateRadS; }
-  if (out.HeadingRateRadS < -of.TurnRateRadS) { out.HeadingRateRadS = -of.TurnRateRadS; }
+  out.HeadingRateRadS = std::min(out.HeadingRateRadS, of.TurnRateRadS);
+  out.HeadingRateRadS = std::max(out.HeadingRateRadS, -of.TurnRateRadS);
   out.AlongMs2 = asked.AlongMs2;
-  if (out.AlongMs2 > of.AccelMs2) { out.AlongMs2 = of.AccelMs2; }
-  if (out.AlongMs2 < -of.AccelMs2) { out.AlongMs2 = -of.AccelMs2; }
+  out.AlongMs2 = std::min(out.AlongMs2, of.AccelMs2);
+  out.AlongMs2 = std::max(out.AlongMs2, -of.AccelMs2);
   return out;
 }
 

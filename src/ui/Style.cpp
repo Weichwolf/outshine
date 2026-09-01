@@ -322,7 +322,7 @@ const Vocabulary kVocabularies[] = {
     {.What = Property::WhiteSpace, .Words = {"normal", "pre", nullptr}},
 };
 
-[[nodiscard]] bool WordIsHeld(Property what, const Value &value) {
+[[nodiscard]] static bool WordIsHeld(Property what, const Value &value) {
   if (value.How != Unit::Keyword) { return true; }
 
   if (value.Prefixed) { return true; }
@@ -355,7 +355,7 @@ void Expand(std::string_view name,
   const auto one = [&](Property what, std::string_view value) {
     into.push_back({.What = what, .How = ReadValue(value)});
   };
-  const auto words = [&]() {
+  const auto words = [&] {
     std::vector<std::string_view> parts;
     size_t at = 0;
     while (at < text.size()) {
@@ -381,7 +381,7 @@ void Expand(std::string_view name,
     return true;
   };
 
-  const auto flex = [&]() {
+  const auto flex = [&] {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 3) { return false; }
     if (parts.size() == 1 && (parts[0] == "none" || parts[0] == "auto" || parts[0] == "initial")) {
@@ -430,7 +430,7 @@ void Expand(std::string_view name,
     one(Property::FlexBasis, basisAt < parts.size() ? parts[basisAt] : std::string_view("0%"));
     return true;
   };
-  const auto flexFlow = [&]() {
+  const auto flexFlow = [&] {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 2) { return false; }
     for (const std::string_view part : parts) {
@@ -999,7 +999,7 @@ const char *WhyOutside(std::string_view name) {
   return nullptr;
 }
 
-bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
+static bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
   if (!Holds(rule.Chain[wanted], markup, node)) { return false; }
   if (wanted == 0) { return true; }
   const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;

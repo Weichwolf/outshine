@@ -35,9 +35,9 @@ public:
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
   [[nodiscard]] Span<const Surface> OfTile(int tile) const {
-    if (tile < 0) { return Span<const Surface>(); }
+    if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
-    return Span<const Surface>(Surfaces_.data() + r.First, r.Count);
+    return {Surfaces_.data() + r.First, r.Count};
   }
 
   [[nodiscard]] const std::vector<Course> &Courses() const { return Courses_; }
@@ -64,12 +64,8 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
-  [[nodiscard]] bool TileGroundResolved(const GroundQuery &ground,
-                                        const OsmField &field,
-                                        size_t from,
-                                        size_t to,
-                                        int poly,
-                                        int line) const;
+  [[nodiscard]] static bool TileGroundResolved(
+      const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int poly, int line);
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;

@@ -390,7 +390,7 @@ struct AttributeShape {
   bool Normalized;
 };
 
-bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
+static bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
   const bool f32 = shape.Component == ComponentType::Float32;
   const bool u8 = shape.Component == ComponentType::UInt8;
   const bool u16 = shape.Component == ComponentType::UInt16;
@@ -513,7 +513,7 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
 
 constexpr double kMostDeclaredBytes = 4294967295.0;
 
-[[nodiscard]] bool DeclaredSize(const Json::Ref &ref, size_t &out) {
+[[nodiscard]] static bool DeclaredSize(const Json::Ref &ref, size_t &out) {
   const double raw = ref.Num(0.0);
   if (!(raw >= 0.0) || raw != std::floor(raw) || raw > kMostDeclaredBytes) { return false; }
   out = static_cast<size_t>(raw);

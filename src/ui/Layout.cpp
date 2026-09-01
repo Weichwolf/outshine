@@ -7,6 +7,7 @@
 #include <span>
 #include <unordered_map>
 #include <cstring>
+#include <utility>
 #include <vector>
 #include <utility>
 
@@ -260,7 +261,7 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
 
   gather(*Agent, -1000000);
   gather(*Author, 0);
-  std::stable_sort(found.begin(), found.end(), [](const Ranked &a, const Ranked &b) {
+  std::ranges::stable_sort(found, [](const Ranked &a, const Ranked &b) {
     return a.Specificity == b.Specificity ? a.Order < b.Order : a.Specificity < b.Specificity;
   });
   for (const Ranked &one : found) { out.Take(*one.One); }
@@ -1009,7 +1010,7 @@ double Placer::Flex(int node,
             self,
             usedW,
             usedH);
-      if (before < static_cast<int>(Out->size())) {
+      if (std::cmp_less(before, Out->size())) {
         Box &placed = (*Out)[static_cast<size_t>(before)];
         if (column) {
           placed.Height = one.Main;
@@ -1236,7 +1237,7 @@ bool ElementIsInTheSubset(std::string_view tag) {
 
 std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
   std::vector<std::string> outside;
-  for (int index = 0; index < static_cast<int>(markup.Nodes().size()); ++index) {
+  for (int index = 0; std::cmp_less(index, markup.Nodes().size()); ++index) {
     const Node &node = markup.Nodes()[static_cast<size_t>(index)];
 
     if (index == markup.Root()) { continue; }
@@ -1324,7 +1325,7 @@ bool Layout::Build(const Markup &markup,
     double reaches = over.Y;
     for (const Box &under : Boxes_) {
       for (int up = under.Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
-        if (static_cast<size_t>(up) != at) { continue; }
+        if (std::cmp_not_equal(up, at)) { continue; }
         reaches = std::fmax(reaches, under.Y + under.Height);
         break;
       }
@@ -1338,10 +1339,10 @@ bool Layout::Build(const Markup &markup,
     }
     over.ScrolledPx = by < 0.0 ? 0.0 : (by > most ? most : by);
     if (over.ScrolledPx <= 0.0) { continue; }
-    for (size_t under = 0; under < Boxes_.size(); ++under) {
-      for (int up = Boxes_[under].Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
-        if (static_cast<size_t>(up) != at) { continue; }
-        Boxes_[under].Y -= over.ScrolledPx;
+    for (auto &Boxe : Boxes_) {
+      for (int up = Boxe.Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
+        if (std::cmp_not_equal(up, at)) { continue; }
+        Boxe.Y -= over.ScrolledPx;
         break;
       }
     }
