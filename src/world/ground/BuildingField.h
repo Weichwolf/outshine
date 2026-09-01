@@ -39,35 +39,35 @@ public:
 
   int Build(const GroundQuery &ground, const OsmField &field, Span<const WayLine> ways);
 
-  uint32_t AddedFirst() const { return AddedFirst_; }
+  [[nodiscard]] uint32_t AddedFirst() const { return AddedFirst_; }
 
-  uint32_t AddedCount() const { return AddedCount_; }
+  [[nodiscard]] uint32_t AddedCount() const { return AddedCount_; }
 
-  const Raised &Built() const { return Built_; }
+  [[nodiscard]] const Raised &Built() const { return Built_; }
 
-  double MeshMs() const { return MeshMs_; }
+  [[nodiscard]] double MeshMs() const { return MeshMs_; }
 
-  const double *Anchor() const { return Anchor_; }
+  [[nodiscard]] const double *Anchor() const { return Anchor_; }
 
-  const std::vector<Footprint> &Footprints() const { return Prints_; }
+  [[nodiscard]] const std::vector<Footprint> &Footprints() const { return Prints_; }
 
-  Span<const Footprint> OfTile(int tile) const {
+  [[nodiscard]] Span<const Footprint> OfTile(int tile) const {
     if (tile < 0) { return Span<const Footprint>(); }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return Span<const Footprint>(Prints_.data() + r.First, r.Count);
   }
 
-  int OsmHeights() const { return OsmHeights_; }
+  [[nodiscard]] int OsmHeights() const { return OsmHeights_; }
 
-  int DefaultHeights() const { return DefaultHeights_; }
+  [[nodiscard]] int DefaultHeights() const { return DefaultHeights_; }
 
   [[nodiscard]] const std::vector<double> &SeatSpreadM() const { return SeatSpread_; }
 
   [[nodiscard]] const std::vector<double> &FootprintAcrossM() const { return Across_; }
 
-  int Deferrals() const { return Mark_.Deferrals(); }
+  [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
-  size_t HeapBytes() const {
+  [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Prints_) + Built_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 

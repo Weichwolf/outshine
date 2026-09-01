@@ -104,7 +104,7 @@ struct Primitive {
 
   int Find(const char *semantic) const;
 
-  int MaterialUnder(int variant) const;
+  [[nodiscard]] int MaterialUnder(int variant) const;
 };
 
 struct Mesh {

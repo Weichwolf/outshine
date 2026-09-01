@@ -61,7 +61,7 @@ struct ChunkCell {
 private:
   friend float ChunkCellHeight(const ChunkCell &cell, float su, float sv);
 
-  float At(int row, int col) const {
+  [[nodiscard]] float At(int row, int col) const {
     return Nodes[static_cast<size_t>(Row + row) * static_cast<size_t>(Stride) +
                  static_cast<size_t>(Col + col)];
   }

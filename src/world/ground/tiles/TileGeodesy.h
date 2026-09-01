@@ -122,17 +122,17 @@ class TileEnuMap {
 public:
   static TileEnuMap Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent);
 
-  double OriginE() const { return OriginE_; }
+  [[nodiscard]] double OriginE() const { return OriginE_; }
 
-  double OriginN() const { return OriginN_; }
+  [[nodiscard]] double OriginN() const { return OriginN_; }
 
-  double ScaleE() const { return ScaleE_; }
+  [[nodiscard]] double ScaleE() const { return ScaleE_; }
 
-  double ScaleN() const { return ScaleN_; }
+  [[nodiscard]] double ScaleN() const { return ScaleN_; }
 
-  uint32_t Extent() const { return Extent_; }
+  [[nodiscard]] uint32_t Extent() const { return Extent_; }
 
-  Enu Apply(int32_t localX, int32_t localY) const {
+  [[nodiscard]] Enu Apply(int32_t localX, int32_t localY) const {
     Enu r;
     r.E = OriginE_ + static_cast<double>(localX) * ScaleE_;
     r.N = OriginN_ + static_cast<double>(localY) * ScaleN_;

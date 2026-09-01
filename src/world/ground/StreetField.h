@@ -31,21 +31,21 @@ public:
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
-  const std::vector<Way> &Ways() const { return Ways_; }
+  [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
-  Span<const Way> OfTile(int tile) const {
+  [[nodiscard]] Span<const Way> OfTile(int tile) const {
     if (tile < 0) { return Span<const Way>(); }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return Span<const Way>(Ways_.data() + r.First, r.Count);
   }
 
-  long UnwidthedCount() const { return Unwidthed_; }
+  [[nodiscard]] long UnwidthedCount() const { return Unwidthed_; }
 
   [[nodiscard]] long UnruledCount() const { return Unruled_; }
 
   [[nodiscard]] long LookedCount() const { return Looked_; }
 
-  long TunnelCount() const { return Tunnels_; }
+  [[nodiscard]] long TunnelCount() const { return Tunnels_; }
 
   [[nodiscard]] long BridgeCount() const { return Bridges_; }
 
@@ -53,7 +53,7 @@ public:
 
   [[nodiscard]] long LayerSaidCount() const { return LayerSaid_; }
 
-  size_t HeapBytes() const {
+  [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 

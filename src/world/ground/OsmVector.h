@@ -24,13 +24,13 @@ public:
   [[nodiscard]] bool
   Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present = nullptr);
 
-  int Extent() const { return Extent_; }
+  [[nodiscard]] int Extent() const { return Extent_; }
 
-  const std::vector<Feature> &Features() const { return Features_; }
+  [[nodiscard]] const std::vector<Feature> &Features() const { return Features_; }
 
-  const std::vector<Ring> &Rings() const { return Rings_; }
+  [[nodiscard]] const std::vector<Ring> &Rings() const { return Rings_; }
 
-  const std::vector<int32_t> &Points() const { return Points_; }
+  [[nodiscard]] const std::vector<int32_t> &Points() const { return Points_; }
 
   double Num(const Feature &f, const char *key, double def) const;
   std::string_view Str(const Feature &f, const char *key) const;
@@ -41,9 +41,9 @@ public:
     bool IsNum = false;
   };
 
-  uint32_t TagCount(const Feature &f) const { return f.TagCount / 2; }
+  [[nodiscard]] uint32_t TagCount(const Feature &f) const { return f.TagCount / 2; }
 
-  Tag TagAt(const Feature &f, uint32_t i) const;
+  [[nodiscard]] Tag TagAt(const Feature &f, uint32_t i) const;
 
 private:
   int Extent_ = 4096;

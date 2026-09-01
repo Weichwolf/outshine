@@ -14,17 +14,17 @@ public:
 
   static TangentFrame At(double latDeg, double lonDeg) { return TangentFrame(latDeg, lonDeg); }
 
-  double AnchorLat() const { return Lat_; }
+  [[nodiscard]] double AnchorLat() const { return Lat_; }
 
-  double AnchorLon() const { return Lon_; }
+  [[nodiscard]] double AnchorLon() const { return Lon_; }
 
-  const double *OriginEcef() const { return O_; }
+  [[nodiscard]] const double *OriginEcef() const { return O_; }
 
-  const double *EastEcef() const { return East_; }
+  [[nodiscard]] const double *EastEcef() const { return East_; }
 
-  const double *NorthEcef() const { return North_; }
+  [[nodiscard]] const double *NorthEcef() const { return North_; }
 
-  const double *UpEcef() const { return Up_; }
+  [[nodiscard]] const double *UpEcef() const { return Up_; }
 
   void Place(const double ecef[3], double *eastM, double *upM, double *northM) const {
     const double d[3] = {ecef[0] - O_[0], ecef[1] - O_[1], ecef[2] - O_[2]};

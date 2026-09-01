@@ -296,7 +296,7 @@ public:
     SlopeN_ = m[2][3] / m[2][2];
   }
 
-  double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
+  [[nodiscard]] double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
 
   [[nodiscard]] double High() const { return HighM_; }
 

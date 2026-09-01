@@ -77,11 +77,11 @@ public:
     return Mark_ >= feats.size();
   }
 
-  int Deferrals() const { return Deferrals_; }
+  [[nodiscard]] int Deferrals() const { return Deferrals_; }
 
-  size_t AheadCount() const { return Ahead_.size(); }
+  [[nodiscard]] size_t AheadCount() const { return Ahead_.size(); }
 
-  size_t HeapBytes() const { return CapacityBytes(Ahead_); }
+  [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ahead_); }
 
 private:
   [[nodiscard]] bool Taken(uint32_t tile) const {

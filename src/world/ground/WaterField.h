@@ -32,32 +32,32 @@ public:
 
   void AnchorAt(const double ecef[3]);
 
-  const std::vector<Surface> &Surfaces() const { return Surfaces_; }
+  [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
-  Span<const Surface> OfTile(int tile) const {
+  [[nodiscard]] Span<const Surface> OfTile(int tile) const {
     if (tile < 0) { return Span<const Surface>(); }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return Span<const Surface>(Surfaces_.data() + r.First, r.Count);
   }
 
-  const std::vector<Course> &Courses() const { return Courses_; }
+  [[nodiscard]] const std::vector<Course> &Courses() const { return Courses_; }
 
-  const std::vector<float> &Levels() const { return Levels_; }
+  [[nodiscard]] const std::vector<float> &Levels() const { return Levels_; }
 
-  const double *Anchor() const { return Anchor_; }
+  [[nodiscard]] const double *Anchor() const { return Anchor_; }
 
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
 
-  size_t HeapBytes() const {
+  [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_) +
            Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
-  long NoGroundCount() const { return NoGround_; }
+  [[nodiscard]] long NoGroundCount() const { return NoGround_; }
 
-  long OutlierCount() const { return Outliers_; }
+  [[nodiscard]] long OutlierCount() const { return Outliers_; }
 
-  int Deferrals() const { return Mark_.Deferrals(); }
+  [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
 

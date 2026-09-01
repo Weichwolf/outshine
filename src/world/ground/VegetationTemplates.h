@@ -45,31 +45,31 @@ public:
 
   [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);
 
-  const Row *Rows() const { return Table_.data(); }
+  [[nodiscard]] const Row *Rows() const { return Table_.data(); }
 
-  size_t RowBytes() const { return Table_.size() * sizeof(Row); }
+  [[nodiscard]] size_t RowBytes() const { return Table_.size() * sizeof(Row); }
 
   [[nodiscard]] bool Ready() const { return !Table_.empty(); }
 
-  size_t TemplateCount() const { return Table_.size(); }
+  [[nodiscard]] size_t TemplateCount() const { return Table_.size(); }
 
   [[nodiscard]] float FrictionOf(size_t tpl) const {
     return tpl < Friction_.size() ? Friction_[tpl] : 0.0f;
   }
 
-  const std::string &Name(size_t i) const { return Names_[i]; }
+  [[nodiscard]] const std::string &Name(size_t i) const { return Names_[i]; }
 
-  const std::string &Error() const { return Error_; }
+  [[nodiscard]] const std::string &Error() const { return Error_; }
 
-  const Rule *Find(std::string_view layer, std::string_view kind) const;
+  [[nodiscard]] const Rule *Find(std::string_view layer, std::string_view kind) const;
 
-  int UnmappedRow() const { return Unmapped_; }
+  [[nodiscard]] int UnmappedRow() const { return Unmapped_; }
 
-  const AlpineLimit &Limit() const { return Limit_; }
+  [[nodiscard]] const AlpineLimit &Limit() const { return Limit_; }
 
-  int RockTemplate() const { return RockTpl_; }
+  [[nodiscard]] int RockTemplate() const { return RockTpl_; }
 
-  size_t RuleCount() const { return Rules_.size(); }
+  [[nodiscard]] size_t RuleCount() const { return Rules_.size(); }
 
   struct WaterBand {
     float RunM = 0.0f;
@@ -78,9 +78,9 @@ public:
 
   [[nodiscard]] const std::vector<WaterBand> &WaterBands() const { return WaterBands_; }
 
-  const std::vector<std::string> &Layers() const { return Layers_; }
+  [[nodiscard]] const std::vector<std::string> &Layers() const { return Layers_; }
 
-  const std::vector<std::string> &AreaLayers() const { return AreaLayers_; }
+  [[nodiscard]] const std::vector<std::string> &AreaLayers() const { return AreaLayers_; }
 
 private:
   std::vector<Row> Table_;

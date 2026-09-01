@@ -26,7 +26,7 @@ struct BlockHeader {
 
   [[nodiscard]] bool Readable() const { return Status != BlockStatus::Invalid; }
 
-  double AgeS(double nowS) const { return nowS - StampS; }
+  [[nodiscard]] double AgeS(double nowS) const { return nowS - StampS; }
 
   void Publish(double nowS) {
     StampS = nowS;

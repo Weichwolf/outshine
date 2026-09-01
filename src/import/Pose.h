@@ -24,13 +24,13 @@ public:
 
   [[nodiscard]] bool Valid() const { return !Nodes_.empty(); }
 
-  double StartS() const { return StartS_; }
+  [[nodiscard]] double StartS() const { return StartS_; }
 
-  double EndS() const { return EndS_; }
+  [[nodiscard]] double EndS() const { return EndS_; }
 
-  size_t ChannelCount() const { return Channels_.size(); }
+  [[nodiscard]] size_t ChannelCount() const { return Channels_.size(); }
 
-  size_t NodeCount() const { return Nodes_.size(); }
+  [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
 
   void At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const;
 

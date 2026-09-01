@@ -17,7 +17,7 @@ public:
     Channels_.push_back({.Name = name, .Unit = unit});
   }
 
-  const std::vector<TelemetryChannel> &Channels() const { return Channels_; }
+  [[nodiscard]] const std::vector<TelemetryChannel> &Channels() const { return Channels_; }
 
 private:
   std::vector<TelemetryChannel> Channels_;
@@ -32,7 +32,7 @@ public:
   void Push(bool v);
   void Push(const std::string &v);
 
-  const std::vector<std::string> &Fields() const { return Fields_; }
+  [[nodiscard]] const std::vector<std::string> &Fields() const { return Fields_; }
 
   void Clear() { Fields_.clear(); }
 
@@ -43,7 +43,7 @@ private:
 class TelemetrySource {
 public:
   virtual ~TelemetrySource() = default;
-  virtual const char *TelemetryName() const = 0;
+  [[nodiscard]] virtual const char *TelemetryName() const = 0;
   virtual void DeclareTelemetry(TelemetrySchema &schema) const = 0;
   virtual void SampleTelemetry(TelemetryRow &row) const = 0;
 };

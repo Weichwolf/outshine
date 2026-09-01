@@ -213,15 +213,15 @@ public:
 
   void ForgetStagedCount() { Bound().ForgetStagedCount(); }
 
-  uint32_t VertexCount() const { return Bound().NVerts; }
+  [[nodiscard]] uint32_t VertexCount() const { return Bound().NVerts; }
 
-  long TriangleCount() const { return static_cast<long>(Bound().NIdx) / 3; }
+  [[nodiscard]] long TriangleCount() const { return static_cast<long>(Bound().NIdx) / 3; }
 
-  uint32_t BatchCount() const { return static_cast<uint32_t>(Batches.size()); }
+  [[nodiscard]] uint32_t BatchCount() const { return static_cast<uint32_t>(Batches.size()); }
 
-  uint32_t DrawCount() const;
+  [[nodiscard]] uint32_t DrawCount() const;
 
-  uint32_t PipelineCount() const { return Built; }
+  [[nodiscard]] uint32_t PipelineCount() const { return Built; }
 
 private:
   static constexpr int kUniFloats = 56;

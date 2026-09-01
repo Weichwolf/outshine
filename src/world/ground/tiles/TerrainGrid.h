@@ -89,7 +89,7 @@ public:
     return Where_ == State::Decoded ? &Field_ : nullptr;
   }
 
-  size_t Bytes() const { return Field_.Bytes(); }
+  [[nodiscard]] size_t Bytes() const { return Field_.Bytes(); }
 
 private:
   TerrainGrid(State where, TerrainField &&field) : Where_(where), Field_(std::move(field)) {}
@@ -121,7 +121,9 @@ public:
     return Where_ == State::Built ? &PositionsEnuM_ : nullptr;
   }
 
-  uint32_t VertexCount() const { return static_cast<uint32_t>(PositionsEnuM_.size() / 3); }
+  [[nodiscard]] uint32_t VertexCount() const {
+    return static_cast<uint32_t>(PositionsEnuM_.size() / 3);
+  }
 
 private:
   explicit TerrainMesh(State where) : Where_(where) {}

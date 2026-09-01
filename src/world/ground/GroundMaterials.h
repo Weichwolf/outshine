@@ -33,13 +33,13 @@ public:
 
   [[nodiscard]] bool Ready() const { return !Mats_.empty(); }
 
-  size_t Count() const { return Mats_.size(); }
+  [[nodiscard]] size_t Count() const { return Mats_.size(); }
 
-  const Material &At(size_t i) const { return Mats_[i]; }
+  [[nodiscard]] const Material &At(size_t i) const { return Mats_[i]; }
 
-  int Find(std::string_view name) const;
+  [[nodiscard]] int Find(std::string_view name) const;
 
-  const std::string &Error() const { return Error_; }
+  [[nodiscard]] const std::string &Error() const { return Error_; }
 
 private:
   std::vector<Material> Mats_;

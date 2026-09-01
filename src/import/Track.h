@@ -21,9 +21,9 @@ public:
 
   [[nodiscard]] bool Valid() const { return Curve_.Valid(); }
 
-  size_t Components() const { return Curve_.Components(); }
+  [[nodiscard]] size_t Components() const { return Curve_.Components(); }
 
-  size_t KeyframeCount() const { return Curve_.Count(); }
+  [[nodiscard]] size_t KeyframeCount() const { return Curve_.Count(); }
 
   void At(double seconds, double *out) const;
 

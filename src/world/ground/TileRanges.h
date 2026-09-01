@@ -21,11 +21,11 @@ public:
     Ranges_[tile] = Range{.First = first, .Count = end - first};
   }
 
-  Range At(uint32_t tile) const {
+  [[nodiscard]] Range At(uint32_t tile) const {
     return static_cast<size_t>(tile) < Ranges_.size() ? Ranges_[tile] : Range{};
   }
 
-  size_t HeapBytes() const { return CapacityBytes(Ranges_); }
+  [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ranges_); }
 
 private:
   std::vector<Range> Ranges_;

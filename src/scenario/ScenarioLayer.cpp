@@ -31,7 +31,7 @@ void MergeRows(std::vector<Row> &into,
 struct ByKindName {
   bool operator()(const Kind &a, const Kind &b) const { return a.Name == b.Name; }
 
-  std::string Identity(const Kind &row) const { return row.Name; }
+  [[nodiscard]] std::string Identity(const Kind &row) const { return row.Name; }
 };
 
 struct ByInstanceId {
@@ -39,61 +39,61 @@ struct ByInstanceId {
     return !a.Id.empty() && a.Id == b.Id;
   }
 
-  std::string Identity(const Instance &row) const { return row.Id; }
+  [[nodiscard]] std::string Identity(const Instance &row) const { return row.Id; }
 };
 
 struct ByAssetUri {
   bool operator()(const Asset &a, const Asset &b) const { return a.Uri == b.Uri; }
 
-  std::string Identity(const Asset &row) const { return row.Uri; }
+  [[nodiscard]] std::string Identity(const Asset &row) const { return row.Uri; }
 };
 
 template <class Row> struct ByKindField {
   bool operator()(const Row &a, const Row &b) const { return a.Kind == b.Kind; }
 
-  std::string Identity(const Row &row) const { return row.Kind; }
+  [[nodiscard]] std::string Identity(const Row &row) const { return row.Kind; }
 };
 
 template <class Row> struct ByIdField {
   bool operator()(const Row &a, const Row &b) const { return !a.Id.empty() && a.Id == b.Id; }
 
-  std::string Identity(const Row &row) const { return row.Id; }
+  [[nodiscard]] std::string Identity(const Row &row) const { return row.Id; }
 };
 
 struct ByDoorEnds {
   bool operator()(const Door &a, const Door &b) const { return a.From == b.From && a.To == b.To; }
 
-  std::string Identity(const Door &row) const { return row.From + "->" + row.To; }
+  [[nodiscard]] std::string Identity(const Door &row) const { return row.From + "->" + row.To; }
 };
 
 struct BySoundUri {
   bool operator()(const Sound &a, const Sound &b) const { return a.Uri == b.Uri; }
 
-  std::string Identity(const Sound &row) const { return row.Uri; }
+  [[nodiscard]] std::string Identity(const Sound &row) const { return row.Uri; }
 };
 
 struct ByEventName {
   bool operator()(const Event &a, const Event &b) const { return a.Name == b.Name; }
 
-  std::string Identity(const Event &row) const { return row.Name; }
+  [[nodiscard]] std::string Identity(const Event &row) const { return row.Name; }
 };
 
 struct BySurfaceDocument {
   bool operator()(const Surface &a, const Surface &b) const { return a.Document == b.Document; }
 
-  std::string Identity(const Surface &row) const { return row.Document; }
+  [[nodiscard]] std::string Identity(const Surface &row) const { return row.Document; }
 };
 
 struct ByBindingEvent {
   bool operator()(const Binding &a, const Binding &b) const { return a.Event == b.Event; }
 
-  std::string Identity(const Binding &row) const { return row.Event; }
+  [[nodiscard]] std::string Identity(const Binding &row) const { return row.Event; }
 };
 
 struct ByPersistedWhat {
   bool operator()(const Persisted &a, const Persisted &b) const { return a.What == b.What; }
 
-  std::string Identity(const Persisted &row) const { return row.What; }
+  [[nodiscard]] std::string Identity(const Persisted &row) const { return row.What; }
 };
 
 } // namespace

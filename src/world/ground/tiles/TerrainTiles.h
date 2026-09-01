@@ -88,7 +88,7 @@ public:
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 
-  size_t HeapBytes() const;
+  [[nodiscard]] size_t HeapBytes() const;
 
 private:
   Shaped Shape_;

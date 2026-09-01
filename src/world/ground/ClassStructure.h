@@ -35,17 +35,17 @@ public:
                  double buildMs,
                  int overflow);
 
-  const TangentFrame &Frame() const { return Frame_; }
+  [[nodiscard]] const TangentFrame &Frame() const { return Frame_; }
 
-  const uint32_t *Words() const { return Words_.data(); }
+  [[nodiscard]] const uint32_t *Words() const { return Words_.data(); }
 
-  size_t Bytes() const { return Words_.size() * sizeof(uint32_t); }
+  [[nodiscard]] size_t Bytes() const { return Words_.size() * sizeof(uint32_t); }
 
-  uint64_t Version() const { return Version_; }
+  [[nodiscard]] uint64_t Version() const { return Version_; }
 
-  const Measures &Measured() const { return Measures_; }
+  [[nodiscard]] const Measures &Measured() const { return Measures_; }
 
-  double NoDataFraction() const {
+  [[nodiscard]] double NoDataFraction() const {
     return Measures_.Probes
                ? static_cast<double>(Measures_.NoData) / static_cast<double>(Measures_.Probes)
                : 0.0;

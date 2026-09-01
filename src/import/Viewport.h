@@ -12,7 +12,7 @@ struct Viewport {
   double WidthPx = 0;
   double HeightPx = 0;
 
-  double Aspect() const { return (HeightPx > 0) ? WidthPx / HeightPx : 0.0; }
+  [[nodiscard]] double Aspect() const { return (HeightPx > 0) ? WidthPx / HeightPx : 0.0; }
 
   void Raster(const double ndc[3], double outPx[2]) const {
     outPx[0] = (ndc[0] * 0.5 + 0.5) * WidthPx - 0.5;

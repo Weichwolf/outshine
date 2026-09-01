@@ -28,7 +28,9 @@ public:
   [[nodiscard]] virtual bool
   At(const Ground &ground, double eastM, double northM, Body *out) const noexcept = 0;
 
-  virtual Span<const char *const> NoteNames() const noexcept { return Span<const char *const>(); }
+  [[nodiscard]] virtual Span<const char *const> NoteNames() const noexcept {
+    return Span<const char *const>();
+  }
 
 protected:
   Making() = default;
