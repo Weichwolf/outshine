@@ -414,7 +414,7 @@ bool Subject::FlatNormalsFor(Part &part) {
       Indices_[part.FirstIndex + triangle + corner] = made;
     }
 
-    double edge[2][3];
+    std::array<std::array<double, 3>, 2> edge;
     for (size_t axis = 0; axis < 3; ++axis) {
       edge[0][axis] = Positions_[static_cast<size_t>(of[1]) * 3 + axis] -
                       Positions_[static_cast<size_t>(of[0]) * 3 + axis];
@@ -774,14 +774,16 @@ bool Subject::Flatten(const Document &document,
           for (double axis : global) { atPos.push_back(axis); }
         }
 
-        const struct {
+        struct UvSetRow {
           const char *Semantic;
           bool Part::*Carried;
           bool *Any;
           std::vector<double> *Into;
-        } sets[kUvSets] = {
-            {.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Any = &anyUv, .Into = &atUv},
-            {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Any = &anyUv1, .Into = &atUv1}};
+        };
+
+        const std::array<UvSetRow, kUvSets> sets = {
+            {{.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Any = &anyUv, .Into = &atUv},
+             {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Any = &anyUv1, .Into = &atUv1}}};
 
         for (const auto &set : sets) {
           const int uv = primitive.Find(set.Semantic);

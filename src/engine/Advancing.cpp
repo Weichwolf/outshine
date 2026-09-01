@@ -363,7 +363,7 @@ void Engine::State::Inspected() {
   {
     std::array<float, Render::kIrradianceFloats> held = {{}};
     if (Picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
-      static const char *const kNamed[Render::kIrradianceFloats] = {
+      static std::array<const char *const, Render::kIrradianceFloats> kNamed = {
           "the device's sky irradiance, red",
           "the device's sky irradiance, green",
           "the device's sky irradiance, blue",

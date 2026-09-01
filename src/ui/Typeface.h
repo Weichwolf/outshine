@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_UI_TYPEFACE_H
 #define OUTSHINE_UI_TYPEFACE_H
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -63,7 +64,7 @@ private:
   };
 
   std::string Under_;
-  std::vector<uint8_t> Faces_[static_cast<size_t>(Family::kCount)];
+  std::array<std::vector<uint8_t>, static_cast<size_t>(Family::kCount)> Faces_;
   mutable std::vector<Sized> Sets_;
 
   mutable std::vector<Cell> Cells_;

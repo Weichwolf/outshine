@@ -1,14 +1,15 @@
 #include "Water.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
 namespace outshine::Generators {
 
 Span<const char *const> Water::NoteNames() const noexcept {
-  static constexpr const char *const kNames[kNotes] = {
+  static constexpr std::array<const char *const, kNotes> kNames = {
       "waterSurfaces", "waterUntested", "levelBelowGround", "deepestM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return {kNames, kNotes};
+  return {kNames.data(), kNames.size()};
 }
 
 WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) noexcept {

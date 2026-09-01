@@ -14,8 +14,6 @@ public:
 
   constexpr Span(T *data, size_t size) : Data_(data), Size_(size) {}
 
-  template <size_t N> constexpr Span(T (&array)[N]) : Data_(array), Size_(N) {}
-
   template <typename U>
   constexpr Span(const Span<U> &other)
     requires std::is_same<const U, T>::value

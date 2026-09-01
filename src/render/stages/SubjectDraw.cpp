@@ -348,12 +348,13 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
                 "the surface row and its declared length are one statement");
   std::ranges::copy(scalars, slot.Row.begin());
 
-  const SubjectTexture *const images[kSubjectMaterialImages] = {&material.Colour,
-                                                                &material.Normal,
-                                                                &material.MetalRough,
-                                                                &material.Emissive,
-                                                                &material.SpecularStrength,
-                                                                &material.SpecularTint};
+  std::array<const SubjectTexture *const, kSubjectMaterialImages> images = {
+      &material.Colour,
+      &material.Normal,
+      &material.MetalRough,
+      &material.Emissive,
+      &material.SpecularStrength,
+      &material.SpecularTint};
   auto at = static_cast<size_t>(kSurfaceScalars);
   for (const SubjectTexture *image : images) {
     for (const double element : image->Uv.M) { slot.Row[at++] = static_cast<float>(element); }
@@ -883,7 +884,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
     for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
     ++UniformPushes_;
-    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform.data(), sizeof uniform);
+    SDL_PushGPUVertexUniformData(into.Commands,
+                                 0,
+                                 uniform.data(),
+                                 static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
   };
   place();
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
@@ -894,8 +898,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   bool boundCut = false;
   bool anyIndex = false;
 
-  SDL_GPUBuffer *const rows[1] = {Bound().Placed.Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
+  std::array<SDL_GPUBuffer *const, 1> rows = {Bound().Placed.Get()};
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   size_t bound = kPipelines;
   size_t boundSlot = 0;
@@ -964,9 +968,9 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
             .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), kSubjectImages);
       if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
-        SDL_GPUBuffer *const storage[kSubjectFragmentStorage] = {
+        std::array<SDL_GPUBuffer *const, kSubjectFragmentStorage> storage = {
             SkyIrradiance_, GroundClasses_, GroundPalette_};
-        SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage, kSubjectFragmentStorage);
+        SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), kSubjectFragmentStorage);
       }
       SDL_PushGPUFragmentUniformData(into.Commands,
                                      0,

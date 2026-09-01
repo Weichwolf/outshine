@@ -254,26 +254,27 @@ bool KnownWrap(int raw, Wrap &out) {
   }
 }
 
-constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
-                                                     "KHR_materials_anisotropy",
-                                                     "KHR_materials_iridescence",
-                                                     "KHR_animation_pointer",
-                                                     "EXT_mesh_gpu_instancing",
-                                                     "EXT_texture_webp",
-                                                     "KHR_materials_transmission",
-                                                     "KHR_materials_volume",
-                                                     "KHR_materials_clearcoat",
-                                                     "KHR_materials_sheen",
-                                                     "KHR_mesh_quantization",
-                                                     "KHR_node_visibility",
-                                                     "KHR_materials_emissive_strength",
-                                                     "KHR_materials_ior",
-                                                     "KHR_materials_specular",
-                                                     "KHR_materials_unlit",
-                                                     "KHR_materials_variants",
-                                                     "KHR_texture_transform",
-                                                     "KHR_xmp_json_ld",
-                                                     nullptr};
+constexpr std::array<const char *const, 20> kHonouredExtensions = {
+    {"KHR_lights_punctual",
+     "KHR_materials_anisotropy",
+     "KHR_materials_iridescence",
+     "KHR_animation_pointer",
+     "EXT_mesh_gpu_instancing",
+     "EXT_texture_webp",
+     "KHR_materials_transmission",
+     "KHR_materials_volume",
+     "KHR_materials_clearcoat",
+     "KHR_materials_sheen",
+     "KHR_mesh_quantization",
+     "KHR_node_visibility",
+     "KHR_materials_emissive_strength",
+     "KHR_materials_ior",
+     "KHR_materials_specular",
+     "KHR_materials_unlit",
+     "KHR_materials_variants",
+     "KHR_texture_transform",
+     "KHR_xmp_json_ld",
+     nullptr}};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
@@ -670,14 +671,14 @@ bool Document::ReadJson(const char *text,
       MetadataCarrier Kind;
     };
 
-    static constexpr Carrier kCarriers[] = {
+    static constexpr std::array<Carrier, 6> kCarriers = {{
         {.Array = "scenes", .Kind = MetadataCarrier::Scene},
         {.Array = "nodes", .Kind = MetadataCarrier::Node},
         {.Array = "meshes", .Kind = MetadataCarrier::Mesh},
         {.Array = "materials", .Kind = MetadataCarrier::Material},
         {.Array = "images", .Kind = MetadataCarrier::Image},
         {.Array = "animations", .Kind = MetadataCarrier::Animation},
-    };
+    }};
 
     const auto Points =
         [&](const Json::Ref &at, MetadataCarrier carrier, size_t which, const char *what) -> bool {
@@ -1742,11 +1743,13 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   }
   material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
 
-  const struct {
+  struct SlotRow {
     Json::Ref Under;
     const char *Slot;
     TextureRef *Into;
-  } slots[] = {
+  };
+
+  const std::array<SlotRow, 7> slots = {{
       {.Under = pbr, .Slot = "baseColorTexture", .Into = &material.BaseColour},
       {.Under = pbr, .Slot = "metallicRoughnessTexture", .Into = &material.MetallicRoughness},
       {.Under = declaration, .Slot = "normalTexture", .Into = &material.Normal},
@@ -1754,7 +1757,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       {.Under = declaration, .Slot = "emissiveTexture", .Into = &material.Emissive},
       {.Under = specular, .Slot = "specularTexture", .Into = &material.SpecularStrength},
       {.Under = specular, .Slot = "specularColorTexture", .Into = &material.SpecularTint},
-  };
+  }};
 
   for (const auto &slot : slots) {
     const Json::Ref declared = slot.Under[slot.Slot];

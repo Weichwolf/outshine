@@ -433,7 +433,7 @@ private:
 
   bool Submitted_ = false;
 
-  SDL_GPUFence *Landed_[kFramesInFlight] = {};
+  std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
   int LandedAt_ = 0;
   Vec3 PrevEye_ = {{0, 0, 0}};
   Mat4f PrevMvp_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};

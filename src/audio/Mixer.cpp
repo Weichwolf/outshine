@@ -1,6 +1,7 @@
 #include "Mixer.h"
 #include "math/Vec3.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -217,8 +218,8 @@ bool Mixer::Stands(std::span<const Scenario::Bus> buses,
     Held_->Room.Standing = true;
     Held_->Room.Damping = one.Reverberates.Damping;
     Held_->Room.WetShare = one.Reverberates.WetShare;
-    constexpr int kCombs[] = {1116, 1188, 1277, 1356};
-    constexpr int kPasses[] = {556, 441};
+    constexpr std::array<int, 4> kCombs = {{1116, 1188, 1277, 1356}};
+    constexpr std::array<int, 2> kPasses = {{556, 441}};
     for (const int held : kCombs) {
       const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);

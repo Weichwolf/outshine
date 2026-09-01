@@ -1,5 +1,6 @@
 #include "ShaderFile.h"
 
+#include <array>
 #include <cstdio>
 #include <string_view>
 #include <string>
@@ -16,10 +17,10 @@ bool LoadShaderText(std::string_view treePath, std::string &into, std::string &e
     return false;
   }
   into.clear();
-  char block[1u << 14u];
-  for (size_t read = std::fread(block, 1, sizeof block, file); read > 0;
-       read = std::fread(block, 1, sizeof block, file)) {
-    into.append(block, read);
+  std::array<char, 1u << 14u> block;
+  for (size_t read = std::fread(block.data(), 1, block.size(), file); read > 0;
+       read = std::fread(block.data(), 1, block.size(), file)) {
+    into.append(block.data(), read);
   }
   std::fclose(file);
   if (into.empty()) {

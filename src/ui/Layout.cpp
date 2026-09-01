@@ -1,5 +1,6 @@
 #include "Layout.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -49,8 +50,8 @@ constexpr uint32_t kWrapReverse = Keyword("wrap-reverse");
 }
 
 struct Computed {
-  Value Held[static_cast<size_t>(Property::kCount)];
-  bool Set[static_cast<size_t>(Property::kCount)] = {};
+  std::array<Value, static_cast<size_t>(Property::kCount)> Held;
+  std::array<bool, static_cast<size_t>(Property::kCount)> Set = {};
 
   void Take(const Declaration &one) {
     Held[static_cast<size_t>(one.What)] = one.How;
@@ -229,12 +230,12 @@ struct Placer {
 Computed Placer::StyleOf(int node, const Computed *inherited) const {
   Computed out;
   if (inherited != nullptr) {
-    const Property carried[] = {Property::Colour,
-                                Property::FontSize,
-                                Property::LineHeight,
-                                Property::TextAlign,
-                                Property::FontFamily,
-                                Property::WhiteSpace};
+    std::array<const Property, 6> carried = {{Property::Colour,
+                                              Property::FontSize,
+                                              Property::LineHeight,
+                                              Property::TextAlign,
+                                              Property::FontFamily,
+                                              Property::WhiteSpace}};
     for (const Property what : carried) {
       if (inherited->Has(what)) {
         out.Held[static_cast<size_t>(what)] = inherited->Of(what);
@@ -1218,13 +1219,13 @@ double Placer::Place(int node,
 
 namespace {
 
-constexpr std::string_view kNotABox[] = {
+constexpr std::array<std::string_view, 39> kNotABox = {{
     "img",      "picture", "source",   "video",    "audio",   "canvas",   "iframe", "embed",
     "object",   "svg",     "math",     "input",    "select",  "textarea", "button", "label",
     "fieldset", "legend",  "progress", "meter",    "details", "summary",  "form",   "marquee",
     "table",    "thead",   "tbody",    "tfoot",    "tr",      "td",       "th",     "caption",
     "colgroup", "col",     "frame",    "frameset", "applet",  "template", "slot",
-};
+}};
 
 }
 

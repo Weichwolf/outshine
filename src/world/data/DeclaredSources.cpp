@@ -1,5 +1,6 @@
 #include "DeclaredSources.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <span>
@@ -14,7 +15,7 @@ namespace outshine::Data {
 
 namespace {
 
-constexpr const char *kKinds[] = {"terrain", "vector", "stars"};
+constexpr std::array<const char *, 3> kKinds = {{"terrain", "vector", "stars"}};
 
 [[nodiscard]] std::string Catalogue() {
   std::string all;
@@ -59,11 +60,11 @@ bool RegisterDeclared(SourceSet &set,
 }
 
 std::span<const Scenario::Provider> ShippedProviders() {
-  static const Scenario::Provider shipped[] = {
+  static std::array<const Scenario::Provider, 3> shipped = {{
       {.Kind = "terrain", .Pin = "", .Rank = 0, .WhenAbsent = "hand over"},
       {.Kind = "vector", .Pin = "", .Rank = 1, .WhenAbsent = "hand over"},
       {.Kind = "stars", .Pin = "", .Rank = 2, .WhenAbsent = "hand over"},
-  };
+  }};
   return shipped;
 }
 

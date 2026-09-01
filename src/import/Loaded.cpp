@@ -1,5 +1,6 @@
 #include "scene/Loaded.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -60,15 +61,18 @@ struct Loaded::Held {
       Material row = Handed.surfaceAt(MaterialInstance(index));
       const Render::SubjectMaterial &held = table.Slots[slot];
 
-      const struct {
+      struct MapRow {
         const Render::SubjectTexture &From;
         SurfaceMap &Into;
-      } maps[] = {{.From = held.Colour, .Into = row.BaseColourMap},
-                  {.From = held.Normal, .Into = row.NormalMap},
-                  {.From = held.MetalRough, .Into = row.MetalRoughMap},
-                  {.From = held.Emissive, .Into = row.EmissiveMap},
-                  {.From = held.SpecularStrength, .Into = row.SpecularStrengthMap},
-                  {.From = held.SpecularTint, .Into = row.SpecularTintMap}};
+      };
+
+      const std::array<MapRow, 6> maps = {
+          {{.From = held.Colour, .Into = row.BaseColourMap},
+           {.From = held.Normal, .Into = row.NormalMap},
+           {.From = held.MetalRough, .Into = row.MetalRoughMap},
+           {.From = held.Emissive, .Into = row.EmissiveMap},
+           {.From = held.SpecularStrength, .Into = row.SpecularStrengthMap},
+           {.From = held.SpecularTint, .Into = row.SpecularTintMap}}};
 
       for (const auto &map : maps) { Names(map.From, map.Into); }
       if (!Handed.setSurface(MaterialInstance(index), row)) {

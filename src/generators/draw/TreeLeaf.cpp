@@ -93,8 +93,8 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, float ang, f
   for (int i = 0; i < n; ++i) {
     const int a = i * 3;
     const int d = (i + 1) * 3;
-    const int tri[4][3] = {
-        {a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
+    const std::array<std::array<int, 3>, 4> tri = {
+        {{a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}}};
     for (auto k : tri) {
       const Vec3f fn = Cross(pos[static_cast<size_t>(k[1])] - pos[static_cast<size_t>(k[0])],
                              pos[static_cast<size_t>(k[2])] - pos[static_cast<size_t>(k[0])]);
@@ -179,7 +179,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   for (int i = 1; i < r; ++i) {
     for (int j = 0; j < a; ++j) {
       const std::array<size_t, 4> q = {{at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)}};
-      const size_t tr[2][3] = {{q[0], q[1], q[2]}, {q[0], q[2], q[3]}};
+      const std::array<std::array<size_t, 3>, 2> tr = {{{q[0], q[1], q[2]}, {q[0], q[2], q[3]}}};
       for (const auto &k : tr) {
         const Vec3f fn = Cross(pos[k[1]] - pos[k[0]], pos[k[2]] - pos[k[0]]);
         for (int e = 0; e < 3; ++e) { nrm[k[e]] = nrm[k[e]] + fn; }

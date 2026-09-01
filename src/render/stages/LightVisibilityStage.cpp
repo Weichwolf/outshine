@@ -230,15 +230,16 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   const SDL_GPUBufferBinding indices{.buffer = Resident_.Idx.Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-  SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
+  std::array<SDL_GPUBuffer *const, 1> rows = {Resident_.Placed.Get()};
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   std::array<float, 20> uniform = {{}};
   for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
   for (int axis = 0; axis < 3; ++axis) {
     uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);
   }
-  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform.data(), sizeof uniform);
+  SDL_PushGPUVertexUniformData(
+      into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
 
   CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {

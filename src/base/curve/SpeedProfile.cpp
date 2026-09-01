@@ -1,5 +1,6 @@
 #include "SpeedProfile.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -9,7 +10,7 @@
 namespace outshine {
 
 const char *SpeedProfile::NameOf(Held term) noexcept {
-  static constexpr const char *const kNames[static_cast<size_t>(Held::kCount)] = {
+  static constexpr std::array<const char *const, static_cast<size_t>(Held::kCount)> kNames = {
       "free", "curvature", "slip", "ramp", "climb", "crest", "entry", "traction", "brake"};
   static_assert(kNames[static_cast<size_t>(Held::kCount) - 1] != nullptr,
                 "every term that can bind the plan carries a name");

@@ -1,6 +1,7 @@
 #include "ScenarioLayer.h"
 
 #include "ScenarioRead.h"
+#include <array>
 #include <vector>
 #include <string_view>
 #include <string>
@@ -215,7 +216,7 @@ bool ApplyLayer(Scenario::Document &into,
     const char *What;
   };
 
-  const SectionRow sections[] = {
+  std::array<const SectionRow, 7> sections = {{
       {.DeclaredByLayer = fragment.Lit.Declared, .What = "lighting"},
       {.DeclaredByLayer = fragment.Ground.Declared, .What = "world"},
       {.DeclaredByLayer = fragment.Render.Declared, .What = "render"},
@@ -223,7 +224,7 @@ bool ApplyLayer(Scenario::Document &into,
       {.DeclaredByLayer = fragment.Time.Declared, .What = "clock"},
       {.DeclaredByLayer = fragment.Played.Declared, .What = "player"},
       {.DeclaredByLayer = fragment.Routed.Declared, .What = "drive"},
-  };
+  }};
   for (const SectionRow &section : sections) {
     if (!section.DeclaredByLayer) { continue; }
     trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +

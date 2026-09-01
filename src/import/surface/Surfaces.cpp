@@ -2,6 +2,7 @@
 
 #include "Image.h"
 #include "Variant.h"
+#include <array>
 #include <string>
 #include <cstddef>
 #include <vector>
@@ -186,12 +187,14 @@ void ResolveSurfaceTable(const Document &file,
       const MaterialRef &material = file.Materials()[static_cast<size_t>(index)];
       table.Slots[slot].NormalScale = static_cast<float>(material.NormalScale);
 
-      const struct {
+      struct MapRow {
         const TextureRef &Declared;
         const char *Socket;
         Core::Raster &Into;
         Render::SubjectTexture &Bound;
-      } maps[] = {
+      };
+
+      const std::array<MapRow, 5> maps = {{
           {.Declared = material.Normal,
            .Socket = "normalTexture",
            .Into = table.Decoded[slot].Normal,
@@ -212,7 +215,7 @@ void ResolveSurfaceTable(const Document &file,
            .Socket = "specularColorTexture",
            .Into = table.Decoded[slot].SpecularTint,
            .Bound = table.Slots[slot].SpecularTint},
-      };
+      }};
 
       for (const auto &map : maps) {
         if (!ReadSocketImage(

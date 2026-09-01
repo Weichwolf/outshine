@@ -1,5 +1,6 @@
 #include "Typeface.h"
 
+#include <array>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
@@ -25,7 +26,7 @@ struct Named {
   Family Is;
 };
 
-constexpr Named kFamilies[] = {
+constexpr std::array<Named, 30> kFamilies = {{
     {.Spelled = "serif", .Is = Family::Serif},
     {.Spelled = "times", .Is = Family::Serif},
     {.Spelled = "times new roman", .Is = Family::Serif},
@@ -58,9 +59,10 @@ constexpr Named kFamilies[] = {
     {.Spelled = "roboto", .Is = Family::Sans},
     {.Spelled = "inter", .Is = Family::Sans},
     {.Spelled = "dejavu sans", .Is = Family::Sans},
-};
+}};
 
-constexpr const char *kFiles[] = {"DejaVuSans.ttf", "DejaVuSerif.ttf", "DejaVuSansMono.ttf"};
+constexpr std::array<const char *, 3> kFiles = {
+    {"DejaVuSans.ttf", "DejaVuSerif.ttf", "DejaVuSansMono.ttf"}};
 static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == static_cast<size_t>(Family::kCount),
               "every family the catalogue offers names the file it is set in");
 

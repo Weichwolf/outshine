@@ -37,7 +37,7 @@ struct Named {
   Property What;
 };
 
-const Named kProperties[] = {
+std::array<const Named, 48> kProperties = {{
     {.Spelling = "display", .What = Property::Display},
     {.Spelling = "position", .What = Property::Position},
     {.Spelling = "box-sizing", .What = Property::BoxSizing},
@@ -86,14 +86,14 @@ const Named kProperties[] = {
     {.Spelling = "text-align", .What = Property::TextAlign},
     {.Spelling = "white-space", .What = Property::WhiteSpace},
     {.Spelling = "font-family", .What = Property::FontFamily},
-};
+}};
 
 struct NamedColour {
   const char *Spelling;
   uint32_t Rgba;
 };
 
-const NamedColour kColours[] = {
+std::array<const NamedColour, 66> kColours = {{
     {.Spelling = "transparent", .Rgba = 0x00000000},
     {.Spelling = "black", .Rgba = 0x000000FF},
     {.Spelling = "white", .Rgba = 0xFFFFFFFF},
@@ -160,7 +160,7 @@ const NamedColour kColours[] = {
     {.Spelling = "slategrey", .Rgba = 0x708090FF},
     {.Spelling = "dimgray", .Rgba = 0x696969FF},
     {.Spelling = "dimgrey", .Rgba = 0x696969FF},
-};
+}};
 
 int HexOf(char c) {
   if (c >= '0' && c <= '9') { return c - '0'; }
@@ -260,10 +260,10 @@ Property PropertyNamed(std::string_view name) {
 
 struct Vocabulary {
   Property What;
-  const char *Words[14];
+  std::array<const char *, 14> Words;
 };
 
-const Vocabulary kVocabularies[] = {
+std::array<const Vocabulary, 12> kVocabularies = {{
     {.What = Property::Display,
      .Words = {"block", "flex", "inline", "none", "inline-flex", nullptr}},
     {.What = Property::Position, .Words = {"static", "relative", nullptr}},
@@ -321,7 +321,7 @@ const Vocabulary kVocabularies[] = {
                nullptr}},
     {.What = Property::TextAlign, .Words = {"left", "right", "center", nullptr}},
     {.What = Property::WhiteSpace, .Words = {"normal", "pre", nullptr}},
-};
+}};
 
 [[nodiscard]] static bool WordIsHeld(Property what, const Value &value) {
   if (value.How != Unit::Keyword) { return true; }
@@ -798,7 +798,7 @@ struct Boundary {
   const char *Why;
 };
 
-const Boundary kBoundaries[] = {
+std::array<const Boundary, 136> kBoundaries = {{
 
     {.Name = "float",
      .Why = "an interface is laid out by flow and flexbox; a float solves a document's problem"},
@@ -982,7 +982,7 @@ const Boundary kBoundaries[] = {
 
     {.Name = "a script in the document decides this layout",
      .Why = "this engine runs a declared handler and never a document's own program"},
-};
+}};
 
 } // namespace
 

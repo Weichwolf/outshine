@@ -61,17 +61,17 @@ bool Space(char c) {
 
 size_t SpaceRun(std::string_view text, size_t at) {
   if (Space(text[at])) { return 1; }
-  static const char *const kWide[] = {"\xC2\xA0",
-                                      "\xE2\x80\xA8",
-                                      "\xE2\x80\xA9",
-                                      "\xEF\xBB\xBF",
-                                      "\xE2\x80\x80",
-                                      "\xE2\x80\x81",
-                                      "\xE2\x80\x82",
-                                      "\xE2\x80\x83",
-                                      "\xE2\x80\x89",
-                                      "\xE2\x80\xAF",
-                                      "\xE3\x80\x80"};
+  static std::array<const char *const, 11> kWide = {{"\xC2\xA0",
+                                                     "\xE2\x80\xA8",
+                                                     "\xE2\x80\xA9",
+                                                     "\xEF\xBB\xBF",
+                                                     "\xE2\x80\x80",
+                                                     "\xE2\x80\x81",
+                                                     "\xE2\x80\x82",
+                                                     "\xE2\x80\x83",
+                                                     "\xE2\x80\x89",
+                                                     "\xE2\x80\xAF",
+                                                     "\xE3\x80\x80"}};
   for (const char *wide : kWide) {
     const size_t length = std::char_traits<char>::length(wide);
     if (text.compare(at, length, wide) == 0) { return length; }
@@ -87,14 +87,15 @@ bool Continues(char c) {
   return Starts(c) || (c >= '0' && c <= '9');
 }
 
-constexpr const char *kReserved[] = {
-    "new",   "typeof", "void",     "delete", "instanceof", "in",      "function", "class",  "await",
-    "yield", "async",  "throw",    "try",    "catch",      "finally", "switch",   "case",   "for",
-    "do",    "break",  "continue", "return", "this",       "super",   "export",   "import", "with"};
+constexpr std::array<const char *, 27> kReserved = {
+    {"new",     "typeof", "void",  "delete", "instanceof", "in",    "function",
+     "class",   "await",  "yield", "async",  "throw",      "try",   "catch",
+     "finally", "switch", "case",  "for",    "do",         "break", "continue",
+     "return",  "this",   "super", "export", "import",     "with"}};
 
-constexpr const char *kMarks[] = {"++", "--", "==", "!=", "<=", ">=", "&&", "||", "(",
-                                  ")",  "{",  "}",  "[",  "]",  ";",  ",",  ".",  "+",
-                                  "-",  "*",  "/",  "%",  "<",  ">",  "=",  "!"};
+constexpr std::array<const char *, 26> kMarks = {
+    {"++", "--", "==", "!=", "<=", ">=", "&&", "||", "(", ")", "{", "}", "[",
+     "]",  ";",  ",",  ".",  "+",  "-",  "*",  "/",  "%", "<", ">", "=", "!"}};
 
 std::string Where(std::string_view text, size_t at) {
   size_t line = 1;
@@ -433,17 +434,17 @@ bool ReadPrimary(Reading &in, size_t &out) {
 }
 
 struct Level {
-  const char *Marks[4];
+  std::array<const char *, 4> Marks;
 };
 
-constexpr Level kLevels[] = {
+constexpr std::array<Level, 6> kLevels = {{
     {{"||", nullptr, nullptr, nullptr}},
     {{"&&", nullptr, nullptr, nullptr}},
     {{"==", "!=", nullptr, nullptr}},
     {{"<", "<=", ">", ">="}},
     {{"+", "-", nullptr, nullptr}},
     {{"*", "/", "%", nullptr}},
-};
+}};
 constexpr size_t kLevelCount = sizeof(kLevels) / sizeof(kLevels[0]);
 
 bool ReadBinary(Reading &in, size_t level, size_t &out) {
@@ -694,7 +695,7 @@ struct Boundary {
   const char *Why;
 };
 
-const Boundary kBoundaries[] = {
+std::array<const Boundary, 85> kBoundaries = {{
 
     {.Name = "token:function",
      .Why = "a script here is a handler; one that defines callables has a lifetime to bound"},
@@ -806,7 +807,7 @@ const Boundary kBoundaries[] = {
             "fixture"},
     {.Name = "the script nests past the depth bound", .Why = "the same, in depth"},
     {.Name = "the script reaches the node bound", .Why = "the same, in size"},
-};
+}};
 
 } // namespace
 

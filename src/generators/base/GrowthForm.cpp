@@ -1,5 +1,6 @@
 #include "GrowthForm.h"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -13,7 +14,7 @@ struct Profile {
   float A, B;
 };
 
-constexpr Profile kProfiles[] = {
+constexpr std::array<Profile, 10> kProfiles = {{
     {.A = 0.00f, .B = 0.00f},
     {.A = 0.00f, .B = 1.00f},
     {.A = 0.10f, .B = 0.10f},
@@ -24,7 +25,7 @@ constexpr Profile kProfiles[] = {
     {.A = 2.50f, .B = 0.30f},
     {.A = 1.60f, .B = 0.10f},
     {.A = 0.00f, .B = 0.00f},
-};
+}};
 
 constexpr float kFloor = 0.05f;
 

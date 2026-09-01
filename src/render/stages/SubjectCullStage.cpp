@@ -145,18 +145,18 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  SDL_GPUBuffer *const read[5] = {resident.ClusterSpheres.Get(),
-                                  resident.ClusterJobs.Get(),
-                                  resident.Placed.Get(),
-                                  resident.DrawArgs.Get(),
-                                  PyramidBuffer_ != nullptr ? PyramidBuffer_
-                                                            : resident.ClusterSpheres.Get()};
+  std::array<SDL_GPUBuffer *const, 5> read = {
+      resident.ClusterSpheres.Get(),
+      resident.ClusterJobs.Get(),
+      resident.Placed.Get(),
+      resident.DrawArgs.Get(),
+      PyramidBuffer_ != nullptr ? PyramidBuffer_ : resident.ClusterSpheres.Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
-  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 5);
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 5);
   Stood_ = true;
   SDL_DispatchGPUCompute(into.Dispatch, (jobs + CullShape.GroupX - 1u) / CullShape.GroupX, 1u, 1u);
   Swept_ = jobs;
@@ -169,13 +169,14 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
   if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  SDL_GPUBuffer *const read[2] = {resident.ClusterKept.Get(), resident.ClusterBatches.Get()};
+  std::array<SDL_GPUBuffer *const, 2> read = {resident.ClusterKept.Get(),
+                                              resident.ClusterBatches.Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Scan_.Get());
-  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 2);
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 2);
   SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
 }
 
@@ -184,16 +185,16 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  SDL_GPUBuffer *const read[4] = {resident.ClusterJobs.Get(),
-                                  resident.Idx.Get(),
-                                  resident.ClusterSlot.Get(),
-                                  resident.DrawArgs.Get()};
+  std::array<SDL_GPUBuffer *const, 4> read = {resident.ClusterJobs.Get(),
+                                              resident.Idx.Get(),
+                                              resident.ClusterSlot.Get(),
+                                              resident.DrawArgs.Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
-  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
+  SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
 }
 

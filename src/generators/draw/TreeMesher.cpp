@@ -291,7 +291,7 @@ void TreeMesher::Export(TreeMesh &out) {
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
     if (Dead_[fi] != 0u) { continue; }
     const Face &f = Faces_[fi];
-    const int tri[2][3] = {{f.A, f.B, f.C}, {f.A, f.C, f.D}};
+    const std::array<std::array<int, 3>, 2> tri = {{{f.A, f.B, f.C}, {f.A, f.C, f.D}}};
     const int nt = f.D < 0 ? 1 : 2;
     for (int ti = 0; ti < nt; ++ti) {
       const Vec3f a = Verts_[static_cast<size_t>(tri[ti][0])];

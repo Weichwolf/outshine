@@ -1,5 +1,6 @@
 #include "Buildings.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -15,9 +16,10 @@ constexpr double kBuiltDensityKgPerM3 = 300.0;
 Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 
 Span<const char *const> Buildings::NoteNames() const noexcept {
-  static constexpr const char *const kNames[kNotes] = {"footprints", "roofless", "highestRoofAglM"};
+  static constexpr std::array<const char *const, kNotes> kNames = {
+      "footprints", "roofless", "highestRoofAglM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return {kNames, kNotes};
+  return {kNames.data(), kNames.size()};
 }
 
 void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {

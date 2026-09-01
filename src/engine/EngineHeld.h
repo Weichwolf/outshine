@@ -245,7 +245,7 @@ struct Kept {
   std::optional<TableBook> Tabled;
   Audio::Mixer Sounding;
   bool Mixing = false;
-  std::vector<Audio::Heard> Sources[2];
+  std::array<std::vector<Audio::Heard>, 2> Sources;
   std::array<Audio::Listening, 2> Ear{};
   std::atomic<unsigned> Told{0};
 };

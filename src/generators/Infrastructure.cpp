@@ -1,4 +1,5 @@
 #include "Infrastructure.h"
+#include <array>
 #include <optional>
 #include <cstddef>
 #include <cstdint>
@@ -6,9 +7,9 @@
 namespace outshine::Generators {
 
 Span<const char *const> Infrastructure::NoteNames() const noexcept {
-  static constexpr const char *const kNames[kNotes] = {"ways", "widestWayM"};
+  static constexpr std::array<const char *const, kNotes> kNames = {"ways", "widestWayM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return {kNames, kNotes};
+  return {kNames.data(), kNames.size()};
 }
 
 std::optional<Infrastructure::Made>

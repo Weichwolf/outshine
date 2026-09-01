@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include "ScenarioRead.h"
 
@@ -43,7 +44,7 @@ struct Element {
   const char *Allowed = "";
 };
 
-const Element kGrammar[] = {
+std::array<const Element, 80> kGrammar = {{
     {.Path = "scenario",
      .Children =
          "world render lighting providers generators compositors assets placements surfaces kinds "
@@ -132,7 +133,7 @@ const Element kGrammar[] = {
     {.Path = "scenario/input/bind", .Children = "", .Required = "event action"},
     {.Path = "scenario/state", .Children = "persist"},
     {.Path = "scenario/state/persist", .Children = "", .Required = "what"},
-};
+}};
 
 bool Names(std::string_view list, std::string_view wanted) {
   while (!list.empty()) {

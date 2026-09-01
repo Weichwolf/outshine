@@ -102,8 +102,8 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
         ++binCount[bin];
       }
 
-      float leftCost[kBins - 1] = {};
-      float rightCost[kBins - 1] = {};
+      std::array<float, kBins - 1> leftCost = {};
+      std::array<float, kBins - 1> rightCost = {};
       Box sweep;
       uint32_t running = 0;
       for (int bin = 0; bin < kBins - 1; ++bin) {
@@ -202,7 +202,7 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
 
   for (size_t at = 0; at < triangles; ++at) {
     const uint32_t tri = work.Order[at];
-    float corner[3][3];
+    std::array<std::array<float, 3>, 3> corner;
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
       const uint32_t vertex =
           indices[static_cast<size_t>(tri) * 3u + static_cast<size_t>(corner_at)];
@@ -239,7 +239,7 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
   const size_t vertices = positionsM.Size() / 3u;
 
   for (size_t at = 0; at < Tris_.size(); ++at) {
-    float corner[3][3];
+    std::array<std::array<float, 3>, 3> corner;
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
       const uint32_t vertex = Corners_[at * 3u + static_cast<size_t>(corner_at)];
       for (int axis = 0; axis < 3; ++axis) {

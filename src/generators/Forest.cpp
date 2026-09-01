@@ -1,5 +1,6 @@
 #include "Forest.h"
 
+#include <array>
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>
@@ -39,20 +40,20 @@ Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const Alpin
 }
 
 Span<const char *const> Forest::NoteNames() const noexcept {
-  static constexpr const char *const kNames[kNotes] = {"noTemplate",
-                                                       "noSpecies",
-                                                       "zeroDensity",
-                                                       "densityDraw",
-                                                       "aboveTreeline",
-                                                       "tooSteep",
-                                                       "woodyDraw",
-                                                       "highestStandAslM"};
+  static constexpr std::array<const char *const, kNotes> kNames = {"noTemplate",
+                                                                   "noSpecies",
+                                                                   "zeroDensity",
+                                                                   "densityDraw",
+                                                                   "aboveTreeline",
+                                                                   "tooSteep",
+                                                                   "woodyDraw",
+                                                                   "highestStandAslM"};
   static_assert(sizeof(Forest::Stem) == 24, "sizeof(Forest::Stem)");
   static_assert(std::is_trivially_copyable<Forest::Stem>::value, "a stem is copied per cell");
   static_assert(Forest::kSpeciesTableBytes == 1536, "the species table's bytes");
 
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
-  return {kNames, kNotes};
+  return {kNames.data(), kNames.size()};
 }
 
 Forest::Lattice Forest::Of(const Tile &region) {

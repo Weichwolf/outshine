@@ -4,6 +4,7 @@
 #include "Geodesy.h"
 #include "TerrainLoader.h"
 
+#include <array>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -305,12 +306,12 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       }
     }
     for (uint32_t k = 0; k + 1 < c.PointCount; k++) {
-      const double *q[6] = {&L[static_cast<size_t>(k) * 3],
-                            &R[static_cast<size_t>(k) * 3],
-                            &R[static_cast<size_t>(k + 1) * 3],
-                            &L[static_cast<size_t>(k) * 3],
-                            &R[static_cast<size_t>(k + 1) * 3],
-                            &L[static_cast<size_t>(k + 1) * 3]};
+      std::array<const double *, 6> q = {&L[static_cast<size_t>(k) * 3],
+                                         &R[static_cast<size_t>(k) * 3],
+                                         &R[static_cast<size_t>(k + 1) * 3],
+                                         &L[static_cast<size_t>(k) * 3],
+                                         &R[static_cast<size_t>(k + 1) * 3],
+                                         &L[static_cast<size_t>(k + 1) * 3]};
       for (auto &t : q) {
         out.push_back(static_cast<float>(t[0]));
         out.push_back(static_cast<float>(t[1]));

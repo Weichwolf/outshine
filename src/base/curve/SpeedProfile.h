@@ -112,7 +112,7 @@ private:
   Bound Slowest_;
   Bound SlowestBound_;
   Bound Fastest_;
-  size_t Bound_[static_cast<size_t>(Held::kCount)] = {};
+  std::array<size_t, static_cast<size_t>(Held::kCount)> Bound_ = {};
 
   static constexpr size_t kSpeedBins = 512;
 

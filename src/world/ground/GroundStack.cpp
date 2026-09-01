@@ -1,3 +1,4 @@
+#include <array>
 #include <chrono>
 #include "GroundStack.h"
 
@@ -96,14 +97,14 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
   Cls_.Update(*Pool_, lat, lon, budgetMs);
   if (!Vegetated_) { return; }
   if (!Vectors_) {
-    const std::string layers[] = {OsmLayerName(OsmLayer::Buildings),
-                                  OsmLayerName(OsmLayer::WaterPolygons),
-                                  OsmLayerName(OsmLayer::WaterLines),
-                                  OsmLayerName(OsmLayer::Streets),
-                                  OsmLayerName(OsmLayer::StreetPolygons)};
+    std::array<const std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
+                                                OsmLayerName(OsmLayer::WaterPolygons),
+                                                OsmLayerName(OsmLayer::WaterLines),
+                                                OsmLayerName(OsmLayer::Streets),
+                                                OsmLayerName(OsmLayer::StreetPolygons)}};
     const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
     if (zoom <= 0) { return; }
-    Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers, 5));
+    Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
     WaterBodies_.AnchorAt(Cls_.OriginEcef());
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }

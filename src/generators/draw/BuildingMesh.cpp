@@ -255,7 +255,7 @@ private:
 
   Raised &Out_;
   std::unordered_map<uint64_t, uint32_t> Welded_;
-  std::unordered_map<uint64_t, uint32_t> Corners_[2];
+  std::array<std::unordered_map<uint64_t, uint32_t>, 2> Corners_;
   std::vector<uint32_t> Face_;
   Vec3 Origin_, East_, North_, Up_;
   double ReachM_ = 0.0;
@@ -272,7 +272,7 @@ public:
       : HighM_(seatAslM - baseAslM), LowM_(footAslM - baseAslM) {
     const size_t n = std::min(cornerAslM.Size(), ringLatLon.Size() / 2);
     if (n < 3) { return; }
-    double m[3][4] = {};
+    std::array<std::array<double, 4>, 3> m = {};
     for (size_t k = 0; k < n; k++) {
       double e = 0.0;
       double nn = 0.0;

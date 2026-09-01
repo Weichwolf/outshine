@@ -2919,12 +2919,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
   Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
   {
-    static const char *const kSky[3] = {"the ambient the sky casts, red",
-                                        "the ambient the sky casts, green",
-                                        "the ambient the sky casts, blue"};
-    static const char *const kGround[3] = {"the ambient the ground bounces, red",
-                                           "the ambient the ground bounces, green",
-                                           "the ambient the ground bounces, blue"};
+    static std::array<const char *const, 3> kSky = {"the ambient the sky casts, red",
+                                                    "the ambient the sky casts, green",
+                                                    "the ambient the sky casts, blue"};
+    static std::array<const char *const, 3> kGround = {"the ambient the ground bounces, red",
+                                                       "the ambient the ground bounces, green",
+                                                       "the ambient the ground bounces, blue"};
     for (size_t at = 0; at < 3; ++at) {
       Published.Places(kSky[at], Picture.Standing->AmbientStood()[at], "");
       Published.Places(kGround[at], Picture.Standing->GroundStood()[at], "");
