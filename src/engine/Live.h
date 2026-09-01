@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_ENGINE_LIVE_H
 #define OUTSHINE_ENGINE_LIVE_H
 
+#include <span>
+#include <array>
 #include "Shape.h"
 #include <cstdint>
 #include <memory>
@@ -61,7 +63,7 @@ struct Declaration {
   double PictureLeftFrac = 0.0, PictureTopFrac = 0.0;
   double PictureWidthFrac = 0.0, PictureHeightFrac = 0.0;
 
-  double IndirectLight[3] = {0.0, 0.0, 0.0};
+  std::array<double, 3> IndirectLight = {0.0, 0.0, 0.0};
   double KeyLux = 0.0;
 
   double Exposure = 0.0;
@@ -134,9 +136,9 @@ public:
 
   [[nodiscard]] double MeteredLux() const;
 
-  [[nodiscard]] const double *AmbientStood() const { return AmbientStood_; }
+  [[nodiscard]] std::span<const double, 3> AmbientStood() const { return AmbientStood_; }
 
-  [[nodiscard]] const double *GroundStood() const { return GroundStood_; }
+  [[nodiscard]] std::span<const double, 3> GroundStood() const { return GroundStood_; }
 
   [[nodiscard]] double CarryMs() const { return CarryMs_; }
 
@@ -169,10 +171,13 @@ public:
 
   [[nodiscard]] const double *ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }
 
-  [[nodiscard]] bool
-  Carry(size_t body, const double worldFromBodyM[16], const double built[16], std::string &error);
-  [[nodiscard]] bool
-  Carry(const double worldFromBodyM[16], const double built[16], std::string &error);
+  [[nodiscard]] bool Carry(size_t body,
+                           std::span<const double, 16> worldFromBodyM,
+                           std::span<const double, 16> built,
+                           std::string &error);
+  [[nodiscard]] bool Carry(std::span<const double, 16> worldFromBodyM,
+                           std::span<const double, 16> built,
+                           std::string &error);
 
   [[nodiscard]] bool Present(std::string &error);
   [[nodiscard]] bool Settle(std::string &error);
@@ -184,7 +189,8 @@ public:
   [[nodiscard]] bool
   ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error);
 
-  [[nodiscard]] bool PlacedBounds(double least[3], double most[3], std::string &error);
+  [[nodiscard]] bool
+  PlacedBounds(std::span<double, 3> least, std::span<double, 3> most, std::string &error);
 
   void SkyEye(double aboveGroundM);
 
@@ -199,7 +205,7 @@ public:
 
   [[nodiscard]] const Declaration &Standing() const { return Declared_; }
 
-  void Grounding(const double albedo[3]) {
+  void Grounding(std::span<const double, 3> albedo) {
     for (int channel = 0; channel < 3; ++channel) { GroundAlbedo_[channel] = albedo[channel]; }
   }
 
@@ -323,19 +329,19 @@ private:
   Render::SceneRenderer *Renderer_ = nullptr;
   Overlay Over_;
   Declaration Declared_;
-  double GroundAlbedo_[3] = {0.10, 0.13, 0.07};
+  std::array<double, 3> GroundAlbedo_ = {0.10, 0.13, 0.07};
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::Viewpoint Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
   std::vector<std::array<double, 16>> SentBody_;
-  std::array<double, 16> SentBuilt_;
+  std::array<double, 16> SentBuilt_{};
 
   struct Volume {
     bool Empty = true;
-    double LeastM[3] = {0.0, 0.0, 0.0};
-    double MostM[3] = {0.0, 0.0, 0.0};
+    std::array<double, 3> LeastM = {0.0, 0.0, 0.0};
+    std::array<double, 3> MostM = {0.0, 0.0, 0.0};
   };
 
   std::vector<Volume> PartBounds_;
@@ -357,14 +363,15 @@ private:
   double LampsMs_ = 0.0, LitMs_ = 0.0, MediumMs_ = 0.0, FramingMs_ = 0.0;
 
   size_t SkyIntegrations_ = 0;
-  double AmbientStood_[3] = {0.0, 0.0, 0.0};
-  double GroundStood_[3] = {0.0, 0.0, 0.0};
+  std::array<double, 3> AmbientStood_ = {0.0, 0.0, 0.0};
+  std::array<double, 3> GroundStood_ = {0.0, 0.0, 0.0};
 
-  void SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3]) const;
+  void
+  SunThroughTheAir(double cosSun, std::span<float, 3> sunReach, std::span<float, 3> skylight) const;
 
   mutable double AirStoodAt_ = -2.0;
-  mutable float SunReachStood_[3] = {0.0f, 0.0f, 0.0f};
-  mutable float SkylightStood_[3] = {0.0f, 0.0f, 0.0f};
+  mutable std::array<float, 3> SunReachStood_ = {0.0f, 0.0f, 0.0f};
+  mutable std::array<float, 3> SkylightStood_ = {0.0f, 0.0f, 0.0f};
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;

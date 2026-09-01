@@ -50,7 +50,7 @@ public:
 
   [[nodiscard]] size_t Placements() const { return Placed_ ? PartPlacement_.size() : 0; }
 
-  [[nodiscard]] const double *Anchor() const { return AnchorEcefM_; }
+  [[nodiscard]] std::span<const double, 3> Anchor() const { return AnchorEcefM_; }
 
   [[nodiscard]] const std::array<float, 3> &Emitted(size_t part) const {
     return EmittedRadiance_[part];
@@ -113,7 +113,7 @@ struct SubjectScratch {
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
                        const Shape &subject,
                        const Eye &view,
-                       const double anchorEcefM[3],
+                       std::span<const double, 3> anchorEcefM,
                        std::string &error);
 
 [[nodiscard]] bool Show(SceneRenderer &renderer,

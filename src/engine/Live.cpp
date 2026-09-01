@@ -1,3 +1,4 @@
+#include <span>
 #include <array>
 #include <chrono>
 #include "Live.h"
@@ -147,33 +148,41 @@ namespace {
 
 constexpr double kSolarIlluminanceLx = 133000.0;
 
-double Photopic(const float triple[3]) {
+double Photopic(std::span<const float, 3> triple) {
   return 0.2126 * static_cast<double>(triple[0]) + 0.7152 * static_cast<double>(triple[1]) +
          0.0722 * static_cast<double>(triple[2]);
 }
 
 } // namespace
 
-void Live::SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3]) const {
+void Live::SunThroughTheAir(double cosSun,
+                            std::span<float, 3> sunReach,
+                            std::span<float, 3> skylight) const {
   if (std::fabs(cosSun - AirStoodAt_) > 1.0e-6) {
     const Render::Medium medium;
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
-    const auto toSun = [&](float radiusKm, float cosZenith, float out[3]) {
-      Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
+    const auto toSun = [&](float radiusKm, float cosZenith, std::span<float, 3> out) {
+      Render::MediumTransmittance(
+          medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out.data());
     };
-    const auto secondOrder = [&](float radiusKm, float cosZenith, float out[3]) {
-      float luminance[3];
-      float transfer[3];
+    const auto secondOrder = [&](float radiusKm, float cosZenith, std::span<float, 3> out) {
+      std::array<float, 3> luminance{};
+      std::array<float, 3> transfer{};
       const float unitU = cosZenith * 0.5f + 0.5f;
       const float unitV =
           (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-      Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
+      Render::MediumMultiScatterTexel(
+          medium, unitU, unitV, toSun, luminance.data(), transfer.data());
       for (int channel = 0; channel < 3; ++channel) {
         out[channel] = luminance[channel] / (1.0f - transfer[channel]);
       }
     };
-    Render::MediumSkyIrradiance(
-        medium, stoodAt, static_cast<float>(cosSun), toSun, secondOrder, SkylightStood_);
+    Render::MediumSkyIrradiance(medium,
+                                stoodAt,
+                                static_cast<float>(cosSun),
+                                toSun,
+                                secondOrder,
+                                std::span<float, 3>(SkylightStood_).data());
     toSun(stoodAt, static_cast<float>(cosSun), SunReachStood_);
     AirStoodAt_ = cosSun;
   }
@@ -186,8 +195,8 @@ void Live::SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3])
 double Live::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
   const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
-  float sunReach[3];
-  float skylight[3];
+  std::array<float, 3> sunReach{};
+  std::array<float, 3> skylight{};
   SunThroughTheAir(cosSun, sunReach, skylight);
   const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
   return kSolarIlluminanceLx * (straightDown * Photopic(sunReach) + Photopic(skylight));
@@ -392,10 +401,10 @@ bool Live::Build(std::string &error) {
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
-    double least[3];
-    double most[3];
+    std::array<double, 3> least{};
+    std::array<double, 3> most{};
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least, most);
+    Shaped_.BoundsOf(Joined_, least.data(), most.data());
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
@@ -469,24 +478,26 @@ bool Live::Build(std::string &error) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
-    const float toSun[3] = {static_cast<float>(std::cos(elevation) * std::sin(bearing)),
-                            static_cast<float>(std::sin(elevation)),
-                            static_cast<float>(std::cos(elevation) * std::cos(bearing))};
-    const float up[3] = {0.0f, 1.0f, 0.0f};
+    std::array<float, 3> toSun = {static_cast<float>(std::cos(elevation) * std::sin(bearing)),
+                                  static_cast<float>(std::sin(elevation)),
+                                  static_cast<float>(std::cos(elevation) * std::cos(bearing))};
+    std::array<float, 3> up = {0.0f, 1.0f, 0.0f};
 
     Renderer_->SetSky(
-        toSun,
-        up,
+        toSun.data(),
+        up.data(),
         static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
         0.0f);
-    if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
+    if (ShadowRadiusStoodM_ > 0.0) {
+      Renderer_->SetShadowFrame(toSun.data(), up.data(), ShadowRadiusStoodM_);
+    }
   }
 
-  const double eye[3] = {0.0, 0.0, 0.0};
-  const double forward[3] = {0.0, 0.0, -1.0};
-  const double right[3] = {1.0, 0.0, 0.0};
-  const double up[3] = {0.0, 1.0, 0.0};
-  Renderer_->SetCameraBasis(eye, forward, right, up);
+  std::array<double, 3> eye = {0.0, 0.0, 0.0};
+  std::array<double, 3> forward = {0.0, 0.0, -1.0};
+  std::array<double, 3> right = {1.0, 0.0, 0.0};
+  std::array<double, 3> up = {0.0, 1.0, 0.0};
+  Renderer_->SetCameraBasis(eye.data(), forward.data(), right.data(), up.data());
 
   if (Shaped_.TriangleCount() > 0) {
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac,
@@ -573,12 +584,12 @@ bool Live::PartVolumes(std::string &error) {
   return true;
 }
 
-bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
+bool Live::PlacedBounds(std::span<double, 3> least, std::span<double, 3> most, std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
   bool first = true;
-  double leastM[3] = {0.0, 0.0, 0.0};
-  double mostM[3] = {0.0, 0.0, 0.0};
+  std::array<double, 3> leastM = {0.0, 0.0, 0.0};
+  std::array<double, 3> mostM = {0.0, 0.0, 0.0};
   const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < framed; ++part) {
     const Volume &held = PartBounds_[part];
@@ -586,9 +597,9 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
     const std::array<double, 16> &placed =
         part < Stood_.Parts() ? Stood_.Placement(part) : identity;
     for (uint32_t corner = 0; corner < 8u; ++corner) {
-      const double from[3] = {((corner & 1u) != 0) ? held.MostM[0] : held.LeastM[0],
-                              ((corner & 2u) != 0) ? held.MostM[1] : held.LeastM[1],
-                              ((corner & 4u) != 0) ? held.MostM[2] : held.LeastM[2]};
+      std::array<double, 3> from = {((corner & 1u) != 0) ? held.MostM[0] : held.LeastM[0],
+                                    ((corner & 2u) != 0) ? held.MostM[1] : held.LeastM[1],
+                                    ((corner & 4u) != 0) ? held.MostM[2] : held.LeastM[2]};
       for (int axis = 0; axis < 3; ++axis) {
         const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
                            placed[8 + axis] * from[2] + placed[12 + axis];
@@ -614,31 +625,31 @@ bool Live::Look(std::string &error) {
     return Render::Aim(
         *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
   }
-  double least[3];
-  double most[3];
+  std::array<double, 3> least{};
+  std::array<double, 3> most{};
   if (!PlacedBounds(least, most, error)) { return false; }
   Gltf::Viewpoint fromFile;
-  if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
+  if (!Gltf::FramingFor(least.data(), most.data(), fromFile, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
   framed = fromFile;
-  const double centre[3] = {
+  std::array<double, 3> centre = {
       (least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5};
   const double turn = Around_ * std::numbers::pi / 180.0;
   const double cosine = std::cos(turn);
   const double sine = std::sin(turn);
-  const auto spun = [cosine, sine](const double from[3], double out[3]) {
+  const auto spun = [cosine, sine](std::span<const double, 3> from, std::span<double, 3> out) {
     out[0] = from[0] * cosine + from[2] * sine;
     out[1] = from[1];
     out[2] = -from[0] * sine + from[2] * cosine;
   };
-  const double offset[3] = {
+  std::array<double, 3> offset = {
       framed.EyeM[0] - centre[0], framed.EyeM[1] - centre[1], framed.EyeM[2] - centre[2]};
-  double turned[3];
+  std::array<double, 3> turned{};
   spun(offset, turned);
   for (int axis = 0; axis < 3; ++axis) { framed.EyeM[axis] = centre[axis] + turned[axis]; }
-  double basis[3];
+  std::array<double, 3> basis{};
   spun(framed.Forward, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Forward[axis] = basis[axis]; }
   spun(framed.Right, basis);
@@ -661,14 +672,14 @@ bool Live::Stand(std::string &error) {
     return ms;
   };
   Stood_ = Render::SubjectProxy{};
-  const double anchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
+  std::array<double, 3> anchorEcefM = {Data::kWgs84A, 0.0, 0.0};
   Reshape();
   ReshapeAgainMs_ = sinceStand();
-  Stood_.Stands(Shaped_, anchorEcefM);
+  Stood_.Stands(Shaped_, anchorEcefM.data());
   ProxyStandsMs_ = sinceStand();
-  const double standingM16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  std::array<double, 16> standingM16 = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
-    if (!Stood_.Places(part, standingM16)) { return false; }
+    if (!Stood_.Places(part, standingM16.data())) { return false; }
   }
   Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
               .StandsInside = HaveEye_,
@@ -704,8 +715,8 @@ bool Live::Stand(std::string &error) {
     key.Kind = LightKind::Directional;
     key.Intensity = static_cast<float>(Declared_.KeyLux);
     if (Declared_.KeyFromClock) {
-      float sunReach[3];
-      float skylight[3];
+      std::array<float, 3> sunReach{};
+      std::array<float, 3> skylight{};
       SunThroughTheAir(std::sin(elevation), sunReach, skylight);
       key.Intensity = static_cast<float>(kSolarIlluminanceLx);
       for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = sunReach[channel]; }
@@ -723,8 +734,8 @@ bool Live::Stand(std::string &error) {
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
     const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
     const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-    float sunReach[3];
-    float skylight[3];
+    std::array<float, 3> sunReach{};
+    std::array<float, 3> skylight{};
     SunThroughTheAir(cosSun, sunReach, skylight);
     const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
     for (int channel = 0; channel < 3; ++channel) {
@@ -752,18 +763,18 @@ bool Live::Stand(std::string &error) {
   if (declared) { eye = placed; }
   Looking_.Eye = eye;
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
-    double least[3];
-    double most[3];
+    std::array<double, 3> least{};
+    std::array<double, 3> most{};
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least, most);
+    Shaped_.BoundsOf(Joined_, least.data(), most.data());
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int sample = 1; sample < Sweeps(); ++sample) {
       if (!Measure(Seconds(sample), error)) { return false; }
-      double posedLeast[3];
-      double posedMost[3];
-      Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
+      std::array<double, 3> posedLeast{};
+      std::array<double, 3> posedMost{};
+      Shaped_.BoundsOf(Joined_, posedLeast.data(), posedMost.data());
       for (int axis = 0; axis < 3; ++axis) {
         least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
         most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
@@ -771,7 +782,7 @@ bool Live::Stand(std::string &error) {
     }
     if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
     Gltf::Viewpoint fitted;
-    if (!Gltf::FramingFor(least, most, fitted, Framing())) {
+    if (!Gltf::FramingFor(least.data(), most.data(), fitted, Framing())) {
       error = "the subject has no extent over its own grid, so no camera can be derived from it";
       return false;
     }
@@ -928,23 +939,25 @@ bool Live::Carries(size_t bodies, std::string &error) {
     if (!Submit(error)) { return false; }
   }
   if (SentBody_.size() != bodies) {
-    std::array<double, 16> unsent;
+    std::array<double, 16> unsent{};
     unsent.fill(std::numeric_limits<double>::quiet_NaN());
     SentBody_.resize(bodies, unsent);
   }
   return true;
 }
 
-bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::string &error) {
+bool Live::Carry(std::span<const double, 16> worldFromBodyM,
+                 std::span<const double, 16> built,
+                 std::string &error) {
   return Carry(0, worldFromBodyM, built, error);
 }
 
 bool Live::Carry(size_t body,
-                 const double worldFromBodyM[16],
-                 const double built[16],
+                 std::span<const double, 16> worldFromBodyM,
+                 std::span<const double, 16> built,
                  std::string &error) {
   const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
-  double bodyM[16];
+  std::array<double, 16> bodyM{};
   for (int column = 0; column < 4; ++column) {
     for (int row = 0; row < 4; ++row) {
       bodyM[column * 4 + row] = column < 3 ? worldFromBodyM[column * 4 + row] * perUnit
@@ -964,7 +977,7 @@ bool Live::Carry(size_t body,
     return false;
   }
   if (SentBody_.empty()) {
-    std::array<double, 16> unsent;
+    std::array<double, 16> unsent{};
     unsent.fill(std::numeric_limits<double>::quiet_NaN());
     SentBody_.resize(1, unsent);
   }
@@ -985,27 +998,28 @@ bool Live::Carry(size_t body,
   const size_t joined = Joined_ < parts ? Joined_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
-      if (!Stood_.Places(part, body, bodyM)) { return false; }
+      if (!Stood_.Places(part, body, bodyM.data())) { return false; }
     }
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      if (!Stood_.Places(part, body, built)) { return false; }
+      if (!Stood_.Places(part, body, built.data())) { return false; }
     }
   }
   PartBounds_.clear();
   Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
 
-  double ecef[16];
+  std::array<double, 16> ecef{};
   if (bodyMoved && joined > 0) {
     for (int at = 0; at < 16; ++at) { ecef[at] = bodyM[at]; }
-    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, ecef, error)) {
+    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, ecef.data(), error)) {
       return false;
     }
   }
   if (builtMoved && joined < parts) {
     for (int at = 0; at < 16; ++at) { ecef[at] = built[at]; }
-    if (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, ecef, error)) {
+    if (!Render::MovedInstance(
+            *Renderer_, rows, instances, body, joined, parts, ecef.data(), error)) {
       return false;
     }
   }

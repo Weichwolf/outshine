@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_RENDER_VIEWING_H
 #define OUTSHINE_RENDER_VIEWING_H
 
+#include <span>
+#include <array>
 #include <cmath>
 #include "Scenario.h"
 #include <numbers>
@@ -11,10 +13,10 @@ namespace outshine::Render {
 enum class CameraKind : uint8_t { Perspective, Orthographic };
 
 struct Viewpoint {
-  double EyeM[3] = {0, 0, 0};
-  double Forward[3] = {0, 0, -1};
-  double Right[3] = {1, 0, 0};
-  double Up[3] = {0, 1, 0};
+  std::array<double, 3> EyeM = {0, 0, 0};
+  std::array<double, 3> Forward = {0, 0, -1};
+  std::array<double, 3> Right = {1, 0, 0};
+  std::array<double, 3> Up = {0, 1, 0};
 
   CameraKind Kind = CameraKind::Perspective;
   double YfovRad = 0;
@@ -23,22 +25,27 @@ struct Viewpoint {
   double ZNearM = 0;
   double ZFarM = 0;
 
-  [[nodiscard]] static bool
-  LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out);
-  [[nodiscard]] static bool
-  LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out);
+  [[nodiscard]] static bool LookAt(std::span<const double, 3> eyeM,
+                                   std::span<const double, 3> aimM,
+                                   double rollRad,
+                                   Viewpoint &out);
+  [[nodiscard]] static bool LookAt(std::span<const double, 3> eyeM,
+                                   std::span<const double, 3> aimM,
+                                   std::span<const double, 3> upM,
+                                   Viewpoint &out);
 };
 
 namespace Aiming {
 
-inline bool Normalise(double v[3]) {
+inline bool Normalise(std::span<double, 3> v) {
   const double len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   if (!(len > 0.0)) { return false; }
   for (int axis = 0; axis < 3; ++axis) { v[axis] /= len; }
   return true;
 }
 
-inline void Cross(const double a[3], const double b[3], double out[3]) {
+inline void
+Cross(std::span<const double, 3> a, std::span<const double, 3> b, std::span<double, 3> out) {
   out[0] = a[1] * b[2] - a[2] * b[1];
   out[1] = a[2] * b[0] - a[0] * b[2];
   out[2] = a[0] * b[1] - a[1] * b[0];
@@ -46,15 +53,17 @@ inline void Cross(const double a[3], const double b[3], double out[3]) {
 
 } // namespace Aiming
 
-inline bool
-Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Viewpoint &out) {
-  double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
+inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
+                              std::span<const double, 3> aimM,
+                              double rollRad,
+                              Viewpoint &out) {
+  std::array<double, 3> forward = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Aiming::Normalise(forward)) { return false; }
-  const double worldUp[3] = {0, 1, 0};
-  double right[3];
+  std::array<double, 3> worldUp = {0, 1, 0};
+  std::array<double, 3> right{};
   Aiming::Cross(forward, worldUp, right);
   if (!Aiming::Normalise(right)) { return false; }
-  double up[3];
+  std::array<double, 3> up{};
   Aiming::Cross(right, forward, up);
 
   const double turn = std::cos(rollRad);
@@ -68,14 +77,16 @@ Viewpoint::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Vi
   return true;
 }
 
-inline bool
-Viewpoint::LookAt(const double eyeM[3], const double aimM[3], const double upM[3], Viewpoint &out) {
-  double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
+inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
+                              std::span<const double, 3> aimM,
+                              std::span<const double, 3> upM,
+                              Viewpoint &out) {
+  std::array<double, 3> forward = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Aiming::Normalise(forward)) { return false; }
-  double right[3];
+  std::array<double, 3> right{};
   Aiming::Cross(forward, upM, right);
   if (!Aiming::Normalise(right)) { return false; }
-  double up[3];
+  std::array<double, 3> up{};
   Aiming::Cross(right, forward, up);
   for (int axis = 0; axis < 3; ++axis) {
     out.EyeM[axis] = eyeM[axis];
