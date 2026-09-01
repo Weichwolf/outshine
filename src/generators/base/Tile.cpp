@@ -44,7 +44,7 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
 }
 
 Tile Tile::Of(int zoom, double lat, double lon) {
-  const double scale = static_cast<double>(1u << static_cast<unsigned>(zoom));
+  const auto scale = static_cast<double>(1u << static_cast<unsigned>(zoom));
   const double s = std::sin(lat * kDeg2Rad);
   const int x = static_cast<int>(std::floor((lon + 180.0) / 360.0 * scale));
   const int y =

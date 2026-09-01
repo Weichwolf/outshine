@@ -70,7 +70,7 @@ bool OverlayDraw::Configure(const Gpu &gpu,
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (!made) {
+  if (made == nullptr) {
     error = std::string("the overlay's pipeline was refused: ") + SDL_GetError();
     return false;
   }
@@ -105,7 +105,7 @@ bool OverlayDraw::SetAtlas(
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
   SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer);
-  if (!staging) {
+  if (staging == nullptr) {
     error = std::string("the overlay atlas has no staging buffer: ") + SDL_GetError();
     return false;
   }
@@ -143,7 +143,7 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
   Count = static_cast<uint32_t>(count);
   if (count == 0) { return true; }
 
-  const uint32_t bytes = static_cast<uint32_t>(count * sizeof(OverlayQuad));
+  const auto bytes = static_cast<uint32_t>(count * sizeof(OverlayQuad));
 
   if (!Verts || Capacity < count) {
     SDL_GPUBufferCreateInfo wanted{};
@@ -162,7 +162,7 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
   SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(gpu.Device, &wantedTransfer);
-  if (!staging) {
+  if (staging == nullptr) {
     error = std::string("the overlay's rectangles have no staging buffer: ") + SDL_GetError();
     return false;
   }

@@ -169,7 +169,7 @@ Cooked CookDag(std::span<const float> positionsM,
 
     std::unordered_map<Cell, uint32_t, CellHash> stood;
     std::vector<uint32_t> standsFor(coarseIndex.size(), 0u);
-    const uint32_t firstMade = static_cast<uint32_t>(out.PositionsM.size() / 3);
+    const auto firstMade = static_cast<uint32_t>(out.PositionsM.size() / 3);
     std::vector<double> summed;
     std::vector<uint32_t> counted;
     for (size_t at = 0; at < coarseIndex.size(); ++at) {
@@ -268,7 +268,7 @@ Cooked CookDag(std::span<const float> positionsM,
     }
 
     firstOfLevel = out.Clusters.size();
-    const uint32_t rebase = static_cast<uint32_t>(out.Index.size());
+    const auto rebase = static_cast<uint32_t>(out.Index.size());
     for (const DagCluster &one : above.Clusters) {
       DagCluster carried = one;
       carried.First = rebase + one.First;

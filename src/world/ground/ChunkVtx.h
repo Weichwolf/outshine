@@ -32,7 +32,7 @@ struct Chunk {
 };
 
 inline void ChunkFree(Chunk *c) {
-  if (!c) { return; }
+  if (c == nullptr) { return; }
   free(c->verts);
   c->verts = 0;
   c->nverts = 0;

@@ -20,7 +20,7 @@ bool GroundMaterials::Load(const char *path) {
   Error_.clear();
 
   FILE *f = fopen(path, "rb");
-  if (!f) {
+  if (f == nullptr) {
     Error_ = std::string("open failed: ") + path;
     return false;
   }

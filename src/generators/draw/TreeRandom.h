@@ -7,7 +7,7 @@ namespace outshine::Generators {
 
 class TreeRandom {
 public:
-  explicit TreeRandom(uint32_t seed) : State_(seed ? seed : 0x9e3779b9u) {}
+  explicit TreeRandom(uint32_t seed) : State_((seed != 0u) ? seed : 0x9e3779b9u) {}
 
   uint32_t Next() {
     uint32_t x = State_;

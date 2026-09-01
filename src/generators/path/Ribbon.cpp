@@ -41,7 +41,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     return out;
   }
 
-  const size_t whole = static_cast<size_t>((toM - fromM) / stepM);
+  const auto whole = static_cast<size_t>((toM - fromM) / stepM);
   const bool onGrid = fromM + static_cast<double>(whole) * stepM == toM;
   const size_t stations = whole + (onGrid ? 1 : 2);
   if (stations > kMaxRibbonStations) {
@@ -106,7 +106,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     }
   }
 
-  const uint32_t perStation = static_cast<uint32_t>(kRibbonAcross * 2);
+  const auto perStation = static_cast<uint32_t>(kRibbonAcross * 2);
   for (size_t station = 0; station + 1 < stations; ++station) {
     const uint32_t here = static_cast<uint32_t>(station) * perStation;
     const uint32_t next = here + perStation;
@@ -118,7 +118,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
                         here + which + 1,
                         next + which,
                         next + which + 1});
-      const uint32_t under = static_cast<uint32_t>(kRibbonAcross);
+      const auto under = static_cast<uint32_t>(kRibbonAcross);
       out.Index.insert(out.Index.end(),
                        {here + under + which,
                         here + under + which + 1,
@@ -127,7 +127,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
                         next + under + which + 1,
                         next + under + which});
     }
-    const uint32_t under = static_cast<uint32_t>(kRibbonAcross);
+    const auto under = static_cast<uint32_t>(kRibbonAcross);
     const uint32_t edge = static_cast<uint32_t>(kRibbonAcross) - 1;
     out.Index.insert(out.Index.end(), {here, here + under, next, next, here + under, next + under});
     out.Index.insert(out.Index.end(),
@@ -149,7 +149,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
     const double outward = atEnd ? 1.0 : -1.0;
     const double aheadE = std::cos(on.HeadingRad) * outward;
     const double aheadN = std::sin(on.HeadingRad) * outward;
-    const uint32_t base = static_cast<uint32_t>(out.PositionM.size() / 3);
+    const auto base = static_cast<uint32_t>(out.PositionM.size() / 3);
     const uint32_t ring = atEnd ? static_cast<uint32_t>((stations - 1) * kRibbonAcross * 2) : 0u;
     for (size_t which = 0; which < kRibbonAcross * 2; ++which) {
       const size_t from = (static_cast<size_t>(ring) + which) * 3;
@@ -157,7 +157,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
       Put(out.NormalM, aheadE, 0.0, -aheadN);
       out.AcrossM.push_back(out.AcrossM[static_cast<size_t>(ring) + which]);
     }
-    const uint32_t under = static_cast<uint32_t>(kRibbonAcross);
+    const auto under = static_cast<uint32_t>(kRibbonAcross);
     for (uint32_t which = 0; which + 1 < static_cast<uint32_t>(kRibbonAcross); ++which) {
       const uint32_t topA = base + which;
       const uint32_t topB = base + which + 1;

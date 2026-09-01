@@ -293,7 +293,7 @@ bool Xml::Parse(const char *text, size_t length) {
     }
 
     Nodes_.push_back(Node());
-    const uint32_t made = static_cast<uint32_t>(Nodes_.size() - 1);
+    const auto made = static_cast<uint32_t>(Nodes_.size() - 1);
     Nodes_[made].NameOff = static_cast<uint32_t>(name);
     Nodes_[made].NameLen = static_cast<uint32_t>(stop - name);
     Nodes_[made].FirstAttribute = static_cast<uint32_t>(Attributes_.size());

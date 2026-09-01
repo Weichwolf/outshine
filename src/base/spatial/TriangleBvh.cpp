@@ -55,7 +55,7 @@ struct Building {
 };
 
 uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
-  const uint32_t here = static_cast<uint32_t>(work.Nodes.size());
+  const auto here = static_cast<uint32_t>(work.Nodes.size());
   work.Nodes.emplace_back();
   work.Right.push_back(0);
   work.Depth = std::max(work.Depth, depth + 1u);

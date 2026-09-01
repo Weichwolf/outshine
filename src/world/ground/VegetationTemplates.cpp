@@ -21,7 +21,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Unmapped_ = 0;
 
   FILE *f = fopen(path, "rb");
-  if (!f) {
+  if (f == nullptr) {
     Error_ = std::string("open failed: ") + path;
     return false;
   }

@@ -45,7 +45,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
 
   const size_t points = plant.LeafPoints.size();
   const double oneM2 = lamina * static_cast<double>(ScaleM_) * static_cast<double>(ScaleM_);
-  const double h = static_cast<double>(species.HeightM());
+  const auto h = static_cast<double>(species.HeightM());
   CrownProjM2_ = 0.25 * std::numbers::pi * static_cast<double>(plant.BoxMax.X - plant.BoxMin.X) *
                  h * static_cast<double>(plant.BoxMax.Z - plant.BoxMin.Z) * h;
   if (points == 0 || oneM2 <= 0.0) { return; }

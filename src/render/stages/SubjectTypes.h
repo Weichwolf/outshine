@@ -83,8 +83,9 @@ struct SubjectMaterial {
   }
 
   [[nodiscard]] bool ReadsAnyImage() const {
-    return Colour.Rgba || Normal.Rgba || MetalRough.Rgba || Emissive.Rgba ||
-           SpecularStrength.Rgba || SpecularTint.Rgba;
+    return (Colour.Rgba != nullptr) || (Normal.Rgba != nullptr) || (MetalRough.Rgba != nullptr) ||
+           (Emissive.Rgba != nullptr) || (SpecularStrength.Rgba != nullptr) ||
+           (SpecularTint.Rgba != nullptr);
   }
 };
 

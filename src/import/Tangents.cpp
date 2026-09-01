@@ -419,7 +419,8 @@ void Basis::Emit(std::vector<double> &out) const {
 
 bool GenerateTangents(const TangentSubject &subject, std::vector<double> &out, std::string &error) {
   out.clear();
-  if (!subject.PositionsM || !subject.Normals || !subject.Uv || !subject.Indices) {
+  if ((subject.PositionsM == nullptr) || (subject.Normals == nullptr) || (subject.Uv == nullptr) ||
+      (subject.Indices == nullptr)) {
     error = "a tangent basis needs positions, normals, texture coordinates and indices, and one of "
             "the four was not handed over";
     return false;

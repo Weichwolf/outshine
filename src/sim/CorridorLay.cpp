@@ -178,7 +178,7 @@ bool LayCorridor(const Path::Route &route,
 
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   if (!fitted.Laid && fitted.Undrivable > 0) {
-    const size_t at = static_cast<size_t>(fitted.UndrivableAtM);
+    const auto at = static_cast<size_t>(fitted.UndrivableAtM);
     for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size();
          ++which) {
       char atLine[96];
@@ -366,7 +366,7 @@ bool LayCorridor(const Path::Route &route,
 
   out.Bake(fitted.LengthM);
   for (size_t at = 0; at < stations.size(); ++at) {
-    const size_t post = static_cast<size_t>(static_cast<double>(at) * fineM / spanM);
+    const auto post = static_cast<size_t>(static_cast<double>(at) * fineM / spanM);
     const size_t band = post < asideM.size() ? post : asideM.size() - 1;
     stations[at].AsideM = asideM[band];
     stations[at].EdgeM = halfWidthM[band];
@@ -716,7 +716,7 @@ bool LayCorridor(const Path::Route &route,
              "stations");
   say.Number("stations in all", static_cast<double>(profile.SampleCount()), "stations");
   for (size_t term = 0; term < static_cast<size_t>(SpeedProfile::Held::kCount); ++term) {
-    const SpeedProfile::Held which = static_cast<SpeedProfile::Held>(term);
+    const auto which = static_cast<SpeedProfile::Held>(term);
     say.Number(
         SpeedProfile::NameOf(which), static_cast<double>(profile.BoundBy(which)), "stations");
   }

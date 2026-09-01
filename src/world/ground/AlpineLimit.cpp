@@ -56,8 +56,8 @@ double AlpineLimit::Noise(double e, double n) const {
   const double y = n / JitterScaleM_;
   const double fx = std::floor(x);
   const double fy = std::floor(y);
-  const int32_t i = static_cast<int32_t>(fx);
-  const int32_t j = static_cast<int32_t>(fy);
+  const auto i = static_cast<int32_t>(fx);
+  const auto j = static_cast<int32_t>(fy);
   const double ux = x - fx;
   const double uy = y - fy;
   const double sx = ux * ux * (3.0 - 2.0 * ux);

@@ -226,7 +226,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   int leftPx = 0;
   int topPx = 0;
   if (rgba != nullptr && Packs(rgba->w, rgba->h, leftPx, topPx)) {
-    const uint8_t *from = static_cast<const uint8_t *>(rgba->pixels);
+    const auto *from = static_cast<const uint8_t *>(rgba->pixels);
     for (int row = 0; row < rgba->h; ++row) {
       uint8_t *into =
           Rgba_.data() + ((static_cast<size_t>(topPx + row) * static_cast<size_t>(SheetW_)) +
@@ -259,7 +259,7 @@ FontMetrics Typeface::At(double sizePx, Family family) const {
   if (set == nullptr) {
     return {.Advance = sizePx * 0.5, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
   }
-  const double ascent = static_cast<double>(TTF_GetFontAscent(set));
+  const auto ascent = static_cast<double>(TTF_GetFontAscent(set));
   const double descent = -static_cast<double>(TTF_GetFontDescent(set));
   return {.Advance = Cell0f(family, rounded, U' ').AdvancePx, .Ascent = ascent, .Descent = descent};
 }

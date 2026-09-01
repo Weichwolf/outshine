@@ -6,7 +6,7 @@
 namespace outshine::Ground {
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
-  if (!png || len == 0) { return NotHere(); }
+  if ((png == nullptr) || len == 0) { return NotHere(); }
 
   const Io::Png read = Io::ReadPng(png, len);
   if (!read.Read) {

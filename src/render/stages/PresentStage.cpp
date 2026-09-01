@@ -47,7 +47,7 @@ bool PresentStage::For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (!made) {
+  if (made == nullptr) {
     error = std::string("the present's pipeline was refused: ") + SDL_GetError();
     return false;
   }

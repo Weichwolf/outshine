@@ -104,7 +104,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   const size_t wanted = (stride + 1) * static_cast<size_t>(high);
 
   std::vector<uint8_t> raw(wanted);
-  uLongf got = static_cast<uLongf>(wanted);
+  auto got = static_cast<uLongf>(wanted);
   const int how =
       uncompress(raw.data(), &got, squeezed.data(), static_cast<uLong>(squeezed.size()));
   if (how != Z_OK || static_cast<size_t>(got) != wanted) {

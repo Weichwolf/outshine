@@ -19,8 +19,8 @@ size_t Write(const void *data, size_t size, size_t members, void *user) {
   const Sink *sink = static_cast<Sink *>(user);
   const size_t add = size * members;
 
-  if (sink->Max && sink->Out->size() + add > sink->Max) { return 0; }
-  const uint8_t *bytes = static_cast<const uint8_t *>(data);
+  if ((sink->Max != 0u) && sink->Out->size() + add > sink->Max) { return 0; }
+  const auto *bytes = static_cast<const uint8_t *>(data);
   sink->Out->insert(sink->Out->end(), bytes, bytes + add);
   return add;
 }
@@ -124,7 +124,7 @@ void Fetching::Work() {
     long status = 0;
     curl_off_t retryAfter = 0;
     CURLcode result = CURLE_FAILED_INIT;
-    if (handle) {
+    if (handle != nullptr) {
       curl_easy_reset(handle);
       curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
       curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, Write);
@@ -157,7 +157,7 @@ void Fetching::Work() {
       found->second.Body = std::move(body);
     }
   }
-  if (handle) { curl_easy_cleanup(handle); }
+  if (handle != nullptr) { curl_easy_cleanup(handle); }
 }
 
 } // namespace outshine

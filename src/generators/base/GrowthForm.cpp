@@ -27,7 +27,7 @@ constexpr Profile kProfiles[] = {
 constexpr float kFloor = 0.05f;
 
 [[nodiscard]] bool Same(const char *a, const char *b) {
-  return a && b && std::strcmp(a, b) == 0;
+  return (a != nullptr) && (b != nullptr) && std::strcmp(a, b) == 0;
 }
 
 } // namespace

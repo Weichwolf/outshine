@@ -52,7 +52,7 @@ bool SkyStage::Configure(const Gpu &gpu,
   pipeline.depth_stencil_state.enable_depth_test = false;
   pipeline.depth_stencil_state.enable_depth_write = false;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (!made) {
+  if (made == nullptr) {
     error = std::string("the sky's pipeline was refused: ") + SDL_GetError();
     return false;
   }

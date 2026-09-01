@@ -79,7 +79,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
                        0x9b05688cu,
                        0x1f83d9abu,
                        0x5be0cd19u};
-  const uint8_t *p = static_cast<const uint8_t *>(data);
+  const auto *p = static_cast<const uint8_t *>(data);
   size_t left = bytes;
   while (left >= 64) {
     Compress(state, p);
@@ -101,7 +101,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   std::string out(64, '0');
   for (int i = 0; i < 8; i++) {
     for (int n = 0; n < 4; n++) {
-      const uint8_t byte = static_cast<uint8_t>(state[i] >> (24 - 8 * n));
+      const auto byte = static_cast<uint8_t>(state[i] >> (24 - 8 * n));
       out[static_cast<size_t>(i * 8 + n * 2)] = kHex[byte >> 4];
       out[static_cast<size_t>(i * 8 + n * 2 + 1)] = kHex[byte & 15];
     }

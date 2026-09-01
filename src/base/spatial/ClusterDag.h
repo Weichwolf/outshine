@@ -28,7 +28,7 @@ inline constexpr float kDagRootErr = 3.0e38f;
 
 inline void
 BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], float *rad) {
-  if (!verts || nverts == 0) {
+  if ((verts == nullptr) || nverts == 0) {
     ctr[0] = ctr[1] = ctr[2] = 0.0f;
     *rad = 0.0f;
     return;

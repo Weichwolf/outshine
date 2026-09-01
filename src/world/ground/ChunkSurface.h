@@ -74,10 +74,10 @@ inline float ChunkCellHeight(const ChunkCell &cell, float su, float sv) {
     const ChunkQuadCorner a = w[t];
     const ChunkQuadCorner b = w[t + 1];
     const ChunkQuadCorner c = w[t + 2];
-    const float bu = static_cast<float>(b.Col - a.Col);
-    const float bv = static_cast<float>(b.Row - a.Row);
-    const float cu = static_cast<float>(c.Col - a.Col);
-    const float cv = static_cast<float>(c.Row - a.Row);
+    const auto bu = static_cast<float>(b.Col - a.Col);
+    const auto bv = static_cast<float>(b.Row - a.Row);
+    const auto cu = static_cast<float>(c.Col - a.Col);
+    const auto cv = static_cast<float>(c.Row - a.Row);
     const float pu = su - static_cast<float>(a.Col);
     const float pv = sv - static_cast<float>(a.Row);
     const float det = bu * cv - cu * bv;

@@ -22,7 +22,9 @@ public:
             size_t components)
       : Frames_(frames), Values_(values), Count_(count), Components_(components), How_(how) {}
 
-  [[nodiscard]] bool Valid() const { return Frames_ && Values_ && Count_ > 0 && Components_ > 0; }
+  [[nodiscard]] bool Valid() const {
+    return (Frames_ != nullptr) && (Values_ != nullptr) && Count_ > 0 && Components_ > 0;
+  }
 
   [[nodiscard]] size_t Count() const { return Count_; }
 

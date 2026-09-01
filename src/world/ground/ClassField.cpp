@@ -84,7 +84,7 @@ void ClassField::Ingest(Tier &t) {
     const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
     const std::string_view kind = t.Field->Str(f, "kind");
     const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
-    if (!rule) {
+    if (rule == nullptr) {
       std::string key(layer);
       key.append("/").append(kind);
       if (Unknown_.insert(key).second) {
@@ -185,7 +185,7 @@ void ClassField::SubmitDue(double camE, double camN) {
 }
 
 void ClassField::Update(TilePool &tiles, double camLat, double camLon, double budgetMs) {
-  if (!Opened_ || !Veg_ || !Veg_->Ready()) { return; }
+  if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return; }
 
   if (!Fine_.Field) {
     Fine_.Field = std::make_unique<OsmField>(Fine_.Zoom, Veg_->Layers());

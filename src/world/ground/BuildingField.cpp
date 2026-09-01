@@ -216,7 +216,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                      std::vector<double> *corners,
                                      double *seatAslM) {
   const std::span<const double> pts = field.Points();
-  if (corners) { corners->clear(); }
+  if (corners != nullptr) { corners->clear(); }
   if (seatAslM != nullptr) { *seatAslM = 0.0; }
   if (ring.Count == 0) { return GroundSample::Missing(); }
   double lowest = 1.0e9;
@@ -234,7 +234,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
     const GroundSample g = ground.At(lat, lon);
     double aslM = 0.0;
     if (!g.TryAslM(&aslM)) { return g; }
-    if (corners) { corners->push_back(aslM); }
+    if (corners != nullptr) { corners->push_back(aslM); }
     lowest = std::min(lowest, aslM);
     highest = std::max(highest, aslM);
     summed += aslM;
@@ -306,7 +306,7 @@ int BuildingField::Build(const GroundQuery &ground,
 
   const int layer = field.Layer(OsmLayer::Buildings);
   const std::span<const double> pts = field.Points();
-  const uint32_t firstPrint = static_cast<uint32_t>(Prints_.size());
+  const auto firstPrint = static_cast<uint32_t>(Prints_.size());
   int added = 0;
 
   const TileWatermark::Next next = Mark_.Ask(
@@ -410,7 +410,7 @@ int BuildingField::Build(const GroundQuery &ground,
 }
 
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
-  if (!Mesher_) { return; }
+  if (Mesher_ == nullptr) { return; }
   const std::span<const double> pts = field.Points();
   StructurePlan plan;
   plan.RingLatLon = Span<const double>(pts.data() + static_cast<size_t>(f.FirstPoint) * 2,

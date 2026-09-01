@@ -29,7 +29,7 @@ void Shape::BoundsOf(size_t parts, double leastM[3], double mostM[3]) const {
       for (size_t vertex = 0; vertex < one.VertexCount && (vertex + 1) * 3 <= one.PositionsM.size();
            ++vertex) {
         for (int axis = 0; axis < 3; ++axis) {
-          const double at =
+          const auto at =
               static_cast<double>(one.PositionsM[vertex * 3 + static_cast<size_t>(axis)]);
           if (!any || at < least[axis]) { least[axis] = at; }
           if (!any || at > most[axis]) { most[axis] = at; }

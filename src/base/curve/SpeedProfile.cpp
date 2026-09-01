@@ -56,7 +56,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
     return false;
   }
 
-  const size_t whole = static_cast<size_t>(along.LengthM() / stepM);
+  const auto whole = static_cast<size_t>(along.LengthM() / stepM);
   const bool onGrid = static_cast<double>(whole) * stepM == along.LengthM();
   const size_t samples = whole + (onGrid ? 1u : 2u);
   Held_.resize(samples, topMs);
@@ -136,7 +136,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   const auto ClampAround = [&](double where, double heldMs, Held by) {
     if (!(heldMs < topMs) || !(where >= 0.0)) { return; }
     const double reach = where / stepM;
-    const size_t below = static_cast<size_t>(reach);
+    const auto below = static_cast<size_t>(reach);
     const size_t above = static_cast<double>(below) == reach ? below : below + 1;
     for (size_t at = below; at <= above && at < samples; ++at) {
       if (heldMs < Held_[at]) {
@@ -205,7 +205,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   for (size_t at = 0; at < samples; ++at) {
     ++Bound_[static_cast<size_t>(Why_[at])];
     if (BinMs_ > 0.0) {
-      const size_t bin = static_cast<size_t>(Held_[at] / BinMs_);
+      const auto bin = static_cast<size_t>(Held_[at] / BinMs_);
       ++Bin_[bin < kSpeedBins ? bin : kSpeedBins - 1];
     }
     const double station =
@@ -230,7 +230,7 @@ double SpeedProfile::At(double alongM) const {
   if (!(alongM > 0.0)) { return Held_.front(); }
   if (alongM >= LengthM_) { return Held_.back(); }
   const double where = alongM / StepM_;
-  const size_t low = static_cast<size_t>(where);
+  const auto low = static_cast<size_t>(where);
   if (low + 1 >= Held_.size()) { return Held_.back(); }
   double part = where - static_cast<double>(low);
   if (low + 2 == Held_.size()) {
@@ -242,7 +242,7 @@ double SpeedProfile::At(double alongM) const {
 
 double SpeedProfile::Quantile(double share) const noexcept {
   if (Held_.empty() || BinMs_ <= 0.0) { return 0.0; }
-  const size_t want = static_cast<size_t>(share * static_cast<double>(Held_.size()));
+  const auto want = static_cast<size_t>(share * static_cast<double>(Held_.size()));
   size_t seen = 0;
   for (size_t bin = 0; bin < kSpeedBins; ++bin) {
     seen += Bin_[bin];
@@ -253,7 +253,7 @@ double SpeedProfile::Quantile(double share) const noexcept {
 
 size_t SpeedProfile::StationsUnder(double ms) const noexcept {
   if (Held_.empty() || BinMs_ <= 0.0) { return 0; }
-  const size_t upTo = static_cast<size_t>(ms / BinMs_);
+  const auto upTo = static_cast<size_t>(ms / BinMs_);
   size_t under = 0;
   for (size_t bin = 0; bin < kSpeedBins && bin < upTo; ++bin) { under += Bin_[bin]; }
   return under;

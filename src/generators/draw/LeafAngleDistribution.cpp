@@ -77,7 +77,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
       sy += static_cast<double>(Samples_[static_cast<size_t>(d)]);
       sxy += v * static_cast<double>(Samples_[static_cast<size_t>(d)]);
     }
-    const double n = static_cast<double>(kElevations);
+    const auto n = static_cast<double>(kElevations);
     const double det = n * sxx - sx * sx;
     if (std::fabs(det) < 1e-12) { continue; }
     const double g1 = (n * sxy - sx * sy) / det;

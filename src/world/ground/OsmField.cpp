@@ -33,7 +33,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   const std::string key(s);
   const auto it = index.find(key);
   if (it != index.end()) { return it->second; }
-  const uint32_t id = static_cast<uint32_t>(pool.size());
+  const auto id = static_cast<uint32_t>(pool.size());
   pool.push_back(key);
   index.emplace(key, id);
   return id;
@@ -128,7 +128,7 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   Settle(tx, ty);
   const int got = static_cast<int>(vectorTile.size());
 
-  const uint32_t tile = static_cast<uint32_t>(Tiles_.size());
+  const auto tile = static_cast<uint32_t>(Tiles_.size());
   Tiles_.push_back(Tile{.Z = Zoom_,
                         .X = tx,
                         .Y = ty,
@@ -149,7 +149,7 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       }
       continue;
     }
-    const double ext = static_cast<double>(mvt.Extent());
+    const auto ext = static_cast<double>(mvt.Extent());
     const std::vector<int32_t> &pts = mvt.Points();
 
     for (const OsmVector::Feature &sf : mvt.Features()) {
@@ -169,8 +169,8 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
         ring.Count = sr.Count;
         ring.Exterior = sr.Exterior;
         for (uint32_t k = 0; k < sr.Count; k++) {
-          const double px = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2]);
-          const double py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
+          const auto px = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2]);
+          const auto py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
           const Geo g = TileFracToGeo(
               Zoom_, static_cast<uint32_t>(tx), static_cast<uint32_t>(ty), px / ext, py / ext);
           Points_.push_back(g.LatDeg);

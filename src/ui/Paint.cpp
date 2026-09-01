@@ -26,7 +26,7 @@ bool Reaches(uint32_t colour) {
 }
 
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
-  const unsigned char lead = static_cast<unsigned char>(text[at]);
+  const auto lead = static_cast<unsigned char>(text[at]);
   size_t length = 1;
   code = lead;
   if ((lead & 0xE0u) == 0xC0u) {

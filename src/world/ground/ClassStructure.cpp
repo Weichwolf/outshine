@@ -79,9 +79,9 @@ void ClassStructure::Pack(int unmappedRow) {
     if (B.W == 0) { continue; }
     Words_[h + 0] = static_cast<uint32_t>(B.W);
     Words_[h + 1] = static_cast<uint32_t>(B.H);
-    const float oe = static_cast<float>(B.OrgE);
-    const float on = static_cast<float>(B.OrgN);
-    const float cm = static_cast<float>(B.CellM);
+    const auto oe = static_cast<float>(B.OrgE);
+    const auto on = static_cast<float>(B.OrgN);
+    const auto cm = static_cast<float>(B.CellM);
     std::memcpy(&Words_[h + 2], &oe, 4);
     std::memcpy(&Words_[h + 3], &on, 4);
     std::memcpy(&Words_[h + 4], &cm, 4);
@@ -170,8 +170,8 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
     }
     if (best >= 0) { break; }
   }
-  if (distM) { *distM = bestDist; }
-  if (runnerUp) { *runnerUp = second; }
+  if (distM != nullptr) { *distM = bestDist; }
+  if (runnerUp != nullptr) { *runnerUp = second; }
   return best;
 }
 

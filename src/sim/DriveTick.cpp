@@ -203,7 +203,7 @@ const Ridden &DriveTick(const Corridor &way,
       out.AimAtWorstM = reins.AsideM;
     }
     {
-      const size_t bin = static_cast<size_t>(std::fabs(inLaneM) / DriveState::kOffsetBinM);
+      const auto bin = static_cast<size_t>(std::fabs(inLaneM) / DriveState::kOffsetBinM);
       ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
 

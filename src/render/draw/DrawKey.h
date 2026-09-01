@@ -35,7 +35,7 @@ public:
     const double clamped =
         order.DepthFraction < 0.0 ? 0.0 : (order.DepthFraction > 1.0 ? 1.0 : order.DepthFraction);
 
-    const uint32_t step = static_cast<uint32_t>(clamped * static_cast<double>(kDepthSteps) + 0.5);
+    const auto step = static_cast<uint32_t>(clamped * static_cast<double>(kDepthSteps) + 0.5);
     const uint32_t depth = order.Surface.Blends() ? kDepthSteps - step : step;
     uint64_t bits = order.Viewport & (kViewportSlots - 1u);
     bits = (bits << kViewLayerBits) | static_cast<uint64_t>(order.Layer);

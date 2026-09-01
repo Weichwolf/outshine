@@ -20,7 +20,7 @@ void TextLogSink::Write(double simTimeS,
                         const char *tag,
                         const char *event,
                         std::span<const LogField> fields) {
-  if (!File_) { return; }
+  if (File_ == nullptr) { return; }
   fprintf(File_, "t=%.1f %s %s %s", simTimeS, LevelStr(level), tag, event);
   if (unit != nullptr) { fprintf(File_, " unit=%s", unit); }
   for (const auto &fld : fields) {

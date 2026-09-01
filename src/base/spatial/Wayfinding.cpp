@@ -56,7 +56,7 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   way.Friction = of.Friction;
   way.Lanes = of.Lanes;
   way.Spans = of.Spans;
-  const uint32_t mine = static_cast<uint32_t>(Ways_.size());
+  const auto mine = static_cast<uint32_t>(Ways_.size());
   way.MinLat = way.MaxLat = latLonPairs[0];
   way.MinLon = way.MaxLon = latLonPairs[1];
   for (size_t which = 0; which < points; ++which) {
@@ -104,7 +104,7 @@ int64_t Network::RowOver(double latDeg, double cellM) const {
 
 int64_t Network::ColumnIn(const RowShape &shape, double lonDeg) {
   const double wrapped = lonDeg - 360.0 * std::floor((lonDeg + 180.0) / 360.0);
-  const int64_t column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
+  const auto column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
   return ((column % shape.Columns) + shape.Columns) % shape.Columns;
 }
 
@@ -244,7 +244,7 @@ bool Network::Weave(std::string &error) {
       Way moved = Ways_[which];
       const size_t first = moved.First;
       moved.First = points.size() / 2;
-      const uint32_t mine = static_cast<uint32_t>(ways.size());
+      const auto mine = static_cast<uint32_t>(ways.size());
       ways.push_back(moved);
       for (size_t at = 0; at < moved.Count; ++at) {
         points.push_back(Points_[2 * (first + at)]);
@@ -375,8 +375,8 @@ bool Network::Weave(std::string &error) {
   const auto overCells = [&](size_t from, size_t to, bool holding) {
     const Node &a = Nodes_[from];
     const Node &b = Nodes_[to];
-    const uint32_t one = static_cast<uint32_t>(from < to ? from : to);
-    const uint32_t two = static_cast<uint32_t>(from < to ? to : from);
+    const auto one = static_cast<uint32_t>(from < to ? from : to);
+    const auto two = static_cast<uint32_t>(from < to ? to : from);
     const int64_t firstRow = RowOver(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg, tieReachM);
     const int64_t lastRow = RowOver(a.LatDeg < b.LatDeg ? b.LatDeg : a.LatDeg, tieReachM);
     for (int64_t row = firstRow; row <= lastRow; ++row) {
@@ -823,7 +823,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
 
   const double never = 1.0e300;
   const size_t edges = Edges_.size();
-  const size_t kNoState = static_cast<size_t>(-1);
+  const auto kNoState = static_cast<size_t>(-1);
   std::vector<size_t> nearStart;
   Within(from, startAwayM + kStartReachM, nearStart);
   if (nearStart.empty()) { nearStart.push_back(start); }

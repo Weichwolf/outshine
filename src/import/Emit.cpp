@@ -45,7 +45,7 @@ std::string Integer(size_t value) {
 std::string Quoted(std::string_view text) {
   std::string out = "\"";
   for (const char raw : text) {
-    const unsigned char code = static_cast<unsigned char>(raw);
+    const auto code = static_cast<unsigned char>(raw);
     switch (raw) {
       case '"': out += "\\\""; break;
       case '\\': out += "\\\\"; break;
@@ -263,7 +263,7 @@ private:
     std::vector<double> highest(attribute.Components, 0.0);
     for (size_t vertex = 0; vertex < drawn.VertexCount; ++vertex) {
       for (size_t component = 0; component < attribute.Components; ++component) {
-        const float value = static_cast<float>(
+        const auto value = static_cast<float>(
             (*attribute.From)[(drawn.FirstVertex + vertex) * attribute.Components + component]);
         Append(Binary_, value);
         if (vertex == 0 || static_cast<double>(value) < lowest[component]) {

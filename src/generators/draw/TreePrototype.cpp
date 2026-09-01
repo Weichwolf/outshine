@@ -94,7 +94,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
     }
-    const uint32_t nCards = static_cast<uint32_t>(out.Cards.size() / TreeFoliage::kFloats);
+    const auto nCards = static_cast<uint32_t>(out.Cards.size() / TreeFoliage::kFloats);
     if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
     out.CardCount = nCards;
     out.CardLeafM =

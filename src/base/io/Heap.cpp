@@ -100,7 +100,7 @@ void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
   void *block = nullptr;
   if (posix_memalign(&block,
                      alignment < sizeof(void *) ? sizeof(void *) : alignment,
-                     bytes ? bytes : 1) != 0) {
+                     (bytes != 0u) ? bytes : 1) != 0) {
     EndWithCount(item, bytes);
   }
   return Counted(block);
@@ -109,8 +109,8 @@ void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
 } // namespace
 
 void *Heap::Take(const char *item, size_t bytes) {
-  void *block = std::malloc(bytes ? bytes : 1);
-  if (!block) { EndWithCount(item, bytes); }
+  void *block = std::malloc((bytes != 0u) ? bytes : 1);
+  if (block == nullptr) { EndWithCount(item, bytes); }
   return Counted(block);
 }
 
@@ -166,11 +166,11 @@ void *operator new[](size_t bytes, std::align_val_t alignment) {
 }
 
 void *operator new(size_t bytes, const std::nothrow_t &) noexcept {
-  return std::malloc(bytes ? bytes : 1);
+  return std::malloc((bytes != 0u) ? bytes : 1);
 }
 
 void *operator new[](size_t bytes, const std::nothrow_t &) noexcept {
-  return outshine::Counted(std::malloc(bytes ? bytes : 1));
+  return outshine::Counted(std::malloc((bytes != 0u) ? bytes : 1));
 }
 
 void operator delete(void *block) noexcept {

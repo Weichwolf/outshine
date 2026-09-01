@@ -20,7 +20,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
 
   const int lines = field.Layer(OsmLayer::Streets);
   const int areas = field.Layer(OsmLayer::StreetPolygons);
-  const uint32_t firstWay = static_cast<uint32_t>(Ways_.size());
+  const auto firstWay = static_cast<uint32_t>(Ways_.size());
 
   Looked_ += static_cast<long>(next.To - next.From);
   for (size_t c = next.From; c < next.To; c++) {
@@ -36,7 +36,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
 
     const VegetationTemplates::Rule *rule =
         veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
-    if (!rule) {
+    if (rule == nullptr) {
       Unruled_++;
       continue;
     }

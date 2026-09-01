@@ -22,7 +22,7 @@ GroundPatch::Complete(const Tile &region, int side, Span<const Posting> postings
   for (const Posting &p : postings) {
     if (p.Height.Where() != GroundSample::State::Resolved) { return nullptr; }
   }
-  const double steps = static_cast<double>(side - 1);
+  const auto steps = static_cast<double>(side - 1);
   return std::shared_ptr<const GroundPatch>(
       new GroundPatch(side, region.SpanEm() / steps, region.SpanNm() / steps, postings));
 }

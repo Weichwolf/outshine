@@ -94,7 +94,7 @@ inline void IridescenceFresnel(double cosTheta1,
   std::array<double, 3> r23{};
   std::array<double, 3> phi{};
   for (int c = 0; c < 3; ++c) {
-    const std::size_t i = static_cast<std::size_t>(c);
+    const auto i = static_cast<std::size_t>(c);
     const double baseIor = Fresnel0ToIor(baseF0[i] + 0.0001);
     r23[i] = IridescenceSchlick(IorToFresnel0(baseIor, filmIor), cosTheta2);
     phi[i] = phi21 + (baseIor < filmIor ? kPi : 0.0);
@@ -105,7 +105,7 @@ inline void IridescenceFresnel(double cosTheta1,
   std::array<double, 3> cm{};
   std::array<double, 3> r123root{};
   for (int c = 0; c < 3; ++c) {
-    const std::size_t i = static_cast<std::size_t>(c);
+    const auto i = static_cast<std::size_t>(c);
     const double r123 = std::fmin(std::fmax(r12 * r23[i], 1e-5), 0.9999);
     const double rs = t121 * t121 * r23[i] / (1.0 - r123);
     out[i] = r12 + rs;
@@ -117,7 +117,7 @@ inline void IridescenceFresnel(double cosTheta1,
     std::array<double, 3> sm{};
     IridescenceSensitivity(static_cast<double>(m) * opd, shift, sm);
     for (int c = 0; c < 3; ++c) {
-      const std::size_t i = static_cast<std::size_t>(c);
+      const auto i = static_cast<std::size_t>(c);
       cm[i] *= r123root[i];
       out[i] += cm[i] * 2.0 * sm[i];
     }

@@ -207,7 +207,7 @@ bool SceneRenderer::Executable(Stage stage) {
 
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
-  if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+  if (SDL_WasInit(SDL_INIT_VIDEO) == 0u) {
     Log::Error("render", "no_video", {{"msg", "the client did not initialise SDL video"}});
     WhyNot_ =
         "SDL's video subsystem is not running: outshine renders through SDL3 and the CLIENT owns "
@@ -215,7 +215,7 @@ bool SceneRenderer::Stands() {
     return false;
   }
   SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
-  if (!device) {
+  if (device == nullptr) {
     Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
     WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
     return false;
@@ -290,7 +290,7 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
                                                          SDL_GPU_TEXTUREUSAGE_SAMPLER);
 
   for (size_t r = 0; r < kResourceCount; ++r) {
-    const Resource id = static_cast<Resource>(r);
+    const auto id = static_cast<Resource>(r);
     if (Plan_->Holds(id)) { Create(id); }
   }
 
@@ -318,7 +318,7 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
              {"stages", static_cast<int>(Plan_->Order().size())},
              {"f32filter", Handles_.FiltersFloat32}});
   for (size_t at = 0; at < kStageCount; ++at) {
-    const Stage stage = static_cast<Stage>(at);
+    const auto stage = static_cast<Stage>(at);
     if (Executable(stage)) { continue; }
     Log::Info("render", "stage_without_a_body", {{"stage", Row(stage).Name}});
   }
@@ -1147,7 +1147,7 @@ void SceneRenderer::RenderFrame() {
   if (taking != nullptr) {
     SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
     if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking, false)) {
-      const uint8_t *bytes = static_cast<const uint8_t *>(pixels);
+      const auto *bytes = static_cast<const uint8_t *>(pixels);
       Taken_.assign(bytes, bytes + static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
       SDL_UnmapGPUTransferBuffer(Device_.Get(), taking);
     }
@@ -1243,7 +1243,7 @@ ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   SDL_GPUTexture *source = LinearSource();
-  if (!Ready_ || !source) { return ReadState::Failed; }
+  if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
   if (read.FromTexture(Device_.Get(),
@@ -1344,7 +1344,7 @@ ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
 
 ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
   SDL_GPUTexture *source = ShadingNormalTex_.Get();
-  if (!Ready_ || !source) { return ReadState::Failed; }
+  if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        source,
@@ -1365,7 +1365,7 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
   SDL_GPUTexture *source = VelTex_.Get();
-  if (!Ready_ || !source) { return ReadState::Failed; }
+  if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        source,
@@ -1386,7 +1386,7 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
 
 ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   SDL_GPUTexture *source = SurfaceIdentityTex_.Get();
-  if (!Ready_ || !source) { return ReadState::Failed; }
+  if (!Ready_ || (source == nullptr)) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        source,

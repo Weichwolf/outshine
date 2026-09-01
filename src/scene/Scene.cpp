@@ -284,7 +284,7 @@ bool Scene::Kept::hasTag(Entity of, Tag tag) const {
 void Scene::Kept::LinkIn(uint32_t ref) {
   Pair &pair = At(ref);
   Slot &target = Slots_[pair.To.Index];
-  const size_t how = static_cast<size_t>(pair.How);
+  const auto how = static_cast<size_t>(pair.How);
   pair.InNext = target.InHead[how];
   pair.InPrev = kNoRef;
   if (pair.InNext != kNoRef) { At(pair.InNext).InPrev = ref; }
@@ -297,7 +297,7 @@ void Scene::Kept::LinkIn(uint32_t ref) {
 
 void Scene::Kept::UnlinkIn(uint32_t ref) {
   Pair &pair = At(ref);
-  const size_t how = static_cast<size_t>(pair.How);
+  const auto how = static_cast<size_t>(pair.How);
   if (pair.InPrev != kNoRef) { At(pair.InPrev).InNext = pair.InNext; }
   if (pair.InNext != kNoRef) { At(pair.InNext).InPrev = pair.InPrev; }
   if (pair.To.Index < Slots_.size() && Slots_[pair.To.Index].InHead[how] == ref) {

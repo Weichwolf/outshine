@@ -54,7 +54,7 @@ RegionPool::Lease::Lease(Lease &&other) noexcept
 
 RegionPool::Lease &RegionPool::Lease::operator=(Lease &&other) noexcept {
   if (this == &other) { return *this; }
-  if (Pool_) { Pool_->Release(Slot_); }
+  if (Pool_ != nullptr) { Pool_->Release(Slot_); }
   Pool_ = other.Pool_;
   Slot_ = other.Slot_;
   Sink_ = other.Sink_;
@@ -63,7 +63,7 @@ RegionPool::Lease &RegionPool::Lease::operator=(Lease &&other) noexcept {
 }
 
 RegionPool::Lease::~Lease() {
-  if (Pool_) { Pool_->Release(Slot_); }
+  if (Pool_ != nullptr) { Pool_->Release(Slot_); }
 }
 
 } // namespace outshine::Generators

@@ -230,7 +230,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   static const uint8_t white[4] = {255, 255, 255, 255};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
-  const uint8_t *texels = texture.Rgba ? texture.Rgba : white;
+  const uint8_t *texels = (texture.Rgba != nullptr) ? texture.Rgba : white;
   std::vector<float> linear(static_cast<size_t>(width) * height * 4u, 0.0f);
   for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
     for (size_t channel = 0; channel < 3; ++channel) {

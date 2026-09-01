@@ -6,7 +6,7 @@ namespace outshine {
 
 void CurveKnots(
     const double *points, size_t count, size_t components, double alpha, double *knotsOut) {
-  if (!count) { return; }
+  if (count == 0u) { return; }
   knotsOut[0] = 0.0;
   for (size_t i = 1; i < count; i++) {
     double d2 = 0.0;

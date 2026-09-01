@@ -6,7 +6,7 @@ namespace outshine::Render {
 
 ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
   SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-  if (!fence) {
+  if (fence == nullptr) {
     Log::Error("render", "readback_submit_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
@@ -19,7 +19,7 @@ ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
     return ReadState::Failed;
   }
   Mapped = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(Device, Transfer, false));
-  if (!Mapped) {
+  if (Mapped == nullptr) {
     Log::Error("render", "readback_map_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
@@ -39,7 +39,7 @@ ReadState Readback::FromTexture(SDL_GPUDevice *device,
   wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
   wanted.size = Row * height;
   Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
-  if (!Transfer) {
+  if (Transfer == nullptr) {
     Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
@@ -69,7 +69,7 @@ ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uin
   wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
   wanted.size = bytes;
   Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
-  if (!Transfer) {
+  if (Transfer == nullptr) {
     Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
     Release();
     return ReadState::Failed;
@@ -88,8 +88,8 @@ ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uin
 }
 
 void Readback::Release() {
-  if (Mapped) { SDL_UnmapGPUTransferBuffer(Device, Transfer); }
-  if (Transfer) { SDL_ReleaseGPUTransferBuffer(Device, Transfer); }
+  if (Mapped != nullptr) { SDL_UnmapGPUTransferBuffer(Device, Transfer); }
+  if (Transfer != nullptr) { SDL_ReleaseGPUTransferBuffer(Device, Transfer); }
   Mapped = nullptr;
   Transfer = nullptr;
   Row = 0;

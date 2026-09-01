@@ -714,7 +714,7 @@ constexpr bool EveryReadHasAProducer() {
 
 constexpr bool EveryDerivedResourceHasOneWriter() {
   for (size_t r = 0; r < kResourceCount; ++r) {
-    const Resource id = static_cast<Resource>(r);
+    const auto id = static_cast<Resource>(r);
     size_t writers = 0;
     for (size_t s = 0; s < kStageCount; ++s) {
       if (Names(kStages[s].Writes, id)) { ++writers; }

@@ -16,7 +16,7 @@ struct Reader {
     while (P < End) {
       const uint8_t b = *P++;
       r |= static_cast<uint64_t>(b & 0x7f) << s;
-      if (!(b & 0x80)) { return r; }
+      if ((b & 0x80) == 0) { return r; }
       s += 7;
       if (s > 63) { break; }
     }
@@ -83,7 +83,7 @@ int32_t ZigZag(uint64_t v) {
 } // namespace
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
-  if (present) { *present = false; }
+  if (present != nullptr) { *present = false; }
   Features_.clear();
   Rings_.clear();
   Points_.clear();
@@ -93,7 +93,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
   ValueStrs_.clear();
   ValueIsNum_.clear();
   Extent_ = 4096;
-  if (!bytes || len == 0) { return false; }
+  if ((bytes == nullptr) || len == 0) { return false; }
 
   Reader top{.P = bytes, .End = bytes + len, .Ok = true};
   uint32_t num = 0;
@@ -120,7 +120,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       }
     }
     if (name != layer) { continue; }
-    if (present) { *present = true; }
+    if (present != nullptr) { *present = true; }
 
     std::vector<Reader> featureBodies;
     while (L.Field(num, wire)) {

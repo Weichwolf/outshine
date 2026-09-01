@@ -217,7 +217,7 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
   for (size_t vertex = 1; vertex < part.VertexCount && (vertex + 1) * 3 <= part.PositionsM.size();
        ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const double value =
+      const auto value =
           static_cast<double>(part.PositionsM[vertex * 3 + static_cast<size_t>(axis)]);
       if (value < low[axis]) { low[axis] = value; }
       if (value > high[axis]) { high[axis] = value; }
@@ -297,8 +297,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
                                  proxy.Slots()[slot].Domain == SurfaceDomain::Ground);
     carried.Normal = Lit(proxy, subject, part);
 
-    carried.Tangent =
-        carried.Normal && carried.Uv && where.HasTangent && proxy.Slots()[slot].Normal.Rgba;
+    carried.Tangent = carried.Normal && carried.Uv && where.HasTangent &&
+                      (proxy.Slots()[slot].Normal.Rgba != nullptr);
 
     carried.Uv1 = carried.Uv && where.HasUv1 && proxy.Slots()[slot].ReadsSecondUv();
 
@@ -326,7 +326,7 @@ void PackChannel(const void *carrying, float *into, uint32_t floats) {
   uint32_t at = 0;
   for (const ShapePart &one : what.From->Parts) {
     const std::span<const float> held = one.*what.Channel;
-    const uint32_t want = static_cast<uint32_t>(one.VertexCount * what.Wide);
+    const auto want = static_cast<uint32_t>(one.VertexCount * what.Wide);
     if (at + want > floats) { break; }
     if (held.size() >= one.VertexCount * what.Wide) {
       std::memcpy(into + at, held.data(), static_cast<size_t>(want) * sizeof(float));
@@ -429,7 +429,7 @@ bool Surface(SceneRenderer &renderer,
              const Eye &view,
              SubjectScratch &scratch,
              std::string &error) {
-  if (!proxy.Shaped()) {
+  if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
     return false;
   }
@@ -480,7 +480,7 @@ bool Place(SceneRenderer &renderer,
            const Eye &view,
            SubjectScratch &scratch,
            std::string &error) {
-  if (!proxy.Shaped()) {
+  if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
     return false;
   }
@@ -490,7 +490,7 @@ bool Place(SceneRenderer &renderer,
     return false;
   }
   if (!Agrees(proxy, subject, error)) { return false; }
-  if (proxy.Previous() && proxy.Previous()->size() / 3 != subject.VertexCount()) {
+  if ((proxy.Previous() != nullptr) && proxy.Previous()->size() / 3 != subject.VertexCount()) {
     error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
             " vertices and this one carries " + std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
@@ -542,7 +542,7 @@ bool Place(SceneRenderer &renderer,
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   mesh.Positions = scratch.Vertices;
-  if (proxy.Previous()) {
+  if (proxy.Previous() != nullptr) {
     mesh.PrevVerts =
         SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
   }
@@ -596,13 +596,13 @@ bool Move(SceneRenderer &renderer,
           const Eye &view,
           SubjectScratch &scratch,
           std::string &error) {
-  if (!proxy.Shaped()) {
+  if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
     return false;
   }
   const Shape &subject = *proxy.Shaped();
   if (!Agrees(proxy, subject, error)) { return false; }
-  if (proxy.Previous() && proxy.Previous()->size() / 3 != subject.VertexCount()) {
+  if ((proxy.Previous() != nullptr) && proxy.Previous()->size() / 3 != subject.VertexCount()) {
     error = "the proxy's previous pose carries " + std::to_string(proxy.Previous()->size() / 3) +
             " vertices and this one carries " + std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
@@ -655,7 +655,7 @@ bool Move(SceneRenderer &renderer,
     gDigestMs.store(0.0, std::memory_order_relaxed);
   }
   pose.Positions = scratch.Vertices;
-  if (proxy.Previous()) {
+  if (proxy.Previous() != nullptr) {
     pose.PrevVerts =
         SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
   }

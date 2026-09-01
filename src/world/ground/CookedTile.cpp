@@ -23,7 +23,7 @@ void CookTile(const float *soup,
   outVerts.clear();
   outIdx.clear();
   outClusters.clear();
-  if (!soup || nverts <= 0) { return; }
+  if ((soup == nullptr) || nverts <= 0) { return; }
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
   {

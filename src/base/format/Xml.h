@@ -134,7 +134,7 @@ public:
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
-  [[nodiscard]] size_t NodeCount() const { return Nodes_.size() ? Nodes_.size() - 1u : 0u; }
+  [[nodiscard]] size_t NodeCount() const { return (Nodes_.size() != 0u) ? Nodes_.size() - 1u : 0u; }
 
   [[nodiscard]] size_t SiblingSteps() const { return SiblingSteps_; }
 

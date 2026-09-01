@@ -1975,12 +1975,13 @@ bool Document::Chain(int node, const Transform *posed, Transform &out) const {
     chain.push_back(at);
   }
   for (size_t i = chain.size(); i > 0; --i) {
-    const size_t index = static_cast<size_t>(chain[i - 1]);
+    const auto index = static_cast<size_t>(chain[i - 1]);
     const Node &step = Nodes_[index];
     const Transform local =
-        posed ? posed[index]
-              : (step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
-                                : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
+        (posed != nullptr)
+            ? posed[index]
+            : (step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
+                              : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
     out = out * local;
   }
   return true;

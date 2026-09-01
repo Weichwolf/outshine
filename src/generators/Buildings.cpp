@@ -66,7 +66,7 @@ Buildings::Over(const Ground &ground, double eastM, double northM) const noexcep
     if (f.Kind != FeatureKind::Structure || !FeatureField::Boxed(f, eastM, northM)) { continue; }
     float topAslM = 0.0f;
     (void)f.Top.TryAslM(&topAslM);
-    if (highest && topAslM <= highestAslM) { continue; }
+    if ((highest != nullptr) && topAslM <= highestAslM) { continue; }
     if (!features.Contains(f, eastM, northM)) { continue; }
     highest = &f;
     highestAslM = topAslM;
@@ -76,14 +76,14 @@ Buildings::Over(const Ground &ground, double eastM, double northM) const noexcep
 
 bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const FeatureField::Feature *f = Over(ground, eastM, northM);
-  if (!f) { return false; }
+  if (f == nullptr) { return false; }
   float topAslM = 0.0f;
   float baseM = 0.0f;
   if (!f->Top.TryAslM(&topAslM) || !f->Base.TryAslM(&baseM)) { return false; }
 
   const double e = 0.5 * (static_cast<double>(f->MinEm) + static_cast<double>(f->MaxEm));
   const double n = 0.5 * (static_cast<double>(f->MinNm) + static_cast<double>(f->MaxNm));
-  const double baseAslM = static_cast<double>(baseM);
+  const auto baseAslM = static_cast<double>(baseM);
   const double halfE = 0.5 * (static_cast<double>(f->MaxEm) - static_cast<double>(f->MinEm));
   const double halfN = 0.5 * (static_cast<double>(f->MaxNm) - static_cast<double>(f->MinNm));
   const double radiusM = halfE < halfN ? halfE : halfN;

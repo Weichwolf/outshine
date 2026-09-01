@@ -369,8 +369,8 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double b0 = -e0 / l0;
     const double a1 = n1 / l1;
     const double b1 = -e1 / l1;
-    const double d0 = before < held.size() && held[before] ? 0.0 : byM;
-    const double d1 = i < held.size() && held[i] ? 0.0 : byM;
+    const double d0 = before < held.size() && (held[before] != 0u) ? 0.0 : byM;
+    const double d1 = i < held.size() && (held[i] != 0u) ? 0.0 : byM;
     const double det = a0 * b1 - b0 * a1;
     if (std::fabs(det) < 1.0e-6) {
       if (std::fabs(d0 - d1) > 1.0e-9) { return {}; }

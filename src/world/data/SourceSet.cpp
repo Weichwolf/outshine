@@ -55,7 +55,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     return Delivery::NoSource();
   }
   for (;;) {
-    if (!query.Current_) {
+    if (query.Current_ == nullptr) {
       if (query.Next_ >= query.Candidates_.size()) {
         const std::lock_guard<std::mutex> lock(LedgerMutex_);
         Ledger_.Vacant++;

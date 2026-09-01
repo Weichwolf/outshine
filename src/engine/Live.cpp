@@ -327,7 +327,7 @@ bool Live::Build(std::string &error) {
       }
     }
     if (Declared_.Built != nullptr) {
-      const uint32_t base = static_cast<uint32_t>(Table_.Slots.size());
+      const auto base = static_cast<uint32_t>(Table_.Slots.size());
       for (const Material &declaredSurface : Declared_.Surfacing) {
         Render::SurfaceTable joining;
         Render::ShapeStore joiningParts;
@@ -357,7 +357,7 @@ bool Live::Build(std::string &error) {
     }
 
     if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
-      const uint32_t base = static_cast<uint32_t>(Table_.Slots.size());
+      const auto base = static_cast<uint32_t>(Table_.Slots.size());
       const outshine::Geometry &also = Held_.Built();
       for (int surface = 0; surface < also.surfaces(); ++surface) {
         Render::SubjectMaterial made;
@@ -578,9 +578,9 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
     const std::array<double, 16> &placed =
         part < Stood_.Parts() ? Stood_.Placement(part) : identity;
     for (int corner = 0; corner < 8; ++corner) {
-      const double from[3] = {(corner & 1) ? held.MostM[0] : held.LeastM[0],
-                              (corner & 2) ? held.MostM[1] : held.LeastM[1],
-                              (corner & 4) ? held.MostM[2] : held.LeastM[2]};
+      const double from[3] = {((corner & 1) != 0) ? held.MostM[0] : held.LeastM[0],
+                              ((corner & 2) != 0) ? held.MostM[1] : held.LeastM[1],
+                              ((corner & 4) != 0) ? held.MostM[2] : held.LeastM[2]};
       for (int axis = 0; axis < 3; ++axis) {
         const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
                            placed[8 + axis] * from[2] + placed[12 + axis];

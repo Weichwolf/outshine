@@ -18,7 +18,7 @@ public:
   explicit Sink(TreeMesh &m) : Mesh_(m) {}
 
   uint32_t Vert(TreeVec3 p, TreeVec3 n, float u, float v) {
-    const uint32_t idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
+    const auto idx = static_cast<uint32_t>(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
     Mesh_.LeafVerts.insert(Mesh_.LeafVerts.end(), {p.X, p.Y, p.Z, n.X, n.Y, n.Z, u, v});
     return idx;
   }
@@ -218,7 +218,7 @@ void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   for (int i = 0; i < n; ++i) {
     const float t = static_cast<float>(i + 1) / static_cast<float>(n + 1);
     const float y = t * len;
-    const int side = (i % 2) ? 1 : -1;
+    const int side = ((i % 2) != 0) ? 1 : -1;
     const float sx = static_cast<float>(side) * (1.0f - fwd) + rng.Signed() * 0.05f;
     const TreeVec3 dir = Normalize(Vec3(sx, fwd + rng.Signed() * 0.10f, 0.0f));
     const TreeVec3 base = Vec3(0, y, 0);

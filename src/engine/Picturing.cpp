@@ -457,13 +457,13 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
   size_t coincident = 0;
   for (size_t one = 0; one < vertices; ++one) {
     const float *const held = placeAt(one);
-    const int64_t cx = static_cast<int64_t>(std::llround(static_cast<double>(held[0]) * 100.0));
-    const int64_t cy = static_cast<int64_t>(std::llround(static_cast<double>(held[1]) * 100.0));
-    const int64_t cz = static_cast<int64_t>(std::llround(static_cast<double>(held[2]) * 100.0));
+    const auto cx = static_cast<int64_t>(std::llround(static_cast<double>(held[0]) * 100.0));
+    const auto cy = static_cast<int64_t>(std::llround(static_cast<double>(held[1]) * 100.0));
+    const auto cz = static_cast<int64_t>(std::llround(static_cast<double>(held[2]) * 100.0));
     const AtCm key{.X = cx, .Y = cy, .Z = cz};
     const auto found = seenAt.find(key);
     if (found == seenAt.end()) {
-      const uint32_t made = static_cast<uint32_t>(seenAt.size());
+      const auto made = static_cast<uint32_t>(seenAt.size());
       seenAt.emplace(key, made);
       welded.push_back(made);
     } else {
@@ -744,9 +744,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t shared = 0;
     size_t leanCount = 0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const int64_t east =
-          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
-      const int64_t south =
+      const auto east = static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
+      const auto south =
           static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) * 4.0));
       const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
       const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
@@ -767,8 +766,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double one = 0.0;
         double two = 0.0;
         for (size_t axis = 0; axis < 3; ++axis) {
-          const double a = static_cast<double>(laid->NormalM[at + axis]);
-          const double b = static_cast<double>(laid->NormalM[twin + axis]);
+          const auto a = static_cast<double>(laid->NormalM[at + axis]);
+          const auto b = static_cast<double>(laid->NormalM[twin + axis]);
           dot += a * b;
           one += a * a;
           two += b * b;
@@ -981,8 +980,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double farthest = 0.0;
     double farUp = 0.0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double east = static_cast<double>(inFrame[at]);
-      const double south = static_cast<double>(inFrame[at + 2]);
+      const auto east = static_cast<double>(inFrame[at]);
+      const auto south = static_cast<double>(inFrame[at + 2]);
       const double away = east * east + south * south;
       if (away < nearest) {
         nearest = away;
@@ -1067,7 +1066,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       double most = -1.0e30;
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
-        const double y = static_cast<double>(held[at]);
+        const auto y = static_cast<double>(held[at]);
         least = std::min(least, y);
         most = std::max(most, y);
       }
@@ -1180,10 +1179,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double most = -1.0e30;
         size_t within = 0;
         for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-          const double east = static_cast<double>(inFrame[at]);
-          const double south = static_cast<double>(inFrame[at + 2]);
+          const auto east = static_cast<double>(inFrame[at]);
+          const auto south = static_cast<double>(inFrame[at + 2]);
           if (east * east + south * south > 3200.0 * 3200.0) { continue; }
-          const double up = static_cast<double>(inFrame[at + 1]);
+          const auto up = static_cast<double>(inFrame[at + 1]);
           least = up < least ? up : least;
           most = up > most ? up : most;
           ++within;
@@ -1267,7 +1266,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         size_t upright = 0;
         size_t facingDown = 0;
         for (size_t one = 0; one + 2 < wallFacing.size(); one += 3) {
-          const double aloft = static_cast<double>(wallFacing[one + 1]);
+          const auto aloft = static_cast<double>(wallFacing[one + 1]);
           if (aloft < -0.5) {
             ++facingDown;
           } else if (aloft > -0.5 && aloft < 0.5) {
@@ -1422,9 +1421,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const held = placeAt(at);
-          const double up = static_cast<double>(held[1]);
-          const double east = static_cast<double>(held[0]);
-          const double south = static_cast<double>(held[2]);
+          const auto up = static_cast<double>(held[1]);
+          const auto east = static_cast<double>(held[0]);
+          const auto south = static_cast<double>(held[2]);
           const double away = std::sqrt(east * east + south * south);
           least = up < least ? up : least;
           most = up > most ? up : most;
@@ -2994,7 +2993,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double least = 1.0e30;
     double most = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double up = static_cast<double>(inFrame[at + 1]);
+      const auto up = static_cast<double>(inFrame[at + 1]);
       if (up < least) { least = up; }
       if (up > most) { most = up; }
     }
@@ -3003,8 +3002,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double north = 1.0e30;
     double south = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double alongE = static_cast<double>(inFrame[at]);
-      const double alongS = static_cast<double>(inFrame[at + 2]);
+      const auto alongE = static_cast<double>(inFrame[at]);
+      const auto alongS = static_cast<double>(inFrame[at + 2]);
       if (alongE < west) { west = alongE; }
       if (alongE > east) { east = alongE; }
       if (alongS < north) { north = alongS; }
@@ -3123,7 +3122,7 @@ void Engine::State::Tells() {
   }
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {
-      const Render::Stage stage = static_cast<Render::Stage>(at);
+      const auto stage = static_cast<Render::Stage>(at);
       const Render::SceneRenderer::Effort &spent = Picture.Device.Spent(stage);
       if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
       Published.Places(std::string(Row(stage).Name) + ", took", spent.TookMs, "ms");
@@ -3315,7 +3314,7 @@ bool Engine::render(Extent frame) {
       const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
       const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
       const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];
-      const double radius = static_cast<double>(one.SelfRadius);
+      const auto radius = static_cast<double>(one.SelfRadius);
       if (ahead + radius < eye.ZNearM) { continue; }
       if (eye.ZFarM > 0.0 && ahead - radius > eye.ZFarM) { continue; }
       if (std::fabs(right) - radius > across * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }

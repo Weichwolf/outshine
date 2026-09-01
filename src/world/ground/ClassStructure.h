@@ -46,7 +46,7 @@ public:
   [[nodiscard]] const Measures &Measured() const { return Measures_; }
 
   [[nodiscard]] double NoDataFraction() const {
-    return Measures_.Probes
+    return (Measures_.Probes != 0)
                ? static_cast<double>(Measures_.NoData) / static_cast<double>(Measures_.Probes)
                : 0.0;
   }

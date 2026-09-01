@@ -29,7 +29,7 @@ Reaped Reap(const OsmField &field,
       ++out.Unclassed;
       continue;
     }
-    const double widthM = static_cast<double>(rule->WidthM);
+    const auto widthM = static_cast<double>(rule->WidthM);
     if (widthM < bodyWidthM) {
       ++out.TooNarrow;
       if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }

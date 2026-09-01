@@ -46,7 +46,7 @@ struct VertexPlacement {
   const Transform *Skinned = nullptr;
 
   [[nodiscard]] const Transform &At(size_t vertex) const {
-    return Skinned ? Skinned[vertex] : Node;
+    return (Skinned != nullptr) ? Skinned[vertex] : Node;
   }
 };
 

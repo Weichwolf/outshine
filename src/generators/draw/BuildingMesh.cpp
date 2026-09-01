@@ -148,15 +148,15 @@ public:
   }
 
   [[nodiscard]] uint32_t Index(const Vtx &v) {
-    const int64_t ce = static_cast<int64_t>(std::llround(v.P.E * 1000.0));
-    const int64_t cn = static_cast<int64_t>(std::llround(v.P.N * 1000.0));
-    const int64_t cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
+    const auto ce = static_cast<int64_t>(std::llround(v.P.E * 1000.0));
+    const auto cn = static_cast<int64_t>(std::llround(v.P.N * 1000.0));
+    const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
     const uint64_t key = static_cast<uint64_t>(ce * 73856093LL) ^
                          static_cast<uint64_t>(cn * 19349663LL) ^
                          static_cast<uint64_t>(cz * 83492791LL);
     const auto found = Welded_.find(key);
     if (found != Welded_.end()) { return found->second; }
-    const uint32_t made = static_cast<uint32_t>(Welded_.size());
+    const auto made = static_cast<uint32_t>(Welded_.size());
     Welded_.emplace(key, made);
     return made;
   }
@@ -434,7 +434,7 @@ void Walls(const BuildingShape &s,
     const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
-    const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     if (static_cast<int>(i) == s.FrontEdge && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
@@ -560,7 +560,7 @@ void Gables(const BuildingShape &s,
     const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
-    const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(
         roof, p, q, overhung ? wide[i] : p, overhung ? wide[(i + 1) % n] : q, overhung, breaks);
@@ -742,7 +742,7 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   const double deepest = seatZ - seat;
   if (deepest > 0.0) {
     gBuried.fetch_add(1u, std::memory_order_relaxed);
-    const size_t mm = static_cast<size_t>(deepest * 1000.0);
+    const auto mm = static_cast<size_t>(deepest * 1000.0);
     size_t was = gDeepestMm.load(std::memory_order_relaxed);
     while (mm > was && !gDeepestMm.compare_exchange_weak(was, mm)) {}
   }
@@ -830,7 +830,7 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
 
 void RaisePart(const BuildingShape &s, Site &site) {
   const double outM = site.ReachM();
-  const size_t whole = static_cast<size_t>(outM);
+  const auto whole = static_cast<size_t>(outM);
   for (size_t seen = gFarthestM.load(); whole > seen;) {
     if (gFarthestM.compare_exchange_weak(seen, whole)) { break; }
   }
@@ -916,7 +916,7 @@ void Pavement(const BuildingShape &s,
   if (!street.Known || !s.OnGround()) { return; }
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
-    if (s.Party[i]) { continue; }
+    if (s.Party[i] != 0u) { continue; }
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
     const double e = q.E - p.E;
@@ -960,7 +960,7 @@ void Pavement(const BuildingShape &s,
 } // namespace
 
 void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
-  if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) { return; }
+  if (plan.RingLatLon.Size() < 6 || (plan.AnchorEcef == nullptr)) { return; }
   Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
   if (mass.Parts.empty()) { return; }
 

@@ -49,7 +49,7 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
   char path[512];
   std::snprintf(path, sizeof path, "%s/band%u.bin", Directory_.c_str(), band);
   std::FILE *f = std::fopen(path, "rb");
-  if (!f) { return Fetched::Meant(Meaning::Refused); }
+  if (f == nullptr) { return Fetched::Meant(Meaning::Refused); }
   std::fseek(f, 0, SEEK_END);
   const long size = std::ftell(f);
   std::fseek(f, 0, SEEK_SET);

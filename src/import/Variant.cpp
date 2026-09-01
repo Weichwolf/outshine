@@ -22,7 +22,7 @@ bool VariantSelection::Against(const Document &document, int &index, std::string
     return false;
   }
   for (size_t at = 0; at < declared.size(); ++at) {
-    why += (at ? ", '" : "'") + declared[at] + "'";
+    why += ((at != 0u) ? ", '" : "'") + declared[at] + "'";
   }
   return false;
 }

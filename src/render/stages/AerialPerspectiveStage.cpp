@@ -44,7 +44,7 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu,
   pipeline.target_info.color_target_descriptions = &target;
   pipeline.target_info.num_color_targets = 1;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (!made) {
+  if (made == nullptr) {
     error = std::string("the aerial perspective's pipeline was refused: ") + SDL_GetError();
     return false;
   }

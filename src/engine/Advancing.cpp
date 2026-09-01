@@ -377,8 +377,8 @@ void Engine::State::Inspected() {
       double moving = 0.0;
       double furthest = 0.0;
       for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
-        const double across = static_cast<double>(velocity[at]);
-        const double down = static_cast<double>(velocity[at + 1]);
+        const auto across = static_cast<double>(velocity[at]);
+        const auto down = static_cast<double>(velocity[at + 1]);
         if (across <= -1.0e3 || down <= -1.0e3) { continue; }
         const double moved = std::sqrt(across * across + down * down);
         if (moved > 0.0) { moving += 1.0; }

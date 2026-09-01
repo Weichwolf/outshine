@@ -72,7 +72,7 @@ int32_t Json::ParseValue() {
 }
 
 int32_t Json::ParseValueInside() {
-  const int32_t id = static_cast<int32_t>(Nodes_.size());
+  const auto id = static_cast<int32_t>(Nodes_.size());
   Nodes_.emplace_back();
   const char c = Text_[P_];
 
@@ -286,7 +286,7 @@ std::string Json::Ref::Key(size_t i) const {
 }
 
 Json::Ref Json::Ref::operator[](const char *key) const {
-  if (!Valid() || !key) { return Ref(); }
+  if (!Valid() || (key == nullptr)) { return Ref(); }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.K != Kind::Object) { return Ref(); }
   const size_t klen = std::strlen(key);
@@ -295,7 +295,7 @@ Json::Ref Json::Ref::operator[](const char *key) const {
     const Json::Node &c = Doc->Nodes_[static_cast<size_t>(kid)];
     if (c.KeyEscaped) {
       if (Doc->Decode(c.Key, c.KeyLen, true) == key) { return Ref(Doc, kid); }
-    } else if (c.KeyLen == klen && !std::memcmp(Doc->Text_.c_str() + c.Key, key, klen)) {
+    } else if (c.KeyLen == klen && (std::memcmp(Doc->Text_.c_str() + c.Key, key, klen) == 0)) {
       return Ref(Doc, kid);
     }
   }
@@ -321,12 +321,12 @@ std::string Json::Ref::Str(const char *def) const {
 }
 
 bool Json::Ref::StrEquals(const char *s) const {
-  if (!Valid() || !s) { return false; }
+  if (!Valid() || (s == nullptr)) { return false; }
   const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.K != Kind::String) { return false; }
   if (n.Escaped) { return Doc->Decode(n.Str, n.StrLen, true) == s; }
   const size_t l = std::strlen(s);
-  return n.StrLen == l && !std::memcmp(Doc->Text_.c_str() + n.Str, s, l);
+  return n.StrLen == l && (std::memcmp(Doc->Text_.c_str() + n.Str, s, l) == 0);
 }
 
 } // namespace outshine

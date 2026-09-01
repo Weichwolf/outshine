@@ -78,7 +78,7 @@ bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) cons
   if (Using_ != Use::On) { return false; }
   const std::string path = Directory_ + "/" + std::string(key);
   std::FILE *f = std::fopen(path.c_str(), "rb");
-  if (!f) {
+  if (f == nullptr) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
@@ -106,7 +106,7 @@ void ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
   const std::string temp = Directory_ + "/." + std::string(key) + "." +
                            std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
   std::FILE *f = std::fopen(temp.c_str(), "wb");
-  if (!f) {
+  if (f == nullptr) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return;
   }

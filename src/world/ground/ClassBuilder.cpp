@@ -360,7 +360,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
           }
           continue;
         }
-        const uint32_t refFirst = static_cast<uint32_t>(B.Refs.size());
+        const auto refFirst = static_cast<uint32_t>(B.Refs.size());
         for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[static_cast<size_t>(k)]) {
           B.Refs.push_back(static_cast<uint32_t>(B.Edges.size() / 4) +
                            ceEdge[static_cast<size_t>(k)]);
@@ -389,7 +389,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   seeds.reserve(B.Seeds.size());
   B.Cells.assign(static_cast<size_t>(W) * H * 2, 0);
   for (size_t ci = 0; ci < static_cast<size_t>(W) * H; ci++) {
-    const uint32_t first = static_cast<uint32_t>(seeds.size() / 3);
+    const auto first = static_cast<uint32_t>(seeds.size() / 3);
     for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[static_cast<size_t>(s)]) {
       seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3]);
       seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3 + 1]);

@@ -160,7 +160,7 @@ bool TreeMesher::Collar(int face,
                         int sides,
                         float room,
                         int *out) {
-  if (face < 0 || Dead_[static_cast<size_t>(face)]) { return false; }
+  if (face < 0 || (Dead_[static_cast<size_t>(face)] != 0u)) { return false; }
   const Face parent = Faces_[static_cast<size_t>(face)];
   const int o[4] = {parent.A, parent.B, parent.C, parent.D};
   if (parent.D < 0) { return false; }
@@ -217,14 +217,14 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
   int ring[kMaxSides];
   int next[kMaxSides];
   for (size_t i = 0; i < plant.Shoots.size(); ++i) {
-    if (!Drawn_[i]) { continue; }
+    if (Drawn_[i] == 0u) { continue; }
     const TreeSkeleton::Shoot &shoot = plant.Shoots[i];
     const int last = shoot.First + shoot.Count - 1;
     const TreeSkeleton::Node &anchor = plant.Nodes[static_cast<size_t>(shoot.First)];
     const int sides = SidesFor(anchor.Radius, shoot.Sides);
 
     int face = -1;
-    if (shoot.Parent >= 0 && Drawn_[static_cast<size_t>(shoot.Parent)]) {
+    if (shoot.Parent >= 0 && (Drawn_[static_cast<size_t>(shoot.Parent)] != 0u)) {
       const Band band = Bands_[static_cast<size_t>(shoot.ParentNode)];
       if (band.First >= 0) {
         int k0 = static_cast<int>(shoot.Roll / kTau * static_cast<float>(band.Sides)) % band.Sides;
@@ -277,7 +277,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
 void TreeMesher::Export(TreeMesh &out) {
   Normals_.assign(Verts_.size(), TreeVec3{});
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
-    if (Dead_[fi]) { continue; }
+    if (Dead_[fi] != 0u) { continue; }
     const Face &f = Faces_[fi];
     const int tri[2][3] = {{f.A, f.B, f.C}, {f.A, f.C, f.D}};
     const int nt = f.D < 0 ? 1 : 2;
@@ -305,7 +305,7 @@ void TreeMesher::Export(TreeMesh &out) {
   }
   out.BarkIdx.clear();
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
-    if (Dead_[fi]) { continue; }
+    if (Dead_[fi] != 0u) { continue; }
     const Face &f = Faces_[fi];
     out.BarkIdx.push_back(static_cast<uint32_t>(f.A));
     out.BarkIdx.push_back(static_cast<uint32_t>(f.B));

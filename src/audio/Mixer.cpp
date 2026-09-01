@@ -131,7 +131,7 @@ void Voiced(const Sound &sound,
       }
       case Makes::Delay: {
         const double seconds = Named(makes.Parameters, "delayS", 0.05);
-        const size_t held = static_cast<size_t>(seconds * static_cast<double>(rate));
+        const auto held = static_cast<size_t>(seconds * static_cast<double>(rate));
         if (kept.Ring.size() != held + 1) {
           kept.Ring.assign(held + 1, 0.0);
           kept.At = 0;
@@ -213,7 +213,7 @@ bool Mixer::Stands(std::span<const Bus> buses,
     constexpr int kCombs[] = {1116, 1188, 1277, 1356};
     constexpr int kPasses[] = {556, 441};
     for (const int held : kCombs) {
-      const size_t taps =
+      const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
       Held_->Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
       Held_->Room.CombAt.push_back(0);
@@ -223,7 +223,7 @@ bool Mixer::Stands(std::span<const Bus> buses,
       Held_->Room.CombBack.push_back(std::pow(10.0, -3.0 * delayS / one.Reverberates.SecondsRt60));
     }
     for (const int held : kPasses) {
-      const size_t taps =
+      const auto taps =
           static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
       Held_->Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
       Held_->Room.PassAt.push_back(0);

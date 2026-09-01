@@ -135,7 +135,7 @@ struct Placer {
   std::unordered_map<int, double> MaxContents;
 
   [[nodiscard]] static uint64_t MemoKey(int node, double availableWidth) {
-    const float rounded = static_cast<float>(availableWidth);
+    const auto rounded = static_cast<float>(availableWidth);
     uint32_t bits = 0;
     std::memcpy(&bits, &rounded, sizeof bits);
     return (static_cast<uint64_t>(static_cast<uint32_t>(node)) << 32) | static_cast<uint64_t>(bits);
@@ -428,7 +428,7 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
 namespace {
 
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
-  const unsigned char lead = static_cast<unsigned char>(text[at]);
+  const auto lead = static_cast<unsigned char>(text[at]);
   size_t length = 1;
   code = lead;
   if ((lead & 0xE0u) == 0xC0u) {

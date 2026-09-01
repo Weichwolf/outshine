@@ -74,7 +74,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   Mark_.Advance(feats);
 
   const std::span<const double> pts = field.Points();
-  const uint32_t firstSurface = static_cast<uint32_t>(Surfaces_.size());
+  const auto firstSurface = static_cast<uint32_t>(Surfaces_.size());
   std::vector<double> hs;
 
   for (size_t c = next.From; c < next.To; c++) {
@@ -114,7 +114,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
         course.FirstLevel = static_cast<uint32_t>(Levels_.size());
         const VegetationTemplates::Rule *rule =
             veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
-        course.HalfWidthM = rule && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
+        course.HalfWidthM = (rule != nullptr) && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
         for (double h : hs) { Levels_.push_back(static_cast<float>(h)); }
         Courses_.push_back(course);
       }

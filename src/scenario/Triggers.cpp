@@ -52,7 +52,7 @@ std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Vol
                              "' fires on dwell and declares no dwellS -- a dwell without a "
                              "duration is an enter wearing a costume");
     }
-    uint16_t named = static_cast<uint16_t>(standing.Events_.size());
+    auto named = static_cast<uint16_t>(standing.Events_.size());
     for (size_t at = 0; at < standing.Events_.size(); ++at) {
       if (standing.Events_[at] == volume.Fires) { named = static_cast<uint16_t>(at); }
     }

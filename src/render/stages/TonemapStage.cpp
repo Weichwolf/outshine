@@ -65,7 +65,7 @@ bool TonemapStage::Configure(const Gpu &gpu,
   pipeline.target_info.color_target_descriptions = target;
   pipeline.target_info.num_color_targets = options.Temporal ? 2u : 1u;
   SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (!made) {
+  if (made == nullptr) {
     error = std::string("the display transfer's pipeline was refused: ") + SDL_GetError();
     return false;
   }

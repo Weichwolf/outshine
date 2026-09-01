@@ -8,9 +8,9 @@
 namespace outshine {
 
 constexpr int64_t DaysFromCivil(int64_t y, unsigned m, unsigned d) {
-  y -= m <= 2;
+  y -= static_cast<int64_t>(m <= 2);
   const int64_t era = (y >= 0 ? y : y - 399) / 400;
-  const unsigned yoe = static_cast<unsigned>(y - era * 400);
+  const auto yoe = static_cast<unsigned>(y - era * 400);
   const unsigned mp = (m > 2 ? m - 3u : m + 9u);
   const unsigned doy = (153u * mp + 2u) / 5u + d - 1u;
   const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
@@ -20,13 +20,13 @@ constexpr int64_t DaysFromCivil(int64_t y, unsigned m, unsigned d) {
 constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
   z += 719468;
   const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-  const unsigned doe = static_cast<unsigned>(z - era * 146097);
+  const auto doe = static_cast<unsigned>(z - era * 146097);
   const unsigned yoe = (doe - doe / 1460u + doe / 36524u - doe / 146096u) / 365u;
   const unsigned doy = doe - (365u * yoe + yoe / 4u - yoe / 100u);
   const unsigned mp = (5u * doy + 2u) / 153u;
   d = doy - (153u * mp + 2u) / 5u + 1u;
   m = (mp < 10u) ? mp + 3u : mp - 9u;
-  y = static_cast<int64_t>(yoe) + era * 400 + (m <= 2);
+  y = static_cast<int64_t>(yoe) + era * 400 + static_cast<int64_t>(m <= 2);
 }
 
 [[nodiscard]] constexpr bool IsLeapYear(int64_t y) {
@@ -39,16 +39,16 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
 }
 
 [[nodiscard]] inline bool ParseIsoUtc(const char *s, int64_t &outUnixS) {
-  if (!s) { return false; }
+  if (s == nullptr) { return false; }
   size_t n = 0;
-  while (s[n]) {
+  while (s[n] != 0) {
     if (++n > 20) { return false; }
   }
   if (n != 20) { return false; }
   const char sep[20] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, 'T', 0, 0, ':', 0, 0, ':', 0, 0, 'Z'};
   int v[20];
   for (int i = 0; i < 20; i++) {
-    if (sep[i]) {
+    if (sep[i] != 0) {
       if (s[i] != sep[i]) { return false; }
       v[i] = 0;
       continue;
@@ -57,8 +57,8 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
     v[i] = s[i] - '0';
   }
   const int64_t year = v[0] * 1000 + v[1] * 100 + v[2] * 10 + v[3];
-  const unsigned mon = static_cast<unsigned>(v[5] * 10 + v[6]);
-  const unsigned day = static_cast<unsigned>(v[8] * 10 + v[9]);
+  const auto mon = static_cast<unsigned>(v[5] * 10 + v[6]);
+  const auto day = static_cast<unsigned>(v[8] * 10 + v[9]);
   const int hour = v[11] * 10 + v[12];
   const int min = v[14] * 10 + v[15];
   const int sec = v[17] * 10 + v[18];

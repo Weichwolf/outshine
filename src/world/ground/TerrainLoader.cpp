@@ -83,10 +83,8 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
   const uint32_t c1 = Ground::ChunkNodePosting(i + 1, postings, side);
   const uint32_t r0 = Ground::ChunkNodePosting(j, postings, side);
   const uint32_t r1 = Ground::ChunkNodePosting(j + 1, postings, side);
-  const float su =
-      static_cast<float>((px - static_cast<double>(c0)) / static_cast<double>(c1 - c0));
-  const float sv =
-      static_cast<float>((py - static_cast<double>(r0)) / static_cast<double>(r1 - r0));
+  const auto su = static_cast<float>((px - static_cast<double>(c0)) / static_cast<double>(c1 - c0));
+  const auto sv = static_cast<float>((py - static_cast<double>(r0)) / static_cast<double>(r1 - r0));
   const Ground::ChunkCell cell{.Nodes = nodes, .Stride = side, .Row = j, .Col = i};
   return static_cast<double>(Ground::ChunkCellHeight(cell, su, sv));
 }
@@ -154,19 +152,19 @@ GroundStream::GroundStream(TilePool &tiles, GroundSurface surface)
 
 GroundStream::~GroundStream() {
   if (Held_ && Held_->Builds > 0) {
-    Log::Debug(
-        "world",
-        "ground_oracle",
-        {{"tileBuilds", static_cast<int>(Held_->Builds)},
-         {"demDecodes", static_cast<int>(Held_->Decodes)},
-         {"decodesPerBuild",
-          Held_->Builds ? static_cast<double>(Held_->Decodes) / static_cast<double>(Held_->Builds)
-                        : 0.0},
-         {"stitchMs", Held_->StitchMs},
-         {"stitchMsPerBuild",
-          Held_->Builds ? Held_->StitchMs / static_cast<double>(Held_->Builds) : 0.0},
-         {"gridCache", kGroundStitchGrids},
-         {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
+    Log::Debug("world",
+               "ground_oracle",
+               {{"tileBuilds", static_cast<int>(Held_->Builds)},
+                {"demDecodes", static_cast<int>(Held_->Decodes)},
+                {"decodesPerBuild",
+                 (Held_->Builds != 0)
+                     ? static_cast<double>(Held_->Decodes) / static_cast<double>(Held_->Builds)
+                     : 0.0},
+                {"stitchMs", Held_->StitchMs},
+                {"stitchMsPerBuild",
+                 (Held_->Builds != 0) ? Held_->StitchMs / static_cast<double>(Held_->Builds) : 0.0},
+                {"gridCache", kGroundStitchGrids},
+                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
   }
 }
 
@@ -360,7 +358,7 @@ GroundSample GroundStream::At(double lat, double lon) const {
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
-  if (!t) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
+  if (t == nullptr) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
   return GroundSample::At(TileHeightAslM(t->H.data(),
                                          t->Nodes,
                                          t->Postings,
@@ -382,7 +380,7 @@ GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   if (!WrapTile(z, &hx, &hy)) { return block; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
-  if (!t) {
+  if (t == nullptr) {
     block.Where_ = Held_->Pending ? GroundBlock::State::Pending : GroundBlock::State::Missing;
     return block;
   }
@@ -409,7 +407,7 @@ void GroundBlock::AslMRow(
   const double ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
 
-  const double width = static_cast<double>(static_cast<long>(1) << Zoom_);
+  const auto width = static_cast<double>(static_cast<long>(1) << Zoom_);
   if ((tx1 - tx0) * lonStepDeg < 0.0) { tx1 += lonStepDeg > 0.0 ? width : -width; }
   const double fy = ty - static_cast<double>(Y_);
   const double fx0 = tx0 - static_cast<double>(X_);

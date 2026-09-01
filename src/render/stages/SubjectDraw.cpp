@@ -254,7 +254,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
           wanted.rasterizer_state.cull_mode =
               cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
           SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
-          if (!made) {
+          if (made == nullptr) {
             error = std::string("the subject's pipeline was refused at ") + entry + ": " +
                     SDL_GetError();
             return false;
@@ -298,7 +298,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
 
   const Material &row = material.Row;
 
-  const float identity = static_cast<float>(Slots.size() + 1u);
+  const auto identity = static_cast<float>(Slots.size() + 1u);
 
   float f0[3];
   DielectricF0(row, f0);
@@ -348,7 +348,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
                                                                 &material.Emissive,
                                                                 &material.SpecularStrength,
                                                                 &material.SpecularTint};
-  size_t at = static_cast<size_t>(kSurfaceScalars);
+  auto at = static_cast<size_t>(kSurfaceScalars);
   for (const SubjectTexture *image : images) {
     for (const double element : image->Uv.M) { slot.Row[at++] = static_cast<float>(element); }
   }
@@ -409,7 +409,7 @@ bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::
   Batches.clear();
   BatchLayout.clear();
   Bound().NIdx = 0;
-  if (!Device) {
+  if (Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
   }
@@ -460,7 +460,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     Bound().NIdx = 0;
     return true;
   }
-  if (!Device) {
+  if (Device == nullptr) {
     Bound().NIdx = 0;
     error = "the subject stage carries no device, so a mesh of " + std::to_string(Bound().NVerts) +
             " vertices has nowhere to become resident";
@@ -470,9 +470,9 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     const char *missing = nullptr;
     if (!mesh.Verts.Stands()) {
       missing = "position run";
-    } else if (!mesh.Indices) {
+    } else if (mesh.Indices == nullptr) {
       missing = "index run";
-    } else if (!mesh.Draws) {
+    } else if (mesh.Draws == nullptr) {
       missing = "draw list";
     } else if (!mesh.Emitted.Stands()) {
       missing = "emitted-radiance run";
@@ -729,7 +729,7 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
 bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
   if (Args_.empty() || !Bound().DrawArgs) { return true; }
   for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
-  const uint32_t bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
+  const auto bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
   SubjectResidency::Crossing table[] = {
       {.Into = &Bound().DrawArgs,
        .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],

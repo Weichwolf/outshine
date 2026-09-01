@@ -46,7 +46,7 @@ struct Pull {
     Error += Error.empty() ? "render.outputs: " : "; also ";
     Error += std::string(Row(r).Name) + " " + why;
     for (size_t s = 0; s < kStageCount; ++s) {
-      const Stage id = static_cast<Stage>(s);
+      const auto id = static_cast<Stage>(s);
       if (Produces(id, r) && Row(id).From == Provenance::Content) {
         Error += std::string(" -- declare render.content.") + Row(id).Name + " to supply it";
         return;
@@ -55,7 +55,7 @@ struct Pull {
   }
 
   [[nodiscard]] bool Resolve(Resource r) {
-    const size_t index = static_cast<size_t>(r);
+    const auto index = static_cast<size_t>(r);
     if (Seen[index]) { return true; }
     Seen[index] = true;
     const ResourceRow &row = Row(r);
@@ -66,7 +66,7 @@ struct Pull {
 
     size_t contributors = 0;
     for (size_t s = 0; s < kStageCount; ++s) {
-      const Stage id = static_cast<Stage>(s);
+      const auto id = static_cast<Stage>(s);
       if (!Produces(id, r)) { continue; }
       if (Row(id).From == Provenance::Machinery || Declared[s]) {
         Hold(id);
@@ -202,7 +202,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
   }
   if (spec.Precision.Or(ScenePrecision::Half) == ScenePrecision::Float) {
     for (size_t at = 0; at < kResourceCount; ++at) {
-      const Resource resource = static_cast<Resource>(at);
+      const auto resource = static_cast<Resource>(at);
       if (CarriesSceneRadiance(resource)) { plan->Format_[at] = TexelFormat::Rgba32Float; }
     }
   }
@@ -341,7 +341,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
       if (pass.Depth != kNoEdge) { ++attachedInPasses[static_cast<size_t>(pass.Depth)]; }
     }
     for (size_t r = 0; r < kResourceCount; ++r) {
-      const Resource id = static_cast<Resource>(r);
+      const auto id = static_cast<Resource>(r);
       if (!plan->HeldResource_[r]) { continue; }
       bool read = false;
       for (const Stage held : plan->Order_) {

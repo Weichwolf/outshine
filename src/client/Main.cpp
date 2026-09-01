@@ -272,8 +272,9 @@ int main(int argc, char **argv) {
   if (verb == "height") { return AskHeight(rest, from); }
   if (verb == "roundtrip") {
     int apart = 0;
-    const std::string held = std::string(std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "/tmp") +
-                             "/outshine-roundtrip.scn";
+    const std::string held =
+        std::string((std::getenv("TMPDIR") != nullptr) ? std::getenv("TMPDIR") : "/tmp") +
+        "/outshine-roundtrip.scn";
     for (const Place &one : outshine::Shots::Places()) {
       outshine::Engine engine;
       if (!engine.declare(outshine::Shots::ScenarioFor(one))) {

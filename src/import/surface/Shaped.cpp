@@ -54,7 +54,7 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
 
 void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   const int parts = from.parts();
-  const uint32_t firstSurface = static_cast<uint32_t>(into.Surfaces.size());
+  const auto firstSurface = static_cast<uint32_t>(into.Surfaces.size());
   size_t wholeIndices = 0;
   for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
   into.Indices.reserve(wholeIndices);

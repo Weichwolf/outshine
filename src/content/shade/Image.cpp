@@ -14,7 +14,7 @@ struct DynamicIo {
   explicit DynamicIo() : Stream(SDL_IOFromDynamicMem()) {}
 
   ~DynamicIo() {
-    if (Stream) { SDL_CloseIO(Stream); }
+    if (Stream != nullptr) { SDL_CloseIO(Stream); }
   }
 
   DynamicIo(const DynamicIo &) = delete;
@@ -27,7 +27,7 @@ struct OwnedSurface {
   explicit OwnedSurface(SDL_Surface *surface) : Surface(surface) {}
 
   ~OwnedSurface() {
-    if (Surface) { SDL_DestroySurface(Surface); }
+    if (Surface != nullptr) { SDL_DestroySurface(Surface); }
   }
 
   OwnedSurface(const OwnedSurface &) = delete;
@@ -38,13 +38,13 @@ struct OwnedSurface {
 
 bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
   out = Raster();
-  if (!bytes || count == 0) { return false; }
+  if ((bytes == nullptr) || count == 0) { return false; }
 
   SDL_IOStream *io = SDL_IOFromConstMem(bytes, count);
-  if (!io) { return false; }
+  if (io == nullptr) { return false; }
 
   const OwnedSurface decoded(IMG_Load_IO(io, true));
-  if (!decoded.Surface) { return false; }
+  if (decoded.Surface == nullptr) { return false; }
 
   constexpr int kMaxSide = 16384;
   if (decoded.Surface->w <= 0 || decoded.Surface->h <= 0 || decoded.Surface->w > kMaxSide ||
@@ -52,13 +52,13 @@ bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
     return false;
   }
   const OwnedSurface rgba(SDL_ConvertSurface(decoded.Surface, SDL_PIXELFORMAT_RGBA32));
-  if (!rgba.Surface) { return false; }
+  if (rgba.Surface == nullptr) { return false; }
   if (rgba.Surface->w <= 0 || rgba.Surface->h <= 0) { return false; }
 
   out.Width = rgba.Surface->w;
   out.Height = rgba.Surface->h;
   out.Rgba.resize(static_cast<size_t>(out.Width) * static_cast<size_t>(out.Height) * 4u);
-  const uint8_t *source = static_cast<const uint8_t *>(rgba.Surface->pixels);
+  const auto *source = static_cast<const uint8_t *>(rgba.Surface->pixels);
   const size_t rowBytes = static_cast<size_t>(out.Width) * 4u;
   for (int row = 0; row < out.Height; ++row) {
     const uint8_t *from =
@@ -71,17 +71,17 @@ bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
 
 bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> &out) {
   out.clear();
-  if (!rgba || width <= 0 || height <= 0) { return false; }
+  if ((rgba == nullptr) || width <= 0 || height <= 0) { return false; }
 
   const DynamicIo io;
-  if (!io.Stream) { return false; }
+  if (io.Stream == nullptr) { return false; }
   const OwnedSurface surface(
       SDL_CreateSurfaceFrom(width,
                             height,
                             SDL_PIXELFORMAT_RGBA32,
                             const_cast<void *>(static_cast<const void *>(rgba)),
                             width * 4));
-  if (!surface.Surface) { return false; }
+  if (surface.Surface == nullptr) { return false; }
   if (!IMG_SavePNG_IO(surface.Surface, io.Stream, false)) { return false; }
 
   const Sint64 size = SDL_GetIOSize(io.Stream);

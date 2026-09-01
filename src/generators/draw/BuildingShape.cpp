@@ -47,8 +47,8 @@ uint32_t Mix(uint32_t x) {
 }
 
 uint32_t SeedOfPlace(double latDeg, double lonDeg) {
-  const int32_t la = static_cast<int32_t>(std::llround(latDeg * 1.0e6));
-  const int32_t lo = static_cast<int32_t>(std::llround(lonDeg * 1.0e6));
+  const auto la = static_cast<int32_t>(std::llround(latDeg * 1.0e6));
+  const auto lo = static_cast<int32_t>(std::llround(lonDeg * 1.0e6));
   return Mix(static_cast<uint32_t>(la) * 0x9e3779b9u ^ Mix(static_cast<uint32_t>(lo)));
 }
 
@@ -508,7 +508,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   const size_t n = s->Ring.size();
   double best = 0.35;
   for (size_t i = 0; i < n; i++) {
-    if (s->Party[i]) { continue; }
+    if (s->Party[i] != 0u) { continue; }
     const En &p = s->Ring[i];
     const En &q = s->Ring[(i + 1) % n];
     const double e = q.E - p.E;

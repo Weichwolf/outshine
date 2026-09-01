@@ -20,14 +20,14 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
                           int grid,
                           Chunk *out,
                           double origin_out[3]) {
-  if (!out || !origin_out) { return 0; }
+  if ((out == nullptr) || (origin_out == nullptr)) { return 0; }
   out->verts = 0;
   out->nverts = 0;
   out->gridverts = 0;
   out->err = 0.f;
   origin_out[0] = origin_out[1] = origin_out[2] = 0.0;
   const std::vector<float> *positions = mesh.TryPositionsEnuM();
-  if (!positions || positions->empty()) { return 0; }
+  if ((positions == nullptr) || positions->empty()) { return 0; }
   const float *p = positions->data();
   const uint32_t nVertices = mesh.VertexCount();
 
@@ -38,7 +38,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       break;
     }
   }
-  const uint32_t R = C ? nVertices / C : 0;
+  const uint32_t R = (C != 0u) ? nVertices / C : 0;
   if (!(C >= 2 && R >= 2 && nVertices % C == 0)) { return 0; }
 
   int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
@@ -48,9 +48,9 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
 
   const int NN = gr * gc;
 
-  double *pe = static_cast<double *>(
+  auto *pe = static_cast<double *>(
       Heap::Take("terrain node offsets", static_cast<size_t>(NN) * 3 * sizeof(double)));
-  float *nh = static_cast<float *>(
+  auto *nh = static_cast<float *>(
       Heap::Take("terrain node heights", static_cast<size_t>(NN) * sizeof(float)));
 
   {
@@ -89,7 +89,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
                            static_cast<float>(origin_out[1] / olen),
                            static_cast<float>(origin_out[2] / olen)};
 
-  float *nv = static_cast<float *>(
+  auto *nv = static_cast<float *>(
       Heap::Take("terrain node normals", static_cast<size_t>(NN) * 3 * sizeof(float)));
   for (int j = 0; j < gr; j++) {
     for (int i = 0; i < gc; i++) {
@@ -113,9 +113,9 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
         nz = radial[2];
         L = 1;
       }
-      float fx = static_cast<float>(nx / L);
-      float fy = static_cast<float>(ny / L);
-      float fz = static_cast<float>(nz / L);
+      auto fx = static_cast<float>(nx / L);
+      auto fy = static_cast<float>(ny / L);
+      auto fz = static_cast<float>(nz / L);
       if (fx * radial[0] + fy * radial[1] + fz * radial[2] < 0) {
         fx = -fx;
         fy = -fy;
@@ -150,7 +150,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   out->err = err;
 
   const int nquad = (gr - 1) * (gc - 1);
-  ChunkVtx *v = static_cast<ChunkVtx *>(
+  auto *v = static_cast<ChunkVtx *>(
       Heap::Take("terrain tile vertices", static_cast<size_t>(nquad) * 6 * sizeof(ChunkVtx)));
   size_t o = 0;
   for (int j = 0; j < gr - 1; j++) {

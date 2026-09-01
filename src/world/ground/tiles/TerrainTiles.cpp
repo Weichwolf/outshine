@@ -144,7 +144,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
   const TerrainField *field = grid.TryFieldMutable();
-  if (!field) { return grid; }
+  if (field == nullptr) { return grid; }
 
   if (subDiv > 1) {
     const uint32_t cropCols = field->Cols() / subDiv;
@@ -170,7 +170,7 @@ TerrainGrid::State
 TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side) {
   const TerrainGrid neighbour = RawGrid(z, nx, ny);
   const TerrainField *n = neighbour.TryField();
-  if (!n || !n->Meshable()) { return neighbour.Where(); }
+  if ((n == nullptr) || !n->Meshable()) { return neighbour.Where(); }
 
   if (side == Side::West || side == Side::East) {
     const uint32_t selfCol = (side == Side::West) ? 0 : self.Cols() - 1;
@@ -206,7 +206,8 @@ TerrainGrid::State TerrainTiles::StitchCorner(
   const TerrainField *a = sideways.TryField();
   const TerrainField *b = updown.TryField();
   const TerrainField *c = diagonal.TryField();
-  if (!a || !b || !c || !a->Meshable() || !b->Meshable() || !c->Meshable()) {
+  if ((a == nullptr) || (b == nullptr) || (c == nullptr) || !a->Meshable() || !b->Meshable() ||
+      !c->Meshable()) {
     return Worse(Worse(sideways.Where(), updown.Where()), diagonal.Where());
   }
 
@@ -223,7 +224,7 @@ TerrainGrid::State TerrainTiles::StitchCorner(
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainGrid grid = RawGrid(z, x, y);
   TerrainField *field = grid.TryFieldMutable();
-  if (!field) { return grid; }
+  if (field == nullptr) { return grid; }
 
   const float rawCorners[4] = {field->AtM(0u, 0u),
                                field->AtM(0u, field->Cols() - 1u),
@@ -252,7 +253,7 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
 TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
   const TerrainGrid grid = StitchedGrid(z, x, y);
   const TerrainField *field = grid.TryField();
-  if (!field) {
+  if (field == nullptr) {
     switch (grid.Where()) {
       case TerrainGrid::State::Undecodable:
         return TerrainMesh::Nothing(TerrainMesh::State::SourceUndecodable);

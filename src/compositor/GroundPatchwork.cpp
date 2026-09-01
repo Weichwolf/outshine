@@ -85,7 +85,7 @@ void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
   for (int row = 0; row + 1 < side; ++row) {
     for (int column = 0; column + 1 < side; ++column) {
-      const uint32_t a = static_cast<uint32_t>(row * side + column);
+      const auto a = static_cast<uint32_t>(row * side + column);
       const uint32_t b = a + 1;
       const uint32_t c = a + static_cast<uint32_t>(side);
       const uint32_t d = c + 1;
@@ -216,7 +216,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         const double shift[3] = {built.OriginEcef[0] - out.OriginEcef[0],
                                  built.OriginEcef[1] - out.OriginEcef[1],
                                  built.OriginEcef[2] - out.OriginEcef[2]};
-        const uint32_t first = static_cast<uint32_t>(out.PositionM.size() / 3);
+        const auto first = static_cast<uint32_t>(out.PositionM.size() / 3);
         for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
              vertex += kTileVertexFloats) {
           out.PositionM.push_back(
@@ -232,7 +232,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           out.NormalM.push_back(built.Verts[vertex + 7]);
         }
         out.ClustersHeld += built.Clusters.size();
-        const uint32_t rebase = static_cast<uint32_t>(out.AllIndex.size());
+        const auto rebase = static_cast<uint32_t>(out.AllIndex.size());
         for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
         for (const DagCluster &cluster : built.Clusters) {
           DagCluster carried = cluster;

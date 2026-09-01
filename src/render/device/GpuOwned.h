@@ -72,7 +72,7 @@ public:
   explicit operator bool() const { return Device_ != nullptr; }
 
   void Reset() {
-    if (Device_) { SDL_DestroyGPUDevice(Device_); }
+    if (Device_ != nullptr) { SDL_DestroyGPUDevice(Device_); }
     Device_ = nullptr;
   }
 

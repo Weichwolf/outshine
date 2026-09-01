@@ -27,7 +27,7 @@ thread_local double Log::TimeS_ = 0.0;
 thread_local char Log::Unit_[32] = {0};
 
 void Log::SetUnit(const char *label) {
-  if (!label) {
+  if (label == nullptr) {
     Unit_[0] = 0;
     return;
   }
@@ -38,10 +38,10 @@ void Log::Emit(LogLevel level,
                const char *tag,
                const char *event,
                std::span<const LogField> fields) {
-  if (!Sink_ || level < Level_) { return; }
+  if ((Sink_ == nullptr) || level < Level_) { return; }
 
-  LogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;
-  out->Write(TimeS_, level, Unit_[0] ? Unit_ : nullptr, tag, event, fields);
+  LogSink *out = (ThreadSink_ != nullptr) ? ThreadSink_ : Sink_;
+  out->Write(TimeS_, level, (Unit_[0] != 0) ? Unit_ : nullptr, tag, event, fields);
 }
 
 } // namespace outshine

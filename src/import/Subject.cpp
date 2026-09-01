@@ -317,7 +317,7 @@ bool Subject::GeneratedTangentsFor(Part &part) {
   for (size_t corner = 0; corner < part.IndexCount; ++corner) {
     const uint32_t vertex = Indices_[part.FirstIndex + corner];
     const double *basis = &corners[corner * 4];
-    if (!written[vertex]) {
+    if (written[vertex] == 0) {
       for (size_t at = 0; at < 4; ++at) { Tangents_[vertex * 4 + at] = basis[at]; }
       written[vertex] = 1;
       continue;
@@ -331,7 +331,7 @@ bool Subject::GeneratedTangentsFor(Part &part) {
       Indices_[part.FirstIndex + corner] = found->second;
       continue;
     }
-    const uint32_t made = static_cast<uint32_t>(VertexCount());
+    const auto made = static_cast<uint32_t>(VertexCount());
     for (size_t axis = 0; axis < 3; ++axis) { Positions_.push_back(Positions_[vertex * 3 + axis]); }
     Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
     Uv_[static_cast<size_t>(made) * 2] = Uv_[vertex * 2];
@@ -374,12 +374,12 @@ bool Subject::FlatNormalsFor(Part &part) {
                       Indices_[part.FirstIndex + triangle + 2]};
     for (size_t corner = 0; corner < 3; ++corner) {
       const uint32_t vertex = of[corner];
-      if (vertex < before && !owned[vertex]) {
+      if (vertex < before && (owned[vertex] == 0)) {
         owned[vertex] = 1;
         continue;
       }
 
-      const uint32_t made = static_cast<uint32_t>(VertexCount());
+      const auto made = static_cast<uint32_t>(VertexCount());
       for (size_t axis = 0; axis < 3; ++axis) {
         Positions_.push_back(Positions_[static_cast<size_t>(vertex) * 3 + axis]);
       }
@@ -520,7 +520,7 @@ bool Subject::Build(const Document &document,
                   " morph weights and the file's nodes carry " +
                   std::to_string(document.MorphWeightsTotal()));
   }
-  return Flatten(document, pose.Data(), weights.Size() ? weights.Data() : nullptr, variant);
+  return Flatten(document, pose.Data(), (weights.Size() != 0u) ? weights.Data() : nullptr, variant);
 }
 
 bool InstanceTransforms(const Document &document,
@@ -684,8 +684,9 @@ bool Subject::Flatten(const Document &document,
       const std::vector<double> &declared =
           document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
       for (size_t at = 0; at < morphCount; ++at) {
-        nodeWeights.push_back(weights ? weights[document.MorphWeightsFirst(nodeIndex) + at]
-                                      : (at < declared.size() ? declared[at] : 0.0));
+        nodeWeights.push_back((weights != nullptr)
+                                  ? weights[document.MorphWeightsFirst(nodeIndex) + at]
+                                  : (at < declared.size() ? declared[at] : 0.0));
       }
     }
 
@@ -736,7 +737,7 @@ bool Subject::Flatten(const Document &document,
 
         if (!DrawsASurface(primitive.Mode)) {
           ++Undrawn_.Primitives;
-          const size_t mode = static_cast<size_t>(primitive.Mode);
+          const auto mode = static_cast<size_t>(primitive.Mode);
           if (mode < 7) { ++Undrawn_.ByMode[mode]; }
 
           continue;
