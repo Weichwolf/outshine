@@ -38,11 +38,11 @@ static_assert(alignof(Medium) == 16,
 namespace medium_core {
 using ::outshine::Render::Medium;
 
-inline double max(double a, double b) {
+inline float max(float a, float b) {
   return a > b ? a : b;
 }
 
-inline double clamp(double x, double lo, double hi) {
+inline float clamp(float x, float lo, float hi) {
   return x < lo ? lo : (x > hi ? hi : x);
 }
 
@@ -54,7 +54,7 @@ using std::pow;
 using std::sqrt;
 #define MEDIUM_CONST const
 #define MEDIUM_THREAD
-#define OUTSHINE_PI std::numbers::pi
+#define OUTSHINE_PI std::numbers::pi_v<float>
 #include "MediumCore.h"
 #undef MEDIUM_CONST
 #undef MEDIUM_THREAD

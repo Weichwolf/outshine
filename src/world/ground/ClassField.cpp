@@ -238,7 +238,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
                {{"version", static_cast<double>(done->Structure->Version())},
                 {"buildMs", buildMs},
                 {"packMs", done->Structure->Measured().PackMs},
-                {"bufferKB", done->Structure->Bytes() / 1024.0},
+                {"bufferKB", static_cast<double>(done->Structure->Bytes()) / 1024.0},
                 {"lentKB",
                  static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
                                      CapacityBytes(t.Feats)) /

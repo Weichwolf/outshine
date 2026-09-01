@@ -190,7 +190,7 @@ void GroundStream::KeepCoarse(long x, long y) const {
     if (t.Resident && t.X == x && t.Y == y) { return; }
     if (t.Used < victim->Used) { victim = &t; }
   }
-  const int zoom = Surface_.Z - kCoarseDrop;
+  const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
   if (zoom < 1) { return; }
   held.Pending = false;
   const TerrainGrid grid =
@@ -279,9 +279,9 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
-  const int zoom = Surface_.Z - kCoarseDrop;
-  long cx = static_cast<uint64_t>(hx) >> kCoarseDrop;
-  const long cy = static_cast<uint64_t>(hy) >> kCoarseDrop;
+  const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
+  long cx = static_cast<long>(static_cast<uint64_t>(hx) >> kCoarseDrop);
+  const long cy = static_cast<long>(static_cast<uint64_t>(hy) >> kCoarseDrop);
   if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
     if (const Tile *coarse = CoarseResident(cx, cy)) {
       return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
@@ -347,7 +347,8 @@ const Tile *GroundStream::TileAt(long x, long y) const {
     return nullptr;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
-  KeepCoarse(static_cast<uint64_t>(x) >> kCoarseDrop, static_cast<uint64_t>(y) >> kCoarseDrop);
+  KeepCoarse(static_cast<long>(static_cast<uint64_t>(x) >> kCoarseDrop),
+             static_cast<long>(static_cast<uint64_t>(y) >> kCoarseDrop));
   return victim;
 }
 

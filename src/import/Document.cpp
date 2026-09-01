@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string_view>
+#include <format>
 #include <string>
 #include <vector>
 #include <system_error>
@@ -134,6 +135,10 @@ std::string DirectoryOf(std::string_view path) {
 
 std::string Number(size_t value) {
   return std::to_string(value);
+}
+
+std::string Decimal(double value) {
+  return std::format("{}", value);
 }
 
 [[nodiscard]] int SixBitsOf(char one) {
@@ -955,17 +960,17 @@ bool Document::ReadJson(const char *text,
       return Refuse("camera " + Number(i) + " has type '" + kind + "', and glTF 2.0 has two");
     }
     if (!(camera.ZNearM > 0.0)) {
-      return Refuse("camera " + Number(i) + " declares znear " + Number(camera.ZNearM) +
+      return Refuse("camera " + Number(i) + " declares znear " + Decimal(camera.ZNearM) +
                     ", and a near plane at or behind the eye bounds nothing");
     }
     if (camera.ZFarM != 0.0 && !(camera.ZFarM > camera.ZNearM)) {
-      return Refuse("camera " + Number(i) + " declares zfar " + Number(camera.ZFarM) +
-                    " against a znear of " + Number(camera.ZNearM) +
+      return Refuse("camera " + Number(i) + " declares zfar " + Decimal(camera.ZFarM) +
+                    " against a znear of " + Decimal(camera.ZNearM) +
                     ", and a far plane that does not lie beyond the near one encloses no volume");
     }
     if (camera.Kind == CameraKind::Orthographic && (camera.XMagM == 0.0 || camera.YMagM == 0.0)) {
       return Refuse("camera " + Number(i) + " declares an orthographic magnification of " +
-                    Number(camera.XMagM) + " by " + Number(camera.YMagM) +
+                    Decimal(camera.XMagM) + " by " + Decimal(camera.YMagM) +
                     ", and a zero magnification collapses the picture to a line");
     }
     Cameras_.push_back(std::move(camera));
@@ -1831,14 +1836,14 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
     const double declaredMost = narrow(declaredAs(accessor.Max[component]));
     if (accessor.Count > 0 && (least < declaredLeast || most > declaredMost)) {
       why = "carries an element outside the bounds it declares: component " + Number(component) +
-            " runs " + Number(least) + " to " + Number(most) + " over a declared " +
-            Number(declaredLeast) + " to " + Number(declaredMost);
+            " runs " + Decimal(least) + " to " + Decimal(most) + " over a declared " +
+            Decimal(declaredLeast) + " to " + Decimal(declaredMost);
       return false;
     }
     if (accessor.Count > 0 && (least != declaredLeast || most != declaredMost)) {
       why = "declares bounds its data does not meet: component " + Number(component) + " runs " +
-            Number(least) + " to " + Number(most) + " and the accessor declares " +
-            Number(declaredLeast) + " to " + Number(declaredMost) +
+            Decimal(least) + " to " + Decimal(most) + " and the accessor declares " +
+            Decimal(declaredLeast) + " to " + Decimal(declaredMost) +
             " -- glTF 2.0 asks for the actual componentwise extremes, not a box around them";
       return false;
     }
