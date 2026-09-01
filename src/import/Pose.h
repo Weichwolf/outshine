@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "Quat.h"
-#include "Vec3.h"
+#include "math/Quat.h"
+#include "math/Vec3.h"
 #include "Track.h"
 #include "Span.h"
 #include "Transform.h"

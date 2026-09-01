@@ -1,5 +1,5 @@
 #include "SubjectDraw.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 #include "FragmentArms.h"
 
@@ -878,8 +878,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       uniform[48 + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
       uniform[52 + axis] = static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
     }
-    for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
-    for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp16[i]; }
+    for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp[i]; }
+    for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
     for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
     ++UniformPushes_;
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);

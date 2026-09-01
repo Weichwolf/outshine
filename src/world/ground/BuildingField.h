@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "OsmField.h"
 
 #include <algorithm>

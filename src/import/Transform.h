@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_IMPORT_TRANSFORM_H
 #define OUTSHINE_IMPORT_TRANSFORM_H
 
-#include "Quat.h"
-#include "Vec3.h"
+#include "math/Quat.h"
+#include "math/Vec3.h"
 
 namespace outshine::Gltf {
 

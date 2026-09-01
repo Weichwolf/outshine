@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 #define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <cmath>
 #include <cstdint>
 #include <span>

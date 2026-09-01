@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -47,7 +47,7 @@ public:
 private:
   uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void Cast(const double lightFromWorld16[16],
+  void Cast(const double lightFromWorld[16],
             const Vec3 &preView,
             int atlasPx,
             const PassRecording &into);

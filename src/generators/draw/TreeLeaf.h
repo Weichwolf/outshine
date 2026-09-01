@@ -3,7 +3,7 @@
 
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Generators {
 

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 #define OUTSHINE_WORLD_GROUND_VEGETATIONTEMPLATES_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <cstdint>
 #include <string>
 #include <string_view>

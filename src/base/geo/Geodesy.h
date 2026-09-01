@@ -2,7 +2,7 @@
 #define OUTSHINE_BASE_GEO_GEODESY_H
 
 #include <cmath>
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Units.h"
 
 namespace outshine {

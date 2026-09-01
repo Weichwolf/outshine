@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_WORLD_GROUND_GROUNDSAMPLE_H
 #define OUTSHINE_WORLD_GROUND_GROUNDSAMPLE_H
 
-#include "Vec3.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine {
 

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_TILE_H
 #define OUTSHINE_GENERATORS_BASE_TILE_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <cstdint>
 
 namespace outshine::Generators {

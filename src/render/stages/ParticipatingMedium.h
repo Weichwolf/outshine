@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <numbers>
 #include <cmath>
 #include <cstddef>

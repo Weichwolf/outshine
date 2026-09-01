@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_WORLD_GROUND_CHUNKVTX_H
 #define OUTSHINE_WORLD_GROUND_CHUNKVTX_H
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>

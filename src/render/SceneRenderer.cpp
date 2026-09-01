@@ -2,7 +2,7 @@
 #include <chrono>
 
 #include "SceneRenderer.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 #include <cstdint>
 #include <expected>
@@ -693,7 +693,7 @@ FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
 
-  MvpCamRel(ctx.Mvp16,
+  MvpCamRel(ctx.Mvp,
             Right_,
             Up_,
             Fwd_,
@@ -707,9 +707,7 @@ FrameContext SceneRenderer::Framing() const {
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevPreViewTranslation[axis] = Submitted_ ? -PrevEye_[axis] : ctx.PreViewTranslation[axis];
   }
-  for (int at = 0; at < 16; at++) {
-    ctx.PrevMvp16[at] = Submitted_ ? PrevMvp16_[at] : ctx.Mvp16[at];
-  }
+  for (int at = 0; at < 16; at++) { ctx.PrevMvp[at] = Submitted_ ? PrevMvp_[at] : ctx.Mvp[at]; }
   return ctx;
 }
 
@@ -1170,7 +1168,7 @@ void SceneRenderer::RenderFrame() {
   Subjects_.CarryFrame();
   Glass_.CarryFrame();
 
-  MvpCamRel(PrevMvp16_,
+  MvpCamRel(PrevMvp_,
             Right_,
             Up_,
             Fwd_,

@@ -1,3 +1,4 @@
+#include "math/Mat4.h"
 #include <cstdint>
 #include <cstddef>
 #include <memory>
@@ -22,7 +23,7 @@ struct Geometry::Held {
     std::vector<float> Tangents;
     std::vector<float> Colours;
     std::vector<uint32_t> Indices;
-    double PlacedM[16];
+    Mat4 PlacedM;
   };
 
   struct Named {
@@ -33,7 +34,7 @@ struct Geometry::Held {
   struct Placed {
     std::string Named;
     PunctualLight Light;
-    double PlacedM[16];
+    Mat4 PlacedM;
   };
 
   struct Picture {
@@ -85,7 +86,7 @@ int Geometry::addPart(std::string_view named, MaterialInstance material) {
   Geometry::Held::Piece &piece = Held_->Parts[Held_->Live];
   piece.Named.assign(named.begin(), named.end());
   piece.Material = material.index();
-  const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  const Mat4 still;
   for (size_t at = 0; at < 16u; ++at) { piece.PlacedM[at] = still[at]; }
   return static_cast<int>(Held_->Live++);
 }
@@ -142,13 +143,13 @@ bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
   return true;
 }
 
-bool TransformManager::setTransform(int part, const double modelM16[16]) {
+bool TransformManager::setTransform(int part, const Mat4 &model) {
   if (part < 0 || part >= Of_->parts()) { return false; }
-  Of_->place(part, modelM16);
+  Of_->place(part, model);
   return true;
 }
 
-const double *TransformManager::getTransform(int part) const {
+const Mat4 &TransformManager::getTransform(int part) const {
   return Of_->placementOf(part);
 }
 
@@ -176,7 +177,7 @@ std::string_view LightManager::nameOf(int lamp) const {
   return Of_->lampNameOf(lamp);
 }
 
-const double *LightManager::getTransform(int lamp) const {
+const Mat4 &LightManager::getTransform(int lamp) const {
   return Of_->lampPlacementOf(lamp);
 }
 
@@ -224,11 +225,9 @@ void Geometry::resurface(int part, MaterialInstance surface) {
   Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
 }
 
-void Geometry::place(int part, const double modelM16[16]) {
+void Geometry::place(int part, const Mat4 &model) {
   if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) { return; }
-  for (size_t at = 0; at < 16u; ++at) {
-    Held_->Parts[static_cast<size_t>(part)].PlacedM[at] = modelM16[at];
-  }
+  Held_->Parts[static_cast<size_t>(part)].PlacedM = model;
 }
 
 MaterialInstance Geometry::addSurface(std::string_view named, const Material &surface) {
@@ -236,14 +235,12 @@ MaterialInstance Geometry::addSurface(std::string_view named, const Material &su
   return MaterialInstance(static_cast<int>(Held_->Surfaces.size()) - 1);
 }
 
-int Geometry::addLamp(std::string_view named,
-                      const PunctualLight &light,
-                      const double placedM16[16]) {
-  Geometry::Held::Placed placed;
-  placed.Named = std::string(named);
-  placed.Light = light;
-  for (size_t at = 0; at < 16u; ++at) { placed.PlacedM[at] = placedM16[at]; }
-  Held_->Lamps.push_back(std::move(placed));
+int Geometry::addLamp(std::string_view named, const PunctualLight &light, const Mat4 &placed) {
+  Geometry::Held::Placed lamp;
+  lamp.Named = std::string(named);
+  lamp.Light = light;
+  lamp.PlacedM = placed;
+  Held_->Lamps.push_back(std::move(lamp));
   return static_cast<int>(Held_->Lamps.size()) - 1;
 }
 
@@ -314,15 +311,15 @@ const PunctualLight &Geometry::lampAt(int lamp) const {
              : dark;
 }
 
-const double *Geometry::lampPlacementOf(int lamp) const {
-  static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+const Mat4 &Geometry::lampPlacementOf(int lamp) const {
+  static const Mat4 still;
   return lamp >= 0 && std::cmp_less(lamp, Held_->Lamps.size())
              ? Held_->Lamps[static_cast<size_t>(lamp)].PlacedM
              : still;
 }
 
-const double *Geometry::placementOf(int part) const {
-  static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+const Mat4 &Geometry::placementOf(int part) const {
+  static const Mat4 still;
   const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? piece->PlacedM : still;
 }

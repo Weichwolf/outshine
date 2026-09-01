@@ -9,7 +9,7 @@
 #include "UvTransform.h"
 
 #include "DrawList.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Render {
 

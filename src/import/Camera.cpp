@@ -1,5 +1,6 @@
 #include <numbers>
 
+#include "math/Mat4.h"
 #include "Scenario.h"
 #include "Subject.h"
 #include "Viewing.h"
@@ -25,15 +26,15 @@ namespace {
 
 } // namespace
 
-bool Camera::viewMatrix(double outM16[16]) const {
+bool Camera::viewMatrix(Mat4 &out) const {
   Render::Viewpoint standing;
   Gltf::Transform made;
   if (!StandingOf(*this, standing) || !Gltf::ViewOf(standing, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { outM16[at] = made.M[at]; }
+  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
   return true;
 }
 
-bool Camera::projectionMatrix(double aspect, double outM16[16]) const {
+bool Camera::projectionMatrix(double aspect, Mat4 &out) const {
   Render::Viewpoint standing;
   if (!StandingOf(*this, standing)) { return false; }
   Gltf::Camera lens;
@@ -46,15 +47,15 @@ bool Camera::projectionMatrix(double aspect, double outM16[16]) const {
   lens.ZFarM = standing.ZFarM;
   Gltf::Transform made;
   if (!lens.Projection(aspect, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { outM16[at] = made.M[at]; }
+  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
   return true;
 }
 
-bool Camera::clipMatrix(double aspect, double outM16[16]) const {
+bool Camera::clipMatrix(double aspect, Mat4 &out) const {
   Render::Viewpoint standing;
   Gltf::Transform made;
   if (!StandingOf(*this, standing) || !Gltf::ClipOf(standing, aspect, made)) { return false; }
-  for (int at = 0; at < 16; ++at) { outM16[at] = made.M[at]; }
+  for (int at = 0; at < 16; ++at) { out[at] = made.M[at]; }
   return true;
 }
 

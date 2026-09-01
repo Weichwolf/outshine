@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Physics {
 

@@ -3,7 +3,7 @@
 
 #include <limits>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Texture.h"
 
 namespace outshine {

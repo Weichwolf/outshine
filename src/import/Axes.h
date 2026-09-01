@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_IMPORT_AXES_H
 #define OUTSHINE_IMPORT_AXES_H
 
-#include "Vec3.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Gltf {
 

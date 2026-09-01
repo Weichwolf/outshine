@@ -6,9 +6,10 @@
 #include <string>
 #include <vector>
 
+#include "math/Mat4.h"
 #include "Material.h"
-#include "Quat.h"
-#include "Vec3.h"
+#include "math/Quat.h"
+#include "math/Vec3.h"
 
 namespace outshine {
 
@@ -397,9 +398,9 @@ struct Camera {
     FarM = farM;
   }
 
-  [[nodiscard]] bool viewMatrix(double outM16[16]) const;
-  [[nodiscard]] bool projectionMatrix(double aspect, double outM16[16]) const;
-  [[nodiscard]] bool clipMatrix(double aspect, double outM16[16]) const;
+  [[nodiscard]] bool viewMatrix(Mat4 &out) const;
+  [[nodiscard]] bool projectionMatrix(double aspect, Mat4 &out) const;
+  [[nodiscard]] bool clipMatrix(double aspect, Mat4 &out) const;
 
   bool LooksAt = false;
   Vec3 LookAtM;

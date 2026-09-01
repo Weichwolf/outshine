@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Heap.h"
 #include "Scenario.h"
 #include <span>
@@ -137,9 +137,9 @@ public:
            (!DrawsGlass_ || Glass_.PlacementRows(rows, error));
   }
 
-  void MoveSubjectPlacement(size_t slot, const double model16[16]) {
-    Subjects_.MovePlacement(slot, model16);
-    if (DrawsGlass_) { Glass_.MovePlacement(slot, model16); }
+  void MoveSubjectPlacement(size_t slot, const double model[16]) {
+    Subjects_.MovePlacement(slot, model);
+    if (DrawsGlass_) { Glass_.MovePlacement(slot, model); }
   }
 
   [[nodiscard]] bool HandSubjectPlacements(std::string &error) {
@@ -433,7 +433,7 @@ private:
   SDL_GPUFence *Landed_[kFramesInFlight] = {};
   int LandedAt_ = 0;
   Vec3 PrevEye_ = {{0, 0, 0}};
-  float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  float PrevMvp_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
 } // namespace outshine::Render

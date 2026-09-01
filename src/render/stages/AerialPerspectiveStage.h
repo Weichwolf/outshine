@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 #define OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <string>
 
 #include "KernelShape.h"

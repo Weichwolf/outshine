@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "ClusterDag.h"
 
 namespace outshine::Ground {

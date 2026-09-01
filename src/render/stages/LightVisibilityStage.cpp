@@ -1,5 +1,5 @@
 #include "LightVisibilityStage.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 #include <cmath>
 #include <cstdint>
@@ -206,7 +206,7 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   return true;
 }
 
-void LightVisibilityStage::Cast(const double lightFromWorld16[16],
+void LightVisibilityStage::Cast(const double lightFromWorld[16],
                                 const Vec3 &preView,
                                 int atlasPx,
                                 const PassRecording &into) {
@@ -234,7 +234,7 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
 
   float uniform[20] = {};
-  for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld16[i]); }
+  for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
   for (int axis = 0; axis < 3; ++axis) {
     uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);
   }

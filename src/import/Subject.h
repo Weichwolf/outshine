@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_IMPORT_SUBJECT_H
 #define OUTSHINE_IMPORT_SUBJECT_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Viewing.h"
 #include <Geometry.h>
 #include <span>

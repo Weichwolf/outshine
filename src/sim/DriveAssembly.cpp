@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "DriveAssembly.h"
 
 #include "Rigid.h"

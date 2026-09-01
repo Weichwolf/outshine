@@ -1,6 +1,6 @@
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Transform.h"
-#include "Quat.h"
+#include "math/Quat.h"
 
 #include <cmath>
 #include <cstring>

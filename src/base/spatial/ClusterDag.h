@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 #define OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <algorithm>
 #include <numbers>
 #include <algorithm>

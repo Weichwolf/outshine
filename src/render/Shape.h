@@ -2,7 +2,7 @@
 #define OUTSHINE_RENDER_SHAPE_H
 
 #include <cstddef>
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "ClusterCook.h"
 #include "SurfaceState.h"
 #include <cstdint>

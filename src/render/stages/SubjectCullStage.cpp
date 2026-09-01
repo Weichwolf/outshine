@@ -111,13 +111,13 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
   if (jobs == 0) { return 0; }
   auto &into = *static_cast<CullView *>(view);
   into = CullView{};
-  PlanesOf(ctx.Mvp16, into.Planes);
+  PlanesOf(ctx.Mvp, into.Planes);
   for (int axis = 0; axis < 3; ++axis) {
     into.Shift[axis] =
         static_cast<float>(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
   }
   into.Jobs = jobs;
-  for (int at = 0; at < 16; ++at) { into.Clip[at] = ctx.Mvp16[at]; }
+  for (int at = 0; at < 16; ++at) { into.Clip[at] = ctx.Mvp[at]; }
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     into.PyramidWide[level] = Pyramid_.Wide[level];
     into.PyramidHigh[level] = Pyramid_.High[level];

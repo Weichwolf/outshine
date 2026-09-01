@@ -1,6 +1,7 @@
+#include "math/Mat4.h"
 #include "Heap.h"
 #include "Units.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Subject.h"
 
 #include <algorithm>
@@ -208,7 +209,7 @@ bool Subject::BlendSkinFor(const Document &document,
 
   out.assign(vertices, Transform());
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
-    double blended[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    Mat4 blended = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     double sum = 0;
     for (size_t set = 0; set < sets; ++set) {
       const size_t base = set * vertices * 4 + vertex * 4;
@@ -1002,7 +1003,7 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     (void)out.addSurface(named ? naming->Materials()[at].Name : std::string(), Surfaces_[at]);
   }
   for (const PlacedLight &lit : Lights_) {
-    double placed[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    Mat4 placed;
     for (int axis = 0; axis < 3; ++axis) { placed[12 + axis] = lit.Light.Position[axis]; }
     (void)out.addLamp(lit.NodeName, lit.Light, placed);
   }
@@ -1072,7 +1073,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     placed.NodeName = std::string(what.lampNameOf(lamp));
     placed.LightName = placed.NodeName;
     placed.Light = what.lampAt(lamp);
-    const double *const at = what.lampPlacementOf(lamp);
+    const Mat4 &at = what.lampPlacementOf(lamp);
     for (int axis = 0; axis < 3; ++axis) {
       placed.Light.Position[axis] = static_cast<float>(at[12 + axis]);
     }

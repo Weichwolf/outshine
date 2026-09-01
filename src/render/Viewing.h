@@ -3,7 +3,7 @@
 
 #include <span>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <array>
 #include <cmath>
 #include "Scenario.h"

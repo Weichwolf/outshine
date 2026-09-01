@@ -85,32 +85,6 @@ template <typename Number>
   return {{v[0] * by, v[1] * by, v[2] * by}};
 }
 
-/// The scalar product of two rows.
-[[nodiscard]] inline double Dot(std::span<const double, 3> a, std::span<const double, 3> b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-/// Writes the vector product of @p a and @p b into @p out.
-inline void
-Cross(std::span<const double, 3> a, std::span<const double, 3> b, std::span<double, 3> out) {
-  out[0] = a[1] * b[2] - a[2] * b[1];
-  out[1] = a[2] * b[0] - a[0] * b[2];
-  out[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-/// The euclidean length of a row.
-[[nodiscard]] inline double Length(std::span<const double, 3> v) {
-  return std::sqrt(Dot(v, v));
-}
-
-/// Divides a row by its own length, and refuses a row that has none.
-[[nodiscard]] inline bool Normalise(std::span<double, 3> v) {
-  const double length = Length(v);
-  if (!(length > 0.0)) { return false; }
-  for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
-  return true;
-}
-
 /// The scalar product of two vectors.
 template <typename Number>
 [[nodiscard]] constexpr Number Dot(const Vector3<Number> &a, const Vector3<Number> &b) {

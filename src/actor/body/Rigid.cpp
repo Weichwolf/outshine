@@ -1,12 +1,12 @@
 #include <array>
 #include <span>
 
-#include "Quat.h"
+#include "math/Quat.h"
 #include "Rigid.h"
 
 #include <cmath>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Physics {
 

@@ -4,7 +4,7 @@
 #include <memory>
 #include <optional>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "ClassStructure.h"
 #include "Cover.h"
 #include "FeatureField.h"

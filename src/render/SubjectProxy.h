@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SUBJECTPROXY_H
 #define OUTSHINE_RENDER_SUBJECTPROXY_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Shape.h"
 #include "Viewing.h"
 #include <array>
@@ -33,8 +33,8 @@ public:
                            std::span<const SubjectMaterial> slots,
                            std::string &error);
   [[nodiscard]] bool Emits(size_t part, const std::array<float, 3> &radiance);
-  [[nodiscard]] bool Places(size_t part, const double m16[16]);
-  [[nodiscard]] bool Places(size_t part, size_t instance, const double m16[16]);
+  [[nodiscard]] bool Places(size_t part, const double placement[16]);
+  [[nodiscard]] bool Places(size_t part, size_t instance, const double placement[16]);
   [[nodiscard]] bool Carries(size_t instances);
 
   void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }

@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_WORLD_GROUND_CHUNKMESH_H
 #define OUTSHINE_WORLD_GROUND_CHUNKMESH_H
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "ChunkSurface.h"
 #include "ChunkVtx.h"
 #include "Heap.h"

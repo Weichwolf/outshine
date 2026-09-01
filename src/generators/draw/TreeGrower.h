@@ -6,7 +6,7 @@
 #include "TreeRandom.h"
 #include "TreeSkeleton.h"
 #include "TreeSpecies.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 namespace outshine::Generators {
 

@@ -3,7 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include "SubjectProxy.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,15 +72,15 @@ bool SubjectProxy::Emits(size_t part, const std::array<float, 3> &radiance) {
   return true;
 }
 
-bool SubjectProxy::Places(size_t part, const double m16[16]) {
-  return Places(part, 0, m16);
+bool SubjectProxy::Places(size_t part, const double placement[16]) {
+  return Places(part, 0, placement);
 }
 
-bool SubjectProxy::Places(size_t part, size_t instance, const double m16[16]) {
+bool SubjectProxy::Places(size_t part, size_t instance, const double placement[16]) {
   if (instance >= Instances_) { return false; }
   const size_t row = part * Instances_ + instance;
   if (row >= PartPlacement_.size()) { return false; }
-  for (int at = 0; at < 16; ++at) { PartPlacement_[row][at] = m16[at]; }
+  for (int at = 0; at < 16; ++at) { PartPlacement_[row][at] = placement[at]; }
   Placed_ = true;
   return true;
 }

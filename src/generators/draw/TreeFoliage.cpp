@@ -1,5 +1,5 @@
 #include "TreeFoliage.h"
-#include "Vec3.h"
+#include "math/Vec3.h"
 
 #include <algorithm>
 #include <cstddef>

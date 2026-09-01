@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "SurfaceState.h"
 
 #include "FrameContext.h"
@@ -53,12 +53,12 @@ public:
 
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
-  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double *lightFromWorld16) {
+  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double *lightFromWorld) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
-    Shadowed_ = atlas != nullptr && exact != nullptr && lightFromWorld16 != nullptr;
+    Shadowed_ = atlas != nullptr && exact != nullptr && lightFromWorld != nullptr;
     if (!Shadowed_) { return; }
-    for (int at = 0; at < 16; ++at) { LightFromWorld_[at] = lightFromWorld16[at]; }
+    for (int at = 0; at < 16; ++at) { LightFromWorld_[at] = lightFromWorld[at]; }
   }
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
@@ -97,16 +97,16 @@ public:
     return true;
   }
 
-  void MovePlacement(size_t slot, const double model16[16]) {
+  void MovePlacement(size_t slot, const double model[16]) {
     if ((slot + 1) * 16u > Placed_.size()) { return; }
     Before_.resize(Placed_.size(), 0.0);
     Stamped_.resize(Placed_.size() / 16u, 0u);
     if (Stamped_[slot] != Frame_) {
-      const double *const carry = Stamped_[slot] == 0u ? model16 : Placed_.data() + slot * 16u;
+      const double *const carry = Stamped_[slot] == 0u ? model : Placed_.data() + slot * 16u;
       for (size_t at = 0; at < 16u; ++at) { Before_[slot * 16u + at] = carry[at]; }
       Stamped_[slot] = Frame_;
     }
-    for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model16[at]; }
+    for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model[at]; }
     ++Moved_;
     RowsStale_ = true;
   }

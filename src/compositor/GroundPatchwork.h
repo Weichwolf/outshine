@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_COMPOSITOR_GROUNDPATCHWORK_H
 #define OUTSHINE_COMPOSITOR_GROUNDPATCHWORK_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <cstdint>
 #include <expected>
 #include <string>

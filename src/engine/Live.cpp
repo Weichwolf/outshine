@@ -657,9 +657,9 @@ bool Live::Stand(std::string &error) {
   ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();
-  std::array<double, 16> standingM16 = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  std::array<double, 16> standing = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
-    if (!Stood_.Places(part, standingM16.data())) { return false; }
+    if (!Stood_.Places(part, standing.data())) { return false; }
   }
   Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
               .StandsInside = HaveEye_,

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_PUNCTUALLIGHT_H
 #define OUTSHINE_PUNCTUALLIGHT_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <numbers>
 
 namespace outshine {

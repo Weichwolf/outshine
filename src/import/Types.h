@@ -9,8 +9,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "Quat.h"
-#include "Vec3.h"
+#include "math/Quat.h"
+#include "math/Vec3.h"
 #include "Span.h"
 
 #include "Keyframes.h"

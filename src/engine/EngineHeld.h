@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_ENGINEHELD_H
 
 #include <Outshine.h>
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Fetching.h"
 #include "HeapProbe.h"
 #include "Shipped.h"

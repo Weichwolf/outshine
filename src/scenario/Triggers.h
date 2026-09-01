@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_TRIGGERS_H
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include <cstdint>
 #include <expected>
 #include <string>

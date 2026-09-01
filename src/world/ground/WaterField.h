@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_WATERFIELD_H
 #define OUTSHINE_WORLD_GROUND_WATERFIELD_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "OsmField.h"
 #include "VegetationTemplates.h"
 

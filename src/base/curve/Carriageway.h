@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_BASE_CURVE_CARRIAGEWAY_H
 #define OUTSHINE_BASE_CURVE_CARRIAGEWAY_H
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "ReferenceLine.h"
 
 namespace outshine {

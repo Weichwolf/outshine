@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-#include "Vec3.h"
+#include "math/Vec3.h"
 #include "Rigid.h"
 #include "Prismatic.h"
 #include "Shear.h"
