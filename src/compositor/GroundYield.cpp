@@ -28,26 +28,33 @@ constexpr int kCutPasses = 5;
 constexpr double kOffEndM = 0.02;
 
 uint64_t EdgeKey(double aE, double aS, double bE, double bS) {
-  const auto one = (uint64_t)((int64_t)std::llround(aE / kWeldM) + 0x2000000000LL);
-  const auto two = (uint64_t)((int64_t)std::llround(aS / kWeldM) + 0x2000000000LL);
-  const auto three = (uint64_t)((int64_t)std::llround(bE / kWeldM) + 0x2000000000LL);
-  const auto four = (uint64_t)((int64_t)std::llround(bS / kWeldM) + 0x2000000000LL);
+  const auto one =
+      static_cast<uint64_t>(static_cast<int64_t>(std::llround(aE / kWeldM)) + 0x2000000000LL);
+  const auto two =
+      static_cast<uint64_t>(static_cast<int64_t>(std::llround(aS / kWeldM)) + 0x2000000000LL);
+  const auto three =
+      static_cast<uint64_t>(static_cast<int64_t>(std::llround(bE / kWeldM)) + 0x2000000000LL);
+  const auto four =
+      static_cast<uint64_t>(static_cast<int64_t>(std::llround(bS / kWeldM)) + 0x2000000000LL);
   const uint64_t from = (one << 24U) ^ two;
   const uint64_t to = (three << 24U) ^ four;
   return from < to ? (from * 0x9e3779b97f4a7c15ULL) ^ to : (to * 0x9e3779b97f4a7c15ULL) ^ from;
 }
 
 uint64_t PlaceKey(double eastM, double southM) {
-  const auto atE = (int64_t)std::llround(eastM / kWeldM);
-  const auto atS = (int64_t)std::llround(southM / kWeldM);
-  return ((uint64_t)(atE + 0x2000000000LL) << 24u) ^ (uint64_t)(atS + 0x2000000000LL);
+  const auto atE = static_cast<int64_t>(std::llround(eastM / kWeldM));
+  const auto atS = static_cast<int64_t>(std::llround(southM / kWeldM));
+  return (static_cast<uint64_t>(atE + 0x2000000000LL) << 24u) ^
+         static_cast<uint64_t>(atS + 0x2000000000LL);
 }
 
 constexpr double kBucketM = 32.0;
 
 uint64_t BucketAt(double eastM, double southM) {
-  const auto atE = (uint64_t)((int64_t)std::floor(eastM / kBucketM) + 0x20000000LL);
-  const auto atS = (uint64_t)((int64_t)std::floor(southM / kBucketM) + 0x20000000LL);
+  const auto atE =
+      static_cast<uint64_t>(static_cast<int64_t>(std::floor(eastM / kBucketM)) + 0x20000000LL);
+  const auto atS =
+      static_cast<uint64_t>(static_cast<int64_t>(std::floor(southM / kBucketM)) + 0x20000000LL);
   return (atE << 32U) | atS;
 }
 
@@ -57,15 +64,15 @@ Buckets BucketOver(std::span<const Yields> these) {
   Buckets out;
   for (size_t at = 0; at < these.size(); ++at) {
     const Yields &one = these[at];
-    const auto fromE = (int64_t)std::floor((one.LowE - one.ApronM) / kBucketM);
-    const auto toE = (int64_t)std::floor((one.HighE + one.ApronM) / kBucketM);
-    const auto fromS = (int64_t)std::floor((one.LowS - one.ApronM) / kBucketM);
-    const auto toS = (int64_t)std::floor((one.HighS + one.ApronM) / kBucketM);
+    const auto fromE = static_cast<int64_t>(std::floor((one.LowE - one.ApronM) / kBucketM));
+    const auto toE = static_cast<int64_t>(std::floor((one.HighE + one.ApronM) / kBucketM));
+    const auto fromS = static_cast<int64_t>(std::floor((one.LowS - one.ApronM) / kBucketM));
+    const auto toS = static_cast<int64_t>(std::floor((one.HighS + one.ApronM) / kBucketM));
     for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
       for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-        const auto atE = (uint64_t)(cellE + 0x20000000LL);
-        const auto atS = (uint64_t)(cellS + 0x20000000LL);
-        out[(atE << 32U) | atS].push_back((uint32_t)at);
+        const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+        const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
+        out[(atE << 32U) | atS].push_back(static_cast<uint32_t>(at));
       }
     }
   }
@@ -79,12 +86,12 @@ public:
   [[nodiscard]] uint32_t
   Inside(uint32_t a, uint32_t b, uint32_t c, double eastM, double southM) const {
     const std::vector<float> &held = *Mesh_.PositionM;
-    const auto aE = (double)held[(size_t)a * 3u];
-    const auto aS = (double)held[(size_t)a * 3u + 2u];
-    const auto bE = (double)held[(size_t)b * 3u];
-    const auto bS = (double)held[(size_t)b * 3u + 2u];
-    const auto cE = (double)held[(size_t)c * 3u];
-    const auto cS = (double)held[(size_t)c * 3u + 2u];
+    const auto aE = static_cast<double>(held[static_cast<size_t>(a) * 3u]);
+    const auto aS = static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]);
+    const auto bE = static_cast<double>(held[static_cast<size_t>(b) * 3u]);
+    const auto bS = static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]);
+    const auto cE = static_cast<double>(held[static_cast<size_t>(c) * 3u]);
+    const auto cS = static_cast<double>(held[static_cast<size_t>(c) * 3u + 2u]);
     const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
     const double one = std::fabs(twice) > 1.0e-9
                            ? ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice
@@ -96,9 +103,9 @@ public:
     Blend(*Mesh_.NormalM, 3u, a, b, c, one, two);
     if (Mesh_.ColourRgba != nullptr) { Blend(*Mesh_.ColourRgba, 4u, a, b, c, one, two); }
     if (Mesh_.Uv != nullptr) { Blend(*Mesh_.Uv, 2u, a, b, c, one, two); }
-    const auto point = (uint32_t)(Mesh_.PositionM->size() / 3u) - 1u;
-    (*Mesh_.PositionM)[(size_t)point * 3u] = (float)eastM;
-    (*Mesh_.PositionM)[(size_t)point * 3u + 2u] = (float)southM;
+    const auto point = static_cast<uint32_t>(Mesh_.PositionM->size() / 3u) - 1u;
+    (*Mesh_.PositionM)[static_cast<size_t>(point) * 3u] = static_cast<float>(eastM);
+    (*Mesh_.PositionM)[static_cast<size_t>(point) * 3u + 2u] = static_cast<float>(southM);
     return point;
   }
 
@@ -107,7 +114,7 @@ public:
     Lerp(*Mesh_.NormalM, 3u, a, b, part);
     if (Mesh_.ColourRgba != nullptr) { Lerp(*Mesh_.ColourRgba, 4u, a, b, part); }
     if (Mesh_.Uv != nullptr) { Lerp(*Mesh_.Uv, 2u, a, b, part); }
-    return (uint32_t)(Mesh_.PositionM->size() / 3u) - 1u;
+    return static_cast<uint32_t>(Mesh_.PositionM->size() / 3u) - 1u;
   }
 
   [[nodiscard]] uint32_t Midpoint(uint32_t a, uint32_t b) const {
@@ -115,7 +122,7 @@ public:
     Lerp(*Mesh_.NormalM, 3u, a, b);
     if (Mesh_.ColourRgba != nullptr) { Lerp(*Mesh_.ColourRgba, 4u, a, b); }
     if (Mesh_.Uv != nullptr) { Lerp(*Mesh_.Uv, 2u, a, b); }
-    return (uint32_t)(Mesh_.PositionM->size() / 3u) - 1u;
+    return static_cast<uint32_t>(Mesh_.PositionM->size() / 3u) - 1u;
   }
 
 private:
@@ -129,9 +136,10 @@ private:
     if (held.empty()) { return; }
     const double three = 1.0 - one - two;
     for (uint32_t axis = 0; axis < wide; ++axis) {
-      held.push_back((float)(one * (double)held[(size_t)a * wide + axis] +
-                             two * (double)held[(size_t)b * wide + axis] +
-                             three * (double)held[(size_t)c * wide + axis]));
+      held.push_back(static_cast<float>(
+          one * static_cast<double>(held[static_cast<size_t>(a) * wide + axis]) +
+          two * static_cast<double>(held[static_cast<size_t>(b) * wide + axis]) +
+          three * static_cast<double>(held[static_cast<size_t>(c) * wide + axis])));
     }
   }
 
@@ -142,9 +150,9 @@ private:
   static void Lerp(std::vector<float> &held, uint32_t wide, uint32_t a, uint32_t b, double part) {
     if (held.empty()) { return; }
     for (uint32_t axis = 0; axis < wide; ++axis) {
-      const auto from = (double)held[(size_t)a * wide + axis];
-      const auto to = (double)held[(size_t)b * wide + axis];
-      held.push_back((float)(from + (to - from) * part));
+      const auto from = static_cast<double>(held[static_cast<size_t>(a) * wide + axis]);
+      const auto to = static_cast<double>(held[static_cast<size_t>(b) * wide + axis]);
+      held.push_back(static_cast<float>(from + (to - from) * part));
     }
   }
 
@@ -156,9 +164,10 @@ double LongestEdgeM(const float *positionM, const uint32_t face[3]) {
   for (int at = 0; at < 3; ++at) {
     const uint32_t a = face[at];
     const uint32_t b = face[(at + 1) % 3];
-    const double runE = (double)positionM[(size_t)a * 3u] - (double)positionM[(size_t)b * 3u];
-    const double runS =
-        (double)positionM[(size_t)a * 3u + 2u] - (double)positionM[(size_t)b * 3u + 2u];
+    const double runE = static_cast<double>(positionM[static_cast<size_t>(a) * 3u]) -
+                        static_cast<double>(positionM[static_cast<size_t>(b) * 3u]);
+    const double runS = static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) -
+                        static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]);
     most = std::max(most, std::sqrt(runE * runE + runS * runS));
   }
   return most;
@@ -178,8 +187,8 @@ double WantedEdgeM(const Buckets &buckets,
   double centreE = 0.0;
   double centreS = 0.0;
   for (int at = 0; at < 3; ++at) {
-    centreE += (double)positionM[(size_t)face[at] * 3u];
-    centreS += (double)positionM[(size_t)face[at] * 3u + 2u];
+    centreE += static_cast<double>(positionM[static_cast<size_t>(face[at]) * 3u]);
+    centreS += static_cast<double>(positionM[static_cast<size_t>(face[at]) * 3u + 2u]);
   }
   centreE /= 3.0;
   centreS /= 3.0;
@@ -195,7 +204,7 @@ double WantedEdgeM(const Buckets &buckets,
   double lowest = 1.0e30;
   double highest = -1.0e30;
   for (int at = 0; at < 3; ++at) {
-    const auto upM = (double)positionM[(size_t)face[at] * 3u + 1u];
+    const auto upM = static_cast<double>(positionM[static_cast<size_t>(face[at]) * 3u + 1u]);
     lowest = std::min(lowest, upM);
     highest = std::max(highest, upM);
   }
@@ -227,20 +236,23 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
         const uint32_t a = face[edge];
         const uint32_t b = face[(edge + 1) % 3];
         const uint64_t key =
-            PlaceKey(0.5 * ((double)positionM[(size_t)a * 3u] + (double)positionM[(size_t)b * 3u]),
-                     0.5 * ((double)positionM[(size_t)a * 3u + 2u] +
-                            (double)positionM[(size_t)b * 3u + 2u]));
+            PlaceKey(0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u]) +
+                            static_cast<double>(positionM[static_cast<size_t>(b) * 3u])),
+                     0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) +
+                            static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u])));
         split.emplace(key, 0xffffffffu);
       }
     }
     if (!any) { break; }
-    told.Passes = (size_t)pass + 1u;
+    told.Passes = static_cast<size_t>(pass) + 1u;
 
     const auto midpoint = [&](uint32_t a, uint32_t b) {
       const float *held = mesh.PositionM->data();
       const uint64_t key =
-          PlaceKey(0.5 * ((double)held[(size_t)a * 3u] + (double)held[(size_t)b * 3u]),
-                   0.5 * ((double)held[(size_t)a * 3u + 2u] + (double)held[(size_t)b * 3u + 2u]));
+          PlaceKey(0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u]) +
+                          static_cast<double>(held[static_cast<size_t>(b) * 3u])),
+                   0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]) +
+                          static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u])));
       const auto found = split.find(key);
       if (found == split.end()) { return 0xffffffffu; }
       if (found->second == 0xffffffffu) {
@@ -332,20 +344,20 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const double aS = one.SeamEastSouthM[last * 2u + 1u];
       const double bE = one.SeamEastSouthM[at * 2u];
       const double bS = one.SeamEastSouthM[at * 2u + 1u];
-      const auto which = (uint32_t)(seams.size() / 4u);
+      const auto which = static_cast<uint32_t>(seams.size() / 4u);
       seams.push_back(aE);
       seams.push_back(aS);
       seams.push_back(bE);
       seams.push_back(bS);
-      const auto fromE = (int64_t)std::floor(std::min(aE, bE) / kSewCellM);
-      const auto toE = (int64_t)std::floor(std::max(aE, bE) / kSewCellM);
-      const auto fromS = (int64_t)std::floor(std::min(aS, bS) / kSewCellM);
-      const auto toS = (int64_t)std::floor(std::max(aS, bS) / kSewCellM);
+      const auto fromE = static_cast<int64_t>(std::floor(std::min(aE, bE) / kSewCellM));
+      const auto toE = static_cast<int64_t>(std::floor(std::max(aE, bE) / kSewCellM));
+      const auto fromS = static_cast<int64_t>(std::floor(std::min(aS, bS) / kSewCellM));
+      const auto toS = static_cast<int64_t>(std::floor(std::max(aS, bS) / kSewCellM));
       if ((toE - fromE + 1) * (toS - fromS + 1) > 256) { continue; }
       for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
         for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-          const auto atE = (uint64_t)(cellE + 0x20000000LL);
-          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
           seamsAt[(atE << 32U) | atS].push_back(which);
         }
       }
@@ -362,18 +374,18 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
     std::unordered_map<uint64_t, std::pair<uint32_t, double>> split;
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
       for (int edge = 0; edge < 3; ++edge) {
-        const uint32_t a = index[at + (size_t)edge];
-        const uint32_t b = index[at + (size_t)((edge + 1) % 3)];
-        const auto aE = (double)positionM[(size_t)a * 3u];
-        const auto aS = (double)positionM[(size_t)a * 3u + 2u];
-        const auto bE = (double)positionM[(size_t)b * 3u];
-        const auto bS = (double)positionM[(size_t)b * 3u + 2u];
+        const uint32_t a = index[at + static_cast<size_t>(edge)];
+        const uint32_t b = index[at + static_cast<size_t>((edge + 1) % 3)];
+        const auto aE = static_cast<double>(positionM[static_cast<size_t>(a) * 3u]);
+        const auto aS = static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]);
+        const auto bE = static_cast<double>(positionM[static_cast<size_t>(b) * 3u]);
+        const auto bS = static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]);
         const uint64_t key = EdgeKey(aE, aS, bE, bS);
         if (split.contains(key)) { continue; }
-        const auto atE =
-            (uint64_t)((int64_t)std::floor(0.5 * (aE + bE) / kSewCellM) + 0x20000000LL);
-        const auto atS =
-            (uint64_t)((int64_t)std::floor(0.5 * (aS + bS) / kSewCellM) + 0x20000000LL);
+        const auto atE = static_cast<uint64_t>(
+            static_cast<int64_t>(std::floor(0.5 * (aE + bE) / kSewCellM)) + 0x20000000LL);
+        const auto atS = static_cast<uint64_t>(
+            static_cast<int64_t>(std::floor(0.5 * (aS + bS) / kSewCellM)) + 0x20000000LL);
         const auto bucket = seamsAt.find((atE << 32U) | atS);
         if (bucket == seamsAt.end()) { continue; }
         double part = 0.0;
@@ -383,10 +395,10 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
                       aS,
                       bE,
                       bS,
-                      seams[(size_t)which * 4u],
-                      seams[(size_t)which * 4u + 1u],
-                      seams[(size_t)which * 4u + 2u],
-                      seams[(size_t)which * 4u + 3u],
+                      seams[static_cast<size_t>(which) * 4u],
+                      seams[static_cast<size_t>(which) * 4u + 1u],
+                      seams[static_cast<size_t>(which) * 4u + 2u],
+                      seams[static_cast<size_t>(which) * 4u + 3u],
                       &part)) {
             met = true;
             break;
@@ -399,14 +411,14 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       }
     }
     if (split.empty()) { break; }
-    told.Passes = std::max(told.Passes, (size_t)pass + 1u);
+    told.Passes = std::max(told.Passes, static_cast<size_t>(pass) + 1u);
 
     const auto cutOf = [&](uint32_t a, uint32_t b) {
       const float *held = mesh.PositionM->data();
-      const auto aE = (double)held[(size_t)a * 3u];
-      const auto aS = (double)held[(size_t)a * 3u + 2u];
-      const auto bE = (double)held[(size_t)b * 3u];
-      const auto bS = (double)held[(size_t)b * 3u + 2u];
+      const auto aE = static_cast<double>(held[static_cast<size_t>(a) * 3u]);
+      const auto aS = static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]);
+      const auto bE = static_cast<double>(held[static_cast<size_t>(b) * 3u]);
+      const auto bS = static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]);
       const auto found = split.find(EdgeKey(aE, aS, bE, bS));
       if (found == split.end()) { return 0xffffffffu; }
       if (found->second.first == 0xffffffffu) {
@@ -488,22 +500,22 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       double lowS = 1.0e30;
       double highS = -1.0e30;
       for (int corner = 0; corner < 3; ++corner) {
-        const size_t one = (size_t)index[at + (size_t)corner] * 3u;
-        lowE = std::min(lowE, (double)held[one]);
-        highE = std::max(highE, (double)held[one]);
-        lowS = std::min(lowS, (double)held[one + 2u]);
-        highS = std::max(highS, (double)held[one + 2u]);
+        const size_t one = static_cast<size_t>(index[at + static_cast<size_t>(corner)]) * 3u;
+        lowE = std::min(lowE, static_cast<double>(held[one]));
+        highE = std::max(highE, static_cast<double>(held[one]));
+        lowS = std::min(lowS, static_cast<double>(held[one + 2u]));
+        highS = std::max(highS, static_cast<double>(held[one + 2u]));
       }
-      const auto fromE = (int64_t)std::floor(lowE / kSewCellM);
-      const auto toE = (int64_t)std::floor(highE / kSewCellM);
-      const auto fromS = (int64_t)std::floor(lowS / kSewCellM);
-      const auto toS = (int64_t)std::floor(highS / kSewCellM);
+      const auto fromE = static_cast<int64_t>(std::floor(lowE / kSewCellM));
+      const auto toE = static_cast<int64_t>(std::floor(highE / kSewCellM));
+      const auto fromS = static_cast<int64_t>(std::floor(lowS / kSewCellM));
+      const auto toS = static_cast<int64_t>(std::floor(highS / kSewCellM));
       if ((toE - fromE + 1) * (toS - fromS + 1) > 256) { continue; }
       for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
         for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-          const auto atE = (uint64_t)(cellE + 0x20000000LL);
-          const auto atS = (uint64_t)(cellS + 0x20000000LL);
-          facesAt[(atE << 32U) | atS].push_back((uint32_t)at);
+          const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
+          facesAt[(atE << 32U) | atS].push_back(static_cast<uint32_t>(at));
         }
       }
     }
@@ -511,25 +523,27 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
     std::unordered_map<uint32_t, uint32_t> claimed;
     std::unordered_map<uint64_t, uint32_t> made;
     bool any = false;
-    for (uint32_t which = 0; which < (uint32_t)sewn.size(); ++which) {
+    for (uint32_t which = 0; which < static_cast<uint32_t>(sewn.size()); ++which) {
       if (sewn[which] != 0u) { continue; }
-      const double eastM = seams[(size_t)which * 2u];
-      const double southM = seams[(size_t)which * 2u + 1u];
-      const auto atE = (uint64_t)((int64_t)std::floor(eastM / kSewCellM) + 0x20000000LL);
-      const auto atS = (uint64_t)((int64_t)std::floor(southM / kSewCellM) + 0x20000000LL);
+      const double eastM = seams[static_cast<size_t>(which) * 2u];
+      const double southM = seams[static_cast<size_t>(which) * 2u + 1u];
+      const auto atE =
+          static_cast<uint64_t>(static_cast<int64_t>(std::floor(eastM / kSewCellM)) + 0x20000000LL);
+      const auto atS = static_cast<uint64_t>(static_cast<int64_t>(std::floor(southM / kSewCellM)) +
+                                             0x20000000LL);
       const auto bucket = facesAt.find((atE << 32U) | atS);
       if (bucket == facesAt.end()) { continue; }
       bool held = false;
       for (const uint32_t face : bucket->second) {
-        const size_t a = (size_t)index[face] * 3u;
-        const size_t b = (size_t)index[face + 1u] * 3u;
-        const size_t c = (size_t)index[face + 2u] * 3u;
-        const auto aE = (double)positionM[a];
-        const auto aS = (double)positionM[a + 2u];
-        const auto bE = (double)positionM[b];
-        const auto bS = (double)positionM[b + 2u];
-        const auto cE = (double)positionM[c];
-        const auto cS = (double)positionM[c + 2u];
+        const size_t a = static_cast<size_t>(index[face]) * 3u;
+        const size_t b = static_cast<size_t>(index[face + 1u]) * 3u;
+        const size_t c = static_cast<size_t>(index[face + 2u]) * 3u;
+        const auto aE = static_cast<double>(positionM[a]);
+        const auto aS = static_cast<double>(positionM[a + 2u]);
+        const auto bE = static_cast<double>(positionM[b]);
+        const auto bS = static_cast<double>(positionM[b + 2u]);
+        const auto cE = static_cast<double>(positionM[c]);
+        const auto cS = static_cast<double>(positionM[c + 2u]);
         const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
         if (std::fabs(twice) < 1.0e-9) { continue; }
         const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
@@ -547,12 +561,12 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       if (held) { sewn[which] = 1u; }
     }
     if (!any) { break; }
-    told.Passes = std::max(told.Passes, (size_t)pass + 1u);
+    told.Passes = std::max(told.Passes, static_cast<size_t>(pass) + 1u);
 
     next.clear();
     next.reserve(index.size() * 2u);
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
-      const auto found = claimed.find((uint32_t)at);
+      const auto found = claimed.find(static_cast<uint32_t>(at));
       if (found == claimed.end()) {
         next.push_back(index[at]);
         next.push_back(index[at + 1u]);
@@ -560,8 +574,8 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
         continue;
       }
       const uint32_t which = found->second;
-      const double eastM = seams[(size_t)which * 2u];
-      const double southM = seams[(size_t)which * 2u + 1u];
+      const double eastM = seams[static_cast<size_t>(which) * 2u];
+      const double southM = seams[static_cast<size_t>(which) * 2u + 1u];
       const uint64_t key = PlaceKey(eastM, southM);
       auto stood = made.find(key);
       if (stood == made.end()) {
@@ -572,8 +586,8 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       }
       const uint32_t point = stood->second;
       for (int corner = 0; corner < 3; ++corner) {
-        const uint32_t a = index[at + (size_t)corner];
-        const uint32_t b = index[at + (size_t)((corner + 1) % 3)];
+        const uint32_t a = index[at + static_cast<size_t>(corner)];
+        const uint32_t b = index[at + static_cast<size_t>((corner + 1) % 3)];
         if (a == point || b == point) { continue; }
         next.push_back(a);
         next.push_back(b);
@@ -590,9 +604,9 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
   std::vector<float> &positionM = *mesh.PositionM;
   std::vector<uint8_t> moved(positionM.size() / 3u, 0u);
   for (size_t one = 0; one + 2 < positionM.size(); one += 3) {
-    const auto eastM = (double)positionM[one];
-    const auto southM = (double)positionM[one + 2u];
-    const auto was = (double)positionM[one + 1u];
+    const auto eastM = static_cast<double>(positionM[one]);
+    const auto southM = static_cast<double>(positionM[one + 2u]);
+    const auto was = static_cast<double>(positionM[one + 1u]);
     double lowest = was;
     double highest = was;
     double roofM = 1.0e30;
@@ -647,7 +661,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     }
     if (!(weight > 0.0)) { continue; }
     const double now = wanted;
-    positionM[one + 1u] = (float)now;
+    positionM[one + 1u] = static_cast<float>(now);
     if (std::fabs(now - was) > kMovedM) {
       ++told.Pressed;
       moved[one / 3u] = 1u;
@@ -674,10 +688,16 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     double edgeA[3] = {};
     double edgeB[3] = {};
     for (int axis = 0; axis < 3; ++axis) {
-      edgeA[axis] = (double)positionM[(size_t)face[1] * 3u + (uint32_t)axis] -
-                    (double)positionM[(size_t)face[0] * 3u + (uint32_t)axis];
-      edgeB[axis] = (double)positionM[(size_t)face[2] * 3u + (uint32_t)axis] -
-                    (double)positionM[(size_t)face[0] * 3u + (uint32_t)axis];
+      edgeA[axis] =
+          static_cast<double>(
+              positionM[static_cast<size_t>(face[1]) * 3u + static_cast<uint32_t>(axis)]) -
+          static_cast<double>(
+              positionM[static_cast<size_t>(face[0]) * 3u + static_cast<uint32_t>(axis)]);
+      edgeB[axis] =
+          static_cast<double>(
+              positionM[static_cast<size_t>(face[2]) * 3u + static_cast<uint32_t>(axis)]) -
+          static_cast<double>(
+              positionM[static_cast<size_t>(face[0]) * 3u + static_cast<uint32_t>(axis)]);
     }
     const double up[3] = {edgeA[1] * edgeB[2] - edgeA[2] * edgeB[1],
                           edgeA[2] * edgeB[0] - edgeA[0] * edgeB[2],
@@ -685,21 +705,24 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     for (const uint32_t one : face) {
       if (moved[one] == 0u) { continue; }
       for (int axis = 0; axis < 3; ++axis) {
-        normalM[(size_t)one * 3u + (uint32_t)axis] += (float)up[axis];
+        normalM[static_cast<size_t>(one) * 3u + static_cast<uint32_t>(axis)] +=
+            static_cast<float>(up[axis]);
       }
     }
   }
   for (size_t at = 0; at < moved.size(); ++at) {
     if (moved[at] == 0u) { continue; }
-    const double len = std::sqrt((double)normalM[at * 3u] * (double)normalM[at * 3u] +
-                                 (double)normalM[at * 3u + 1u] * (double)normalM[at * 3u + 1u] +
-                                 (double)normalM[at * 3u + 2u] * (double)normalM[at * 3u + 2u]);
+    const double len = std::sqrt(
+        static_cast<double>(normalM[at * 3u]) * static_cast<double>(normalM[at * 3u]) +
+        static_cast<double>(normalM[at * 3u + 1u]) * static_cast<double>(normalM[at * 3u + 1u]) +
+        static_cast<double>(normalM[at * 3u + 2u]) * static_cast<double>(normalM[at * 3u + 2u]));
     if (!(len > 1.0e-9)) {
       normalM[at * 3u + 1u] = 1.0f;
       continue;
     }
     for (int axis = 0; axis < 3; ++axis) {
-      normalM[at * 3u + (uint32_t)axis] = (float)((double)normalM[at * 3u + (uint32_t)axis] / len);
+      normalM[at * 3u + static_cast<uint32_t>(axis)] = static_cast<float>(
+          static_cast<double>(normalM[at * 3u + static_cast<uint32_t>(axis)]) / len);
     }
   }
 }
@@ -713,7 +736,9 @@ void YieldGround(std::span<const Yields> these,
                  Yielded &told) {
   if (these.empty() || mesh.PositionM == nullptr || mesh.Index == nullptr) { return; }
   std::vector<uint32_t> deepestFirst(these.size());
-  for (size_t at = 0; at < deepestFirst.size(); ++at) { deepestFirst[at] = (uint32_t)at; }
+  for (size_t at = 0; at < deepestFirst.size(); ++at) {
+    deepestFirst[at] = static_cast<uint32_t>(at);
+  }
   std::ranges::sort(deepestFirst,
                     [these](uint32_t a, uint32_t b) { return these[a].YieldM > these[b].YieldM; });
   const double perTriangle = 0.5 * finestM * finestM;
@@ -728,7 +753,7 @@ void YieldGround(std::span<const Yields> these,
     const double batter = (wide + 2.0 * one.ApronM) * (deep + 2.0 * one.ApronM) - wide * deep;
     const double onBatter = batter / (0.5 * kCoarsestM * kCoarsestM);
     const double costs = onRoad + onBatter;
-    if (wouldCost + costs > (double)mostTriangles && !taking.empty()) {
+    if (wouldCost + costs > static_cast<double>(mostTriangles) && !taking.empty()) {
       ++told.Refused;
       continue;
     }
@@ -745,7 +770,8 @@ void YieldGround(std::span<const Yields> these,
     std::unordered_map<uint64_t, uint32_t> standing;
     const std::vector<float> &positionM = *mesh.PositionM;
     for (size_t at = 0; at + 2 < positionM.size(); at += 3) {
-      ++standing[PlaceKey((double)positionM[at], (double)positionM[at + 2u])];
+      ++standing[PlaceKey(static_cast<double>(positionM[at]),
+                          static_cast<double>(positionM[at + 2u]))];
     }
     for (const Yields &one : taking) {
       for (size_t at = 0; at + 1 < one.SeamEastSouthM.size(); at += 2) {

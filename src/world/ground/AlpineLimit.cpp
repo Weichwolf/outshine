@@ -8,7 +8,7 @@ namespace outshine {
 namespace {
 
 uint32_t Hash2(int32_t i, int32_t j) {
-  uint32_t h = (uint32_t)i * 0x8da6b343u ^ (uint32_t)j * 0xd8163841u;
+  uint32_t h = static_cast<uint32_t>(i) * 0x8da6b343u ^ static_cast<uint32_t>(j) * 0xd8163841u;
   h ^= h >> 15;
   h *= 0x2c1b3c6du;
   h ^= h >> 12;
@@ -18,7 +18,7 @@ uint32_t Hash2(int32_t i, int32_t j) {
 }
 
 double U(uint32_t h) {
-  return (double)(h & 0xFFFFFFu) / 16777216.0;
+  return static_cast<double>(h & 0xFFFFFFu) / 16777216.0;
 }
 
 } // namespace
@@ -37,7 +37,7 @@ bool AlpineLimit::Load(const Json::Ref &root) {
   BandM_ = a["treelineBandM"].Num(200.0);
   JitterM_ = a["treelineJitterM"].Num(150.0);
   JitterScaleM_ = a["treelineJitterScaleM"].Num(700.0);
-  SlopeBandDeg_ = (float)a["slopeBandDeg"].Num(4.0);
+  SlopeBandDeg_ = static_cast<float>(a["slopeBandDeg"].Num(4.0));
   RockTemplate_ = a["rockTemplate"].Str("");
   if (RockTemplate_.empty()) {
     Error_ = "alpineLimit.rockTemplate is empty";
@@ -54,7 +54,7 @@ bool AlpineLimit::Load(const Json::Ref &root) {
 double AlpineLimit::Noise(double e, double n) const {
   const double x = e / JitterScaleM_, y = n / JitterScaleM_;
   const double fx = std::floor(x), fy = std::floor(y);
-  const int32_t i = (int32_t)fx, j = (int32_t)fy;
+  const int32_t i = static_cast<int32_t>(fx), j = static_cast<int32_t>(fy);
   const double ux = x - fx, uy = y - fy;
   const double sx = ux * ux * (3.0 - 2.0 * ux), sy = uy * uy * (3.0 - 2.0 * uy);
   const double a = U(Hash2(i, j)), b = U(Hash2(i + 1, j));

@@ -34,14 +34,16 @@ constexpr size_t kMostKept = 1024;
 thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
-  return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56) | ((uint64_t)(x & 0xFFFFFFFu) << 28) |
-         (uint64_t)(y & 0xFFFFFFFu);
+  return (static_cast<uint64_t>(1) << 62) | (static_cast<uint64_t>(z & 31) << 56) |
+         (static_cast<uint64_t>(x & 0xFFFFFFFu) << 28) | static_cast<uint64_t>(y & 0xFFFFFFFu);
 }
 
 uint64_t RequestKey(const std::string &key) {
   uint64_t h = 1469598103934665603ull;
-  for (char c : key) { h = (h ^ (uint64_t)(uint8_t)c) * 1099511628211ull; }
-  return ((uint64_t)3 << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
+  for (char c : key) {
+    h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * 1099511628211ull;
+  }
+  return (static_cast<uint64_t>(3) << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
 
 } // namespace
@@ -58,13 +60,13 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
   const int n = config.Threads > 0 ? config.Threads : 1;
-  ContextBytes_ = std::vector<std::atomic<size_t>>((size_t)n);
-  Threads_.reserve((size_t)n);
+  ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
+  Threads_.reserve(static_cast<size_t>(n));
   for (int i = 0; i < n; i++) {
     Threads_.emplace_back([this, i] { Work(i); });
   }
   const int carriers = CarrierCount_ > 0 ? CarrierCount_ : 2;
-  Carriers_.reserve((size_t)carriers);
+  Carriers_.reserve(static_cast<size_t>(carriers));
   for (int i = 0; i < carriers; i++) {
     Carriers_.emplace_back([this] { Carry(); });
   }
@@ -72,7 +74,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
             "tilepool",
             {{"threads", n},
              {"inFlightCap", n},
-             {"byteBudgetMB", (double)ByteBudget_ / 1048576.0},
+             {"byteBudgetMB", static_cast<double>(ByteBudget_) / 1048576.0},
              {"demCacheTilesPerThread", DemCacheTiles_}});
 }
 
@@ -85,8 +87,8 @@ TilePool::~TilePool() {
   for (std::thread &t : Threads_) { t.join(); }
   for (std::thread &t : Carriers_) { t.join(); }
   const Ledger &l = Ledger_;
-  const double meshes = l.MeshTiles > 0 ? (double)l.MeshTiles : 1.0;
-  const double fetches = l.Fetches > 0 ? (double)l.Fetches : 1.0;
+  const double meshes = l.MeshTiles > 0 ? static_cast<double>(l.MeshTiles) : 1.0;
+  const double fetches = l.Fetches > 0 ? static_cast<double>(l.Fetches) : 1.0;
   Log::Debug("world",
              "tilepool_closed",
              {{"meshTiles", l.MeshTiles},
@@ -101,11 +103,11 @@ TilePool::~TilePool() {
               {"fetchMs", l.FetchMs},
               {"fetchMsPerGet", l.FetchMs / fetches},
               {"fetchBlockedMs", l.FetchBlockedMs},
-              {"fetchOnCompute", (int)l.FetchOnCompute},
+              {"fetchOnCompute", static_cast<int>(l.FetchOnCompute)},
               {"retryWaitMs", l.FetchBlockedMs - l.FetchMs},
               {"fetchedMB", l.FetchedMB},
-              {"byteCacheMB", (double)ByteCacheBytes() / 1048576.0},
-              {"byteCacheEntries", (int)Cache_.size()},
+              {"byteCacheMB", static_cast<double>(ByteCacheBytes()) / 1048576.0},
+              {"byteCacheEntries", static_cast<int>(Cache_.size())},
               {"evictions", l.Evictions}});
 }
 
@@ -120,7 +122,7 @@ double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   const double cx = (FocusLonDeg_ + 180.0) / 360.0 * n;
   const double lat = FocusLatDeg_ * std::numbers::pi / 180.0;
   const double cy = (1.0 - std::asinh(std::tan(lat)) / std::numbers::pi) * 0.5 * n;
-  const double dx = (double)x + 0.5 - cx, dy = (double)y + 0.5 - cy;
+  const double dx = static_cast<double>(x) + 0.5 - cx, dy = static_cast<double>(y) + 0.5 - cy;
   return dx * dx + dy * dy;
 }
 
@@ -133,12 +135,12 @@ TilePool::Ledger TilePool::Counters() const {
   std::lock_guard<std::mutex> queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
-  out.QueueDepth = (long long)Queue_.size();
-  out.Outstanding = (long long)Posted_.size();
-  out.Parked = (long long)Awaiting_.size();
+  out.QueueDepth = static_cast<long long>(Queue_.size());
+  out.Outstanding = static_cast<long long>(Posted_.size());
+  out.Parked = static_cast<long long>(Awaiting_.size());
   out.ParkedJobs = 0;
-  for (const auto &one : Awaiting_) { out.ParkedJobs += (long long)one.second.size(); }
-  out.Held = (long long)Done_.size();
+  for (const auto &one : Awaiting_) { out.ParkedJobs += static_cast<long long>(one.second.size()); }
+  out.Held = static_cast<long long>(Done_.size());
   return out;
 }
 
@@ -259,7 +261,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
       break;
     }
     switch (answer.Where()) {
-      case Data::Delivery::State::Pending: (void)Wire_.Await((double)kPollMs); break;
+      case Data::Delivery::State::Pending: (void)Wire_.Await(static_cast<double>(kPollMs)); break;
       case Data::Delivery::State::Vacant:
 
         Remember(key, nullptr, 0, request.Where(), true);
@@ -287,7 +289,9 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
     Ledger_.Fetches++;
     Ledger_.FetchMs += pollMs;
     Ledger_.FetchBlockedMs += blockedMs;
-    if (reply == Reply::Ready) { Ledger_.FetchedMB += (double)out->Bytes.size() / 1048576.0; }
+    if (reply == Reply::Ready) {
+      Ledger_.FetchedMB += static_cast<double>(out->Bytes.size()) / 1048576.0;
+    }
     if (reply == Reply::Absent) { Ledger_.FetchAbsent++; }
 
     if (reply == Reply::Refused || reply == Reply::Undeclared) { Ledger_.FetchRefused++; }
@@ -390,7 +394,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     stage = "grid";
   }
   if (miss == Miss::None) {
-    CookTile((const float *)chunk.verts,
+    CookTile(reinterpret_cast<const float *>(chunk.verts),
              chunk.nverts,
              chunk.gridverts,
              origin,
@@ -414,10 +418,10 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     Log::Warn("world",
               "tile_mesh_refused",
               {{"z", job.Z},
-               {"x", (int)job.X},
-               {"y", (int)job.Y},
+               {"x", static_cast<int>(job.X)},
+               {"y", static_cast<int>(job.Y)},
                {"stage", stage},
-               {"rc", (int)mesh.Where()}});
+               {"rc", static_cast<int>(mesh.Where())}});
     std::lock_guard<std::mutex> ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }
@@ -499,7 +503,7 @@ void TilePool::Work(int slot) {
   config.DemCacheTiles = DemCacheTiles_;
   TerrainTiles tiles(source, frame, config);
 
-  ContextBytes_[(size_t)slot].store(tiles.HeapBytes(), std::memory_order_relaxed);
+  ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
 
   Landing scratch;
   for (;;) {
@@ -517,7 +521,7 @@ void TilePool::Work(int slot) {
         }
       }
       job = std::move(Queue_[best]);
-      Queue_.erase(Queue_.begin() + (long)best);
+      Queue_.erase(Queue_.begin() + static_cast<long>(best));
     }
     Result result;
     const double blockedBefore = tFetchBlockedMs;
@@ -579,7 +583,7 @@ void TilePool::Work(int slot) {
       }
     }
     StackProbe::Mark();
-    ContextBytes_[(size_t)slot].store(tiles.HeapBytes(), std::memory_order_relaxed);
+    ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
     {
       std::lock_guard<std::mutex> lock(QueueMutex_);
 
@@ -609,7 +613,7 @@ void TilePool::Work(int slot) {
       }
     }
   }
-  ContextBytes_[(size_t)slot].store(0, std::memory_order_relaxed);
+  ContextBytes_[static_cast<size_t>(slot)].store(0, std::memory_order_relaxed);
 }
 
 TilePool::Reply TilePool::Poll(Job &&job, Result *out) {

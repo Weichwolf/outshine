@@ -32,28 +32,33 @@ double Snapped(double metres) {
 }
 
 void Push(RoadRaised &into, double eastM, double upM, double southM, const float wearsLinear[3]) {
-  into.PositionM.push_back((float)Snapped(eastM));
-  into.PositionM.push_back((float)Snapped(upM));
-  into.PositionM.push_back((float)Snapped(southM));
+  into.PositionM.push_back(static_cast<float>(Snapped(eastM)));
+  into.PositionM.push_back(static_cast<float>(Snapped(upM)));
+  into.PositionM.push_back(static_cast<float>(Snapped(southM)));
   into.NormalM.insert(into.NormalM.end(), {0.0f, 1.0f, 0.0f});
   into.ColourRgba.insert(into.ColourRgba.end(),
                          {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
 }
 
 void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
-  const auto at = [&into](uint32_t one) { return &into.PositionM[(size_t)one * 3]; };
+  const auto at = [&into](uint32_t one) { return &into.PositionM[static_cast<size_t>(one) * 3]; };
   const float *pa = at(a);
   const float *pb = at(b);
   const float *pc = at(c);
-  const double u[3] = {(double)pb[0] - pa[0], (double)pb[1] - pa[1], (double)pb[2] - pa[2]};
-  const double v[3] = {(double)pc[0] - pa[0], (double)pc[1] - pa[1], (double)pc[2] - pa[2]};
+  const double u[3] = {static_cast<double>(pb[0]) - pa[0],
+                       static_cast<double>(pb[1]) - pa[1],
+                       static_cast<double>(pb[2]) - pa[2]};
+  const double v[3] = {static_cast<double>(pc[0]) - pa[0],
+                       static_cast<double>(pc[1]) - pa[1],
+                       static_cast<double>(pc[2]) - pa[2]};
   const double n[3] = {
       u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]};
   const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
   if (!(run > 1.0e-12)) { return; }
   for (const uint32_t one : {a, b, c}) {
     for (int axis = 0; axis < 3; ++axis) {
-      into.NormalM[(size_t)one * 3 + (size_t)axis] += (float)(n[axis] / run);
+      into.NormalM[static_cast<size_t>(one) * 3 + static_cast<size_t>(axis)] +=
+          static_cast<float>(n[axis] / run);
     }
   }
   into.Index.insert(into.Index.end(), {a, b, c});
@@ -71,9 +76,9 @@ void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadR
     centreS += gates[at].SouthM;
     centreGrade += gates[at].GradeM;
   }
-  centreE /= (double)gates.Size();
-  centreS /= (double)gates.Size();
-  centreGrade /= (double)gates.Size();
+  centreE /= static_cast<double>(gates.Size());
+  centreS /= static_cast<double>(gates.Size());
+  centreGrade /= static_cast<double>(gates.Size());
 
   struct Corner {
     double EastM, SouthM, GradeM, AroundRad;
@@ -97,7 +102,7 @@ void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadR
   std::ranges::sort(around,
                     [](const Corner &a, const Corner &b) { return a.AroundRad < b.AroundRad; });
 
-  const auto first = (uint32_t)(into.PositionM.size() / 3);
+  const auto first = static_cast<uint32_t>(into.PositionM.size() / 3);
   Push(into, centreE, centreGrade, centreS, wearsLinear);
   Push(into, centreE, centreGrade - kSealedDepthM, centreS, wearsLinear);
   for (const Corner &one : around) {
@@ -105,7 +110,7 @@ void RaiseJunction(Span<const RoadGate> gates, const float wearsLinear[3], RoadR
     Push(into, one.EastM, one.GradeM - kSealedDepthM, one.SouthM, wearsLinear);
   }
 
-  const auto rim = (uint32_t)around.size();
+  const auto rim = static_cast<uint32_t>(around.size());
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t here = first + 2u + at * 2u;
     const uint32_t next = first + 2u + ((at + 1u) % rim) * 2u;
@@ -154,12 +159,12 @@ Section SectionFor(double halfWidthM, RoadProfile profile) {
 }
 
 void Pour(const Ribbon &woven, const float wearsLinear[3], RoadRaised &into) {
-  const auto firstVertex = (uint32_t)(into.PositionM.size() / 3u);
+  const auto firstVertex = static_cast<uint32_t>(into.PositionM.size() / 3u);
   const size_t vertices = woven.PositionM.size() / 3u;
   for (size_t one = 0; one < vertices; ++one) {
-    into.PositionM.push_back((float)(woven.PositionM[one * 3u] + woven.OriginM[0]));
-    into.PositionM.push_back((float)(woven.PositionM[one * 3u + 1u] + woven.OriginM[1]));
-    into.PositionM.push_back((float)(woven.PositionM[one * 3u + 2u] + woven.OriginM[2]));
+    into.PositionM.push_back(static_cast<float>(woven.PositionM[one * 3u] + woven.OriginM[0]));
+    into.PositionM.push_back(static_cast<float>(woven.PositionM[one * 3u + 1u] + woven.OriginM[1]));
+    into.PositionM.push_back(static_cast<float>(woven.PositionM[one * 3u + 2u] + woven.OriginM[2]));
     into.NormalM.push_back(woven.NormalM[one * 3u]);
     into.NormalM.push_back(woven.NormalM[one * 3u + 1u]);
     into.NormalM.push_back(woven.NormalM[one * 3u + 2u]);
@@ -309,7 +314,7 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
     for (size_t one = 0; one < along.Size(); ++one) { apart += along[one].GradeM - asFound[one]; }
     over = along.Size();
   }
-  apart /= (double)over;
+  apart /= static_cast<double>(over);
   for (size_t one = 0; one < along.Size(); ++one) { along[one].GradeM -= apart; }
 }
 

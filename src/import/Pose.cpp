@@ -37,7 +37,7 @@ bool Pose::Build(const Document &document,
   }
   for (size_t which = 0; which < animations.Size(); ++which) {
     const int animation = animations[which];
-    if (animation < 0 || (size_t)animation >= declared.size()) {
+    if (animation < 0 || static_cast<size_t>(animation) >= declared.size()) {
       error = document.Path() + ": animation " + std::to_string(animation) + " of " +
               std::to_string(declared.size()) + " the file carries";
       return false;
@@ -58,7 +58,8 @@ bool Pose::Build(const Document &document,
     held.WeightFirst = document.MorphWeightsFirst(node);
     held.WeightCount = document.MorphWeightsCount(node);
     for (size_t at = 0; at < held.WeightCount; ++at) {
-      const std::vector<double> &meshWeights = document.Meshes()[(size_t)source.Mesh].Weights;
+      const std::vector<double> &meshWeights =
+          document.Meshes()[static_cast<size_t>(source.Mesh)].Weights;
       out.RestWeights_.push_back(at < meshWeights.size() ? meshWeights[at] : 0.0);
     }
   }
@@ -77,35 +78,35 @@ bool Pose::Build(const Document &document,
   std::vector<int> claimedBy;
   for (size_t which = 0; which < animations.Size(); ++which) {
     const int animation = animations[which];
-    const Animation &what = declared[(size_t)animation];
+    const Animation &what = declared[static_cast<size_t>(animation)];
     for (const AnimationChannel &channel : what.Channels) {
       const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
 
       if (!drivesMaterial && channel.Node < 0) { continue; }
-      if (!drivesMaterial && (size_t)channel.Node >= document.Nodes().size()) {
+      if (!drivesMaterial && static_cast<size_t>(channel.Node) >= document.Nodes().size()) {
         error = document.Path() + ": animation channel targets node " +
                 std::to_string(channel.Node) + ", which the file does not carry";
         return false;
       }
 
       if (!drivesMaterial && channel.Path == AnimationPath::Weights &&
-          out.Nodes_[(size_t)channel.Node].WeightCount == 0) {
+          out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount == 0) {
         error = document.Path() + ": animation channel targets the morph weights of node " +
                 std::to_string(channel.Node) + ", whose mesh declares no morph target";
         return false;
       }
-      if (!drivesMaterial && out.Nodes_[(size_t)channel.Node].HasMatrix) {
+      if (!drivesMaterial && out.Nodes_[static_cast<size_t>(channel.Node)].HasMatrix) {
         error = document.Path() + ": node " + std::to_string(channel.Node) +
                 " spells its placement as a matrix and is targeted for animation, which the format "
                 "forbids";
         return false;
       }
-      if (channel.Sampler < 0 || (size_t)channel.Sampler >= what.Samplers.size()) {
+      if (channel.Sampler < 0 || static_cast<size_t>(channel.Sampler) >= what.Samplers.size()) {
         error = document.Path() + ": animation channel names sampler " +
                 std::to_string(channel.Sampler) + " of " + std::to_string(what.Samplers.size());
         return false;
       }
-      const AnimationSampler &sampler = what.Samplers[(size_t)channel.Sampler];
+      const AnimationSampler &sampler = what.Samplers[static_cast<size_t>(channel.Sampler)];
       if (!document.ReadElements(sampler.Input, times)) {
         error =
             document.Path() + ": an animation sampler's input does not decode: " + document.Error();
@@ -132,11 +133,12 @@ bool Pose::Build(const Document &document,
       }
 
       if (channel.Path == AnimationPath::Weights &&
-          held->Curve.Components() != out.Nodes_[(size_t)channel.Node].WeightCount) {
+          held->Curve.Components() != out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount) {
         error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
                 " carries " + std::to_string(held->Curve.Components()) +
                 " values per keyframe and its mesh declares " +
-                std::to_string(out.Nodes_[(size_t)channel.Node].WeightCount) + " morph targets";
+                std::to_string(out.Nodes_[static_cast<size_t>(channel.Node)].WeightCount) +
+                " morph targets";
         return false;
       }
       for (const double when : held->Times) {
@@ -171,7 +173,7 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Viewpoint posed = Nodes_[node];
     for (const std::unique_ptr<Channel> &channel : Channels_) {
-      if ((size_t)channel->Node != node) { continue; }
+      if (static_cast<size_t>(channel->Node) != node) { continue; }
       switch (channel->Path) {
         case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation); break;
         case AnimationPath::Rotation: channel->Curve.At(seconds, posed.Rotation); break;

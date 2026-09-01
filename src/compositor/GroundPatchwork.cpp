@@ -12,7 +12,7 @@ void NormalsFrom(const std::vector<float> &positionM,
   into.assign(positionM.size(), 0.0f);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
     const uint32_t a = index[at], b = index[at + 1], c = index[at + 2];
-    if ((size_t)c * 3 + 2 >= positionM.size()) { continue; }
+    if (static_cast<size_t>(c) * 3 + 2 >= positionM.size()) { continue; }
     const float abx = positionM[b * 3] - positionM[a * 3];
     const float aby = positionM[b * 3 + 1] - positionM[a * 3 + 1];
     const float abz = positionM[b * 3 + 2] - positionM[a * 3 + 2];
@@ -59,33 +59,33 @@ void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   out->Clusters.clear();
   out->Verts.clear();
   out->Idx.clear();
-  out->Verts.reserve((size_t)side * (size_t)side * kTileVertexFloats);
+  out->Verts.reserve(static_cast<size_t>(side) * static_cast<size_t>(side) * kTileVertexFloats);
   for (int row = 0; row < side; ++row) {
-    const double v = (double)row / (double)(side - 1);
+    const double v = static_cast<double>(row) / static_cast<double>(side - 1);
     for (int column = 0; column < side; ++column) {
-      const double u = (double)column / (double)(side - 1);
+      const double u = static_cast<double>(column) / static_cast<double>(side - 1);
       const Ground::Geo where{
           .LonDeg = bounds.MinLonDeg + u * (bounds.MaxLonDeg - bounds.MinLonDeg),
           .LatDeg = bounds.MaxLatDeg + v * (bounds.MinLatDeg - bounds.MaxLatDeg),
           .AltM = 0.0};
       const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
       const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
-      out->Verts.push_back((float)(at.X - anchor.X));
-      out->Verts.push_back((float)(at.Y - anchor.Y));
-      out->Verts.push_back((float)(at.Z - anchor.Z));
-      out->Verts.push_back((float)u);
-      out->Verts.push_back((float)v);
-      out->Verts.push_back((float)(at.X / away));
-      out->Verts.push_back((float)(at.Y / away));
-      out->Verts.push_back((float)(at.Z / away));
+      out->Verts.push_back(static_cast<float>(at.X - anchor.X));
+      out->Verts.push_back(static_cast<float>(at.Y - anchor.Y));
+      out->Verts.push_back(static_cast<float>(at.Z - anchor.Z));
+      out->Verts.push_back(static_cast<float>(u));
+      out->Verts.push_back(static_cast<float>(v));
+      out->Verts.push_back(static_cast<float>(at.X / away));
+      out->Verts.push_back(static_cast<float>(at.Y / away));
+      out->Verts.push_back(static_cast<float>(at.Z / away));
     }
   }
-  out->Idx.reserve((size_t)(side - 1) * (size_t)(side - 1) * 6u);
+  out->Idx.reserve(static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) * 6u);
   for (int row = 0; row + 1 < side; ++row) {
     for (int column = 0; column + 1 < side; ++column) {
-      const uint32_t a = (uint32_t)(row * side + column);
+      const uint32_t a = static_cast<uint32_t>(row * side + column);
       const uint32_t b = a + 1;
-      const uint32_t c = a + (uint32_t)side;
+      const uint32_t c = a + static_cast<uint32_t>(side);
       const uint32_t d = c + 1;
       out->Idx.push_back(a);
       out->Idx.push_back(c);
@@ -119,14 +119,21 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     const long span = 1L << (over.Zoom - coarsest);
     const Ground::TileFrac at = Ground::ToTileFracClamped(
         Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, coarsest);
-    maskX0 = 2 * (long)std::floor(((double)(long)std::floor(at.X) - 1.0) / 2.0) * span;
-    maskY0 = 2 * (long)std::floor(((double)(long)std::floor(at.Y) - 1.0) / 2.0) * span;
+    maskX0 = 2 *
+             static_cast<long>(std::floor(
+                 (static_cast<double>(static_cast<long>(std::floor(at.X))) - 1.0) / 2.0)) *
+             span;
+    maskY0 = 2 *
+             static_cast<long>(std::floor(
+                 (static_cast<double>(static_cast<long>(std::floor(at.Y))) - 1.0) / 2.0)) *
+             span;
   }
-  std::vector<uint8_t> covering((size_t)widest * (size_t)widest, 0u);
+  std::vector<uint8_t> covering(static_cast<size_t>(widest) * static_cast<size_t>(widest), 0u);
   const auto marked = [&covering, widest, maskX0, maskY0](long fx, long fy) -> uint8_t * {
     const long ix = fx - maskX0, iy = fy - maskY0;
     if (ix < 0 || iy < 0 || ix >= widest || iy >= widest) { return nullptr; }
-    return &covering[(size_t)iy * (size_t)widest + (size_t)ix];
+    return &covering[static_cast<size_t>(iy) * static_cast<size_t>(widest) +
+                     static_cast<size_t>(ix)];
   };
   for (int level = 0; level < levels; ++level) {
     const int zoom = over.Zoom - level;
@@ -134,8 +141,12 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     const long span = 1L << level;
     const Ground::TileFrac at =
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, zoom);
-    const long originX = 2 * (long)std::floor(((double)(long)std::floor(at.X) - 1.0) / 2.0);
-    const long originY = 2 * (long)std::floor(((double)(long)std::floor(at.Y) - 1.0) / 2.0);
+    const long originX =
+        2 * static_cast<long>(
+                std::floor((static_cast<double>(static_cast<long>(std::floor(at.X))) - 1.0) / 2.0));
+    const long originY =
+        2 * static_cast<long>(
+                std::floor((static_cast<double>(static_cast<long>(std::floor(at.Y))) - 1.0) / 2.0));
     std::vector<std::pair<long, long>> standing;
     for (long row = 0; row < kBlockTiles; ++row) {
       for (long column = 0; column < kBlockTiles; ++column) {
@@ -161,8 +172,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
         TileBuild built;
         const TileMeshes::Reply said =
-            over.Asking ? tiles.Wants(zoom, (uint32_t)x, (uint32_t)y, over.Grid)
-                        : tiles.Mesh(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+            over.Asking
+                ? tiles.Wants(zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid)
+                : tiles.Mesh(
+                      zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid, &built);
         bool ofTheGround = true;
         if (zoom >= 0 && zoom < 24) { ++out.WantedAtZoom[zoom]; }
         if (said == TileMeshes::Reply::Pending) {
@@ -183,7 +196,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
           continue;
         }
-        if (!ofTheGround) { SphereTile(zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built); }
+        if (!ofTheGround) {
+          SphereTile(zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid, &built);
+        }
         if (built.Verts.empty() || built.Idx.empty()) { continue; }
 
         if (!anchored) {
@@ -193,12 +208,15 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         const double shift[3] = {built.OriginEcef[0] - out.OriginEcef[0],
                                  built.OriginEcef[1] - out.OriginEcef[1],
                                  built.OriginEcef[2] - out.OriginEcef[2]};
-        const uint32_t first = (uint32_t)(out.PositionM.size() / 3);
+        const uint32_t first = static_cast<uint32_t>(out.PositionM.size() / 3);
         for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
              vertex += kTileVertexFloats) {
-          out.PositionM.push_back((float)((double)built.Verts[vertex] + shift[0]));
-          out.PositionM.push_back((float)((double)built.Verts[vertex + 1] + shift[1]));
-          out.PositionM.push_back((float)((double)built.Verts[vertex + 2] + shift[2]));
+          out.PositionM.push_back(
+              static_cast<float>(static_cast<double>(built.Verts[vertex]) + shift[0]));
+          out.PositionM.push_back(
+              static_cast<float>(static_cast<double>(built.Verts[vertex + 1]) + shift[1]));
+          out.PositionM.push_back(
+              static_cast<float>(static_cast<double>(built.Verts[vertex + 2]) + shift[2]));
           out.Uv.push_back(built.Verts[vertex + 3]);
           out.Uv.push_back(built.Verts[vertex + 4]);
           out.NormalM.push_back(built.Verts[vertex + 5]);
@@ -206,16 +224,18 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           out.NormalM.push_back(built.Verts[vertex + 7]);
         }
         out.ClustersHeld += built.Clusters.size();
-        const uint32_t rebase = (uint32_t)out.AllIndex.size();
+        const uint32_t rebase = static_cast<uint32_t>(out.AllIndex.size());
         for (const uint32_t one : built.Idx) { out.AllIndex.push_back(first + one); }
         for (const DagCluster &cluster : built.Clusters) {
           DagCluster carried = cluster;
           carried.First = rebase + cluster.First;
           for (int axis = 0; axis < 3; ++axis) {
-            carried.SelfCenter[axis] = (float)((double)cluster.SelfCenter[axis] +
-                                               built.OriginEcef[axis] - out.ClusterEyeM[axis]);
-            carried.ParentCenter[axis] = (float)((double)cluster.ParentCenter[axis] +
-                                                 built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+            carried.SelfCenter[axis] =
+                static_cast<float>(static_cast<double>(cluster.SelfCenter[axis]) +
+                                   built.OriginEcef[axis] - out.ClusterEyeM[axis]);
+            carried.ParentCenter[axis] =
+                static_cast<float>(static_cast<double>(cluster.ParentCenter[axis]) +
+                                   built.OriginEcef[axis] - out.ClusterEyeM[axis]);
           }
           out.Clusters.push_back(carried);
         }
@@ -234,7 +254,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           out.ClustersDrawn += built.Clusters.size();
           for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
         }
-        out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
+        out.WorstErrM = static_cast<double>(built.ErrM) > out.WorstErrM
+                            ? static_cast<double>(built.ErrM)
+                            : out.WorstErrM;
         ++out.Tiles;
         if (ofTheGround) { standing.push_back({heldX0, heldY0}); }
       }

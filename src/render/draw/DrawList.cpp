@@ -37,7 +37,7 @@ bool DrawList::Add(const DrawItem &item, std::string &error) {
   }
 
   Draws_.push_back(item);
-  Draws_.back().Submitted = (uint32_t)Draws_.size() - 1u;
+  Draws_.back().Submitted = static_cast<uint32_t>(Draws_.size()) - 1u;
   return true;
 }
 
@@ -84,7 +84,7 @@ void DrawList::Compile() {
 
   size_t at = 0;
   for (DrawBatch &batch : Batches_) {
-    batch.FirstJob = (uint32_t)(Jobs_.size() / kJobWords);
+    batch.FirstJob = static_cast<uint32_t>(Jobs_.size() / kJobWords);
     const size_t upTo = at + batch.Draws;
 
     bool wholly = batch.Instances == 1;
@@ -96,12 +96,12 @@ void DrawList::Compile() {
       const DrawItem &draw = Draws_[at];
       for (uint32_t one = 0; one < draw.ClusterCount; ++one) {
         Jobs_.push_back(draw.FirstCluster + one);
-        Jobs_.push_back((uint32_t)(&batch - Batches_.data()));
+        Jobs_.push_back(static_cast<uint32_t>(&batch - Batches_.data()));
         Jobs_.push_back(draw.FirstIndex);
         Jobs_.push_back(0u);
       }
     }
-    batch.JobCount = (uint32_t)(Jobs_.size() / kJobWords) - batch.FirstJob;
+    batch.JobCount = static_cast<uint32_t>(Jobs_.size() / kJobWords) - batch.FirstJob;
   }
 }
 
@@ -114,11 +114,11 @@ void DrawList::JobsAddress(std::span<const DagCluster> clusters) {
       if (batch.JobCount == 0) { continue; }
       const DrawItem &draw = Draws_[at];
       for (uint32_t one = 0; one < draw.ClusterCount; ++one, ++job) {
-        const size_t cluster = (size_t)draw.FirstCluster + one;
+        const size_t cluster = static_cast<size_t>(draw.FirstCluster) + one;
         if (cluster >= clusters.size()) { continue; }
-        Jobs_[(size_t)job * kJobWords + 2u] =
+        Jobs_[static_cast<size_t>(job) * kJobWords + 2u] =
             draw.FirstIndex + (clusters[cluster].First - draw.SourceFirstIndex);
-        Jobs_[(size_t)job * kJobWords + 3u] = clusters[cluster].Count;
+        Jobs_[static_cast<size_t>(job) * kJobWords + 3u] = clusters[cluster].Count;
       }
     }
   }

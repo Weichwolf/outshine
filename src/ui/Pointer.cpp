@@ -16,7 +16,7 @@ Touched Under(const Layout &layout, const Markup &markup, double x, double y) {
     }
   }
 
-  for (int at = found.Node; at >= 0; at = markup.Nodes()[(size_t)at].Parent) {
+  for (int at = found.Node; at >= 0; at = markup.Nodes()[static_cast<size_t>(at)].Parent) {
     const std::string *declared = markup.AttributeOf(at, "data-action");
     if (declared != nullptr) {
       found.Action = *declared;

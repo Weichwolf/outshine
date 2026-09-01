@@ -37,7 +37,7 @@ TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
   const int slots = (config.DemCacheTiles > 0 && config.DemCacheTiles < kDemCacheCeiling)
                         ? config.DemCacheTiles
                         : kDemCacheCeiling;
-  Cache_.resize((size_t)slots);
+  Cache_.resize(static_cast<size_t>(slots));
 }
 
 const TerrainField *TerrainTiles::CacheLookup(int z, uint32_t x, uint32_t y) {
@@ -110,10 +110,10 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     const TerrainField::Writable postings = field.Field();
     for (uint32_t row = 0; row < kShapedSide; ++row) {
       for (uint32_t col = 0; col < kShapedSide; ++col) {
-        const double fx = (double)col / (double)(kShapedSide - 1u);
-        const double fy = (double)row / (double)(kShapedSide - 1u);
-        const Geo at = TileFracToGeo(z, (long)x, (long)y, fx, fy);
-        postings[row, col] = (float)ShapedAslM(at.LatDeg, at.LonDeg);
+        const double fx = static_cast<double>(col) / static_cast<double>(kShapedSide - 1u);
+        const double fy = static_cast<double>(row) / static_cast<double>(kShapedSide - 1u);
+        const Geo at = TileFracToGeo(z, static_cast<long>(x), static_cast<long>(y), fx, fy);
+        postings[row, col] = static_cast<float>(ShapedAslM(at.LatDeg, at.LonDeg));
       }
     }
     return TerrainGrid::Holding(std::move(field));
@@ -210,11 +210,12 @@ TerrainGrid::State TerrainTiles::StitchCorner(
   }
 
   const auto cornerOf = [](const TerrainField &f, bool atWest, bool atNorth) {
-    return (double)f.AtM(atNorth ? 0u : f.Rows() - 1u, atWest ? 0u : f.Cols() - 1u);
+    return static_cast<double>(f.AtM(atNorth ? 0u : f.Rows() - 1u, atWest ? 0u : f.Cols() - 1u));
   };
-  const double sum = (double)selfRawM + cornerOf(*a, !west, north) + cornerOf(*b, west, !north) +
-                     cornerOf(*c, !west, !north);
-  self.SetM(north ? 0u : self.Rows() - 1u, west ? 0u : self.Cols() - 1u, (float)(sum * 0.25));
+  const double sum = static_cast<double>(selfRawM) + cornerOf(*a, !west, north) +
+                     cornerOf(*b, west, !north) + cornerOf(*c, !west, !north);
+  self.SetM(
+      north ? 0u : self.Rows() - 1u, west ? 0u : self.Cols() - 1u, static_cast<float>(sum * 0.25));
   return TerrainGrid::State::Decoded;
 }
 

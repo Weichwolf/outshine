@@ -43,7 +43,7 @@ size_t InputMap::Events() {
 
 ptrdiff_t InputMap::EventIndexOf(std::string_view event) {
   for (size_t at = 0; at < kEventCount; ++at) {
-    if (event == kEvents[at].Name) { return (ptrdiff_t)at; }
+    if (event == kEvents[at].Name) { return static_cast<ptrdiff_t>(at); }
   }
   return -1;
 }
@@ -58,21 +58,21 @@ bool InputMap::Build(std::span<const Binding> declared, std::string &error) {
               "', and the catalogue offers: " + Catalogue();
       return false;
     }
-    if (ActionAt_[(size_t)at] != kUnbound) {
+    if (ActionAt_[static_cast<size_t>(at)] != kUnbound) {
       error = "the event '" + binding.Event + "' is bound twice -- to '" +
-              Actions_[ActionAt_[(size_t)at]] + "' and to '" + binding.Action +
+              Actions_[ActionAt_[static_cast<size_t>(at)]] + "' and to '" + binding.Action +
               "' -- and one press has one meaning";
       return false;
     }
     uint16_t action = kUnbound;
     for (size_t held = 0; held < Actions_.size(); ++held) {
-      if (Actions_[held] == binding.Action) { action = (uint16_t)held; }
+      if (Actions_[held] == binding.Action) { action = static_cast<uint16_t>(held); }
     }
     if (action == kUnbound) {
-      action = (uint16_t)Actions_.size();
+      action = static_cast<uint16_t>(Actions_.size());
       Actions_.push_back(binding.Action);
     }
-    ActionAt_[(size_t)at] = action;
+    ActionAt_[static_cast<size_t>(at)] = action;
   }
   return true;
 }
@@ -95,7 +95,7 @@ const std::string *InputMap::ActionNamed(uint16_t action) const {
 
 const std::string *InputMap::ActionOf(std::string_view event) const {
   const ptrdiff_t at = EventIndexOf(event);
-  return at < 0 ? nullptr : ActionNamed(ActionAt((size_t)at));
+  return at < 0 ? nullptr : ActionNamed(ActionAt(static_cast<size_t>(at)));
 }
 
 bool InputMap::KindOf(std::string_view event, Kind &out) const {
@@ -108,7 +108,7 @@ bool InputMap::KindOf(std::string_view event, Kind &out) const {
 size_t InputMap::BoundTo(std::string_view action) const {
   uint16_t wanted = kUnbound;
   for (size_t held = 0; held < Actions_.size(); ++held) {
-    if (Actions_[held] == action) { wanted = (uint16_t)held; }
+    if (Actions_[held] == action) { wanted = static_cast<uint16_t>(held); }
   }
   if (wanted == kUnbound) { return 0; }
   size_t bound = 0;

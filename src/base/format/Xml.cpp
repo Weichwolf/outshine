@@ -227,8 +227,8 @@ bool Xml::Parse(const char *text, size_t length) {
         while (stop > start && Space(Text_[stop - 1])) { --stop; }
         if (stop > start) {
           Node &into = Nodes_[stack[depth - 1]];
-          into.TextOff = (uint32_t)start;
-          into.TextLen = (uint32_t)(stop - start);
+          into.TextOff = static_cast<uint32_t>(start);
+          into.TextLen = static_cast<uint32_t>(stop - start);
         }
       }
       continue;
@@ -260,7 +260,8 @@ bool Xml::Parse(const char *text, size_t length) {
       const Node &open = Nodes_[stack[depth - 1]];
       if (open.NameLen != stop - name ||
           std::memcmp(Text_.data() + open.NameOff, Text_.data() + name, stop - name) != 0) {
-        return Refuse("a closing tag names '" + Span((uint32_t)name, (uint32_t)(stop - name)) +
+        return Refuse("a closing tag names '" +
+                          Span(static_cast<uint32_t>(name), static_cast<uint32_t>(stop - name)) +
                           "' and the open element is '" + Span(open.NameOff, open.NameLen) + "'",
                       at);
       }
@@ -280,7 +281,8 @@ bool Xml::Parse(const char *text, size_t length) {
     while (stop < length && NameChar(Text_[stop])) { ++stop; }
     if (stop < length && Text_[stop] == ':') {
       return Refuse("this reader declares no namespaces, and '" +
-                        Span((uint32_t)name, (uint32_t)(stop - name)) + ":' is one",
+                        Span(static_cast<uint32_t>(name), static_cast<uint32_t>(stop - name)) +
+                        ":' is one",
                     at);
     }
     if (closed) { return Refuse("a document carries one root element and this is a second", at); }
@@ -290,10 +292,10 @@ bool Xml::Parse(const char *text, size_t length) {
     }
 
     Nodes_.push_back(Node());
-    const uint32_t made = (uint32_t)(Nodes_.size() - 1);
-    Nodes_[made].NameOff = (uint32_t)name;
-    Nodes_[made].NameLen = (uint32_t)(stop - name);
-    Nodes_[made].FirstAttribute = (uint32_t)Attributes_.size();
+    const uint32_t made = static_cast<uint32_t>(Nodes_.size() - 1);
+    Nodes_[made].NameOff = static_cast<uint32_t>(name);
+    Nodes_[made].NameLen = static_cast<uint32_t>(stop - name);
+    Nodes_[made].FirstAttribute = static_cast<uint32_t>(Attributes_.size());
 
     if (depth == 0) {
       Root_ = made;
@@ -321,7 +323,7 @@ bool Xml::Parse(const char *text, size_t length) {
         ++at;
         break;
       }
-      if (at >= length) { return Refuse("an element's tag never ends", (size_t)name); }
+      if (at >= length) { return Refuse("an element's tag never ends", name); }
       if (!NameStart(Text_[at])) {
         return Refuse("an attribute's name begins with a letter or an underscore", at);
       }
@@ -348,10 +350,10 @@ bool Xml::Parse(const char *text, size_t length) {
                       attribute);
       }
       Attribute one;
-      one.NameOff = (uint32_t)attribute;
-      one.NameLen = (uint32_t)(attributeStop - attribute);
-      one.ValueOff = (uint32_t)value;
-      one.ValueLen = (uint32_t)(at - value);
+      one.NameOff = static_cast<uint32_t>(attribute);
+      one.NameLen = static_cast<uint32_t>(attributeStop - attribute);
+      one.ValueOff = static_cast<uint32_t>(value);
+      one.ValueLen = static_cast<uint32_t>(at - value);
       Attributes_.push_back(one);
       ++Nodes_[made].Attributes;
       ++at;
@@ -360,7 +362,7 @@ bool Xml::Parse(const char *text, size_t length) {
     if (!empty) {
       if (depth >= kXmlMaxDepth) {
         return Refuse("the document nests past the depth bound of " + std::to_string(kXmlMaxDepth),
-                      (size_t)name);
+                      name);
       }
       stack[depth++] = made;
     } else if (depth == 0) {
@@ -380,7 +382,7 @@ bool Xml::Parse(const char *text, size_t length) {
 Xml::Unread Xml::FirstUnread() const {
   const auto unasked = std::ranges::find(Asked_, 0);
   if (unasked == Asked_.end()) { return Unread{}; }
-  const uint32_t wanted = (uint32_t)(unasked - Asked_.begin());
+  const uint32_t wanted = static_cast<uint32_t>(unasked - Asked_.begin());
 
   struct Standing {
     uint32_t At = 0;

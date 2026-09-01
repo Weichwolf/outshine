@@ -129,7 +129,8 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
     Session.Volumes->Probe(0, body.PositionM, Ticking.ElapsedS);
     for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
       ++Session.Fired;
-      Published.Places("events a declared volume has fired", (double)Session.Fired, "events");
+      Published.Places(
+          "events a declared volume has fired", static_cast<double>(Session.Fired), "events");
       Session.Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                                 " for body " + std::to_string(fired.Body));
     }
@@ -186,8 +187,8 @@ bool Engine::State::Updates(void) {
 
   if (Ticking.Drove) {
     if (Ticking.Steps >= Ticking.MostSteps) {
-      Error = "the drive has taken " + Said((double)Ticking.Steps) +
-              " steps and its own plan allows " + Said((double)Ticking.MostSteps) +
+      Error = "the drive has taken " + Said(static_cast<double>(Ticking.Steps)) +
+              " steps and its own plan allows " + Said(static_cast<double>(Ticking.MostSteps)) +
               " at the slowest station on it, so it is not arriving";
       return false;
     }
@@ -204,9 +205,10 @@ bool Engine::State::Updates(void) {
       return false;
     }
     if (rode.Arrived) {
-      Published.Places(
-          "wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
-      Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
+      Published.Places("wheel-steps that asked the ground what it is",
+                       static_cast<double>(rode.GroundAsked),
+                       "steps");
+      Published.Places("steps it could answer", static_cast<double>(rode.GroundAnswered), "steps");
       return false;
     }
     {
@@ -216,9 +218,11 @@ bool Engine::State::Updates(void) {
   }
   if (Ticking.Drove) {
     Published.Places("how far along it the body has come", Ticking.Drive.State.Tally.ReachedM, "m");
-    Published.Places("ticks the one lane task has kept", (double)Ticking.Drive.State.Kept, "ticks");
     Published.Places(
-        "bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
+        "ticks the one lane task has kept", static_cast<double>(Ticking.Drive.State.Kept), "ticks");
+    Published.Places("bytes the world holds while it drives",
+                     static_cast<double>(HeapProbe::LiveBytes()),
+                     "bytes");
   }
   Falls();
   if (!Watches()) { return false; }
@@ -274,7 +278,8 @@ void Engine::State::Falls(void) {
     pulled.ForceN[1] = -held.MassKg * gravityMs2;
     Physics::Step(held, pulled, stepS);
   }
-  Published.Places("bodies standing on no route", (double)Ticking.Freestanding.size(), "bodies");
+  Published.Places(
+      "bodies standing on no route", static_cast<double>(Ticking.Freestanding.size()), "bodies");
   Published.Places("the first of them, up", Ticking.Freestanding.front().PositionM[1], "m");
   Published.Places("and how fast it falls", Ticking.Freestanding.front().VelocityMs[1], "m/s");
 }
@@ -282,31 +287,42 @@ void Engine::State::Falls(void) {
 void Engine::State::Drew(void) {
   const Heap::Tagged drew("frame-drew");
   const Heap::Tagged telling("frame-measures");
-  Published.Places("bodies the world's generators placed", (double)World.Placed, "bodies");
-  Published.Places("instances its draw sources made", (double)World.Instanced, "instances");
-  Published.Places("how far the placement chain reached", (double)World.Reached, "steps");
-  Published.Places("streets the world holds", (double)World.Stack.Ways().Ways().size(), "ways");
   Published.Places(
-      "water surfaces it holds", (double)World.Stack.WaterBodies().Surfaces().size(), "surfaces");
+      "bodies the world's generators placed", static_cast<double>(World.Placed), "bodies");
+  Published.Places(
+      "instances its draw sources made", static_cast<double>(World.Instanced), "instances");
+  Published.Places(
+      "how far the placement chain reached", static_cast<double>(World.Reached), "steps");
+  Published.Places(
+      "streets the world holds", static_cast<double>(World.Stack.Ways().Ways().size()), "ways");
+  Published.Places("water surfaces it holds",
+                   static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
+                   "surfaces");
   Published.Places("building footprints it holds",
-                   (double)World.Stack.Footprints().Footprints().size(),
+                   static_cast<double>(World.Stack.Footprints().Footprints().size()),
                    "footprints");
+  Published.Places("batches the picture draws",
+                   static_cast<double>(Picture.Device.SubjectBatchCount()),
+                   "batches");
+  Published.Places("stages the compiled plan runs",
+                   static_cast<double>(Picture.Standing->PlanStages()),
+                   "stages");
   Published.Places(
-      "batches the picture draws", (double)Picture.Device.SubjectBatchCount(), "batches");
-  Published.Places(
-      "stages the compiled plan runs", (double)Picture.Standing->PlanStages(), "stages");
-  Published.Places("passes it runs them in", (double)Picture.Standing->PlanPasses(), "passes");
+      "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
   Published.Places("vertex uniform pushes the subject stages make",
-                   (double)Picture.Device.SubjectUniformPushes(),
+                   static_cast<double>(Picture.Device.SubjectUniformPushes()),
                    "pushes");
-  Published.Places("batches the shadow casts", (double)Picture.Device.ShadowCastCount(), "batches");
+  Published.Places(
+      "batches the shadow casts", static_cast<double>(Picture.Device.ShadowCastCount()), "batches");
   Published.Places("placement rows the renderer has been sent",
-                   (double)Picture.Device.SubjectPlacementsMoved(),
+                   static_cast<double>(Picture.Device.SubjectPlacementsMoved()),
                    "rows");
-  Published.Places(
-      "frames the subject drew shadowed", (double)Picture.Device.ShadowedFrames(), "frames");
-  Published.Places(
-      "bytes the frame's drawing left behind", (double)Core::Live::TookDrawing(), "bytes");
+  Published.Places("frames the subject drew shadowed",
+                   static_cast<double>(Picture.Device.ShadowedFrames()),
+                   "frames");
+  Published.Places("bytes the frame's drawing left behind",
+                   static_cast<double>(Core::Live::TookDrawing()),
+                   "bytes");
   Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
   Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
 }
@@ -321,8 +337,8 @@ void Engine::State::Inspected(void) {
       double most = -1.0e30;
       double written = 0.0;
       for (const float one : depth) {
-        if ((double)one < least) { least = (double)one; }
-        if ((double)one > most) { most = (double)one; }
+        if (static_cast<double>(one) < least) { least = static_cast<double>(one); }
+        if (static_cast<double>(one) > most) { most = static_cast<double>(one); }
         if (one > 0.0f) { written += 1.0; }
       }
       Published.Places("the shadow atlas, least depth", least, "");
@@ -336,8 +352,8 @@ void Engine::State::Inspected(void) {
     uint32_t kept = 0;
     uint32_t batches = 0;
     if (Picture.Device.ReadKeptIndices(kept, batches) == Render::ReadState::Ready) {
-      Published.Places("cull: indices the subject cull kept", (double)kept, "indices");
-      Published.Places("cull: batches that kept any", (double)batches, "batches");
+      Published.Places("cull: indices the subject cull kept", static_cast<double>(kept), "indices");
+      Published.Places("cull: batches that kept any", static_cast<double>(batches), "batches");
     }
   }
   {
@@ -351,7 +367,7 @@ void Engine::State::Inspected(void) {
           "the device's transmittance toward the sun, green",
           "the device's transmittance toward the sun, blue"};
       for (size_t at = 0; at < Render::kIrradianceFloats; ++at) {
-        Published.Places(kNamed[at], (double)held[at], "");
+        Published.Places(kNamed[at], static_cast<double>(held[at]), "");
       }
     }
   }
@@ -361,8 +377,8 @@ void Engine::State::Inspected(void) {
       double moving = 0.0;
       double furthest = 0.0;
       for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
-        const double across = (double)velocity[at];
-        const double down = (double)velocity[at + 1];
+        const double across = static_cast<double>(velocity[at]);
+        const double down = static_cast<double>(velocity[at + 1]);
         if (across <= -1.0e3 || down <= -1.0e3) { continue; }
         const double moved = std::sqrt(across * across + down * down);
         if (moved > 0.0) { moving += 1.0; }
@@ -372,16 +388,18 @@ void Engine::State::Inspected(void) {
       Published.Places("the furthest any of them moved", furthest, "ndc");
     }
   }
-  Published.Places(
-      "the exposure the picture applied", (double)Picture.Device.ExposureApplied(), "1/(cd/m2)");
+  Published.Places("the exposure the picture applied",
+                   static_cast<double>(Picture.Device.ExposureApplied()),
+                   "1/(cd/m2)");
   {
     std::vector<float> linear;
     if (Picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
       double brightest = 0.0;
       for (size_t at = 0; at + 3 < linear.size(); at += 4) {
         for (int channel = 0; channel < 3; ++channel) {
-          brightest =
-              (double)linear[at + channel] > brightest ? (double)linear[at + channel] : brightest;
+          brightest = static_cast<double>(linear[at + channel]) > brightest
+                          ? static_cast<double>(linear[at + channel])
+                          : brightest;
         }
       }
       Published.Places("the brightest the scene's linear buffer reached", brightest, "");
@@ -393,7 +411,9 @@ void Engine::State::Inspected(void) {
       double peak = 0.0;
       for (size_t at = 0; at + 3 < shown.size(); at += 4) {
         for (int channel = 0; channel < 3; ++channel) {
-          peak = (double)shown[at + channel] > peak ? (double)shown[at + channel] : peak;
+          peak = static_cast<double>(shown[at + channel]) > peak
+                     ? static_cast<double>(shown[at + channel])
+                     : peak;
         }
       }
       Published.Places("the brightest the presented frame shows", peak, "of 255");

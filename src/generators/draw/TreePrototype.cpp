@@ -36,7 +36,7 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   look.LeafWidest = lf.Widest;
   look.LeafTip = lf.Tip;
   look.LeafBaseFill = lf.BaseFill;
-  look.LeafLobes = (float)lf.Lobes;
+  look.LeafLobes = static_cast<float>(lf.Lobes);
   look.LeafLobeDepth = lf.LobeDepth;
   look.LeafSerration = lf.Serration;
   look.NeedleWidth = lf.Kind == TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f;
@@ -77,35 +77,37 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   TreeMesher mesher;
   TreeFoliage foliage;
   TreePrototype proto;
-  proto.HeightM_ = (double)sp.HeightM();
+  proto.HeightM_ = static_cast<double>(sp.HeightM());
   proto.Look_ = LookOf(sp);
-  proto.Ranks_.resize((size_t)ModelLadder::kLevels);
+  proto.Ranks_.resize(static_cast<size_t>(ModelLadder::kLevels));
   double crownProjM2 = 0.0;
 
   grower.Grow(sp, plant);
   TreeLeaf::Build(sp.LeafParams(), mesh);
   for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
-    Rank &out = proto.Ranks_[(size_t)rank];
+    Rank &out = proto.Ranks_[static_cast<size_t>(rank)];
     mesher.Draw(plant, ModelLadder::Error(rank), mesh);
     foliage.Build(plant, mesh, sp, 1);
-    const uint32_t stride = (uint32_t)kElementsPerSheet << (2u * (unsigned)rank);
+    const uint32_t stride = static_cast<uint32_t>(kElementsPerSheet)
+                            << (2u * static_cast<unsigned>(rank));
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
     }
-    const uint32_t nCards = (uint32_t)(out.Cards.size() / TreeFoliage::kFloats);
+    const uint32_t nCards = static_cast<uint32_t>(out.Cards.size() / TreeFoliage::kFloats);
     if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
     out.CardCount = nCards;
-    out.CardLeafM = foliage.CardLeafM(kElementsPerSheet, nCards, (double)sp.Lai(), crownProjM2);
+    out.CardLeafM =
+        foliage.CardLeafM(kElementsPerSheet, nCards, static_cast<double>(sp.Lai()), crownProjM2);
     out.BarkVerts = mesh.BarkVerts;
-    out.BarkVertCount = (uint32_t)mesh.BarkVertexCount();
+    out.BarkVertCount = static_cast<uint32_t>(mesh.BarkVertexCount());
     out.BarkIdx = mesh.BarkIdx;
   }
   proto.Crown_.HalfWidth = std::fmax(std::fmax(-plant.BoxMin.X, plant.BoxMax.X),
                                      std::fmax(-plant.BoxMin.Z, plant.BoxMax.Z));
   proto.Crown_.Bottom = plant.BoxMin.Y;
   proto.Crown_.Top = plant.BoxMax.Y;
-  proto.Crown_.HeightM = (float)proto.HeightM_;
+  proto.Crown_.HeightM = static_cast<float>(proto.HeightM_);
   if (proto.Ranks_[0].BarkVertCount == 0) { return std::nullopt; }
   return proto;
 }

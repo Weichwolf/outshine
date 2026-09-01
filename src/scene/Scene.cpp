@@ -150,7 +150,7 @@ bool Scene::Kept::open(size_t capacity) {
   Raising_.clear();
   Raising_.reserve(capacity);
   ErrorText_.reserve(kMostRefusalBytes);
-  for (size_t at = capacity; at > 0; --at) { Free_.push_back((uint32_t)(at - 1)); }
+  for (size_t at = capacity; at > 0; --at) { Free_.push_back(static_cast<uint32_t>(at - 1)); }
   for (size_t role = 0; role < kRoles; ++role) { RoleHead_[role] = kNoRef; }
   for (size_t how = 0; how < kRelations; ++how) { RelHead_[how] = kNoRef; }
   OfferHead_ = kNoRef;
@@ -173,9 +173,9 @@ Entity Scene::Kept::addEntity(Role role) {
   slot.Generation = generation;
   slot.Held = true;
   slot.Is = role;
-  slot.RoleNext = RoleHead_[(size_t)role];
+  slot.RoleNext = RoleHead_[static_cast<size_t>(role)];
   if (slot.RoleNext != kNoRef) { Slots_[slot.RoleNext].RolePrev = index; }
-  RoleHead_[(size_t)role] = index;
+  RoleHead_[static_cast<size_t>(role)] = index;
   return Entity{index, generation};
 }
 
@@ -192,7 +192,7 @@ void Scene::Kept::remove(Entity of) {
     }
     bool deferred = false;
     for (size_t how = 0; how < kRelations; ++how) {
-      if (!RuleOf((Relation)how).OwnedByTarget) { continue; }
+      if (!RuleOf(static_cast<Relation>(how)).OwnedByTarget) { continue; }
       for (uint32_t in = held->InHead[how]; in != kNoRef; in = At(in).InNext) {
         ++Touched_;
         const uint32_t source = in / kPairsPerEntity;
@@ -223,7 +223,9 @@ void Scene::Kept::Fell(Entity of) {
 
   if (slot->RolePrev != kNoRef) { Slots_[slot->RolePrev].RoleNext = slot->RoleNext; }
   if (slot->RoleNext != kNoRef) { Slots_[slot->RoleNext].RolePrev = slot->RolePrev; }
-  if (RoleHead_[(size_t)slot->Is] == index) { RoleHead_[(size_t)slot->Is] = slot->RoleNext; }
+  if (RoleHead_[static_cast<size_t>(slot->Is)] == index) {
+    RoleHead_[static_cast<size_t>(slot->Is)] = slot->RoleNext;
+  }
 
   if (slot->Offers.value() != 0) {
     if (slot->OfferPrev != kNoRef) { Slots_[slot->OfferPrev].OfferNext = slot->OfferNext; }
@@ -282,7 +284,7 @@ bool Scene::Kept::hasTag(Entity of, Tag tag) const {
 void Scene::Kept::LinkIn(uint32_t ref) {
   Pair &pair = At(ref);
   Slot &target = Slots_[pair.To.Index];
-  const size_t how = (size_t)pair.How;
+  const size_t how = static_cast<size_t>(pair.How);
   pair.InNext = target.InHead[how];
   pair.InPrev = kNoRef;
   if (pair.InNext != kNoRef) { At(pair.InNext).InPrev = ref; }
@@ -295,7 +297,7 @@ void Scene::Kept::LinkIn(uint32_t ref) {
 
 void Scene::Kept::UnlinkIn(uint32_t ref) {
   Pair &pair = At(ref);
-  const size_t how = (size_t)pair.How;
+  const size_t how = static_cast<size_t>(pair.How);
   if (pair.InPrev != kNoRef) { At(pair.InPrev).InNext = pair.InNext; }
   if (pair.InNext != kNoRef) { At(pair.InNext).InPrev = pair.InPrev; }
   if (pair.To.Index < Slots_.size() && Slots_[pair.To.Index].InHead[how] == ref) {
@@ -309,11 +311,12 @@ void Scene::Kept::UnlinkIn(uint32_t ref) {
 
 void Scene::Kept::ErasePair(uint32_t slot, size_t pair) {
   Slot &holder = Slots_[slot];
-  const uint32_t ref = slot * (uint32_t)kPairsPerEntity + (uint32_t)pair;
+  const uint32_t ref = slot * static_cast<uint32_t>(kPairsPerEntity) + static_cast<uint32_t>(pair);
   UnlinkIn(ref);
   const size_t last = holder.PairCount - 1;
   if (pair != last) {
-    const uint32_t lastRef = slot * (uint32_t)kPairsPerEntity + (uint32_t)last;
+    const uint32_t lastRef =
+        slot * static_cast<uint32_t>(kPairsPerEntity) + static_cast<uint32_t>(last);
     UnlinkIn(lastRef);
     holder.Pairs[pair] = holder.Pairs[last];
     holder.Pairs[last] = Pair{};
@@ -378,7 +381,8 @@ bool Scene::Kept::relink(Entity from, Relation how, Entity to) {
     return Refuse({Named(how), " holds nothing to relink -- taking an empty seat is Link"});
   }
   if (source->Pairs[held].To == to) { return true; }
-  const uint32_t ref = from.Index * (uint32_t)kPairsPerEntity + (uint32_t)held;
+  const uint32_t ref =
+      from.Index * static_cast<uint32_t>(kPairsPerEntity) + static_cast<uint32_t>(held);
   UnlinkIn(ref);
   At(ref).To = to;
   LinkIn(ref);
@@ -391,7 +395,8 @@ bool Scene::Kept::link(Entity from, Relation how, Entity to) {
   if (writable->PairCount == kPairsPerEntity) {
     return Refuse("this entity carries all the connections it can");
   }
-  const uint32_t ref = from.Index * (uint32_t)kPairsPerEntity + (uint32_t)writable->PairCount;
+  const uint32_t ref = from.Index * static_cast<uint32_t>(kPairsPerEntity) +
+                       static_cast<uint32_t>(writable->PairCount);
   writable->Pairs[writable->PairCount++] = Pair{how, to, kNoRef, kNoRef, kNoRef, kNoRef};
   LinkIn(ref);
   return true;
@@ -424,7 +429,7 @@ size_t Scene::Kept::sources(Entity to, Relation how, Entity into[], size_t room)
   const Slot *slot = Held(to);
   if (slot == nullptr) { return 0; }
   size_t found = 0;
-  for (uint32_t in = slot->InHead[(size_t)how]; in != kNoRef; in = At(in).InNext) {
+  for (uint32_t in = slot->InHead[static_cast<size_t>(how)]; in != kNoRef; in = At(in).InNext) {
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
     if (into != nullptr && found < room) {
@@ -437,7 +442,7 @@ size_t Scene::Kept::sources(Entity to, Relation how, Entity into[], size_t room)
 
 size_t Scene::Kept::entitiesWithRole(Role role, Entity into[], size_t room) const {
   size_t found = 0;
-  for (uint32_t at = RoleHead_[(size_t)role]; at != kNoRef; at = Slots_[at].RoleNext) {
+  for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
     if (into != nullptr && found < room) { into[found] = Entity{at, Slots_[at].Generation}; }
     ++found;
@@ -447,7 +452,7 @@ size_t Scene::Kept::entitiesWithRole(Role role, Entity into[], size_t room) cons
 
 size_t Scene::Kept::linkedPairs(Relation how, Entity from[], Entity to[], size_t room) const {
   size_t found = 0;
-  for (uint32_t ref = RelHead_[(size_t)how]; ref != kNoRef; ref = At(ref).RelNext) {
+  for (uint32_t ref = RelHead_[static_cast<size_t>(how)]; ref != kNoRef; ref = At(ref).RelNext) {
     ++Touched_;
     const uint32_t source = ref / kPairsPerEntity;
     if (found < room) {
@@ -461,7 +466,7 @@ size_t Scene::Kept::linkedPairs(Relation how, Entity from[], Entity to[], size_t
 
 size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, Entity into[], size_t room) const {
   size_t found = 0;
-  for (uint32_t at = RoleHead_[(size_t)role]; at != kNoRef; at = Slots_[at].RoleNext) {
+  for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
     const Entity one{at, Slots_[at].Generation};
     if (!hasTag(one, tag)) { continue; }
@@ -488,7 +493,8 @@ Entity Scene::Kept::instantiate(Entity prefab) {
   while (!Raising_.empty()) {
     const Standing at = Raising_.back();
     Raising_.pop_back();
-    for (uint32_t in = Slots_[at.Source.Index].InHead[(size_t)Relation::ChildOf]; in != kNoRef;) {
+    for (uint32_t in = Slots_[at.Source.Index].InHead[static_cast<size_t>(Relation::ChildOf)];
+         in != kNoRef;) {
       ++Touched_;
       const uint32_t source = in / kPairsPerEntity;
       const uint32_t next = At(in).InNext;
@@ -515,7 +521,8 @@ Entity Scene::Kept::instantiate(Entity prefab) {
 Entity Scene::Kept::copyOf(Entity instance, Entity prefabChild) const {
   const Slot *slot = Held(instance);
   if (slot == nullptr) { return kNoEntity; }
-  for (uint32_t in = slot->InHead[(size_t)Relation::ChildOf]; in != kNoRef; in = At(in).InNext) {
+  for (uint32_t in = slot->InHead[static_cast<size_t>(Relation::ChildOf)]; in != kNoRef;
+       in = At(in).InNext) {
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
     const Entity childId{source, Slots_[source].Generation};

@@ -30,7 +30,9 @@ void Infrastructure::Occupy(const Ground &ground, Yield &yield) const noexcept {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Way) { continue; }
     yield.Count(Ways);
-    if (f.Form == FeatureForm::Ribbon) { yield.Raise(WidestM, 2.0 * (double)f.HalfWidthM); }
+    if (f.Form == FeatureForm::Ribbon) {
+      yield.Raise(WidestM, 2.0 * static_cast<double>(f.HalfWidthM));
+    }
   }
 }
 

@@ -33,7 +33,7 @@ bool Meshed::Take(std::string named, MaterialInstance material, const float *sou
     normalM[vertex * 3 + 0] = at[5];
     normalM[vertex * 3 + 1] = at[6];
     normalM[vertex * 3 + 2] = at[7];
-    run[vertex] = (uint32_t)vertex;
+    run[vertex] = static_cast<uint32_t>(vertex);
   }
 
   const int part = Held_.addPart(std::move(named), material);

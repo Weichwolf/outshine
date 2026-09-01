@@ -103,7 +103,7 @@ void Voiced(const Sound &sound,
         const std::string shape = Spelt(makes.Parameters, "shape", "sine");
         for (size_t frame = 0; frame < frames; ++frame) {
           out[frame] = Shaped(shape, kept.Phase);
-          kept.Phase += hz / (double)rate;
+          kept.Phase += hz / static_cast<double>(rate);
           if (kept.Phase >= 1.0) { kept.Phase -= std::floor(kept.Phase); }
         }
         break;
@@ -111,7 +111,7 @@ void Voiced(const Sound &sound,
       case Makes::Noise:
         for (size_t frame = 0; frame < frames; ++frame) {
           kept.Seed = kept.Seed * 1664525u + 1013904223u;
-          out[frame] = (double)(kept.Seed >> 8) / 8388608.0 - 1.0;
+          out[frame] = static_cast<double>(kept.Seed >> 8) / 8388608.0 - 1.0;
         }
         break;
       case Makes::Gain: {
@@ -121,7 +121,7 @@ void Voiced(const Sound &sound,
       }
       case Makes::Biquad: {
         const double hz = Named(makes.Parameters, "frequency", 1000.0);
-        const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / (double)rate);
+        const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
         for (size_t frame = 0; frame < frames; ++frame) {
           kept.One += alpha * (in[frame] - kept.One);
           out[frame] = kept.One;
@@ -130,7 +130,7 @@ void Voiced(const Sound &sound,
       }
       case Makes::Delay: {
         const double seconds = Named(makes.Parameters, "delayS", 0.05);
-        const size_t held = (size_t)(seconds * (double)rate);
+        const size_t held = static_cast<size_t>(seconds * static_cast<double>(rate));
         if (kept.Ring.size() != held + 1) {
           kept.Ring.assign(held + 1, 0.0);
           kept.At = 0;
@@ -212,15 +212,18 @@ bool Mixer::Stands(std::span<const Bus> buses,
     constexpr int kCombs[] = {1116, 1188, 1277, 1356};
     constexpr int kPasses[] = {556, 441};
     for (const int held : kCombs) {
-      const size_t taps = (size_t)((double)held * (double)rate / 44100.0);
+      const size_t taps =
+          static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
       Held_->Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
       Held_->Room.CombAt.push_back(0);
       Held_->Room.CombKept.push_back(0.0);
-      const double delayS = (double)Held_->Room.Combs.back().size() / (double)rate;
+      const double delayS =
+          static_cast<double>(Held_->Room.Combs.back().size()) / static_cast<double>(rate);
       Held_->Room.CombBack.push_back(std::pow(10.0, -3.0 * delayS / one.Reverberates.SecondsRt60));
     }
     for (const int held : kPasses) {
-      const size_t taps = (size_t)((double)held * (double)rate / 44100.0);
+      const size_t taps =
+          static_cast<size_t>(static_cast<double>(held) * static_cast<double>(rate) / 44100.0);
       Held_->Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
       Held_->Room.PassAt.push_back(0);
     }
@@ -305,7 +308,7 @@ bool Mixer::Fills(std::span<float> stereo,
 
     Voiced(sound, Held_->State[at], pitch, Rate_, Held_->Scratch);
     if (dullHz > 0.0) {
-      const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / (double)Rate_);
+      const double alpha = 1.0 - std::exp(-2.0 * kPi * dullHz / static_cast<double>(Rate_));
       double &kept = Held_->Dulled[at];
       for (double &one : Held_->Scratch) {
         kept += alpha * (one - kept);
@@ -314,8 +317,8 @@ bool Mixer::Fills(std::span<float> stereo,
     }
     for (size_t frame = 0; frame < frames; ++frame) {
       const double one = Held_->Scratch[frame] * gain;
-      stereo[frame * 2 + 0] += (float)(one * leftShare);
-      stereo[frame * 2 + 1] += (float)(one * rightShare);
+      stereo[frame * 2 + 0] += static_cast<float>(one * leftShare);
+      stereo[frame * 2 + 1] += static_cast<float>(one * rightShare);
       Held_->Wet[frame] += one * sound.SendShare;
     }
   }
@@ -332,7 +335,7 @@ bool Mixer::Fills(std::span<float> stereo,
         room.CombAt[comb] = (room.CombAt[comb] + 1) % ring.size();
         wet += heard;
       }
-      wet /= (double)(room.Combs.empty() ? 1u : room.Combs.size());
+      wet /= static_cast<double>(room.Combs.empty() ? 1u : room.Combs.size());
       for (size_t pass = 0; pass < room.Passes.size(); ++pass) {
         std::vector<double> &ring = room.Passes[pass];
         const double heard = ring[room.PassAt[pass]];
@@ -340,8 +343,8 @@ bool Mixer::Fills(std::span<float> stereo,
         wet = heard - wet;
         room.PassAt[pass] = (room.PassAt[pass] + 1) % ring.size();
       }
-      stereo[frame * 2 + 0] += (float)(wet * room.WetShare);
-      stereo[frame * 2 + 1] += (float)(wet * room.WetShare);
+      stereo[frame * 2 + 0] += static_cast<float>(wet * room.WetShare);
+      stereo[frame * 2 + 1] += static_cast<float>(wet * room.WetShare);
     }
   }
   return true;

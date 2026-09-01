@@ -10,23 +10,23 @@ constexpr uint32_t kMaxRingPoints = 512;
 
 uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
   const std::span<const OsmField::Feature> feats = field.Features();
-  if (Mark_.Done(feats)) { return (uint32_t)Ways_.size(); }
+  if (Mark_.Done(feats)) { return static_cast<uint32_t>(Ways_.size()); }
 
   const TileWatermark::Next next = Mark_.Ask(
       feats, field.Tiles(), field.CentreX(), field.CentreY(), [](size_t, size_t) { return true; });
-  if (!next.Found) { return (uint32_t)Ways_.size(); }
+  if (!next.Found) { return static_cast<uint32_t>(Ways_.size()); }
   Mark_.Take(next.Tile);
   Mark_.Advance(feats);
 
   const int lines = field.Layer(OsmLayer::Streets);
   const int areas = field.Layer(OsmLayer::StreetPolygons);
-  const uint32_t firstWay = (uint32_t)Ways_.size();
+  const uint32_t firstWay = static_cast<uint32_t>(Ways_.size());
 
-  Looked_ += (long)(next.To - next.From);
+  Looked_ += static_cast<long>(next.To - next.From);
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
-    const bool ribbon = f.Type == 2 && (int)f.Layer == lines;
-    const bool area = f.Type == 3 && (int)f.Layer == areas;
+    const bool ribbon = f.Type == 2 && static_cast<int>(f.Layer) == lines;
+    const bool area = f.Type == 3 && static_cast<int>(f.Layer) == areas;
     if (!ribbon && !area) { continue; }
 
     if (field.Num(f, "tunnel", 0.0) > 0.5) {
@@ -35,7 +35,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
     }
 
     const VegetationTemplates::Rule *rule =
-        veg.Find(field.LayerName((int)f.Layer), field.Str(f, "kind"));
+        veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
     if (!rule) {
       Unruled_++;
       continue;
@@ -55,11 +55,11 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
       w.FirstPoint = ring.First;
       w.PointCount = ring.Count;
       w.HalfWidthM = ribbon ? rule->WidthM * 0.5f : 0.0f;
-      w.CoverRow = (int32_t)rule->Tpl;
+      w.CoverRow = static_cast<int32_t>(rule->Tpl);
       w.Form = ribbon ? Shape::Ribbon : Shape::Area;
       w.Lanes = rule->Lanes;
       w.Bridge = field.Num(f, "bridge", 0.0) > 0.5;
-      w.Layer = (int32_t)field.Num(f, "layer", 0.0);
+      w.Layer = static_cast<int32_t>(field.Num(f, "layer", 0.0));
       w.ClearanceM = rule->ClearanceM;
       w.MaxGradient = rule->MaxGradient;
       Bridges_ += w.Bridge ? 1 : 0;
@@ -69,8 +69,8 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
     }
   }
 
-  ByTile_.Set(next.Tile, firstWay, (uint32_t)Ways_.size());
-  return (uint32_t)Ways_.size();
+  ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
+  return static_cast<uint32_t>(Ways_.size());
 }
 
 } // namespace outshine::Ground

@@ -140,7 +140,8 @@ namespace {
 constexpr double kSolarIlluminanceLx = 133000.0;
 
 double Photopic(const float triple[3]) {
-  return 0.2126 * (double)triple[0] + 0.7152 * (double)triple[1] + 0.0722 * (double)triple[2];
+  return 0.2126 * static_cast<double>(triple[0]) + 0.7152 * static_cast<double>(triple[1]) +
+         0.0722 * static_cast<double>(triple[2]);
 }
 
 } // namespace
@@ -163,8 +164,9 @@ void Live::SunThroughTheAir(double cosSun, float sunReach[3], float skylight[3])
         out[channel] = luminance[channel] / (1.0f - transfer[channel]);
       }
     };
-    Render::MediumSkyIrradiance(medium, stoodAt, (float)cosSun, toSun, secondOrder, SkylightStood_);
-    toSun(stoodAt, (float)cosSun, SunReachStood_);
+    Render::MediumSkyIrradiance(
+        medium, stoodAt, static_cast<float>(cosSun), toSun, secondOrder, SkylightStood_);
+    toSun(stoodAt, static_cast<float>(cosSun), SunReachStood_);
     AirStoodAt_ = cosSun;
   }
   for (int channel = 0; channel < 3; ++channel) {
@@ -266,8 +268,10 @@ bool Live::Build(std::string &error) {
       size_t took = 0;
       for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
         const int index = Table_.Material[slot];
-        if (index < 0 || (size_t)index >= Held_.File().Materials().size()) { continue; }
-        const std::string &named = Held_.File().Materials()[(size_t)index].Name;
+        if (index < 0 || static_cast<size_t>(index) >= Held_.File().Materials().size()) {
+          continue;
+        }
+        const std::string &named = Held_.File().Materials()[static_cast<size_t>(index)].Name;
         for (const SurfaceOverride &said : Declared_.Overriding) {
           if (said.Named != named) { continue; }
           if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
@@ -292,7 +296,7 @@ bool Live::Build(std::string &error) {
           if (slot >= Table_.Slots.size()) { continue; }
           for (const SurfaceOverride &said : Declared_.Overriding) {
             const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
-            const bool byPart = said.Part >= 0 && (size_t)said.Part == part;
+            const bool byPart = said.Part >= 0 && static_cast<size_t>(said.Part) == part;
             if (!byNode && !byPart) { continue; }
             Render::SubjectMaterial made =
                 said.KeepsMaps ? Table_.Slots[slot] : Render::SubjectMaterial{};
@@ -305,7 +309,7 @@ bool Live::Build(std::string &error) {
               Table_.Slots.push_back(made);
               Table_.Material.push_back(carried);
               Table_.Decoded.push_back(Render::SurfaceRasters());
-              Table_.PartSlot[part] = (uint32_t)(Table_.Slots.size() - 1u);
+              Table_.PartSlot[part] = static_cast<uint32_t>(Table_.Slots.size() - 1u);
             }
             ++took;
             break;
@@ -323,7 +327,7 @@ bool Live::Build(std::string &error) {
       }
     }
     if (Declared_.Built != nullptr) {
-      const uint32_t base = (uint32_t)Table_.Slots.size();
+      const uint32_t base = static_cast<uint32_t>(Table_.Slots.size());
       for (const Material &declaredSurface : Declared_.Surfacing) {
         Render::SurfaceTable joining;
         Render::ShapeStore joiningParts;
@@ -344,15 +348,16 @@ bool Live::Build(std::string &error) {
       Table_.PartSlot.resize(Held_.Assembled().Parts().size(), base);
       for (size_t part = before; part < Held_.Assembled().Parts().size(); ++part) {
         const int wanted = Held_.Assembled().Parts()[part].Material;
-        const uint32_t at =
-            wanted > 0 && (size_t)wanted < Declared_.Surfacing.size() ? (uint32_t)wanted : 0u;
+        const uint32_t at = wanted > 0 && static_cast<size_t>(wanted) < Declared_.Surfacing.size()
+                                ? static_cast<uint32_t>(wanted)
+                                : 0u;
         Table_.PartSlot[part] = base + at;
       }
       Joined_ = Held_.Assembled().Parts().size() - Declared_.Built->Parts().size();
     }
 
     if (Declared_.Built == nullptr && Held_.HoldsBuilt()) {
-      const uint32_t base = (uint32_t)Table_.Slots.size();
+      const uint32_t base = static_cast<uint32_t>(Table_.Slots.size());
       const outshine::Geometry &also = Held_.Built();
       for (int surface = 0; surface < also.surfaces(); ++surface) {
         Render::SubjectMaterial made;
@@ -362,11 +367,12 @@ bool Live::Build(std::string &error) {
         Table_.Decoded.push_back(Render::SurfaceRasters());
       }
       const size_t before = Table_.PartSlot.size();
-      Table_.PartSlot.resize(before + (size_t)also.parts(), base);
+      Table_.PartSlot.resize(before + static_cast<size_t>(also.parts()), base);
       for (int part = 0; part < also.parts(); ++part) {
         const int wears = also.materialOf(part).index();
-        const uint32_t at = wears >= 0 && wears < also.surfaces() ? base + (uint32_t)wears : base;
-        Table_.PartSlot[before + (size_t)part] = at;
+        const uint32_t at =
+            wears >= 0 && wears < also.surfaces() ? base + static_cast<uint32_t>(wears) : base;
+        Table_.PartSlot[before + static_cast<size_t>(part)] = at;
       }
       Joined_ = before;
       Carrying_ = before;
@@ -423,12 +429,13 @@ bool Live::Build(std::string &error) {
     return false;
   }
   if (Declared_.Exposure > 0.0) {
-    declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
+    declaration.Exposure = Render::Declared<float>(static_cast<float>(Declared_.Exposure));
   } else {
     const double metered = MeteredLux();
     if (metered > 0.0) {
       const double ev100 = std::log2(metered / 2.5);
-      declaration.Exposure = Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
+      declaration.Exposure =
+          Render::Declared<float>(static_cast<float>(1.0 / (1.2 * std::pow(2.0, ev100))));
     }
   }
   if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
@@ -454,13 +461,16 @@ bool Live::Build(std::string &error) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
-    const float toSun[3] = {(float)(std::cos(elevation) * std::sin(bearing)),
-                            (float)std::sin(elevation),
-                            (float)(std::cos(elevation) * std::cos(bearing))};
+    const float toSun[3] = {static_cast<float>(std::cos(elevation) * std::sin(bearing)),
+                            static_cast<float>(std::sin(elevation)),
+                            static_cast<float>(std::cos(elevation) * std::cos(bearing))};
     const float up[3] = {0.0f, 1.0f, 0.0f};
 
     Renderer_->SetSky(
-        toSun, up, (float)(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux), 0.0f);
+        toSun,
+        up,
+        static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
+        0.0f);
     if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
   }
 
@@ -486,7 +496,7 @@ bool Live::Build(std::string &error) {
     };
     const auto wholeFrom = std::chrono::steady_clock::now();
 
-    Renderer_->CastsBelow((uint32_t)Joined_);
+    Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
     if (!Stand(error)) { return false; }
     StandMs_ = sinceInside();
     if (!Render::Surface(*Renderer_, Stood_, Looking_, Scratch_, error)) { return false; }
@@ -668,9 +678,9 @@ bool Live::Stand(std::string &error) {
     const bool emits = row.Emission[0] > 0.0f || row.Emission[1] > 0.0f || row.Emission[2] > 0.0f;
     std::array<float, 3> radiance{};
     for (int channel = 0; channel < 3; ++channel) {
-      radiance[(size_t)channel] =
+      radiance[static_cast<size_t>(channel)] =
           emits ? row.Emission[channel]
-                : row.BaseColour[channel] * (float)Declared_.IndirectLight[channel];
+                : row.BaseColour[channel] * static_cast<float>(Declared_.IndirectLight[channel]);
     }
     (void)Stood_.Emits(part, radiance);
   }
@@ -682,22 +692,22 @@ bool Live::Stand(std::string &error) {
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
     PunctualLight key;
     key.Kind = LightKind::Directional;
-    key.Intensity = (float)Declared_.KeyLux;
+    key.Intensity = static_cast<float>(Declared_.KeyLux);
     if (Declared_.KeyFromClock) {
       float sunReach[3];
       float skylight[3];
       SunThroughTheAir(std::sin(elevation), sunReach, skylight);
-      key.Intensity = (float)kSolarIlluminanceLx;
+      key.Intensity = static_cast<float>(kSolarIlluminanceLx);
       for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = sunReach[channel]; }
     }
-    key.Direction[0] = (float)(-std::cos(elevation) * std::sin(bearing));
-    key.Direction[1] = (float)(-std::sin(elevation));
-    key.Direction[2] = (float)(-std::cos(elevation) * std::cos(bearing));
+    key.Direction[0] = static_cast<float>(-std::cos(elevation) * std::sin(bearing));
+    key.Direction[1] = static_cast<float>(-std::sin(elevation));
+    key.Direction[2] = static_cast<float>(-std::cos(elevation) * std::cos(bearing));
     Stood_.Lit(key);
   }
   Render::SubjectEnvironment environment;
   for (int channel = 0; channel < 3; ++channel) {
-    environment.RadianceLinear[channel] = (float)Declared_.IndirectLight[channel];
+    environment.RadianceLinear[channel] = static_cast<float>(Declared_.IndirectLight[channel]);
   }
   LitMs_ = sinceStand();
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
@@ -709,11 +719,12 @@ bool Live::Stand(std::string &error) {
     const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
     for (int channel = 0; channel < 3; ++channel) {
       environment.RadianceLinear[channel] +=
-          (double)(skylight[channel] / std::numbers::pi_v<float>)*aboveTheAir;
+          static_cast<double>(skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
       const float onTheGround =
-          (float)aboveTheAir * (float)(straightDown * sunReach[channel] + skylight[channel]);
+          static_cast<float>(aboveTheAir) *
+          static_cast<float>(straightDown * sunReach[channel] + skylight[channel]);
       environment.GroundLinear[channel] +=
-          GroundAlbedo_[channel] * (double)(onTheGround / std::numbers::pi_v<float>);
+          GroundAlbedo_[channel] * static_cast<double>(onTheGround / std::numbers::pi_v<float>);
     }
   }
   for (int channel = 0; channel < 3; ++channel) {
@@ -785,7 +796,7 @@ void Live::SkyEye(double aboveGroundM) {
   constexpr double kSkyEyeStepM = 2.0;
   const double quantisedM =
       std::floor(std::fmax(0.0, aboveGroundM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
-  Renderer_->SetSkyEye((float)quantisedM);
+  Renderer_->SetSkyEye(static_cast<float>(quantisedM));
 }
 
 bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
@@ -857,7 +868,8 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
     error = "the frame did not come back from the device";
     return false;
   }
-  const size_t want = (size_t)Declared_.SurfaceWidthPx * (size_t)Declared_.SurfaceHeightPx * 4u;
+  const size_t want = static_cast<size_t>(Declared_.SurfaceWidthPx) *
+                      static_cast<size_t>(Declared_.SurfaceHeightPx) * 4u;
   if (rgba.size() != want) {
     error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
             std::to_string(Declared_.SurfaceWidthPx) + " by " +
@@ -972,7 +984,7 @@ bool Live::Carry(size_t body,
     }
   }
   PartBounds_.clear();
-  Renderer_->CastsBelow((uint32_t)Joined_);
+  Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
 
   double ecef[16];
   if (bodyMoved && joined > 0) {

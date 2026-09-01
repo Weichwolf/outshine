@@ -170,9 +170,11 @@ bool Engine::State::Routes(void) {
       return false;
     }
     const double stepS = Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0;
-    Ticking.MostSteps = (size_t)(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
-    Published.Places(
-        "the steps the plan allows at its slowest station", (double)Ticking.MostSteps, "steps");
+    Ticking.MostSteps =
+        static_cast<size_t>(Ticking.Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
+    Published.Places("the steps the plan allows at its slowest station",
+                     static_cast<double>(Ticking.MostSteps),
+                     "steps");
   }
   if (!Composes()) { return false; }
   const bool aWorldStands = Ticking.Drove;
@@ -321,7 +323,7 @@ double Engine::loadProgress(void) const {
   if (wanted == 0) { return 1.0; }
   const size_t missing = S_->World.AskedPending;
   if (missing >= wanted) { return 0.0; }
-  return (double)(wanted - missing) / (double)wanted;
+  return static_cast<double>(wanted - missing) / static_cast<double>(wanted);
 }
 
 constexpr double kMostWaitS = 0.05;
@@ -336,12 +338,12 @@ Loading Engine::loading(void) const {
   if (const Ground::OsmField *vectors = S_->World.Stack.Vectors()) {
     said.VectorArrived = vectors->Tiles().size();
     const int pending = vectors->PendingTiles();
-    said.VectorWanted = said.VectorArrived + (pending > 0 ? (size_t)pending : 0);
+    said.VectorWanted = said.VectorArrived + (pending > 0 ? static_cast<size_t>(pending) : 0);
   }
   const Ground::TilePool::Ledger counted = S_->World.Stack.Pool().Counters();
-  said.Outstanding = counted.Outstanding > 0 ? (size_t)counted.Outstanding : 0;
+  said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
   said.FetchedMB = counted.FetchedMB;
-  said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / (double)counted.Posts : 0.0;
+  said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
   return said;
 }
 

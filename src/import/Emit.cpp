@@ -128,9 +128,9 @@ private:
                       "reader would regenerate needs the normal texture that produced it, and this "
                       "writer has no image bytes");
       }
-      if (drawn.Material >= 0 && (size_t)drawn.Material >= What_.Materials.Size()) {
+      if (drawn.Material >= 0 && static_cast<size_t>(drawn.Material) >= What_.Materials.Size()) {
         return Refuse("part " + Integer(part) + " names material " +
-                      Integer((size_t)drawn.Material) + " over a table of " +
+                      Integer(static_cast<size_t>(drawn.Material)) + " over a table of " +
                       Integer(What_.Materials.Size()));
       }
     }
@@ -222,7 +222,9 @@ private:
       nodes += "}";
       meshes += "{\"primitives\":[{\"attributes\":{" + Streams(drawn) +
                 "},\"indices\":" + Integer(Indices(drawn));
-      if (drawn.Material >= 0) { meshes += ",\"material\":" + Integer((size_t)drawn.Material); }
+      if (drawn.Material >= 0) {
+        meshes += ",\"material\":" + Integer(static_cast<size_t>(drawn.Material));
+      }
       meshes += "}]}";
     }
     return nodes + "]" + meshes + "]" + ",\"scene\":0,\"scenes\":[{\"nodes\":[" + roots + "]}]" +
@@ -256,8 +258,12 @@ private:
         const float value = static_cast<float>(
             (*attribute.From)[(drawn.FirstVertex + vertex) * attribute.Components + component]);
         Append(Binary_, value);
-        if (vertex == 0 || (double)value < lowest[component]) { lowest[component] = value; }
-        if (vertex == 0 || (double)value > highest[component]) { highest[component] = value; }
+        if (vertex == 0 || static_cast<double>(value) < lowest[component]) {
+          lowest[component] = value;
+        }
+        if (vertex == 0 || static_cast<double>(value) > highest[component]) {
+          highest[component] = value;
+        }
       }
     }
     const bool bounded = std::strcmp(attribute.Semantic, "POSITION") == 0;
@@ -296,7 +302,7 @@ private:
                   const std::vector<double> *highest) {
     if (!Accessors_.empty()) { Accessors_ += ","; }
     Accessors_ += "{\"bufferView\":" + Integer(view) +
-                  ",\"componentType\":" + Integer((size_t)component) +
+                  ",\"componentType\":" + Integer(static_cast<size_t>(component)) +
                   ",\"count\":" + Integer(count) + ",\"type\":\"" + element + "\"";
     if (lowest != nullptr && highest != nullptr) {
       Accessors_ += ",\"min\":[";

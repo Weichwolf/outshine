@@ -12,7 +12,7 @@ bool VariantSelection::Against(const Document &document, int &index, std::string
   const std::vector<std::string> &declared = document.Variants();
   for (size_t at = 0; at < declared.size(); ++at) {
     if (declared[at] == *Name_) {
-      index = (int)at;
+      index = static_cast<int>(at);
       return true;
     }
   }

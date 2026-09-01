@@ -35,7 +35,7 @@ bool Posed::Reads(const std::string &path,
       (animation == AssetAnimation::Play || animation == AssetAnimation::Loop)) {
     if (!Gltf::Pose::Build(File_, clip, Motion_, error)) { return false; }
     Moves_ = Motion_.EndS() > 0.0;
-    Frames_ = Moves_ ? (int)(Motion_.EndS() * fps + 0.5) : 1;
+    Frames_ = Moves_ ? static_cast<int>(Motion_.EndS() * fps + 0.5) : 1;
     if (Frames_ < 1) { Frames_ = 1; }
   }
   Read_ = true;
@@ -66,7 +66,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
           keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
         }
       }
-      LocalsDigest_ = (double)(keyed % 1000000007ull);
+      LocalsDigest_ = static_cast<double>(keyed % 1000000007ull);
     }
     const Heap::Tagged building("pose-build");
     if (Assembled_.Build(File_,
@@ -80,7 +80,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
         for (const double part : Assembled_.PositionsM()) {
           keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
         }
-        AssembledDigest_ = (double)(keyed % 1000000007ull);
+        AssembledDigest_ = static_cast<double>(keyed % 1000000007ull);
       }
       return true;
     }

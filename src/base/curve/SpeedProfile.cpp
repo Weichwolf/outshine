@@ -7,11 +7,13 @@
 namespace outshine {
 
 const char *SpeedProfile::NameOf(Held term) noexcept {
-  static constexpr const char *const kNames[(size_t)Held::kCount] = {
+  static constexpr const char *const kNames[static_cast<size_t>(Held::kCount)] = {
       "free", "curvature", "slip", "ramp", "climb", "crest", "entry", "traction", "brake"};
-  static_assert(kNames[(size_t)Held::kCount - 1] != nullptr,
+  static_assert(kNames[static_cast<size_t>(Held::kCount) - 1] != nullptr,
                 "every term that can bind the plan carries a name");
-  return (size_t)term < (size_t)Held::kCount ? kNames[(size_t)term] : "free";
+  return static_cast<size_t>(term) < static_cast<size_t>(Held::kCount)
+             ? kNames[static_cast<size_t>(term)]
+             : "free";
 }
 
 bool SpeedProfile::Over(const ReferenceLine &along,
@@ -27,7 +29,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   SlowestBound_ = Bound{};
   Fastest_ = Bound{};
   Why_.clear();
-  for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
+  for (size_t at = 0; at < static_cast<size_t>(Held::kCount); ++at) { Bound_[at] = 0; }
   Bin_.fill(0);
   BinMs_ = 0.0;
 
@@ -54,8 +56,8 @@ bool SpeedProfile::Over(const ReferenceLine &along,
     return false;
   }
 
-  const size_t whole = (size_t)(along.LengthM() / stepM);
-  const bool onGrid = (double)whole * stepM == along.LengthM();
+  const size_t whole = static_cast<size_t>(along.LengthM() / stepM);
+  const bool onGrid = static_cast<double>(whole) * stepM == along.LengthM();
   const size_t samples = whole + (onGrid ? 1u : 2u);
   Held_.resize(samples, topMs);
   Why_.assign(samples, Held::Free);
@@ -116,7 +118,8 @@ bool SpeedProfile::Over(const ReferenceLine &along,
 
   for (size_t at = 0; at < samples; ++at) {
     Placed here;
-    const double station = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
+    const double station =
+        static_cast<double>(at) * stepM > LengthM_ ? LengthM_ : static_cast<double>(at) * stepM;
     if (!along.At(station, here)) {
       error = "the reference line places nothing at " + std::to_string(station) + " m of " +
               std::to_string(LengthM_);
@@ -133,8 +136,8 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   const auto ClampAround = [&](double where, double heldMs, Held by) {
     if (!(heldMs < topMs) || !(where >= 0.0)) { return; }
     const double reach = where / stepM;
-    const size_t below = (size_t)reach;
-    const size_t above = (double)below == reach ? below : below + 1;
+    const size_t below = static_cast<size_t>(reach);
+    const size_t above = static_cast<double>(below) == reach ? below : below + 1;
     for (size_t at = below; at <= above && at < samples; ++at) {
       if (heldMs < Held_[at]) {
         Held_[at] = heldMs;
@@ -166,7 +169,7 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   }
 
   const auto gapM = [&](size_t before) {
-    return before + 2 < samples ? stepM : LengthM_ - (double)(samples - 2) * stepM;
+    return before + 2 < samples ? stepM : LengthM_ - static_cast<double>(samples - 2) * stepM;
   };
   if (entryMs < Held_[0]) {
     Held_[0] = entryMs;
@@ -190,18 +193,20 @@ bool SpeedProfile::Over(const ReferenceLine &along,
   for (size_t at = 0; at < samples; ++at) {
     if (at == 0 || Held_[at] > Fastest_.Ms) {
       Fastest_.Ms = Held_[at];
-      Fastest_.AtM = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
+      Fastest_.AtM =
+          static_cast<double>(at) * stepM > LengthM_ ? LengthM_ : static_cast<double>(at) * stepM;
       Fastest_.By = Why_[at];
     }
   }
-  BinMs_ = Fastest_.Ms / (double)kSpeedBins;
+  BinMs_ = Fastest_.Ms / static_cast<double>(kSpeedBins);
   for (size_t at = 0; at < samples; ++at) {
-    ++Bound_[(size_t)Why_[at]];
+    ++Bound_[static_cast<size_t>(Why_[at])];
     if (BinMs_ > 0.0) {
-      const size_t bin = (size_t)(Held_[at] / BinMs_);
+      const size_t bin = static_cast<size_t>(Held_[at] / BinMs_);
       ++Bin_[bin < kSpeedBins ? bin : kSpeedBins - 1];
     }
-    const double station = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
+    const double station =
+        static_cast<double>(at) * stepM > LengthM_ ? LengthM_ : static_cast<double>(at) * stepM;
     if (at == 0 || Held_[at] < Slowest_.Ms) {
       Slowest_.Ms = Held_[at];
       Slowest_.AtM = station;
@@ -222,30 +227,30 @@ double SpeedProfile::At(double alongM) const {
   if (!(alongM > 0.0)) { return Held_.front(); }
   if (alongM >= LengthM_) { return Held_.back(); }
   const double where = alongM / StepM_;
-  size_t low = (size_t)where;
+  size_t low = static_cast<size_t>(where);
   if (low + 1 >= Held_.size()) { return Held_.back(); }
-  double part = where - (double)low;
+  double part = where - static_cast<double>(low);
   if (low + 2 == Held_.size()) {
-    const double tailM = LengthM_ - (double)low * StepM_;
-    part = tailM > 0.0 ? (alongM - (double)low * StepM_) / tailM : 1.0;
+    const double tailM = LengthM_ - static_cast<double>(low) * StepM_;
+    part = tailM > 0.0 ? (alongM - static_cast<double>(low) * StepM_) / tailM : 1.0;
   }
   return Held_[low] + part * (Held_[low + 1] - Held_[low]);
 }
 
 double SpeedProfile::Quantile(double share) const noexcept {
   if (Held_.empty() || BinMs_ <= 0.0) { return 0.0; }
-  const size_t want = (size_t)(share * (double)Held_.size());
+  const size_t want = static_cast<size_t>(share * static_cast<double>(Held_.size()));
   size_t seen = 0;
   for (size_t bin = 0; bin < kSpeedBins; ++bin) {
     seen += Bin_[bin];
-    if (seen > want) { return ((double)bin + 0.5) * BinMs_; }
+    if (seen > want) { return (static_cast<double>(bin) + 0.5) * BinMs_; }
   }
-  return (double)kSpeedBins * BinMs_;
+  return static_cast<double>(kSpeedBins) * BinMs_;
 }
 
 size_t SpeedProfile::StationsUnder(double ms) const noexcept {
   if (Held_.empty() || BinMs_ <= 0.0) { return 0; }
-  const size_t upTo = (size_t)(ms / BinMs_);
+  const size_t upTo = static_cast<size_t>(ms / BinMs_);
   size_t under = 0;
   for (size_t bin = 0; bin < kSpeedBins && bin < upTo; ++bin) { under += Bin_[bin]; }
   return under;

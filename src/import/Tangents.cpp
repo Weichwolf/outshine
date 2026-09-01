@@ -244,13 +244,13 @@ void Basis::MatchEdges() {
       const auto reversed = open.find({to, from});
       if (reversed != open.end()) {
         Triangles_[triangle].Neighbour[corner] = reversed->second.first;
-        Triangles_[(size_t)reversed->second.first].Neighbour[(size_t)reversed->second.second] =
-            (int)triangle;
+        Triangles_[static_cast<size_t>(reversed->second.first)]
+            .Neighbour[static_cast<size_t>(reversed->second.second)] = static_cast<int>(triangle);
         open.erase(reversed);
         continue;
       }
       open.emplace(std::pair<size_t, size_t>{from, to},
-                   std::pair<int, int>{(int)triangle, (int)corner});
+                   std::pair<int, int>{static_cast<int>(triangle), static_cast<int>(corner)});
     }
   }
 }
@@ -260,18 +260,21 @@ void Basis::Reach(int start, int group) {
   while (!pending.empty()) {
     const int face = pending.back();
     pending.pop_back();
-    TriangleInfo &info = Triangles_[(size_t)face];
+    TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
     size_t corner = 3;
     for (size_t at = 0; at < 3; ++at) {
-      if (Welded_[Corner_[(size_t)face * 3 + at]] == Groups_[(size_t)group].Vertex) { corner = at; }
+      if (Welded_[Corner_[static_cast<size_t>(face) * 3 + at]] ==
+          Groups_[static_cast<size_t>(group)].Vertex) {
+        corner = at;
+      }
     }
     if (corner == 3) { continue; }
     if (info.Group[corner] >= 0) { continue; }
     if (info.GroupsWithAny && info.Group[0] < 0 && info.Group[1] < 0 && info.Group[2] < 0) {
-      info.OrientPreserving = Groups_[(size_t)group].OrientPreserving;
+      info.OrientPreserving = Groups_[static_cast<size_t>(group)].OrientPreserving;
     }
-    if (info.OrientPreserving != Groups_[(size_t)group].OrientPreserving) { continue; }
-    Groups_[(size_t)group].Faces.push_back(face);
+    if (info.OrientPreserving != Groups_[static_cast<size_t>(group)].OrientPreserving) { continue; }
+    Groups_[static_cast<size_t>(group)].Faces.push_back(face);
     info.Group[corner] = group;
     const int right = info.Neighbour[corner > 0 ? corner - 1 : 2];
     const int left = info.Neighbour[corner];
@@ -290,7 +293,7 @@ void Basis::BuildGroups() {
       group.Vertex = Welded_[Corner_[triangle * 3 + corner]];
       group.OrientPreserving = Triangles_[triangle].OrientPreserving;
       Groups_.push_back(std::move(group));
-      Reach((int)triangle, (int)Groups_.size() - 1);
+      Reach(static_cast<int>(triangle), static_cast<int>(Groups_.size()) - 1);
     }
   }
 }
@@ -303,19 +306,21 @@ Space Basis::Evaluate(const std::vector<int> &faces, size_t vertex) const {
   result.MagT = 0;
   double angles = 0;
   for (const int face : faces) {
-    const TriangleInfo &info = Triangles_[(size_t)face];
+    const TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
     if (info.GroupsWithAny) { continue; }
     size_t corner = 3;
     for (size_t at = 0; at < 3; ++at) {
-      if (Welded_[Corner_[(size_t)face * 3 + at]] == vertex) { corner = at; }
+      if (Welded_[Corner_[static_cast<size_t>(face) * 3 + at]] == vertex) { corner = at; }
     }
     if (corner == 3) { continue; }
-    const Vector normal = NormalOf(Corner_[(size_t)face * 3 + corner]);
+    const Vector normal = NormalOf(Corner_[static_cast<size_t>(face) * 3 + corner]);
     const Vector os = Perpendicular(info.Os, normal);
     const Vector ot = Perpendicular(info.Ot, normal);
-    const Vector here = PositionOf(Corner_[(size_t)face * 3 + corner]);
-    const Vector before = PositionOf(Corner_[(size_t)face * 3 + (corner > 0 ? corner - 1 : 2)]);
-    const Vector after = PositionOf(Corner_[(size_t)face * 3 + (corner < 2 ? corner + 1 : 0)]);
+    const Vector here = PositionOf(Corner_[static_cast<size_t>(face) * 3 + corner]);
+    const Vector before =
+        PositionOf(Corner_[static_cast<size_t>(face) * 3 + (corner > 0 ? corner - 1 : 2)]);
+    const Vector after =
+        PositionOf(Corner_[static_cast<size_t>(face) * 3 + (corner < 2 ? corner + 1 : 0)]);
     const Vector first = Perpendicular(before - here, normal);
     const Vector second = Perpendicular(after - here, normal);
     const double cosine = std::min(1.0, std::max(-1.0, Dot(first, second)));
@@ -342,18 +347,18 @@ void Basis::FillSpaces() {
     std::vector<std::vector<int>> subgroups;
     std::vector<Space> spaces;
     for (const int face : group.Faces) {
-      const TriangleInfo &info = Triangles_[(size_t)face];
+      const TriangleInfo &info = Triangles_[static_cast<size_t>(face)];
       size_t corner = 3;
       for (size_t at = 0; at < 3; ++at) {
-        if (info.Group[at] == (int)(&group - Groups_.data())) { corner = at; }
+        if (info.Group[at] == static_cast<int>(&group - Groups_.data())) { corner = at; }
       }
       if (corner == 3) { continue; }
-      const Vector normal = NormalOf(Corner_[(size_t)face * 3 + corner]);
+      const Vector normal = NormalOf(Corner_[static_cast<size_t>(face) * 3 + corner]);
       const Vector os = Perpendicular(info.Os, normal);
       const Vector ot = Perpendicular(info.Ot, normal);
       std::vector<int> members;
       for (const int other : group.Faces) {
-        const TriangleInfo &sibling = Triangles_[(size_t)other];
+        const TriangleInfo &sibling = Triangles_[static_cast<size_t>(other)];
         const bool any = info.GroupsWithAny || sibling.GroupsWithAny;
         const Vector os2 = Perpendicular(sibling.Os, normal);
         const Vector ot2 = Perpendicular(sibling.Ot, normal);
@@ -369,7 +374,7 @@ void Basis::FillSpaces() {
         subgroups.push_back(members);
         spaces.push_back(Evaluate(members, group.Vertex));
       }
-      Space &out = Spaces_[Triangles_[(size_t)face].FirstCorner + corner];
+      Space &out = Spaces_[Triangles_[static_cast<size_t>(face)].FirstCorner + corner];
       out = out.Counter == 1 ? Averaged(out, spaces[which]) : spaces[which];
       out.Counter += 1;
       out.Orient = group.OrientPreserving;

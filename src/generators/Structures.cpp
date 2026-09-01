@@ -15,11 +15,12 @@ constexpr size_t kCorners = 4;
 constexpr double kMetresPerDegree = 111320.0;
 
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
-  uint64_t held = seed * 6364136223846793005ull + (uint64_t)at * 1442695040888963407ull + 1u;
+  uint64_t held =
+      seed * 6364136223846793005ull + static_cast<uint64_t>(at) * 1442695040888963407ull + 1u;
   held ^= held >> 33;
   held *= 0xff51afd7ed558ccdull;
   held ^= held >> 33;
-  return (double)(held & 0xFFFFFFull) / (double)0xFFFFFF;
+  return static_cast<double>(held & 0xFFFFFFull) / static_cast<double>(0xFFFFFF);
 }
 
 } // namespace
@@ -56,8 +57,8 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
   const auto spread = [&soup](const std::vector<float> &corners, const std::vector<uint32_t> &run) {
     for (const uint32_t corner : run) {
       soup.insert(soup.end(),
-                  corners.begin() + (std::ptrdiff_t)corner * 8,
-                  corners.begin() + (std::ptrdiff_t)corner * 8 + 8);
+                  corners.begin() + static_cast<std::ptrdiff_t>(corner) * 8,
+                  corners.begin() + static_cast<std::ptrdiff_t>(corner) * 8 + 8);
     }
   };
   spread(raised.WallCorners, raised.WallRun);

@@ -11,11 +11,11 @@ void ForestDraw::Draw(const Ground &ground,
     const std::optional<BodyId> id = body.Id();
     if (!id) { continue; }
     Instance instance;
-    instance.Em = (float)body.Em;
-    instance.Nm = (float)body.Nm;
-    instance.AslM = (float)body.BaseAslM;
+    instance.Em = static_cast<float>(body.Em);
+    instance.Nm = static_cast<float>(body.Nm);
+    instance.AslM = static_cast<float>(body.BaseAslM);
     instance.YawRad = body.YawRad;
-    instance.Scale = (float)((double)body.HeightM / HeightM_);
+    instance.Scale = static_cast<float>(static_cast<double>(body.HeightM) / HeightM_);
     if (!sink.Add(*id, Cluster_, instance)) { return; }
   }
 }

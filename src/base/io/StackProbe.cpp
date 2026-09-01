@@ -25,7 +25,7 @@ struct Slot {
 
 Slot &SlotOf(StackProbe::Purpose p) {
   static Slot slots[StackProbe::kPurposeCount];
-  return slots[(int)p];
+  return slots[static_cast<int>(p)];
 }
 
 thread_local uintptr_t tBase = 0, tPaintBottom = 0, tPaintTop = 0;
@@ -35,7 +35,7 @@ void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
 #if defined(__APPLE__)
   const pthread_t self = pthread_self();
   *base = (uintptr_t)pthread_get_stackaddr_np(self);
-  *end = *base - (uintptr_t)pthread_get_stacksize_np(self);
+  *end = *base - static_cast<uintptr_t>(pthread_get_stacksize_np(self));
   *current = (uintptr_t)__builtin_frame_address(0);
 #else
   pthread_attr_t attr;
@@ -62,7 +62,7 @@ void StackProbe::Enter(Purpose purpose) {
   ThisStack(&base, &end, &current);
   const uintptr_t deepest = end + kToolchainCookie;
   if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) { return; }
-  const uintptr_t top = (current - kLiveMargin) & ~(uintptr_t)7;
+  const uintptr_t top = (current - kLiveMargin) & ~static_cast<uintptr_t>(7);
 
   const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
   for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) { *(uint64_t *)a = kPaint; }
@@ -71,9 +71,9 @@ void StackProbe::Enter(Purpose purpose) {
   tPaintTop = top;
   tPurpose = purpose;
   Slot &slot = SlotOf(purpose);
-  Raise(slot.Capacity, (size_t)(base - end));
-  Raise(slot.Floor, (size_t)(base - top));
-  Raise(slot.Limit, (size_t)(base - bottom));
+  Raise(slot.Capacity, static_cast<size_t>(base - end));
+  Raise(slot.Floor, static_cast<size_t>(base - top));
+  Raise(slot.Limit, static_cast<size_t>(base - bottom));
   Mark();
 }
 
@@ -86,7 +86,7 @@ void StackProbe::Mark() {
       break;
     }
   }
-  Raise(SlotOf(tPurpose).Peak, (size_t)(tBase - frontier));
+  Raise(SlotOf(tPurpose).Peak, static_cast<size_t>(tBase - frontier));
 }
 
 size_t StackProbe::PeakBytes(Purpose purpose) {

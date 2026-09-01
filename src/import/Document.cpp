@@ -158,11 +158,11 @@ std::string Number(size_t value) {
   for (const char one : body) {
     const int six = SixBitsOf(one);
     if (six < 0) { return false; }
-    held = (held << 6) | (uint32_t)six;
+    held = (held << 6) | static_cast<uint32_t>(six);
     bits += 6;
     if (bits < 8) { continue; }
     bits -= 8;
-    out.push_back((uint8_t)((held >> bits) & 0xFFu));
+    out.push_back(static_cast<uint8_t>((held >> bits) & 0xFFu));
   }
   return true;
 }
@@ -552,14 +552,16 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
       if (stat) {
         return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
       }
-      const size_t reading = measured < (uintmax_t)declared + 1 ? (size_t)measured : declared + 1;
+      const size_t reading = measured < static_cast<uintmax_t>(declared) + 1
+                                 ? static_cast<size_t>(measured)
+                                 : declared + 1;
       std::ifstream file(directory + uri, std::ios::binary);
       if (!file) {
         return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
       }
       bytes.resize(reading);
-      file.read(reinterpret_cast<char *>(bytes.data()), (std::streamsize)bytes.size());
-      bytes.resize((size_t)file.gcount());
+      file.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+      bytes.resize(static_cast<size_t>(file.gcount()));
     }
     if (bytes.size() < declared) {
       return Refuse("buffer " + Number(i) + " declares " + Number(declared) + " bytes and " +
@@ -665,13 +667,14 @@ bool Document::ReadJson(const char *text,
       const Json::Ref names = at["extensions"]["KHR_xmp_json_ld"]["packet"];
       if (!names.Valid()) { return true; }
       const int packet = names.Int(-1);
-      if (packet < 0 || (size_t)packet >= Metadata_.size()) {
+      if (packet < 0 || static_cast<size_t>(packet) >= Metadata_.size()) {
         return Refuse(std::string(what) + " names metadata packet " +
-                      Number((size_t)(packet < 0 ? 0 : packet)) + " of " +
+                      Number(static_cast<size_t>(packet < 0 ? 0 : packet)) + " of " +
                       Number(Metadata_.size()) +
                       " -- a packet index outside the array it indexes is a refusal");
       }
-      MetadataUses_.push_back(MetadataUse{carrier, (uint32_t)which, (uint32_t)packet});
+      MetadataUses_.push_back(
+          MetadataUse{carrier, static_cast<uint32_t>(which), static_cast<uint32_t>(packet)});
       return true;
     };
 
@@ -794,7 +797,9 @@ bool Document::ReadJson(const char *text,
   for (size_t a = 0; a < Accessors_.size(); ++a) {
     if (Accessors_[a].Min.empty() || Accessors_[a].Max.empty()) { continue; }
     std::string why;
-    if (!BoundsHold((int)a, why)) { return Refuse("accessor " + Number(a) + " " + why); }
+    if (!BoundsHold(static_cast<int>(a), why)) {
+      return Refuse("accessor " + Number(a) + " " + why);
+    }
   }
 
   const Json::Ref meshes = root["meshes"];
@@ -870,12 +875,13 @@ bool Document::ReadJson(const char *text,
                           Number(t) + " displaces " + attribute.Semantic +
                           " and the primitive carries none, so the delta has nothing to displace");
           }
-          if (Accessors_[(size_t)base].Count != Accessors_[(size_t)attribute.Accessor].Count) {
+          if (Accessors_[static_cast<size_t>(base)].Count !=
+              Accessors_[static_cast<size_t>(attribute.Accessor)].Count) {
             return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
                           Number(t) + " carries " +
-                          Number(Accessors_[(size_t)attribute.Accessor].Count) + " " +
+                          Number(Accessors_[static_cast<size_t>(attribute.Accessor)].Count) + " " +
                           attribute.Semantic + " deltas over " +
-                          Number(Accessors_[(size_t)base].Count) + " vertices");
+                          Number(Accessors_[static_cast<size_t>(base)].Count) + " vertices");
           }
           target.Attributes.push_back(std::move(attribute));
         }
@@ -1000,10 +1006,10 @@ bool Document::ReadJson(const char *text,
       for (const int accessor : named) {
         if (accessor < 0) { continue; }
         if (static_cast<size_t>(accessor) >= Accessors_.size()) {
-          return Refuse("node " + Number(i) + " instances on accessor " + Number((size_t)accessor) +
-                        " of " + Number(Accessors_.size()));
+          return Refuse("node " + Number(i) + " instances on accessor " +
+                        Number(static_cast<size_t>(accessor)) + " of " + Number(Accessors_.size()));
         }
-        const size_t here = Accessors_[(size_t)accessor].Count;
+        const size_t here = Accessors_[static_cast<size_t>(accessor)].Count;
 
         if (count != 0 && here != count) {
           return Refuse("node " + Number(i) +
@@ -1076,9 +1082,9 @@ bool Document::ReadJson(const char *text,
         return Refuse("scene " + Number(i) + " names a root node the file does not carry");
       }
       if (Parent_[static_cast<size_t>(node)] >= 0) {
-        return Refuse("scene " + Number(i) + " names node " + Number((size_t)node) +
+        return Refuse("scene " + Number(i) + " names node " + Number(static_cast<size_t>(node)) +
                       " as a root while node " +
-                      Number((size_t)Parent_[static_cast<size_t>(node)]) +
+                      Number(static_cast<size_t>(Parent_[static_cast<size_t>(node)])) +
                       " carries it as a child -- the spec's scene nodes are root nodes");
       }
       scene.Roots.push_back(node);
@@ -1095,8 +1101,9 @@ bool Document::ReadJson(const char *text,
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     size_t count = 0;
     const int mesh = Nodes_[node].Mesh;
-    if (mesh >= 0 && (size_t)mesh < Meshes_.size() && !Meshes_[(size_t)mesh].Primitives.empty()) {
-      count = Meshes_[(size_t)mesh].Primitives[0].Targets.size();
+    if (mesh >= 0 && static_cast<size_t>(mesh) < Meshes_.size() &&
+        !Meshes_[static_cast<size_t>(mesh)].Primitives.empty()) {
+      count = Meshes_[static_cast<size_t>(mesh)].Primitives[0].Targets.size();
     }
     MorphAt_[node + 1] = MorphAt_[node] + count;
   }
@@ -1362,7 +1369,7 @@ bool Document::ReadVariantMappings(const Json::Ref &declared,
     const Json::Ref mapping = mappings[i];
     const Json::Ref material = mapping["material"];
     const int wears = material.GetKind() == Json::Kind::Number ? material.Int(-1) : -1;
-    if (wears < 0 || (size_t)wears >= Materials_.size()) {
+    if (wears < 0 || static_cast<size_t>(wears) >= Materials_.size()) {
       return Refuse(where + " mapping " + Number(i) + " names material " + std::to_string(wears) +
                     " of " + Number(Materials_.size()) +
                     ", and the extension requires one on every mapping");
@@ -1373,17 +1380,18 @@ bool Document::ReadVariantMappings(const Json::Ref &declared,
     }
     for (size_t k = 0; k < named.Size(); ++k) {
       const int variant = named[k].GetKind() == Json::Kind::Number ? named[k].Int(-1) : -1;
-      if (variant < 0 || (size_t)variant >= Variants_.size()) {
+      if (variant < 0 || static_cast<size_t>(variant) >= Variants_.size()) {
         return Refuse(where + " mapping " + Number(i) + " names variant " +
                       std::to_string(variant) + " of " + Number(Variants_.size()));
       }
-      if (into.VariantMaterials[(size_t)variant] >= 0) {
-        return Refuse(where + " maps variant '" + Variants_[(size_t)variant] + "' to material " +
-                      std::to_string(into.VariantMaterials[(size_t)variant]) + " and to material " +
-                      std::to_string(wears) +
+      if (into.VariantMaterials[static_cast<size_t>(variant)] >= 0) {
+        return Refuse(where + " maps variant '" + Variants_[static_cast<size_t>(variant)] +
+                      "' to material " +
+                      std::to_string(into.VariantMaterials[static_cast<size_t>(variant)]) +
+                      " and to material " + std::to_string(wears) +
                       ", and the extension states each variant index no more than once");
       }
-      into.VariantMaterials[(size_t)variant] = wears;
+      into.VariantMaterials[static_cast<size_t>(variant)] = wears;
     }
   }
   return true;
@@ -1450,7 +1458,7 @@ bool Document::ReadAppearance(const Json &json) {
       held.ByteOffset = 0;
       held.ByteLength = bytes.size();
       Buffers_.push_back(std::move(bytes));
-      image.View = (int)Views_.size();
+      image.View = static_cast<int>(Views_.size());
       Views_.push_back(held);
       image.Uri.clear();
     }
@@ -1784,7 +1792,7 @@ bool Document::ElementBytes(const Accessor &accessor, size_t &stride, size_t &el
 }
 
 bool Document::BoundsHold(int accessorIndex, std::string &why) const {
-  const Accessor &accessor = Accessors_[(size_t)accessorIndex];
+  const Accessor &accessor = Accessors_[static_cast<size_t>(accessorIndex)];
   const size_t components = ElementComponents(accessor.Element);
   if (accessor.Min.size() != components || accessor.Max.size() != components) { return true; }
   std::vector<double> held;
@@ -1792,7 +1800,9 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
   if (held.size() != accessor.Count * components) { return true; }
 
   const bool single = accessor.Component == ComponentType::Float32 && !accessor.Normalized;
-  const auto narrow = [single](double value) { return single ? (double)(float)value : value; };
+  const auto narrow = [single](double value) {
+    return single ? static_cast<double>(static_cast<float>(value)) : value;
+  };
   const auto declaredAs = [&accessor](double value) {
     return accessor.Normalized ? Normalise(value, accessor.Component) : value;
   };

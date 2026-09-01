@@ -127,7 +127,7 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
                                    size_t framedParts,
                                    bool standsInside,
                                    std::string &error) {
-  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)SceneRenderer::kNearM;
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
   double framedLeast[3], framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
   size_t beyond = subject.VertexCount();
@@ -158,7 +158,8 @@ void Anchored(const double anchorEcefM[3], const double gltf[3], double out[3]) 
       if (vertex >= beyond) { break; }
       double along = 0;
       for (int axis = 0; axis < 3; ++axis) {
-        along += ((double)one.PositionsM[within * 3 + (size_t)axis] - eye.EyeM[axis]) *
+        along += (static_cast<double>(one.PositionsM[within * 3 + static_cast<size_t>(axis)]) -
+                  eye.EyeM[axis]) *
                  eye.Forward[axis];
       }
       if (along <= plane) {
@@ -209,12 +210,13 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
   if (part.PositionsM.size() < 3) { return 0.0; }
   double low[3], high[3];
   for (int axis = 0; axis < 3; ++axis) {
-    low[axis] = high[axis] = (double)part.PositionsM[(size_t)axis];
+    low[axis] = high[axis] = static_cast<double>(part.PositionsM[static_cast<size_t>(axis)]);
   }
   for (size_t vertex = 1; vertex < part.VertexCount && (vertex + 1) * 3 <= part.PositionsM.size();
        ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const double value = (double)part.PositionsM[vertex * 3 + (size_t)axis];
+      const double value =
+          static_cast<double>(part.PositionsM[vertex * 3 + static_cast<size_t>(axis)]);
       if (value < low[axis]) { low[axis] = value; }
       if (value > high[axis]) { high[axis] = value; }
     }
@@ -281,10 +283,10 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
     item.Order.Surface = proxy.Slots()[slot].State();
     item.Order.DepthFraction = DepthFraction(subject, where, view.Eye);
     item.Order.MaterialSlot = slot;
-    item.ModelSlot = (uint32_t)(part * proxy.Instances());
-    item.Instances = (uint32_t)proxy.Instances();
-    item.SourceFirstIndex = (uint32_t)where.FirstIndex;
-    item.IndexCount = (uint32_t)where.IndexCount;
+    item.ModelSlot = static_cast<uint32_t>(part * proxy.Instances());
+    item.Instances = static_cast<uint32_t>(proxy.Instances());
+    item.SourceFirstIndex = static_cast<uint32_t>(where.FirstIndex);
+    item.IndexCount = static_cast<uint32_t>(where.IndexCount);
     item.FirstCluster = where.FirstCluster;
     item.ClusterCount = where.ClusterCount;
 
@@ -322,16 +324,16 @@ void PackChannel(const void *carrying, float *into, uint32_t floats) {
   uint32_t at = 0;
   for (const ShapePart &one : what.From->Parts) {
     const std::span<const float> held = one.*what.Channel;
-    const uint32_t want = (uint32_t)(one.VertexCount * what.Wide);
+    const uint32_t want = static_cast<uint32_t>(one.VertexCount * what.Wide);
     if (at + want > floats) { break; }
-    if (held.size() >= (size_t)one.VertexCount * what.Wide) {
-      std::memcpy(into + at, held.data(), (size_t)want * sizeof(float));
+    if (held.size() >= one.VertexCount * what.Wide) {
+      std::memcpy(into + at, held.data(), static_cast<size_t>(want) * sizeof(float));
     } else {
-      std::memset(into + at, 0, (size_t)want * sizeof(float));
+      std::memset(into + at, 0, static_cast<size_t>(want) * sizeof(float));
     }
     at += want;
   }
-  if (at < floats) { std::memset(into + at, 0, (size_t)(floats - at) * sizeof(float)); }
+  if (at < floats) { std::memset(into + at, 0, static_cast<size_t>(floats - at) * sizeof(float)); }
 }
 
 struct EmitPack {
@@ -352,14 +354,16 @@ void PackEmitted(const void *carrying, float *into, uint32_t floats) {
       at += 3u;
     }
   }
-  if (at < floats) { std::memset(into + at, 0, (size_t)(floats - at) * sizeof(float)); }
+  if (at < floats) { std::memset(into + at, 0, static_cast<size_t>(floats - at) * sizeof(float)); }
 }
 
 void PackPrevious(const void *carrying, float *into, uint32_t floats) {
   const std::vector<double> &held = *static_cast<const std::vector<double> *>(carrying);
-  const uint32_t many = held.size() < floats ? (uint32_t)held.size() : floats;
-  for (uint32_t at = 0; at < many; ++at) { into[at] = (float)held[at]; }
-  if (many < floats) { std::memset(into + many, 0, (size_t)(floats - many) * sizeof(float)); }
+  const uint32_t many = held.size() < floats ? static_cast<uint32_t>(held.size()) : floats;
+  for (uint32_t at = 0; at < many; ++at) { into[at] = static_cast<float>(held[at]); }
+  if (many < floats) {
+    std::memset(into + many, 0, static_cast<size_t>(floats - many) * sizeof(float));
+  }
 }
 
 [[nodiscard]] bool
@@ -381,7 +385,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
     SubjectLight placed;
     placed.Light = declared;
     for (int axis = 0; axis < 3; ++axis) {
-      placed.Light.Direction[axis] = (float)(direction[axis] / length);
+      placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);
     }
     const double gltfPosition[3] = {
         declared.Position[0], declared.Position[1], declared.Position[2]};
@@ -463,7 +467,7 @@ double DigestedMs() {
 }
 
 double HandedGeometryDigest() {
-  return (double)(gGeometryDigest.load(std::memory_order_relaxed) & 0xffffffffffffull);
+  return static_cast<double>(gGeometryDigest.load(std::memory_order_relaxed) & 0xffffffffffffull);
 }
 
 bool Place(SceneRenderer &renderer,
@@ -521,12 +525,12 @@ bool Place(SceneRenderer &renderer,
   if (subject.CarriesColour) { mesh.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
   mesh.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
-  PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
+  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   mesh.Positions = scratch.Vertices;
   if (proxy.Previous()) { mesh.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
-  mesh.VertexCount = (uint32_t)subject.VertexCount();
+  mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   mesh.Indices = scratch.Indices.data();
-  mesh.IndexCount = (uint32_t)scratch.Indices.size();
+  mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
@@ -605,7 +609,7 @@ bool Move(SceneRenderer &renderer,
   if (subject.CarriesColour) { pose.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
   pose.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
-  PackChannel(&positions, scratch.Vertices.data(), (uint32_t)scratch.Vertices.size());
+  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
     unsigned long long digest = 1469598103934665603ull;
@@ -624,7 +628,7 @@ bool Move(SceneRenderer &renderer,
   }
   pose.Positions = scratch.Vertices;
   if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
-  pose.VertexCount = (uint32_t)subject.VertexCount();
+  pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }

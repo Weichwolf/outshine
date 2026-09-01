@@ -15,8 +15,8 @@ std::string Kernel(std::string &error) {
                 sizeof declared,
                 "constant uint kTransmittanceSteps = %uu;\n"
                 "constant float kMediumSampleSegment = %.9g;\n",
-                (unsigned)kTransmittanceSteps,
-                (double)kMediumSampleSegment);
+                static_cast<unsigned>(kTransmittanceSteps),
+                static_cast<double>(kMediumSampleSegment));
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -70,7 +70,8 @@ void MediumTransmittanceStage::Declare(const Medium &medium) {
 
 void MediumTransmittanceStage::Encode(const PassRecording &into) {
   if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &Declared_, (uint32_t)sizeof Declared_);
+  SDL_PushGPUComputeUniformData(
+      into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_DispatchGPUCompute(into.Dispatch,
                          (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,

@@ -113,7 +113,7 @@ const Ridden &DriveTick(const Corridor &way,
   double needMs2 = 0.0;
   constexpr int kBrakeLooks = 12;
   for (int look = 1; look <= kBrakeLooks; ++look) {
-    const double overM = brakingM * (double)look / (double)kBrakeLooks;
+    const double overM = brakingM * static_cast<double>(look) / static_cast<double>(kBrakeLooks);
     const double atM = std::fmin(at.AlongM + overM, corridor.LengthM());
     const double thereMs = profile.At(atM);
     if (thereMs < speedMs && overM > 0.0) {
@@ -203,7 +203,7 @@ const Ridden &DriveTick(const Corridor &way,
       out.AimAtWorstM = reins.AsideM;
     }
     {
-      const size_t bin = (size_t)(std::fabs(inLaneM) / DriveState::kOffsetBinM);
+      const size_t bin = static_cast<size_t>(std::fabs(inLaneM) / DriveState::kOffsetBinM);
       ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
 
@@ -212,7 +212,8 @@ const Ridden &DriveTick(const Corridor &way,
         out.LeastClearanceM = clearM;
         out.LeastClearanceAtM = at.AlongM;
       }
-      const size_t clearBin = clearM <= 0.0 ? 0 : (size_t)(clearM / DriveState::kOffsetBinM) + 1;
+      const size_t clearBin =
+          clearM <= 0.0 ? 0 : static_cast<size_t>(clearM / DriveState::kOffsetBinM) + 1;
       ++drive.ClearBin[clearBin < DriveState::kOffsetBins ? clearBin : DriveState::kOffsetBins - 1];
     }
     if (out.StrayedAtM <= 0.0) {

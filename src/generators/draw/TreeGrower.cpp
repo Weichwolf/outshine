@@ -65,8 +65,10 @@ float TreeGrower::RoomInside(TreeVec3 from, TreeVec3 dir, float want) const {
   if (Form_.Envelope == CrownEnvelope::Free) { return want; }
   constexpr int kProbes = 8;
   for (int i = 1; i <= kProbes; ++i) {
-    const float d = want * (float)i / (float)kProbes;
-    if (Escape(from + dir * d) > 1.0f) { return want * (float)(i - 1) / (float)kProbes; }
+    const float d = want * static_cast<float>(i) / static_cast<float>(kProbes);
+    if (Escape(from + dir * d) > 1.0f) {
+      return want * static_cast<float>(i - 1) / static_cast<float>(kProbes);
+    }
   }
   return want;
 }
@@ -95,25 +97,27 @@ void TreeGrower::SetCrown(const TreeSpecies &species, float growHeight) {
 
 int TreeGrower::AddNode(int shoot, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius) {
   Plant_->Nodes.push_back(TreeSkeleton::Node{pos, dir, up, radius});
-  Plant_->Shoots[(size_t)shoot].Count++;
-  return (int)Plant_->Nodes.size() - 1;
+  Plant_->Shoots[static_cast<size_t>(shoot)].Count++;
+  return static_cast<int>(Plant_->Nodes.size()) - 1;
 }
 
 void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   const int n = Form_.Leaders < 1 ? 1 : Form_.Leaders;
-  const float radius = g.BaseRadius / std::sqrt((float)n);
+  const float radius = g.BaseRadius / std::sqrt(static_cast<float>(n));
   const float splay = Form_.LeaderSplayDeg * kDeg;
   constexpr float kStoolOfCrown = 0.18f;
   const float stool =
       n > 1 && Form_.Arch != Architecture::Hedge ? kStoolOfCrown * CrownHalfWidth_ : 0.0f;
   int steps = g.TrunkSteps;
-  if (Form_.BreakFrac > 0.0f) { steps = (int)(Form_.BreakFrac * (float)g.TrunkSteps + 0.5f); }
+  if (Form_.BreakFrac > 0.0f) {
+    steps = static_cast<int>(Form_.BreakFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
+  }
   if (steps < 1) { steps = 1; }
 
   for (int i = 0; i < n; ++i) {
     constexpr float kRollJitterRad = 0.35f;
     constexpr float kLeanLeast = 0.55f;
-    const float roll = kGolden * (float)i + Rng_.Signed() * kRollJitterRad;
+    const float roll = kGolden * static_cast<float>(i) + Rng_.Signed() * kRollJitterRad;
     const float lean = splay * (kLeanLeast + (1.0f - kLeanLeast) * Rng_.Unit());
     Tip t;
     t.Dir = Form_.Lying(Form_.Arch) ? Normalize(Vec3(std::cos(lean), std::sin(lean) * 0.35f, 0))
@@ -125,7 +129,8 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
       constexpr float kSlotJitter = 0.34f;
       constexpr float kRunInset = 0.94f;
       constexpr float kCrossOfCrown = 0.5f;
-      const float u = ((float)i + 0.5f + kSlotJitter * Rng_.Signed()) / (float)n;
+      const float u =
+          (static_cast<float>(i) + 0.5f + kSlotJitter * Rng_.Signed()) / static_cast<float>(n);
       t.Pos = Vec3(HalfRunX_ * (2.0f * u - 1.0f) * kRunInset,
                    0.0f,
                    CrownHalfWidth_ * kCrossOfCrown * Rng_.Signed());
@@ -140,7 +145,7 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
     t.Leader = i;
     t.Roll = roll;
     t.Foliate = Form_.Foliate;
-    t.Shoot = (int)Plant_->Shoots.size();
+    t.Shoot = static_cast<int>(Plant_->Shoots.size());
     TreeSkeleton::Shoot s;
     s.Sides = g.TrunkSides;
     s.End = LeaderEnd();
@@ -158,7 +163,8 @@ void TreeGrower::EmitLeafPoints(
   constexpr float kSeatOfRadius = 0.95f;
   constexpr float kForwardTilt = 0.40f;
   for (int i = 0; i < count; ++i) {
-    const float az = roll + kTau * ((float)i / (float)count) + Rng_.Signed() * kAzimuthJitterRad;
+    const float az = roll + kTau * (static_cast<float>(i) / static_cast<float>(count)) +
+                     Rng_.Signed() * kAzimuthJitterRad;
     const TreeVec3 radial = n * std::cos(az) + b * std::sin(az);
     Plant_->LeafPoints.push_back(
         LeafPoint{pos + radial * (radius * kSeatOfRadius), Normalize(radial + dir * kForwardTilt)});
@@ -182,7 +188,8 @@ void TreeGrower::SpawnLateral(
     }
   }
   const bool foliate =
-      t.Foliate && (t.Order != 0 || parentStep >= (int)(Form_.BoleFrac * (float)t.Steps));
+      t.Foliate && (t.Order != 0 ||
+                    parentStep >= static_cast<int>(Form_.BoleFrac * static_cast<float>(t.Steps)));
   SpawnShoot(t, Request{node, roll, dir, fn, br, foliate}, g);
 }
 
@@ -190,15 +197,15 @@ void TreeGrower::SpawnShoot(const Tip &parent,
                             const Request &request,
                             const TreeSpecies::Growth &g) {
   const std::vector<TreeSkeleton::Node> &nodes = Plant_->Nodes;
-  const TreeSkeleton::Node &upper = nodes[(size_t)request.ParentNode];
-  const TreeSkeleton::Node &lower = nodes[(size_t)(request.ParentNode - 1)];
+  const TreeSkeleton::Node &upper = nodes[static_cast<size_t>(request.ParentNode)];
+  const TreeSkeleton::Node &lower = nodes[static_cast<size_t>(request.ParentNode - 1)];
   const TreeVec3 from =
       (upper.Pos + lower.Pos) * 0.5f +
       RadialAt(upper.Dir, upper.Up, request.Roll) * (0.5f * (upper.Radius + lower.Radius));
 
-  int steps = (int)((float)parent.Steps * g.OrderLen);
+  int steps = static_cast<int>(static_cast<float>(parent.Steps) * g.OrderLen);
   if (steps < kMinBranchSteps) { steps = kMinBranchSteps; }
-  const float len = RoomInside(from, request.Dir, (float)steps * parent.Step);
+  const float len = RoomInside(from, request.Dir, static_cast<float>(steps) * parent.Step);
 
   if (len < 2.0f * request.Radius) { return; }
 
@@ -209,11 +216,11 @@ void TreeGrower::SpawnShoot(const Tip &parent,
   b.Radius = request.Radius;
   b.Order = parent.Order + 1;
   b.Steps = steps;
-  b.Step = len / (float)steps;
+  b.Step = len / static_cast<float>(steps);
   b.Bare = 1;
   b.Leader = parent.Leader;
   b.Foliate = request.Foliate;
-  b.Shoot = (int)Plant_->Shoots.size();
+  b.Shoot = static_cast<int>(Plant_->Shoots.size());
 
   TreeSkeleton::Shoot s;
   s.Parent = parent.Shoot;
@@ -232,12 +239,12 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
   Rng_ = TreeRandom(g.Seed);
 
   const float leafThreshold = g.TwigRadius * g.FoliageFactor;
-  const int bareSteps = (int)(Form_.BoleFrac * (float)g.TrunkSteps + 0.5f);
+  const int bareSteps = static_cast<int>(Form_.BoleFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
   SeedLeaders(g, bareSteps);
 
   for (size_t head = 0; head < Queue_.size(); ++head) {
     Tip t = Queue_[head];
-    Plant_->Shoots[(size_t)t.Shoot].First = (int)Plant_->Nodes.size();
+    Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
     float leafRoll = t.Roll;
 
     {
@@ -246,16 +253,16 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       t.Up = n;
     }
     AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
-    if (Plant_->Shoots[(size_t)t.Shoot].Parent >= 0) {
+    if (Plant_->Shoots[static_cast<size_t>(t.Shoot)].Parent >= 0) {
       t.Pos = t.Pos + t.Dir * t.Step;
       AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
     } else if (t.Leader == 0) {
       TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f));
     }
 
-    int last = (int)Plant_->Nodes.size() - 1;
+    int last = static_cast<int>(Plant_->Nodes.size()) - 1;
     for (int s = 0; s < t.Steps; ++s) {
-      if ((int)Plant_->Nodes.size() >= kMaxNodes) { break; }
+      if (static_cast<int>(Plant_->Nodes.size()) >= kMaxNodes) { break; }
       const TreeVec3 oldDir = t.Dir;
 
       TreeVec3 nf, bf;
@@ -285,7 +292,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
         if (t.Order > 0 && escaped > kEscapeStop) { break; }
       }
 
-      const bool leaderOk = (t.Order != 0) || (s >= (int)(Form_.BoleFrac * (float)t.Steps));
+      const bool leaderOk =
+          (t.Order != 0) || (s >= static_cast<int>(Form_.BoleFrac * static_cast<float>(t.Steps)));
       const bool foliated = t.Foliate && leaderOk &&
                             ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
       if (foliated && t.Radius < leafThreshold) {
@@ -295,14 +303,15 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
 
       if (t.Bare > 0) {
         t.Bare--;
-      } else if (t.Order < g.MaxOrder && (int)Plant_->Nodes.size() < kMaxNodes) {
+      } else if (t.Order < g.MaxOrder && static_cast<int>(Plant_->Nodes.size()) < kMaxNodes) {
         if (g.WhorlCount > 0 && t.Order == 0) {
           if (((s - bareSteps) % g.WhorlSpacing) == 0) {
             for (int wb = 0; wb < g.WhorlCount; ++wb) {
               SpawnLateral(t,
                            g,
                            last,
-                           (float)wb * kTau / (float)g.WhorlCount + Rng_.Signed() * kWhorlJitterRad,
+                           static_cast<float>(wb) * kTau / static_cast<float>(g.WhorlCount) +
+                               Rng_.Signed() * kWhorlJitterRad,
                            s);
             }
           }
@@ -315,7 +324,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     }
 
     if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
-        (int)Plant_->Nodes.size() < kMaxNodes && last > Plant_->Shoots[(size_t)t.Shoot].First) {
+        static_cast<int>(Plant_->Nodes.size()) < kMaxNodes &&
+        last > Plant_->Shoots[static_cast<size_t>(t.Shoot)].First) {
       for (int j = 0; j < 2; ++j) {
         const float roll = j == 0 ? 0.0f : kTau * 0.5f;
         const TreeVec3 fn = RadialAt(t.Dir, t.Up, roll);
@@ -339,9 +349,9 @@ void TreeGrower::MeasureReach() {
   for (TreeSkeleton::Shoot &s : shoots) {
     s.Reach = 0.0f;
     if (s.Count <= 0) { continue; }
-    const TreeVec3 anchor = nodes[(size_t)s.First].Pos;
+    const TreeVec3 anchor = nodes[static_cast<size_t>(s.First)].Pos;
     for (int i = s.First; i < s.First + s.Count; ++i) {
-      const TreeSkeleton::Node &n = nodes[(size_t)i];
+      const TreeSkeleton::Node &n = nodes[static_cast<size_t>(i)];
       s.Reach = std::fmax(s.Reach, Length(n.Pos - anchor) + kCapReach * n.Radius);
     }
   }
@@ -349,9 +359,10 @@ void TreeGrower::MeasureReach() {
   for (size_t i = shoots.size(); i-- > 0;) {
     const TreeSkeleton::Shoot &child = shoots[i];
     if (child.Parent < 0 || child.Count <= 0) { continue; }
-    TreeSkeleton::Shoot &parent = shoots[(size_t)child.Parent];
+    TreeSkeleton::Shoot &parent = shoots[static_cast<size_t>(child.Parent)];
     if (parent.Count <= 0) { continue; }
-    const float apart = Length(nodes[(size_t)child.First].Pos - nodes[(size_t)parent.First].Pos);
+    const float apart = Length(nodes[static_cast<size_t>(child.First)].Pos -
+                               nodes[static_cast<size_t>(parent.First)].Pos);
     parent.Reach = std::fmax(parent.Reach, apart + child.Reach);
   }
 }
@@ -370,7 +381,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
 
   for (const TreeSkeleton::Shoot &s : Plant_->Shoots) {
     for (int i = s.First; i < s.First + s.Count; ++i) {
-      const TreeSkeleton::Node &n = Plant_->Nodes[(size_t)i];
+      const TreeSkeleton::Node &n = Plant_->Nodes[static_cast<size_t>(i)];
       const TreeVec3 disc = Vec3(n.Radius * std::sqrt(std::fmax(0.0f, 1.0f - n.Dir.X * n.Dir.X)),
                                  n.Radius * std::sqrt(std::fmax(0.0f, 1.0f - n.Dir.Y * n.Dir.Y)),
                                  n.Radius * std::sqrt(std::fmax(0.0f, 1.0f - n.Dir.Z * n.Dir.Z)));
@@ -429,7 +440,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   const float targetR = species.DbhM() * 0.5f;
   out.Seed = g.Seed;
 
-  SetCrown(species, 1.6f * (float)g.TrunkSteps * g.StepLen);
+  SetCrown(species, 1.6f * static_cast<float>(g.TrunkSteps) * g.StepLen);
   Passes_ = 1;
   GrowOnce(g, h);
 

@@ -40,12 +40,12 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   const size_t n = ring.size();
   if (n < 3) { return false; }
   std::vector<uint32_t> poly(n);
-  for (size_t i = 0; i < n; i++) { poly[i] = (uint32_t)i; }
+  for (size_t i = 0; i < n; i++) { poly[i] = static_cast<uint32_t>(i); }
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
     return (ring[b].E - ring[a].E) * (ring[c].N - ring[a].N) -
            (ring[c].E - ring[a].E) * (ring[b].N - ring[a].N);
   };
-  int guard = (int)(n * n) + 8;
+  int guard = static_cast<int>(n * n) + 8;
   while (poly.size() > 2 && guard-- > 0) {
     bool cut = false;
     for (size_t i = 0; i < poly.size(); i++) {
@@ -62,7 +62,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
       }
       if (!clean) { continue; }
       PushTri(tris, ring[a], ring[b], ring[c]);
-      poly.erase(poly.begin() + (long)i);
+      poly.erase(poly.begin() + static_cast<long>(i));
       cut = true;
       break;
     }

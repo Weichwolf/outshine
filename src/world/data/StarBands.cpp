@@ -56,8 +56,8 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
   std::vector<uint8_t> bytes;
   bool whole = size > 0;
   if (whole) {
-    bytes.resize((size_t)size);
-    whole = std::fread(bytes.data(), 1, (size_t)size, f) == (size_t)size;
+    bytes.resize(static_cast<size_t>(size));
+    whole = std::fread(bytes.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
   }
   std::fclose(f);
   if (!whole) { return Fetched::Meant(Meaning::Refused); }

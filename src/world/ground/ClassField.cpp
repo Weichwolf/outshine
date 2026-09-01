@@ -19,7 +19,9 @@ namespace {
 
 double Clock() {
   using namespace std::chrono;
-  return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
+  return static_cast<double>(
+             duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
+         1e-3;
 }
 
 } // namespace
@@ -58,8 +60,8 @@ void ClassField::Ingest(Tier &t) {
     for (size_t i = t.PtsDone; i < havePts; i++) {
       double e = 0, n = 0;
       Project(pts[i * 2], pts[i * 2 + 1], &e, &n);
-      t.Pts[i * 2] = (float)e;
-      t.Pts[i * 2 + 1] = (float)n;
+      t.Pts[i * 2] = static_cast<float>(e);
+      t.Pts[i * 2 + 1] = static_cast<float>(n);
     }
     t.PtsDone = havePts;
   }
@@ -78,7 +80,7 @@ void ClassField::Ingest(Tier &t) {
 
   for (size_t i = t.FeatsDone; i < feats.size(); i++) {
     const OsmField::Feature &f = feats[i];
-    const std::string_view layer = t.Field->LayerName((int)f.Layer);
+    const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
     const std::string_view kind = t.Field->Str(f, "kind");
     const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
     if (!rule) {
@@ -111,16 +113,16 @@ void ClassField::Ingest(Tier &t) {
     rec.FirstRing = f.FirstRing;
     rec.RingCount = f.RingCount;
     rec.Rank = rule->Rank;
-    rec.Tpl = (uint16_t)rule->Tpl;
-    rec.Form = (ClassBuilder::Shape)f.Type;
+    rec.Tpl = static_cast<uint16_t>(rule->Tpl);
+    rec.Form = static_cast<ClassBuilder::Shape>(f.Type);
     rec.WidthM = rule->WidthM;
     rec.MinE = rec.MinN = 1e30f;
     rec.MaxE = rec.MaxN = -1e30f;
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const ClassBuilder::Ring &ring = t.Rings[f.FirstRing + r];
       for (uint32_t k = 0; k < ring.Count; k++) {
-        const float e = t.Pts[((size_t)ring.First + k) * 2];
-        const float n = t.Pts[((size_t)ring.First + k) * 2 + 1];
+        const float e = t.Pts[(static_cast<size_t>(ring.First) + k) * 2];
+        const float n = t.Pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
         rec.MinE = std::min(rec.MinE, e);
         rec.MaxE = std::max(rec.MaxE, e);
         rec.MinN = std::min(rec.MinN, n);
@@ -220,12 +222,13 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
     if (buildMs > BuildMsMax_) { BuildMsMax_ = buildMs; }
     Log::Debug("world",
                "class_built",
-               {{"version", (double)done->Structure->Version()},
+               {{"version", static_cast<double>(done->Structure->Version())},
                 {"buildMs", buildMs},
                 {"packMs", done->Structure->Measured().PackMs},
                 {"bufferKB", done->Structure->Bytes() / 1024.0},
                 {"lentKB",
-                 (double)(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) + CapacityBytes(t.Feats)) /
+                 static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
+                                     CapacityBytes(t.Feats)) /
                      1024.0}});
     std::lock_guard<std::mutex> lk(Mu_);
     Published_ = std::move(done->Structure);

@@ -56,18 +56,19 @@ constexpr Named kFamilies[] = {
 };
 
 constexpr const char *kFiles[] = {"DejaVuSans.ttf", "DejaVuSerif.ttf", "DejaVuSansMono.ttf"};
-static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == (size_t)Family::kCount,
+static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == static_cast<size_t>(Family::kCount),
               "every family the catalogue offers names the file it is set in");
 
 [[nodiscard]] uint64_t Keyed(Family family, int sizePx, char32_t code) {
-  return ((uint64_t)family << 56) | ((uint64_t)(uint32_t)sizePx << 32) | (uint64_t)code;
+  return (static_cast<uint64_t>(family) << 56) |
+         (static_cast<uint64_t>(static_cast<uint32_t>(sizePx)) << 32) | static_cast<uint64_t>(code);
 }
 
 [[nodiscard]] std::string Lowered(std::string_view from) {
   std::string out;
   out.reserve(from.size());
   for (const char letter : from) {
-    out.push_back(letter >= 'A' && letter <= 'Z' ? (char)(letter - 'A' + 'a') : letter);
+    out.push_back(letter >= 'A' && letter <= 'Z' ? static_cast<char>(letter - 'A' + 'a') : letter);
   }
   return out;
 }
@@ -100,7 +101,7 @@ Family FamilyNamed(std::string_view declared) {
 }
 
 const char *FileOf(Family family) {
-  return kFiles[(size_t)family];
+  return kFiles[static_cast<size_t>(family)];
 }
 
 Family FamilyOf(uint32_t declared) {
@@ -127,7 +128,7 @@ bool Typeface::Opens(std::string_view fonts, std::string &error) {
   Under_ = std::string(fonts);
   if (!Under_.empty() && Under_.back() != '/') { Under_.push_back('/'); }
 
-  for (size_t at = 0; at < (size_t)Family::kCount; ++at) {
+  for (size_t at = 0; at < static_cast<size_t>(Family::kCount); ++at) {
     if (!Faces_[at].empty()) { continue; }
     const std::string path = Under_ + kFiles[at];
     size_t many = 0;
@@ -137,13 +138,14 @@ bool Typeface::Opens(std::string_view fonts, std::string &error) {
       if (held != nullptr) { SDL_free(held); }
       return false;
     }
-    Faces_[at].assign((const uint8_t *)held, (const uint8_t *)held + many);
+    Faces_[at].assign(static_cast<const uint8_t *>(held),
+                      static_cast<const uint8_t *>(held) + many);
     SDL_free(held);
   }
   if (Rgba_.empty()) {
     SheetW_ = kSheetEdge;
     SheetH_ = kSheetEdge;
-    Rgba_.assign((size_t)SheetW_ * (size_t)SheetH_ * 4u, 0u);
+    Rgba_.assign(static_cast<size_t>(SheetW_) * static_cast<size_t>(SheetH_) * 4u, 0u);
     Cells_.assign(kCellSlots, Cell{});
   }
   return true;
@@ -154,11 +156,11 @@ TTF_Font *Typeface::Set(Family family, int sizePx) const {
   for (const Sized &held : Sets_) {
     if (held.Key == key) { return held.Set; }
   }
-  const std::vector<uint8_t> &held = Faces_[(size_t)family];
+  const std::vector<uint8_t> &held = Faces_[static_cast<size_t>(family)];
   if (held.empty()) { return nullptr; }
   SDL_IOStream *const from = SDL_IOFromConstMem(held.data(), held.size());
   if (from == nullptr) { return nullptr; }
-  TTF_Font *const made = TTF_OpenFontIO(from, true, (float)sizePx);
+  TTF_Font *const made = TTF_OpenFontIO(from, true, static_cast<float>(sizePx));
   Sets_.push_back(Sized{key, made});
   ++Opened_;
   return made;
@@ -183,7 +185,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   static const Cell kNotdef;
   if (Cells_.empty()) { return kNotdef; }
   const uint64_t key = Keyed(family, sizePx, code);
-  size_t slot = (size_t)(key * 0x9E3779B97F4A7C15ull >> 50) & (kCellSlots - 1u);
+  size_t slot = static_cast<size_t>(key * 0x9E3779B97F4A7C15ull >> 50) & (kCellSlots - 1u);
   for (size_t step = 0; step < kCellSlots; ++step) {
     Cell &held = Cells_[slot];
     if (held.Held && held.Key == key) { return held; }
@@ -202,13 +204,13 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   if (set == nullptr) { return Cells_[slot] = cut; }
 
   int minx = 0, maxx = 0, miny = 0, maxy = 0, advance = 0;
-  if (!TTF_GetGlyphMetrics(set, (Uint32)code, &minx, &maxx, &miny, &maxy, &advance)) {
+  if (!TTF_GetGlyphMetrics(set, static_cast<Uint32>(code), &minx, &maxx, &miny, &maxy, &advance)) {
     return Cells_[slot] = cut;
   }
-  cut.AdvancePx = (float)advance;
+  cut.AdvancePx = static_cast<float>(advance);
 
   TTF_ImageType kind = TTF_IMAGE_INVALID;
-  SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);
+  SDL_Surface *ink = TTF_GetGlyphImage(set, static_cast<Uint32>(code), &kind);
   if (ink == nullptr || ink->w <= 0 || ink->h <= 0) {
     if (ink != nullptr) { SDL_DestroySurface(ink); }
     return Cells_[slot] = cut;
@@ -218,20 +220,24 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
       ink->format == SDL_PIXELFORMAT_RGBA32 ? ink : SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);
   int leftPx = 0, topPx = 0;
   if (rgba != nullptr && Packs(rgba->w, rgba->h, leftPx, topPx)) {
-    const uint8_t *from = (const uint8_t *)rgba->pixels;
+    const uint8_t *from = static_cast<const uint8_t *>(rgba->pixels);
     for (int row = 0; row < rgba->h; ++row) {
       uint8_t *into =
-          Rgba_.data() + (((size_t)(topPx + row) * (size_t)SheetW_) + (size_t)leftPx) * 4u;
-      SDL_memcpy(into, from + (size_t)row * (size_t)rgba->pitch, (size_t)rgba->w * 4u);
+          Rgba_.data() + ((static_cast<size_t>(topPx + row) * static_cast<size_t>(SheetW_)) +
+                          static_cast<size_t>(leftPx)) *
+                             4u;
+      SDL_memcpy(into,
+                 from + static_cast<size_t>(row) * static_cast<size_t>(rgba->pitch),
+                 static_cast<size_t>(rgba->w) * 4u);
     }
-    cut.WidthPx = (float)rgba->w;
-    cut.HeightPx = (float)rgba->h;
-    cut.LeftPx = (float)minx;
-    cut.TopPx = (float)(TTF_GetFontAscent(set) - maxy);
-    cut.U0 = (float)leftPx / (float)SheetW_;
-    cut.V0 = (float)topPx / (float)SheetH_;
-    cut.U1 = (float)(leftPx + rgba->w) / (float)SheetW_;
-    cut.V1 = (float)(topPx + rgba->h) / (float)SheetH_;
+    cut.WidthPx = static_cast<float>(rgba->w);
+    cut.HeightPx = static_cast<float>(rgba->h);
+    cut.LeftPx = static_cast<float>(minx);
+    cut.TopPx = static_cast<float>(TTF_GetFontAscent(set) - maxy);
+    cut.U0 = static_cast<float>(leftPx) / static_cast<float>(SheetW_);
+    cut.V0 = static_cast<float>(topPx) / static_cast<float>(SheetH_);
+    cut.U1 = static_cast<float>(leftPx + rgba->w) / static_cast<float>(SheetW_);
+    cut.V1 = static_cast<float>(topPx + rgba->h) / static_cast<float>(SheetH_);
     cut.Drawn = true;
     ++Cut_;
   }
@@ -242,18 +248,18 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
 }
 
 FontMetrics Typeface::At(double sizePx, Family family) const {
-  const int rounded = std::max(1, (int)std::lround(sizePx));
+  const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   TTF_Font *set = Set(family, rounded);
   if (set == nullptr) { return {sizePx * 0.5, sizePx * 0.8, sizePx * 0.2}; }
-  const double ascent = (double)TTF_GetFontAscent(set);
-  const double descent = -(double)TTF_GetFontDescent(set);
+  const double ascent = static_cast<double>(TTF_GetFontAscent(set));
+  const double descent = -static_cast<double>(TTF_GetFontDescent(set));
   return {Cell0f(family, rounded, U' ').AdvancePx, ascent, descent};
 }
 
 Glyph Typeface::Shape(char32_t code, double sizePx, Family family) const {
-  const int rounded = std::max(1, (int)std::lround(sizePx));
+  const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   const Cell &cut = Cell0f(family, rounded, code);
-  const double scale = sizePx / (double)rounded;
+  const double scale = sizePx / static_cast<double>(rounded);
 
   Glyph glyph;
   glyph.AdvancePx = cut.AdvancePx * scale;

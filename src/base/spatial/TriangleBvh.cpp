@@ -53,7 +53,7 @@ struct Building {
 };
 
 uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
-  const uint32_t here = (uint32_t)work.Nodes.size();
+  const uint32_t here = static_cast<uint32_t>(work.Nodes.size());
   work.Nodes.emplace_back();
   work.Right.push_back(0);
   work.Depth = std::max(work.Depth, depth + 1u);
@@ -63,7 +63,7 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
   for (uint32_t at = 0; at < count; ++at) {
     const uint32_t tri = work.Order[first + at];
     box.Cover(work.Bounds[tri]);
-    centroidBox.Cover(work.Centroids.data() + (size_t)tri * 3u);
+    centroidBox.Cover(work.Centroids.data() + static_cast<size_t>(tri) * 3u);
   }
 
   const auto MakeLeaf = [&]() { work.Nodes[here].Leaf = (count << kBvhLeafFirstBits) | first; };
@@ -80,13 +80,14 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
       }
     }
     if (widest > 0.0f) {
-      const float scale = (float)kBins / widest;
+      const float scale = static_cast<float>(kBins) / widest;
       Box binBox[kBins];
       uint32_t binCount[kBins] = {};
       const auto BinOf = [&](uint32_t tri) {
         const float offset =
-            work.Centroids[(size_t)tri * 3u + (size_t)axis] - centroidBox.Min[axis];
-        const int at = (int)(offset * scale);
+            work.Centroids[static_cast<size_t>(tri) * 3u + static_cast<size_t>(axis)] -
+            centroidBox.Min[axis];
+        const int at = static_cast<int>(offset * scale);
         return std::min(std::max(at, 0), kBins - 1);
       };
       for (uint32_t at = 0; at < count; ++at) {
@@ -103,14 +104,14 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
       for (int bin = 0; bin < kBins - 1; ++bin) {
         sweep.Cover(binBox[bin]);
         running += binCount[bin];
-        leftCost[bin] = sweep.HalfArea() * (float)running;
+        leftCost[bin] = sweep.HalfArea() * static_cast<float>(running);
       }
       sweep = Box();
       running = 0;
       for (int bin = kBins - 1; bin > 0; --bin) {
         sweep.Cover(binBox[bin]);
         running += binCount[bin];
-        rightCost[bin - 1] = sweep.HalfArea() * (float)running;
+        rightCost[bin - 1] = sweep.HalfArea() * static_cast<float>(running);
       }
       int bestPlane = -1;
       float bestCost = std::numeric_limits<float>::infinity();
@@ -122,12 +123,12 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
         }
       }
 
-      const float leafCost = box.HalfArea() * (float)count;
+      const float leafCost = box.HalfArea() * static_cast<float>(count);
       if (bestPlane >= 0 && bestCost + box.HalfArea() < leafCost) {
         const auto middle = std::partition(work.Order.begin() + first,
                                            work.Order.begin() + first + count,
                                            [&](uint32_t tri) { return BinOf(tri) <= bestPlane; });
-        split = (uint32_t)(middle - (work.Order.begin() + first));
+        split = static_cast<uint32_t>(middle - (work.Order.begin() + first));
       }
     }
   }
@@ -174,36 +175,41 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
   built.Tris_.resize(triangles);
 
   for (size_t tri = 0; tri < triangles; ++tri) {
-    work.Order[tri] = (uint32_t)tri;
+    work.Order[tri] = static_cast<uint32_t>(tri);
     float corner[3][3];
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = indices[tri * 3u + (size_t)corner_at];
+      const uint32_t vertex = indices[tri * 3u + static_cast<size_t>(corner_at)];
 
       for (int axis = 0; axis < 3; ++axis) {
         corner[corner_at][axis] =
-            vertex < vertices ? positionsM[(size_t)vertex * 3u + (size_t)axis] : 0.0f;
+            vertex < vertices
+                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
+                : 0.0f;
       }
       work.Bounds[tri].Cover(corner[corner_at]);
     }
     for (int axis = 0; axis < 3; ++axis) {
-      work.Centroids[tri * 3u + (size_t)axis] =
+      work.Centroids[tri * 3u + static_cast<size_t>(axis)] =
           (work.Bounds[tri].Min[axis] + work.Bounds[tri].Max[axis]) * 0.5f;
     }
   }
 
   work.Nodes.reserve(triangles * 2u);
   work.Right.reserve(triangles * 2u);
-  Emit(work, 0, (uint32_t)triangles, 0);
+  Emit(work, 0, static_cast<uint32_t>(triangles), 0);
   Thread(work, 0, kBvhNoEscape);
 
   for (size_t at = 0; at < triangles; ++at) {
     const uint32_t tri = work.Order[at];
     float corner[3][3];
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = indices[(size_t)tri * 3u + (size_t)corner_at];
+      const uint32_t vertex =
+          indices[static_cast<size_t>(tri) * 3u + static_cast<size_t>(corner_at)];
       for (int axis = 0; axis < 3; ++axis) {
         corner[corner_at][axis] =
-            vertex < vertices ? positionsM[(size_t)vertex * 3u + (size_t)axis] : 0.0f;
+            vertex < vertices
+                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
+                : 0.0f;
       }
     }
     BvhTriangle &out = built.Tris_[at];
@@ -218,7 +224,8 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
   for (size_t at = 0; at < triangles; ++at) {
     const uint32_t tri = work.Order[at];
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      built.Corners_[at * 3u + (size_t)corner_at] = indices[(size_t)tri * 3u + (size_t)corner_at];
+      built.Corners_[at * 3u + static_cast<size_t>(corner_at)] =
+          indices[static_cast<size_t>(tri) * 3u + static_cast<size_t>(corner_at)];
     }
   }
   built.Nodes_ = std::move(work.Nodes);
@@ -233,10 +240,12 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
   for (size_t at = 0; at < Tris_.size(); ++at) {
     float corner[3][3];
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = Corners_[at * 3u + (size_t)corner_at];
+      const uint32_t vertex = Corners_[at * 3u + static_cast<size_t>(corner_at)];
       for (int axis = 0; axis < 3; ++axis) {
         corner[corner_at][axis] =
-            vertex < vertices ? positionsM[(size_t)vertex * 3u + (size_t)axis] : 0.0f;
+            vertex < vertices
+                ? positionsM[static_cast<size_t>(vertex) * 3u + static_cast<size_t>(axis)]
+                : 0.0f;
       }
     }
     BvhTriangle &out = Tris_[at];
@@ -261,7 +270,7 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
     if (node.IsLeaf()) {
       const uint32_t first = node.FirstTriangle(), count = node.TriangleCount();
       for (uint32_t which = 0; which < count; ++which) {
-        const BvhTriangle &tri = Tris_[(size_t)first + which];
+        const BvhTriangle &tri = Tris_[static_cast<size_t>(first) + which];
         float point[3];
         for (int axis = 0; axis < 3; ++axis) { point[axis] = tri.V0[axis]; }
         widen(point);
@@ -275,7 +284,7 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
       const uint32_t right = Nodes_[left].Escape;
       widen(Nodes_[left].MinM);
       widen(Nodes_[left].MaxM);
-      if (right != kBvhNoEscape && (size_t)right < Nodes_.size()) {
+      if (right != kBvhNoEscape && static_cast<size_t>(right) < Nodes_.size()) {
         widen(Nodes_[right].MinM);
         widen(Nodes_[right].MaxM);
       }

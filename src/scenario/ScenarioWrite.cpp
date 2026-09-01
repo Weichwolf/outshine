@@ -69,7 +69,7 @@ std::string WriteScenario(const Scenario &declared) {
       Number(said, "wavelengthM", declared.Ground.Shape.WavelengthM);
       Number(said, "gradient", declared.Ground.Shape.Gradient);
       Number(said, "bearingDeg", declared.Ground.Shape.BearingDeg);
-      Number(said, "seed", (double)declared.Ground.Shape.Seed);
+      Number(said, "seed", static_cast<double>(declared.Ground.Shape.Seed));
       said += "/>\n";
       if (!declared.Ground.Osm.empty()) {
         said += "    ";
@@ -83,7 +83,7 @@ std::string WriteScenario(const Scenario &declared) {
         if (one.HeightM > 0.0) { Number(said, "heightM", one.HeightM); }
         if (one.Bridge) { Said(said, "bridge", "yes"); }
         if (one.Tunnel) { Said(said, "tunnel", "yes"); }
-        if (one.Level != 0) { Number(said, "level", (double)one.Level); }
+        if (one.Level != 0) { Number(said, "level", static_cast<double>(one.Level)); }
         std::string shape;
         for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
           if (!shape.empty()) { shape += " "; }

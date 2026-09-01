@@ -26,7 +26,7 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
   Stems_.clear();
   for (const TreeSpecies &one : species) {
     Forest::Stem stem;
-    stem.HeightM = (double)one.HeightM();
+    stem.HeightM = static_cast<double>(one.HeightM());
     Stems_.push_back(stem);
   }
   if (Stems_.empty() || PerM2_.empty()) {

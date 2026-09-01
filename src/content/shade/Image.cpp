@@ -76,13 +76,17 @@ bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> 
   DynamicIo io;
   if (!io.Stream) { return false; }
   const OwnedSurface surface(
-      SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, (void *)rgba, width * 4));
+      SDL_CreateSurfaceFrom(width,
+                            height,
+                            SDL_PIXELFORMAT_RGBA32,
+                            const_cast<void *>(static_cast<const void *>(rgba)),
+                            width * 4));
   if (!surface.Surface) { return false; }
   if (!IMG_SavePNG_IO(surface.Surface, io.Stream, false)) { return false; }
 
   const Sint64 size = SDL_GetIOSize(io.Stream);
   if (size <= 0) { return false; }
-  out.resize((size_t)size);
+  out.resize(static_cast<size_t>(size));
   if (SDL_SeekIO(io.Stream, 0, SDL_IO_SEEK_SET) < 0) { return false; }
   return SDL_ReadIO(io.Stream, out.data(), out.size()) == out.size();
 }

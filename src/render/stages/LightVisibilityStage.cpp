@@ -16,8 +16,8 @@ bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std:
 
 void LightVisibilityStage::Declare(const float toSun[3], const float up[3], double radiusM) {
   for (int axis = 0; axis < 3; ++axis) {
-    ToSun_[axis] = (double)toSun[axis];
-    Up_[axis] = (double)up[axis];
+    ToSun_[axis] = static_cast<double>(toSun[axis]);
+    Up_[axis] = static_cast<double>(up[axis]);
   }
   RadiusM_ = radiusM;
   double sunLength = 0.0, crossLength = 0.0;
@@ -47,7 +47,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
                             forward[2] * right[0] - forward[0] * right[2],
                             forward[0] * right[1] - forward[1] * right[0]};
 
-  const double texelM = 2.0 * RadiusM_ / (double)kShadowAtlasPx;
+  const double texelM = 2.0 * RadiusM_ / static_cast<double>(kShadowAtlasPx);
   double centre[3] = {0.0, 0.0, 0.0};
   const auto reported = [this, &centre]() {
     for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
@@ -215,8 +215,8 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
     return;
   }
   SDL_GPUViewport square{};
-  square.w = (float)atlasPx;
-  square.h = (float)atlasPx;
+  square.w = static_cast<float>(atlasPx);
+  square.h = static_cast<float>(atlasPx);
   square.min_depth = 0.0f;
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
@@ -230,9 +230,9 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows, 1);
 
   float uniform[20] = {};
-  for (int i = 0; i < 16; i++) { uniform[i] = (float)lightFromWorld16[i]; }
+  for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld16[i]); }
   for (int axis = 0; axis < 3; ++axis) {
-    uniform[16 + axis] = (float)(Anchor[axis] + preView[axis]);
+    uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);
   }
   SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
 

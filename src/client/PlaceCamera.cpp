@@ -127,34 +127,40 @@ const Place *PlaceNamed(std::string_view name) {
 }
 
 double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high) {
-  if (wide < 2 || high < 1 || rgba.size() < (std::size_t)wide * (std::size_t)high * 4u) {
+  if (wide < 2 || high < 1 ||
+      rgba.size() < static_cast<std::size_t>(wide) * static_cast<std::size_t>(high) * 4u) {
     return 0.0;
   }
   double sum = 0.0;
   std::size_t steps = 0;
   for (int y = 0; y < high; ++y) {
     for (int x = 1; x < wide; ++x) {
-      const std::size_t at = ((std::size_t)y * (std::size_t)wide + (std::size_t)x) * 4u;
+      const std::size_t at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(wide) +
+                              static_cast<std::size_t>(x)) *
+                             4u;
       for (int channel = 0; channel < 3; ++channel) {
-        const int here = rgba[at + (std::size_t)channel];
-        const int left = rgba[at - 4u + (std::size_t)channel];
+        const int here = rgba[at + static_cast<std::size_t>(channel)];
+        const int left = rgba[at - 4u + static_cast<std::size_t>(channel)];
         sum += here > left ? here - left : left - here;
         ++steps;
       }
     }
   }
-  return steps > 0 ? sum / (double)steps : 0.0;
+  return steps > 0 ? sum / static_cast<double>(steps) : 0.0;
 }
 
 double ControlVariation() {
-  std::vector<std::uint8_t> gradient((std::size_t)kWidePx * (std::size_t)kHighPx * 4u, 255u);
+  std::vector<std::uint8_t> gradient(
+      static_cast<std::size_t>(kWidePx) * static_cast<std::size_t>(kHighPx) * 4u, 255u);
   for (int y = 0; y < kHighPx; ++y) {
-    const auto shade = (std::uint8_t)(255 * y / (kHighPx - 1));
+    const auto shade = static_cast<std::uint8_t>(255 * y / (kHighPx - 1));
     for (int x = 0; x < kWidePx; ++x) {
-      const std::size_t at = ((std::size_t)y * (std::size_t)kWidePx + (std::size_t)x) * 4u;
+      const std::size_t at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(kWidePx) +
+                              static_cast<std::size_t>(x)) *
+                             4u;
       gradient[at] = shade;
       gradient[at + 1] = shade;
-      gradient[at + 2] = (std::uint8_t)(255 - shade);
+      gradient[at + 2] = static_cast<std::uint8_t>(255 - shade);
     }
   }
   return VariationAlongRows(gradient, kWidePx, kHighPx);
@@ -194,7 +200,8 @@ Scenario ScenarioFor(const Place &place) {
   if (overhead) {
     watches.Sees.Orthographic = true;
     watches.Sees.YMagM = 0.5 * place.SpanM;
-    watches.Sees.XMagM = 0.5 * place.SpanM * (double)kWidePx / (double)kHighPx;
+    watches.Sees.XMagM =
+        0.5 * place.SpanM * static_cast<double>(kWidePx) / static_cast<double>(kHighPx);
     watches.Sees.NearM = 1.0;
     watches.Sees.FarM = kPlanAboveM * 2.0;
   }
@@ -205,7 +212,12 @@ Scenario ScenarioFor(const Place &place) {
     along.Id = "walk" + std::to_string(step - 1);
     double lat = place.LatDeg;
     double lon = place.LonDeg;
-    WalkedTo(place.LatDeg, place.LonDeg, place.BearingDeg, (double)step * kWalkStepM, lat, lon);
+    WalkedTo(place.LatDeg,
+             place.LonDeg,
+             place.BearingDeg,
+             static_cast<double>(step) * kWalkStepM,
+             lat,
+             lon);
     along.Sees.Stands.Geodetic.LatitudeDeg = lat;
     along.Sees.Stands.Geodetic.LongitudeDeg = lon;
     stands.Views.push_back(along);
@@ -299,7 +311,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   shot.BareTiles = measured("tiles laid bare on the ellipsoid");
 
   if (Audits) { (void)engine.inspect(); }
-  shot.SettledOver = (double)wanted;
+  shot.SettledOver = static_cast<double>(wanted);
   shot.PosedAtS = measured("and the instant it is posed at");
 
   std::error_code failed;
@@ -328,7 +340,7 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   }
 
   std::vector<double> heldMs;
-  heldMs.reserve((std::size_t)kTimedFrames);
+  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
   for (int at = 0; at < kTimedFrames; ++at) {
     const int step = at * kWalkViews / kTimedFrames;
     (void)engine.setView("walk" + std::to_string(step));
@@ -344,7 +356,8 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   std::ranges::sort(heldMs);
   const auto quantile = [&heldMs](double share) {
     if (heldMs.empty()) { return 0.0; }
-    const auto which = (std::size_t)std::llround(share * (double)(heldMs.size() - 1));
+    const auto which =
+        static_cast<std::size_t>(std::llround(share * static_cast<double>(heldMs.size() - 1)));
     return heldMs[which < heldMs.size() ? which : heldMs.size() - 1];
   };
   shot.P50Ms = quantile(0.50);

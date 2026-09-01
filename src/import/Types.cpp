@@ -64,7 +64,7 @@ bool VertexColourComponents(const Accessor &accessor, size_t &components, std::s
       accessor.Normalized &&
       (accessor.Component == ComponentType::UInt8 || accessor.Component == ComponentType::UInt16);
   if (accessor.Component != ComponentType::Float32 && !normalizedInteger) {
-    why = "carries componentType " + std::to_string((size_t)accessor.Component) +
+    why = "carries componentType " + std::to_string(static_cast<size_t>(accessor.Component)) +
           (accessor.Normalized ? " normalized" : " unnormalized") +
           ", and a vertex colour is float, unsigned byte normalized or unsigned short normalized";
     return false;
@@ -163,8 +163,8 @@ int Primitive::Find(const char *semantic) const {
 }
 
 int Primitive::MaterialUnder(int variant) const {
-  if (variant < 0 || (size_t)variant >= VariantMaterials.size()) { return Material; }
-  const int mapped = VariantMaterials[(size_t)variant];
+  if (variant < 0 || static_cast<size_t>(variant) >= VariantMaterials.size()) { return Material; }
+  const int mapped = VariantMaterials[static_cast<size_t>(variant)];
   return mapped < 0 ? Material : mapped;
 }
 

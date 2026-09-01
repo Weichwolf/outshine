@@ -26,9 +26,9 @@ std::string Kernel(std::string &error) {
                 "constant uint kSkyViewSteps = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
-                (unsigned)kSkyViewSteps,
-                (double)kMediumLuminanceSegment,
-                (double)kMediumGroundLiftKm);
+                static_cast<unsigned>(kSkyViewSteps),
+                static_cast<double>(kMediumLuminanceSegment),
+                static_cast<double>(kMediumGroundLiftKm));
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -101,7 +101,7 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   pushed.CosSunZenith = Standing_.CosSunZenith;
   pushed.EyeRadiusKm = Standing_.Declared.BottomRadiusKm + kMediumGroundLiftKm +
                        std::fmax(0.0f, Standing_.EyeHeightM) / 1000.0f;
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, (uint32_t)sizeof pushed);
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, static_cast<uint32_t>(sizeof pushed));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);

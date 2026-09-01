@@ -56,7 +56,7 @@ void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   way.Friction = of.Friction;
   way.Lanes = of.Lanes;
   way.Spans = of.Spans;
-  const uint32_t mine = (uint32_t)Ways_.size();
+  const uint32_t mine = static_cast<uint32_t>(Ways_.size());
   way.MinLat = way.MaxLat = latLonPairs[0];
   way.MinLon = way.MaxLon = latLonPairs[1];
   for (size_t which = 0; which < points; ++which) {
@@ -85,10 +85,10 @@ Network::RowShape Network::ShapeRowOver(int64_t row, double cellM) const {
   RowShape shape;
   shape.Row = row;
   const double latCell = cellM / MetresPerDegreeLat(RadiusM_);
-  const double rowLat = ((double)row + 0.5) * latCell;
+  const double rowLat = (static_cast<double>(row) + 0.5) * latCell;
   shape.LonCellDeg = cellM / MetresPerDegreeLon(rowLat, RadiusM_);
   const double columns = std::ceil(360.0 / shape.LonCellDeg);
-  shape.Columns = columns > 1.0 ? (int64_t)columns : 1;
+  shape.Columns = columns > 1.0 ? static_cast<int64_t>(columns) : 1;
   return shape;
 }
 
@@ -98,12 +98,12 @@ int64_t Network::RowOf(double latDeg) const {
 
 int64_t Network::RowOver(double latDeg, double cellM) const {
   const double latCell = cellM / MetresPerDegreeLat(RadiusM_);
-  return (int64_t)std::floor(latDeg / latCell);
+  return static_cast<int64_t>(std::floor(latDeg / latCell));
 }
 
 int64_t Network::ColumnIn(const RowShape &shape, double lonDeg) {
   const double wrapped = lonDeg - 360.0 * std::floor((lonDeg + 180.0) / 360.0);
-  int64_t column = (int64_t)std::floor((wrapped + 180.0) / shape.LonCellDeg);
+  int64_t column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
   return ((column % shape.Columns) + shape.Columns) % shape.Columns;
 }
 
@@ -140,7 +140,7 @@ size_t Network::Cross() {
     const uint32_t ways[2] = {held.OverWay, held.UnderWay};
     for (int side = 0; side < 2; ++side) {
       const Way &way = Ways_[ways[side]];
-      const uint32_t local = sides[side] - (uint32_t)way.First;
+      const uint32_t local = sides[side] - static_cast<uint32_t>(way.First);
       const double fromLat = Points_[2 * sides[side]], fromLon = Points_[2 * sides[side] + 1];
       const double toLat = Points_[2 * sides[side] + 2], toLon = Points_[2 * sides[side] + 3];
       const double runLat = toLat - fromLat, runLon = LonApartDeg(toLon, fromLon);
@@ -170,17 +170,17 @@ size_t Network::Cross() {
     for (size_t at = 0; at + 1 < way.Count; ++at) {
       laid.push_back(Points_[2 * (way.First + at)]);
       laid.push_back(Points_[2 * (way.First + at) + 1]);
-      owner.push_back((uint32_t)which);
+      owner.push_back(static_cast<uint32_t>(which));
       while (next < cuts.size() && cuts[next].After == at) {
         laid.push_back(cuts[next].LatDeg);
         laid.push_back(cuts[next].LonDeg);
-        owner.push_back((uint32_t)which);
+        owner.push_back(static_cast<uint32_t>(which));
         ++next;
       }
     }
     laid.push_back(Points_[2 * (way.First + way.Count - 1)]);
     laid.push_back(Points_[2 * (way.First + way.Count - 1) + 1]);
-    owner.push_back((uint32_t)which);
+    owner.push_back(static_cast<uint32_t>(which));
     way.First = began;
     way.Count = laid.size() / 2 - began;
   }
@@ -239,7 +239,7 @@ bool Network::Weave(std::string &error) {
       Way moved = Ways_[which];
       const size_t first = moved.First;
       moved.First = points.size() / 2;
-      const uint32_t mine = (uint32_t)ways.size();
+      const uint32_t mine = static_cast<uint32_t>(ways.size());
       ways.push_back(moved);
       for (size_t at = 0; at < moved.Count; ++at) {
         points.push_back(Points_[2 * (first + at)]);
@@ -263,7 +263,8 @@ bool Network::Weave(std::string &error) {
     const RowShape mine = ShapeRow(rowHere);
     for (int64_t row = rowHere - 1; row <= rowHere + 1 && found == Nodes_.size(); ++row) {
       const RowShape shape = ShapeRow(row);
-      const int64_t reachCols = (int64_t)std::ceil(mine.LonCellDeg / shape.LonCellDeg) + 1;
+      const int64_t reachCols =
+          static_cast<int64_t>(std::ceil(mine.LonCellDeg / shape.LonCellDeg)) + 1;
       const int64_t centre = ColumnIn(shape, lonDeg);
       const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
       for (int64_t step = 0; step < span && found == Nodes_.size(); ++step) {
@@ -337,9 +338,9 @@ bool Network::Weave(std::string &error) {
   }
 
   std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>> byEdgeCell;
-  for (uint32_t from = 0; from < (uint32_t)Nodes_.size(); ++from) {
+  for (uint32_t from = 0; from < static_cast<uint32_t>(Nodes_.size()); ++from) {
     for (const Edge &edge : outgoing[from]) {
-      if ((uint32_t)edge.To < from) { continue; }
+      if (static_cast<uint32_t>(edge.To) < from) { continue; }
       const Node &a = Nodes_[from];
       const Node &b = Nodes_[edge.To];
       const int64_t firstRow = RowOver(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg, tieReachM);
@@ -360,7 +361,7 @@ bool Network::Weave(std::string &error) {
           }
           ++IndexedCells_;
           byEdgeCell[KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns)]
-              .push_back({from, (uint32_t)edge.To});
+              .push_back({from, static_cast<uint32_t>(edge.To)});
         }
       }
     }
@@ -369,8 +370,8 @@ bool Network::Weave(std::string &error) {
   const auto overCells = [&](size_t from, size_t to, bool holding) {
     const Node &a = Nodes_[from];
     const Node &b = Nodes_[to];
-    const uint32_t one = (uint32_t)(from < to ? from : to);
-    const uint32_t two = (uint32_t)(from < to ? to : from);
+    const uint32_t one = static_cast<uint32_t>(from < to ? from : to);
+    const uint32_t two = static_cast<uint32_t>(from < to ? to : from);
     const int64_t firstRow = RowOver(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg, tieReachM);
     const int64_t lastRow = RowOver(a.LatDeg < b.LatDeg ? b.LatDeg : a.LatDeg, tieReachM);
     for (int64_t row = firstRow; row <= lastRow; ++row) {
@@ -388,7 +389,7 @@ bool Network::Weave(std::string &error) {
         }
         for (size_t at = 0; at < cell.size(); ++at) {
           if (cell[at].first != one || cell[at].second != two) { continue; }
-          cell.erase(cell.begin() + (ptrdiff_t)at);
+          cell.erase(cell.begin() + static_cast<ptrdiff_t>(at));
           break;
         }
       }
@@ -406,11 +407,12 @@ bool Network::Weave(std::string &error) {
     size_t bestFrom = Nodes_.size(), bestTo = Nodes_.size();
     double bestM = reachM;
     const int64_t rowHere = RowOver(end.LatDeg, tieReachM);
-    const int64_t rowReach = (int64_t)std::ceil(reachM / tieReachM) + 1;
+    const int64_t rowReach = static_cast<int64_t>(std::ceil(reachM / tieReachM)) + 1;
     for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
       const RowShape shape = ShapeRowOver(row, tieReachM);
       const int64_t centre = ColumnIn(shape, end.LonDeg);
-      const int64_t colReach = (int64_t)std::ceil(reachM / (shape.LonCellDeg * perLonM)) + 1;
+      const int64_t colReach =
+          static_cast<int64_t>(std::ceil(reachM / (shape.LonCellDeg * perLonM))) + 1;
       for (int64_t step = -colReach; step <= colReach; ++step) {
         const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
         const auto seen = byEdgeCell.find(KeyAt(row, column));
@@ -444,7 +446,7 @@ bool Network::Weave(std::string &error) {
       std::vector<Edge> &held = outgoing[from];
       for (size_t at = 0; at < held.size(); ++at) {
         if (held[at].To != to) { continue; }
-        held.erase(held.begin() + (ptrdiff_t)at);
+        held.erase(held.begin() + static_cast<ptrdiff_t>(at));
         return true;
       }
       return false;
@@ -544,8 +546,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
     for (size_t which = 0; which < Ways_.size(); ++which) {
       const Way &way = Ways_[which];
       for (size_t a = 0; a + 1 < way.Count; ++a) {
-        segWay[made] = (uint32_t)which;
-        segAt[made] = (uint32_t)(way.First + a);
+        segWay[made] = static_cast<uint32_t>(which);
+        segAt[made] = static_cast<uint32_t>(way.First + a);
         ++made;
       }
     }
@@ -558,11 +560,11 @@ Network::Crossings(std::vector<Crossing> &into) const {
     const double byLat = std::fabs(Points_[2 * first + 2] - Points_[2 * first]);
     reachSum += byLon > byLat ? byLon : byLat;
   }
-  const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / (double)segments : 1.0;
+  const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / static_cast<double>(segments) : 1.0;
   const size_t cells = 2u * segments + 1u;
 
-  const uint64_t wide = (uint64_t)std::floor((eastLon - westLon) / cellDeg) + 2u;
-  const uint64_t high = (uint64_t)std::floor((northLat - southLat) / cellDeg) + 2u;
+  const uint64_t wide = static_cast<uint64_t>(std::floor((eastLon - westLon) / cellDeg)) + 2u;
+  const uint64_t high = static_cast<uint64_t>(std::floor((northLat - southLat) / cellDeg)) + 2u;
   if (wide > 0xFFFFFFFFull / high) {
     return std::unexpected(
         "the network's extent over its mean segment reach needs more squares than a 32-bit "
@@ -573,12 +575,13 @@ Network::Crossings(std::vector<Crossing> &into) const {
   const auto squareOf = [&](double atLon, double atLat) -> uint32_t {
     const double fx = std::floor((atLon - westLon) / cellDeg);
     const double fy = std::floor((atLat - southLat) / cellDeg);
-    const uint64_t x = fx <= 0.0 ? 0u : (uint64_t)fx;
-    const uint64_t y = fy <= 0.0 ? 0u : (uint64_t)fy;
-    return (uint32_t)((y < high ? y : high - 1u) * wide + (x < wide ? x : wide - 1u));
+    const uint64_t x = fx <= 0.0 ? 0u : static_cast<uint64_t>(fx);
+    const uint64_t y = fy <= 0.0 ? 0u : static_cast<uint64_t>(fy);
+    return static_cast<uint32_t>((y < high ? y : high - 1u) * wide + (x < wide ? x : wide - 1u));
   };
   const auto bucketOf = [&](uint32_t square) {
-    return (size_t)(((uint64_t)square * 2654435761ull) % (uint64_t)cells);
+    return static_cast<size_t>((static_cast<uint64_t>(square) * 2654435761ull) %
+                               static_cast<uint64_t>(cells));
   };
 
   const auto overSquares = [&](size_t seg, auto &&visit) {
@@ -588,9 +591,11 @@ Network::Crossings(std::vector<Crossing> &into) const {
     const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
     const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
     const uint32_t from = squareOf(lo, bottom), to = squareOf(hi, top);
-    for (uint32_t y = from / (uint32_t)wide; y <= to / (uint32_t)wide; ++y) {
-      for (uint32_t x = from % (uint32_t)wide; x <= to % (uint32_t)wide; ++x) {
-        visit((uint32_t)(y * wide + x));
+    for (uint32_t y = from / static_cast<uint32_t>(wide); y <= to / static_cast<uint32_t>(wide);
+         ++y) {
+      for (uint32_t x = from % static_cast<uint32_t>(wide); x <= to % static_cast<uint32_t>(wide);
+           ++x) {
+        visit(static_cast<uint32_t>(y * wide + x));
       }
     }
   };
@@ -603,7 +608,7 @@ Network::Crossings(std::vector<Crossing> &into) const {
   std::vector<Filed> inCell(holds[cells], Filed{});
   for (size_t seg = 0; seg < segments; ++seg) {
     overSquares(seg, [&](uint32_t square) {
-      inCell[filled[bucketOf(square)]++] = Filed{square, (uint32_t)seg};
+      inCell[filled[bucketOf(square)]++] = Filed{square, static_cast<uint32_t>(seg)};
     });
   }
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -633,12 +638,12 @@ Network::Crossings(std::vector<Crossing> &into) const {
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
-        into.push_back(Crossing{(uint32_t)segWay[mine],
-                                (uint32_t)segWay[theirs],
+        into.push_back(Crossing{static_cast<uint32_t>(segWay[mine]),
+                                static_cast<uint32_t>(segWay[theirs]),
                                 atY,
                                 back,
-                                (uint32_t)firstA,
-                                (uint32_t)firstB});
+                                static_cast<uint32_t>(firstA),
+                                static_cast<uint32_t>(firstB)});
       }
     }
   }
@@ -680,8 +685,9 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
 
 void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const {
   nodes.clear();
-  const int64_t across = (int64_t)std::ceil(reachM / SnapM_) + 1;
-  const uint64_t cells = (uint64_t)(2 * across + 1) * (uint64_t)(2 * across + 1);
+  const int64_t across = static_cast<int64_t>(std::ceil(reachM / SnapM_)) + 1;
+  const uint64_t cells =
+      static_cast<uint64_t>(2 * across + 1) * static_cast<uint64_t>(2 * across + 1);
   if (Cells_.empty() || cells > Cells_.size()) {
     for (size_t which = 0; which < Nodes_.size(); ++which) {
       if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <=
@@ -695,8 +701,9 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
   const RowShape mine = ShapeRow(rowHere);
   for (int64_t row = rowHere - across; row <= rowHere + across; ++row) {
     const RowShape shape = ShapeRow(row);
-    const int64_t reachCols =
-        (int64_t)std::ceil((double)across * mine.LonCellDeg / shape.LonCellDeg) + 1;
+    const int64_t reachCols = static_cast<int64_t>(std::ceil(static_cast<double>(across) *
+                                                             mine.LonCellDeg / shape.LonCellDeg)) +
+                              1;
     const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
     const int64_t centre = ColumnIn(shape, of.LonDeg);
     for (int64_t step = 0; step < span; ++step) {
@@ -789,7 +796,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
 
   const double never = 1.0e300;
   const size_t edges = Edges_.size();
-  const size_t kNoState = (size_t)-1;
+  const size_t kNoState = static_cast<size_t>(-1);
   std::vector<size_t> nearStart;
   Within(from, startAwayM + kStartReachM, nearStart);
   if (nearStart.empty()) { nearStart.push_back(start); }

@@ -14,7 +14,9 @@ bool Space(char c) {
 std::string Lower(std::string_view text) {
   std::string out;
   out.reserve(text.size());
-  for (const char c : text) { out.push_back(c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c); }
+  for (const char c : text) {
+    out.push_back(c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c);
+  }
   return out;
 }
 
@@ -136,8 +138,8 @@ bool ReadColour(std::string_view text, uint32_t &out) {
     } else {
       return false;
     }
-    out = ((uint32_t)channel[0] << 24) | ((uint32_t)channel[1] << 16) |
-          ((uint32_t)channel[2] << 8) | (uint32_t)channel[3];
+    out = (static_cast<uint32_t>(channel[0]) << 24) | (static_cast<uint32_t>(channel[1]) << 16) |
+          (static_cast<uint32_t>(channel[2]) << 8) | static_cast<uint32_t>(channel[3]);
     return true;
   }
   const std::string lowered = Lower(text);
@@ -171,7 +173,8 @@ Value ReadValue(std::string_view text) {
     const std::string_view digits = trimmed.front() == '+' ? trimmed.substr(1) : trimmed;
     double number = 0.0;
     const auto scanned = std::from_chars(digits.data(), digits.data() + digits.size(), number);
-    const std::string_view suffix = Trim(digits.substr((size_t)(scanned.ptr - digits.data())));
+    const std::string_view suffix =
+        Trim(digits.substr(static_cast<size_t>(scanned.ptr - digits.data())));
     value.Number = number;
     if (suffix.empty()) {
       value.How = Unit::None;
@@ -680,7 +683,8 @@ void Stylesheet::Read(std::string_view text) {
       for (const Compound &one : rule.Chain) {
         rule.Specificity += one.Id.empty() ? 0 : 10000;
 
-        rule.Specificity += (int)(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * 100;
+        rule.Specificity +=
+            static_cast<int>(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * 100;
         rule.Specificity += one.Tag.empty() ? 0 : 1;
       }
       rule.Order = Order_++;
@@ -693,14 +697,14 @@ void Stylesheet::Read(std::string_view text) {
 namespace {
 
 bool Holds(const Compound &compound, const Markup &markup, int node) {
-  const Node &element = markup.Nodes()[(size_t)node];
+  const Node &element = markup.Nodes()[static_cast<size_t>(node)];
   if (element.Kind != NodeKind::Element) { return false; }
   if (!compound.Tag.empty() && element.Name != compound.Tag) { return false; }
   if (compound.NthChild > 0) {
     if (element.Parent < 0) { return false; }
     int position = 0;
-    for (const int sibling : markup.Nodes()[(size_t)element.Parent].Children) {
-      if (markup.Nodes()[(size_t)sibling].Kind != NodeKind::Element) { continue; }
+    for (const int sibling : markup.Nodes()[static_cast<size_t>(element.Parent)].Children) {
+      if (markup.Nodes()[static_cast<size_t>(sibling)].Kind != NodeKind::Element) { continue; }
       ++position;
       if (sibling == node) { break; }
     }
@@ -921,11 +925,11 @@ bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int nod
   if (!Holds(rule.Chain[wanted], markup, node)) { return false; }
   if (wanted == 0) { return true; }
   const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;
-  const int parent = markup.Nodes()[(size_t)node].Parent;
+  const int parent = markup.Nodes()[static_cast<size_t>(node)].Parent;
   if (reach == Reach::Child) {
     return parent >= 0 && ChainSelects(rule, markup, wanted - 1, parent);
   }
-  for (int at = parent; at >= 0; at = markup.Nodes()[(size_t)at].Parent) {
+  for (int at = parent; at >= 0; at = markup.Nodes()[static_cast<size_t>(at)].Parent) {
     if (ChainSelects(rule, markup, wanted - 1, at)) { return true; }
   }
   return false;

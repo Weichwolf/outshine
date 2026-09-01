@@ -158,11 +158,11 @@ void *operator new[](size_t bytes) {
 }
 
 void *operator new(size_t bytes, std::align_val_t alignment) {
-  return outshine::TakeAligned("object", bytes, (size_t)alignment);
+  return outshine::TakeAligned("object", bytes, static_cast<size_t>(alignment));
 }
 
 void *operator new[](size_t bytes, std::align_val_t alignment) {
-  return outshine::TakeAligned("object array", bytes, (size_t)alignment);
+  return outshine::TakeAligned("object array", bytes, static_cast<size_t>(alignment));
 }
 
 void *operator new(size_t bytes, const std::nothrow_t &) noexcept {

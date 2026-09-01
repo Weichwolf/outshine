@@ -47,13 +47,14 @@ uint32_t Mix(uint32_t x) {
 }
 
 uint32_t SeedOfPlace(double latDeg, double lonDeg) {
-  const int32_t la = (int32_t)std::llround(latDeg * 1.0e6);
-  const int32_t lo = (int32_t)std::llround(lonDeg * 1.0e6);
-  return Mix((uint32_t)la * 0x9e3779b9u ^ Mix((uint32_t)lo));
+  const int32_t la = static_cast<int32_t>(std::llround(latDeg * 1.0e6));
+  const int32_t lo = static_cast<int32_t>(std::llround(lonDeg * 1.0e6));
+  return Mix(static_cast<uint32_t>(la) * 0x9e3779b9u ^ Mix(static_cast<uint32_t>(lo)));
 }
 
 double UnitOf(uint32_t seed, int stream) {
-  return (double)(Mix(seed + (uint32_t)stream * 0x85ebca6bu) >> 8) * (1.0 / 16777216.0);
+  return static_cast<double>(Mix(seed + static_cast<uint32_t>(stream) * 0x85ebca6bu) >> 8) *
+         (1.0 / 16777216.0);
 }
 
 std::vector<En> RingInMetres(Span<const double> latLon) {
@@ -112,8 +113,8 @@ void DropSpurs(Piece *p) {
       const double area2 = std::fabs(e1 * n2 - e2 * n1);
       if (area2 > kOnCutM * std::max(1.0, std::hypot(e1, n1) + std::hypot(e2, n2))) { continue; }
       if (e1 * e2 + n1 * n2 >= 0.0) { continue; }
-      p->P.erase(p->P.begin() + (long)i);
-      p->Party.erase(p->Party.begin() + (long)i);
+      p->P.erase(p->P.begin() + static_cast<long>(i));
+      p->Party.erase(p->Party.begin() + static_cast<long>(i));
       again = true;
       break;
     }
@@ -312,11 +313,11 @@ void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
   s->RiseM = std::max(topM - s->EavesM, 0.0);
 
   const double want = FloorPreferenceM(s->Use);
-  s->Storeys = std::max(1, (int)std::lround(s->EavesM / want));
-  s->FloorM = s->EavesM / (double)s->Storeys;
+  s->Storeys = std::max(1, static_cast<int>(std::lround(s->EavesM / want)));
+  s->FloorM = s->EavesM / static_cast<double>(s->Storeys);
   if (s->FloorM > 6.5) {
-    s->Storeys = std::max(1, (int)std::floor(s->EavesM / 6.5));
-    s->FloorM = s->EavesM / (double)s->Storeys;
+    s->Storeys = std::max(1, static_cast<int>(std::floor(s->EavesM / 6.5)));
+    s->FloorM = s->EavesM / static_cast<double>(s->Storeys);
   }
   s->BreakFracV = 0.42;
   s->BreakRiseM = s->Roof == RoofKind::Mansard ? 0.78 * s->RiseM : 0.0;
@@ -354,8 +355,8 @@ size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
       const double reach = std::sqrt(toward[0] * toward[0] + toward[1] * toward[1]);
       const double turn = std::fabs(toward[0] * onward[1] - toward[1] * onward[0]);
       if (reach > together && turn > 2.0 * flat) { continue; }
-      ring.erase(ring.begin() + (long)at);
-      if (at < party.size()) { party.erase(party.begin() + (long)at); }
+      ring.erase(ring.begin() + static_cast<long>(at));
+      if (at < party.size()) { party.erase(party.begin() + static_cast<long>(at)); }
       ++dropped;
       again = true;
       break;
@@ -386,14 +387,14 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   }
   s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
   s.Seed = order.Seed;
-  s.Ident = (int)(Mix(order.Seed ^ 0x5bd1e995u) % (uint32_t)kIdentCount);
+  s.Ident = static_cast<int>(Mix(order.Seed ^ 0x5bd1e995u) % static_cast<uint32_t>(kIdentCount));
   s.FootM = order.FootM;
 
   const double top = std::max(order.TopOverFootM, 2.6);
   const double aspect = s.HalfUm / s.HalfVm;
   s.Use = order.Use ? *order.Use : UseOf(s.AreaM2, aspect, top);
   s.PeriodM = std::max(6.0, 2.0 * s.HalfUm / std::max(2.0, std::round(s.HalfUm / 6.0)));
-  s.Storeys = std::max(1, (int)std::lround(top / FloorPreferenceM(s.Use)));
+  s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
   s.Roof = RoofOf(s, aspect);
   SplitHeight(&s, top, PitchDegOf(s.Use, s.Seed, order.HeightMeasured));
 
@@ -449,14 +450,14 @@ int RowCut(const Piece &whole, const BuildingShape &box, Piece *out, int room) {
   const double lengthM = 2.0 * box.HalfUm;
 
   if (lengthM < 2.2 * kPlotM || box.HalfUm < 2.4 * box.HalfVm || box.Fill < 0.80) { return 0; }
-  const int want = std::min(room, (int)std::lround(lengthM / kPlotM));
+  const int want = std::min(room, static_cast<int>(std::lround(lengthM / kPlotM)));
   if (want < 2) { return 0; }
-  const double step = lengthM / (double)want;
+  const double step = lengthM / static_cast<double>(want);
   const double wholeM2 = std::fabs(SignedArea(whole.P));
   Piece rest = whole;
   int made = 0;
   for (int k = 1; k < want; k++) {
-    const En at = box.FromBox(-box.HalfUm + step * (double)k, 0.0);
+    const En at = box.FromBox(-box.HalfUm + step * static_cast<double>(k), 0.0);
     Piece plot, beyond;
     double len = 0.0;
     if (!CutPiece(rest, at, box.AxisU, &plot, &beyond, &len)) { break; }
@@ -492,7 +493,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
     const double standBack = DistanceToKerb(street, {0.5 * (p.E + q.E), 0.5 * (p.N + q.N)});
     if (standBack > -0.4 || standBack < -12.0) { continue; }
     best = look;
-    s->FrontEdge = (int)i;
+    s->FrontEdge = static_cast<int>(i);
   }
 }
 
@@ -538,7 +539,7 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
   if (plots > 1) {
     for (int k = 0; k < plots; k++) {
       PartOrder o = whole;
-      o.Seed = Mix(seed + 0x9e3779b9u * (uint32_t)(k + 1));
+      o.Seed = Mix(seed + 0x9e3779b9u * static_cast<uint32_t>(k + 1));
 
       o.TopOverFootM = topM * (0.84 + 0.32 * UnitOf(o.Seed, 11));
       o.Use = one.Use == BuildingUse::Terrace || one.Use == BuildingUse::House

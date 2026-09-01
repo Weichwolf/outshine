@@ -95,16 +95,19 @@ struct Loaded::Held {
   }
 
   [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {
-    const size_t bytes = (size_t)from.Width * (size_t)from.Height * 4u;
+    const size_t bytes = static_cast<size_t>(from.Width) * static_cast<size_t>(from.Height) * 4u;
     const std::span<const uint8_t> pixels(from.Rgba, bytes);
     for (int at = 0; at < Handed.images(); ++at) {
       const ImageView held = Handed.imageAt(at);
-      if (held.WidthPx != (int)from.Width || held.HeightPx != (int)from.Height) { continue; }
+      if (held.WidthPx != static_cast<int>(from.Width) ||
+          held.HeightPx != static_cast<int>(from.Height)) {
+        continue;
+      }
       if (held.Rgba.size() >= bytes && std::memcmp(held.Rgba.data(), from.Rgba, bytes) == 0) {
         return at;
       }
     }
-    return Handed.addImage((int)from.Width, (int)from.Height, pixels);
+    return Handed.addImage(static_cast<int>(from.Width), static_cast<int>(from.Height), pixels);
   }
 };
 
@@ -170,7 +173,7 @@ const Geometry &Loaded::geometry(void) const {
 }
 
 int Loaded::animations(void) const {
-  return (int)Held_->File.Animations().size();
+  return static_cast<int>(Held_->File.Animations().size());
 }
 
 double Loaded::durationS(void) const {
@@ -186,7 +189,7 @@ bool Loaded::carriesCamera(void) const {
 }
 
 int Loaded::cameras(void) const {
-  return (int)Held_->File.Cameras().size();
+  return static_cast<int>(Held_->File.Cameras().size());
 }
 
 bool Loaded::camera(int index, Camera &out) const {

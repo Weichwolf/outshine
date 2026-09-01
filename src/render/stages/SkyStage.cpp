@@ -105,7 +105,7 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   const SDL_GPUTextureSamplerBinding bound[2] = {{SkyView, Lut}, {Veil, Lut}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 2);
-  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, (uint32_t)sizeof Pushed_);
+  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 

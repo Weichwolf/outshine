@@ -23,7 +23,7 @@ bool Reaches(uint32_t colour) {
 }
 
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
-  const unsigned char lead = (unsigned char)text[at];
+  const unsigned char lead = static_cast<unsigned char>(text[at]);
   size_t length = 1;
   code = lead;
   if ((lead & 0xE0u) == 0xC0u) {
@@ -38,7 +38,7 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   }
   if (at + length > text.size()) { return text.size() - at; }
   for (size_t i = 1; i < length; ++i) {
-    code = (code << 6) | ((unsigned char)text[at + i] & 0x3Fu);
+    code = (code << 6) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
   }
   return length;
 }
@@ -50,8 +50,8 @@ public:
       : Boxes(layout.Boxes()), Face(font), Out(into), Beyond(beyond), Shift(shift) {}
 
   void Walk(int index, const Clip &clip, double opacity) {
-    if (index < 0 || (size_t)index >= Boxes.size()) { return; }
-    const Box &box = Boxes[(size_t)index];
+    if (index < 0 || static_cast<size_t>(index) >= Boxes.size()) { return; }
+    const Box &box = Boxes[static_cast<size_t>(index)];
     const double here = opacity * box.Opacity;
 
     if (!box.Text.empty()) {
@@ -219,8 +219,8 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
 
   const double window = page.HeightPx > 0 ? page.HeightPx : layout.ViewportHeight();
   Painter painter(layout, font, Quads_, Beyond_, page.OffsetY);
-  for (int at = 0; at < (int)layout.Boxes().size(); ++at) {
-    if (layout.Boxes()[(size_t)at].Parent != -1) { continue; }
+  for (int at = 0; at < static_cast<int>(layout.Boxes().size()); ++at) {
+    if (layout.Boxes()[static_cast<size_t>(at)].Parent != -1) { continue; }
     painter.Walk(at, {0, page.OffsetY, layout.ViewportWidth(), window}, 1.0);
   }
   return true;

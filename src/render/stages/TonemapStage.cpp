@@ -85,7 +85,8 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
       float HistoryHeld;
       float Pad[3];
     } uniforms{{JitterDelta[0], JitterDelta[1]},
-               {Width > 0 ? 1.0f / (float)Width : 0.0f, Height > 0 ? 1.0f / (float)Height : 0.0f},
+               {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
+                Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},
                HistoryHeld ? 1.0f : 0.0f,
                {0.0f, 0.0f, 0.0f}};
 

@@ -33,8 +33,8 @@ bool DepthPyramidStage::Configure(const Gpu &gpu,
   Depth_ = depth;
   Held_ = held;
   Into_ = into;
-  Wide_ = (uint32_t)(widePx > 0 ? widePx : 0);
-  High_ = (uint32_t)(highPx > 0 ? highPx : 0);
+  Wide_ = static_cast<uint32_t>(widePx > 0 ? widePx : 0);
+  High_ = static_cast<uint32_t>(highPx > 0 ? highPx : 0);
   Shape_ = PyramidOver(Wide_, High_);
   if (Depth_ == nullptr || Held_ == nullptr || Into_ == nullptr || Wide_ == 0 || High_ == 0) {
     error = "the depth pyramid needs the frame's depth, a sampler and a buffer of its own, and "
@@ -78,7 +78,7 @@ void DepthPyramidStage::Encode(const PassRecording &into) {
     over.DstHigh = Shape_.High[level];
     over.DstAt = Shape_.At[level];
     over.Block = 2u << level;
-    SDL_PushGPUComputeUniformData(into.Commands, 0, &over, (uint32_t)sizeof over);
+    SDL_PushGPUComputeUniformData(into.Commands, 0, &over, static_cast<uint32_t>(sizeof over));
     SDL_DispatchGPUCompute(into.Dispatch,
                            (over.DstWide + KernelShape.GroupX - 1u) / KernelShape.GroupX,
                            (over.DstHigh + KernelShape.GroupY - 1u) / KernelShape.GroupY,

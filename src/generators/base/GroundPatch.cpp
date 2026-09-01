@@ -16,11 +16,13 @@ double Clamped(double v, double lo, double hi) {
 
 std::shared_ptr<const GroundPatch>
 GroundPatch::Complete(const Tile &region, int side, Span<const Posting> postings) {
-  if (side < 2 || postings.Size() != (size_t)side * (size_t)side) { return nullptr; }
+  if (side < 2 || postings.Size() != static_cast<size_t>(side) * static_cast<size_t>(side)) {
+    return nullptr;
+  }
   for (const Posting &p : postings) {
     if (p.Height.Where() != GroundSample::State::Resolved) { return nullptr; }
   }
-  const double steps = (double)(side - 1);
+  const double steps = static_cast<double>(side - 1);
   return std::shared_ptr<const GroundPatch>(
       new GroundPatch(side, region.SpanEm() / steps, region.SpanNm() / steps, postings));
 }
@@ -36,15 +38,19 @@ GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<cons
 }
 
 double GroundPatch::HeightAslM(double eastM, double northM) const noexcept {
-  const double u = Clamped(eastM / SpacingEm_, 0.0, (double)(Side_ - 1));
-  const double v = Clamped(northM / SpacingNm_, 0.0, (double)(Side_ - 1));
-  const int i0 = (int)u, j0 = (int)v;
+  const double u = Clamped(eastM / SpacingEm_, 0.0, static_cast<double>(Side_ - 1));
+  const double v = Clamped(northM / SpacingNm_, 0.0, static_cast<double>(Side_ - 1));
+  const int i0 = static_cast<int>(u), j0 = static_cast<int>(v);
   const int i1 = i0 + 1 < Side_ ? i0 + 1 : i0, j1 = j0 + 1 < Side_ ? j0 + 1 : j0;
-  const double fu = u - (double)i0, fv = v - (double)j0;
-  const double a = AslM_[(size_t)j0 * (size_t)Side_ + (size_t)i0];
-  const double b = AslM_[(size_t)j0 * (size_t)Side_ + (size_t)i1];
-  const double c = AslM_[(size_t)j1 * (size_t)Side_ + (size_t)i0];
-  const double d = AslM_[(size_t)j1 * (size_t)Side_ + (size_t)i1];
+  const double fu = u - static_cast<double>(i0), fv = v - static_cast<double>(j0);
+  const double a =
+      AslM_[static_cast<size_t>(j0) * static_cast<size_t>(Side_) + static_cast<size_t>(i0)];
+  const double b =
+      AslM_[static_cast<size_t>(j0) * static_cast<size_t>(Side_) + static_cast<size_t>(i1)];
+  const double c =
+      AslM_[static_cast<size_t>(j1) * static_cast<size_t>(Side_) + static_cast<size_t>(i0)];
+  const double d =
+      AslM_[static_cast<size_t>(j1) * static_cast<size_t>(Side_) + static_cast<size_t>(i1)];
   return (a + (b - a) * fu) * (1.0 - fv) + (c + (d - c) * fu) * fv;
 }
 

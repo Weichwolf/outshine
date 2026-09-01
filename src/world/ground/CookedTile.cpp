@@ -27,16 +27,19 @@ void CookTile(const float *soup,
   if (gridverts <= 0 || gridverts > nverts) { gridverts = nverts; }
 
   {
-    outVerts.assign(soup, soup + (size_t)gridverts * kTileSoupFloats);
-    outIdx.resize((size_t)gridverts);
+    outVerts.assign(soup, soup + static_cast<size_t>(gridverts) * kTileSoupFloats);
+    outIdx.resize(static_cast<size_t>(gridverts));
     for (int vertex = 0; vertex < gridverts; ++vertex) {
-      outIdx[(size_t)vertex] = (uint32_t)vertex;
+      outIdx[static_cast<size_t>(vertex)] = static_cast<uint32_t>(vertex);
     }
     DagCluster whole{};
-    whole.Count = (uint32_t)gridverts;
+    whole.Count = static_cast<uint32_t>(gridverts);
     whole.ParentErr = kDagRootErr;
-    BoundingSphere(
-        soup, (uint32_t)gridverts, (int)kTileSoupFloats, whole.SelfCenter, &whole.SelfRadius);
+    BoundingSphere(soup,
+                   static_cast<uint32_t>(gridverts),
+                   static_cast<int>(kTileSoupFloats),
+                   whole.SelfCenter,
+                   &whole.SelfRadius);
     outClusters.push_back(whole);
   }
 }

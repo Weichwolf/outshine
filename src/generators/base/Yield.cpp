@@ -13,7 +13,7 @@ Yield::Yield(OccupancySink &space, Span<const char *const> names, Span<Note> not
 Claim Yield::Place(const Body &body) noexcept {
   const uint32_t before = Space_->Claims(Claim::Outcome::Placed);
   const Claim claim = Space_->Place(body);
-  Claims_[(size_t)claim.Why()]++;
+  Claims_[static_cast<size_t>(claim.Why())]++;
   if (claim.Why() == Claim::Outcome::Placed) {
     if (Range_.Count == 0) { Range_.First = before; }
     Range_.Count++;

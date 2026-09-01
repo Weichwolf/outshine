@@ -46,8 +46,8 @@ bool Json::ParseString(uint32_t &off, uint32_t &len, bool &escaped) {
       continue;
     }
     if (c == '"') {
-      off = (uint32_t)start;
-      len = (uint32_t)(P_ - start);
+      off = static_cast<uint32_t>(start);
+      len = static_cast<uint32_t>(P_ - start);
       P_++;
       return true;
     }
@@ -65,14 +65,14 @@ int32_t Json::ParseValue() {
   const int32_t id = ParseValueInside();
   --Depth_;
   if (id >= 0) {
-    Nodes_[(size_t)id].From = (uint32_t)from;
-    Nodes_[(size_t)id].To = (uint32_t)P_;
+    Nodes_[static_cast<size_t>(id)].From = static_cast<uint32_t>(from);
+    Nodes_[static_cast<size_t>(id)].To = static_cast<uint32_t>(P_);
   }
   return id;
 }
 
 int32_t Json::ParseValueInside() {
-  const int32_t id = (int32_t)Nodes_.size();
+  const int32_t id = static_cast<int32_t>(Nodes_.size());
   Nodes_.emplace_back();
   const char c = Text_[P_];
 
@@ -101,9 +101,9 @@ int32_t Json::ParseValueInside() {
       const int32_t kid = ParseValue();
       if (kid < 0) { return -1; }
       if (obj) {
-        Nodes_[(size_t)kid].Key = koff;
-        Nodes_[(size_t)kid].KeyLen = klen;
-        Nodes_[(size_t)kid].KeyEscaped = kesc;
+        Nodes_[static_cast<size_t>(kid)].Key = koff;
+        Nodes_[static_cast<size_t>(kid)].KeyLen = klen;
+        Nodes_[static_cast<size_t>(kid)].KeyEscaped = kesc;
       }
       kids.push_back(kid);
       Skip();
@@ -116,10 +116,10 @@ int32_t Json::ParseValueInside() {
       if (Text_[P_] != close) { return -1; }
       afterComma = false;
     }
-    Node &n = Nodes_[(size_t)id];
+    Node &n = Nodes_[static_cast<size_t>(id)];
     n.K = obj ? Kind::Object : Kind::Array;
-    n.First = (uint32_t)Kids_.size();
-    n.Count = (uint32_t)kids.size();
+    n.First = static_cast<uint32_t>(Kids_.size());
+    n.Count = static_cast<uint32_t>(kids.size());
     Kids_.insert(Kids_.end(), kids.begin(), kids.end());
     return id;
   }
@@ -128,7 +128,7 @@ int32_t Json::ParseValueInside() {
     uint32_t off = 0, len = 0;
     bool esc = false;
     if (!ParseString(off, len, esc)) { return -1; }
-    Node &n = Nodes_[(size_t)id];
+    Node &n = Nodes_[static_cast<size_t>(id)];
     n.K = Kind::String;
     n.Str = off;
     n.StrLen = len;
@@ -152,17 +152,17 @@ int32_t Json::ParseValueInside() {
     return true;
   };
   if (literal("true", 4)) {
-    Nodes_[(size_t)id].K = Kind::Bool;
-    Nodes_[(size_t)id].Num = 1.0;
+    Nodes_[static_cast<size_t>(id)].K = Kind::Bool;
+    Nodes_[static_cast<size_t>(id)].Num = 1.0;
     return id;
   }
   if (literal("false", 5)) {
-    Nodes_[(size_t)id].K = Kind::Bool;
-    Nodes_[(size_t)id].Num = 0.0;
+    Nodes_[static_cast<size_t>(id)].K = Kind::Bool;
+    Nodes_[static_cast<size_t>(id)].Num = 0.0;
     return id;
   }
   if (literal("null", 4)) {
-    Nodes_[(size_t)id].K = Kind::Null;
+    Nodes_[static_cast<size_t>(id)].K = Kind::Null;
     return id;
   }
 
@@ -199,8 +199,8 @@ int32_t Json::ParseValueInside() {
       return -1;
     }
     P_ = at;
-    Nodes_[(size_t)id].K = Kind::Number;
-    Nodes_[(size_t)id].Num = v;
+    Nodes_[static_cast<size_t>(id)].K = Kind::Number;
+    Nodes_[static_cast<size_t>(id)].Num = v;
     return id;
   }
 }
@@ -225,12 +225,13 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
 
       case 'u': {
         if (i + 4 >= len) { break; }
-        unsigned cp = (unsigned)std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16);
+        unsigned cp =
+            static_cast<unsigned>(std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16));
         i += 4;
         if (cp >= 0xD800 && cp <= 0xDBFF && i + 6 < len && Text_[off + i + 1] == '\\' &&
             Text_[off + i + 2] == 'u') {
-          const unsigned low =
-              (unsigned)std::strtoul(Text_.substr(off + i + 3, 4).c_str(), nullptr, 16);
+          const unsigned low = static_cast<unsigned>(
+              std::strtoul(Text_.substr(off + i + 3, 4).c_str(), nullptr, 16));
           if (low >= 0xDC00 && low <= 0xDFFF) {
             cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
             i += 6;
@@ -238,19 +239,19 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
         }
         if (cp >= 0xD800 && cp <= 0xDFFF) { cp = 0xFFFD; }
         if (cp < 0x80) {
-          out.push_back((char)cp);
+          out.push_back(static_cast<char>(cp));
         } else if (cp < 0x800) {
-          out.push_back((char)(0xC0 | (cp >> 6)));
-          out.push_back((char)(0x80 | (cp & 0x3F)));
+          out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+          out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
         } else if (cp < 0x10000) {
-          out.push_back((char)(0xE0 | (cp >> 12)));
-          out.push_back((char)(0x80 | ((cp >> 6) & 0x3F)));
-          out.push_back((char)(0x80 | (cp & 0x3F)));
+          out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+          out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+          out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
         } else {
-          out.push_back((char)(0xF0 | (cp >> 18)));
-          out.push_back((char)(0x80 | ((cp >> 12) & 0x3F)));
-          out.push_back((char)(0x80 | ((cp >> 6) & 0x3F)));
-          out.push_back((char)(0x80 | (cp & 0x3F)));
+          out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+          out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+          out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+          out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
         }
         break;
       }
@@ -262,34 +263,34 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
 
 Json::Ref Json::Ref::operator[](size_t i) const {
   if (!Valid()) { return Ref(); }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (i >= n.Count) { return Ref(); }
   return Ref(Doc, Doc->Kids_[n.First + i]);
 }
 
 std::string_view Json::Ref::Source() const {
   if (!Valid()) { return std::string_view(); }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.To <= n.From || n.To > Doc->Text_.size()) { return std::string_view(); }
   return std::string_view(Doc->Text_).substr(n.From, n.To - n.From);
 }
 
 std::string Json::Ref::Key(size_t i) const {
   if (!Valid()) { return std::string(); }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.K != Kind::Object || i >= n.Count) { return std::string(); }
-  const Json::Node &c = Doc->Nodes_[(size_t)Doc->Kids_[n.First + i]];
+  const Json::Node &c = Doc->Nodes_[static_cast<size_t>(Doc->Kids_[n.First + i])];
   return Doc->Decode(c.Key, c.KeyLen, c.KeyEscaped);
 }
 
 Json::Ref Json::Ref::operator[](const char *key) const {
   if (!Valid() || !key) { return Ref(); }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.K != Kind::Object) { return Ref(); }
   const size_t klen = std::strlen(key);
   for (uint32_t i = 0; i < n.Count; i++) {
     const int32_t kid = Doc->Kids_[n.First + i];
-    const Json::Node &c = Doc->Nodes_[(size_t)kid];
+    const Json::Node &c = Doc->Nodes_[static_cast<size_t>(kid)];
     if (c.KeyEscaped) {
       if (Doc->Decode(c.Key, c.KeyLen, true) == key) { return Ref(Doc, kid); }
     } else if (c.KeyLen == klen && !std::memcmp(Doc->Text_.c_str() + c.Key, key, klen)) {
@@ -301,25 +302,25 @@ Json::Ref Json::Ref::operator[](const char *key) const {
 
 double Json::Ref::Num(double def) const {
   if (!Valid()) { return def; }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   return n.K == Kind::Number ? n.Num : def;
 }
 
 bool Json::Ref::Bool(bool def) const {
   if (!Valid()) { return def; }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   return n.K == Kind::Bool ? n.Num != 0.0 : def;
 }
 
 std::string Json::Ref::Str(const char *def) const {
   if (!Valid()) { return def; }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   return n.K == Kind::String ? Doc->Decode(n.Str, n.StrLen, n.Escaped) : std::string(def);
 }
 
 bool Json::Ref::StrEquals(const char *s) const {
   if (!Valid() || !s) { return false; }
-  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  const Json::Node &n = Doc->Nodes_[static_cast<size_t>(Node)];
   if (n.K != Kind::String) { return false; }
   if (n.Escaped) { return Doc->Decode(n.Str, n.StrLen, true) == s; }
   const size_t l = std::strlen(s);

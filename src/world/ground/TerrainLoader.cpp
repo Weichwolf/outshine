@@ -49,7 +49,7 @@ double Wrapped180(double lonDeg) {
 int DerivedThreads(int workers) {
   if (workers > 0 && workers <= 32) { return workers; }
   const unsigned hw = std::thread::hardware_concurrency();
-  int n = hw > 3u ? (int)hw - 2 : 1;
+  int n = hw > 3u ? static_cast<int>(hw) - 2 : 1;
   if (n > kMaxTileThreads) { n = kMaxTileThreads; }
   return n;
 }
@@ -63,29 +63,32 @@ void FillNodeHeights(const TerrainField &field,
                      uint32_t colPostings,
                      int nodes,
                      std::vector<float> *out) {
-  out->resize((size_t)nodes * (size_t)nodes);
+  out->resize(static_cast<size_t>(nodes) * static_cast<size_t>(nodes));
   for (int j = 0; j < nodes; j++) {
     const double fr = PostingFrac(Ground::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
     for (int i = 0; i < nodes; i++) {
       const double fc = PostingFrac(Ground::ChunkNodePosting(i, colPostings, nodes), colPostings);
-      (*out)[(size_t)j * (size_t)nodes + (size_t)i] = field.PostingM(fc, fr);
+      (*out)[static_cast<size_t>(j) * static_cast<size_t>(nodes) + static_cast<size_t>(i)] =
+          field.PostingM(fc, fr);
     }
   }
 }
 
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
-  const double px = Clamped01(fx) * (double)(postings - 1);
-  const double py = Clamped01(fy) * (double)(postings - 1);
+  const double px = Clamped01(fx) * static_cast<double>(postings - 1);
+  const double py = Clamped01(fy) * static_cast<double>(postings - 1);
   const int i = Ground::ChunkNodeCell(px, postings, side);
   const int j = Ground::ChunkNodeCell(py, postings, side);
   const uint32_t c0 = Ground::ChunkNodePosting(i, postings, side);
   const uint32_t c1 = Ground::ChunkNodePosting(i + 1, postings, side);
   const uint32_t r0 = Ground::ChunkNodePosting(j, postings, side);
   const uint32_t r1 = Ground::ChunkNodePosting(j + 1, postings, side);
-  const float su = (float)((px - (double)c0) / (double)(c1 - c0));
-  const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
+  const float su =
+      static_cast<float>((px - static_cast<double>(c0)) / static_cast<double>(c1 - c0));
+  const float sv =
+      static_cast<float>((py - static_cast<double>(r0)) / static_cast<double>(r1 - r0));
   const Ground::ChunkCell cell{nodes, side, j, i};
-  return (double)Ground::ChunkCellHeight(cell, su, sv);
+  return static_cast<double>(Ground::ChunkCellHeight(cell, su, sv));
 }
 
 struct Tile {
@@ -153,11 +156,14 @@ GroundStream::~GroundStream() {
     Log::Debug(
         "world",
         "ground_oracle",
-        {{"tileBuilds", (int)Held_->Builds},
-         {"demDecodes", (int)Held_->Decodes},
-         {"decodesPerBuild", Held_->Builds ? (double)Held_->Decodes / (double)Held_->Builds : 0.0},
+        {{"tileBuilds", static_cast<int>(Held_->Builds)},
+         {"demDecodes", static_cast<int>(Held_->Decodes)},
+         {"decodesPerBuild",
+          Held_->Builds ? static_cast<double>(Held_->Decodes) / static_cast<double>(Held_->Builds)
+                        : 0.0},
          {"stitchMs", Held_->StitchMs},
-         {"stitchMsPerBuild", Held_->Builds ? Held_->StitchMs / (double)Held_->Builds : 0.0},
+         {"stitchMsPerBuild",
+          Held_->Builds ? Held_->StitchMs / static_cast<double>(Held_->Builds) : 0.0},
          {"gridCache", kGroundStitchGrids},
          {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
   }
@@ -184,7 +190,8 @@ void GroundStream::KeepCoarse(long x, long y) const {
   const int zoom = Surface_.Z - kCoarseDrop;
   if (zoom < 1) { return; }
   held.Pending = false;
-  const TerrainGrid grid = held.Stitched->StitchedGrid(zoom, (uint32_t)x, (uint32_t)y);
+  const TerrainGrid grid =
+      held.Stitched->StitchedGrid(zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y));
   const TerrainField *field = grid.TryField();
   if (held.Pending) { return; }
   const uint32_t stride = held.Stitched->Stride();
@@ -223,18 +230,20 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, zoom);
-  const double u = f.X - (double)(long)f.X, v = f.Y - (double)(long)f.Y;
-  const double step = tile.Postings > 0 ? 1.0 / (double)tile.Postings : 0.0;
+  const double u = f.X - static_cast<double>(static_cast<long>(f.X)),
+               v = f.Y - static_cast<double>(static_cast<long>(f.Y));
+  const double step = tile.Postings > 0 ? 1.0 / static_cast<double>(tile.Postings) : 0.0;
   const double here = TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, v);
   if (!(step > 0.0)) { return GroundSample::At(here); }
 
   const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
   const double eastAt = clamped(u + step), westAt = clamped(u - step);
   const double southAt = clamped(v + step), northAt = clamped(v - step);
-  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) / (double)((long)1 << zoom) /
-                       (double)Surface_.Grid;
-  const double acrossEastM = (eastAt - westAt) * (double)tile.Postings * spanM;
-  const double acrossNorthM = (southAt - northAt) * (double)tile.Postings * spanM;
+  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
+                       static_cast<double>(static_cast<long>(1) << zoom) /
+                       static_cast<double>(Surface_.Grid);
+  const double acrossEastM = (eastAt - westAt) * static_cast<double>(tile.Postings) * spanM;
+  const double acrossNorthM = (southAt - northAt) * static_cast<double>(tile.Postings) * spanM;
   if (!(acrossEastM > 0.0) || !(acrossNorthM > 0.0)) { return GroundSample::At(here); }
 
   const double byEast = (TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, eastAt, v) -
@@ -260,7 +269,7 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
-  long hx = (long)f.X, hy = (long)f.Y;
+  long hx = static_cast<long>(f.X), hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
@@ -301,12 +310,15 @@ const Tile *GroundStream::TileAt(long x, long y) const {
       held.Stitched->Shapes(how);
     }
   }
-  const TerrainGrid grid = held.Stitched->StitchedGrid(Surface_.Z, (uint32_t)x, (uint32_t)y);
+  const TerrainGrid grid =
+      held.Stitched->StitchedGrid(Surface_.Z, static_cast<uint32_t>(x), static_cast<uint32_t>(y));
   held.StitchMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   const TerrainField *field = grid.TryField();
   if (grid.Where() == TerrainGrid::State::Undecodable) {
-    Log::Error("world", "ground_grid_failed", {{"z", Surface_.Z}, {"x", (int)x}, {"y", (int)y}});
+    Log::Error("world",
+               "ground_grid_failed",
+               {{"z", Surface_.Z}, {"x", static_cast<int>(x)}, {"y", static_cast<int>(y)}});
   }
   const uint32_t stride = held.Stitched->Stride();
   const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
@@ -338,18 +350,22 @@ GroundSample GroundStream::At(double lat, double lon) const {
   place.LatDeg = lat;
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
-  long hx = (long)f.X, hy = (long)f.Y;
+  long hx = static_cast<long>(f.X), hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
   if (!t) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
-  return GroundSample::At(
-      TileHeightAslM(t->H.data(), t->Nodes, t->Postings, f.X - (double)hx, f.Y - (double)hy));
+  return GroundSample::At(TileHeightAslM(t->H.data(),
+                                         t->Nodes,
+                                         t->Postings,
+                                         f.X - static_cast<double>(hx),
+                                         f.Y - static_cast<double>(hy)));
 }
 
 double GroundStream::PostM(double latDeg) const {
-  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) / (double)((long)1 << Surface_.Z) /
-         (double)Surface_.Grid;
+  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) /
+         static_cast<double>(static_cast<long>(1) << Surface_.Z) /
+         static_cast<double>(Surface_.Grid);
 }
 
 GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
@@ -385,12 +401,12 @@ void GroundBlock::AslMRow(
   const double tx0 = fromFrac.X, ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
 
-  const double width = (double)((long)1 << Zoom_);
+  const double width = static_cast<double>(static_cast<long>(1) << Zoom_);
   if ((tx1 - tx0) * lonStepDeg < 0.0) { tx1 += lonStepDeg > 0.0 ? width : -width; }
-  const double fy = ty - (double)Y_;
-  const double fx0 = tx0 - (double)X_, fxStep = tx1 - tx0;
+  const double fy = ty - static_cast<double>(Y_);
+  const double fx0 = tx0 - static_cast<double>(X_), fxStep = tx1 - tx0;
   for (int i = 0; i < count; i++) {
-    out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
+    out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + static_cast<double>(i) * fxStep, fy);
   }
 }
 
@@ -401,7 +417,7 @@ TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double pa
   config.Threads = DerivedThreads(workers);
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;
-  if (patienceS > 0.0) { config.PollAttempts = (int)(patienceS * 1000.0); }
+  if (patienceS > 0.0) { config.PollAttempts = static_cast<int>(patienceS * 1000.0); }
   return config;
 }
 

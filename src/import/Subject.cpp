@@ -213,14 +213,14 @@ bool Subject::BlendSkinFor(const Document &document,
         const double share = weight[base + slot];
         if (share == 0.0) { continue; }
         const double named = index[base + slot];
-        if (!(named >= 0.0) || (size_t)named >= joints.size()) {
+        if (!(named >= 0.0) || static_cast<size_t>(named) >= joints.size()) {
           return Refuse(document.Path() + ": JOINTS_" + std::to_string(set) + " of vertex " +
                         std::to_string(vertex) + " names joint " +
-                        std::to_string((long long)named) + " and the skin declares " +
+                        std::to_string(static_cast<long long>(named)) + " and the skin declares " +
                         std::to_string(joints.size()));
         }
         sum += share;
-        const Transform &matrix = joints[(size_t)named];
+        const Transform &matrix = joints[static_cast<size_t>(named)];
         for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
       }
     }
@@ -280,7 +280,9 @@ bool Subject::SuppliedTangentsFor(const Document &document,
       double global[3];
       placed.Direction(local, global);
       (void)Normalise(global);
-      for (int axis = 0; axis < 3; ++axis) { into[vertex * 4 + (size_t)axis] = global[axis]; }
+      for (int axis = 0; axis < 3; ++axis) {
+        into[vertex * 4 + static_cast<size_t>(axis)] = global[axis];
+      }
       into[vertex * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
     }
     part.Tangent = TangentSource::Supplied;
@@ -292,8 +294,9 @@ bool Subject::SuppliedTangentsFor(const Document &document,
 bool Subject::GeneratedTangentsFor(Part &part) {
   Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
   if (part.Tangent == TangentSource::Supplied) { return true; }
-  const bool needed = part.Material >= 0 && (size_t)part.Material < TangentWanted_.size() &&
-                      TangentWanted_[(size_t)part.Material] != 0;
+  const bool needed = part.Material >= 0 &&
+                      static_cast<size_t>(part.Material) < TangentWanted_.size() &&
+                      TangentWanted_[static_cast<size_t>(part.Material)] != 0;
   if (!needed || !part.HasNormal || !part.HasUv || part.IndexCount == 0) { return true; }
 
   TangentSubject over;
@@ -322,36 +325,36 @@ bool Subject::GeneratedTangentsFor(Part &part) {
     if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
     BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);
 
-    key.Bits[0] ^= (uint64_t)vertex * 0x9e3779b97f4a7c15ull;
+    key.Bits[0] ^= static_cast<uint64_t>(vertex) * 0x9e3779b97f4a7c15ull;
     const auto found = split.find(key);
     if (found != split.end()) {
       Indices_[part.FirstIndex + corner] = found->second;
       continue;
     }
-    const uint32_t made = (uint32_t)VertexCount();
+    const uint32_t made = static_cast<uint32_t>(VertexCount());
     for (size_t axis = 0; axis < 3; ++axis) { Positions_.push_back(Positions_[vertex * 3 + axis]); }
-    Uv_.resize((size_t)made * 2 + 2, 0.0);
-    Uv_[(size_t)made * 2] = Uv_[vertex * 2];
-    Uv_[(size_t)made * 2 + 1] = Uv_[vertex * 2 + 1];
+    Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
+    Uv_[static_cast<size_t>(made) * 2] = Uv_[vertex * 2];
+    Uv_[static_cast<size_t>(made) * 2 + 1] = Uv_[vertex * 2 + 1];
 
     if (!Uv1_.empty()) {
-      Uv1_.resize((size_t)made * 2 + 2, 0.0);
-      Uv1_[(size_t)made * 2] = Uv1_[vertex * 2];
-      Uv1_[(size_t)made * 2 + 1] = Uv1_[vertex * 2 + 1];
+      Uv1_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
+      Uv1_[static_cast<size_t>(made) * 2] = Uv1_[vertex * 2];
+      Uv1_[static_cast<size_t>(made) * 2 + 1] = Uv1_[vertex * 2 + 1];
     }
 
     if (!Colours_.empty()) {
-      Colours_.resize((size_t)made * 4 + 4, 0.0);
+      Colours_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
       for (size_t channel = 0; channel < 4; ++channel) {
-        Colours_[(size_t)made * 4 + channel] = Colours_[vertex * 4 + channel];
+        Colours_[static_cast<size_t>(made) * 4 + channel] = Colours_[vertex * 4 + channel];
       }
     }
-    Normals_.resize((size_t)made * 3 + 3, 0.0);
+    Normals_.resize(static_cast<size_t>(made) * 3 + 3, 0.0);
     for (size_t axis = 0; axis < 3; ++axis) {
-      Normals_[(size_t)made * 3 + axis] = Normals_[vertex * 3 + axis];
+      Normals_[static_cast<size_t>(made) * 3 + axis] = Normals_[vertex * 3 + axis];
     }
-    Tangents_.resize((size_t)made * 4 + 4, 0.0);
-    for (size_t at = 0; at < 4; ++at) { Tangents_[(size_t)made * 4 + at] = basis[at]; }
+    Tangents_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
+    for (size_t at = 0; at < 4; ++at) { Tangents_[static_cast<size_t>(made) * 4 + at] = basis[at]; }
     split.emplace(key, made);
     Indices_[part.FirstIndex + corner] = made;
   }
@@ -376,36 +379,39 @@ bool Subject::FlatNormalsFor(Part &part) {
         continue;
       }
 
-      const uint32_t made = (uint32_t)VertexCount();
+      const uint32_t made = static_cast<uint32_t>(VertexCount());
       for (size_t axis = 0; axis < 3; ++axis) {
-        Positions_.push_back(Positions_[(size_t)vertex * 3 + axis]);
+        Positions_.push_back(Positions_[static_cast<size_t>(vertex) * 3 + axis]);
       }
-      Normals_.resize((size_t)made * 3 + 3, 0.0);
+      Normals_.resize(static_cast<size_t>(made) * 3 + 3, 0.0);
       if (!Uv_.empty()) {
-        Uv_.resize((size_t)made * 2 + 2, 0.0);
-        Uv_[(size_t)made * 2] = Uv_[(size_t)vertex * 2];
-        Uv_[(size_t)made * 2 + 1] = Uv_[(size_t)vertex * 2 + 1];
+        Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
+        Uv_[static_cast<size_t>(made) * 2] = Uv_[static_cast<size_t>(vertex) * 2];
+        Uv_[static_cast<size_t>(made) * 2 + 1] = Uv_[static_cast<size_t>(vertex) * 2 + 1];
       }
       if (!Uv1_.empty()) {
-        Uv1_.resize((size_t)made * 2 + 2, 0.0);
-        Uv1_[(size_t)made * 2] = Uv1_[(size_t)vertex * 2];
-        Uv1_[(size_t)made * 2 + 1] = Uv1_[(size_t)vertex * 2 + 1];
+        Uv1_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
+        Uv1_[static_cast<size_t>(made) * 2] = Uv1_[static_cast<size_t>(vertex) * 2];
+        Uv1_[static_cast<size_t>(made) * 2 + 1] = Uv1_[static_cast<size_t>(vertex) * 2 + 1];
       }
       if (!Colours_.empty()) {
-        Colours_.resize((size_t)made * 4 + 4, 0.0);
+        Colours_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
         for (size_t channel = 0; channel < 4; ++channel) {
-          Colours_[(size_t)made * 4 + channel] = Colours_[(size_t)vertex * 4 + channel];
+          Colours_[static_cast<size_t>(made) * 4 + channel] =
+              Colours_[static_cast<size_t>(vertex) * 4 + channel];
         }
       }
-      if (!Tangents_.empty()) { Tangents_.resize((size_t)made * 4 + 4, 0.0); }
+      if (!Tangents_.empty()) { Tangents_.resize(static_cast<size_t>(made) * 4 + 4, 0.0); }
       of[corner] = made;
       Indices_[part.FirstIndex + triangle + corner] = made;
     }
 
     double edge[2][3];
     for (size_t axis = 0; axis < 3; ++axis) {
-      edge[0][axis] = Positions_[(size_t)of[1] * 3 + axis] - Positions_[(size_t)of[0] * 3 + axis];
-      edge[1][axis] = Positions_[(size_t)of[2] * 3 + axis] - Positions_[(size_t)of[0] * 3 + axis];
+      edge[0][axis] = Positions_[static_cast<size_t>(of[1]) * 3 + axis] -
+                      Positions_[static_cast<size_t>(of[0]) * 3 + axis];
+      edge[1][axis] = Positions_[static_cast<size_t>(of[2]) * 3 + axis] -
+                      Positions_[static_cast<size_t>(of[0]) * 3 + axis];
     }
     double face[3] = {edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
                       edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
@@ -419,7 +425,7 @@ bool Subject::FlatNormalsFor(Part &part) {
     }
     for (size_t corner = 0; corner < 3; ++corner) {
       for (size_t axis = 0; axis < 3; ++axis) {
-        Normals_[(size_t)of[corner] * 3 + axis] = face[axis];
+        Normals_[static_cast<size_t>(of[corner]) * 3 + axis] = face[axis];
       }
     }
   }
@@ -598,7 +604,7 @@ bool Subject::Flatten(const Document &document,
   bool anyColour = false;
 
   const int sceneIndex = document.DefaultScene();
-  if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
+  if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= document.Scenes().size()) {
     return Refuse(document.Path() + ": no default scene to draw");
   }
 
@@ -610,8 +616,8 @@ bool Subject::Flatten(const Document &document,
     }
   }
 
-  std::vector<int> pending(document.Scenes()[(size_t)sceneIndex].Roots.rbegin(),
-                           document.Scenes()[(size_t)sceneIndex].Roots.rend());
+  std::vector<int> pending(document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rbegin(),
+                           document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rend());
 
   std::vector<double> &elements = Scratch_.Elements;
   std::vector<uint32_t> &run = Scratch_.Run;
@@ -620,11 +626,11 @@ bool Subject::Flatten(const Document &document,
   while (!pending.empty()) {
     const int nodeIndex = pending.back();
     pending.pop_back();
-    if (nodeIndex < 0 || (size_t)nodeIndex >= document.Nodes().size()) {
+    if (nodeIndex < 0 || static_cast<size_t>(nodeIndex) >= document.Nodes().size()) {
       return Refuse(document.Path() + ": scene names node " + std::to_string(nodeIndex) +
                     ", which the file does not carry");
     }
-    const Node &node = document.Nodes()[(size_t)nodeIndex];
+    const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
     if (!node.Visible) { continue; }
     for (auto child = node.Children.rbegin(); child != node.Children.rend(); ++child) {
       pending.push_back(*child);
@@ -635,7 +641,7 @@ bool Subject::Flatten(const Document &document,
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
       }
-      const LightRef &declared = document.Lights()[(size_t)node.Light];
+      const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
       PlacedLight placed;
       placed.NodeName = node.Name;
       placed.LightName = declared.Name;
@@ -652,13 +658,13 @@ bool Subject::Flatten(const Document &document,
                       " carries a light and its transform collapses the beam to zero length");
       }
       for (int component = 0; component < 3; ++component) {
-        placed.Light.Position[component] = (float)position[component];
-        placed.Light.Direction[component] = (float)beam[component];
+        placed.Light.Position[component] = static_cast<float>(position[component]);
+        placed.Light.Direction[component] = static_cast<float>(beam[component]);
       }
       Lights_.push_back(std::move(placed));
     }
     if (node.Mesh < 0) { continue; }
-    if ((size_t)node.Mesh >= document.Meshes().size()) {
+    if (static_cast<size_t>(node.Mesh) >= document.Meshes().size()) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
                     std::to_string(node.Mesh) + ", which the file does not carry");
     }
@@ -672,7 +678,8 @@ bool Subject::Flatten(const Document &document,
     std::vector<double> &nodeWeights = Scratch_.NodeWeights;
     nodeWeights.clear();
     if (morphCount > 0) {
-      const std::vector<double> &declared = document.Meshes()[(size_t)node.Mesh].Weights;
+      const std::vector<double> &declared =
+          document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
       for (size_t at = 0; at < morphCount; ++at) {
         nodeWeights.push_back(weights ? weights[document.MorphWeightsFirst(nodeIndex) + at]
                                       : (at < declared.size() ? declared[at] : 0.0));
@@ -682,7 +689,7 @@ bool Subject::Flatten(const Document &document,
     std::vector<Transform> &jointMatrices = Scratch_.Joints;
     jointMatrices.clear();
     if (node.Skin >= 0) {
-      const Skin &skin = document.Skins()[(size_t)node.Skin];
+      const Skin &skin = document.Skins()[static_cast<size_t>(node.Skin)];
       jointMatrices.assign(skin.Joints.size(), Transform());
       for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
         Transform placed;
@@ -701,7 +708,8 @@ bool Subject::Flatten(const Document &document,
                     " instances on an accessor this reader cannot decode: " + document.Error());
     }
     for (const Transform &placedWorld : instances) {
-      for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
+      for (const Primitive &primitive :
+           document.Meshes()[static_cast<size_t>(node.Mesh)].Primitives) {
         ++primitives;
         Part part;
         part.NodeName = node.Name;
@@ -721,7 +729,7 @@ bool Subject::Flatten(const Document &document,
 
         if (!DrawsASurface(primitive.Mode)) {
           ++Undrawn_.Primitives;
-          const size_t mode = (size_t)primitive.Mode;
+          const size_t mode = static_cast<size_t>(primitive.Mode);
           if (mode < 7) { ++Undrawn_.ByMode[mode]; }
 
           continue;
@@ -759,7 +767,7 @@ bool Subject::Flatten(const Document &document,
         std::vector<Transform> &skinned = Scratch_.Skinned;
         skinned.clear();
         if (node.Skin >= 0 && !BlendSkinFor(document,
-                                            document.Skins()[(size_t)node.Skin],
+                                            document.Skins()[static_cast<size_t>(node.Skin)],
                                             jointMatrices,
                                             primitive,
                                             vertices,
@@ -808,13 +816,14 @@ bool Subject::Flatten(const Document &document,
         anyColour = anyColour || part.HasColour;
         atCol.assign(vertices * 4, 0.0);
         if (colour >= 0) {
-          if ((size_t)colour >= document.Accessors().size()) {
+          if (static_cast<size_t>(colour) >= document.Accessors().size()) {
             return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
                           ", which the file does not carry");
           }
           size_t components = 0;
           std::string why;
-          if (!VertexColourComponents(document.Accessors()[(size_t)colour], components, why)) {
+          if (!VertexColourComponents(
+                  document.Accessors()[static_cast<size_t>(colour)], components, why)) {
             return Refuse(document.Path() + ": COLOR_0 " + why);
           }
           std::vector<double> &tints = Scratch_.Tints;
@@ -883,7 +892,7 @@ bool Subject::Flatten(const Document &document,
 
             (void)Normalise(global);
             for (int axis = 0; axis < 3; ++axis) {
-              atNor[vertex * 3 + (size_t)axis] = global[axis];
+              atNor[vertex * 3 + static_cast<size_t>(axis)] = global[axis];
             }
           }
         }
@@ -895,7 +904,9 @@ bool Subject::Flatten(const Document &document,
           }
         } else {
           run.resize(vertices);
-          for (size_t vertex = 0; vertex < vertices; ++vertex) { run[vertex] = (uint32_t)vertex; }
+          for (size_t vertex = 0; vertex < vertices; ++vertex) {
+            run[vertex] = static_cast<uint32_t>(vertex);
+          }
         }
         if (!RunIsWhole(primitive.Mode, run.size())) {
           return Refuse(document.Path() + ": " + std::to_string(run.size()) +
@@ -944,7 +955,9 @@ bool Subject::Flatten(const Document &document,
         std::vector<float> &narrowed = Scratch_.Narrowed;
         const auto asFloat = [&narrowed](const std::vector<double> &from) {
           narrowed.resize(from.size());
-          for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = (float)from[at]; }
+          for (size_t at = 0; at < from.size(); ++at) {
+            narrowed[at] = static_cast<float>(from[at]);
+          }
           return std::span<const float>(narrowed.data(), narrowed.size());
         };
         const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
@@ -976,10 +989,12 @@ bool Subject::Flatten(const Document &document,
 }
 
 void Subject::Bound() {
-  for (int axis = 0; axis < 3; ++axis) { Min_[axis] = Max_[axis] = Positions_[(size_t)axis]; }
+  for (int axis = 0; axis < 3; ++axis) {
+    Min_[axis] = Max_[axis] = Positions_[static_cast<size_t>(axis)];
+  }
   for (size_t vertex = 1; vertex < VertexCount(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const double value = Positions_[vertex * 3 + (size_t)axis];
+      const double value = Positions_[vertex * 3 + static_cast<size_t>(axis)];
       if (value < Min_[axis]) { Min_[axis] = value; }
       if (value > Max_[axis]) { Max_[axis] = value; }
     }
@@ -1007,7 +1022,7 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
   }
   const auto floats = [](const std::vector<double> &from, size_t first, size_t many) {
     std::vector<float> made(many);
-    for (size_t at = 0; at < many; ++at) { made[at] = (float)from[first + at]; }
+    for (size_t at = 0; at < many; ++at) { made[at] = static_cast<float>(from[first + at]); }
     return made;
   };
   for (const Part &one : Parts_) {
@@ -1037,7 +1052,7 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     }
     std::vector<uint32_t> run(one.IndexCount);
     for (size_t at = 0; at < one.IndexCount; ++at) {
-      run[at] = (uint32_t)(Indices_[one.FirstIndex + at] - one.FirstVertex);
+      run[at] = static_cast<uint32_t>(Indices_[one.FirstIndex + at] - one.FirstVertex);
     }
     (void)out.setTriangles(made, std::span<const uint32_t>(run.data(), run.size()));
   }
@@ -1072,7 +1087,9 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     placed.LightName = placed.NodeName;
     placed.Light = what.lampAt(lamp);
     const double *const at = what.lampPlacementOf(lamp);
-    for (int axis = 0; axis < 3; ++axis) { placed.Light.Position[axis] = (float)at[12 + axis]; }
+    for (int axis = 0; axis < 3; ++axis) {
+      placed.Light.Position[axis] = static_cast<float>(at[12 + axis]);
+    }
     Lights_.push_back(std::move(placed));
   }
   if (what.parts() == 0) {
@@ -1085,8 +1102,8 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   bool anyNormal = false;
   bool anyTangent = false;
   bool anyColour = false;
-  for (size_t index = 0; index < (size_t)what.parts(); ++index) {
-    const int slot = (int)index;
+  for (size_t index = 0; index < static_cast<size_t>(what.parts()); ++index) {
+    const int slot = static_cast<int>(index);
     const std::span<const float> pPos = what.positionsOf(slot);
     const std::span<const float> pNormals = what.normalsOf(slot);
     const std::span<const float> pUv = what.textureOf(slot, 0);
@@ -1152,25 +1169,27 @@ bool Subject::Assemble(const outshine::Geometry &what) {
       Tangents_.reserve((wholeFloats / 3) * 4);
       Colours_.reserve((wholeFloats / 3) * 4);
     }
-    for (const float component : pPos) { Positions_.push_back((double)component); }
+    for (const float component : pPos) { Positions_.push_back(static_cast<double>(component)); }
 
     Uv_.resize((Positions_.size() / 3) * 2, 0.0);
     Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
     Normals_.resize(Positions_.size(), 0.0);
     Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
     Colours_.resize((Positions_.size() / 3) * 4, 0.0);
-    for (size_t at = 0; at < pUv.size(); ++at) { Uv_[part.FirstVertex * 2 + at] = (double)pUv[at]; }
+    for (size_t at = 0; at < pUv.size(); ++at) {
+      Uv_[part.FirstVertex * 2 + at] = static_cast<double>(pUv[at]);
+    }
     for (size_t at = 0; at < pUv1.size(); ++at) {
-      Uv1_[part.FirstVertex * 2 + at] = (double)pUv1[at];
+      Uv1_[part.FirstVertex * 2 + at] = static_cast<double>(pUv1[at]);
     }
     for (size_t at = 0; at < pNormals.size(); ++at) {
-      Normals_[part.FirstVertex * 3 + at] = (double)pNormals[at];
+      Normals_[part.FirstVertex * 3 + at] = static_cast<double>(pNormals[at]);
     }
     for (size_t at = 0; at < pTangents.size(); ++at) {
-      Tangents_[part.FirstVertex * 4 + at] = (double)pTangents[at];
+      Tangents_[part.FirstVertex * 4 + at] = static_cast<double>(pTangents[at]);
     }
     for (size_t at = 0; at < pColours.size(); ++at) {
-      Colours_[part.FirstVertex * 4 + at] = (double)pColours[at];
+      Colours_[part.FirstVertex * 4 + at] = static_cast<double>(pColours[at]);
     }
 
     for (const uint32_t local : pIndices) {
@@ -1178,7 +1197,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
         return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
                       std::to_string(vertices));
       }
-      Indices_.push_back((uint32_t)part.FirstVertex + local);
+      Indices_.push_back(static_cast<uint32_t>(part.FirstVertex) + local);
     }
     part.IndexCount = Indices_.size() - part.FirstIndex;
     if (!FlatNormalsFor(part) || !GeneratedTangentsFor(part)) { return false; }
@@ -1216,7 +1235,9 @@ bool Subject::Append(const Subject &other) {
   join(Colours_, other.Colours_, 4);
 
   Indices_.reserve(Indices_.size() + other.Indices_.size());
-  for (const uint32_t index : other.Indices_) { Indices_.push_back((uint32_t)vertexBase + index); }
+  for (const uint32_t index : other.Indices_) {
+    Indices_.push_back(static_cast<uint32_t>(vertexBase) + index);
+  }
   int beyond = 0;
   for (const Part &part : Parts_) {
     if (part.Material >= beyond) { beyond = part.Material + 1; }
@@ -1243,7 +1264,7 @@ void Subject::BoundsOf(size_t parts, double least[3], double most[3]) const {
     const Part &part = Parts_[at];
     for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount; ++vertex) {
       for (int axis = 0; axis < 3; ++axis) {
-        const double held = Positions_[vertex * 3 + (size_t)axis];
+        const double held = Positions_[vertex * 3 + static_cast<size_t>(axis)];
         if (!any || held < least[axis]) { least[axis] = held; }
         if (!any || held > most[axis]) { most[axis] = held; }
       }
@@ -1297,7 +1318,7 @@ bool DeclaredPlacement(const Document &document,
                        int cameraIndex,
                        Viewpoint &out,
                        std::string &error) {
-  if (cameraIndex < 0 || (size_t)cameraIndex >= document.Cameras().size()) {
+  if (cameraIndex < 0 || static_cast<size_t>(cameraIndex) >= document.Cameras().size()) {
     error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
             "document declares " + std::to_string(document.Cameras().size());
     return false;
@@ -1315,9 +1336,9 @@ bool DeclaredPlacement(const Document &document,
     return false;
   }
 
-  const Camera &lens = document.Cameras()[(size_t)cameraIndex];
+  const Camera &lens = document.Cameras()[static_cast<size_t>(cameraIndex)];
   Transform world;
-  if (!document.WorldTransform((int)holder, world)) {
+  if (!document.WorldTransform(static_cast<int>(holder), world)) {
     error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
             std::to_string(cameraIndex) + " and its world transform does not resolve";
     return false;
@@ -1348,7 +1369,7 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
   for (size_t triangle = 0; triangle * 3 + 2 < Indices_.size(); ++triangle) {
     double raster[3][2];
     for (int corner = 0; corner < 3; ++corner) {
-      const size_t vertex = Indices_[triangle * 3 + (size_t)corner];
+      const size_t vertex = Indices_[triangle * 3 + static_cast<size_t>(corner)];
       const double point[3] = {
           Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]};
       double ndc[3];

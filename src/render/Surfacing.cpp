@@ -30,14 +30,14 @@ void ResolveDeclaredSurface(const Shape &geometry,
     }
     if (slot == out.Material.size()) {
       SubjectMaterial surface;
-      surface.Row = material >= 0 && (size_t)material < geometry.Surfaces.size()
-                        ? geometry.Surfaces[(size_t)material]
+      surface.Row = material >= 0 && static_cast<size_t>(material) < geometry.Surfaces.size()
+                        ? geometry.Surfaces[static_cast<size_t>(material)]
                         : row;
       out.Slots.push_back(surface);
       out.Decoded.push_back(SurfaceRasters());
       out.Material.push_back(material);
     }
-    out.PartSlot[part] = (uint32_t)slot;
+    out.PartSlot[part] = static_cast<uint32_t>(slot);
   }
 }
 

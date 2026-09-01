@@ -18,17 +18,17 @@ std::string Address::Text() const {
   char *at = text;
   char *const end = text + sizeof text;
   if (How_ == Scheme::TileZxy) {
-    at = Wrote(at, end, (long long)Z_);
+    at = Wrote(at, end, static_cast<long long>(Z_));
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, (long long)X_);
+    at = Wrote(at, end, static_cast<long long>(X_));
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, (long long)Y_);
+    at = Wrote(at, end, static_cast<long long>(Y_));
   } else {
     if (at < end) { *at++ = 'w'; }
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, (long long)X_);
+    at = Wrote(at, end, static_cast<long long>(X_));
   }
-  return std::string(text, (size_t)(at - text));
+  return std::string(text, static_cast<size_t>(at - text));
 }
 
 } // namespace outshine::Data

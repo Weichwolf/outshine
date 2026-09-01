@@ -17,7 +17,7 @@ constexpr size_t kMostSounds = 1024;
 
 int BusGraph::BusNamed(std::string_view id) const {
   for (size_t at = 0; at < Buses_.size(); ++at) {
-    if (Buses_[at].Id == id) { return (int)at; }
+    if (Buses_[at].Id == id) { return static_cast<int>(at); }
   }
   return -1;
 }
@@ -56,11 +56,11 @@ bool BusGraph::Build(std::span<const Bus> buses,
   for (size_t at = 0; at < buses.size(); ++at) {
     if (buses[at].Into.empty()) {
       if (Master_ >= 0) {
-        error = "the buses '" + Buses_[(size_t)Master_].Id + "' and '" + Buses_[at].Id +
-                "' both route into nothing, and a mix has ONE master";
+        error = "the buses '" + Buses_[static_cast<size_t>(Master_)].Id + "' and '" +
+                Buses_[at].Id + "' both route into nothing, and a mix has ONE master";
         return false;
       }
-      Master_ = (int)at;
+      Master_ = static_cast<int>(at);
       continue;
     }
     const int into = BusNamed(buses[at].Into);
@@ -82,7 +82,8 @@ bool BusGraph::Build(std::span<const Bus> buses,
   }
   for (size_t at = 0; at < Buses_.size(); ++at) {
     size_t steps = 0;
-    for (int walk = (int)at; walk >= 0; walk = Buses_[(size_t)walk].Into) {
+    for (int walk = static_cast<int>(at); walk >= 0;
+         walk = Buses_[static_cast<size_t>(walk)].Into) {
       if (++steps > Buses_.size()) {
         error = "the bus '" + Buses_[at].Id +
                 "' never reaches the master -- its route is a cycle, and a cycle on the "
@@ -121,7 +122,8 @@ bool BusGraph::Build(std::span<const Bus> buses,
 }
 
 std::string_view BusGraph::Master() const {
-  return Master_ >= 0 ? std::string_view(Buses_[(size_t)Master_].Id) : std::string_view();
+  return Master_ >= 0 ? std::string_view(Buses_[static_cast<size_t>(Master_)].Id)
+                      : std::string_view();
 }
 
 bool BusGraph::Play(std::string_view id, std::string &error) {
@@ -141,8 +143,8 @@ double BusGraph::GainOf(std::string_view id) const {
   for (const Source &sound : Sounds_) {
     if (sound.Id != id) { continue; }
     double gain = sound.Gain;
-    for (int walk = sound.Into; walk >= 0; walk = Buses_[(size_t)walk].Into) {
-      gain *= Buses_[(size_t)walk].Gain;
+    for (int walk = sound.Into; walk >= 0; walk = Buses_[static_cast<size_t>(walk)].Into) {
+      gain *= Buses_[static_cast<size_t>(walk)].Gain;
     }
     return gain;
   }

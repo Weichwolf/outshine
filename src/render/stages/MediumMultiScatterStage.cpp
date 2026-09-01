@@ -17,10 +17,10 @@ std::string Kernel(std::string &error) {
                 "constant uint kMultiScatterGrid = %uu;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
-                (unsigned)kMultiScatterSteps,
-                (unsigned)kMultiScatterGrid,
-                (double)kMediumLuminanceSegment,
-                (double)kMediumGroundLiftKm);
+                static_cast<unsigned>(kMultiScatterSteps),
+                static_cast<unsigned>(kMultiScatterGrid),
+                static_cast<double>(kMediumLuminanceSegment),
+                static_cast<double>(kMediumGroundLiftKm));
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -80,7 +80,8 @@ void MediumMultiScatterStage::Declare(const Medium &medium) {
 
 void MediumMultiScatterStage::Encode(const PassRecording &into) {
   if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &Declared_, (uint32_t)sizeof Declared_);
+  SDL_PushGPUComputeUniformData(
+      into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound{Transmittance, Lut};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);

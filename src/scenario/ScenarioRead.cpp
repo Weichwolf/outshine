@@ -226,7 +226,8 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
     into.Ground.Shape.WavelengthM = relief.Num("wavelengthM", into.Ground.Shape.WavelengthM);
     into.Ground.Shape.Gradient = relief.Num("gradient", into.Ground.Shape.Gradient);
     into.Ground.Shape.BearingDeg = relief.Num("bearingDeg", into.Ground.Shape.BearingDeg);
-    into.Ground.Shape.Seed = (uint64_t)relief.Num("seed", (double)into.Ground.Shape.Seed);
+    into.Ground.Shape.Seed =
+        static_cast<uint64_t>(relief.Num("seed", static_cast<double>(into.Ground.Shape.Seed)));
   }
   const Xml::Ref osm = from.Child("osm");
   if (osm.Valid()) {
@@ -238,7 +239,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
       made.Area = area;
       made.Bridge = std::string(node.Attr("bridge", "no")) == "yes";
       made.Tunnel = std::string(node.Attr("tunnel", "no")) == "yes";
-      made.Level = (int)node.Num("level", 0.0);
+      made.Level = static_cast<int>(node.Num("level", 0.0));
       const std::string said = node.Attr("points", "");
       size_t at = 0;
       while (at < said.size()) {
@@ -262,8 +263,8 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
   into.Render.Declared = true;
   if (Declares(from, "output")) { into.Render.Outputs.clear(); }
   if (Declares(from, "stage")) { into.Render.Stages.clear(); }
-  into.Render.Frame.WidthPx = (int)from.Int("widthPx", into.Render.Frame.WidthPx);
-  into.Render.Frame.HeightPx = (int)from.Int("heightPx", into.Render.Frame.HeightPx);
+  into.Render.Frame.WidthPx = static_cast<int>(from.Int("widthPx", into.Render.Frame.WidthPx));
+  into.Render.Frame.HeightPx = static_cast<int>(from.Int("heightPx", into.Render.Frame.HeightPx));
   into.Render.Fps = from.Num("fps", into.Render.Fps);
   into.Render.Fill = from.Num("fill", into.Render.Fill);
   into.Render.Audits = std::string(from.Attr("audits", "no")) == "yes";
@@ -313,8 +314,8 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
     into.Motion.Declared = true;
     into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
     into.Motion.StepS = physics.Num("stepS", into.Motion.StepS);
-    into.Motion.MostStepsInArrears =
-        (int)physics.Num("mostStepsInArrears", (double)into.Motion.MostStepsInArrears);
+    into.Motion.MostStepsInArrears = static_cast<int>(
+        physics.Num("mostStepsInArrears", static_cast<double>(into.Motion.MostStepsInArrears)));
   }
 
   const Xml::Ref clock = root.Child("clock");
@@ -398,7 +399,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     Provider made;
     made.Kind = one.Attr("kind");
     made.Pin = one.Attr("pin");
-    made.Rank = (int)one.Int("rank", 0);
+    made.Rank = static_cast<int>(one.Int("rank", 0));
     made.WhenAbsent = one.Attr("whenAbsent");
     into.Providers.push_back(made);
   }
@@ -429,7 +430,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Digest = one.Attr("digest");
     made.Kind = one.Attr("kind");
     made.Variant = one.Attr("variant");
-    made.Clip = (int)one.Num("clip", 0.0);
+    made.Clip = static_cast<int>(one.Num("clip", 0.0));
     const std::string animation = one.Attr("animation", "play");
     if (animation == "play") {
       made.Animation = AssetAnimation::Play;
@@ -448,22 +449,32 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       SurfaceOverride said;
       said.Named = worn.Attr("named");
       said.Node = worn.Attr("node");
-      said.Part = (int)worn.Num("part", -1.0);
+      said.Part = static_cast<int>(worn.Num("part", -1.0));
       said.KeepsMaps = std::string(worn.Attr("keepsMaps", "no")) == "yes";
       const Xml::Ref row = worn.Child("row");
       if (row.Valid()) {
-        said.Row.BaseColour[0] = (float)row.Num("r", (double)said.Row.BaseColour[0]);
-        said.Row.BaseColour[1] = (float)row.Num("g", (double)said.Row.BaseColour[1]);
-        said.Row.BaseColour[2] = (float)row.Num("b", (double)said.Row.BaseColour[2]);
-        said.Row.BaseColour[3] = (float)row.Num("a", (double)said.Row.BaseColour[3]);
-        said.Row.Metalness = (float)row.Num("metalness", (double)said.Row.Metalness);
-        said.Row.Roughness = (float)row.Num("roughness", (double)said.Row.Roughness);
-        said.Row.Emission[0] = (float)row.Num("emissionR", (double)said.Row.Emission[0]);
-        said.Row.Emission[1] = (float)row.Num("emissionG", (double)said.Row.Emission[1]);
-        said.Row.Emission[2] = (float)row.Num("emissionB", (double)said.Row.Emission[2]);
+        said.Row.BaseColour[0] =
+            static_cast<float>(row.Num("r", static_cast<double>(said.Row.BaseColour[0])));
+        said.Row.BaseColour[1] =
+            static_cast<float>(row.Num("g", static_cast<double>(said.Row.BaseColour[1])));
+        said.Row.BaseColour[2] =
+            static_cast<float>(row.Num("b", static_cast<double>(said.Row.BaseColour[2])));
+        said.Row.BaseColour[3] =
+            static_cast<float>(row.Num("a", static_cast<double>(said.Row.BaseColour[3])));
+        said.Row.Metalness =
+            static_cast<float>(row.Num("metalness", static_cast<double>(said.Row.Metalness)));
+        said.Row.Roughness =
+            static_cast<float>(row.Num("roughness", static_cast<double>(said.Row.Roughness)));
+        said.Row.Emission[0] =
+            static_cast<float>(row.Num("emissionR", static_cast<double>(said.Row.Emission[0])));
+        said.Row.Emission[1] =
+            static_cast<float>(row.Num("emissionG", static_cast<double>(said.Row.Emission[1])));
+        said.Row.Emission[2] =
+            static_cast<float>(row.Num("emissionB", static_cast<double>(said.Row.Emission[2])));
         said.Row.Unlit = std::string(row.Attr("unlit", "no")) == "yes";
         said.Row.DoubleSided = std::string(row.Attr("doubleSided", "no")) == "yes";
-        said.Row.CoverageCut = (float)row.Num("coverageCut", (double)said.Row.CoverageCut);
+        said.Row.CoverageCut =
+            static_cast<float>(row.Num("coverageCut", static_cast<double>(said.Row.CoverageCut)));
       }
       made.Surfaces.push_back(said);
     }
@@ -488,7 +499,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Where.TopFrac = one.Num("topFrac", 0.0);
     made.Where.WidthFrac = one.Num("widthFrac", 1.0);
     made.Where.HeightFrac = one.Num("heightFrac", 1.0);
-    made.Z = (int)one.Int("z", 0);
+    made.Z = static_cast<int>(one.Int("z", 0));
     into.Surfaces.push_back(made);
   }
 
@@ -515,7 +526,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       thinks.Hz = mind.Num("hz", 0.0);
       thinks.EverySeconds = mind.Num("everyS", 0.0);
       thinks.StepBudget = mind.Int("stepBudget", 0);
-      thinks.TokenBudget = (int)mind.Int("tokenBudget", 0);
+      thinks.TokenBudget = static_cast<int>(mind.Int("tokenBudget", 0));
       thinks.LatencyBudgetMs = mind.Num("latencyBudgetMs", 0.0);
       thinks.Temperature = mind.Num("temperature", 0.0);
       thinks.Seed = mind.Int("seed", 0);
@@ -529,7 +540,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   }
 
   const Xml::Ref instances = root.Child("instances");
-  into.Room = (size_t)root.Child("scene").Num("room", 0.0);
+  into.Room = static_cast<size_t>(root.Child("scene").Num("room", 0.0));
   for (const Xml::Ref one : instances.Children("instance")) {
     Instance made;
     made.Of = one.Attr("of");

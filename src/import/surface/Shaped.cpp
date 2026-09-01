@@ -16,7 +16,7 @@ namespace {
 void FillFrom(const Subject &from, Render::ShapeStore &into) {
   const auto narrow = [](const std::vector<double> &wide, std::vector<float> &held) {
     held.reserve(wide.size());
-    for (const double value : wide) { held.push_back((float)value); }
+    for (const double value : wide) { held.push_back(static_cast<float>(value)); }
   };
   narrow(from.PositionsM(), into.PositionsM);
   narrow(from.Normals(), into.Normals);
@@ -54,7 +54,7 @@ void FillFrom(const Subject &from, Render::ShapeStore &into) {
 
 void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   const int parts = from.parts();
-  const uint32_t firstSurface = (uint32_t)into.Surfaces.size();
+  const uint32_t firstSurface = static_cast<uint32_t>(into.Surfaces.size());
   size_t wholeIndices = 0;
   for (int part = 0; part < parts; ++part) { wholeIndices += from.trianglesOf(part).size(); }
   into.Indices.reserve(wholeIndices);
@@ -64,11 +64,13 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
   for (int lamp = 0; lamp < from.lamps(); ++lamp) {
     PunctualLight standing = from.lampAt(lamp);
     const double *const at = from.lampPlacementOf(lamp);
-    for (int axis = 0; axis < 3; ++axis) { standing.Position[axis] = (float)at[12 + axis]; }
+    for (int axis = 0; axis < 3; ++axis) {
+      standing.Position[axis] = static_cast<float>(at[12 + axis]);
+    }
     into.Lamps.push_back(standing);
   }
 
-  into.Parts.reserve(into.Parts.size() + (size_t)parts);
+  into.Parts.reserve(into.Parts.size() + static_cast<size_t>(parts));
   size_t firstVertex =
       into.Parts.empty() ? 0u : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
   size_t firstIndex = into.Indices.size();
@@ -76,7 +78,7 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
     Render::ShapePart made;
     made.Name = from.nameOf(part);
     const int wears = from.materialOf(part).index();
-    made.Material = wears < 0 ? -1 : (int)firstSurface + wears;
+    made.Material = wears < 0 ? -1 : static_cast<int>(firstSurface) + wears;
     made.PositionsM = from.positionsOf(part);
     made.Normals = from.normalsOf(part);
     made.Tangents = from.tangentsOf(part);
@@ -93,7 +95,9 @@ void FillFrom(const outshine::Geometry &from, Render::ShapeStore &into) {
     const std::span<const uint32_t> order = from.trianglesOf(part);
     made.FirstIndex = firstIndex;
     made.IndexCount = order.size();
-    for (const uint32_t index : order) { into.Indices.push_back((uint32_t)firstVertex + index); }
+    for (const uint32_t index : order) {
+      into.Indices.push_back(static_cast<uint32_t>(firstVertex) + index);
+    }
     firstVertex += made.VertexCount;
     firstIndex += order.size();
     into.Parts.push_back(made);

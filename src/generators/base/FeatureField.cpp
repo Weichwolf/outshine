@@ -6,10 +6,10 @@ std::shared_ptr<const FeatureField> FeatureField::Of(Span<const Feature> feature
                                                      Span<const Ring> rings,
                                                      Span<const Vertex> vertices) {
   for (const Feature &f : features) {
-    if ((size_t)f.FirstRing + f.RingCount > rings.Size()) { return nullptr; }
+    if (static_cast<size_t>(f.FirstRing) + f.RingCount > rings.Size()) { return nullptr; }
     for (uint32_t i = 0; i < f.RingCount; i++) {
       const Ring &r = rings[f.FirstRing + i];
-      if ((size_t)r.First + r.Count > vertices.Size()) { return nullptr; }
+      if (static_cast<size_t>(r.First) + r.Count > vertices.Size()) { return nullptr; }
     }
   }
   return std::shared_ptr<const FeatureField>(new FeatureField(features, rings, vertices));
@@ -75,7 +75,7 @@ double SegmentGapM2(double em, double nm, double e0, double n0, double e1, doubl
 bool FeatureField::Contains(const Feature &f, double eastM, double northM) const noexcept {
   if (!Boxed(f, eastM, northM)) { return false; }
   if (f.Form == FeatureForm::Ribbon) {
-    const double reach2 = (double)f.HalfWidthM * (double)f.HalfWidthM;
+    const double reach2 = static_cast<double>(f.HalfWidthM) * static_cast<double>(f.HalfWidthM);
     for (const Ring &r : Rings(f)) {
       const Span<const Vertex> v = Vertices(r);
       for (size_t i = 0; i + 1 < v.Size(); i++) {

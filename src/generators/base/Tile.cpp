@@ -17,18 +17,22 @@ uint64_t Mix(uint64_t v) {
 }
 
 double TileLatDeg(int y, int zoom) {
-  const double n = kPi - 2.0 * kPi * (double)y / (double)(1u << (unsigned)zoom);
+  const double n = kPi - 2.0 * kPi * static_cast<double>(y) /
+                             static_cast<double>(1u << static_cast<unsigned>(zoom));
   return kRad2Deg * std::atan(std::sinh(n));
 }
 
 double TileLonDeg(int x, int zoom) {
-  return (double)x / (double)(1u << (unsigned)zoom) * 360.0 - 180.0;
+  return static_cast<double>(x) / static_cast<double>(1u << static_cast<unsigned>(zoom)) * 360.0 -
+         180.0;
 }
 
 } // namespace
 
 Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
-  Seed_ = Mix(((uint64_t)zoom << 58) ^ ((uint64_t)(uint32_t)x << 29) ^ (uint64_t)(uint32_t)y);
+  Seed_ = Mix((static_cast<uint64_t>(zoom) << 58) ^
+              (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 29) ^
+              static_cast<uint64_t>(static_cast<uint32_t>(y)));
   const double south = TileLatDeg(y + 1, zoom), north = TileLatDeg(y, zoom);
   const double west = TileLonDeg(x, zoom), east = TileLonDeg(x + 1, zoom);
   AnchorLat_ = south;
@@ -38,10 +42,11 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
 }
 
 Tile Tile::Of(int zoom, double lat, double lon) {
-  const double scale = (double)(1u << (unsigned)zoom);
+  const double scale = static_cast<double>(1u << static_cast<unsigned>(zoom));
   const double s = std::sin(lat * kDeg2Rad);
-  const int x = (int)std::floor((lon + 180.0) / 360.0 * scale);
-  const int y = (int)std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale);
+  const int x = static_cast<int>(std::floor((lon + 180.0) / 360.0 * scale));
+  const int y =
+      static_cast<int>(std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale));
   return Tile(zoom, x, y);
 }
 

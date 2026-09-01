@@ -134,7 +134,7 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
     if (what[one].Writes != nullptr) {
       what[one].Writes(what[one].Carrying,
                        reinterpret_cast<float *>(mapped + at),
-                       what[one].Bytes / (uint32_t)sizeof(float));
+                       what[one].Bytes / static_cast<uint32_t>(sizeof(float)));
     } else {
       std::memcpy(mapped + at, what[one].From, what[one].Bytes);
     }
@@ -181,7 +181,7 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
     if (what[one].Writes != nullptr) {
       what[one].Writes(what[one].Carrying,
                        reinterpret_cast<float *>(mapped + at),
-                       what[one].Bytes / (uint32_t)sizeof(float));
+                       what[one].Bytes / static_cast<uint32_t>(sizeof(float)));
     } else {
       std::memcpy(mapped + at, what[one].From, what[one].Bytes);
     }
@@ -275,7 +275,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
       levelWidth = smallerWidth;
       levelHeight = smallerHeight;
     }
-    const uint32_t bytes = levelWidth * levelHeight * 4u * (uint32_t)sizeof(float);
+    const uint32_t bytes = levelWidth * levelHeight * 4u * static_cast<uint32_t>(sizeof(float));
     SDL_GPUTransferBufferCreateInfo wantedTransfer{};
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;

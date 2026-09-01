@@ -25,8 +25,9 @@ constexpr uint32_t kRoundConstants[64] = {
 void Compress(uint32_t state[8], const uint8_t block[64]) {
   uint32_t w[64];
   for (int i = 0; i < 16; i++) {
-    w[i] = ((uint32_t)block[i * 4] << 24) | ((uint32_t)block[i * 4 + 1] << 16) |
-           ((uint32_t)block[i * 4 + 2] << 8) | (uint32_t)block[i * 4 + 3];
+    w[i] = (static_cast<uint32_t>(block[i * 4]) << 24) |
+           (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
+           (static_cast<uint32_t>(block[i * 4 + 2]) << 8) | static_cast<uint32_t>(block[i * 4 + 3]);
   }
   for (int i = 16; i < 64; i++) {
     const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
@@ -72,7 +73,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
                        0x9b05688cu,
                        0x1f83d9abu,
                        0x5be0cd19u};
-  const uint8_t *p = (const uint8_t *)data;
+  const uint8_t *p = static_cast<const uint8_t *>(data);
   size_t left = bytes;
   while (left >= 64) {
     Compress(state, p);
@@ -84,9 +85,9 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   std::memcpy(tail, p, left);
   tail[left] = 0x80;
   const size_t tailBlocks = (left + 9 > 64) ? 2u : 1u;
-  const uint64_t bits = (uint64_t)bytes * 8u;
+  const uint64_t bits = static_cast<uint64_t>(bytes) * 8u;
   for (int i = 0; i < 8; i++) {
-    tail[tailBlocks * 64 - 1 - (size_t)i] = (uint8_t)(bits >> (8 * i));
+    tail[tailBlocks * 64 - 1 - static_cast<size_t>(i)] = static_cast<uint8_t>(bits >> (8 * i));
   }
   for (size_t b = 0; b < tailBlocks; b++) { Compress(state, tail + b * 64); }
 
@@ -94,9 +95,9 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   std::string out(64, '0');
   for (int i = 0; i < 8; i++) {
     for (int n = 0; n < 4; n++) {
-      const uint8_t byte = (uint8_t)(state[i] >> (24 - 8 * n));
-      out[(size_t)(i * 8 + n * 2)] = kHex[byte >> 4];
-      out[(size_t)(i * 8 + n * 2 + 1)] = kHex[byte & 15];
+      const uint8_t byte = static_cast<uint8_t>(state[i] >> (24 - 8 * n));
+      out[static_cast<size_t>(i * 8 + n * 2)] = kHex[byte >> 4];
+      out[static_cast<size_t>(i * 8 + n * 2 + 1)] = kHex[byte & 15];
     }
   }
   return out;

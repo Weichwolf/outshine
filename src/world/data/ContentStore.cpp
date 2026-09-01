@@ -60,17 +60,17 @@ ContentStore::ContentStore(const Config &config)
     total += e.Bytes;
     entries.push_back(std::move(e));
   }
-  if (total <= (uintmax_t)CapBytes_) { return; }
+  if (total <= static_cast<uintmax_t>(CapBytes_)) { return; }
   std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
     return a.When < b.When;
   });
   for (const Entry &e : entries) {
-    if (total <= (uintmax_t)CapBytes_) { break; }
+    if (total <= static_cast<uintmax_t>(CapBytes_)) { break; }
     std::error_code removeError;
     if (!std::filesystem::remove(e.Path, removeError)) { continue; }
     total -= e.Bytes;
     Swept_++;
-    SweptBytes_ += (long long)e.Bytes;
+    SweptBytes_ += static_cast<long long>(e.Bytes);
   }
 }
 
@@ -87,8 +87,8 @@ bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) cons
   std::fseek(f, 0, SEEK_SET);
   bool whole = size > 0;
   if (whole) {
-    out->resize((size_t)size);
-    whole = std::fread(out->data(), 1, (size_t)size, f) == (size_t)size;
+    out->resize(static_cast<size_t>(size));
+    whole = std::fread(out->data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
   }
   std::fclose(f);
   if (!whole) {

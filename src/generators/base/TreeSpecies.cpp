@@ -10,7 +10,7 @@ namespace outshine::Generators {
 namespace {
 
 float NumF(const Json::Ref &r, const char *key, float def) {
-  return (float)r[key].Num((double)def);
+  return static_cast<float>(r[key].Num(static_cast<double>(def)));
 }
 
 int NumI(const Json::Ref &r, const char *key, int def) {
@@ -77,7 +77,7 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   f.Foliate = NumB(r, "foliate", f.Foliate);
 
   Growth &g = Growth_;
-  g.Seed = (uint32_t)NumI(r, "seed", (int)g.Seed);
+  g.Seed = static_cast<uint32_t>(NumI(r, "seed", static_cast<int>(g.Seed)));
   g.TrunkSides = NumI(r, "trunk_sides", g.TrunkSides);
   g.BaseRadius = NumF(r, "base_radius", g.BaseRadius);
   g.StepLen = NumF(r, "step_len", g.StepLen);

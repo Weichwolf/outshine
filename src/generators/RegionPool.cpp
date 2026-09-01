@@ -3,10 +3,11 @@
 namespace outshine::Generators {
 
 RegionPool::RegionPool(const Extent &extent, const Shape &shape) {
-  const size_t cells = (size_t)OccupancySink::Cells(extent.Anywhere.SpanEm(), shape.CellM) *
-                       (size_t)OccupancySink::Cells(extent.Anywhere.SpanNm(), shape.CellM);
+  const size_t cells =
+      static_cast<size_t>(OccupancySink::Cells(extent.Anywhere.SpanEm(), shape.CellM)) *
+      static_cast<size_t>(OccupancySink::Cells(extent.Anywhere.SpanNm(), shape.CellM));
   const int sinks = shape.Sinks < 1 ? 1 : shape.Sinks;
-  Slots_.resize((size_t)sinks);
+  Slots_.resize(static_cast<size_t>(sinks));
   for (Slot &s : Slots_) {
     s.Bodies.resize(shape.BodyCapacity);
     s.Links.resize(shape.BodyCapacity);

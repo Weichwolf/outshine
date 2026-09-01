@@ -20,7 +20,7 @@ namespace {
   for (int axis = 0; axis < 3; ++axis) {
     const float part = span[axis] > 0.0f ? (at[axis] - least[axis]) / span[axis] : 0.0f;
     const float held01 = part < 0.0f ? 0.0f : (part > 1.0f ? 1.0f : part);
-    held[axis] = (uint32_t)(held01 * 1023.0f);
+    held[axis] = static_cast<uint32_t>(held01 * 1023.0f);
   }
   return (Spread(held[0]) << 2) | (Spread(held[1]) << 1) | Spread(held[2]);
 }
@@ -38,7 +38,7 @@ Cooked CookClusters(std::span<const float> positionsM,
   float most[3] = {positionsM[0], positionsM[1], positionsM[2]};
   for (size_t vertex = 0; vertex * 3 + 2 < positionsM.size(); ++vertex) {
     for (int axis = 0; axis < 3; ++axis) {
-      const float held = positionsM[vertex * 3 + (size_t)axis];
+      const float held = positionsM[vertex * 3 + static_cast<size_t>(axis)];
       least[axis] = held < least[axis] ? held : least[axis];
       most[axis] = held > most[axis] ? held : most[axis];
     }
@@ -56,13 +56,13 @@ Cooked CookClusters(std::span<const float> positionsM,
   for (size_t triangle = 0; triangle < triangles; ++triangle) {
     float centre[3] = {0.0f, 0.0f, 0.0f};
     for (int corner = 0; corner < 3; ++corner) {
-      const uint32_t at = indices[triangle * 3 + (size_t)corner];
-      if ((size_t)at >= vertices) { continue; }
+      const uint32_t at = indices[triangle * 3 + static_cast<size_t>(corner)];
+      if (static_cast<size_t>(at) >= vertices) { continue; }
       for (int axis = 0; axis < 3; ++axis) {
-        centre[axis] += positionsM[(size_t)at * 3 + (size_t)axis] / 3.0f;
+        centre[axis] += positionsM[static_cast<size_t>(at) * 3 + static_cast<size_t>(axis)] / 3.0f;
       }
     }
-    order.push_back(Sorted{Morton(centre, least, span), (uint32_t)triangle});
+    order.push_back(Sorted{Morton(centre, least, span), static_cast<uint32_t>(triangle)});
   }
   std::sort(
       order.begin(), order.end(), [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });
@@ -72,8 +72,8 @@ Cooked CookClusters(std::span<const float> positionsM,
   for (size_t at = 0; at < order.size(); at += mostTriangles) {
     const size_t upTo = at + mostTriangles < order.size() ? at + mostTriangles : order.size();
     DagCluster made{};
-    made.First = (uint32_t)out.Index.size();
-    made.Count = (uint32_t)((upTo - at) * 3);
+    made.First = static_cast<uint32_t>(out.Index.size());
+    made.Count = static_cast<uint32_t>((upTo - at) * 3);
     made.ParentErr = kDagRootErr;
 
     float low[3] = {0.0f, 0.0f, 0.0f};
@@ -82,11 +82,12 @@ Cooked CookClusters(std::span<const float> positionsM,
     for (size_t step = at; step < upTo; ++step) {
       const uint32_t triangle = order[step].Triangle;
       for (int corner = 0; corner < 3; ++corner) {
-        const uint32_t index = indices[(size_t)triangle * 3 + (size_t)corner];
+        const uint32_t index =
+            indices[static_cast<size_t>(triangle) * 3 + static_cast<size_t>(corner)];
         out.Index.push_back(index);
-        if ((size_t)index >= vertices) { continue; }
+        if (static_cast<size_t>(index) >= vertices) { continue; }
         for (int axis = 0; axis < 3; ++axis) {
-          const float held = positionsM[(size_t)index * 3 + (size_t)axis];
+          const float held = positionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)];
           if (!any || held < low[axis]) { low[axis] = held; }
           if (!any || held > high[axis]) { high[axis] = held; }
         }
@@ -96,10 +97,10 @@ Cooked CookClusters(std::span<const float> positionsM,
     double radius = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
       made.SelfCenter[axis] = 0.5f * (low[axis] + high[axis]);
-      const double half = 0.5 * ((double)high[axis] - (double)low[axis]);
+      const double half = 0.5 * (static_cast<double>(high[axis]) - static_cast<double>(low[axis]));
       radius += half * half;
     }
-    made.SelfRadius = (float)std::sqrt(radius);
+    made.SelfRadius = static_cast<float>(std::sqrt(radius));
     out.Clusters.push_back(made);
   }
   return out;
@@ -120,8 +121,8 @@ struct Cell {
 
 struct CellHash {
   [[nodiscard]] size_t operator()(const Cell &of) const {
-    return (size_t)(of.At[0] * 73856093) ^ (size_t)(of.At[1] * 19349663) ^
-           (size_t)(of.At[2] * 83492791);
+    return static_cast<size_t>(of.At[0] * 73856093) ^ static_cast<size_t>(of.At[1] * 19349663) ^
+           static_cast<size_t>(of.At[2] * 83492791);
   }
 };
 
@@ -133,7 +134,7 @@ Cooked CookDag(std::span<const float> positionsM,
                uint32_t mostLevels) {
   Cooked out = CookClusters(positionsM, indices, mostTriangles);
   out.PositionsM.assign(positionsM.begin(), positionsM.end());
-  out.FirstOwnVertex = (uint32_t)(positionsM.size() / 3);
+  out.FirstOwnVertex = static_cast<uint32_t>(positionsM.size() / 3);
   if (out.Clusters.empty() || mostLevels == 0) { return out; }
 
   std::vector<uint32_t> coarseIndex(out.Index.begin(), out.Index.end());
@@ -145,7 +146,8 @@ Cooked CookDag(std::span<const float> positionsM,
     float most[3] = {least[0], least[1], least[2]};
     for (const uint32_t index : coarseIndex) {
       for (int axis = 0; axis < 3; ++axis) {
-        const float held = out.PositionsM[(size_t)index * 3 + (size_t)axis];
+        const float held =
+            out.PositionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)];
         least[axis] = held < least[axis] ? held : least[axis];
         most[axis] = held > most[axis] ? held : most[axis];
       }
@@ -160,38 +162,43 @@ Cooked CookDag(std::span<const float> positionsM,
     std::sort(distinct.begin(), distinct.end());
     distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
     const double spacingM =
-        (double)widest / std::sqrt((double)(distinct.size() > 1 ? distinct.size() : 2));
-    const float cellM = (float)(spacingM * 2.0) * (float)(1u << (level - 1));
+        static_cast<double>(widest) /
+        std::sqrt(static_cast<double>(distinct.size() > 1 ? distinct.size() : 2));
+    const float cellM = static_cast<float>(spacingM * 2.0) * static_cast<float>(1u << (level - 1));
 
     std::unordered_map<Cell, uint32_t, CellHash> stood;
     std::vector<uint32_t> standsFor(coarseIndex.size(), 0u);
-    const uint32_t firstMade = (uint32_t)(out.PositionsM.size() / 3);
+    const uint32_t firstMade = static_cast<uint32_t>(out.PositionsM.size() / 3);
     std::vector<double> summed;
     std::vector<uint32_t> counted;
     for (size_t at = 0; at < coarseIndex.size(); ++at) {
       const uint32_t index = coarseIndex[at];
       Cell where;
       for (int axis = 0; axis < 3; ++axis) {
-        where.At[axis] = (int)std::floor(
-            (out.PositionsM[(size_t)index * 3 + (size_t)axis] - least[axis]) / cellM);
+        where.At[axis] = static_cast<int>(
+            std::floor((out.PositionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)] -
+                        least[axis]) /
+                       cellM));
       }
       auto found = stood.find(where);
       if (found == stood.end()) {
-        found = stood.emplace(where, (uint32_t)counted.size()).first;
+        found = stood.emplace(where, static_cast<uint32_t>(counted.size())).first;
         counted.push_back(0u);
         summed.insert(summed.end(), {0.0, 0.0, 0.0});
       }
       const uint32_t slot = found->second;
       standsFor[at] = slot;
       for (int axis = 0; axis < 3; ++axis) {
-        summed[(size_t)slot * 3 + (size_t)axis] += out.PositionsM[(size_t)index * 3 + (size_t)axis];
+        summed[static_cast<size_t>(slot) * 3 + static_cast<size_t>(axis)] +=
+            out.PositionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)];
       }
       counted[slot] += 1u;
     }
     for (size_t slot = 0; slot < counted.size(); ++slot) {
       for (int axis = 0; axis < 3; ++axis) {
-        out.PositionsM.push_back((float)(summed[slot * 3 + (size_t)axis] /
-                                         (double)(counted[slot] > 0 ? counted[slot] : 1)));
+        out.PositionsM.push_back(
+            static_cast<float>(summed[slot * 3 + static_cast<size_t>(axis)] /
+                               static_cast<double>(counted[slot] > 0 ? counted[slot] : 1)));
       }
     }
 
@@ -201,8 +208,11 @@ Cooked CookDag(std::span<const float> positionsM,
       const uint32_t made = firstMade + standsFor[at];
       double away = 0.0;
       for (int axis = 0; axis < 3; ++axis) {
-        const double held = (double)out.PositionsM[(size_t)index * 3 + (size_t)axis] -
-                            (double)out.PositionsM[(size_t)made * 3 + (size_t)axis];
+        const double held =
+            static_cast<double>(
+                out.PositionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)]) -
+            static_cast<double>(
+                out.PositionsM[static_cast<size_t>(made) * 3 + static_cast<size_t>(axis)]);
         away += held * held;
       }
       const double moved = std::sqrt(away);
@@ -228,12 +238,13 @@ Cooked CookDag(std::span<const float> positionsM,
     {
       float low[3], high[3];
       for (int axis = 0; axis < 3; ++axis) {
-        low[axis] = out.PositionsM[(size_t)kept[0] * 3 + (size_t)axis];
+        low[axis] = out.PositionsM[static_cast<size_t>(kept[0]) * 3 + static_cast<size_t>(axis)];
         high[axis] = low[axis];
       }
       for (const uint32_t index : kept) {
         for (int axis = 0; axis < 3; ++axis) {
-          const float held = out.PositionsM[(size_t)index * 3 + (size_t)axis];
+          const float held =
+              out.PositionsM[static_cast<size_t>(index) * 3 + static_cast<size_t>(axis)];
           low[axis] = held < low[axis] ? held : low[axis];
           high[axis] = held > high[axis] ? held : high[axis];
         }
@@ -241,25 +252,26 @@ Cooked CookDag(std::span<const float> positionsM,
       double radius = 0.0;
       for (int axis = 0; axis < 3; ++axis) {
         wholeCentre[axis] = 0.5f * (low[axis] + high[axis]);
-        const double half = 0.5 * ((double)high[axis] - (double)low[axis]);
+        const double half =
+            0.5 * (static_cast<double>(high[axis]) - static_cast<double>(low[axis]));
         radius += half * half;
       }
-      wholeRadius = (float)std::sqrt(radius);
+      wholeRadius = static_cast<float>(std::sqrt(radius));
     }
     for (size_t at = firstOfLevel; at < out.Clusters.size(); ++at) {
       DagCluster &child = out.Clusters[at];
       for (int axis = 0; axis < 3; ++axis) { child.ParentCenter[axis] = wholeCentre[axis]; }
       child.ParentRadius = wholeRadius;
-      child.ParentErr = (float)worst;
+      child.ParentErr = static_cast<float>(worst);
     }
 
     firstOfLevel = out.Clusters.size();
-    const uint32_t rebase = (uint32_t)out.Index.size();
+    const uint32_t rebase = static_cast<uint32_t>(out.Index.size());
     for (const DagCluster &one : above.Clusters) {
       DagCluster carried = one;
       carried.First = rebase + one.First;
-      carried.Level = (uint32_t)level;
-      carried.SelfErr = (float)worst;
+      carried.Level = level;
+      carried.SelfErr = static_cast<float>(worst);
       out.Clusters.push_back(carried);
     }
     out.Index.insert(out.Index.end(), above.Index.begin(), above.Index.end());

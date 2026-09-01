@@ -36,7 +36,7 @@ double DrapeCellM(size_t rung) {
 constexpr int kClassPasses = 4;
 
 [[nodiscard]] uint64_t EdgeKey(uint32_t a, uint32_t b) {
-  return a < b ? ((uint64_t)a << 32U) | b : ((uint64_t)b << 32U) | a;
+  return a < b ? (static_cast<uint64_t>(a) << 32U) | b : (static_cast<uint64_t>(b) << 32U) | a;
 }
 
 void Divided(const uint32_t face[3], const uint32_t cut[3], std::vector<uint32_t> &into) {
@@ -77,9 +77,9 @@ void Divided(const uint32_t face[3], const uint32_t cut[3], std::vector<uint32_t
 
 [[nodiscard]] uint64_t WayEndKey(double latDeg, double lonDeg) {
   constexpr int64_t kBias = 0x20000000;
-  const auto y = (int64_t)std::llround(latDeg * 100000.0);
-  const auto x = (int64_t)std::llround(lonDeg * 100000.0);
-  return ((uint64_t)(y + kBias) << 32U) | (uint64_t)(x + kBias);
+  const auto y = static_cast<int64_t>(std::llround(latDeg * 100000.0));
+  const auto x = static_cast<int64_t>(std::llround(lonDeg * 100000.0));
+  return (static_cast<uint64_t>(y + kBias) << 32U) | static_cast<uint64_t>(x + kBias);
 }
 
 class Instancing final : public Generators::DrawSink {
@@ -90,7 +90,7 @@ public:
                          Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override {
     if (Full()) { return false; }
-    Into_->push_back({body.Index(), (uint32_t)cluster, instance});
+    Into_->push_back({body.Index(), static_cast<uint32_t>(cluster), instance});
     return true;
   }
 
@@ -125,7 +125,8 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
 }
 
 bool Engine::State::Grows(double atLat, double atLon) {
-  Published.Places("generators: bodies already placed", (double)World.Placed, "bodies");
+  Published.Places(
+      "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
       "generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0, "yes/no");
   Published.Places("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
@@ -146,21 +147,24 @@ bool Engine::State::Grows(double atLat, double atLon) {
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
   World.Reached =
       40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
-  Published.Places("generators: the snapshot", (double)(int)how, "0=taken 1=waiting 2=no ground");
+  Published.Places("generators: the snapshot",
+                   static_cast<double>(static_cast<int>(how)),
+                   "0=taken 1=waiting 2=no ground");
   Published.Places("generators: a patch of ground", snapshot.Patch ? 1.0 : 0.0, "yes/no");
   Published.Places("generators: land classes", snapshot.Classes ? 1.0 : 0.0, "yes/no");
   Published.Places("generators: OSM features", snapshot.Features ? 1.0 : 0.0, "yes/no");
-  Published.Places("generators: the region it asks about, x", (double)region.X(), "tile");
-  Published.Places("generators: and y", (double)region.Y(), "tile");
-  Published.Places("generators: at zoom", (double)World.Stack.Vectors()->Zoom(), "z");
+  Published.Places(
+      "generators: the region it asks about, x", static_cast<double>(region.X()), "tile");
+  Published.Places("generators: and y", static_cast<double>(region.Y()), "tile");
+  Published.Places("generators: at zoom", static_cast<double>(World.Stack.Vectors()->Zoom()), "z");
   Published.Places("generators: vector tiles that settled",
-                   (double)World.Stack.Vectors()->Tiles().size(),
+                   static_cast<double>(World.Stack.Vectors()->Tiles().size()),
                    "tiles");
   Published.Places("generators: vector tiles it refused",
-                   (double)World.Stack.Vectors()->RefusedTiles(),
+                   static_cast<double>(World.Stack.Vectors()->RefusedTiles()),
                    "tiles");
   Published.Places("generators: that region is settled",
-                   World.Stack.Vectors()->Settled((int)region.X(), (int)region.Y()) ? 1.0 : 0.0,
+                   World.Stack.Vectors()->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
                    "yes/no");
   World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
@@ -186,8 +190,9 @@ bool Engine::State::Grows(double atLat, double atLon) {
   }
   placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
   for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
-  Published.Places("generators: bodies they placed", (double)World.Placed, "bodies");
-  Published.Places("generators: makers that were asked", (double)placing.Count(), "makers");
+  Published.Places("generators: bodies they placed", static_cast<double>(World.Placed), "bodies");
+  Published.Places(
+      "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
   if (World.Placed == 0) { return false; }
   Instancing sink(World.Instances);
   World.Shipping.Drawing().Draw(*over,
@@ -279,7 +284,8 @@ bool Engine::State::Composes(void) {
       told.push_back(std::move(made));
     }
     World.Stack.Declares(std::span<const Ground::OsmField::Declared>(told));
-    Published.Places("ground: structures a scenario declared", (double)told.size(), "structures");
+    Published.Places(
+        "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
   }
 
   World.Stack.ShapesFootprintsWith(&World.Shaper);
@@ -289,7 +295,7 @@ bool Engine::State::Composes(void) {
             ? 55.0
             : Session.Declared.Views.front().Sees.FovDeg;
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
-                              ? (double)Session.Declared.Render.Frame.HeightPx
+                              ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
                               : 720.0;
     World.Stack.SeeFootprintsWith(highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / 360.0)));
   }
@@ -321,7 +327,8 @@ bool Engine::State::Asks(void) {
         40075017.0 * std::cos(over.LatDeg * std::numbers::pi / 180.0) / std::ldexp(1.0, over.Zoom);
     const double nearest = 4.0 * tileSpanM;
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
-    over.Levels = 1 + (int)std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0);
+    over.Levels =
+        1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
   }
   World.Stack.Pool().Focus(over.LatDeg, over.LonDeg);
   auto asked = LayPatchwork(World.Stack.Pool(), over);
@@ -335,27 +342,29 @@ bool Engine::State::Asks(void) {
   World.AskedWanted = asked->Tiles;
   {
     const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
-    Published.Places("mesh jobs the pool finished", (double)kept.MeshTiles, "tiles");
-    Published.Places("mesh jobs it refused", (double)kept.MeshRefused, "tiles");
-    Published.Places("mesh jobs with no tile behind them", (double)kept.MeshAbsent, "tiles");
-    Published.Places("fetches it ran", (double)kept.Fetches, "fetches");
-    Published.Places("fetches it gave up on", (double)kept.FetchGaveUp, "fetches");
-    Published.Places("fetches it refused", (double)kept.FetchRefused, "fetches");
-    Published.Places("jobs it posted", (double)kept.Posts, "jobs");
-    Published.Places("asks that repeated a posted job", (double)kept.Repeats, "asks");
+    Published.Places("mesh jobs the pool finished", static_cast<double>(kept.MeshTiles), "tiles");
+    Published.Places("mesh jobs it refused", static_cast<double>(kept.MeshRefused), "tiles");
+    Published.Places(
+        "mesh jobs with no tile behind them", static_cast<double>(kept.MeshAbsent), "tiles");
+    Published.Places("fetches it ran", static_cast<double>(kept.Fetches), "fetches");
+    Published.Places("fetches it gave up on", static_cast<double>(kept.FetchGaveUp), "fetches");
+    Published.Places("fetches it refused", static_cast<double>(kept.FetchRefused), "fetches");
+    Published.Places("jobs it posted", static_cast<double>(kept.Posts), "jobs");
+    Published.Places("asks that repeated a posted job", static_cast<double>(kept.Repeats), "asks");
     Published.Places("megabytes it fetched", kept.FetchedMB, "MB");
-    Published.Places("jobs still outstanding", (double)kept.Outstanding, "jobs");
-    Published.Places("keys with jobs parked behind them", (double)kept.Parked, "keys");
-    Published.Places("jobs parked in all", (double)kept.ParkedJobs, "jobs");
-    Published.Places("results it holds", (double)kept.Held, "results");
-    Published.Places("mesh jobs it dropped and will retry", (double)kept.MeshDropped, "jobs");
-    Published.Places("jobs waiting in the queue", (double)kept.QueueDepth, "jobs");
+    Published.Places("jobs still outstanding", static_cast<double>(kept.Outstanding), "jobs");
+    Published.Places("keys with jobs parked behind them", static_cast<double>(kept.Parked), "keys");
+    Published.Places("jobs parked in all", static_cast<double>(kept.ParkedJobs), "jobs");
+    Published.Places("results it holds", static_cast<double>(kept.Held), "results");
+    Published.Places(
+        "mesh jobs it dropped and will retry", static_cast<double>(kept.MeshDropped), "jobs");
+    Published.Places("jobs waiting in the queue", static_cast<double>(kept.QueueDepth), "jobs");
   }
   for (int zoom = 0; zoom < 24; ++zoom) {
     if (asked->WantedAtZoom[zoom] == 0) { continue; }
     Published.Places("zoom " + std::to_string(zoom) + " wants " +
                          std::to_string(asked->WantedAtZoom[zoom]) + " and still waits for",
-                     (double)asked->PendingAtZoom[zoom],
+                     static_cast<double>(asked->PendingAtZoom[zoom]),
                      "tiles");
   }
   return true;
@@ -375,23 +384,25 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
   turned.resize(count * 3);
   for (size_t at = already; at < count; ++at) {
     const float *const one = corners.data() + at * kTileVertexFloats;
-    const double held[3] = {
-        anchor[0] + (double)one[0], anchor[1] + (double)one[1], anchor[2] + (double)one[2]};
+    const double held[3] = {anchor[0] + static_cast<double>(one[0]),
+                            anchor[1] + static_cast<double>(one[1]),
+                            anchor[2] + static_cast<double>(one[2])};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
     standing.Place(held, &eastM, &upM, &northM);
-    places[at * 3] = (float)eastM;
-    places[at * 3 + 1] = (float)upM;
-    places[at * 3 + 2] = (float)(-northM);
-    const double aim[3] = {(double)one[5], (double)one[6], (double)one[7]};
+    places[at * 3] = static_cast<float>(eastM);
+    places[at * 3 + 1] = static_cast<float>(upM);
+    places[at * 3 + 2] = static_cast<float>(-northM);
+    const double aim[3] = {
+        static_cast<double>(one[5]), static_cast<double>(one[6]), static_cast<double>(one[7])};
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;
     standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
-    turned[at * 3] = (float)alongEast;
-    turned[at * 3 + 1] = (float)alongUp;
-    turned[at * 3 + 2] = (float)(-alongNorth);
+    turned[at * 3] = static_cast<float>(alongEast);
+    turned[at * 3 + 1] = static_cast<float>(alongUp);
+    turned[at * 3 + 2] = static_cast<float>(-alongNorth);
   }
   return count;
 }
@@ -432,10 +443,10 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
   struct AtCmHash {
     size_t operator()(const AtCm &of) const noexcept {
       uint64_t mixed = 1469598103934665603ull;
-      mixed = (mixed ^ (uint64_t)of.X) * 1099511628211ull;
-      mixed = (mixed ^ (uint64_t)of.Y) * 1099511628211ull;
-      mixed = (mixed ^ (uint64_t)of.Z) * 1099511628211ull;
-      return (size_t)mixed;
+      mixed = (mixed ^ static_cast<uint64_t>(of.X)) * 1099511628211ull;
+      mixed = (mixed ^ static_cast<uint64_t>(of.Y)) * 1099511628211ull;
+      mixed = (mixed ^ static_cast<uint64_t>(of.Z)) * 1099511628211ull;
+      return static_cast<size_t>(mixed);
     }
   };
 
@@ -445,13 +456,13 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
   size_t coincident = 0;
   for (size_t one = 0; one < vertices; ++one) {
     const float *const held = placeAt(one);
-    const int64_t cx = (int64_t)std::llround((double)held[0] * 100.0);
-    const int64_t cy = (int64_t)std::llround((double)held[1] * 100.0);
-    const int64_t cz = (int64_t)std::llround((double)held[2] * 100.0);
+    const int64_t cx = static_cast<int64_t>(std::llround(static_cast<double>(held[0]) * 100.0));
+    const int64_t cy = static_cast<int64_t>(std::llround(static_cast<double>(held[1]) * 100.0));
+    const int64_t cz = static_cast<int64_t>(std::llround(static_cast<double>(held[2]) * 100.0));
     const AtCm key{.X = cx, .Y = cy, .Z = cz};
     const auto found = seenAt.find(key);
     if (found == seenAt.end()) {
-      const uint32_t made = (uint32_t)seenAt.size();
+      const uint32_t made = static_cast<uint32_t>(seenAt.size());
       seenAt.emplace(key, made);
       welded.push_back(made);
     } else {
@@ -515,28 +526,35 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
         key.Bits[part] = std::bit_cast<uint32_t>(held[part]);
         key.Bits[part + 3] = std::bit_cast<uint32_t>(aim[part]);
       }
-      if (whole.emplace(key, (uint32_t)whole.size()).second) { continue; }
+      if (whole.emplace(key, static_cast<uint32_t>(whole.size())).second) { continue; }
       ++exact;
     }
+    Published.Places("solid: building corners identical in POSITION AND NORMAL",
+                     static_cast<double>(exact),
+                     "corners");
     Published.Places(
-        "solid: building corners identical in POSITION AND NORMAL", (double)exact, "corners");
-    Published.Places("solid: and how many distinct ones remain", (double)whole.size(), "corners");
+        "solid: and how many distinct ones remain", static_cast<double>(whole.size()), "corners");
   }
+  Published.Places("solid: building vertices welded away as coincident",
+                   static_cast<double>(coincident),
+                   "vertices");
   Published.Places(
-      "solid: building vertices welded away as coincident", (double)coincident, "vertices");
-  Published.Places("solid: building vertices standing apart", (double)seenAt.size(), "vertices");
+      "solid: building vertices standing apart", static_cast<double>(seenAt.size()), "vertices");
   Published.Places(
       "rebuild: of that, welding and counting edges",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
           .count(),
       "ms");
   censusAt = std::chrono::steady_clock::now();
+  Published.Places("solid: building triangles with two corners in one place",
+                   static_cast<double>(degenerate),
+                   "triangles");
   Published.Places(
-      "solid: building triangles with two corners in one place", (double)degenerate, "triangles");
-  Published.Places("solid: building edges on ONE triangle, so a HOLE", (double)open, "edges");
-  Published.Places(
-      "solid: building edges on MORE than two, so not a surface", (double)overused, "edges");
-  Published.Places("solid: building edges in all", (double)edges.size(), "edges");
+      "solid: building edges on ONE triangle, so a HOLE", static_cast<double>(open), "edges");
+  Published.Places("solid: building edges on MORE than two, so not a surface",
+                   static_cast<double>(overused),
+                   "edges");
+  Published.Places("solid: building edges in all", static_cast<double>(edges.size()), "edges");
 }
 
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
@@ -571,14 +589,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const double nearest = 4.0 * tileSpanM;
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     const double doublings = wanted > nearest ? std::log2(wanted / nearest) : 0.0;
-    over.Levels = 1 + (int)std::ceil(doublings);
+    over.Levels = 1 + static_cast<int>(std::ceil(doublings));
     Published.Places("the sight a scenario declares", wanted, "m");
     Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
     Published.Places("the elevation's own posting",
                      World.Stack.Ground().PostM(declared.Ground.Origin.LatitudeDeg),
                      "m");
     Published.Places("and the drawn mesh's vertex spacing",
-                     over.Grid > 1 ? tileSpanM / (double)(over.Grid - 1) : 0.0,
+                     over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
                      "m");
   }
   if (!Watches()) { return false; }
@@ -588,18 +606,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (int axis = 0; axis < 3; ++axis) {
       over.EyeM[axis] = eyed.OriginEcef()[axis] + at[0] * eyed.EastEcef()[axis] +
                         at[1] * eyed.UpEcef()[axis] - at[2] * eyed.NorthEcef()[axis];
-      over.Up[axis] = (float)eyed.UpEcef()[axis];
+      over.Up[axis] = static_cast<float>(eyed.UpEcef()[axis]);
     }
   }
   if (Picture.Frame.HeightPx > 0) {
     const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
-    over.FocalPx = (float)(0.5 * (double)Picture.Frame.HeightPx / std::tan(halfFov));
+    over.FocalPx =
+        static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
   }
   {
     const Ground::TileFrac here =
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
-    const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32U) ^
-                          (uint64_t)(int64_t)std::floor(here.Y) ^ ((uint64_t)over.Levels << 56);
+    const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
+                          static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
+                          (static_cast<uint64_t>(over.Levels) << 56);
     World.Stack.Pool().Focus(atLat, atLon);
     ++World.Asked;
     Around asking = over;
@@ -623,32 +643,41 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     {
       const Raised &standing = World.Stack.Footprints().Built();
       const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
-      Published.Places("building triangles the world meshed", (double)triangles, "triangles");
+      Published.Places(
+          "building triangles the world meshed", static_cast<double>(triangles), "triangles");
     }
-    Published.Places("world: the bytes its fields hold", (double)World.Stack.HeapBytes(), "bytes");
     Published.Places(
-        "world: of that, the land classes", (double)World.Stack.Classes().HeapBytes(), "bytes");
-    Published.Places("world: the buildings", (double)World.Stack.Footprints().HeapBytes(), "bytes");
-    Published.Places("world: the water", (double)World.Stack.WaterBodies().HeapBytes(), "bytes");
-    Published.Places("world: the streets", (double)World.Stack.Ways().HeapBytes(), "bytes");
+        "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
+    Published.Places("world: of that, the land classes",
+                     static_cast<double>(World.Stack.Classes().HeapBytes()),
+                     "bytes");
+    Published.Places(
+        "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
+    Published.Places(
+        "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
+    Published.Places(
+        "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
     Published.Places("world: the ceiling its fields stand under",
-                     (double)Ground::GroundStack::kHoldsBytes,
+                     static_cast<double>(Ground::GroundStack::kHoldsBytes),
                      "bytes");
     Published.Places("world: times a round stopped at that ceiling",
-                     (double)World.Stack.OverCeiling(),
+                     static_cast<double>(World.Stack.OverCeiling()),
                      "rounds");
     Published.Places("world: and the OSM features",
-                     World.Stack.Vectors() != nullptr ? (double)World.Stack.Vectors()->HeapBytes()
-                                                      : 0.0,
+                     World.Stack.Vectors() != nullptr
+                         ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
+                         : 0.0,
                      "bytes");
     Published.Places("tiles laid bare on the ellipsoid",
-                     (double)(sees->Pending + sees->Absent + sees->Refused),
+                     static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
                      "tiles");
     if (World.EverLaid && !elsewhere && !grew && !renamed) { return true; }
-    Published.Places("rebuilds since the world stood", (double)(World.Relaid + 1u), "rebuilds");
+    Published.Places(
+        "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
     Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
-    Published.Places("rebuild: tiles resident when it did", (double)resident, "tiles");
-    Published.Places("rebuild: and resident the time before", (double)World.LaidResident, "tiles");
+    Published.Places("rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
+    Published.Places(
+        "rebuild: and resident the time before", static_cast<double>(World.LaidResident), "tiles");
     Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
     World.LaidFrom = from;
     World.LaidResident = resident;
@@ -676,16 +705,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   double lowest = 1.0e9;
   double tallestOut = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
-    const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
-                            laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
-                            laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
+    const double held[3] = {laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
+                            laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
+                            laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])};
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
     standing.Place(held, &eastM, &upM, &northM);
-    inFrame[at] = (float)eastM;
-    inFrame[at + 1] = (float)upM;
-    inFrame[at + 2] = (float)(-northM);
+    inFrame[at] = static_cast<float>(eastM);
+    inFrame[at + 1] = static_cast<float>(upM);
+    inFrame[at + 2] = static_cast<float>(-northM);
     const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
     const double below = where.AltM - upM;
     if (below > sank) {
@@ -713,10 +742,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t shared = 0;
     size_t leanCount = 0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const int64_t east = (int64_t)std::llround((double)inFrame[at] * 4.0);
-      const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
-      const auto atE = (uint64_t)(east + 0x20000000LL);
-      const auto atS = (uint64_t)(south + 0x20000000LL);
+      const int64_t east =
+          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) * 4.0));
+      const int64_t south =
+          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) * 4.0));
+      const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+      const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
       const uint64_t key = (atE << 32U) | atS;
       const auto stood = met.find(key);
       if (stood == met.end()) {
@@ -725,7 +756,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         continue;
       }
       ++shared;
-      const double apart = std::fabs((double)inFrame[at + 1] - (double)stood->second);
+      const double apart =
+          std::fabs(static_cast<double>(inFrame[at + 1]) - static_cast<double>(stood->second));
       if (apart > widest) { widest = apart; }
       if (at + 2 < laid->NormalM.size() && stood->second == inFrame[at + 1]) {
         const size_t twin = met2[key];
@@ -733,8 +765,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double one = 0.0;
         double two = 0.0;
         for (size_t axis = 0; axis < 3; ++axis) {
-          const double a = (double)laid->NormalM[at + axis];
-          const double b = (double)laid->NormalM[twin + axis];
+          const double a = static_cast<double>(laid->NormalM[at + axis]);
+          const double b = static_cast<double>(laid->NormalM[twin + axis]);
           dot += a * b;
           one += a * a;
           two += b * b;
@@ -749,11 +781,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
-    Published.Places("vertices two tiles put in the same place", (double)shared, "vertices");
+    Published.Places(
+        "vertices two tiles put in the same place", static_cast<double>(shared), "vertices");
     Published.Places("and the widest they disagree on height", widest, "m");
     Published.Places("the widest their NORMALS disagree", leaning, "deg");
     Published.Places("and how far those disagree on average",
-                     leanCount > 0 ? leanSum / (double)leanCount : 0.0,
+                     leanCount > 0 ? leanSum / static_cast<double>(leanCount) : 0.0,
                      "deg");
   }
   std::vector<float> tinted;
@@ -771,25 +804,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     if (classes && wearing.Ready()) {
       classStructure = classes;
       classPalette.assign(4u + (wearing.TemplateCount() + 1u) * 4u, 0.0f);
-      const auto rows = (uint32_t)wearing.TemplateCount();
+      const auto rows = static_cast<uint32_t>(wearing.TemplateCount());
       classPalette[0] = std::bit_cast<float>(rows);
       for (size_t row = 0; row < wearing.TemplateCount(); ++row) {
         for (int channel = 0; channel < 3; ++channel) {
-          classPalette[4u + row * 4u + (size_t)channel] = wearing.Rows()[row].Ground[channel];
+          classPalette[4u + row * 4u + static_cast<size_t>(channel)] =
+              wearing.Rows()[row].Ground[channel];
         }
         classPalette[4u + row * 4u + 3u] = wearing.Rows()[row].Mix[2];
       }
       for (int channel = 0; channel < 3; ++channel) {
-        classPalette[4u + wearing.TemplateCount() * 4u + (size_t)channel] =
-            (float)fallback.GroundAlbedo[channel];
+        classPalette[4u + wearing.TemplateCount() * 4u + static_cast<size_t>(channel)] =
+            fallback.GroundAlbedo[channel];
       }
       classPalette[4u + wearing.TemplateCount() * 4u + 3u] = 0.0f;
       tinted.resize((inFrame.size() / 3) * 4);
       classUv.resize((inFrame.size() / 3) * 2);
       for (size_t at = 0, one = 0; at + 2 < laid->PositionM.size(); at += 3, ++one) {
-        const double held[3] = {laid->OriginEcef[0] + (double)laid->PositionM[at],
-                                laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
-                                laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
+        const double held[3] = {laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
+                                laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
+                                laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])};
         const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
         double edgeM = 0.0;
         int second = -1;
@@ -799,15 +833,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double eastM = 0.0;
           double northM = 0.0;
           World.Stack.Classes().ToEnu(where.LatDeg, where.LonDeg, &eastM, &northM);
-          classUv[one * 2] = (float)eastM;
-          classUv[one * 2 + 1] = (float)northM;
+          classUv[one * 2] = static_cast<float>(eastM);
+          classUv[one * 2 + 1] = static_cast<float>(northM);
         }
-        const bool stands = which >= 0 && (size_t)which < wearing.TemplateCount();
+        const bool stands = which >= 0 && static_cast<size_t>(which) < wearing.TemplateCount();
         if (stands) { ++named; }
-        const Ground::VegetationTemplates::Row &wore = wearing.Rows()[stands ? (size_t)which : 0];
-        tinted[one * 4] = stands ? wore.Ground[0] : (float)fallback.GroundAlbedo[0];
-        tinted[one * 4 + 1] = stands ? wore.Ground[1] : (float)fallback.GroundAlbedo[1];
-        tinted[one * 4 + 2] = stands ? wore.Ground[2] : (float)fallback.GroundAlbedo[2];
+        const Ground::VegetationTemplates::Row &wore =
+            wearing.Rows()[stands ? static_cast<size_t>(which) : 0];
+        tinted[one * 4] = stands ? wore.Ground[0] : fallback.GroundAlbedo[0];
+        tinted[one * 4 + 1] = stands ? wore.Ground[1] : fallback.GroundAlbedo[1];
+        tinted[one * 4 + 2] = stands ? wore.Ground[2] : fallback.GroundAlbedo[2];
         tinted[one * 4 + 3] = 1.0f;
         classOf.push_back(which);
         atGeo.push_back(where.LatDeg);
@@ -817,8 +852,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         std::unordered_map<uint64_t, uint32_t> split;
         for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
           for (int edge = 0; edge < 3; ++edge) {
-            const uint32_t a = laid->Index[at + (size_t)edge];
-            const uint32_t b = laid->Index[at + (size_t)((edge + 1) % 3)];
+            const uint32_t a = laid->Index[at + static_cast<size_t>(edge)];
+            const uint32_t b = laid->Index[at + static_cast<size_t>((edge + 1) % 3)];
             if (classOf[a] == classOf[b]) { continue; }
             split.emplace(EdgeKey(a, b), 0xffffffffu);
           }
@@ -828,15 +863,19 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const auto found = split.find(EdgeKey(a, b));
           if (found == split.end()) { return 0xffffffffu; }
           if (found->second != 0xffffffffu) { return found->second; }
-          const auto made = (uint32_t)(inFrame.size() / 3u);
+          const auto made = static_cast<uint32_t>(inFrame.size() / 3u);
           for (int axis = 0; axis < 3; ++axis) {
-            inFrame.push_back(0.5f * (inFrame[(size_t)a * 3u + (size_t)axis] +
-                                      inFrame[(size_t)b * 3u + (size_t)axis]));
-            laid->NormalM.push_back(0.5f * (laid->NormalM[(size_t)a * 3u + (size_t)axis] +
-                                            laid->NormalM[(size_t)b * 3u + (size_t)axis]));
+            inFrame.push_back(0.5f *
+                              (inFrame[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
+                               inFrame[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
+            laid->NormalM.push_back(
+                0.5f * (laid->NormalM[static_cast<size_t>(a) * 3u + static_cast<size_t>(axis)] +
+                        laid->NormalM[static_cast<size_t>(b) * 3u + static_cast<size_t>(axis)]));
           }
-          const double lat = 0.5 * (atGeo[(size_t)a * 2u] + atGeo[(size_t)b * 2u]);
-          const double lon = 0.5 * (atGeo[(size_t)a * 2u + 1u] + atGeo[(size_t)b * 2u + 1u]);
+          const double lat =
+              0.5 * (atGeo[static_cast<size_t>(a) * 2u] + atGeo[static_cast<size_t>(b) * 2u]);
+          const double lon = 0.5 * (atGeo[static_cast<size_t>(a) * 2u + 1u] +
+                                    atGeo[static_cast<size_t>(b) * 2u + 1u]);
           atGeo.push_back(lat);
           atGeo.push_back(lon);
           double edgeM = 0.0;
@@ -846,13 +885,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double eastM = 0.0;
           double northM = 0.0;
           World.Stack.Classes().ToEnu(lat, lon, &eastM, &northM);
-          classUv.push_back((float)eastM);
-          classUv.push_back((float)northM);
-          const bool named = names >= 0 && (size_t)names < wearing.TemplateCount();
-          const Ground::VegetationTemplates::Row &wore = wearing.Rows()[named ? (size_t)names : 0];
+          classUv.push_back(static_cast<float>(eastM));
+          classUv.push_back(static_cast<float>(northM));
+          const bool named = names >= 0 && static_cast<size_t>(names) < wearing.TemplateCount();
+          const Ground::VegetationTemplates::Row &wore =
+              wearing.Rows()[named ? static_cast<size_t>(names) : 0];
           for (int channel = 0; channel < 3; ++channel) {
             tinted.push_back(named ? wore.Ground[channel]
-                                   : (float)fallback.GroundAlbedo[(size_t)channel]);
+                                   : fallback.GroundAlbedo[static_cast<size_t>(channel)]);
           }
           tinted.push_back(1.0f);
           found->second = made;
@@ -869,19 +909,21 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         classDivided += (finer.size() - laid->Index.size()) / 3u;
         laid->Index.swap(finer);
       }
-      Published.Places(
-          "class field: triangles the boundary divided", (double)classDivided, "triangles");
+      Published.Places("class field: triangles the boundary divided",
+                       static_cast<double>(classDivided),
+                       "triangles");
     }
     if (!tinted.empty()) {
       double wornSum[3] = {0.0, 0.0, 0.0};
       const size_t worn = tinted.size() / 4;
       for (size_t one = 0; one < worn; ++one) {
         for (int channel = 0; channel < 3; ++channel) {
-          wornSum[channel] += (double)tinted[one * 4 + (size_t)channel];
+          wornSum[channel] += static_cast<double>(tinted[one * 4 + static_cast<size_t>(channel)]);
         }
       }
-      const double wornMean[3] = {
-          wornSum[0] / (double)worn, wornSum[1] / (double)worn, wornSum[2] / (double)worn};
+      const double wornMean[3] = {wornSum[0] / static_cast<double>(worn),
+                                  wornSum[1] / static_cast<double>(worn),
+                                  wornSum[2] / static_cast<double>(worn)};
       Picture.Standing->Grounding(wornMean);
       Published.Places(
           "lighting: the ground it bounces off, red", 1000.0 * wornMean[0], "albedo/1000");
@@ -898,30 +940,33 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
     Published.Places(
         "class field: the vegetation table is ready", wearing.Ready() ? 1.0 : 0.0, "yes/no");
-    Published.Places(
-        "class field: rows the table carries", (double)wearing.TemplateCount(), "rows");
+    Published.Places("class field: rows the table carries",
+                     static_cast<double>(wearing.TemplateCount()),
+                     "rows");
     Published.Places("class field: features the fine tier holds",
-                     (double)World.Stack.Classes().FeaturesHeld(),
+                     static_cast<double>(World.Stack.Classes().FeaturesHeld()),
                      "features");
     Published.Places("class field: of those it has taken",
-                     (double)World.Stack.Classes().FeaturesTaken(),
+                     static_cast<double>(World.Stack.Classes().FeaturesTaken()),
                      "features");
-    Published.Places("the ring's vertices a land class names", (double)named, "vertices");
+    Published.Places(
+        "the ring's vertices a land class names", static_cast<double>(named), "vertices");
     Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
     Published.Places("class field: the version the colours used",
-                     classes ? (double)classes->Version() : -1.0,
+                     classes ? static_cast<double>(classes->Version()) : -1.0,
                      "version");
     Published.Places("class field: it calls itself complete",
                      World.Stack.Classes().Complete() ? 1.0 : 0.0,
                      "yes/no");
-    Published.Places(
-        "class field: tiles it waits for", (double)World.Stack.Classes().PendingTiles(), "tiles");
+    Published.Places("class field: tiles it waits for",
+                     static_cast<double>(World.Stack.Classes().PendingTiles()),
+                     "tiles");
     Published.Places("class field: the fraction it has no data for",
                      classes ? classes->NoDataFraction() : -1.0,
                      "fraction");
     Published.Places(
         "class field: the materials are loaded", wearing.Ready() ? 1.0 : 0.0, "yes/no");
-    Published.Places("out of, for a class", (double)inFrame.size() / 3.0, "vertices");
+    Published.Places("out of, for a class", static_cast<double>(inFrame.size()) / 3.0, "vertices");
   }
   Published.Places("the ring's vertex that sinks furthest below its own altitude", sank, "m");
   Published.Places("and how far out it lies", sankAt, "m");
@@ -933,16 +978,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double farthest = 0.0;
     double farUp = 0.0;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double east = (double)inFrame[at];
-      const double south = (double)inFrame[at + 2];
+      const double east = static_cast<double>(inFrame[at]);
+      const double south = static_cast<double>(inFrame[at + 2]);
       const double away = east * east + south * south;
       if (away < nearest) {
         nearest = away;
-        atUp = (double)inFrame[at + 1];
+        atUp = static_cast<double>(inFrame[at + 1]);
       }
       if (away > farthest) {
         farthest = away;
-        farUp = (double)inFrame[at + 1];
+        farUp = static_cast<double>(inFrame[at + 1]);
       }
     }
     Published.Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
@@ -955,15 +1000,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::swap(laid->Index[at + 1], laid->Index[at + 2]);
     }
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
-      const double held[3] = {
-          (double)laid->NormalM[at], (double)laid->NormalM[at + 1], (double)laid->NormalM[at + 2]};
+      const double held[3] = {static_cast<double>(laid->NormalM[at]),
+                              static_cast<double>(laid->NormalM[at + 1]),
+                              static_cast<double>(laid->NormalM[at + 2])};
       double alongEast = 0.0;
       double alongUp = 0.0;
       double alongNorth = 0.0;
       standing.Turn(held, &alongEast, &alongUp, &alongNorth);
-      laid->NormalM[at] = (float)alongEast;
-      laid->NormalM[at + 1] = (float)alongUp;
-      laid->NormalM[at + 2] = (float)(-alongNorth);
+      laid->NormalM[at] = static_cast<float>(alongEast);
+      laid->NormalM[at + 1] = static_cast<float>(alongUp);
+      laid->NormalM[at + 2] = static_cast<float>(-alongNorth);
     }
   }
   {
@@ -1011,13 +1057,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("how far it leans on average", counted > 0.0 ? mean / counted : 0.0, "deg");
     }
     Published.Places("its normals with no length at all", unlengthed, "normals");
-    Published.Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
+    Published.Places(
+        "its normals in all", static_cast<double>(laid->NormalM.size() / 3), "normals");
     {
       double least = 1.0e30;
       double most = -1.0e30;
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
-        const double y = (double)held[at];
+        const double y = static_cast<double>(held[at]);
         least = std::min(least, y);
         most = std::max(most, y);
       }
@@ -1079,11 +1126,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
       Published.Places("buildings: floats in the soup",
-                       (double)(built.WallCorners.size() + built.RoofCorners.size()),
+                       static_cast<double>(built.WallCorners.size() + built.RoofCorners.size()),
+                       "floats");
+      Published.Places("buildings: the field's last delta began at",
+                       static_cast<double>(prints.AddedFirst()),
                        "floats");
       Published.Places(
-          "buildings: the field's last delta began at", (double)prints.AddedFirst(), "floats");
-      Published.Places("buildings: and ran for", (double)prints.AddedCount(), "floats");
+          "buildings: and ran for", static_cast<double>(prints.AddedCount()), "floats");
       {
         std::vector<double> fill = prints.SeatSpreadM();
         std::vector<double> across = prints.FootprintAcrossM();
@@ -1091,7 +1140,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           std::ranges::sort(fill);
           std::ranges::sort(across);
           const auto pick = [](const std::vector<double> &of, double part) {
-            return of[(size_t)((double)(of.size() - 1u) * part)];
+            return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
           };
           size_t wouldStamp = 0;
           for (const double filled : fill) {
@@ -1104,22 +1153,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
           Published.Places("buildings: a stamp would fill, p95", pick(fill, 0.95), "m");
           Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
-          Published.Places("buildings: footprints worth a stamp", (double)wouldStamp, "footprints");
+          Published.Places(
+              "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
           Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
           Published.Places("buildings: footprints narrower than a ground cell",
-                           (double)underOneCell,
+                           static_cast<double>(underOneCell),
                            "footprints");
         }
       }
       Published.Places("buildings: footprints the field holds",
-                       (double)prints.Footprints().size(),
+                       static_cast<double>(prints.Footprints().size()),
                        "footprints");
       if (World.Stack.Vectors() != nullptr) {
         Published.Places("buildings: vector tiles the field settled",
-                         (double)World.Stack.Vectors()->Tiles().size(),
+                         static_cast<double>(World.Stack.Vectors()->Tiles().size()),
                          "tiles");
         Published.Places("buildings: OSM features it holds",
-                         (double)World.Stack.Vectors()->Features().size(),
+                         static_cast<double>(World.Stack.Vectors()->Features().size()),
                          "features");
       }
       {
@@ -1127,10 +1177,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double most = -1.0e30;
         size_t within = 0;
         for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-          const double east = (double)inFrame[at];
-          const double south = (double)inFrame[at + 2];
+          const double east = static_cast<double>(inFrame[at]);
+          const double south = static_cast<double>(inFrame[at + 2]);
           if (east * east + south * south > 3200.0 * 3200.0) { continue; }
-          const double up = (double)inFrame[at + 1];
+          const double up = static_cast<double>(inFrame[at + 1]);
           least = up < least ? up : least;
           most = up > most ? up : most;
           ++within;
@@ -1138,7 +1188,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places(
             "buildings: the ring within 3.2 km runs from", within > 0 ? least : 0.0, "m up");
         Published.Places("buildings: to", within > 0 ? most : 0.0, "m up");
-        Published.Places("buildings: over this many ring vertices", (double)within, "vertices");
+        Published.Places(
+            "buildings: over this many ring vertices", static_cast<double>(within), "vertices");
       }
     }
     const auto builtAt = std::chrono::steady_clock::now();
@@ -1205,21 +1256,25 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         CensusOverEveryTriangle(
             Published, censusAt, wallPlaces, wallFacing, wallRun, roofPlaces, roofFacing, roofRun);
       }
-      Published.Places("buildings: roof triangles", (double)(roofRun.size() / 3), "triangles");
-      Published.Places("buildings: wall triangles", (double)(wallRun.size() / 3), "triangles");
+      Published.Places(
+          "buildings: roof triangles", static_cast<double>(roofRun.size() / 3), "triangles");
+      Published.Places(
+          "buildings: wall triangles", static_cast<double>(wallRun.size() / 3), "triangles");
       {
         size_t upright = 0;
         size_t facingDown = 0;
         for (size_t one = 0; one + 2 < wallFacing.size(); one += 3) {
-          const double aloft = (double)wallFacing[one + 1];
+          const double aloft = static_cast<double>(wallFacing[one + 1]);
           if (aloft < -0.5) {
             ++facingDown;
           } else if (aloft > -0.5 && aloft < 0.5) {
             ++upright;
           }
         }
-        Published.Places("buildings: wall normals standing upright", (double)upright, "normals");
-        Published.Places("buildings: wall normals facing DOWN", (double)facingDown, "normals");
+        Published.Places(
+            "buildings: wall normals standing upright", static_cast<double>(upright), "normals");
+        Published.Places(
+            "buildings: wall normals facing DOWN", static_cast<double>(facingDown), "normals");
       }
       const bool tookPlaces =
           builtPart >= 0 && roofPart >= 0 &&
@@ -1237,20 +1292,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ground.setTriangles(builtPart,
                               std::span<const uint32_t>(wallRun.data(), wallRun.size())) &&
           ground.setTriangles(roofPart, std::span<const uint32_t>(roofRun.data(), roofRun.size()));
-      Published.Places("buildings: the part they were given", (double)builtPart, "index");
-      Published.Places("buildings: the wall surface", (double)wallSurface.index(), "index");
-      Published.Places("buildings: the roof surface", (double)roofSurface.index(), "index");
+      Published.Places(
+          "buildings: the part they were given", static_cast<double>(builtPart), "index");
+      Published.Places(
+          "buildings: the wall surface", static_cast<double>(wallSurface.index()), "index");
+      Published.Places(
+          "buildings: the roof surface", static_cast<double>(roofSurface.index()), "index");
       Published.Places("buildings: positions taken", tookPlaces ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: normals taken", tookFacing ? 1.0 : 0.0, "yes/no");
       Published.Places("buildings: triangles taken", tookRun ? 1.0 : 0.0, "yes/no");
-      Published.Places("buildings: parts the geometry holds", (double)ground.parts(), "parts");
-      Published.Places("buildings: triangles this rebuild meshed", (double)triangles, "triangles");
+      Published.Places(
+          "buildings: parts the geometry holds", static_cast<double>(ground.parts()), "parts");
+      Published.Places(
+          "buildings: triangles this rebuild meshed", static_cast<double>(triangles), "triangles");
       Published.Places(
           "rebuild: of that, carrying the buildings into the frame",
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - builtAt)
               .count(),
           "ms");
-      Published.Places("buildings: corners the soup holds", (double)vertices, "corners");
+      Published.Places(
+          "buildings: corners the soup holds", static_cast<double>(vertices), "corners");
       if (declared.Render.Audits) {
         double up = 0.0;
         double down = 0.0;
@@ -1280,7 +1341,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         Published.Places("buildings: normals pointing DOWN", down, "normals");
         Published.Places("buildings: normals lying sideways", sideways, "normals");
         Published.Places("buildings: normals with no length", unlengthed, "normals");
-        Published.Places("buildings: normals in all", (double)vertices, "normals");
+        Published.Places("buildings: normals in all", static_cast<double>(vertices), "normals");
         (void)inward;
       }
       if (declared.Render.Audits) {
@@ -1317,36 +1378,38 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             furthest = edge > furthest ? edge : furthest;
           }
         }
-        Published.Places("buildings: triangles that are needles", (double)needles, "triangles");
+        Published.Places(
+            "buildings: triangles that are needles", static_cast<double>(needles), "triangles");
         Published.Places("buildings: the longest edge one carries", longest, "m");
-        Published.Places("buildings: triangles reaching over 20 m", (double)reaching, "triangles");
+        Published.Places(
+            "buildings: triangles reaching over 20 m", static_cast<double>(reaching), "triangles");
         Published.Places("buildings: the furthest any reaches", furthest, "m");
         Published.Places("buildings: roofs the clipper could not cover",
-                         (double)Generators::RoofSurface::UnclippedTaken(),
+                         static_cast<double>(Generators::RoofSurface::UnclippedTaken()),
                          "roofs");
         Published.Places("buildings: roof triangles with a vertex outside their footprint",
-                         (double)Generators::RoofSurface::OutsideTaken(),
+                         static_cast<double>(Generators::RoofSurface::OutsideTaken()),
                          "triangles");
         Published.Places("buildings: seated BELOW the ground they stand on",
-                         (double)Generators::BuildingMesh::BuriedTaken(),
+                         static_cast<double>(Generators::BuildingMesh::BuriedTaken()),
                          "buildings");
         Published.Places("buildings: raised with full architecture",
-                         (double)Generators::BuildingMesh::RaisedTaken(),
+                         static_cast<double>(Generators::BuildingMesh::RaisedTaken()),
                          "buildings");
         Published.Places("buildings: reduced to a hull box",
-                         (double)Generators::BuildingMesh::BoxesTaken(),
+                         static_cast<double>(Generators::BuildingMesh::BoxesTaken()),
                          "buildings");
         Published.Places("buildings: past even a BOX's pixel budget",
-                         (double)Generators::BuildingMesh::OverBudgetTaken(),
+                         static_cast<double>(Generators::BuildingMesh::OverBudgetTaken()),
                          "buildings");
         Published.Places("buildings: meshed with NO pixel scale declared",
-                         (double)Generators::BuildingMesh::UnscaledTaken(),
+                         static_cast<double>(Generators::BuildingMesh::UnscaledTaken()),
                          "buildings");
         Published.Places("buildings: the farthest one meshed lies",
-                         (double)Generators::BuildingMesh::FarthestMTaken(),
+                         static_cast<double>(Generators::BuildingMesh::FarthestMTaken()),
                          "m out");
         Published.Places("buildings: and the deepest of them is buried by",
-                         (double)Generators::BuildingMesh::DeepestBuriedMmTaken(),
+                         static_cast<double>(Generators::BuildingMesh::DeepestBuriedMmTaken()),
                          "mm");
       }
       if (declared.Render.Audits) {
@@ -1356,9 +1419,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const held = placeAt(at);
-          const double up = (double)held[1];
-          const double east = (double)held[0];
-          const double south = (double)held[2];
+          const double up = static_cast<double>(held[1]);
+          const double east = static_cast<double>(held[0]);
+          const double south = static_cast<double>(held[2]);
           const double away = std::sqrt(east * east + south * south);
           least = up < least ? up : least;
           most = up > most ? up : most;
@@ -1389,25 +1452,29 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::unordered_map<uint64_t, std::pair<double, uint32_t>> summed;
     summed.reserve(inFrame.size() / 3);
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const auto east = (int64_t)std::llround((double)inFrame[at] / kDrapeGridM);
-      const auto south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
-      const auto atE = (uint64_t)(east + 0x20000000LL);
-      const auto atS = (uint64_t)(south + 0x20000000LL);
+      const auto east =
+          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at]) / kDrapeGridM));
+      const auto south =
+          static_cast<int64_t>(std::llround(static_cast<double>(inFrame[at + 2]) / kDrapeGridM));
+      const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+      const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
       const uint64_t key = (atE << 32U) | atS;
       std::pair<double, uint32_t> &cell = summed[key];
-      cell.first += (double)inFrame[at + 1];
+      cell.first += static_cast<double>(inFrame[at + 1]);
       ++cell.second;
     }
     drawnGround.reserve(summed.size());
     size_t crowded = 0;
     for (const auto &one : summed) {
-      drawnGround[one.first] = (float)(one.second.first / (double)one.second.second);
+      drawnGround[one.first] =
+          static_cast<float>(one.second.first / static_cast<double>(one.second.second));
       if (one.second.second > 1) { ++crowded; }
     }
-    Published.Places(
-        "ring: vertices the drape grid holds", (double)inFrame.size() / 3.0, "vertices");
-    Published.Places("ring: cells they fall into", (double)summed.size(), "cells");
-    Published.Places("ring: cells holding more than one", (double)crowded, "cells");
+    Published.Places("ring: vertices the drape grid holds",
+                     static_cast<double>(inFrame.size()) / 3.0,
+                     "vertices");
+    Published.Places("ring: cells they fall into", static_cast<double>(summed.size()), "cells");
+    Published.Places("ring: cells holding more than one", static_cast<double>(crowded), "cells");
 
     facesAt[0].reserve(laid->Index.size() / 3u);
     size_t rungTaken[kDrapeRungs] = {};
@@ -1418,64 +1485,66 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       double highS = -1.0e30;
       bool whole = true;
       for (size_t corner = 0; corner < 3; ++corner) {
-        const size_t held = (size_t)laid->Index[one + corner] * 3u;
+        const size_t held = static_cast<size_t>(laid->Index[one + corner]) * 3u;
         if (held + 2 >= inFrame.size()) {
           whole = false;
           break;
         }
-        lowE = std::min(lowE, (double)inFrame[held]);
-        highE = std::max(highE, (double)inFrame[held]);
-        lowS = std::min(lowS, (double)inFrame[held + 2]);
-        highS = std::max(highS, (double)inFrame[held + 2]);
+        lowE = std::min(lowE, static_cast<double>(inFrame[held]));
+        highE = std::max(highE, static_cast<double>(inFrame[held]));
+        lowS = std::min(lowS, static_cast<double>(inFrame[held + 2]));
+        highS = std::max(highS, static_cast<double>(inFrame[held + 2]));
       }
       if (!whole) { continue; }
       const double across = std::max(highE - lowE, highS - lowS);
       size_t rung = 0;
       while (rung + 1u < kDrapeRungs && across > 2.0 * DrapeCellM(rung)) { ++rung; }
       const double cellM = DrapeCellM(rung);
-      const auto fromE = (int64_t)std::floor(lowE / cellM);
-      const auto toE = (int64_t)std::floor(highE / cellM);
-      const auto fromS = (int64_t)std::floor(lowS / cellM);
-      const auto toS = (int64_t)std::floor(highS / cellM);
+      const auto fromE = static_cast<int64_t>(std::floor(lowE / cellM));
+      const auto toE = static_cast<int64_t>(std::floor(highE / cellM));
+      const auto fromS = static_cast<int64_t>(std::floor(lowS / cellM));
+      const auto toS = static_cast<int64_t>(std::floor(highS / cellM));
       if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
       ++rungTaken[rung];
       for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
         for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-          const auto atE = (uint64_t)(cellE + 0x20000000LL);
-          const auto atS = (uint64_t)(cellS + 0x20000000LL);
-          facesAt[rung][(atE << 32U) | atS].push_back((uint32_t)one);
+          const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
+          facesAt[rung][(atE << 32U) | atS].push_back(static_cast<uint32_t>(one));
         }
       }
     }
     for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
-      Published.Places(std::string("ring: drape triangles on rung ") + (char)('0' + rung),
-                       (double)rungTaken[rung],
+      Published.Places(std::string("ring: drape triangles on rung ") +
+                           static_cast<char>('0' + rung),
+                       static_cast<double>(rungTaken[rung]),
                        "triangles");
     }
-    Published.Places(
-        "ring: triangles the drape can reach", (double)laid->Index.size() / 3.0, "triangles");
+    Published.Places("ring: triangles the drape can reach",
+                     static_cast<double>(laid->Index.size()) / 3.0,
+                     "triangles");
   }
   const auto drapedOver =
       [&drawnGround, &facesAt, &inFrame, &laid](double eastM, double southM, double fallback) {
         for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
           const double cellM = DrapeCellM(rung);
-          const auto cellE = (int64_t)std::floor(eastM / cellM);
-          const auto cellS = (int64_t)std::floor(southM / cellM);
-          const auto atE = (uint64_t)(cellE + 0x20000000LL);
-          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          const auto cellE = static_cast<int64_t>(std::floor(eastM / cellM));
+          const auto cellS = static_cast<int64_t>(std::floor(southM / cellM));
+          const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
           const auto bucket = facesAt[rung].find((atE << 32U) | atS);
           if (bucket != facesAt[rung].end()) {
             for (const uint32_t at : bucket->second) {
-              const size_t a = (size_t)laid->Index[at] * 3u;
-              const size_t b = (size_t)laid->Index[at + 1u] * 3u;
-              const size_t c = (size_t)laid->Index[at + 2u] * 3u;
+              const size_t a = static_cast<size_t>(laid->Index[at]) * 3u;
+              const size_t b = static_cast<size_t>(laid->Index[at + 1u]) * 3u;
+              const size_t c = static_cast<size_t>(laid->Index[at + 2u]) * 3u;
               if (c + 2 >= inFrame.size()) { continue; }
               const double aE = inFrame[a];
               const double aS = inFrame[a + 2];
-              const double spanBE = (double)inFrame[b] - aE;
-              const double spanBS = (double)inFrame[b + 2] - aS;
-              const double spanCE = (double)inFrame[c] - aE;
-              const double spanCS = (double)inFrame[c + 2] - aS;
+              const double spanBE = static_cast<double>(inFrame[b]) - aE;
+              const double spanBS = static_cast<double>(inFrame[b + 2]) - aS;
+              const double spanCE = static_cast<double>(inFrame[c]) - aE;
+              const double spanCS = static_cast<double>(inFrame[c + 2]) - aS;
               const double twice = spanBE * spanCS - spanCE * spanBS;
               if (std::fabs(twice) < 1.0e-9) { continue; }
               const double intoE = eastM - aE;
@@ -1485,24 +1554,25 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               if (towardB < -1.0e-6 || towardC < -1.0e-6 || towardB + towardC > 1.0 + 1.0e-6) {
                 continue;
               }
-              return (double)inFrame[a + 1] * (1.0 - towardB - towardC) +
-                     (double)inFrame[b + 1] * towardB + (double)inFrame[c + 1] * towardC;
+              return static_cast<double>(inFrame[a + 1]) * (1.0 - towardB - towardC) +
+                     static_cast<double>(inFrame[b + 1]) * towardB +
+                     static_cast<double>(inFrame[c + 1]) * towardC;
             }
           }
         }
         const double atE = eastM / kDrapeGridM;
         const double atS = southM / kDrapeGridM;
-        const auto west = (int64_t)std::floor(atE);
-        const auto north = (int64_t)std::floor(atS);
-        const double alongE = atE - (double)west;
-        const double alongS = atS - (double)north;
+        const auto west = static_cast<int64_t>(std::floor(atE));
+        const auto north = static_cast<int64_t>(std::floor(atS));
+        const double alongE = atE - static_cast<double>(west);
+        const double alongS = atS - static_cast<double>(north);
         const auto held = [&drawnGround](int64_t east, int64_t south, double *out) {
-          const auto atE = (uint64_t)(east + 0x20000000LL);
-          const auto atS = (uint64_t)(south + 0x20000000LL);
+          const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
           const uint64_t key = (atE << 32U) | atS;
           const auto stood = drawnGround.find(key);
           if (stood == drawnGround.end()) { return false; }
-          *out = (double)stood->second;
+          *out = static_cast<double>(stood->second);
           return true;
         };
         double corner[4] = {0.0, 0.0, 0.0, 0.0};
@@ -1512,8 +1582,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double below = corner[2] + (corner[3] - corner[2]) * alongE;
           return above + (below - above) * alongS;
         }
-        const auto east = (int64_t)std::llround(atE);
-        const auto south = (int64_t)std::llround(atS);
+        const auto east = static_cast<int64_t>(std::llround(atE));
+        const auto south = static_cast<int64_t>(std::llround(atS));
         double summed = 0.0;
         size_t took = 0;
         for (int64_t dy = -1; dy <= 1; ++dy) {
@@ -1524,7 +1594,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             ++took;
           }
         }
-        return took > 0 ? summed / (double)took : fallback;
+        return took > 0 ? summed / static_cast<double>(took) : fallback;
       };
 
   {
@@ -1582,10 +1652,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t at = 0; at < ways.Ways().size(); ++at) {
         const Ground::StreetField::Way &lane = ways.Ways()[at];
         if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-        const size_t first = (size_t)lane.FirstPoint * 2;
-        if (first + (size_t)lane.PointCount * 2 > points.size()) { continue; }
-        net.Lay(points.subspan(first, (size_t)lane.PointCount * 2),
-                Path::WayClass{.HalfWidthM = (double)lane.HalfWidthM,
+        const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
+        if (first + static_cast<size_t>(lane.PointCount) * 2 > points.size()) { continue; }
+        net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
+                Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
                                .MaxGradient = 0.0,
                                .MinRadiusM = 0.0,
                                .Friction = 0.0,
@@ -1602,12 +1672,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double northM = 0.0;
           standing.Place(one.LatDeg, one.LonDeg, 0.0, &eastM, &upM, &northM);
           const uint64_t named = WayEndKey(one.LatDeg, one.LonDeg) | 1ULL;
-          const auto east = (int64_t)std::floor(eastM / kCrossCellM);
-          const auto south = (int64_t)std::floor(-northM / kCrossCellM);
+          const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
+          const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
           for (int64_t stepE = -1; stepE <= 1; ++stepE) {
             for (int64_t stepS = -1; stepS <= 1; ++stepS) {
-              const auto atE = (uint64_t)(east + stepE + 0x20000000LL);
-              const auto atS = (uint64_t)(south + stepS + 0x20000000LL);
+              const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
+              const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
               atCrossing[(atE << 32U) | atS].push_back(
                   Meets{.EastM = eastM, .SouthM = -northM, .Named = named});
             }
@@ -1629,7 +1699,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double northM = 0.0;
           standing.Place(one.LatDeg, one.LonDeg, aslM, &eastM, &upM, &northM);
           const double onDrawn = drapedOver(eastM, -northM, upM);
-          const double need = onDrawn + (double)below.ClearanceM;
+          const double need = onDrawn + static_cast<double>(below.ClearanceM);
           if (need > deckM[spans]) {
             if (deckM[spans] < -1.0e29) { ++decksRaised; }
             deckM[spans] = need;
@@ -1645,8 +1715,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     if (vectors != nullptr && decksRaised > 0) {
       const std::span<const double> points = vectors->Points();
       const auto endsOf = [&](const Ground::StreetField::Way &lane, uint64_t out[2], double at[4]) {
-        const size_t first = (size_t)lane.FirstPoint * 2u;
-        const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+        const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+        const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
         if (last + 1 >= points.size()) { return false; }
         at[0] = points[first];
         at[1] = points[first + 1];
@@ -1674,7 +1744,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (!endsOf(lane, key, corner)) { continue; }
         for (int side = 0; side < 2; ++side) {
           double stood = 0.0;
-          const size_t axis = (size_t)side * 2u;
+          const size_t axis = static_cast<size_t>(side) * 2u;
           if (!groundAt(corner[axis], corner[axis + 1u], &stood)) { continue; }
           const auto found = endM.find(key[side]);
           if (found == endM.end()) {
@@ -1718,7 +1788,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double runE = (corner[3] - corner[1]) * perLon;
           const double runN = (corner[2] - corner[0]) * 111132.0;
           const double runM = std::sqrt(runE * runE + runN * runN);
-          const double mostM = runM * (double)lane.MaxGradient;
+          const double mostM = runM * static_cast<double>(lane.MaxGradient);
           const double apartM = high->second - low->second;
           const auto capped = [&](uint64_t at, double toM) {
             const auto seeded = groundEndM.find(at);
@@ -1753,10 +1823,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
-    Published.Places("streets: ways a ramp lifted off the ground", (double)rampsRaised, "ways");
+    Published.Places(
+        "streets: ways a ramp lifted off the ground", static_cast<double>(rampsRaised), "ways");
     Published.Places("streets: and the most one was lifted", steepestRamp, "m");
-    Published.Places("streets: crossings the plan found", (double)crossingsSeen, "crossings");
-    Published.Places("streets: decks a crossing raised", (double)decksRaised, "decks");
+    Published.Places(
+        "streets: crossings the plan found", static_cast<double>(crossingsSeen), "crossings");
+    Published.Places("streets: decks a crossing raised", static_cast<double>(decksRaised), "decks");
     Published.Places("streets: and the most one stands over what it crosses", mostRaisedM, "m");
     std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> gates;
     std::vector<double> trimM(ways.Ways().size() * 2u, 0.0);
@@ -1781,8 +1853,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const Ground::StreetField::Way &lane = ways.Ways()[at];
         if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
         if (!(lane.HalfWidthM > 0.0f)) { continue; }
-        const size_t first = (size_t)lane.FirstPoint * 2u;
-        const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+        const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+        const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
         if (last + 1 >= points.size()) { continue; }
         for (int side = 0; side < 2; ++side) {
           const size_t here = side == 0 ? first : last;
@@ -1795,10 +1867,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           outE /= run;
           outN /= run;
           meeting[WayEndKey(points[here], points[here + 1])].push_back(
-              Leaving{.Way = (uint32_t)at,
-                      .Side = (uint8_t)side,
-                      .DirE = (float)outE,
-                      .DirN = (float)outN,
+              Leaving{.Way = static_cast<uint32_t>(at),
+                      .Side = static_cast<uint8_t>(side),
+                      .DirE = static_cast<float>(outE),
+                      .DirN = static_cast<float>(outN),
                       .HalfM = lane.HalfWidthM});
         }
       }
@@ -1809,24 +1881,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double back = 0.0;
           for (const Leaving &other : leaving) {
             if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-            const double cosBetween =
-                (double)mine.DirE * other.DirE + (double)mine.DirN * other.DirN;
-            const double sinBetween =
-                std::fabs((double)mine.DirE * other.DirN - (double)mine.DirN * other.DirE);
+            const double cosBetween = static_cast<double>(mine.DirE) * other.DirE +
+                                      static_cast<double>(mine.DirN) * other.DirN;
+            const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
+                                                static_cast<double>(mine.DirN) * other.DirE);
             if (sinBetween < 1.0e-3) { continue; }
             const double reach =
-                ((double)other.HalfM + (double)mine.HalfM * cosBetween) / sinBetween;
+                (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
+                sinBetween;
             back = std::max(back, reach);
           }
           double sharpest = 180.0;
           for (const Leaving &other : leaving) {
             if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-            const double between = std::acos(std::clamp(
-                (double)mine.DirE * other.DirE + (double)mine.DirN * other.DirN, -1.0, 1.0));
+            const double between =
+                std::acos(std::clamp(static_cast<double>(mine.DirE) * other.DirE +
+                                         static_cast<double>(mine.DirN) * other.DirN,
+                                     -1.0,
+                                     1.0));
             sharpest = std::min(sharpest, 180.0 - between * 180.0 / std::numbers::pi);
           }
-          const double capped = std::min(back, (double)mine.HalfM * kTrimMostWidths);
-          trimM[(size_t)mine.Way * 2u + mine.Side] = capped;
+          const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
+          trimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
           if (capped > 0.01) {
             ++endsTrimmed;
             deepestTrimM = std::max(deepestTrimM, capped);
@@ -1843,7 +1919,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::ranges::sort(shortByM);
       std::ranges::sort(forkDeg);
       const auto pick = [](const std::vector<double> &of, double part) {
-        return of[(size_t)((double)(of.size() - 1u) * part)];
+        return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
       };
       Published.Places("streets: what a capped end was short by, p50", pick(shortByM, 0.5), "m");
       Published.Places("streets: and p95", pick(shortByM, 0.95), "m");
@@ -1851,17 +1927,19 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("streets: the fork angle where the cap bit, p50", pick(forkDeg, 0.5), "deg");
       Published.Places("streets: and the sharpest", forkDeg.front(), "deg");
     }
-    Published.Places("streets: way ends a junction trimmed", (double)endsTrimmed, "ends");
-    Published.Places("streets: and the deepest trim", deepestTrimM, "m");
     Published.Places(
-        "streets: ends STILL crossing, the cap bit", (double)endsStillCrossing, "ends");
+        "streets: way ends a junction trimmed", static_cast<double>(endsTrimmed), "ends");
+    Published.Places("streets: and the deepest trim", deepestTrimM, "m");
+    Published.Places("streets: ends STILL crossing, the cap bit",
+                     static_cast<double>(endsStillCrossing),
+                     "ends");
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
       std::unordered_map<uint64_t, uint32_t> sharedNodes;
       for (const Ground::StreetField::Way &one : ways.Ways()) {
         if (one.Form != Ground::StreetField::Shape::Ribbon) { continue; }
         for (uint32_t step = 0; step < one.PointCount; ++step) {
-          const size_t at = ((size_t)one.FirstPoint + step) * 2u;
+          const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
           if (at + 1 >= points.size()) { break; }
           ++sharedNodes[WayEndKey(points[at], points[at + 1])];
         }
@@ -1895,7 +1973,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               return true;
             };
             for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
-              const size_t here = ((size_t)lane.FirstPoint + step) * 2;
+              const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
               const size_t next = here + 2;
               if (next + 1 >= points.size()) {
                 whole = false;
@@ -1905,9 +1983,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               const double spanE = (points[next + 1] - points[here + 1]) * perLon;
               const double spanN = (points[next] - points[here]) * 111132.0;
               const auto pieces =
-                  (size_t)(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
+                  static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
               for (size_t piece = 0; piece < pieces && whole; ++piece) {
-                const double at = (double)piece / (double)pieces;
+                const double at = static_cast<double>(piece) / static_cast<double>(pieces);
                 const double onLat = points[here] + (points[next] - points[here]) * at;
                 const double onLon = points[here + 1] + (points[next + 1] - points[here + 1]) * at;
                 const auto seen =
@@ -1919,7 +1997,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               }
             }
             if (whole) {
-              const size_t last = ((size_t)lane.FirstPoint + lane.PointCount - 1u) * 2;
+              const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
               if (last + 1 < points.size()) {
                 const auto seen = sharedNodes.find(WayEndKey(points[last], points[last + 1]));
                 whole = station(points[last],
@@ -1958,15 +2036,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
             if (lane.MaxGradient > 0.0f) {
               Generators::DesignProfile(Span<Generators::RoadStation>(along.data(), along.size()),
-                                        (double)lane.MaxGradient,
+                                        static_cast<double>(lane.MaxGradient),
                                         kLeastCrestK);
             }
             for (Generators::RoadStation &one : along) {
               if (one.Node != 0u || atCrossing.empty()) { continue; }
-              const auto east = (int64_t)std::floor(one.EastM / kCrossCellM);
-              const auto south = (int64_t)std::floor(one.SouthM / kCrossCellM);
-              const auto atE = (uint64_t)(east + 0x20000000LL);
-              const auto atS = (uint64_t)(south + 0x20000000LL);
+              const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
+              const auto south = static_cast<int64_t>(std::floor(one.SouthM / kCrossCellM));
+              const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+              const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
               const auto near = atCrossing.find((atE << 32U) | atS);
               if (near == atCrossing.end()) { continue; }
               for (const auto &met : near->second) {
@@ -2085,11 +2163,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               const int which =
                   World.Stack.Classes().ClassAt(*classStructure, lat, lon, &edgeM, &second);
               ++askedOverBridge;
-              if (which < 0 || (size_t)which >= World.Stack.Vegetation().TemplateCount()) {
+              if (which < 0 ||
+                  static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {
                 continue;
               }
               ++namedOverBridge;
-              if (World.Stack.Vegetation().Rows()[(size_t)which].GroundClass != waterRow) {
+              if (World.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass !=
+                  waterRow) {
                 continue;
               }
               ++wetOverBridge;
@@ -2101,8 +2181,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               double clear = 0.0;
               for (const Ground::VegetationTemplates::WaterBand &band :
                    World.Stack.Vegetation().WaterBands()) {
-                clear = (double)band.ClearanceM;
-                if (overWaterM <= (double)band.RunM) { break; }
+                clear = static_cast<double>(band.ClearanceM);
+                if (overWaterM <= static_cast<double>(band.RunM)) { break; }
               }
               if (clear > 0.0) {
                 double stood = -1.0e30;
@@ -2120,8 +2200,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
             for (Generators::RoadStation &one : along) { one.GradeM = deck; }
           } else if (!endM.empty()) {
-            const size_t first = (size_t)lane.FirstPoint * 2;
-            const size_t last = first + ((size_t)lane.PointCount - 1u) * 2;
+            const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
+            const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
             if (last + 1 < points.size()) {
               const auto from = endM.find(WayEndKey(points[first], points[first + 1]));
               const auto to = endM.find(WayEndKey(points[last], points[last + 1]));
@@ -2144,9 +2224,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           }
           laidWays += lane.Bridge ? 1u : 0u;
           groundWays += lane.Bridge ? 0u : 1u;
-          const bool sealed = lane.CoverRow >= 0 &&
-                              (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount() &&
-                              World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Mix[2] >= 1.0f;
+          const bool sealed =
+              lane.CoverRow >= 0 &&
+              static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount() &&
+              World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
           Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
           if (sealed) {
             profile =
@@ -2155,12 +2236,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const float unnamed[3] = {0.5f, 0.5f, 0.5f};
           const float *wears = unnamed;
           if (lane.CoverRow >= 0 &&
-              (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
-            wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
+              static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
+            wears = World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
           }
           if (lane.Bridge) {
             Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
-                                  (double)lane.HalfWidthM,
+                                  static_cast<double>(lane.HalfWidthM),
                                   profile,
                                   wears,
                                   std::atan(Generators::kCrossfall),
@@ -2183,7 +2264,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                            std::fabs(along[at - 1u].GradeM - groundBefore));
             const double outE = -runS / runM;
             const double outS = runE / runM;
-            const double half = (double)lane.HalfWidthM + kVergeM;
+            const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
             double reliefM = std::fabs(groundAt - groundBefore);
             for (const double hand : {1.0, -1.0}) {
               for (int end = 0; end < 2; ++end) {
@@ -2221,21 +2302,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             made.YieldM = yieldM;
             const bool rests = !lane.Bridge || at == 1u || at + 1u == along.size();
             if (rests) {
-              made.SeamEastSouthM = {along[at - 1u].EastM + outE * (double)lane.HalfWidthM,
-                                     along[at - 1u].SouthM + outS * (double)lane.HalfWidthM,
-                                     along[at].EastM + outE * (double)lane.HalfWidthM,
-                                     along[at].SouthM + outS * (double)lane.HalfWidthM,
-                                     along[at].EastM - outE * (double)lane.HalfWidthM,
-                                     along[at].SouthM - outS * (double)lane.HalfWidthM,
-                                     along[at - 1u].EastM - outE * (double)lane.HalfWidthM,
-                                     along[at - 1u].SouthM - outS * (double)lane.HalfWidthM};
+              made.SeamEastSouthM = {
+                  along[at - 1u].EastM + outE * static_cast<double>(lane.HalfWidthM),
+                  along[at - 1u].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+                  along[at].EastM + outE * static_cast<double>(lane.HalfWidthM),
+                  along[at].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+                  along[at].EastM - outE * static_cast<double>(lane.HalfWidthM),
+                  along[at].SouthM - outS * static_cast<double>(lane.HalfWidthM),
+                  along[at - 1u].EastM - outE * static_cast<double>(lane.HalfWidthM),
+                  along[at - 1u].SouthM - outS * static_cast<double>(lane.HalfWidthM)};
             }
             made.Fills = !lane.Bridge;
             corridor.push_back(std::move(made));
           }
           if (!lane.Bridge && along.size() > 3) {
-            const size_t shutFrom = (size_t)lane.FirstPoint * 2u;
-            const size_t shutTo = shutFrom + ((size_t)lane.PointCount - 1u) * 2u;
+            const size_t shutFrom = static_cast<size_t>(lane.FirstPoint) * 2u;
+            const size_t shutTo = shutFrom + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
             const bool shut = shutTo + 1 < points.size() &&
                               std::fabs(points[shutFrom] - points[shutTo]) < 1.0e-7 &&
                               std::fabs(points[shutFrom + 1] - points[shutTo + 1]) < 1.0e-7;
@@ -2256,7 +2338,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               }
               island.AtE = along.front().EastM;
               island.AtS = along.front().SouthM;
-              island.PlateauM = summed / (double)along.size();
+              island.PlateauM = summed / static_cast<double>(along.size());
               island.ApronM = kLeastApronM;
               island.YieldM = kBrokenGroundM;
               island.Fills = true;
@@ -2264,8 +2346,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             }
           }
           {
-            const size_t first = (size_t)lane.FirstPoint * 2u;
-            const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+            const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+            const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
             if (last + 1 < points.size()) {
               const uint64_t key[2] = {WayEndKey(points[first], points[first + 1]),
                                        WayEndKey(points[last], points[last + 1])};
@@ -2284,7 +2366,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                          .GradeM = at.GradeM,
                                          .OutE = outE,
                                          .OutS = outS,
-                                         .HalfWidthM = (double)lane.HalfWidthM});
+                                         .HalfWidthM = static_cast<double>(lane.HalfWidthM)});
               }
             }
           }
@@ -2293,8 +2375,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double movedM = 0.0;
           for (int pass = 0; pass < kLevelPasses; ++pass) {
             std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
-            for (uint32_t lane = 0; lane < (uint32_t)designed.size(); ++lane) {
-              for (uint32_t one = 0; one < (uint32_t)designed[lane].size(); ++one) {
+            for (uint32_t lane = 0; lane < static_cast<uint32_t>(designed.size()); ++lane) {
+              for (uint32_t one = 0; one < static_cast<uint32_t>(designed[lane].size()); ++one) {
                 if (designed[lane][one].Node == 0u) { continue; }
                 atNode[designed[lane][one].Node].emplace_back(lane, one);
               }
@@ -2307,7 +2389,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               for (const auto &held : node.second) {
                 wanted += designed[held.first][held.second].GradeM;
               }
-              wanted /= (double)node.second.size();
+              wanted /= static_cast<double>(node.second.size());
               for (const auto &held : node.second) {
                 pullM[held.first] += wanted - designed[held.first][held.second].GradeM;
                 ++pulls[held.first];
@@ -2316,7 +2398,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             double most = 0.0;
             for (size_t lane = 0; lane < designed.size(); ++lane) {
               if (pulls[lane] == 0u) { continue; }
-              const double by = pullM[lane] / (double)pulls[lane];
+              const double by = pullM[lane] / static_cast<double>(pulls[lane]);
               for (Generators::RoadStation &one : designed[lane]) { one.GradeM += by; }
               most = std::max(most, std::fabs(by));
             }
@@ -2327,12 +2409,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
-    Published.Places("streets: stations under a bridge asked", (double)askedOverBridge, "stations");
-    Published.Places("streets: of those a class named", (double)namedOverBridge, "stations");
-    Published.Places("streets: and of those, water", (double)wetOverBridge, "stations");
-    Published.Places("streets: the water class the table names", (double)waterRow, "index");
+    Published.Places(
+        "streets: stations under a bridge asked", static_cast<double>(askedOverBridge), "stations");
+    Published.Places(
+        "streets: of those a class named", static_cast<double>(namedOverBridge), "stations");
+    Published.Places(
+        "streets: and of those, water", static_cast<double>(wetOverBridge), "stations");
+    Published.Places(
+        "streets: the water class the table names", static_cast<double>(waterRow), "index");
     Published.Places("streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
-    Published.Places("streets: decks a WATERWAY raised", (double)decksOverWater, "decks");
+    Published.Places(
+        "streets: decks a WATERWAY raised", static_cast<double>(decksOverWater), "decks");
     Published.Places("streets: and the clearance the widest one took", mostOverWaterM, "m");
     size_t junctionsRaised = 0;
     {
@@ -2345,7 +2432,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const float sealed[3] = {0.5f, 0.5f, 0.5f};
       const int asphalt = World.Stack.Materials().Find("asphalt");
       const float *wears = sealed;
-      if (asphalt >= 0) { wears = World.Stack.Materials().At((size_t)asphalt).Albedo; }
+      if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
       for (const uint64_t node : nodes) {
         const std::vector<Generators::RoadGate> &met = gates[node];
         Generators::RaiseJunction(
@@ -2353,29 +2440,43 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         ++junctionsRaised;
       }
     }
-    Published.Places("streets: junction bodies raised", (double)junctionsRaised, "junctions");
+    Published.Places(
+        "streets: junction bodies raised", static_cast<double>(junctionsRaised), "junctions");
     if (!fitOffsetM.empty()) {
       std::ranges::sort(fitOffsetM);
       std::ranges::sort(fitRadiusM);
       const auto pick = [](const std::vector<double> &of, double part) {
-        return of.empty() ? 0.0 : of[(size_t)((double)(of.size() - 1u) * part)];
+        return of.empty() ? 0.0
+                          : of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
       };
-      Published.Places("streets: ways a reference line was fitted to", (double)fitLaid, "ways");
-      Published.Places("streets: and ways the fit refused", (double)fitRefused, "ways");
       Published.Places(
-          "streets: corners too tight to drive, cut instead", (double)fitTooTight, "corners");
-      Published.Places("streets: cuts the split made", (double)fitCuts, "cuts");
-      Published.Places("streets: stations a chord asked for", (double)chordAdded, "stations");
-      Published.Places("streets: pieces the sweep laid on a line", (double)sweptPieces, "pieces");
-      Published.Places("streets: cuts the sweep made", (double)sweptCuts, "cuts");
-      Published.Places("streets: pieces the sweep could not lay", (double)sweptRefused, "pieces");
-      Published.Places("streets: of those, the fit refused", (double)sweptWhy.Fit, "pieces");
-      Published.Places("streets: of those, the rise refused", (double)sweptWhy.Rise, "pieces");
-      Published.Places("streets: of those, the bank refused", (double)sweptWhy.Bank, "pieces");
-      Published.Places("streets: of those, the sweep refused", (double)sweptWhy.Sweep, "pieces");
-      Published.Places("streets: of those, too short to lay", (double)sweptWhy.TooShort, "pieces");
+          "streets: ways a reference line was fitted to", static_cast<double>(fitLaid), "ways");
       Published.Places(
-          "streets: pieces the split still could not lay", (double)fitUnsplittable, "pieces");
+          "streets: and ways the fit refused", static_cast<double>(fitRefused), "ways");
+      Published.Places("streets: corners too tight to drive, cut instead",
+                       static_cast<double>(fitTooTight),
+                       "corners");
+      Published.Places("streets: cuts the split made", static_cast<double>(fitCuts), "cuts");
+      Published.Places(
+          "streets: stations a chord asked for", static_cast<double>(chordAdded), "stations");
+      Published.Places(
+          "streets: pieces the sweep laid on a line", static_cast<double>(sweptPieces), "pieces");
+      Published.Places("streets: cuts the sweep made", static_cast<double>(sweptCuts), "cuts");
+      Published.Places(
+          "streets: pieces the sweep could not lay", static_cast<double>(sweptRefused), "pieces");
+      Published.Places(
+          "streets: of those, the fit refused", static_cast<double>(sweptWhy.Fit), "pieces");
+      Published.Places(
+          "streets: of those, the rise refused", static_cast<double>(sweptWhy.Rise), "pieces");
+      Published.Places(
+          "streets: of those, the bank refused", static_cast<double>(sweptWhy.Bank), "pieces");
+      Published.Places(
+          "streets: of those, the sweep refused", static_cast<double>(sweptWhy.Sweep), "pieces");
+      Published.Places(
+          "streets: of those, too short to lay", static_cast<double>(sweptWhy.TooShort), "pieces");
+      Published.Places("streets: pieces the split still could not lay",
+                       static_cast<double>(fitUnsplittable),
+                       "pieces");
       if (!tightDemandM.empty()) {
         std::ranges::sort(tightDemandM);
         Published.Places("streets: the radius such a corner demanded, p50",
@@ -2390,23 +2491,34 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "streets: the radius a fitted line found, tightest", pick(fitRadiusM, 0.0), "m");
       Published.Places("streets: the radius a fitted line found, p50", pick(fitRadiusM, 0.5), "m");
-      Published.Places(
-          "streets: stations the fit calls undrivable", (double)fitUndrivable, "stations");
+      Published.Places("streets: stations the fit calls undrivable",
+                       static_cast<double>(fitUndrivable),
+                       "stations");
     }
+    Published.Places("streets: ways laid as ribbons, all of them FLOATING",
+                     static_cast<double>(laidWays),
+                     "ways");
     Published.Places(
-        "streets: ways laid as ribbons, all of them FLOATING", (double)laidWays, "ways");
-    Published.Places("streets: ways the GROUND carries instead", (double)groundWays, "ways");
-    Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
-    Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");
-    Published.Places("streets: features no rule named", (double)ways.UnruledCount(), "features");
+        "streets: ways the GROUND carries instead", static_cast<double>(groundWays), "ways");
     Published.Places(
-        "streets: features a rule gave no width", (double)ways.UnwidthedCount(), "features");
-    Published.Places("streets: features that are tunnels", (double)ways.TunnelCount(), "features");
-    Published.Places("streets: ways OSM calls a bridge", (double)ways.BridgeCount(), "ways");
-    Published.Places("streets: ways that state a layer", (double)ways.LayeredCount(), "ways");
+        "streets: ways the field holds", static_cast<double>(ways.Ways().size()), "ways");
     Published.Places(
-        "streets: ways whose layer is a STRING", (double)ways.LayerSaidCount(), "ways");
-    Published.Places("streets: ways it refused", (double)refusedWays, "ways");
+        "streets: features it walked at all", static_cast<double>(ways.LookedCount()), "features");
+    Published.Places(
+        "streets: features no rule named", static_cast<double>(ways.UnruledCount()), "features");
+    Published.Places("streets: features a rule gave no width",
+                     static_cast<double>(ways.UnwidthedCount()),
+                     "features");
+    Published.Places(
+        "streets: features that are tunnels", static_cast<double>(ways.TunnelCount()), "features");
+    Published.Places(
+        "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
+    Published.Places(
+        "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
+    Published.Places("streets: ways whose layer is a STRING",
+                     static_cast<double>(ways.LayerSaidCount()),
+                     "ways");
+    Published.Places("streets: ways it refused", static_cast<double>(refusedWays), "ways");
     {
       std::unordered_map<uint64_t, uint32_t> corner;
       corner.reserve(pavement.PositionM.size() / 3);
@@ -2420,8 +2532,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (++corner[keyed] == 2u) { shared += 2; }
       }
       const size_t corners = pavement.PositionM.size() / 3u;
-      Published.Places("streets: vertices two bodies SHARE", (double)shared, "vertices");
-      Published.Places("streets: vertices in all", (double)corners, "vertices");
+      Published.Places(
+          "streets: vertices two bodies SHARE", static_cast<double>(shared), "vertices");
+      Published.Places("streets: vertices in all", static_cast<double>(corners), "vertices");
     }
     {
       std::vector<double> aboveM;
@@ -2431,30 +2544,33 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const double under =
             drapedOver(pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -1.0e30);
         if (under < -1.0e29) { continue; }
-        const double aloft = (double)pavement.PositionM[vertex + 1] - under;
+        const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
         aboveM.push_back(aloft);
         if (aloft > kFlyingM) { ++flying; }
       }
       if (!aboveM.empty()) {
         std::ranges::sort(aboveM);
         const auto pick = [&aboveM](double part) {
-          return aboveM[(size_t)((double)(aboveM.size() - 1u) * part)];
+          return aboveM[static_cast<size_t>(static_cast<double>(aboveM.size() - 1u) * part)];
         };
         Published.Places("streets: a vertex stands over the ground, p50", pick(0.5), "m");
         Published.Places("streets: a vertex stands over the ground, p95", pick(0.95), "m");
         Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
         Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
-        Published.Places("streets: vertices FLYING, over the bar", (double)flying, "vertices");
+        Published.Places(
+            "streets: vertices FLYING, over the bar", static_cast<double>(flying), "vertices");
       }
     }
-    Published.Places("streets: triangles", (double)(pavement.Index.size() / 3), "triangles");
+    Published.Places(
+        "streets: triangles", static_cast<double>(pavement.Index.size() / 3), "triangles");
     if (pavement.Index.size() >= 3) {
       Material tarmac;
       for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
       {
         const int asphalt = World.Stack.Materials().Find("asphalt");
-        tarmac.Roughness =
-            asphalt >= 0 ? World.Stack.Materials().At((size_t)asphalt).Roughness : 0.65f;
+        tarmac.Roughness = asphalt >= 0
+                               ? World.Stack.Materials().At(static_cast<size_t>(asphalt)).Roughness
+                               : 0.65f;
       }
       const MaterialInstance paved = ground.addSurface("streets", tarmac);
       const int pavedPart = ground.addPart("streets", paved);
@@ -2471,10 +2587,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               std::span<const float>(pavement.ColourRgba.data(), pavement.ColourRgba.size())) &&
           ground.setTriangles(
               pavedPart, std::span<const uint32_t>(pavement.Index.data(), pavement.Index.size()));
-      Published.Places("streets: the surface they were given", (double)paved.index(), "index");
-      Published.Places("streets: the part they were given", (double)pavedPart, "index");
+      Published.Places(
+          "streets: the surface they were given", static_cast<double>(paved.index()), "index");
+      Published.Places(
+          "streets: the part they were given", static_cast<double>(pavedPart), "index");
       Published.Places("streets: the geometry took them", tookPaving ? 1.0 : 0.0, "yes/no");
-      Published.Places("streets: parts the geometry now holds", (double)ground.parts(), "parts");
+      Published.Places(
+          "streets: parts the geometry now holds", static_cast<double>(ground.parts()), "parts");
     }
   }
 
@@ -2487,14 +2606,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
         if (one.PointCount < 3) { continue; }
         Yields made;
-        made.RingEastSouthM.reserve((size_t)one.PointCount * 2u);
+        made.RingEastSouthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
         made.LowE = 1.0e30;
         made.HighE = -1.0e30;
         made.LowS = 1.0e30;
         made.HighS = -1.0e30;
         bool whole = true;
         for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
-          const size_t at = ((size_t)one.FirstPoint + step) * 2u;
+          const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
           if (at + 1 >= points.size()) {
             whole = false;
             break;
@@ -2502,7 +2621,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
-          standing.Place(points[at], points[at + 1], (double)one.SeatM, &eastM, &upM, &northM);
+          standing.Place(
+              points[at], points[at + 1], static_cast<double>(one.SeatM), &eastM, &upM, &northM);
           made.RingEastSouthM.push_back(eastM);
           made.RingEastSouthM.push_back(-northM);
           made.LowE = std::min(made.LowE, eastM);
@@ -2512,16 +2632,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         if (!whole) { continue; }
         {
-          const size_t first = (size_t)one.FirstPoint * 2u;
+          const size_t first = static_cast<size_t>(one.FirstPoint) * 2u;
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
-          standing.Place(
-              points[first], points[first + 1], (double)one.SeatM, &eastM, &upM, &northM);
+          standing.Place(points[first],
+                         points[first + 1],
+                         static_cast<double>(one.SeatM),
+                         &eastM,
+                         &upM,
+                         &northM);
           made.PlateauM = upM;
         }
         made.ApronM = kPadApronM;
-        made.YieldM = std::fabs((double)one.SeatM - (double)one.BaseM);
+        made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
         made.SeamEastSouthM = made.RingEastSouthM;
         yielding.push_back(std::move(made));
       }
@@ -2540,21 +2664,28 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                            .Uv = classUv.empty() ? nullptr : &classUv,
                            .Index = &laid->Index},
                 told);
-    Published.Places("ground: pads that may press it", (double)builtPads, "pads");
+    Published.Places("ground: pads that may press it", static_cast<double>(builtPads), "pads");
     Published.Places("ground: corridor pieces that may press it",
-                     (double)(yielding.size() - builtPads),
+                     static_cast<double>(yielding.size() - builtPads),
                      "pieces");
-    Published.Places("ground: yields the budget took", (double)told.Taken, "yields");
-    Published.Places("ground: yields the budget REFUSED", (double)told.Refused, "yields");
-    Published.Places("ground: passes it refined the ring in", (double)told.Passes, "passes");
+    Published.Places("ground: yields the budget took", static_cast<double>(told.Taken), "yields");
     Published.Places(
-        "ground: vertices the refinement added", (double)told.VerticesAdded, "vertices");
+        "ground: yields the budget REFUSED", static_cast<double>(told.Refused), "yields");
     Published.Places(
-        "ground: triangles the refinement added", (double)told.TrianglesAdded, "triangles");
-    Published.Places("ground: the carriageway's footprint corners", (double)told.Seams, "corners");
+        "ground: passes it refined the ring in", static_cast<double>(told.Passes), "passes");
+    Published.Places("ground: vertices the refinement added",
+                     static_cast<double>(told.VerticesAdded),
+                     "vertices");
+    Published.Places("ground: triangles the refinement added",
+                     static_cast<double>(told.TrianglesAdded),
+                     "triangles");
     Published.Places(
-        "ground: of those, a ground vertex shares the spot", (double)told.SeamsShared, "corners");
-    Published.Places("ground: ring vertices a pad pressed", (double)told.Pressed, "vertices");
+        "ground: the carriageway's footprint corners", static_cast<double>(told.Seams), "corners");
+    Published.Places("ground: of those, a ground vertex shares the spot",
+                     static_cast<double>(told.SeamsShared),
+                     "corners");
+    Published.Places(
+        "ground: ring vertices a pad pressed", static_cast<double>(told.Pressed), "vertices");
     Published.Places("ground: and the deepest it pressed", told.DeepestM, "m");
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
     {
@@ -2567,22 +2698,22 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double lowS = 1.0e30;
         double highS = -1.0e30;
         for (int corner = 0; corner < 3; ++corner) {
-          const size_t one = (size_t)ringIndex[at + (size_t)corner] * 3u;
-          lowE = std::min(lowE, (double)inFrame[one]);
-          highE = std::max(highE, (double)inFrame[one]);
-          lowS = std::min(lowS, (double)inFrame[one + 2u]);
-          highS = std::max(highS, (double)inFrame[one + 2u]);
+          const size_t one = static_cast<size_t>(ringIndex[at + static_cast<size_t>(corner)]) * 3u;
+          lowE = std::min(lowE, static_cast<double>(inFrame[one]));
+          highE = std::max(highE, static_cast<double>(inFrame[one]));
+          lowS = std::min(lowS, static_cast<double>(inFrame[one + 2u]));
+          highS = std::max(highS, static_cast<double>(inFrame[one + 2u]));
         }
-        const auto fromE = (int64_t)std::floor(lowE / kUnderCellM);
-        const auto toE = (int64_t)std::floor(highE / kUnderCellM);
-        const auto fromS = (int64_t)std::floor(lowS / kUnderCellM);
-        const auto toS = (int64_t)std::floor(highS / kUnderCellM);
+        const auto fromE = static_cast<int64_t>(std::floor(lowE / kUnderCellM));
+        const auto toE = static_cast<int64_t>(std::floor(highE / kUnderCellM));
+        const auto fromS = static_cast<int64_t>(std::floor(lowS / kUnderCellM));
+        const auto toS = static_cast<int64_t>(std::floor(highS / kUnderCellM));
         if ((toE - fromE + 1) * (toS - fromS + 1) > 64) { continue; }
         for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
           for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
-            const auto atE = (uint64_t)(cellE + 0x20000000LL);
-            const auto atS = (uint64_t)(cellS + 0x20000000LL);
-            facesUnder[(atE << 32U) | atS].push_back((uint32_t)at);
+            const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
+            const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
+            facesUnder[(atE << 32U) | atS].push_back(static_cast<uint32_t>(at));
           }
         }
       }
@@ -2590,43 +2721,47 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       double summed = 0.0;
       size_t compared = 0;
       for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
-        const auto eastM = (double)pavement.PositionM[at];
-        const auto southM = (double)pavement.PositionM[at + 2];
-        const auto atE = (uint64_t)((int64_t)std::floor(eastM / kUnderCellM) + 0x20000000LL);
-        const auto atS = (uint64_t)((int64_t)std::floor(southM / kUnderCellM) + 0x20000000LL);
+        const auto eastM = static_cast<double>(pavement.PositionM[at]);
+        const auto southM = static_cast<double>(pavement.PositionM[at + 2]);
+        const auto atE = static_cast<uint64_t>(
+            static_cast<int64_t>(std::floor(eastM / kUnderCellM)) + 0x20000000LL);
+        const auto atS = static_cast<uint64_t>(
+            static_cast<int64_t>(std::floor(southM / kUnderCellM)) + 0x20000000LL);
         const auto bucket = facesUnder.find((atE << 32U) | atS);
         if (bucket == facesUnder.end()) { continue; }
         double stood = -1.0e30;
         for (const uint32_t face : bucket->second) {
-          const size_t a = (size_t)ringIndex[face] * 3u;
-          const size_t b = (size_t)ringIndex[face + 1u] * 3u;
-          const size_t c = (size_t)ringIndex[face + 2u] * 3u;
-          const auto aE = (double)inFrame[a];
-          const auto aS = (double)inFrame[a + 2u];
-          const auto bE = (double)inFrame[b];
-          const auto bS = (double)inFrame[b + 2u];
-          const auto cE = (double)inFrame[c];
-          const auto cS = (double)inFrame[c + 2u];
+          const size_t a = static_cast<size_t>(ringIndex[face]) * 3u;
+          const size_t b = static_cast<size_t>(ringIndex[face + 1u]) * 3u;
+          const size_t c = static_cast<size_t>(ringIndex[face + 2u]) * 3u;
+          const auto aE = static_cast<double>(inFrame[a]);
+          const auto aS = static_cast<double>(inFrame[a + 2u]);
+          const auto bE = static_cast<double>(inFrame[b]);
+          const auto bS = static_cast<double>(inFrame[b + 2u]);
+          const auto cE = static_cast<double>(inFrame[c]);
+          const auto cS = static_cast<double>(inFrame[c + 2u]);
           const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
           if (std::fabs(twice) < 1.0e-9) { continue; }
           const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
           const double two = ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice;
           const double three = 1.0 - one - two;
           if (one < -1.0e-6 || two < -1.0e-6 || three < -1.0e-6) { continue; }
-          const double upM = one * (double)inFrame[a + 1u] + two * (double)inFrame[b + 1u] +
-                             three * (double)inFrame[c + 1u];
+          const double upM = one * static_cast<double>(inFrame[a + 1u]) +
+                             two * static_cast<double>(inFrame[b + 1u]) +
+                             three * static_cast<double>(inFrame[c + 1u]);
           stood = std::max(stood, upM);
         }
         if (stood < -1.0e29) { continue; }
-        const double under = stood - (double)pavement.PositionM[at + 1];
+        const double under = stood - static_cast<double>(pavement.PositionM[at + 1]);
         ++compared;
         summed += under > 0.0 ? under : 0.0;
         deepest = under > deepest ? under : deepest;
       }
       Published.Places("streets: the deepest the ground stands over one", deepest, "m");
-      Published.Places(
-          "streets: how far on average", compared > 0 ? summed / (double)compared : 0.0, "m");
-      Published.Places("streets: vertices compared", (double)compared, "vertices");
+      Published.Places("streets: how far on average",
+                       compared > 0 ? summed / static_cast<double>(compared) : 0.0,
+                       "m");
+      Published.Places("streets: vertices compared", static_cast<double>(compared), "vertices");
     }
   }
   (void)ground.setPositions(ringPart, std::span<const float>(inFrame.data(), inFrame.size()));
@@ -2656,7 +2791,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ++lidsRefused;
           continue;
         }
-        const size_t last = ((size_t)lake.FirstPoint + lake.PointCount) * 2;
+        const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2;
         if (last > points.size()) {
           ++lidsRefused;
           continue;
@@ -2666,18 +2801,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (uint32_t step = 1; step + 1 < lake.PointCount && whole; ++step) {
           const uint32_t corners[3] = {0u, step, step + 1u};
           for (const uint32_t corner : corners) {
-            const size_t at = ((size_t)lake.FirstPoint + corner) * 2;
+            const size_t at = (static_cast<size_t>(lake.FirstPoint) + corner) * 2;
             double eastM = 0.0;
             double upM = 0.0;
             double northM = 0.0;
-            standing.Place(points[at], points[at + 1], (double)lake.LevelM, &eastM, &upM, &northM);
-            places.push_back((float)eastM);
-            places.push_back((float)upM);
-            places.push_back((float)(-northM));
+            standing.Place(points[at],
+                           points[at + 1],
+                           static_cast<double>(lake.LevelM),
+                           &eastM,
+                           &upM,
+                           &northM);
+            places.push_back(static_cast<float>(eastM));
+            places.push_back(static_cast<float>(upM));
+            places.push_back(static_cast<float>(-northM));
             facing.push_back(0.0f);
             facing.push_back(1.0f);
             facing.push_back(0.0f);
-            order.push_back((uint32_t)(order.size()));
+            order.push_back(static_cast<uint32_t>(order.size()));
           }
         }
         if (places.size() > began) {
@@ -2687,9 +2827,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
       }
     }
-    Published.Places("water: surfaces laid", (double)lidsLaid, "surfaces");
-    Published.Places("water: surfaces refused", (double)lidsRefused, "surfaces");
-    Published.Places("water: triangles", (double)(order.size() / 3), "triangles");
+    Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
+    Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
+    Published.Places("water: triangles", static_cast<double>(order.size() / 3), "triangles");
     if (order.size() >= 3) {
       Material lagoon;
       lagoon.BaseColour[0] = 0.05f;
@@ -2724,9 +2864,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
 
   const size_t drivenParts = Picture.Standing->CarriedParts();
-  Published.Places(
-      "restand: the carried count the world hands over", (double)drivenParts, "carried");
-  Published.Places("restand: parts in the geometry", (double)ground.parts(), "parts");
+  Published.Places("restand: the carried count the world hands over",
+                   static_cast<double>(drivenParts),
+                   "carried");
+  Published.Places("restand: parts in the geometry", static_cast<double>(ground.parts()), "parts");
   Published.Places(
       "rebuild: and assembling one subject took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
@@ -2770,30 +2911,33 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   Published.Places("stand: times the sky was integrated",
-                   (double)Picture.Standing->SkyIntegrations(),
+                   static_cast<double>(Picture.Standing->SkyIntegrations()),
                    "integrations");
   Published.Places("stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
   Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
   Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
   Published.Places("rebuild: cutting it into clusters", Render::CookedMs(), "ms");
+  Published.Places("cook: clusters with no parent above them",
+                   static_cast<double>(Render::CookedRootless()),
+                   "clusters");
   Published.Places(
-      "cook: clusters with no parent above them", (double)Render::CookedRootless(), "clusters");
-  Published.Places("cook: clusters in all", (double)Render::CookedClusters(), "clusters");
+      "cook: clusters in all", static_cast<double>(Render::CookedClusters()), "clusters");
   Published.Places("rebuild: of the streams, packing them", Render::PackedMs(), "ms");
   Published.Places(
       "restand: the geometry handed over, digested", Render::HandedGeometryDigest(), "");
   Published.Places("rebuild: digesting what it handed over", Render::DigestedMs(), "ms");
   Published.Places("rebuild: and the device taking them", Render::HandedMs(), "ms");
   Published.Places("rebuild: uploads the residency made",
-                   (double)Render::SubjectResidency::UploadsTaken(),
+                   static_cast<double>(Render::SubjectResidency::UploadsTaken()),
                    "uploads");
-  Published.Places(
-      "rebuild: megabytes they carried", (double)Render::SubjectResidency::UploadMBTaken(), "MB");
+  Published.Places("rebuild: megabytes they carried",
+                   static_cast<double>(Render::SubjectResidency::UploadMBTaken()),
+                   "MB");
   Published.Places("rebuild: device buffers created",
-                   (double)Render::SubjectResidency::BuffersMadeTaken(),
+                   static_cast<double>(Render::SubjectResidency::BuffersMadeTaken()),
                    "buffers");
   Published.Places("rebuild: staging buffers created",
-                   (double)Render::SubjectResidency::StagingMadeTaken(),
+                   static_cast<double>(Render::SubjectResidency::StagingMadeTaken()),
                    "buffers");
   Published.Places("rebuild: laying the surface", Picture.Standing->SurfaceMs(), "ms");
   Published.Places("rebuild: settling placements and lights", Picture.Standing->StandMs(), "ms");
@@ -2804,25 +2948,26 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       "ms");
   phaseAt = std::chrono::steady_clock::now();
   Published.Places("restand: parts the proxy then stands with",
-                   (double)Picture.Standing->PartsStanding(),
+                   static_cast<double>(Picture.Standing->PartsStanding()),
                    "parts");
-  Published.Places(
-      "restand: instances it carries", (double)Picture.Standing->InstancesStanding(), "instances");
+  Published.Places("restand: instances it carries",
+                   static_cast<double>(Picture.Standing->InstancesStanding()),
+                   "instances");
   Published.Places(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
   for (size_t part = 0; part < Picture.Standing->Shown().Parts.size(); ++part) {
     const Render::ShapePart &one = Picture.Standing->Shown().Parts[part];
     Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
-                     (double)one.FirstVertex,
+                     static_cast<double>(one.FirstVertex),
                      "");
     Published.Places("restand: subject part " + std::to_string(part) + " vertex count",
-                     (double)one.VertexCount,
+                     static_cast<double>(one.VertexCount),
                      "");
     Published.Places("restand: subject part " + std::to_string(part) + " first index",
-                     (double)one.FirstIndex,
+                     static_cast<double>(one.FirstIndex),
                      "");
     Published.Places("restand: subject part " + std::to_string(part) + " index count",
-                     (double)one.IndexCount,
+                     static_cast<double>(one.IndexCount),
                      "");
   }
   for (size_t part = 0; part < Picture.Standing->PartsStanding(); ++part) {
@@ -2838,15 +2983,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "restand: part " + std::to_string(part) + " diagonal", m[0] + m[5] + m[10] + m[15], "");
   }
   World.GroundTiles = laid->Tiles;
-  Published.Places("tiles the ring laid", (double)laid->Tiles, "tiles");
-  Published.Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
-  Published.Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
-  Published.Places("tiles it refused", (double)laid->Refused, "tiles");
+  Published.Places("tiles the ring laid", static_cast<double>(laid->Tiles), "tiles");
+  Published.Places("tiles it is still waiting for", static_cast<double>(laid->Pending), "tiles");
+  Published.Places("tiles the stack does not hold", static_cast<double>(laid->Absent), "tiles");
+  Published.Places("tiles it refused", static_cast<double>(laid->Refused), "tiles");
   {
     double least = 1.0e30;
     double most = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double up = (double)inFrame[at + 1];
+      const double up = static_cast<double>(inFrame[at + 1]);
       if (up < least) { least = up; }
       if (up > most) { most = up; }
     }
@@ -2855,8 +3000,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double north = 1.0e30;
     double south = -1.0e30;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-      const double alongE = (double)inFrame[at];
-      const double alongS = (double)inFrame[at + 2];
+      const double alongE = static_cast<double>(inFrame[at]);
+      const double alongS = static_cast<double>(inFrame[at + 2]);
       if (alongE < west) { west = alongE; }
       if (alongE > east) { east = alongE; }
       if (alongS < north) { north = alongS; }
@@ -2871,18 +3016,19 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       double summed = 0.0;
       size_t counted = 0;
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-        summed += (double)inFrame[at + 1];
+        summed += static_cast<double>(inFrame[at + 1]);
         ++counted;
       }
-      const double mean = counted > 0 ? summed / (double)counted : 0.0;
+      const double mean = counted > 0 ? summed / static_cast<double>(counted) : 0.0;
       size_t adrift = 0;
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
-        const double off = (double)inFrame[at + 1] - mean;
+        const double off = static_cast<double>(inFrame[at + 1]) - mean;
         if (off > 500.0 || off < -500.0) { ++adrift; }
       }
       Published.Places("the height its vertices average", mean, "m");
-      Published.Places("vertices more than 500 m from that average", (double)adrift, "vertices");
-      Published.Places("out of", (double)counted, "vertices");
+      Published.Places(
+          "vertices more than 500 m from that average", static_cast<double>(adrift), "vertices");
+      Published.Places("out of", static_cast<double>(counted), "vertices");
     }
   }
   Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
@@ -2891,32 +3037,39 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("and the exposure metered from it",
                    Picture.Standing->Standing().KeyFromClock ? 1.0 : 0.0,
                    "yes/no");
-  Published.Places("times the terrain was rebuilt", (double)World.Relaid, "rebuilds");
+  Published.Places("times the terrain was rebuilt", static_cast<double>(World.Relaid), "rebuilds");
   ++World.Rebuilds;
   World.RebuildMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildBegan)
           .count();
   Published.Places("and what the last rebuild took", World.RebuildMs, "ms");
-  Published.Places("rebuild: times the world was built WHOLE", (double)World.Rebuilds, "rebuilds");
-  Published.Places("and how often it was asked about", (double)World.Asked, "walks");
   Published.Places(
-      "levels the cascade laid", (double)(over.Zoom - laid->CoarsestZoom + 1), "levels");
-  Published.Places("tiles it skipped as already covered", (double)laid->Skipped, "tiles");
-  Published.Places("tiles the last rebuild laid bare", (double)laid->Bare, "tiles");
+      "rebuild: times the world was built WHOLE", static_cast<double>(World.Rebuilds), "rebuilds");
+  Published.Places("and how often it was asked about", static_cast<double>(World.Asked), "walks");
+  Published.Places(
+      "levels the cascade laid", static_cast<double>(over.Zoom - laid->CoarsestZoom + 1), "levels");
+  Published.Places(
+      "tiles it skipped as already covered", static_cast<double>(laid->Skipped), "tiles");
+  Published.Places("tiles the last rebuild laid bare", static_cast<double>(laid->Bare), "tiles");
   World.Pending = laid->Pending;
   World.Bare = laid->Bare;
   World.Wanted = laid->Tiles;
-  Published.Places("tiles that overlap a finer level", (double)laid->Overlapped, "tiles");
-  Published.Places("clusters the ring holds", (double)laid->ClustersHeld, "clusters");
-  Published.Places("clusters it drew", (double)laid->ClustersDrawn, "clusters");
   Published.Places(
-      "ring: clusters carried for the device", (double)laid->Clusters.size(), "clusters");
+      "tiles that overlap a finer level", static_cast<double>(laid->Overlapped), "tiles");
+  Published.Places("clusters the ring holds", static_cast<double>(laid->ClustersHeld), "clusters");
+  Published.Places("clusters it drew", static_cast<double>(laid->ClustersDrawn), "clusters");
+  Published.Places("ring: clusters carried for the device",
+                   static_cast<double>(laid->Clusters.size()),
+                   "clusters");
+  Published.Places("ring: the whole index list they cut from",
+                   static_cast<double>(laid->AllIndex.size()),
+                   "indices");
+  Published.Places("ring: against the list the CPU selected",
+                   static_cast<double>(laid->Index.size()),
+                   "indices");
+  Published.Places("ring: clusters it holds", static_cast<double>(laid->ClustersHeld), "clusters");
   Published.Places(
-      "ring: the whole index list they cut from", (double)laid->AllIndex.size(), "indices");
-  Published.Places(
-      "ring: against the list the CPU selected", (double)laid->Index.size(), "indices");
-  Published.Places("ring: clusters it holds", (double)laid->ClustersHeld, "clusters");
-  Published.Places("ring: clusters the CPU drew", (double)laid->ClustersDrawn, "clusters");
+      "ring: clusters the CPU drew", static_cast<double>(laid->ClustersDrawn), "clusters");
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");
   return true;
 }
@@ -2943,7 +3096,9 @@ bool Engine::State::Stood(void) {
 void Engine::State::Blocks(const Gltf::Subject &standing) {
   const std::vector<double> &positionsM = standing.PositionsM();
   std::vector<float> corners(positionsM.size());
-  for (size_t at = 0; at < positionsM.size(); ++at) { corners[at] = (float)positionsM[at]; }
+  for (size_t at = 0; at < positionsM.size(); ++at) {
+    corners[at] = static_cast<float>(positionsM[at]);
+  }
   World.Blocking =
       TriangleBvh::Over(Span<const float>(corners.data(), corners.size()),
                         Span<const uint32_t>(standing.Indices().data(), standing.Indices().size()));
@@ -2954,49 +3109,59 @@ void Engine::State::Tells(void) {
   for (size_t at = 0; at < Heap::TagCount(); ++at) {
     const char *const tag = Heap::TagAt(at);
     if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
-    Published.Places(std::string("heap taken under ") + tag, (double)Heap::TakenAt(at), "bytes");
+    Published.Places(
+        std::string("heap taken under ") + tag, static_cast<double>(Heap::TakenAt(at)), "bytes");
   }
   if (Cost.Advance.Count > 0) {
     Published.Places("the step's own time, last", Cost.Advance.LastMs, "ms");
     Published.Places("the step's own time, least", Cost.Advance.LeastMs, "ms");
     Published.Places("the step's own time, most", Cost.Advance.MostMs, "ms");
-    Published.Places("steps taken", (double)Cost.Advance.Count, "steps");
+    Published.Places("steps taken", static_cast<double>(Cost.Advance.Count), "steps");
   }
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {
-      const Render::Stage stage = (Render::Stage)at;
+      const Render::Stage stage = static_cast<Render::Stage>(at);
       const Render::SceneRenderer::Effort &spent = Picture.Device.Spent(stage);
       if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
       Published.Places(std::string(Row(stage).Name) + ", took", spent.TookMs, "ms");
-      Published.Places(std::string(Row(stage).Name) + ", drew", (double)spent.Draws, "draws");
       Published.Places(
-          std::string(Row(stage).Name) + ", triangles", (double)spent.Triangles, "triangles");
-      Published.Places(
-          std::string(Row(stage).Name) + ", surfaces", (double)spent.Surfaces, "slots");
-      Published.Places(
-          std::string(Row(stage).Name) + ", placements", (double)spent.Placements, "slots");
-      Published.Places(
-          std::string(Row(stage).Name) + ", textured", (double)spent.Textured, "slots");
-      Published.Places(
-          std::string(Row(stage).Name) + ", colour images", (double)spent.Palettes, "images");
-      Published.Places(
-          std::string(Row(stage).Name) + ", device bytes", (double)spent.DeviceBytes, "bytes");
+          std::string(Row(stage).Name) + ", drew", static_cast<double>(spent.Draws), "draws");
+      Published.Places(std::string(Row(stage).Name) + ", triangles",
+                       static_cast<double>(spent.Triangles),
+                       "triangles");
+      Published.Places(std::string(Row(stage).Name) + ", surfaces",
+                       static_cast<double>(spent.Surfaces),
+                       "slots");
+      Published.Places(std::string(Row(stage).Name) + ", placements",
+                       static_cast<double>(spent.Placements),
+                       "slots");
+      Published.Places(std::string(Row(stage).Name) + ", textured",
+                       static_cast<double>(spent.Textured),
+                       "slots");
+      Published.Places(std::string(Row(stage).Name) + ", colour images",
+                       static_cast<double>(spent.Palettes),
+                       "images");
+      Published.Places(std::string(Row(stage).Name) + ", device bytes",
+                       static_cast<double>(spent.DeviceBytes),
+                       "bytes");
       Published.Places(std::string(Row(stage).Name) + ", placements that differ",
-                       (double)spent.Distinct,
+                       static_cast<double>(spent.Distinct),
                        "rows");
-      Published.Places(
-          std::string(Row(stage).Name) + ", vertex layouts", (double)spent.Layouts, "layouts");
+      Published.Places(std::string(Row(stage).Name) + ", vertex layouts",
+                       static_cast<double>(spent.Layouts),
+                       "layouts");
     }
   }
   if (Cost.Render.Count > 0) {
     Published.Places("the picture's own time, last", Cost.Render.LastMs, "ms");
     Published.Places("the picture's own time, least", Cost.Render.LeastMs, "ms");
     Published.Places("the picture's own time, most", Cost.Render.MostMs, "ms");
-    Published.Places("pictures drawn", (double)Cost.Render.Count, "pictures");
+    Published.Places("pictures drawn", static_cast<double>(Cost.Render.Count), "pictures");
   }
   {
     const std::vector<std::string> clashed = Published.Clashed();
-    Published.Places("measures published twice in one round", (double)clashed.size(), "rows");
+    Published.Places(
+        "measures published twice in one round", static_cast<double>(clashed.size()), "rows");
     for (const std::string &one : clashed) {
       Published.Places("published twice in one round: " + one, 1.0, "rows");
     }
@@ -3057,10 +3222,10 @@ bool Engine::State::Blocked(const double sourceM[3]) const {
   awayM = std::sqrt(awayM);
   if (!(awayM > 0.0)) { return false; }
   for (int axis = 0; axis < 3; ++axis) {
-    fromM[axis] = (float)eye.EyeM[axis];
-    along[axis] = (float)((sourceM[axis] - eye.EyeM[axis]) / awayM);
+    fromM[axis] = static_cast<float>(eye.EyeM[axis]);
+    along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
   }
-  return World.Blocking.Occludes(fromM, along, 0.01f, (float)awayM);
+  return World.Blocking.Occludes(fromM, along, 0.01f, static_cast<float>(awayM));
 }
 
 Result Engine::mix(std::span<float> stereo, int rate) {
@@ -3093,11 +3258,13 @@ bool Engine::render(Extent frame) {
   if (!S_->Picture.Standing->Draw(S_->Error)) { return false; }
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  S_->Published.Places("subject draws", (double)S_->Picture.Device.SubjectDrawCount(), "draws");
+  S_->Published.Places(
+      "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
   S_->Published.Places(
       "the subject's own animation runs for", S_->Picture.Standing->DurationS(), "s");
-  S_->Published.Places(
-      "the frames its rate makes of that", (double)S_->Picture.Standing->Frames(), "frames");
+  S_->Published.Places("the frames its rate makes of that",
+                       static_cast<double>(S_->Picture.Standing->Frames()),
+                       "frames");
   S_->Published.Places("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
   S_->Published.Places(
       "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
@@ -3106,58 +3273,65 @@ bool Engine::render(Extent frame) {
   S_->Published.Places(
       "the geometry the renderer was last offered, digested", Render::HandedGeometryDigest(), "");
   S_->Published.Places("uploads the subject residency has made in all",
-                       (double)Render::SubjectResidency::UploadsEver(),
+                       static_cast<double>(Render::SubjectResidency::UploadsEver()),
                        "uploads");
   S_->Published.Places("staged crossings the residency flushed",
-                       (double)Render::SubjectResidency::CrossingsFlushed(),
+                       static_cast<double>(Render::SubjectResidency::CrossingsFlushed()),
                        "crossings");
-  S_->Published.Places(
-      "subject clusters", (double)S_->Picture.Standing->Shown().Clusters.size(), "clusters");
-  S_->Published.Places(
-      "cull: jobs it swept", (double)Render::SubjectCullStage::JobsSweptTaken(), "jobs");
+  S_->Published.Places("subject clusters",
+                       static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),
+                       "clusters");
+  S_->Published.Places("cull: jobs it swept",
+                       static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
+                       "jobs");
   if (S_->Session.Declared.Render.Audits) {
     float nearest = 0.0f;
     float farthest = 0.0f;
     float mean = 0.0f;
     if (S_->Picture.Standing->Pyramid(nearest, farthest, mean) == Render::ReadState::Ready) {
-      S_->Published.Places("cull: the pyramid's nearest depth", (double)nearest, "0..1");
-      S_->Published.Places("cull: its farthest", (double)farthest, "0..1");
-      S_->Published.Places("cull: and its mean", (double)mean, "0..1");
+      S_->Published.Places(
+          "cull: the pyramid's nearest depth", static_cast<double>(nearest), "0..1");
+      S_->Published.Places("cull: its farthest", static_cast<double>(farthest), "0..1");
+      S_->Published.Places("cull: and its mean", static_cast<double>(mean), "0..1");
     }
   }
   {
     const Render::Viewpoint &eye = S_->Picture.Standing->Aimed();
-    const double aspect = S_->Picture.Frame.HeightPx > 0 ? (double)S_->Picture.Frame.WidthPx /
-                                                               (double)S_->Picture.Frame.HeightPx
-                                                         : 1.0;
+    const double aspect = S_->Picture.Frame.HeightPx > 0
+                              ? static_cast<double>(S_->Picture.Frame.WidthPx) /
+                                    static_cast<double>(S_->Picture.Frame.HeightPx)
+                              : 1.0;
     const double half = 0.5 * eye.YfovRad;
     const double up = std::tan(half);
     const double across = up * aspect;
     size_t kept = 0;
     for (const DagCluster &one : S_->Picture.Standing->Shown().Clusters) {
-      const double to[3] = {(double)one.SelfCenter[0] - eye.EyeM[0],
-                            (double)one.SelfCenter[1] - eye.EyeM[1],
-                            (double)one.SelfCenter[2] - eye.EyeM[2]};
+      const double to[3] = {static_cast<double>(one.SelfCenter[0]) - eye.EyeM[0],
+                            static_cast<double>(one.SelfCenter[1]) - eye.EyeM[1],
+                            static_cast<double>(one.SelfCenter[2]) - eye.EyeM[2]};
       const double ahead = to[0] * eye.Forward[0] + to[1] * eye.Forward[1] + to[2] * eye.Forward[2];
       const double right = to[0] * eye.Right[0] + to[1] * eye.Right[1] + to[2] * eye.Right[2];
       const double over = to[0] * eye.Up[0] + to[1] * eye.Up[1] + to[2] * eye.Up[2];
-      const double radius = (double)one.SelfRadius;
+      const double radius = static_cast<double>(one.SelfRadius);
       if (ahead + radius < eye.ZNearM) { continue; }
       if (eye.ZFarM > 0.0 && ahead - radius > eye.ZFarM) { continue; }
       if (std::fabs(right) - radius > across * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
       if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
       ++kept;
     }
-    S_->Published.Places("ring: clusters a frustum would keep", (double)kept, "clusters");
+    S_->Published.Places(
+        "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
   }
   S_->Published.Places(
-      "subject draw calls", (double)S_->Picture.Device.SubjectBatchCount(), "calls");
-  S_->Published.Places("plan passes", (double)S_->Picture.Standing->PlanPasses(), "passes");
-  for (uint32_t at = 0; at < (uint32_t)Render::kVertexLayouts.size(); ++at) {
+      "subject draw calls", static_cast<double>(S_->Picture.Device.SubjectBatchCount()), "calls");
+  S_->Published.Places(
+      "plan passes", static_cast<double>(S_->Picture.Standing->PlanPasses()), "passes");
+  for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {
     const uint32_t many =
         S_->Picture.Device.SubjectBatchesTaking(static_cast<Render::VertexLayout>(at));
     if (many == 0) { continue; }
-    S_->Published.Places("draws taking vertex layout " + std::to_string(at), (double)many, "draws");
+    S_->Published.Places(
+        "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");
   }
   S_->Drew();
   return true;

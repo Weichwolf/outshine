@@ -43,7 +43,7 @@ bool OverlayDraw::Configure(const Gpu &gpu,
     attributes[i].location = i;
     attributes[i].buffer_slot = 0;
     attributes[i].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-    attributes[i].offset = i * 4u * (uint32_t)sizeof(float);
+    attributes[i].offset = i * 4u * static_cast<uint32_t>(sizeof(float));
   }
 
   SDL_GPUColorTargetDescription target{};
@@ -90,8 +90,8 @@ bool OverlayDraw::SetAtlas(
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
   wanted.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
   wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = (Uint32)width;
-  wanted.height = (Uint32)height;
+  wanted.width = static_cast<Uint32>(width);
+  wanted.height = static_cast<Uint32>(height);
   wanted.layer_count_or_depth = 1;
   wanted.num_levels = 1;
   OwnedTexture made(gpu.Device, SDL_CreateGPUTexture(gpu.Device, &wanted));
@@ -100,7 +100,7 @@ bool OverlayDraw::SetAtlas(
     return false;
   }
 
-  const uint32_t bytes = (uint32_t)width * (uint32_t)height * 4u;
+  const uint32_t bytes = static_cast<uint32_t>(width) * static_cast<uint32_t>(height) * 4u;
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = bytes;
@@ -118,8 +118,8 @@ bool OverlayDraw::SetAtlas(
   source.transfer_buffer = staging;
   SDL_GPUTextureRegion into{};
   into.texture = made.Get();
-  into.w = (Uint32)width;
-  into.h = (Uint32)height;
+  into.w = static_cast<Uint32>(width);
+  into.h = static_cast<Uint32>(height);
   into.d = 1;
   SDL_UploadToGPUTexture(copy, &source, &into, false);
   SDL_EndGPUCopyPass(copy);
@@ -140,22 +140,22 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
             " past the bound -- a list cut without a word draws a picture nobody declared";
     return false;
   }
-  Count = (uint32_t)count;
+  Count = static_cast<uint32_t>(count);
   if (count == 0) { return true; }
 
-  const uint32_t bytes = (uint32_t)(count * sizeof(OverlayQuad));
+  const uint32_t bytes = static_cast<uint32_t>(count * sizeof(OverlayQuad));
 
   if (!Verts || Capacity < count) {
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-    wanted.size = (Uint32)(kMaxOverlayQuads * sizeof(OverlayQuad));
+    wanted.size = static_cast<Uint32>(kMaxOverlayQuads * sizeof(OverlayQuad));
     OwnedBuffer made(gpu.Device, SDL_CreateGPUBuffer(gpu.Device, &wanted));
     if (!made) {
       error = std::string("the overlay's rectangles have no buffer: ") + SDL_GetError();
       return false;
     }
     Verts = std::move(made);
-    Capacity = (uint32_t)kMaxOverlayQuads;
+    Capacity = static_cast<uint32_t>(kMaxOverlayQuads);
   }
 
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
@@ -188,7 +188,7 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     float TargetPx[2];
     float EncodesSrgb;
     float Pad;
-  } frame{{(float)WidthPx, (float)HeightPx}, Encodes ? 1.0f : 0.0f, 0.0f};
+  } frame{{static_cast<float>(WidthPx), static_cast<float>(HeightPx)}, Encodes ? 1.0f : 0.0f, 0.0f};
 
   SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
 

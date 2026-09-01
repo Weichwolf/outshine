@@ -13,7 +13,7 @@ bool Matches(std::string_view a, const char *b) {
 }
 
 char Lowered(char c) {
-  return c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c;
+  return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
 }
 
 std::string Lower(std::string_view text) {
@@ -50,8 +50,8 @@ void Resolve(std::string_view raw, std::string &out) {
     } else if (Matches(name, "apos")) {
       out.push_back('\'');
     } else if (Matches(name, "nbsp")) {
-      out.push_back((char)0xC2);
-      out.push_back((char)0xA0);
+      out.push_back(static_cast<char>(0xC2));
+      out.push_back(static_cast<char>(0xA0));
     } else if (!name.empty() && name[0] == '#') {
       const bool hex = name.size() > 1 && (name[1] == 'x' || name[1] == 'X');
       const std::string_view digits = name.substr(hex ? 2 : 1);
@@ -64,19 +64,19 @@ void Resolve(std::string_view raw, std::string &out) {
       }
 
       if (code < 0x80) {
-        out.push_back((char)code);
+        out.push_back(static_cast<char>(code));
       } else if (code < 0x800) {
-        out.push_back((char)(0xC0 | (code >> 6)));
-        out.push_back((char)(0x80 | (code & 0x3F)));
+        out.push_back(static_cast<char>(0xC0 | (code >> 6)));
+        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
       } else if (code < 0x10000) {
-        out.push_back((char)(0xE0 | (code >> 12)));
-        out.push_back((char)(0x80 | ((code >> 6) & 0x3F)));
-        out.push_back((char)(0x80 | (code & 0x3F)));
+        out.push_back(static_cast<char>(0xE0 | (code >> 12)));
+        out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
       } else {
-        out.push_back((char)(0xF0 | (code >> 18)));
-        out.push_back((char)(0x80 | ((code >> 12) & 0x3F)));
-        out.push_back((char)(0x80 | ((code >> 6) & 0x3F)));
-        out.push_back((char)(0x80 | (code & 0x3F)));
+        out.push_back(static_cast<char>(0xF0 | (code >> 18)));
+        out.push_back(static_cast<char>(0x80 | ((code >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
       }
     } else {
       out.push_back('&');
@@ -126,8 +126,8 @@ bool IsBlockLevel(std::string_view tag) {
 }
 
 const std::string *Markup::AttributeOf(int node, std::string_view name) const {
-  if (node < 0 || (size_t)node >= Nodes_.size()) { return nullptr; }
-  for (const Attribute &one : Nodes_[(size_t)node].Attributes) {
+  if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) { return nullptr; }
+  for (const Attribute &one : Nodes_[static_cast<size_t>(node)].Attributes) {
     if (one.Name == name) { return &one.Value; }
   }
   return nullptr;
@@ -145,8 +145,8 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   const auto push = [&](Node node) {
     node.Parent = open.back();
     Nodes_.push_back(std::move(node));
-    const int at = (int)Nodes_.size() - 1;
-    Nodes_[(size_t)open.back()].Children.push_back(at);
+    const int at = static_cast<int>(Nodes_.size()) - 1;
+    Nodes_[static_cast<size_t>(open.back())].Children.push_back(at);
     return at;
   };
 
@@ -202,7 +202,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
 
       size_t found = open.size();
       for (size_t depth = open.size(); depth-- > 1;) {
-        if (Nodes_[(size_t)open[depth]].Name == name) {
+        if (Nodes_[static_cast<size_t>(open[depth])].Name == name) {
           found = depth;
           break;
         }
@@ -250,7 +250,8 @@ bool Markup::Read(std::string_view markup, std::string &error) {
     }
     at = cursor < markup.size() && markup[cursor] == '>' ? cursor + 1 : markup.size();
 
-    if (IsBlockLevel(name) && open.size() > 1 && Nodes_[(size_t)open.back()].Name == "p") {
+    if (IsBlockLevel(name) && open.size() > 1 &&
+        Nodes_[static_cast<size_t>(open.back())].Name == "p") {
       flush();
       open.pop_back();
     }

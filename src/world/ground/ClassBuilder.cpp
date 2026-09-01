@@ -20,7 +20,9 @@ size_t GridBytes(const ClassStructure::Grid &g) {
 
 double Clock() {
   using namespace std::chrono;
-  return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
+  return static_cast<double>(
+             duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
+         1e-3;
 }
 
 constexpr int kSeedCap = 32;
@@ -55,15 +57,15 @@ void CurveRing(
   out.clear();
   if (count < 2) { return; }
   auto P = [&](int i) -> const float * {
-    int n = (int)count;
+    int n = static_cast<int>(count);
     if (closed) {
       i = ((i % n) + n) % n;
     } else {
       i = i < 0 ? 0 : (i >= n ? n - 1 : i);
     }
-    return pts + ((size_t)first + (size_t)i) * 2;
+    return pts + (static_cast<size_t>(first) + static_cast<size_t>(i)) * 2;
   };
-  const int spans = closed ? (int)count : (int)count - 1;
+  const int spans = closed ? static_cast<int>(count) : static_cast<int>(count) - 1;
   for (int s = 0; s < spans; s++) {
     const float *p0 = P(s - 1), *p1 = P(s), *p2 = P(s + 1), *p3 = P(s + 2);
     float mid[2];
@@ -72,18 +74,18 @@ void CurveRing(
     const float dev = std::sqrt((mid[0] - cx) * (mid[0] - cx) + (mid[1] - cy) * (mid[1] - cy));
     int n = 1;
     if (dev > kCurveTolM) {
-      n = (int)std::ceil(std::sqrt(dev / kCurveTolM));
+      n = static_cast<int>(std::ceil(std::sqrt(dev / kCurveTolM)));
       if (n > kCurveMaxSplit) { n = kCurveMaxSplit; }
     }
     for (int k = 0; k < n; k++) {
       float q[2];
-      CatmullPoint(p0, p1, p2, p3, (float)k / (float)n, q);
+      CatmullPoint(p0, p1, p2, p3, static_cast<float>(k) / static_cast<float>(n), q);
       out.push_back(q[0]);
       out.push_back(q[1]);
     }
   }
   if (!closed) {
-    const float *last = pts + ((size_t)first + count - 1) * 2;
+    const float *last = pts + (static_cast<size_t>(first) + count - 1) * 2;
     out.push_back(last[0]);
     out.push_back(last[1]);
   }
@@ -184,14 +186,14 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   B.OrgN = std::floor(job.CamN / cell - job.HalfCells) * cell;
 
   std::vector<uint8_t> &base = work.Base, &baseRank = work.BaseRank;
-  base.assign((size_t)W * H, 0xFF);
-  baseRank.assign((size_t)W * H, 0);
+  base.assign(static_cast<size_t>(W) * H, 0xFF);
+  baseRank.assign(static_cast<size_t>(W) * H, 0);
 
   std::vector<int32_t> &seedHead = work.SeedHead, &seedNext = work.SeedNext;
   std::vector<uint32_t> &seedCount = work.SeedCount;
-  seedHead.assign((size_t)W * H, -1);
+  seedHead.assign(static_cast<size_t>(W) * H, -1);
   seedNext.clear();
-  seedCount.assign((size_t)W * H, 0);
+  seedCount.assign(static_cast<size_t>(W) * H, 0);
 
   std::vector<float> &ex = work.Edges;
   std::vector<float> &curve = work.Curve;
@@ -239,18 +241,18 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
     const size_t ne = ex.size() / 4;
     if (ne == 0) { continue; }
 
-    const int i0 = std::max(0, (int)std::floor((f.MinE - B.OrgE) / cell));
-    const int i1 = std::min(W - 1, (int)std::floor((f.MaxE - B.OrgE) / cell));
-    const int j0 = std::max(0, (int)std::floor((f.MinN - B.OrgN) / cell));
-    const int j1 = std::min(H - 1, (int)std::floor((f.MaxN - B.OrgN) / cell));
+    const int i0 = std::max(0, static_cast<int>(std::floor((f.MinE - B.OrgE) / cell)));
+    const int i1 = std::min(W - 1, static_cast<int>(std::floor((f.MaxE - B.OrgE) / cell)));
+    const int j0 = std::max(0, static_cast<int>(std::floor((f.MinN - B.OrgN) / cell)));
+    const int j1 = std::min(H - 1, static_cast<int>(std::floor((f.MaxN - B.OrgN) / cell)));
     if (i0 > i1 || j0 > j1) { continue; }
     const int bw = i1 - i0 + 1, bh = j1 - j0 + 1;
 
     stamp++;
-    if (ceHead.size() < (size_t)bw * bh) {
-      ceHead.resize((size_t)bw * bh, -1);
-      ceStamp.resize((size_t)bw * bh, 0);
-      ceCount.resize((size_t)bw * bh, 0);
+    if (ceHead.size() < static_cast<size_t>(bw) * bh) {
+      ceHead.resize(static_cast<size_t>(bw) * bh, -1);
+      ceStamp.resize(static_cast<size_t>(bw) * bh, 0);
+      ceCount.resize(static_cast<size_t>(bw) * bh, 0);
     }
     ceNext.clear();
     ceEdge.clear();
@@ -258,56 +260,62 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
     const float epad = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
     for (size_t e = 0; e < ne; e++) {
       const float *p = &ex[e * 4];
-      const int ei0 = std::max(i0, (int)std::floor((std::min(p[0], p[2]) - epad - B.OrgE) / cell));
-      const int ei1 = std::min(i1, (int)std::floor((std::max(p[0], p[2]) + epad - B.OrgE) / cell));
-      const int ej0 = std::max(j0, (int)std::floor((std::min(p[1], p[3]) - epad - B.OrgN) / cell));
-      const int ej1 = std::min(j1, (int)std::floor((std::max(p[1], p[3]) + epad - B.OrgN) / cell));
+      const int ei0 =
+          std::max(i0, static_cast<int>(std::floor((std::min(p[0], p[2]) - epad - B.OrgE) / cell)));
+      const int ei1 =
+          std::min(i1, static_cast<int>(std::floor((std::max(p[0], p[2]) + epad - B.OrgE) / cell)));
+      const int ej0 =
+          std::max(j0, static_cast<int>(std::floor((std::min(p[1], p[3]) - epad - B.OrgN) / cell)));
+      const int ej1 =
+          std::min(j1, static_cast<int>(std::floor((std::max(p[1], p[3]) + epad - B.OrgN) / cell)));
       for (int j = ej0; j <= ej1; j++) {
         for (int i = ei0; i <= ei1; i++) {
-          const size_t c = (size_t)(j - j0) * bw + (size_t)(i - i0);
+          const size_t c = static_cast<size_t>(j - j0) * bw + static_cast<size_t>(i - i0);
           if (ceStamp[c] != stamp) {
             ceStamp[c] = stamp;
             ceHead[c] = -1;
             ceCount[c] = 0;
           }
           ceNext.push_back(ceHead[c]);
-          ceEdge.push_back((uint32_t)e);
-          ceHead[c] = (int32_t)(ceNext.size() - 1);
+          ceEdge.push_back(static_cast<uint32_t>(e));
+          ceHead[c] = static_cast<int32_t>(ceNext.size() - 1);
           ceCount[c]++;
         }
       }
     }
 
     byY.resize(ne);
-    for (uint32_t e = 0; e < (uint32_t)ne; e++) { byY[e] = e; }
+    for (uint32_t e = 0; e < static_cast<uint32_t>(ne); e++) { byY[e] = e; }
     std::sort(byY.begin(), byY.end(), [&ex](uint32_t a, uint32_t b) {
-      return std::min(ex[(size_t)a * 4 + 1], ex[(size_t)a * 4 + 3]) <
-             std::min(ex[(size_t)b * 4 + 1], ex[(size_t)b * 4 + 3]);
+      return std::min(ex[static_cast<size_t>(a) * 4 + 1], ex[static_cast<size_t>(a) * 4 + 3]) <
+             std::min(ex[static_cast<size_t>(b) * 4 + 1], ex[static_cast<size_t>(b) * 4 + 3]);
     });
     act.clear();
     size_t nextE = 0;
 
     for (int j = j0; j <= j1; j++) {
-      const double cy = B.OrgN + (double)j * cell;
+      const double cy = B.OrgN + static_cast<double>(j) * cell;
       while (nextE < ne) {
-        const float *p = &ex[(size_t)byY[nextE] * 4];
-        if ((double)std::min(p[1], p[3]) > cy) { break; }
+        const float *p = &ex[static_cast<size_t>(byY[nextE]) * 4];
+        if (static_cast<double>(std::min(p[1], p[3])) > cy) { break; }
         act.push_back(byY[nextE]);
         nextE++;
       }
       size_t keep = 0;
       for (size_t k = 0; k < act.size(); k++) {
-        const float *p = &ex[(size_t)act[k] * 4];
-        if ((double)std::max(p[1], p[3]) > cy) { act[keep++] = act[k]; }
+        const float *p = &ex[static_cast<size_t>(act[k]) * 4];
+        if (static_cast<double>(std::max(p[1], p[3])) > cy) { act[keep++] = act[k]; }
       }
       act.resize(keep);
 
       hits.clear();
       for (uint32_t e : act) {
-        const float *p = &ex[(size_t)e * 4];
+        const float *p = &ex[static_cast<size_t>(e) * 4];
         if ((p[1] <= cy) == (p[3] <= cy)) { continue; }
-        const double xi = (double)p[0] + (cy - (double)p[1]) * ((double)p[2] - (double)p[0]) /
-                                             ((double)p[3] - (double)p[1]);
+        const double xi = static_cast<double>(p[0]) +
+                          (cy - static_cast<double>(p[1])) *
+                              (static_cast<double>(p[2]) - static_cast<double>(p[0])) /
+                              (static_cast<double>(p[3]) - static_cast<double>(p[1]));
         hits.push_back(Hit{xi, p[3] > p[1] ? 1 : -1});
       }
       std::sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) { return a.X < b.X; });
@@ -315,32 +323,36 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
       int wind = 0;
       size_t hi = 0;
       for (int i = i0; i <= i1; i++) {
-        const double cx = B.OrgE + (double)i * cell;
+        const double cx = B.OrgE + static_cast<double>(i) * cell;
         while (hi < hits.size() && hits[hi].X < cx) {
           wind += hits[hi].Dir;
           hi++;
         }
-        const size_t bc = (size_t)(j - j0) * bw + (size_t)(i - i0);
+        const size_t bc = static_cast<size_t>(j - j0) * bw + static_cast<size_t>(i - i0);
         const uint32_t nce = ceStamp[bc] == stamp ? ceCount[bc] : 0u;
-        const size_t ci = (size_t)j * W + (size_t)i;
-        if (nce == 0 || seedCount[ci] >= (uint32_t)kSeedCap || nce > (uint32_t)kRefCap) {
+        const size_t ci = static_cast<size_t>(j) * W + static_cast<size_t>(i);
+        if (nce == 0 || seedCount[ci] >= static_cast<uint32_t>(kSeedCap) ||
+            nce > static_cast<uint32_t>(kRefCap)) {
           if (nce != 0) { overflow++; }
 
           if (f.Form == Shape::Polygon && wind != 0) {
-            base[ci] = (uint8_t)f.Tpl;
-            baseRank[ci] = (uint8_t)f.Rank;
+            base[ci] = static_cast<uint8_t>(f.Tpl);
+            baseRank[ci] = static_cast<uint8_t>(f.Rank);
           }
           continue;
         }
-        const uint32_t refFirst = (uint32_t)B.Refs.size();
-        for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[(size_t)k]) {
-          B.Refs.push_back((uint32_t)(B.Edges.size() / 4) + ceEdge[(size_t)k]);
+        const uint32_t refFirst = static_cast<uint32_t>(B.Refs.size());
+        for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[static_cast<size_t>(k)]) {
+          B.Refs.push_back(static_cast<uint32_t>(B.Edges.size() / 4) +
+                           ceEdge[static_cast<size_t>(k)]);
         }
         seedNext.push_back(seedHead[ci]);
-        seedHead[ci] = (int32_t)(B.Seeds.size() / 3);
+        seedHead[ci] = static_cast<int32_t>(B.Seeds.size() / 3);
         seedCount[ci]++;
-        B.Seeds.push_back((uint32_t)f.Tpl | ((uint32_t)f.Rank << 8) | ((uint32_t)nce << 16) |
-                          ((uint32_t)(uint8_t)(std::max(-128, std::min(127, wind)) + 128) << 24));
+        B.Seeds.push_back(
+            static_cast<uint32_t>(f.Tpl) | (static_cast<uint32_t>(f.Rank) << 8) | (nce << 16) |
+            (static_cast<uint32_t>(static_cast<uint8_t>(std::max(-128, std::min(127, wind)) + 128))
+             << 24));
         B.Seeds.push_back(refFirst);
         {
           const float hw = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
@@ -356,16 +368,16 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   std::vector<uint32_t> &seeds = work.Seeds;
   seeds.clear();
   seeds.reserve(B.Seeds.size());
-  B.Cells.assign((size_t)W * H * 2, 0);
-  for (size_t ci = 0; ci < (size_t)W * H; ci++) {
-    const uint32_t first = (uint32_t)(seeds.size() / 3);
-    for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[(size_t)s]) {
-      seeds.push_back(B.Seeds[(size_t)s * 3]);
-      seeds.push_back(B.Seeds[(size_t)s * 3 + 1]);
-      seeds.push_back(B.Seeds[(size_t)s * 3 + 2]);
+  B.Cells.assign(static_cast<size_t>(W) * H * 2, 0);
+  for (size_t ci = 0; ci < static_cast<size_t>(W) * H; ci++) {
+    const uint32_t first = static_cast<uint32_t>(seeds.size() / 3);
+    for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[static_cast<size_t>(s)]) {
+      seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3]);
+      seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3 + 1]);
+      seeds.push_back(B.Seeds[static_cast<size_t>(s) * 3 + 2]);
     }
-    B.Cells[ci * 2] =
-        (uint32_t)base[ci] | ((uint32_t)baseRank[ci] << 8) | ((uint32_t)seedCount[ci] << 16);
+    B.Cells[ci * 2] = static_cast<uint32_t>(base[ci]) | (static_cast<uint32_t>(baseRank[ci]) << 8) |
+                      (static_cast<uint32_t>(seedCount[ci]) << 16);
     B.Cells[ci * 2 + 1] = first;
   }
   B.Seeds.swap(seeds);

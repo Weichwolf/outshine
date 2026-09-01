@@ -113,12 +113,12 @@ double EavesZ(const BuildingShape &s) {
 Vtx Wall(const BuildingShape &s, const En &p, double z, double bays, Fields stand) {
   return {p,
           z,
-          FacadeUvX(StyleOf(s.Use), stand, (float)bays),
-          FacadeUvY(s.Ident, (float)((z - s.SeatM - s.FootM) / s.FloorM))};
+          FacadeUvX(StyleOf(s.Use), stand, static_cast<float>(bays)),
+          FacadeUvY(s.Ident, static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
-  return {p, z, FaceUvX(kind, s.Ident), (float)z};
+  return {p, z, FaceUvX(kind, s.Ident), static_cast<float>(z)};
 }
 
 class Site {
@@ -147,14 +147,15 @@ public:
   }
 
   [[nodiscard]] uint32_t Index(const Vtx &v) {
-    const int64_t ce = (int64_t)std::llround(v.P.E * 1000.0);
-    const int64_t cn = (int64_t)std::llround(v.P.N * 1000.0);
-    const int64_t cz = (int64_t)std::llround(v.Z * 1000.0);
-    const uint64_t key =
-        (uint64_t)(ce * 73856093LL) ^ (uint64_t)(cn * 19349663LL) ^ (uint64_t)(cz * 83492791LL);
+    const int64_t ce = static_cast<int64_t>(std::llround(v.P.E * 1000.0));
+    const int64_t cn = static_cast<int64_t>(std::llround(v.P.N * 1000.0));
+    const int64_t cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
+    const uint64_t key = static_cast<uint64_t>(ce * 73856093LL) ^
+                         static_cast<uint64_t>(cn * 19349663LL) ^
+                         static_cast<uint64_t>(cz * 83492791LL);
     const auto found = Welded_.find(key);
     if (found != Welded_.end()) { return found->second; }
-    const uint32_t made = (uint32_t)Welded_.size();
+    const uint32_t made = static_cast<uint32_t>(Welded_.size());
     Welded_.emplace(key, made);
     return made;
   }
@@ -184,7 +185,8 @@ public:
     std::map<std::pair<uint32_t, uint32_t>, int> counted;
     for (size_t at = 0; at + 2 < Face_.size(); at += 3) {
       for (int side = 0; side < 3; ++side) {
-        const uint32_t from = Face_[at + (size_t)side], to = Face_[at + (size_t)((side + 1) % 3)];
+        const uint32_t from = Face_[at + static_cast<size_t>(side)],
+                       to = Face_[at + static_cast<size_t>((side + 1) % 3)];
         const bool ahead = from < to;
         const std::pair<uint32_t, uint32_t> key{ahead ? from : to, ahead ? to : from};
         walked[key] += ahead ? 1 : -1;
@@ -210,21 +212,28 @@ public:
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const double nrm[3]) {
     std::vector<float> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
-    const uint64_t facing = ((uint64_t)(uint32_t)(int32_t)std::llround(nrm[0] * 4096.0) << 42) ^
-                            ((uint64_t)(uint32_t)(int32_t)std::llround(nrm[1] * 4096.0) << 21) ^
-                            (uint64_t)(uint32_t)(int32_t)std::llround(nrm[2] * 4096.0);
-    const uint64_t key = ((uint64_t)at * 1099511628211ull) ^ facing;
+    const uint64_t facing =
+        (static_cast<uint64_t>(
+             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[0] * 4096.0))))
+         << 42) ^
+        (static_cast<uint64_t>(
+             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[1] * 4096.0))))
+         << 21) ^
+        static_cast<uint64_t>(
+            static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[2] * 4096.0))));
+    const uint64_t key = (static_cast<uint64_t>(at) * 1099511628211ull) ^ facing;
     const auto found = Corners_[side].find(key);
     if (found != Corners_[side].end()) { return found->second; }
-    const auto made = (uint32_t)(soup.size() / 8u);
+    const auto made = static_cast<uint32_t>(soup.size() / 8u);
     Corners_[side].emplace(key, made);
     for (int c = 0; c < 3; c++) {
-      soup.push_back((float)(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
+      soup.push_back(
+          static_cast<float>(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
     }
     soup.push_back(v.U);
     soup.push_back(v.V);
     for (int c = 0; c < 3; c++) {
-      soup.push_back((float)(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
+      soup.push_back(static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]));
     }
     return made;
   }
@@ -413,7 +422,7 @@ void Walls(const BuildingShape &s,
     const double len = EdgeLength(p, q);
     if (len < 0.05) { continue; }
     const double bays = s.Party[i] ? 0.0 : BaysOn(len, s.BayM);
-    if ((int)i == s.FrontEdge && bays >= 2.0) {
+    if (static_cast<int>(i) == s.FrontEdge && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
@@ -430,7 +439,7 @@ void Walls(const BuildingShape &s,
                 bays * now,
                 lowZ,
                 topZ,
-                (int)i == s.FrontEdge ? Fields::Entrance : Fields::Back,
+                static_cast<int>(i) == s.FrontEdge ? Fields::Entrance : Fields::Back,
                 site);
       was = now;
     }
@@ -448,9 +457,10 @@ void SampleGround(const BuildingShape &s,
   for (size_t i = 0; i < n; i++) {
     const En &p = s.Ring[i], &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
-    const int steps = 1 + (int)(len / kGroundStepM);
+    const int steps = 1 + static_cast<int>(len / kGroundStepM);
     for (int step = 0; step < steps; ++step) {
-      const double at = ground.At(Along(p, q, (double)step / (double)steps));
+      const double at =
+          ground.At(Along(p, q, static_cast<double>(step) / static_cast<double>(steps)));
       if (first) {
         *lowest = *highest = at;
         first = false;
@@ -562,8 +572,10 @@ void Covering(const BuildingShape &s,
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     Vtx v[3];
     for (int k = 0; k < 3; k++) {
-      v[k] =
-          Face(s, tris[i + (size_t)k], deckZ + roof.HeightAt(tris[i + (size_t)k]) + kSlabM, kind);
+      v[k] = Face(s,
+                  tris[i + static_cast<size_t>(k)],
+                  deckZ + roof.HeightAt(tris[i + static_cast<size_t>(k)]) + kSlabM,
+                  kind);
     }
     site.Tri(v[0], v[1], v[2]);
   }
@@ -678,7 +690,7 @@ void Box(Site &site,
 }
 
 void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
-  const double along = (((double)(s.Seed >> 9 & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
+  const double along = ((static_cast<double>(s.Seed >> 9 & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
   const double eaves = EavesZ(s);
   const double stack = eaves + roof.HeightAt(foot) + kChimneyOverRidgeM;
@@ -688,7 +700,7 @@ void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
 void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double halfU = std::min(2.6, 0.30 * s.HalfUm), halfV = std::min(1.9, 0.30 * s.HalfVm);
   if (halfU < 0.9 || halfV < 0.7) { return; }
-  const double along = (((double)(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
+  const double along = ((static_cast<double>(s.Seed >> 13 & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
 }
@@ -702,7 +714,7 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   const double deepest = seatZ - seat;
   if (deepest > 0.0) {
     gBuried.fetch_add(1u, std::memory_order_relaxed);
-    const size_t mm = (size_t)(deepest * 1000.0);
+    const size_t mm = static_cast<size_t>(deepest * 1000.0);
     size_t was = gDeepestMm.load(std::memory_order_relaxed);
     while (mm > was && !gDeepestMm.compare_exchange_weak(was, mm)) {}
   }
@@ -776,7 +788,7 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
 
 void RaisePart(const BuildingShape &s, Site &site) {
   const double outM = site.ReachM();
-  const size_t whole = (size_t)outM;
+  const size_t whole = static_cast<size_t>(outM);
   for (size_t seen = gFarthestM.load(); whole > seen;) {
     if (gFarthestM.compare_exchange_weak(seen, whole)) { break; }
   }

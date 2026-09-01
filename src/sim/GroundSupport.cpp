@@ -14,8 +14,9 @@ Underneath GroundSupport::At(double lat, double lon) const {
   double edgeM = 0.0;
   int runnerUp = -1;
   const int row = Held_ ? Stack_.Classes().ClassAt(*Held_, lat, lon, &edgeM, &runnerUp) : -1;
-  const size_t tpl = row >= 0 ? (size_t)row : (size_t)Templates_.UnmappedRow();
-  out.Friction = (double)Templates_.FrictionOf(tpl);
+  const size_t tpl =
+      row >= 0 ? static_cast<size_t>(row) : static_cast<size_t>(Templates_.UnmappedRow());
+  out.Friction = static_cast<double>(Templates_.FrictionOf(tpl));
   out.Known = out.Friction > 0.0;
   return out;
 }

@@ -127,7 +127,7 @@ Fitted Fit(std::span<const double> eastNorthM,
     const double swing = std::fabs(turn);
     if (swing > out.SharpestTurnRad) {
       out.SharpestTurnRad = swing;
-      out.SharpestTurnAtM = (double)vertex;
+      out.SharpestTurnAtM = static_cast<double>(vertex);
     }
     if (swing > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
     if (swing > 0.75 * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
@@ -153,7 +153,7 @@ Fitted Fit(std::span<const double> eastNorthM,
     out.TightestDemandedM = aligned.error().DemandedM;
     out.TightestDemandedAtVertex = aligned.error().AtVertex;
     out.Undrivable = aligned.error().Undrivable;
-    out.UndrivableAtM = (double)aligned.error().AtVertex;
+    out.UndrivableAtM = static_cast<double>(aligned.error().AtVertex);
     return out;
   }
   const auto laid = LayAligned(eastNorthM, *aligned, into);
@@ -204,14 +204,14 @@ Fitted Fit(std::span<const double> eastNorthM,
     if (awayM <= out.WorstOffsetM) { continue; }
     out.WorstOffsetM = awayM;
     out.WorstOffsetAtM = alongM;
-    out.WorstVertex = (double)vertex;
+    out.WorstVertex = static_cast<double>(vertex);
     out.WorstLegInM = vertex > 0 ? legM[vertex - 1] : 0.0;
     out.WorstLegOutM = vertex + 1 < points ? legM[vertex] : 0.0;
     out.WorstTurnRad = turnRad[vertex];
     out.WorstStationM = alongM;
   }
   out.DriftM = out.WorstOffsetM > withinM ? out.WorstOffsetM - withinM : 0.0;
-  out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / (double)out.Corners : 0.0;
+  out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / static_cast<double>(out.Corners) : 0.0;
   out.Laid = true;
   return out;
 }

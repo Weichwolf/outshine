@@ -16,11 +16,11 @@ struct Sink {
 };
 
 size_t Write(void *data, size_t size, size_t members, void *user) {
-  Sink *sink = (Sink *)user;
+  Sink *sink = static_cast<Sink *>(user);
   const size_t add = size * members;
 
   if (sink->Max && sink->Out->size() + add > sink->Max) { return 0; }
-  const uint8_t *bytes = (const uint8_t *)data;
+  const uint8_t *bytes = static_cast<const uint8_t *>(data);
   sink->Out->insert(sink->Out->end(), bytes, bytes + add);
   return add;
 }
@@ -32,9 +32,9 @@ Fetching::Fetching(const Config &config) : Config_(config) {
   int n = Config_.Threads;
   if (n <= 0) {
     const unsigned hardware = std::thread::hardware_concurrency();
-    n = hardware > 0u ? std::min((int)hardware, kDefaultThreads) : kDefaultThreads;
+    n = hardware > 0u ? std::min(static_cast<int>(hardware), kDefaultThreads) : kDefaultThreads;
   }
-  Threads_.reserve((size_t)n);
+  Threads_.reserve(static_cast<size_t>(n));
   for (int i = 0; i < n; i++) {
     Threads_.emplace_back([this] { Work(); });
   }
@@ -57,13 +57,13 @@ Data::Ticket Fetching::Begin(const std::string &url) {
   Transfers_[ticket].Url = url;
   Queue_.push_back(ticket);
   Wake_.notify_one();
-  return (Data::Ticket)ticket;
+  return static_cast<Data::Ticket>(ticket);
 }
 
 Data::Wire Fetching::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return Data::Wire::Unreachable(); }
   std::lock_guard<std::mutex> lock(Mutex_);
-  const auto found = Transfers_.find((uint64_t)ticket);
+  const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
 
   if (found == Transfers_.end()) { return Data::Wire::Unreachable(); }
   if (!found->second.Done) { return Data::Wire::Working(); }
@@ -76,13 +76,13 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
 void Fetching::Cancel(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return; }
   std::lock_guard<std::mutex> lock(Mutex_);
-  const auto found = Transfers_.find((uint64_t)ticket);
+  const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
   if (found == Transfers_.end()) { return; }
   if (found->second.Done) {
     Transfers_.erase(found);
     return;
   }
-  const auto queued = std::find(Queue_.begin(), Queue_.end(), (uint64_t)ticket);
+  const auto queued = std::find(Queue_.begin(), Queue_.end(), static_cast<uint64_t>(ticket));
   if (queued != Queue_.end()) {
     Queue_.erase(queued);
     Transfers_.erase(found);
@@ -98,7 +98,7 @@ bool Fetching::Await(double forMs) {
   const bool outstanding = !Transfers_.empty();
   if (!outstanding) { return false; }
   return Landed_.wait_for(lock,
-                          std::chrono::microseconds((long long)(forMs * 1000.0)),
+                          std::chrono::microseconds(static_cast<long long>(forMs * 1000.0)),
                           [this, stood] { return Stopping_ || Completions_ != stood; }) &&
          Completions_ != stood;
 }
@@ -152,8 +152,8 @@ void Fetching::Work() {
     if (result != CURLE_OK) {
       found->second.Unreachable = true;
     } else {
-      found->second.Status = (int)status;
-      found->second.RetryAfterS = (double)retryAfter;
+      found->second.Status = static_cast<int>(status);
+      found->second.RetryAfterS = static_cast<double>(retryAfter);
       found->second.Body = std::move(body);
     }
   }

@@ -37,7 +37,7 @@ float GrowthForm::Reach(CrownEnvelope envelope, float t) {
   if (t > 1.0f) { return 0.0f; }
   if (envelope == CrownEnvelope::Cut) { return 1.0f; }
   if (t < kFloor) { t = kFloor; }
-  const Profile p = kProfiles[(size_t)envelope];
+  const Profile p = kProfiles[static_cast<size_t>(envelope)];
   const float peak = p.A / (p.A + p.B);
   const float denom = std::pow(peak, p.A) * std::pow(1.0f - peak, p.B);
   if (denom <= 0.0f) { return 1.0f; }

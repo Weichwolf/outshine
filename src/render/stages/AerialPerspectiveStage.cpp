@@ -95,7 +95,7 @@ void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording
   const SDL_GPUTextureSamplerBinding bound[4] = {
       {Scene, Exact}, {Depth, Exact}, {SkyView, Lut}, {Veil, Lut}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 4);
-  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, (uint32_t)sizeof Pushed_);
+  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 

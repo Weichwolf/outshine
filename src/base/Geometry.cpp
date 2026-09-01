@@ -43,7 +43,7 @@ struct Geometry::Held {
   std::vector<Placed> Lamps;
 
   [[nodiscard]] const Piece *At(int part) const {
-    return part >= 0 && part < (int)Live ? &Parts[(size_t)part] : nullptr;
+    return part >= 0 && part < static_cast<int>(Live) ? &Parts[static_cast<size_t>(part)] : nullptr;
   }
 };
 
@@ -81,7 +81,7 @@ int Geometry::addPart(std::string_view named, MaterialInstance material) {
   piece.Material = material.index();
   const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (size_t at = 0; at < 16u; ++at) { piece.PlacedM[at] = still[at]; }
-  return (int)Held_->Live++;
+  return static_cast<int>(Held_->Live++);
 }
 
 namespace {
@@ -94,35 +94,37 @@ namespace {
 } // namespace
 
 bool Geometry::setPositions(int part, std::span<const float> metres) {
-  if (part < 0 || part >= (int)Held_->Live || metres.size() % 3 != 0) { return false; }
-  return Into(Held_->Parts[(size_t)part].PositionsM, metres);
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || metres.size() % 3 != 0) { return false; }
+  return Into(Held_->Parts[static_cast<size_t>(part)].PositionsM, metres);
 }
 
 bool Geometry::setNormals(int part, std::span<const float> unit) {
-  if (part < 0 || part >= (int)Held_->Live || unit.size() % 3 != 0) { return false; }
-  return Into(Held_->Parts[(size_t)part].Normals, unit);
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || unit.size() % 3 != 0) { return false; }
+  return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
 }
 
 bool Geometry::setTexture(int part, std::span<const float> uv, int set) {
-  if (part < 0 || part >= (int)Held_->Live || uv.size() % 2 != 0) { return false; }
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || uv.size() % 2 != 0) { return false; }
   if (set != 0 && set != 1) { return false; }
-  Geometry::Held::Piece &piece = Held_->Parts[(size_t)part];
+  Geometry::Held::Piece &piece = Held_->Parts[static_cast<size_t>(part)];
   return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
 }
 
 bool Geometry::setTangents(int part, std::span<const float> xyzw) {
-  if (part < 0 || part >= (int)Held_->Live || xyzw.size() % 4 != 0) { return false; }
-  return Into(Held_->Parts[(size_t)part].Tangents, xyzw);
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || xyzw.size() % 4 != 0) { return false; }
+  return Into(Held_->Parts[static_cast<size_t>(part)].Tangents, xyzw);
 }
 
 bool Geometry::setColours(int part, std::span<const float> rgba) {
-  if (part < 0 || part >= (int)Held_->Live || rgba.size() % 4 != 0) { return false; }
-  return Into(Held_->Parts[(size_t)part].Colours, rgba);
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || rgba.size() % 4 != 0) { return false; }
+  return Into(Held_->Parts[static_cast<size_t>(part)].Colours, rgba);
 }
 
 bool Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
-  if (part < 0 || part >= (int)Held_->Live || indices.size() % 3 != 0) { return false; }
-  Held_->Parts[(size_t)part].Indices.assign(indices.begin(), indices.end());
+  if (part < 0 || part >= static_cast<int>(Held_->Live) || indices.size() % 3 != 0) {
+    return false;
+  }
+  Held_->Parts[static_cast<size_t>(part)].Indices.assign(indices.begin(), indices.end());
   return true;
 }
 
@@ -199,23 +201,25 @@ bool RenderableManager::setMaterial(int part, MaterialInstance surface) {
 }
 
 void Geometry::relight(int lamp, const PunctualLight &light) {
-  if (lamp < 0 || lamp >= (int)Held_->Lamps.size()) { return; }
-  Held_->Lamps[(size_t)lamp].Light = light;
+  if (lamp < 0 || lamp >= static_cast<int>(Held_->Lamps.size())) { return; }
+  Held_->Lamps[static_cast<size_t>(lamp)].Light = light;
 }
 
 void Geometry::resurface(int part, MaterialInstance surface) {
-  if (part < 0 || part >= (int)Held_->Live) { return; }
-  Held_->Parts[(size_t)part].Material = surface.index();
+  if (part < 0 || part >= static_cast<int>(Held_->Live)) { return; }
+  Held_->Parts[static_cast<size_t>(part)].Material = surface.index();
 }
 
 void Geometry::place(int part, const double modelM16[16]) {
-  if (part < 0 || part >= (int)Held_->Live) { return; }
-  for (size_t at = 0; at < 16u; ++at) { Held_->Parts[(size_t)part].PlacedM[at] = modelM16[at]; }
+  if (part < 0 || part >= static_cast<int>(Held_->Live)) { return; }
+  for (size_t at = 0; at < 16u; ++at) {
+    Held_->Parts[static_cast<size_t>(part)].PlacedM[at] = modelM16[at];
+  }
 }
 
 MaterialInstance Geometry::addSurface(std::string_view named, const Material &surface) {
   Held_->Surfaces.push_back(Geometry::Held::Named{std::string(named), surface});
-  return MaterialInstance((int)Held_->Surfaces.size() - 1);
+  return MaterialInstance(static_cast<int>(Held_->Surfaces.size()) - 1);
 }
 
 int Geometry::addLamp(std::string_view named,
@@ -226,11 +230,12 @@ int Geometry::addLamp(std::string_view named,
   placed.Light = light;
   for (size_t at = 0; at < 16u; ++at) { placed.PlacedM[at] = placedM16[at]; }
   Held_->Lamps.push_back(std::move(placed));
-  return (int)Held_->Lamps.size() - 1;
+  return static_cast<int>(Held_->Lamps.size()) - 1;
 }
 
 int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
-  if (widthPx <= 0 || heightPx <= 0 || rgba.size() < (size_t)widthPx * (size_t)heightPx * 4u) {
+  if (widthPx <= 0 || heightPx <= 0 ||
+      rgba.size() < static_cast<size_t>(widthPx) * static_cast<size_t>(heightPx) * 4u) {
     return -1;
   }
   Held::Picture made;
@@ -238,61 +243,67 @@ int Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba)
   made.HeightPx = heightPx;
   made.Rgba.assign(rgba.begin(), rgba.end());
   Held_->Images.push_back(std::move(made));
-  return (int)Held_->Images.size() - 1;
+  return static_cast<int>(Held_->Images.size()) - 1;
 }
 
 int Geometry::images() const {
-  return (int)Held_->Images.size();
+  return static_cast<int>(Held_->Images.size());
 }
 
 bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
   const int at = surface.index();
-  if (at < 0 || (size_t)at >= Held_->Surfaces.size()) { return false; }
-  Held_->Surfaces[(size_t)at].Surface = row;
+  if (at < 0 || static_cast<size_t>(at) >= Held_->Surfaces.size()) { return false; }
+  Held_->Surfaces[static_cast<size_t>(at)].Surface = row;
   return true;
 }
 
 ImageView Geometry::imageAt(int image) const {
-  if (image < 0 || (size_t)image >= Held_->Images.size()) { return ImageView{}; }
-  const Held::Picture &held = Held_->Images[(size_t)image];
+  if (image < 0 || static_cast<size_t>(image) >= Held_->Images.size()) { return ImageView{}; }
+  const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{
       held.WidthPx, held.HeightPx, std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
 }
 
 int Geometry::surfaces() const {
-  return (int)Held_->Surfaces.size();
+  return static_cast<int>(Held_->Surfaces.size());
 }
 
 std::string_view Geometry::surfaceNameOf(int surface) const {
-  return surface >= 0 && surface < (int)Held_->Surfaces.size()
-             ? std::string_view(Held_->Surfaces[(size_t)surface].Named)
+  return surface >= 0 && surface < static_cast<int>(Held_->Surfaces.size())
+             ? std::string_view(Held_->Surfaces[static_cast<size_t>(surface)].Named)
              : std::string_view();
 }
 
 const Material &Geometry::surfaceAt(MaterialInstance surface) const {
   static const Material plain;
   const int at = surface.index();
-  return at >= 0 && at < (int)Held_->Surfaces.size() ? Held_->Surfaces[(size_t)at].Surface : plain;
+  return at >= 0 && at < static_cast<int>(Held_->Surfaces.size())
+             ? Held_->Surfaces[static_cast<size_t>(at)].Surface
+             : plain;
 }
 
 int Geometry::lamps() const {
-  return (int)Held_->Lamps.size();
+  return static_cast<int>(Held_->Lamps.size());
 }
 
 std::string_view Geometry::lampNameOf(int lamp) const {
-  return lamp >= 0 && lamp < (int)Held_->Lamps.size()
-             ? std::string_view(Held_->Lamps[(size_t)lamp].Named)
+  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+             ? std::string_view(Held_->Lamps[static_cast<size_t>(lamp)].Named)
              : std::string_view();
 }
 
 const PunctualLight &Geometry::lampAt(int lamp) const {
   static const PunctualLight dark;
-  return lamp >= 0 && lamp < (int)Held_->Lamps.size() ? Held_->Lamps[(size_t)lamp].Light : dark;
+  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+             ? Held_->Lamps[static_cast<size_t>(lamp)].Light
+             : dark;
 }
 
 const double *Geometry::lampPlacementOf(int lamp) const {
   static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  return lamp >= 0 && lamp < (int)Held_->Lamps.size() ? Held_->Lamps[(size_t)lamp].PlacedM : still;
+  return lamp >= 0 && lamp < static_cast<int>(Held_->Lamps.size())
+             ? Held_->Lamps[static_cast<size_t>(lamp)].PlacedM
+             : still;
 }
 
 const double *Geometry::placementOf(int part) const {
@@ -302,7 +313,7 @@ const double *Geometry::placementOf(int part) const {
 }
 
 int Geometry::parts() const {
-  return (int)Held_->Live;
+  return static_cast<int>(Held_->Live);
 }
 
 std::string_view Geometry::nameOf(int part) const {
@@ -357,7 +368,7 @@ bool Geometry::wellFormed() const {
     if (!piece.Tangents.empty() && piece.Tangents.size() / 4 != vertices) { return false; }
     if (!piece.Colours.empty() && piece.Colours.size() / 4 != vertices) { return false; }
     for (uint32_t index : piece.Indices) {
-      if ((size_t)index >= vertices) { return false; }
+      if (static_cast<size_t>(index) >= vertices) { return false; }
     }
   }
   return true;

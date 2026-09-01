@@ -14,24 +14,24 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
   out.reserve(out.size() + from.size());
   for (const Ui::Quad &quad : from) {
     Render::OverlayQuad to;
-    to.LeftPx = (float)(quad.X + offsetX);
-    to.TopPx = (float)(quad.Y + offsetY);
-    to.WidthPx = (float)quad.Width;
-    to.HeightPx = (float)quad.Height;
-    to.U0 = (float)quad.U0;
-    to.V0 = (float)quad.V0;
-    to.U1 = (float)quad.U1;
-    to.V1 = (float)quad.V1;
-    to.Red = (float)((quad.Colour >> 24) & 0xFFu) / 255.0f;
-    to.Green = (float)((quad.Colour >> 16) & 0xFFu) / 255.0f;
-    to.Blue = (float)((quad.Colour >> 8) & 0xFFu) / 255.0f;
-    to.Alpha = (float)(quad.Colour & 0xFFu) / 255.0f;
-    to.ClipLeftPx = (float)(quad.ClipX + offsetX);
-    to.ClipTopPx = (float)(quad.ClipY + offsetY);
-    to.ClipWidthPx = (float)quad.ClipWidth;
-    to.ClipHeightPx = (float)quad.ClipHeight;
-    to.RadiusPx = (float)quad.Radius;
-    to.Opacity = (float)quad.Opacity;
+    to.LeftPx = static_cast<float>(quad.X + offsetX);
+    to.TopPx = static_cast<float>(quad.Y + offsetY);
+    to.WidthPx = static_cast<float>(quad.Width);
+    to.HeightPx = static_cast<float>(quad.Height);
+    to.U0 = static_cast<float>(quad.U0);
+    to.V0 = static_cast<float>(quad.V0);
+    to.U1 = static_cast<float>(quad.U1);
+    to.V1 = static_cast<float>(quad.V1);
+    to.Red = static_cast<float>((quad.Colour >> 24) & 0xFFu) / 255.0f;
+    to.Green = static_cast<float>((quad.Colour >> 16) & 0xFFu) / 255.0f;
+    to.Blue = static_cast<float>((quad.Colour >> 8) & 0xFFu) / 255.0f;
+    to.Alpha = static_cast<float>(quad.Colour & 0xFFu) / 255.0f;
+    to.ClipLeftPx = static_cast<float>(quad.ClipX + offsetX);
+    to.ClipTopPx = static_cast<float>(quad.ClipY + offsetY);
+    to.ClipWidthPx = static_cast<float>(quad.ClipWidth);
+    to.ClipHeightPx = static_cast<float>(quad.ClipHeight);
+    to.RadiusPx = static_cast<float>(quad.Radius);
+    to.Opacity = static_cast<float>(quad.Opacity);
     out.push_back(to);
   }
 }

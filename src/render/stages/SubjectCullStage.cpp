@@ -113,18 +113,19 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
   into = CullView{};
   PlanesOf(ctx.Mvp16, into.Planes);
   for (int axis = 0; axis < 3; ++axis) {
-    into.Shift[axis] = (float)(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
+    into.Shift[axis] =
+        static_cast<float>(Subjects_->AnchorM()[axis] + ctx.PreViewTranslation[axis]);
   }
   into.Jobs = jobs;
-  for (int at = 0; at < 16; ++at) { into.Clip[at] = (float)ctx.Mvp16[at]; }
+  for (int at = 0; at < 16; ++at) { into.Clip[at] = ctx.Mvp16[at]; }
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     into.PyramidWide[level] = Pyramid_.Wide[level];
     into.PyramidHigh[level] = Pyramid_.High[level];
     into.PyramidAt[level] = Pyramid_.At[level];
   }
   into.Occludes = PyramidBuffer_ != nullptr && Stood_ ? 1u : 0u;
-  const float *const up = into.Planes + (size_t)(2U * 4U);
-  const float *const down = into.Planes + (size_t)(3U * 4U);
+  const float *const up = into.Planes + static_cast<size_t>(2U * 4U);
+  const float *const down = into.Planes + static_cast<size_t>(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
   const float yfov = std::acos(std::fmin(std::fmax(-between, -1.0f), 1.0f));
   const float halfTangent = std::tan(0.5f * yfov);
@@ -149,7 +150,7 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Cull_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 5);
   Stood_ = true;
@@ -168,7 +169,7 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Scan_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 2);
   SDL_DispatchGPUCompute(into.Dispatch, batches, 1u, 1u);
@@ -186,7 +187,7 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   for (SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, (uint32_t)sizeof view);
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
   SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read, 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);

@@ -40,7 +40,7 @@ uint32_t Graph::Adds(Does does, void *with) {
   Step &one = Held_[Steps_];
   one.Act = does;
   one.With = with;
-  return (uint32_t)Steps_++;
+  return static_cast<uint32_t>(Steps_++);
 }
 
 bool Graph::After(uint32_t step, uint32_t earlier) {
@@ -101,7 +101,7 @@ bool Graph::Runs() {
       Held_[at].Owed.store(Held_[at].Afters, std::memory_order_relaxed);
     }
     for (size_t at = 0; at < Steps_; ++at) {
-      if (Held_[at].Afters == 0) { Ready_.push_back((uint32_t)at); }
+      if (Held_[at].Afters == 0) { Ready_.push_back(static_cast<uint32_t>(at)); }
     }
     if (Ready_.empty()) {
       Error_ = "every step waits on another, so the graph holds a cycle and nothing can start";

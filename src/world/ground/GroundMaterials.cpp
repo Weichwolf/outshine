@@ -10,7 +10,7 @@ namespace outshine::Ground {
 
 int GroundMaterials::Find(std::string_view name) const {
   for (size_t i = 0; i < Mats_.size(); i++) {
-    if (Mats_[i].Name == name) { return (int)i; }
+    if (Mats_[i].Name == name) { return static_cast<int>(i); }
   }
   return -1;
 }
@@ -27,8 +27,8 @@ bool GroundMaterials::Load(const char *path) {
   fseek(f, 0, SEEK_END);
   const long n = ftell(f);
   fseek(f, 0, SEEK_SET);
-  std::string text((size_t)(n > 0 ? n : 0), '\0');
-  const size_t got = n > 0 ? fread(&text[0], 1, (size_t)n, f) : 0;
+  std::string text(static_cast<size_t>(n > 0 ? n : 0), '\0');
+  const size_t got = n > 0 ? fread(&text[0], 1, static_cast<size_t>(n), f) : 0;
   fclose(f);
   if (got != text.size()) {
     Error_ = "short read";
@@ -42,10 +42,12 @@ bool GroundMaterials::Load(const char *path) {
   }
 
   const Json::Ref mm = doc.Root()["moistureModel"];
-  const float kWet = (float)mm["kWet"].Num(0.0);
+  const float kWet = static_cast<float>(mm["kWet"].Num(0.0));
   const Json::Ref excl = mm["exclusions"];
-  const float wetLo = (float)doc.Root()["specularModel"]["edges"][(size_t)0].Num(0.05);
-  const float wetHi = (float)doc.Root()["specularModel"]["edges"][(size_t)1].Num(0.85);
+  const float wetLo =
+      static_cast<float>(doc.Root()["specularModel"]["edges"][static_cast<size_t>(0)].Num(0.05));
+  const float wetHi =
+      static_cast<float>(doc.Root()["specularModel"]["edges"][static_cast<size_t>(1)].Num(0.85));
 
   const std::string reference = doc.Root()["frictionModel"]["reference"].Str("");
   if (reference.empty()) {
@@ -64,25 +66,25 @@ bool GroundMaterials::Load(const char *path) {
     const Json::Ref c = cls[i];
     Material m{};
     m.Name = c["name"].Str("?");
-    m.Roughness = (float)c["roughness"].Num(0.9);
+    m.Roughness = static_cast<float>(c["roughness"].Num(0.9));
     const Json::Ref peak = c["peakFriction"];
     if (peak.GetKind() != Json::Kind::Number || !(peak.Num(0.0) > 0.0)) {
       Error_ = "class " + m.Name + ": peakFriction must be a positive number";
       return false;
     }
-    m.PeakFriction = (float)peak.Num(0.0);
-    m.Moisture = (float)c["moisture"].Num(0.0);
-    m.GrainSizeM = (float)c["grainSizeM"].Num(0.002);
-    m.HeightAmplitudeM = (float)c["heightAmplitudeM"].Num(0.0005);
-    m.DetailCoarseM = (float)c["detailScaleM"][(size_t)0].Num(2.0);
-    m.DetailFineM = (float)c["detailScaleM"][(size_t)1].Num(0.3);
-    m.LitterCoverage = (float)c["litter"]["coverage"].Num(0.0);
+    m.PeakFriction = static_cast<float>(peak.Num(0.0));
+    m.Moisture = static_cast<float>(c["moisture"].Num(0.0));
+    m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(0.002));
+    m.HeightAmplitudeM = static_cast<float>(c["heightAmplitudeM"].Num(0.0005));
+    m.DetailCoarseM = static_cast<float>(c["detailScaleM"][static_cast<size_t>(0)].Num(2.0));
+    m.DetailFineM = static_cast<float>(c["detailScaleM"][static_cast<size_t>(1)].Num(0.3));
+    m.LitterCoverage = static_cast<float>(c["litter"]["coverage"].Num(0.0));
     const Json::Ref pd = c["slope"]["plausibleDeg"];
     if (pd.Size() != 2) {
       Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair";
       return false;
     }
-    m.SlopeMaxDeg = (float)pd[(size_t)1].Num(90.0);
+    m.SlopeMaxDeg = static_cast<float>(pd[static_cast<size_t>(1)].Num(90.0));
     litterName[i] = c["litter"]["class"].Str("");
 
     const Json::Ref surf = c["surface"];
@@ -103,9 +105,10 @@ bool GroundMaterials::Load(const char *path) {
 
     const float wet = wetExempt ? 1.0f : (1.0f - kWet * m.Moisture);
 
-    m.VisibleRatio = (float)c["visibleBroadbandRatio"].Num(1.0);
+    m.VisibleRatio = static_cast<float>(c["visibleBroadbandRatio"].Num(1.0));
     for (int k = 0; k < 3; k++) {
-      m.Albedo[k] = (float)c["albedo"][(size_t)k].Num(0.15) * wet * m.VisibleRatio;
+      m.Albedo[k] =
+          static_cast<float>(c["albedo"][static_cast<size_t>(k)].Num(0.15)) * wet * m.VisibleRatio;
     }
 
     m.LitterClass = -1;
@@ -116,7 +119,7 @@ bool GroundMaterials::Load(const char *path) {
     Error_ = "frictionModel.reference names '" + reference + "' and no class carries that name";
     return false;
   }
-  const float against = Mats_[(size_t)stands].PeakFriction;
+  const float against = Mats_[static_cast<size_t>(stands)].PeakFriction;
   for (Material &one : Mats_) { one.FrictionFactor = one.PeakFriction / against; }
 
   for (size_t i = 0; i < Mats_.size(); i++) {
@@ -125,7 +128,9 @@ bool GroundMaterials::Load(const char *path) {
 
   Log::Info("ground",
             "materials",
-            {{"path", path}, {"classes", (int)Mats_.size()}, {"kWet", (double)kWet}});
+            {{"path", path},
+             {"classes", static_cast<int>(Mats_.size())},
+             {"kWet", static_cast<double>(kWet)}});
   return true;
 }
 

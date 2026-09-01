@@ -30,7 +30,7 @@ std::string Value::AsText() const {
 
   char held[32];
   if (Number == std::floor(Number) && std::fabs(Number) < 1e15) {
-    std::snprintf(held, sizeof held, "%lld", (long long)Number);
+    std::snprintf(held, sizeof held, "%lld", static_cast<long long>(Number));
   } else {
     std::snprintf(held, sizeof held, "%g", Number);
   }
@@ -169,8 +169,8 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
           continue;
         }
         if (hex.ptr != text.data() + at + 2) {
-          token.Number = (double)wide;
-          at = (size_t)(hex.ptr - text.data());
+          token.Number = static_cast<double>(wide);
+          at = static_cast<size_t>(hex.ptr - text.data());
           out.push_back(std::move(token));
           continue;
         }
@@ -178,7 +178,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
       const auto scanned =
           std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
       if (scanned.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
-      at = (size_t)(scanned.ptr - text.data());
+      at = static_cast<size_t>(scanned.ptr - text.data());
       out.push_back(std::move(token));
       continue;
     }

@@ -18,18 +18,18 @@ Reaped Reap(const OsmField &field,
 
   std::vector<double> along;
   for (const OsmField::Feature &feature : field.Features()) {
-    if ((int)feature.Layer != streets) { continue; }
+    if (static_cast<int>(feature.Layer) != streets) { continue; }
     if (feature.Type != 2) {
       ++out.NotALine;
       continue;
     }
     const VegetationTemplates::Rule *const rule =
-        widths.Find(field.LayerName((int)feature.Layer), field.Str(feature, "kind"));
+        widths.Find(field.LayerName(static_cast<int>(feature.Layer)), field.Str(feature, "kind"));
     if (rule == nullptr || !(rule->WidthM > 0.0f)) {
       ++out.Unclassed;
       continue;
     }
-    const double widthM = (double)rule->WidthM;
+    const double widthM = static_cast<double>(rule->WidthM);
     if (widthM < bodyWidthM) {
       ++out.TooNarrow;
       if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }
@@ -69,14 +69,14 @@ Reaped Reap(const OsmField &field,
       along.clear();
       along.reserve(ring.Count * 2);
       for (uint32_t point = 0; point < ring.Count; ++point) {
-        along.push_back(field.Points()[2 * ((size_t)ring.First + point)]);
-        along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
+        along.push_back(field.Points()[2 * (static_cast<size_t>(ring.First) + point)]);
+        along.push_back(field.Points()[2 * (static_cast<size_t>(ring.First) + point) + 1]);
       }
       Path::WayClass carries;
       carries.HalfWidthM = 0.5 * widthM;
-      carries.MaxGradient = (double)rule->MaxGradient;
-      carries.MinRadiusM = (double)rule->MinRadiusM;
-      carries.Friction = (double)widths.FrictionOf((size_t)rule->Tpl);
+      carries.MaxGradient = static_cast<double>(rule->MaxGradient);
+      carries.MinRadiusM = static_cast<double>(rule->MinRadiusM);
+      carries.Friction = static_cast<double>(widths.FrictionOf(static_cast<size_t>(rule->Tpl)));
       carries.Lanes = rule->Lanes;
       carries.Spans = bridge > 0.5 || tunnel > 0.5;
       into.Lay(along, carries);

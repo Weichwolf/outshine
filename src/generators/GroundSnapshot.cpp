@@ -39,16 +39,16 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     const uint32_t least = proto.Form == FeatureForm::Ribbon ? 2u : 3u;
     if (count < least) { return; }
     FeatureField::Feature f = proto;
-    f.FirstRing = (uint32_t)rings.size();
+    f.FirstRing = static_cast<uint32_t>(rings.size());
     f.RingCount = 1;
-    rings.push_back({(uint32_t)vertices.size(), count});
+    rings.push_back({static_cast<uint32_t>(vertices.size()), count});
     for (uint32_t k = 0; k < count; k++) {
       double eastM = 0.0, northM = 0.0;
-      region.Enu(points[((size_t)firstPoint + k) * 2],
-                 points[((size_t)firstPoint + k) * 2 + 1],
+      region.Enu(points[(static_cast<size_t>(firstPoint) + k) * 2],
+                 points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
                  &eastM,
                  &northM);
-      vertices.push_back({(float)eastM, (float)northM});
+      vertices.push_back({static_cast<float>(eastM), static_cast<float>(northM)});
     }
     features.push_back(f);
   };
@@ -103,18 +103,19 @@ Snapped SnapshotOver(const Tile &region,
     case outshine::Ground::GroundBlock::State::Resolved: break;
   }
 
-  const int side = (int)(region.SpanNm() / heights.PostM(region.AnchorLat()) + 0.5) + 1;
-  std::vector<GroundPatch::Posting> postings((size_t)side * (size_t)side);
-  std::vector<double> row((size_t)side);
-  const double stepE = region.SpanEm() / (double)(side - 1);
-  const double stepN = region.SpanNm() / (double)(side - 1);
+  const int side = static_cast<int>(region.SpanNm() / heights.PostM(region.AnchorLat()) + 0.5) + 1;
+  std::vector<GroundPatch::Posting> postings(static_cast<size_t>(side) * static_cast<size_t>(side));
+  std::vector<double> row(static_cast<size_t>(side));
+  const double stepE = region.SpanEm() / static_cast<double>(side - 1);
+  const double stepN = region.SpanNm() / static_cast<double>(side - 1);
   for (int j = 0; j < side; j++) {
     double lat = 0.0, lonFrom = 0.0, latAgain = 0.0, lonNext = 0.0;
-    region.Geo(0.0, (double)j * stepN, &lat, &lonFrom);
-    region.Geo(stepE, (double)j * stepN, &latAgain, &lonNext);
+    region.Geo(0.0, static_cast<double>(j) * stepN, &lat, &lonFrom);
+    region.Geo(stepE, static_cast<double>(j) * stepN, &latAgain, &lonNext);
     block.AslMRow(lat, lonFrom, lonNext - lonFrom, side, row.data());
     for (int i = 0; i < side; i++) {
-      postings[(size_t)j * (size_t)side + (size_t)i].Height = GroundSample::At(row[(size_t)i]);
+      postings[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)].Height =
+          GroundSample::At(row[static_cast<size_t>(i)]);
     }
   }
   out->Patch = GroundPatch::Complete(

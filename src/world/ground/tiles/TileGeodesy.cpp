@@ -26,16 +26,16 @@ TileIndex TileIndex::Of(Geo g, int z) {
   if (yc < 0) { yc = 0; }
   if (xc > n - 1) { xc = n - 1; }
   if (yc > n - 1) { yc = n - 1; }
-  return TileIndex(State::Inside, (uint32_t)xc, (uint32_t)yc);
+  return TileIndex(State::Inside, static_cast<uint32_t>(xc), static_cast<uint32_t>(yc));
 }
 
 GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
   GeoBounds b;
   const double n = std::ldexp(1.0, z);
-  b.MinLonDeg = (double)x / n * 360.0 - 180.0;
-  b.MaxLonDeg = (double)(x + 1) / n * 360.0 - 180.0;
-  const double yn = 1.0 - 2.0 * (double)y / n;
-  const double ys = 1.0 - 2.0 * (double)(y + 1) / n;
+  b.MinLonDeg = static_cast<double>(x) / n * 360.0 - 180.0;
+  b.MaxLonDeg = static_cast<double>(x + 1) / n * 360.0 - 180.0;
+  const double yn = 1.0 - 2.0 * static_cast<double>(y) / n;
+  const double ys = 1.0 - 2.0 * static_cast<double>(y + 1) / n;
   b.MaxLatDeg = kRad2Deg * std::atan(std::sinh(kPi * yn));
   b.MinLatDeg = kRad2Deg * std::atan(std::sinh(kPi * ys));
   return b;
@@ -46,10 +46,10 @@ Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t local
   if (extent == 0) { return g; }
 
   const double n = std::ldexp(1.0, z);
-  const double invExtent = 1.0 / (double)extent;
+  const double invExtent = 1.0 / static_cast<double>(extent);
 
-  const double xf = (double)x + (double)localX * invExtent;
-  const double yf = (double)y + (double)localY * invExtent;
+  const double xf = static_cast<double>(x) + static_cast<double>(localX) * invExtent;
+  const double yf = static_cast<double>(y) + static_cast<double>(localY) * invExtent;
 
   g.LonDeg = xf / n * 360.0 - 180.0;
   const double yy = 1.0 - 2.0 * yf / n;
@@ -60,8 +60,8 @@ Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t local
 
 Geo TileFracToGeo(int z, uint32_t x, uint32_t y, double fx, double fy) {
   const double n = std::ldexp(1.0, z);
-  const double xf = ((double)x + fx) / n;
-  const double yf = ((double)y + fy) / n;
+  const double xf = (static_cast<double>(x) + fx) / n;
+  const double yf = (static_cast<double>(y) + fy) / n;
 
   Geo g;
   g.LonDeg = xf * 360.0 - 180.0;
@@ -146,7 +146,7 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
 
   map.OriginE_ = etl.E;
   map.OriginN_ = etl.N;
-  const double invExtent = (extent == 0) ? 0.0 : 1.0 / (double)extent;
+  const double invExtent = (extent == 0) ? 0.0 : 1.0 / static_cast<double>(extent);
   map.ScaleE_ = (ebr.E - etl.E) * invExtent;
   map.ScaleN_ = (ebr.N - etl.N) * invExtent;
   map.Extent_ = extent;

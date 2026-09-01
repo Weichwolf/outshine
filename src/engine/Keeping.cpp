@@ -182,7 +182,7 @@ Result Engine::resume(std::string_view name) {
   for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
     if (S_->Session.Asleep[at].Named.Name != name) { continue; }
     if (!declare(S_->Session.Asleep[at])) { return std::unexpected(S_->Error); }
-    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
+    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + static_cast<long>(at));
     return {};
   }
   S_->Error =
@@ -193,7 +193,7 @@ Result Engine::resume(std::string_view name) {
 Result Engine::discard(std::string_view name) {
   for (size_t at = 0; at < S_->Session.Asleep.size(); ++at) {
     if (S_->Session.Asleep[at].Named.Name != name) { continue; }
-    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + (long)at);
+    S_->Session.Asleep.erase(S_->Session.Asleep.begin() + static_cast<long>(at));
     S_->Error.clear();
     return {};
   }

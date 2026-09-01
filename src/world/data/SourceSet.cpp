@@ -72,7 +72,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           Ledger_.Asked++;
           Ledger_.Delivered++;
           Ledger_.FromStore++;
-          Ledger_.DeliveredBytes += (long long)kept.size();
+          Ledger_.DeliveredBytes += static_cast<long long>(kept.size());
           return Delivery::From(decl.Id, query.At_, std::move(kept));
         }
       }
@@ -105,7 +105,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         }
         std::lock_guard<std::mutex> lock(LedgerMutex_);
         Ledger_.Delivered++;
-        Ledger_.DeliveredBytes += (long long)bytes.size();
+        Ledger_.DeliveredBytes += static_cast<long long>(bytes.size());
         return Delivery::From(decl.Id, query.At_, std::move(bytes));
       }
       case Meaning::Absent:

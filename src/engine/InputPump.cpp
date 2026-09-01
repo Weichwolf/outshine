@@ -76,7 +76,7 @@ bool InputPump::Open(const InputMap &declared) {
 size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
   if (Map_ == nullptr) { return 0; }
   const auto fire = [&](ptrdiff_t at, InputMap::Kind what, float value, size_t held) {
-    const uint16_t action = Map_->ActionAt((size_t)at);
+    const uint16_t action = Map_->ActionAt(static_cast<size_t>(at));
     if (action == InputMap::kUnbound) { return held; }
     out[held] = {action, what, value};
     return held + 1;
@@ -129,7 +129,10 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
     case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
       for (const AxisRow &row : Table().Axes) {
         if (row.Axis == event.gaxis.axis) {
-          return fire(row.Event, InputMap::Kind::Axis, (float)event.gaxis.value * kAxisScale, 0);
+          return fire(row.Event,
+                      InputMap::Kind::Axis,
+                      static_cast<float>(event.gaxis.value) * kAxisScale,
+                      0);
         }
       }
       return 0;

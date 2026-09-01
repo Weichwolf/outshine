@@ -24,7 +24,7 @@ WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) con
     levelAslM = atAslM;
   }
   if (!wet) { return WaterDepth::Dry(); }
-  return WaterDepth::Between((double)levelAslM, ground.HeightAslM(eastM, northM));
+  return WaterDepth::Between(static_cast<double>(levelAslM), ground.HeightAslM(eastM, northM));
 }
 
 void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
@@ -36,8 +36,8 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
     double e = 0.0, n = 0.0, count = 0.0;
     for (const FeatureField::Ring &r : features.Rings(f)) {
       for (const FeatureField::Vertex &v : features.Vertices(r)) {
-        e += (double)v.Em;
-        n += (double)v.Nm;
+        e += static_cast<double>(v.Em);
+        n += static_cast<double>(v.Nm);
         count += 1.0;
       }
     }
@@ -47,8 +47,8 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
     }
     float levelAslM = 0.0f;
     (void)f.Top.TryAslM(&levelAslM);
-    const WaterDepth depth =
-        WaterDepth::Between((double)levelAslM, ground.HeightAslM(e / count, n / count));
+    const WaterDepth depth = WaterDepth::Between(static_cast<double>(levelAslM),
+                                                 ground.HeightAslM(e / count, n / count));
     double m = 0.0;
     if (depth.TryDepthM(&m)) { yield.Raise(DeepestM, m); }
 

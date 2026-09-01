@@ -37,20 +37,20 @@ void MvpCamRel(float *m,
                float jitterY,
                float nearM) {
   const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f;
-  const float asp = (float)w / (float)h;
+  const float asp = static_cast<float>(w) / static_cast<float>(h);
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
-  const float v[16] = {(float)R[0],
-                       (float)Uc[0],
-                       -(float)F[0],
+  const float v[16] = {static_cast<float>(R[0]),
+                       static_cast<float>(Uc[0]),
+                       -static_cast<float>(F[0]),
                        0,
-                       (float)R[1],
-                       (float)Uc[1],
-                       -(float)F[1],
+                       static_cast<float>(R[1]),
+                       static_cast<float>(Uc[1]),
+                       -static_cast<float>(F[1]),
                        0,
-                       (float)R[2],
-                       (float)Uc[2],
-                       -(float)F[2],
+                       static_cast<float>(R[2]),
+                       static_cast<float>(Uc[2]),
+                       -static_cast<float>(F[2]),
                        0,
                        0,
                        0,
@@ -59,8 +59,8 @@ void MvpCamRel(float *m,
 
   float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0};
 
-  const float ndcX = w > 0 ? 2.0f * jitterX / (float)w : 0.0f;
-  const float ndcY = h > 0 ? 2.0f * jitterY / (float)h : 0.0f;
+  const float ndcX = w > 0 ? 2.0f * jitterX / static_cast<float>(w) : 0.0f;
+  const float ndcY = h > 0 ? 2.0f * jitterY / static_cast<float>(h) : 0.0f;
   p[8] = -ndcX;
   p[9] = -ndcY;
   if (orthoM > 0.0f) {
@@ -96,7 +96,7 @@ SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
 }
 
 float HalfToFloat(uint16_t bits) {
-  const uint32_t sign = (uint32_t)(bits & 0x8000u) << 16;
+  const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16;
   uint32_t exponent = (bits >> 10) & 0x1Fu;
   uint32_t mantissa = bits & 0x3FFu;
   uint32_t assembled = 0;
@@ -108,7 +108,7 @@ float HalfToFloat(uint16_t bits) {
         ++shift;
       }
       mantissa &= 0x3FFu;
-      assembled = ((uint32_t)(127 - 15 - shift + 1) << 23) | (mantissa << 13);
+      assembled = (static_cast<uint32_t>(127 - 15 - shift + 1) << 23) | (mantissa << 13);
     }
   } else if (exponent == 0x1Fu) {
     assembled = 0x7F800000u | (mantissa << 13);
@@ -213,8 +213,8 @@ std::expected<void, std::string_view> SceneRenderer::StandsOffscreen() {
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
   wanted.format = SurfaceFormat();
   wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = (Uint32)Width_;
-  wanted.height = (Uint32)Height_;
+  wanted.width = static_cast<Uint32>(Width_);
+  wanted.height = static_cast<Uint32>(Height_);
   wanted.layer_count_or_depth = 1;
   wanted.num_levels = 1;
   Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
@@ -295,10 +295,10 @@ void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> 
              {"driver", SDL_GetGPUDeviceDriver(device)},
              {"plan", Plan_->Digest()},
              {"passes", Plan_->PassCount()},
-             {"stages", (int)Plan_->Order().size()},
+             {"stages", static_cast<int>(Plan_->Order().size())},
              {"f32filter", Handles_.FiltersFloat32}});
   for (size_t at = 0; at < kStageCount; ++at) {
-    const Stage stage = (Stage)at;
+    const Stage stage = static_cast<Stage>(at);
     if (Executable(stage)) { continue; }
     Log::Info("render", "stage_without_a_body", {{"stage", Row(stage).Name}});
   }
@@ -316,8 +316,8 @@ void SceneRenderer::Create(Resource resource) {
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
     wanted.format = FormatOf(Plan_->Format(of));
     wanted.usage = usage;
-    wanted.width = (uint32_t)Width_;
-    wanted.height = (uint32_t)Height_;
+    wanted.width = static_cast<uint32_t>(Width_);
+    wanted.height = static_cast<uint32_t>(Height_);
     wanted.layer_count_or_depth = 1;
     wanted.num_levels = 1;
     wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -402,7 +402,7 @@ void SceneRenderer::Create(Resource resource) {
     case Resource::IrradianceBuffer: {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
-      wanted.size = kIrradianceFloats * (uint32_t)sizeof(float);
+      wanted.size = kIrradianceFloats * static_cast<uint32_t>(sizeof(float));
       IrradianceBuffer_ =
           OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
       return;
@@ -412,7 +412,8 @@ void SceneRenderer::Create(Resource resource) {
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
       wanted.size =
-          PyramidOver((uint32_t)Width_, (uint32_t)Height_).Texels * (uint32_t)sizeof(float);
+          PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_)).Texels *
+          static_cast<uint32_t>(sizeof(float));
       Pyramid_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
       return;
     }
@@ -423,8 +424,8 @@ void SceneRenderer::Create(Resource resource) {
       wanted.type = SDL_GPU_TEXTURETYPE_2D;
       wanted.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
       wanted.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-      wanted.width = (uint32_t)kShadowAtlasPx;
-      wanted.height = (uint32_t)kShadowAtlasPx;
+      wanted.width = static_cast<uint32_t>(kShadowAtlasPx);
+      wanted.height = static_cast<uint32_t>(kShadowAtlasPx);
       wanted.layer_count_or_depth = 1;
       wanted.num_levels = 1;
       wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -517,13 +518,13 @@ SceneRenderer::Placed SceneRenderer::PictureRect() const {
   Placed out;
   out.LeftPx = 0;
   out.TopPx = 0;
-  out.WidthPx = (double)Width_;
-  out.HeightPx = (double)Height_;
+  out.WidthPx = static_cast<double>(Width_);
+  out.HeightPx = static_cast<double>(Height_);
   if (RegionW_ > 0 && RegionH_ > 0) {
-    out.LeftPx = RegionX_ * (double)Width_;
-    out.TopPx = RegionY_ * (double)Height_;
-    out.WidthPx = RegionW_ * (double)Width_;
-    out.HeightPx = RegionH_ * (double)Height_;
+    out.LeftPx = RegionX_ * static_cast<double>(Width_);
+    out.TopPx = RegionY_ * static_cast<double>(Height_);
+    out.WidthPx = RegionW_ * static_cast<double>(Width_);
+    out.HeightPx = RegionH_ * static_cast<double>(Height_);
   }
   if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
     const double fitted =
@@ -649,10 +650,10 @@ bool SceneRenderer::ConfigureLightVisibility(std::string &error) {
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {
   SDL_GPUViewport where{};
   const Placed rect = PictureRect();
-  where.x = picture ? (float)rect.LeftPx : 0.0f;
-  where.y = picture ? (float)rect.TopPx : 0.0f;
-  where.w = picture ? (float)rect.WidthPx : (float)Width_;
-  where.h = picture ? (float)rect.HeightPx : (float)Height_;
+  where.x = picture ? static_cast<float>(rect.LeftPx) : 0.0f;
+  where.y = picture ? static_cast<float>(rect.TopPx) : 0.0f;
+  where.w = picture ? static_cast<float>(rect.WidthPx) : static_cast<float>(Width_);
+  where.h = picture ? static_cast<float>(rect.HeightPx) : static_cast<float>(Height_);
   where.min_depth = 0.0f;
   where.max_depth = 1.0f;
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
@@ -691,7 +692,7 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
   (this->*(seat->Encode))(ctx, into);
-  Effort &spent = Spent_[(size_t)stage];
+  Effort &spent = Spent_[static_cast<size_t>(stage)];
   spent.TookMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   spent.Draws = 0;
@@ -790,7 +791,7 @@ constexpr uint32_t kLeastGroundBytes = 16;
                                 std::string &error) {
   if (!held || heldBytes < bytes) {
     SDL_GPUBufferCreateInfo wanted{};
-    wanted.usage = (SDL_GPUBufferUsageFlags)SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+    wanted.usage = static_cast<SDL_GPUBufferUsageFlags> SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
     wanted.size = bytes;
     SDL_GPUBuffer *made = SDL_CreateGPUBuffer(device, &wanted);
     if (made == nullptr) {
@@ -832,10 +833,10 @@ bool SceneRenderer::SetGroundClasses(const uint32_t *words,
   if (Handles_.Device == nullptr) { return true; }
   const size_t wanted = wordCount * sizeof(uint32_t);
   const size_t wantedPalette = paletteFloats * sizeof(float);
-  const auto classBytes =
-      (uint32_t)(wanted > kLeastGroundBytes ? wanted : (size_t)kLeastGroundBytes);
-  const auto paletteBytes =
-      (uint32_t)(wantedPalette > kLeastGroundBytes ? wantedPalette : (size_t)kLeastGroundBytes);
+  const auto classBytes = static_cast<uint32_t>(
+      wanted > kLeastGroundBytes ? wanted : static_cast<size_t>(kLeastGroundBytes));
+  const auto paletteBytes = static_cast<uint32_t>(
+      wantedPalette > kLeastGroundBytes ? wantedPalette : static_cast<size_t>(kLeastGroundBytes));
   if (!StandsBuffer(Handles_.Device,
                     GroundClasses_,
                     GroundClassBytes_,
@@ -888,12 +889,13 @@ void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecord
 }
 
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
-  Cull_.PyramidFrom(Pyramid_.Get(), PyramidOver((uint32_t)Width_, (uint32_t)Height_));
+  Cull_.PyramidFrom(Pyramid_.Get(),
+                    PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_)));
   return Cull_.Configure(Subjects_, Handles_, error);
 }
 
 void SceneRenderer::EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into) {
-  Cull_.Projects((float)Height_);
+  Cull_.Projects(static_cast<float>(Height_));
   Cull_.EncodeCull(ctx, into);
 }
 
@@ -912,20 +914,21 @@ void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRec
 
 void SceneRenderer::SettleShadow() {
   Shadow_.Prepare(Framing());
-  Touched_[(size_t)Resource::ShadowAtlas] = Shadow_.Cached();
+  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] = Shadow_.Cached();
 }
 
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
-  const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
+  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
+  const float tanHalfW =
+      tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   float right[3];
   float up[3];
   float fwd[3];
   for (int axis = 0; axis < 3; ++axis) {
-    right[axis] = (float)Right_[axis];
-    up[axis] = (float)Up_[axis];
-    fwd[axis] = (float)Fwd_[axis];
+    right[axis] = static_cast<float>(Right_[axis]);
+    up[axis] = static_cast<float>(Up_[axis]);
+    fwd[axis] = static_cast<float>(Fwd_[axis]);
   }
   Aerial_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
   Aerial_.SetNear(NearMetres());
@@ -934,15 +937,16 @@ void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassR
 
 void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
-  const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
+  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
+  const float tanHalfW =
+      tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   float right[3];
   float up[3];
   float fwd[3];
   for (int axis = 0; axis < 3; ++axis) {
-    right[axis] = (float)Right_[axis];
-    up[axis] = (float)Up_[axis];
-    fwd[axis] = (float)Fwd_[axis];
+    right[axis] = static_cast<float>(Right_[axis]);
+    up[axis] = static_cast<float>(Up_[axis]);
+    fwd[axis] = static_cast<float>(Fwd_[axis]);
   }
   Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
   Sky_.Encode(ctx, into);
@@ -950,12 +954,12 @@ void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into
 
 static float RadicalInverse(int index, int base) {
   float result = 0.0f;
-  float weight = 1.0f / (float)base;
+  float weight = 1.0f / static_cast<float>(base);
   int at = index + 1;
   while (at > 0) {
-    result += weight * (float)(at % base);
+    result += weight * static_cast<float>(at % base);
     at /= base;
-    weight /= (float)base;
+    weight /= static_cast<float>(base);
   }
   return result;
 }
@@ -995,8 +999,9 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   for (const Resource wanted : declared.Targets) {
     SDL_GPUColorTargetInfo &attachment = colours[colourCount++];
     attachment.texture = Target(wanted);
-    attachment.load_op = Touched_[(size_t)wanted] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
-    Touched_[(size_t)wanted] = true;
+    attachment.load_op =
+        Touched_[static_cast<size_t>(wanted)] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+    Touched_[static_cast<size_t>(wanted)] = true;
     attachment.store_op = Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
 
     const bool carriesCoverage =
@@ -1009,8 +1014,9 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   SDL_GPUDepthStencilTargetInfo depth{};
   if (declared.Depth != kNoEdge) {
     depth.texture = Target(declared.Depth);
-    depth.load_op = Touched_[(size_t)declared.Depth] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
-    Touched_[(size_t)declared.Depth] = true;
+    depth.load_op =
+        Touched_[static_cast<size_t>(declared.Depth)] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+    Touched_[static_cast<size_t>(declared.Depth)] = true;
     depth.store_op =
         Plan_->Stored(declared.Depth) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
     depth.clear_depth = 0.0f;
@@ -1069,8 +1075,8 @@ void SceneRenderer::RenderFrame() {
     Uint32 gotH = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &swapchain, &gotW, &gotH) &&
         swapchain != nullptr) {
-      Shown_.WidthPx = (int)gotW;
-      Shown_.HeightPx = (int)gotH;
+      Shown_.WidthPx = static_cast<int>(gotW);
+      Shown_.HeightPx = static_cast<int>(gotH);
       HostSurface_ = swapchain;
     } else {
       Log::Error("render", "no_swapchain", {{"msg", SDL_GetError()}});
@@ -1097,19 +1103,20 @@ void SceneRenderer::RenderFrame() {
   if (Wanted_ && HostSurface_ != nullptr) {
     SDL_GPUTransferBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-    wanted.size = (Uint32)((size_t)Width_ * (size_t)Height_ * 4u);
+    wanted.size =
+        static_cast<Uint32>(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
     taking = SDL_CreateGPUTransferBuffer(Device_.Get(), &wanted);
     if (taking != nullptr) {
       SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
       SDL_GPUTextureRegion region{};
       region.texture = HostSurface_;
-      region.w = (Uint32)Width_;
-      region.h = (Uint32)Height_;
+      region.w = static_cast<Uint32>(Width_);
+      region.h = static_cast<Uint32>(Height_);
       region.d = 1;
       SDL_GPUTextureTransferInfo into{};
       into.transfer_buffer = taking;
-      into.pixels_per_row = (Uint32)Width_;
-      into.rows_per_layer = (Uint32)Height_;
+      into.pixels_per_row = static_cast<Uint32>(Width_);
+      into.rows_per_layer = static_cast<Uint32>(Height_);
       SDL_DownloadFromGPUTexture(copy, &region, &into);
       SDL_EndGPUCopyPass(copy);
     }
@@ -1119,8 +1126,8 @@ void SceneRenderer::RenderFrame() {
   if (taking != nullptr) {
     SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
     if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking, false)) {
-      const uint8_t *bytes = (const uint8_t *)pixels;
-      Taken_.assign(bytes, bytes + (size_t)Width_ * (size_t)Height_ * 4u);
+      const uint8_t *bytes = static_cast<const uint8_t *>(pixels);
+      Taken_.assign(bytes, bytes + static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
       SDL_UnmapGPUTransferBuffer(Device_.Get(), taking);
     }
     SDL_ReleaseGPUTransferBuffer(Device_.Get(), taking);
@@ -1174,11 +1181,14 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     SDL_GPUTexture *const held = FrameTex_.Get() != nullptr ? FrameTex_.Get() : HostSurface_;
     if (held == nullptr) { return ReadState::Failed; }
     Readback read;
-    if (read.FromTexture(Device_.Get(), held, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
-        ReadState::Ready) {
+    if (read.FromTexture(Device_.Get(),
+                         held,
+                         static_cast<uint32_t>(Width_),
+                         static_cast<uint32_t>(Height_),
+                         4u) != ReadState::Ready) {
       return ReadState::Failed;
     }
-    rgba.resize((size_t)Width_ * (size_t)Height_ * 4u);
+    rgba.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u);
     std::memcpy(rgba.data(), read.Rows(), rgba.size());
     asRgba(rgba,
            Plan_ ? FormatOf(
@@ -1186,7 +1196,7 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
                  : SDL_GPU_TEXTUREFORMAT_INVALID);
     return ReadState::Ready;
   }
-  if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
+  if (Taken_.size() == static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u) {
     rgba = Taken_;
     asRgba(rgba, SurfaceFormat());
     return ReadState::Ready;
@@ -1198,11 +1208,14 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
 ReadState SceneRenderer::ReadDepth(std::vector<float> &depth) {
   if (!Ready_ || !DepthTex_) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), DepthTex_.Get(), (uint32_t)Width_, (uint32_t)Height_, 4u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       DepthTex_.Get(),
+                       static_cast<uint32_t>(Width_),
+                       static_cast<uint32_t>(Height_),
+                       4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  depth.resize((size_t)Width_ * (size_t)Height_);
+  depth.resize(static_cast<size_t>(Width_) * static_cast<size_t>(Height_));
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
@@ -1212,12 +1225,14 @@ ReadState SceneRenderer::ReadSceneLinear(std::vector<float> &rgba) {
   if (!Ready_ || !source) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
-  if (read.FromTexture(
-          Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, wide ? 16u : 8u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       static_cast<uint32_t>(Width_),
+                       static_cast<uint32_t>(Height_),
+                       wide ? 16u : 8u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
+  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
   rgba.resize(components);
   if (wide) {
     std::memcpy(rgba.data(), read.Rows(), components * sizeof(float));
@@ -1237,12 +1252,12 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   Readback read;
   if (read.FromTexture(Device_.Get(),
                        ShadowAtlas_.Get(),
-                       (uint32_t)kShadowAtlasPx,
-                       (uint32_t)kShadowAtlasPx,
+                       static_cast<uint32_t>(kShadowAtlasPx),
+                       static_cast<uint32_t>(kShadowAtlasPx),
                        4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  depth.resize((size_t)kShadowAtlasPx * (size_t)kShadowAtlasPx);
+  depth.resize(static_cast<size_t>(kShadowAtlasPx) * static_cast<size_t>(kShadowAtlasPx));
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
@@ -1255,7 +1270,7 @@ ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
   const uint32_t rows = Subjects_.ClusterBatchRows();
   if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
-  const uint32_t bytes = rows * 5u * (uint32_t)sizeof(uint32_t);
+  const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
   if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
   const auto *const held = static_cast<const uint32_t *>(static_cast<const void *>(read.Rows()));
   for (uint32_t at = 0; at < rows; ++at) {
@@ -1270,12 +1285,14 @@ ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mea
   farthest = 1.0f;
   mean = 0.0f;
   if (!Ready_ || !Pyramid_) { return ReadState::Failed; }
-  const PyramidShape shape = PyramidOver((uint32_t)Width_, (uint32_t)Height_);
+  const PyramidShape shape =
+      PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_));
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
   Readback read;
-  if (read.FromBuffer(Device_.Get(), Pyramid_.Get(), texels * (uint32_t)sizeof(float)) !=
-      ReadState::Ready) {
+  if (read.FromBuffer(Device_.Get(),
+                      Pyramid_.Get(),
+                      texels * static_cast<uint32_t>(sizeof(float))) != ReadState::Ready) {
     return ReadState::Failed;
   }
   const auto *const held = static_cast<const float *>(static_cast<const void *>(read.Rows()));
@@ -1285,9 +1302,9 @@ ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mea
   for (uint32_t at = 0; at < texels; ++at) {
     nearest = held[at] > nearest ? held[at] : nearest;
     farthest = held[at] < farthest ? held[at] : farthest;
-    summed += (double)held[at];
+    summed += static_cast<double>(held[at]);
   }
-  mean = (float)(summed / (double)texels);
+  mean = static_cast<float>(summed / static_cast<double>(texels));
   return ReadState::Ready;
 }
 
@@ -1296,7 +1313,8 @@ ReadState SceneRenderer::ReadSkyIrradiance(float out[kIrradianceFloats]) {
   Readback read;
   if (read.FromBuffer(Device_.Get(),
                       IrradianceBuffer_.Get(),
-                      kIrradianceFloats * (uint32_t)sizeof(float)) != ReadState::Ready) {
+                      kIrradianceFloats * static_cast<uint32_t>(sizeof(float))) !=
+      ReadState::Ready) {
     return ReadState::Failed;
   }
   std::memcpy(out, read.Rows(), kIrradianceFloats * sizeof(float));
@@ -1307,11 +1325,14 @@ ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
   SDL_GPUTexture *source = ShadingNormalTex_.Get();
   if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 8u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       static_cast<uint32_t>(Width_),
+                       static_cast<uint32_t>(Height_),
+                       8u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
+  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
   xyz.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1325,11 +1346,14 @@ ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {
   SDL_GPUTexture *source = VelTex_.Get();
   if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       static_cast<uint32_t>(Width_),
+                       static_cast<uint32_t>(Height_),
+                       4u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width_ * (size_t)Height_ * 2u;
+  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 2u;
   xy.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -1343,11 +1367,14 @@ ReadState SceneRenderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   SDL_GPUTexture *source = SurfaceIdentityTex_.Get();
   if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 16u) !=
-      ReadState::Ready) {
+  if (read.FromTexture(Device_.Get(),
+                       source,
+                       static_cast<uint32_t>(Width_),
+                       static_cast<uint32_t>(Height_),
+                       16u) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
+  const size_t components = static_cast<size_t>(Width_) * static_cast<size_t>(Height_) * 4u;
   slot.resize(components);
   std::memcpy(slot.data(), read.Rows(), components * sizeof(float));
   return ReadState::Ready;

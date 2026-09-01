@@ -18,10 +18,10 @@ namespace {
 
 [[nodiscard]] uint32_t Interned(std::vector<std::string> &names, const std::string &name) {
   for (size_t at = 0; at < names.size(); ++at) {
-    if (names[at] == name) { return (uint32_t)(at + 1); }
+    if (names[at] == name) { return static_cast<uint32_t>(at + 1); }
   }
   names.push_back(name);
-  return (uint32_t)names.size();
+  return static_cast<uint32_t>(names.size());
 }
 
 [[nodiscard]] bool

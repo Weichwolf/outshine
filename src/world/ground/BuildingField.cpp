@@ -26,8 +26,9 @@ constexpr double kOnTheStreetM = 16.0;
 constexpr double kCarriagewayM = 4.0;
 
 uint32_t PlaceHash(double latDeg, double lonDeg) {
-  uint32_t h = (uint32_t)(int32_t)std::llround(latDeg * 1.0e6) * 2654435761u;
-  h ^= (uint32_t)(int32_t)std::llround(lonDeg * 1.0e6) * 2246822519u;
+  uint32_t h =
+      static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * 1.0e6))) * 2654435761u;
+  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * 1.0e6))) * 2246822519u;
   h ^= h >> 13;
   h *= 3266489917u;
   return h ^ (h >> 16);
@@ -56,13 +57,13 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
     least = 1;
     most = 3;
   }
-  return least + (int)(h % (uint32_t)(most - least + 1));
+  return least + static_cast<int>(h % static_cast<uint32_t>(most - least + 1));
 }
 
 double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2];
-  const double refLon = pts[(size_t)ring.First * 2 + 1];
+  const double refLat = pts[static_cast<size_t>(ring.First) * 2];
+  const double refLon = pts[static_cast<size_t>(ring.First) * 2 + 1];
   double a = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const uint32_t j = (k + 1) % ring.Count;
@@ -72,14 +73,14 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
     double nj = 0.0;
     EnuOffsetM(refLat,
                refLon,
-               pts[((size_t)ring.First + k) * 2],
-               pts[((size_t)ring.First + k) * 2 + 1],
+               pts[(static_cast<size_t>(ring.First) + k) * 2],
+               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
                ek,
                nk);
     EnuOffsetM(refLat,
                refLon,
-               pts[((size_t)ring.First + j) * 2],
-               pts[((size_t)ring.First + j) * 2 + 1],
+               pts[(static_cast<size_t>(ring.First) + j) * 2],
+               pts[(static_cast<size_t>(ring.First) + j) * 2 + 1],
                ej,
                nj);
     a += ek * nj - ej * nk;
@@ -89,8 +90,8 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
 
 double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2];
-  const double refLon = pts[(size_t)ring.First * 2 + 1];
+  const double refLat = pts[static_cast<size_t>(ring.First) * 2];
+  const double refLon = pts[static_cast<size_t>(ring.First) * 2 + 1];
   double e0 = 1e30;
   double e1 = -1e30;
   double n0 = 1e30;
@@ -100,8 +101,8 @@ double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
     double n = 0.0;
     EnuOffsetM(refLat,
                refLon,
-               pts[((size_t)ring.First + k) * 2],
-               pts[((size_t)ring.First + k) * 2 + 1],
+               pts[(static_cast<size_t>(ring.First) + k) * 2],
+               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
                e,
                n);
     e0 = std::min(e0, e);
@@ -119,8 +120,8 @@ Frontage NearestStreet(const OsmField &field,
   Frontage out;
   *standBackM = -1.0;
   const std::span<const double> pts = field.Points();
-  const double refLat = pts[(size_t)ring.First * 2];
-  const double refLon = pts[(size_t)ring.First * 2 + 1];
+  const double refLat = pts[static_cast<size_t>(ring.First) * 2];
+  const double refLon = pts[static_cast<size_t>(ring.First) * 2 + 1];
   double cE = 0.0;
   double cN = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
@@ -128,15 +129,15 @@ Frontage NearestStreet(const OsmField &field,
     double n = 0.0;
     EnuOffsetM(refLat,
                refLon,
-               pts[((size_t)ring.First + k) * 2],
-               pts[((size_t)ring.First + k) * 2 + 1],
+               pts[(static_cast<size_t>(ring.First) + k) * 2],
+               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
                e,
                n);
     cE += e;
     cN += n;
   }
-  cE /= (double)ring.Count;
-  cN /= (double)ring.Count;
+  cE /= static_cast<double>(ring.Count);
+  cN /= static_cast<double>(ring.Count);
 
   const double padDeg = (kOnTheStreetM + 60.0) / 111000.0;
   double best = 1.0e30;
@@ -193,10 +194,10 @@ Frontage NearestStreet(const OsmField &field,
 bool InsideRing(std::span<const double> pts, const OsmField::Ring &ring, double lat, double lon) {
   bool in = false;
   for (uint32_t k = 0, j = ring.Count - 1; k < ring.Count; j = k++) {
-    const double kLat = pts[((size_t)ring.First + k) * 2];
-    const double kLon = pts[((size_t)ring.First + k) * 2 + 1];
-    const double jLat = pts[((size_t)ring.First + j) * 2];
-    const double jLon = pts[((size_t)ring.First + j) * 2 + 1];
+    const double kLat = pts[(static_cast<size_t>(ring.First) + k) * 2];
+    const double kLon = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
+    const double jLat = pts[(static_cast<size_t>(ring.First) + j) * 2];
+    const double jLon = pts[(static_cast<size_t>(ring.First) + j) * 2 + 1];
     if ((kLat > lat) == (jLat > lat)) { continue; }
     if (lon < (jLon - kLon) * (lat - kLat) / (jLat - kLat) + kLon) { in = !in; }
   }
@@ -228,8 +229,8 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   double eastest = -1.0e9;
   int coarsest = 0;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    const double lat = pts[((size_t)ring.First + k) * 2];
-    const double lon = pts[((size_t)ring.First + k) * 2 + 1];
+    const double lat = pts[(static_cast<size_t>(ring.First) + k) * 2];
+    const double lon = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
     const GroundSample g = ground.At(lat, lon);
     double aslM = 0.0;
     if (!g.TryAslM(&aslM)) { return g; }
@@ -251,8 +252,10 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   if (std::max(tall, wide) >= kInteriorSpanM) {
     for (int row = 1; row < kInteriorGrid; ++row) {
       for (int column = 1; column < kInteriorGrid; ++column) {
-        const double lat = southest + (northest - southest) * (double)row / (double)kInteriorGrid;
-        const double lon = westest + (eastest - westest) * (double)column / (double)kInteriorGrid;
+        const double lat = southest + (northest - southest) * static_cast<double>(row) /
+                                          static_cast<double>(kInteriorGrid);
+        const double lon = westest + (eastest - westest) * static_cast<double>(column) /
+                                         static_cast<double>(kInteriorGrid);
         if (!InsideRing(pts, ring, lat, lon)) { continue; }
         const GroundSample g = ground.At(lat, lon);
         double aslM = 0.0;
@@ -265,7 +268,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
       }
     }
   }
-  if (seatAslM != nullptr) { *seatAslM = took > 0 ? summed / (double)took : highest; }
+  if (seatAslM != nullptr) { *seatAslM = took > 0 ? summed / static_cast<double>(took) : highest; }
   return GroundSample::At(lowest).Coarser(coarsest);
 }
 
@@ -274,7 +277,7 @@ bool BuildingField::TileGroundResolved(
   const std::span<const OsmField::Feature> feats = field.Features();
   for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
-    if (f.Type != 3 || (int)f.Layer != layer) { continue; }
+    if (f.Type != 3 || static_cast<int>(f.Layer) != layer) { continue; }
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
@@ -295,27 +298,27 @@ int BuildingField::Build(const GroundQuery &ground,
                          const OsmField &field,
                          Span<const WayLine> ways) {
   assert(Anchored_);
-  AddedFirst_ = (uint32_t)(Built_.WallCorners.size() + Built_.RoofCorners.size());
+  AddedFirst_ = static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size());
   AddedCount_ = 0;
 
   const std::span<const OsmField::Feature> feats = field.Features();
-  if (Mark_.Done(feats)) { return (int)Prints_.size(); }
+  if (Mark_.Done(feats)) { return static_cast<int>(Prints_.size()); }
 
   const int layer = field.Layer(OsmLayer::Buildings);
   const std::span<const double> pts = field.Points();
-  const uint32_t firstPrint = (uint32_t)Prints_.size();
+  const uint32_t firstPrint = static_cast<uint32_t>(Prints_.size());
   int added = 0;
 
   const TileWatermark::Next next = Mark_.Ask(
       feats, field.Tiles(), field.CentreX(), field.CentreY(), [&](size_t from, size_t to) {
         return TileGroundResolved(ground, field, from, to, layer);
       });
-  if (!next.Found) { return (int)Prints_.size(); }
+  if (!next.Found) { return static_cast<int>(Prints_.size()); }
   Mark_.Take(next.Tile);
 
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
-    if (f.Type != 3 || (int)f.Layer != layer) { continue; }
+    if (f.Type != 3 || static_cast<int>(f.Layer) != layer) { continue; }
     const double h = field.Num(f, "height", 0.0);
 
     for (uint32_t r = 0; r < f.RingCount; r++) {
@@ -336,8 +339,8 @@ int BuildingField::Build(const GroundQuery &ground,
         double lowLon = 1.0e9;
         double highLon = -1.0e9;
         for (uint32_t k = 0; k < ring.Count; k++) {
-          const double atLat = ringPts[2 * ((size_t)ring.First + k)];
-          const double atLon = ringPts[2 * ((size_t)ring.First + k) + 1];
+          const double atLat = ringPts[2 * (static_cast<size_t>(ring.First) + k)];
+          const double atLon = ringPts[2 * (static_cast<size_t>(ring.First) + k) + 1];
           lowLat = std::min(lowLat, atLat);
           highLat = std::max(highLat, atLat);
           lowLon = std::min(lowLon, atLon);
@@ -358,22 +361,22 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.Street = street;
       if (street.Known) { Fronted_++; }
       if (h > 0.0 && std::fabs(h - kFillHeightM) > 0.01) {
-        fp.HeightM = (float)h;
+        fp.HeightM = static_cast<float>(h);
         fp.Source = HeightSource::Osm;
         OsmHeights_++;
       } else {
         const int storeys = DefaultStoreys(RingAreaM2(field, ring),
                                            AcrossM(field, ring),
                                            standBackM,
-                                           pts[(size_t)ring.First * 2],
-                                           pts[(size_t)ring.First * 2 + 1]);
-        fp.HeightM = (float)((double)storeys * kStoreyM + kRoofAllowanceM);
+                                           pts[static_cast<size_t>(ring.First) * 2],
+                                           pts[static_cast<size_t>(ring.First) * 2 + 1]);
+        fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
         fp.Source = HeightSource::Default;
         DefaultHeights_++;
       }
-      fp.BaseM = (float)base;
-      fp.FootM = (float)base;
-      fp.SeatM = (float)seat;
+      fp.BaseM = static_cast<float>(base);
+      fp.FootM = static_cast<float>(base);
+      fp.SeatM = static_cast<float>(seat);
       Prints_.push_back(fp);
       const auto meshFrom = std::chrono::steady_clock::now();
       Raise(field, fp);
@@ -384,33 +387,34 @@ int BuildingField::Build(const GroundQuery &ground,
     }
   }
 
-  ByTile_.Set(next.Tile, firstPrint, (uint32_t)Prints_.size());
+  ByTile_.Set(next.Tile, firstPrint, static_cast<uint32_t>(Prints_.size()));
   Mark_.Advance(feats);
 
-  AddedCount_ = (uint32_t)(Built_.WallCorners.size() + Built_.RoofCorners.size()) - AddedFirst_;
-  if (added == 0) { return (int)Prints_.size(); }
+  AddedCount_ =
+      static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size()) - AddedFirst_;
+  if (added == 0) { return static_cast<int>(Prints_.size()); }
 
   Log::Info("world",
             "buildings",
             {{"added", added},
-             {"total", (int)Prints_.size()},
+             {"total", static_cast<int>(Prints_.size())},
              {"osmHeight", OsmHeights_},
              {"defaultHeight", DefaultHeights_},
-             {"vertsMB", (double)Built_.HeapBytes() / 1.0e6},
+             {"vertsMB", static_cast<double>(Built_.HeapBytes()) / 1.0e6},
              {"noGround", NoGround_},
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},
-             {"builtAhead", (int)Mark_.AheadCount()},
+             {"builtAhead", static_cast<int>(Mark_.AheadCount())},
              {"meshMs", MeshMs_}});
-  return (int)Prints_.size();
+  return static_cast<int>(Prints_.size());
 }
 
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   if (!Mesher_) { return; }
   const std::span<const double> pts = field.Points();
   StructurePlan plan;
-  plan.RingLatLon =
-      Span<const double>(pts.data() + (size_t)f.FirstPoint * 2, (size_t)f.PointCount * 2);
+  plan.RingLatLon = Span<const double>(pts.data() + static_cast<size_t>(f.FirstPoint) * 2,
+                                       static_cast<size_t>(f.PointCount) * 2);
   plan.BaseAslM = f.BaseM;
   plan.SeatAslM = f.SeatM;
   plan.FootAslM = f.FootM;

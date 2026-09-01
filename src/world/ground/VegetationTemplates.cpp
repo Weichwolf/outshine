@@ -28,8 +28,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   fseek(f, 0, SEEK_END);
   const long n = ftell(f);
   fseek(f, 0, SEEK_SET);
-  std::string text((size_t)(n > 0 ? n : 0), '\0');
-  const size_t got = n > 0 ? fread(&text[0], 1, (size_t)n, f) : 0;
+  std::string text(static_cast<size_t>(n > 0 ? n : 0), '\0');
+  const size_t got = n > 0 ? fread(&text[0], 1, static_cast<size_t>(n), f) : 0;
   fclose(f);
   if (got != text.size()) {
     Error_ = "short read";
@@ -62,8 +62,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     const Json::Ref b = blades[i];
     Blade bl{};
     for (int c = 0; c < 3; c++) {
-      bl.Green[c] = (float)b["greenLinear"][(size_t)c].Num(-1.0);
-      bl.Dry[c] = (float)b["dryLinear"][(size_t)c].Num(-1.0);
+      bl.Green[c] = static_cast<float>(b["greenLinear"][static_cast<size_t>(c)].Num(-1.0));
+      bl.Dry[c] = static_cast<float>(b["dryLinear"][static_cast<size_t>(c)].Num(-1.0));
       if (bl.Green[c] < 0.0f || bl.Dry[c] < 0.0f) {
         Error_ = "blade class without greenLinear/dryLinear: " + b["name"].Str("?");
         return false;
@@ -95,7 +95,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       Error_ = "unknown ground class: " + gname;
       return false;
     }
-    const GroundMaterials::Material &gm = mats.At((size_t)gi);
+    const GroundMaterials::Material &gm = mats.At(static_cast<size_t>(gi));
 
     const std::string lname = g["litterClass"].Str("");
     const int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
@@ -103,7 +103,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       Error_ = "unknown litter class: " + lname;
       return false;
     }
-    const GroundMaterials::Material &lm = mats.At((size_t)(li >= 0 ? li : gi));
+    const GroundMaterials::Material &lm = mats.At(static_cast<size_t>(li >= 0 ? li : gi));
     row->GroundClass = gi;
     for (int c = 0; c < 3; c++) {
       row->Ground[c] = gm.Albedo[c];
@@ -113,12 +113,12 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row->Litter[3] = lm.Roughness;
     fillSurf(row->GroundSurf, gm);
     fillSurf(row->LitterSurf, lm);
-    row->Mix[0] = li >= 0 ? (float)g["litterCoverage"].Num(gm.LitterCoverage) : 0.0f;
-    row->Mix[1] = (float)g["contrast"].Num(0.5);
+    row->Mix[0] = li >= 0 ? static_cast<float>(g["litterCoverage"].Num(gm.LitterCoverage)) : 0.0f;
+    row->Mix[1] = static_cast<float>(g["contrast"].Num(0.5));
     row->Mix[2] = gm.SpecularScale;
     row->Mix[3] = lm.SpecularScale;
-    row->Edge[0] = (float)g["edgeReachM"].Num(0.05);
-    row->Edge[1] = (float)g["edgeConstructed"].Num(0.0);
+    row->Edge[0] = static_cast<float>(g["edgeReachM"].Num(0.05));
+    row->Edge[1] = static_cast<float>(g["edgeConstructed"].Num(0.0));
     row->Edge[3] = gm.SlopeMaxDeg;
     Friction_.push_back(gm.FrictionFactor);
     return true;
@@ -142,15 +142,15 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       row.Grass[c] = bit->second.Green[c];
       row.Dry[c] = bit->second.Dry[c];
     }
-    row.Grass[3] = (float)gr["perM2"].Num(0.0);
-    row.Dry[3] = (float)gr["heightM"].Num(0.0);
-    row.Param[0] = (float)gr["heightJitter"].Num(0.5);
-    row.Param[1] = (float)gr["widthM"].Num(0.01);
-    row.Param[2] = (float)t["clutter"]["perM2"].Num(0.0);
-    row.Param[3] = (float)gr["dryFraction"].Num(0.35);
-    row.Edge[2] = (float)t["trees"]["perM2"].Num(0.0);
+    row.Grass[3] = static_cast<float>(gr["perM2"].Num(0.0));
+    row.Dry[3] = static_cast<float>(gr["heightM"].Num(0.0));
+    row.Param[0] = static_cast<float>(gr["heightJitter"].Num(0.5));
+    row.Param[1] = static_cast<float>(gr["widthM"].Num(0.01));
+    row.Param[2] = static_cast<float>(t["clutter"]["perM2"].Num(0.0));
+    row.Param[3] = static_cast<float>(gr["dryFraction"].Num(0.35));
+    row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
-    const float closure = (float)g["swardClosure"].Num(0.0);
+    const float closure = static_cast<float>(g["swardClosure"].Num(0.0));
     if (closure > 0.0f) {
       for (int c = 0; c < 3; c++) {
         const float sward = row.Grass[c] + (row.Dry[c] - row.Grass[c]) * row.Param[3];
@@ -169,7 +169,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     }
     Row row{};
     if (!substrate(u, &row)) { return false; }
-    Unmapped_ = (int)Table_.size();
+    Unmapped_ = static_cast<int>(Table_.size());
     Names_.push_back("unmapped");
     Table_.push_back(row);
   }
@@ -185,13 +185,13 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
         return false;
       }
       Rule rule{};
-      rule.Tpl = (int)i;
-      rule.Rank = (int)r["rank"].Num(-1.0);
-      rule.WidthM = (float)r["widthM"].Num(0.0);
-      rule.MaxGradient = (float)r["maxGradient"].Num(0.0);
-      rule.MinRadiusM = (float)r["minRadiusM"].Num(0.0);
-      rule.ClearanceM = (float)r["clearanceM"].Num(0.0);
-      rule.Lanes = (int)r["lanes"].Num(0.0);
+      rule.Tpl = static_cast<int>(i);
+      rule.Rank = static_cast<int>(r["rank"].Num(-1.0));
+      rule.WidthM = static_cast<float>(r["widthM"].Num(0.0));
+      rule.MaxGradient = static_cast<float>(r["maxGradient"].Num(0.0));
+      rule.MinRadiusM = static_cast<float>(r["minRadiusM"].Num(0.0));
+      rule.ClearanceM = static_cast<float>(r["clearanceM"].Num(0.0));
+      rule.Lanes = static_cast<int>(r["lanes"].Num(0.0));
       rule.Oneway = r["oneway"].Num(0.0) > 0.5;
       if (rule.Rank < 0) {
         Error_ = "osm row without rank: " + layer + "/" + kind;
@@ -231,8 +231,9 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   {
     const Json::Ref bands = doc.Root()["waterClearance"];
     for (size_t i = 0; i < bands.Size(); i++) {
-      WaterBands_.push_back(WaterBand{.RunM = (float)bands[i]["runM"].Num(0.0),
-                                      .ClearanceM = (float)bands[i]["clearanceM"].Num(0.0)});
+      WaterBands_.push_back(
+          WaterBand{.RunM = static_cast<float>(bands[i]["runM"].Num(0.0)),
+                    .ClearanceM = static_cast<float>(bands[i]["clearanceM"].Num(0.0))});
     }
   }
 
@@ -242,7 +243,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
   RockTpl_ = -1;
   for (size_t i = 0; i < Names_.size(); i++) {
-    if (Names_[i] == Limit_.RockTemplateName()) { RockTpl_ = (int)i; }
+    if (Names_[i] == Limit_.RockTemplateName()) { RockTpl_ = static_cast<int>(i); }
   }
   if (RockTpl_ < 0) {
     Error_ = "alpineLimit.rockTemplate names no template: " + Limit_.RockTemplateName();
@@ -252,13 +253,13 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Log::Info("veg",
             "table",
             {{"path", path},
-             {"classRows", (int)Table_.size()},
-             {"osmRules", (int)Rules_.size()},
-             {"layers", (int)Layers_.size()},
-             {"areaLayers", (int)AreaLayers_.size()},
-             {"unmappedRow", (double)Unmapped_},
+             {"classRows", static_cast<int>(Table_.size())},
+             {"osmRules", static_cast<int>(Rules_.size())},
+             {"layers", static_cast<int>(Layers_.size())},
+             {"areaLayers", static_cast<int>(AreaLayers_.size())},
+             {"unmappedRow", static_cast<double>(Unmapped_)},
              {"rockTemplate", Limit_.RockTemplateName()},
-             {"slopeBandDeg", (double)Limit_.SlopeBandDeg()}});
+             {"slopeBandDeg", static_cast<double>(Limit_.SlopeBandDeg())}});
   return true;
 }
 

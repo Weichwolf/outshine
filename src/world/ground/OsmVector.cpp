@@ -15,7 +15,7 @@ struct Reader {
     int s = 0;
     while (P < End) {
       const uint8_t b = *P++;
-      r |= (uint64_t)(b & 0x7f) << s;
+      r |= static_cast<uint64_t>(b & 0x7f) << s;
       if (!(b & 0x80)) { return r; }
       s += 7;
       if (s > 63) { break; }
@@ -28,15 +28,15 @@ struct Reader {
     if (P >= End) { return false; }
     const uint64_t k = Varint();
     if (!Ok) { return false; }
-    num = (uint32_t)(k >> 3);
-    wire = (uint32_t)(k & 7);
+    num = static_cast<uint32_t>(k >> 3);
+    wire = static_cast<uint32_t>(k & 7);
     return true;
   }
 
   Reader Bytes() {
     const uint64_t n = Varint();
     Reader r{P, P, false};
-    if (!Ok || (uint64_t)(End - P) < n) {
+    if (!Ok || static_cast<uint64_t>(End - P) < n) {
       Ok = false;
       return r;
     }
@@ -57,7 +57,7 @@ struct Reader {
         return true;
       case 2: {
         const uint64_t n = Varint();
-        if (!Ok || (uint64_t)(End - P) < n) {
+        if (!Ok || static_cast<uint64_t>(End - P) < n) {
           Ok = false;
           return false;
         }
@@ -77,7 +77,7 @@ struct Reader {
 };
 
 int32_t ZigZag(uint64_t v) {
-  return (int32_t)((v >> 1) ^ (~(v & 1) + 1));
+  return static_cast<int32_t>((v >> 1) ^ (~(v & 1) + 1));
 }
 
 } // namespace
@@ -112,7 +112,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       if (n2 == 1 && w2 == 2) {
         Reader s = probe.Bytes();
         if (!probe.Ok) { break; }
-        name.assign((const char *)s.P, (size_t)(s.End - s.P));
+        name.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
       } else if (!probe.Skip(w2)) {
         break;
       }
@@ -125,7 +125,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       if (num == 3 && wire == 2) {
         Reader s = L.Bytes();
         if (!L.Ok) { return false; }
-        Keys_.emplace_back((const char *)s.P, (size_t)(s.End - s.P));
+        Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
       } else if (num == 4 && wire == 2) {
         Reader v = L.Bytes();
         if (!L.Ok) { return false; }
@@ -137,7 +137,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
           if (vn == 1 && vw == 2) {
             Reader s = v.Bytes();
             if (!v.Ok) { break; }
-            str.assign((const char *)s.P, (size_t)(s.End - s.P));
+            str.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
           } else if (vn == 2 && vw == 5) {
             float f;
             std::memcpy(&f, v.P, 4);
@@ -151,13 +151,13 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             val = d;
             isNum = true;
           } else if (vn == 4 && vw == 0) {
-            val = (double)v.Varint();
+            val = static_cast<double>(v.Varint());
             isNum = true;
           } else if (vn == 5 && vw == 0) {
-            val = (double)v.Varint();
+            val = static_cast<double>(v.Varint());
             isNum = true;
           } else if (vn == 6 && vw == 0) {
-            val = (double)ZigZag(v.Varint());
+            val = static_cast<double>(ZigZag(v.Varint()));
             isNum = true;
           } else if (vn == 7 && vw == 0) {
             val = v.Varint() != 0 ? 1.0 : 0.0;
@@ -170,7 +170,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         ValueStrs_.push_back(std::move(str));
         ValueIsNum_.push_back(isNum);
       } else if (num == 5 && wire == 0) {
-        Extent_ = (int)L.Varint();
+        Extent_ = static_cast<int>(L.Varint());
       } else if (num == 2 && wire == 2) {
         featureBodies.push_back(L.Bytes());
         if (!L.Ok) { return false; }
@@ -181,8 +181,8 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
 
     for (Reader F : featureBodies) {
       Feature f{};
-      f.FirstTag = (uint32_t)Tags_.size();
-      f.FirstRing = (uint32_t)Rings_.size();
+      f.FirstTag = static_cast<uint32_t>(Tags_.size());
+      f.FirstRing = static_cast<uint32_t>(Rings_.size());
       uint32_t fn = 0, fw = 0;
       std::vector<uint32_t> geom;
       while (F.Field(fn, fw)) {
@@ -192,23 +192,23 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
           while (t.P < t.End) {
             const uint64_t v = t.Varint();
             if (!t.Ok) { break; }
-            Tags_.push_back((uint32_t)v);
+            Tags_.push_back(static_cast<uint32_t>(v));
           }
         } else if (fn == 3 && fw == 0) {
-          f.Type = (int)F.Varint();
+          f.Type = static_cast<int>(F.Varint());
         } else if (fn == 4 && fw == 2) {
           Reader gr = F.Bytes();
           if (!F.Ok) { break; }
           while (gr.P < gr.End) {
             const uint64_t v = gr.Varint();
             if (!gr.Ok) { break; }
-            geom.push_back((uint32_t)v);
+            geom.push_back(static_cast<uint32_t>(v));
           }
         } else if (!F.Skip(fw)) {
           break;
         }
       }
-      f.TagCount = (uint32_t)Tags_.size() - f.FirstTag;
+      f.TagCount = static_cast<uint32_t>(Tags_.size()) - f.FirstTag;
 
       int32_t cx = 0, cy = 0;
       size_t gi = 0;
@@ -219,7 +219,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         if (f.Type != 2 || ringCount < 2) { return; }
         Ring r{};
         r.First = ringFirst;
-        r.Count = (uint32_t)ringCount;
+        r.Count = static_cast<uint32_t>(ringCount);
         r.Exterior = true;
         Rings_.push_back(r);
       };
@@ -237,7 +237,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             gi += 2;
             if (cmd == 1) {
               flushLine();
-              ringFirst = (uint32_t)Points_.size() / 2;
+              ringFirst = static_cast<uint32_t>(Points_.size()) / 2;
               ringCount = 0;
             }
             Points_.push_back(cx);
@@ -248,13 +248,15 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
           if (ringCount >= 3) {
             double a = 0.0;
             for (int k = 0; k < ringCount; k++) {
-              const size_t i0 = ((size_t)ringFirst + (size_t)k) * 2;
-              const size_t i1 = ((size_t)ringFirst + (size_t)((k + 1) % ringCount)) * 2;
-              a += (double)Points_[i0] * Points_[i1 + 1] - (double)Points_[i1] * Points_[i0 + 1];
+              const size_t i0 = (static_cast<size_t>(ringFirst) + static_cast<size_t>(k)) * 2;
+              const size_t i1 =
+                  (static_cast<size_t>(ringFirst) + static_cast<size_t>((k + 1) % ringCount)) * 2;
+              a += static_cast<double>(Points_[i0]) * Points_[i1 + 1] -
+                   static_cast<double>(Points_[i1]) * Points_[i0 + 1];
             }
             Ring r{};
             r.First = ringFirst;
-            r.Count = (uint32_t)ringCount;
+            r.Count = static_cast<uint32_t>(ringCount);
 
             r.Exterior = a > 0.0;
             Rings_.push_back(r);
@@ -265,7 +267,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         }
       }
       flushLine();
-      f.RingCount = (uint32_t)Rings_.size() - f.FirstRing;
+      f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
       Features_.push_back(f);
     }
     return true;

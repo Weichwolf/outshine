@@ -46,7 +46,7 @@ bool GroundStack::Open(std::string_view cacheDir,
     Close();
     return false;
   }
-  say.Number("sources registered", (double)sources.Count(), "sources");
+  say.Number("sources registered", static_cast<double>(sources.Count()), "sources");
 
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;

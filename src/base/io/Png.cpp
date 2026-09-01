@@ -12,8 +12,8 @@ constexpr uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
 constexpr size_t kMaxSide = 16384;
 
 uint32_t Big(const uint8_t *at) {
-  return ((uint32_t)at[0] << 24) | ((uint32_t)at[1] << 16) | ((uint32_t)at[2] << 8) |
-         (uint32_t)at[3];
+  return (static_cast<uint32_t>(at[0]) << 24) | (static_cast<uint32_t>(at[1]) << 16) |
+         (static_cast<uint32_t>(at[2]) << 8) | static_cast<uint32_t>(at[3]);
 }
 
 int Paeth(int left, int above, int corner) {
@@ -52,7 +52,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
     const uint32_t size = Big(bytes + at);
     const uint8_t *name = bytes + at + 4;
     const size_t from = at + 8;
-    if (from + (size_t)size + 4 > length) {
+    if (from + static_cast<size_t>(size) + 4 > length) {
       return Refuse("a chunk at byte " + std::to_string(at) + " claims " + std::to_string(size) +
                     " bytes and the file has " + std::to_string(length - from) + " left");
     }
@@ -72,7 +72,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
     } else if (std::memcmp(name, "IEND", 4) == 0) {
       break;
     }
-    at = from + (size_t)size + 4;
+    at = from + static_cast<size_t>(size) + 4;
   }
 
   if (!haveHead) { return Refuse("this PNG carries no IHDR, so it never said how big it is"); }
@@ -82,14 +82,14 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   }
   if (depth != 8) {
     return Refuse("this reader takes 8 bits a channel and this PNG carries " +
-                  std::to_string((int)depth) +
+                  std::to_string(static_cast<int>(depth)) +
                   " -- an elevation tile is 8-bit RGB and anything else is a source we did not "
                   "declare");
   }
   if (colour != 2 && colour != 6) {
     return Refuse("this reader takes truecolour, with or without alpha, and this PNG is colour "
                   "type " +
-                  std::to_string((int)colour));
+                  std::to_string(static_cast<int>(colour)));
   }
   if (interlace != 0) {
     return Refuse("this reader takes no interlaced PNG, and this one is interlaced");
@@ -97,28 +97,31 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   if (squeezed.empty()) { return Refuse("this PNG carries no IDAT, so it has no pixels"); }
 
   const uint32_t channels = colour == 2 ? 3u : 4u;
-  const size_t stride = (size_t)wide * channels;
-  const size_t wanted = (stride + 1) * (size_t)high;
+  const size_t stride = static_cast<size_t>(wide) * channels;
+  const size_t wanted = (stride + 1) * static_cast<size_t>(high);
 
   std::vector<uint8_t> raw(wanted);
-  uLongf got = (uLongf)wanted;
-  const int how = uncompress(raw.data(), &got, squeezed.data(), (uLong)squeezed.size());
-  if (how != Z_OK || (size_t)got != wanted) {
-    return Refuse("the IDAT inflated to " + std::to_string((size_t)got) + " bytes where " +
-                  std::to_string(wanted) + " were needed, and zlib said " + std::to_string(how));
+  uLongf got = static_cast<uLongf>(wanted);
+  const int how =
+      uncompress(raw.data(), &got, squeezed.data(), static_cast<uLong>(squeezed.size()));
+  if (how != Z_OK || static_cast<size_t>(got) != wanted) {
+    return Refuse("the IDAT inflated to " + std::to_string(static_cast<size_t>(got)) +
+                  " bytes where " + std::to_string(wanted) + " were needed, and zlib said " +
+                  std::to_string(how));
   }
 
   Png out;
   out.Wide = wide;
   out.High = high;
   out.Channels = channels;
-  out.Bytes.assign((size_t)high * stride, 0);
+  out.Bytes.assign(static_cast<size_t>(high) * stride, 0);
 
   for (uint32_t row = 0; row < high; ++row) {
-    const uint8_t filter = raw[(stride + 1) * (size_t)row];
-    const uint8_t *in = raw.data() + (stride + 1) * (size_t)row + 1;
-    uint8_t *outRow = out.Bytes.data() + stride * (size_t)row;
-    const uint8_t *above = row > 0 ? out.Bytes.data() + stride * (size_t)(row - 1) : nullptr;
+    const uint8_t filter = raw[(stride + 1) * static_cast<size_t>(row)];
+    const uint8_t *in = raw.data() + (stride + 1) * static_cast<size_t>(row) + 1;
+    uint8_t *outRow = out.Bytes.data() + stride * static_cast<size_t>(row);
+    const uint8_t *above =
+        row > 0 ? out.Bytes.data() + stride * static_cast<size_t>(row - 1) : nullptr;
 
     for (size_t byte = 0; byte < stride; ++byte) {
       const int left = byte >= channels ? outRow[byte - channels] : 0;
@@ -133,9 +136,9 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
         case 4: value += Paeth(left, up, corner); break;
         default:
           return Refuse("row " + std::to_string(row) + " declares filter " +
-                        std::to_string((int)filter) + ", and PNG has five");
+                        std::to_string(static_cast<int>(filter)) + ", and PNG has five");
       }
-      outRow[byte] = (uint8_t)(value & 0xff);
+      outRow[byte] = static_cast<uint8_t>(value & 0xff);
     }
   }
 

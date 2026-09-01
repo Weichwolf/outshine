@@ -125,7 +125,7 @@ const char *FormatName(TexelFormat f) {
 
 std::string Decimal(float value) {
   char text[32] = {};
-  std::snprintf(text, sizeof text, "%.9g", (double)value);
+  std::snprintf(text, sizeof text, "%.9g", static_cast<double>(value));
   return text;
 }
 
@@ -139,7 +139,7 @@ std::optional<Stage> Compiled::StageByName(std::string_view name) {
 }
 
 std::optional<Resource> Compiled::ResourceByName(std::string_view name) {
-  for (size_t at = 0; at < (size_t)Resource::kCount; ++at) {
+  for (size_t at = 0; at < static_cast<size_t>(Resource::kCount); ++at) {
     if (name == kResources[at].Name) { return static_cast<Resource>(at); }
   }
   return std::nullopt;
@@ -330,8 +330,10 @@ bool Compiled::CompileInto(const PlanSpec &spec,
   {
     size_t attachedInPasses[kResourceCount] = {};
     for (const Pass &pass : plan->Passes_) {
-      for (const Resource target : pass.Targets) { ++attachedInPasses[(size_t)target]; }
-      if (pass.Depth != kNoEdge) { ++attachedInPasses[(size_t)pass.Depth]; }
+      for (const Resource target : pass.Targets) {
+        ++attachedInPasses[static_cast<size_t>(target)];
+      }
+      if (pass.Depth != kNoEdge) { ++attachedInPasses[static_cast<size_t>(pass.Depth)]; }
     }
     for (size_t r = 0; r < kResourceCount; ++r) {
       const Resource id = static_cast<Resource>(r);

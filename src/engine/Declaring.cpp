@@ -13,9 +13,10 @@ Result Engine::handleEvent(const SDL_Event &event) {
     float xPx = 0.0f;
     float yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
-    return (S_->Picture.Standing->Wheeled((double)xPx,
-                                          (double)yPx,
-                                          -(double)event.wheel.y * S_->Session.Declared.WheelStepPx,
+    return (S_->Picture.Standing->Wheeled(static_cast<double>(xPx),
+                                          static_cast<double>(yPx),
+                                          -static_cast<double>(event.wheel.y) *
+                                              S_->Session.Declared.WheelStepPx,
                                           S_->Error))
                ? Result{}
                : std::unexpected(S_->Error);
@@ -28,7 +29,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
     for (size_t at = 0; at < many; ++at) {
       const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
       if (named == nullptr) { continue; }
-      const Argument value{Argument::Kind::Number, (double)fired[at].Value, {}};
+      const Argument value{Argument::Kind::Number, static_cast<double>(fired[at].Value), {}};
       acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
     return (acted) ? Result{} : std::unexpected(S_->Error);
@@ -36,8 +37,8 @@ Result Engine::handleEvent(const SDL_Event &event) {
   if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return std::unexpected(S_->Error); }
 
   size_t surface = 0;
-  const Ui::Touched found =
-      S_->Picture.Standing->Under((double)event.button.x, (double)event.button.y, surface);
+  const Ui::Touched found = S_->Picture.Standing->Under(
+      static_cast<double>(event.button.x), static_cast<double>(event.button.y), surface);
   if (!found.Held() || found.Action.empty()) { return std::unexpected(S_->Error); }
   const std::string &action = found.Action;
   if (S_->Offered == nullptr) {
@@ -214,12 +215,13 @@ Result Engine::declare(const Scenario &scenario) {
                       "stand at some hour";
           return std::unexpected(S_->Error);
         }
-        whenS = (int64_t)std::time(nullptr);
+        whenS = static_cast<int64_t>(std::time(nullptr));
       }
-      const Solar sun = SolarAt(
-          scenario.Ground.Origin.LatitudeDeg, scenario.Ground.Origin.LongitudeDeg, (double)whenS);
-      declared.KeyElevationDeg = (double)sun.SunElDeg;
-      declared.KeyBearingDeg = (double)sun.SunAzDeg;
+      const Solar sun = SolarAt(scenario.Ground.Origin.LatitudeDeg,
+                                scenario.Ground.Origin.LongitudeDeg,
+                                static_cast<double>(whenS));
+      declared.KeyElevationDeg = static_cast<double>(sun.SunElDeg);
+      declared.KeyBearingDeg = static_cast<double>(sun.SunAzDeg);
       declared.KeyFromClock = true;
     }
   }

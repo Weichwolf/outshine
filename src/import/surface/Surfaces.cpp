@@ -32,7 +32,7 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
     error = std::string("material '") + material.Name + "' " + why;
     return false;
   }
-  const Texture &texture = file.Textures()[(size_t)declared.Texture];
+  const Texture &texture = file.Textures()[static_cast<size_t>(declared.Texture)];
   std::vector<uint8_t> encoded;
   if (!file.ImageBytes(texture.Source, encoded)) {
     error = std::string("material '") + material.Name + "' names " + socket + " image " +
@@ -45,12 +45,12 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
     return false;
   }
   bound.Rgba = raster.Rgba.data();
-  bound.Width = (uint32_t)raster.Width;
-  bound.Height = (uint32_t)raster.Height;
+  bound.Width = static_cast<uint32_t>(raster.Width);
+  bound.Height = static_cast<uint32_t>(raster.Height);
 
   bound.Uv = declared.Transform;
   if (texture.Sampler >= 0) {
-    const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+    const Sampler &sampler = file.Samplers()[static_cast<size_t>(texture.Sampler)];
     bound.WrapU = WrapOf(sampler.WrapS);
     bound.WrapV = WrapOf(sampler.WrapT);
     bound.Magnify = sampler.Mag == Filter::Nearest ? Render::SubjectFilter::Nearest
@@ -90,8 +90,8 @@ void ResolveSurfaceTable(const Document &file,
     if (slot == out.Material.size()) {
       Render::SubjectMaterial surface;
       surface.Row = DefaultMaterial();
-      if (material >= 0 && (size_t)material < geometry.Surfaces().size()) {
-        surface.Row = geometry.Surfaces()[(size_t)material];
+      if (material >= 0 && static_cast<size_t>(material) < geometry.Surfaces().size()) {
+        surface.Row = geometry.Surfaces()[static_cast<size_t>(material)];
         if (!carriesTransmission) {
           surface.Row.Transmission = 0.0f;
           surface.Row.Thickness = 0.0f;
@@ -102,7 +102,7 @@ void ResolveSurfaceTable(const Document &file,
       out.Material.push_back(material);
       out.Slots.push_back(surface);
     }
-    out.PartSlot[part] = (uint32_t)slot;
+    out.PartSlot[part] = static_cast<uint32_t>(slot);
   }
 }
 
@@ -120,8 +120,8 @@ void ResolveSurfaceTable(const Document &file,
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
-    if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-    const MaterialRef &material = file.Materials()[(size_t)index];
+    if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
+    const MaterialRef &material = file.Materials()[static_cast<size_t>(index)];
     const TextureRef &declared =
         channel == Render::ColourFrom::Emissive ? material.Emissive : material.BaseColour;
     if (table.Slots[slot].State().Kind() != SurfaceKind::Opaque &&
@@ -141,7 +141,7 @@ void ResolveSurfaceTable(const Document &file,
       error = std::string("material '") + material.Name + "' " + why;
       return false;
     }
-    const Texture &texture = file.Textures()[(size_t)declared.Texture];
+    const Texture &texture = file.Textures()[static_cast<size_t>(declared.Texture)];
     std::vector<uint8_t> encoded;
     if (!file.ImageBytes(texture.Source, encoded)) {
       error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
@@ -155,12 +155,12 @@ void ResolveSurfaceTable(const Document &file,
       return false;
     }
     base.Rgba = table.Decoded[slot].Colour.Rgba.data();
-    base.Width = (uint32_t)table.Decoded[slot].Colour.Width;
-    base.Height = (uint32_t)table.Decoded[slot].Colour.Height;
+    base.Width = static_cast<uint32_t>(table.Decoded[slot].Colour.Width);
+    base.Height = static_cast<uint32_t>(table.Decoded[slot].Colour.Height);
 
     base.Uv = declared.Transform;
     if (texture.Sampler >= 0) {
-      const Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+      const Sampler &sampler = file.Samplers()[static_cast<size_t>(texture.Sampler)];
       base.WrapU = WrapOf(sampler.WrapS);
       base.WrapV = WrapOf(sampler.WrapT);
       base.Magnify = sampler.Mag == Filter::Nearest ? Render::SubjectFilter::Nearest
@@ -178,9 +178,9 @@ void ResolveSurfaceTable(const Document &file,
   if (channel == Render::ColourFrom::Row) {
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = table.Material[slot];
-      if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-      const MaterialRef &material = file.Materials()[(size_t)index];
-      table.Slots[slot].NormalScale = (float)material.NormalScale;
+      if (index < 0 || static_cast<size_t>(index) >= file.Materials().size()) { continue; }
+      const MaterialRef &material = file.Materials()[static_cast<size_t>(index)];
+      table.Slots[slot].NormalScale = static_cast<float>(material.NormalScale);
 
       const struct {
         const TextureRef &Declared;

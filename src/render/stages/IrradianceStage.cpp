@@ -32,12 +32,12 @@ std::string Kernel(std::string &error) {
                 "constant float kMediumSampleSegment = %.9g;\n"
                 "constant float kMediumLuminanceSegment = %.9g;\n"
                 "constant float kMediumGroundLiftKm = %.9g;\n",
-                (unsigned)kSkyViewSteps,
-                (unsigned)kTransmittanceSteps,
-                (unsigned)kMultiScatterGrid,
-                (double)kMediumSampleSegment,
-                (double)kMediumLuminanceSegment,
-                (double)kMediumGroundLiftKm);
+                static_cast<unsigned>(kSkyViewSteps),
+                static_cast<unsigned>(kTransmittanceSteps),
+                static_cast<unsigned>(kMultiScatterGrid),
+                static_cast<double>(kMediumSampleSegment),
+                static_cast<double>(kMediumLuminanceSegment),
+                static_cast<double>(kMediumGroundLiftKm));
   std::string core;
   std::string body;
   if (!ParticipatingMediumMsl(core, error) ||
@@ -107,7 +107,7 @@ void IrradianceStage::Encode(const PassRecording &into) {
   pushed.Declared = Standing_.Declared;
   pushed.CosSunZenith = Standing_.CosSunZenith;
   pushed.GroundRadiusKm = Standing_.Declared.BottomRadiusKm + kMediumGroundLiftKm;
-  SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, (uint32_t)sizeof pushed);
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, static_cast<uint32_t>(sizeof pushed));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   const SDL_GPUTextureSamplerBinding bound[2] = {{.texture = Transmittance, .sampler = Lut},
                                                  {.texture = MultiScatter, .sampler = Lut}};

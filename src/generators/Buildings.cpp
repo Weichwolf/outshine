@@ -29,19 +29,19 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
       continue;
     }
     yield.Count(Footprints);
-    const double e = 0.5 * ((double)f.MinEm + (double)f.MaxEm);
-    const double n = 0.5 * ((double)f.MinNm + (double)f.MaxNm);
+    const double e = 0.5 * (static_cast<double>(f.MinEm) + static_cast<double>(f.MaxEm));
+    const double n = 0.5 * (static_cast<double>(f.MinNm) + static_cast<double>(f.MaxNm));
     const double standsAtM = ground.HeightAslM(e, n);
-    yield.Raise(HighestRoofAglM, (double)topAslM - standsAtM);
+    yield.Raise(HighestRoofAglM, static_cast<double>(topAslM) - standsAtM);
 
     Body body;
     body.Em = e;
     body.Nm = n;
     body.BaseAslM = standsAtM;
-    const double acrossEm = (double)f.MaxEm - (double)f.MinEm;
-    const double acrossNm = (double)f.MaxNm - (double)f.MinNm;
-    body.RadiusM = (float)(0.5 * std::sqrt(acrossEm * acrossEm + acrossNm * acrossNm));
-    body.HeightM = (float)((double)topAslM - standsAtM);
+    const double acrossEm = static_cast<double>(f.MaxEm) - static_cast<double>(f.MinEm);
+    const double acrossNm = static_cast<double>(f.MaxNm) - static_cast<double>(f.MinNm);
+    body.RadiusM = static_cast<float>(0.5 * std::sqrt(acrossEm * acrossEm + acrossNm * acrossNm));
+    body.HeightM = static_cast<float>(static_cast<double>(topAslM) - standsAtM);
     body.MassKg = 0.0f;
     body.YawRad = 0.0f;
     body.Contact = Contact_;
@@ -53,7 +53,7 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
 uint32_t Buildings::Proposes(double areaM2) const noexcept {
   constexpr double kDensestM2PerBuilding = 400.0;
   const double most = areaM2 / kDensestM2PerBuilding;
-  return (uint32_t)(most + 1.0);
+  return static_cast<uint32_t>(most + 1.0);
 }
 
 const FeatureField::Feature *
@@ -80,19 +80,20 @@ bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out)
   float topAslM = 0.0f, baseM = 0.0f;
   if (!f->Top.TryAslM(&topAslM) || !f->Base.TryAslM(&baseM)) { return false; }
 
-  const double e = 0.5 * ((double)f->MinEm + (double)f->MaxEm);
-  const double n = 0.5 * ((double)f->MinNm + (double)f->MaxNm);
-  const double baseAslM = (double)baseM;
-  const double halfE = 0.5 * ((double)f->MaxEm - (double)f->MinEm);
-  const double halfN = 0.5 * ((double)f->MaxNm - (double)f->MinNm);
+  const double e = 0.5 * (static_cast<double>(f->MinEm) + static_cast<double>(f->MaxEm));
+  const double n = 0.5 * (static_cast<double>(f->MinNm) + static_cast<double>(f->MaxNm));
+  const double baseAslM = static_cast<double>(baseM);
+  const double halfE = 0.5 * (static_cast<double>(f->MaxEm) - static_cast<double>(f->MinEm));
+  const double halfN = 0.5 * (static_cast<double>(f->MaxNm) - static_cast<double>(f->MinNm));
   const double radiusM = halfE < halfN ? halfE : halfN;
-  const double heightM = (double)topAslM - baseAslM;
+  const double heightM = static_cast<double>(topAslM) - baseAslM;
   out->Em = e;
   out->Nm = n;
   out->BaseAslM = baseAslM;
-  out->RadiusM = (float)radiusM;
-  out->HeightM = (float)(heightM > 0.0 ? heightM : 0.0);
-  out->MassKg = (float)(4.0 * halfE * halfN * (double)out->HeightM * kBuiltDensityKgPerM3);
+  out->RadiusM = static_cast<float>(radiusM);
+  out->HeightM = static_cast<float>(heightM > 0.0 ? heightM : 0.0);
+  out->MassKg = static_cast<float>(4.0 * halfE * halfN * static_cast<double>(out->HeightM) *
+                                   kBuiltDensityKgPerM3);
   out->YawRad = 0.0f;
   out->Contact = Contact_;
   return true;
