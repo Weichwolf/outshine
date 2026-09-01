@@ -81,7 +81,7 @@ bearingDeg="45" pitchDeg="-32"/>
 """
 
 
-ORACLES = [
+CEILINGS = [
     ("streets: the deepest the ground stands over one", 3.0,
      "no ground stands over a carriageway. The measure grids at 4 m, so on the steepest declared "
      "terrain (30 %) up to 1.2 m of any reading is the grid rather than burial; 3.0 m leaves that "
@@ -92,7 +92,30 @@ ORACLES = [
     ("streets: ends STILL crossing, the cap bit", 0.0, "no way end is left crossing another"),
     ("ground: yields the budget REFUSED", 0.0,
      "a cell is small enough that the frame budget never has to refuse a corridor"),
+    ("ground: footprint corners NO ground vertex shares", 0.0,
+     "the ground and the infrastructure are ONE body where they touch. Every corner of a "
+     "carriageway that RESTS on the ground is a vertex the ground mesh also carries, so there is "
+     "no sliver to fall through and nothing for a triangle to cross. A bridge rests only at its "
+     "abutments and only those are counted for it."),
 ]
+
+FLOORS = [
+    ("streets: vertices compared", 1.0,
+     "a cell that draws NO carriageway passes every ceiling above it for the wrong reason. This "
+     "floor is what stops an empty picture from scoring as a correct one. It is asked only of a "
+     "structure that DECLARES a carriageway -- a tunnel is not drawn on the surface by design, and "
+     "a building or a water body never was one."),
+]
+
+
+def lays_a_road(build):
+    for one in build.get("parts", []):
+        if one["family"] != "way" or one.get("tunnel") or one["kind"] == "water":
+            continue
+        return True
+    return False
+
+ORACLES = CEILINGS + FLOORS
 
 
 def measures_of(lines):
@@ -150,7 +173,10 @@ def main():
 
         read = measures_of(lines)
         broke = [f"{what} = {read[what]:.3f} > {most:.3f}"
-                 for what, most, _ in ORACLES if what in read and read[what] > most]
+                 for what, most, _ in CEILINGS if what in read and read[what] > most]
+        if lays_a_road(builds[cell["structure"]]):
+            broke += [f"{what} = {read.get(what, 0.0):.3f} < {least:.3f}"
+                      for what, least, _ in FLOORS if read.get(what, 0.0) < least]
         if broke:
             wrong.append((name, broke))
             print(f"WRONG {name:26s} {digest}   {'; '.join(broke)}")
@@ -176,8 +202,10 @@ def main():
           f"{absent} absent.")
     print("A digest is agreement across time and never correctness. The oracles below it are "
           "arithmetic and they are the ones that say WRONG:")
-    for what, most, why in ORACLES:
+    for what, most, why in CEILINGS:
         print(f"  <= {most:<7.3f} {what}\n      {why}")
+    for what, least, why in FLOORS:
+        print(f"  >= {least:<7.3f} {what}\n      {why}")
     return 1 if (apart or wrong) else 0
 
 

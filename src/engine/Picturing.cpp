@@ -7,6 +7,7 @@
 #include "TangentFrame.h"
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <chrono>
 
@@ -36,7 +37,7 @@ double DrapeCellM(size_t rung) {
   constexpr int64_t kBias = 0x20000000;
   const auto y = (int64_t)std::llround(latDeg * 100000.0);
   const auto x = (int64_t)std::llround(lonDeg * 100000.0);
-  return ((uint64_t)(y + kBias) << 32) | (uint64_t)(x + kBias);
+  return ((uint64_t)(y + kBias) << 32U) | (uint64_t)(x + kBias);
 }
 
 class Instancing final : public Generators::DrawSink {
@@ -430,7 +431,7 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
       const uint32_t to = corner[(side + 1) % 3];
       const uint64_t low = from < to ? from : to;
       const uint64_t high = from < to ? to : from;
-      edges[(low << 32) | high] += 1;
+      edges[(low << 32U) | high] += 1;
     }
   }
   size_t open = 0;
@@ -555,7 +556,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   {
     const Ground::TileFrac here =
         Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
-    const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32) ^
+    const uint64_t from = ((uint64_t)(int64_t)std::floor(here.X) << 32U) ^
                           (uint64_t)(int64_t)std::floor(here.Y) ^ ((uint64_t)over.Levels << 56);
     World.Stack.Pool().Focus(atLat, atLon);
     ++World.Asked;
@@ -674,7 +675,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const int64_t south = (int64_t)std::llround((double)inFrame[at + 2] * 4.0);
       const auto atE = (uint64_t)(east + 0x20000000LL);
       const auto atS = (uint64_t)(south + 0x20000000LL);
-      const uint64_t key = (atE << 32) | atS;
+      const uint64_t key = (atE << 32U) | atS;
       const auto stood = met.find(key);
       if (stood == met.end()) {
         met.emplace(key, inFrame[at + 1]);
@@ -918,6 +919,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   constexpr double kRoadStepM = 16.0;
   constexpr double kNodeSnapM = 2.0;
+  constexpr double kCrossCellM = 32.0;
+  constexpr double kMeetsWithinM = 10.0;
+  constexpr int kLevelPasses = 24;
+  constexpr double kLevelledM = 0.01;
   constexpr int kRampPasses = 12;
   constexpr int kChordPasses = 4;
   constexpr double kChordWithinM = 0.20;
@@ -934,6 +939,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   constexpr double kTrimMostWidths = 4.0;
   constexpr double kFitWithinM = 0.5;
   constexpr double kStampWorthM = 0.25;
+  constexpr double kBrokenGroundM = 1.0;
   constexpr double kGroundCellM = 25.0;
   constexpr double kFitTightestM = 5.5;
   constexpr double kLeastRoadM = 2.0;
@@ -1271,7 +1277,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       const auto south = (int64_t)std::llround((double)inFrame[at + 2] / kDrapeGridM);
       const auto atE = (uint64_t)(east + 0x20000000LL);
       const auto atS = (uint64_t)(south + 0x20000000LL);
-      const uint64_t key = (atE << 32) | atS;
+      const uint64_t key = (atE << 32U) | atS;
       std::pair<double, uint32_t> &cell = summed[key];
       cell.first += (double)inFrame[at + 1];
       ++cell.second;
@@ -1321,7 +1327,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
           const auto atE = (uint64_t)(cellE + 0x20000000LL);
           const auto atS = (uint64_t)(cellS + 0x20000000LL);
-          facesAt[rung][(atE << 32) | atS].push_back((uint32_t)one);
+          facesAt[rung][(atE << 32U) | atS].push_back((uint32_t)one);
         }
       }
     }
@@ -1341,7 +1347,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const auto cellS = (int64_t)std::floor(southM / cellM);
           const auto atE = (uint64_t)(cellE + 0x20000000LL);
           const auto atS = (uint64_t)(cellS + 0x20000000LL);
-          const auto bucket = facesAt[rung].find((atE << 32) | atS);
+          const auto bucket = facesAt[rung].find((atE << 32U) | atS);
           if (bucket != facesAt[rung].end()) {
             for (const uint32_t at : bucket->second) {
               const size_t a = (size_t)laid->Index[at] * 3u;
@@ -1377,7 +1383,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const auto held = [&drawnGround](int64_t east, int64_t south, double *out) {
           const auto atE = (uint64_t)(east + 0x20000000LL);
           const auto atS = (uint64_t)(south + 0x20000000LL);
-          const uint64_t key = (atE << 32) | atS;
+          const uint64_t key = (atE << 32U) | atS;
           const auto stood = drawnGround.find(key);
           if (stood == drawnGround.end()) { return false; }
           *out = (double)stood->second;
@@ -1442,6 +1448,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
     std::vector<double> deckM(ways.Ways().size(), -1.0e30);
     size_t crossingsSeen = 0;
+
+    struct Meets {
+      double EastM, SouthM;
+      uint64_t Named;
+    };
+
+    std::unordered_map<uint64_t, std::vector<Meets>> atCrossing;
     size_t decksRaised = 0;
     double mostRaisedM = 0.0;
     if (vectors != nullptr) {
@@ -1466,6 +1479,23 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::vector<Path::Network::Crossing> crossed;
       if (net.Crossings(crossed)) {
         crossingsSeen = crossed.size();
+        for (const Path::Network::Crossing &one : crossed) {
+          double eastM = 0.0;
+          double upM = 0.0;
+          double northM = 0.0;
+          standing.Place(one.LatDeg, one.LonDeg, 0.0, &eastM, &upM, &northM);
+          const uint64_t named = WayEndKey(one.LatDeg, one.LonDeg) | 1ULL;
+          const auto east = (int64_t)std::floor(eastM / kCrossCellM);
+          const auto south = (int64_t)std::floor(-northM / kCrossCellM);
+          for (int64_t stepE = -1; stepE <= 1; ++stepE) {
+            for (int64_t stepS = -1; stepS <= 1; ++stepS) {
+              const auto atE = (uint64_t)(east + stepE + 0x20000000LL);
+              const auto atS = (uint64_t)(south + stepS + 0x20000000LL);
+              atCrossing[(atE << 32U) | atS].push_back(
+                  Meets{.EastM = eastM, .SouthM = -northM, .Named = named});
+            }
+          }
+        }
         for (const Path::Network::Crossing &one : crossed) {
           if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { continue; }
           const size_t a = netToLane[one.OverWay];
@@ -1719,341 +1749,461 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           ++sharedNodes[WayEndKey(points[at], points[at + 1])];
         }
       }
-      for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
-        const Ground::StreetField::Way &lane = ways.Ways()[laneAt];
-        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
-            !(lane.HalfWidthM > 0.0f)) {
-          ++refusedWays;
-          continue;
-        }
-        along.clear();
-        bool whole = true;
-        const auto station = [&](double lat, double lon, bool shared) {
-          double aslM = 0.0;
-          if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { return false; }
-          double eastM = 0.0;
-          double upM = 0.0;
-          double northM = 0.0;
-          standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
-          along.push_back({.EastM = eastM,
-                           .SouthM = -northM,
-                           .GradeM = drapedOver(eastM, -northM, upM),
-                           .Shared = shared});
-          return true;
-        };
-        for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
-          const size_t here = ((size_t)lane.FirstPoint + step) * 2;
-          const size_t next = here + 2;
-          if (next + 1 >= points.size()) {
-            whole = false;
-            break;
+      std::vector<std::vector<Generators::RoadStation>> designed(ways.Ways().size());
+      for (int phase = 0; phase < 2; ++phase) {
+        for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
+          const Ground::StreetField::Way &lane = ways.Ways()[laneAt];
+          if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
+              !(lane.HalfWidthM > 0.0f)) {
+            refusedWays += phase == 0 ? 1u : 0u;
+            continue;
           }
-          const double perLon = 111320.0 * std::cos(points[here] * std::numbers::pi / 180.0);
-          const double spanE = (points[next + 1] - points[here + 1]) * perLon;
-          const double spanN = (points[next] - points[here]) * 111132.0;
-          const auto pieces = (size_t)(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
-          for (size_t piece = 0; piece < pieces && whole; ++piece) {
-            const double at = (double)piece / (double)pieces;
-            const double onLat = points[here] + (points[next] - points[here]) * at;
-            const double onLon = points[here + 1] + (points[next + 1] - points[here + 1]) * at;
-            const auto seen =
-                piece == 0 ? sharedNodes.find(WayEndKey(onLat, onLon)) : sharedNodes.end();
-            whole = station(onLat, onLon, seen != sharedNodes.end() && seen->second > 1u);
-          }
-        }
-        if (whole) {
-          const size_t last = ((size_t)lane.FirstPoint + lane.PointCount - 1u) * 2;
-          if (last + 1 < points.size()) {
-            const auto seen = sharedNodes.find(WayEndKey(points[last], points[last + 1]));
-            whole = station(
-                points[last], points[last + 1], seen != sharedNodes.end() && seen->second > 1u);
+          if (phase == 1) {
+            along = designed[laneAt];
+            if (along.size() < 2) { continue; }
           } else {
-            whole = false;
-          }
-        }
-        if (!whole || along.size() < 2) {
-          ++refusedWays;
-          continue;
-        }
-        for (int pass = 0; pass < kChordPasses; ++pass) {
-          size_t added = 0;
-          finer.clear();
-          finer.reserve(along.size() * 2u);
-          for (size_t at = 1; at < along.size(); ++at) {
-            finer.push_back(along[at - 1u]);
-            const double midE = 0.5 * (along[at - 1u].EastM + along[at].EastM);
-            const double midS = 0.5 * (along[at - 1u].SouthM + along[at].SouthM);
-            const double chord = 0.5 * (along[at - 1u].GradeM + along[at].GradeM);
-            const double overM = drapedOver(midE, midS, chord);
-            if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
-            finer.push_back(
-                Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
-            ++added;
-          }
-          finer.push_back(along.back());
-          along.swap(finer);
-          chordAdded += added;
-          if (added == 0) { break; }
-        }
-
-        if (lane.MaxGradient > 0.0f) {
-          Generators::DesignProfile(Span<Generators::RoadStation>(along.data(), along.size()),
-                                    (double)lane.MaxGradient,
-                                    kLeastCrestK);
-        }
-
-        {
-          fitEastNorth.clear();
-          fitEastNorth.reserve(along.size() * 2u);
-          for (const Generators::RoadStation &one : along) {
-            fitEastNorth.push_back(one.EastM);
-            fitEastNorth.push_back(-one.SouthM);
-          }
-          size_t from = 0;
-          size_t cuts = 0;
-          bool wholeWay = true;
-          while (from * 2u + 6u <= fitEastNorth.size()) {
-            ReferenceLine fitted;
-            const Fitted got = Fit(Span<const double>(fitEastNorth.data() + from * 2u,
-                                                      fitEastNorth.size() - from * 2u),
-                                   kFitWithinM,
-                                   kFitTightestM,
-                                   fitted);
-            if (got.Laid) {
-              ++fitLaid;
-              fitOffsetM.push_back(got.WorstOffsetM);
-              if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
-              fitUndrivable += got.Undrivable;
-              break;
-            }
-            if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
-              if (wholeWay) { ++fitRefused; }
-              ++fitUnsplittable;
-              break;
-            }
-            const size_t upTo = got.TightestDemandedAtVertex;
-            if (upTo + 1u >= 3u) {
-              ReferenceLine piece;
-              const Fitted head =
-                  Fit(Span<const double>(fitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
-                      kFitWithinM,
-                      kFitTightestM,
-                      piece);
-              if (head.Laid) {
-                ++fitLaid;
-                fitOffsetM.push_back(head.WorstOffsetM);
-                if (head.TightestRadiusM > 0.0) { fitRadiusM.push_back(head.TightestRadiusM); }
-              } else {
-                ++fitUnsplittable;
-              }
-            }
-            ++fitTooTight;
-            ++cuts;
-            if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
-            from += upTo + 1u;
-            wholeWay = false;
-          }
-          fitCuts += cuts;
-        }
-
-        {
-          std::vector<double> reached(along.size(), 0.0);
-          for (size_t at = 1; at < along.size(); ++at) {
-            const double spanE = along[at].EastM - along[at - 1].EastM;
-            const double spanS = along[at].SouthM - along[at - 1].SouthM;
-            reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
-          }
-          const double wholeM = reached.back();
-          const double fromM = trimM[laneAt * 2u];
-          const double toM = wholeM - trimM[laneAt * 2u + 1u];
-          if (toM - fromM >= kLeastRoadM && (fromM > 0.01 || toM < wholeM - 0.01)) {
-            const auto standAt = [&](double alongM) {
-              size_t at = 1;
-              while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
-              const double span = reached[at] - reached[at - 1];
-              const double part = span > 1.0e-9 ? (alongM - reached[at - 1]) / span : 0.0;
-              const Generators::RoadStation &from = along[at - 1];
-              const Generators::RoadStation &to = along[at];
-              return Generators::RoadStation{
-                  .EastM = from.EastM + (to.EastM - from.EastM) * part,
-                  .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
-                  .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+            along.clear();
+            bool whole = true;
+            const auto station = [&](double lat, double lon, uint64_t node) {
+              double aslM = 0.0;
+              if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { return false; }
+              double eastM = 0.0;
+              double upM = 0.0;
+              double northM = 0.0;
+              standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
+              along.push_back({.EastM = eastM,
+                               .SouthM = -northM,
+                               .GradeM = drapedOver(eastM, -northM, upM),
+                               .Node = node});
+              return true;
             };
-            std::vector<Generators::RoadStation> kept;
-            kept.push_back(standAt(fromM));
-            for (size_t at = 0; at < along.size(); ++at) {
-              if (reached[at] > fromM && reached[at] < toM) { kept.push_back(along[at]); }
-            }
-            kept.push_back(standAt(toM));
-            along.swap(kept);
-          }
-        }
-        if (along.size() < 2) {
-          ++refusedWays;
-          continue;
-        }
-        if (lane.Bridge && waterRow >= 0 && classStructure) {
-          double overWaterM = 0.0;
-          for (size_t at = 1; at < along.size(); ++at) {
-            double lat = 0.0;
-            double lon = 0.0;
-            const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
-            const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
-            standing.Geo(midE, -midS, &lat, &lon);
-            double edgeM = 0.0;
-            int second = -1;
-            const int which =
-                World.Stack.Classes().ClassAt(*classStructure, lat, lon, &edgeM, &second);
-            ++askedOverBridge;
-            if (which < 0 || (size_t)which >= World.Stack.Vegetation().TemplateCount()) {
-              continue;
-            }
-            ++namedOverBridge;
-            if (World.Stack.Vegetation().Rows()[(size_t)which].GroundClass != waterRow) {
-              continue;
-            }
-            ++wetOverBridge;
-            const double spanE = along[at].EastM - along[at - 1].EastM;
-            const double spanS = along[at].SouthM - along[at - 1].SouthM;
-            overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
-          }
-          if (overWaterM > 0.0) {
-            double clear = 0.0;
-            for (const Ground::VegetationTemplates::WaterBand &band :
-                 World.Stack.Vegetation().WaterBands()) {
-              clear = (double)band.ClearanceM;
-              if (overWaterM <= (double)band.RunM) { break; }
-            }
-            if (clear > 0.0) {
-              double stood = -1.0e30;
-              for (const Generators::RoadStation &one : along) {
-                stood = std::max(stood, one.GradeM);
+            for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
+              const size_t here = ((size_t)lane.FirstPoint + step) * 2;
+              const size_t next = here + 2;
+              if (next + 1 >= points.size()) {
+                whole = false;
+                break;
               }
-              deckM[laneAt] = std::max(deckM[laneAt], stood + clear);
-              ++decksOverWater;
-              mostOverWaterM = std::max(mostOverWaterM, clear);
+              const double perLon = 111320.0 * std::cos(points[here] * std::numbers::pi / 180.0);
+              const double spanE = (points[next + 1] - points[here + 1]) * perLon;
+              const double spanN = (points[next] - points[here]) * 111132.0;
+              const auto pieces =
+                  (size_t)(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
+              for (size_t piece = 0; piece < pieces && whole; ++piece) {
+                const double at = (double)piece / (double)pieces;
+                const double onLat = points[here] + (points[next] - points[here]) * at;
+                const double onLon = points[here + 1] + (points[next + 1] - points[here + 1]) * at;
+                const auto seen =
+                    piece == 0 ? sharedNodes.find(WayEndKey(onLat, onLon)) : sharedNodes.end();
+                whole = station(
+                    onLat,
+                    onLon,
+                    seen != sharedNodes.end() && seen->second > 1u ? WayEndKey(onLat, onLon) : 0u);
+              }
             }
-          }
-        }
-        if (lane.Bridge) {
-          double deck = deckM[laneAt];
-          for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
-          for (Generators::RoadStation &one : along) { one.GradeM = deck; }
-        } else if (!endM.empty()) {
-          const size_t first = (size_t)lane.FirstPoint * 2;
-          const size_t last = first + ((size_t)lane.PointCount - 1u) * 2;
-          if (last + 1 < points.size()) {
-            const auto from = endM.find(WayEndKey(points[first], points[first + 1]));
-            const auto to = endM.find(WayEndKey(points[last], points[last + 1]));
-            if (from != endM.end() && to != endM.end()) {
-              double runM = 0.0;
-              std::vector<double> reached(along.size(), 0.0);
+            if (whole) {
+              const size_t last = ((size_t)lane.FirstPoint + lane.PointCount - 1u) * 2;
+              if (last + 1 < points.size()) {
+                const auto seen = sharedNodes.find(WayEndKey(points[last], points[last + 1]));
+                whole = station(points[last],
+                                points[last + 1],
+                                seen != sharedNodes.end() && seen->second > 1u
+                                    ? WayEndKey(points[last], points[last + 1])
+                                    : 0ULL);
+              } else {
+                whole = false;
+              }
+            }
+            if (!whole || along.size() < 2) {
+              ++refusedWays;
+              continue;
+            }
+            for (int pass = 0; pass < kChordPasses; ++pass) {
+              size_t added = 0;
+              finer.clear();
+              finer.reserve(along.size() * 2u);
               for (size_t at = 1; at < along.size(); ++at) {
-                const double spanE = along[at].EastM - along[at - 1].EastM;
-                const double spanS = along[at].SouthM - along[at - 1].SouthM;
-                runM += std::sqrt(spanE * spanE + spanS * spanS);
-                reached[at] = runM;
+                finer.push_back(along[at - 1u]);
+                const double midE = 0.5 * (along[at - 1u].EastM + along[at].EastM);
+                const double midS = 0.5 * (along[at - 1u].SouthM + along[at].SouthM);
+                const double chord = 0.5 * (along[at - 1u].GradeM + along[at].GradeM);
+                const double overM = drapedOver(midE, midS, chord);
+                if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
+                finer.push_back(
+                    Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+                ++added;
               }
+              finer.push_back(along.back());
+              along.swap(finer);
+              chordAdded += added;
+              if (added == 0) { break; }
+            }
+
+            if (lane.MaxGradient > 0.0f) {
+              Generators::DesignProfile(Span<Generators::RoadStation>(along.data(), along.size()),
+                                        (double)lane.MaxGradient,
+                                        kLeastCrestK);
+            }
+            for (Generators::RoadStation &one : along) {
+              if (one.Node != 0u || atCrossing.empty()) { continue; }
+              const auto east = (int64_t)std::floor(one.EastM / kCrossCellM);
+              const auto south = (int64_t)std::floor(one.SouthM / kCrossCellM);
+              const auto atE = (uint64_t)(east + 0x20000000LL);
+              const auto atS = (uint64_t)(south + 0x20000000LL);
+              const auto near = atCrossing.find((atE << 32U) | atS);
+              if (near == atCrossing.end()) { continue; }
+              for (const auto &met : near->second) {
+                const double offE = one.EastM - met.EastM;
+                const double offS = one.SouthM - met.SouthM;
+                if (offE * offE + offS * offS <= kMeetsWithinM * kMeetsWithinM) {
+                  one.Node = met.Named;
+                  break;
+                }
+              }
+            }
+            designed[laneAt] = along;
+            continue;
+          }
+
+          {
+            fitEastNorth.clear();
+            fitEastNorth.reserve(along.size() * 2u);
+            for (const Generators::RoadStation &one : along) {
+              fitEastNorth.push_back(one.EastM);
+              fitEastNorth.push_back(-one.SouthM);
+            }
+            size_t from = 0;
+            size_t cuts = 0;
+            bool wholeWay = true;
+            while (from * 2u + 6u <= fitEastNorth.size()) {
+              ReferenceLine fitted;
+              const Fitted got = Fit(Span<const double>(fitEastNorth.data() + from * 2u,
+                                                        fitEastNorth.size() - from * 2u),
+                                     kFitWithinM,
+                                     kFitTightestM,
+                                     fitted);
+              if (got.Laid) {
+                ++fitLaid;
+                fitOffsetM.push_back(got.WorstOffsetM);
+                if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
+                fitUndrivable += got.Undrivable;
+                break;
+              }
+              if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
+                if (wholeWay) { ++fitRefused; }
+                ++fitUnsplittable;
+                break;
+              }
+              const size_t upTo = got.TightestDemandedAtVertex;
+              if (upTo + 1u >= 3u) {
+                ReferenceLine piece;
+                const Fitted head =
+                    Fit(Span<const double>(fitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
+                        kFitWithinM,
+                        kFitTightestM,
+                        piece);
+                if (head.Laid) {
+                  ++fitLaid;
+                  fitOffsetM.push_back(head.WorstOffsetM);
+                  if (head.TightestRadiusM > 0.0) { fitRadiusM.push_back(head.TightestRadiusM); }
+                } else {
+                  ++fitUnsplittable;
+                }
+              }
+              ++fitTooTight;
+              ++cuts;
+              if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
+              from += upTo + 1u;
+              wholeWay = false;
+            }
+            fitCuts += cuts;
+          }
+
+          {
+            std::vector<double> reached(along.size(), 0.0);
+            for (size_t at = 1; at < along.size(); ++at) {
+              const double spanE = along[at].EastM - along[at - 1].EastM;
+              const double spanS = along[at].SouthM - along[at - 1].SouthM;
+              reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
+            }
+            const double wholeM = reached.back();
+            const double fromM = trimM[laneAt * 2u];
+            const double toM = wholeM - trimM[laneAt * 2u + 1u];
+            if (toM - fromM >= kLeastRoadM && (fromM > 0.01 || toM < wholeM - 0.01)) {
+              const auto standAt = [&](double alongM) {
+                size_t at = 1;
+                while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
+                const double span = reached[at] - reached[at - 1];
+                const double part = span > 1.0e-9 ? (alongM - reached[at - 1]) / span : 0.0;
+                const Generators::RoadStation &from = along[at - 1];
+                const Generators::RoadStation &to = along[at];
+                return Generators::RoadStation{
+                    .EastM = from.EastM + (to.EastM - from.EastM) * part,
+                    .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                    .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+              };
+              std::vector<Generators::RoadStation> kept;
+              kept.push_back(standAt(fromM));
               for (size_t at = 0; at < along.size(); ++at) {
-                const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
-                const double wanted = from->second + (to->second - from->second) * along01;
-                along[at].GradeM = std::max(along[at].GradeM, wanted);
+                if (reached[at] > fromM && reached[at] < toM) { kept.push_back(along[at]); }
+              }
+              kept.push_back(standAt(toM));
+              along.swap(kept);
+            }
+          }
+          if (along.size() < 2) {
+            ++refusedWays;
+            continue;
+          }
+          if (lane.Bridge && waterRow >= 0 && classStructure) {
+            double overWaterM = 0.0;
+            for (size_t at = 1; at < along.size(); ++at) {
+              double lat = 0.0;
+              double lon = 0.0;
+              const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
+              const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
+              standing.Geo(midE, -midS, &lat, &lon);
+              double edgeM = 0.0;
+              int second = -1;
+              const int which =
+                  World.Stack.Classes().ClassAt(*classStructure, lat, lon, &edgeM, &second);
+              ++askedOverBridge;
+              if (which < 0 || (size_t)which >= World.Stack.Vegetation().TemplateCount()) {
+                continue;
+              }
+              ++namedOverBridge;
+              if (World.Stack.Vegetation().Rows()[(size_t)which].GroundClass != waterRow) {
+                continue;
+              }
+              ++wetOverBridge;
+              const double spanE = along[at].EastM - along[at - 1].EastM;
+              const double spanS = along[at].SouthM - along[at - 1].SouthM;
+              overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
+            }
+            if (overWaterM > 0.0) {
+              double clear = 0.0;
+              for (const Ground::VegetationTemplates::WaterBand &band :
+                   World.Stack.Vegetation().WaterBands()) {
+                clear = (double)band.ClearanceM;
+                if (overWaterM <= (double)band.RunM) { break; }
+              }
+              if (clear > 0.0) {
+                double stood = -1.0e30;
+                for (const Generators::RoadStation &one : along) {
+                  stood = std::max(stood, one.GradeM);
+                }
+                deckM[laneAt] = std::max(deckM[laneAt], stood + clear);
+                ++decksOverWater;
+                mostOverWaterM = std::max(mostOverWaterM, clear);
+              }
+            }
+          }
+          if (lane.Bridge) {
+            double deck = deckM[laneAt];
+            for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
+            for (Generators::RoadStation &one : along) { one.GradeM = deck; }
+          } else if (!endM.empty()) {
+            const size_t first = (size_t)lane.FirstPoint * 2;
+            const size_t last = first + ((size_t)lane.PointCount - 1u) * 2;
+            if (last + 1 < points.size()) {
+              const auto from = endM.find(WayEndKey(points[first], points[first + 1]));
+              const auto to = endM.find(WayEndKey(points[last], points[last + 1]));
+              if (from != endM.end() && to != endM.end()) {
+                double runM = 0.0;
+                std::vector<double> reached(along.size(), 0.0);
+                for (size_t at = 1; at < along.size(); ++at) {
+                  const double spanE = along[at].EastM - along[at - 1].EastM;
+                  const double spanS = along[at].SouthM - along[at - 1].SouthM;
+                  runM += std::sqrt(spanE * spanE + spanS * spanS);
+                  reached[at] = runM;
+                }
+                for (size_t at = 0; at < along.size(); ++at) {
+                  const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
+                  const double wanted = from->second + (to->second - from->second) * along01;
+                  along[at].GradeM = std::max(along[at].GradeM, wanted);
+                }
+              }
+            }
+          }
+          ++laidWays;
+          const bool sealed = lane.CoverRow >= 0 &&
+                              (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount() &&
+                              World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Mix[2] >= 1.0f;
+          Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
+          if (sealed) {
+            profile =
+                lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
+          }
+          const float unnamed[3] = {0.5f, 0.5f, 0.5f};
+          const float *wears = unnamed;
+          if (lane.CoverRow >= 0 &&
+              (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
+            wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
+          }
+          Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
+                                (double)lane.HalfWidthM,
+                                profile,
+                                wears,
+                                std::atan(Generators::kCrossfall),
+                                pavement,
+                                &sweptPieces,
+                                &sweptCuts,
+                                &sweptRefused,
+                                &sweptWhy);
+          for (size_t at = 1; at < along.size(); ++at) {
+            const double runE = along[at].EastM - along[at - 1u].EastM;
+            const double runS = along[at].SouthM - along[at - 1u].SouthM;
+            const double runM = std::sqrt(runE * runE + runS * runS);
+            if (!(runM > 0.05)) { continue; }
+            const double groundAt =
+                drapedOver(along[at].EastM, -along[at].SouthM, along[at].GradeM);
+            const double groundBefore =
+                drapedOver(along[at - 1u].EastM, -along[at - 1u].SouthM, along[at - 1u].GradeM);
+            const double yieldM = std::max(std::fabs(along[at].GradeM - groundAt),
+                                           std::fabs(along[at - 1u].GradeM - groundBefore));
+            const double outE = -runS / runM;
+            const double outS = runE / runM;
+            const double half = (double)lane.HalfWidthM + kVergeM;
+            double reliefM = std::fabs(groundAt - groundBefore);
+            for (const double hand : {1.0, -1.0}) {
+              for (int end = 0; end < 2; ++end) {
+                const Generators::RoadStation &one = end == 0 ? along[at - 1u] : along[at];
+                const double sideE = one.EastM + outE * half * hand;
+                const double sideS = one.SouthM + outS * half * hand;
+                reliefM = std::max(reliefM, drapedOver(sideE, -sideS, one.GradeM) - one.GradeM);
+              }
+            }
+            if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
+            Yields made;
+            made.RingEastSouthM = {along[at - 1u].EastM + outE * half,
+                                   along[at - 1u].SouthM + outS * half,
+                                   along[at].EastM + outE * half,
+                                   along[at].SouthM + outS * half,
+                                   along[at].EastM - outE * half,
+                                   along[at].SouthM - outS * half,
+                                   along[at - 1u].EastM - outE * half,
+                                   along[at - 1u].SouthM - outS * half};
+            made.LowE = made.HighE = made.RingEastSouthM[0];
+            made.LowS = made.HighS = made.RingEastSouthM[1];
+            for (size_t k = 2; k + 1 < made.RingEastSouthM.size(); k += 2) {
+              made.LowE = std::min(made.LowE, made.RingEastSouthM[k]);
+              made.HighE = std::max(made.HighE, made.RingEastSouthM[k]);
+              made.LowS = std::min(made.LowS, made.RingEastSouthM[k + 1]);
+              made.HighS = std::max(made.HighS, made.RingEastSouthM[k + 1]);
+            }
+            made.AtE = along[at - 1u].EastM;
+            made.AtS = along[at - 1u].SouthM;
+            made.PlateauM = along[at - 1u].GradeM;
+            const double rise = (along[at].GradeM - along[at - 1u].GradeM) / runM;
+            made.SlopeE = rise * runE / runM;
+            made.SlopeS = rise * runS / runM;
+            made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
+            made.YieldM = yieldM;
+            const bool rests = !lane.Bridge || at == 1u || at + 1u == along.size();
+            if (rests) {
+              made.SeamEastSouthM = {along[at - 1u].EastM + outE * (double)lane.HalfWidthM,
+                                     along[at - 1u].SouthM + outS * (double)lane.HalfWidthM,
+                                     along[at].EastM + outE * (double)lane.HalfWidthM,
+                                     along[at].SouthM + outS * (double)lane.HalfWidthM,
+                                     along[at].EastM - outE * (double)lane.HalfWidthM,
+                                     along[at].SouthM - outS * (double)lane.HalfWidthM,
+                                     along[at - 1u].EastM - outE * (double)lane.HalfWidthM,
+                                     along[at - 1u].SouthM - outS * (double)lane.HalfWidthM};
+            }
+            made.Fills = !lane.Bridge;
+            corridor.push_back(std::move(made));
+          }
+          if (!lane.Bridge && along.size() > 3) {
+            const size_t shutFrom = (size_t)lane.FirstPoint * 2u;
+            const size_t shutTo = shutFrom + ((size_t)lane.PointCount - 1u) * 2u;
+            const bool shut = shutTo + 1 < points.size() &&
+                              std::fabs(points[shutFrom] - points[shutTo]) < 1.0e-7 &&
+                              std::fabs(points[shutFrom + 1] - points[shutTo + 1]) < 1.0e-7;
+            if (shut) {
+              Yields island;
+              island.RingEastSouthM.reserve(along.size() * 2u);
+              island.LowE = island.HighE = along.front().EastM;
+              island.LowS = island.HighS = along.front().SouthM;
+              double summed = 0.0;
+              for (const Generators::RoadStation &one : along) {
+                island.RingEastSouthM.push_back(one.EastM);
+                island.RingEastSouthM.push_back(one.SouthM);
+                island.LowE = std::min(island.LowE, one.EastM);
+                island.HighE = std::max(island.HighE, one.EastM);
+                island.LowS = std::min(island.LowS, one.SouthM);
+                island.HighS = std::max(island.HighS, one.SouthM);
+                summed += one.GradeM;
+              }
+              island.AtE = along.front().EastM;
+              island.AtS = along.front().SouthM;
+              island.PlateauM = summed / (double)along.size();
+              island.ApronM = kLeastApronM;
+              island.YieldM = kBrokenGroundM;
+              island.Fills = true;
+              corridor.push_back(std::move(island));
+            }
+          }
+          {
+            const size_t first = (size_t)lane.FirstPoint * 2u;
+            const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
+            if (last + 1 < points.size()) {
+              const uint64_t key[2] = {WayEndKey(points[first], points[first + 1]),
+                                       WayEndKey(points[last], points[last + 1])};
+              for (int side = 0; side < 2; ++side) {
+                const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
+                const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
+                double outE = to.EastM - at.EastM;
+                double outS = to.SouthM - at.SouthM;
+                const double run = std::sqrt(outE * outE + outS * outS);
+                if (!(run > 1.0e-6)) { continue; }
+                outE /= run;
+                outS /= run;
+                gates[key[side]].push_back(
+                    Generators::RoadGate{.EastM = at.EastM,
+                                         .SouthM = at.SouthM,
+                                         .GradeM = at.GradeM,
+                                         .OutE = outE,
+                                         .OutS = outS,
+                                         .HalfWidthM = (double)lane.HalfWidthM});
               }
             }
           }
         }
-        ++laidWays;
-        const bool sealed = lane.CoverRow >= 0 &&
-                            (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount() &&
-                            World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Mix[2] >= 1.0f;
-        Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
-        if (sealed) {
-          profile =
-              lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
-        }
-        const float unnamed[3] = {0.5f, 0.5f, 0.5f};
-        const float *wears = unnamed;
-        if (lane.CoverRow >= 0 &&
-            (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
-          wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
-        }
-        Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
-                              (double)lane.HalfWidthM,
-                              profile,
-                              wears,
-                              std::atan(Generators::kCrossfall),
-                              pavement,
-                              &sweptPieces,
-                              &sweptCuts,
-                              &sweptRefused,
-                              &sweptWhy);
-        for (size_t at = 1; at < along.size() && !lane.Bridge; ++at) {
-          const double runE = along[at].EastM - along[at - 1u].EastM;
-          const double runS = along[at].SouthM - along[at - 1u].SouthM;
-          const double runM = std::sqrt(runE * runE + runS * runS);
-          if (!(runM > 0.05)) { continue; }
-          const double yieldM =
-              std::max(std::fabs(along[at].GradeM -
-                                 drapedOver(along[at].EastM, -along[at].SouthM, along[at].GradeM)),
-                       std::fabs(along[at - 1u].GradeM - drapedOver(along[at - 1u].EastM,
-                                                                    -along[at - 1u].SouthM,
-                                                                    along[at - 1u].GradeM)));
-          if (yieldM < kStampWorthM) { continue; }
-          const double outE = -runS / runM;
-          const double outS = runE / runM;
-          const double half = (double)lane.HalfWidthM + kVergeM;
-          Yields made;
-          made.RingEastSouthM = {along[at - 1u].EastM + outE * half,
-                                 along[at - 1u].SouthM + outS * half,
-                                 along[at].EastM + outE * half,
-                                 along[at].SouthM + outS * half,
-                                 along[at].EastM - outE * half,
-                                 along[at].SouthM - outS * half,
-                                 along[at - 1u].EastM - outE * half,
-                                 along[at - 1u].SouthM - outS * half};
-          made.LowE = made.HighE = made.RingEastSouthM[0];
-          made.LowS = made.HighS = made.RingEastSouthM[1];
-          for (size_t k = 2; k + 1 < made.RingEastSouthM.size(); k += 2) {
-            made.LowE = std::min(made.LowE, made.RingEastSouthM[k]);
-            made.HighE = std::max(made.HighE, made.RingEastSouthM[k]);
-            made.LowS = std::min(made.LowS, made.RingEastSouthM[k + 1]);
-            made.HighS = std::max(made.HighS, made.RingEastSouthM[k + 1]);
-          }
-          made.AtE = along[at - 1u].EastM;
-          made.AtS = along[at - 1u].SouthM;
-          made.PlateauM = along[at - 1u].GradeM;
-          const double rise = (along[at].GradeM - along[at - 1u].GradeM) / runM;
-          made.SlopeE = rise * runE / runM;
-          made.SlopeS = rise * runS / runM;
-          made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
-          made.YieldM = yieldM;
-          made.Fills = true;
-          corridor.push_back(std::move(made));
-        }
-        {
-          const size_t first = (size_t)lane.FirstPoint * 2u;
-          const size_t last = first + ((size_t)lane.PointCount - 1u) * 2u;
-          if (last + 1 < points.size()) {
-            const uint64_t key[2] = {WayEndKey(points[first], points[first + 1]),
-                                     WayEndKey(points[last], points[last + 1])};
-            for (int side = 0; side < 2; ++side) {
-              const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
-              const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
-              double outE = to.EastM - at.EastM;
-              double outS = to.SouthM - at.SouthM;
-              const double run = std::sqrt(outE * outE + outS * outS);
-              if (!(run > 1.0e-6)) { continue; }
-              outE /= run;
-              outS /= run;
-              gates[key[side]].push_back(
-                  Generators::RoadGate{.EastM = at.EastM,
-                                       .SouthM = at.SouthM,
-                                       .GradeM = at.GradeM,
-                                       .OutE = outE,
-                                       .OutS = outS,
-                                       .HalfWidthM = (double)lane.HalfWidthM});
+        if (phase == 0) {
+          double movedM = 0.0;
+          for (int pass = 0; pass < kLevelPasses; ++pass) {
+            std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
+            for (uint32_t lane = 0; lane < (uint32_t)designed.size(); ++lane) {
+              for (uint32_t one = 0; one < (uint32_t)designed[lane].size(); ++one) {
+                if (designed[lane][one].Node == 0u) { continue; }
+                atNode[designed[lane][one].Node].emplace_back(lane, one);
+              }
             }
+            std::vector<double> pullM(designed.size(), 0.0);
+            std::vector<uint32_t> pulls(designed.size(), 0u);
+            for (const auto &node : atNode) {
+              if (node.second.size() < 2) { continue; }
+              double wanted = 0.0;
+              for (const auto &held : node.second) {
+                wanted += designed[held.first][held.second].GradeM;
+              }
+              wanted /= (double)node.second.size();
+              for (const auto &held : node.second) {
+                pullM[held.first] += wanted - designed[held.first][held.second].GradeM;
+                ++pulls[held.first];
+              }
+            }
+            double most = 0.0;
+            for (size_t lane = 0; lane < designed.size(); ++lane) {
+              if (pulls[lane] == 0u) { continue; }
+              const double by = pullM[lane] / (double)pulls[lane];
+              for (Generators::RoadStation &one : designed[lane]) { one.GradeM += by; }
+              most = std::max(most, std::fabs(by));
+            }
+            movedM = most;
+            if (most < kLevelledM) { break; }
           }
+          Published.Places("streets: the levelling's last shift", movedM, "m");
         }
       }
     }
@@ -2278,6 +2428,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "ground: vertices the refinement added", (double)told.VerticesAdded, "vertices");
     Published.Places(
         "ground: triangles the refinement added", (double)told.TrianglesAdded, "triangles");
+    Published.Places("ground: the carriageway's footprint corners", (double)told.Seams, "corners");
+    Published.Places(
+        "ground: of those, a ground vertex shares the spot", (double)told.SeamsShared, "corners");
     Published.Places("ground: ring vertices a pad pressed", (double)told.Pressed, "vertices");
     Published.Places("ground: and the deepest it pressed", told.DeepestM, "m");
     Published.Places("ground: and the highest it filled", told.RaisedM, "m");
@@ -2306,7 +2459,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
             const auto atE = (uint64_t)(cellE + 0x20000000LL);
             const auto atS = (uint64_t)(cellS + 0x20000000LL);
-            facesUnder[(atE << 32) | atS].push_back((uint32_t)at);
+            facesUnder[(atE << 32U) | atS].push_back((uint32_t)at);
           }
         }
       }
@@ -2318,7 +2471,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const auto southM = (double)pavement.PositionM[at + 2];
         const auto atE = (uint64_t)((int64_t)std::floor(eastM / kUnderCellM) + 0x20000000LL);
         const auto atS = (uint64_t)((int64_t)std::floor(southM / kUnderCellM) + 0x20000000LL);
-        const auto bucket = facesUnder.find((atE << 32) | atS);
+        const auto bucket = facesUnder.find((atE << 32U) | atS);
         if (bucket == facesUnder.end()) { continue; }
         double stood = -1.0e30;
         for (const uint32_t face : bucket->second) {

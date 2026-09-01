@@ -301,7 +301,7 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
   double apart = 0.0;
   size_t over = 0;
   for (size_t one = 0; one < along.Size(); ++one) {
-    if (!along[one].Shared) { continue; }
+    if (along[one].Node == 0u) { continue; }
     apart += along[one].GradeM - asFound[one];
     ++over;
   }

@@ -14,6 +14,7 @@ struct Yields {
   double AtE = 0.0, AtS = 0.0;
   double PlateauM = 0.0;
   double SlopeE = 0.0, SlopeS = 0.0;
+  std::vector<double> SeamEastSouthM;
   double ApronM = 0.0;
   double YieldM = 0.0;
   bool Fills = false;
@@ -32,6 +33,8 @@ struct GroundMesh {
 };
 
 struct Yielded {
+  size_t Seams = 0;
+  size_t SeamsShared = 0;
   size_t Taken = 0;
   size_t Refused = 0;
   size_t VerticesAdded = 0;

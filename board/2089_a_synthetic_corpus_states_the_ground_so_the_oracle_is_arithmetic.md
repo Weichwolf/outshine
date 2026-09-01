@@ -308,3 +308,33 @@ node have no declared answer about which is on top, so "no ground stands over a 
 a property that input can satisfy. That is an INPUT-grade case in this tree's own table -- it proves
 we survive it -- and the oracle should say so rather than be relaxed. Deciding that is part of the
 same work.
+
+## The seam was the whole thing, and the owner named it
+
+The junction levelling took 16 WRONG to 1, and the last one fell to a rule that says a FILL may never
+rise above any carriageway that covers the same ground. Then the owner named what all the residuals
+had in common: **the terrain mesh and the OSM footprint must share their vertices, 100 %.** Measured
+straight away, and it was not close:
+
+    ground: the carriageway's footprint corners        104
+    ground: of those, a ground vertex shares the spot    0
+
+Not one. A ground triangle crossing a carriageway edge is above the road on one side and below it on
+the other, and pressing vertices can never fix a seam the mesh carries no vertex on. `GroundYield`
+now SEWS: every footprint corner is inserted into the ground mesh as a vertex -- found by plan
+containment, fanned 1->3, and claimed by EVERY triangle that contains it so a corner landing on an
+edge splits both sides and leaves no crack.
+
+    104 of 104 shared.  cross-plane30 burial 1.305 m -> 0.540 m.
+
+**Resting and floating are now different things.** A bridge rests only at its ABUTMENTS, so a span
+contributes only its first and last cross-section to the seam and nothing along its length. That is
+why a bridge no longer fills the ground under itself and no longer welds where it is meant to fly.
+
+**All 246 cells now hold seven oracles**, the seventh being the seam itself:
+`ground: footprint corners NO ground vertex shares` = 0. A floor was added beside the ceilings so an
+empty picture cannot pass for a correct one -- a cell that DECLARES a carriageway must draw one.
+
+The consequence the owner drew from it is board:2091: if the ground already carries every vertex of
+the footprint, the ribbon on top is a second body describing a surface the ground now describes
+itself. A road at grade becomes a MATERIAL on the ground, and only what floats keeps a body.

@@ -19,6 +19,10 @@ constexpr double kMovedM = 0.01;
 constexpr double kBatterRise = 1.0 / 1.5;
 constexpr double kCoarsestM = 40.0;
 constexpr double kEdgeGrade = 0.35;
+constexpr double kRiseM = 1.0;
+constexpr double kNearM = 16.0;
+constexpr int kSewPasses = 6;
+constexpr double kSewCellM = 16.0;
 
 uint64_t PlaceKey(double eastM, double southM) {
   const auto atE = (int64_t)std::llround(eastM / kWeldM);
@@ -31,7 +35,7 @@ constexpr double kBucketM = 32.0;
 uint64_t BucketAt(double eastM, double southM) {
   const auto atE = (uint64_t)((int64_t)std::floor(eastM / kBucketM) + 0x20000000LL);
   const auto atS = (uint64_t)((int64_t)std::floor(southM / kBucketM) + 0x20000000LL);
-  return (atE << 32u) | atS;
+  return (atE << 32U) | atS;
 }
 
 using Buckets = std::unordered_map<uint64_t, std::vector<uint32_t>>;
@@ -48,7 +52,7 @@ Buckets BucketOver(std::span<const Yields> these) {
       for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
         const auto atE = (uint64_t)(cellE + 0x20000000LL);
         const auto atS = (uint64_t)(cellS + 0x20000000LL);
-        out[(atE << 32u) | atS].push_back((uint32_t)at);
+        out[(atE << 32U) | atS].push_back((uint32_t)at);
       }
     }
   }
@@ -59,6 +63,32 @@ class Attributes {
 public:
   explicit Attributes(const GroundMesh &mesh) : Mesh_(mesh) {}
 
+  [[nodiscard]] uint32_t
+  Inside(uint32_t a, uint32_t b, uint32_t c, double eastM, double southM) const {
+    const std::vector<float> &held = *Mesh_.PositionM;
+    const auto aE = (double)held[(size_t)a * 3u];
+    const auto aS = (double)held[(size_t)a * 3u + 2u];
+    const auto bE = (double)held[(size_t)b * 3u];
+    const auto bS = (double)held[(size_t)b * 3u + 2u];
+    const auto cE = (double)held[(size_t)c * 3u];
+    const auto cS = (double)held[(size_t)c * 3u + 2u];
+    const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
+    const double one = std::fabs(twice) > 1.0e-9
+                           ? ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice
+                           : 1.0 / 3.0;
+    const double two = std::fabs(twice) > 1.0e-9
+                           ? ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice
+                           : 1.0 / 3.0;
+    Blend(*Mesh_.PositionM, 3u, a, b, c, one, two);
+    Blend(*Mesh_.NormalM, 3u, a, b, c, one, two);
+    if (Mesh_.ColourRgba != nullptr) { Blend(*Mesh_.ColourRgba, 4u, a, b, c, one, two); }
+    if (Mesh_.Uv != nullptr) { Blend(*Mesh_.Uv, 2u, a, b, c, one, two); }
+    const auto point = (uint32_t)(Mesh_.PositionM->size() / 3u) - 1u;
+    (*Mesh_.PositionM)[(size_t)point * 3u] = (float)eastM;
+    (*Mesh_.PositionM)[(size_t)point * 3u + 2u] = (float)southM;
+    return point;
+  }
+
   [[nodiscard]] uint32_t Midpoint(uint32_t a, uint32_t b) const {
     Lerp(*Mesh_.PositionM, 3u, a, b);
     Lerp(*Mesh_.NormalM, 3u, a, b);
@@ -68,6 +98,22 @@ public:
   }
 
 private:
+  static void Blend(std::vector<float> &held,
+                    uint32_t wide,
+                    uint32_t a,
+                    uint32_t b,
+                    uint32_t c,
+                    double one,
+                    double two) {
+    if (held.empty()) { return; }
+    const double three = 1.0 - one - two;
+    for (uint32_t axis = 0; axis < wide; ++axis) {
+      held.push_back((float)(one * (double)held[(size_t)a * wide + axis] +
+                             two * (double)held[(size_t)b * wide + axis] +
+                             three * (double)held[(size_t)c * wide + axis]));
+    }
+  }
+
   static void Lerp(std::vector<float> &held, uint32_t wide, uint32_t a, uint32_t b) {
     if (held.empty()) { return; }
     for (uint32_t axis = 0; axis < wide; ++axis) {
@@ -77,6 +123,19 @@ private:
 
   const GroundMesh &Mesh_;
 };
+
+double LongestEdgeM(const float *positionM, const uint32_t face[3]) {
+  double most = 0.0;
+  for (int at = 0; at < 3; ++at) {
+    const uint32_t a = face[at];
+    const uint32_t b = face[(at + 1) % 3];
+    const double runE = (double)positionM[(size_t)a * 3u] - (double)positionM[(size_t)b * 3u];
+    const double runS =
+        (double)positionM[(size_t)a * 3u + 2u] - (double)positionM[(size_t)b * 3u + 2u];
+    most = std::max(most, std::sqrt(runE * runE + runS * runS));
+  }
+  return most;
+}
 
 double AwayFrom(const Yields &one, double eastM, double southM) {
   const double offE = std::max({one.LowE - eastM, 0.0, eastM - one.HighE});
@@ -104,20 +163,21 @@ double WantedEdgeM(const Buckets &buckets,
     nearest = std::min(nearest, AwayFrom(these[which], centreE, centreS));
   }
   if (nearest > 1.0e29) { return 0.0; }
-  return std::clamp(finestM + kEdgeGrade * nearest, finestM, kCoarsestM);
-}
-
-double LongestEdgeM(const float *positionM, const uint32_t face[3]) {
-  double most = 0.0;
+  double wanted = std::clamp(finestM + kEdgeGrade * nearest, finestM, kCoarsestM);
+  if (nearest > kNearM) { return wanted; }
+  double lowest = 1.0e30;
+  double highest = -1.0e30;
   for (int at = 0; at < 3; ++at) {
-    const uint32_t a = face[at];
-    const uint32_t b = face[(at + 1) % 3];
-    const double runE = (double)positionM[(size_t)a * 3u] - (double)positionM[(size_t)b * 3u];
-    const double runS =
-        (double)positionM[(size_t)a * 3u + 2u] - (double)positionM[(size_t)b * 3u + 2u];
-    most = std::max(most, std::sqrt(runE * runE + runS * runS));
+    const auto upM = (double)positionM[(size_t)face[at] * 3u + 1u];
+    lowest = std::min(lowest, upM);
+    highest = std::max(highest, upM);
   }
-  return most;
+  const double rises = highest - lowest;
+  if (rises > kRiseM) {
+    const double longest = LongestEdgeM(positionM, face);
+    wanted = std::min(wanted, longest * kRiseM / rises);
+  }
+  return wanted;
 }
 
 void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yielded &told) {
@@ -213,6 +273,125 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
   }
 }
 
+void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
+  std::vector<double> seams;
+  for (const Yields &one : these) {
+    seams.insert(seams.end(), one.SeamEastSouthM.begin(), one.SeamEastSouthM.end());
+  }
+  if (seams.empty()) { return; }
+
+  std::vector<uint32_t> &index = *mesh.Index;
+  std::vector<float> &positionM = *mesh.PositionM;
+  std::vector<uint8_t> sewn(seams.size() / 2u, 0u);
+  std::vector<uint32_t> next;
+  const Attributes lerp(mesh);
+
+  for (int pass = 0; pass < kSewPasses; ++pass) {
+    std::unordered_map<uint64_t, std::vector<uint32_t>> facesAt;
+    for (size_t at = 0; at + 2 < index.size(); at += 3) {
+      const float *held = positionM.data();
+      double lowE = 1.0e30;
+      double highE = -1.0e30;
+      double lowS = 1.0e30;
+      double highS = -1.0e30;
+      for (int corner = 0; corner < 3; ++corner) {
+        const size_t one = (size_t)index[at + (size_t)corner] * 3u;
+        lowE = std::min(lowE, (double)held[one]);
+        highE = std::max(highE, (double)held[one]);
+        lowS = std::min(lowS, (double)held[one + 2u]);
+        highS = std::max(highS, (double)held[one + 2u]);
+      }
+      const auto fromE = (int64_t)std::floor(lowE / kSewCellM);
+      const auto toE = (int64_t)std::floor(highE / kSewCellM);
+      const auto fromS = (int64_t)std::floor(lowS / kSewCellM);
+      const auto toS = (int64_t)std::floor(highS / kSewCellM);
+      if ((toE - fromE + 1) * (toS - fromS + 1) > 256) { continue; }
+      for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
+        for (int64_t cellS = fromS; cellS <= toS; ++cellS) {
+          const auto atE = (uint64_t)(cellE + 0x20000000LL);
+          const auto atS = (uint64_t)(cellS + 0x20000000LL);
+          facesAt[(atE << 32U) | atS].push_back((uint32_t)at);
+        }
+      }
+    }
+
+    std::unordered_map<uint32_t, uint32_t> claimed;
+    std::unordered_map<uint64_t, uint32_t> made;
+    bool any = false;
+    for (uint32_t which = 0; which < (uint32_t)sewn.size(); ++which) {
+      if (sewn[which] != 0u) { continue; }
+      const double eastM = seams[(size_t)which * 2u];
+      const double southM = seams[(size_t)which * 2u + 1u];
+      const auto atE = (uint64_t)((int64_t)std::floor(eastM / kSewCellM) + 0x20000000LL);
+      const auto atS = (uint64_t)((int64_t)std::floor(southM / kSewCellM) + 0x20000000LL);
+      const auto bucket = facesAt.find((atE << 32U) | atS);
+      if (bucket == facesAt.end()) { continue; }
+      bool held = false;
+      for (const uint32_t face : bucket->second) {
+        const size_t a = (size_t)index[face] * 3u;
+        const size_t b = (size_t)index[face + 1u] * 3u;
+        const size_t c = (size_t)index[face + 2u] * 3u;
+        const auto aE = (double)positionM[a];
+        const auto aS = (double)positionM[a + 2u];
+        const auto bE = (double)positionM[b];
+        const auto bS = (double)positionM[b + 2u];
+        const auto cE = (double)positionM[c];
+        const auto cS = (double)positionM[c + 2u];
+        const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
+        if (std::fabs(twice) < 1.0e-9) { continue; }
+        const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
+        const double two = ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice;
+        const double three = 1.0 - one - two;
+        if (one < -1.0e-9 || two < -1.0e-9 || three < -1.0e-9) { continue; }
+        if (claimed.contains(face)) {
+          held = true;
+          continue;
+        }
+        claimed[face] = which;
+        any = true;
+        held = true;
+      }
+      if (held) { sewn[which] = 1u; }
+    }
+    if (!any) { break; }
+    told.Passes = std::max(told.Passes, (size_t)pass + 1u);
+
+    next.clear();
+    next.reserve(index.size() * 2u);
+    for (size_t at = 0; at + 2 < index.size(); at += 3) {
+      const auto found = claimed.find((uint32_t)at);
+      if (found == claimed.end()) {
+        next.push_back(index[at]);
+        next.push_back(index[at + 1u]);
+        next.push_back(index[at + 2u]);
+        continue;
+      }
+      const uint32_t which = found->second;
+      const double eastM = seams[(size_t)which * 2u];
+      const double southM = seams[(size_t)which * 2u + 1u];
+      const uint64_t key = PlaceKey(eastM, southM);
+      auto stood = made.find(key);
+      if (stood == made.end()) {
+        stood =
+            made.emplace(key, lerp.Inside(index[at], index[at + 1u], index[at + 2u], eastM, southM))
+                .first;
+        ++told.VerticesAdded;
+      }
+      const uint32_t point = stood->second;
+      for (int corner = 0; corner < 3; ++corner) {
+        const uint32_t a = index[at + (size_t)corner];
+        const uint32_t b = index[at + (size_t)((corner + 1) % 3)];
+        if (a == point || b == point) { continue; }
+        next.push_back(a);
+        next.push_back(b);
+        next.push_back(point);
+      }
+    }
+    told.TrianglesAdded += (next.size() - index.size()) / 3u;
+    index.swap(next);
+  }
+}
+
 void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
   const Buckets buckets = BucketOver(these);
   std::vector<float> &positionM = *mesh.PositionM;
@@ -223,6 +402,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     const auto was = (double)positionM[one + 1u];
     double lowest = was;
     double highest = was;
+    double roofM = 1.0e30;
     const auto bucket = buckets.find(BucketAt(eastM, southM));
     if (bucket == buckets.end()) { continue; }
     for (const uint32_t which : bucket->second) {
@@ -260,6 +440,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
       const double cutAt = onRoad + out * kBatterRise;
       const double fillAt = onRoad - out * kBatterRise;
       lowest = std::min(lowest, cutAt);
+      roofM = std::min(roofM, cutAt);
       if (held.Fills) { highest = std::max(highest, fillAt); }
     }
     double weight = 0.0;
@@ -268,8 +449,8 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
       wanted = lowest;
       weight = 1.0;
     } else if (highest > was) {
-      wanted = highest;
-      weight = 1.0;
+      wanted = std::min(highest, roofM);
+      weight = wanted > was ? 1.0 : 0.0;
     }
     if (!(weight > 0.0)) { continue; }
     const double now = wanted;
@@ -364,7 +545,23 @@ void YieldGround(std::span<const Yields> these,
   told.Taken = taking.size();
   const std::span<const Yields> held(taking);
   Refine(held, finestM, mesh, told);
+  Sew(held, mesh, told);
   Press(held, mesh, told);
+  {
+    std::unordered_map<uint64_t, uint32_t> standing;
+    const std::vector<float> &positionM = *mesh.PositionM;
+    for (size_t at = 0; at + 2 < positionM.size(); at += 3) {
+      ++standing[PlaceKey((double)positionM[at], (double)positionM[at + 2u])];
+    }
+    for (const Yields &one : taking) {
+      for (size_t at = 0; at + 1 < one.SeamEastSouthM.size(); at += 2) {
+        ++told.Seams;
+        told.SeamsShared +=
+            standing.contains(PlaceKey(one.SeamEastSouthM[at], one.SeamEastSouthM[at + 1u])) ? 1u
+                                                                                             : 0u;
+      }
+    }
+  }
 }
 
 } // namespace outshine
