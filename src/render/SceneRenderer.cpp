@@ -1449,7 +1449,7 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
             "the window cannot present the transfer the plan declares, and WhyNot carries what "
             "the device said");
       }
-      std::array<const SDL_GPUPresentMode, 3> unqueued = {
+      const std::array<SDL_GPUPresentMode, 3> unqueued = {
           {SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE, SDL_GPU_PRESENTMODE_VSYNC}};
       bool took = false;
       for (const SDL_GPUPresentMode mode : unqueued) {

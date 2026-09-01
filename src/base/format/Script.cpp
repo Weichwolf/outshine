@@ -61,17 +61,17 @@ bool Space(char c) {
 
 size_t SpaceRun(std::string_view text, size_t at) {
   if (Space(text[at])) { return 1; }
-  static std::array<const char *const, 11> kWide = {{"\xC2\xA0",
-                                                     "\xE2\x80\xA8",
-                                                     "\xE2\x80\xA9",
-                                                     "\xEF\xBB\xBF",
-                                                     "\xE2\x80\x80",
-                                                     "\xE2\x80\x81",
-                                                     "\xE2\x80\x82",
-                                                     "\xE2\x80\x83",
-                                                     "\xE2\x80\x89",
-                                                     "\xE2\x80\xAF",
-                                                     "\xE3\x80\x80"}};
+  static const std::array<const char *const, 11> kWide = {{"\xC2\xA0",
+                                                           "\xE2\x80\xA8",
+                                                           "\xE2\x80\xA9",
+                                                           "\xEF\xBB\xBF",
+                                                           "\xE2\x80\x80",
+                                                           "\xE2\x80\x81",
+                                                           "\xE2\x80\x82",
+                                                           "\xE2\x80\x83",
+                                                           "\xE2\x80\x89",
+                                                           "\xE2\x80\xAF",
+                                                           "\xE3\x80\x80"}};
   for (const char *wide : kWide) {
     const size_t length = std::char_traits<char>::length(wide);
     if (text.compare(at, length, wide) == 0) { return length; }
@@ -434,7 +434,7 @@ bool ReadPrimary(Reading &in, size_t &out) {
 }
 
 struct Level {
-  std::array<const char *, 4> Marks;
+  const std::array<const char *, 4> Marks;
 };
 
 constexpr std::array<Level, 6> kLevels = {{
@@ -695,7 +695,7 @@ struct Boundary {
   const char *Why;
 };
 
-std::array<const Boundary, 85> kBoundaries = {{
+const std::array<Boundary, 85> kBoundaries = {{
 
     {.Name = "token:function",
      .Why = "a script here is a handler; one that defines callables has a lifetime to bound"},

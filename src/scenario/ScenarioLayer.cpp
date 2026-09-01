@@ -216,7 +216,7 @@ bool ApplyLayer(Scenario::Document &into,
     const char *What;
   };
 
-  std::array<const SectionRow, 7> sections = {{
+  const std::array<SectionRow, 7> sections = {{
       {.DeclaredByLayer = fragment.Lit.Declared, .What = "lighting"},
       {.DeclaredByLayer = fragment.Ground.Declared, .What = "world"},
       {.DeclaredByLayer = fragment.Render.Declared, .What = "render"},

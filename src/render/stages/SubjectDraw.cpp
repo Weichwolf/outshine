@@ -348,7 +348,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
                 "the surface row and its declared length are one statement");
   std::ranges::copy(scalars, slot.Row.begin());
 
-  std::array<const SubjectTexture *const, kSubjectMaterialImages> images = {
+  const std::array<const SubjectTexture *const, kSubjectMaterialImages> images = {
       &material.Colour,
       &material.Normal,
       &material.MetalRough,

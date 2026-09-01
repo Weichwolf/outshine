@@ -97,20 +97,20 @@ void Resolve(std::string_view raw, std::string &out) {
 } // namespace
 
 bool ClosesItself(std::string_view tag) {
-  static std::array<const char *const, 14> kVoid = {{"area",
-                                                     "base",
-                                                     "br",
-                                                     "col",
-                                                     "embed",
-                                                     "hr",
-                                                     "img",
-                                                     "input",
-                                                     "link",
-                                                     "meta",
-                                                     "param",
-                                                     "source",
-                                                     "track",
-                                                     "wbr"}};
+  static const std::array<const char *const, 14> kVoid = {{"area",
+                                                           "base",
+                                                           "br",
+                                                           "col",
+                                                           "embed",
+                                                           "hr",
+                                                           "img",
+                                                           "input",
+                                                           "link",
+                                                           "meta",
+                                                           "param",
+                                                           "source",
+                                                           "track",
+                                                           "wbr"}};
   for (const char *one : kVoid) {
     if (Matches(tag, one)) { return true; }
   }
@@ -122,7 +122,7 @@ bool HoldsRawText(std::string_view tag) {
 }
 
 bool IsBlockLevel(std::string_view tag) {
-  static std::array<const char *const, 26> kBlock = {
+  static const std::array<const char *const, 26> kBlock = {
       {"address", "article", "aside",   "blockquote", "div",  "dl",  "fieldset",
        "figure",  "footer",  "form",    "h1",         "h2",   "h3",  "h4",
        "h5",      "h6",      "header",  "hr",         "main", "nav", "ol",

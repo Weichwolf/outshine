@@ -76,7 +76,7 @@ void ClassStructure::Pack(int unmappedRow) {
   constexpr uint32_t kHdrWords = 12;
   Words_.assign(kHead + 2u * kHdrWords, 0u);
   Words_[2] = static_cast<uint32_t>(unmappedRow);
-  std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
+  const std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
   for (uint32_t b = 0; b < 2; b++) {
     const Grid &B = *grids[b];
     const uint32_t h = kHead + b * kHdrWords;
@@ -121,7 +121,7 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
   int second = -1;
   int secondRank = -1;
   double bestDist = kNoEdgeM;
-  std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
+  const std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
   for (auto &grid : grids) {
     const Grid &B = *grid;
     if (B.W == 0) { continue; }

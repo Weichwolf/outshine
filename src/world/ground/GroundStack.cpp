@@ -97,7 +97,7 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
   Cls_.Update(*Pool_, lat, lon, budgetMs);
   if (!Vegetated_) { return; }
   if (!Vectors_) {
-    std::array<const std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
+    const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
                                                 OsmLayerName(OsmLayer::WaterPolygons),
                                                 OsmLayerName(OsmLayer::WaterLines),
                                                 OsmLayerName(OsmLayer::Streets),

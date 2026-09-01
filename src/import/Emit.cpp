@@ -242,7 +242,7 @@ private:
   }
 
   std::string Streams(const Part &drawn) {
-    std::array<const Attribute, 6> declared = {
+    const std::array<Attribute, 6> declared = {
         {{.Semantic = "POSITION", .Components = 3, .From = &Subject_.PositionsM()},
          {.Semantic = "NORMAL",
           .Components = 3,

@@ -230,7 +230,7 @@ struct Placer {
 Computed Placer::StyleOf(int node, const Computed *inherited) const {
   Computed out;
   if (inherited != nullptr) {
-    std::array<const Property, 6> carried = {{Property::Colour,
+    const std::array<Property, 6> carried = {{Property::Colour,
                                               Property::FontSize,
                                               Property::LineHeight,
                                               Property::TextAlign,

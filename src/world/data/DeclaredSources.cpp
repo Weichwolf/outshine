@@ -60,7 +60,7 @@ bool RegisterDeclared(SourceSet &set,
 }
 
 std::span<const Scenario::Provider> ShippedProviders() {
-  static std::array<const Scenario::Provider, 3> shipped = {{
+  static const std::array<Scenario::Provider, 3> shipped = {{
       {.Kind = "terrain", .Pin = "", .Rank = 0, .WhenAbsent = "hand over"},
       {.Kind = "vector", .Pin = "", .Rank = 1, .WhenAbsent = "hand over"},
       {.Kind = "stars", .Pin = "", .Rank = 2, .WhenAbsent = "hand over"},

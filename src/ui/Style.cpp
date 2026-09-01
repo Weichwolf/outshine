@@ -37,7 +37,7 @@ struct Named {
   Property What;
 };
 
-std::array<const Named, 48> kProperties = {{
+const std::array<Named, 48> kProperties = {{
     {.Spelling = "display", .What = Property::Display},
     {.Spelling = "position", .What = Property::Position},
     {.Spelling = "box-sizing", .What = Property::BoxSizing},
@@ -93,7 +93,7 @@ struct NamedColour {
   uint32_t Rgba;
 };
 
-std::array<const NamedColour, 66> kColours = {{
+const std::array<NamedColour, 66> kColours = {{
     {.Spelling = "transparent", .Rgba = 0x00000000},
     {.Spelling = "black", .Rgba = 0x000000FF},
     {.Spelling = "white", .Rgba = 0xFFFFFFFF},
@@ -260,10 +260,10 @@ Property PropertyNamed(std::string_view name) {
 
 struct Vocabulary {
   Property What;
-  std::array<const char *, 14> Words;
+  const std::array<const char *, 14> Words;
 };
 
-std::array<const Vocabulary, 12> kVocabularies = {{
+const std::array<Vocabulary, 12> kVocabularies = {{
     {.What = Property::Display,
      .Words = {"block", "flex", "inline", "none", "inline-flex", nullptr}},
     {.What = Property::Position, .Words = {"static", "relative", nullptr}},
@@ -798,7 +798,7 @@ struct Boundary {
   const char *Why;
 };
 
-std::array<const Boundary, 136> kBoundaries = {{
+const std::array<Boundary, 136> kBoundaries = {{
 
     {.Name = "float",
      .Why = "an interface is laid out by flow and flexbox; a float solves a document's problem"},

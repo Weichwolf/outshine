@@ -313,7 +313,8 @@ bool Compiled::CompileInto(const PlanSpec &spec,
     }
     for (size_t at = 0; at < pass.Count; ++at) {
       const StageRow &row = Row(plan->Order_[pass.First + at]);
-      std::array<const Resource *const, 2> edges = {row.Writes.data(), row.Contributes.data()};
+      const std::array<const Resource *const, 2> edges = {row.Writes.data(),
+                                                          row.Contributes.data()};
       for (const Resource *edge : edges) {
         for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
           const Resource target = edge[e];

@@ -44,7 +44,7 @@ struct Element {
   const char *Allowed = "";
 };
 
-std::array<const Element, 80> kGrammar = {{
+const std::array<Element, 80> kGrammar = {{
     {.Path = "scenario",
      .Children =
          "world render lighting providers generators compositors assets placements surfaces kinds "
