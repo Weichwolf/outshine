@@ -1,6 +1,7 @@
 #include "Rig.h"
 
 #include <cmath>
+#include <cstddef>
 
 #include "Vec3.h"
 

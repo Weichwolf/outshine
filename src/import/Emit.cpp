@@ -1,7 +1,13 @@
 #include "Emit.h"
 
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace outshine::Gltf {
 

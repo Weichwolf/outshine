@@ -1,7 +1,11 @@
 #include "Png.h"
 
+#include <cstdint>
 #include <cstring>
 
+#include <string>
+#include <utility>
+#include <vector>
 #include <zlib.h>
 
 namespace outshine::Io {

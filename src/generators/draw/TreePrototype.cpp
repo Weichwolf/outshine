@@ -1,6 +1,9 @@
 #include "TreePrototype.h"
 
 #include <cmath>
+#include <optional>
+#include <cstddef>
+#include <cstdint>
 
 #include "TreeFoliage.h"
 #include "TreeGrower.h"

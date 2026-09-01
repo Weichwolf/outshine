@@ -1,6 +1,7 @@
 #include "ParticipatingMedium.h"
 
 #include "ShaderFile.h"
+#include <string>
 
 namespace outshine::Render {
 

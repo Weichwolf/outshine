@@ -5,8 +5,14 @@
 #include "DecimalEdge.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
+#include <string>
+#include <vector>
+#include <utility>
+#include <system_error>
 
 namespace outshine::Script {
 

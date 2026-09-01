@@ -1,4 +1,5 @@
 #include "Ground.h"
+#include <optional>
 
 namespace outshine::Generators {
 

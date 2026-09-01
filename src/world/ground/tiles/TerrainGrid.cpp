@@ -2,6 +2,9 @@
 
 #include "Log.h"
 #include "Png.h"
+#include <cstdint>
+#include <cstddef>
+#include <utility>
 
 namespace outshine::Ground {
 

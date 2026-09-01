@@ -1,5 +1,6 @@
 #include "TreeFoliage.h"
 
+#include <cstddef>
 #include <numbers>
 #include <cmath>
 

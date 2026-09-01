@@ -1,4 +1,16 @@
 #include "EngineHeld.h"
+#include <string_view>
+#include <expected>
+#include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <charconv>
+#include <algorithm>
+#include <string>
+#include <cstdio>
+#include <system_error>
+#include <cmath>
+#include <utility>
 
 namespace outshine {
 

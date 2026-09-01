@@ -2,8 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <string>
+#include <span>
 #include <unordered_map>
 #include <cstring>
+#include <vector>
+#include <utility>
 
 namespace outshine::Ui {
 

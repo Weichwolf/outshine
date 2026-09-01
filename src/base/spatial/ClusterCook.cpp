@@ -2,6 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <span>
+#include <cstddef>
+#include <vector>
+#include <unordered_map>
 
 namespace outshine {
 namespace {

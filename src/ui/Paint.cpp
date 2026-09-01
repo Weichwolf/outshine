@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
+#include <string>
+#include <vector>
 
 namespace outshine::Ui {
 namespace {

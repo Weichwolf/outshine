@@ -1,7 +1,9 @@
 #include "TreeSpecies.h"
 
+#include <cstdint>
 #include <cstring>
 #include <optional>
+#include <string>
 
 #include "Json.h"
 

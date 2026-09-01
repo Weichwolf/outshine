@@ -1,7 +1,9 @@
 #include "TreeGrower.h"
 
+#include <cstddef>
 #include <numbers>
 #include <cmath>
+#include <vector>
 
 namespace outshine::Generators {
 

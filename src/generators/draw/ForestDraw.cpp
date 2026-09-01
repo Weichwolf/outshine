@@ -1,4 +1,5 @@
 #include "ForestDraw.h"
+#include <optional>
 
 namespace outshine::Generators {
 

@@ -1,4 +1,7 @@
 #include "StreetField.h"
+#include <cstdint>
+#include <span>
+#include <cstddef>
 
 namespace outshine::Ground {
 

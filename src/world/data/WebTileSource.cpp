@@ -1,4 +1,7 @@
 #include "WebTileSource.h"
+#include <cstdint>
+#include <vector>
+#include <utility>
 
 namespace outshine::Data {
 namespace {

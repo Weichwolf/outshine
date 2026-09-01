@@ -1,10 +1,20 @@
 #include "Wayfinding.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <functional>
 #include <numbers>
 #include <algorithm>
 #include <cmath>
+#include <span>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <queue>
+#include <vector>
+#include <utility>
+#include <unordered_map>
 
 namespace outshine::Path {
 

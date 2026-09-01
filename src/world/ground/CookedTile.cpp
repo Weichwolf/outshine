@@ -1,9 +1,12 @@
 #include "CookedTile.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include <Geometry.h>
 #include <Material.h>
+#include <vector>
 
 namespace outshine::Ground {
 

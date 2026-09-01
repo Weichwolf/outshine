@@ -1,6 +1,8 @@
 #include "Yield.h"
 
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Generators {
 

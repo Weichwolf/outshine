@@ -1,6 +1,10 @@
 #include "ScenarioLayer.h"
 
 #include "ScenarioRead.h"
+#include <vector>
+#include <string_view>
+#include <string>
+#include <cstddef>
 
 namespace outshine {
 

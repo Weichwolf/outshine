@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
 
 namespace outshine::Generators {
 

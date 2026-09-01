@@ -1,4 +1,6 @@
 #include "InputPump.h"
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Core {
 

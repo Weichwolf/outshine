@@ -1,6 +1,8 @@
 #include "GroundPatch.h"
 
 #include <cmath>
+#include <memory>
+#include <cstddef>
 
 #include "Units.h"
 

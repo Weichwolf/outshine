@@ -3,6 +3,7 @@
 #include "Vec3.h"
 #include "Subject.h"
 
+#include <cstdint>
 #include <span>
 
 #include <Geometry.h>
@@ -14,6 +15,8 @@
 #include <cstring>
 #include <map>
 #include <string>
+#include <vector>
+#include <utility>
 
 #include "Document.h"
 #include "Framing.h"

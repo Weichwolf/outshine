@@ -1,5 +1,7 @@
 #include "Log.h"
 #include <cstdio>
+#include <string>
+#include <span>
 
 namespace outshine {
 

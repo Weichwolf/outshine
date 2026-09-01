@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <map>
 #include <string>
+#include <vector>
+#include <utility>
 
 namespace outshine::Gltf {
 

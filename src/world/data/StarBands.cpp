@@ -1,7 +1,9 @@
 #include "StarBands.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <utility>
+#include <vector>
 
 namespace outshine::Data {
 namespace {

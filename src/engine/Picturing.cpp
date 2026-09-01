@@ -1,15 +1,26 @@
 #include "Log.h"
+#include <atomic>
 #include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <expected>
 #include <memory>
 #include <algorithm>
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <array>
+#include <optional>
+#include <span>
+#include <numbers>
+#include <string>
+#include <ratio>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <chrono>
+#include <vector>
 
 #include "Fit.h"
 #include "ReferenceLine.h"

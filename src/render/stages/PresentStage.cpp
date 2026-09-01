@@ -2,6 +2,7 @@
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
+#include <string>
 
 namespace outshine::Render {
 namespace {}

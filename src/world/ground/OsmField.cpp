@@ -13,6 +13,12 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <span>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <string_view>
+#include <ratio>
 
 namespace outshine::Ground {
 

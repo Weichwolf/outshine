@@ -2,7 +2,12 @@
 #include "Markup.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
+#include <string_view>
+#include <string>
+#include <vector>
+#include <utility>
 
 namespace outshine::Ui {
 

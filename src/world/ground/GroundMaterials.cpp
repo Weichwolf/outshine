@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <string_view>
+#include <vector>
 
 namespace outshine::Ground {
 

@@ -1,10 +1,17 @@
 #include "ClassBuilder.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <utility>
+#include <optional>
 
 #include "Capacity.h"
 #include "StackProbe.h"

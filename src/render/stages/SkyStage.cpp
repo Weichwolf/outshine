@@ -1,7 +1,9 @@
 #include "SkyStage.h"
 
+#include <cstdint>
 #include <numbers>
 #include <cstdio>
+#include <string>
 
 #include "SceneTargets.h"
 #include "ShaderFile.h"

@@ -1,6 +1,7 @@
 #include "CatmullRom.h"
 
 #include <cmath>
+#include <cstddef>
 
 namespace outshine {
 

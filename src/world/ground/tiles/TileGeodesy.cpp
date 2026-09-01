@@ -1,6 +1,7 @@
 #include "TileGeodesy.h"
 
 #include <cmath>
+#include <cstdint>
 
 namespace outshine::Ground {
 

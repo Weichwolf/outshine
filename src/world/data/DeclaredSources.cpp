@@ -1,6 +1,10 @@
 #include "DeclaredSources.h"
 
 #include <memory>
+#include <string>
+#include <span>
+#include <string_view>
+#include <utility>
 
 #include "StarBands.h"
 #include "TerrariumDem.h"

@@ -1,7 +1,10 @@
 #include "Overlay.h"
 
 #include <algorithm>
+#include <span>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 namespace outshine::Core {
 

@@ -3,7 +3,13 @@
 
 #include <Scenario.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <string_view>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "Xml.h"
 

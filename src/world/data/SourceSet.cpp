@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
+#include <mutex>
+#include <cstdint>
 #include <utility>
+#include <vector>
 
 namespace outshine::Data {
 

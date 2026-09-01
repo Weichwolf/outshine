@@ -1,7 +1,12 @@
 #include <charconv>
 #include "Style.h"
 
+#include <cstdint>
 #include <cstdlib>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <utility>
 
 namespace outshine::Ui {
 

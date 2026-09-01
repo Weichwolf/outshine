@@ -2,13 +2,22 @@
 
 #include "CookedTile.h"
 
+#include <cstdint>
+#include <atomic>
+#include <mutex>
+#include <algorithm>
+#include <condition_variable>
 #include <numbers>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <ratio>
 #include <thread>
+#include <vector>
+#include <utility>
 
 #include "Capacity.h"
 #include "ChunkMesh.h"

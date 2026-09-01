@@ -2,6 +2,10 @@
 
 #include "Image.h"
 #include "Variant.h"
+#include <string>
+#include <cstddef>
+#include <vector>
+#include <cstdint>
 
 namespace outshine::Gltf {
 namespace {

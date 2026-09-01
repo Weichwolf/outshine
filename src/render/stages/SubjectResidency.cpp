@@ -2,9 +2,12 @@
 #include "SubjectResidency.h"
 
 #include <cmath>
+#include <cstdint>
 #include <format>
+#include <string>
 #include <string_view>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 namespace outshine::Render {

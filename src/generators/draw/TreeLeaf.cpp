@@ -1,5 +1,7 @@
 #include "TreeLeaf.h"
 
+#include <cstdint>
+#include <cstddef>
 #include <numbers>
 #include <cmath>
 #include <vector>

@@ -1,5 +1,7 @@
 #include "TreeMesher.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <numbers>
 #include <algorithm>
 #include <cmath>

@@ -1,4 +1,8 @@
 #include "Shaped.h"
+#include <span>
+#include <vector>
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Gltf {
 namespace {

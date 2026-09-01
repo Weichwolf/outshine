@@ -1,6 +1,7 @@
 #include "Readback.h"
 
 #include "Log.h"
+#include <cstdint>
 
 namespace outshine::Render {
 

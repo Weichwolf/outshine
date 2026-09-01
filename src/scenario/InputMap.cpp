@@ -1,4 +1,9 @@
 #include "InputMap.h"
+#include <cstddef>
+#include <string>
+#include <string_view>
+#include <span>
+#include <cstdint>
 
 namespace outshine {
 

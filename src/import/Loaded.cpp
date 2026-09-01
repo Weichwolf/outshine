@@ -1,7 +1,11 @@
 #include "Loaded.h"
 
+#include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "Document.h"

@@ -3,7 +3,12 @@
 #include "Angle.h"
 
 #include <cmath>
+#include <cstddef>
 #include <numbers>
+#include <span>
+#include <vector>
+#include <utility>
+#include <string>
 
 namespace outshine {
 

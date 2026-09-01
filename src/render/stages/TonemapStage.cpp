@@ -2,6 +2,8 @@
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"
+#include <cstdint>
+#include <string>
 
 namespace outshine::Render {
 

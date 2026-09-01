@@ -1,9 +1,16 @@
 #include "Fetching.h"
 
+#include <cstdint>
+#include <cstddef>
+#include <chrono>
 #include <curl/curl.h>
 
 #include <algorithm>
+#include <thread>
+#include <mutex>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {

@@ -1,4 +1,8 @@
 #include "RegionPool.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
 
 namespace outshine::Generators {
 

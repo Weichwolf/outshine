@@ -1,6 +1,10 @@
 #include "DrawList.h"
 
 #include <algorithm>
+#include <string>
+#include <cstdint>
+#include <cstddef>
+#include <span>
 
 namespace outshine::Render {
 

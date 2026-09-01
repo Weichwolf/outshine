@@ -1,6 +1,7 @@
 #include "Tile.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include "Geodesy.h"
 #include "Units.h"

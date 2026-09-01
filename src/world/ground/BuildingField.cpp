@@ -9,8 +9,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <numbers>
+#include <span>
+#include <vector>
+#include <ratio>
 
 namespace outshine::Ground {
 

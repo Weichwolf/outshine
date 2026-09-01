@@ -1,9 +1,19 @@
 #include "Document.h"
 
+#include <cstdint>
+#include <cstdlib>
+#include <ios>
+#include <iterator>
+#include <cmath>
 #include <numbers>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <string_view>
+#include <string>
+#include <vector>
+#include <system_error>
+#include <utility>
 
 #include "Json.h"
 

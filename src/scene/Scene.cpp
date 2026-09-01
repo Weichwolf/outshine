@@ -1,8 +1,13 @@
 #include <Scene.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <array>
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace outshine {

@@ -1,6 +1,10 @@
 #include "Ribbon.h"
 
 #include <cmath>
+#include <cstddef>
+#include <vector>
+#include <string>
+#include <cstdint>
 
 #include "Carriageway.h"
 

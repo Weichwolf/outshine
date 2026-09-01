@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 
+#include <cstdint>
 #include <span>
 #include <new>
 
@@ -17,6 +18,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include "MetalRoughBrdf.h"
 #include "IridescenceLobe.h"

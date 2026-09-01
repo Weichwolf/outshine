@@ -1,8 +1,10 @@
 #include "MediumRadianceStage.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"

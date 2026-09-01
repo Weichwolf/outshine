@@ -1,5 +1,7 @@
 #include "SpeedProfile.h"
 
+#include <cstddef>
+#include <string>
 #include <vector>
 
 #include <cmath>

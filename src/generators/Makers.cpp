@@ -1,5 +1,8 @@
 #include "Generate.h"
 
+#include <memory>
+#include <string_view>
+#include <cstddef>
 #include <vector>
 
 namespace outshine {

@@ -1,6 +1,8 @@
 #include "Rigging.h"
 
 #include <cmath>
+#include <string>
+#include <cstddef>
 
 namespace outshine::Sim {
 

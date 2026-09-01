@@ -1,18 +1,26 @@
+#include <array>
 #include <chrono>
 #include "Live.h"
 
 #include "Shaped.h"
 #include "Surfaces.h"
 
+#include <cstdint>
 #include <limits>
 
 #include <algorithm>
 
+#include <memory>
 #include <numbers>
 #include <cmath>
 #include <filesystem>
 
 #include <cstdio>
+#include <string>
+#include <optional>
+#include <utility>
+#include <ratio>
+#include <system_error>
 #include <vector>
 
 #include "Heap.h"

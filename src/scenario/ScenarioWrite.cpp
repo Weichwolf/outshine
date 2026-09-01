@@ -1,6 +1,7 @@
 #include "ScenarioWrite.h"
 
 #include <cstdio>
+#include <string>
 
 namespace outshine {
 

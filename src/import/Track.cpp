@@ -1,6 +1,8 @@
 #include "Track.h"
 
 #include <cmath>
+#include <cstddef>
+#include <span>
 
 namespace outshine::Gltf {
 

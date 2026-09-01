@@ -1,4 +1,6 @@
 #include "Surfacing.h"
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Render {
 

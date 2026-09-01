@@ -1,4 +1,7 @@
 #include "FeatureField.h"
+#include <memory>
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Generators {
 

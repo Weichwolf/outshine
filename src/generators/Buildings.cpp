@@ -1,6 +1,8 @@
 #include "Buildings.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Generators {
 

@@ -1,5 +1,7 @@
 #include "StackProbe.h"
 
+#include <cstddef>
+#include <atomic>
 #include <cstdint>
 
 #include <pthread.h>

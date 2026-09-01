@@ -1,4 +1,9 @@
 #include "Views.h"
+#include <expected>
+#include <string>
+#include <span>
+#include <string_view>
+#include <cstddef>
 
 namespace outshine {
 

@@ -1,6 +1,13 @@
 #include "Triggers.h"
 
 #include <cmath>
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <span>
+#include <cstdint>
+#include <vector>
+#include <string_view>
 
 namespace outshine {
 

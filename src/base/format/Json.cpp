@@ -3,8 +3,12 @@
 #include <charconv>
 
 #include "DecimalEdge.h"
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
+#include <system_error>
+#include <string_view>
 
 namespace outshine {
 

@@ -1,4 +1,10 @@
 #include "Graph.h"
+#include <mutex>
+#include <thread>
+#include <cstddef>
+#include <atomic>
+#include <cstdint>
+#include <vector>
 
 namespace outshine::Work {
 

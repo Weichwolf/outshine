@@ -1,5 +1,7 @@
 #include "Telemetry.h"
 #include <cstdio>
+#include <string>
+#include <vector>
 
 namespace outshine {
 

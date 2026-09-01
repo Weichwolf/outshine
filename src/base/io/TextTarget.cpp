@@ -1,6 +1,7 @@
 #include "TextTarget.h"
 
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 
 namespace outshine {

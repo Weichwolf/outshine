@@ -2,8 +2,11 @@
 
 #include <algorithm>
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 namespace outshine {
 

@@ -1,5 +1,9 @@
 #include "Meshed.h"
 
+#include <string>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace outshine::Generators {

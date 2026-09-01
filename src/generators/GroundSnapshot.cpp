@@ -1,5 +1,10 @@
 #include "GroundSnapshot.h"
 
+#include <memory>
+#include <cstddef>
+#include <span>
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "GroundPatch.h"

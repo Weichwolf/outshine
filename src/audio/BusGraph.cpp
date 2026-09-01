@@ -1,6 +1,10 @@
 #include "BusGraph.h"
 
 #include <cmath>
+#include <cstddef>
+#include <string_view>
+#include <span>
+#include <string>
 
 namespace outshine::Audio {
 

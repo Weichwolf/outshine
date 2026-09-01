@@ -1,8 +1,15 @@
 #include "Mixer.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <numbers>
+#include <span>
+#include <string_view>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "Units.h"
 

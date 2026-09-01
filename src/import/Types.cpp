@@ -1,6 +1,8 @@
 #include "Types.h"
 
 #include <cstring>
+#include <string>
+#include <initializer_list>
 
 namespace outshine::Gltf {
 

@@ -3,6 +3,9 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
+#include <cstdint>
+#include <cstddef>
+#include <vector>
 
 namespace outshine::Core {
 

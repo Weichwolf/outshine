@@ -1,5 +1,13 @@
 #include "Heap.h"
 #include <chrono>
+#include <numbers>
+#include <cmath>
+#include <cstddef>
+#include <string>
+#include <vector>
+#include <expected>
+#include <ratio>
+#include <cstdint>
 
 #include "EngineHeld.h"
 #include "TileGeodesy.h"

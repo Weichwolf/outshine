@@ -3,6 +3,11 @@
 
 #include "Emit.h"
 #include "Subject.h"
+#include <vector>
+#include <cstdint>
+#include <string>
+#include <cstddef>
+#include <utility>
 
 namespace outshine {
 

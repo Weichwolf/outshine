@@ -9,6 +9,8 @@
 #include "Alignment.h"
 #include "Angle.h"
 #include <cstdio>
+#include <string>
+#include <vector>
 
 #include "Carriageway.h"
 #include "Fit.h"

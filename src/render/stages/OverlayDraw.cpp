@@ -1,6 +1,9 @@
 #include "OverlayDraw.h"
 
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <utility>
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"

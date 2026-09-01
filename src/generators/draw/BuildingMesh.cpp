@@ -3,8 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <map>
+#include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "BuildingShape.h"

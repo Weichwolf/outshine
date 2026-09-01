@@ -1,5 +1,7 @@
 #include "Heap.h"
 #include <bit>
+#include <string>
+#include <cstdint>
 
 #include "Asset.h"
 

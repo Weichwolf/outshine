@@ -1,4 +1,5 @@
 #include "GroundTable.h"
+#include <memory>
 
 namespace outshine::Generators {
 

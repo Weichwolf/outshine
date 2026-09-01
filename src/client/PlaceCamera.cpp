@@ -1,8 +1,12 @@
 #include "PlaceCamera.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <ratio>
+#include <span>
+#include <string_view>
 #include <system_error>
 #include <array>
 #include <chrono>
@@ -15,6 +19,7 @@
 
 #include <Outshine.h>
 #include <Scenario.h>
+#include <vector>
 
 #include "Sha256.h"
 

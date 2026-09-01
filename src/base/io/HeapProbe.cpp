@@ -2,7 +2,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <ratio>
 
 #if defined(__APPLE__)
 #include <malloc/malloc.h>

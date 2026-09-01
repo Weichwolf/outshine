@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
 #include <optional>
+#include <vector>
+#include <utility>
 
 #include "FacadeUv.h"
 #include "Geodesy.h"

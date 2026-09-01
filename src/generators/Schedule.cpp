@@ -1,6 +1,9 @@
 #include "Schedule.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <optional>
+#include <cstdint>
 
 namespace outshine::Generators {
 

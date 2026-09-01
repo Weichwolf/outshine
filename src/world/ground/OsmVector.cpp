@@ -1,6 +1,10 @@
 #include "OsmVector.h"
 
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <vector>
+#include <utility>
 
 namespace outshine::Ground {
 

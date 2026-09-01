@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <optional>
 
 namespace outshine::Generators {
 

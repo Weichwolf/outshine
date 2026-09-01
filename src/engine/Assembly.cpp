@@ -1,6 +1,9 @@
 #include "Assembly.h"
 
+#include <cstdint>
 #include <cstdlib>
+#include <vector>
+#include <string>
 
 namespace outshine {
 

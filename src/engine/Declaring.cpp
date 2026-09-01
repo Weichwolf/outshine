@@ -3,7 +3,15 @@
 #include "Ephemeris.h"
 #include "CivilTime.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <ctime>
+#include <expected>
+#include <string>
+#include <span>
+#include <vector>
+#include <utility>
+#include <string_view>
 
 namespace outshine {
 

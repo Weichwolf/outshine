@@ -1,6 +1,9 @@
 #include "Variant.h"
 
 #include "Document.h"
+#include <string>
+#include <vector>
+#include <cstddef>
 
 namespace outshine::Gltf {
 

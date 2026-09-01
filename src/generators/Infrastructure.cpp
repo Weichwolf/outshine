@@ -1,4 +1,7 @@
 #include "Infrastructure.h"
+#include <optional>
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Generators {
 

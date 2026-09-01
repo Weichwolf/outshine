@@ -3,6 +3,11 @@
 #include <algorithm>
 
 #include <cmath>
+#include <cstddef>
+#include <string>
+#include <utility>
+#include <span>
+#include <vector>
 
 namespace outshine {
 

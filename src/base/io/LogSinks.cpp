@@ -1,4 +1,6 @@
 #include "LogSinks.h"
+#include <span>
+#include <cstdio>
 
 namespace outshine {
 

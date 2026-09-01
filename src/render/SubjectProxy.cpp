@@ -1,15 +1,22 @@
 #include "Shape.h"
+#include <array>
 #include <atomic>
 #include <chrono>
 #include "SubjectProxy.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 
 #include "Heap.h"
 
 #include <numbers>
 #include <cmath>
+#include <span>
+#include <ratio>
 #include <string>
+#include <vector>
 
 #include "SceneRenderer.h"
 

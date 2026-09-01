@@ -4,6 +4,12 @@
 #include "BuildingDraw.h"
 #include "Buildings.h"
 #include "Species.h"
+#include <string_view>
+#include <string>
+#include <cstddef>
+#include <vector>
+#include <memory>
+#include <utility>
 
 namespace outshine::Generators {
 

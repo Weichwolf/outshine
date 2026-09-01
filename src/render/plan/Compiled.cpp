@@ -2,6 +2,13 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <vector>
+#include <string>
+#include <optional>
+#include <string_view>
+#include <expected>
+#include <memory>
+#include <utility>
 
 #include "Sha256.h"
 

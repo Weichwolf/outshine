@@ -2,10 +2,13 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <ratio>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "ChunkSurface.h"

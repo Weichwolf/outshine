@@ -1,9 +1,15 @@
 #include "ContentStore.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <atomic>
 #include <cstdio>
 #include <filesystem>
+#include <string>
+#include <string_view>
 #include <system_error>
+#include <vector>
+#include <utility>
 
 #include "Sha256.h"
 

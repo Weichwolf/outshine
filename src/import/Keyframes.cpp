@@ -1,4 +1,5 @@
 #include "Keyframes.h"
+#include <cstddef>
 
 namespace outshine {
 

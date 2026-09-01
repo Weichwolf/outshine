@@ -2,6 +2,11 @@
 
 #include "OsmLayer.h"
 
+#include <cstddef>
+#include <mutex>
+#include <cstdint>
+#include <memory>
+#include <optional>
 #include <span>
 
 #include "Capacity.h"
@@ -12,6 +17,9 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <string_view>
+#include <string>
+#include <utility>
 
 namespace outshine::Ground {
 

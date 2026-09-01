@@ -1,7 +1,10 @@
 #include "LightVisibilityStage.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "ShaderFile.h"
 #include "ShaderPrelude.h"

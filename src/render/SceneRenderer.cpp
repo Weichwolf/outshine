@@ -3,11 +3,19 @@
 
 #include "SceneRenderer.h"
 
+#include <cstdint>
+#include <expected>
+#include <memory>
 #include <numbers>
 #include <cmath>
 #include <cstring>
 
 #include <SDL3/SDL.h>
+#include <string_view>
+#include <utility>
+#include <ratio>
+#include <vector>
+#include <optional>
 
 #include "Log.h"
 #include "stages/DepthPyramid.h"

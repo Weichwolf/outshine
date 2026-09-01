@@ -1,6 +1,11 @@
 #include "Pose.h"
 
 #include "Document.h"
+#include <string>
+#include <vector>
+#include <cstddef>
+#include <memory>
+#include <utility>
 
 namespace outshine::Gltf {
 

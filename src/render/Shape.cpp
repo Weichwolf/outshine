@@ -2,6 +2,11 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <span>
+#include <vector>
+#include <cstdint>
+#include <ratio>
 
 namespace outshine::Render {
 

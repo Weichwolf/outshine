@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <string>
+#include <vector>
+#include <system_error>
+#include <utility>
 
 namespace outshine::Generators {
 

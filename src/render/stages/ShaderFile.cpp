@@ -1,6 +1,8 @@
 #include "ShaderFile.h"
 
 #include <cstdio>
+#include <string_view>
+#include <string>
 
 namespace outshine::Render {
 

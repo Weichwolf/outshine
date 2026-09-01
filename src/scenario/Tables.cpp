@@ -1,6 +1,14 @@
 #include "Tables.h"
 
 #include <charconv>
+#include <expected>
+#include <string>
+#include <span>
+#include <cstddef>
+#include <vector>
+#include <system_error>
+#include <utility>
+#include <string_view>
 
 namespace outshine {
 

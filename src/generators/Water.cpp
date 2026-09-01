@@ -1,4 +1,6 @@
 #include "Water.h"
+#include <cstddef>
+#include <cstdint>
 
 namespace outshine::Generators {
 

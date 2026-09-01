@@ -1,6 +1,7 @@
 #include "DrawSet.h"
 
 #include <cassert>
+#include <cstddef>
 
 namespace outshine::Generators {
 

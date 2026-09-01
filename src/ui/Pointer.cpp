@@ -1,4 +1,6 @@
 #include "Pointer.h"
+#include <cstddef>
+#include <string>
 
 namespace outshine::Ui {
 

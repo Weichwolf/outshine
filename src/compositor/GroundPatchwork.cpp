@@ -1,6 +1,12 @@
 #include "GroundPatchwork.h"
 
 #include <cmath>
+#include <vector>
+#include <cstdint>
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <utility>
 
 #include "TileGeodesy.h"
 
