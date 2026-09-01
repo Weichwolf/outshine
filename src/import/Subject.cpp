@@ -1287,8 +1287,8 @@ bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill)
   Vec3 centre;
   for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
 
-  const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
-  const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
+  const double azimuth = Render::kFramingAzimuthDeg * kDeg2Rad;
+  const double elevation = Render::kFramingElevationDeg * kDeg2Rad;
 
   const Vec3 toEye = {{std::cos(elevation) * std::cos(azimuth),
                        std::sin(elevation),

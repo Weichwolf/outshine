@@ -124,8 +124,8 @@ inline void EnuAxesEcef(double latDeg, double lonDeg, Vec3 &E, Vec3 &N, Vec3 &U)
 }
 
 inline double Wrap180(double deg) {
-  while (deg > 180.0) { deg -= 360.0; }
-  while (deg < -180.0) { deg += 360.0; }
+  while (deg > kDegPerHalfTurn) { deg -= kDegPerTurn; }
+  while (deg < -kDegPerHalfTurn) { deg += kDegPerTurn; }
   return deg;
 }
 
@@ -148,7 +148,7 @@ inline double BearingDeg(double refLat, double refLon, double lat, double lon) {
   double n;
   EnuOffsetM(refLat, refLon, lat, lon, e, n);
   const double brg = std::atan2(e, n) * kRad2Deg;
-  return brg < 0.0 ? brg + 360.0 : brg;
+  return brg < 0.0 ? brg + kDegPerTurn : brg;
 }
 
 inline void EnuToBodyLos(double rollDeg,

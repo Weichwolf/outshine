@@ -319,7 +319,8 @@ bool Engine::State::Composes() {
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
                               : 720.0;
-    World.Stack.SeeFootprintsWith(highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / 360.0)));
+    World.Stack.SeeFootprintsWith(highPx /
+                                  (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn)));
   }
   if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
     std::string why;
@@ -793,8 +794,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         }
         if (one > 0.0 && two > 0.0) {
           const double leanDeg =
-              std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) * 180.0 /
-              std::numbers::pi;
+              std::acos(std::fmin(1.0, std::fmax(-1.0, dot / std::sqrt(one * two)))) *
+              kDegPerHalfTurn / std::numbers::pi;
           leaning = std::max(leaning, leanDeg);
           leanSum += leanDeg;
           ++leanCount;
@@ -1915,7 +1916,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 sinBetween;
             back = std::max(back, reach);
           }
-          double sharpest = 180.0;
+          double sharpest = kDegPerHalfTurn;
           for (const Leaving &other : leaving) {
             if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
             const double between =
@@ -1923,7 +1924,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                          static_cast<double>(mine.DirN) * other.DirN,
                                      -1.0,
                                      1.0));
-            sharpest = std::min(sharpest, 180.0 - between * kRad2Deg);
+            sharpest = std::min(sharpest, kDegPerHalfTurn - between * kRad2Deg);
           }
           const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
           trimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;

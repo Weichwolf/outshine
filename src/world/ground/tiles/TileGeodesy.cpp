@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "TileGeodesy.h"
 
 #include <algorithm>
@@ -8,8 +9,8 @@ namespace outshine::Ground {
 
 namespace {
 
-constexpr double kDeg2Rad = kPi / 180.0;
-constexpr double kRad2Deg = 180.0 / kPi;
+constexpr double kDeg2Rad = kPi / kDegPerHalfTurn;
+constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
 } // namespace
 
@@ -19,7 +20,7 @@ TileIndex TileIndex::Of(Geo g, int z) {
   }
 
   const double n = std::ldexp(1.0, z);
-  const double xf = (g.LonDeg + 180.0) / 360.0 * n;
+  const double xf = (g.LonDeg + kDegPerHalfTurn) / kDegPerTurn * n;
   const double yf = (1.0 - std::asinh(std::tan(g.LatDeg * kDeg2Rad)) / kPi) * 0.5 * n;
 
   double xc = std::floor(xf);
@@ -34,8 +35,8 @@ TileIndex TileIndex::Of(Geo g, int z) {
 GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
   GeoBounds b;
   const double n = std::ldexp(1.0, z);
-  b.MinLonDeg = static_cast<double>(x) / n * 360.0 - 180.0;
-  b.MaxLonDeg = static_cast<double>(x + 1) / n * 360.0 - 180.0;
+  b.MinLonDeg = static_cast<double>(x) / n * kDegPerTurn - kDegPerHalfTurn;
+  b.MaxLonDeg = static_cast<double>(x + 1) / n * kDegPerTurn - kDegPerHalfTurn;
   const double yn = 1.0 - 2.0 * static_cast<double>(y) / n;
   const double ys = 1.0 - 2.0 * static_cast<double>(y + 1) / n;
   b.MaxLatDeg = kRad2Deg * std::atan(std::sinh(kPi * yn));
@@ -53,7 +54,7 @@ Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t local
   const double xf = static_cast<double>(x) + static_cast<double>(localX) * invExtent;
   const double yf = static_cast<double>(y) + static_cast<double>(localY) * invExtent;
 
-  g.LonDeg = xf / n * 360.0 - 180.0;
+  g.LonDeg = xf / n * kDegPerTurn - kDegPerHalfTurn;
   const double yy = 1.0 - 2.0 * yf / n;
   g.LatDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
   g.AltM = 0.0;
@@ -66,7 +67,7 @@ Geo TileFracToGeo(int z, uint32_t x, uint32_t y, double fx, double fy) {
   const double yf = (static_cast<double>(y) + fy) / n;
 
   Geo g;
-  g.LonDeg = xf * 360.0 - 180.0;
+  g.LonDeg = xf * kDegPerTurn - kDegPerHalfTurn;
   const double yy = 1.0 - 2.0 * yf;
   g.LatDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
   g.AltM = 0.0;
@@ -132,7 +133,7 @@ EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
     return {State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0};
   }
 
-  const double mpd = kPi * kWgs84A / 180.0;
+  const double mpd = kPi * kWgs84A / kDegPerHalfTurn;
   return {State::Usable, originLatDeg, originLonDeg, mpd, std::cos(originLatDeg * kDeg2Rad) * mpd};
 }
 

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "Units.h"
 #include "TileMath.h"
 #include "Wgs84.h"
 
@@ -57,10 +58,10 @@ private:
 inline TileFrac ToTileFracClamped(Geo g, int z) {
   const double n = std::ldexp(1.0, z);
   const double latDeg = ClampD(g.LatDeg, -kMercatorLatMaxDeg, kMercatorLatMaxDeg);
-  const double lonDeg = ClampD(g.LonDeg, -180.0, 180.0);
-  const double lr = latDeg * kPi / 180.0;
+  const double lonDeg = ClampD(g.LonDeg, -kDegPerHalfTurn, kDegPerHalfTurn);
+  const double lr = latDeg * kDeg2Rad;
   TileFrac f;
-  f.X = (lonDeg + 180.0) / 360.0 * n;
+  f.X = (lonDeg + kDegPerHalfTurn) / kDegPerTurn * n;
   f.Y = (1.0 - std::log(std::tan(lr) + 1.0 / std::cos(lr)) / kPi) / 2.0 * n;
   return f;
 }

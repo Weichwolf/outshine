@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "Wayfinding.h"
 
 #include <array>
@@ -25,7 +26,7 @@ constexpr double kNoLeastYet = 1.0e9;
 
 namespace {
 
-constexpr double kDegToRad = std::numbers::pi / 180.0;
+constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
 
 double MetresPerDegreeLat(double sphereRadiusM) {
   return sphereRadiusM * kDegToRad;
@@ -38,7 +39,7 @@ double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
 
 [[nodiscard]] double LonApartDeg(double toDeg, double fromDeg) {
   const double apart = toDeg - fromDeg;
-  return apart - 360.0 * std::floor(apart / 360.0 + 0.5);
+  return apart - kDegPerTurn * std::floor(apart / kDegPerTurn + 0.5);
 }
 
 } // namespace
@@ -49,8 +50,8 @@ double ApartM(
   const double toLat = toLatDeg * kDegToRad;
   const double byLat = (toLatDeg - fromLatDeg) * kDegToRad;
   double byLon = toLonDeg - fromLonDeg;
-  while (byLon > 180.0) { byLon -= 360.0; }
-  while (byLon < -180.0) { byLon += 360.0; }
+  while (byLon > kDegPerHalfTurn) { byLon -= kDegPerTurn; }
+  while (byLon < -kDegPerHalfTurn) { byLon += kDegPerTurn; }
   byLon *= kDegToRad;
 
   const double half =
@@ -103,7 +104,7 @@ Network::RowShape Network::ShapeRowOver(int64_t row, double cellM) const {
   const double latCell = cellM / MetresPerDegreeLat(RadiusM_);
   const double rowLat = (static_cast<double>(row) + 0.5) * latCell;
   shape.LonCellDeg = cellM / MetresPerDegreeLon(rowLat, RadiusM_);
-  const double columns = std::ceil(360.0 / shape.LonCellDeg);
+  const double columns = std::ceil(kDegPerTurn / shape.LonCellDeg);
   shape.Columns = columns > 1.0 ? static_cast<int64_t>(columns) : 1;
   return shape;
 }
@@ -118,8 +119,10 @@ int64_t Network::RowOver(double latDeg, double cellM) const {
 }
 
 int64_t Network::ColumnIn(const RowShape &shape, double lonDeg) {
-  const double wrapped = lonDeg - 360.0 * std::floor((lonDeg + 180.0) / 360.0);
-  const auto column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
+  const double wrapped =
+      lonDeg - kDegPerTurn * std::floor((lonDeg + kDegPerHalfTurn) / kDegPerTurn);
+  const auto column =
+      static_cast<int64_t>(std::floor((wrapped + kDegPerHalfTurn) / shape.LonCellDeg));
   return ((column % shape.Columns) + shape.Columns) % shape.Columns;
 }
 
@@ -556,8 +559,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
   double northLat = -kNoLeastYet;
   for (size_t at = 0; at < points; ++at) {
     double away = Points_[2 * at + 1] - aboutLon;
-    while (away > 180.0) { away -= 360.0; }
-    while (away < -180.0) { away += 360.0; }
+    while (away > kDegPerHalfTurn) { away -= kDegPerTurn; }
+    while (away < -kDegPerHalfTurn) { away += kDegPerTurn; }
     lon[at] = aboutLon + away;
     westLon = lon[at] < westLon ? lon[at] : westLon;
     eastLon = lon[at] > eastLon ? lon[at] : eastLon;
@@ -676,8 +679,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
         if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
         if (squareOf(atX, atY) != ours.Square) { continue; }
         double back = atX;
-        while (back > 180.0) { back -= 360.0; }
-        while (back < -180.0) { back += 360.0; }
+        while (back > kDegPerHalfTurn) { back -= kDegPerTurn; }
+        while (back < -kDegPerHalfTurn) { back += kDegPerTurn; }
         into.push_back(Crossing{.OverWay = static_cast<uint32_t>(segWay[mine]),
                                 .UnderWay = static_cast<uint32_t>(segWay[theirs]),
                                 .LatDeg = atY,

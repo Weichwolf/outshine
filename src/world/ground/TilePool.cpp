@@ -133,7 +133,7 @@ void TilePool::Focus(double latDeg, double lonDeg) {
 
 double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   const double n = std::ldexp(1.0, z);
-  const double cx = (FocusLonDeg_ + 180.0) / 360.0 * n;
+  const double cx = (FocusLonDeg_ + kDegPerHalfTurn) / kDegPerTurn * n;
   const double lat = FocusLatDeg_ * kDeg2Rad;
   const double cy = (1.0 - std::asinh(std::tan(lat)) / std::numbers::pi) * 0.5 * n;
   const double dx = static_cast<double>(x) + 0.5 - cx;

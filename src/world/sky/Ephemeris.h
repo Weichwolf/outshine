@@ -13,20 +13,20 @@ inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az
   const double D2R = kDeg2Rad;
   const double jd = utc / 86400.0 + 2440587.5;
   const double n = jd - 2451545.0;
-  const double L = fmod(280.460 + 0.9856474 * n, 360.0);
-  const double g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
+  const double L = fmod(280.460 + 0.9856474 * n, kDegPerTurn);
+  const double g = fmod(357.528 + 0.9856003 * n, kDegPerTurn) * D2R;
   const double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R;
   const double eps = (23.439 - 0.0000004 * n) * D2R;
   const double dec = asin(sin(eps) * sin(lam));
   const double ra = atan2(cos(eps) * sin(lam), cos(lam));
   const double gmst = fmod(18.697374558 + 24.06570982441908 * n, 24.0);
-  const double lst = fmod(gmst * 15.0 + lon, 360.0);
+  const double lst = fmod(gmst * 15.0 + lon, kDegPerTurn);
   const double ha = (lst - ra / D2R) * D2R;
   const double la = lat * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
   *el = static_cast<float>(asin(sinel) / D2R);
-  *az = static_cast<float>(
-      fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
+  *az = static_cast<float>(fmod(
+      atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn, kDegPerTurn));
 }
 
 inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
@@ -34,12 +34,12 @@ inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *a
   const double jd = utc / 86400.0 + 2440587.5;
   const double d = jd - 2451543.5;
 
-  const double N = fmod(125.1228 - 0.0529538083 * d, 360.0) * D2R;
+  const double N = fmod(125.1228 - 0.0529538083 * d, kDegPerTurn) * D2R;
   const double i = 5.1454 * D2R;
-  const double w = fmod(318.0634 + 0.1643573223 * d, 360.0) * D2R;
+  const double w = fmod(318.0634 + 0.1643573223 * d, kDegPerTurn) * D2R;
   const double a = 60.2666;
   const double e = 0.054900;
-  const double M = fmod(115.3654 + 13.0649929509 * d, 360.0) * D2R;
+  const double M = fmod(115.3654 + 13.0649929509 * d, kDegPerTurn) * D2R;
 
   double E = M + e * sin(M) * (1.0 + e * cos(M));
   for (int k = 0; k < 4; k++) { E -= (E - e * sin(E) - M) / (1.0 - e * cos(E)); }
@@ -67,15 +67,15 @@ inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *a
 
   const double n = jd - 2451545.0;
   const double gmst = fmod(18.697374558 + 24.06570982441908 * n, 24.0);
-  const double lst = fmod(gmst * 15.0 + lon, 360.0);
+  const double lst = fmod(gmst * 15.0 + lon, kDegPerTurn);
   const double ha = (lst - ra / D2R) * D2R;
   const double la = lat * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
   *el = static_cast<float>(asin(sinel) / D2R);
-  *az = static_cast<float>(
-      fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
+  *az = static_cast<float>(fmod(
+      atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn, kDegPerTurn));
 
-  const double Lsun = fmod(280.460 + 0.9856474 * n, 360.0) * D2R;
+  const double Lsun = fmod(280.460 + 0.9856474 * n, kDegPerTurn) * D2R;
   const double elong = lonecl - Lsun;
   *phase = static_cast<float>((1.0 - cos(elong)) * 0.5);
 }

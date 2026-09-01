@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+#include "Units.h"
 #include "math/Vec4.h"
 #include "TerrainTiles.h"
 
@@ -73,10 +74,11 @@ void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField 
 }
 
 double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
-  const double perLon = 111320.0 * std::cos(Shape_.FocusLatDeg * 3.14159265358979323846 / 180.0);
+  const double perLon =
+      111320.0 * std::cos(Shape_.FocusLatDeg * 3.14159265358979323846 / kDegPerHalfTurn);
   const double eastM = (lonDeg - Shape_.FocusLonDeg) * perLon;
   const double northM = (latDeg - Shape_.FocusLatDeg) * 111132.0;
-  const double facing = Shape_.BearingDeg * 3.14159265358979323846 / 180.0;
+  const double facing = Shape_.BearingDeg * 3.14159265358979323846 / kDegPerHalfTurn;
   const double along = eastM * std::sin(facing) + northM * std::cos(facing);
   const double across = eastM * std::cos(facing) - northM * std::sin(facing);
   const double wave = Shape_.WavelengthM > 1.0 ? Shape_.WavelengthM : 1.0;

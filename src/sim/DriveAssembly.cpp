@@ -100,7 +100,7 @@ bool AssembleDrive(const Scene &scene,
   say.Number("the zoom the ways are read at", static_cast<double>(kZoom), "");
 
   const double tileGroundM = outshine::Ground::kMercatorGirthM *
-                             std::cos(middleLat * outshine::kPi / 180.0) /
+                             std::cos(middleLat * outshine::kPi / kDegPerHalfTurn) /
                              static_cast<double>(1L << static_cast<uint32_t>(kZoom));
   const int kCorridorRing = 2;
   const long steps = static_cast<long>(std::ceil(straightM / tileGroundM)) + 1;
@@ -347,7 +347,8 @@ bool AssembleDrive(const Scene &scene,
   {
     const Vec3 up = {{under0.NormalM[0], under0.NormalM[1], -under0.NormalM[2]}};
     say.Number("how far the ground normal leans from vertical where the car stands",
-               std::acos(under0.NormalM[1] > 1.0 ? 1.0 : under0.NormalM[1]) * 180.0 / outshine::kPi,
+               std::acos(under0.NormalM[1] > 1.0 ? 1.0 : under0.NormalM[1]) * kDegPerHalfTurn /
+                   outshine::kPi,
                "deg");
     const Vec3 aheadM = {{std::cos(start.HeadingRad), start.Slope, -std::sin(start.HeadingRad)}};
     outshine::Physics::Lie(body, aheadM, up);

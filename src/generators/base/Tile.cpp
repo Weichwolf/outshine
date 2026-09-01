@@ -25,8 +25,9 @@ double TileLatDeg(int y, int zoom) {
 }
 
 double TileLonDeg(int x, int zoom) {
-  return static_cast<double>(x) / static_cast<double>(1u << static_cast<unsigned>(zoom)) * 360.0 -
-         180.0;
+  return static_cast<double>(x) / static_cast<double>(1u << static_cast<unsigned>(zoom)) *
+             kDegPerTurn -
+         kDegPerHalfTurn;
 }
 
 } // namespace
@@ -48,7 +49,7 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
 Tile Tile::Of(int zoom, double lat, double lon) {
   const auto scale = static_cast<double>(1u << static_cast<unsigned>(zoom));
   const double s = std::sin(lat * kDeg2Rad);
-  const int x = static_cast<int>(std::floor((lon + 180.0) / 360.0 * scale));
+  const int x = static_cast<int>(std::floor((lon + kDegPerHalfTurn) / kDegPerTurn * scale));
   const int y =
       static_cast<int>(std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale));
   return {zoom, x, y};

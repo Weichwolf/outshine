@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "TerrainLoader.h"
 #include "math/Vec3.h"
 
@@ -47,8 +48,8 @@ double Clamped01(double v) {
 }
 
 double Wrapped180(double lonDeg) {
-  while (lonDeg > 180.0) { lonDeg -= 360.0; }
-  while (lonDeg < -180.0) { lonDeg += 360.0; }
+  while (lonDeg > kDegPerHalfTurn) { lonDeg -= kDegPerTurn; }
+  while (lonDeg < -kDegPerHalfTurn) { lonDeg += kDegPerTurn; }
   return lonDeg;
 }
 
@@ -246,7 +247,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const double westAt = clamped(u - step);
   const double southAt = clamped(v + step);
   const double northAt = clamped(v - step);
-  const double spanM = kMercatorGirthM * std::cos(lat * kPi / 180.0) /
+  const double spanM = kMercatorGirthM * std::cos(lat * kDeg2Rad) /
                        static_cast<double>(1ULL << static_cast<uint32_t>(zoom)) /
                        static_cast<double>(Surface_.Grid);
   const double acrossEastM = (eastAt - westAt) * static_cast<double>(tile.Postings) * spanM;
@@ -374,7 +375,7 @@ GroundSample GroundStream::At(double lat, double lon) const {
 }
 
 double GroundStream::PostM(double latDeg) const {
-  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) /
+  return kMercatorGirthM * std::cos(latDeg * kDeg2Rad) /
          static_cast<double>(1ULL << static_cast<uint32_t>(Surface_.Z)) /
          static_cast<double>(Surface_.Grid);
 }

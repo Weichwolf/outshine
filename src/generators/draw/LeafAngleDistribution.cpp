@@ -25,8 +25,8 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   const double inv = 1.0 / static_cast<double>(Count_);
   double elevSum = 0.0;
   for (const LeafPoint &p : plant.LeafPoints) {
-    const double e =
-        std::asin(static_cast<double>(std::fmin(std::fabs(p.Dir[1]), 1.0f))) * 180.0 / kPi;
+    const double e = std::asin(static_cast<double>(std::fmin(std::fabs(p.Dir[1]), 1.0f))) *
+                     kDegPerHalfTurn / kPi;
     elevSum += e;
     int bin = static_cast<int>(e / (90.0 / static_cast<double>(kTiltBins)));
     if (bin >= kTiltBins) { bin = kTiltBins - 1; }
@@ -37,7 +37,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
 
   const double azStep = 2.0 * kPi / static_cast<double>(kAzimuths);
   for (int d = 0; d < kElevations; ++d) {
-    const double el = static_cast<double>(d) * kPi / 180.0;
+    const double el = static_cast<double>(d) * kDeg2Rad;
     const double se = std::sin(el);
     const double ce = std::cos(el);
     double acc = 0.0;
@@ -71,7 +71,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
     double sy = 0.0;
     double sxy = 0.0;
     for (int d = 0; d < kElevations; ++d) {
-      const double s = std::sin(static_cast<double>(d) * kPi / 180.0);
+      const double s = std::sin(static_cast<double>(d) * kDeg2Rad);
       const double v = std::pow(s, p);
       x[static_cast<size_t>(d)] = v;
       sx += v;
