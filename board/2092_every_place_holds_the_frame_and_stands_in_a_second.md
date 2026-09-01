@@ -84,3 +84,17 @@ while the streaming path takes about as long as it did last time.
 Repairing the frame-55 block probably repairs both, because a shot that never waits cannot disagree
 about what arrived during the wait. Until then, a digest comparison across a change is only evidence
 when both runs streamed.
+
+### Two suspects, neither measured
+
+`harness/claims/NoFramePathCallReachesABlock` is red and names `Render::Readback::FromBuffer`,
+`::Land` and `::Release` as REACHABLE from `Engine::render`. Those are the `Read*` instruments --
+ReadDepth, ReadSceneLinear, ReadPyramid and the rest -- so it is reachability in the link graph and
+not proof of a per-frame call; a readback every frame would show in p50, and p50 is 3 ms.
+
+And the stall sits at frame 55 of 120, which is NOT the capture at the end. Something happens once,
+mid-run. `meshMs=545` appears in the log around there, which is half a second and not four.
+
+So: a named suspect and a plausible mechanism, and no measurement joining them. Whoever takes this
+item states what they will measure BEFORE changing anything -- per-frame timing with the phase that
+owns each millisecond, so the four seconds have a name rather than a theory.
