@@ -41,6 +41,26 @@ static_assert(sizeof(Vec3) == 3 * sizeof(double) && alignof(Vec3) == alignof(dou
   return {{v[0] * by, v[1] * by, v[2] * by}};
 }
 
+struct Vec3f {
+  std::array<float, 3> Axis = {0.0f, 0.0f, 0.0f};
+
+  [[nodiscard]] constexpr float operator[](size_t axis) const { return Axis[axis]; }
+
+  [[nodiscard]] constexpr float &operator[](size_t axis) { return Axis[axis]; }
+
+  [[nodiscard]] constexpr std::span<const float, 3> Row() const { return Axis; }
+
+  [[nodiscard]] constexpr std::span<float, 3> Row() { return Axis; }
+
+  [[nodiscard]] constexpr const float *data() const { return Axis.data(); }
+
+  [[nodiscard]] constexpr float *data() { return Axis.data(); }
+};
+
+static_assert(sizeof(Vec3f) == 3 * sizeof(float) && alignof(Vec3f) == alignof(float),
+              "the single-precision row is what a device reads; it is three floats and nothing "
+              "else, so a record that hands it to a shader hands over exactly what it declares");
+
 [[nodiscard]] inline double Dot(std::span<const double, 3> a, std::span<const double, 3> b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }

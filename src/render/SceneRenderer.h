@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
+#include "Vec3.h"
 #include "Heap.h"
 #include "Scenario.h"
 #include <span>
@@ -181,17 +182,17 @@ public:
     SkyIrradianceStage_.Declare(medium, CosSunZenith_);
   }
 
-  void SetShadowFrame(const float toSun[3], const float up[3], double radiusM) {
-    Shadow_.Declare(toSun, up, radiusM);
+  void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
+    Shadow_.Declare(toSun.data(), up.data(), radiusM);
   }
 
-  void SetSky(const float toSun[3], const float up[3], float illuminanceLux, float eyeHeightM) {
+  void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
     SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
-    Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
-    Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
+    Sky_.Declare(Medium_, toSun.data(), up.data(), illuminanceLux, eyeHeightM);
+    Aerial_.Declare(Medium_, toSun.data(), up.data(), illuminanceLux, eyeHeightM);
   }
 
   void SetSkyEye(float eyeHeightM) {
@@ -253,10 +254,7 @@ public:
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-  void SetCameraBasis(const double eye[3],
-                      const double fwd[3],
-                      const double right[3],
-                      const double up[3]);
+  void SetCameraBasis(const Vec3 &eye, const Vec3 &fwd, const Vec3 &right, const Vec3 &up);
 
   void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? static_cast<float>(deg) : FovDeg_; }
 
@@ -424,7 +422,7 @@ private:
   };
 
   [[nodiscard]] Placed PictureRect() const;
-  double Eye_[3] = {0, 0, 0};
+  Vec3 Eye_ = {{0, 0, 0}};
   double Fwd_[3] = {0, 0, 0}, Right_[3] = {0, 0, 0}, Up_[3] = {0, 0, 0};
   float FovDeg_ = 60.0f;
   float OrthoM_ = 0.0f;
@@ -434,7 +432,7 @@ private:
 
   SDL_GPUFence *Landed_[kFramesInFlight] = {};
   int LandedAt_ = 0;
-  double PrevEye_[3] = {0, 0, 0};
+  Vec3 PrevEye_ = {{0, 0, 0}};
   float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 

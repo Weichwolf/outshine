@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_COMPOSITOR_GROUNDPATCHWORK_H
 #define OUTSHINE_COMPOSITOR_GROUNDPATCHWORK_H
 
+#include "Vec3.h"
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -19,10 +20,10 @@ struct Around {
   int Levels = 1;
   int Grid = kPatchGrid;
   bool Asking = false;
-  double EyeM[3] = {0.0, 0.0, 0.0};
+  Vec3 EyeM = {{0.0, 0.0, 0.0}};
   float FocalPx = 0.0f;
   float Tau = kPixelTau;
-  float Up[3] = {0.0f, 1.0f, 0.0f};
+  Vec3f Up = {{0.0f, 1.0f, 0.0f}};
 };
 
 struct Patchwork {
@@ -33,8 +34,8 @@ struct Patchwork {
 
   std::vector<DagCluster> Clusters;
   std::vector<uint32_t> AllIndex;
-  double ClusterEyeM[3] = {0.0, 0.0, 0.0};
-  double OriginEcef[3] = {0.0, 0.0, 0.0};
+  Vec3 ClusterEyeM = {{0.0, 0.0, 0.0}};
+  Vec3 OriginEcef = {{0.0, 0.0, 0.0}};
   size_t Tiles = 0;
   size_t Pending = 0;
   size_t Absent = 0;

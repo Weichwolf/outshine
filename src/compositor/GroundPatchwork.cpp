@@ -254,9 +254,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
           out.Clusters.push_back(carried);
         }
         if (over.FocalPx > 0.0f && !built.Clusters.empty()) {
-          const double eyeInTile[3] = {over.EyeM[0] - built.OriginEcef[0],
-                                       over.EyeM[1] - built.OriginEcef[1],
-                                       over.EyeM[2] - built.OriginEcef[2]};
+          const Vec3 eyeInTile = {{over.EyeM[0] - built.OriginEcef[0],
+                                   over.EyeM[1] - built.OriginEcef[1],
+                                   over.EyeM[2] - built.OriginEcef[2]}};
           for (const DagCluster &cluster : built.Clusters) {
             if (!DagSelect(cluster, eyeInTile, over.FocalPx, over.Tau, over.Up)) { continue; }
             ++out.ClustersDrawn;

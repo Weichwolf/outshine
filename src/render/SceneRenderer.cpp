@@ -132,10 +132,10 @@ float HalfToFloat(uint16_t bits) {
 
 } // namespace
 
-void SceneRenderer::SetCameraBasis(const double eye[3],
-                                   const double fwd[3],
-                                   const double right[3],
-                                   const double up[3]) {
+void SceneRenderer::SetCameraBasis(const Vec3 &eye,
+                                   const Vec3 &fwd,
+                                   const Vec3 &right,
+                                   const Vec3 &up) {
   for (int axis = 0; axis < 3; axis++) {
     Eye_[axis] = eye[axis];
     Fwd_[axis] = fwd[axis];

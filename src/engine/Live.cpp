@@ -478,26 +478,24 @@ bool Live::Build(std::string &error) {
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
-    std::array<float, 3> toSun = {static_cast<float>(std::cos(elevation) * std::sin(bearing)),
-                                  static_cast<float>(std::sin(elevation)),
-                                  static_cast<float>(std::cos(elevation) * std::cos(bearing))};
-    std::array<float, 3> up = {0.0f, 1.0f, 0.0f};
+    const Vec3f toSun = {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
+                          static_cast<float>(std::sin(elevation)),
+                          static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
+    const Vec3f up = {{0.0f, 1.0f, 0.0f}};
 
     Renderer_->SetSky(
-        toSun.data(),
-        up.data(),
+        toSun,
+        up,
         static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
         0.0f);
-    if (ShadowRadiusStoodM_ > 0.0) {
-      Renderer_->SetShadowFrame(toSun.data(), up.data(), ShadowRadiusStoodM_);
-    }
+    if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
   }
 
-  std::array<double, 3> eye = {0.0, 0.0, 0.0};
-  std::array<double, 3> forward = {0.0, 0.0, -1.0};
-  std::array<double, 3> right = {1.0, 0.0, 0.0};
-  std::array<double, 3> up = {0.0, 1.0, 0.0};
-  Renderer_->SetCameraBasis(eye.data(), forward.data(), right.data(), up.data());
+  const Vec3 eye = {{0.0, 0.0, 0.0}};
+  const Vec3 forward = {{0.0, 0.0, -1.0}};
+  const Vec3 right = {{1.0, 0.0, 0.0}};
+  const Vec3 up = {{0.0, 1.0, 0.0}};
+  Renderer_->SetCameraBasis(eye, forward, right, up);
 
   if (Shaped_.TriangleCount() > 0) {
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac,

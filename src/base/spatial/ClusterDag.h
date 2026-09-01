@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 #define OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 
+#include "Vec3.h"
 #include <algorithm>
 #include <numbers>
 #include <algorithm>
@@ -15,9 +16,9 @@
 namespace outshine {
 
 struct DagCluster {
-  float SelfCenter[3] = {0, 0, 0};
+  Vec3f SelfCenter = {{0, 0, 0}};
   float SelfRadius = 0.0f;
-  float ParentCenter[3] = {0, 0, 0};
+  Vec3f ParentCenter = {{0, 0, 0}};
   float ParentRadius = 0.0f;
   float SelfErr = 0.0f;
   float ParentErr = 0.0f;
@@ -28,14 +29,14 @@ struct DagCluster {
 inline constexpr float kDagRootErr = 3.0e38f;
 
 inline void
-BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], float *rad) {
+BoundingSphere(const float *verts, uint32_t nverts, int stride, Vec3f &ctr, float *rad) {
   if ((verts == nullptr) || nverts == 0) {
     ctr[0] = ctr[1] = ctr[2] = 0.0f;
     *rad = 0.0f;
     return;
   }
-  float lo[3];
-  float hi[3];
+  Vec3f lo;
+  Vec3f hi;
   for (int a = 0; a < 3; a++) {
     lo[a] = verts[a];
     hi[a] = verts[a];
@@ -77,10 +78,10 @@ struct ClusterDagOpts {
 
   int (*ClassOf)(const float *v) = nullptr;
 
-  float Up[3] = {0.0f, 0.0f, 0.0f};
+  Vec3f Up = {{0.0f, 0.0f, 0.0f}};
 };
 
-inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], const float up[3]) {
+inline float DagCrossFactor(const Vec3f &ctr, float rad, const Vec3 &eye, const Vec3f &up) {
   const double u2 = static_cast<double>(up[0]) * up[0] + static_cast<double>(up[1]) * up[1] +
                     static_cast<double>(up[2]) * up[2];
   if (u2 < 1.0e-12) { return 1.0f; }
@@ -103,8 +104,8 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
                                      std::sin(hi > std::numbers::pi ? std::numbers::pi : hi)));
 }
 
-inline float DagSse(
-    const float ctr[3], float rad, float err, const double eye[3], float fPx, const float up[3]) {
+inline float
+DagSse(const Vec3f &ctr, float rad, float err, const Vec3 &eye, float fPx, const Vec3f &up) {
   if (!(err > 0.0f)) { return 0.0f; }
   if (err >= kDagRootErr) { return kDagRootErr; }
   const double dx = static_cast<double>(ctr[0]) - eye[0];
@@ -123,7 +124,7 @@ inline double DagEdgeSq(double errM, float fPx, float tau) {
 }
 
 [[nodiscard]] inline bool
-DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau, const float up[3]) {
+DagSelect(const DagCluster &c, const Vec3 &eye, float fPx, float tau, const Vec3f &up) {
   return DagSse(c.SelfCenter, c.SelfRadius, c.SelfErr, eye, fPx, up) <= tau &&
          DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
 }
