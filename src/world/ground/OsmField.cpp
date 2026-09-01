@@ -189,7 +189,7 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       }
       f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
 
-      for (uint32_t t = 0; t < mvt.TagCount(sf); t++) {
+      for (uint32_t t = 0; t < outshine::Ground::OsmVector::TagCount(sf); t++) {
         const OsmVector::Tag tag = mvt.TagAt(sf, t);
         if (tag.Key.empty()) { continue; }
         Value v{};

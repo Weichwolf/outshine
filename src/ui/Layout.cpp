@@ -199,7 +199,7 @@ struct Placer {
               double contentX,
               double contentY,
               double contentWidth,
-              double emPx);
+              double emPx) const;
 
   void Measure(
       int node, const Computed *inherited, double availableWidth, double &width, double &height);
@@ -517,7 +517,7 @@ double Placer::Runs(int node,
                     double contentX,
                     double contentY,
                     double contentWidth,
-                    double emPx) {
+                    double emPx) const {
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
   const double lineHeight = lineFactor > 3.0 ? lineFactor : lineFactor * emPx;
   const Family face = FaceOf(style);

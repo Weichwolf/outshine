@@ -89,7 +89,7 @@ bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &err
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
   double ecef[16];
   for (size_t part = 0; part < rows; ++part) {
-    for (int at = 0; at < 16; ++at) { ecef[at] = proxy.Placement(part).data()[at]; }
+    for (int at = 0; at < 16; ++at) { ecef[at] = proxy.Placement(part)[at]; }
     renderer.MoveSubjectPlacement(part, ecef);
   }
   return renderer.HandSubjectPlacements(error);

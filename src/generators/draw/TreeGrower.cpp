@@ -124,10 +124,11 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
     const float roll = kGolden * static_cast<float>(i) + Rng_.Signed() * kRollJitterRad;
     const float lean = splay * (kLeanLeast + (1.0f - kLeanLeast) * Rng_.Unit());
     Tip t;
-    t.Dir = Form_.Lying(Form_.Arch) ? Normalize(Vec3(std::cos(lean), std::sin(lean) * 0.35f, 0))
-                                    : Normalize(Vec3(std::sin(lean) * std::cos(roll),
-                                                     std::cos(lean),
-                                                     std::sin(lean) * std::sin(roll)));
+    t.Dir = outshine::Generators::GrowthForm::Lying(Form_.Arch)
+                ? Normalize(Vec3(std::cos(lean), std::sin(lean) * 0.35f, 0))
+                : Normalize(Vec3(std::sin(lean) * std::cos(roll),
+                                 std::cos(lean),
+                                 std::sin(lean) * std::sin(roll)));
     t.Up = Vec3(0, 0, 1);
     if (Form_.Arch == Architecture::Hedge) {
       constexpr float kSlotJitter = 0.34f;

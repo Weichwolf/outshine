@@ -4,6 +4,7 @@
 #include "MetalRoughBrdf.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -27,7 +28,7 @@ inline constexpr int kEnergySamples = 2048;
   for (int i = 0; i < kEnergySamples; ++i) {
     const double u1 = (i + 0.5) / kEnergySamples;
     auto bits = static_cast<unsigned>(i);
-    bits = (bits << 16u) | (bits >> 16u);
+    bits = std::rotl(bits, 16);
     bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
     bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
     bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);

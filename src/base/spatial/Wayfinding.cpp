@@ -871,7 +871,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   };
 
   using Step = std::pair<double, size_t>;
-  std::priority_queue<Step, std::vector<Step>, std::greater<Step>> open;
+  std::priority_queue<Step, std::vector<Step>, std::greater<>> open;
   for (size_t which = 0; which < nearStart.size(); ++which) {
     const size_t seed = nearStart[which];
     const double awayM =

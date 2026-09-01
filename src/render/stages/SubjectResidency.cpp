@@ -229,7 +229,7 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
 }
 
 SubjectResidency::BoundImage
-SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) {
+SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   static const uint8_t white[4] = {255, 255, 255, 255};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;

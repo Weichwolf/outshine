@@ -33,7 +33,7 @@ namespace {
 
 [[nodiscard]] bool Declares(const Xml::Ref &parent, const char *child) {
   const Xml::Ref::Siblings named = parent.Children(child);
-  return named.begin() != named.end();
+  return named.begin() != outshine::Xml::Ref::Siblings::end();
 }
 
 struct Element {

@@ -292,7 +292,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
       case Data::Delivery::State::Delivered: break;
     }
   }
-  if (reply == Reply::Pending) { Sources_.Abandon(query, Wire_); }
+  if (reply == Reply::Pending) { outshine::Data::SourceSet::Abandon(query, Wire_); }
   const double blockedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - entered).count();
   tFetchBlockedMs += blockedMs;

@@ -100,7 +100,8 @@ struct SubjectResidency {
     StagingUsed_ = 0;
   }
 
-  [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
+  [[nodiscard]] BoundImage
+  Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
   struct Staged {
