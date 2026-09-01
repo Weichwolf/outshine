@@ -42,6 +42,13 @@ CheckOptions:
   # half; a positive integer literal is well defined and is ignored.
   bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
 
+  # `misc-non-private-member-variables-in-classes` enforces CLAUDE.md's own sentence -- a public data
+  # member is an invariant nobody can hold -- and the hazard it names is a class that hides SOME
+  # state and exposes the rest. A type whose members are ALL public is a record and has no invariant
+  # to break: include/Scenario.h holds fifty of them and not one `private:`. The check keeps the half
+  # that is about mixed classes.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
+
   readability-identifier-length.MinimumVariableNameLength: 1
   readability-identifier-length.MinimumParameterNameLength: 1
   readability-identifier-length.MinimumLoopCounterNameLength: 1
