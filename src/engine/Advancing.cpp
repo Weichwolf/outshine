@@ -1,6 +1,7 @@
 #include "Heap.h"
 #include <chrono>
 #include <numbers>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -102,7 +103,7 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
 bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
-    const double *const q = body.OrientationQ;
+    const std::array<double, 4> &q = body.OrientationQ;
     const double w = q[0];
     const double x = q[1];
     const double y = q[2];
@@ -134,7 +135,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Session.Volumes) {
-    Session.Volumes->Probe(0, body.PositionM, Ticking.ElapsedS);
+    Session.Volumes->Probe(0, body.PositionM.data(), Ticking.ElapsedS);
     for (const TriggerField::Fired &fired : Session.Volumes->Drain()) {
       ++Session.Fired;
       Published.Places(
