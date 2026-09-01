@@ -266,3 +266,45 @@ burial, with a mean of only 1.739 m -- a local spike, not a systemic offset.
 A corridor network is levelled as a NETWORK: the ways incident on a junction are pinned to one
 common elevation and each profile is designed against that pin. That is the next work, and the
 corpus has already named the nine cells that will prove it.
+
+## The junction is the last cause, and it is now the ONLY one
+
+Four repairs since, each with the count it moved:
+
+**The oracle was measuring wrong.** It took the highest ground vertex within a grid cell and called
+that "the ground over the road". On the sine valley the slope is 0.63, so a 4 m cell carries 2.5 m
+of SLOPE inside the reading -- most of what it reported was the grid. It now asks the exact
+question: the barycentric height of the yielded ring directly under each carriageway vertex.
+`roundabout-valley` 3.127 m -> 0.692 m without a line of geometry changing.
+
+**A profile anchored at one end drifts.** `DesignProfile` integrated its clamped gradients forward
+from station 0 and never came back to the terrain, so a 200 m way ended 14 m above a trough it
+should have crossed. It now removes the mean deviation from the terrain -- **balanced earthwork**,
+which is what the standards ask for and what makes two ways agree when they meet.
+`tee-valley` 14.421 m -> 5.499 m.
+
+**A balance must hang on the SHARED nodes.** Where a way carries nodes another way also carries,
+the balance is taken over those alone rather than over the whole length, so the shared point keeps
+its terrain height and both ways arrive at it. `RoadStation` grew one flag for it.
+
+**A bridge carries itself.** A span emits no corridor at all -- a bridge stands on structure, not on
+fill, and filling under it buried the very way it was built to cross. `bridgeOverWay-valley` HELD.
+
+And twice more the corpus, not the engine, was the thing that was wrong: `tee` and `cross` declared
+a junction at a point that was a vertex of NEITHER way. A map splits a way at a junction. They do
+now, and all three cells passed immediately.
+
+    22 -> 20 -> 18 -> 16 WRONG.  230 of 246 cells pass every oracle.
+
+**The 16 that remain are one thing.** roundabout 4, bridgeOverWay 4, bridgeOverWater 3, tee 1,
+cross 1, cutting 1 -- every one a place where two ways meet and each is balanced toward the TERRAIN
+rather than toward the OTHER WAY. Balancing at shared nodes gets them close; it does not make them
+equal. A corridor network is solved as a network: the junction's elevation is decided once and each
+approach is designed to arrive at it. That needs the streets block split into design, level, sweep,
+which is the next work and is named here so it is not rediscovered.
+
+The other 2 are `crossNoNode` and they may not be a defect at all: two ways crossing with NO shared
+node have no declared answer about which is on top, so "no ground stands over a carriageway" is not
+a property that input can satisfy. That is an INPUT-grade case in this tree's own table -- it proves
+we survive it -- and the oracle should say so rather than be relaxed. Deciding that is part of the
+same work.

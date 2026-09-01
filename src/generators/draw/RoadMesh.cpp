@@ -123,6 +123,7 @@ constexpr double kLayTightestM = 5.5;
 constexpr double kSagittaM = 0.20;
 constexpr int kProfilePasses = 24;
 constexpr double kLeastStepM = 2.0;
+constexpr double kShutM = 0.5;
 constexpr double kMostStepM = 32.0;
 
 double StepFor(double radiusM) {
@@ -280,10 +281,36 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
     }
   }
 
+  std::vector<double> asFound(along.Size(), 0.0);
+  for (size_t one = 0; one < along.Size(); ++one) { asFound[one] = along[one].GradeM; }
   for (size_t one = 1; one < along.Size(); ++one) {
     along[one].GradeM =
         along[one - 1u].GradeM + grade[one - 1u] * (reached[one] - reached[one - 1u]);
   }
+  {
+    const double shutE = along[along.Size() - 1u].EastM - along[0].EastM;
+    const double shutS = along[along.Size() - 1u].SouthM - along[0].SouthM;
+    const double whole = reached[along.Size() - 1u];
+    if (shutE * shutE + shutS * shutS < kShutM * kShutM && whole > 1.0e-9) {
+      const double adrift = along[along.Size() - 1u].GradeM - along[0].GradeM;
+      for (size_t one = 0; one < along.Size(); ++one) {
+        along[one].GradeM -= adrift * reached[one] / whole;
+      }
+    }
+  }
+  double apart = 0.0;
+  size_t over = 0;
+  for (size_t one = 0; one < along.Size(); ++one) {
+    if (!along[one].Shared) { continue; }
+    apart += along[one].GradeM - asFound[one];
+    ++over;
+  }
+  if (over == 0) {
+    for (size_t one = 0; one < along.Size(); ++one) { apart += along[one].GradeM - asFound[one]; }
+    over = along.Size();
+  }
+  apart /= (double)over;
+  for (size_t one = 0; one < along.Size(); ++one) { along[one].GradeM -= apart; }
 }
 
 void SweepRoad(Span<const RoadStation> along,

@@ -16,6 +16,7 @@ struct RoadStation {
   double EastM = 0.0;
   double SouthM = 0.0;
   double GradeM = 0.0;
+  bool Shared = false;
 };
 
 struct RoadRaised {

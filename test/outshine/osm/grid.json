@@ -188,7 +188,7 @@
   {
    "id": "tee",
    "family": "way",
-   "what": "a T junction",
+   "what": "a T junction -- ways are SPLIT at the junction, which is what a map does",
    "parts": [
     {
      "family": "way",
@@ -196,6 +196,20 @@
      "points": [
       [
        -100,
+       0
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
        0
       ],
       [
@@ -223,7 +237,7 @@
   {
    "id": "cross",
    "family": "way",
-   "what": "a crossroads",
+   "what": "a crossroads -- ways are SPLIT at the junction, which is what a map does",
    "parts": [
     {
      "family": "way",
@@ -231,6 +245,20 @@
      "points": [
       [
        -100,
+       0
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
        0
       ],
       [
@@ -246,6 +274,20 @@
       [
        0,
        -100
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
+       0
       ],
       [
        0,
@@ -463,7 +505,7 @@
   {
    "id": "bridgeOverWay",
    "family": "vertical",
-   "what": "a bridge over a way -- the SPAN carries bridge=yes, the approaches do not, which is what a map says",
+   "what": "a bridge over a way -- the SPAN carries bridge=yes, the approaches do not, which is what a map says -- ways are SPLIT at the junction, which is what a map does",
    "parts": [
     {
      "family": "way",
@@ -471,6 +513,20 @@
      "points": [
       [
        -100,
+       0
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    },
+    {
+     "family": "way",
+     "kind": "residential",
+     "points": [
+      [
+       0,
        0
       ],
       [
