@@ -16,21 +16,11 @@ Checks: >
   readability-*,
   modernize-*,
 
-  -bugprone-easily-swappable-parameters,
-  -misc-no-recursion,
-  -misc-non-private-member-variables-in-classes,
   -modernize-use-trailing-return-type,
-  -readability-identifier-length,
-  -readability-function-cognitive-complexity,
-
   -readability-uppercase-literal-suffix,
   -readability-math-missing-parentheses,
   -readability-trailing-comma,
-  -performance-enum-size,
-
-  -modernize-avoid-c-style-cast,
-  -modernize-avoid-c-arrays,
-  -readability-magic-numbers
+  -performance-enum-size
 WarningsAsErrors: ''
 
 CheckOptions:
@@ -41,7 +31,22 @@ CheckOptions:
   # ignored teaches a reader to ignore findings, so the check keeps the half it is right about.
   misc-include-cleaner.IgnoreHeaders: 'SDL3/.*;.*/src/.*;include/.*'
 
-# WHY THE LAST TWO GROUPS ARE OFF
+  # `readability-identifier-length` was SWITCHED OFF where it should have been SET. Its default
+  # asks for three characters, which is wrong in a maths kernel -- `e` and `n` are the clearest
+  # names an east and a north will ever have. At one character it still refuses the genuinely
+  # nameless and stops arguing about vector algebra.
+  readability-identifier-length.MinimumVariableNameLength: 1
+  readability-identifier-length.MinimumParameterNameLength: 1
+  readability-identifier-length.MinimumLoopCounterNameLength: 1
+
+# WHY THESE FIVE ARE OFF, AND WHY NOTHING ELSE IS
+#
+# A check is off for exactly one reason: its finding is a MATTER OF TASTE rather than a defect.
+# Everything whose finding is a defect is ON and its count is driven to zero -- switching such a
+# check off is choosing not to use the machine this tree built for exactly that.
+#
+# `modernize-use-trailing-return-type` (897) wants `auto f() -> int`. The tree writes `int f()` and
+#   so does most of the world.
 #
 # `readability-uppercase-literal-suffix` (194) wants `1.0F` where the tree and most of the world
 #   write `1.0f`. It is LLVM's house preference and buys no reader anything.
@@ -51,12 +56,16 @@ CheckOptions:
 # `performance-enum-size` (32) would size an enum by its largest value. Several of these enums are
 #   DEVICE records whose width is a decision with a measurement behind it.
 #
-# `modernize-avoid-c-style-cast` (91 in two units, so thousands in the tree) is RIGHT and is
-#   stage two: `static_cast` says which conversion is meant where `(float)` says only that one
-#   happens. It is a mechanical sweep and it must not hide inside another change.
-# `modernize-avoid-c-arrays` (281) is stage two for the same reason and needs a judgement first:
-#   `float SelfCenter[3]` in a record the GPU reads is layout, and `std::array` is
-#   layout-compatible -- but that has to be stated per record rather than swept.
-# `readability-magic-numbers` is CLAUDE.md's own rule ("every number carries its origin") and is
-#   stage three, because it cannot be answered by a tool: the fix is a named constant with a
-#   derivation, and a tool can only say where one is missing.
+# WHAT WAS TURNED BACK ON, AND WHAT IT COSTS
+#
+# `readability-function-cognitive-complexity` was off with NO reason beside it, and it is the only
+#   guard in this gate that measures SHAPE rather than correctness. It reports
+#   `Grounds` at 730 against a threshold of 25.
+# `misc-non-private-member-variables-in-classes` (311 in two units) enforces CLAUDE.md's own
+#   sentence: a public data member is an invariant nobody can hold.
+# `modernize-avoid-c-style-cast` (91) and `modernize-avoid-c-arrays` (281) were called RIGHT here
+#   and switched off anyway, as "stage two". A stage with no date is a promise; the count is the
+#   schedule.
+# `readability-magic-numbers` is CLAUDE.md's rule that every number carries its origin.
+# `bugprone-easily-swappable-parameters` (40) is a real hazard class and 40 is not a flood.
+# `misc-no-recursion` found ZERO. It switched nothing off and the line is gone.
