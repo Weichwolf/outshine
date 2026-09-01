@@ -41,27 +41,62 @@ constexpr double kLeastPieceFrac = 0.16;
 
 constexpr double kSetbackM = 2.4;
 
+constexpr double kOutbuildingUnderM2 = 26.0;
+constexpr double kSpireOverM = 21.0;
+constexpr double kSpireUnderM2 = 260.0;
+constexpr double kTowerOverM = 19.0;
+constexpr double kHallOverM2 = 1300.0;
+constexpr double kBlockOverM2 = 380.0;
+constexpr double kTerraceOverAspect = 2.2;
+constexpr double kTerraceOverM2 = 90.0;
+
+constexpr size_t kRoundLeastCorners = 8;
+constexpr double kRoundOverFill = 0.70;
+constexpr double kRoundUnderFill = 0.84;
+constexpr double kRoundUnderAspect = 1.30;
+
+constexpr double kPitchableFromFill = 0.74;
+constexpr double kSawtoothOverAspect = 1.8;
+constexpr double kSawtoothOverM2 = 2600.0;
+constexpr int kMansardFromStoreys = 4;
+constexpr double kBlockGableOverAspect = 1.9;
+constexpr double kHouseGableFromAspect = 1.30;
+
 constexpr double kParapetM = 0.90;
 constexpr double kParapetLeastHalfVm = 2.2;
 
+constexpr uint32_t kMixFirst = 0x7feb352du;
+constexpr uint32_t kMixSecond = 0x846ca68bu;
+constexpr uint32_t kGoldenWord = 0x9e3779b9u;
+constexpr uint32_t kStreamWord = 0x85ebca6bu;
+constexpr unsigned kMixShiftWide = 16u;
+constexpr unsigned kMixShiftNarrow = 15u;
+
+constexpr unsigned kMantissaBits = 24u;
+constexpr unsigned kDropForMantissa = 32u - kMantissaBits;
+constexpr double kMantissaSteps = static_cast<double>(1u << kMantissaBits);
+
+constexpr double kMicroDegree = 1.0e6;
+
 uint32_t Mix(uint32_t x) {
-  x ^= x >> 16u;
-  x *= 0x7feb352du;
-  x ^= x >> 15u;
-  x *= 0x846ca68bu;
-  x ^= x >> 16u;
+  x ^= x >> kMixShiftWide;
+  x *= kMixFirst;
+  x ^= x >> kMixShiftNarrow;
+  x *= kMixSecond;
+  x ^= x >> kMixShiftWide;
   return x;
 }
 
 uint32_t SeedOfPlace(double latDeg, double lonDeg) {
-  const auto la = static_cast<int32_t>(std::llround(latDeg * 1.0e6));
-  const auto lo = static_cast<int32_t>(std::llround(lonDeg * 1.0e6));
-  return Mix(static_cast<uint32_t>(la) * 0x9e3779b9u ^ Mix(static_cast<uint32_t>(lo)));
+  const auto la = static_cast<int32_t>(std::llround(latDeg * kMicroDegree));
+  const auto lo = static_cast<int32_t>(std::llround(lonDeg * kMicroDegree));
+  return Mix(static_cast<uint32_t>(la) * kGoldenWord ^ Mix(static_cast<uint32_t>(lo)));
 }
 
 double UnitOf(uint32_t seed, int stream) {
-  return static_cast<double>(Mix(seed + static_cast<uint32_t>(stream) * 0x85ebca6bu) >> 8u) *
-         (1.0 / 16777216.0);
+  return static_cast<double>(Mix(seed + static_cast<uint32_t>(stream) * kStreamWord) >>
+                             kDropForMantissa) /
+         kMantissaSteps;
 }
 
 std::vector<En> RingInMetres(Span<const double> latLon) {
@@ -211,10 +246,10 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
     if (len < kSameCornerM) { continue; }
     ax /= len;
     ay /= len;
-    double u0 = 1e30;
-    double u1 = -1e30;
-    double v0 = 1e30;
-    double v1 = -1e30;
+    double u0 = kBeyondAnyCoordinate;
+    double u1 = -kBeyondAnyCoordinate;
+    double v0 = kBeyondAnyCoordinate;
+    double v1 = -kBeyondAnyCoordinate;
     for (const En &r : ring) {
       const double u = r.E * ax + r.N * ay;
       const double v = -r.E * ay + r.N * ax;
@@ -240,38 +275,40 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
 }
 
 [[nodiscard]] BuildingUse UseOf(double areaM2, double aspect, double heightM) {
-  if (areaM2 < 26.0) { return BuildingUse::Outbuilding; }
-  if (heightM > 21.0 && areaM2 < 260.0) { return BuildingUse::Spire; }
-  if (heightM > 19.0) { return BuildingUse::Tower; }
-  if (areaM2 > 1300.0) { return BuildingUse::Hall; }
-  if (areaM2 > 380.0) { return BuildingUse::Block; }
-  if (aspect > 2.2 && areaM2 > 90.0) { return BuildingUse::Terrace; }
+  if (areaM2 < kOutbuildingUnderM2) { return BuildingUse::Outbuilding; }
+  if (heightM > kSpireOverM && areaM2 < kSpireUnderM2) { return BuildingUse::Spire; }
+  if (heightM > kTowerOverM) { return BuildingUse::Tower; }
+  if (areaM2 > kHallOverM2) { return BuildingUse::Hall; }
+  if (areaM2 > kBlockOverM2) { return BuildingUse::Block; }
+  if (aspect > kTerraceOverAspect && areaM2 > kTerraceOverM2) { return BuildingUse::Terrace; }
   return BuildingUse::House;
 }
 
 [[nodiscard]] bool ReadsAsRound(const BuildingShape &s) {
-  return s.Ring.size() >= 8 && s.Fill > 0.70 && s.Fill < 0.84 && s.HalfUm < 1.30 * s.HalfVm;
+  return s.Ring.size() >= kRoundLeastCorners && s.Fill > kRoundOverFill &&
+         s.Fill < kRoundUnderFill && s.HalfUm < kRoundUnderAspect * s.HalfVm;
 }
 
 [[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect) {
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
-  const bool pitchable = s.Fill >= 0.74;
+  const bool pitchable = s.Fill >= kPitchableFromFill;
   switch (s.Use) {
     case BuildingUse::Outbuilding: return pitchable ? RoofKind::Shed : RoofKind::Flat;
     case BuildingUse::Spire: return pitchable ? RoofKind::Hip : RoofKind::Flat;
     case BuildingUse::Tower: return RoofKind::Flat;
     case BuildingUse::Hall:
       if (!pitchable) { return RoofKind::Flat; }
-      return (aspect > 1.8 && s.AreaM2 > 2600.0) ? RoofKind::Sawtooth : RoofKind::Flat;
+      return (aspect > kSawtoothOverAspect && s.AreaM2 > kSawtoothOverM2) ? RoofKind::Sawtooth
+                                                                          : RoofKind::Flat;
     case BuildingUse::Block:
       if (!pitchable) { return RoofKind::Flat; }
-      if (s.Storeys >= 4) { return RoofKind::Mansard; }
-      return aspect > 1.9 ? RoofKind::Gable : RoofKind::Hip;
+      if (s.Storeys >= kMansardFromStoreys) { return RoofKind::Mansard; }
+      return aspect > kBlockGableOverAspect ? RoofKind::Gable : RoofKind::Hip;
     case BuildingUse::Terrace: return pitchable ? RoofKind::Gable : RoofKind::Flat;
     case BuildingUse::House: break;
   }
   if (!pitchable) { return RoofKind::Flat; }
-  return aspect >= 1.30 ? RoofKind::Gable : RoofKind::Hip;
+  return aspect >= kHouseGableFromAspect ? RoofKind::Gable : RoofKind::Hip;
 }
 
 double PitchDegOf(BuildingUse use, uint32_t seed, bool heightMeasured) {
