@@ -159,7 +159,7 @@ double Photopic(const Vec3f &triple) {
 
 void Live::SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const {
   if (std::fabs(cosSun - AirStoodAt_) > 1.0e-6) {
-    const Render::Medium medium;
+    const Render::Medium medium = Render::kEarthAir;
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
     const auto toSun = [&](float radiusKm, float cosZenith, Vec3f &out) {
       Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
@@ -468,7 +468,7 @@ bool Live::Build(std::string &error) {
     }
   }
   if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
-    if (Declared_.DrawsSky) { Renderer_->SetMedium(Render::Medium{}); }
+    if (Declared_.DrawsSky) { Renderer_->SetMedium(Render::kEarthAir); }
 
     const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
     const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;

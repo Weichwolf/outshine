@@ -814,7 +814,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::vector<int> classOf;
     std::vector<double> atGeo;
     size_t classDivided = 0;
-    const Render::Medium fallback;
+    const Render::Medium fallback = Render::kEarthAir;
     size_t named = 0;
     if (classes && wearing.Ready()) {
       classStructure = classes;
@@ -1092,7 +1092,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Geometry ground;
   Material bare;
   {
-    const Render::Medium held;
+    const Render::Medium held = Render::kEarthAir;
     for (int channel = 0; channel < 3; ++channel) {
       bare.BaseColour[channel] = held.GroundAlbedo[channel];
     }
@@ -2876,7 +2876,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  const Render::Medium air;
+  const Render::Medium air = Render::kEarthAir;
   Material wearing;
   for (int channel = 0; channel < 3; ++channel) {
     wearing.BaseColour[channel] = air.GroundAlbedo[channel];

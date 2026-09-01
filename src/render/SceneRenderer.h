@@ -396,7 +396,7 @@ private:
   SkyStage Sky_;
   LightVisibilityStage Shadow_;
   SubjectCullStage Cull_;
-  Medium Medium_;
+  Medium Medium_ = kEarthAir;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;
   OverlayDraw Overlay_;

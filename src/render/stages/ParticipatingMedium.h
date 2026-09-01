@@ -13,24 +13,41 @@
 namespace outshine::Render {
 
 struct alignas(16) Medium {
-  float BottomRadiusKm = 6360.0f;
-  float TopRadiusKm = 6460.0f;
-  float RayleighScaleHeightKm = 8.0f;
-  float MieScaleHeightKm = 1.2f;
+  float BottomRadiusKm;
+  float TopRadiusKm;
+  float RayleighScaleHeightKm;
+  float MieScaleHeightKm;
 
-  Vec3f RayleighScatteringPerKm = {0.005802f, 0.013558f, 0.033100f};
-  float MieScatteringPerKm = 0.039960f;
+  Vec3f RayleighScatteringPerKm;
+  float MieScatteringPerKm;
 
-  Vec3f OzoneAbsorptionPerKm = {0.000650f, 0.001881f, 0.000085f};
-  float MieExtinctionPerKm = 0.044400f;
+  Vec3f OzoneAbsorptionPerKm;
+  float MieExtinctionPerKm;
 
-  float OzoneCentreKm = 25.0f;
-  float OzoneHalfWidthKm = 15.0f;
-  float MiePhaseG = 0.8f;
-  float Pad = 0.0f;
+  float OzoneCentreKm;
+  float OzoneHalfWidthKm;
+  float MiePhaseG;
+  float Pad;
 
-  Vec3f GroundAlbedo = {0.10f, 0.13f, 0.07f};
-  float Pad2 = 0.0f;
+  Vec3f GroundAlbedo;
+  float Pad2;
+};
+
+inline constexpr Medium kEarthAir = {
+    .BottomRadiusKm = 6360.0f,
+    .TopRadiusKm = 6460.0f,
+    .RayleighScaleHeightKm = 8.0f,
+    .MieScaleHeightKm = 1.2f,
+    .RayleighScatteringPerKm = {0.005802f, 0.013558f, 0.033100f},
+    .MieScatteringPerKm = 0.039960f,
+    .OzoneAbsorptionPerKm = {0.000650f, 0.001881f, 0.000085f},
+    .MieExtinctionPerKm = 0.044400f,
+    .OzoneCentreKm = 25.0f,
+    .OzoneHalfWidthKm = 15.0f,
+    .MiePhaseG = 0.8f,
+    .Pad = 0.0f,
+    .GroundAlbedo = {0.10f, 0.13f, 0.07f},
+    .Pad2 = 0.0f,
 };
 
 static_assert(sizeof(Medium) == 80, "the medium is five float4 rows a device can bind unpadded");
