@@ -28,10 +28,10 @@ constexpr const char *kKinds[] = {"terrain", "vector", "stars"};
 } // namespace
 
 bool RegisterDeclared(SourceSet &set,
-                      std::span<const Provider> providers,
+                      std::span<const Scenario::Provider> providers,
                       std::string_view starDirectory,
                       std::string &error) {
-  for (const Provider &provider : providers) {
+  for (const Scenario::Provider &provider : providers) {
     std::unique_ptr<Source> made;
     if (provider.Kind == "terrain") {
       made = std::make_unique<TerrariumDem>();
@@ -58,8 +58,8 @@ bool RegisterDeclared(SourceSet &set,
   return true;
 }
 
-std::span<const Provider> ShippedProviders() {
-  static const Provider shipped[] = {
+std::span<const Scenario::Provider> ShippedProviders() {
+  static const Scenario::Provider shipped[] = {
       {.Kind = "terrain", .Pin = "", .Rank = 0, .WhenAbsent = "hand over"},
       {.Kind = "vector", .Pin = "", .Rank = 1, .WhenAbsent = "hand over"},
       {.Kind = "stars", .Pin = "", .Rank = 2, .WhenAbsent = "hand over"},

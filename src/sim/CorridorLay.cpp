@@ -27,7 +27,7 @@ constexpr double kPatienceS = 900.0;
 
 bool LayCorridor(const Path::Route &route,
                  const GroundQuery &ground,
-                 const Body &car,
+                 const Scenario::Body &car,
                  const Rigged &stood,
                  double quantumM,
                  double tightestM,

@@ -18,7 +18,7 @@ bool Refuse(Rigged &out, const std::string &why) {
 
 } // namespace
 
-Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
+Rigged Stand(const Scenario::Body &declared, double gravityMs2, double airDensityKgM3) {
   Rigged out;
 
   if (airDensityKgM3 < 0.0) {
@@ -90,7 +90,9 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
       return out;
     }
     double standsAt = declared.Contacts[0].AtM[1];
-    for (const Contact &one : declared.Contacts) { standsAt = std::fmin(standsAt, one.AtM[1]); }
+    for (const Scenario::Contact &one : declared.Contacts) {
+      standsAt = std::fmin(standsAt, one.AtM[1]);
+    }
     standsAt -= declared.Contacts.front().Touches.RadiusM;
 
     out.StandsAtM = standsAt;
@@ -106,7 +108,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   double rearMounts = 0.0;
   double frontArmM = 0.0;
   double rearArmM = 0.0;
-  for (const Contact &one : declared.Contacts) {
+  for (const Scenario::Contact &one : declared.Contacts) {
     const double armM = one.AtM[2] - out.CentreM[2];
     driven += armM > 0.0 ? 1.0 : 0.0;
     if (armM < 0.0) {
@@ -137,7 +139,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
 
   out.Rig.Count = declared.Contacts.size();
   for (size_t which = 0; which < out.Rig.Count; ++which) {
-    const Contact &one = declared.Contacts[which];
+    const Scenario::Contact &one = declared.Contacts[which];
     Physics::Mount &mount = out.Rig.Mounts[which];
     for (int axis = 0; axis < 3; ++axis) { mount.AtM[axis] = one.AtM[axis] - out.CentreM[axis]; }
     mount.Strut.ReachM = one.Strut.ReachM;
@@ -160,7 +162,7 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   }
 
   const double acrossM = declared.acrossM();
-  const Drive *const steers = declared.can(Drives::Motion);
+  const Scenario::Drive *const steers = declared.can(Scenario::Drives::Motion);
   const double circleM = steers != nullptr ? steers->CircleM : 0.0;
   if (!(circleM > acrossM)) {
     Refuse(out,
@@ -197,8 +199,8 @@ Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  const Drive *const drives = declared.efforts(false);
-  const Drive *const brakes = declared.efforts(true);
+  const Scenario::Drive *const drives = declared.efforts(false);
+  const Scenario::Drive *const brakes = declared.efforts(true);
   out.Envelope.DriveN = drives == nullptr ? 0.0
                                           : drives->PeakNm * drives->Ratio /
                                                 declared.Contacts.front().Touches.RadiusM;

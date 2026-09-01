@@ -105,7 +105,7 @@ int main(void) {
     stands.Lit.Key.Lux = 40000.0;
     stands.Lit.Key.ElevationDeg = elevationDeg;
     stands.Lit.Key.BearingDeg = kSunBearingDeg;
-    outshine::View watches;
+    outshine::Scenario::View watches;
     watches.Id = "station";
     watches.Person = "first";
     watches.Sees.Stands.GlobeAnchor = true;

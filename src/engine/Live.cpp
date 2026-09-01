@@ -281,7 +281,7 @@ bool Live::Build(std::string &error) {
           continue;
         }
         const std::string &named = Held_.File().Materials()[static_cast<size_t>(index)].Name;
-        for (const SurfaceOverride &said : Declared_.Overriding) {
+        for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
           if (said.Named != named) { continue; }
           if (!said.KeepsMaps) { Table_.Slots[slot] = Render::SubjectMaterial{}; }
           Table_.Slots[slot].Row = said.Row;
@@ -303,7 +303,7 @@ bool Live::Build(std::string &error) {
         for (size_t part = 0; part < many; ++part) {
           const uint32_t slot = Table_.PartSlot[part];
           if (slot >= Table_.Slots.size()) { continue; }
-          for (const SurfaceOverride &said : Declared_.Overriding) {
+          for (const Scenario::SurfaceOverride &said : Declared_.Overriding) {
             const bool byNode = !said.Node.empty() && said.Node == standing[part].NodeName;
             const bool byPart = said.Part >= 0 && std::cmp_equal(said.Part, part);
             if (!byNode && !byPart) { continue; }
@@ -1012,7 +1012,7 @@ bool Live::Carry(size_t body,
 
 bool Live::Restands(std::string stands,
                     std::string variant,
-                    AssetAnimation animation,
+                    Scenario::AssetAnimation animation,
                     int clip,
                     std::string &error) {
   Declared_.Stands = std::move(stands);
@@ -1087,7 +1087,7 @@ bool Live::Advance(std::string &error) {
 
   if (Held_.Moves() && Held_.DurationS() > 0.0) {
     Held_.Advances(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
-                   Declared_.Animation == AssetAnimation::Loop);
+                   Declared_.Animation == Scenario::AssetAnimation::Loop);
     const size_t beforePose = Heap::TakenUnder("live-pose");
     {
       const Heap::Tagged posing("live-pose");

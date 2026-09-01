@@ -225,7 +225,7 @@ bool Engine::State::Composes() {
     Error = "nothing stands to compose a world around";
     return false;
   }
-  const Scenario &declared = Session.Declared;
+  const Scenario::Document &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (Session.Views && !Session.Views->Active().Sees.Stands.SamplesHeight && !Watches()) {
@@ -279,7 +279,7 @@ bool Engine::State::Composes() {
   if (!Session.Declared.Ground.Osm.empty()) {
     std::vector<Ground::OsmField::Declared> told;
     told.reserve(Session.Declared.Ground.Osm.size());
-    for (const Structure &one : Session.Declared.Ground.Osm) {
+    for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
       Ground::OsmField::Declared made;
       const bool wet = one.Kind == "water";
       const Ground::OsmLayer holds =
@@ -326,7 +326,7 @@ bool Engine::State::Composes() {
 }
 
 bool Engine::State::Asks() {
-  const Scenario &declared = Session.Declared;
+  const Scenario::Document &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (!declared.Ground.Declared && !overADrive) { return true; }
@@ -576,7 +576,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   auto phaseAt = std::chrono::steady_clock::now();
   auto censusAt = phaseAt;
   auto wiresAt = phaseAt;
-  const Scenario &declared = Session.Declared;
+  const Scenario::Document &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   if (!declared.Ground.Declared && !overADrive) { return true; }
@@ -3186,7 +3186,7 @@ void Engine::State::Tells() {
   std::vector<Audio::Heard> &sources = Session.Sources[next];
   sources.clear();
   sources.reserve(Session.Declared.Sounds.size());
-  for (const Sound &declared : Session.Declared.Sounds) {
+  for (const Scenario::Sound &declared : Session.Declared.Sounds) {
     Audio::Heard where;
     where.Id = declared.Id;
     if (declared.On.empty()) {
@@ -3393,7 +3393,7 @@ Extent Engine::canvas() const {
   return S_->Picture.Frame;
 }
 
-bool Engine::camera(Camera &out) const {
+bool Engine::camera(Scenario::Camera &out) const {
   if (!S_->Picture.Standing) { return false; }
   Render::CameraOf(S_->Picture.Standing->Aimed(), out);
   return true;

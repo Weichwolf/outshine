@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
   outshine::Scenario stands;
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{64, 64};
-  outshine::Asset shown;
+  outshine::Scenario::Asset shown;
   shown.Uri = entry;
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);

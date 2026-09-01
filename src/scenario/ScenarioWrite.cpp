@@ -28,7 +28,9 @@ void Yes(std::string &into, const char *named, bool how) {
   into += how ? "=\"yes\"" : "=\"no\"";
 }
 
-void StandingAs(std::string &into, const char *element, const outshine::Standing &stands) {
+void StandingAs(std::string &into,
+                const char *element,
+                const outshine::Scenario::Standing &stands) {
   into += "    <";
   into += element;
   if (stands.GlobeAnchor) {
@@ -52,7 +54,7 @@ void StandingAs(std::string &into, const char *element, const outshine::Standing
 
 } // namespace
 
-std::string WriteScenario(const Scenario &declared) {
+std::string WriteScenario(const Scenario::Document &declared) {
   std::string said = "<scenario>\n";
   if (declared.Ground.Declared) {
     said += "  <world";
@@ -76,7 +78,7 @@ std::string WriteScenario(const Scenario &declared) {
         said += "    ";
         said += "<osm>\n";
       }
-      for (const Structure &one : declared.Ground.Osm) {
+      for (const Scenario::Structure &one : declared.Ground.Osm) {
         said += "      ";
         said += one.Area ? "<area" : "<way";
         Said(said, "kind", one.Kind);
@@ -122,7 +124,7 @@ std::string WriteScenario(const Scenario &declared) {
   }
   if (!declared.Assets.empty()) {
     said += "  <assets>\n";
-    for (const Asset &one : declared.Assets) {
+    for (const Scenario::Asset &one : declared.Assets) {
       said += "    <asset";
       Said(said, "uri", one.Uri);
       Said(said, "kind", one.Kind);
@@ -132,7 +134,7 @@ std::string WriteScenario(const Scenario &declared) {
   }
   if (!declared.Views.empty()) {
     said += "  <views>\n";
-    for (const View &one : declared.Views) {
+    for (const Scenario::View &one : declared.Views) {
       said += "    <view";
       Said(said, "id", one.Id);
       Said(said, "person", one.Person);

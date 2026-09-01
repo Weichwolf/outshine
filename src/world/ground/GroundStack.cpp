@@ -20,7 +20,7 @@ constexpr int kVectorRing = 3;
 
 bool GroundStack::Open(std::string_view cacheDir,
                        std::string_view assetsDir,
-                       std::span<const Provider> providers,
+                       std::span<const Scenario::Provider> providers,
                        double focusLat,
                        double focusLon,
                        Data::Transport &wire,

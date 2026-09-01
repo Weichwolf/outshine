@@ -7,9 +7,9 @@
 
 namespace outshine {
 
-size_t AssembledCapacity(const Scenario &declared) {
+size_t AssembledCapacity(const Scenario::Document &declared) {
   size_t instanced = 0;
-  for (const Instance &one : declared.Instances) {
+  for (const Scenario::Instance &one : declared.Instances) {
     (void)one;
     ++instanced;
   }
@@ -27,8 +27,10 @@ namespace {
   return static_cast<uint32_t>(names.size());
 }
 
-[[nodiscard]] bool
-Numbered(const Setting &attribute, const std::string &on, double &value, std::string &error) {
+[[nodiscard]] bool Numbered(const Scenario::Setting &attribute,
+                            const std::string &on,
+                            double &value,
+                            std::string &error) {
   char *end = nullptr;
   value = std::strtod(attribute.Value.c_str(), &end);
   if (end == attribute.Value.c_str() || (end != nullptr && *end != 0)) {
@@ -41,16 +43,16 @@ Numbered(const Setting &attribute, const std::string &on, double &value, std::st
 
 } // namespace
 
-bool Assemble(const Scenario &declared,
+bool Assemble(const Scenario::Document &declared,
               Scene &into,
-              Column<Body> &bodies,
-              Column<Journey> &driven,
+              Column<Scenario::Body> &bodies,
+              Column<Scenario::Journey> &driven,
               Column<Traits> &traits,
               Assembled &out,
               std::string &error) {
   out = Assembled{};
 
-  for (const Kind &kind : declared.Kinds) {
+  for (const Scenario::Kind &kind : declared.Kinds) {
     if (!(out.PrefabNamed(kind.Name) == kNoEntity)) {
       error = "the kind '" + kind.Name + "' is declared twice, and a default has one spelling";
       return false;
@@ -87,7 +89,7 @@ bool Assemble(const Scenario &declared,
       }
     }
     Traits given;
-    for (const Setting &attribute : kind.Attributes) {
+    for (const Scenario::Setting &attribute : kind.Attributes) {
       double value = 0.0;
       if (!Numbered(attribute, kind.Name, value, error)) { return false; }
       if (!given.Put(Interned(out.TraitNames, attribute.Name), value)) {
@@ -103,7 +105,7 @@ bool Assemble(const Scenario &declared,
     out.Prefabs.emplace_back(kind.Name, prefab);
   }
 
-  for (const Instance &instance : declared.Instances) {
+  for (const Scenario::Instance &instance : declared.Instances) {
     const Entity prefab = out.PrefabNamed(instance.Of);
     if (prefab == kNoEntity) {
       error =
@@ -144,7 +146,7 @@ bool Assemble(const Scenario &declared,
         }
       }
     }
-    for (const Setting &attribute : instance.Attributes) {
+    for (const Scenario::Setting &attribute : instance.Attributes) {
       double value = 0.0;
       if (!Numbered(attribute, instance.Id.empty() ? instance.Of : instance.Id, value, error)) {
         return false;
@@ -162,7 +164,7 @@ bool Assemble(const Scenario &declared,
     out.Instances.emplace_back(instance.Id, stood);
   }
 
-  for (const Instance &instance : declared.Instances) {
+  for (const Scenario::Instance &instance : declared.Instances) {
     const Entity holder = out.InstanceNamed(instance.Id);
     for (const std::string &what : instance.Holds) {
       const Entity held = out.InstanceNamed(what);
@@ -190,15 +192,16 @@ bool Assemble(const Scenario &declared,
     }
   }
 
-  for (const Body &declaredBody : declared.Bodies) {
+  for (const Scenario::Body &declaredBody : declared.Bodies) {
     const Entity body = into.addEntity(Role::Body);
     if (!into.alive(body)) {
       error = into.error();
       return false;
     }
-    for (const Drive &does : declaredBody.Driven) {
-      const char *const named =
-          does.Does == Drives::Motion ? "steer" : (does.Opposes ? "torque-opposing" : "torque");
+    for (const Scenario::Drive &does : declaredBody.Driven) {
+      const char *const named = does.Does == Scenario::Drives::Motion
+                                    ? "steer"
+                                    : (does.Opposes ? "torque-opposing" : "torque");
       if (!into.giveTag(body, TagCatalogue::under(tags::Does, Interned(out.TagNames, named)))) {
         error = into.error();
         return false;

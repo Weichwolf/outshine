@@ -126,10 +126,10 @@ public:
   /// spelling.
   [[nodiscard]] std::string writeScenario() const;
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
-  [[nodiscard]] Result declare(const Scenario &scenario);
-  [[nodiscard]] Result setSurfaces(const std::vector<Surface> &surfaces);
+  [[nodiscard]] Result declare(const Scenario::Document &scenario);
+  [[nodiscard]] Result setSurfaces(const std::vector<Scenario::Surface> &surfaces);
 
-  [[nodiscard]] const Scenario &declaration() const;
+  [[nodiscard]] const Scenario::Document &declaration() const;
   [[nodiscard]] Scene &scene();
   [[nodiscard]] const Scene &scene() const;
   [[nodiscard]] const std::vector<std::string> &unacted() const;
@@ -169,13 +169,13 @@ private:
   [[nodiscard]] bool flushAndWait();
   [[nodiscard]] Extent canvas() const;
 
-  [[nodiscard]] bool camera(Camera &out) const;
+  [[nodiscard]] bool camera(Scenario::Camera &out) const;
   [[nodiscard]] bool presenting() const;
 
   friend class SwapChain;
   struct State;
-  [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario &out);
-  [[nodiscard]] bool generated(const Scenario &scenario);
+  [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario::Document &out);
+  [[nodiscard]] bool generated(const Scenario::Document &scenario);
   void ships();
   std::unique_ptr<State> S_;
 };

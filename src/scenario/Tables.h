@@ -26,7 +26,8 @@ class TableBook {
 public:
   static constexpr size_t kMostRows = 4096;
 
-  [[nodiscard]] static std::expected<TableBook, std::string> Stand(std::span<const Table> declared);
+  [[nodiscard]] static std::expected<TableBook, std::string>
+  Stand(std::span<const Scenario::Table> declared);
 
   [[nodiscard]] const double *
   Number(std::string_view table, std::string_view row, std::string_view column) const;

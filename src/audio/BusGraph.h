@@ -13,8 +13,9 @@ namespace outshine::Audio {
 
 class BusGraph {
 public:
-  [[nodiscard]] bool
-  Build(std::span<const Bus> buses, std::span<const Sound> sounds, std::string &error);
+  [[nodiscard]] bool Build(std::span<const Scenario::Bus> buses,
+                           std::span<const Scenario::Sound> sounds,
+                           std::string &error);
 
   [[nodiscard]] size_t BusCount() const { return Buses_.size(); }
 

@@ -242,7 +242,7 @@ int AskHeight(int argc, char *const *argv) {
   if (!Stands(engine)) { return 2; }
   const double lat = std::atof(argv[0]);
   const double lon = std::atof(argv[1]);
-  outshine::Scenario stands;
+  outshine::Scenario::Document stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;
   stands.Ground.Origin.LongitudeDeg = lon;

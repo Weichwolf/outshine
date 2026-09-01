@@ -11,12 +11,9 @@
 #include "math/Quat.h"
 #include "math/Vec3.h"
 
-namespace outshine {
+#include "Extent.h"
 
-struct Extent {
-  int WidthPx = 0;
-  int HeightPx = 0;
-};
+namespace outshine::Scenario {
 
 struct Light {
   double Lux = 0.0;
@@ -596,7 +593,7 @@ struct Persisted {
   std::string What;
 };
 
-struct Scenario {
+struct Document {
   Identity Named;
   std::vector<Layer> Layers;
   WorldSettings Ground;
@@ -633,6 +630,6 @@ struct Scenario {
   [[nodiscard]] const Asset *subject() const;
 };
 
-} // namespace outshine
+} // namespace outshine::Scenario
 
 #endif

@@ -65,7 +65,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
   return (answering.Fired()) ? Result{} : std::unexpected(S_->Error);
 }
 
-Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
+Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
                 "scenario is declared before its surfaces are exchanged";
@@ -75,15 +75,16 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  std::vector<const Surface *> ordered;
+  std::vector<const Scenario::Surface *> ordered;
   ordered.reserve(surfaces.size());
-  for (const Surface &surface : surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(ordered.begin(), ordered.end(), [](const Surface *a, const Surface *b) {
-    return a->Z < b->Z;
-  });
+  for (const Scenario::Surface &surface : surfaces) { ordered.push_back(&surface); }
+  std::stable_sort(
+      ordered.begin(), ordered.end(), [](const Scenario::Surface *a, const Scenario::Surface *b) {
+        return a->Z < b->Z;
+      });
   std::vector<Core::Shows> laid;
   laid.reserve(ordered.size());
-  for (const Surface *surface : ordered) {
+  for (const Scenario::Surface *surface : ordered) {
     Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
@@ -137,26 +138,26 @@ void Engine::ships() {
   (void)S_->World.Offering.offers(S_->World.Shipped);
 }
 
-Result Engine::declare(const Scenario &scenario) {
+Result Engine::declare(const Scenario::Document &scenario) {
   ships();
   const auto offers = [this](const std::string &kind) {
     return S_->World.Offering.named(kind) != nullptr;
   };
-  for (const Generator &named : scenario.Generators) {
+  for (const Scenario::Generator &named : scenario.Generators) {
     if (offers(named.Kind)) { continue; }
     S_->Error = "the scenario declares a generator of kind '" + named.Kind +
                 "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
                 "never a line that is counted and dropped";
     return std::unexpected(S_->Error);
   }
-  for (const Asset &shown : scenario.Assets) {
+  for (const Scenario::Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated" || offers(shown.Uri)) { continue; }
     S_->Error = "the scenario stands the generated asset '" + shown.Uri +
                 "' and nothing offers a generator of that kind -- an asset names a generator the "
                 "way a scenario names anything, and a name nobody answers is a refusal";
     return std::unexpected(S_->Error);
   }
-  const Asset *const subject = scenario.subject();
+  const Scenario::Asset *const subject = scenario.subject();
 
   Core::Declaration declared;
   declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
@@ -164,7 +165,7 @@ Result Engine::declare(const Scenario &scenario) {
   if (subject != nullptr) {
     declared.Stands = Beneath(S_->Session.Under.Assets, subject->Uri);
     bool first = true;
-    for (const Asset &shown : scenario.Assets) {
+    for (const Scenario::Asset &shown : scenario.Assets) {
       if (shown.Kind != "gltf") { continue; }
       if (first) {
         first = false;
@@ -178,8 +179,8 @@ Result Engine::declare(const Scenario &scenario) {
     declared.Clip = subject->Clip;
   }
   declared.DrawsSky = scenario.Ground.Declared && scenario.Ground.AirDensityKgM3 > 0.0;
-  const Patch whole;
-  const Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
+  const Scenario::Patch whole;
+  const Scenario::Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
   if (scenario.Render.Declared) {
     if (scenario.Render.Fps > 0.0) { declared.Fps = scenario.Render.Fps; }
     declared.Fill = scenario.Render.Fill;
@@ -235,13 +236,14 @@ Result Engine::declare(const Scenario &scenario) {
     }
   }
 
-  std::vector<const Surface *> ordered;
+  std::vector<const Scenario::Surface *> ordered;
   ordered.reserve(scenario.Surfaces.size());
-  for (const Surface &surface : scenario.Surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(ordered.begin(), ordered.end(), [](const Surface *a, const Surface *b) {
-    return a->Z < b->Z;
-  });
-  for (const Surface *surface : ordered) {
+  for (const Scenario::Surface &surface : scenario.Surfaces) { ordered.push_back(&surface); }
+  std::stable_sort(
+      ordered.begin(), ordered.end(), [](const Scenario::Surface *a, const Scenario::Surface *b) {
+        return a->Z < b->Z;
+      });
+  for (const Scenario::Surface *surface : ordered) {
     Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
@@ -336,7 +338,7 @@ Result Engine::declare(const Scenario &scenario) {
   return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
 }
 
-bool Engine::generated(const Scenario &scenario) {
+bool Engine::generated(const Scenario::Document &scenario) {
   class Stands final : public Generators::HeightSampler {
   public:
     explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
@@ -366,17 +368,17 @@ bool Engine::generated(const Scenario &scenario) {
     return false;
   };
 
-  for (const Asset &shown : scenario.Assets) {
+  for (const Scenario::Asset &shown : scenario.Assets) {
     if (shown.Kind != "generated") { continue; }
     if (!offered(shown.Uri)) { return false; }
   }
-  for (const Generator &named : scenario.Generators) {
+  for (const Scenario::Generator &named : scenario.Generators) {
     if (!offered(named.Kind)) { return false; }
   }
   return made.parts() == 0 || setGeometry(made);
 }
 
-bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
+bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {
   const std::string held(path);
   std::string text;
   if (!SlurpFile(held, text, S_->Error)) { return false; }
@@ -390,7 +392,7 @@ bool Engine::readScenarioInto(std::string_view path, Scenario &out) {
   if (out.Layers.empty()) { return true; }
   const size_t cut = held.find_last_of('/');
   const std::string dir = cut == std::string::npos ? std::string() : held.substr(0, cut + 1);
-  for (const Layer &layer : out.Layers) {
+  for (const Scenario::Layer &layer : out.Layers) {
     const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
     if (!LayerActive(layer, out.Named.Active)) {
       S_->Session.LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" +
@@ -442,7 +444,7 @@ std::string Engine::writeScenario() const {
 }
 
 Result Engine::readScenario(std::string_view path) {
-  Scenario scenario;
+  Scenario::Document scenario;
   if (!readScenarioInto(path, scenario)) { return std::unexpected(S_->Error); }
   const std::vector<std::string> traced = S_->Session.LayerTrace;
   const Result stood = declare(scenario);
@@ -459,7 +461,7 @@ const Scene &Engine::scene() const {
   return S_->Cast.Scene;
 }
 
-const Scenario &Engine::declaration() const {
+const Scenario::Document &Engine::declaration() const {
   return S_->Session.Declared;
 }
 

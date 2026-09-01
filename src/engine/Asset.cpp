@@ -24,7 +24,7 @@ void Posed::Clears() {
 
 bool Posed::Reads(const std::string &path,
                   const std::string &variant,
-                  AssetAnimation animation,
+                  Scenario::AssetAnimation animation,
                   int clip,
                   double fps,
                   std::string &error) {
@@ -34,8 +34,8 @@ bool Posed::Reads(const std::string &path,
     error = File_.Error();
     return false;
   }
-  if (!File_.Animations().empty() &&
-      (animation == AssetAnimation::Play || animation == AssetAnimation::Loop)) {
+  if (!File_.Animations().empty() && (animation == Scenario::AssetAnimation::Play ||
+                                      animation == Scenario::AssetAnimation::Loop)) {
     if (!Gltf::Pose::Build(File_, clip, Motion_, error)) { return false; }
     Moves_ = Motion_.EndS() > 0.0;
     Frames_ = Moves_ ? static_cast<int>(Motion_.EndS() * fps + 0.5) : 1;

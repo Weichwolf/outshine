@@ -26,8 +26,8 @@ int BusGraph::BusNamed(std::string_view id) const {
   return -1;
 }
 
-bool BusGraph::Build(std::span<const Bus> buses,
-                     std::span<const Sound> sounds,
+bool BusGraph::Build(std::span<const Scenario::Bus> buses,
+                     std::span<const Scenario::Sound> sounds,
                      std::string &error) {
   Buses_.clear();
   Sounds_.clear();
@@ -44,7 +44,7 @@ bool BusGraph::Build(std::span<const Bus> buses,
             std::to_string(kMostSounds);
     return false;
   }
-  for (const Bus &bus : buses) {
+  for (const Scenario::Bus &bus : buses) {
     if (bus.Id.empty()) {
       error = "a bus without an id routes nothing, because nothing can name it";
       return false;
@@ -97,7 +97,7 @@ bool BusGraph::Build(std::span<const Bus> buses,
     }
   }
 
-  for (const Sound &sound : sounds) {
+  for (const Scenario::Sound &sound : sounds) {
     if (sound.Id.empty()) {
       error = "a sound without an id cannot be played, and a sound nobody can play is "
               "dead weight";

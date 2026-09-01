@@ -174,8 +174,8 @@ double ControlVariation() {
 LogSink *Telling = nullptr;
 bool Audits = false;
 
-Scenario ScenarioFor(const Place &place) {
-  Scenario stands;
+Scenario::Document ScenarioFor(const Place &place) {
+  Scenario::Document stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = place.LatDeg;
   stands.Ground.Origin.LongitudeDeg = place.LonDeg;
@@ -190,7 +190,7 @@ Scenario ScenarioFor(const Place &place) {
   stands.Time.Live = false;
   stands.Time.Start = place.WhenUtc;
 
-  View watches;
+  Scenario::View watches;
   watches.Id = "station";
   watches.Person = "first";
   watches.Sees.Stands.GlobeAnchor = true;
@@ -213,7 +213,7 @@ Scenario ScenarioFor(const Place &place) {
   stands.Views.push_back(watches);
 
   for (int step = 1; step <= kWalkViews; ++step) {
-    View along = watches;
+    Scenario::View along = watches;
     along.Id = "walk" + std::to_string(step - 1);
     double lat = place.LatDeg;
     double lon = place.LonDeg;
@@ -247,7 +247,7 @@ Shot Take(const Place &place, bool tells) {
     return shot;
   }
 
-  const Scenario stands = ScenarioFor(place);
+  const Scenario::Document stands = ScenarioFor(place);
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {

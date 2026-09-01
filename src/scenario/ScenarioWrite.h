@@ -7,7 +7,7 @@
 
 namespace outshine {
 
-[[nodiscard]] std::string WriteScenario(const Scenario &declared);
+[[nodiscard]] std::string WriteScenario(const Scenario::Document &declared);
 
 }
 #endif

@@ -20,8 +20,8 @@ namespace outshine::Audio {
 namespace {
 
 [[nodiscard]] double
-Named(std::span<const Setting> parameters, std::string_view name, double standing) {
-  for (const Setting &one : parameters) {
+Named(std::span<const Scenario::Setting> parameters, std::string_view name, double standing) {
+  for (const Scenario::Setting &one : parameters) {
     if (one.Name != name) { continue; }
     try {
       return std::stod(one.Value);
@@ -30,9 +30,10 @@ Named(std::span<const Setting> parameters, std::string_view name, double standin
   return standing;
 }
 
-[[nodiscard]] std::string
-Spelt(std::span<const Setting> parameters, std::string_view name, std::string_view standing) {
-  for (const Setting &one : parameters) {
+[[nodiscard]] std::string Spelt(std::span<const Scenario::Setting> parameters,
+                                std::string_view name,
+                                std::string_view standing) {
+  for (const Scenario::Setting &one : parameters) {
     if (one.Name == name) { return one.Value; }
   }
   return std::string(standing);
@@ -54,15 +55,15 @@ struct Running {
   uint32_t Seed = 0x9E3779B9u;
 };
 
-[[nodiscard]] double Falloff(const Emitter &heard, double awayM) {
+[[nodiscard]] double Falloff(const Scenario::Emitter &heard, double awayM) {
   const double refM = heard.RefM > 0.0 ? heard.RefM : 1.0;
   const double atM = awayM < refM ? refM : awayM;
-  if (heard.By == Falls::Linear) {
+  if (heard.By == Scenario::Falls::Linear) {
     const double mostM = heard.MostM > refM ? heard.MostM : refM * 2.0;
     const double held = 1.0 - heard.Rolloff * (atM - refM) / (mostM - refM);
     return std::clamp(held, 0.0, 1.0);
   }
-  if (heard.By == Falls::Exponential) { return std::pow(atM / refM, -heard.Rolloff); }
+  if (heard.By == Scenario::Falls::Exponential) { return std::pow(atM / refM, -heard.Rolloff); }
   return refM / (refM + heard.Rolloff * (atM - refM));
 }
 
@@ -81,7 +82,7 @@ struct Running {
   return std::clamp(shift, 0.25, 4.0);
 }
 
-void Voiced(const Sound &sound,
+void Voiced(const Scenario::Sound &sound,
             std::vector<Running> &state,
             double pitch,
             int rate,
@@ -94,7 +95,7 @@ void Voiced(const Sound &sound,
   for (size_t at = 0; at < sound.Graph.size(); ++at) { named[sound.Graph[at].Id] = at; }
 
   for (size_t at = 0; at < sound.Graph.size(); ++at) {
-    const Voice &makes = sound.Graph[at];
+    const Scenario::Voice &makes = sound.Graph[at];
     Running &kept = state[at];
     std::vector<double> &out = made[at];
     std::vector<double> in(frames, 0.0);
@@ -105,7 +106,7 @@ void Voiced(const Sound &sound,
     }
 
     switch (makes.Does) {
-      case Makes::Oscillator: {
+      case Scenario::Makes::Oscillator: {
         const double hz = Named(makes.Parameters, "frequency", 440.0) * pitch;
         const std::string shape = Spelt(makes.Parameters, "shape", "sine");
         for (size_t frame = 0; frame < frames; ++frame) {
@@ -115,18 +116,18 @@ void Voiced(const Sound &sound,
         }
         break;
       }
-      case Makes::Noise:
+      case Scenario::Makes::Noise:
         for (size_t frame = 0; frame < frames; ++frame) {
           kept.Seed = kept.Seed * 1664525u + 1013904223u;
           out[frame] = static_cast<double>(kept.Seed >> 8u) / 8388608.0 - 1.0;
         }
         break;
-      case Makes::Gain: {
+      case Scenario::Makes::Gain: {
         const double by = Named(makes.Parameters, "gain", 1.0);
         for (size_t frame = 0; frame < frames; ++frame) { out[frame] = in[frame] * by; }
         break;
       }
-      case Makes::Biquad: {
+      case Scenario::Makes::Biquad: {
         const double hz = Named(makes.Parameters, "frequency", 1000.0);
         const double alpha = 1.0 - std::exp(-2.0 * kPi * hz / static_cast<double>(rate));
         for (size_t frame = 0; frame < frames; ++frame) {
@@ -135,7 +136,7 @@ void Voiced(const Sound &sound,
         }
         break;
       }
-      case Makes::Delay: {
+      case Scenario::Makes::Delay: {
         const double seconds = Named(makes.Parameters, "delayS", 0.05);
         const auto held = static_cast<size_t>(seconds * static_cast<double>(rate));
         if (kept.Ring.size() != held + 1) {
@@ -150,7 +151,7 @@ void Voiced(const Sound &sound,
         }
         break;
       }
-      case Makes::Mix: out = in; break;
+      case Scenario::Makes::Mix: out = in; break;
       default: break;
     }
   }
@@ -173,7 +174,7 @@ struct Reverberation {
 
 struct Mixer::Held {
   BusGraph Routing;
-  std::vector<Sound> Declared;
+  std::vector<Scenario::Sound> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<double> Scratch;
   std::vector<double> Dulled;
@@ -196,8 +197,8 @@ const BusGraph &Mixer::Routing() const {
   return Held_->Routing;
 }
 
-bool Mixer::Stands(std::span<const Bus> buses,
-                   std::span<const Sound> declared,
+bool Mixer::Stands(std::span<const Scenario::Bus> buses,
+                   std::span<const Scenario::Sound> declared,
                    int rate,
                    std::string &error) {
   if (rate <= 0) {
@@ -210,7 +211,7 @@ bool Mixer::Stands(std::span<const Bus> buses,
   Held_->State.clear();
   Held_->Dulled.clear();
   Held_->Room = Reverberation{};
-  for (const Bus &one : buses) {
+  for (const Scenario::Bus &one : buses) {
     if (!one.Reverberates.Declared || !(one.Reverberates.SecondsRt60 > 0.0)) { continue; }
     Held_->Room = Reverberation{};
     Held_->Room.Standing = true;
@@ -237,20 +238,20 @@ bool Mixer::Stands(std::span<const Bus> buses,
     break;
   }
   Held_->Voices = 0;
-  for (const Sound &one : declared) {
+  for (const Scenario::Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
       error = "the sound '" + one.Id +
               "' comes by no way at all -- a source is a file, a graph or a buffer a client "
               "fills, and declaring none of the three names nothing";
       return false;
     }
-    for (const Voice &makes : one.Graph) {
-      if (makes.Does == Makes::Convolver || makes.Does == Makes::Shaper) {
-        error =
-            "the sound '" + one.Id + "' declares a '" +
-            (makes.Does == Makes::Convolver ? std::string("convolver") : std::string("shaper")) +
-            "' and this mixer does not run one yet -- a declared unit that silently does "
-            "nothing is worse than a refusal, because the mix would sound finished";
+    for (const Scenario::Voice &makes : one.Graph) {
+      if (makes.Does == Scenario::Makes::Convolver || makes.Does == Scenario::Makes::Shaper) {
+        error = "the sound '" + one.Id + "' declares a '" +
+                (makes.Does == Scenario::Makes::Convolver ? std::string("convolver")
+                                                          : std::string("shaper")) +
+                "' and this mixer does not run one yet -- a declared unit that silently does "
+                "nothing is worse than a refusal, because the mix would sound finished";
         return false;
       }
     }
@@ -276,7 +277,7 @@ bool Mixer::Fills(std::span<float> stereo,
   Held_->Wet.assign(frames, 0.0);
 
   for (size_t at = 0; at < Held_->Declared.size(); ++at) {
-    const Sound &sound = Held_->Declared[at];
+    const Scenario::Sound &sound = Held_->Declared[at];
     if (sound.Graph.empty()) { continue; }
     const Heard *standing = nullptr;
     for (const Heard &one : sources) {

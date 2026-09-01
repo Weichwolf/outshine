@@ -15,15 +15,15 @@
 
 namespace outshine {
 
-double Camera::exposureScale() const {
+double Scenario::Camera::exposureScale() const {
   if (!exposed()) { return 0.0; }
   const double ev100 =
       std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);
   return 1.0 / (1.2 * std::pow(2.0, ev100));
 }
 
-const Asset *Scenario::subject() const {
-  for (const Asset &asset : Assets) {
+const Scenario::Asset *Scenario::Document::subject() const {
+  for (const Scenario::Asset &asset : Assets) {
     if (asset.Kind == "gltf") { return &asset; }
   }
   return nullptr;
@@ -196,7 +196,7 @@ void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *
   into[2] = from.Num(z, into[2]);
 }
 
-void ReadStanding(const Xml::Ref &from, Standing &into) {
+void ReadStanding(const Xml::Ref &from, Scenario::Standing &into) {
   if (from.Spelt("lat") || from.Spelt("lon")) {
     into.GlobeAnchor = true;
     into.Geodetic.LatitudeDeg = from.Num("lat", into.Geodetic.LatitudeDeg);
@@ -215,7 +215,7 @@ void ReadStanding(const Xml::Ref &from, Standing &into) {
   if (evenly > 0.0) { into.ScaleXyz[0] = into.ScaleXyz[1] = into.ScaleXyz[2] = evenly; }
 }
 
-void ReadWorld(const Xml::Ref &from, Scenario &into) {
+void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
   into.Ground.Origin.LatitudeDeg = from.Num("lat", into.Ground.Origin.LatitudeDeg);
@@ -245,7 +245,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   const Xml::Ref osm = from.Child("osm");
   if (osm.Valid()) {
     const auto take = [&into](const Xml::Ref &node, bool area) {
-      Structure made;
+      Scenario::Structure made;
       made.Kind = node.Attr("kind", "");
       made.WidthM = node.Num("widthM", 0.0);
       made.HeightM = node.Num("heightM", 0.0);
@@ -271,7 +271,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-void ReadRender(const Xml::Ref &from, Scenario &into) {
+void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Render.Declared = true;
   if (Declares(from, "output")) { into.Render.Outputs.clear(); }
@@ -297,7 +297,7 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-void ReadLighting(const Xml::Ref &from, Scenario &into) {
+void ReadLighting(const Xml::Ref &from, Scenario::Document &into) {
   if (!from.Valid()) { return; }
   into.Lit.Declared = true;
   into.Lit.ShadowRadiusM = from.Num("shadowRadiusM", 0.0);
@@ -317,7 +317,8 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
 
 } // namespace
 
-[[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error) {
+[[nodiscard]] bool
+ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
   ReadRender(root.Child("render"), into);
   ReadLighting(root.Child("lighting"), into);
@@ -356,13 +357,13 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
     into.Routed.Declared = true;
     const std::string by = drive.Attr("by");
     if (by.empty() || by == "drive") {
-      into.Routed.By = Travels::Drive;
+      into.Routed.By = Scenario::Travels::Drive;
     } else if (by == "walk") {
-      into.Routed.By = Travels::Walk;
+      into.Routed.By = Scenario::Travels::Walk;
     } else if (by == "fly") {
-      into.Routed.By = Travels::Fly;
+      into.Routed.By = Scenario::Travels::Fly;
     } else if (by == "rail") {
-      into.Routed.By = Travels::Rail;
+      into.Routed.By = Scenario::Travels::Rail;
     } else {
       error =
           "a journey travels '" + by + "', and walk, drive, fly and rail are the whole catalogue";
@@ -376,7 +377,7 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   return true;
 }
 
-bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
+bool ReadScenario(const char *text, size_t length, Scenario::Document &into, std::string &error) {
   Xml document;
   if (!document.Parse(text, length)) {
     error = document.Error();
@@ -385,8 +386,8 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
   return ReadScenario(document, into, error);
 }
 
-bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
-  into = Scenario();
+bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &error) {
+  into = Scenario::Document();
   const Xml::Ref root = document.Root();
   if (root.Name() != "scenario") {
     error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
@@ -403,14 +404,14 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   for (const Xml::Ref one : root.Children("layer")) {
     into.Layers.push_back(
-        Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
+        Scenario::Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
   }
 
   if (!ReadSectionsOnto(root, into, error)) { return false; }
 
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
-    Provider made;
+    Scenario::Provider made;
     made.Kind = one.Attr("kind");
     made.Pin = one.Attr("pin");
     made.Rank = static_cast<int>(one.Int("rank", 0));
@@ -420,18 +421,18 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref generators = root.Child("generators");
   for (const Xml::Ref one : generators.Children("generator")) {
-    Generator made;
+    Scenario::Generator made;
     made.Kind = one.Attr("kind");
     for (const Xml::Ref parameter : one.Children("set")) {
       made.Parameters.push_back(
-          Setting{.Name = parameter.Attr("name"), .Value = parameter.Attr("value")});
+          Scenario::Setting{.Name = parameter.Attr("name"), .Value = parameter.Attr("value")});
     }
     into.Generators.push_back(made);
   }
 
   const Xml::Ref compositors = root.Child("compositors");
   for (const Xml::Ref one : compositors.Children("compositor")) {
-    Compositor made;
+    Scenario::Compositor made;
     made.Kind = one.Attr("kind");
     made.BudgetPx = one.Num("budgetPx", 0.0);
     made.On = one.Flag("on", true);
@@ -440,7 +441,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref assets = root.Child("assets");
   for (const Xml::Ref one : assets.Children("asset")) {
-    Asset made;
+    Scenario::Asset made;
     made.Uri = one.Attr("uri");
     made.Digest = one.Attr("digest");
     made.Kind = one.Attr("kind");
@@ -448,20 +449,20 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Clip = static_cast<int>(one.Num("clip", 0.0));
     const std::string animation = one.Attr("animation", "play");
     if (animation == "play") {
-      made.Animation = AssetAnimation::Play;
+      made.Animation = Scenario::AssetAnimation::Play;
     } else if (animation == "loop") {
-      made.Animation = AssetAnimation::Loop;
+      made.Animation = Scenario::AssetAnimation::Loop;
     } else if (animation == "ignore") {
-      made.Animation = AssetAnimation::Ignore;
+      made.Animation = Scenario::AssetAnimation::Ignore;
     } else if (animation == "driven") {
-      made.Animation = AssetAnimation::Driven;
+      made.Animation = Scenario::AssetAnimation::Driven;
     } else {
       error = "<asset> declares animation='" + animation +
               "', and the four answers are play, loop, ignore and driven";
       return false;
     }
     for (const Xml::Ref worn : one.Children("wears")) {
-      SurfaceOverride said;
+      Scenario::SurfaceOverride said;
       said.Named = worn.Attr("named");
       said.Node = worn.Attr("node");
       said.Part = static_cast<int>(worn.Num("part", -1.0));
@@ -498,7 +499,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref placements = root.Child("placements");
   for (const Xml::Ref one : placements.Children("place")) {
-    Placement made;
+    Scenario::Placement made;
     made.Asset = one.Attr("asset");
     ReadStanding(one, made.Stands);
     into.Placements.push_back(made);
@@ -506,7 +507,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref surfaces = root.Child("surfaces");
   for (const Xml::Ref one : surfaces.Children("surface")) {
-    Surface made;
+    Scenario::Surface made;
     made.Document = one.Attr("document");
     made.Style = one.Attr("style");
     made.Programme = one.Attr("programme");
@@ -521,17 +522,18 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   const Xml::Ref input = root.Child("input");
   if (input.Valid()) { into.WheelStepPx = input.Num("wheelStepPx", into.WheelStepPx); }
   for (const Xml::Ref one : input.Children("bind")) {
-    into.Input.push_back(Binding{.Event = one.Attr("event"), .Action = one.Attr("action")});
+    into.Input.push_back(
+        Scenario::Binding{.Event = one.Attr("event"), .Action = one.Attr("action")});
   }
 
   const Xml::Ref kinds = root.Child("kinds");
   for (const Xml::Ref one : kinds.Children("kind")) {
-    Kind made;
+    Scenario::Kind made;
     made.Name = one.Attr("name");
     made.Inherits = one.Attr("inherits");
     made.Asset = one.Attr("asset");
     for (const Xml::Ref mind : one.Children("mind")) {
-      Mind thinks;
+      Scenario::Mind thinks;
       thinks.Tier = mind.Attr("tier");
       thinks.Uses = mind.Attr("uses");
       thinks.Programme = mind.Attr("programme");
@@ -550,7 +552,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     for (const Xml::Ref may : one.Children("may")) { made.Capabilities.push_back(may.Attr("do")); }
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(
-          Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
+          Scenario::Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
     }
     into.Kinds.push_back(made);
   }
@@ -558,14 +560,14 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   const Xml::Ref instances = root.Child("instances");
   into.Room = static_cast<size_t>(root.Child("scene").Num("room", 0.0));
   for (const Xml::Ref one : instances.Children("instance")) {
-    Instance made;
+    Scenario::Instance made;
     made.Of = one.Attr("of");
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
     ReadStanding(one, made.Stands);
     for (const Xml::Ref attribute : one.Children("has")) {
       made.Attributes.push_back(
-          Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
+          Scenario::Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
     }
     for (const Xml::Ref holds : one.Children("holds")) { made.Holds.push_back(holds.Attr("what")); }
     into.Instances.push_back(made);
@@ -573,7 +575,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref regions = root.Child("regions");
   for (const Xml::Ref one : regions.Children("region")) {
-    Region made;
+    Scenario::Region made;
     made.Id = one.Attr("id");
     made.Kind = one.Attr("kind");
     ReadVector(one, "x", "y", "z", made.OriginM);
@@ -583,7 +585,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     into.Regions.push_back(made);
   }
   for (const Xml::Ref one : regions.Children("door")) {
-    Door made;
+    Scenario::Door made;
     made.Id = one.Attr("id");
     made.From = one.Attr("from");
     made.To = one.Attr("to");
@@ -593,7 +595,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref volumes = root.Child("volumes");
   for (const Xml::Ref one : volumes.Children("volume")) {
-    Volume made;
+    Scenario::Volume made;
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
     made.Shape = one.Attr("shape", "box");
@@ -609,7 +611,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref audio = root.Child("audio");
   for (const Xml::Ref one : audio.Children("bus")) {
-    Bus made;
+    Scenario::Bus made;
     made.Id = one.Attr("id");
     made.Into = one.Attr("into");
     made.GainDb = one.Num("gainDb", 0.0);
@@ -621,7 +623,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     into.Buses.push_back(made);
   }
   for (const Xml::Ref one : audio.Children("sound")) {
-    Sound made;
+    Scenario::Sound made;
     made.Id = one.Attr("id");
     made.Uri = one.Attr("uri");
     made.Bus = one.Attr("bus");
@@ -631,9 +633,9 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.GainDb = one.Num("gainDb", 0.0);
     made.Heard.Positional = one.Flag("positional", false);
     const std::string falls = one.Attr("falls");
-    made.Heard.By = falls == "linear"        ? Falls::Linear
-                    : falls == "exponential" ? Falls::Exponential
-                                             : Falls::Inverse;
+    made.Heard.By = falls == "linear"        ? Scenario::Falls::Linear
+                    : falls == "exponential" ? Scenario::Falls::Exponential
+                                             : Scenario::Falls::Inverse;
     made.Heard.RefM = one.Num("refM", 1.0);
     made.Heard.MostM = one.Num("mostM", 0.0);
     made.Heard.Rolloff = one.Num("rolloff", 1.0);
@@ -644,20 +646,21 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Heard.BlockedHz = one.Num("blockedHz", 0.0);
     made.SendShare = one.Num("sendShare", 0.0);
     for (const Xml::Ref unit : one.Children("voice")) {
-      Voice makes;
+      Scenario::Voice makes;
       makes.Id = unit.Attr("id");
       const std::string does = unit.Attr("does");
-      makes.Does = does == "noise"       ? Makes::Noise
-                   : does == "biquad"    ? Makes::Biquad
-                   : does == "delay"     ? Makes::Delay
-                   : does == "gain"      ? Makes::Gain
-                   : does == "shaper"    ? Makes::Shaper
-                   : does == "convolver" ? Makes::Convolver
-                   : does == "mix"       ? Makes::Mix
-                                         : Makes::Oscillator;
+      makes.Does = does == "noise"       ? Scenario::Makes::Noise
+                   : does == "biquad"    ? Scenario::Makes::Biquad
+                   : does == "delay"     ? Scenario::Makes::Delay
+                   : does == "gain"      ? Scenario::Makes::Gain
+                   : does == "shaper"    ? Scenario::Makes::Shaper
+                   : does == "convolver" ? Scenario::Makes::Convolver
+                   : does == "mix"       ? Scenario::Makes::Mix
+                                         : Scenario::Makes::Oscillator;
       for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
       for (const Xml::Ref set : unit.Children("set")) {
-        makes.Parameters.push_back(Setting{.Name = set.Attr("name"), .Value = set.Attr("value")});
+        makes.Parameters.push_back(
+            Scenario::Setting{.Name = set.Attr("name"), .Value = set.Attr("value")});
       }
       made.Graph.push_back(makes);
     }
@@ -666,7 +669,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref tables = root.Child("tables");
   for (const Xml::Ref one : tables.Children("table")) {
-    Table made;
+    Scenario::Table made;
     made.Id = one.Attr("id");
     for (const Xml::Ref column : one.Children("column")) {
       made.Columns.push_back(column.Attr("name"));
@@ -687,7 +690,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref events = root.Child("events");
   for (const Xml::Ref one : events.Children("event")) {
-    Event made;
+    Scenario::Event made;
     made.Name = one.Attr("name");
     for (const Xml::Ref carries : one.Children("carries")) {
       made.Carries.push_back(carries.Attr("what"));
@@ -697,7 +700,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref views = root.Child("views");
   for (const Xml::Ref one : views.Children("view")) {
-    View made;
+    Scenario::View made;
     made.Id = one.Attr("id");
     made.Follows = one.Attr("follows");
     if (Declares(one, "at")) {
@@ -730,7 +733,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   }
 
   for (const Xml::Ref one : root.Children("body")) {
-    Body made;
+    Scenario::Body made;
     made.Name = one.Attr("name");
     made.Asset = one.Attr("asset");
     made.MassKg = one.Num("massKg", 0.0);
@@ -754,7 +757,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.InertiaKgM2[1] = inertia.Num("iyy", 0.0);
     made.InertiaKgM2[2] = inertia.Num("izz", 0.0);
     for (const Xml::Ref touch : one.Children("contact")) {
-      Contact wheel;
+      Scenario::Contact wheel;
       wheel.At = touch.Attr("at");
       ReadVector(touch, "x", "y", "z", wheel.AtM);
       wheel.Strut.ReachM = touch.Num("reachM", 0.0);
@@ -771,13 +774,13 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       made.Contacts.push_back(wheel);
     }
     for (const Xml::Ref acts : one.Children("actuator")) {
-      Drive does;
+      Scenario::Drive does;
       const std::string named = acts.Attr("does");
       if (named == "torque") {
-        does.Does = Drives::Effort;
+        does.Does = Scenario::Drives::Effort;
         does.Opposes = acts.Num("opposes", 0.0) != 0.0;
       } else if (named == "steer") {
-        does.Does = Drives::Motion;
+        does.Does = Scenario::Drives::Motion;
       } else {
         error = "a body declares a drive that does '" + named +
                 "', and torque and steer are the whole catalogue -- a brake is a torque that "
@@ -803,7 +806,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.DragCoefficient = aero.Num("dragCoefficient", 0.0);
     made.FrontalM2 = aero.Num("frontalM2", 0.0);
     for (const Xml::Ref where : one.Children("slot")) {
-      Slot advertised;
+      Scenario::Slot advertised;
       advertised.At = where.Attr("at");
       ReadVector(where, "x", "y", "z", advertised.AtM);
       made.Slots.push_back(advertised);
@@ -813,7 +816,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref state = root.Child("state");
   for (const Xml::Ref persist : state.Children("persist")) {
-    into.State.push_back(Persisted{persist.Attr("what")});
+    into.State.push_back(Scenario::Persisted{persist.Attr("what")});
   }
 
   const Xml::Unread unread = document.FirstUnread();

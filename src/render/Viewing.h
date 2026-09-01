@@ -67,7 +67,7 @@ inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &up
   return true;
 }
 
-inline void CameraOf(const Viewpoint &from, outshine::Camera &out) {
+inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
   out.Placed = true;
   out.LooksAt = true;
   for (int axis = 0; axis < 3; ++axis) {

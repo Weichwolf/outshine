@@ -20,21 +20,22 @@ constexpr size_t kMostFired = 256;
 
 } // namespace
 
-std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Volume> volumes,
-                                                             std::span<const Event> events) {
+std::expected<TriggerField, std::string>
+TriggerField::Stand(std::span<const Scenario::Volume> volumes,
+                    std::span<const Scenario::Event> events) {
   TriggerField standing;
 
   if (volumes.size() > kMostDoors) {
     return std::unexpected("the scenario declares " + std::to_string(volumes.size()) +
                            " volumes over the pool's " + std::to_string(kMostDoors));
   }
-  for (const Event &event : events) {
+  for (const Scenario::Event &event : events) {
     standing.Events_.push_back(event.Name);
     standing.Carries_.emplace_back(event.Carries.begin(), event.Carries.end());
     standing.Heard_.push_back(0);
     standing.Unheard_.push_back(0);
   }
-  for (const Volume &volume : volumes) {
+  for (const Scenario::Volume &volume : volumes) {
     Door door;
     if (volume.When == "enter") {
       door.Opens = When::Enter;

@@ -23,7 +23,7 @@ struct Loaded::Held {
   Gltf::Pose Motion;
   Gltf::VariantSelection Variant;
   Geometry Handed;
-  Camera Eye;
+  Scenario::Camera Eye;
   std::vector<Gltf::Transform> Locals;
   std::vector<double> Weights;
   std::vector<int> Plays;
@@ -197,7 +197,7 @@ int Loaded::cameras() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
 
-bool Loaded::camera(int index, Camera &out) const {
+bool Loaded::camera(int index, Scenario::Camera &out) const {
   Render::Viewpoint placed;
   std::string why;
   if (!Gltf::DeclaredPlacement(Held_->File, index, placed, why)) { return false; }
@@ -205,18 +205,18 @@ bool Loaded::camera(int index, Camera &out) const {
   return true;
 }
 
-bool Loaded::frames(double fill, Camera &out) const {
+bool Loaded::frames(double fill, Scenario::Camera &out) const {
   Render::Viewpoint fitted;
   if (!Held_->Assembled.Frame(fitted, fill)) { return false; }
   Render::CameraOf(fitted, out);
   return true;
 }
 
-bool Loaded::frames(Camera &out) const {
+bool Loaded::frames(Scenario::Camera &out) const {
   return frames(Render::kFramingFill, out);
 }
 
-const Camera &Loaded::camera() const {
+const Scenario::Camera &Loaded::camera() const {
   return Held_->Eye;
 }
 

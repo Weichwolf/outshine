@@ -24,7 +24,7 @@ Result Engine::assemble() {
                 "and Assemble builds what Declare stood";
     return std::unexpected(S_->Error);
   }
-  const Scenario &declared = S_->Session.Declared;
+  const Scenario::Document &declared = S_->Session.Declared;
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
     S_->Ticking.Drove = false;
@@ -65,9 +65,9 @@ namespace {
 
 using Assembler = bool (*)(const Scene &,
                            const Assembled &,
-                           const Column<Body> &,
-                           const Column<Journey> &,
-                           const WorldSettings &,
+                           const Column<Scenario::Body> &,
+                           const Column<Scenario::Journey> &,
+                           const Scenario::WorldSettings &,
                            Ground::GroundStack &,
                            Data::Transport &,
                            const Sim::Provision &,
@@ -75,7 +75,7 @@ using Assembler = bool (*)(const Scene &,
                            Sim::DriveProduct &);
 
 struct Travelling_ {
-  Travels By;
+  Scenario::Travels By;
   const char *Named;
   Assembler How;
 };
@@ -83,20 +83,20 @@ struct Travelling_ {
 constexpr size_t kTravels = 4;
 
 const Travelling_ kAssemblers[kTravels] = {
-    {.By = Travels::Walk, .Named = "foot", .How = nullptr},
-    {.By = Travels::Drive, .Named = "road", .How = &Sim::AssembleDrive},
-    {.By = Travels::Fly, .Named = "air", .How = nullptr},
-    {.By = Travels::Rail, .Named = "rail", .How = nullptr},
+    {.By = Scenario::Travels::Walk, .Named = "foot", .How = nullptr},
+    {.By = Scenario::Travels::Drive, .Named = "road", .How = &Sim::AssembleDrive},
+    {.By = Scenario::Travels::Fly, .Named = "air", .How = nullptr},
+    {.By = Scenario::Travels::Rail, .Named = "rail", .How = nullptr},
 };
 
-[[nodiscard]] Assembler Assembles(Travels by) {
+[[nodiscard]] Assembler Assembles(Scenario::Travels by) {
   for (const Travelling_ &one : kAssemblers) {
     if (one.By == by) { return one.How; }
   }
   return nullptr;
 }
 
-[[nodiscard]] const char *Travelling(Travels by) {
+[[nodiscard]] const char *Travelling(Scenario::Travels by) {
   for (const Travelling_ &one : kAssemblers) {
     if (one.By == by) { return one.Named; }
   }
@@ -106,10 +106,10 @@ const Travelling_ kAssemblers[kTravels] = {
 } // namespace
 
 bool Engine::State::Routes() {
-  const Scenario &declared = Session.Declared;
+  const Scenario::Document &declared = Session.Declared;
   Ticking.Drove = false;
   Ticking.Freestanding.clear();
-  for (const Body &stands : declared.Bodies) {
+  for (const Scenario::Body &stands : declared.Bodies) {
     if (!stands.Placed) { continue; }
     Physics::Rigid held;
     held.MassKg = stands.MassKg;

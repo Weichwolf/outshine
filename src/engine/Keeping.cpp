@@ -21,7 +21,7 @@ Result Engine::save(std::string_view path) const {
     return std::unexpected(S_->Error);
   }
   std::vector<std::string> lines;
-  for (const Persisted &row : S_->Session.Declared.State) {
+  for (const Scenario::Persisted &row : S_->Session.Declared.State) {
     const size_t dot = row.What.find('.');
     if (dot == std::string::npos) {
       S_->Error = "the persist row '" + row.What +
@@ -165,7 +165,7 @@ Result Engine::park() {
     S_->Error = "a scenario is parked under its name and this one declares none";
     return std::unexpected(S_->Error);
   }
-  for (const Scenario &asleep : S_->Session.Asleep) {
+  for (const Scenario::Document &asleep : S_->Session.Asleep) {
     if (asleep.Named.Name == S_->Session.Declared.Named.Name) {
       S_->Error = S_->Session.Declared.Named.Name +
                   " is parked already, so parking it twice would leave two";
@@ -215,7 +215,9 @@ Result Engine::discard(std::string_view name) {
 
 std::vector<std::string> Engine::parked() const {
   std::vector<std::string> names;
-  for (const Scenario &asleep : S_->Session.Asleep) { names.push_back(asleep.Named.Name); }
+  for (const Scenario::Document &asleep : S_->Session.Asleep) {
+    names.push_back(asleep.Named.Name);
+  }
   return names;
 }
 

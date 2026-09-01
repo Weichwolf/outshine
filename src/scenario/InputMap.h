@@ -16,7 +16,7 @@ public:
   enum class Kind { Button, Axis };
   static constexpr uint16_t kUnbound = 0xFFFF;
 
-  [[nodiscard]] bool Build(std::span<const Binding> declared, std::string &error);
+  [[nodiscard]] bool Build(std::span<const Scenario::Binding> declared, std::string &error);
 
   [[nodiscard]] bool Requires(std::string_view action, std::string &error) const;
 

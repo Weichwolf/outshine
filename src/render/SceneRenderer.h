@@ -103,7 +103,7 @@ public:
   void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
 
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
-  static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
+  static constexpr float kNearM = static_cast<float>(outshine::Scenario::Camera::kNearestM);
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 

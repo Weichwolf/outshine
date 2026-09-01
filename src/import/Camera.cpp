@@ -9,7 +9,7 @@ namespace outshine {
 
 namespace {
 
-[[nodiscard]] bool StandingOf(const Camera &from, Render::Viewpoint &out) {
+[[nodiscard]] bool StandingOf(const Scenario::Camera &from, Render::Viewpoint &out) {
   if (!Render::Viewpoint::LookAt(from.Stands.AtM, from.LookAtM, from.UpM, out)) { return false; }
   out.ZNearM = from.NearM;
   out.ZFarM = from.FarM;
@@ -26,7 +26,7 @@ namespace {
 
 } // namespace
 
-bool Camera::viewMatrix(Mat4 &out) const {
+bool Scenario::Camera::viewMatrix(Mat4 &out) const {
   Render::Viewpoint standing;
   Gltf::Transform made;
   if (!StandingOf(*this, standing) || !Gltf::ViewOf(standing, made)) { return false; }
@@ -34,7 +34,7 @@ bool Camera::viewMatrix(Mat4 &out) const {
   return true;
 }
 
-bool Camera::projectionMatrix(double aspect, Mat4 &out) const {
+bool Scenario::Camera::projectionMatrix(double aspect, Mat4 &out) const {
   Render::Viewpoint standing;
   if (!StandingOf(*this, standing)) { return false; }
   Gltf::Camera lens;
@@ -51,7 +51,7 @@ bool Camera::projectionMatrix(double aspect, Mat4 &out) const {
   return true;
 }
 
-bool Camera::clipMatrix(double aspect, Mat4 &out) const {
+bool Scenario::Camera::clipMatrix(double aspect, Mat4 &out) const {
   Render::Viewpoint standing;
   Gltf::Transform made;
   if (!StandingOf(*this, standing) || !Gltf::ClipOf(standing, aspect, made)) { return false; }

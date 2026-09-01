@@ -23,7 +23,7 @@ public:
   };
 
   [[nodiscard]] static std::expected<TriggerField, std::string>
-  Stand(std::span<const Volume> volumes, std::span<const Event> events);
+  Stand(std::span<const Scenario::Volume> volumes, std::span<const Scenario::Event> events);
 
   [[nodiscard]] bool
   Listen(std::string_view event, std::span<const std::string_view> reads, std::string &error);

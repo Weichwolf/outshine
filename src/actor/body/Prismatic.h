@@ -5,7 +5,7 @@
 
 namespace outshine::Physics {
 
-using outshine::Prismatic;
+using outshine::Scenario::Prismatic;
 
 struct Reaction {
   bool Touching = false;

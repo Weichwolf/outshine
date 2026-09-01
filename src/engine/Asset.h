@@ -20,7 +20,7 @@ public:
   void Clears();
   [[nodiscard]] bool Reads(const std::string &path,
                            const std::string &variant,
-                           AssetAnimation animation,
+                           Scenario::AssetAnimation animation,
                            int clip,
                            double fps,
                            std::string &error);

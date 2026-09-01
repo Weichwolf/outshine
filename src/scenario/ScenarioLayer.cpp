@@ -33,23 +33,27 @@ void MergeRows(std::vector<Row> &into,
 }
 
 struct ByKindName {
-  bool operator()(const Kind &a, const Kind &b) const { return a.Name == b.Name; }
+  bool operator()(const Scenario::Kind &a, const Scenario::Kind &b) const {
+    return a.Name == b.Name;
+  }
 
-  [[nodiscard]] std::string Identity(const Kind &row) const { return row.Name; }
+  [[nodiscard]] std::string Identity(const Scenario::Kind &row) const { return row.Name; }
 };
 
 struct ByInstanceId {
-  bool operator()(const Instance &a, const Instance &b) const {
+  bool operator()(const Scenario::Instance &a, const Scenario::Instance &b) const {
     return !a.Id.empty() && a.Id == b.Id;
   }
 
-  [[nodiscard]] std::string Identity(const Instance &row) const { return row.Id; }
+  [[nodiscard]] std::string Identity(const Scenario::Instance &row) const { return row.Id; }
 };
 
 struct ByAssetUri {
-  bool operator()(const Asset &a, const Asset &b) const { return a.Uri == b.Uri; }
+  bool operator()(const Scenario::Asset &a, const Scenario::Asset &b) const {
+    return a.Uri == b.Uri;
+  }
 
-  [[nodiscard]] std::string Identity(const Asset &row) const { return row.Uri; }
+  [[nodiscard]] std::string Identity(const Scenario::Asset &row) const { return row.Uri; }
 };
 
 template <class Row> struct ByKindField {
@@ -65,44 +69,58 @@ template <class Row> struct ByIdField {
 };
 
 struct ByDoorEnds {
-  bool operator()(const Door &a, const Door &b) const { return a.From == b.From && a.To == b.To; }
+  bool operator()(const Scenario::Door &a, const Scenario::Door &b) const {
+    return a.From == b.From && a.To == b.To;
+  }
 
-  [[nodiscard]] std::string Identity(const Door &row) const { return row.From + "->" + row.To; }
+  [[nodiscard]] std::string Identity(const Scenario::Door &row) const {
+    return row.From + "->" + row.To;
+  }
 };
 
 struct BySoundUri {
-  bool operator()(const Sound &a, const Sound &b) const { return a.Uri == b.Uri; }
+  bool operator()(const Scenario::Sound &a, const Scenario::Sound &b) const {
+    return a.Uri == b.Uri;
+  }
 
-  [[nodiscard]] std::string Identity(const Sound &row) const { return row.Uri; }
+  [[nodiscard]] std::string Identity(const Scenario::Sound &row) const { return row.Uri; }
 };
 
 struct ByEventName {
-  bool operator()(const Event &a, const Event &b) const { return a.Name == b.Name; }
+  bool operator()(const Scenario::Event &a, const Scenario::Event &b) const {
+    return a.Name == b.Name;
+  }
 
-  [[nodiscard]] std::string Identity(const Event &row) const { return row.Name; }
+  [[nodiscard]] std::string Identity(const Scenario::Event &row) const { return row.Name; }
 };
 
 struct BySurfaceDocument {
-  bool operator()(const Surface &a, const Surface &b) const { return a.Document == b.Document; }
+  bool operator()(const Scenario::Surface &a, const Scenario::Surface &b) const {
+    return a.Document == b.Document;
+  }
 
-  [[nodiscard]] std::string Identity(const Surface &row) const { return row.Document; }
+  [[nodiscard]] std::string Identity(const Scenario::Surface &row) const { return row.Document; }
 };
 
 struct ByBindingEvent {
-  bool operator()(const Binding &a, const Binding &b) const { return a.Event == b.Event; }
+  bool operator()(const Scenario::Binding &a, const Scenario::Binding &b) const {
+    return a.Event == b.Event;
+  }
 
-  [[nodiscard]] std::string Identity(const Binding &row) const { return row.Event; }
+  [[nodiscard]] std::string Identity(const Scenario::Binding &row) const { return row.Event; }
 };
 
 struct ByPersistedWhat {
-  bool operator()(const Persisted &a, const Persisted &b) const { return a.What == b.What; }
+  bool operator()(const Scenario::Persisted &a, const Scenario::Persisted &b) const {
+    return a.What == b.What;
+  }
 
-  [[nodiscard]] std::string Identity(const Persisted &row) const { return row.What; }
+  [[nodiscard]] std::string Identity(const Scenario::Persisted &row) const { return row.What; }
 };
 
 } // namespace
 
-bool LayerActive(const Layer &layer, std::string_view active) {
+bool LayerActive(const Scenario::Layer &layer, std::string_view active) {
   if (layer.Set.empty()) { return true; }
   size_t at = 0;
   while (at < active.size()) {
@@ -114,8 +132,8 @@ bool LayerActive(const Layer &layer, std::string_view active) {
   return false;
 }
 
-bool MergeLayer(Scenario &into,
-                const Scenario &layer,
+bool MergeLayer(Scenario::Document &into,
+                const Scenario::Document &layer,
                 std::string_view named,
                 std::vector<std::string> &trace,
                 std::string &error) {
@@ -128,23 +146,33 @@ bool MergeLayer(Scenario &into,
   MergeRows(into.Kinds, layer.Kinds, named, "kind", ByKindName{}, trace);
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
-  MergeRows(into.Providers, layer.Providers, named, "provider", ByKindField<Provider>{}, trace);
-  MergeRows(into.Generators, layer.Generators, named, "generator", ByKindField<Generator>{}, trace);
   MergeRows(
-      into.Compositors, layer.Compositors, named, "compositor", ByKindField<Compositor>{}, trace);
-  MergeRows(into.Regions, layer.Regions, named, "region", ByIdField<Region>{}, trace);
+      into.Providers, layer.Providers, named, "provider", ByKindField<Scenario::Provider>{}, trace);
+  MergeRows(into.Generators,
+            layer.Generators,
+            named,
+            "generator",
+            ByKindField<Scenario::Generator>{},
+            trace);
+  MergeRows(into.Compositors,
+            layer.Compositors,
+            named,
+            "compositor",
+            ByKindField<Scenario::Compositor>{},
+            trace);
+  MergeRows(into.Regions, layer.Regions, named, "region", ByIdField<Scenario::Region>{}, trace);
   MergeRows(into.Doors, layer.Doors, named, "door", ByDoorEnds{}, trace);
-  MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Volume>{}, trace);
+  MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Scenario::Volume>{}, trace);
   MergeRows(into.Sounds, layer.Sounds, named, "sound", BySoundUri{}, trace);
-  MergeRows(into.Buses, layer.Buses, named, "bus", ByIdField<Bus>{}, trace);
-  MergeRows(into.Tables, layer.Tables, named, "table", ByIdField<Table>{}, trace);
-  MergeRows(into.Views, layer.Views, named, "view", ByIdField<View>{}, trace);
+  MergeRows(into.Buses, layer.Buses, named, "bus", ByIdField<Scenario::Bus>{}, trace);
+  MergeRows(into.Tables, layer.Tables, named, "table", ByIdField<Scenario::Table>{}, trace);
+  MergeRows(into.Views, layer.Views, named, "view", ByIdField<Scenario::View>{}, trace);
   MergeRows(into.Events, layer.Events, named, "event", ByEventName{}, trace);
   MergeRows(into.Surfaces, layer.Surfaces, named, "surface", BySurfaceDocument{}, trace);
   MergeRows(into.Input, layer.Input, named, "bind", ByBindingEvent{}, trace);
   MergeRows(into.State, layer.State, named, "persist", ByPersistedWhat{}, trace);
 
-  for (const Placement &place : layer.Placements) {
+  for (const Scenario::Placement &place : layer.Placements) {
     into.Placements.push_back(place);
     trace.push_back("layer '" + std::string(named) + "' added a placement of '" + place.Asset +
                     "'");
@@ -153,7 +181,7 @@ bool MergeLayer(Scenario &into,
   return true;
 }
 
-bool ApplyLayer(Scenario &into,
+bool ApplyLayer(Scenario::Document &into,
                 const char *text,
                 size_t size,
                 std::string_view named,
@@ -164,7 +192,7 @@ bool ApplyLayer(Scenario &into,
     error = document.Error();
     return false;
   }
-  Scenario fragment;
+  Scenario::Document fragment;
   if (!ReadScenario(document, fragment, error)) { return false; }
   if (!MergeLayer(into, fragment, named, trace, error)) { return false; }
 

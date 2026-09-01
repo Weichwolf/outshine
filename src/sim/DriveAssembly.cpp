@@ -43,9 +43,9 @@ constexpr double kJoinMs = 20.0;
 
 bool AssembleDrive(const Scene &scene,
                    const Assembled &cast,
-                   const Column<Body> &bodies,
-                   const Column<Journey> &driven,
-                   const WorldSettings &world,
+                   const Column<Scenario::Body> &bodies,
+                   const Column<Scenario::Journey> &driven,
+                   const Scenario::WorldSettings &world,
                    Ground::GroundStack &stack,
                    Data::Transport &wire,
                    const Provision &kept,
@@ -55,12 +55,12 @@ bool AssembleDrive(const Scene &scene,
     say.Refuse("no cache directory or assets root was provisioned");
     return false;
   }
-  const outshine::Body *car = bodies.Get(cast.PlayerBody);
+  const outshine::Scenario::Body *car = bodies.Get(cast.PlayerBody);
   if (car == nullptr) {
     say.Refuse("the assembled body carries no body declaration");
     return false;
   }
-  const outshine::Journey *driveTo = driven.Get(cast.Assignment);
+  const outshine::Scenario::Journey *driveTo = driven.Get(cast.Assignment);
   const bool assigned =
       driveTo != nullptr && scene.targetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
   if (!assigned) { say.Refuse("the mind carries no assignment"); }

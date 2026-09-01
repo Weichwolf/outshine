@@ -22,7 +22,7 @@ bool Engine::State::Rides() {
 
 bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
-  const View &seen = Session.Views->Active();
+  const Scenario::View &seen = Session.Views->Active();
   if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return true; }
   Vec3 station = seen.Sees.Stands.AtM + seen.OffsetM;
   if (seen.Sees.Stands.GlobeAnchor) {
@@ -142,7 +142,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   }
   if (!Session.Views) { return true; }
 
-  const View &seen = Session.Views->Active();
+  const Scenario::View &seen = Session.Views->Active();
   if (seen.Sees.Placed) { return Watches(); }
 
   const Vec3 seatM = seen.OffsetM - Ticking.Drive.Stood.CentreM;

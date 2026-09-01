@@ -27,7 +27,7 @@ namespace outshine::Sim {
 struct Provision {
   std::string CacheDir;
   std::string AssetsDir;
-  std::vector<Provider> Providers;
+  std::vector<Scenario::Provider> Providers;
 };
 
 struct Harvest {
@@ -52,7 +52,7 @@ struct Harvest {
 
 struct DriveProduct {
   Ground::VegetationTemplates Surfaces;
-  Body Car;
+  Scenario::Body Car;
   Rigged Stood;
   Corridor Way;
   DriveState State;
@@ -62,9 +62,9 @@ struct DriveProduct {
 
 [[nodiscard]] bool AssembleDrive(const Scene &scene,
                                  const Assembled &cast,
-                                 const Column<Body> &bodies,
-                                 const Column<Journey> &driven,
-                                 const WorldSettings &world,
+                                 const Column<Scenario::Body> &bodies,
+                                 const Column<Scenario::Journey> &driven,
+                                 const Scenario::WorldSettings &world,
                                  Ground::GroundStack &stack,
                                  Data::Transport &wire,
                                  const Provision &kept,

@@ -65,10 +65,10 @@ ptrdiff_t InputMap::EventIndexOf(std::string_view event) {
   return -1;
 }
 
-bool InputMap::Build(std::span<const Binding> declared, std::string &error) {
+bool InputMap::Build(std::span<const Scenario::Binding> declared, std::string &error) {
   ActionAt_.assign(kEventCount, kUnbound);
   Actions_.clear();
-  for (const Binding &binding : declared) {
+  for (const Scenario::Binding &binding : declared) {
     const ptrdiff_t at = EventIndexOf(binding.Event);
     if (at < 0) {
       error = "the binding names the event '" + binding.Event +

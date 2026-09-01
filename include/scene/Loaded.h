@@ -32,12 +32,12 @@ public:
   [[nodiscard]] bool poses(double seconds);
 
   [[nodiscard]] bool carriesCamera() const;
-  [[nodiscard]] const Camera &camera() const;
+  [[nodiscard]] const Scenario::Camera &camera() const;
   [[nodiscard]] int cameras() const;
-  [[nodiscard]] bool camera(int index, Camera &out) const;
+  [[nodiscard]] bool camera(int index, Scenario::Camera &out) const;
 
-  [[nodiscard]] bool frames(double fill, Camera &out) const;
-  [[nodiscard]] bool frames(Camera &out) const;
+  [[nodiscard]] bool frames(double fill, Scenario::Camera &out) const;
+  [[nodiscard]] bool frames(Scenario::Camera &out) const;
 
 private:
   struct Held;

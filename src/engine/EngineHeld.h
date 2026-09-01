@@ -169,14 +169,14 @@ private:
   bool Fired_ = false;
 };
 
-inline std::vector<std::string> Unacted(const Scenario &scenario) {
+inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   std::vector<std::string> quiet;
-  for (const Asset &asset : scenario.Assets) {
-    if (asset.Animation == AssetAnimation::Ignore) {
+  for (const Scenario::Asset &asset : scenario.Assets) {
+    if (asset.Animation == Scenario::AssetAnimation::Ignore) {
       quiet.push_back("asset '" + asset.Uri +
                       "': its own animation is IGNORED by declaration -- a still is what was "
                       "asked for, not what the engine fell back to");
-    } else if (asset.Animation == AssetAnimation::Driven) {
+    } else if (asset.Animation == Scenario::AssetAnimation::Driven) {
       quiet.push_back("asset '" + asset.Uri +
                       "': its own animation is DRIVEN by the engine -- the file's clips wait "
                       "for the pose the simulation supplies");
@@ -228,10 +228,10 @@ struct Seen {
 };
 
 struct Kept {
-  Scenario Declared;
+  Scenario::Document Declared;
   bool Taken = false;
   std::vector<std::string> Carried;
-  std::vector<Scenario> Asleep;
+  std::vector<Scenario::Document> Asleep;
   std::vector<std::string> LayerTrace;
   Roots Under;
   std::optional<ViewBook> Views;
@@ -250,8 +250,8 @@ struct Kept {
 
 struct Players {
   Scene Scene;
-  Column<Body> Bodies;
-  Column<Journey> Drives;
+  Column<Scenario::Body> Bodies;
+  Column<Scenario::Journey> Drives;
   Column<Traits> Kinds;
   Assembled Stood;
 };

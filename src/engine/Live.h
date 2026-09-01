@@ -30,7 +30,7 @@
 namespace outshine::Core {
 
 struct Declaration {
-  AssetAnimation Animation = AssetAnimation::Play;
+  Scenario::AssetAnimation Animation = Scenario::AssetAnimation::Play;
   int Clip = 0;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
@@ -48,7 +48,7 @@ struct Declaration {
   const Gltf::Subject *Built = nullptr;
   std::vector<Material> Surfacing{Material{}};
 
-  std::vector<SurfaceOverride> Overriding;
+  std::vector<Scenario::SurfaceOverride> Overriding;
 
   std::string Variant;
 
@@ -92,7 +92,7 @@ public:
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
   [[nodiscard]] bool Restands(std::string stands,
                               std::string variant,
-                              AssetAnimation animation,
+                              Scenario::AssetAnimation animation,
                               int clip,
                               std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
