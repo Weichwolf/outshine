@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <numbers>
 #include <chrono>
 #include "OsmField.h"
@@ -312,6 +313,27 @@ void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
     Features_.push_back(made);
   }
 
+  {
+    uint64_t said = 0x9e3779b97f4a7c15ULL;
+    const auto stir = [&said](uint64_t by) { said = (said ^ by) * 0x100000001b3ULL; };
+    stir((uint64_t)(uint32_t)tx);
+    stir((uint64_t)(uint32_t)ty);
+    for (const Declared &one : these) {
+      stir(std::hash<std::string>{}(one.Value));
+      stir(std::hash<std::string>{}(one.Key));
+      stir(std::hash<std::string>{}(one.Layer));
+      stir((uint64_t)std::llround(one.WidthM * 1000.0));
+      stir((uint64_t)std::llround(one.HeightM * 1000.0));
+      stir((uint64_t)(one.Area ? 1 : 0) | (uint64_t)(one.Bridge ? 2 : 0) |
+           (uint64_t)(one.Tunnel ? 4 : 0));
+      stir((uint64_t)(int64_t)one.Level);
+      for (const double held : one.LatLon) { stir((uint64_t)std::llround(held * 1.0e7)); }
+    }
+    if (said != Said_) {
+      Said_ = said;
+      ++Generation_;
+    }
+  }
   Tiles_.push_back(Tile{
       .Z = Zoom_, .X = tx, .Y = ty, .FirstFeature = 0, .FeatureCount = (uint32_t)Features_.size()});
   Settle(tx, ty);

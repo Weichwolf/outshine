@@ -42,6 +42,15 @@ size_t ClassField::HeapBytes() const {
 
 void ClassField::Ingest(Tier &t) {
   if (t.ArraysLent) { return; }
+  if (t.Field && t.Field->Generation() != t.Generation) {
+    t.Generation = t.Field->Generation();
+    t.PtsDone = 0;
+    t.RingsDone = 0;
+    t.FeatsDone = 0;
+    t.Pts.clear();
+    t.Rings.clear();
+    t.Feats.clear();
+  }
   const std::span<const double> pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
   if (havePts > t.PtsDone) {
@@ -84,10 +93,6 @@ void ClassField::Ingest(Tier &t) {
       continue;
     }
 
-    if (layer == OsmLayerName(OsmLayer::Streets) ||
-        layer == OsmLayerName(OsmLayer::StreetPolygons)) {
-      continue;
-    }
     if (t.Field->Num(f, "tunnel", 0.0) > 0.5) { continue; }
     if (f.Type != 2 && f.Type != 3) { continue; }
     if (f.Type == 2 && rule->WidthM <= 0.0f) {

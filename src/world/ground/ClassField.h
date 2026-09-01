@@ -88,6 +88,10 @@ public:
 
   double MaxBuildMs() const { return BuildMsMax_; }
 
+  size_t FeaturesHeld() const { return Fine_.Field ? Fine_.Field->Features().size() : 0u; }
+
+  size_t FeaturesTaken() const { return Fine_.Feats.size(); }
+
   long FineSubmits() const { return Submits_[0]; }
 
   long CoarseSubmits() const { return Submits_[1]; }
@@ -105,6 +109,7 @@ private:
     double SlackM;
     int Zoom;
     std::vector<float> Pts;
+    uint64_t Generation = 0;
     size_t PtsDone = 0;
     std::vector<ClassBuilder::Ring> Rings;
     size_t RingsDone = 0;

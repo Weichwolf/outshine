@@ -69,12 +69,28 @@ It divides nothing, and the measures say why:
     the ring's vertices a land class names         0        of every vertex
     class field: triangles the boundary divided    0
 
-**The class field is EMPTY in a declared world.** `ClassField::Ingest` carries `PtsDone`, `RingsDone`
-and `FeatsDone` and takes only what lies past them -- it assumes a field only ever GROWS. A DECLARED
-field is rebuilt from the declaration on every restand, so the mark outlives the features it counted
-and the second ingest takes nothing. Same shape as the watermark defect found in `StreetField` this
-round, in a second consumer.
+**It was not a watermark**, and the guess cost a build. Two hypotheses were wrong before the measure
+was right, so the measure is what is written here:
 
-Until that is repaired, pass one has nothing to classify, pass two has nothing to plafond, and the
-ribbon has to keep being drawn. **This is the first thing to fix, before any of the three passes can
-be finished.**
+    class field: features the fine tier holds     1
+    class field: of those it has taken            0
+
+`ClassField::Ingest` held the feature and refused it, by a rule that says so in as many words:
+
+    if (layer == OsmLayerName(OsmLayer::Streets) ||
+        layer == OsmLayerName(OsmLayer::StreetPolygons)) { continue; }
+
+**The class field skipped STREETS on purpose**, because a street was drawn as a ribbon and a ribbon
+does not want a class beneath it. That single `continue` is pass one. It is gone, the feature is
+taken, and `outshine/places` went from 9 PASS 1 UNPREPARED to **10 PASS** -- CentralPark had been
+unprepared all session because its ground varied too little, and road classes are what it was
+missing.
+
+A watermark repair went in beside it and is worth its own line: `OsmField` now carries a GENERATION
+that changes only when the declaration's CONTENT changes, and `ClassField` resets its marks when it
+does. Without the content test the generation rose on every restand and the class field rebuilt
+itself 352 times in one run instead of twice.
+
+**What is still red:** the taken feature reaches the builder and every probe still finds no data --
+`the fraction it has no data for` reads 1.000 with a complete structure at version 2. The next step
+is inside `ClassBuilder`, and it is the last thing between here and pass one working.

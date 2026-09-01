@@ -900,6 +900,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         "class field: the vegetation table is ready", wearing.Ready() ? 1.0 : 0.0, "yes/no");
     Published.Places(
         "class field: rows the table carries", (double)wearing.TemplateCount(), "rows");
+    Published.Places("class field: features the fine tier holds",
+                     (double)World.Stack.Classes().FeaturesHeld(),
+                     "features");
+    Published.Places("class field: of those it has taken",
+                     (double)World.Stack.Classes().FeaturesTaken(),
+                     "features");
     Published.Places("the ring's vertices a land class names", (double)named, "vertices");
     Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
     Published.Places("class field: the version the colours used",

@@ -87,6 +87,8 @@ public:
 
   [[nodiscard]] std::span<const Tile> Tiles() const { return Tiles_; }
 
+  [[nodiscard]] uint64_t Generation() const { return Generation_; }
+
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
 
   [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
@@ -124,6 +126,8 @@ private:
   std::vector<Ring> Rings_;
   std::vector<double> Points_;
   std::vector<Tile> Tiles_;
+  uint64_t Generation_ = 0;
+  uint64_t Said_ = 0;
   std::vector<uint32_t> Tags_;
   std::vector<std::string> Keys_;
   std::vector<std::string> Strings_;
