@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Vec2.h"
 #include "BuildingShape.h"
 
@@ -182,8 +183,8 @@ void DropSpurs(Piece *p) {
   DropSpurs(back);
   if (front->P.size() < 3 || back->P.size() < 3) { return false; }
 
-  double t0 = 1.0e30;
-  double t1 = -1.0e30;
+  double t0 = kBeyondAnyCoordinate;
+  double t1 = -kBeyondAnyCoordinate;
   for (const En &p : front->P) {
     if (std::fabs(SideOf(at, normal, p)) > kOnCutM) { continue; }
     const double t = (p.E - at.E) * -normal.N + (p.N - at.N) * normal.E;
@@ -200,7 +201,7 @@ void DropSpurs(Piece *p) {
 }
 
 void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
-  double best = 1.0e30;
+  double best = kBeyondAnyCoordinate;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
     const En &p = ring[i];
     const En &q = ring[(i + 1) % n];
@@ -448,7 +449,7 @@ En UnitFrom(const En &a, const En &b) {
 [[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
   const std::vector<En> &ring = whole.P;
   const double wholeM2 = std::fabs(SignedArea(ring));
-  double bestLen = 1.0e30;
+  double bestLen = kBeyondAnyCoordinate;
   bool found = false;
   Piece a;
   Piece b;

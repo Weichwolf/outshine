@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "TreeFrame.h"
 #include "TreeLeaf.h"
 
@@ -16,7 +17,7 @@ namespace outshine::Generators {
 namespace {
 
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
-constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
+constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
 class Sink {
 public:

@@ -1,6 +1,7 @@
 #include <array>
 #include <algorithm>
 #include <atomic>
+#include "Units.h"
 #include "RoofSurface.h"
 
 #include <cstddef>
@@ -90,7 +91,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
     if (p.E < at) { in = !in; }
   }
   if (in) { return true; }
-  double nearest = 1.0e30;
+  double nearest = kBeyondAnyCoordinate;
   for (size_t i = 0, j = n - 1; i < n; j = i++) {
     const double ex = ring[j].E - ring[i].E;
     const double ny = ring[j].N - ring[i].N;

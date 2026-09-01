@@ -3,6 +3,7 @@
 
 #include <span>
 
+#include "Units.h"
 #include "math/Vec3.h"
 #include <array>
 #include <cmath>
@@ -78,7 +79,7 @@ inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
   if (from.Kind == CameraKind::Orthographic) {
     out.setProjection(-from.XMagM, from.XMagM, -from.YMagM, from.YMagM, from.ZNearM, from.ZFarM);
   } else {
-    out.setProjection(from.YfovRad * 180.0 / std::numbers::pi, from.ZNearM, from.ZFarM);
+    out.setProjection(from.YfovRad * kRad2Deg, from.ZNearM, from.ZFarM);
   }
 }
 

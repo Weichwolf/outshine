@@ -1,6 +1,7 @@
 #include <span>
 #include <array>
 #include <chrono>
+#include "Units.h"
 #include "math/Mat4.h"
 #include "Live.h"
 
@@ -187,7 +188,7 @@ void Live::SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) con
 
 double Live::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
-  const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
+  const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
   Vec3f sunReach;
   Vec3f skylight;
   SunThroughTheAir(cosSun, sunReach, skylight);
@@ -469,8 +470,8 @@ bool Live::Build(std::string &error) {
   if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
     if (Declared_.DrawsSky) { Renderer_->SetMedium(Render::Medium{}); }
 
-    const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
-    const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
+    const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
+    const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
     const Vec3f toSun = {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
                           static_cast<float>(std::sin(elevation)),
                           static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
@@ -626,7 +627,7 @@ bool Live::Look(std::string &error) {
   framed = fromFile;
   const Vec3 centre = {
       {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5, (least[2] + most[2]) * 0.5}};
-  const double turn = Around_ * std::numbers::pi / 180.0;
+  const double turn = Around_ * kDeg2Rad;
   const double cosine = std::cos(turn);
   const double sine = std::sin(turn);
   const auto spun = [cosine, sine](const Vec3 &from) {
@@ -687,8 +688,8 @@ bool Live::Stand(std::string &error) {
   LampsMs_ = sinceStand();
   for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
   if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
-    const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
-    const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
+    const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
+    const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
     PunctualLight key;
     key.Kind = LightKind::Directional;
     key.Intensity = static_cast<float>(Declared_.KeyLux);
@@ -710,7 +711,7 @@ bool Live::Stand(std::string &error) {
   }
   LitMs_ = sinceStand();
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
-    const double cosSun = std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
+    const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
     const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
     Vec3f sunReach;
     Vec3f skylight;

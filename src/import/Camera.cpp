@@ -1,5 +1,6 @@
 #include <numbers>
 
+#include "Units.h"
 #include "math/Mat4.h"
 #include "scenario/Scenario.h"
 #include "Subject.h"
@@ -19,7 +20,7 @@ namespace {
     out.YMagM = from.YMagM;
   } else {
     out.Kind = Render::CameraKind::Perspective;
-    out.YfovRad = from.FovDeg * std::numbers::pi / 180.0;
+    out.YfovRad = from.FovDeg * kDeg2Rad;
   }
   return true;
 }

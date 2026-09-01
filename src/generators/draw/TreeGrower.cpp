@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "TreeFrame.h"
 #include "TreeGrower.h"
 
@@ -16,7 +17,7 @@ constexpr float kSpiralJitterRad = 0.4f;
 
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
-constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
+constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
 constexpr float kEscapeStop = 1.10f;
 

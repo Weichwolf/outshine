@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Heap.h"
@@ -67,8 +68,8 @@ bool Engine::State::Watches() {
   Published.Places("the standing eye, south", station[2], "m");
   Vec3 ahead;
   if (seen.Sees.Stands.GlobeAnchor) {
-    const double bearing = seen.Sees.Stands.BearingDeg * std::numbers::pi / 180.0;
-    const double pitch = seen.Sees.Stands.PitchDeg * std::numbers::pi / 180.0;
+    const double bearing = seen.Sees.Stands.BearingDeg * kDeg2Rad;
+    const double pitch = seen.Sees.Stands.PitchDeg * kDeg2Rad;
     ahead[0] = std::cos(pitch) * std::sin(bearing);
     ahead[1] = std::sin(pitch);
     ahead[2] = -std::cos(pitch) * std::cos(bearing);
@@ -81,7 +82,7 @@ bool Engine::State::Watches() {
   const Vec3 onto = seen.Sees.LooksAt ? seen.Sees.LookAtM : station + ahead;
   Render::Viewpoint standing;
   if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.UpM, standing)) { return true; }
-  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * kDeg2Rad;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
   if (seen.Sees.Orthographic) {
@@ -169,7 +170,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   if (!Render::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
-  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * kDeg2Rad;
   if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;
 }
@@ -337,8 +338,8 @@ void Engine::State::Inspected() {
   {
     std::vector<float> depth;
     if (Picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
-      double least = 1.0e30;
-      double most = -1.0e30;
+      double least = kBeyondAnyCoordinate;
+      double most = -kBeyondAnyCoordinate;
       double written = 0.0;
       for (const float one : depth) {
         if (static_cast<double>(one) < least) { least = static_cast<double>(one); }

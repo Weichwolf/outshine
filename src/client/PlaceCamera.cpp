@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "PlaceCamera.h"
 
 #include <algorithm>
@@ -45,9 +46,9 @@ constexpr double kWalkStepM = 25.0;
 void WalkedTo(
     double fromLat, double fromLon, double bearingDeg, double alongM, double &lat, double &lon) {
   constexpr double kMetresPerDegree = 111320.0;
-  const double heading = bearingDeg * std::numbers::pi / 180.0;
+  const double heading = bearingDeg * kDeg2Rad;
   lat = fromLat + alongM * std::cos(heading) / kMetresPerDegree;
-  const double shrink = std::cos(fromLat * std::numbers::pi / 180.0);
+  const double shrink = std::cos(fromLat * kDeg2Rad);
   lon =
       fromLon + alongM * std::sin(heading) / (kMetresPerDegree * (shrink > 1.0e-6 ? shrink : 1.0));
 }

@@ -6,10 +6,24 @@
 namespace outshine {
 
 constexpr double kPi = std::numbers::pi;
-constexpr double kDeg2Rad = kPi / 180.0;
-constexpr double kRad2Deg = 180.0 / kPi;
+
+constexpr double kDegPerTurn = 360.0;
+constexpr double kDegPerHalfTurn = 180.0;
+
+constexpr double kDeg2Rad = kPi / kDegPerHalfTurn;
+constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
 constexpr double kMPerDeg = 111320.0;
+
+constexpr double kMPerKm = 1000.0;
+constexpr double kMsPerS = 1000.0;
+constexpr double kSPerMin = 60.0;
+constexpr double kMinPerHour = 60.0;
+constexpr double kSPerHour = kSPerMin * kMinPerHour;
+constexpr double kHourPerDay = 24.0;
+constexpr double kMsToKmh = kSPerHour / kMPerKm;
+
+constexpr double kBeyondAnyCoordinate = 1.0e30;
 
 constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;

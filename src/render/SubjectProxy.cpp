@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Mat4.h"
 #include "Shape.h"
 #include <array>
@@ -210,7 +211,7 @@ SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error)
     error = "the placement declares no field of view";
     return false;
   }
-  renderer.SetFovDeg(eye.YfovRad * 180.0 / std::numbers::pi);
+  renderer.SetFovDeg(eye.YfovRad * kRad2Deg);
 
   renderer.SetNearM(eye.ZNearM);
   return true;

@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Log.h"
@@ -340,7 +341,7 @@ bool Engine::State::Asks() {
   over.Asking = true;
   {
     const double tileSpanM =
-        40075017.0 * std::cos(over.LatDeg * std::numbers::pi / 180.0) / std::ldexp(1.0, over.Zoom);
+        40075017.0 * std::cos(over.LatDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
     const double nearest = 4.0 * tileSpanM;
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     over.Levels =
@@ -589,19 +590,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   double atLat = anchorLat;
   double atLon = anchorLon;
   WhereTheEyeStands(atLat, atLon);
-  Published.Places(
-      "the ring centres this far from the world's anchor",
-      std::hypot((atLat - anchorLat) * 111132.0,
-                 (atLon - anchorLon) * 111320.0 * std::cos(anchorLat * std::numbers::pi / 180.0)),
-      "m");
+  Published.Places("the ring centres this far from the world's anchor",
+                   std::hypot((atLat - anchorLat) * 111132.0,
+                              (atLon - anchorLon) * 111320.0 * std::cos(anchorLat * kDeg2Rad)),
+                   "m");
 
   Around over;
   over.LatDeg = atLat;
   over.LonDeg = atLon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   {
-    const double tileSpanM =
-        40075017.0 * std::cos(atLat * std::numbers::pi / 180.0) / std::ldexp(1.0, over.Zoom);
+    const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
     const double nearest = 4.0 * tileSpanM;
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     const double doublings = wanted > nearest ? std::log2(wanted / nearest) : 0.0;
@@ -626,7 +625,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
   }
   if (Picture.Frame.HeightPx > 0) {
-    const double halfFov = 0.5 * 55.0 * std::numbers::pi / 180.0;
+    const double halfFov = 0.5 * 55.0 * kDeg2Rad;
     over.FocalPx =
         static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
   }
@@ -991,7 +990,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("a sphere would sink it by", sankAt * sankAt / (2.0 * Data::kWgs84A), "m");
 
   {
-    double nearest = 1.0e30;
+    double nearest = kBeyondAnyCoordinate;
     double atUp = 0.0;
     double farthest = 0.0;
     double farUp = 0.0;
@@ -1066,7 +1065,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const double z = laid->NormalM[at + 2];
         const double length = std::sqrt(x * x + y * y + z * z);
         if (!(length > 1.0e-6)) { continue; }
-        const double leanDeg = std::acos(std::fmin(1.0, y / length)) * 180.0 / std::numbers::pi;
+        const double leanDeg = std::acos(std::fmin(1.0, y / length)) * kRad2Deg;
         steepest = leanDeg > steepest ? leanDeg : steepest;
         mean += leanDeg;
         counted += 1.0;
@@ -1078,8 +1077,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places(
         "its normals in all", static_cast<double>(laid->NormalM.size() / 3), "normals");
     {
-      double least = 1.0e30;
-      double most = -1.0e30;
+      double least = kBeyondAnyCoordinate;
+      double most = -kBeyondAnyCoordinate;
       const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
       for (size_t at = 1; at < held.size(); at += 3) {
         const auto y = static_cast<double>(held[at]);
@@ -1191,8 +1190,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          "features");
       }
       {
-        double least = 1.0e30;
-        double most = -1.0e30;
+        double least = kBeyondAnyCoordinate;
+        double most = -kBeyondAnyCoordinate;
         size_t within = 0;
         for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
           const auto east = static_cast<double>(inFrame[at]);
@@ -1431,9 +1430,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                          "mm");
       }
       if (declared.Render.Audits) {
-        double least = 1.0e30;
-        double most = -1.0e30;
-        double nearest = 1.0e30;
+        double least = kBeyondAnyCoordinate;
+        double most = -kBeyondAnyCoordinate;
+        double nearest = kBeyondAnyCoordinate;
         double farthest = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const held = placeAt(at);
@@ -1497,10 +1496,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     facesAt[0].reserve(laid->Index.size() / 3u);
     std::array<size_t, kDrapeRungs> rungTaken = {{}};
     for (size_t one = 0; one + 2 < laid->Index.size(); one += 3) {
-      double lowE = 1.0e30;
-      double highE = -1.0e30;
-      double lowS = 1.0e30;
-      double highS = -1.0e30;
+      double lowE = kBeyondAnyCoordinate;
+      double highE = -kBeyondAnyCoordinate;
+      double lowS = kBeyondAnyCoordinate;
+      double highS = -kBeyondAnyCoordinate;
       bool whole = true;
       for (size_t corner = 0; corner < 3; ++corner) {
         const size_t held = static_cast<size_t>(laid->Index[one + corner]) * 3u;
@@ -1651,7 +1650,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     std::vector<double> fitRadiusM;
     std::vector<double> fitEastNorth;
 
-    std::vector<double> deckM(ways.Ways().size(), -1.0e30);
+    std::vector<double> deckM(ways.Ways().size(), -kBeyondAnyCoordinate);
     size_t crossingsSeen = 0;
 
     struct Meets {
@@ -1804,7 +1803,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const auto low = endM.find(key[0]);
           const auto high = endM.find(key[1]);
           if (low == endM.end() || high == endM.end()) { continue; }
-          const double perLon = 111320.0 * std::cos(corner[0] * std::numbers::pi / 180.0);
+          const double perLon = 111320.0 * std::cos(corner[0] * kDeg2Rad);
           const double runE = (corner[3] - corner[1]) * perLon;
           const double runN = (corner[2] - corner[0]) * 111132.0;
           const double runM = std::sqrt(runE * runE + runN * runN);
@@ -1879,7 +1878,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (int side = 0; side < 2; ++side) {
           const size_t here = side == 0 ? first : last;
           const size_t next = side == 0 ? first + 2u : last - 2u;
-          const double perLon = 111320.0 * std::cos(points[here] * std::numbers::pi / 180.0);
+          const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
           double outE = (points[next + 1] - points[here + 1]) * perLon;
           double outN = (points[next] - points[here]) * 111132.0;
           const double run = std::sqrt(outE * outE + outN * outN);
@@ -1919,7 +1918,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                          static_cast<double>(mine.DirN) * other.DirN,
                                      -1.0,
                                      1.0));
-            sharpest = std::min(sharpest, 180.0 - between * 180.0 / std::numbers::pi);
+            sharpest = std::min(sharpest, 180.0 - between * kRad2Deg);
           }
           const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
           trimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
@@ -1999,7 +1998,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 whole = false;
                 break;
               }
-              const double perLon = 111320.0 * std::cos(points[here] * std::numbers::pi / 180.0);
+              const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
               const double spanE = (points[next + 1] - points[here + 1]) * perLon;
               const double spanN = (points[next] - points[here]) * 111132.0;
               const auto pieces =
@@ -2205,7 +2204,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 if (overWaterM <= static_cast<double>(band.RunM)) { break; }
               }
               if (clear > 0.0) {
-                double stood = -1.0e30;
+                double stood = -kBeyondAnyCoordinate;
                 for (const Generators::RoadStation &one : along) {
                   stood = std::max(stood, one.GradeM);
                 }
@@ -2561,8 +2560,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       aboveM.reserve(pavement.PositionM.size() / 3u);
       size_t flying = 0;
       for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
-        const double under =
-            drapedOver(pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -1.0e30);
+        const double under = drapedOver(
+            pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -kBeyondAnyCoordinate);
         if (under < -1.0e29) { continue; }
         const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
         aboveM.push_back(aloft);
@@ -2627,10 +2626,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (one.PointCount < 3) { continue; }
         Yields made;
         made.RingEastSouthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
-        made.LowE = 1.0e30;
-        made.HighE = -1.0e30;
-        made.LowS = 1.0e30;
-        made.HighS = -1.0e30;
+        made.LowE = kBeyondAnyCoordinate;
+        made.HighE = -kBeyondAnyCoordinate;
+        made.LowS = kBeyondAnyCoordinate;
+        made.HighS = -kBeyondAnyCoordinate;
         bool whole = true;
         for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
           const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
@@ -2713,10 +2712,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       std::unordered_map<uint64_t, std::vector<uint32_t>> facesUnder;
       const std::vector<uint32_t> &ringIndex = laid->Index;
       for (size_t at = 0; at + 2 < ringIndex.size(); at += 3) {
-        double lowE = 1.0e30;
-        double highE = -1.0e30;
-        double lowS = 1.0e30;
-        double highS = -1.0e30;
+        double lowE = kBeyondAnyCoordinate;
+        double highE = -kBeyondAnyCoordinate;
+        double lowS = kBeyondAnyCoordinate;
+        double highS = -kBeyondAnyCoordinate;
         for (int corner = 0; corner < 3; ++corner) {
           const size_t one = static_cast<size_t>(ringIndex[at + static_cast<size_t>(corner)]) * 3u;
           lowE = std::min(lowE, static_cast<double>(inFrame[one]));
@@ -2749,7 +2748,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             static_cast<int64_t>(std::floor(southM / kUnderCellM)) + 0x20000000LL);
         const auto bucket = facesUnder.find((atE << 32U) | atS);
         if (bucket == facesUnder.end()) { continue; }
-        double stood = -1.0e30;
+        double stood = -kBeyondAnyCoordinate;
         for (const uint32_t face : bucket->second) {
           const size_t a = static_cast<size_t>(ringIndex[face]) * 3u;
           const size_t b = static_cast<size_t>(ringIndex[face + 1u]) * 3u;
@@ -3008,17 +3007,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("tiles the stack does not hold", static_cast<double>(laid->Absent), "tiles");
   Published.Places("tiles it refused", static_cast<double>(laid->Refused), "tiles");
   {
-    double least = 1.0e30;
-    double most = -1.0e30;
+    double least = kBeyondAnyCoordinate;
+    double most = -kBeyondAnyCoordinate;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const auto up = static_cast<double>(inFrame[at + 1]);
       if (up < least) { least = up; }
       if (up > most) { most = up; }
     }
-    double west = 1.0e30;
-    double east = -1.0e30;
-    double north = 1.0e30;
-    double south = -1.0e30;
+    double west = kBeyondAnyCoordinate;
+    double east = -kBeyondAnyCoordinate;
+    double north = kBeyondAnyCoordinate;
+    double south = -kBeyondAnyCoordinate;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const auto alongE = static_cast<double>(inFrame[at]);
       const auto alongS = static_cast<double>(inFrame[at + 2]);

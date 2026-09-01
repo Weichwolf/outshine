@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "GroundYield.h"
 #include "math/Vec3.h"
 
@@ -196,15 +197,15 @@ double WantedEdgeM(const Buckets &buckets,
   centreS /= 3.0;
   const auto bucket = buckets.find(BucketAt(centreE, centreS));
   if (bucket == buckets.end()) { return 0.0; }
-  double nearest = 1.0e30;
+  double nearest = kBeyondAnyCoordinate;
   for (const uint32_t which : bucket->second) {
     nearest = std::min(nearest, AwayFrom(these[which], centreE, centreS));
   }
   if (nearest > 1.0e29) { return 0.0; }
   double wanted = std::clamp(finestM + kEdgeGrade * nearest, finestM, kCoarsestM);
   if (nearest > kNearM) { return wanted; }
-  double lowest = 1.0e30;
-  double highest = -1.0e30;
+  double lowest = kBeyondAnyCoordinate;
+  double highest = -kBeyondAnyCoordinate;
   for (int at = 0; at < 3; ++at) {
     const auto upM = static_cast<double>(positionM[static_cast<size_t>(face[at]) * 3u + 1u]);
     lowest = std::min(lowest, upM);
@@ -497,10 +498,10 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
     std::unordered_map<uint64_t, std::vector<uint32_t>> facesAt;
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
       const float *held = positionM.data();
-      double lowE = 1.0e30;
-      double highE = -1.0e30;
-      double lowS = 1.0e30;
-      double highS = -1.0e30;
+      double lowE = kBeyondAnyCoordinate;
+      double highE = -kBeyondAnyCoordinate;
+      double lowS = kBeyondAnyCoordinate;
+      double highS = -kBeyondAnyCoordinate;
       for (int corner = 0; corner < 3; ++corner) {
         const size_t one = static_cast<size_t>(index[at + static_cast<size_t>(corner)]) * 3u;
         lowE = std::min(lowE, static_cast<double>(held[one]));
@@ -611,7 +612,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     const auto was = static_cast<double>(positionM[one + 1u]);
     double lowest = was;
     double highest = was;
-    double roofM = 1.0e30;
+    double roofM = kBeyondAnyCoordinate;
     const auto bucket = buckets.find(BucketAt(eastM, southM));
     if (bucket == buckets.end()) { continue; }
     for (const uint32_t which : bucket->second) {
@@ -623,7 +624,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
       const size_t corners = held.RingEastSouthM.size() / 2u;
       if (corners < 3) { continue; }
       bool inside = false;
-      double nearest = 1.0e30;
+      double nearest = kBeyondAnyCoordinate;
       for (size_t edge = 0, last = corners - 1u; edge < corners; last = edge++) {
         const double aE = held.RingEastSouthM[edge * 2u];
         const double aS = held.RingEastSouthM[edge * 2u + 1u];

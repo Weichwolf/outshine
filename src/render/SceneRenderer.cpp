@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Mat4.h"
 #include "math/Vec2.h"
 #include "Heap.h"
@@ -49,7 +50,7 @@ void MvpCamRel(Mat4f &m,
                float jitterX,
                float jitterY,
                float nearM) {
-  const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f;
+  const float fov = fovDeg * static_cast<float>(kDeg2Rad);
   const float asp = static_cast<float>(w) / static_cast<float>(h);
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
@@ -951,7 +952,7 @@ void SceneRenderer::SettleShadow() {
 
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
+  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
   const float tanHalfW =
       tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   Vec3f right;
@@ -969,7 +970,7 @@ void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassR
 
 void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
+  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
   const float tanHalfW =
       tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   Vec3f right;

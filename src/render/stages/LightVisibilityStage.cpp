@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Mat4.h"
 #include "LightVisibilityStage.h"
 #include "math/Vec3.h"
@@ -61,8 +62,8 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
   };
   {
     const Vec3 anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : Vec3{};
-    Vec3 least = {{1.0e30, 1.0e30, 1.0e30}};
-    Vec3 most = {{-1.0e30, -1.0e30, -1.0e30}};
+    Vec3 least = {{kBeyondAnyCoordinate, kBeyondAnyCoordinate, kBeyondAnyCoordinate}};
+    Vec3 most = {{-kBeyondAnyCoordinate, -kBeyondAnyCoordinate, -kBeyondAnyCoordinate}};
     size_t counted = 0;
     if (Subjects_ != nullptr) {
       const std::vector<double> &placed = Subjects_->Placements();

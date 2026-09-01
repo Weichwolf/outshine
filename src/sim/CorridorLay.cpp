@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "CorridorLay.h"
 
 #include "Pilot.h"
@@ -156,8 +157,7 @@ bool LayCorridor(const Path::Route &route,
     say.Number("where its class allows", fitted.UnderClassMinimumM, "m");
     say.Number("that vertex", static_cast<double>(fitted.UnderClassAtVertex), "");
   }
-  say.Number(
-      "the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / std::numbers::pi, "deg");
+  say.Number("the sharpest turn it carried", fitted.SharpestTurnRad * kRad2Deg, "deg");
   say.Number("at which vertex", fitted.SharpestTurnAtM, "");
   say.Number(
       "turns past a right angle", static_cast<double>(fitted.TurnsPastRightAngle), "of 2480");
@@ -176,7 +176,7 @@ bool LayCorridor(const Path::Route &route,
   say.Number("the worst vertex", fitted.WorstVertex, "");
   say.Number("its incoming leg", fitted.WorstLegInM, "m");
   say.Number("its outgoing leg", fitted.WorstLegOutM, "m");
-  say.Number("the turn there", fitted.WorstTurnRad * 180.0 / std::numbers::pi, "deg");
+  say.Number("the turn there", fitted.WorstTurnRad * kRad2Deg, "deg");
   say.Number("the station the resection found", fitted.WorstStationM, "m");
   say.Number("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
   say.Number("how far it is allowed to", quantumM, "m");

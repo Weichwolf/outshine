@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "BuildingField.h"
 #include "math/Vec3.h"
 
@@ -146,7 +147,7 @@ Frontage NearestStreet(const OsmField &field,
   cN /= static_cast<double>(ring.Count);
 
   const double padDeg = (kOnTheStreetM + 60.0) / 111000.0;
-  double best = 1.0e30;
+  double best = kBeyondAnyCoordinate;
   double bE = 0.0;
   double bN = 0.0;
   double bDirE = 0.0;
@@ -253,8 +254,8 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   }
 
   const double tall = (northest - southest) * kMetresPerDegree;
-  const double wide = (eastest - westest) * kMetresPerDegree *
-                      std::cos(0.5 * (northest + southest) * std::numbers::pi / 180.0);
+  const double wide =
+      (eastest - westest) * kMetresPerDegree * std::cos(0.5 * (northest + southest) * kDeg2Rad);
   if (std::max(tall, wide) >= kInteriorSpanM) {
     for (int row = 1; row < kInteriorGrid; ++row) {
       for (int column = 1; column < kInteriorGrid; ++column) {
@@ -352,8 +353,7 @@ int BuildingField::Build(const GroundQuery &ground,
           lowLon = std::min(lowLon, atLon);
           highLon = std::max(highLon, atLon);
         }
-        const double perLonM =
-            111320.0 * std::cos(0.5 * (lowLat + highLat) * std::numbers::pi / 180.0);
+        const double perLonM = 111320.0 * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
         SeatSpread_.push_back(seat - base);
         Across_.push_back(std::max((highLat - lowLat) * 111132.0, (highLon - lowLon) * perLonM));
       }

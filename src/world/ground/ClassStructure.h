@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include "Units.h"
 #include "TangentFrame.h"
 
 namespace outshine {
@@ -51,7 +52,7 @@ public:
                : 0.0;
   }
 
-  static constexpr double kNoEdgeM = 1.0e30;
+  static constexpr double kNoEdgeM = kBeyondAnyCoordinate;
 
   int Evaluate(double e, double n, double *distM, int *runnerUp) const;
 
