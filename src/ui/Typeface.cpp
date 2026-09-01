@@ -112,7 +112,7 @@ Family FamilyOf(uint32_t declared) {
   return Family::Sans;
 }
 
-Typeface::~Typeface(void) {
+Typeface::~Typeface() {
   for (const Sized &held : Sets_) {
     if (held.Set != nullptr) { TTF_CloseFont(held.Set); }
   }

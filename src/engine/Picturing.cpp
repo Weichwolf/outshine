@@ -205,7 +205,7 @@ bool Engine::State::Grows(double atLat, double atLon) {
   return true;
 }
 
-bool Engine::State::Composes(void) {
+bool Engine::State::Composes() {
   const Heap::Tagged composing("world-compose");
   World.GroundTiles = 0;
   if (!Picture.Standing) {
@@ -312,7 +312,7 @@ bool Engine::State::Composes(void) {
   return Grounds(true);
 }
 
-bool Engine::State::Asks(void) {
+bool Engine::State::Asks() {
   const Scenario &declared = Session.Declared;
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
@@ -3077,7 +3077,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   return true;
 }
 
-bool Engine::State::Stood(void) {
+bool Engine::State::Stood() {
   if (Picture.Standing) { return true; }
   if (!Picture.Targeted) {
     Error = "no canvas stands, so there is nowhere to draw -- the client hands one in through "
@@ -3107,7 +3107,7 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
                         Span<const uint32_t>(standing.Indices().data(), standing.Indices().size()));
 }
 
-void Engine::State::Tells(void) {
+void Engine::State::Tells() {
   const Heap::Tagged telling("frame-tells");
   for (size_t at = 0; at < Heap::TagCount(); ++at) {
     const char *const tag = Heap::TagAt(at);
@@ -3340,7 +3340,7 @@ bool Engine::render(Extent frame) {
   return true;
 }
 
-Result Engine::inspect(void) {
+Result Engine::inspect() {
   if (!S_->Stood()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
@@ -3377,7 +3377,7 @@ void Engine::logsTo(LogSink *listening) {
   outshine::Log::SetSink(listening);
 }
 
-Extent Engine::canvas(void) const {
+Extent Engine::canvas() const {
   return S_->Picture.Frame;
 }
 
@@ -3387,11 +3387,11 @@ bool Engine::camera(Camera &out) const {
   return true;
 }
 
-bool Engine::presenting(void) const {
+bool Engine::presenting() const {
   return S_->Picture.Device.Presents();
 }
 
-bool Engine::beginFrame(void) {
+bool Engine::beginFrame() {
   if (!S_->Stood()) { return false; }
   if (!S_->Picture.Standing) {
     S_->Error = "a frame is begun over a scenario, and none stands";
@@ -3401,7 +3401,7 @@ bool Engine::beginFrame(void) {
   return true;
 }
 
-bool Engine::endFrame(void) {
+bool Engine::endFrame() {
   if (!S_->Picture.FrameOpen) {
     S_->Error = "a frame was ended that was never begun";
     return false;
@@ -3411,7 +3411,7 @@ bool Engine::endFrame(void) {
   return S_->Picture.Standing->Present(S_->Error);
 }
 
-bool Engine::flushAndWait(void) {
+bool Engine::flushAndWait() {
   if (!S_->Picture.Standing) { return true; }
   return S_->Picture.Standing->Settle(S_->Error);
 }

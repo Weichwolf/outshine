@@ -164,19 +164,19 @@ bool Loaded::plays(std::span<const int> animations) {
   return held.Assemble(0.0);
 }
 
-const std::string &Loaded::error(void) const {
+const std::string &Loaded::error() const {
   return Held_->Why;
 }
 
-const Geometry &Loaded::geometry(void) const {
+const Geometry &Loaded::geometry() const {
   return Held_->Handed;
 }
 
-int Loaded::animations(void) const {
+int Loaded::animations() const {
   return static_cast<int>(Held_->File.Animations().size());
 }
 
-double Loaded::durationS(void) const {
+double Loaded::durationS() const {
   return Held_->Moves ? Held_->Motion.EndS() : 0.0;
 }
 
@@ -184,11 +184,11 @@ bool Loaded::poses(double seconds) {
   return Held_->Assemble(seconds);
 }
 
-bool Loaded::carriesCamera(void) const {
+bool Loaded::carriesCamera() const {
   return Held_->HasEye;
 }
 
-int Loaded::cameras(void) const {
+int Loaded::cameras() const {
   return static_cast<int>(Held_->File.Cameras().size());
 }
 
@@ -211,7 +211,7 @@ bool Loaded::frames(Camera &out) const {
   return frames(Render::kFramingFill, out);
 }
 
-const Camera &Loaded::camera(void) const {
+const Camera &Loaded::camera() const {
   return Held_->Eye;
 }
 

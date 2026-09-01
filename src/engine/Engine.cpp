@@ -94,7 +94,7 @@ const Travelling_ kAssemblers[kTravels] = {
 
 } // namespace
 
-bool Engine::State::Routes(void) {
+bool Engine::State::Routes() {
   const Scenario &declared = Session.Declared;
   Ticking.Drove = false;
   Ticking.Freestanding.clear();
@@ -244,7 +244,7 @@ const std::vector<Measure> &Engine::measures() const {
   return S_->Published.Numbers();
 }
 
-bool Engine::settled(void) const {
+bool Engine::settled() const {
   return S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Bare == 0 &&
          S_->World.Grown && S_->World.Stack.Ingested();
 }
@@ -257,7 +257,7 @@ Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path) ? Result{} : std::unexpected(Of_->error());
 }
 
-int Renderer::settleFrames(void) const {
+int Renderer::settleFrames() const {
   return Of_->S_->Picture.Device.SettleFrames();
 }
 
@@ -269,19 +269,19 @@ Result Renderer::readPixels(Buffer which, std::vector<float> &out) {
   return Of_->readPixels(which, out) ? Result{} : std::unexpected(Of_->error());
 }
 
-Renderer Engine::renderer(void) {
+Renderer Engine::renderer() {
   return Renderer(*this);
 }
 
-SwapChain Engine::swapChain(void) {
+SwapChain Engine::swapChain() {
   return SwapChain(*this);
 }
 
-Extent SwapChain::extent(void) const {
+Extent SwapChain::extent() const {
   return Of_->canvas();
 }
 
-bool SwapChain::presents(void) const {
+bool SwapChain::presents() const {
   return Of_->presenting();
 }
 
@@ -293,11 +293,11 @@ Result Renderer::beginFrame(SwapChain &into) {
   return Of_->beginFrame() ? Result{} : std::unexpected(Of_->error());
 }
 
-Result Renderer::endFrame(void) {
+Result Renderer::endFrame() {
   return Of_->endFrame() ? Result{} : std::unexpected(Of_->error());
 }
 
-Result Renderer::flushAndWait(void) {
+Result Renderer::flushAndWait() {
   return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->error());
 }
 
@@ -320,7 +320,7 @@ bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heigh
   return true;
 }
 
-double Engine::loadProgress(void) const {
+double Engine::loadProgress() const {
   const size_t wanted = S_->World.AskedWanted;
   if (wanted == 0) { return 1.0; }
   const size_t missing = S_->World.AskedPending;
@@ -330,7 +330,7 @@ double Engine::loadProgress(void) const {
 
 constexpr double kMostWaitS = 0.05;
 
-Loading Engine::loading(void) const {
+Loading Engine::loading() const {
   Loading said;
   said.GroundWanted = S_->World.AskedWanted;
   said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
@@ -355,7 +355,7 @@ Result Engine::preload(double patienceS) {
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
   const auto began = std::chrono::steady_clock::now();
-  const auto say = [&](void) {
+  const auto say = [&]() {
     if (!tell) { return; }
     Loading said = loading();
     said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();

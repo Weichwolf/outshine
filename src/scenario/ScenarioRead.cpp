@@ -9,7 +9,7 @@
 
 namespace outshine {
 
-double Camera::exposureScale(void) const {
+double Camera::exposureScale() const {
   if (!exposed()) { return 0.0; }
   const double ev100 =
       std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);

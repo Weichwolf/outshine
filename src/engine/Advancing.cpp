@@ -6,11 +6,11 @@
 
 namespace outshine {
 
-bool Engine::State::Rides(void) {
+bool Engine::State::Rides() {
   return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
 }
 
-bool Engine::State::Watches(void) {
+bool Engine::State::Watches() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const View &seen = Session.Views->Active();
   if (!seen.Sees.Placed && !seen.Sees.Stands.GlobeAnchor) { return true; }
@@ -170,7 +170,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const doub
   return true;
 }
 
-bool Engine::State::Updates(void) {
+bool Engine::State::Updates() {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
     double atLat = 0.0;
     double atLon = 0.0;
@@ -229,7 +229,7 @@ bool Engine::State::Updates(void) {
   return Grounds(false);
 }
 
-bool Engine::State::Draws(void) {
+bool Engine::State::Draws() {
   if (!Ticking.Drove && !Ticking.Freestanding.empty() && Picture.Standing &&
       Picture.Standing->Stands()) {
     const double unshifted[3] = {0.0, 0.0, 0.0};
@@ -267,7 +267,7 @@ Result Engine::advance() {
   return (drew) ? Result{} : std::unexpected(S_->Error);
 }
 
-void Engine::State::Falls(void) {
+void Engine::State::Falls() {
   if (Ticking.Freestanding.empty()) { return; }
   const double stepS =
       Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
@@ -284,7 +284,7 @@ void Engine::State::Falls(void) {
   Published.Places("and how fast it falls", Ticking.Freestanding.front().VelocityMs[1], "m/s");
 }
 
-void Engine::State::Drew(void) {
+void Engine::State::Drew() {
   const Heap::Tagged drew("frame-drew");
   const Heap::Tagged telling("frame-measures");
   Published.Places(
@@ -327,7 +327,7 @@ void Engine::State::Drew(void) {
   Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
 }
 
-void Engine::State::Inspected(void) {
+void Engine::State::Inspected() {
   if (!Picture.Standing) { return; }
   const Heap::Tagged asking("frame-measures");
   {
@@ -421,7 +421,7 @@ void Engine::State::Inspected(void) {
   }
 }
 
-double Engine::stepSeconds(void) const {
+double Engine::stepSeconds() const {
   return S_->Session.Declared.Motion.StepS;
 }
 

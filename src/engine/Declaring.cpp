@@ -124,7 +124,7 @@ Result Engine::setSurfaces(const std::vector<Surface> &surfaces) {
          a.Animation == b.Animation && a.Clip == b.Clip;
 }
 
-void Engine::ships(void) {
+void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
   (void)S_->World.Offering.offers(S_->World.Shipped);
 }
@@ -429,7 +429,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
                                                                : std::unexpected(S_->Error);
 }
 
-std::string Engine::writeScenario(void) const {
+std::string Engine::writeScenario() const {
   return WriteScenario(S_->Session.Declared);
 }
 
@@ -443,11 +443,11 @@ Result Engine::readScenario(std::string_view path) {
   return {};
 }
 
-Scene &Engine::scene(void) {
+Scene &Engine::scene() {
   return S_->Cast.Scene;
 }
 
-const Scene &Engine::scene(void) const {
+const Scene &Engine::scene() const {
   return S_->Cast.Scene;
 }
 

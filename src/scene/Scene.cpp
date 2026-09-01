@@ -43,7 +43,7 @@ struct Scene::Kept {
   void Fell(Entity of);
   static constexpr uint32_t kNoRef = 0xFFFFFFFFu;
 
-  template <size_t N> [[nodiscard]] static constexpr std::array<uint32_t, N> NoRefs(void) {
+  template <size_t N> [[nodiscard]] static constexpr std::array<uint32_t, N> NoRefs() {
     std::array<uint32_t, N> filled{};
     filled.fill(kNoRef);
     return filled;

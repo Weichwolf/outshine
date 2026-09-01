@@ -146,7 +146,7 @@ private:
   };
 
   void Work(int slot);
-  void Carry(void);
+  void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
 
   ShapedGround Shape_;

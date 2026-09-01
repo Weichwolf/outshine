@@ -436,7 +436,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   }
 }
 
-void TilePool::Carry(void) {
+void TilePool::Carry() {
   const Heap::Tagged carrying("tile-carrier");
   StackProbe::Enter(StackProbe::Purpose::Tile);
   tCarries = true;

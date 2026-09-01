@@ -367,25 +367,25 @@ struct Engine::State {
   Host *Offered = nullptr;
   std::string Error;
 
-  void Drew(void);
-  void Inspected(void);
-  [[nodiscard]] bool Rides(void);
-  [[nodiscard]] bool Watches(void);
+  void Drew();
+  void Inspected();
+  [[nodiscard]] bool Rides();
+  [[nodiscard]] bool Watches();
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
-  [[nodiscard]] bool Asks(void);
+  [[nodiscard]] bool Asks();
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const double shiftM[3]);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const double shiftM[3]);
-  void Falls(void);
-  [[nodiscard]] bool Composes(void);
+  void Falls();
+  [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);
   void WhereTheEyeStands(double &atLat, double &atLon) const;
-  [[nodiscard]] bool Stood(void);
-  [[nodiscard]] bool Updates(void);
-  [[nodiscard]] bool Draws(void);
-  void Tells(void);
+  [[nodiscard]] bool Stood();
+  [[nodiscard]] bool Updates();
+  [[nodiscard]] bool Draws();
+  void Tells();
   void Blocks(const Gltf::Subject &standing);
   [[nodiscard]] bool Blocked(const double sourceM[3]) const;
-  [[nodiscard]] bool Routes(void);
+  [[nodiscard]] bool Routes();
 };
 
 } // namespace outshine

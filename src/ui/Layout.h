@@ -40,13 +40,13 @@ struct Font {
     return {};
   }
 
-  [[nodiscard]] virtual const uint8_t *Sheet(void) const { return nullptr; }
+  [[nodiscard]] virtual const uint8_t *Sheet() const { return nullptr; }
 
-  [[nodiscard]] virtual int SheetWidthPx(void) const { return 0; }
+  [[nodiscard]] virtual int SheetWidthPx() const { return 0; }
 
-  [[nodiscard]] virtual int SheetHeightPx(void) const { return 0; }
+  [[nodiscard]] virtual int SheetHeightPx() const { return 0; }
 
-  [[nodiscard]] virtual uint64_t Cut(void) const { return 0; }
+  [[nodiscard]] virtual uint64_t Cut() const { return 0; }
 };
 
 struct AhemFont final : Font {

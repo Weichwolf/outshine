@@ -138,19 +138,19 @@ const double *TransformManager::getTransform(int part) const {
   return Of_->placementOf(part);
 }
 
-TransformManager Geometry::transforms(void) {
+TransformManager Geometry::transforms() {
   return TransformManager(*this);
 }
 
-LightManager Geometry::lights(void) {
+LightManager Geometry::lights() {
   return LightManager(*this);
 }
 
-RenderableManager Geometry::renderables(void) {
+RenderableManager Geometry::renderables() {
   return RenderableManager(*this);
 }
 
-int LightManager::count(void) const {
+int LightManager::count() const {
   return Of_->lamps();
 }
 
@@ -172,7 +172,7 @@ bool LightManager::setLight(int lamp, const PunctualLight &light) {
   return true;
 }
 
-int RenderableManager::count(void) const {
+int RenderableManager::count() const {
   return Of_->parts();
 }
 
