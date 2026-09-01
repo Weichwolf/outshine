@@ -1,3 +1,5 @@
+#include <limits>
+#include "Units.h"
 #include "math/Vec2.h"
 #include "Document.h"
 
@@ -30,20 +32,35 @@ constexpr uint32_t kChunkJson = 0x4E4F534A;
 constexpr uint32_t kChunkBinary = 0x004E4942;
 constexpr uint32_t kGlbVersion = 2;
 
+constexpr size_t kGlbHeaderBytes = 12;
+constexpr size_t kGlbChunkHeaderBytes = 8;
+
+constexpr uint32_t kStrideStepBytes = 4;
+constexpr uint32_t kStrideWidestBytes = 252;
+
 uint32_t LittleWord(const uint8_t *at) {
   uint32_t word = 0;
   std::memcpy(&word, at, sizeof word);
   return word;
 }
 
+enum class GltfComponent : int {
+  Int8 = 5120,
+  UInt8 = 5121,
+  Int16 = 5122,
+  UInt16 = 5123,
+  UInt32 = 5125,
+  Float32 = 5126,
+};
+
 bool KnownComponent(int raw, ComponentType &out) {
-  switch (raw) {
-    case 5120: out = ComponentType::Int8; return true;
-    case 5121: out = ComponentType::UInt8; return true;
-    case 5122: out = ComponentType::Int16; return true;
-    case 5123: out = ComponentType::UInt16; return true;
-    case 5125: out = ComponentType::UInt32; return true;
-    case 5126: out = ComponentType::Float32; return true;
+  switch (static_cast<GltfComponent>(raw)) {
+    case GltfComponent::Int8: out = ComponentType::Int8; return true;
+    case GltfComponent::UInt8: out = ComponentType::UInt8; return true;
+    case GltfComponent::Int16: out = ComponentType::Int16; return true;
+    case GltfComponent::UInt16: out = ComponentType::UInt16; return true;
+    case GltfComponent::UInt32: out = ComponentType::UInt32; return true;
+    case GltfComponent::Float32: out = ComponentType::Float32; return true;
     default: return false;
   }
 }
@@ -118,13 +135,16 @@ double Component(const uint8_t *at, ComponentType component) {
   return 0;
 }
 
+template <typename Whole>
+constexpr double kWidest = static_cast<double>(std::numeric_limits<Whole>::max());
+
 double Normalise(double raw, ComponentType component) {
   switch (component) {
-    case ComponentType::Int8: return raw < -127.0 ? -1.0 : raw / 127.0;
-    case ComponentType::UInt8: return raw / 255.0;
-    case ComponentType::Int16: return raw < -32767.0 ? -1.0 : raw / 32767.0;
-    case ComponentType::UInt16: return raw / 65535.0;
-    case ComponentType::UInt32: return raw / 4294967295.0;
+    case ComponentType::Int8: return raw < -kWidest<int8_t> ? -1.0 : raw / kWidest<int8_t>;
+    case ComponentType::UInt8: return raw / kWidest<uint8_t>;
+    case ComponentType::Int16: return raw < -kWidest<int16_t> ? -1.0 : raw / kWidest<int16_t>;
+    case ComponentType::UInt16: return raw / kWidest<uint16_t>;
+    case ComponentType::UInt32: return raw / kWidest<uint32_t>;
     case ComponentType::Float32: return raw;
   }
   return raw;
@@ -143,12 +163,23 @@ std::string Decimal(double value) {
   return std::format("{}", value);
 }
 
+constexpr int kUppercaseFirst = 0;
+constexpr int kLowercaseFirst = kUppercaseFirst + ('Z' - 'A' + 1);
+constexpr int kDigitFirst = kLowercaseFirst + ('z' - 'a' + 1);
+constexpr int kPlusAt = kDigitFirst + ('9' - '0' + 1);
+constexpr int kSlashAt = kPlusAt + 1;
+
+constexpr size_t kBase64CharsPerGroup = 4;
+constexpr size_t kBase64BytesPerGroup = 3;
+constexpr size_t kBase64PaddingMost = 2;
+constexpr uint32_t kByteMask = 0xFFu;
+
 [[nodiscard]] int SixBitsOf(char one) {
-  if (one >= 'A' && one <= 'Z') { return one - 'A'; }
-  if (one >= 'a' && one <= 'z') { return one - 'a' + 26; }
-  if (one >= '0' && one <= '9') { return one - '0' + 52; }
-  if (one == '+') { return 62; }
-  if (one == '/') { return 63; }
+  if (one >= 'A' && one <= 'Z') { return one - 'A' + kUppercaseFirst; }
+  if (one >= 'a' && one <= 'z') { return one - 'a' + kLowercaseFirst; }
+  if (one >= '0' && one <= '9') { return one - '0' + kDigitFirst; }
+  if (one == '+') { return kPlusAt; }
+  if (one == '/') { return kSlashAt; }
   return -1;
 }
 
@@ -163,13 +194,14 @@ std::string Decimal(double value) {
 
 [[nodiscard]] bool DecodeBase64(std::string_view payload, std::vector<uint8_t> &out) {
   size_t padding = 0;
-  while (padding < 2 && payload.size() > padding && payload[payload.size() - 1 - padding] == '=') {
+  while (padding < kBase64PaddingMost && payload.size() > padding &&
+         payload[payload.size() - 1 - padding] == '=') {
     ++padding;
   }
   const std::string_view body = payload.substr(0, payload.size() - padding);
-  if (body.size() % 4 == 1) { return false; }
+  if (body.size() % kBase64CharsPerGroup == 1) { return false; }
   out.clear();
-  out.reserve(body.size() / 4 * 3 + 3);
+  out.reserve(body.size() / kBase64CharsPerGroup * kBase64BytesPerGroup + kBase64BytesPerGroup);
   uint32_t held = 0;
   int bits = 0;
   for (const char one : body) {
@@ -179,7 +211,7 @@ std::string Decimal(double value) {
     bits += 6;
     if (bits < 8) { continue; }
     bits -= 8;
-    out.push_back(static_cast<uint8_t>((held >> static_cast<uint32_t>(bits)) & 0xFFu));
+    out.push_back(static_cast<uint8_t>((held >> static_cast<uint32_t>(bits)) & kByteMask));
   }
   return true;
 }
@@ -207,46 +239,61 @@ std::string PercentDecoded(std::string_view uri) {
   return out;
 }
 
+enum class GltfWrap : int {
+  ClampToEdge = 33071,
+  MirroredRepeat = 33648,
+  Repeat = 10497,
+};
+
 bool KnownWrap(int raw, Wrap &out) {
-  switch (raw) {
-    case 33071: out = Wrap::ClampToEdge; return true;
-    case 33648: out = Wrap::MirroredRepeat; return true;
-    case 10497: out = Wrap::Repeat; return true;
+  switch (static_cast<GltfWrap>(raw)) {
+    case GltfWrap::ClampToEdge: out = Wrap::ClampToEdge; return true;
+    case GltfWrap::MirroredRepeat: out = Wrap::MirroredRepeat; return true;
+    case GltfWrap::Repeat: out = Wrap::Repeat; return true;
     default: return false;
   }
 }
 
+enum class GltfFilter : int {
+  Nearest = 9728,
+  Linear = 9729,
+  NearestMipmapNearest = 9984,
+  LinearMipmapNearest = 9985,
+  NearestMipmapLinear = 9986,
+  LinearMipmapLinear = 9987,
+};
+
 [[nodiscard]] bool KnownMagFilter(int raw, Filter &out) {
-  switch (raw) {
-    case 9728: out = Filter::Nearest; return true;
-    case 9729: out = Filter::Linear; return true;
+  switch (static_cast<GltfFilter>(raw)) {
+    case GltfFilter::Nearest: out = Filter::Nearest; return true;
+    case GltfFilter::Linear: out = Filter::Linear; return true;
     default: return false;
   }
 }
 
 [[nodiscard]] bool KnownMinFilter(int raw, Filter &base, MipFilter &mip) {
-  switch (raw) {
-    case 9728:
+  switch (static_cast<GltfFilter>(raw)) {
+    case GltfFilter::Nearest:
       base = Filter::Nearest;
       mip = MipFilter::None;
       return true;
-    case 9729:
+    case GltfFilter::Linear:
       base = Filter::Linear;
       mip = MipFilter::None;
       return true;
-    case 9984:
+    case GltfFilter::NearestMipmapNearest:
       base = Filter::Nearest;
       mip = MipFilter::Nearest;
       return true;
-    case 9985:
+    case GltfFilter::LinearMipmapNearest:
       base = Filter::Linear;
       mip = MipFilter::Nearest;
       return true;
-    case 9986:
+    case GltfFilter::NearestMipmapLinear:
       base = Filter::Nearest;
       mip = MipFilter::Linear;
       return true;
-    case 9987:
+    case GltfFilter::LinearMipmapLinear:
       base = Filter::Linear;
       mip = MipFilter::Linear;
       return true;
@@ -466,7 +513,7 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
   const uint8_t *const bytes = whole.Data();
   const size_t length = whole.Size();
 
-  if (length >= 12 && LittleWord(bytes) == kGlbMagic) {
+  if (length >= kGlbHeaderBytes && LittleWord(bytes) == kGlbMagic) {
     const uint32_t version = LittleWord(bytes + 4);
     const uint32_t declared = LittleWord(bytes + 8);
     if (version != kGlbVersion) {
@@ -494,7 +541,7 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
           return Refuse("is a GLB carrying a second JSON chunk, and the container declares "
                         "exactly one -- a file with two structures has no structure");
         }
-        if (at != 20) {
+        if (at != kGlbHeaderBytes + kGlbChunkHeaderBytes) {
           return Refuse("is a GLB whose JSON chunk is not the first, and the container declares "
                         "the structure ahead of what it describes");
         }
@@ -723,7 +770,8 @@ bool Document::ReadJson(const char *text,
                     "non-negative count under the container's ceiling");
     }
     if (declaration["byteStride"].Valid() &&
-        (view.ByteStride < 4 || view.ByteStride > 252 || view.ByteStride % 4 != 0)) {
+        (view.ByteStride < kStrideStepBytes || view.ByteStride > kStrideWidestBytes ||
+         view.ByteStride % kStrideStepBytes != 0)) {
       return Refuse("bufferView " + Number(i) + " declares byteStride " + Number(view.ByteStride) +
                     ", and the spec holds a stride to a multiple of 4 in [4, 252]");
     }
@@ -1327,8 +1375,7 @@ bool Document::ReadLights(const Json &json) {
     if (light.Light.Kind == LightKind::Spot) {
       const Json::Ref cone = entry["spot"];
       light.Light.InnerConeRad = static_cast<float>(cone["innerConeAngle"].Num(0.0));
-      light.Light.OuterConeRad =
-          static_cast<float>(cone["outerConeAngle"].Num(0.25 * std::numbers::pi));
+      light.Light.OuterConeRad = static_cast<float>(cone["outerConeAngle"].Num(kPi / 4.0));
       if (!(light.Light.InnerConeRad >= 0.0f) ||
           !(light.Light.InnerConeRad < light.Light.OuterConeRad) ||
           !(light.Light.OuterConeRad <= 0.5f * std::numbers::pi_v<float>)) {
@@ -1438,10 +1485,14 @@ bool Document::ReadAppearance(const Json &json) {
       }
       (axis[4] == 'S' ? sampler.WrapS : sampler.WrapT) = wrap;
     }
-    if (!KnownMagFilter(declaration["magFilter"].Int(9729), sampler.Mag)) {
+    if (!KnownMagFilter(declaration["magFilter"].Int(static_cast<int>(GltfFilter::Linear)),
+                        sampler.Mag)) {
       return Refuse("sampler " + Number(i) + " has a magFilter glTF 2.0 does not define");
     }
-    if (!KnownMinFilter(declaration["minFilter"].Int(9987), sampler.Min, sampler.Mip)) {
+    if (!KnownMinFilter(
+            declaration["minFilter"].Int(static_cast<int>(GltfFilter::LinearMipmapLinear)),
+            sampler.Min,
+            sampler.Mip)) {
       return Refuse("sampler " + Number(i) + " has a minFilter glTF 2.0 does not define");
     }
     Samplers_.push_back(sampler);
