@@ -8,9 +8,11 @@
 
 namespace outshine::Generators {
 
+constexpr uint32_t kNoCell = 0xffffffffu;
+
 namespace {
 
-constexpr uint32_t kNoBody = 0xffffffffu;
+constexpr uint32_t kNoBody = kNoCell;
 
 [[nodiscard]] bool CylindersCut(const Body &a, const Body &b) {
   const double de = a.Em - b.Em;

@@ -15,6 +15,8 @@
 
 namespace outshine {
 
+constexpr uint32_t kNoVertex = 0xffffffffu;
+
 namespace {
 
 constexpr int kMostPasses = 6;
@@ -243,7 +245,7 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
                             static_cast<double>(positionM[static_cast<size_t>(b) * 3u])),
                      0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) +
                             static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u])));
-        split.emplace(key, 0xffffffffu);
+        split.emplace(key, kNoVertex);
       }
     }
     if (!any) { break; }
@@ -257,8 +259,8 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
                    0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]) +
                           static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u])));
       const auto found = split.find(key);
-      if (found == split.end()) { return 0xffffffffu; }
-      if (found->second == 0xffffffffu) {
+      if (found == split.end()) { return kNoVertex; }
+      if (found->second == kNoVertex) {
         found->second = lerp.Midpoint(a, b);
         ++told.VerticesAdded;
       }
@@ -271,8 +273,8 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
       const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
       const std::array<uint32_t, 3> cut = {
           {midpoint(face[0], face[1]), midpoint(face[1], face[2]), midpoint(face[2], face[0])}};
-      const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
-                       (cut[2] != 0xffffffffu ? 1 : 0);
+      const int cuts = (cut[0] != kNoVertex ? 1 : 0) + (cut[1] != kNoVertex ? 1 : 0) +
+                       (cut[2] != kNoVertex ? 1 : 0);
       const auto lay = [&next](uint32_t a, uint32_t b, uint32_t c) {
         next.push_back(a);
         next.push_back(b);
@@ -291,14 +293,14 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
       }
       if (cuts == 1) {
         for (int edge = 0; edge < 3; ++edge) {
-          if (cut[edge] == 0xffffffffu) { continue; }
+          if (cut[edge] == kNoVertex) { continue; }
           lay(face[edge], cut[edge], face[(edge + 2) % 3]);
           lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
         }
         continue;
       }
       for (int edge = 0; edge < 3; ++edge) {
-        if (cut[edge] != 0xffffffffu) { continue; }
+        if (cut[edge] != kNoVertex) { continue; }
         const uint32_t a = face[edge];
         const uint32_t b = face[(edge + 1) % 3];
         const uint32_t c = face[(edge + 2) % 3];
@@ -410,7 +412,7 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
         if (!met) { continue; }
         split.emplace(key,
                       std::pair<uint32_t, double>{
-                          0xffffffffu, aE < bE || (aE == bE && aS < bS) ? part : 1.0 - part});
+                          kNoVertex, aE < bE || (aE == bE && aS < bS) ? part : 1.0 - part});
       }
     }
     if (split.empty()) { break; }
@@ -423,8 +425,8 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const auto bE = static_cast<double>(held[static_cast<size_t>(b) * 3u]);
       const auto bS = static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]);
       const auto found = split.find(EdgeKey(aE, aS, bE, bS));
-      if (found == split.end()) { return 0xffffffffu; }
-      if (found->second.first == 0xffffffffu) {
+      if (found == split.end()) { return kNoVertex; }
+      if (found->second.first == kNoVertex) {
         const bool forward = aE < bE || (aE == bE && aS < bS);
         found->second.first =
             lerp.Along(a, b, forward ? found->second.second : 1.0 - found->second.second);
@@ -439,8 +441,8 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
       const std::array<uint32_t, 3> cut = {
           {cutOf(face[0], face[1]), cutOf(face[1], face[2]), cutOf(face[2], face[0])}};
-      const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
-                       (cut[2] != 0xffffffffu ? 1 : 0);
+      const int cuts = (cut[0] != kNoVertex ? 1 : 0) + (cut[1] != kNoVertex ? 1 : 0) +
+                       (cut[2] != kNoVertex ? 1 : 0);
       const auto lay = [&next](uint32_t a, uint32_t b, uint32_t c) {
         next.push_back(a);
         next.push_back(b);
@@ -459,14 +461,14 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       }
       if (cuts == 1) {
         for (int edge = 0; edge < 3; ++edge) {
-          if (cut[edge] == 0xffffffffu) { continue; }
+          if (cut[edge] == kNoVertex) { continue; }
           lay(face[edge], cut[edge], face[(edge + 2) % 3]);
           lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
         }
         continue;
       }
       for (int edge = 0; edge < 3; ++edge) {
-        if (cut[edge] != 0xffffffffu) { continue; }
+        if (cut[edge] != kNoVertex) { continue; }
         const uint32_t a = face[edge];
         const uint32_t b = face[(edge + 1) % 3];
         const uint32_t c = face[(edge + 2) % 3];

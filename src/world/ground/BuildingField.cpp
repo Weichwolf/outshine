@@ -21,6 +21,8 @@
 
 namespace outshine::Ground {
 
+constexpr double kNoLeastYet = 1.0e9;
+
 namespace {
 
 constexpr double kFillHeightM = 5.0;
@@ -226,14 +228,14 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   if (corners != nullptr) { corners->clear(); }
   if (seatAslM != nullptr) { *seatAslM = 0.0; }
   if (ring.Count == 0) { return GroundSample::Missing(); }
-  double lowest = 1.0e9;
-  double highest = -1.0e9;
+  double lowest = kNoLeastYet;
+  double highest = -kNoLeastYet;
   double summed = 0.0;
   size_t took = 0;
-  double southest = 1.0e9;
-  double northest = -1.0e9;
-  double westest = 1.0e9;
-  double eastest = -1.0e9;
+  double southest = kNoLeastYet;
+  double northest = -kNoLeastYet;
+  double westest = kNoLeastYet;
+  double eastest = -kNoLeastYet;
   int coarsest = 0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const double lat = pts[(static_cast<size_t>(ring.First) + k) * 2];
@@ -341,10 +343,10 @@ int BuildingField::Build(const GroundQuery &ground,
 
       {
         const std::span<const double> ringPts = field.Points();
-        double lowLat = 1.0e9;
-        double highLat = -1.0e9;
-        double lowLon = 1.0e9;
-        double highLon = -1.0e9;
+        double lowLat = kNoLeastYet;
+        double highLat = -kNoLeastYet;
+        double lowLon = kNoLeastYet;
+        double highLon = -kNoLeastYet;
         for (uint32_t k = 0; k < ring.Count; k++) {
           const double atLat = ringPts[2 * (static_cast<size_t>(ring.First) + k)];
           const double atLon = ringPts[2 * (static_cast<size_t>(ring.First) + k) + 1];

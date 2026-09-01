@@ -21,6 +21,8 @@
 
 namespace outshine::Path {
 
+constexpr double kNoLeastYet = 1.0e9;
+
 namespace {
 
 constexpr double kDegToRad = std::numbers::pi / 180.0;
@@ -548,10 +550,10 @@ Network::Crossings(std::vector<Crossing> &into) const {
 
   const double aboutLon = Points_[1];
   std::vector<double> lon(points, 0.0);
-  double westLon = 1.0e9;
-  double eastLon = -1.0e9;
-  double southLat = 1.0e9;
-  double northLat = -1.0e9;
+  double westLon = kNoLeastYet;
+  double eastLon = -kNoLeastYet;
+  double southLat = kNoLeastYet;
+  double northLat = -kNoLeastYet;
   for (size_t at = 0; at < points; ++at) {
     double away = Points_[2 * at + 1] - aboutLon;
     while (away > 180.0) { away -= 360.0; }

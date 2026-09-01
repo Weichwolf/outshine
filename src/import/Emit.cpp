@@ -12,10 +12,12 @@
 
 namespace outshine::Gltf {
 
+constexpr uint32_t kNoIndex = 0xffffffffu;
+
 bool GlbFits(size_t jsonBytes, size_t binaryBytes) {
   const size_t jsonPadded = (jsonBytes + 3) & ~size_t{3};
   const size_t binaryPadded = (binaryBytes + 3) & ~size_t{3};
-  constexpr size_t kCeiling = 0xffffffffu;
+  constexpr size_t kCeiling = kNoIndex;
   const size_t heads = 12 + 8 + 8;
   if (jsonPadded > kCeiling - heads || binaryPadded > kCeiling - heads) { return false; }
   return jsonPadded <= kCeiling - heads - binaryPadded;

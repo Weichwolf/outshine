@@ -34,6 +34,10 @@
 
 namespace outshine {
 
+constexpr double kNoLeastYet = 1.0e9;
+
+constexpr uint32_t kNoVertex = 0xffffffffu;
+
 static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
               "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
               "the patchwork's vertex spacing; that holds only while a stream tile carries twice "
@@ -62,8 +66,8 @@ void Divided(std::span<const uint32_t, 3> face,
     into.push_back(b);
     into.push_back(c);
   };
-  const int cuts = (cut[0] != 0xffffffffu ? 1 : 0) + (cut[1] != 0xffffffffu ? 1 : 0) +
-                   (cut[2] != 0xffffffffu ? 1 : 0);
+  const int cuts =
+      (cut[0] != kNoVertex ? 1 : 0) + (cut[1] != kNoVertex ? 1 : 0) + (cut[2] != kNoVertex ? 1 : 0);
   if (cuts == 0) {
     lay(face[0], face[1], face[2]);
     return;
@@ -77,14 +81,14 @@ void Divided(std::span<const uint32_t, 3> face,
   }
   if (cuts == 1) {
     for (int edge = 0; edge < 3; ++edge) {
-      if (cut[edge] == 0xffffffffu) { continue; }
+      if (cut[edge] == kNoVertex) { continue; }
       lay(face[edge], cut[edge], face[(edge + 2) % 3]);
       lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
     }
     return;
   }
   for (int edge = 0; edge < 3; ++edge) {
-    if (cut[edge] != 0xffffffffu) { continue; }
+    if (cut[edge] != kNoVertex) { continue; }
     lay(face[edge], face[(edge + 1) % 3], cut[(edge + 1) % 3]);
     lay(face[edge], cut[(edge + 1) % 3], cut[(edge + 2) % 3]);
     lay(cut[(edge + 2) % 3], cut[(edge + 1) % 3], face[(edge + 2) % 3]);
@@ -717,8 +721,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   inFrame.resize(laid->PositionM.size());
   double sank = 0.0;
   double sankAt = 0.0;
-  double tallest = -1.0e9;
-  double lowest = 1.0e9;
+  double tallest = -kNoLeastYet;
+  double lowest = kNoLeastYet;
   double tallestOut = 0.0;
   for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
     const Vec3 held = {{laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
@@ -872,14 +876,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const uint32_t a = laid->Index[at + static_cast<size_t>(edge)];
             const uint32_t b = laid->Index[at + static_cast<size_t>((edge + 1) % 3)];
             if (classOf[a] == classOf[b]) { continue; }
-            split.emplace(EdgeKey(a, b), 0xffffffffu);
+            split.emplace(EdgeKey(a, b), kNoVertex);
           }
         }
         if (split.empty()) { break; }
         const auto halve = [&](uint32_t a, uint32_t b) {
           const auto found = split.find(EdgeKey(a, b));
-          if (found == split.end()) { return 0xffffffffu; }
-          if (found->second != 0xffffffffu) { return found->second; }
+          if (found == split.end()) { return kNoVertex; }
+          if (found->second != kNoVertex) { return found->second; }
           const auto made = static_cast<uint32_t>(inFrame.size() / 3u);
           for (int axis = 0; axis < 3; ++axis) {
             inFrame.push_back(0.5f *
