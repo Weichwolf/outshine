@@ -104,7 +104,7 @@ int64_t Network::RowOver(double latDeg, double cellM) const {
 
 int64_t Network::ColumnIn(const RowShape &shape, double lonDeg) {
   const double wrapped = lonDeg - 360.0 * std::floor((lonDeg + 180.0) / 360.0);
-  int64_t column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
+  const int64_t column = static_cast<int64_t>(std::floor((wrapped + 180.0) / shape.LonCellDeg));
   return ((column % shape.Columns) + shape.Columns) % shape.Columns;
 }
 

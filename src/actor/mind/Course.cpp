@@ -72,7 +72,7 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, dou
     if (!along.At(atM, there)) { return out; }
     reachedM = std::sqrt(AwayFrom(Beside(there, asideM), from.EastM, from.NorthM));
     if (out.AtEnd || std::fabs(reachedM - chordM) < 1.0e-6) { break; }
-    double stepM = chordM - reachedM;
+    const double stepM = chordM - reachedM;
     atM += stepM;
     if (atM > lengthM) {
       atM = lengthM;

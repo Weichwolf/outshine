@@ -1038,7 +1038,7 @@ bool Live::Restand(outshine::Geometry &&built,
   Held_.Carries(std::move(built));
   Stoodup_ = false;
   Carrying_ = carried;
-  auto phaseAt = std::chrono::steady_clock::now();
+  const auto phaseAt = std::chrono::steady_clock::now();
   const bool stood = Build(error);
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();

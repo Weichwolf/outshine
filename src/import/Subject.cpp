@@ -938,7 +938,7 @@ bool Subject::Flatten(const Document &document,
           handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
         }
         Triangulate(primitive.Mode, handedness, run, indices);
-        for (uint32_t index : indices) {
+        for (const uint32_t index : indices) {
           if (index >= vertices) {
             return Refuse(document.Path() + ": index " + std::to_string(index) +
                           " addresses past the " + std::to_string(vertices) +
@@ -1305,9 +1305,9 @@ bool FramingFor(const double minM[3], const double maxM[3], Viewpoint &out, doub
   const double azimuth = Render::kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = Render::kFramingElevationDeg * kPi / 180.0;
 
-  double toEye[3] = {std::cos(elevation) * std::cos(azimuth),
-                     std::sin(elevation),
-                     std::cos(elevation) * std::sin(azimuth)};
+  const double toEye[3] = {std::cos(elevation) * std::cos(azimuth),
+                           std::sin(elevation),
+                           std::cos(elevation) * std::sin(azimuth)};
 
   const double yfov =
       2.0 * std::atan(Render::kFramingSensorHalfHeightMm / Render::kFramingFocalLengthMm);

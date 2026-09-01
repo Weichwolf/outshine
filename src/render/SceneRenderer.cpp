@@ -97,7 +97,7 @@ SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
 
 float HalfToFloat(uint16_t bits) {
   const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16;
-  uint32_t exponent = (bits >> 10) & 0x1Fu;
+  const uint32_t exponent = (bits >> 10) & 0x1Fu;
   uint32_t mantissa = bits & 0x3FFu;
   uint32_t assembled = 0;
   if (exponent == 0) {
@@ -1004,7 +1004,7 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.buffer = held;
       binding.cycle = false;
     }
-    PassRecording into{
+    const PassRecording into{
         .Commands = commands,
         .Pass = nullptr,
         .Dispatch = SDL_BeginGPUComputePass(commands, written, writtenCount, tables, tableCount)};
@@ -1044,7 +1044,7 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
   }
-  PassRecording into{
+  const PassRecording into{
       .Commands = commands,
       .Pass = SDL_BeginGPURenderPass(
           commands, colours, colourCount, declared.Depth != kNoEdge ? &depth : nullptr),

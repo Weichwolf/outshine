@@ -143,7 +143,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   const uint32_t subY = y & (subDiv - 1);
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
-  TerrainField *field = grid.TryFieldMutable();
+  const TerrainField *field = grid.TryFieldMutable();
   if (!field) { return grid; }
 
   if (subDiv > 1) {
@@ -168,7 +168,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
 
 TerrainGrid::State
 TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side) {
-  TerrainGrid neighbour = RawGrid(z, nx, ny);
+  const TerrainGrid neighbour = RawGrid(z, nx, ny);
   const TerrainField *n = neighbour.TryField();
   if (!n || !n->Meshable()) { return neighbour.Where(); }
 

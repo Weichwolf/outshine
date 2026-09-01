@@ -22,9 +22,9 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
   RadiusM_ = radiusM;
   double sunLength = 0.0;
   double crossLength = 0.0;
-  double cross[3] = {Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
-                     Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
-                     Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]};
+  const double cross[3] = {Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
+                           Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
+                           Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]};
   for (int axis = 0; axis < 3; ++axis) {
     sunLength += ToSun_[axis] * ToSun_[axis];
     crossLength += cross[axis] * cross[axis];
@@ -42,7 +42,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
   double right[3] = {Up_[1] * forward[2] - Up_[2] * forward[1],
                      Up_[2] * forward[0] - Up_[0] * forward[2],
                      Up_[0] * forward[1] - Up_[1] * forward[0]};
-  double rLength = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
+  const double rLength = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
   for (int axis = 0; axis < 3; ++axis) { right[axis] /= rLength; }
   const double upward[3] = {forward[1] * right[2] - forward[2] * right[1],
                             forward[2] * right[0] - forward[0] * right[2],
@@ -223,9 +223,9 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
   SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  SDL_GPUBufferBinding vertices{.buffer = Resident_.Vtx.Get(), .offset = 0};
+  const SDL_GPUBufferBinding vertices{.buffer = Resident_.Vtx.Get(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  SDL_GPUBufferBinding indices{.buffer = Resident_.Idx.Get(), .offset = 0};
+  const SDL_GPUBufferBinding indices{.buffer = Resident_.Idx.Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
   SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};

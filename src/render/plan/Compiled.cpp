@@ -21,7 +21,7 @@ struct Pull {
 
   explicit Pull(const PlanSpec &spec) : Spec(spec) {
     for (size_t r = 0; r < kResourceCount; ++r) { Bound[r] = static_cast<Resource>(r); }
-    for (Stage s : spec.Content) { Declared[static_cast<size_t>(s)] = true; }
+    for (const Stage s : spec.Content) { Declared[static_cast<size_t>(s)] = true; }
   }
 
   void Want(Resource r) {
@@ -99,7 +99,7 @@ struct Pull {
   }
 
   [[nodiscard]] bool Run() {
-    for (Resource r : Spec.Outputs) { Want(r); }
+    for (const Resource r : Spec.Outputs) { Want(r); }
     for (size_t at = 0; at < Wanted.size(); ++at) { (void)Resolve(Wanted[at]); }
     return Error.empty();
   }
@@ -167,7 +167,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
     return false;
   }
 
-  for (Stage s : spec.Content) {
+  for (const Stage s : spec.Content) {
     if (pull.HeldStage[static_cast<size_t>(s)]) { continue; }
     error = std::string("render.content.") + Row(s).Name +
             ": nothing this plan requests reads what it draws into";
@@ -366,7 +366,7 @@ bool Compiled::CompileInto(const PlanSpec &spec,
       (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
 
   std::string material = "outshine/render-plan/1\n";
-  for (Stage s : plan->Order_) { material += std::string("stage ") + Row(s).Name + "\n"; }
+  for (const Stage s : plan->Order_) { material += std::string("stage ") + Row(s).Name + "\n"; }
   for (const Pass &pass : plan->Passes_) {
     material += std::string("pass ") + (pass.Kind == PassKind::Compute ? "compute " : "raster ") +
                 pass.Name + " " + std::to_string(pass.Count) + "\n";

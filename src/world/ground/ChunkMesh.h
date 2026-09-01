@@ -38,7 +38,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       break;
     }
   }
-  uint32_t R = C ? nVertices / C : 0;
+  const uint32_t R = C ? nVertices / C : 0;
   if (!(C >= 2 && R >= 2 && nVertices % C == 0)) { return 0; }
 
   int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
@@ -46,7 +46,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
 #define W3_RI(j) ((int)ChunkNodePosting((j), R, gr))
 #define W3_CI(i) ((int)ChunkNodePosting((i), C, gc))
 
-  int NN = gr * gc;
+  const int NN = gr * gc;
 
   double *pe = static_cast<double *>(
       Heap::Take("terrain node offsets", static_cast<size_t>(NN) * 3 * sizeof(double)));
@@ -54,11 +54,11 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       Heap::Take("terrain node heights", static_cast<size_t>(NN) * sizeof(float)));
 
   {
-    int rc = W3_RI(gr / 2);
-    int cc = W3_CI(gc / 2);
+    const int rc = W3_RI(gr / 2);
+    const int cc = W3_CI(gc / 2);
     Geo gc0 = TileFracToGeo(z, x, y, 0.5, 0.5);
     gc0.AltM = W3_MH(rc, cc);
-    Ecef o = GeoToEcefWgs84(gc0);
+    const Ecef o = GeoToEcefWgs84(gc0);
     origin_out[0] = o.X;
     origin_out[1] = o.Y;
     origin_out[2] = o.Z;
@@ -66,14 +66,14 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
 
   for (int j = 0; j < gr; j++) {
     for (int i = 0; i < gc; i++) {
-      int r = W3_RI(j);
-      int c = W3_CI(i);
-      double fx = static_cast<double>(c) / static_cast<double>(C - 1);
-      double fy = static_cast<double>(r) / static_cast<double>(R - 1);
-      float h = W3_MH(r, c);
+      const int r = W3_RI(j);
+      const int c = W3_CI(i);
+      const double fx = static_cast<double>(c) / static_cast<double>(C - 1);
+      const double fy = static_cast<double>(r) / static_cast<double>(R - 1);
+      const float h = W3_MH(r, c);
       Geo g = TileFracToGeo(z, x, y, fx, fy);
       g.AltM = h;
-      Ecef e = GeoToEcefWgs84(g);
+      const Ecef e = GeoToEcefWgs84(g);
       double *d = pe + (static_cast<size_t>(j) * gc + i) * 3;
       d[0] = e.X - origin_out[0];
       d[1] = e.Y - origin_out[1];
@@ -85,24 +85,24 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   double olen = sqrt(origin_out[0] * origin_out[0] + origin_out[1] * origin_out[1] +
                      origin_out[2] * origin_out[2]);
   if (olen < 1.0) { olen = 1.0; }
-  float radial[3] = {static_cast<float>(origin_out[0] / olen),
-                     static_cast<float>(origin_out[1] / olen),
-                     static_cast<float>(origin_out[2] / olen)};
+  const float radial[3] = {static_cast<float>(origin_out[0] / olen),
+                           static_cast<float>(origin_out[1] / olen),
+                           static_cast<float>(origin_out[2] / olen)};
 
   float *nv = static_cast<float *>(
       Heap::Take("terrain node normals", static_cast<size_t>(NN) * 3 * sizeof(float)));
   for (int j = 0; j < gr; j++) {
     for (int i = 0; i < gc; i++) {
-      int i0 = i > 0 ? i - 1 : i;
-      int i1 = i < gc - 1 ? i + 1 : i;
-      int j0 = j > 0 ? j - 1 : j;
-      int j1 = j < gr - 1 ? j + 1 : j;
+      const int i0 = i > 0 ? i - 1 : i;
+      const int i1 = i < gc - 1 ? i + 1 : i;
+      const int j0 = j > 0 ? j - 1 : j;
+      const int j1 = j < gr - 1 ? j + 1 : j;
       const double *W = pe + (static_cast<size_t>(j) * gc + i0) * 3;
       const double *E = pe + (static_cast<size_t>(j) * gc + i1) * 3;
       const double *Nn = pe + (static_cast<size_t>(j0) * gc + i) * 3;
       const double *Sn = pe + (static_cast<size_t>(j1) * gc + i) * 3;
-      double te[3] = {E[0] - W[0], E[1] - W[1], E[2] - W[2]};
-      double tn[3] = {Nn[0] - Sn[0], Nn[1] - Sn[1], Nn[2] - Sn[2]};
+      const double te[3] = {E[0] - W[0], E[1] - W[1], E[2] - W[2]};
+      const double tn[3] = {Nn[0] - Sn[0], Nn[1] - Sn[1], Nn[2] - Sn[2]};
       double nx = te[1] * tn[2] - te[2] * tn[1];
       double ny = te[2] * tn[0] - te[0] * tn[2];
       double nz = te[0] * tn[1] - te[1] * tn[0];
@@ -131,17 +131,17 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   float err = 0.f;
   for (int j = 0; j < gr - 1; j++) {
     for (int i = 0; i < gc - 1; i++) {
-      int r0 = W3_RI(j);
-      int r1 = W3_RI(j + 1);
-      int c0 = W3_CI(i);
-      int c1 = W3_CI(i + 1);
+      const int r0 = W3_RI(j);
+      const int r1 = W3_RI(j + 1);
+      const int c0 = W3_CI(i);
+      const int c1 = W3_CI(i + 1);
       if (r1 <= r0 || c1 <= c0) { continue; }
       const ChunkCell cell{.Nodes = nh, .Stride = gc, .Row = j, .Col = i};
       for (int r = r0; r <= r1; r++) {
         for (int c = c0; c <= c1; c++) {
-          float sv = static_cast<float>(r - r0) / static_cast<float>(r1 - r0);
-          float su = static_cast<float>(c - c0) / static_cast<float>(c1 - c0);
-          float d = fabsf(ChunkCellHeight(cell, su, sv) - W3_MH(r, c));
+          const float sv = static_cast<float>(r - r0) / static_cast<float>(r1 - r0);
+          const float su = static_cast<float>(c - c0) / static_cast<float>(c1 - c0);
+          const float d = fabsf(ChunkCellHeight(cell, su, sv) - W3_MH(r, c));
           if (d > err) { err = d; }
         }
       }
@@ -149,7 +149,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
   }
   out->err = err;
 
-  int nquad = (gr - 1) * (gc - 1);
+  const int nquad = (gr - 1) * (gc - 1);
   ChunkVtx *v = static_cast<ChunkVtx *>(
       Heap::Take("terrain tile vertices", static_cast<size_t>(nquad) * 6 * sizeof(ChunkVtx)));
   size_t o = 0;

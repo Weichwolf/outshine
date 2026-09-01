@@ -69,7 +69,7 @@ bool AssembleDrive(const Scene &scene,
   const double toLonDeg = driveTo->ToLonDeg;
   out.Car = *car;
 
-  auto &corridor = out.Way.Line;
+  const auto &corridor = out.Way.Line;
   auto &stood = out.Stood;
 
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.Origin.RadiusM);

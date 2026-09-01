@@ -94,23 +94,23 @@ struct Geodesic {
 inline void GeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) {
   const double a = 6378137.0;
   const double e2 = 6.69437999014e-3;
-  double lat = latDeg * kDeg2Rad;
-  double lon = lonDeg * kDeg2Rad;
-  double sl = std::sin(lat);
-  double cl = std::cos(lat);
-  double N = a / std::sqrt(1.0 - e2 * sl * sl);
+  const double lat = latDeg * kDeg2Rad;
+  const double lon = lonDeg * kDeg2Rad;
+  const double sl = std::sin(lat);
+  const double cl = std::cos(lat);
+  const double N = a / std::sqrt(1.0 - e2 * sl * sl);
   out[0] = (N + altM) * cl * std::cos(lon);
   out[1] = (N + altM) * cl * std::sin(lon);
   out[2] = (N * (1.0 - e2) + altM) * sl;
 }
 
 inline void EnuAxesEcef(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
-  double P = latDeg * kDeg2Rad;
-  double L = lonDeg * kDeg2Rad;
-  double sP = std::sin(P);
-  double cP = std::cos(P);
-  double sL = std::sin(L);
-  double cL = std::cos(L);
+  const double P = latDeg * kDeg2Rad;
+  const double L = lonDeg * kDeg2Rad;
+  const double sP = std::sin(P);
+  const double cP = std::cos(P);
+  const double sL = std::sin(L);
+  const double cL = std::cos(L);
   E[0] = -sL;
   E[1] = cL;
   E[2] = 0.0;
@@ -130,7 +130,7 @@ inline double Wrap180(double deg) {
 
 inline void
 EnuOffsetM(double refLat, double refLon, double lat, double lon, double &eastM, double &northM) {
-  double coslat = std::cos(refLat * kDeg2Rad);
+  const double coslat = std::cos(refLat * kDeg2Rad);
   northM = (lat - refLat) * kMPerDeg;
   eastM = Wrap180(lon - refLon) * kMPerDeg * coslat;
 }
@@ -146,7 +146,7 @@ inline double BearingDeg(double refLat, double refLon, double lat, double lon) {
   double e;
   double n;
   EnuOffsetM(refLat, refLon, lat, lon, e, n);
-  double brg = std::atan2(e, n) * kRad2Deg;
+  const double brg = std::atan2(e, n) * kRad2Deg;
   return brg < 0.0 ? brg + 360.0 : brg;
 }
 
@@ -158,21 +158,23 @@ inline void EnuToBodyLos(double rollDeg,
                          double upM,
                          double &azDeg,
                          double &elDeg) {
-  double N = northM;
-  double E = eastM;
-  double D = -upM;
-  double ph = rollDeg * kDeg2Rad;
-  double th = pitchDeg * kDeg2Rad;
-  double ps = yawDeg * kDeg2Rad;
-  double cph = std::cos(ph);
-  double sph = std::sin(ph);
-  double cth = std::cos(th);
-  double sth = std::sin(th);
-  double cps = std::cos(ps);
-  double sps = std::sin(ps);
-  double xb = cth * cps * N + cth * sps * E - sth * D;
-  double yb = (sph * sth * cps - cph * sps) * N + (sph * sth * sps + cph * cps) * E + sph * cth * D;
-  double zb = (cph * sth * cps + sph * sps) * N + (cph * sth * sps - sph * cps) * E + cph * cth * D;
+  const double N = northM;
+  const double E = eastM;
+  const double D = -upM;
+  const double ph = rollDeg * kDeg2Rad;
+  const double th = pitchDeg * kDeg2Rad;
+  const double ps = yawDeg * kDeg2Rad;
+  const double cph = std::cos(ph);
+  const double sph = std::sin(ph);
+  const double cth = std::cos(th);
+  const double sth = std::sin(th);
+  const double cps = std::cos(ps);
+  const double sps = std::sin(ps);
+  const double xb = cth * cps * N + cth * sps * E - sth * D;
+  const double yb =
+      (sph * sth * cps - cph * sps) * N + (sph * sth * sps + cph * cps) * E + sph * cth * D;
+  const double zb =
+      (cph * sth * cps + sph * sps) * N + (cph * sth * sps - sph * cps) * E + cph * cth * D;
   azDeg = std::atan2(yb, xb) * kRad2Deg;
   elDeg = -std::atan2(zb, std::sqrt(xb * xb + yb * yb)) * kRad2Deg;
 }
@@ -185,22 +187,22 @@ inline void BodyLosToEnu(double rollDeg,
                          double &eastM,
                          double &northM,
                          double &upM) {
-  double ph = rollDeg * kDeg2Rad;
-  double th = pitchDeg * kDeg2Rad;
-  double ps = yawDeg * kDeg2Rad;
-  double cph = std::cos(ph);
-  double sph = std::sin(ph);
-  double cth = std::cos(th);
-  double sth = std::sin(th);
-  double cps = std::cos(ps);
-  double sps = std::sin(ps);
-  double ca = std::cos(azDeg * kDeg2Rad);
-  double sa = std::sin(azDeg * kDeg2Rad);
-  double ce = std::cos(elDeg * kDeg2Rad);
-  double se = std::sin(elDeg * kDeg2Rad);
-  double xb = ce * ca;
-  double yb = ce * sa;
-  double zb = -se;
+  const double ph = rollDeg * kDeg2Rad;
+  const double th = pitchDeg * kDeg2Rad;
+  const double ps = yawDeg * kDeg2Rad;
+  const double cph = std::cos(ph);
+  const double sph = std::sin(ph);
+  const double cth = std::cos(th);
+  const double sth = std::sin(th);
+  const double cps = std::cos(ps);
+  const double sps = std::sin(ps);
+  const double ca = std::cos(azDeg * kDeg2Rad);
+  const double sa = std::sin(azDeg * kDeg2Rad);
+  const double ce = std::cos(elDeg * kDeg2Rad);
+  const double se = std::sin(elDeg * kDeg2Rad);
+  const double xb = ce * ca;
+  const double yb = ce * sa;
+  const double zb = -se;
   northM = cth * cps * xb + (sph * sth * cps - cph * sps) * yb + (cph * sth * cps + sph * sps) * zb;
   eastM = cth * sps * xb + (sph * sth * sps + cph * cps) * yb + (cph * sth * sps - sph * cps) * zb;
   upM = -(-sth * xb + sph * cth * yb + cph * cth * zb);
@@ -215,13 +217,13 @@ inline void BodyVecToEnu(double rollDeg,
                          double &eastM,
                          double &northM,
                          double &upM) {
-  double mag = std::sqrt(fwd * fwd + right * right + down * down);
+  const double mag = std::sqrt(fwd * fwd + right * right + down * down);
   if (mag <= 0.0) {
     eastM = northM = upM = 0.0;
     return;
   }
-  double azDeg = std::atan2(right, fwd) * kRad2Deg;
-  double elDeg = -std::atan2(down, std::sqrt(fwd * fwd + right * right)) * kRad2Deg;
+  const double azDeg = std::atan2(right, fwd) * kRad2Deg;
+  const double elDeg = -std::atan2(down, std::sqrt(fwd * fwd + right * right)) * kRad2Deg;
   BodyLosToEnu(rollDeg, pitchDeg, yawDeg, azDeg, elDeg, eastM, northM, upM);
   eastM *= mag;
   northM *= mag;
@@ -237,7 +239,7 @@ inline void EnuToBodyVec(double rollDeg,
                          double &fwd,
                          double &right,
                          double &down) {
-  double mag = std::sqrt(eastM * eastM + northM * northM + upM * upM);
+  const double mag = std::sqrt(eastM * eastM + northM * northM + upM * upM);
   if (mag <= 0.0) {
     fwd = right = down = 0.0;
     return;
@@ -245,10 +247,10 @@ inline void EnuToBodyVec(double rollDeg,
   double azDeg = 0.0;
   double elDeg = 0.0;
   EnuToBodyLos(rollDeg, pitchDeg, yawDeg, eastM, northM, upM, azDeg, elDeg);
-  double ca = std::cos(azDeg * kDeg2Rad);
-  double sa = std::sin(azDeg * kDeg2Rad);
-  double ce = std::cos(elDeg * kDeg2Rad);
-  double se = std::sin(elDeg * kDeg2Rad);
+  const double ca = std::cos(azDeg * kDeg2Rad);
+  const double sa = std::sin(azDeg * kDeg2Rad);
+  const double ce = std::cos(elDeg * kDeg2Rad);
+  const double se = std::sin(elDeg * kDeg2Rad);
   fwd = mag * ce * ca;
   right = mag * ce * sa;
   down = -mag * se;
@@ -264,7 +266,7 @@ inline void TrackProjectM(double refLat,
   double e;
   double n;
   EnuOffsetM(refLat, refLon, lat, lon, e, n);
-  double c = courseDeg * kDeg2Rad;
+  const double c = courseDeg * kDeg2Rad;
   alongM = e * std::sin(c) + n * std::cos(c);
   acrossM = e * std::cos(c) - n * std::sin(c);
 }

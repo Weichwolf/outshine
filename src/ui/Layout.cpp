@@ -958,7 +958,7 @@ double Placer::Flex(int node,
     }
 
     for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
-      Item &one = items[i];
+      const Item &one = items[i];
       cursor += one.MainMarginStart;
       const uint32_t self_align =
           one.Style.Has(Property::AlignSelf)

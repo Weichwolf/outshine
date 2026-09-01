@@ -140,7 +140,7 @@ void Usage() {
   return true;
 }
 
-int TakeShots(int argc, char **argv) {
+int TakeShots(int argc, char *const *argv) {
   std::vector<const Place *> taking;
   bool rows = false;
   bool everyMeasure = false;
@@ -185,7 +185,7 @@ int TakeShots(int argc, char **argv) {
   return refused == 0 ? 0 : 1;
 }
 
-int RunScenario(int argc, char **argv, bool everyMeasure) {
+int RunScenario(int argc, char *const *argv, bool everyMeasure) {
   bool rows = false;
   std::string into = "khronos";
   while (argc > 0 && argv[0][0] == '-') {
@@ -232,7 +232,7 @@ int RunScenario(int argc, char **argv, bool everyMeasure) {
   return shot.Why.empty() ? 0 : 1;
 }
 
-int AskHeight(int argc, char **argv) {
+int AskHeight(int argc, char *const *argv) {
   if (argc < 2) {
     std::printf("outshine-client: height wants a latitude and a longitude\n");
     return 2;

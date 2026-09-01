@@ -163,7 +163,7 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
       vv[static_cast<size_t>(idx)] = static_cast<float>(i) / static_cast<float>(r);
     }
   }
-  auto at = [a](int i, int j) { return static_cast<size_t>(1 + (i - 1) * (a + 1) + j); };
+  const auto at = [a](int i, int j) { return static_cast<size_t>(1 + (i - 1) * (a + 1) + j); };
   for (int j = 0; j < a; ++j) {
     const size_t b = at(1, j);
     const size_t c = at(1, j + 1);

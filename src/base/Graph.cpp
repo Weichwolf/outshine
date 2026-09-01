@@ -11,7 +11,7 @@ Graph::Graph(unsigned hands) : Hands_(hands == 0 ? 1u : hands) {
 
 Graph::~Graph() {
   {
-    std::lock_guard<std::mutex> held(Guard_);
+    const std::lock_guard<std::mutex> held(Guard_);
     Closing_ = true;
   }
   Woke_.notify_all();
@@ -73,7 +73,7 @@ void Graph::Serves(bool untilDone) {
       next = Ready_.back();
       Ready_.pop_back();
     }
-    Step &one = Held_[next];
+    const Step &one = Held_[next];
     one.Act(one.With);
     std::vector<uint32_t> freed;
     for (uint8_t at = 0; at < one.Fed; ++at) {
@@ -83,7 +83,7 @@ void Graph::Serves(bool untilDone) {
       }
     }
     {
-      std::lock_guard<std::mutex> held(Guard_);
+      const std::lock_guard<std::mutex> held(Guard_);
       for (const uint32_t one2 : freed) { Ready_.push_back(one2); }
       Left_.fetch_sub(1u, std::memory_order_acq_rel);
     }
@@ -95,7 +95,7 @@ bool Graph::Runs() {
   if (Steps_ == 0) { return true; }
   Left_.store(Steps_, std::memory_order_relaxed);
   {
-    std::lock_guard<std::mutex> held(Guard_);
+    const std::lock_guard<std::mutex> held(Guard_);
     Ready_.clear();
     for (size_t at = 0; at < Steps_; ++at) {
       Held_[at].Owed.store(Held_[at].Afters, std::memory_order_relaxed);

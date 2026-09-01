@@ -140,7 +140,7 @@ bool Loaded::reads(std::string_view path) {
 
 bool Loaded::wears(std::string_view variant) {
   Held &held = *Held_;
-  Gltf::VariantSelection wanted{std::string(variant)};
+  const Gltf::VariantSelection wanted{std::string(variant)};
   int index = -1;
   if (!wanted.Against(held.File, index, held.Why)) { return false; }
   held.Variant = wanted;

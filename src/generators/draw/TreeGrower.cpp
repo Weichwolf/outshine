@@ -386,7 +386,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (Plant_->Nodes.empty()) { return; }
   TreeVec3 mn = Vec3(1e30f, 1e30f, 1e30f);
   TreeVec3 mx = Vec3(-1e30f, -1e30f, -1e30f);
-  auto cover = [&mn, &mx](TreeVec3 p, TreeVec3 half) {
+  const auto cover = [&mn, &mx](TreeVec3 p, TreeVec3 half) {
     mn = Vec3(std::fmin(mn.X, p.X - half.X),
               std::fmin(mn.Y, p.Y - half.Y),
               std::fmin(mn.Z, p.Z - half.Z));

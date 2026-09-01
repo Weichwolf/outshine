@@ -81,7 +81,7 @@ size_t SubjectResidency::StagingMadeTaken() {
 bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::string &error) {
   uint32_t total = 0;
   for (size_t at = 0; at < count; ++at) {
-    Crossing &one = what[at];
+    const Crossing &one = what[at];
     if (one.Bytes == 0 || !one.Stands()) {
       one.Into->Reset();
       *one.Held = 0;

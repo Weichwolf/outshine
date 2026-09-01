@@ -15,8 +15,8 @@ struct Sink {
   size_t Max;
 };
 
-size_t Write(void *data, size_t size, size_t members, void *user) {
-  Sink *sink = static_cast<Sink *>(user);
+size_t Write(const void *data, size_t size, size_t members, void *user) {
+  const Sink *sink = static_cast<Sink *>(user);
   const size_t add = size * members;
 
   if (sink->Max && sink->Out->size() + add > sink->Max) { return 0; }
@@ -42,7 +42,7 @@ Fetching::Fetching(const Config &config) : Config_(config) {
 
 Fetching::~Fetching() {
   {
-    std::lock_guard<std::mutex> lock(Mutex_);
+    const std::lock_guard<std::mutex> lock(Mutex_);
     Stopping_ = true;
   }
   Wake_.notify_all();
@@ -52,7 +52,7 @@ Fetching::~Fetching() {
 
 Data::Ticket Fetching::Begin(const std::string &url) {
   if (url.empty()) { return Data::Ticket::None; }
-  std::lock_guard<std::mutex> lock(Mutex_);
+  const std::lock_guard<std::mutex> lock(Mutex_);
   const uint64_t ticket = NextTicket_++;
   Transfers_[ticket].Url = url;
   Queue_.push_back(ticket);
@@ -62,7 +62,7 @@ Data::Ticket Fetching::Begin(const std::string &url) {
 
 Data::Wire Fetching::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return Data::Wire::Unreachable(); }
-  std::lock_guard<std::mutex> lock(Mutex_);
+  const std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
 
   if (found == Transfers_.end()) { return Data::Wire::Unreachable(); }
@@ -75,7 +75,7 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
 
 void Fetching::Cancel(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return; }
-  std::lock_guard<std::mutex> lock(Mutex_);
+  const std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
   if (found == Transfers_.end()) { return; }
   if (found->second.Done) {
@@ -139,7 +139,7 @@ void Fetching::Work() {
       if (result == CURLE_OK) { curl_easy_getinfo(handle, CURLINFO_RETRY_AFTER, &retryAfter); }
     }
 
-    std::lock_guard<std::mutex> lock(Mutex_);
+    const std::lock_guard<std::mutex> lock(Mutex_);
     const auto found = Transfers_.find(ticket);
     if (found == Transfers_.end()) { continue; }
     if (found->second.Cancelled) {

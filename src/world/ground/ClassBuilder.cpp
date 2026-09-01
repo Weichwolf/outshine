@@ -33,7 +33,7 @@ constexpr int kCurveMaxSplit = 8;
 
 void CatmullPoint(
     const float *p0, const float *p1, const float *p2, const float *p3, float u, float *out) {
-  auto knot = [](float t, const float *a, const float *b) {
+  const auto knot = [](float t, const float *a, const float *b) {
     const float dx = b[0] - a[0];
     const float dy = b[1] - a[1];
     return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + 1.0e-6f);
@@ -64,8 +64,8 @@ void CurveRing(
     const float *pts, uint32_t first, uint32_t count, bool closed, std::vector<float> &out) {
   out.clear();
   if (count < 2) { return; }
-  auto P = [&](int i) -> const float * {
-    int n = static_cast<int>(count);
+  const auto P = [&](int i) -> const float * {
+    const int n = static_cast<int>(count);
     if (closed) {
       i = ((i % n) + n) % n;
     } else {
@@ -112,7 +112,7 @@ ClassBuilder::ClassBuilder()
 
 ClassBuilder::~ClassBuilder() {
   {
-    std::lock_guard<std::mutex> lk(Mu_);
+    const std::lock_guard<std::mutex> lk(Mu_);
     Stop_ = true;
   }
   Cv_.notify_all();
@@ -121,7 +121,7 @@ ClassBuilder::~ClassBuilder() {
 
 void ClassBuilder::Submit(Job job) {
   {
-    std::lock_guard<std::mutex> lk(Mu_);
+    const std::lock_guard<std::mutex> lk(Mu_);
     assert(Stage_ == Stage::Idle);
     Pending_ = std::move(job);
     Stage_ = Stage::Building;
@@ -130,7 +130,7 @@ void ClassBuilder::Submit(Job job) {
 }
 
 std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
-  std::lock_guard<std::mutex> lk(Mu_);
+  const std::lock_guard<std::mutex> lk(Mu_);
   if (Stage_ != Stage::Done) { return {}; }
   std::optional<Handback> out = std::move(Result_);
   Result_.reset();
@@ -180,7 +180,7 @@ void ClassBuilder::Run() {
 
     StackProbe::Mark();
     {
-      std::lock_guard<std::mutex> lk(Mu_);
+      const std::lock_guard<std::mutex> lk(Mu_);
       Result_ = std::move(y);
       Stage_ = Stage::Done;
     }
@@ -328,7 +328,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
       act.resize(keep);
 
       hits.clear();
-      for (uint32_t e : act) {
+      for (const uint32_t e : act) {
         const float *p = &ex[static_cast<size_t>(e) * 4];
         if ((p[1] <= cy) == (p[3] <= cy)) { continue; }
         const double xi = static_cast<double>(p[0]) +

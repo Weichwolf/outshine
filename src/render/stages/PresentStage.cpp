@@ -60,7 +60,7 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || Frame == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound{.texture = Frame, .sampler = Exact};
+  const SDL_GPUTextureSamplerBinding bound{.texture = Frame, .sampler = Exact};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &bound, 1);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }

@@ -1042,7 +1042,7 @@ bool Document::ReadJson(const char *text,
       return Refuse("node " + Number(i) + " names " + kLightsPunctual + " light " +
                     Number(static_cast<size_t>(node.Light)) + " of " + Number(Lights_.size()));
     }
-    for (int child : node.Children) {
+    for (const int child : node.Children) {
       if (child < 0 || static_cast<size_t>(child) >= Nodes_.size()) {
         return Refuse("node " + Number(i) + " names a child the file does not carry");
       }

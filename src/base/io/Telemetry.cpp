@@ -27,7 +27,7 @@ void TelemetryRow::Push(const std::string &v) {
 
 void TelemetryBus::Start() {
   Schema_.Add("t", "s");
-  for (auto *src : Sources_) { src->DeclareTelemetry(Schema_); }
+  for (const auto *src : Sources_) { src->DeclareTelemetry(Schema_); }
   if (Sink_) {
     std::vector<std::string> cols;
     cols.reserve(Schema_.Channels().size());
@@ -42,7 +42,7 @@ void TelemetryBus::Tick(double simTimeS) {
   if (!Sink_) { return; }
   Row_.Clear();
   Row_.Push(simTimeS);
-  for (auto *src : Sources_) { src->SampleTelemetry(Row_); }
+  for (const auto *src : Sources_) { src->SampleTelemetry(Row_); }
   Sink_->Row(Row_.Fields());
 }
 

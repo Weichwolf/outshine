@@ -52,7 +52,7 @@ TagRow *RowFor(const char *tag) {
   return nullptr;
 }
 
-inline size_t BlockBytes(void *block) {
+inline size_t BlockBytes(const void *block) {
 #if defined(__APPLE__)
   return malloc_size(block);
 #else

@@ -391,7 +391,7 @@ std::vector<En> RefinedLike(std::span<const En> along,
                overhung,
                at);
     out.push_back(emit[i]);
-    for (double t : at) { out.push_back(Along(emit[i], emit[j], t)); }
+    for (const double t : at) { out.push_back(Along(emit[i], emit[j], t)); }
   }
   return out;
 }
@@ -416,7 +416,7 @@ std::vector<En> Refined(std::span<const En> ring,
     const En &from = takeWide && overhung ? wide[i] : ring[i];
     const En &to = takeWide && overhung ? wide[j] : ring[j];
     out.push_back(from);
-    for (double t : at) { out.push_back(Along(from, to, t)); }
+    for (const double t : at) { out.push_back(Along(from, to, t)); }
   }
   return out;
 }

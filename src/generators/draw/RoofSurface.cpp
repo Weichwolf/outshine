@@ -54,7 +54,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
       const uint32_t c = poly[(i + 1) % poly.size()];
       if (cross(a, b, c) <= 0.0) { continue; }
       bool clean = true;
-      for (uint32_t o : poly) {
+      for (const uint32_t o : poly) {
         if (o == a || o == b || o == c) { continue; }
         if (cross(a, b, o) >= 0.0 && cross(b, c, o) >= 0.0 && cross(c, a, o) >= 0.0) {
           clean = false;

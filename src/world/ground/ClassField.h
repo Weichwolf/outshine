@@ -31,7 +31,7 @@ public:
   void Update(TilePool &tiles, double camLat, double camLon, double budgetMs);
 
   std::shared_ptr<const ClassStructure> Read() const {
-    std::lock_guard<std::mutex> lk(Mu_);
+    const std::lock_guard<std::mutex> lk(Mu_);
     return Published_;
   }
 

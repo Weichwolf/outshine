@@ -67,7 +67,7 @@ bool Structures::make(const Ask &ask, Geometry &into) const {
 
   Meshed made;
   if (!made.Take("structure", MaterialInstance(0), soup.data(), soup.size())) { return false; }
-  Geometry stood = made.Handed();
+  const Geometry stood = made.Handed();
   if (stood.parts() == 0) { return false; }
 
   Material walls;

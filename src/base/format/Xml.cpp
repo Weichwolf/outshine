@@ -254,7 +254,7 @@ bool Xml::Parse(const char *text, size_t length) {
     }
 
     if (at + 1 < length && Text_[at + 1] == '/') {
-      size_t name = at + 2;
+      const size_t name = at + 2;
       size_t stop = name;
       while (stop < length && NameChar(Text_[stop])) { ++stop; }
       if (depth == 0) { return Refuse("a closing tag closes an element nothing opened", at); }
@@ -274,7 +274,7 @@ bool Xml::Parse(const char *text, size_t length) {
       continue;
     }
 
-    size_t name = at + 1;
+    const size_t name = at + 1;
     if (name >= length || !NameStart(Text_[name])) {
       return Refuse("an element's name begins with a letter or an underscore", at);
     }

@@ -334,9 +334,9 @@ bool TriangleBvh::Occludes(const float originM[3],
     for (uint32_t which = 0; which < count; ++which) {
       const BvhTriangle &tri = Tris_[first + which];
 
-      float pvec[3] = {direction[1] * tri.E2[2] - direction[2] * tri.E2[1],
-                       direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
-                       direction[0] * tri.E2[1] - direction[1] * tri.E2[0]};
+      const float pvec[3] = {direction[1] * tri.E2[2] - direction[2] * tri.E2[1],
+                             direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
+                             direction[0] * tri.E2[1] - direction[1] * tri.E2[0]};
       const float determinant = tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
       if (std::fabs(determinant) < 1.0e-20f) { continue; }
       const float reciprocal = 1.0f / determinant;

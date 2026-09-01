@@ -31,7 +31,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
                           std::unordered_map<std::string, uint32_t> &index,
                           std::string_view s) {
   const std::string key(s);
-  auto it = index.find(key);
+  const auto it = index.find(key);
   if (it != index.end()) { return it->second; }
   const uint32_t id = static_cast<uint32_t>(pool.size());
   pool.push_back(key);

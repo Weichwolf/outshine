@@ -147,7 +147,7 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
                                   resident.DrawArgs.Get(),
                                   PyramidBuffer_ != nullptr ? PyramidBuffer_
                                                             : resident.ClusterSpheres.Get()};
-  for (SDL_GPUBuffer *const one : read) {
+  for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
@@ -166,7 +166,7 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
   SDL_GPUBuffer *const read[2] = {resident.ClusterKept.Get(), resident.ClusterBatches.Get()};
-  for (SDL_GPUBuffer *const one : read) {
+  for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));
@@ -184,7 +184,7 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
                                   resident.Idx.Get(),
                                   resident.ClusterSlot.Get(),
                                   resident.DrawArgs.Get()};
-  for (SDL_GPUBuffer *const one : read) {
+  for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &view, static_cast<uint32_t>(sizeof view));

@@ -18,9 +18,9 @@ Astride Surface(const Placed &on, double alongM, double acrossM, double halfWidt
 
   const double ahead[3] = {std::cos(on.HeadingRad), on.Slope, std::sin(on.HeadingRad)};
   const double across[3] = {left[0], -bank, left[1]};
-  double normal[3] = {ahead[1] * across[2] - ahead[2] * across[1],
-                      ahead[2] * across[0] - ahead[0] * across[2],
-                      ahead[0] * across[1] - ahead[1] * across[0]};
+  const double normal[3] = {ahead[1] * across[2] - ahead[2] * across[1],
+                            ahead[2] * across[0] - ahead[0] * across[2],
+                            ahead[0] * across[1] - ahead[1] * across[0]};
   const double length =
       std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
   if (length > 0.0) {

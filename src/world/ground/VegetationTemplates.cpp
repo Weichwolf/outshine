@@ -131,7 +131,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     const Json::Ref g = t["ground"];
     const Json::Ref gr = t["grass"];
     const std::string bname = gr["class"].Str("");
-    auto bit = bladeByName.find(bname);
+    const auto bit = bladeByName.find(bname);
     if (bit == bladeByName.end()) {
       Error_ = "unknown blade class: " + bname;
       return false;
@@ -215,7 +215,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     const Json::Ref rows = tpls[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
       const std::string layer = rows[k]["layer"].Str("");
-      auto it = hasLine.find(layer);
+      const auto it = hasLine.find(layer);
       const bool line = rows[k]["widthM"].Num(0.0) > 0.0;
       if (it == hasLine.end()) {
         Layers_.push_back(layer);

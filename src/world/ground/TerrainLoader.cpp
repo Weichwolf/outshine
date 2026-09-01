@@ -273,13 +273,13 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
-  long hy = static_cast<long>(f.Y);
+  const long hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
 
   const int zoom = Surface_.Z - kCoarseDrop;
   long cx = hx >> kCoarseDrop;
-  long cy = hy >> kCoarseDrop;
+  const long cy = hy >> kCoarseDrop;
   if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
     if (const Tile *coarse = CoarseResident(cx, cy)) {
       return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
@@ -356,7 +356,7 @@ GroundSample GroundStream::At(double lat, double lon) const {
   place.LonDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
-  long hy = static_cast<long>(f.Y);
+  const long hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
@@ -378,7 +378,7 @@ GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   GroundBlock block;
   if (z != Surface_.Z) { return block; }
   long hx = x;
-  long hy = y;
+  const long hy = y;
   if (!WrapTile(z, &hx, &hy)) { return block; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);

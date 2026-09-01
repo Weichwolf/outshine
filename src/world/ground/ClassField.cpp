@@ -37,7 +37,7 @@ size_t ClassField::Tier::HeapBytes() const {
 }
 
 size_t ClassField::HeapBytes() const {
-  std::lock_guard<std::mutex> lk(Mu_);
+  const std::lock_guard<std::mutex> lk(Mu_);
   return Fine_.HeapBytes() + Coarse_.HeapBytes() + Builder_.HeapBytes() +
          (Published_ ? Published_->Bytes() : 0);
 }
@@ -233,7 +233,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
                  static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
                                      CapacityBytes(t.Feats)) /
                      1024.0}});
-    std::lock_guard<std::mutex> lk(Mu_);
+    const std::lock_guard<std::mutex> lk(Mu_);
     Published_ = std::move(done->Structure);
   }
 

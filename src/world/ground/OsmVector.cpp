@@ -112,7 +112,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
     uint32_t w2 = 0;
     while (probe.Field(n2, w2)) {
       if (n2 == 1 && w2 == 2) {
-        Reader s = probe.Bytes();
+        const Reader s = probe.Bytes();
         if (!probe.Ok) { break; }
         name.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
       } else if (!probe.Skip(w2)) {
@@ -125,7 +125,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
     std::vector<Reader> featureBodies;
     while (L.Field(num, wire)) {
       if (num == 3 && wire == 2) {
-        Reader s = L.Bytes();
+        const Reader s = L.Bytes();
         if (!L.Ok) { return false; }
         Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
       } else if (num == 4 && wire == 2) {
@@ -138,7 +138,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
         uint32_t vw = 0;
         while (v.Field(vn, vw)) {
           if (vn == 1 && vw == 2) {
-            Reader s = v.Bytes();
+            const Reader s = v.Bytes();
             if (!v.Ok) { break; }
             str.assign(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
           } else if (vn == 2 && vw == 5) {

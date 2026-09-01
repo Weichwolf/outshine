@@ -171,8 +171,8 @@ bool OverlayDraw::SetQuads(const Gpu &gpu,
 
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(gpu.Device);
   SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  SDL_GPUTransferBufferLocation from{.transfer_buffer = staging, .offset = 0};
-  SDL_GPUBufferRegion region{.buffer = Verts.Get(), .offset = 0, .size = bytes};
+  const SDL_GPUTransferBufferLocation from{.transfer_buffer = staging, .offset = 0};
+  const SDL_GPUBufferRegion region{.buffer = Verts.Get(), .offset = 0, .size = bytes};
   SDL_UploadToGPUBuffer(copy, &from, &region, false);
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);
@@ -195,9 +195,9 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
 
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  SDL_GPUBufferBinding binding{.buffer = Verts.Get(), .offset = 0};
+  const SDL_GPUBufferBinding binding{.buffer = Verts.Get(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &binding, 1);
-  SDL_GPUTextureSamplerBinding sampled{.texture = Atlas.Get(), .sampler = Smooth};
+  const SDL_GPUTextureSamplerBinding sampled{.texture = Atlas.Get(), .sampler = Smooth};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &sampled, 1);
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
 }

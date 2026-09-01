@@ -73,7 +73,7 @@ bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> 
   out.clear();
   if (!rgba || width <= 0 || height <= 0) { return false; }
 
-  DynamicIo io;
+  const DynamicIo io;
   if (!io.Stream) { return false; }
   const OwnedSurface surface(
       SDL_CreateSurfaceFrom(width,

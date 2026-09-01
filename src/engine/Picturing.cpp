@@ -172,8 +172,8 @@ bool Engine::State::Grows(double atLat, double atLon) {
   const std::optional<Generators::Ground> over = Generators::Ground::Of(region, snapshot);
   Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
   if (!over) { return false; }
-  Generators::RegionPool::Shape shape;
-  Generators::RegionPool::Extent extent{.Reached = over->Where(), .Anywhere = over->Where()};
+  const Generators::RegionPool::Shape shape;
+  const Generators::RegionPool::Extent extent{.Reached = over->Where(), .Anywhere = over->Where()};
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   Published.Places("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
@@ -1320,7 +1320,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double down = 0.0;
         double sideways = 0.0;
         double unlengthed = 0.0;
-        double inward = 0.0;
+        const double inward = 0.0;
         for (size_t at = 0; at < vertices; ++at) {
           const float *const aim = turnAt(at);
           const double x = aim[0];
@@ -2800,7 +2800,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           continue;
         }
         const size_t began = places.size();
-        bool whole = true;
+        const bool whole = true;
         for (uint32_t step = 1; step + 1 < lake.PointCount && whole; ++step) {
           const uint32_t corners[3] = {0u, step, step + 1u};
           for (const uint32_t corner : corners) {

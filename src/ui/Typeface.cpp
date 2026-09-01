@@ -188,7 +188,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   const uint64_t key = Keyed(family, sizePx, code);
   size_t slot = static_cast<size_t>(key * 0x9E3779B97F4A7C15ull >> 50) & (kCellSlots - 1u);
   for (size_t step = 0; step < kCellSlots; ++step) {
-    Cell &held = Cells_[slot];
+    const Cell &held = Cells_[slot];
     if (held.Held && held.Key == key) { return held; }
     if (!held.Held) { break; }
     slot = (slot + 1u) & (kCellSlots - 1u);
@@ -255,7 +255,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
 
 FontMetrics Typeface::At(double sizePx, Family family) const {
   const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
-  TTF_Font *set = Set(family, rounded);
+  const TTF_Font *set = Set(family, rounded);
   if (set == nullptr) {
     return {.Advance = sizePx * 0.5, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
   }

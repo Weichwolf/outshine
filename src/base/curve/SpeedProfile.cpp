@@ -230,7 +230,7 @@ double SpeedProfile::At(double alongM) const {
   if (!(alongM > 0.0)) { return Held_.front(); }
   if (alongM >= LengthM_) { return Held_.back(); }
   const double where = alongM / StepM_;
-  size_t low = static_cast<size_t>(where);
+  const size_t low = static_cast<size_t>(where);
   if (low + 1 >= Held_.size()) { return Held_.back(); }
   double part = where - static_cast<double>(low);
   if (low + 2 == Held_.size()) {

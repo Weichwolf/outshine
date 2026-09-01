@@ -65,7 +65,7 @@ inline TileFrac ToTileFracClamped(Geo g, int z) {
   return f;
 }
 
-[[nodiscard]] inline bool WrapTile(int z, long *x, long *y) {
+[[nodiscard]] inline bool WrapTile(int z, long *x, const long *y) {
   const long n = static_cast<long>(std::ldexp(1.0, z));
   *x = ((*x % n) + n) % n;
   return *y >= 0 && *y < n;

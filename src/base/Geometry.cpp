@@ -368,7 +368,7 @@ bool Geometry::wellFormed() const {
     if (!piece.Uv1.empty() && piece.Uv1.size() / 2 != vertices) { return false; }
     if (!piece.Tangents.empty() && piece.Tangents.size() / 4 != vertices) { return false; }
     if (!piece.Colours.empty() && piece.Colours.size() / 4 != vertices) { return false; }
-    for (uint32_t index : piece.Indices) {
+    for (const uint32_t index : piece.Indices) {
       if (static_cast<size_t>(index) >= vertices) { return false; }
     }
   }

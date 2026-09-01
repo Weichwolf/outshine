@@ -364,7 +364,7 @@ uint32_t SubjectDraw::ColourImages() const {
   for (const SurfaceSlot &slot : Slots) {
     SDL_GPUTexture *const colour = slot.Colour.Image.Get();
     bool seen = false;
-    for (SDL_GPUTexture *const held : distinct) { seen = seen || held == colour; }
+    for (const SDL_GPUTexture *const held : distinct) { seen = seen || held == colour; }
     if (!seen) { distinct.push_back(colour); }
   }
   return static_cast<uint32_t>(distinct.size());
@@ -969,8 +969,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       slotBound = true;
     }
     if (!anyIndex || boundCut != culled) {
-      SDL_GPUBufferBinding indices{.buffer = culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(),
-                                   .offset = 0};
+      const SDL_GPUBufferBinding indices{
+          .buffer = culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(), .offset = 0};
       SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
       boundCut = culled;
       anyIndex = true;

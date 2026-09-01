@@ -147,7 +147,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
       std::sort(hs.begin(), hs.end());
       const double level =
           hs[static_cast<size_t>(kLevelPercentile * static_cast<double>(hs.size() - 1))];
-      for (double h : hs) {
+      for (const double h : hs) {
         if (h > level + kShoreToleranceM) {
           Outliers_++;
           break;
@@ -215,7 +215,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
              (en[static_cast<size_t>(b2) * 2 + 1] - en[static_cast<size_t>(a2) * 2 + 1]) *
                  (en[static_cast<size_t>(c2) * 2] - en[static_cast<size_t>(a2) * 2]);
     };
-    auto inside = [&](uint32_t a2, uint32_t b2, uint32_t c2, uint32_t q) {
+    const auto inside = [&](uint32_t a2, uint32_t b2, uint32_t c2, uint32_t q) {
       return cross(a2, b2, q) >= 0.0 && cross(b2, c2, q) >= 0.0 && cross(c2, a2, q) >= 0.0;
     };
     size_t guard = static_cast<size_t>(n) * static_cast<size_t>(n) + 16;
@@ -227,14 +227,14 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
         const uint32_t c2 = poly[(k + 1) % poly.size()];
         if (cross(a2, b2, c2) <= 0.0) { continue; }
         bool clear = true;
-        for (uint32_t q : poly) {
+        for (const uint32_t q : poly) {
           if (q != a2 && q != b2 && q != c2 && inside(a2, b2, c2, q)) {
             clear = false;
             break;
           }
         }
         if (!clear) { continue; }
-        for (uint32_t idx : {a2, b2, c2}) {
+        for (const uint32_t idx : {a2, b2, c2}) {
           const double *v = &p3[static_cast<size_t>(idx) * 3];
           out.push_back(static_cast<float>(v[0]));
           out.push_back(static_cast<float>(v[1]));

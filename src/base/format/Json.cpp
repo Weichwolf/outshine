@@ -212,7 +212,7 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
   std::string out;
   out.reserve(len);
   for (uint32_t i = 0; i < len; i++) {
-    char c = Text_[off + i];
+    const char c = Text_[off + i];
     if (c != '\\' || i + 1 >= len) {
       out.push_back(c);
       continue;
