@@ -100,11 +100,12 @@ CEILINGS = [
 ]
 
 FLOORS = [
-    ("streets: vertices compared", 1.0,
-     "a cell that draws NO carriageway passes every ceiling above it for the wrong reason. This "
-     "floor is what stops an empty picture from scoring as a correct one. It is asked only of a "
-     "structure that DECLARES a carriageway -- a tunnel is not drawn on the surface by design, and "
-     "a building or a water body never was one."),
+    ("streets: ways the GROUND carries instead", 1.0, "rests",
+     "a carriageway AT GRADE is ground that has been classified and pulled flat. If a cell that "
+     "declares one carries none, the ground is not doing the job and something else is."),
+    ("streets: vertices compared", 1.0, "floats",
+     "a cell that declares a BRIDGE must draw one. Only what floats keeps a body of its own, so "
+     "this is the floor that stops an empty span from passing every ceiling for the wrong reason."),
 ]
 
 
@@ -112,8 +113,14 @@ def lays_a_road(build):
     for one in build.get("parts", []):
         if one["family"] != "way" or one.get("tunnel") or one["kind"] == "water":
             continue
-        return True
+        if not one.get("bridge"):
+            return True
     return False
+
+
+def flies_a_span(build):
+    return any(one.get("bridge") for one in build.get("parts", []))
+
 
 ORACLES = CEILINGS + FLOORS
 
@@ -174,9 +181,11 @@ def main():
         read = measures_of(lines)
         broke = [f"{what} = {read[what]:.3f} > {most:.3f}"
                  for what, most, _ in CEILINGS if what in read and read[what] > most]
-        if lays_a_road(builds[cell["structure"]]):
-            broke += [f"{what} = {read.get(what, 0.0):.3f} < {least:.3f}"
-                      for what, least, _ in FLOORS if read.get(what, 0.0) < least]
+        build = builds[cell["structure"]]
+        asked = {"rests": lays_a_road(build), "floats": flies_a_span(build)}
+        broke += [f"{what} = {read.get(what, 0.0):.3f} < {least:.3f}"
+                  for what, least, when, _ in FLOORS
+                  if asked[when] and read.get(what, 0.0) < least]
         if broke:
             wrong.append((name, broke))
             print(f"WRONG {name:26s} {digest}   {'; '.join(broke)}")
@@ -204,8 +213,8 @@ def main():
           "arithmetic and they are the ones that say WRONG:")
     for what, most, why in CEILINGS:
         print(f"  <= {most:<7.3f} {what}\n      {why}")
-    for what, least, why in FLOORS:
-        print(f"  >= {least:<7.3f} {what}\n      {why}")
+    for what, least, when, why in FLOORS:
+        print(f"  >= {least:<7.3f} {what}   [asked where a way {when}]\n      {why}")
     return 1 if (apart or wrong) else 0
 
 

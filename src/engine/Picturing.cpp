@@ -1546,6 +1546,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     size_t wetOverBridge = 0;
     double mostOverWaterM = 0.0;
     size_t laidWays = 0;
+    size_t groundWays = 0;
     size_t refusedWays = 0;
     size_t fitLaid = 0;
     size_t fitRefused = 0;
@@ -2141,7 +2142,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               }
             }
           }
-          ++laidWays;
+          laidWays += lane.Bridge ? 1u : 0u;
+          groundWays += lane.Bridge ? 0u : 1u;
           const bool sealed = lane.CoverRow >= 0 &&
                               (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount() &&
                               World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Mix[2] >= 1.0f;
@@ -2156,16 +2158,18 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               (size_t)lane.CoverRow < World.Stack.Vegetation().TemplateCount()) {
             wears = World.Stack.Vegetation().Rows()[(size_t)lane.CoverRow].Ground;
           }
-          Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
-                                (double)lane.HalfWidthM,
-                                profile,
-                                wears,
-                                std::atan(Generators::kCrossfall),
-                                pavement,
-                                &sweptPieces,
-                                &sweptCuts,
-                                &sweptRefused,
-                                &sweptWhy);
+          if (lane.Bridge) {
+            Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
+                                  (double)lane.HalfWidthM,
+                                  profile,
+                                  wears,
+                                  std::atan(Generators::kCrossfall),
+                                  pavement,
+                                  &sweptPieces,
+                                  &sweptCuts,
+                                  &sweptRefused,
+                                  &sweptWhy);
+          }
           for (size_t at = 1; at < along.size(); ++at) {
             const double runE = along[at].EastM - along[at - 1u].EastM;
             const double runS = along[at].SouthM - along[at - 1u].SouthM;
@@ -2389,7 +2393,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places(
           "streets: stations the fit calls undrivable", (double)fitUndrivable, "stations");
     }
-    Published.Places("streets: ways laid as ribbons", (double)laidWays, "ways");
+    Published.Places(
+        "streets: ways laid as ribbons, all of them FLOATING", (double)laidWays, "ways");
+    Published.Places("streets: ways the GROUND carries instead", (double)groundWays, "ways");
     Published.Places("streets: ways the field holds", (double)ways.Ways().size(), "ways");
     Published.Places("streets: features it walked at all", (double)ways.LookedCount(), "features");
     Published.Places("streets: features no rule named", (double)ways.UnruledCount(), "features");
