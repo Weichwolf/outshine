@@ -1,3 +1,4 @@
+#include "Digest.h"
 #include "Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -459,10 +460,10 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
 
   struct AtCmHash {
     size_t operator()(const AtCm &of) const noexcept {
-      uint64_t mixed = 1469598103934665603ull;
-      mixed = (mixed ^ static_cast<uint64_t>(of.X)) * 1099511628211ull;
-      mixed = (mixed ^ static_cast<uint64_t>(of.Y)) * 1099511628211ull;
-      mixed = (mixed ^ static_cast<uint64_t>(of.Z)) * 1099511628211ull;
+      uint64_t mixed = kDigestBasis;
+      mixed = (mixed ^ static_cast<uint64_t>(of.X)) * kDigestPrime;
+      mixed = (mixed ^ static_cast<uint64_t>(of.Y)) * kDigestPrime;
+      mixed = (mixed ^ static_cast<uint64_t>(of.Z)) * kDigestPrime;
       return static_cast<size_t>(mixed);
     }
   };
@@ -527,8 +528,8 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
 
     struct CornerHash {
       size_t operator()(const Corner &of) const noexcept {
-        size_t mixed = 1469598103934665603ull;
-        for (const uint32_t one : of.Bits) { mixed = (mixed ^ one) * 1099511628211ull; }
+        size_t mixed = kDigestBasis;
+        for (const uint32_t one : of.Bits) { mixed = (mixed ^ one) * kDigestPrime; }
         return mixed;
       }
     };

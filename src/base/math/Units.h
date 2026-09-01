@@ -16,6 +16,7 @@ constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 constexpr double kMPerDeg = 111320.0;
 
 constexpr double kMPerKm = 1000.0;
+constexpr double kMmPerM = 1000.0;
 constexpr double kMsPerS = 1000.0;
 constexpr double kSPerMin = 60.0;
 constexpr double kMinPerHour = 60.0;

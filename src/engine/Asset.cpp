@@ -1,3 +1,4 @@
+#include "Digest.h"
 #include "Heap.h"
 #include <algorithm>
 #include <bit>
@@ -63,10 +64,10 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
     }
     Motion_.At(seconds, Locals_, Weights_);
     {
-      uint64_t keyed = 1469598103934665603ull;
+      uint64_t keyed = kDigestBasis;
       for (const Gltf::Transform &one : Locals_) {
         for (const double part : one.M) {
-          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
+          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * kDigestPrime;
         }
       }
       LocalsDigest_ = static_cast<double>(keyed % 1000000007ull);
@@ -79,9 +80,9 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
       Changed_ += 1;
       if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }
       {
-        uint64_t keyed = 1469598103934665603ull;
+        uint64_t keyed = kDigestBasis;
         for (const double part : Assembled_.PositionsM()) {
-          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * 1099511628211ull;
+          keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * kDigestPrime;
         }
         AssembledDigest_ = static_cast<double>(keyed % 1000000007ull);
       }

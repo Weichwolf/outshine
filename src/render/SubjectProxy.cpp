@@ -1,3 +1,4 @@
+#include "Digest.h"
 #include "Units.h"
 #include "math/Mat4.h"
 #include "Shape.h"
@@ -554,10 +555,10 @@ bool Place(SceneRenderer &renderer,
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
-    unsigned long long digest = 1469598103934665603ull;
+    unsigned long long digest = kDigestBasis;
     const auto eat = [&digest](const void *from, size_t bytes) {
       const auto *at = static_cast<const unsigned char *>(from);
-      for (size_t one = 0; one < bytes; ++one) { digest = (digest ^ at[one]) * 1099511628211ull; }
+      for (size_t one = 0; one < bytes; ++one) { digest = (digest ^ at[one]) * kDigestPrime; }
     };
     eat(scratch.Indices.data(), scratch.Indices.size() * sizeof(uint32_t));
     for (const ShapePart &one : subject.Parts) {
@@ -642,10 +643,10 @@ bool Move(SceneRenderer &renderer,
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   if (scratch.Digests) {
     const auto digestedFrom = std::chrono::steady_clock::now();
-    unsigned long long digest = 1469598103934665603ull;
+    unsigned long long digest = kDigestBasis;
     const auto *at = reinterpret_cast<const unsigned char *>(scratch.Vertices.data());
     for (size_t one = 0; one < scratch.Vertices.size() * sizeof(float); ++one) {
-      digest = (digest ^ at[one]) * 1099511628211ull;
+      digest = (digest ^ at[one]) * kDigestPrime;
     }
     gGeometryDigest.store(digest, std::memory_order_relaxed);
     gDigestMs.store(

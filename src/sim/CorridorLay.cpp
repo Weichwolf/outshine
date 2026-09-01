@@ -24,8 +24,19 @@
 namespace outshine::Sim {
 
 namespace {
+
+constexpr double kNoLeastYet = 1.0e9;
+constexpr double kTurnLeastRad = 1.0e-9;
+constexpr double kMmPerM = 1000.0;
+constexpr double kGripMargin = 0.95;
+constexpr int kSweeps = 400;
+constexpr double kSlowStationKmh = 30.0;
+constexpr double kNearestQuantile = 0.01;
+constexpr double kBroadQuantile = 0.95;
+constexpr double kWidestQuantile = 0.99;
+
 constexpr double kPatienceS = 900.0;
-}
+} // namespace
 
 bool LayCorridor(const Path::Route &route,
                  const GroundQuery &ground,
@@ -99,7 +110,7 @@ bool LayCorridor(const Path::Route &route,
     const double northOut = keptM[2 * (at + 1) + 1] - keptM[2 * at + 1];
     const double turn =
         std::fabs(outshine::Wrapped(std::atan2(northOut, eastOut) - std::atan2(northIn, eastIn)));
-    if (!(turn > 1.0e-9) || turn >= std::numbers::pi - 1.0e-9) { continue; }
+    if (!(turn > kTurnLeastRad) || turn >= std::numbers::pi - kTurnLeastRad) { continue; }
     const double before = route.Legs[keptAt[at - 1]].HalfWidthM;
     const double other = before > 0.0 ? before : half;
     const double intoM = std::sqrt(eastIn * eastIn + northIn * northIn);
@@ -131,8 +142,8 @@ bool LayCorridor(const Path::Route &route,
              static_cast<double>(fitted.SheltredVertices),
              "vertices");
   say.Number("straights between them", static_cast<double>(fitted.Straights), "straights");
-  say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
-  say.Number("the polyline it came from", route.LengthM / 1000.0, "km");
+  say.Number("the corridor it laid", fitted.LengthM / kMPerKm, "km");
+  say.Number("the polyline it came from", route.LengthM / kMPerKm, "km");
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
   say.Number("at which vertex that is",
              static_cast<double>(fitted.TightestAtVertex),
@@ -172,13 +183,13 @@ bool LayCorridor(const Path::Route &route,
   say.Number("how far the laid line drifts from the polyline beyond any corner's own doing",
              fitted.DriftM,
              "m");
-  say.Number("per corner that is", fitted.DriftPerCornerM * 1000.0, "mm");
+  say.Number("per corner that is", fitted.DriftPerCornerM * kMmPerM, "mm");
   say.Number("the worst vertex", fitted.WorstVertex, "");
   say.Number("its incoming leg", fitted.WorstLegInM, "m");
   say.Number("its outgoing leg", fitted.WorstLegOutM, "m");
   say.Number("the turn there", fitted.WorstTurnRad * kRad2Deg, "deg");
   say.Number("the station the resection found", fitted.WorstStationM, "m");
-  say.Number("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
+  say.Number("where that happens", fitted.WorstOffsetAtM / kMPerKm, "km");
   say.Number("how far it is allowed to", quantumM, "m");
 
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
@@ -224,7 +235,7 @@ bool LayCorridor(const Path::Route &route,
              fitted.LengthM / route.LengthM - 1.0,
              "of it");
   say.Number("the speed the tightest radius allows at 0.95 g",
-             std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6,
+             std::sqrt(kGripMargin * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6,
              "km/h");
 
   const double postM = ground.PostM(middleLat);
@@ -361,9 +372,9 @@ bool LayCorridor(const Path::Route &route,
     }
   }
   say.Number("the largest step the lane centre takes where the road changes width", steppedM, "m");
-  say.Number("where that is", steppedAtM / 1000.0, "km");
+  say.Number("where that is", steppedAtM / kMPerKm, "km");
 
-  double narrowestLaneHereM = 1.0e9;
+  double narrowestLaneHereM = kNoLeastYet;
   for (const double half : laneHalfM) {
     narrowestLaneHereM = 2.0 * half < narrowestLaneHereM ? 2.0 * half : narrowestLaneHereM;
   }
@@ -380,7 +391,7 @@ bool LayCorridor(const Path::Route &route,
   }
   {
     long gripless = 0;
-    double leastGrip = 1.0e9;
+    double leastGrip = kNoLeastYet;
     double mostGrip = 0.0;
     for (const Station &one : stations) {
       if (!(one.Friction > 0.0)) {
@@ -412,8 +423,9 @@ bool LayCorridor(const Path::Route &route,
     }
     const double mostPerM = *rate;
     out.AsideRatePerM = mostPerM;
-    say.Number("the fastest the plan view holds", fastestMs * 3.6, "km/h");
-    say.Number("the top speed the declaration would allow", stood.Envelope.TopMs() * 3.6, "km/h");
+    say.Number("the fastest the plan view holds", fastestMs * kMsToKmh, "km/h");
+    say.Number(
+        "the top speed the declaration would allow", stood.Envelope.TopMs() * kMsToKmh, "km/h");
     say.Number("the look-ahead time the pilot settles over", outshine::Pilot::kSettleS, "s");
     say.Number("the reach that buys at the fastest the plan holds", reachM, "m");
     say.Number("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
@@ -422,7 +434,7 @@ bool LayCorridor(const Path::Route &route,
 
     std::vector<double> roomM(stations.size(), 0.0);
     long insideTight = 0;
-    double worstDrivenM = 1.0e9;
+    double worstDrivenM = kNoLeastYet;
     for (size_t fine = 0; fine < roomM.size(); ++fine) {
       double room = stations[fine].EdgeM - 0.5 * carWidthM - out.BudgetM;
       outshine::Placed on;
@@ -470,7 +482,7 @@ bool LayCorridor(const Path::Route &route,
                static_cast<double>(led),
                "stations");
 
-    for (int sweep = 0; sweep < 400; ++sweep) {
+    for (int sweep = 0; sweep < kSweeps; ++sweep) {
       long moved = 0;
       for (size_t fine = 1; fine < stations.size(); ++fine) {
         if (stations[fine].AsideM > stations[fine - 1].AsideM + most) {
@@ -523,7 +535,7 @@ bool LayCorridor(const Path::Route &route,
         "the furthest the tapered lane centre pushes the car past a road edge", worstOverM, "m");
   }
 
-  narrowestLaneM = 1.0e9;
+  narrowestLaneM = kNoLeastYet;
   double widestLaneM = 0.0;
   double mostAsideM = 0.0;
   for (size_t post = 0; post < laneHalfM.size(); ++post) {
@@ -539,7 +551,7 @@ bool LayCorridor(const Path::Route &route,
              0.5 * narrowestLaneM - 0.5 * carWidthM,
              "m");
 
-  double narrowestHalfM = 1.0e9;
+  double narrowestHalfM = kNoLeastYet;
   double widestHalfM = 0.0;
   for (const double half : halfWidthM) {
     narrowestHalfM = half < narrowestHalfM ? half : narrowestHalfM;
@@ -579,7 +591,7 @@ bool LayCorridor(const Path::Route &route,
   say.Number("the steepest it could hold at its own top speed",
              (stood.Envelope.DriveN - dragAtTopN) / weightN * 100.0,
              "%");
-  say.Number("where that is", gentlestAtM / 1000.0, "km");
+  say.Number("where that is", gentlestAtM / kMPerKm, "km");
 
   long shaped = 0;
   int shapingPasses = 0;
@@ -639,9 +651,9 @@ bool LayCorridor(const Path::Route &route,
     }
   }
   say.Number("the deepest the road cuts into the ground", -cutM, "m");
-  say.Number("where that is", cutAtM / 1000.0, "km");
+  say.Number("where that is", cutAtM / kMPerKm, "km");
   say.Number("the highest it fills above it", fillM, "m");
-  say.Number("where that is", fillAtM / 1000.0, "km");
+  say.Number("where that is", fillAtM / kMPerKm, "km");
   say.Number("the mean earth moved per station", movedM / static_cast<double>(roadM.size()), "m");
   say.Number("stations still being shaped when the passes ran out",
              static_cast<double>(shaped),
@@ -685,7 +697,7 @@ bool LayCorridor(const Path::Route &route,
   say.Number("height knots fastened to the corridor", static_cast<double>(rise.size()), "knots");
   say.Number("the steepest gradient anywhere on it", worstGradeM, "m/m");
   say.Number("as a percentage", worstGradeM * 100.0, "%");
-  say.Number("where that is", worstGradeAtM / 1000.0, "km");
+  say.Number("where that is", worstGradeAtM / kMPerKm, "km");
 
   const double climbLimit =
       stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2);
@@ -712,12 +724,13 @@ bool LayCorridor(const Path::Route &route,
   }
 
   const double meanMs = profile.Quantile(0.5);
-  say.Number("the speed the plan holds at p01", profile.Quantile(0.01) * 3.6, "km/h");
-  say.Number("at p50", meanMs * 3.6, "km/h");
-  say.Number("at p95", profile.Quantile(0.95) * 3.6, "km/h");
-  say.Number("at p99", profile.Quantile(0.99) * 3.6, "km/h");
+  say.Number(
+      "the speed the plan holds at p01", profile.Quantile(kNearestQuantile) * kMsToKmh, "km/h");
+  say.Number("at p50", meanMs * kMsToKmh, "km/h");
+  say.Number("at p95", profile.Quantile(kBroadQuantile) * kMsToKmh, "km/h");
+  say.Number("at p99", profile.Quantile(kWidestQuantile) * kMsToKmh, "km/h");
   say.Number("stations the plan holds under 30 km/h",
-             static_cast<double>(profile.StationsUnder(30.0 / 3.6)),
+             static_cast<double>(profile.StationsUnder(kSlowStationKmh / kMsToKmh)),
              "stations");
   say.Number("stations in all", static_cast<double>(profile.SampleCount()), "stations");
   for (size_t term = 0; term < static_cast<size_t>(SpeedProfile::Held::kCount); ++term) {
@@ -726,11 +739,12 @@ bool LayCorridor(const Path::Route &route,
         SpeedProfile::NameOf(which), static_cast<double>(profile.BoundBy(which)), "stations");
   }
   const SpeedProfile::Bound bound = profile.SlowestBound();
-  say.Number("the slowest station the road itself holds", bound.Ms * 3.6, "km/h");
-  say.Number("where that station is", bound.AtM / 1000.0, "km");
-  say.Number(SpeedProfile::NameOf(bound.By), bound.Ms * 3.6, "km/h at that station");
-  say.Number(
-      "the drive time that implies", fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / 3600.0, "h");
+  say.Number("the slowest station the road itself holds", bound.Ms * kMsToKmh, "km/h");
+  say.Number("where that station is", bound.AtM / kMPerKm, "km");
+  say.Number(SpeedProfile::NameOf(bound.By), bound.Ms * kMsToKmh, "km/h at that station");
+  say.Number("the drive time that implies",
+             fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / kSPerHour,
+             "h");
 
   return true;
 }

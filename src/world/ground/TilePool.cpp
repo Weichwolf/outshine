@@ -1,3 +1,4 @@
+#include "Digest.h"
 #include "Units.h"
 #include "TilePool.h"
 #include "math/Vec3.h"
@@ -52,9 +53,9 @@ uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
 }
 
 uint64_t RequestKey(const std::string &key) {
-  uint64_t h = 1469598103934665603ull;
+  uint64_t h = kDigestBasis;
   for (const char c : key) {
-    h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * 1099511628211ull;
+    h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * kDigestPrime;
   }
   return (static_cast<uint64_t>(3) << 62u) | (h & 0x3FFFFFFFFFFFFFFFull);
 }

@@ -1,3 +1,4 @@
+#include "Digest.h"
 #include "BuildingMesh.h"
 #include "math/Vec3.h"
 
@@ -236,7 +237,7 @@ private:
          << 21u) ^
         static_cast<uint64_t>(
             static_cast<uint32_t>(static_cast<int32_t>(std::llround(nrm[2] * 4096.0))));
-    const uint64_t key = (static_cast<uint64_t>(at) * 1099511628211ull) ^ facing;
+    const uint64_t key = (static_cast<uint64_t>(at) * kDigestPrime) ^ facing;
     const auto found = Corners_[side].find(key);
     if (found != Corners_[side].end()) { return found->second; }
     const auto made = static_cast<uint32_t>(soup.size() / 8u);

@@ -77,7 +77,7 @@ bool AssembleDrive(const Scene &scene,
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.Origin.RadiusM);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
-  say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
+  say.Number("start to destination as the crow flies", straightM / kMPerKm, "km");
   std::string error;
   out.State.CarWidthM = out.Car.WidthM;
   const double carWidthM = out.State.CarWidthM;
@@ -105,7 +105,7 @@ bool AssembleDrive(const Scene &scene,
   const int kCorridorRing = 2;
   const long steps = static_cast<long>(std::ceil(straightM / tileGroundM)) + 1;
   const long square = static_cast<long>(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
-  say.Number("a tile's ground size at this zoom and latitude", tileGroundM / 1000.0, "km");
+  say.Number("a tile's ground size at this zoom and latitude", tileGroundM / kMPerKm, "km");
   say.Number(
       "stations along the line the corridor is fetched at", static_cast<double>(steps), "stations");
   say.Number(
@@ -291,8 +291,8 @@ bool AssembleDrive(const Scene &scene,
   if (!route.Found) { return false; }
   out.Found.TurnsRefused = static_cast<long>(route.TurnsRefused);
 
-  say.Number("how far the route runs", route.LengthM / 1000.0, "km");
-  say.Number("how far the crow flies", route.StraightM / 1000.0, "km");
+  say.Number("how far the route runs", route.LengthM / kMPerKm, "km");
+  say.Number("how far the crow flies", route.StraightM / kMPerKm, "km");
   say.Number("the detour that is", route.LengthM / route.StraightM, "x");
   out.Found.RouteLengthM = route.LengthM;
   out.Found.StraightM = route.StraightM;
