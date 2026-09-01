@@ -49,6 +49,17 @@ CheckOptions:
   # that is about mixed classes.
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
 
+  # `readability-magic-numbers` is CLAUDE.md's rule that every number carries its ORIGIN -- derived,
+  # measured or [SET], with a unit. That rule is about a number with a DERIVATION: 6371000.0 for an
+  # earth radius, 0.0025 for a minimum crossfall, 16.67 for a frame budget. It is not about an index
+  # or an arithmetic half. Measured over the tree before choosing, the commonest findings were
+  # 0 (62), 16 (48), 1.0 (36), 2.0 (29), 8 (25), 0.5 (23) -- subscripts into a 4x4 matrix, strides
+  # that are powers of two, and halves. Naming m[4] would make the standard cofactor expansion
+  # unreadable, which is the opposite of what the rule is for.
+  readability-magic-numbers.IgnoredIntegerValues: '0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16'
+  readability-magic-numbers.IgnorePowersOf2IntegerValues: 'true'
+  readability-magic-numbers.IgnoredFloatingPointValues: '0.0;0.5;1.0;2.0;3.0;4.0;100.0'
+
   readability-identifier-length.MinimumVariableNameLength: 1
   readability-identifier-length.MinimumParameterNameLength: 1
   readability-identifier-length.MinimumLoopCounterNameLength: 1
