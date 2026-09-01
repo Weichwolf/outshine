@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_PARTICIPATINGMEDIUM_H
 #define OUTSHINE_RENDER_STAGES_PARTICIPATINGMEDIUM_H
 
+#include <algorithm>
 #include <numbers>
 #include <cmath>
 #include <cstddef>
@@ -43,7 +44,7 @@ inline float max(float a, float b) {
 }
 
 inline float clamp(float x, float lo, float hi) {
-  return x < lo ? lo : (x > hi ? hi : x);
+  return std::clamp(x, lo, hi);
 }
 
 using std::acos;

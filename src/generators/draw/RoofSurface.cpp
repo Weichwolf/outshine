@@ -95,7 +95,7 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
     const double ny = ring[j].N - ring[i].N;
     const double run = ex * ex + ny * ny;
     double along = run > 0.0 ? ((p.E - ring[i].E) * ex + (p.N - ring[i].N) * ny) / run : 0.0;
-    along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
+    along = std::clamp(along, 0.0, 1.0);
     const double dx = p.E - (ring[i].E + along * ex);
     const double dy = p.N - (ring[i].N + along * ny);
     nearest = std::min(nearest, dx * dx + dy * dy);

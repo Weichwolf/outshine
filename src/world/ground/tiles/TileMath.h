@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_TILES_TILEMATH_H
 #define OUTSHINE_WORLD_GROUND_TILES_TILEMATH_H
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <cstddef>
@@ -14,7 +15,7 @@
 namespace outshine::Ground {
 
 inline double ClampD(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
+  return std::clamp(v, lo, hi);
 }
 
 using Postings = std::mdspan<const float, std::dextents<size_t, 2>>;

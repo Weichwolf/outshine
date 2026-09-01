@@ -24,7 +24,7 @@ namespace {
   uint32_t held[3];
   for (int axis = 0; axis < 3; ++axis) {
     const float part = span[axis] > 0.0f ? (at[axis] - least[axis]) / span[axis] : 0.0f;
-    const float held01 = part < 0.0f ? 0.0f : (part > 1.0f ? 1.0f : part);
+    const float held01 = std::clamp(part, 0.0f, 1.0f);
     held[axis] = static_cast<uint32_t>(held01 * 1023.0f);
   }
   return (Spread(held[0]) << 2u) | (Spread(held[1]) << 1u) | Spread(held[2]);

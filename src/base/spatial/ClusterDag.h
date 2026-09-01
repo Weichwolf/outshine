@@ -93,7 +93,7 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
   const double cosT = (static_cast<double>(up[0]) * dx + static_cast<double>(up[1]) * dy +
                        static_cast<double>(up[2]) * dz) *
                       iu / d;
-  const double theta = std::acos(cosT < -1.0 ? -1.0 : (cosT > 1.0 ? 1.0 : cosT));
+  const double theta = std::acos(std::clamp(cosT, -1.0, 1.0));
   const double alpha = std::asin(static_cast<double>(rad) / d);
   const double lo = theta - alpha;
   const double hi = theta + alpha;

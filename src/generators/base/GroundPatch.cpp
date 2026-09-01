@@ -1,5 +1,6 @@
 #include "GroundPatch.h"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <cstddef>
@@ -11,7 +12,7 @@ namespace outshine::Generators {
 namespace {
 
 double Clamped(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
+  return std::clamp(v, lo, hi);
 }
 
 } // namespace

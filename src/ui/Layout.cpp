@@ -1337,7 +1337,7 @@ bool Layout::Build(const Markup &markup,
     for (const Scrolled &one : scrolled) {
       if (one.Node == over.Node) { by = one.Px; }
     }
-    over.ScrolledPx = by < 0.0 ? 0.0 : (by > most ? most : by);
+    over.ScrolledPx = std::clamp(by, 0.0, most);
     if (over.ScrolledPx <= 0.0) { continue; }
     for (auto &Boxe : Boxes_) {
       for (int up = Boxe.Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {

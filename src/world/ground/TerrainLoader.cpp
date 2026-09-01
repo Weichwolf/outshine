@@ -41,7 +41,7 @@ constexpr int kGroundStitchGrids = 5;
 constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
 double Clamped01(double v) {
-  return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+  return std::clamp(v, 0.0, 1.0);
 }
 
 double Wrapped180(double lonDeg) {
@@ -239,7 +239,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const double here = TileHeightAslM(tile.H.data(), tile.Nodes, tile.Postings, u, v);
   if (!(step > 0.0)) { return GroundSample::At(here); }
 
-  const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
+  const auto clamped = [](double at) { return std::clamp(at, 0.0, 1.0); };
   const double eastAt = clamped(u + step);
   const double westAt = clamped(u - step);
   const double southAt = clamped(v + step);

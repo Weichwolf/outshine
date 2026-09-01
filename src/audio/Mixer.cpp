@@ -1,5 +1,6 @@
 #include "Mixer.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -58,7 +59,7 @@ struct Running {
   if (heard.By == Falls::Linear) {
     const double mostM = heard.MostM > refM ? heard.MostM : refM * 2.0;
     const double held = 1.0 - heard.Rolloff * (atM - refM) / (mostM - refM);
-    return held < 0.0 ? 0.0 : (held > 1.0 ? 1.0 : held);
+    return std::clamp(held, 0.0, 1.0);
   }
   if (heard.By == Falls::Exponential) { return std::pow(atM / refM, -heard.Rolloff); }
   return refM / (refM + heard.Rolloff * (atM - refM));
@@ -79,7 +80,7 @@ struct Running {
   const double under = speedMs + sourceAway;
   if (!(under > 0.0)) { return 1.0; }
   const double shift = (speedMs + earToward) / under;
-  return shift < 0.25 ? 0.25 : (shift > 4.0 ? 4.0 : shift);
+  return std::clamp(shift, 0.25, 4.0);
 }
 
 void Voiced(const Sound &sound,

@@ -167,7 +167,7 @@ Frontage NearestStreet(const OsmField &field,
       const double len2 = dE * dE + dN * dN;
       if (len2 < 1.0e-6) { continue; }
       double t = ((cE - aE) * dE + (cN - aN) * dN) / len2;
-      t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+      t = std::clamp(t, 0.0, 1.0);
       const double pE = aE + dE * t;
       const double pN = aN + dN * t;
       const double d = std::hypot(cE - pE, cN - pN);

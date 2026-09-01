@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_DRAW_DRAWKEY_H
 #define OUTSHINE_RENDER_DRAW_DRAWKEY_H
 
+#include <algorithm>
 #include <cstdint>
 
 #include "SurfaceState.h"
@@ -32,8 +33,7 @@ struct DrawOrder {
 class DrawKey {
 public:
   [[nodiscard]] static constexpr DrawKey Of(const DrawOrder &order) {
-    const double clamped =
-        order.DepthFraction < 0.0 ? 0.0 : (order.DepthFraction > 1.0 ? 1.0 : order.DepthFraction);
+    const double clamped = std::clamp(order.DepthFraction, 0.0, 1.0);
 
     const auto step = static_cast<uint32_t>(clamped * static_cast<double>(kDepthSteps) + 0.5);
     const uint32_t depth = order.Surface.Blends() ? kDepthSteps - step : step;

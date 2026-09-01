@@ -44,7 +44,7 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
   const double dy = static_cast<double>(y1) - y0;
   const double l2 = dx * dx + dy * dy;
   double t = l2 > 0.0 ? ((px - x0) * dx + (py - y0) * dy) / l2 : 0.0;
-  t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+  t = std::clamp(t, 0.0, 1.0);
   const double qx = x0 + t * dx - px;
   const double qy = y0 + t * dy - py;
   return std::sqrt(qx * qx + qy * qy);

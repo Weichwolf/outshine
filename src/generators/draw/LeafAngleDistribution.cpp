@@ -104,7 +104,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
 }
 
 float LeafAngleDistribution::Fit(float sinEl) const {
-  const float s = sinEl < 0.0f ? 0.0f : (sinEl > 1.0f ? 1.0f : sinEl);
+  const float s = std::clamp(sinEl, 0.0f, 1.0f);
   return G0_ + G1_ * std::pow(s, Gp_);
 }
 

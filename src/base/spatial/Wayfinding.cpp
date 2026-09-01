@@ -448,7 +448,7 @@ bool Network::Weave(std::string &error) {
             const double dy = by - ay;
             const double span = dx * dx + dy * dy;
             double along = span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0;
-            along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
+            along = std::clamp(along, 0.0, 1.0);
             const double cx = ax + along * dx;
             const double cy = ay + along * dy;
             const double awayM = std::sqrt(cx * cx + cy * cy);
@@ -922,7 +922,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
         const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
         if (wasLength > 0.0 && onLength > 0.0) {
           const double turned = (backEast * onEast + backNorth * onNorth) / (wasLength * onLength);
-          const double turnRad = std::acos(turned < -1.0 ? -1.0 : (turned > 1.0 ? 1.0 : turned));
+          const double turnRad = std::acos(std::clamp(turned, -1.0, 1.0));
           const double half = 0.5 * turnRad;
           if (std::tan(half) > 0.0 && tightestM > 0.0 && edge.LengthM > 0.0 &&
               std::fabs(turnRad) > 1.0e-9) {

@@ -1,4 +1,5 @@
 #include "FeatureField.h"
+#include <algorithm>
 #include <memory>
 #include <cstddef>
 #include <cstdint>
@@ -68,7 +69,7 @@ double SegmentGapM2(double em, double nm, double e0, double n0, double e1, doubl
   double t = 0.0;
   if (len2 > 0.0) {
     t = ((em - e0) * de + (nm - n0) * dn) / len2;
-    t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+    t = std::clamp(t, 0.0, 1.0);
   }
   const double ge = em - (e0 + t * de);
   const double gn = nm - (n0 + t * dn);
