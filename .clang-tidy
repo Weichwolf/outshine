@@ -16,6 +16,7 @@ Checks: >
   readability-*,
   modernize-*,
 
+  -misc-no-recursion,
   -modernize-use-trailing-return-type,
   -readability-uppercase-literal-suffix,
   -readability-math-missing-parentheses,
@@ -51,6 +52,9 @@ CheckOptions:
 # Everything whose finding is a defect is ON and its count is driven to zero -- switching such a
 # check off is choosing not to use the machine this tree built for exactly that.
 #
+# `misc-no-recursion` (27) refuses a call graph with a cycle. Recursion is not a defect -- a tree
+#   walker is recursive because a tree is -- and the alternative is an explicit stack that says less.
+#   Removed once on a measurement taken from a SINGLE file that showed zero; the tree has 27.
 # `modernize-use-trailing-return-type` (897) wants `auto f() -> int`. The tree writes `int f()` and
 #   so does most of the world.
 #
