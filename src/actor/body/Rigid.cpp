@@ -86,7 +86,7 @@ void Step(Rigid &body, const Wrench &wrench, double dtS) {
   }
 
   const std::array<double, 4> &q = body.OrientationQ;
-  const std::array<double, 3> &spin = body.SpinBodyRadS;
+  const Vec3 &spin = body.SpinBodyRadS;
   const std::array<double, 4> rate = {-0.5 * (q[1] * spin[0] + q[2] * spin[1] + q[3] * spin[2]),
                                       0.5 * (q[0] * spin[0] + q[2] * spin[2] - q[3] * spin[1]),
                                       0.5 * (q[0] * spin[1] + q[3] * spin[0] - q[1] * spin[2]),

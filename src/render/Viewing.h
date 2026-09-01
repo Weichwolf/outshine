@@ -2,6 +2,8 @@
 #define OUTSHINE_RENDER_VIEWING_H
 
 #include <span>
+
+#include "Vec3.h"
 #include <array>
 #include <cmath>
 #include "Scenario.h"
@@ -13,10 +15,10 @@ namespace outshine::Render {
 enum class CameraKind : uint8_t { Perspective, Orthographic };
 
 struct Viewpoint {
-  std::array<double, 3> EyeM = {0, 0, 0};
-  std::array<double, 3> Forward = {0, 0, -1};
-  std::array<double, 3> Right = {1, 0, 0};
-  std::array<double, 3> Up = {0, 1, 0};
+  Vec3 EyeM = {{0, 0, 0}};
+  Vec3 Forward = {{0, 0, -1}};
+  Vec3 Right = {{1, 0, 0}};
+  Vec3 Up = {{0, 1, 0}};
 
   CameraKind Kind = CameraKind::Perspective;
   double YfovRad = 0;
@@ -59,7 +61,7 @@ inline bool Viewpoint::LookAt(std::span<const double, 3> eyeM,
                               Viewpoint &out) {
   std::array<double, 3> forward = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
   if (!Aiming::Normalise(forward)) { return false; }
-  std::array<double, 3> worldUp = {0, 1, 0};
+  Vec3 worldUp = {{0, 1, 0}};
   std::array<double, 3> right{};
   Aiming::Cross(forward, worldUp, right);
   if (!Aiming::Normalise(right)) { return false; }

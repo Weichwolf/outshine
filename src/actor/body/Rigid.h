@@ -4,15 +4,17 @@
 #include <array>
 #include <span>
 
+#include "Vec3.h"
+
 namespace outshine::Physics {
 
 struct Rigid {
   double MassKg = 0.0;
-  alignas(16) std::array<double, 3> InertiaKgM2 = {0.0, 0.0, 0.0};
-  alignas(16) std::array<double, 3> PositionM = {0.0, 0.0, 0.0};
+  alignas(16) Vec3 InertiaKgM2;
+  alignas(16) Vec3 PositionM;
   alignas(16) std::array<double, 4> OrientationQ = {1.0, 0.0, 0.0, 0.0};
-  alignas(16) std::array<double, 3> VelocityMs = {0.0, 0.0, 0.0};
-  alignas(16) std::array<double, 3> SpinBodyRadS = {0.0, 0.0, 0.0};
+  alignas(16) Vec3 VelocityMs;
+  alignas(16) Vec3 SpinBodyRadS;
 };
 
 static_assert(alignof(Rigid) == 16 && sizeof(Rigid) == 176,
@@ -20,8 +22,8 @@ static_assert(alignof(Rigid) == 16 && sizeof(Rigid) == 176,
               "packed 136 are the declared price of whole-row NEON loads");
 
 struct Wrench {
-  alignas(16) std::array<double, 3> ForceN = {0.0, 0.0, 0.0};
-  alignas(16) std::array<double, 3> TorqueNm = {0.0, 0.0, 0.0};
+  alignas(16) Vec3 ForceN;
+  alignas(16) Vec3 TorqueNm;
 };
 
 static_assert(alignof(Wrench) == 16 && sizeof(Wrench) == 64,

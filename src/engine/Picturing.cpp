@@ -124,7 +124,7 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
   atLon = anchorLon;
   if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return; }
   const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
-  const std::array<double, 3> &eye = Picture.Standing->Watching().EyeM;
+  const Vec3 &eye = Picture.Standing->Watching().EyeM;
   double held[3];
   for (int axis = 0; axis < 3; ++axis) {
     held[axis] = anchored.OriginEcef()[axis] + eye[0] * anchored.EastEcef()[axis] +
@@ -613,7 +613,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   }
   if (!Watches()) { return false; }
   if (Picture.Standing->Watched()) {
-    const std::array<double, 3> &at = Picture.Standing->Watching().EyeM;
+    const Vec3 &at = Picture.Standing->Watching().EyeM;
     const TangentFrame eyed = TangentFrame::At(atLat, atLon);
     for (int axis = 0; axis < 3; ++axis) {
       over.EyeM[axis] = eyed.OriginEcef()[axis] + at[0] * eyed.EastEcef()[axis] +
