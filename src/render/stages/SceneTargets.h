@@ -27,7 +27,8 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
 
 [[nodiscard]] inline std::string VelocityStaticDefine() {
   char made[48];
-  std::snprintf(made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", (double)kVelocityStatic);
+  std::snprintf(
+      made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", static_cast<double>(kVelocityStatic));
   return std::string(made);
 }
 

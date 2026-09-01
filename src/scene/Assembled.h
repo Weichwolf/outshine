@@ -38,7 +38,7 @@ struct Assembled {
 
   [[nodiscard]] uint32_t TraitKey(std::string_view name) const {
     for (size_t at = 0; at < TraitNames.size(); ++at) {
-      if (TraitNames[at] == name) { return (uint32_t)(at + 1); }
+      if (TraitNames[at] == name) { return static_cast<uint32_t>(at + 1); }
     }
     return 0;
   }

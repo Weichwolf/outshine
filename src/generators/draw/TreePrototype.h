@@ -49,7 +49,7 @@ public:
     RowFloats = 20,
   };
 
-  static_assert((int)Row::RowFloats == kMaterialRowFloats,
+  static_assert(static_cast<int>(Row::RowFloats) == kMaterialRowFloats,
                 "the tree's material row IS the engine's material row -- one width, one "
                 "spelling");
 

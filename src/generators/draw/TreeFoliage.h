@@ -32,7 +32,7 @@ public:
   [[nodiscard]] double LeafAreaM2() const { return AreaM2_; }
 
   [[nodiscard]] double OneLeafAreaM2() const {
-    return Count() > 0 ? AreaM2_ / (double)Count() : 0.0;
+    return Count() > 0 ? AreaM2_ / static_cast<double>(Count()) : 0.0;
   }
 
   [[nodiscard]] double LaminaAreaLocal() const { return LocalArea_; }

@@ -34,9 +34,9 @@ thread_local StackProbe::Purpose tPurpose = StackProbe::Purpose::Frame;
 void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
 #if defined(__APPLE__)
   const pthread_t self = pthread_self();
-  *base = (uintptr_t)pthread_get_stackaddr_np(self);
+  *base = reinterpret_cast<uintptr_t>(pthread_get_stackaddr_np(self));
   *end = *base - static_cast<uintptr_t>(pthread_get_stacksize_np(self));
-  *current = (uintptr_t)__builtin_frame_address(0);
+  *current = reinterpret_cast<uintptr_t>(__builtin_frame_address(0));
 #else
   pthread_attr_t attr;
   void *low = nullptr;
@@ -65,7 +65,9 @@ void StackProbe::Enter(Purpose purpose) {
   const uintptr_t top = (current - kLiveMargin) & ~static_cast<uintptr_t>(7);
 
   const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
-  for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) { *(uint64_t *)a = kPaint; }
+  for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) {
+    *reinterpret_cast<uint64_t *>(a) = kPaint;
+  }
   tBase = base;
   tPaintBottom = bottom;
   tPaintTop = top;
@@ -81,7 +83,7 @@ void StackProbe::Mark() {
   if (tBase == 0) { return; }
   uintptr_t frontier = tPaintTop;
   for (uintptr_t a = tPaintBottom; a < tPaintTop; a += sizeof(uint64_t)) {
-    if (*(const uint64_t *)a != kPaint) {
+    if (*reinterpret_cast<const uint64_t *>(a) != kPaint) {
       frontier = a;
       break;
     }

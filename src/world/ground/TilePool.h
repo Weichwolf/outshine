@@ -109,9 +109,9 @@ public:
 
   size_t SchedulerBytes() const;
 
-  int ThreadCount() const { return (int)Threads_.size(); }
+  int ThreadCount() const { return static_cast<int>(Threads_.size()); }
 
-  int InFlightCap() const { return (int)Threads_.size(); }
+  int InFlightCap() const { return static_cast<int>(Threads_.size()); }
 
   [[nodiscard]] bool AwaitLanding(double seconds);
 

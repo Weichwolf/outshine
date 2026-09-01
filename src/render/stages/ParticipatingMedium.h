@@ -139,8 +139,10 @@ inline void MediumMultiScatterTexel(const Medium &medium,
   double summedL[3] = {0.0, 0.0, 0.0};
   double summedF[3] = {0.0, 0.0, 0.0};
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
-    const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
-    const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float ring = (static_cast<float>(which / kMultiScatterGrid) + 0.5f) /
+                       static_cast<float>(kMultiScatterGrid);
+    const float around = (static_cast<float>(which % kMultiScatterGrid) + 0.5f) /
+                         static_cast<float>(kMultiScatterGrid);
     const float theta = 2.0f * std::numbers::pi_v<float> * ring;
     const float cosPhi = 1.0f - 2.0f * around;
     const float sinPhi = std::sqrt(std::fmax(0.0f, 1.0f - cosPhi * cosPhi));
@@ -150,11 +152,11 @@ inline void MediumMultiScatterTexel(const Medium &medium,
     const float toGround = mediumGroundReach(medium, radiusKm, cosView);
     const float toTop = mediumTopReach(medium, radiusKm, cosView);
     const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
-    const float stride = span / (float)kMultiScatterSteps;
+    const float stride = span / static_cast<float>(kMultiScatterSteps);
 
     double throughput[3] = {1.0, 1.0, 1.0};
     for (int step = 0; step < kMultiScatterSteps; ++step) {
-      const float along = stride * ((float)step + kMediumLuminanceSegment);
+      const float along = stride * (static_cast<float>(step) + kMediumLuminanceSegment);
       const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
       float scattering[3], extinction[3];
       MediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
@@ -170,21 +172,23 @@ inline void MediumMultiScatterTexel(const Medium &medium,
       if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, sun); }
 
       for (int channel = 0; channel < 3; ++channel) {
-        const double stepT = std::exp(-(double)extinction[channel] * (double)stride);
-        const double source = (double)shadowed * (double)sun[channel] *
-                              (double)scattering[channel] / (4.0 * std::numbers::pi);
+        const double stepT =
+            std::exp(-static_cast<double>(extinction[channel]) * static_cast<double>(stride));
+        const double source = static_cast<double>(shadowed) * static_cast<double>(sun[channel]) *
+                              static_cast<double>(scattering[channel]) / (4.0 * std::numbers::pi);
         summedL[channel] +=
-            throughput[channel] * source * (1.0 - stepT) / (double)extinction[channel];
-        summedF[channel] += throughput[channel] * (double)scattering[channel] * (1.0 - stepT) /
-                            (double)extinction[channel];
+            throughput[channel] * source * (1.0 - stepT) / static_cast<double>(extinction[channel]);
+        summedF[channel] += throughput[channel] * static_cast<double>(scattering[channel]) *
+                            (1.0 - stepT) / static_cast<double>(extinction[channel]);
         throughput[channel] *= stepT;
       }
     }
   }
   for (int channel = 0; channel < 3; ++channel) {
-    luminance[channel] =
-        (float)(summedL[channel] / (double)(kMultiScatterGrid * kMultiScatterGrid));
-    transfer[channel] = (float)(summedF[channel] / (double)(kMultiScatterGrid * kMultiScatterGrid));
+    luminance[channel] = static_cast<float>(
+        summedL[channel] / static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
+    transfer[channel] = static_cast<float>(
+        summedF[channel] / static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
   }
 }
 
@@ -209,8 +213,8 @@ inline void SkyViewUv(const Medium &medium,
     *v = std::sqrt(std::fmax(0.0f, coord)) * 0.5f + 0.5f;
   }
   *u = std::sqrt(std::fmax(0.0f, -lightViewCos * 0.5f + 0.5f));
-  *u = unitToSubUvs(*u, (float)kSkyViewLutWidth);
-  *v = unitToSubUvs(*v, (float)kSkyViewLutHeight);
+  *u = unitToSubUvs(*u, static_cast<float>(kSkyViewLutWidth));
+  *v = unitToSubUvs(*v, static_cast<float>(kSkyViewLutHeight));
 }
 
 template <typename ToSun, typename Psi>
@@ -235,12 +239,12 @@ inline void MediumSkyRay(const Medium &medium,
   const float toGround = mediumGroundReach(medium, radiusKm, cosView);
   const float toTop = mediumTopReach(medium, radiusKm, cosView);
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
-  const float stride = span / (float)kSkyViewSteps;
+  const float stride = span / static_cast<float>(kSkyViewSteps);
 
   double summed[3] = {0.0, 0.0, 0.0};
   double throughput[3] = {1.0, 1.0, 1.0};
   for (int step = 0; step < kSkyViewSteps; ++step) {
-    const float along = stride * ((float)step + kMediumLuminanceSegment);
+    const float along = stride * (static_cast<float>(step) + kMediumLuminanceSegment);
     const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
     const float hereKm = heightKm + medium.BottomRadiusKm;
     const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
@@ -260,12 +264,15 @@ inline void MediumSkyRay(const Medium &medium,
     for (int channel = 0; channel < 3; ++channel) {
       const float scatterRay = rayleigh * medium.RayleighScatteringPerKm[channel];
       const float scatterMie = mie * medium.MieScatteringPerKm;
-      const double source =
-          (double)shadowed * (double)toSun[channel] *
-              ((double)scatterMie * (double)phaseMie + (double)scatterRay * (double)phaseRay) +
-          (double)psi[channel] * ((double)scatterRay + (double)scatterMie);
-      const double stepT = std::exp(-(double)extinction[channel] * (double)stride);
-      summed[channel] += throughput[channel] * source * (1.0 - stepT) / (double)extinction[channel];
+      const double source = static_cast<double>(shadowed) * static_cast<double>(toSun[channel]) *
+                                (static_cast<double>(scatterMie) * static_cast<double>(phaseMie) +
+                                 static_cast<double>(scatterRay) * static_cast<double>(phaseRay)) +
+                            static_cast<double>(psi[channel]) *
+                                (static_cast<double>(scatterRay) + static_cast<double>(scatterMie));
+      const double stepT =
+          std::exp(-static_cast<double>(extinction[channel]) * static_cast<double>(stride));
+      summed[channel] +=
+          throughput[channel] * source * (1.0 - stepT) / static_cast<double>(extinction[channel]);
       throughput[channel] *= stepT;
     }
   }
@@ -278,12 +285,15 @@ inline void MediumSkyRay(const Medium &medium,
       float toSunGround[3];
       transmittanceToSun(hereKm, cosSunAt, toSunGround);
       for (int channel = 0; channel < 3; ++channel) {
-        summed[channel] += throughput[channel] * (double)toSunGround[channel] * (double)cosSunAt *
-                           (double)medium.GroundAlbedo[channel] / std::numbers::pi;
+        summed[channel] += throughput[channel] * static_cast<double>(toSunGround[channel]) *
+                           static_cast<double>(cosSunAt) *
+                           static_cast<double>(medium.GroundAlbedo[channel]) / std::numbers::pi;
       }
     }
   }
-  for (int channel = 0; channel < 3; ++channel) { luminance[channel] = (float)summed[channel]; }
+  for (int channel = 0; channel < 3; ++channel) {
+    luminance[channel] = static_cast<float>(summed[channel]);
+  }
 }
 
 template <typename ToSun, typename Psi>
@@ -295,8 +305,10 @@ inline void MediumSkyIrradiance(const Medium &medium,
                                 float irradiance[3]) {
   double summed[3] = {0.0, 0.0, 0.0};
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
-    const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
-    const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float ring = (static_cast<float>(which / kMultiScatterGrid) + 0.5f) /
+                       static_cast<float>(kMultiScatterGrid);
+    const float around = (static_cast<float>(which % kMultiScatterGrid) + 0.5f) /
+                         static_cast<float>(kMultiScatterGrid);
     const float azimuth = 2.0f * std::numbers::pi_v<float> * ring;
 
     const float cosView = std::sqrt(around);
@@ -312,12 +324,15 @@ inline void MediumSkyIrradiance(const Medium &medium,
                  transmittanceToSun,
                  multiScattered,
                  luminance);
-    for (int channel = 0; channel < 3; ++channel) { summed[channel] += (double)luminance[channel]; }
+    for (int channel = 0; channel < 3; ++channel) {
+      summed[channel] += static_cast<double>(luminance[channel]);
+    }
   }
 
   for (int channel = 0; channel < 3; ++channel) {
-    irradiance[channel] = (float)(summed[channel] * std::numbers::pi /
-                                  (double)(kMultiScatterGrid * kMultiScatterGrid));
+    irradiance[channel] =
+        static_cast<float>(summed[channel] * std::numbers::pi /
+                           static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
   }
 }
 
@@ -342,18 +357,20 @@ inline void MediumTransmittance(
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
 
   double depth[3] = {0.0, 0.0, 0.0};
-  const float stride = span / (float)steps;
+  const float stride = span / static_cast<float>(steps);
   for (int step = 0; step < steps; ++step) {
-    const float along = stride * ((float)step + kMediumSampleSegment);
+    const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
 
     float extinction[3];
     MediumExtinctionPerKm(
         medium, mediumHeightAlong(medium, radiusKm, cosZenith, along), extinction);
     for (int channel = 0; channel < 3; ++channel) {
-      depth[channel] += (double)extinction[channel] * (double)stride;
+      depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
     }
   }
-  for (int channel = 0; channel < 3; ++channel) { out[channel] = (float)std::exp(-depth[channel]); }
+  for (int channel = 0; channel < 3; ++channel) {
+    out[channel] = static_cast<float>(std::exp(-depth[channel]));
+  }
 }
 
 [[nodiscard]] bool ParticipatingMediumMsl(std::string &into, std::string &error);

@@ -75,7 +75,8 @@ struct Value {
 [[nodiscard]] constexpr uint32_t Keyword(std::string_view word) {
   uint32_t hash = 2166136261u;
   for (const char c : word) {
-    hash ^= (uint32_t)(unsigned char)(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+    hash ^=
+        static_cast<uint32_t>(static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c));
     hash *= 16777619u;
   }
   return hash;

@@ -11,8 +11,8 @@ public:
 
   static Cover Of(int row, int runnerUpRow) {
     Cover c;
-    c.Row_ = (int16_t)row;
-    c.RunnerUp_ = (int16_t)runnerUpRow;
+    c.Row_ = static_cast<int16_t>(row);
+    c.RunnerUp_ = static_cast<int16_t>(runnerUpRow);
     return c;
   }
 

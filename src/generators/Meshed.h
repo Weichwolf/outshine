@@ -14,7 +14,7 @@ public:
   [[nodiscard]] bool
   Take(std::string named, MaterialInstance material, const float *soup, size_t floats);
 
-  [[nodiscard]] size_t Parts() const { return (size_t)Held_.parts(); }
+  [[nodiscard]] size_t Parts() const { return static_cast<size_t>(Held_.parts()); }
 
   [[nodiscard]] Geometry Handed() { return std::move(Held_); }
 

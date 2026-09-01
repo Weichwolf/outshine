@@ -34,7 +34,7 @@ public:
   }
 
   double BareBySlope(double slopeDeg, double slopeMaxDeg) const {
-    const double t = (slopeDeg - slopeMaxDeg) / (double)SlopeBandDeg_;
+    const double t = (slopeDeg - slopeMaxDeg) / static_cast<double>(SlopeBandDeg_);
     if (t <= 0.0) { return 0.0; }
     if (t >= 1.0) { return 1.0; }
     return t * t * (3.0 - 2.0 * t);

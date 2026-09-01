@@ -211,9 +211,11 @@ public:
 
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
 
-  [[nodiscard]] double NearStanding() const { return (double)Renderer_->NearMetres(); }
+  [[nodiscard]] double NearStanding() const { return static_cast<double>(Renderer_->NearMetres()); }
 
-  [[nodiscard]] static double NearestStandable() { return (double)Render::SceneRenderer::kNearM; }
+  [[nodiscard]] static double NearestStandable() {
+    return static_cast<double>(Render::SceneRenderer::kNearM);
+  }
 
   [[nodiscard]] const double *PlacementStanding(size_t part) const {
     return Stood_.Placement(part).data();
@@ -301,7 +303,9 @@ private:
 
   [[nodiscard]] double Seconds(int sample) const {
     const int over = Sweeps();
-    return over > 1 ? (double)sample * Held_.DurationS() / (double)(over - 1) : 0.0;
+    return over > 1
+               ? static_cast<double>(sample) * Held_.DurationS() / static_cast<double>(over - 1)
+               : 0.0;
   }
 
   [[nodiscard]] bool Look(std::string &error);
@@ -311,8 +315,8 @@ private:
   [[nodiscard]] bool Compose(std::string &error) {
     return Over_.Compose(*Renderer_,
                          Declared_.Surfaces,
-                         (double)Declared_.SurfaceWidthPx,
-                         (double)Declared_.SurfaceHeightPx,
+                         static_cast<double>(Declared_.SurfaceWidthPx),
+                         static_cast<double>(Declared_.SurfaceHeightPx),
                          error);
   }
 

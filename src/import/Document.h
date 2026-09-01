@@ -45,7 +45,7 @@ public:
 
   [[nodiscard]] int MetadataOf(MetadataCarrier carrier, size_t which) const {
     for (const MetadataUse &one : MetadataUses_) {
-      if (one.Carrier == carrier && one.Which == which) { return (int)one.Packet; }
+      if (one.Carrier == carrier && one.Which == which) { return static_cast<int>(one.Packet); }
     }
     return -1;
   }

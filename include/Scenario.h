@@ -531,7 +531,8 @@ struct Body {
         ++behind;
       }
     }
-    return ahead > 0 && behind > 0 ? std::fabs(behindM / (double)behind - aheadM / (double)ahead)
+    return ahead > 0 && behind > 0 ? std::fabs(behindM / static_cast<double>(behind) -
+                                               aheadM / static_cast<double>(ahead))
                                    : 0.0;
   }
 

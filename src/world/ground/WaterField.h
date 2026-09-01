@@ -36,7 +36,7 @@ public:
 
   Span<const Surface> OfTile(int tile) const {
     if (tile < 0) { return Span<const Surface>(); }
-    const TileRanges::Range r = ByTile_.At((uint32_t)tile);
+    const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return Span<const Surface>(Surfaces_.data() + r.First, r.Count);
   }
 

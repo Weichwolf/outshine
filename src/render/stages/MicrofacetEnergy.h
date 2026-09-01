@@ -26,13 +26,13 @@ inline constexpr int kEnergySamples = 2048;
   double total = 0.0;
   for (int i = 0; i < kEnergySamples; ++i) {
     const double u1 = (i + 0.5) / kEnergySamples;
-    unsigned bits = (unsigned)i;
+    unsigned bits = static_cast<unsigned>(i);
     bits = (bits << 16) | (bits >> 16);
     bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
     bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
     bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
     bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
-    const double u2 = (double)bits * 2.3283064365386963e-10;
+    const double u2 = static_cast<double>(bits) * 2.3283064365386963e-10;
 
     const double cosH = std::sqrt((1.0 - u1) / (1.0 + (a2 - 1.0) * u1));
     const double sinH = std::sqrt(std::fmax(0.0, 1.0 - cosH * cosH));
@@ -98,9 +98,9 @@ inline constexpr int kEnergyViewSteps = 16;
   std::string albedo;
   albedo.reserve(kEnergyRoughnessSteps * kEnergyViewSteps * 12);
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
-    const double roughness = (double)r / (kEnergyRoughnessSteps - 1);
+    const double roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1);
     for (int v = 0; v < kEnergyViewSteps; ++v) {
-      const double nv = (double)v / (kEnergyViewSteps - 1);
+      const double nv = static_cast<double>(v) / (kEnergyViewSteps - 1);
       char cell[32];
       std::snprintf(cell,
                     sizeof cell,
@@ -117,7 +117,7 @@ inline constexpr int kEnergyViewSteps = 16;
                   sizeof cell,
                   "%s%.6ff",
                   average.empty() ? "" : ", ",
-                  GgxEnergyAverage((double)r / (kEnergyRoughnessSteps - 1)));
+                  GgxEnergyAverage(static_cast<double>(r) / (kEnergyRoughnessSteps - 1)));
     average += cell;
   }
   char head[256];

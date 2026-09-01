@@ -41,7 +41,7 @@ public:
 
   template <class Fn> void Each(Fn &&fn) const {
     if (Bound_ == nullptr) { return; }
-    for (uint32_t at = 0; at < (uint32_t)Values_.size(); ++at) {
+    for (uint32_t at = 0; at < static_cast<uint32_t>(Values_.size()); ++at) {
       if (Held_[at] == 0) { continue; }
       const Entity of{at, Generations_[at]};
       if (!Bound_->alive(of)) { continue; }

@@ -61,14 +61,15 @@ public:
   virtual void Cancel(Ticket ticket) = 0;
 
   [[nodiscard]] virtual bool Await(double forMs) {
-    std::this_thread::sleep_for(std::chrono::milliseconds((long)(forMs > 0.0 ? forMs : 0.0)));
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(static_cast<long>(forMs > 0.0 ? forMs : 0.0)));
     return false;
   }
 
   [[nodiscard]] virtual double NowMs() {
-    return (double)std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now().time_since_epoch())
-        .count();
+    return static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count());
   }
 };
 

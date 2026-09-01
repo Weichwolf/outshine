@@ -66,7 +66,7 @@ inline TileFrac ToTileFracClamped(Geo g, int z) {
 }
 
 [[nodiscard]] inline bool WrapTile(int z, long *x, long *y) {
-  const long n = (long)std::ldexp(1.0, z);
+  const long n = static_cast<long>(std::ldexp(1.0, z));
   *x = ((*x % n) + n) % n;
   return *y >= 0 && *y < n;
 }
@@ -134,8 +134,8 @@ public:
 
   Enu Apply(int32_t localX, int32_t localY) const {
     Enu r;
-    r.E = OriginE_ + (double)localX * ScaleE_;
-    r.N = OriginN_ + (double)localY * ScaleN_;
+    r.E = OriginE_ + static_cast<double>(localX) * ScaleE_;
+    r.N = OriginN_ + static_cast<double>(localY) * ScaleN_;
     r.U = 0.0;
     return r;
   }

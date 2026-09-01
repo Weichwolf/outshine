@@ -39,7 +39,8 @@ struct ImageView {
   std::span<const uint8_t> Rgba;
 
   [[nodiscard]] bool stands(void) const {
-    return WidthPx > 0 && HeightPx > 0 && Rgba.size() >= (size_t)WidthPx * (size_t)HeightPx * 4u;
+    return WidthPx > 0 && HeightPx > 0 &&
+           Rgba.size() >= static_cast<size_t>(WidthPx) * static_cast<size_t>(HeightPx) * 4u;
   }
 };
 

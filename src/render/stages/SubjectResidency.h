@@ -72,7 +72,7 @@ struct SubjectResidency {
   OwnedBuffer ClusterSpheres, ClusterJobs, ClusterBatches;
   OwnedBuffer ClusterKept, ClusterSlot, DrawIdx, DrawArgs;
   OwnedBuffer Placed;
-  std::array<uint32_t, (size_t)Stream::Count> Held{};
+  std::array<uint32_t, static_cast<size_t>(Stream::Count)> Held{};
 
   [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }
 

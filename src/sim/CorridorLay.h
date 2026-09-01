@@ -62,13 +62,13 @@ struct Corridor {
   Laying Made;
 
   void Bake(double lengthM) {
-    Fine.assign(lengthM > 0.0 ? (size_t)(lengthM / kFineM) + 2u : 1u, Station{});
+    Fine.assign(lengthM > 0.0 ? static_cast<size_t>(lengthM / kFineM) + 2u : 1u, Station{});
   }
 
   [[nodiscard]] bool Laid() const noexcept { return !Fine.empty(); }
 
   [[nodiscard]] const Station &At(double alongM) const noexcept {
-    const size_t fine = alongM > 0.0 ? (size_t)(alongM / kFineM) : 0u;
+    const size_t fine = alongM > 0.0 ? static_cast<size_t>(alongM / kFineM) : 0u;
     return Fine[fine < Fine.size() ? fine : Fine.size() - 1];
   }
 };

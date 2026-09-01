@@ -69,7 +69,7 @@ public:
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
   [[nodiscard]] uint32_t ClusterBatchRows() const {
-    return Args_.empty() ? 0u : (uint32_t)Batches.size();
+    return Args_.empty() ? 0u : static_cast<uint32_t>(Batches.size());
   }
 
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
@@ -80,7 +80,9 @@ public:
       return true;
     }
     for (const DrawBatch &batch : Batches) {
-      if ((size_t)batch.ModelSlot + (size_t)batch.Instances <= rows) { continue; }
+      if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
+        continue;
+      }
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
               std::to_string(batch.Instances) + " instance(s) over a table of " +
               std::to_string(rows) + " placements";
@@ -132,7 +134,9 @@ public:
     Before_ = Placed_;
     Stamped_.assign(rows, Frame_);
     for (const DrawBatch &batch : Batches) {
-      if ((size_t)batch.ModelSlot + (size_t)batch.Instances <= rows) { continue; }
+      if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
+        continue;
+      }
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
               std::to_string(batch.Instances) + " instance(s) over a table of " +
               std::to_string(rows) + " placements";
@@ -156,14 +160,16 @@ private:
                           SubjectResidency::Stream held,
                           SDL_GPUBufferUsageFlags usage,
                           uint32_t bytes) {
-    if (into && Bound().Held[(size_t)held] >= bytes) { return true; }
+    if (into && Bound().Held[static_cast<size_t>(held)] >= bytes) { return true; }
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = usage;
-    wanted.size = Bound().Held[(size_t)held] > 0 ? Bound().Held[(size_t)held] : bytes;
+    wanted.size = Bound().Held[static_cast<size_t>(held)] > 0
+                      ? Bound().Held[static_cast<size_t>(held)]
+                      : bytes;
     while (wanted.size < bytes) { wanted.size *= 2u; }
     into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
-    Bound().Held[(size_t)held] = into ? wanted.size : 0u;
-    return (bool)into;
+    Bound().Held[static_cast<size_t>(held)] = into ? wanted.size : 0u;
+    return static_cast<bool>(into);
   }
 
 public:
@@ -209,9 +215,9 @@ public:
 
   uint32_t VertexCount() const { return Bound().NVerts; }
 
-  long TriangleCount() const { return (long)Bound().NIdx / 3; }
+  long TriangleCount() const { return static_cast<long>(Bound().NIdx) / 3; }
 
-  uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
+  uint32_t BatchCount() const { return static_cast<uint32_t>(Batches.size()); }
 
   uint32_t DrawCount() const;
 
@@ -226,11 +232,11 @@ private:
 
   static constexpr int kUvSetFloats = 1;
   static constexpr int kSurfaceFloats =
-      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * (int)kSubjectMaterialImages;
+      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * static_cast<int>(kSubjectMaterialImages);
 
   static constexpr int kLightVec4s = 4;
 
-  static constexpr int kLightFloats = 16 + 4 * kLightVec4s * (int)kMaxSubjectLights;
+  static constexpr int kLightFloats = 16 + 4 * kLightVec4s * static_cast<int>(kMaxSubjectLights);
 
   struct SurfaceSlot {
     SubjectResidency::BoundImage Colour;

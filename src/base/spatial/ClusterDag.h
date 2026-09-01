@@ -40,7 +40,8 @@ BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], fl
   }
   for (uint32_t i = 1; i < nverts; i++) {
     for (int a = 0; a < 3; a++) {
-      const float v = verts[(size_t)i * (size_t)stride + (size_t)a];
+      const float v =
+          verts[static_cast<size_t>(i) * static_cast<size_t>(stride) + static_cast<size_t>(a)];
       if (v < lo[a]) { lo[a] = v; }
       if (v > hi[a]) { hi[a] = v; }
     }
@@ -48,10 +49,10 @@ BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], fl
   double r2 = 0.0;
   for (int a = 0; a < 3; a++) {
     ctr[a] = 0.5f * (lo[a] + hi[a]);
-    const double h = 0.5 * ((double)hi[a] - (double)lo[a]);
+    const double h = 0.5 * (static_cast<double>(hi[a]) - static_cast<double>(lo[a]));
     r2 += h * h;
   }
-  *rad = (float)std::sqrt(r2);
+  *rad = static_cast<float>(std::sqrt(r2));
 }
 
 inline constexpr float kPixelTau = 1.0f;
@@ -78,36 +79,41 @@ struct ClusterDagOpts {
 };
 
 inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], const float up[3]) {
-  const double u2 = (double)up[0] * up[0] + (double)up[1] * up[1] + (double)up[2] * up[2];
+  const double u2 = static_cast<double>(up[0]) * up[0] + static_cast<double>(up[1]) * up[1] +
+                    static_cast<double>(up[2]) * up[2];
   if (u2 < 1.0e-12) { return 1.0f; }
-  const double dx = (double)ctr[0] - eye[0], dy = (double)ctr[1] - eye[1],
-               dz = (double)ctr[2] - eye[2];
+  const double dx = static_cast<double>(ctr[0]) - eye[0], dy = static_cast<double>(ctr[1]) - eye[1],
+               dz = static_cast<double>(ctr[2]) - eye[2];
   const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
-  if (!(d > 1.0e-6) || (double)rad >= d) { return 1.0f; }
+  if (!(d > 1.0e-6) || static_cast<double>(rad) >= d) { return 1.0f; }
   const double iu = 1.0 / std::sqrt(u2);
-  const double cosT = ((double)up[0] * dx + (double)up[1] * dy + (double)up[2] * dz) * iu / d;
+  const double cosT = (static_cast<double>(up[0]) * dx + static_cast<double>(up[1]) * dy +
+                       static_cast<double>(up[2]) * dz) *
+                      iu / d;
   const double theta = std::acos(cosT < -1.0 ? -1.0 : (cosT > 1.0 ? 1.0 : cosT));
-  const double alpha = std::asin((double)rad / d);
+  const double alpha = std::asin(static_cast<double>(rad) / d);
   const double lo = theta - alpha, hi = theta + alpha;
   const double kHalfPi = 0.5 * std::numbers::pi;
   if (lo <= kHalfPi && hi >= kHalfPi) { return 1.0f; }
-  return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo),
-                         std::sin(hi > std::numbers::pi ? std::numbers::pi : hi));
+  return static_cast<float>(std::max(std::sin(lo < 0.0 ? 0.0 : lo),
+                                     std::sin(hi > std::numbers::pi ? std::numbers::pi : hi)));
 }
 
 inline float DagSse(
     const float ctr[3], float rad, float err, const double eye[3], float fPx, const float up[3]) {
   if (!(err > 0.0f)) { return 0.0f; }
   if (err >= kDagRootErr) { return kDagRootErr; }
-  const double dx = (double)ctr[0] - eye[0], dy = (double)ctr[1] - eye[1],
-               dz = (double)ctr[2] - eye[2];
-  double d = std::sqrt(dx * dx + dy * dy + dz * dz) - (double)rad;
+  const double dx = static_cast<double>(ctr[0]) - eye[0], dy = static_cast<double>(ctr[1]) - eye[1],
+               dz = static_cast<double>(ctr[2]) - eye[2];
+  double d = std::sqrt(dx * dx + dy * dy + dz * dz) - static_cast<double>(rad);
   if (d < 0.05) { d = 0.05; }
-  return (float)((double)err * (double)DagCrossFactor(ctr, rad, eye, up) * (double)fPx / d);
+  return static_cast<float>(static_cast<double>(err) *
+                            static_cast<double>(DagCrossFactor(ctr, rad, eye, up)) *
+                            static_cast<double>(fPx) / d);
 }
 
 inline double DagEdgeSq(double errM, float fPx, float tau) {
-  const double edge = errM * (double)fPx / (double)tau;
+  const double edge = errM * static_cast<double>(fPx) / static_cast<double>(tau);
   return edge * edge;
 }
 

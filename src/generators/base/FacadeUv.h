@@ -37,15 +37,17 @@ constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
 
 inline float FacadeUvX(FacadeStyle style, Fields standing, float bay) {
-  return kBayCeil * (float)((int)style + kStyleCount * (int)standing) + bay;
+  return kBayCeil * static_cast<float>(static_cast<int>(style) +
+                                       kStyleCount * static_cast<int>(standing)) +
+         bay;
 }
 
 inline float FacadeUvY(int ident, float storeysOverFoot) {
-  return kStoreyCeil * (float)ident + 1.0f + storeysOverFoot;
+  return kStoreyCeil * static_cast<float>(ident) + 1.0f + storeysOverFoot;
 }
 
 inline float FaceUvX(Facade kind, int ident) {
-  return -(float)((int)kind + kFacadeStride * ident);
+  return -static_cast<float>(static_cast<int>(kind) + kFacadeStride * ident);
 }
 
 } // namespace outshine

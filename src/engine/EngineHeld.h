@@ -129,10 +129,10 @@ public:
 
   [[nodiscard]] Script::Value Global(std::string_view name) override {
     for (size_t at = 0; at < Named_.size(); ++at) {
-      if (Named_[at] == name) { return Script::Value::OfRef((int)at + 1); }
+      if (Named_[at] == name) { return Script::Value::OfRef(static_cast<int>(at) + 1); }
     }
     Named_.emplace_back(name);
-    return Script::Value::OfRef((int)Named_.size());
+    return Script::Value::OfRef(static_cast<int>(Named_.size()));
   }
 
   [[nodiscard]] bool Call(const Script::Value &callee,
@@ -141,7 +141,7 @@ public:
                           Script::Value &out) override {
     out = Script::Value();
     if (Client_ == nullptr || callee.What != Script::Kind::Ref) { return false; }
-    const size_t which = (size_t)callee.Ref - 1;
+    const size_t which = static_cast<size_t>(callee.Ref) - 1;
     if (callee.Ref <= 0 || which >= Named_.size()) { return false; }
 
     std::vector<Argument> handed(count);
@@ -328,11 +328,11 @@ struct Spent {
         return;
       }
       if (!Filled_) {
-        out.assign(Kept.begin(), Kept.begin() + (long)At);
+        out.assign(Kept.begin(), Kept.begin() + static_cast<long>(At));
         return;
       }
       out.assign(Kept.begin(), Kept.end());
-      if (At != 0) { std::rotate(out.begin(), out.begin() + (long)At, out.end()); }
+      if (At != 0) { std::rotate(out.begin(), out.begin() + static_cast<long>(At), out.end()); }
     }
 
   private:

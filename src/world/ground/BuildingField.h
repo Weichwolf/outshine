@@ -53,7 +53,7 @@ public:
 
   Span<const Footprint> OfTile(int tile) const {
     if (tile < 0) { return Span<const Footprint>(); }
-    const TileRanges::Range r = ByTile_.At((uint32_t)tile);
+    const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return Span<const Footprint>(Prints_.data() + r.First, r.Count);
   }
 

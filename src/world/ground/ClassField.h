@@ -70,7 +70,7 @@ public:
     return Fine_.Field ? Fine_.Field->PendingTiles() + Coarse_.Field->PendingTiles() : -1;
   }
 
-  long UnknownKinds() const { return (long)Unknown_.size(); }
+  long UnknownKinds() const { return static_cast<long>(Unknown_.size()); }
 
   long UnknownFeatures() const { return UnknownFeats_; }
 

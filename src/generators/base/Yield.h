@@ -38,7 +38,9 @@ public:
 
   [[nodiscard]] Span<const Note> Notes() const noexcept { return Notes_; }
 
-  [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept { return Claims_[(size_t)why]; }
+  [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept {
+    return Claims_[static_cast<size_t>(why)];
+  }
 
 private:
   OccupancySink *Space_;

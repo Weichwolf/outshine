@@ -101,7 +101,7 @@ public:
   void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
 
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
-  static constexpr float kNearM = (float)outshine::Camera::kNearestM;
+  static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
@@ -239,7 +239,9 @@ public:
     uint32_t Layouts = 0;
   };
 
-  [[nodiscard]] const Effort &Spent(Stage stage) const { return Spent_[(size_t)stage]; }
+  [[nodiscard]] const Effort &Spent(Stage stage) const {
+    return Spent_[static_cast<size_t>(stage)];
+  }
 
   [[nodiscard]] size_t SubjectUniformPushes() const {
     return Subjects_.UniformPushes() + Glass_.UniformPushes();
@@ -256,7 +258,7 @@ public:
                       const double right[3],
                       const double up[3]);
 
-  void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? (float)deg : FovDeg_; }
+  void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? static_cast<float>(deg) : FovDeg_; }
 
   [[nodiscard]] bool SetGroundClasses(const uint32_t *words,
                                       size_t wordCount,
@@ -264,9 +266,9 @@ public:
                                       size_t paletteFloats,
                                       std::string &error);
 
-  void SetOrthoM(double m) { OrthoM_ = (float)m; }
+  void SetOrthoM(double m) { OrthoM_ = static_cast<float>(m); }
 
-  void SetNearM(double m) { NearM_ = m > 0.0 ? (float)m : NearM_; }
+  void SetNearM(double m) { NearM_ = m > 0.0 ? static_cast<float>(m) : NearM_; }
 
   [[nodiscard]] float NearMetres() const { return NearM_; }
 
@@ -280,7 +282,7 @@ public:
   [[nodiscard]] double PictureH() const;
 
   [[nodiscard]] double SceneAspect() const {
-    return PictureH() > 0 ? (double)PictureW() / (double)PictureH() : 0.0;
+    return PictureH() > 0 ? PictureW() / PictureH() : 0.0;
   }
 
 private:

@@ -35,7 +35,7 @@ public:
   void Cancel(Data::Ticket ticket) override;
   [[nodiscard]] bool Await(double forMs) override;
 
-  [[nodiscard]] int ThreadCount() const { return (int)Threads_.size(); }
+  [[nodiscard]] int ThreadCount() const { return static_cast<int>(Threads_.size()); }
 
 private:
   struct Transfer {

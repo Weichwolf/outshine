@@ -13,7 +13,7 @@ enum class Role : uint8_t { Body, Mind, Tool, Assignment };
 inline constexpr size_t kRoles = 4;
 
 [[nodiscard]] constexpr uint8_t RoleBit(Role kind) {
-  return (uint8_t)(1u << (uint8_t)kind);
+  return static_cast<uint8_t>(1u << static_cast<uint8_t>(kind));
 }
 
 class Tag {
@@ -62,7 +62,7 @@ static_assert(!TagCatalogue::under(tags::Does, 1).within(tags::Offers),
 enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
 inline constexpr size_t kRelations = 6;
 
-inline constexpr Relation kNoRelation = (Relation)0xFF;
+inline constexpr Relation kNoRelation = static_cast<Relation>(0xFF);
 
 struct RelationRule {
   Relation Named = kNoRelation;
@@ -75,8 +75,8 @@ struct RelationRule {
   Relation Requires = kNoRelation;
 };
 
-inline constexpr uint8_t kEveryRole = (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) |
-                                                RoleBit(Role::Tool) | RoleBit(Role::Assignment));
+inline constexpr uint8_t kEveryRole = static_cast<uint8_t>(
+    RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) | RoleBit(Role::Assignment));
 
 inline constexpr RelationRule kRules[kRelations] = {
     {Relation::IsA, true, true, false, true, kEveryRole, {}, kNoRelation},
@@ -88,13 +88,13 @@ inline constexpr RelationRule kRules[kRelations] = {
 };
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {
-  return kRules[(size_t)relation];
+  return kRules[static_cast<size_t>(relation)];
 }
 
 namespace scene_register_checked {
 constexpr bool EachRuleStandsAtItsOwnRelation() {
   for (size_t at = 0; at < kRelations; ++at) {
-    if ((size_t)kRules[at].Named != at) { return false; }
+    if (static_cast<size_t>(kRules[at].Named) != at) { return false; }
     if (kRules[at].TargetRoles == 0) { return false; }
   }
   return true;

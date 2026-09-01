@@ -40,16 +40,16 @@ inline void HalveInPlace(std::span<const float> from,
                          uint32_t indexChannels = 0) {
   toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
   toHeight = fromHeight > 1 ? fromHeight / 2u : 1u;
-  into.assign((size_t)toWidth * toHeight * 4u, 0.0f);
+  into.assign(static_cast<size_t>(toWidth) * toHeight * 4u, 0.0f);
   for (uint32_t y = 0; y < toHeight; ++y) {
     for (uint32_t x = 0; x < toWidth; ++x) {
       const uint32_t x0 = fromWidth > 1 ? x * 2u : 0u, x1 = fromWidth > 1 ? x * 2u + 1u : 0u;
       const uint32_t y0 = fromHeight > 1 ? y * 2u : 0u, y1 = fromHeight > 1 ? y * 2u + 1u : 0u;
-      const size_t source[4] = {((size_t)y0 * fromWidth + x0) * 4u,
-                                ((size_t)y0 * fromWidth + x1) * 4u,
-                                ((size_t)y1 * fromWidth + x0) * 4u,
-                                ((size_t)y1 * fromWidth + x1) * 4u};
-      const size_t at = ((size_t)y * toWidth + x) * 4u;
+      const size_t source[4] = {(static_cast<size_t>(y0) * fromWidth + x0) * 4u,
+                                (static_cast<size_t>(y0) * fromWidth + x1) * 4u,
+                                (static_cast<size_t>(y1) * fromWidth + x0) * 4u,
+                                (static_cast<size_t>(y1) * fromWidth + x1) * 4u};
+      const size_t at = (static_cast<size_t>(y) * toWidth + x) * 4u;
       for (size_t channel = 0; channel < 4; ++channel) {
         const float sample[4] = {from[source[0] + channel],
                                  from[source[1] + channel],
@@ -76,14 +76,14 @@ inline void HalveInPlace(std::span<const float> from,
       float direction[3];
       float length = 0.0f;
       for (int axis = 0; axis < 3; ++axis) {
-        direction[axis] = into[at + (size_t)axis] * 2.0f - 1.0f;
+        direction[axis] = into[at + static_cast<size_t>(axis)] * 2.0f - 1.0f;
         length += direction[axis] * direction[axis];
       }
       length = std::sqrt(length);
       into[at + 3u] *= length;
       if (length <= 0.0f) { continue; }
       for (int axis = 0; axis < 3; ++axis) {
-        into[at + (size_t)axis] = (direction[axis] / length) * 0.5f + 0.5f;
+        into[at + static_cast<size_t>(axis)] = (direction[axis] / length) * 0.5f + 0.5f;
       }
     }
   }

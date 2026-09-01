@@ -18,7 +18,7 @@ public:
     return x;
   }
 
-  float Unit() { return (float)(Next() >> 8) * (1.0f / 16777216.0f); }
+  float Unit() { return static_cast<float>(Next() >> 8) * (1.0f / 16777216.0f); }
 
   float Signed() { return Unit() * 2.0f - 1.0f; }
 

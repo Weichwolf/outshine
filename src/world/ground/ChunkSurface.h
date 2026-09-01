@@ -7,29 +7,30 @@ namespace outshine::Ground {
 
 inline int ChunkNodes(uint32_t postings, int grid) {
   const int wanted = (grid < 2 ? 2 : grid) + 1;
-  return (int)postings < wanted ? (int)postings : wanted;
+  return static_cast<int>(postings) < wanted ? static_cast<int>(postings) : wanted;
 }
 
 inline uint32_t ChunkNodePosting(int k, uint32_t postings, int nodes) {
-  return (uint32_t)((long)k * (long)(postings - 1u) / (long)(nodes - 1));
+  return static_cast<uint32_t>(static_cast<long>(k) * static_cast<long>(postings - 1u) /
+                               static_cast<long>(nodes - 1));
 }
 
 inline int ChunkNodeCell(double posting, uint32_t postings, int nodes) {
-  const long span = (long)postings - 1, last = (long)nodes - 2;
+  const long span = static_cast<long>(postings) - 1, last = static_cast<long>(nodes) - 2;
   if (span <= 0 || last <= 0) { return 0; }
-  long p = (long)posting;
+  long p = static_cast<long>(posting);
   if (posting < 0.0) {
     p = 0;
   } else if (p > span) {
     p = span;
   }
-  long k = ((p + 1) * (long)(nodes - 1) + span - 1) / span - 1;
+  long k = ((p + 1) * static_cast<long>(nodes - 1) + span - 1) / span - 1;
   if (k < 0) {
     k = 0;
   } else if (k > last) {
     k = last;
   }
-  return (int)k;
+  return static_cast<int>(k);
 }
 
 struct ChunkQuadCorner {
@@ -56,7 +57,8 @@ private:
   friend float ChunkCellHeight(const ChunkCell &cell, float su, float sv);
 
   float At(int row, int col) const {
-    return Nodes[(size_t)(Row + row) * (size_t)Stride + (size_t)(Col + col)];
+    return Nodes[static_cast<size_t>(Row + row) * static_cast<size_t>(Stride) +
+                 static_cast<size_t>(Col + col)];
   }
 };
 
@@ -65,9 +67,9 @@ inline float ChunkCellHeight(const ChunkCell &cell, float su, float sv) {
   float height = 0.0f;
   for (int t = 0; t < 6; t += 3) {
     const ChunkQuadCorner a = w[t], b = w[t + 1], c = w[t + 2];
-    const float bu = (float)(b.Col - a.Col), bv = (float)(b.Row - a.Row);
-    const float cu = (float)(c.Col - a.Col), cv = (float)(c.Row - a.Row);
-    const float pu = su - (float)a.Col, pv = sv - (float)a.Row;
+    const float bu = static_cast<float>(b.Col - a.Col), bv = static_cast<float>(b.Row - a.Row);
+    const float cu = static_cast<float>(c.Col - a.Col), cv = static_cast<float>(c.Row - a.Row);
+    const float pu = su - static_cast<float>(a.Col), pv = sv - static_cast<float>(a.Row);
     const float det = bu * cv - cu * bv;
     const float l1 = (pu * cv - pv * cu) / det, l2 = (bu * pv - bv * pu) / det;
     const float ha = cell.At(a.Row, a.Col);

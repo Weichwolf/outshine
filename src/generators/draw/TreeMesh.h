@@ -11,7 +11,7 @@ namespace outshine::Generators {
 
 class TreeMesh {
 public:
-  static constexpr int kBarkFloats = (int)(kPlainVertexStrideB / sizeof(float));
+  static constexpr int kBarkFloats = static_cast<int>(kPlainVertexStrideB / sizeof(float));
   static constexpr int kLeafFloats = 8;
 
   std::vector<float> BarkVerts;

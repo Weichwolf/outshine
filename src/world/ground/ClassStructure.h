@@ -46,7 +46,9 @@ public:
   const Measures &Measured() const { return Measures_; }
 
   double NoDataFraction() const {
-    return Measures_.Probes ? (double)Measures_.NoData / (double)Measures_.Probes : 0.0;
+    return Measures_.Probes
+               ? static_cast<double>(Measures_.NoData) / static_cast<double>(Measures_.Probes)
+               : 0.0;
   }
 
   static constexpr double kNoEdgeM = 1.0e30;

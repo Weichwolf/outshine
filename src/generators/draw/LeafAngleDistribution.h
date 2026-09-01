@@ -18,7 +18,7 @@ public:
 
   [[nodiscard]] size_t Count() const { return Count_; }
 
-  [[nodiscard]] float Sampled(int deg) const { return Samples_[(size_t)deg]; }
+  [[nodiscard]] float Sampled(int deg) const { return Samples_[static_cast<size_t>(deg)]; }
 
   [[nodiscard]] float Fit(float sinEl) const;
 

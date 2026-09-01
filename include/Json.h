@@ -22,10 +22,12 @@ public:
     [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
 
     [[nodiscard]] Kind GetKind() const {
-      return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid;
+      return Valid() ? Doc->Nodes_[static_cast<size_t>(Node)].K : Kind::Invalid;
     }
 
-    [[nodiscard]] size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
+    [[nodiscard]] size_t Size() const {
+      return Valid() ? Doc->Nodes_[static_cast<size_t>(Node)].Count : 0;
+    }
 
     [[nodiscard]] Ref operator[](size_t i) const;
     [[nodiscard]] Ref operator[](const char *key) const;
@@ -37,11 +39,12 @@ public:
     [[nodiscard]] double Num(double def = 0.0) const;
 
     [[nodiscard]] int Int(int def = 0) const {
-      const double v = Num((double)def);
-      if (!(v >= -2147483648.0) || !(v <= 2147483647.0) || v != (double)(long long)v) {
+      const double v = Num(static_cast<double>(def));
+      if (!(v >= -2147483648.0) || !(v <= 2147483647.0) ||
+          v != static_cast<double>(static_cast<long long>(v))) {
         return def;
       }
-      return (int)v;
+      return static_cast<int>(v);
     }
 
     [[nodiscard]] bool Bool(bool def = false) const;

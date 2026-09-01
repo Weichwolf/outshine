@@ -63,7 +63,7 @@ private:
   };
 
   std::string Under_;
-  std::vector<uint8_t> Faces_[(size_t)Family::kCount];
+  std::vector<uint8_t> Faces_[static_cast<size_t>(Family::kCount)];
   mutable std::vector<Sized> Sets_;
 
   mutable std::vector<Cell> Cells_;

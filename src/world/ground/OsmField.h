@@ -99,7 +99,7 @@ public:
 
   [[nodiscard]] int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
 
-  [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[(size_t)i]; }
+  [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[static_cast<size_t>(i)]; }
 
   [[nodiscard]] double Num(const Feature &f, const char *key, double def) const;
 

@@ -24,13 +24,13 @@ enum class Edge { Zero, Infinity };
   bool found = false;
   for (size_t at = 0; at < whole.size() && !found; ++at) {
     if (whole[at] != '0') {
-      lead = (long long)(whole.size() - 1 - at);
+      lead = static_cast<long long>(whole.size() - 1 - at);
       found = true;
     }
   }
   for (size_t at = 0; at < fraction.size() && !found; ++at) {
     if (fraction[at] != '0') {
-      lead = -(long long)(at + 1);
+      lead = -static_cast<long long>(at + 1);
       found = true;
     }
   }

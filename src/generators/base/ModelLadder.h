@@ -12,7 +12,7 @@ constexpr int kLevels = 4;
 constexpr float kCellPx = 256.0f;
 
 constexpr float Error(int k) {
-  return 1.0f / (kCellPx * (float)(1u << (unsigned)(kLevels - k)));
+  return 1.0f / (kCellPx * static_cast<float>(1u << static_cast<unsigned>(kLevels - k)));
 }
 
 } // namespace ModelLadder

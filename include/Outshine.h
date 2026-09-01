@@ -35,7 +35,9 @@ struct Loading {
 
   [[nodiscard]] double share(void) const {
     const size_t wants = GroundWanted + VectorWanted;
-    return wants == 0 ? 1.0 : (double)(GroundArrived + VectorArrived) / (double)wants;
+    return wants == 0
+               ? 1.0
+               : static_cast<double>(GroundArrived + VectorArrived) / static_cast<double>(wants);
   }
 };
 

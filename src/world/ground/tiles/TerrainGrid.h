@@ -16,7 +16,9 @@ public:
   TerrainField() = default;
 
   TerrainField(uint32_t rows, uint32_t cols)
-      : HeightsM_((size_t)rows * (size_t)cols, 0.0f), Rows_(rows), Cols_(cols) {}
+      : HeightsM_(static_cast<size_t>(rows) * static_cast<size_t>(cols), 0.0f),
+        Rows_(rows),
+        Cols_(cols) {}
 
   [[nodiscard]] uint32_t Rows() const { return Rows_; }
 
@@ -41,8 +43,8 @@ public:
   void SetM(uint32_t row, uint32_t col, float m) { Field()[row, col] = m; }
 
   [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
-    const double gx = Cols_ < 2u ? 0.0 : fracCol * (double)(Cols_ - 1u);
-    const double gy = Rows_ < 2u ? 0.0 : fracRow * (double)(Rows_ - 1u);
+    const double gx = Cols_ < 2u ? 0.0 : fracCol * static_cast<double>(Cols_ - 1u);
+    const double gy = Rows_ < 2u ? 0.0 : fracRow * static_cast<double>(Rows_ - 1u);
     return Bilinear(Field(), gx, gy);
   }
 
@@ -56,7 +58,7 @@ inline uint32_t PostingsPerEdge(uint32_t sourceEdge, uint32_t stride) {
 }
 
 inline double PostingFrac(uint32_t k, uint32_t n) {
-  return n < 2u ? 0.0 : (double)k * (1.0 / (double)(n - 1u));
+  return n < 2u ? 0.0 : static_cast<double>(k) * (1.0 / static_cast<double>(n - 1u));
 }
 
 class TerrainGrid {
@@ -119,7 +121,7 @@ public:
     return Where_ == State::Built ? &PositionsEnuM_ : nullptr;
   }
 
-  uint32_t VertexCount() const { return (uint32_t)(PositionsEnuM_.size() / 3); }
+  uint32_t VertexCount() const { return static_cast<uint32_t>(PositionsEnuM_.size() / 3); }
 
 private:
   explicit TerrainMesh(State where) : Where_(where) {}

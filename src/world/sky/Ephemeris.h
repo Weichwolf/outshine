@@ -24,8 +24,9 @@ inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az
   const double ha = (lst - ra / D2R) * D2R;
   const double la = lat * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
-  *el = (float)(asin(sinel) / D2R);
-  *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
+  *el = static_cast<float>(asin(sinel) / D2R);
+  *az = static_cast<float>(
+      fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 }
 
 inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
@@ -70,12 +71,13 @@ inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *a
   const double ha = (lst - ra / D2R) * D2R;
   const double la = lat * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
-  *el = (float)(asin(sinel) / D2R);
-  *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
+  *el = static_cast<float>(asin(sinel) / D2R);
+  *az = static_cast<float>(
+      fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 
   const double Lsun = fmod(280.460 + 0.9856474 * n, 360.0) * D2R;
   const double elong = lonecl - Lsun;
-  *phase = (float)((1.0 - cos(elong)) * 0.5);
+  *phase = static_cast<float>((1.0 - cos(elong)) * 0.5);
 }
 
 struct Solar {
