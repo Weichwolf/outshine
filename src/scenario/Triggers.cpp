@@ -127,7 +127,7 @@ void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
       ++Overflowed_;
       return;
     }
-    Ring_.push_back(Fired{event, body});
+    Ring_.push_back(Fired{.Event = event, .Body = body});
   };
   for (uint32_t which = 0; which < static_cast<uint32_t>(Doors_.size()); ++which) {
     const Door &door = Doors_[which];
@@ -145,7 +145,7 @@ void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
         ++Unseated_;
         continue;
       }
-      seated.push_back(Standing{body, which, nowS, false});
+      seated.push_back(Standing{.Body = body, .Door = which, .SinceS = nowS, .Dwelt = false});
       if (door.Opens == When::Enter) { fire(door.Event); }
       continue;
     }

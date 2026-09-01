@@ -127,7 +127,11 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   const int got = static_cast<int>(vectorTile.size());
 
   const uint32_t tile = static_cast<uint32_t>(Tiles_.size());
-  Tiles_.push_back(Tile{Zoom_, tx, ty, static_cast<uint32_t>(Features_.size()), 0});
+  Tiles_.push_back(Tile{.Z = Zoom_,
+                        .X = tx,
+                        .Y = ty,
+                        .FirstFeature = static_cast<uint32_t>(Features_.size()),
+                        .FeatureCount = 0});
 
   OsmVector mvt;
   for (uint16_t li = 0; li < static_cast<uint16_t>(Layers_.size()); li++) {

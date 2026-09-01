@@ -56,9 +56,9 @@ bool RegisterDeclared(SourceSet &set,
 
 std::span<const Provider> ShippedProviders() {
   static const Provider shipped[] = {
-      {"terrain", "", 0, "hand over"},
-      {"vector", "", 1, "hand over"},
-      {"stars", "", 2, "hand over"},
+      {.Kind = "terrain", .Pin = "", .Rank = 0, .WhenAbsent = "hand over"},
+      {.Kind = "vector", .Pin = "", .Rank = 1, .WhenAbsent = "hand over"},
+      {.Kind = "stars", .Pin = "", .Rank = 2, .WhenAbsent = "hand over"},
   };
   return shipped;
 }

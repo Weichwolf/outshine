@@ -18,11 +18,15 @@ namespace {
 struct Vector {
   double X = 0, Y = 0, Z = 0;
 
-  Vector operator+(const Vector &other) const { return {X + other.X, Y + other.Y, Z + other.Z}; }
+  Vector operator+(const Vector &other) const {
+    return {.X = X + other.X, .Y = Y + other.Y, .Z = Z + other.Z};
+  }
 
-  Vector operator-(const Vector &other) const { return {X - other.X, Y - other.Y, Z - other.Z}; }
+  Vector operator-(const Vector &other) const {
+    return {.X = X - other.X, .Y = Y - other.Y, .Z = Z - other.Z};
+  }
 
-  Vector operator*(double scale) const { return {X * scale, Y * scale, Z * scale}; }
+  Vector operator*(double scale) const { return {.X = X * scale, .Y = Y * scale, .Z = Z * scale}; }
 
   bool operator==(const Vector &other) const {
     return X == other.X && Y == other.Y && Z == other.Z;
@@ -63,7 +67,7 @@ struct TriangleInfo {
 };
 
 struct Space {
-  Vector Os{1, 0, 0}, Ot{0, 1, 0};
+  Vector Os{.X = 1, .Y = 0, .Z = 0}, Ot{.X = 0, .Y = 1, .Z = 0};
   double MagS = 1, MagT = 1;
   int Counter = 0;
   bool Orient = false;
@@ -120,12 +124,12 @@ private:
 
   [[nodiscard]] Vector TexCoordOf(size_t corner) const {
     const size_t vertex = Subject_.Indices[corner];
-    return {Subject_.Uv[vertex * 2], -Subject_.Uv[vertex * 2 + 1], 0.0};
+    return {.X = Subject_.Uv[vertex * 2], .Y = -Subject_.Uv[vertex * 2 + 1], .Z = 0.0};
   }
 
   [[nodiscard]] Vector At(const double *run, size_t corner, size_t width) const {
     const size_t vertex = Subject_.Indices[corner];
-    return {run[vertex * width], run[vertex * width + 1], run[vertex * width + 2]};
+    return {.X = run[vertex * width], .Y = run[vertex * width + 1], .Z = run[vertex * width + 2]};
   }
 
   [[nodiscard]] Space Evaluate(const std::vector<int> &faces, size_t vertex) const;
@@ -300,8 +304,8 @@ void Basis::BuildGroups() {
 
 Space Basis::Evaluate(const std::vector<int> &faces, size_t vertex) const {
   Space result;
-  result.Os = {0, 0, 0};
-  result.Ot = {0, 0, 0};
+  result.Os = {.X = 0, .Y = 0, .Z = 0};
+  result.Ot = {.X = 0, .Y = 0, .Z = 0};
   result.MagS = 0;
   result.MagT = 0;
   double angles = 0;

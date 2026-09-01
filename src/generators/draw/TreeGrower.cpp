@@ -96,7 +96,7 @@ void TreeGrower::SetCrown(const TreeSpecies &species, float growHeight) {
 }
 
 int TreeGrower::AddNode(int shoot, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius) {
-  Plant_->Nodes.push_back(TreeSkeleton::Node{pos, dir, up, radius});
+  Plant_->Nodes.push_back(TreeSkeleton::Node{.Pos = pos, .Dir = dir, .Up = up, .Radius = radius});
   Plant_->Shoots[static_cast<size_t>(shoot)].Count++;
   return static_cast<int>(Plant_->Nodes.size()) - 1;
 }
@@ -166,8 +166,8 @@ void TreeGrower::EmitLeafPoints(
     const float az = roll + kTau * (static_cast<float>(i) / static_cast<float>(count)) +
                      Rng_.Signed() * kAzimuthJitterRad;
     const TreeVec3 radial = n * std::cos(az) + b * std::sin(az);
-    Plant_->LeafPoints.push_back(
-        LeafPoint{pos + radial * (radius * kSeatOfRadius), Normalize(radial + dir * kForwardTilt)});
+    Plant_->LeafPoints.push_back(LeafPoint{.Pos = pos + radial * (radius * kSeatOfRadius),
+                                           .Dir = Normalize(radial + dir * kForwardTilt)});
   }
 }
 
@@ -190,7 +190,11 @@ void TreeGrower::SpawnLateral(
   const bool foliate =
       t.Foliate && (t.Order != 0 ||
                     parentStep >= static_cast<int>(Form_.BoleFrac * static_cast<float>(t.Steps)));
-  SpawnShoot(t, Request{node, roll, dir, fn, br, foliate}, g);
+  SpawnShoot(
+      t,
+      Request{
+          .ParentNode = node, .Roll = roll, .Dir = dir, .Up = fn, .Radius = br, .Foliate = foliate},
+      g);
 }
 
 void TreeGrower::SpawnShoot(const Tip &parent,
@@ -330,7 +334,14 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
         const float roll = j == 0 ? 0.0f : kTau * 0.5f;
         const TreeVec3 fn = RadialAt(t.Dir, t.Up, roll);
         const TreeVec3 dir = Normalize(t.Dir + fn * 0.55f);
-        SpawnShoot(t, Request{last, roll, dir, fn, t.Radius * 0.74f, t.Foliate}, g);
+        SpawnShoot(t,
+                   Request{.ParentNode = last,
+                           .Roll = roll,
+                           .Dir = dir,
+                           .Up = fn,
+                           .Radius = t.Radius * 0.74f,
+                           .Foliate = t.Foliate},
+                   g);
       }
     }
     if (t.Foliate && ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * 1.7f)) &&

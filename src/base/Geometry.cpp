@@ -218,7 +218,7 @@ void Geometry::place(int part, const double modelM16[16]) {
 }
 
 MaterialInstance Geometry::addSurface(std::string_view named, const Material &surface) {
-  Held_->Surfaces.push_back(Geometry::Held::Named{std::string(named), surface});
+  Held_->Surfaces.push_back(Geometry::Held::Named{.Named = std::string(named), .Surface = surface});
   return MaterialInstance(static_cast<int>(Held_->Surfaces.size()) - 1);
 }
 
@@ -260,8 +260,9 @@ bool Geometry::setSurface(MaterialInstance surface, const Material &row) {
 ImageView Geometry::imageAt(int image) const {
   if (image < 0 || static_cast<size_t>(image) >= Held_->Images.size()) { return ImageView{}; }
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
-  return ImageView{
-      held.WidthPx, held.HeightPx, std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
+  return ImageView{.WidthPx = held.WidthPx,
+                   .HeightPx = held.HeightPx,
+                   .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
 }
 
 int Geometry::surfaces() const {

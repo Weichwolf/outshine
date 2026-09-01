@@ -56,35 +56,43 @@ struct VertexLayoutRow {
 };
 
 inline constexpr std::array kVertexLayouts = {
-    VertexLayoutRow{VertexLayout::Position, VertexAttribute::None},
-    VertexLayoutRow{VertexLayout::PositionUv, VertexAttribute::Uv},
-    VertexLayoutRow{VertexLayout::PositionUvUv1, VertexAttribute::Uv | VertexAttribute::Uv1},
-    VertexLayoutRow{VertexLayout::PositionNormal, VertexAttribute::Normal},
-    VertexLayoutRow{VertexLayout::PositionNormalUv, VertexAttribute::Uv | VertexAttribute::Normal},
-    VertexLayoutRow{VertexLayout::PositionNormalUvUv1,
-                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal},
-    VertexLayoutRow{VertexLayout::PositionNormalUvTangent,
-                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent},
-    VertexLayoutRow{VertexLayout::PositionNormalUvUv1Tangent,
-                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
-                        VertexAttribute::Tangent},
-    VertexLayoutRow{VertexLayout::PositionColour, VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionUvColour, VertexAttribute::Uv | VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionUvUv1Colour,
-                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionNormalColour,
-                    VertexAttribute::Normal | VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionNormalUvColour,
-                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionNormalUvUv1Colour,
-                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
-                        VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionNormalUvTangentColour,
-                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent |
-                        VertexAttribute::Colour},
-    VertexLayoutRow{VertexLayout::PositionNormalUvUv1TangentColour,
-                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
-                        VertexAttribute::Tangent | VertexAttribute::Colour}};
+    VertexLayoutRow{.Layout = VertexLayout::Position, .Carries = VertexAttribute::None},
+    VertexLayoutRow{.Layout = VertexLayout::PositionUv, .Carries = VertexAttribute::Uv},
+    VertexLayoutRow{.Layout = VertexLayout::PositionUvUv1,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Uv1},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormal, .Carries = VertexAttribute::Normal},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUv,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Normal},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvUv1,
+                    .Carries =
+                        VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvTangent,
+                    .Carries =
+                        VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvUv1Tangent,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Uv1 |
+                               VertexAttribute::Normal | VertexAttribute::Tangent},
+    VertexLayoutRow{.Layout = VertexLayout::PositionColour, .Carries = VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionUvColour,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionUvUv1Colour,
+                    .Carries =
+                        VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalColour,
+                    .Carries = VertexAttribute::Normal | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvColour,
+                    .Carries =
+                        VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvUv1Colour,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Uv1 |
+                               VertexAttribute::Normal | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvTangentColour,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Normal |
+                               VertexAttribute::Tangent | VertexAttribute::Colour},
+    VertexLayoutRow{.Layout = VertexLayout::PositionNormalUvUv1TangentColour,
+                    .Carries = VertexAttribute::Uv | VertexAttribute::Uv1 |
+                               VertexAttribute::Normal | VertexAttribute::Tangent |
+                               VertexAttribute::Colour}};
 
 [[nodiscard]] constexpr bool VertexLayoutsIndexThemselves() {
   for (size_t at = 0; at < kVertexLayouts.size(); ++at) {
@@ -129,13 +137,13 @@ inline constexpr uint32_t kMostVertexRuns = 7;
 
 [[nodiscard]] constexpr uint32_t RunsOf(VertexLayout layout, bool writesVelocity, VertexRun *out) {
   uint32_t n = 0;
-  out[n++] = VertexRun{3, 0};
-  if (CarriesUv(layout)) { out[n++] = VertexRun{2, 1}; }
-  if (CarriesUv1(layout)) { out[n++] = VertexRun{2, 6}; }
-  out[n++] = VertexRun{3, CarriesNormal(layout) ? 3u : 2u};
-  if (CarriesTangent(layout)) { out[n++] = VertexRun{4, 4}; }
-  if (CarriesColour(layout)) { out[n++] = VertexRun{4, 7}; }
-  if (writesVelocity) { out[n++] = VertexRun{3, 5}; }
+  out[n++] = VertexRun{.Floats = 3, .Location = 0};
+  if (CarriesUv(layout)) { out[n++] = VertexRun{.Floats = 2, .Location = 1}; }
+  if (CarriesUv1(layout)) { out[n++] = VertexRun{.Floats = 2, .Location = 6}; }
+  out[n++] = VertexRun{.Floats = 3, .Location = CarriesNormal(layout) ? 3u : 2u};
+  if (CarriesTangent(layout)) { out[n++] = VertexRun{.Floats = 4, .Location = 4}; }
+  if (CarriesColour(layout)) { out[n++] = VertexRun{.Floats = 4, .Location = 7}; }
+  if (writesVelocity) { out[n++] = VertexRun{.Floats = 3, .Location = 5}; }
   return n;
 }
 

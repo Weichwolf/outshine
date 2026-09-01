@@ -25,7 +25,7 @@ int TreeMesher::AddVert(TreeVec3 p) {
 }
 
 int TreeMesher::AddFace(int a, int b, int c, int d) {
-  Faces_.push_back(Face{a, b, c, d});
+  Faces_.push_back(Face{.A = a, .B = b, .C = c, .D = d});
   Dead_.push_back(0);
   return static_cast<int>(Faces_.size()) - 1;
 }
@@ -239,7 +239,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
                             RoomAt(plant, shoot),
                             ring)) {
       at = shoot.First + 1;
-      Bands_[static_cast<size_t>(at)] = Band{wall, sides};
+      Bands_[static_cast<size_t>(at)] = Band{.First = wall, .Sides = sides};
     } else {
       Ring(anchor, anchor.Radius, sides, ring);
       Cap(anchor, ring, sides, RingCap::Base, 0u);
@@ -256,7 +256,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
       Wall(ring, next, sides);
 
       for (int skipped = covered + 1; skipped <= n; ++skipped) {
-        Bands_[static_cast<size_t>(skipped)] = Band{first, sides};
+        Bands_[static_cast<size_t>(skipped)] = Band{.First = first, .Sides = sides};
       }
       covered = n;
       for (int j = 0; j < sides; ++j) { ring[j] = next[j]; }

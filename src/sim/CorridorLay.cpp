@@ -656,7 +656,7 @@ bool LayCorridor(const Path::Route &route,
       worstGradeM = slope;
       worstGradeAtM = atM;
     }
-    rise.push_back(outshine::Knot{atM, roadM[post], slope});
+    rise.push_back(outshine::Knot{.AlongM = atM, .Value = roadM[post], .RatePerM = slope});
   }
   const bool rose = corridor.Rise(rise, error);
   if (!rose) { say.Refuse(Line("%s", error.c_str())); }

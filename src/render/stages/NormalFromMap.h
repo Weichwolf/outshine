@@ -18,17 +18,17 @@ struct Direction {
 }
 
 [[nodiscard]] inline Direction Cross(const Direction &left, const Direction &right) {
-  return {left.Y * right.Z - left.Z * right.Y,
-          left.Z * right.X - left.X * right.Z,
-          left.X * right.Y - left.Y * right.X};
+  return {.X = left.Y * right.Z - left.Z * right.Y,
+          .Y = left.Z * right.X - left.X * right.Z,
+          .Z = left.X * right.Y - left.Y * right.X};
 }
 
 [[nodiscard]] inline Direction Scaled(const Direction &of, double by) {
-  return {of.X * by, of.Y * by, of.Z * by};
+  return {.X = of.X * by, .Y = of.Y * by, .Z = of.Z * by};
 }
 
 [[nodiscard]] inline Direction Sum(const Direction &left, const Direction &right) {
-  return {left.X + right.X, left.Y + right.Y, left.Z + right.Z};
+  return {.X = left.X + right.X, .Y = left.Y + right.Y, .Z = left.Z + right.Z};
 }
 
 [[nodiscard]] inline Direction Normalised(const Direction &of) {
@@ -55,8 +55,12 @@ struct SurfaceBasis {
   const Direction perpendicular =
       Normalised(Sum(supplied.Tangent, Scaled(normal, -Dot(normal, supplied.Tangent))));
   const Direction bitangent = Scaled(Cross(normal, perpendicular), supplied.Handedness);
-  if (facing == Facing::Front) { return {perpendicular, bitangent, normal}; }
-  return {Scaled(perpendicular, -1.0), Scaled(bitangent, -1.0), Scaled(normal, -1.0)};
+  if (facing == Facing::Front) {
+    return {.Tangent = perpendicular, .Bitangent = bitangent, .Normal = normal};
+  }
+  return {.Tangent = Scaled(perpendicular, -1.0),
+          .Bitangent = Scaled(bitangent, -1.0),
+          .Normal = Scaled(normal, -1.0)};
 }
 
 [[nodiscard]] inline Direction

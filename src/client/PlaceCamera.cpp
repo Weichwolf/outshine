@@ -233,7 +233,10 @@ Shot Take(const Place &place, bool tells) {
   }
   Engine engine;
   if (Telling != nullptr) { engine.logsTo(Telling); }
-  engine.setRoots(Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(Roots{.Assets = "src/assets/drive",
+                        .Shipped = "src/assets",
+                        .Cache = "/tmp/outshine-drive-cache",
+                        .Offline = false});
   if (!engine.drawsInto(Extent{.WidthPx = kWidePx, .HeightPx = kHighPx})) {
     shot.Why = "the device stood no canvas";
     return shot;

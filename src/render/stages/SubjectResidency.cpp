@@ -146,7 +146,10 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
-    Staged_[StagedCount_++] = Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_.Get()};
+    Staged_[StagedCount_++] = Staged{.Into = what[one].Into->Get(),
+                                     .From = at,
+                                     .Bytes = what[one].Bytes,
+                                     .Staging = Staging_.Get()};
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
@@ -194,8 +197,9 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   at = 0;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
-    const SDL_GPUTransferBufferLocation source{Bulk_.Get(), at};
-    const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
+    const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
+    const SDL_GPUBufferRegion into{
+        .buffer = what[one].Into->Get(), .offset = 0, .size = what[one].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
@@ -208,8 +212,10 @@ void SubjectResidency::FlushCrossings(SDL_GPUCommandBuffer *commands) {
   if (StagedCount_ == 0 || commands == nullptr) { return; }
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   for (size_t at = 0; at < StagedCount_; ++at) {
-    const SDL_GPUTransferBufferLocation source{Staged_[at].Staging, Staged_[at].From};
-    const SDL_GPUBufferRegion into{Staged_[at].Into, 0, Staged_[at].Bytes};
+    const SDL_GPUTransferBufferLocation source{.transfer_buffer = Staged_[at].Staging,
+                                               .offset = Staged_[at].From};
+    const SDL_GPUBufferRegion into{
+        .buffer = Staged_[at].Into, .offset = 0, .size = Staged_[at].Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     gCrossingsFlushed.fetch_add(1u, std::memory_order_relaxed);
   }

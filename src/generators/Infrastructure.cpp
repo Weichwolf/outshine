@@ -19,7 +19,8 @@ Infrastructure::MadeAt(const Ground &ground, double eastM, double northM) const 
     const float widthM = f.Form == FeatureForm::Ribbon ? 2.0f * f.HalfWidthM : 0.0f;
     if (made && widthM <= made->WidthM) { continue; }
     if (!features.Contains(f, eastM, northM)) { continue; }
-    made = Made{f.CoverRow, widthM, ground.HeightAslM(eastM, northM)};
+    made = Made{
+        .CoverRow = f.CoverRow, .WidthM = widthM, .SurfaceAslM = ground.HeightAslM(eastM, northM)};
   }
   return made;
 }

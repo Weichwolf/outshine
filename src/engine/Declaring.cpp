@@ -29,7 +29,8 @@ Result Engine::handleEvent(const SDL_Event &event) {
     for (size_t at = 0; at < many; ++at) {
       const std::string *const named = S_->Session.Bound.ActionNamed(fired[at].Action);
       if (named == nullptr) { continue; }
-      const Argument value{Argument::Kind::Number, static_cast<double>(fired[at].Value), {}};
+      const Argument value{
+          .Is = Argument::Kind::Number, .Number = static_cast<double>(fired[at].Value), .Text = {}};
       acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
     return (acted) ? Result{} : std::unexpected(S_->Error);

@@ -19,7 +19,7 @@ struct UvTransform {
   double M[6] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0};
 
   [[nodiscard]] UvPoint Apply(UvPoint uv) const {
-    return UvPoint{M[0] * uv.U + M[1] * uv.V + M[2], M[3] * uv.U + M[4] * uv.V + M[5]};
+    return UvPoint{.U = M[0] * uv.U + M[1] * uv.V + M[2], .V = M[3] * uv.U + M[4] * uv.V + M[5]};
   }
 };
 

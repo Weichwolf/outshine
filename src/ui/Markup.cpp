@@ -138,7 +138,12 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   Style_.clear();
   Root_ = -1;
 
-  Nodes_.push_back({NodeKind::Element, "#document", "", {}, {}, -1});
+  Nodes_.push_back({.Kind = NodeKind::Element,
+                    .Name = "#document",
+                    .Text = "",
+                    .Attributes = {},
+                    .Children = {},
+                    .Parent = -1});
   Root_ = 0;
   std::vector<int> open{0};
 
@@ -154,7 +159,12 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   std::string text;
   const auto flush = [&]() {
     if (text.empty()) { return; }
-    push({NodeKind::Text, "", text, {}, {}, -1});
+    push({.Kind = NodeKind::Text,
+          .Name = "",
+          .Text = text,
+          .Attributes = {},
+          .Children = {},
+          .Parent = -1});
     text.clear();
   };
 
@@ -211,7 +221,12 @@ bool Markup::Read(std::string_view markup, std::string &error) {
       continue;
     }
 
-    Node element{NodeKind::Element, name, "", {}, {}, -1};
+    Node element{.Kind = NodeKind::Element,
+                 .Name = name,
+                 .Text = "",
+                 .Attributes = {},
+                 .Children = {},
+                 .Parent = -1};
     bool selfClosing = false;
     while (cursor < markup.size()) {
       while (cursor < markup.size() && Space(markup[cursor])) { ++cursor; }
@@ -279,7 +294,12 @@ bool Markup::Read(std::string_view markup, std::string &error) {
         open.push_back(node);
         std::string resolved;
         Resolve(body, resolved);
-        push({NodeKind::Text, "", resolved, {}, {}, -1});
+        push({.Kind = NodeKind::Text,
+              .Name = "",
+              .Text = resolved,
+              .Attributes = {},
+              .Children = {},
+              .Parent = -1});
         open.back() = held;
         open.pop_back();
       }

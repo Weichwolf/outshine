@@ -221,9 +221,9 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16],
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
   SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  SDL_GPUBufferBinding vertices{Resident_.Vtx.Get(), 0};
+  SDL_GPUBufferBinding vertices{.buffer = Resident_.Vtx.Get(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  SDL_GPUBufferBinding indices{Resident_.Idx.Get(), 0};
+  SDL_GPUBufferBinding indices{.buffer = Resident_.Idx.Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
   SDL_GPUBuffer *const rows[1] = {Resident_.Placed.Get()};

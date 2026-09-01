@@ -90,7 +90,8 @@ public:
                          Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override {
     if (Full()) { return false; }
-    Into_->push_back({body.Index(), static_cast<uint32_t>(cluster), instance});
+    Into_->push_back(
+        {.Body = body.Index(), .Cluster = static_cast<uint32_t>(cluster), .Where = instance});
     return true;
   }
 
@@ -172,7 +173,7 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
   if (!over) { return false; }
   Generators::RegionPool::Shape shape;
-  Generators::RegionPool::Extent extent{over->Where(), over->Where()};
+  Generators::RegionPool::Extent extent{.Reached = over->Where(), .Anywhere = over->Where()};
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   Published.Places("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
@@ -715,7 +716,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     inFrame[at] = static_cast<float>(eastM);
     inFrame[at + 1] = static_cast<float>(upM);
     inFrame[at + 2] = static_cast<float>(-northM);
-    const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+    const Ground::Geo where =
+        Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
     const double below = where.AltM - upM;
     if (below > sank) {
       sank = below;
@@ -824,7 +826,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const double held[3] = {laid->OriginEcef[0] + static_cast<double>(laid->PositionM[at]),
                                 laid->OriginEcef[1] + static_cast<double>(laid->PositionM[at + 1]),
                                 laid->OriginEcef[2] + static_cast<double>(laid->PositionM[at + 2])};
-        const Ground::Geo where = Ground::EcefToGeoWgs84(Ground::Ecef{held[0], held[1], held[2]});
+        const Ground::Geo where =
+            Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
         double edgeM = 0.0;
         int second = -1;
         const int which =

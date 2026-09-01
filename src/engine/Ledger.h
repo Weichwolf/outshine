@@ -44,7 +44,7 @@ public:
         return;
       }
     }
-    Numbers_.push_back(Measure{what, how, unit});
+    Numbers_.push_back(Measure{.What = what, .How = how, .Unit = unit});
     Rounds_.push_back(Round_);
   }
 

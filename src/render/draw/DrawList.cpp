@@ -62,7 +62,7 @@ void DrawList::Compile() {
   IndexCount_ = 0;
   for (DrawItem &draw : Draws_) {
     draw.FirstIndex = IndexCount_;
-    Runs_.push_back({draw.SourceFirstIndex, draw.IndexCount});
+    Runs_.push_back({.SourceFirst = draw.SourceFirstIndex, .Count = draw.IndexCount});
     IndexCount_ += draw.IndexCount;
     if (!Batches_.empty() && SameState(Batches_.back(), draw) &&
         Batches_.back().FirstIndex + Batches_.back().IndexCount == draw.FirstIndex) {
@@ -70,16 +70,16 @@ void DrawList::Compile() {
       ++Batches_.back().Draws;
       continue;
     }
-    Batches_.push_back({draw.FirstIndex,
-                        draw.IndexCount,
-                        draw.Order.MaterialSlot,
-                        draw.Layout,
-                        draw.Order.Surface.Kind(),
-                        1,
-                        draw.ModelSlot,
-                        draw.Instances,
-                        0,
-                        0});
+    Batches_.push_back({.FirstIndex = draw.FirstIndex,
+                        .IndexCount = draw.IndexCount,
+                        .MaterialSlot = draw.Order.MaterialSlot,
+                        .Layout = draw.Layout,
+                        .Kind = draw.Order.Surface.Kind(),
+                        .Draws = 1,
+                        .ModelSlot = draw.ModelSlot,
+                        .Instances = draw.Instances,
+                        .FirstJob = 0,
+                        .JobCount = 0});
   }
 
   size_t at = 0;

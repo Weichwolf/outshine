@@ -637,7 +637,7 @@ bool Live::Look(std::string &error) {
   for (int axis = 0; axis < 3; ++axis) { framed.Right[axis] = basis[axis]; }
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
-  Looking_ = {framed, false, Joined_};
+  Looking_ = {.Eye = framed, .StandsInside = false, .FramedParts = Joined_};
   Render::ShapeStore aiming;
   return Render::Aim(
       *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
@@ -662,7 +662,9 @@ bool Live::Stand(std::string &error) {
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
     if (!Stood_.Places(part, standingM16)) { return false; }
   }
-  Looking_ = {HaveEye_ ? Eye_ : Render::Viewpoint{}, HaveEye_, Joined_};
+  Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
+              .StandsInside = HaveEye_,
+              .FramedParts = Joined_};
   for (std::array<double, 16> &one : SentBody_) {
     one.fill(std::numeric_limits<double>::quiet_NaN());
   }

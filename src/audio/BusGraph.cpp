@@ -51,7 +51,7 @@ bool BusGraph::Build(std::span<const Bus> buses,
               "coin toss";
       return false;
     }
-    Buses_.push_back(Row{bus.Id, -1, Linear(bus.GainDb)});
+    Buses_.push_back(Row{.Id = bus.Id, .Into = -1, .Gain = Linear(bus.GainDb)});
   }
   for (size_t at = 0; at < buses.size(); ++at) {
     if (buses[at].Into.empty()) {
@@ -116,7 +116,10 @@ bool BusGraph::Build(std::span<const Bus> buses,
               "distance is a stereo source wearing a costume";
       return false;
     }
-    Sounds_.push_back(Source{sound.Id, into, Linear(sound.GainDb), sound.Heard.Positional});
+    Sounds_.push_back(Source{.Id = sound.Id,
+                             .Into = into,
+                             .Gain = Linear(sound.GainDb),
+                             .Positional = sound.Heard.Positional});
   }
   return true;
 }

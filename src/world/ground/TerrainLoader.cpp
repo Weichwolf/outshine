@@ -87,7 +87,7 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
       static_cast<float>((px - static_cast<double>(c0)) / static_cast<double>(c1 - c0));
   const float sv =
       static_cast<float>((py - static_cast<double>(r0)) / static_cast<double>(r1 - r0));
-  const Ground::ChunkCell cell{nodes, side, j, i};
+  const Ground::ChunkCell cell{.Nodes = nodes, .Stride = side, .Row = j, .Col = i};
   return static_cast<double>(Ground::ChunkCellHeight(cell, su, sv));
 }
 

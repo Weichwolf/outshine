@@ -176,7 +176,7 @@ Entity Scene::Kept::addEntity(Role role) {
   slot.RoleNext = RoleHead_[static_cast<size_t>(role)];
   if (slot.RoleNext != kNoRef) { Slots_[slot.RoleNext].RolePrev = index; }
   RoleHead_[static_cast<size_t>(role)] = index;
-  return Entity{index, generation};
+  return Entity{.Index = index, .Generation = generation};
 }
 
 void Scene::Kept::remove(Entity of) {
@@ -196,7 +196,7 @@ void Scene::Kept::remove(Entity of) {
       for (uint32_t in = held->InHead[how]; in != kNoRef; in = At(in).InNext) {
         ++Touched_;
         const uint32_t source = in / kPairsPerEntity;
-        Felling_.push_back(Entity{source, Slots_[source].Generation});
+        Felling_.push_back(Entity{.Index = source, .Generation = Slots_[source].Generation});
         deferred = true;
       }
     }
@@ -397,7 +397,12 @@ bool Scene::Kept::link(Entity from, Relation how, Entity to) {
   }
   const uint32_t ref = from.Index * static_cast<uint32_t>(kPairsPerEntity) +
                        static_cast<uint32_t>(writable->PairCount);
-  writable->Pairs[writable->PairCount++] = Pair{how, to, kNoRef, kNoRef, kNoRef, kNoRef};
+  writable->Pairs[writable->PairCount++] = Pair{.How = how,
+                                                .To = to,
+                                                .InNext = kNoRef,
+                                                .InPrev = kNoRef,
+                                                .RelNext = kNoRef,
+                                                .RelPrev = kNoRef};
   LinkIn(ref);
   return true;
 }
@@ -433,7 +438,7 @@ size_t Scene::Kept::sources(Entity to, Relation how, Entity into[], size_t room)
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
     if (into != nullptr && found < room) {
-      into[found] = Entity{source, Slots_[source].Generation};
+      into[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
     }
     ++found;
   }
@@ -444,7 +449,9 @@ size_t Scene::Kept::entitiesWithRole(Role role, Entity into[], size_t room) cons
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
-    if (into != nullptr && found < room) { into[found] = Entity{at, Slots_[at].Generation}; }
+    if (into != nullptr && found < room) {
+      into[found] = Entity{.Index = at, .Generation = Slots_[at].Generation};
+    }
     ++found;
   }
   return found;
@@ -456,7 +463,9 @@ size_t Scene::Kept::linkedPairs(Relation how, Entity from[], Entity to[], size_t
     ++Touched_;
     const uint32_t source = ref / kPairsPerEntity;
     if (found < room) {
-      if (from != nullptr) { from[found] = Entity{source, Slots_[source].Generation}; }
+      if (from != nullptr) {
+        from[found] = Entity{.Index = source, .Generation = Slots_[source].Generation};
+      }
       if (to != nullptr) { to[found] = At(ref).To; }
     }
     ++found;
@@ -468,7 +477,7 @@ size_t Scene::Kept::entitiesWithTagAndRole(Tag tag, Role role, Entity into[], si
   size_t found = 0;
   for (uint32_t at = RoleHead_[static_cast<size_t>(role)]; at != kNoRef; at = Slots_[at].RoleNext) {
     ++Touched_;
-    const Entity one{at, Slots_[at].Generation};
+    const Entity one{.Index = at, .Generation = Slots_[at].Generation};
     if (!hasTag(one, tag)) { continue; }
     if (into != nullptr && found < room) { into[found] = one; }
     ++found;
@@ -489,7 +498,7 @@ Entity Scene::Kept::instantiate(Entity prefab) {
     return kNoEntity;
   }
   Raising_.clear();
-  Raising_.push_back(Standing{prefab, instance});
+  Raising_.push_back(Standing{.Source = prefab, .Under = instance});
   while (!Raising_.empty()) {
     const Standing at = Raising_.back();
     Raising_.pop_back();
@@ -498,7 +507,7 @@ Entity Scene::Kept::instantiate(Entity prefab) {
       ++Touched_;
       const uint32_t source = in / kPairsPerEntity;
       const uint32_t next = At(in).InNext;
-      const Entity childId{source, Slots_[source].Generation};
+      const Entity childId{.Index = source, .Generation = Slots_[source].Generation};
       if (childId == instance || childId == at.Under) {
         in = next;
         continue;
@@ -511,7 +520,7 @@ Entity Scene::Kept::instantiate(Entity prefab) {
         remove(instance);
         return kNoEntity;
       }
-      Raising_.push_back(Standing{childId, copied});
+      Raising_.push_back(Standing{.Source = childId, .Under = copied});
       in = next;
     }
   }
@@ -525,7 +534,7 @@ Entity Scene::Kept::copyOf(Entity instance, Entity prefabChild) const {
        in = At(in).InNext) {
     ++Touched_;
     const uint32_t source = in / kPairsPerEntity;
-    const Entity childId{source, Slots_[source].Generation};
+    const Entity childId{.Index = source, .Generation = Slots_[source].Generation};
     if (targetOf(childId, Relation::IsA) == prefabChild) { return childId; }
   }
   return kNoEntity;
@@ -559,7 +568,9 @@ size_t Scene::Kept::entitiesOffering(Tag activity, Entity into[], size_t room) c
     ++Touched_;
     const Slot &slot = Slots_[at];
     if (!slot.Offers.within(activity)) { continue; }
-    if (into != nullptr && found < room) { into[found] = Entity{at, slot.Generation}; }
+    if (into != nullptr && found < room) {
+      into[found] = Entity{.Index = at, .Generation = slot.Generation};
+    }
     ++found;
   }
   return found;
@@ -578,7 +589,7 @@ bool Scene::Kept::claimSeat(Entity by, Entity at) {
     Taken &taken = slot->Seats[seat];
     if (taken.State != Seat::Free && Held(taken.By) == nullptr) { taken = Taken{}; }
     if (taken.State == Seat::Free) {
-      taken = Taken{by, Seat::Claimed};
+      taken = Taken{.By = by, .State = Seat::Claimed};
       return true;
     }
   }

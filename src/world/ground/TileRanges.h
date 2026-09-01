@@ -18,7 +18,7 @@ public:
     if (static_cast<size_t>(tile) >= Ranges_.size()) {
       Ranges_.resize(static_cast<size_t>(tile) + 1);
     }
-    Ranges_[tile] = Range{first, end - first};
+    Ranges_[tile] = Range{.First = first, .Count = end - first};
   }
 
   Range At(uint32_t tile) const {

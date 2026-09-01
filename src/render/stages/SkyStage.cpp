@@ -103,7 +103,8 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound[2] = {{SkyView, Lut}, {Veil, Lut}};
+  const SDL_GPUTextureSamplerBinding bound[2] = {{.texture = SkyView, .sampler = Lut},
+                                                 {.texture = Veil, .sampler = Lut}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 2);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);

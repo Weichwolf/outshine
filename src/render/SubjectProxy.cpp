@@ -509,25 +509,38 @@ bool Place(SceneRenderer &renderer,
   gPackMs.store(0.0, std::memory_order_relaxed);
 
   SubjectMesh mesh;
-  const ChannelPack positions{&subject, &ShapePart::PositionsM, 3};
-  const ChannelPack uv{&subject, &ShapePart::Uv, 2};
-  const ChannelPack uv1{&subject, &ShapePart::Uv1, 2};
-  const ChannelPack normals{&subject, &ShapePart::Normals, 3};
-  const ChannelPack tangents{&subject, &ShapePart::Tangents, 4};
-  const ChannelPack colours{&subject, &ShapePart::Colours, 4};
-  const EmitPack emitted{&subject, &proxy};
+  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
+  const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
+  const ChannelPack uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2};
+  const ChannelPack normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3};
+  const ChannelPack tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4};
+  const ChannelPack colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4};
+  const EmitPack emitted{.From = &subject, .Proxy = &proxy};
 
-  mesh.Verts = SubjectStream{nullptr, PackChannel, &positions};
-  if (subject.CarriesUv) { mesh.Uv = SubjectStream{nullptr, PackChannel, &uv}; }
-  if (subject.CarriesUv1) { mesh.Uv1 = SubjectStream{nullptr, PackChannel, &uv1}; }
-  if (subject.CarriesNormal) { mesh.Normals = SubjectStream{nullptr, PackChannel, &normals}; }
-  if (subject.CarriesTangent) { mesh.Tangents = SubjectStream{nullptr, PackChannel, &tangents}; }
-  if (subject.CarriesColour) { mesh.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
-  mesh.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
+  mesh.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
+  if (subject.CarriesUv) {
+    mesh.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
+  }
+  if (subject.CarriesUv1) {
+    mesh.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
+  }
+  if (subject.CarriesNormal) {
+    mesh.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
+  }
+  if (subject.CarriesTangent) {
+    mesh.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
+  }
+  if (subject.CarriesColour) {
+    mesh.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
+  }
+  mesh.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   mesh.Positions = scratch.Vertices;
-  if (proxy.Previous()) { mesh.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
+  if (proxy.Previous()) {
+    mesh.PrevVerts =
+        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
+  }
   mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
@@ -593,21 +606,31 @@ bool Move(SceneRenderer &renderer,
   if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
   SubjectPose pose;
-  const ChannelPack positions{&subject, &ShapePart::PositionsM, 3};
-  const ChannelPack uv{&subject, &ShapePart::Uv, 2};
-  const ChannelPack uv1{&subject, &ShapePart::Uv1, 2};
-  const ChannelPack normals{&subject, &ShapePart::Normals, 3};
-  const ChannelPack tangents{&subject, &ShapePart::Tangents, 4};
-  const ChannelPack colours{&subject, &ShapePart::Colours, 4};
-  const EmitPack emitted{&subject, &proxy};
+  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
+  const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
+  const ChannelPack uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2};
+  const ChannelPack normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3};
+  const ChannelPack tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4};
+  const ChannelPack colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4};
+  const EmitPack emitted{.From = &subject, .Proxy = &proxy};
 
-  pose.Verts = SubjectStream{nullptr, PackChannel, &positions};
-  if (subject.CarriesUv) { pose.Uv = SubjectStream{nullptr, PackChannel, &uv}; }
-  if (subject.CarriesUv1) { pose.Uv1 = SubjectStream{nullptr, PackChannel, &uv1}; }
-  if (subject.CarriesNormal) { pose.Normals = SubjectStream{nullptr, PackChannel, &normals}; }
-  if (subject.CarriesTangent) { pose.Tangents = SubjectStream{nullptr, PackChannel, &tangents}; }
-  if (subject.CarriesColour) { pose.Colours = SubjectStream{nullptr, PackChannel, &colours}; }
-  pose.Emitted = SubjectStream{nullptr, PackEmitted, &emitted};
+  pose.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
+  if (subject.CarriesUv) {
+    pose.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
+  }
+  if (subject.CarriesUv1) {
+    pose.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
+  }
+  if (subject.CarriesNormal) {
+    pose.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
+  }
+  if (subject.CarriesTangent) {
+    pose.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
+  }
+  if (subject.CarriesColour) {
+    pose.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
+  }
+  pose.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   if (scratch.Digests) {
@@ -627,7 +650,10 @@ bool Move(SceneRenderer &renderer,
     gDigestMs.store(0.0, std::memory_order_relaxed);
   }
   pose.Positions = scratch.Vertices;
-  if (proxy.Previous()) { pose.PrevVerts = SubjectStream{nullptr, PackPrevious, proxy.Previous()}; }
+  if (proxy.Previous()) {
+    pose.PrevVerts =
+        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = proxy.Previous()};
+  }
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   const Heap::Tagged handing("subject-pose");

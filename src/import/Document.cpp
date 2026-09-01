@@ -641,9 +641,9 @@ bool Document::ReadJson(const char *text,
                              said.GetKind() == Json::Kind::Number ||
                              said.GetKind() == Json::Kind::Bool;
         held.Held.push_back(
-            MetadataProperty{std::move(key),
-                             spelled ? said.Str("") : std::string(said.Source()),
-                             spelled ? MetadataShape::Text : MetadataShape::Structure});
+            MetadataProperty{.Key = std::move(key),
+                             .Value = spelled ? said.Str("") : std::string(said.Source()),
+                             .Shape = spelled ? MetadataShape::Text : MetadataShape::Structure});
       }
       Metadata_.push_back(std::move(held));
     }
@@ -654,12 +654,12 @@ bool Document::ReadJson(const char *text,
     };
 
     static constexpr Carrier kCarriers[] = {
-        {"scenes", MetadataCarrier::Scene},
-        {"nodes", MetadataCarrier::Node},
-        {"meshes", MetadataCarrier::Mesh},
-        {"materials", MetadataCarrier::Material},
-        {"images", MetadataCarrier::Image},
-        {"animations", MetadataCarrier::Animation},
+        {.Array = "scenes", .Kind = MetadataCarrier::Scene},
+        {.Array = "nodes", .Kind = MetadataCarrier::Node},
+        {.Array = "meshes", .Kind = MetadataCarrier::Mesh},
+        {.Array = "materials", .Kind = MetadataCarrier::Material},
+        {.Array = "images", .Kind = MetadataCarrier::Image},
+        {.Array = "animations", .Kind = MetadataCarrier::Animation},
     };
 
     const auto Points =
@@ -673,8 +673,9 @@ bool Document::ReadJson(const char *text,
                       Number(Metadata_.size()) +
                       " -- a packet index outside the array it indexes is a refusal");
       }
-      MetadataUses_.push_back(
-          MetadataUse{carrier, static_cast<uint32_t>(which), static_cast<uint32_t>(packet)});
+      MetadataUses_.push_back(MetadataUse{.Carrier = carrier,
+                                          .Which = static_cast<uint32_t>(which),
+                                          .Packet = static_cast<uint32_t>(packet)});
       return true;
     };
 
@@ -837,7 +838,9 @@ bool Document::ReadJson(const char *text,
                         " has a POSITION accessor without the min/max bounds glTF 2.0 "
                         "requires");
         }
-        const AttributeShape shape{carried.Element, carried.Component, carried.Normalized};
+        const AttributeShape shape{.Element = carried.Element,
+                                   .Component = carried.Component,
+                                   .Normalized = carried.Normalized};
         if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
           return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
                         attribute.Semantic +
@@ -1243,7 +1246,7 @@ bool Document::ReadAnimations(const Json &json) {
         const std::string pointer = target["extensions"][kAnimationPointer]["pointer"].Str("");
         UndrivenReason why = UndrivenReason::PointerUnparsed;
         if (!ResolveMaterialPointer(pointer, channel, why)) {
-          animation.Undriven.push_back(UndrivenChannel{pointer, why});
+          animation.Undriven.push_back(UndrivenChannel{.Pointer = pointer, .Why = why});
           continue;
         }
       } else {
@@ -1723,13 +1726,13 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     const char *Slot;
     TextureRef *Into;
   } slots[] = {
-      {pbr, "baseColorTexture", &material.BaseColour},
-      {pbr, "metallicRoughnessTexture", &material.MetallicRoughness},
-      {declaration, "normalTexture", &material.Normal},
-      {declaration, "occlusionTexture", &material.Occlusion},
-      {declaration, "emissiveTexture", &material.Emissive},
-      {specular, "specularTexture", &material.SpecularStrength},
-      {specular, "specularColorTexture", &material.SpecularTint},
+      {.Under = pbr, .Slot = "baseColorTexture", .Into = &material.BaseColour},
+      {.Under = pbr, .Slot = "metallicRoughnessTexture", .Into = &material.MetallicRoughness},
+      {.Under = declaration, .Slot = "normalTexture", .Into = &material.Normal},
+      {.Under = declaration, .Slot = "occlusionTexture", .Into = &material.Occlusion},
+      {.Under = declaration, .Slot = "emissiveTexture", .Into = &material.Emissive},
+      {.Under = specular, .Slot = "specularTexture", .Into = &material.SpecularStrength},
+      {.Under = specular, .Slot = "specularColorTexture", .Into = &material.SpecularTint},
   };
 
   for (const auto &slot : slots) {

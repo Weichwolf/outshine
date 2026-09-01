@@ -55,8 +55,8 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu,
 void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecording &into) {
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding images[kCompositeImages] = {{Opaque, Exact},
-                                                                 {Transmissive, Exact}};
+  const SDL_GPUTextureSamplerBinding images[kCompositeImages] = {
+      {.texture = Opaque, .sampler = Exact}, {.texture = Transmissive, .sampler = Exact}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kCompositeImages);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }

@@ -79,12 +79,54 @@ inline constexpr uint8_t kEveryRole = static_cast<uint8_t>(
     RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) | RoleBit(Role::Assignment));
 
 inline constexpr RelationRule kRules[kRelations] = {
-    {Relation::IsA, true, true, false, true, kEveryRole, {}, kNoRelation},
-    {Relation::ChildOf, true, true, true, false, kEveryRole, {}, kNoRelation},
-    {Relation::DrivenBy, true, false, false, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
-    {Relation::Uses, false, false, false, false, RoleBit(Role::Tool), {}, kNoRelation},
-    {Relation::Assigned, true, false, false, false, RoleBit(Role::Assignment), {}, Relation::Uses},
-    {Relation::HeldBy, true, true, false, false, RoleBit(Role::Body), {}, kNoRelation},
+    {.Named = Relation::IsA,
+     .Exclusive = true,
+     .Acyclic = true,
+     .OwnedByTarget = false,
+     .SameRole = true,
+     .TargetRoles = kEveryRole,
+     .SourceDoes = {},
+     .Requires = kNoRelation},
+    {.Named = Relation::ChildOf,
+     .Exclusive = true,
+     .Acyclic = true,
+     .OwnedByTarget = true,
+     .SameRole = false,
+     .TargetRoles = kEveryRole,
+     .SourceDoes = {},
+     .Requires = kNoRelation},
+    {.Named = Relation::DrivenBy,
+     .Exclusive = true,
+     .Acyclic = false,
+     .OwnedByTarget = false,
+     .SameRole = false,
+     .TargetRoles = RoleBit(Role::Mind),
+     .SourceDoes = tags::Does,
+     .Requires = kNoRelation},
+    {.Named = Relation::Uses,
+     .Exclusive = false,
+     .Acyclic = false,
+     .OwnedByTarget = false,
+     .SameRole = false,
+     .TargetRoles = RoleBit(Role::Tool),
+     .SourceDoes = {},
+     .Requires = kNoRelation},
+    {.Named = Relation::Assigned,
+     .Exclusive = true,
+     .Acyclic = false,
+     .OwnedByTarget = false,
+     .SameRole = false,
+     .TargetRoles = RoleBit(Role::Assignment),
+     .SourceDoes = {},
+     .Requires = Relation::Uses},
+    {.Named = Relation::HeldBy,
+     .Exclusive = true,
+     .Acyclic = true,
+     .OwnedByTarget = false,
+     .SameRole = false,
+     .TargetRoles = RoleBit(Role::Body),
+     .SourceDoes = {},
+     .Requires = kNoRelation},
 };
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {
@@ -147,7 +189,7 @@ struct Entity {
   }
 };
 
-inline constexpr Entity kNoEntity{0xFFFFFFFFu, 0};
+inline constexpr Entity kNoEntity{.Index = 0xFFFFFFFFu, .Generation = 0};
 inline constexpr size_t kPairsPerEntity = 8;
 inline constexpr size_t kTagsPerEntity = 8;
 inline constexpr size_t kSeatsPerOffer = 4;

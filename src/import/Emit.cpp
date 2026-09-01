@@ -144,11 +144,11 @@ private:
     const struct {
       const TextureRef &Slot;
       const char *Name;
-    } images[] = {{material.BaseColour, "baseColorTexture"},
-                  {material.MetallicRoughness, "metallicRoughnessTexture"},
-                  {material.Normal, "normalTexture"},
-                  {material.Occlusion, "occlusionTexture"},
-                  {material.Emissive, "emissiveTexture"}};
+    } images[] = {{.Slot = material.BaseColour, .Name = "baseColorTexture"},
+                  {.Slot = material.MetallicRoughness, .Name = "metallicRoughnessTexture"},
+                  {.Slot = material.Normal, .Name = "normalTexture"},
+                  {.Slot = material.Occlusion, .Name = "occlusionTexture"},
+                  {.Slot = material.Emissive, .Name = "emissiveTexture"}};
 
     for (const auto &image : images) {
       if (image.Slot.Declared()) {
@@ -233,13 +233,21 @@ private:
 
   std::string Streams(const Part &drawn) {
     const Attribute declared[] = {
-        {"POSITION", 3, &Subject_.PositionsM()},
-        {"NORMAL", 3, drawn.HasNormal ? &Subject_.Normals() : nullptr},
-        {"TEXCOORD_0", 2, drawn.HasUv ? &Subject_.Uv() : nullptr},
-        {"TEXCOORD_1", 2, drawn.HasUv1 ? &Subject_.Uv1() : nullptr},
-        {"TANGENT", 4, drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr},
+        {.Semantic = "POSITION", .Components = 3, .From = &Subject_.PositionsM()},
+        {.Semantic = "NORMAL",
+         .Components = 3,
+         .From = drawn.HasNormal ? &Subject_.Normals() : nullptr},
+        {.Semantic = "TEXCOORD_0", .Components = 2, .From = drawn.HasUv ? &Subject_.Uv() : nullptr},
+        {.Semantic = "TEXCOORD_1",
+         .Components = 2,
+         .From = drawn.HasUv1 ? &Subject_.Uv1() : nullptr},
+        {.Semantic = "TANGENT",
+         .Components = 4,
+         .From = drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr},
 
-        {"COLOR_0", 4, drawn.HasColour ? &Subject_.Colours() : nullptr}};
+        {.Semantic = "COLOR_0",
+         .Components = 4,
+         .From = drawn.HasColour ? &Subject_.Colours() : nullptr}};
     std::string json;
     for (const Attribute &attribute : declared) {
       if (attribute.From == nullptr) { continue; }

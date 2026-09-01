@@ -58,12 +58,12 @@ struct Loaded::Held {
       const struct {
         const Render::SubjectTexture &From;
         SurfaceMap &Into;
-      } maps[] = {{held.Colour, row.BaseColourMap},
-                  {held.Normal, row.NormalMap},
-                  {held.MetalRough, row.MetalRoughMap},
-                  {held.Emissive, row.EmissiveMap},
-                  {held.SpecularStrength, row.SpecularStrengthMap},
-                  {held.SpecularTint, row.SpecularTintMap}};
+      } maps[] = {{.From = held.Colour, .Into = row.BaseColourMap},
+                  {.From = held.Normal, .Into = row.NormalMap},
+                  {.From = held.MetalRough, .Into = row.MetalRoughMap},
+                  {.From = held.Emissive, .Into = row.EmissiveMap},
+                  {.From = held.SpecularStrength, .Into = row.SpecularStrengthMap},
+                  {.From = held.SpecularTint, .Into = row.SpecularTintMap}};
 
       for (const auto &map : maps) { Names(map.From, map.Into); }
       if (!Handed.setSurface(MaterialInstance(index), row)) {

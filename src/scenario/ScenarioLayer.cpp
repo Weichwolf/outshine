@@ -184,13 +184,13 @@ bool ApplyLayer(Scenario &into,
   };
 
   const SectionRow sections[] = {
-      {fragment.Lit.Declared, "lighting"},
-      {fragment.Ground.Declared, "world"},
-      {fragment.Render.Declared, "render"},
-      {fragment.Motion.Declared, "physics"},
-      {fragment.Time.Declared, "clock"},
-      {fragment.Played.Declared, "player"},
-      {fragment.Routed.Declared, "drive"},
+      {.DeclaredByLayer = fragment.Lit.Declared, .What = "lighting"},
+      {.DeclaredByLayer = fragment.Ground.Declared, .What = "world"},
+      {.DeclaredByLayer = fragment.Render.Declared, .What = "render"},
+      {.DeclaredByLayer = fragment.Motion.Declared, .What = "physics"},
+      {.DeclaredByLayer = fragment.Time.Declared, .What = "clock"},
+      {.DeclaredByLayer = fragment.Played.Declared, .What = "player"},
+      {.DeclaredByLayer = fragment.Routed.Declared, .What = "drive"},
   };
   for (const SectionRow &section : sections) {
     if (!section.DeclaredByLayer) { continue; }

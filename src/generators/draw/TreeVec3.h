@@ -10,19 +10,19 @@ struct TreeVec3 {
 };
 
 inline TreeVec3 Vec3(float x, float y, float z) {
-  return TreeVec3{x, y, z};
+  return TreeVec3{.X = x, .Y = y, .Z = z};
 }
 
 inline TreeVec3 operator+(TreeVec3 a, TreeVec3 b) {
-  return {a.X + b.X, a.Y + b.Y, a.Z + b.Z};
+  return {.X = a.X + b.X, .Y = a.Y + b.Y, .Z = a.Z + b.Z};
 }
 
 inline TreeVec3 operator-(TreeVec3 a, TreeVec3 b) {
-  return {a.X - b.X, a.Y - b.Y, a.Z - b.Z};
+  return {.X = a.X - b.X, .Y = a.Y - b.Y, .Z = a.Z - b.Z};
 }
 
 inline TreeVec3 operator*(TreeVec3 a, float s) {
-  return {a.X * s, a.Y * s, a.Z * s};
+  return {.X = a.X * s, .Y = a.Y * s, .Z = a.Z * s};
 }
 
 inline float Dot(TreeVec3 a, TreeVec3 b) {
@@ -30,7 +30,7 @@ inline float Dot(TreeVec3 a, TreeVec3 b) {
 }
 
 inline TreeVec3 Cross(TreeVec3 a, TreeVec3 b) {
-  return {a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X};
+  return {.X = a.Y * b.Z - a.Z * b.Y, .Y = a.Z * b.X - a.X * b.Z, .Z = a.X * b.Y - a.Y * b.X};
 }
 
 inline float Length(TreeVec3 a) {
@@ -39,15 +39,15 @@ inline float Length(TreeVec3 a) {
 
 inline TreeVec3 Normalize(TreeVec3 a) {
   const float l = Length(a);
-  return l > 1e-8f ? a * (1.0f / l) : TreeVec3{0.0f, 1.0f, 0.0f};
+  return l > 1e-8f ? a * (1.0f / l) : TreeVec3{.X = 0.0f, .Y = 1.0f, .Z = 0.0f};
 }
 
 inline void FrameFrom(TreeVec3 t, TreeVec3 ref, TreeVec3 &n, TreeVec3 &b) {
   const TreeVec3 tt = Normalize(t);
   TreeVec3 nn = ref - tt * Dot(ref, tt);
   if (Length(nn) < 1e-5f) {
-    const TreeVec3 alt =
-        std::fabs(tt.Y) < 0.9f ? TreeVec3{0.0f, 1.0f, 0.0f} : TreeVec3{1.0f, 0.0f, 0.0f};
+    const TreeVec3 alt = std::fabs(tt.Y) < 0.9f ? TreeVec3{.X = 0.0f, .Y = 1.0f, .Z = 0.0f}
+                                                : TreeVec3{.X = 1.0f, .Y = 0.0f, .Z = 0.0f};
     nn = alt - tt * Dot(alt, tt);
   }
   n = Normalize(nn);

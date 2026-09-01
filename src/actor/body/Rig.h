@@ -25,8 +25,8 @@ struct Mount {
   double AtM[3] = {0.0, 0.0, 0.0};
   Prismatic Strut;
   Shearing Sheds;
-  Freedom Steering{true, {}, {}};
-  Freedom Spin{false, {}, {}};
+  Freedom Steering{.Motion = true, .Applied = {}, .Resisting = {}};
+  Freedom Spin{.Motion = false, .Applied = {}, .Resisting = {}};
 };
 
 struct Footing {

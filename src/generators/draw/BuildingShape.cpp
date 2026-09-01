@@ -156,8 +156,8 @@ void DropSpurs(Piece *p) {
       }
       if (si * sj >= 0) { continue; }
       const double f = s[i] / (s[i] - s[j]);
-      out->P.push_back(
-          {in.P[i].E + (in.P[j].E - in.P[i].E) * f, in.P[i].N + (in.P[j].N - in.P[i].N) * f});
+      out->P.push_back({.E = in.P[i].E + (in.P[j].E - in.P[i].E) * f,
+                        .N = in.P[i].N + (in.P[j].N - in.P[i].N) * f});
       out->Party.push_back(si > 0 ? 1u : in.Party[i]);
     }
   };
@@ -204,14 +204,14 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
     if (area >= best) { continue; }
     best = area;
     const double cu = 0.5 * (u0 + u1), cv = 0.5 * (v0 + v1);
-    out->Centre = {cu * ax - cv * ay, cu * ay + cv * ax};
-    out->AxisU = {ax, ay};
+    out->Centre = {.E = cu * ax - cv * ay, .N = cu * ay + cv * ax};
+    out->AxisU = {.E = ax, .N = ay};
     out->HalfUm = 0.5 * (u1 - u0);
     out->HalfVm = 0.5 * (v1 - v0);
   }
   if (out->HalfUm < out->HalfVm) {
     std::swap(out->HalfUm, out->HalfVm);
-    out->AxisU = {-out->AxisU.N, out->AxisU.E};
+    out->AxisU = {.E = -out->AxisU.N, .N = out->AxisU.E};
   }
 }
 
@@ -414,7 +414,7 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
 
 En UnitFrom(const En &a, const En &b) {
   const double e = b.E - a.E, n = b.N - a.N, l = std::hypot(e, n);
-  return l < 1.0e-6 ? En{1.0, 0.0} : En{e / l, n / l};
+  return l < 1.0e-6 ? En{.E = 1.0, .N = 0.0} : En{.E = e / l, .N = n / l};
 }
 
 [[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
@@ -430,7 +430,7 @@ En UnitFrom(const En &a, const En &b) {
     for (const En &dir : dirs) {
       Piece lo, hi;
       double len = 0.0;
-      if (!CutPiece(whole, ring[i], {dir.N, -dir.E}, &lo, &hi, &len)) { continue; }
+      if (!CutPiece(whole, ring[i], {.E = dir.N, .N = -dir.E}, &lo, &hi, &len)) { continue; }
       if (len < 1.0 || len >= bestLen) { continue; }
       if (!BothWorthIt(lo, hi, wholeM2)) { continue; }
       a = lo;
@@ -490,7 +490,8 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
     const double outE = nn / len, outN = -e / len;
     const double look = outE * street.ToStreetE + outN * street.ToStreetN;
     if (look <= best) { continue; }
-    const double standBack = DistanceToKerb(street, {0.5 * (p.E + q.E), 0.5 * (p.N + q.N)});
+    const double standBack =
+        DistanceToKerb(street, {.E = 0.5 * (p.E + q.E), .N = 0.5 * (p.N + q.N)});
     if (standBack > -0.4 || standBack < -12.0) { continue; }
     best = look;
     s->FrontEdge = static_cast<int>(i);
@@ -506,7 +507,7 @@ void BuildingShape::ToBox(const En &p, double *u, double *v) const {
 }
 
 En BuildingShape::FromBox(double u, double v) const {
-  return {Centre.E + u * AxisU.E - v * AxisU.N, Centre.N + u * AxisU.N + v * AxisU.E};
+  return {.E = Centre.E + u * AxisU.E - v * AxisU.N, .N = Centre.N + u * AxisU.N + v * AxisU.E};
 }
 
 Massing

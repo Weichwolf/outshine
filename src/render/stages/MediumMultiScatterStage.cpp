@@ -83,7 +83,7 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
   SDL_PushGPUComputeUniformData(
       into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound{Transmittance, Lut};
+  SDL_GPUTextureSamplerBinding bound{.texture = Transmittance, .sampler = Lut};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
   SDL_DispatchGPUCompute(into.Dispatch,
                          (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,

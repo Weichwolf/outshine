@@ -397,14 +397,14 @@ Xml::Unread Xml::FirstUnread() const {
   if (Root_ == 0) { return Unread{}; }
   const Node &root = Nodes_[Root_];
   path.append(Text_.data() + root.NameOff, root.NameLen);
-  walk.push_back(Standing{Root_, root.FirstChild, 0});
+  walk.push_back(Standing{.At = Root_, .Next = root.FirstChild, .PathWas = 0});
 
   while (!walk.empty()) {
     Standing &here = walk.back();
     const Node &node = Nodes_[here.At];
     if (wanted >= node.FirstAttribute && wanted < node.FirstAttribute + node.Attributes) {
       const Attribute &one = Attributes_[wanted];
-      return Unread{path, Span(one.NameOff, one.NameLen)};
+      return Unread{.Path = path, .Attribute = Span(one.NameOff, one.NameLen)};
     }
     if (here.Next == 0) {
       path.resize(here.PathWas);
@@ -417,7 +417,7 @@ Xml::Unread Xml::FirstUnread() const {
     const size_t was = path.size();
     path.push_back('/');
     path.append(Text_.data() + under.NameOff, under.NameLen);
-    walk.push_back(Standing{child, under.FirstChild, was});
+    walk.push_back(Standing{.At = child, .Next = under.FirstChild, .PathWas = was});
   }
   return Unread{};
 }

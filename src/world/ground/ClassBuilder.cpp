@@ -316,7 +316,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
                           (cy - static_cast<double>(p[1])) *
                               (static_cast<double>(p[2]) - static_cast<double>(p[0])) /
                               (static_cast<double>(p[3]) - static_cast<double>(p[1]));
-        hits.push_back(Hit{xi, p[3] > p[1] ? 1 : -1});
+        hits.push_back(Hit{.X = xi, .Dir = p[3] > p[1] ? 1 : -1});
       }
       std::sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) { return a.X < b.X; });
 

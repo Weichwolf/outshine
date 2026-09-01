@@ -15,7 +15,10 @@ Clip Intersected(const Clip &a, const Clip &b) {
   const double top = std::fmax(a.Y, b.Y);
   const double right = std::fmin(a.X + a.Width, b.X + b.Width);
   const double bottom = std::fmin(a.Y + a.Height, b.Y + b.Height);
-  return {left, top, std::fmax(0.0, right - left), std::fmax(0.0, bottom - top)};
+  return {.X = left,
+          .Y = top,
+          .Width = std::fmax(0.0, right - left),
+          .Height = std::fmax(0.0, bottom - top)};
 }
 
 bool Reaches(uint32_t colour) {
@@ -59,31 +62,32 @@ public:
       return;
     }
 
-    Add({box.X,
-         box.Y,
-         box.Width,
-         box.Height,
-         0,
-         0,
-         0,
-         0,
-         box.Background,
-         box.Radius,
-         here,
-         clip.X,
-         clip.Y,
-         clip.Width,
-         clip.Height,
-         box.Node});
+    Add({.X = box.X,
+         .Y = box.Y,
+         .Width = box.Width,
+         .Height = box.Height,
+         .U0 = 0,
+         .V0 = 0,
+         .U1 = 0,
+         .V1 = 0,
+         .Colour = box.Background,
+         .Radius = box.Radius,
+         .Opacity = here,
+         .ClipX = clip.X,
+         .ClipY = clip.Y,
+         .ClipWidth = clip.Width,
+         .ClipHeight = clip.Height,
+         .Node = box.Node});
     Edges(box, clip, here);
 
     Clip inner = clip;
     if (box.Clips) {
-      inner = Intersected(clip,
-                          {box.X + box.Border.Left,
-                           box.Y + box.Border.Top,
-                           std::fmax(0.0, box.Width - box.Border.Left - box.Border.Right),
-                           std::fmax(0.0, box.Height - box.Border.Top - box.Border.Bottom)});
+      inner =
+          Intersected(clip,
+                      {.X = box.X + box.Border.Left,
+                       .Y = box.Y + box.Border.Top,
+                       .Width = std::fmax(0.0, box.Width - box.Border.Left - box.Border.Right),
+                       .Height = std::fmax(0.0, box.Height - box.Border.Top - box.Border.Bottom)});
     }
     for (const int child : box.Children) { Walk(child, inner, here); }
   }
@@ -112,22 +116,22 @@ private:
     const uint32_t colour = box.BorderColour;
     const double right = box.X + box.Width, bottom = box.Y + box.Height;
     const auto edge = [&](double x, double y, double w, double h) {
-      Add({x,
-           y,
-           w,
-           h,
-           0,
-           0,
-           0,
-           0,
-           colour,
-           0,
-           opacity,
-           clip.X,
-           clip.Y,
-           clip.Width,
-           clip.Height,
-           box.Node});
+      Add({.X = x,
+           .Y = y,
+           .Width = w,
+           .Height = h,
+           .U0 = 0,
+           .V0 = 0,
+           .U1 = 0,
+           .V1 = 0,
+           .Colour = colour,
+           .Radius = 0,
+           .Opacity = opacity,
+           .ClipX = clip.X,
+           .ClipY = clip.Y,
+           .ClipWidth = clip.Width,
+           .ClipHeight = clip.Height,
+           .Node = box.Node});
     };
     edge(box.X, box.Y, box.Width, box.Border.Top);
     edge(box.X, bottom - box.Border.Bottom, box.Width, box.Border.Bottom);
@@ -151,22 +155,22 @@ private:
       at += NextCodePoint(run.Text, at, code);
       const Glyph glyph = Face.Shape(code, run.FontSize, run.Face);
       if (glyph.Drawn) {
-        Add({pen + glyph.LeftPx,
-             run.Y + leading + glyph.TopPx,
-             glyph.WidthPx,
-             glyph.HeightPx,
-             glyph.U0,
-             glyph.V0,
-             glyph.U1,
-             glyph.V1,
-             run.Colour,
-             0,
-             opacity,
-             clip.X,
-             clip.Y,
-             clip.Width,
-             clip.Height,
-             run.Node});
+        Add({.X = pen + glyph.LeftPx,
+             .Y = run.Y + leading + glyph.TopPx,
+             .Width = glyph.WidthPx,
+             .Height = glyph.HeightPx,
+             .U0 = glyph.U0,
+             .V0 = glyph.V0,
+             .U1 = glyph.U1,
+             .V1 = glyph.V1,
+             .Colour = run.Colour,
+             .Radius = 0,
+             .Opacity = opacity,
+             .ClipX = clip.X,
+             .ClipY = clip.Y,
+             .ClipWidth = clip.Width,
+             .ClipHeight = clip.Height,
+             .Node = run.Node});
       }
       pen += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
     }
@@ -221,7 +225,8 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
   Painter painter(layout, font, Quads_, Beyond_, page.OffsetY);
   for (int at = 0; at < static_cast<int>(layout.Boxes().size()); ++at) {
     if (layout.Boxes()[static_cast<size_t>(at)].Parent != -1) { continue; }
-    painter.Walk(at, {0, page.OffsetY, layout.ViewportWidth(), window}, 1.0);
+    painter.Walk(
+        at, {.X = 0, .Y = page.OffsetY, .Width = layout.ViewportWidth(), .Height = window}, 1.0);
   }
   return true;
 }

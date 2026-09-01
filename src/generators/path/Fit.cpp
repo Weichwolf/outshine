@@ -138,7 +138,8 @@ Fitted Fit(std::span<const double> eastNorthM,
     from.EastM = eastNorthM[0];
     from.NorthM = eastNorthM[1];
     from.HeadingRad = headingRad[0];
-    const Segment only{Curve::Straight, legM[0], 0.0, 0.0};
+    const Segment only{
+        .Shape = Curve::Straight, .LengthM = legM[0], .EntryCurvature = 0.0, .ExitCurvature = 0.0};
     if (!into.Lay(from, std::span<const Segment>(&only, 1), out.Error)) { return out; }
     out.Straights = 1;
     out.LengthM = into.LengthM();

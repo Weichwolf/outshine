@@ -127,7 +127,7 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
   for (int j = 0; j < lattice.Rows; j++) {
     for (int i = 0; i < lattice.Cols; i++) {
       Body body;
-      const Outcome why = Consider(ground, lattice, Cell{i, j}, &body);
+      const Outcome why = Consider(ground, lattice, Cell{.I = i, .J = j}, &body);
       switch (why) {
         case Outcome::NoTemplate: yield.Count(NoTemplate); continue;
         case Outcome::NoSpecies: yield.Count(NoSpecies); continue;
@@ -163,8 +163,8 @@ uint32_t Forest::Proposes(double areaM2) const noexcept {
 
 bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const Lattice lattice = Of(ground.Where());
-  const Cell cell{static_cast<int>(std::floor(eastM / lattice.Em)),
-                  static_cast<int>(std::floor(northM / lattice.Nm))};
+  const Cell cell{.I = static_cast<int>(std::floor(eastM / lattice.Em)),
+                  .J = static_cast<int>(std::floor(northM / lattice.Nm))};
   if (cell.I < 0 || cell.J < 0 || cell.I >= lattice.Cols || cell.J >= lattice.Rows) {
     return false;
   }

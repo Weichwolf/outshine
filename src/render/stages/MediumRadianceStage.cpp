@@ -103,7 +103,8 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
                        std::fmax(0.0f, Standing_.EyeHeightM) / 1000.0f;
   SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, static_cast<uint32_t>(sizeof pushed));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
+  SDL_GPUTextureSamplerBinding bound[2] = {{.texture = Transmittance, .sampler = Lut},
+                                           {.texture = MultiScatter, .sampler = Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
   SDL_DispatchGPUCompute(into.Dispatch,
                          (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,

@@ -774,7 +774,8 @@ bool Subject::Flatten(const Document &document,
                                             skinned)) {
           return false;
         }
-        const VertexPlacement place{placedWorld, skinned.empty() ? nullptr : skinned.data()};
+        const VertexPlacement place{.Node = placedWorld,
+                                    .Skinned = skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
           double local[3] = {
               elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]};
@@ -788,8 +789,9 @@ bool Subject::Flatten(const Document &document,
           bool Part::*Carried;
           bool *Any;
           std::vector<double> *Into;
-        } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &atUv},
-                           {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &atUv1}};
+        } sets[kUvSets] = {
+            {.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Any = &anyUv, .Into = &atUv},
+            {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Any = &anyUv1, .Into = &atUv1}};
 
         for (const auto &set : sets) {
           const int uv = primitive.Find(set.Semantic);

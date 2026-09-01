@@ -72,10 +72,10 @@ struct Travelling_ {
 constexpr size_t kTravels = 4;
 
 const Travelling_ kAssemblers[kTravels] = {
-    {Travels::Walk, "foot", nullptr},
-    {Travels::Drive, "road", &Sim::AssembleDrive},
-    {Travels::Fly, "air", nullptr},
-    {Travels::Rail, "rail", nullptr},
+    {.By = Travels::Walk, .Named = "foot", .How = nullptr},
+    {.By = Travels::Drive, .Named = "road", .How = &Sim::AssembleDrive},
+    {.By = Travels::Fly, .Named = "air", .How = nullptr},
+    {.By = Travels::Rail, .Named = "rail", .How = nullptr},
 };
 
 [[nodiscard]] Assembler Assembles(Travels by) {
@@ -128,9 +128,10 @@ bool Engine::State::Routes(void) {
     }
   }
   Collecting say;
-  const Sim::Provision kept{Session.Under.Cache,
-                            Session.Under.Shipped,
-                            {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
+  const Sim::Provision kept{
+      .CacheDir = Session.Under.Cache,
+      .AssetsDir = Session.Under.Shipped,
+      .Providers = {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
   const bool routed = Assembles(declared.Routed.By)(Cast.Scene,
                                                     Cast.Stood,
                                                     Cast.Bodies,
@@ -200,7 +201,7 @@ Result Engine::drawsInto(SDL_Window *presents) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
-  S_->Picture.Frame = Extent{widthPx, heightPx};
+  S_->Picture.Frame = Extent{.WidthPx = widthPx, .HeightPx = heightPx};
   return {};
 }
 

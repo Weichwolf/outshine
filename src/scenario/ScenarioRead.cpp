@@ -38,89 +38,94 @@ struct Element {
 };
 
 const Element kGrammar[] = {
-    {"scenario",
-     "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views body player drive physics clock scene "
-     "input state layer"},
-    {"scenario/layer", "", "path"},
-    {"scenario/scene", ""},
-    {"scenario/world", "relief osm"},
-    {"scenario/world/relief", "", "kind"},
-    {"scenario/world/osm", "way area"},
-    {"scenario/world/osm/way", "", "kind"},
-    {"scenario/world/osm/area", "", "kind"},
-    {"scenario/render", "keep output stage"},
-    {"scenario/render/keep", "", "name"},
-    {"scenario/render/output", "", "name"},
-    {"scenario/render/stage", "", "name"},
-    {"scenario/lighting", "key environment"},
-    {"scenario/lighting/key", ""},
-    {"scenario/lighting/environment", ""},
-    {"scenario/providers", "provider"},
-    {"scenario/providers/provider", "", "kind"},
-    {"scenario/generators", "generator"},
-    {"scenario/generators/generator", "set", "kind"},
-    {"scenario/generators/generator/set", ""},
-    {"scenario/compositors", "compositor"},
-    {"scenario/compositors/compositor", "", "kind"},
-    {"scenario/assets", "asset"},
-    {"scenario/assets/asset", "wears", "uri"},
-    {"scenario/assets/asset/wears", "row", ""},
-    {"scenario/assets/asset/wears/row", "", ""},
-    {"scenario/placements", "place"},
-    {"scenario/placements/place", "", "asset"},
-    {"scenario/surfaces", "surface"},
-    {"scenario/surfaces/surface", "", "document"},
-    {"scenario/kinds", "kind"},
-    {"scenario/kinds/kind", "may has mind", "name"},
-    {"scenario/kinds/kind/mind", ""},
-    {"scenario/kinds/kind/may", "", "do"},
-    {"scenario/kinds/kind/has", "", "name"},
-    {"scenario/instances", "instance"},
-    {"scenario/instances/instance", "has holds", "of"},
-    {"scenario/instances/instance/has", "", "name"},
-    {"scenario/instances/instance/holds", "", "what"},
-    {"scenario/regions", "region door"},
-    {"scenario/regions/region", "uses"},
-    {"scenario/regions/region/uses", "", "what"},
-    {"scenario/regions/door", "", "from to"},
-    {"scenario/volumes", "volume"},
-    {"scenario/volumes/volume", "", "fires when"},
-    {"scenario/audio", "bus sound"},
-    {"scenario/audio/bus", "room voice", "id"},
-    {"scenario/audio/bus/room", ""},
-    {"scenario/audio/bus/voice", "from", "id"},
-    {"scenario/audio/bus/voice/from", "", "id"},
-    {"scenario/audio/sound", "", "id uri"},
-    {"scenario/tables", "table"},
-    {"scenario/tables/table", "column row"},
-    {"scenario/tables/table/column", "", "name"},
-    {"scenario/tables/table/row", "cell"},
-    {"scenario/tables/table/row/cell", ""},
-    {"scenario/events", "event"},
-    {"scenario/events/event", "carries", "name"},
-    {"scenario/events/event/carries", "", "what"},
-    {"scenario/views", "view"},
-    {"scenario/views/view", "at lookAt up", "id"},
-    {"scenario/views/view/at", ""},
-    {"scenario/views/view/lookAt", ""},
-    {"scenario/views/view/up", ""},
-    {"scenario/player", ""},
-    {"scenario/body", "at centreOfMass inertia contact actuator aero slot"},
-    {"scenario/body/at", ""},
-    {"scenario/body/centreOfMass", ""},
-    {"scenario/body/inertia", ""},
-    {"scenario/body/contact", ""},
-    {"scenario/body/actuator", ""},
-    {"scenario/body/aero", ""},
-    {"scenario/body/slot", ""},
-    {"scenario/drive", "", "", "fromLat fromLon toLat toLon"},
-    {"scenario/physics", ""},
-    {"scenario/clock", ""},
-    {"scenario/input", "bind"},
-    {"scenario/input/bind", "", "event action"},
-    {"scenario/state", "persist"},
-    {"scenario/state/persist", "", "what"},
+    {.Path = "scenario",
+     .Children =
+         "world render lighting providers generators compositors assets placements surfaces kinds "
+         "instances regions volumes audio tables events views body player drive physics clock "
+         "scene "
+         "input state layer"},
+    {.Path = "scenario/layer", .Children = "", .Required = "path"},
+    {.Path = "scenario/scene", .Children = ""},
+    {.Path = "scenario/world", .Children = "relief osm"},
+    {.Path = "scenario/world/relief", .Children = "", .Required = "kind"},
+    {.Path = "scenario/world/osm", .Children = "way area"},
+    {.Path = "scenario/world/osm/way", .Children = "", .Required = "kind"},
+    {.Path = "scenario/world/osm/area", .Children = "", .Required = "kind"},
+    {.Path = "scenario/render", .Children = "keep output stage"},
+    {.Path = "scenario/render/keep", .Children = "", .Required = "name"},
+    {.Path = "scenario/render/output", .Children = "", .Required = "name"},
+    {.Path = "scenario/render/stage", .Children = "", .Required = "name"},
+    {.Path = "scenario/lighting", .Children = "key environment"},
+    {.Path = "scenario/lighting/key", .Children = ""},
+    {.Path = "scenario/lighting/environment", .Children = ""},
+    {.Path = "scenario/providers", .Children = "provider"},
+    {.Path = "scenario/providers/provider", .Children = "", .Required = "kind"},
+    {.Path = "scenario/generators", .Children = "generator"},
+    {.Path = "scenario/generators/generator", .Children = "set", .Required = "kind"},
+    {.Path = "scenario/generators/generator/set", .Children = ""},
+    {.Path = "scenario/compositors", .Children = "compositor"},
+    {.Path = "scenario/compositors/compositor", .Children = "", .Required = "kind"},
+    {.Path = "scenario/assets", .Children = "asset"},
+    {.Path = "scenario/assets/asset", .Children = "wears", .Required = "uri"},
+    {.Path = "scenario/assets/asset/wears", .Children = "row", .Required = ""},
+    {.Path = "scenario/assets/asset/wears/row", .Children = "", .Required = ""},
+    {.Path = "scenario/placements", .Children = "place"},
+    {.Path = "scenario/placements/place", .Children = "", .Required = "asset"},
+    {.Path = "scenario/surfaces", .Children = "surface"},
+    {.Path = "scenario/surfaces/surface", .Children = "", .Required = "document"},
+    {.Path = "scenario/kinds", .Children = "kind"},
+    {.Path = "scenario/kinds/kind", .Children = "may has mind", .Required = "name"},
+    {.Path = "scenario/kinds/kind/mind", .Children = ""},
+    {.Path = "scenario/kinds/kind/may", .Children = "", .Required = "do"},
+    {.Path = "scenario/kinds/kind/has", .Children = "", .Required = "name"},
+    {.Path = "scenario/instances", .Children = "instance"},
+    {.Path = "scenario/instances/instance", .Children = "has holds", .Required = "of"},
+    {.Path = "scenario/instances/instance/has", .Children = "", .Required = "name"},
+    {.Path = "scenario/instances/instance/holds", .Children = "", .Required = "what"},
+    {.Path = "scenario/regions", .Children = "region door"},
+    {.Path = "scenario/regions/region", .Children = "uses"},
+    {.Path = "scenario/regions/region/uses", .Children = "", .Required = "what"},
+    {.Path = "scenario/regions/door", .Children = "", .Required = "from to"},
+    {.Path = "scenario/volumes", .Children = "volume"},
+    {.Path = "scenario/volumes/volume", .Children = "", .Required = "fires when"},
+    {.Path = "scenario/audio", .Children = "bus sound"},
+    {.Path = "scenario/audio/bus", .Children = "room voice", .Required = "id"},
+    {.Path = "scenario/audio/bus/room", .Children = ""},
+    {.Path = "scenario/audio/bus/voice", .Children = "from", .Required = "id"},
+    {.Path = "scenario/audio/bus/voice/from", .Children = "", .Required = "id"},
+    {.Path = "scenario/audio/sound", .Children = "", .Required = "id uri"},
+    {.Path = "scenario/tables", .Children = "table"},
+    {.Path = "scenario/tables/table", .Children = "column row"},
+    {.Path = "scenario/tables/table/column", .Children = "", .Required = "name"},
+    {.Path = "scenario/tables/table/row", .Children = "cell"},
+    {.Path = "scenario/tables/table/row/cell", .Children = ""},
+    {.Path = "scenario/events", .Children = "event"},
+    {.Path = "scenario/events/event", .Children = "carries", .Required = "name"},
+    {.Path = "scenario/events/event/carries", .Children = "", .Required = "what"},
+    {.Path = "scenario/views", .Children = "view"},
+    {.Path = "scenario/views/view", .Children = "at lookAt up", .Required = "id"},
+    {.Path = "scenario/views/view/at", .Children = ""},
+    {.Path = "scenario/views/view/lookAt", .Children = ""},
+    {.Path = "scenario/views/view/up", .Children = ""},
+    {.Path = "scenario/player", .Children = ""},
+    {.Path = "scenario/body", .Children = "at centreOfMass inertia contact actuator aero slot"},
+    {.Path = "scenario/body/at", .Children = ""},
+    {.Path = "scenario/body/centreOfMass", .Children = ""},
+    {.Path = "scenario/body/inertia", .Children = ""},
+    {.Path = "scenario/body/contact", .Children = ""},
+    {.Path = "scenario/body/actuator", .Children = ""},
+    {.Path = "scenario/body/aero", .Children = ""},
+    {.Path = "scenario/body/slot", .Children = ""},
+    {.Path = "scenario/drive",
+     .Children = "",
+     .Required = "",
+     .Allowed = "fromLat fromLon toLat toLon"},
+    {.Path = "scenario/physics", .Children = ""},
+    {.Path = "scenario/clock", .Children = ""},
+    {.Path = "scenario/input", .Children = "bind"},
+    {.Path = "scenario/input/bind", .Children = "", .Required = "event action"},
+    {.Path = "scenario/state", .Children = "persist"},
+    {.Path = "scenario/state/persist", .Children = "", .Required = "what"},
 };
 
 bool Names(std::string_view list, std::string_view wanted) {
@@ -389,7 +394,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   into.Named.Decay = root.Num("decay", 0.0);
 
   for (const Xml::Ref one : root.Children("layer")) {
-    into.Layers.push_back(Layer{one.Attr("id"), one.Attr("path"), one.Attr("set")});
+    into.Layers.push_back(
+        Layer{.Id = one.Attr("id"), .Path = one.Attr("path"), .Set = one.Attr("set")});
   }
 
   if (!ReadSectionsOnto(root, into, error)) { return false; }
@@ -409,7 +415,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     Generator made;
     made.Kind = one.Attr("kind");
     for (const Xml::Ref parameter : one.Children("set")) {
-      made.Parameters.push_back(Setting{parameter.Attr("name"), parameter.Attr("value")});
+      made.Parameters.push_back(
+          Setting{.Name = parameter.Attr("name"), .Value = parameter.Attr("value")});
     }
     into.Generators.push_back(made);
   }
@@ -506,7 +513,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   const Xml::Ref input = root.Child("input");
   if (input.Valid()) { into.WheelStepPx = input.Num("wheelStepPx", into.WheelStepPx); }
   for (const Xml::Ref one : input.Children("bind")) {
-    into.Input.push_back(Binding{one.Attr("event"), one.Attr("action")});
+    into.Input.push_back(Binding{.Event = one.Attr("event"), .Action = one.Attr("action")});
   }
 
   const Xml::Ref kinds = root.Child("kinds");
@@ -534,7 +541,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     }
     for (const Xml::Ref may : one.Children("may")) { made.Capabilities.push_back(may.Attr("do")); }
     for (const Xml::Ref attribute : one.Children("has")) {
-      made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
+      made.Attributes.push_back(
+          Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
     }
     into.Kinds.push_back(made);
   }
@@ -548,7 +556,8 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.In = one.Attr("in");
     ReadStanding(one, made.Stands);
     for (const Xml::Ref attribute : one.Children("has")) {
-      made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
+      made.Attributes.push_back(
+          Setting{.Name = attribute.Attr("name"), .Value = attribute.Attr("value")});
     }
     for (const Xml::Ref holds : one.Children("holds")) { made.Holds.push_back(holds.Attr("what")); }
     into.Instances.push_back(made);
@@ -640,7 +649,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
                                          : Makes::Oscillator;
       for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
       for (const Xml::Ref set : unit.Children("set")) {
-        makes.Parameters.push_back(Setting{set.Attr("name"), set.Attr("value")});
+        makes.Parameters.push_back(Setting{.Name = set.Attr("name"), .Value = set.Attr("value")});
       }
       made.Graph.push_back(makes);
     }

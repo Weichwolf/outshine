@@ -104,10 +104,10 @@ size_t PathComponents(AnimationPath path) {
 
 Span<const AnimatablePointer> AnimatablePointers() {
   static const AnimatablePointer kPointers[] = {
-      {"emissiveFactor", MaterialFactor::Emissive},
-      {"pbrMetallicRoughness/baseColorFactor", MaterialFactor::BaseColour},
-      {"pbrMetallicRoughness/metallicFactor", MaterialFactor::Metalness},
-      {"pbrMetallicRoughness/roughnessFactor", MaterialFactor::Roughness},
+      {.Tail = "emissiveFactor", .Factor = MaterialFactor::Emissive},
+      {.Tail = "pbrMetallicRoughness/baseColorFactor", .Factor = MaterialFactor::BaseColour},
+      {.Tail = "pbrMetallicRoughness/metallicFactor", .Factor = MaterialFactor::Metalness},
+      {.Tail = "pbrMetallicRoughness/roughnessFactor", .Factor = MaterialFactor::Roughness},
   };
   return Span<const AnimatablePointer>(kPointers, sizeof kPointers / sizeof kPointers[0]);
 }

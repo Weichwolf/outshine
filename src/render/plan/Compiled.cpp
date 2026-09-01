@@ -267,8 +267,13 @@ bool Compiled::CompileInto(const PlanSpec &spec,
       if (merged) { plan->Passes_.back().Count++; }
     }
     if (!merged) {
-      plan->Passes_.push_back(
-          {row.Kind, row.Name, at, 1, AttachmentSet{}, AttachmentSet{}, kNoEdge});
+      plan->Passes_.push_back({.Kind = row.Kind,
+                               .Name = row.Name,
+                               .First = at,
+                               .Count = 1,
+                               .Targets = AttachmentSet{},
+                               .Buffers = AttachmentSet{},
+                               .Depth = kNoEdge});
     }
   }
 

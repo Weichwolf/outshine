@@ -21,38 +21,38 @@ struct Named {
 };
 
 constexpr Named kFamilies[] = {
-    {"serif", Family::Serif},
-    {"times", Family::Serif},
-    {"times new roman", Family::Serif},
-    {"georgia", Family::Serif},
-    {"garamond", Family::Serif},
-    {"palatino", Family::Serif},
-    {"book antiqua", Family::Serif},
-    {"ui-serif", Family::Serif},
+    {.Spelled = "serif", .Is = Family::Serif},
+    {.Spelled = "times", .Is = Family::Serif},
+    {.Spelled = "times new roman", .Is = Family::Serif},
+    {.Spelled = "georgia", .Is = Family::Serif},
+    {.Spelled = "garamond", .Is = Family::Serif},
+    {.Spelled = "palatino", .Is = Family::Serif},
+    {.Spelled = "book antiqua", .Is = Family::Serif},
+    {.Spelled = "ui-serif", .Is = Family::Serif},
 
-    {"monospace", Family::Mono},
-    {"courier", Family::Mono},
-    {"courier new", Family::Mono},
-    {"consolas", Family::Mono},
-    {"menlo", Family::Mono},
-    {"monaco", Family::Mono},
-    {"sf mono", Family::Mono},
-    {"dejavu sans mono", Family::Mono},
-    {"liberation mono", Family::Mono},
-    {"ui-monospace", Family::Mono},
+    {.Spelled = "monospace", .Is = Family::Mono},
+    {.Spelled = "courier", .Is = Family::Mono},
+    {.Spelled = "courier new", .Is = Family::Mono},
+    {.Spelled = "consolas", .Is = Family::Mono},
+    {.Spelled = "menlo", .Is = Family::Mono},
+    {.Spelled = "monaco", .Is = Family::Mono},
+    {.Spelled = "sf mono", .Is = Family::Mono},
+    {.Spelled = "dejavu sans mono", .Is = Family::Mono},
+    {.Spelled = "liberation mono", .Is = Family::Mono},
+    {.Spelled = "ui-monospace", .Is = Family::Mono},
 
-    {"sans-serif", Family::Sans},
-    {"arial", Family::Sans},
-    {"helvetica", Family::Sans},
-    {"helvetica neue", Family::Sans},
-    {"verdana", Family::Sans},
-    {"tahoma", Family::Sans},
-    {"segoe ui", Family::Sans},
-    {"system-ui", Family::Sans},
-    {"ui-sans-serif", Family::Sans},
-    {"roboto", Family::Sans},
-    {"inter", Family::Sans},
-    {"dejavu sans", Family::Sans},
+    {.Spelled = "sans-serif", .Is = Family::Sans},
+    {.Spelled = "arial", .Is = Family::Sans},
+    {.Spelled = "helvetica", .Is = Family::Sans},
+    {.Spelled = "helvetica neue", .Is = Family::Sans},
+    {.Spelled = "verdana", .Is = Family::Sans},
+    {.Spelled = "tahoma", .Is = Family::Sans},
+    {.Spelled = "segoe ui", .Is = Family::Sans},
+    {.Spelled = "system-ui", .Is = Family::Sans},
+    {.Spelled = "ui-sans-serif", .Is = Family::Sans},
+    {.Spelled = "roboto", .Is = Family::Sans},
+    {.Spelled = "inter", .Is = Family::Sans},
+    {.Spelled = "dejavu sans", .Is = Family::Sans},
 };
 
 constexpr const char *kFiles[] = {"DejaVuSans.ttf", "DejaVuSerif.ttf", "DejaVuSansMono.ttf"};
@@ -161,7 +161,7 @@ TTF_Font *Typeface::Set(Family family, int sizePx) const {
   SDL_IOStream *const from = SDL_IOFromConstMem(held.data(), held.size());
   if (from == nullptr) { return nullptr; }
   TTF_Font *const made = TTF_OpenFontIO(from, true, static_cast<float>(sizePx));
-  Sets_.push_back(Sized{key, made});
+  Sets_.push_back(Sized{.Key = key, .Set = made});
   ++Opened_;
   return made;
 }
@@ -250,10 +250,12 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
 FontMetrics Typeface::At(double sizePx, Family family) const {
   const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   TTF_Font *set = Set(family, rounded);
-  if (set == nullptr) { return {sizePx * 0.5, sizePx * 0.8, sizePx * 0.2}; }
+  if (set == nullptr) {
+    return {.Advance = sizePx * 0.5, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
+  }
   const double ascent = static_cast<double>(TTF_GetFontAscent(set));
   const double descent = -static_cast<double>(TTF_GetFontDescent(set));
-  return {Cell0f(family, rounded, U' ').AdvancePx, ascent, descent};
+  return {.Advance = Cell0f(family, rounded, U' ').AdvancePx, .Ascent = ascent, .Descent = descent};
 }
 
 Glyph Typeface::Shape(char32_t code, double sizePx, Family family) const {

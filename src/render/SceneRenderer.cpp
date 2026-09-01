@@ -137,40 +137,60 @@ void SceneRenderer::SetCameraBasis(const double eye[3],
 }
 
 const SceneRenderer::Executor SceneRenderer::kExecutors[] = {
-    {Stage::MediumTransmittance,
-     &SceneRenderer::ConfigureMediumTransmittance,
-     &SceneRenderer::EncodeMediumTransmittance},
-    {Stage::MediumMultiScatter,
-     &SceneRenderer::ConfigureMediumMultiScatter,
-     &SceneRenderer::EncodeMediumMultiScatter},
-    {Stage::MediumRadiance,
-     &SceneRenderer::ConfigureMediumRadiance,
-     &SceneRenderer::EncodeMediumRadiance},
-    {Stage::Irradiance, &SceneRenderer::ConfigureIrradiance, &SceneRenderer::EncodeIrradiance},
-    {Stage::SubjectCull, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectCull},
-    {Stage::SubjectScan, &SceneRenderer::ConfigureSubjectCull, &SceneRenderer::EncodeSubjectScan},
-    {Stage::SubjectCompact,
-     &SceneRenderer::ConfigureSubjectCull,
-     &SceneRenderer::EncodeSubjectCompact},
-    {Stage::LightVisibility,
-     &SceneRenderer::ConfigureLightVisibility,
-     &SceneRenderer::EncodeLightVisibility},
-    {Stage::Sky, &SceneRenderer::ConfigureSky, &SceneRenderer::EncodeSky},
-    {Stage::Subjects, &SceneRenderer::ConfigureSubjects, &SceneRenderer::EncodeSubjects},
-    {Stage::SubjectsTransmissive, &SceneRenderer::ConfigureGlass, &SceneRenderer::EncodeGlass},
-    {Stage::CompositeTransmission,
-     &SceneRenderer::ConfigureCompositeTransmission,
-     &SceneRenderer::EncodeCompositeTransmission},
-    {Stage::AerialPerspective,
-     &SceneRenderer::ConfigureAerialPerspective,
-     &SceneRenderer::EncodeAerialPerspective},
-    {Stage::DepthPyramid,
-     &SceneRenderer::ConfigureDepthPyramid,
-     &SceneRenderer::EncodeDepthPyramid},
-    {Stage::TemporalResolve, &SceneRenderer::ConfigureTemporalResolve, nullptr},
-    {Stage::Tonemap, &SceneRenderer::ConfigureTonemap, &SceneRenderer::EncodeTonemap},
-    {Stage::Overlay, &SceneRenderer::ConfigureOverlay, &SceneRenderer::EncodeOverlay},
-    {Stage::Present, &SceneRenderer::ConfigurePresent, &SceneRenderer::EncodePresent},
+    {.Named = Stage::MediumTransmittance,
+     .Configure = &SceneRenderer::ConfigureMediumTransmittance,
+     .Encode = &SceneRenderer::EncodeMediumTransmittance},
+    {.Named = Stage::MediumMultiScatter,
+     .Configure = &SceneRenderer::ConfigureMediumMultiScatter,
+     .Encode = &SceneRenderer::EncodeMediumMultiScatter},
+    {.Named = Stage::MediumRadiance,
+     .Configure = &SceneRenderer::ConfigureMediumRadiance,
+     .Encode = &SceneRenderer::EncodeMediumRadiance},
+    {.Named = Stage::Irradiance,
+     .Configure = &SceneRenderer::ConfigureIrradiance,
+     .Encode = &SceneRenderer::EncodeIrradiance},
+    {.Named = Stage::SubjectCull,
+     .Configure = &SceneRenderer::ConfigureSubjectCull,
+     .Encode = &SceneRenderer::EncodeSubjectCull},
+    {.Named = Stage::SubjectScan,
+     .Configure = &SceneRenderer::ConfigureSubjectCull,
+     .Encode = &SceneRenderer::EncodeSubjectScan},
+    {.Named = Stage::SubjectCompact,
+     .Configure = &SceneRenderer::ConfigureSubjectCull,
+     .Encode = &SceneRenderer::EncodeSubjectCompact},
+    {.Named = Stage::LightVisibility,
+     .Configure = &SceneRenderer::ConfigureLightVisibility,
+     .Encode = &SceneRenderer::EncodeLightVisibility},
+    {.Named = Stage::Sky,
+     .Configure = &SceneRenderer::ConfigureSky,
+     .Encode = &SceneRenderer::EncodeSky},
+    {.Named = Stage::Subjects,
+     .Configure = &SceneRenderer::ConfigureSubjects,
+     .Encode = &SceneRenderer::EncodeSubjects},
+    {.Named = Stage::SubjectsTransmissive,
+     .Configure = &SceneRenderer::ConfigureGlass,
+     .Encode = &SceneRenderer::EncodeGlass},
+    {.Named = Stage::CompositeTransmission,
+     .Configure = &SceneRenderer::ConfigureCompositeTransmission,
+     .Encode = &SceneRenderer::EncodeCompositeTransmission},
+    {.Named = Stage::AerialPerspective,
+     .Configure = &SceneRenderer::ConfigureAerialPerspective,
+     .Encode = &SceneRenderer::EncodeAerialPerspective},
+    {.Named = Stage::DepthPyramid,
+     .Configure = &SceneRenderer::ConfigureDepthPyramid,
+     .Encode = &SceneRenderer::EncodeDepthPyramid},
+    {.Named = Stage::TemporalResolve,
+     .Configure = &SceneRenderer::ConfigureTemporalResolve,
+     .Encode = nullptr},
+    {.Named = Stage::Tonemap,
+     .Configure = &SceneRenderer::ConfigureTonemap,
+     .Encode = &SceneRenderer::EncodeTonemap},
+    {.Named = Stage::Overlay,
+     .Configure = &SceneRenderer::ConfigureOverlay,
+     .Encode = &SceneRenderer::EncodeOverlay},
+    {.Named = Stage::Present,
+     .Configure = &SceneRenderer::ConfigurePresent,
+     .Encode = &SceneRenderer::EncodePresent},
 };
 const size_t SceneRenderer::kExecutorCount = sizeof kExecutors / sizeof kExecutors[0];
 
@@ -985,9 +1005,9 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
       binding.cycle = false;
     }
     PassRecording into{
-        commands,
-        nullptr,
-        SDL_BeginGPUComputePass(commands, written, writtenCount, tables, tableCount)};
+        .Commands = commands,
+        .Pass = nullptr,
+        .Dispatch = SDL_BeginGPUComputePass(commands, written, writtenCount, tables, tableCount)};
     for (size_t at = 0; at < declared.Count; ++at) {
       EncodeStage(Plan_->Order()[declared.First + at], into);
     }
@@ -1007,9 +1027,10 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     const bool carriesCoverage =
         wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
         wanted == Resource::SceneTransmissive || wanted == Resource::SceneLinear;
-    attachment.clear_color = wanted == Resource::SceneVelocity
-                                 ? SDL_FColor{kVelocityStatic, kVelocityStatic, 0, 0}
-                                 : SDL_FColor{0, 0, 0, carriesCoverage ? 0.0f : 1.0f};
+    attachment.clear_color =
+        wanted == Resource::SceneVelocity
+            ? SDL_FColor{.r = kVelocityStatic, .g = kVelocityStatic, .b = 0, .a = 0}
+            : SDL_FColor{.r = 0, .g = 0, .b = 0, .a = carriesCoverage ? 0.0f : 1.0f};
   }
   SDL_GPUDepthStencilTargetInfo depth{};
   if (declared.Depth != kNoEdge) {
@@ -1024,10 +1045,10 @@ void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
   }
   PassRecording into{
-      commands,
-      SDL_BeginGPURenderPass(
+      .Commands = commands,
+      .Pass = SDL_BeginGPURenderPass(
           commands, colours, colourCount, declared.Depth != kNoEdge ? &depth : nullptr),
-      nullptr};
+      .Dispatch = nullptr};
   for (size_t at = 0; at < declared.Count; ++at) {
     EncodeStage(Plan_->Order()[declared.First + at], into);
   }

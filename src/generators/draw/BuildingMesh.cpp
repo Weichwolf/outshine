@@ -111,14 +111,14 @@ double EavesZ(const BuildingShape &s) {
 }
 
 Vtx Wall(const BuildingShape &s, const En &p, double z, double bays, Fields stand) {
-  return {p,
-          z,
-          FacadeUvX(StyleOf(s.Use), stand, static_cast<float>(bays)),
-          FacadeUvY(s.Ident, static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
+  return {.P = p,
+          .Z = z,
+          .U = FacadeUvX(StyleOf(s.Use), stand, static_cast<float>(bays)),
+          .V = FacadeUvY(s.Ident, static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const En &p, double z, Facade kind) {
-  return {p, z, FaceUvX(kind, s.Ident), static_cast<float>(z)};
+  return {.P = p, .Z = z, .U = FaceUvX(kind, s.Ident), .V = static_cast<float>(z)};
 }
 
 class Site {
@@ -302,7 +302,7 @@ double EdgeLength(const En &p, const En &q) {
 }
 
 En Along(const En &p, const En &q, double t) {
-  return {p.E + (q.E - p.E) * t, p.N + (q.N - p.N) * t};
+  return {.E = p.E + (q.E - p.E) * t, .N = p.N + (q.N - p.N) * t};
 }
 
 double BaysOn(double lengthM, double bayM) {
@@ -658,12 +658,12 @@ void Box(Site &site,
          double highZ,
          Facade side) {
   En c[4];
-  const En u{s.AxisU.E * halfU, s.AxisU.N * halfU};
-  const En v{-s.AxisU.N * halfV, s.AxisU.E * halfV};
-  c[0] = {centre.E - u.E - v.E, centre.N - u.N - v.N};
-  c[1] = {centre.E + u.E - v.E, centre.N + u.N - v.N};
-  c[2] = {centre.E + u.E + v.E, centre.N + u.N + v.N};
-  c[3] = {centre.E - u.E + v.E, centre.N - u.N + v.N};
+  const En u{.E = s.AxisU.E * halfU, .N = s.AxisU.N * halfU};
+  const En v{.E = -s.AxisU.N * halfV, .N = s.AxisU.E * halfV};
+  c[0] = {.E = centre.E - u.E - v.E, .N = centre.N - u.N - v.N};
+  c[1] = {.E = centre.E + u.E - v.E, .N = centre.N + u.N - v.N};
+  c[2] = {.E = centre.E + u.E + v.E, .N = centre.N + u.N + v.N};
+  c[3] = {.E = centre.E - u.E + v.E, .N = centre.N - u.N + v.N};
   for (int i = 0; i < 4; i++) {
     const int j = (i + 1) % 4;
     site.Quad(Face(s, c[i], lowZ, side),
@@ -765,7 +765,9 @@ constexpr double kBoxTris = 12.0;
       maxV = hiV;
     }
   }
-  const auto at = [&](double u, double v) { return En{u * axE - v * axN, u * axN + v * axE}; };
+  const auto at = [&](double u, double v) {
+    return En{.E = u * axE - v * axN, .N = u * axN + v * axE};
+  };
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
 
@@ -860,7 +862,7 @@ double StandBack(const Frontage &street, const En &p) {
 }
 
 En OntoKerb(const Frontage &street, const En &p, double back) {
-  return {p.E - back * street.ToStreetE, p.N - back * street.ToStreetN};
+  return {.E = p.E - back * street.ToStreetE, .N = p.N - back * street.ToStreetN};
 }
 
 void Pavement(const BuildingShape &s,

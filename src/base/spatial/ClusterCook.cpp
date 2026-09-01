@@ -62,7 +62,8 @@ Cooked CookClusters(std::span<const float> positionsM,
         centre[axis] += positionsM[static_cast<size_t>(at) * 3 + static_cast<size_t>(axis)] / 3.0f;
       }
     }
-    order.push_back(Sorted{Morton(centre, least, span), static_cast<uint32_t>(triangle)});
+    order.push_back(
+        Sorted{.Code = Morton(centre, least, span), .Triangle = static_cast<uint32_t>(triangle)});
   }
   std::sort(
       order.begin(), order.end(), [](const Sorted &a, const Sorted &b) { return a.Code < b.Code; });

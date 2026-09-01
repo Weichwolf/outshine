@@ -124,9 +124,10 @@ constexpr double kMostClothoidShare = 1.0;
 
   const double swing = std::fabs(bend.TurnRad);
   if (swing < 1.0e-9 || swing > std::numbers::pi - 1.0e-9) {
-    return std::unexpected(Refusal{"vertices " + std::to_string(at) + ".." + std::to_string(last) +
-                                   " turn through " + std::to_string(bend.TurnRad) +
-                                   " rad, which no single arc between two straights can carry"});
+    return std::unexpected(
+        Refusal{.Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) +
+                        " turn through " + std::to_string(bend.TurnRad) +
+                        " rad, which no single arc between two straights can carry"});
   }
   if (!Meets(points[2 * (at - 1)],
              points[2 * (at - 1) + 1],
@@ -136,8 +137,9 @@ constexpr double kMostClothoidShare = 1.0;
              legs[last].HeadingRad,
              bend.PiEastM,
              bend.PiNorthM)) {
-    return std::unexpected(Refusal{"the legs entering and leaving vertices " + std::to_string(at) +
-                                   ".." + std::to_string(last) + " are parallel and meet nowhere"});
+    return std::unexpected(Refusal{.Said = "the legs entering and leaving vertices " +
+                                           std::to_string(at) + ".." + std::to_string(last) +
+                                           " are parallel and meet nowhere"});
   }
 
   const double half = 0.5 * swing;
@@ -159,13 +161,13 @@ constexpr double kMostClothoidShare = 1.0;
   const double byRoom = roomM / (TangentFor(1.0, swing, SpiralAtLeast(1.0, againstAStraight)));
   if (!(byRoom > tightestM)) {
     return std::unexpected(
-        Refusal{"vertices " + std::to_string(at) + ".." + std::to_string(last) + " leave " +
-                    std::to_string(roomM) +
-                    " m of tangent between their straights, which carries no arc wider than " +
-                    std::to_string(byRoom) + " m",
-                byRoom,
-                at,
-                1});
+        Refusal{.Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) + " leave " +
+                        std::to_string(roomM) +
+                        " m of tangent between their straights, which carries no arc wider than " +
+                        std::to_string(byRoom) + " m",
+                .DemandedM = byRoom,
+                .AtVertex = at,
+                .Undrivable = 1});
   }
 
   if (last == at) {
@@ -190,16 +192,16 @@ constexpr double kMostClothoidShare = 1.0;
     bend.RadiusM = 0.5 * (low + high);
   }
   if (bend.RadiusM < tightestM) {
-    return std::unexpected(
-        Refusal{"vertices " + std::to_string(at) + ".." + std::to_string(last) + " turn through " +
-                    std::to_string(bend.TurnRad) + " rad and the widest arc that stays within " +
-                    std::to_string(withinM) + " m of them is " + std::to_string(bend.RadiusM) +
-                    " m, tighter than the " + std::to_string(tightestM) +
-                    " m this body can bend to -- a corner tighter than the lock is a route that "
-                    "doubles back on itself, and that is a finding about the graph",
-                bend.RadiusM,
-                at,
-                1});
+    return std::unexpected(Refusal{
+        .Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) + " turn through " +
+                std::to_string(bend.TurnRad) + " rad and the widest arc that stays within " +
+                std::to_string(withinM) + " m of them is " + std::to_string(bend.RadiusM) +
+                " m, tighter than the " + std::to_string(tightestM) +
+                " m this body can bend to -- a corner tighter than the lock is a route that "
+                "doubles back on itself, and that is a finding about the graph",
+        .DemandedM = bend.RadiusM,
+        .AtVertex = at,
+        .Undrivable = 1});
   }
   double centreE = 0.0, centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
@@ -237,13 +239,14 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
   const size_t points = eastNorthM.size() / 2;
   if (points < 3) {
     return std::unexpected(
-        Refusal{"an alignment is fitted through 3..N vertices and this one carries " +
-                std::to_string(points)});
+        Refusal{.Said = "an alignment is fitted through 3..N vertices and this one carries " +
+                        std::to_string(points)});
   }
   if (!(withinM > 0.0)) {
     return std::unexpected(Refusal{
-        "an alignment is bounded by how far it may leave the vertices, and this one declares " +
-        std::to_string(withinM) + " m"});
+        .Said =
+            "an alignment is bounded by how far it may leave the vertices, and this one declares " +
+            std::to_string(withinM) + " m"});
   }
 
   std::vector<Turned> legs(points - 1);
@@ -332,15 +335,15 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
   out.TightestRadiusM = 0.0;
   for (const Bend &bend : out.Bends) {
     if (bend.RadiusM < tightestM) {
-      return std::unexpected(
-          Refusal{"the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
-                      std::to_string(bend.LastVertex) +
-                      " shares its straights with its neighbours and what is left carries only " +
-                      std::to_string(bend.RadiusM) + " m, tighter than the " +
-                      std::to_string(tightestM) + " m this body can bend to",
-                  bend.RadiusM,
-                  bend.FirstVertex,
-                  1});
+      return std::unexpected(Refusal{
+          .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+                  std::to_string(bend.LastVertex) +
+                  " shares its straights with its neighbours and what is left carries only " +
+                  std::to_string(bend.RadiusM) + " m, tighter than the " +
+                  std::to_string(tightestM) + " m this body can bend to",
+          .DemandedM = bend.RadiusM,
+          .AtVertex = bend.FirstVertex,
+          .Undrivable = 1});
     }
     if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {
       out.TightestRadiusM = bend.RadiusM;
@@ -355,8 +358,8 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   const size_t points = eastNorthM.size() / 2;
   if (points < 2) {
     return std::unexpected(
-        Refusal{"an alignment is laid through 2..N vertices and this one carries " +
-                std::to_string(points)});
+        Refusal{.Said = "an alignment is laid through 2..N vertices and this one carries " +
+                        std::to_string(points)});
   }
 
   std::vector<Segment> along;
@@ -370,51 +373,66 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
                          (bend.IntoNorthM - atNorth) * std::sin(heading);
     if (ahead < -1.0e-6) {
       return std::unexpected(Refusal{
-          "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
-              std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
-              " m behind where the one before it ended -- two arcs whose tangents overlap are "
-              "one alignment the straights cannot separate",
-          bend.RadiusM,
-          bend.FirstVertex,
-          1});
+          .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+                  std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
+                  " m behind where the one before it ended -- two arcs whose tangents overlap are "
+                  "one alignment the straights cannot separate",
+          .DemandedM = bend.RadiusM,
+          .AtVertex = bend.FirstVertex,
+          .Undrivable = 1});
     }
     const bool leadsWithAStraight = straightM > 1.0e-6;
     if ((leadsWithAStraight || untransitioned != nullptr) && !(bend.SpiralM > 1.0e-6)) {
-      return std::unexpected(
-          Refusal{"the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
-                      std::to_string(bend.LastVertex) + " meets " + std::to_string(straightM) +
-                      " m of straight at radius " + std::to_string(bend.RadiusM) +
-                      " m with NO transition: curvature may not step from 0 to " +
-                      std::to_string(1.0 / bend.RadiusM) + " per m. Its turn is " +
-                      std::to_string(bend.TurnRad) + " rad, its arc " + std::to_string(bend.ArcM) +
-                      " m and the tangent it was given " + std::to_string(bend.TangentM) + " m",
-                  bend.RadiusM,
-                  bend.FirstVertex,
-                  1});
+      return std::unexpected(Refusal{
+          .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+                  std::to_string(bend.LastVertex) + " meets " + std::to_string(straightM) +
+                  " m of straight at radius " + std::to_string(bend.RadiusM) +
+                  " m with NO transition: curvature may not step from 0 to " +
+                  std::to_string(1.0 / bend.RadiusM) + " per m. Its turn is " +
+                  std::to_string(bend.TurnRad) + " rad, its arc " + std::to_string(bend.ArcM) +
+                  " m and the tangent it was given " + std::to_string(bend.TangentM) + " m",
+          .DemandedM = bend.RadiusM,
+          .AtVertex = bend.FirstVertex,
+          .Undrivable = 1});
     }
     if (untransitioned != nullptr && straightM > 1.0e-6) {
-      return std::unexpected(Refusal{
-          "the bend over vertices " + std::to_string(untransitioned->FirstVertex) + ".." +
-              std::to_string(untransitioned->LastVertex) + " leaves into " +
-              std::to_string(straightM) + " m of straight at radius " +
-              std::to_string(untransitioned->RadiusM) + " m with NO transition out, and its own " +
-              std::to_string(untransitioned->ArcM) + " m of arc ends at curvature " +
-              std::to_string(1.0 / untransitioned->RadiusM) + " per m",
-          untransitioned->RadiusM,
-          untransitioned->FirstVertex,
-          1});
+      return std::unexpected(
+          Refusal{.Said = "the bend over vertices " + std::to_string(untransitioned->FirstVertex) +
+                          ".." + std::to_string(untransitioned->LastVertex) + " leaves into " +
+                          std::to_string(straightM) + " m of straight at radius " +
+                          std::to_string(untransitioned->RadiusM) +
+                          " m with NO transition out, and its own " +
+                          std::to_string(untransitioned->ArcM) + " m of arc ends at curvature " +
+                          std::to_string(1.0 / untransitioned->RadiusM) + " per m",
+                  .DemandedM = untransitioned->RadiusM,
+                  .AtVertex = untransitioned->FirstVertex,
+                  .Undrivable = 1});
     }
     untransitioned = nullptr;
-    if (leadsWithAStraight) { along.push_back(Segment{Curve::Straight, straightM, 0.0, 0.0}); }
+    if (leadsWithAStraight) {
+      along.push_back(Segment{.Shape = Curve::Straight,
+                              .LengthM = straightM,
+                              .EntryCurvature = 0.0,
+                              .ExitCurvature = 0.0});
+    }
     const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
     if (bend.SpiralM > 1.0e-6) {
-      along.push_back(Segment{Curve::Spiral, bend.SpiralM, 0.0, curvature});
+      along.push_back(Segment{.Shape = Curve::Spiral,
+                              .LengthM = bend.SpiralM,
+                              .EntryCurvature = 0.0,
+                              .ExitCurvature = curvature});
     }
     if (bend.ArcM > 1.0e-6) {
-      along.push_back(Segment{Curve::Arc, bend.ArcM, curvature, curvature});
+      along.push_back(Segment{.Shape = Curve::Arc,
+                              .LengthM = bend.ArcM,
+                              .EntryCurvature = curvature,
+                              .ExitCurvature = curvature});
     }
     if (bend.SpiralM > 1.0e-6) {
-      along.push_back(Segment{Curve::Spiral, bend.SpiralM, curvature, 0.0});
+      along.push_back(Segment{.Shape = Curve::Spiral,
+                              .LengthM = bend.SpiralM,
+                              .EntryCurvature = curvature,
+                              .ExitCurvature = 0.0});
     }
     if (!(bend.SpiralM > 1.0e-6)) { untransitioned = &bend; }
     atEast = bend.OutOfEastM;
@@ -424,20 +442,23 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   const double lastM =
       AwayM(atEast, atNorth, eastNorthM[2 * (points - 1)], eastNorthM[2 * (points - 1) + 1]);
   if (untransitioned != nullptr && lastM > 1.0e-6) {
-    return std::unexpected(
-        Refusal{"the bend over vertices " + std::to_string(untransitioned->FirstVertex) + ".." +
-                    std::to_string(untransitioned->LastVertex) + " leaves into the closing " +
-                    std::to_string(lastM) + " m of straight at radius " +
-                    std::to_string(untransitioned->RadiusM) + " m with NO transition out",
-                untransitioned->RadiusM,
-                untransitioned->FirstVertex,
-                1});
+    return std::unexpected(Refusal{
+        .Said = "the bend over vertices " + std::to_string(untransitioned->FirstVertex) + ".." +
+                std::to_string(untransitioned->LastVertex) + " leaves into the closing " +
+                std::to_string(lastM) + " m of straight at radius " +
+                std::to_string(untransitioned->RadiusM) + " m with NO transition out",
+        .DemandedM = untransitioned->RadiusM,
+        .AtVertex = untransitioned->FirstVertex,
+        .Undrivable = 1});
   }
-  if (lastM > 1.0e-6) { along.push_back(Segment{Curve::Straight, lastM, 0.0, 0.0}); }
+  if (lastM > 1.0e-6) {
+    along.push_back(Segment{
+        .Shape = Curve::Straight, .LengthM = lastM, .EntryCurvature = 0.0, .ExitCurvature = 0.0});
+  }
   if (along.empty()) {
     return std::unexpected(
-        Refusal{"every straight was consumed by its bends, so the alignment has no "
-                "length"});
+        Refusal{.Said = "every straight was consumed by its bends, so the alignment has no "
+                        "length"});
   }
 
   Placed from;
@@ -445,7 +466,7 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   from.NorthM = eastNorthM[1];
   from.HeadingRad = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
   std::string error;
-  if (!into.Lay(from, along, error)) { return std::unexpected(Refusal{error}); }
+  if (!into.Lay(from, along, error)) { return std::unexpected(Refusal{.Said = error}); }
   Laid said;
   said.LengthM = into.LengthM();
   for (const Segment &one : along) { said.Straights += one.Shape == Curve::Straight ? 1u : 0u; }

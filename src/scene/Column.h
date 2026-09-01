@@ -43,7 +43,7 @@ public:
     if (Bound_ == nullptr) { return; }
     for (uint32_t at = 0; at < static_cast<uint32_t>(Values_.size()); ++at) {
       if (Held_[at] == 0) { continue; }
-      const Entity of{at, Generations_[at]};
+      const Entity of{.Index = at, .Generation = Generations_[at]};
       if (!Bound_->alive(of)) { continue; }
       fn(of, Values_[at]);
     }

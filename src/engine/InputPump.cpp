@@ -30,26 +30,30 @@ struct Resolved {
 [[nodiscard]] const Resolved &Table() {
   static const Resolved held = [] {
     Resolved out;
-    out.Keys[0] = {SDLK_W, InputMap::EventIndexOf("KeyW")};
-    out.Keys[1] = {SDLK_A, InputMap::EventIndexOf("KeyA")};
-    out.Keys[2] = {SDLK_S, InputMap::EventIndexOf("KeyS")};
-    out.Keys[3] = {SDLK_D, InputMap::EventIndexOf("KeyD")};
-    out.Keys[4] = {SDLK_SPACE, InputMap::EventIndexOf("Space")};
-    out.Keys[5] = {SDLK_ESCAPE, InputMap::EventIndexOf("Escape")};
-    out.Keys[6] = {SDLK_UP, InputMap::EventIndexOf("ArrowUp")};
-    out.Keys[7] = {SDLK_DOWN, InputMap::EventIndexOf("ArrowDown")};
-    out.Keys[8] = {SDLK_LEFT, InputMap::EventIndexOf("ArrowLeft")};
-    out.Keys[9] = {SDLK_RIGHT, InputMap::EventIndexOf("ArrowRight")};
-    out.Keys[10] = {SDLK_PAGEUP, InputMap::EventIndexOf("PageUp")};
-    out.Keys[11] = {SDLK_PAGEDOWN, InputMap::EventIndexOf("PageDown")};
-    out.Buttons[0] = {SDL_GAMEPAD_BUTTON_SOUTH, InputMap::EventIndexOf("GamepadSouth")};
-    out.Buttons[1] = {SDL_GAMEPAD_BUTTON_EAST, InputMap::EventIndexOf("GamepadEast")};
-    out.Axes[0] = {SDL_GAMEPAD_AXIS_LEFTX, InputMap::EventIndexOf("AxisLeftX")};
-    out.Axes[1] = {SDL_GAMEPAD_AXIS_LEFTY, InputMap::EventIndexOf("AxisLeftY")};
-    out.Axes[2] = {SDL_GAMEPAD_AXIS_RIGHTX, InputMap::EventIndexOf("AxisRightX")};
-    out.Axes[3] = {SDL_GAMEPAD_AXIS_RIGHTY, InputMap::EventIndexOf("AxisRightY")};
-    out.Axes[4] = {SDL_GAMEPAD_AXIS_LEFT_TRIGGER, InputMap::EventIndexOf("TriggerLeft")};
-    out.Axes[5] = {SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, InputMap::EventIndexOf("TriggerRight")};
+    out.Keys[0] = {.Key = SDLK_W, .Event = InputMap::EventIndexOf("KeyW")};
+    out.Keys[1] = {.Key = SDLK_A, .Event = InputMap::EventIndexOf("KeyA")};
+    out.Keys[2] = {.Key = SDLK_S, .Event = InputMap::EventIndexOf("KeyS")};
+    out.Keys[3] = {.Key = SDLK_D, .Event = InputMap::EventIndexOf("KeyD")};
+    out.Keys[4] = {.Key = SDLK_SPACE, .Event = InputMap::EventIndexOf("Space")};
+    out.Keys[5] = {.Key = SDLK_ESCAPE, .Event = InputMap::EventIndexOf("Escape")};
+    out.Keys[6] = {.Key = SDLK_UP, .Event = InputMap::EventIndexOf("ArrowUp")};
+    out.Keys[7] = {.Key = SDLK_DOWN, .Event = InputMap::EventIndexOf("ArrowDown")};
+    out.Keys[8] = {.Key = SDLK_LEFT, .Event = InputMap::EventIndexOf("ArrowLeft")};
+    out.Keys[9] = {.Key = SDLK_RIGHT, .Event = InputMap::EventIndexOf("ArrowRight")};
+    out.Keys[10] = {.Key = SDLK_PAGEUP, .Event = InputMap::EventIndexOf("PageUp")};
+    out.Keys[11] = {.Key = SDLK_PAGEDOWN, .Event = InputMap::EventIndexOf("PageDown")};
+    out.Buttons[0] = {.Button = SDL_GAMEPAD_BUTTON_SOUTH,
+                      .Event = InputMap::EventIndexOf("GamepadSouth")};
+    out.Buttons[1] = {.Button = SDL_GAMEPAD_BUTTON_EAST,
+                      .Event = InputMap::EventIndexOf("GamepadEast")};
+    out.Axes[0] = {.Axis = SDL_GAMEPAD_AXIS_LEFTX, .Event = InputMap::EventIndexOf("AxisLeftX")};
+    out.Axes[1] = {.Axis = SDL_GAMEPAD_AXIS_LEFTY, .Event = InputMap::EventIndexOf("AxisLeftY")};
+    out.Axes[2] = {.Axis = SDL_GAMEPAD_AXIS_RIGHTX, .Event = InputMap::EventIndexOf("AxisRightX")};
+    out.Axes[3] = {.Axis = SDL_GAMEPAD_AXIS_RIGHTY, .Event = InputMap::EventIndexOf("AxisRightY")};
+    out.Axes[4] = {.Axis = SDL_GAMEPAD_AXIS_LEFT_TRIGGER,
+                   .Event = InputMap::EventIndexOf("TriggerLeft")};
+    out.Axes[5] = {.Axis = SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,
+                   .Event = InputMap::EventIndexOf("TriggerRight")};
     out.MouseLeft = InputMap::EventIndexOf("MouseLeft");
     out.MouseRight = InputMap::EventIndexOf("MouseRight");
     out.MouseX = InputMap::EventIndexOf("MouseX");
@@ -78,7 +82,7 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
   const auto fire = [&](ptrdiff_t at, InputMap::Kind what, float value, size_t held) {
     const uint16_t action = Map_->ActionAt(static_cast<size_t>(at));
     if (action == InputMap::kUnbound) { return held; }
-    out[held] = {action, what, value};
+    out[held] = {.Action = action, .What = what, .Value = value};
     return held + 1;
   };
   switch (event.type) {

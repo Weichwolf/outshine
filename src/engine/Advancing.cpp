@@ -40,9 +40,9 @@ bool Engine::State::Watches(void) {
     const Ground::EnuFrame frame = Ground::EnuFrame::At(
         Session.Declared.Ground.Origin.LatitudeDeg, Session.Declared.Ground.Origin.LongitudeDeg);
     Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{seen.Sees.Stands.Geodetic.LongitudeDeg,
-                                      seen.Sees.Stands.Geodetic.LatitudeDeg,
-                                      heightM},
+    if (!frame.TryFromGeo(Ground::Geo{.LonDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
+                                      .LatDeg = seen.Sees.Stands.Geodetic.LatitudeDeg,
+                                      .AltM = heightM},
                           &where)) {
       Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
               Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +

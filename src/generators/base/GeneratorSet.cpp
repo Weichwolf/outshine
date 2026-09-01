@@ -8,7 +8,7 @@ bool GeneratorSet::Add(Rank rank, const Making &generator) {
   size_t at = 0;
   while (at < Entries_.size() && Entries_[at].R < rank) { at++; }
   if (at < Entries_.size() && Entries_[at].R == rank) { return false; }
-  Entries_.insert(Entries_.begin() + static_cast<long>(at), Entry{rank, &generator});
+  Entries_.insert(Entries_.begin() + static_cast<long>(at), Entry{.R = rank, .G = &generator});
   return true;
 }
 

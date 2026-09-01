@@ -120,7 +120,7 @@ void Fetching::Work() {
     }
 
     std::vector<uint8_t> body;
-    Sink sink{&body, Config_.MaxBodyBytes};
+    Sink sink{.Out = &body, .Max = Config_.MaxBodyBytes};
     long status = 0;
     curl_off_t retryAfter = 0;
     CURLcode result = CURLE_FAILED_INIT;

@@ -52,13 +52,33 @@ struct Font {
 struct AhemFont final : Font {
   [[nodiscard]] FontMetrics At(double sizePx, Family family) const override {
     (void)family;
-    return {sizePx, sizePx * 0.8, sizePx * 0.2};
+    return {.Advance = sizePx, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
   }
 
   [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override {
     (void)family;
-    if (code == U' ') { return {0, 0, 0, 0, 0, 0, 0, 0, sizePx, false}; }
-    return {0.0, 0.0, sizePx, sizePx, 0, 0, 0, 0, sizePx, true};
+    if (code == U' ') {
+      return {.LeftPx = 0,
+              .TopPx = 0,
+              .WidthPx = 0,
+              .HeightPx = 0,
+              .U0 = 0,
+              .V0 = 0,
+              .U1 = 0,
+              .V1 = 0,
+              .AdvancePx = sizePx,
+              .Drawn = false};
+    }
+    return {.LeftPx = 0.0,
+            .TopPx = 0.0,
+            .WidthPx = sizePx,
+            .HeightPx = sizePx,
+            .U0 = 0,
+            .V0 = 0,
+            .U1 = 0,
+            .V1 = 0,
+            .AdvancePx = sizePx,
+            .Drawn = true};
   }
 };
 

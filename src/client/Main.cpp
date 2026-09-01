@@ -128,8 +128,10 @@ void Usage() {
     return false;
   }
   engine.logsTo(&gTelling);
-  engine.setRoots(
-      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
+                                  .Shipped = "src/assets",
+                                  .Cache = "/tmp/outshine-drive-cache",
+                                  .Offline = false});
   if (!engine.drawsInto(outshine::Extent{.WidthPx = outshine::Shots::kWidePx,
                                          .HeightPx = outshine::Shots::kHighPx})) {
     std::printf("outshine-client: the device stood no canvas -- %s\n", engine.error().c_str());

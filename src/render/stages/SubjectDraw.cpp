@@ -544,11 +544,11 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   {
     const Heap::Tagged uploading("mesh-upload");
     SubjectResidency::Crossing run[] = {
-        {&Bound().Idx,
-         &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Index)],
-         SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-         mesh.Indices,
-         Bound().NIdx * static_cast<uint32_t>(sizeof(uint32_t))}};
+        {.Into = &Bound().Idx,
+         .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Index)],
+         .Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+         .From = mesh.Indices,
+         .Bytes = Bound().NIdx * static_cast<uint32_t>(sizeof(uint32_t))}};
     if (!Bound().Cross(run, 1, false, error)) {
       Bound().NIdx = 0;
       return false;
@@ -675,21 +675,21 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
 
   const auto read = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
   SubjectResidency::Crossing cut[] = {
-      {&Bound().ClusterSpheres,
-       &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterSpheres)],
-       read,
-       mesh.ClusterSpheres.data(),
-       static_cast<uint32_t>(mesh.ClusterSpheres.size() * sizeof(float))},
-      {&Bound().ClusterJobs,
-       &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterJobs)],
-       read,
-       jobs.data(),
-       static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
-      {&Bound().ClusterBatches,
-       &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterBatches)],
-       read,
-       rows.data(),
-       static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
+      {.Into = &Bound().ClusterSpheres,
+       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterSpheres)],
+       .Usage = read,
+       .From = mesh.ClusterSpheres.data(),
+       .Bytes = static_cast<uint32_t>(mesh.ClusterSpheres.size() * sizeof(float))},
+      {.Into = &Bound().ClusterJobs,
+       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterJobs)],
+       .Usage = read,
+       .From = jobs.data(),
+       .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
+      {.Into = &Bound().ClusterBatches,
+       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterBatches)],
+       .Usage = read,
+       .From = rows.data(),
+       .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
   };
   if (!Bound().Cross(cut, sizeof cut / sizeof cut[0], false, error)) {
     Args_.clear();
@@ -726,11 +726,11 @@ bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
   for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
   const uint32_t bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
   SubjectResidency::Crossing table[] = {
-      {&Bound().DrawArgs,
-       &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],
-       SDL_GPU_BUFFERUSAGE_INDIRECT,
-       Args_.data(),
-       bytes}};
+      {.Into = &Bound().DrawArgs,
+       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],
+       .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
+       .From = Args_.data(),
+       .Bytes = bytes}};
   return Bound().Cross(table, 1, deferred, error);
 }
 
@@ -755,11 +755,12 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     }
   }
   SubjectResidency::Crossing rows[] = {
-      {&Bound().Placed,
-       &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Placements)],
-       SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-       Rows_.data(),
-       static_cast<uint32_t>(Rows_.size() * sizeof(float))}};
+      {.Into = &Bound().Placed,
+       .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Placements)],
+       .Usage =
+           SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+       .From = Rows_.data(),
+       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(float))}};
   return Bound().Cross(rows, 1, deferred, error);
 }
 
@@ -911,31 +912,44 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
       SDL_GPUBufferBinding runs[VertexShape::kRuns] = {};
       uint32_t count = 0;
-      runs[count++] = SDL_GPUBufferBinding{Bound().Vtx.Get(), 0};
-      if (textured) { runs[count++] = SDL_GPUBufferBinding{Bound().Uv.Get(), 0}; }
-      if (secondUv) { runs[count++] = SDL_GPUBufferBinding{Bound().Uv1.Get(), 0}; }
-      runs[count++] = SDL_GPUBufferBinding{lit ? Bound().Nrm.Get() : Bound().Emit.Get(), 0};
-      if (mapped) { runs[count++] = SDL_GPUBufferBinding{Bound().Tan.Get(), 0}; }
-      if (tinted) { runs[count++] = SDL_GPUBufferBinding{Bound().Col.Get(), 0}; }
+      runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Vtx.Get(), .offset = 0};
+      if (textured) {
+        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Uv.Get(), .offset = 0};
+      }
+      if (secondUv) {
+        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Uv1.Get(), .offset = 0};
+      }
+      runs[count++] =
+          SDL_GPUBufferBinding{.buffer = lit ? Bound().Nrm.Get() : Bound().Emit.Get(), .offset = 0};
+      if (mapped) {
+        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Tan.Get(), .offset = 0};
+      }
+      if (tinted) {
+        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Col.Get(), .offset = 0};
+      }
 
-      if (WritesVelocity) { runs[count++] = SDL_GPUBufferBinding{Bound().Prev.Get(), 0}; }
+      if (WritesVelocity) {
+        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Prev.Get(), .offset = 0};
+      }
       SDL_BindGPUVertexBuffers(into.Pass, 0, runs, count);
       bound = wantedPipeline;
     }
     if (!slotBound || boundSlot != batch.MaterialSlot) {
       const SDL_GPUTextureSamplerBinding images[kSubjectImages] = {
-          {surface.Colour.Image.Get(), surface.Colour.Sample.Get()},
-          {surface.Normal.Image.Get(), surface.Normal.Sample.Get()},
-          {surface.MetalRough.Image.Get(), surface.MetalRough.Sample.Get()},
-          {surface.Emissive.Image.Get(), surface.Emissive.Sample.Get()},
-          {surface.SpecularStrength.Image.Get(), surface.SpecularStrength.Sample.Get()},
-          {surface.SpecularTint.Image.Get(), surface.SpecularTint.Sample.Get()},
+          {.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
+          {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
+          {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
+          {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
+          {.texture = surface.SpecularStrength.Image.Get(),
+           .sampler = surface.SpecularStrength.Sample.Get()},
+          {.texture = surface.SpecularTint.Image.Get(),
+           .sampler = surface.SpecularTint.Sample.Get()},
 
-          {Behind != nullptr ? Behind : surface.Colour.Image.Get(),
-           BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
+          {.texture = Behind != nullptr ? Behind : surface.Colour.Image.Get(),
+           .sampler = BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
 
-          {Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-           AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}};
+          {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+           .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
       if (SkyIrradiance_ != nullptr && GroundClasses_ != nullptr && GroundPalette_ != nullptr) {
         SDL_GPUBuffer *const storage[kSubjectFragmentStorage] = {
@@ -950,7 +964,8 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       slotBound = true;
     }
     if (!anyIndex || boundCut != culled) {
-      SDL_GPUBufferBinding indices{culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(), 0};
+      SDL_GPUBufferBinding indices{.buffer = culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(),
+                                   .offset = 0};
       SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
       boundCut = culled;
       anyIndex = true;

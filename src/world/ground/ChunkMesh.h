@@ -127,7 +127,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
     for (int i = 0; i < gc - 1; i++) {
       int r0 = W3_RI(j), r1 = W3_RI(j + 1), c0 = W3_CI(i), c1 = W3_CI(i + 1);
       if (r1 <= r0 || c1 <= c0) { continue; }
-      const ChunkCell cell{nh, gc, j, i};
+      const ChunkCell cell{.Nodes = nh, .Stride = gc, .Row = j, .Col = i};
       for (int r = r0; r <= r1; r++) {
         for (int c = c0; c <= c1; c++) {
           float sv = static_cast<float>(r - r0) / static_cast<float>(r1 - r0),

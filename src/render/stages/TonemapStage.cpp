@@ -84,18 +84,22 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
       float Texel[2];
       float HistoryHeld;
       float Pad[3];
-    } uniforms{{JitterDelta[0], JitterDelta[1]},
-               {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
-                Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},
-               HistoryHeld ? 1.0f : 0.0f,
-               {0.0f, 0.0f, 0.0f}};
+    } uniforms{.JitterDelta = {JitterDelta[0], JitterDelta[1]},
+               .Texel = {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
+                         Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},
+               .HistoryHeld = HistoryHeld ? 1.0f : 0.0f,
+               .Pad = {0.0f, 0.0f, 0.0f}};
 
     SDL_PushGPUFragmentUniformData(into.Commands, 0, &uniforms, sizeof uniforms);
     const SDL_GPUTextureSamplerBinding images[kTemporalImages] = {
-        {Scene, Exact}, {Depth, Exact}, {History, Exact}, {Velocity, Exact}};
+        {.texture = Scene, .sampler = Exact},
+        {.texture = Depth, .sampler = Exact},
+        {.texture = History, .sampler = Exact},
+        {.texture = Velocity, .sampler = Exact}};
     SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kTemporalImages);
   } else {
-    const SDL_GPUTextureSamplerBinding images[kTonemapImages] = {{Scene, Exact}, {Depth, Exact}};
+    const SDL_GPUTextureSamplerBinding images[kTonemapImages] = {
+        {.texture = Scene, .sampler = Exact}, {.texture = Depth, .sampler = Exact}};
     SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kTonemapImages);
   }
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);

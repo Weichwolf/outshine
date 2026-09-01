@@ -52,7 +52,7 @@ struct BuildingShape {
 
   [[nodiscard]] double TopM() const { return SeatM + FootM + EavesM + RiseM; }
 
-  [[nodiscard]] En AxisV() const { return {-AxisU.N, AxisU.E}; }
+  [[nodiscard]] En AxisV() const { return {.E = -AxisU.N, .N = AxisU.E}; }
 
   void ToBox(const En &p, double *u, double *v) const;
   [[nodiscard]] En FromBox(double u, double v) const;

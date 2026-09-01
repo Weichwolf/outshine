@@ -8,7 +8,7 @@ bool DrawSet::Add(Rank rank, const DrawSource &source) {
   for (const Entry &e : Entries_) {
     if (e.R == rank) { return false; }
   }
-  Entries_.push_back(Entry{rank, &source});
+  Entries_.push_back(Entry{.R = rank, .S = &source});
   return true;
 }
 

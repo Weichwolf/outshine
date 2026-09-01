@@ -38,8 +38,12 @@ struct ChunkQuadCorner {
 };
 
 inline const std::array<ChunkQuadCorner, 6> &ChunkQuadWinding() {
-  static const std::array<ChunkQuadCorner, 6> kCorners{
-      {{0, 0}, {0, 1}, {1, 1}, {0, 0}, {1, 1}, {1, 0}}};
+  static const std::array<ChunkQuadCorner, 6> kCorners{{{.Row = 0, .Col = 0},
+                                                        {.Row = 0, .Col = 1},
+                                                        {.Row = 1, .Col = 1},
+                                                        {.Row = 0, .Col = 0},
+                                                        {.Row = 1, .Col = 1},
+                                                        {.Row = 1, .Col = 0}}};
   return kCorners;
 }
 

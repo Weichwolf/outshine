@@ -7,7 +7,9 @@ namespace outshine::Generators {
 Yield::Yield(OccupancySink &space, Span<const char *const> names, Span<Note> notes) noexcept
     : Space_(&space), Notes_(notes) {
   assert(names.Size() == notes.Size());
-  for (size_t i = 0; i < names.Size(); i++) { Notes_[i] = Note{names[i], 0, 0.0, false}; }
+  for (size_t i = 0; i < names.Size(); i++) {
+    Notes_[i] = Note{.Name = names[i], .Times = 0, .Peak = 0.0, .Raised = false};
+  }
 }
 
 Claim Yield::Place(const Body &body) noexcept {

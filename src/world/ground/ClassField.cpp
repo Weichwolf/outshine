@@ -70,7 +70,7 @@ void ClassField::Ingest(Tier &t) {
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
     for (size_t i = t.RingsDone; i < rings.size(); i++) {
-      t.Rings[i] = ClassBuilder::Ring{rings[i].First, rings[i].Count};
+      t.Rings[i] = ClassBuilder::Ring{.First = rings[i].First, .Count = rings[i].Count};
     }
     t.RingsDone = rings.size();
   }

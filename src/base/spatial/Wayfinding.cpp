@@ -150,7 +150,8 @@ size_t Network::Cross() {
               ? ((held.LatDeg - fromLat) * runLat + LonApartDeg(held.LonDeg, fromLon) * runLon) /
                     square
               : 0.0;
-      perWay[ways[side]].push_back(Cut{local, held.LatDeg, held.LonDeg, along});
+      perWay[ways[side]].push_back(
+          Cut{.After = local, .LatDeg = held.LatDeg, .LonDeg = held.LonDeg, .Along = along});
     }
   }
   if (Joined_ == 0) { return 0; }
@@ -326,8 +327,8 @@ bool Network::Weave(std::string &error) {
       if (from == to) { continue; }
       const double lengthM = ApartM(
           Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
-      outgoing[from].push_back(Edge{to, lengthM});
-      outgoing[to].push_back(Edge{from, lengthM});
+      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
     }
   }
 
@@ -456,8 +457,8 @@ bool Network::Weave(std::string &error) {
     const auto link = [this, &outgoing](size_t from, size_t to) {
       const double lengthM = ApartM(
           Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
-      outgoing[from].push_back(Edge{to, lengthM});
-      outgoing[to].push_back(Edge{from, lengthM});
+      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
     };
     link(bestFrom, loose);
     link(loose, bestTo);
@@ -608,7 +609,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
   std::vector<Filed> inCell(holds[cells], Filed{});
   for (size_t seg = 0; seg < segments; ++seg) {
     overSquares(seg, [&](uint32_t square) {
-      inCell[filled[bucketOf(square)]++] = Filed{square, static_cast<uint32_t>(seg)};
+      inCell[filled[bucketOf(square)]++] =
+          Filed{.Square = square, .Seg = static_cast<uint32_t>(seg)};
     });
   }
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -638,12 +640,12 @@ Network::Crossings(std::vector<Crossing> &into) const {
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
-        into.push_back(Crossing{static_cast<uint32_t>(segWay[mine]),
-                                static_cast<uint32_t>(segWay[theirs]),
-                                atY,
-                                back,
-                                static_cast<uint32_t>(firstA),
-                                static_cast<uint32_t>(firstB)});
+        into.push_back(Crossing{.OverWay = static_cast<uint32_t>(segWay[mine]),
+                                .UnderWay = static_cast<uint32_t>(segWay[theirs]),
+                                .LatDeg = atY,
+                                .LonDeg = back,
+                                .OverAt = static_cast<uint32_t>(firstA),
+                                .UnderAt = static_cast<uint32_t>(firstB)});
       }
     }
   }

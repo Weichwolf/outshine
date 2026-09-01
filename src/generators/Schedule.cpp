@@ -8,7 +8,7 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
   const int r = ring.RadiusRegions < 0 ? 0 : ring.RadiusRegions;
   Offsets_.reserve(static_cast<size_t>(2 * r + 1) * static_cast<size_t>(2 * r + 1));
   for (int y = -r; y <= r; y++) {
-    for (int x = -r; x <= r; x++) { Offsets_.push_back(Offset{x, y}); }
+    for (int x = -r; x <= r; x++) { Offsets_.push_back(Offset{.X = x, .Y = y}); }
   }
   std::stable_sort(Offsets_.begin(), Offsets_.end(), [](const Offset &a, const Offset &b) {
     const int da = a.X * a.X + a.Y * a.Y, db = b.X * b.X + b.Y * b.Y;

@@ -35,12 +35,12 @@ struct Reader {
 
   Reader Bytes() {
     const uint64_t n = Varint();
-    Reader r{P, P, false};
+    Reader r{.P = P, .End = P, .Ok = false};
     if (!Ok || static_cast<uint64_t>(End - P) < n) {
       Ok = false;
       return r;
     }
-    r = Reader{P, P + n, true};
+    r = Reader{.P = P, .End = P + n, .Ok = true};
     P += n;
     return r;
   }
@@ -95,7 +95,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
   Extent_ = 4096;
   if (!bytes || len == 0) { return false; }
 
-  Reader top{bytes, bytes + len, true};
+  Reader top{.P = bytes, .End = bytes + len, .Ok = true};
   uint32_t num = 0, wire = 0;
   while (top.Field(num, wire)) {
     if (num != 3 || wire != 2) {

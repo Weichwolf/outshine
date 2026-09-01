@@ -247,7 +247,7 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
     for (const Rule &rule : sheet.Rules()) {
       if (!Selects(rule, *Tree, node)) { continue; }
       for (const Declaration &one : rule.Declares) {
-        found.push_back({rule.Specificity + bias, rule.Order, &one});
+        found.push_back({.Specificity = rule.Specificity + bias, .Order = rule.Order, .One = &one});
       }
     }
   };
@@ -290,7 +290,7 @@ void Placer::Measure(
     widest = std::fmax(widest, one.X - scratch[0].X + one.Width);
   }
   if (widest > 0) { width = std::fmin(width, widest); }
-  Sizes.emplace(key, Measured{width, height});
+  Sizes.emplace(key, Measured{.Width = width, .Height = height});
   if (!scratch.empty()) { Baselines.emplace(key, scratch[0].Baseline); }
 }
 
@@ -781,7 +781,7 @@ double Placer::Flex(int node,
       const double withGap = line.Count == 0 ? outer : taken + gap + outer;
       if (wraps && line.Count > 0 && definiteMain && mainRoom > 0 && withGap > mainRoom) {
         lines.push_back(line);
-        line = Line{i, 0, 0, 0};
+        line = Line{.From = i, .Count = 0, .Cross = 0, .CrossAt = 0};
         taken = outer;
       } else {
         taken = withGap;
@@ -1075,18 +1075,18 @@ double Placer::Place(int node,
 
   Box box;
   box.Node = node;
-  box.Margin = {len(Property::MarginTop, containerWidth, 0),
-                len(Property::MarginRight, containerWidth, 0),
-                len(Property::MarginBottom, containerWidth, 0),
-                len(Property::MarginLeft, containerWidth, 0)};
-  box.Border = {len(Property::BorderTopWidth, containerWidth, 0),
-                len(Property::BorderRightWidth, containerWidth, 0),
-                len(Property::BorderBottomWidth, containerWidth, 0),
-                len(Property::BorderLeftWidth, containerWidth, 0)};
-  box.Padding = {len(Property::PaddingTop, containerWidth, 0),
-                 len(Property::PaddingRight, containerWidth, 0),
-                 len(Property::PaddingBottom, containerWidth, 0),
-                 len(Property::PaddingLeft, containerWidth, 0)};
+  box.Margin = {.Top = len(Property::MarginTop, containerWidth, 0),
+                .Right = len(Property::MarginRight, containerWidth, 0),
+                .Bottom = len(Property::MarginBottom, containerWidth, 0),
+                .Left = len(Property::MarginLeft, containerWidth, 0)};
+  box.Border = {.Top = len(Property::BorderTopWidth, containerWidth, 0),
+                .Right = len(Property::BorderRightWidth, containerWidth, 0),
+                .Bottom = len(Property::BorderBottomWidth, containerWidth, 0),
+                .Left = len(Property::BorderLeftWidth, containerWidth, 0)};
+  box.Padding = {.Top = len(Property::PaddingTop, containerWidth, 0),
+                 .Right = len(Property::PaddingRight, containerWidth, 0),
+                 .Bottom = len(Property::PaddingBottom, containerWidth, 0),
+                 .Left = len(Property::PaddingLeft, containerWidth, 0)};
   box.Background =
       style.Has(Property::BackgroundColour) ? style.Of(Property::BackgroundColour).Word : 0;
   box.BorderColour = style.Has(Property::BorderColour) ? style.Of(Property::BorderColour).Word : 0;
@@ -1281,13 +1281,13 @@ bool Layout::Build(const Markup &markup,
     if (markup.Nodes()[static_cast<size_t>(child)].Kind != NodeKind::Element) { continue; }
     y += placer.Place(child, nullptr, 0, y, viewportWidth, viewportHeight, -1);
   }
-  Spent_ = Work{placer.Places,
-                placer.Measures,
-                placer.MeasureHits,
-                placer.Baselines_,
-                placer.BaselineHits,
-                placer.Intrinsics,
-                placer.IntrinsicHits};
+  Spent_ = Work{.Places = placer.Places,
+                .Measures = placer.Measures,
+                .MeasureHits = placer.MeasureHits,
+                .Baselines = placer.Baselines_,
+                .BaselineHits = placer.BaselineHits,
+                .Intrinsics = placer.Intrinsics,
+                .IntrinsicHits = placer.IntrinsicHits};
   if (placer.TooCostly) {
     Boxes_.clear();
     error = "the declaration costs more than the " + std::to_string(kMostPlacesPerBox) +

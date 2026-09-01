@@ -14,7 +14,7 @@ struct TelemetryChannel {
 class TelemetrySchema {
 public:
   void Add(const std::string &name, const std::string &unit = "") {
-    Channels_.push_back({name, unit});
+    Channels_.push_back({.Name = name, .Unit = unit});
   }
 
   const std::vector<TelemetryChannel> &Channels() const { return Channels_; }

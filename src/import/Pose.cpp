@@ -158,7 +158,10 @@ bool Pose::Build(const Document &document,
           return false;
         }
       }
-      claimed.push_back(Claim{channel.Node, channel.Path, channel.Material, channel.Factor});
+      claimed.push_back(Claim{.Node = channel.Node,
+                              .Path = channel.Path,
+                              .Material = channel.Material,
+                              .Factor = channel.Factor});
       claimedBy.push_back(animation);
       out.Channels_.push_back(std::move(held));
     }

@@ -259,8 +259,8 @@ bool AssembleDrive(const Scene &scene,
 
   size_t atFrom = 0, atTo = 0;
   double fromAwayM = 0.0, toAwayM = 0.0;
-  if (!roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) ||
-      !roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM)) {
+  if (!roads.Nearest(Waypoint{.LatDeg = fromLatDeg, .LonDeg = fromLonDeg}, atFrom, fromAwayM) ||
+      !roads.Nearest(Waypoint{.LatDeg = toLatDeg, .LonDeg = toLonDeg}, atTo, toAwayM)) {
     say.Refuse("a waypoint resolves to no node of the network");
     return false;
   }
@@ -276,8 +276,9 @@ bool AssembleDrive(const Scene &scene,
   if (!stood.Stood) { return false; }
   const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
-  const Route route =
-      roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM);
+  const Route route = roads.Plan(Waypoint{.LatDeg = fromLatDeg, .LonDeg = fromLonDeg},
+                                 Waypoint{.LatDeg = toLatDeg, .LonDeg = toLonDeg},
+                                 tightestM);
   say.Number("turns the search refused as too sharp for the car",
              static_cast<double>(route.TurnsRefused),
              "turns");

@@ -54,7 +54,8 @@ public:
     std::string held = std::string(what) + " = " + Rounded(how);
     if (unit != nullptr && unit[0] != '\0') { held += " " + std::string(unit); }
     Held.push_back(std::move(held));
-    Took.push_back(Measure{what, how, unit == nullptr ? std::string() : std::string(unit)});
+    Took.push_back(Measure{
+        .What = what, .How = how, .Unit = unit == nullptr ? std::string() : std::string(unit)});
   }
 
   void Claim(bool held, const char *why) override {
@@ -215,7 +216,7 @@ inline std::vector<std::string> Unacted(const Scenario &scenario) {
 struct Seen {
   Render::SceneRenderer Device;
   std::unique_ptr<Core::Live> Standing;
-  Extent Frame{1280, 720};
+  Extent Frame{.WidthPx = 1280, .HeightPx = 720};
   bool Targeted = false;
   bool FrameOpen = false;
   Core::Declaration Shown;

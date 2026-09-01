@@ -41,14 +41,14 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     FeatureField::Feature f = proto;
     f.FirstRing = static_cast<uint32_t>(rings.size());
     f.RingCount = 1;
-    rings.push_back({static_cast<uint32_t>(vertices.size()), count});
+    rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = count});
     for (uint32_t k = 0; k < count; k++) {
       double eastM = 0.0, northM = 0.0;
       region.Enu(points[(static_cast<size_t>(firstPoint) + k) * 2],
                  points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
                  &eastM,
                  &northM);
-      vertices.push_back({static_cast<float>(eastM), static_cast<float>(northM)});
+      vertices.push_back({.Em = static_cast<float>(eastM), .Nm = static_cast<float>(northM)});
     }
     features.push_back(f);
   };

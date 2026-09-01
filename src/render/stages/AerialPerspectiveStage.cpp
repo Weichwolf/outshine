@@ -92,8 +92,10 @@ void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound[4] = {
-      {Scene, Exact}, {Depth, Exact}, {SkyView, Lut}, {Veil, Lut}};
+  const SDL_GPUTextureSamplerBinding bound[4] = {{.texture = Scene, .sampler = Exact},
+                                                 {.texture = Depth, .sampler = Exact},
+                                                 {.texture = SkyView, .sampler = Lut},
+                                                 {.texture = Veil, .sampler = Lut}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 4);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);

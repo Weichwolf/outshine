@@ -100,7 +100,7 @@ int Deduped(Line *lines, int n) {
   for (int i = 0; i < n; i++) {
     const double reach = std::hypot(lines[i].A, lines[i].B);
     if (reach < 1.0e-9) { continue; }
-    const Line unit{lines[i].A / reach, lines[i].B / reach, lines[i].C / reach};
+    const Line unit{.A = lines[i].A / reach, .B = lines[i].B / reach, .C = lines[i].C / reach};
     bool seen = false;
     for (int j = 0; j < kept && !seen; j++) {
       const double same = std::fabs(unit.A - lines[j].A) + std::fabs(unit.B - lines[j].B) +
@@ -126,24 +126,24 @@ int CreasesUncounted(const BuildingShape &s, Line *lines) {
     case RoofKind::Flat:
     case RoofKind::Shed:
     case RoofKind::Dome: return 0;
-    case RoofKind::Gable: lines[0] = {0.0, 1.0, 0.0}; return 1;
+    case RoofKind::Gable: lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0}; return 1;
     case RoofKind::Hip:
-      lines[0] = {0.0, 1.0, 0.0};
-      lines[1] = {1.0, -1.0, d};
-      lines[2] = {1.0, 1.0, d};
-      lines[3] = {1.0, 1.0, -d};
-      lines[4] = {1.0, -1.0, -d};
+      lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0};
+      lines[1] = {.A = 1.0, .B = -1.0, .C = d};
+      lines[2] = {.A = 1.0, .B = 1.0, .C = d};
+      lines[3] = {.A = 1.0, .B = 1.0, .C = -d};
+      lines[4] = {.A = 1.0, .B = -1.0, .C = -d};
       return 5;
     case RoofKind::Mansard:
-      lines[0] = {0.0, 1.0, 0.0};
-      lines[1] = {0.0, 1.0, s.BreakFracV * s.HalfVm};
-      lines[2] = {0.0, 1.0, -s.BreakFracV * s.HalfVm};
+      lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0};
+      lines[1] = {.A = 0.0, .B = 1.0, .C = s.BreakFracV * s.HalfVm};
+      lines[2] = {.A = 0.0, .B = 1.0, .C = -s.BreakFracV * s.HalfVm};
       return 3;
     case RoofKind::Sawtooth: {
       int n = 0;
       for (double u = -s.HalfUm; u < s.HalfUm && n + 1 < kMaxCreases; u += s.PeriodM) {
-        lines[n++] = {1.0, 0.0, u};
-        lines[n++] = {1.0, 0.0, u + 0.85 * s.PeriodM};
+        lines[n++] = {.A = 1.0, .B = 0.0, .C = u};
+        lines[n++] = {.A = 1.0, .B = 0.0, .C = u + 0.85 * s.PeriodM};
       }
       return n;
     }
@@ -157,9 +157,9 @@ void Refine(std::vector<En> &tris, int passes) {
     out.reserve(tris.size() * 4);
     for (size_t i = 0; i + 2 < tris.size(); i += 3) {
       const En a = tris[i], b = tris[i + 1], c = tris[i + 2];
-      const En ab{0.5 * (a.E + b.E), 0.5 * (a.N + b.N)};
-      const En bc{0.5 * (b.E + c.E), 0.5 * (b.N + c.N)};
-      const En ca{0.5 * (c.E + a.E), 0.5 * (c.N + a.N)};
+      const En ab{.E = 0.5 * (a.E + b.E), .N = 0.5 * (a.N + b.N)};
+      const En bc{.E = 0.5 * (b.E + c.E), .N = 0.5 * (b.N + c.N)};
+      const En ca{.E = 0.5 * (c.E + a.E), .N = 0.5 * (c.N + a.N)};
       PushTri(out, a, ab, ca);
       PushTri(out, ab, b, bc);
       PushTri(out, ca, bc, c);
@@ -230,7 +230,7 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
     if (da >= -kOnLineM) { out.push_back(a); }
     if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
       const double f = da / (da - db);
-      En cut{a.E + (b.E - a.E) * f, a.N + (b.N - a.N) * f};
+      En cut{.E = a.E + (b.E - a.E) * f, .N = a.N + (b.N - a.N) * f};
       if (std::hypot(cut.E - a.E, cut.N - a.N) < kWeldM) {
         cut = a;
       } else if (std::hypot(cut.E - b.E, cut.N - b.N) < kWeldM) {
@@ -351,13 +351,13 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double det = a0 * b1 - b0 * a1;
     if (std::fabs(det) < 1.0e-6) {
       if (std::fabs(d0 - d1) > 1.0e-9) { return {}; }
-      out.push_back({p.E + a0 * d0, p.N + b0 * d0});
+      out.push_back({.E = p.E + a0 * d0, .N = p.N + b0 * d0});
       continue;
     }
     const double yE = (d0 * b1 - d1 * b0) / det;
     const double yN = (a0 * d1 - a1 * d0) / det;
     if (std::hypot(yE, yN) > 4.0 * std::fabs(byM)) { return {}; }
-    out.push_back({p.E + yE, p.N + yN});
+    out.push_back({.E = p.E + yE, .N = p.N + yN});
   }
   return out;
 }

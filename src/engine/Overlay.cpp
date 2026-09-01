@@ -100,7 +100,7 @@ void Overlay::Wheeled(double xPx, double yPx, double byPx, bool &again) {
       if (one.Node == scroller) { held = &one.Px; }
     }
     if (held == nullptr) {
-      kept.push_back(Ui::Layout::Scrolled{scroller, 0.0});
+      kept.push_back(Ui::Layout::Scrolled{.Node = scroller, .Px = 0.0});
       held = &kept.back().Px;
     }
     const double was = *held;
