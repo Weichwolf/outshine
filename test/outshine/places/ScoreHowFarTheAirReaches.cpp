@@ -110,7 +110,7 @@ int main(void) {
   }
 
   const auto stood = [&](std::vector<uint8_t> &rgba) {
-    outshine::Scenario stands;
+    outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
     stands.Ground.Origin.LatitudeDeg = kLatDeg;
     stands.Ground.Origin.LongitudeDeg = kLonDeg;

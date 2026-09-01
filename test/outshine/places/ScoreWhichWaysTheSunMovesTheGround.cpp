@@ -91,7 +91,7 @@ int main(void) {
   }
 
   const auto stoodAt = [&](double elevationDeg, std::vector<uint8_t> &rgba, double exposure = 0.0) {
-    outshine::Scenario stands;
+    outshine::Scenario::Document stands;
     stands.Ground.Declared = true;
     stands.Ground.Origin.LatitudeDeg = kLatDeg;
     stands.Ground.Origin.LongitudeDeg = kLonDeg;

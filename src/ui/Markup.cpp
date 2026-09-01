@@ -1,5 +1,6 @@
 #include <array>
 #include <charconv>
+#include "Utf8.h"
 #include "Markup.h"
 
 #include <algorithm>
@@ -70,21 +71,7 @@ void Resolve(std::string_view raw, std::string &out) {
       }
       const auto code = static_cast<uint32_t>(parsed);
 
-      if (code < 0x80u) {
-        out.push_back(static_cast<char>(code));
-      } else if (code < 0x800u) {
-        out.push_back(static_cast<char>(0xC0u | (code >> 6)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
-      } else if (code < 0x10000u) {
-        out.push_back(static_cast<char>(0xE0u | (code >> 12)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3Fu)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
-      } else {
-        out.push_back(static_cast<char>(0xF0u | (code >> 18)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 12) & 0x3Fu)));
-        out.push_back(static_cast<char>(0x80u | ((code >> 6) & 0x3Fu)));
-        out.push_back(static_cast<char>(0x80u | (code & 0x3Fu)));
-      }
+      AppendUtf8(out, code);
     } else {
       out.push_back('&');
       ++at;

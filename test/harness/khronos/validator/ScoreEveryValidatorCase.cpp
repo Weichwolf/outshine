@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     return Report();
   }
 
-  outshine::Scenario stands;
+  outshine::Scenario::Document stands;
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{64, 64};
   outshine::Scenario::Asset shown;

@@ -1,3 +1,4 @@
+#include "Utf8.h"
 #include "Json.h"
 
 #include <charconv>
@@ -11,6 +12,10 @@
 #include <string_view>
 
 namespace outshine {
+
+constexpr size_t kEscapeDigits = 4;
+constexpr size_t kPairEscapeLength = 6;
+constexpr int kHexBase = 16;
 
 bool Json::Parse(const char *text, size_t len) {
   Text_.assign(text, len);
@@ -230,35 +235,21 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
       case 'f': out.push_back('\f'); break;
 
       case 'u': {
-        if (i + 4 >= len) { break; }
-        unsigned cp =
-            static_cast<unsigned>(std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16));
-        i += 4;
-        if (cp >= 0xD800 && cp <= 0xDBFF && i + 6 < len && Text_[off + i + 1] == '\\' &&
+        if (i + kEscapeDigits >= len) { break; }
+        unsigned cp = static_cast<unsigned>(
+            std::strtoul(Text_.substr(off + i + 1, kEscapeDigits).c_str(), nullptr, kHexBase));
+        i += kEscapeDigits;
+        if (IsHighSurrogate(cp) && i + kPairEscapeLength < len && Text_[off + i + 1] == '\\' &&
             Text_[off + i + 2] == 'u') {
           const unsigned low = static_cast<unsigned>(
-              std::strtoul(Text_.substr(off + i + 3, 4).c_str(), nullptr, 16));
-          if (low >= 0xDC00 && low <= 0xDFFF) {
-            cp = 0x10000 + ((cp - 0xD800) << 10u) + (low - 0xDC00);
-            i += 6;
+              std::strtoul(Text_.substr(off + i + 3, kEscapeDigits).c_str(), nullptr, kHexBase));
+          if (IsLowSurrogate(low)) {
+            cp = PairedSurrogates(cp, low);
+            i += kPairEscapeLength;
           }
         }
-        if (cp >= 0xD800 && cp <= 0xDFFF) { cp = 0xFFFD; }
-        if (cp < 0x80) {
-          out.push_back(static_cast<char>(cp));
-        } else if (cp < 0x800) {
-          out.push_back(static_cast<char>(0xC0u | (cp >> 6u)));
-          out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
-        } else if (cp < 0x10000) {
-          out.push_back(static_cast<char>(0xE0u | (cp >> 12u)));
-          out.push_back(static_cast<char>(0x80u | ((cp >> 6u) & 0x3Fu)));
-          out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
-        } else {
-          out.push_back(static_cast<char>(0xF0u | (cp >> 18u)));
-          out.push_back(static_cast<char>(0x80u | ((cp >> 12u) & 0x3Fu)));
-          out.push_back(static_cast<char>(0x80u | ((cp >> 6u) & 0x3Fu)));
-          out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
-        }
+        if (IsSurrogate(cp)) { cp = kReplacement; }
+        AppendUtf8(out, cp);
         break;
       }
       default: out.push_back(e); break;

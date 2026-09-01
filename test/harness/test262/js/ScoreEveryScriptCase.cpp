@@ -1,3 +1,4 @@
+#include <span>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -39,7 +40,8 @@ public:
   }
 
   [[nodiscard]] bool
-  Call(const S::Value &callee, const S::Value *args, size_t count, S::Value &out) override {
+  Call(const S::Value &callee, std::span<const S::Value> args, S::Value &out) override {
+    const size_t count = args.size();
     if (callee.What != S::Kind::Ref) { return false; }
     out = S::Value();
     switch (callee.Ref) {
