@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "Earth.h"
 #include "Logging.h"
 #include "generate/Generate.h"
 #include "scenario/Event.h"
@@ -21,7 +22,15 @@
 
 namespace outshine {
 
-using Result = std::expected<void, std::string>;
+/// What a door verb gives back: the value it was asked for, or the reason it could not be had.
+///
+/// A refusal that carries only `false` makes the client invent the reason, and the reasons here are
+/// not interchangeable -- a tile that has not arrived and a place outside the declared world are
+/// different answers to the same question.
+template <typename Value> using Holds = std::expected<Value, std::string>;
+
+/// A verb with nothing to give back but its refusal.
+using Result = Holds<void>;
 
 struct Loading {
   size_t GroundWanted = 0, GroundArrived = 0;
@@ -113,7 +122,7 @@ public:
   [[nodiscard]] Loading loading() const;
   [[nodiscard]] double loadProgress() const;
 
-  [[nodiscard]] bool sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const;
+  [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
   [[nodiscard]] Result mix(std::span<float> stereo, int rate);
 
   [[nodiscard]] Result readScenario(std::string_view path);

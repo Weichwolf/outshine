@@ -251,12 +251,16 @@ int AskHeight(int argc, char *const *argv) {
     std::printf("outshine-client: the ground did not arrive -- %s\n", engine.error().c_str());
     return 1;
   }
-  double heightM = 0.0;
-  if (!engine.sampleHeight(lat, lon, heightM)) {
-    std::printf("outshine-client: no elevation stands at %.5f %.5f\n", lat, lon);
+  const outshine::Holds<double> heightM = engine.sampleHeight(
+      outshine::LongitudeLatitudeHeight{.LongitudeDeg = lon, .LatitudeDeg = lat});
+  if (!heightM) {
+    std::printf("outshine-client: no elevation stands at %.5f %.5f -- %s\n",
+                lat,
+                lon,
+                heightM.error().c_str());
     return 1;
   }
-  std::printf("%.5f %.5f  %.2f m\n", lat, lon, heightM);
+  std::printf("%.5f %.5f  %.2f m\n", lat, lon, *heightM);
   return 0;
 }
 

@@ -345,11 +345,9 @@ bool Engine::generated(const Scenario::Document &scenario) {
   public:
     explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
 
-    [[nodiscard]] bool sampleHeightAslM(double latDeg, double lonDeg, double &into) const override {
-      const std::optional<double> aslM = From_.At(latDeg, lonDeg).AslM();
-      if (!aslM) { return false; }
-      into = *aslM;
-      return true;
+    [[nodiscard]] std::optional<double>
+    sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
+      return From_.At(at.LatitudeDeg, at.LongitudeDeg).AslM();
     }
 
   private:

@@ -312,23 +312,22 @@ Result Renderer::flushAndWait() {
   return Of_->flushAndWait() ? Result{} : std::unexpected(Of_->error());
 }
 
-bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heightM) const {
+Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
+  const std::string there = std::to_string(at.LatitudeDeg) + ", " + std::to_string(at.LongitudeDeg);
   if (!S_->World.Stack.Opened()) {
-    S_->Error =
-        "a height was asked for at " + std::to_string(latitudeDeg) + ", " +
-        std::to_string(longitudeDeg) +
-        " and no world stands -- a scenario declares one before anything can be placed on it";
-    return false;
+    S_->Error = "a height was asked for at " + there +
+                " and no world stands -- a scenario declares one before anything can be placed on "
+                "it";
+    return std::unexpected(S_->Error);
   }
-  const std::optional<double> aslM = S_->World.Stack.Ground().At(latitudeDeg, longitudeDeg).AslM();
+  const std::optional<double> aslM =
+      S_->World.Stack.Ground().At(at.LatitudeDeg, at.LongitudeDeg).AslM();
   if (!aslM) {
-    S_->Error = "the terrain at " + std::to_string(latitudeDeg) + ", " +
-                std::to_string(longitudeDeg) +
+    S_->Error = "the terrain at " + there +
                 " is not resident, so the height there is not a number this engine may invent";
-    return false;
+    return std::unexpected(S_->Error);
   }
-  heightM = *aslM;
-  return true;
+  return *aslM;
 }
 
 double Engine::loadProgress() const {

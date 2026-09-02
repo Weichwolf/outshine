@@ -9,6 +9,9 @@
 #include <string_view>
 #include <vector>
 
+#include <optional>
+
+#include "Earth.h"
 #include "scene/Geometry.h"
 
 namespace outshine::Generators {
@@ -25,15 +28,14 @@ public:
   HeightSampler(const HeightSampler &) = delete;
   HeightSampler &operator=(const HeightSampler &) = delete;
 
-  /// The ground's height above the ellipsoid at a place, or a refusal.
+  /// The ground's height above the ellipsoid at a place, in metres, or nothing.
   ///
-  /// @param latDeg latitude in degrees
-  /// @param lonDeg longitude in degrees
-  /// @param into   the height in metres, written only when the answer is yes
-  /// @return whether the ground is KNOWN there. False is not zero: a tile that has not arrived and
-  ///         a sea-level plain are different answers, and a generator that cannot tell them apart
-  ///         builds a house at zero.
-  [[nodiscard]] virtual bool sampleHeightAslM(double latDeg, double lonDeg, double &into) const = 0;
+  /// @param at the place; the height it carries is ignored, since that is what is being asked for
+  /// @return the height where the ground is KNOWN. An empty answer is not zero: a tile that has not
+  ///         arrived and a sea-level plain are different answers, and a generator that cannot tell
+  ///         them apart builds a house at zero.
+  [[nodiscard]] virtual std::optional<double>
+  sampleHeightAslM(const LongitudeLatitudeHeight &at) const = 0;
 
 protected:
   HeightSampler() = default;
