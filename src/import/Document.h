@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_DOCUMENT_H
 #define OUTSHINE_IMPORT_DOCUMENT_H
 
+#include <limits>
 #include <span>
 #include <string_view>
 #include <cstdint>
@@ -98,6 +99,31 @@ public:
   [[nodiscard]] bool ViewTransform(int cameraNode, Transform &out) const;
 
 private:
+  struct Ranged {
+    double Low = 0.0;
+    double High = std::numeric_limits<double>::infinity();
+    bool LowOpen = false;
+  };
+
+  [[nodiscard]] bool
+  Factor(const Json::Ref &at, const char *named, size_t material, Ranged within, float &into);
+
+  [[nodiscard]] bool
+  ReadMaterialColours(const Json::Ref &declaration, size_t index, Material &into);
+  [[nodiscard]] bool
+  ReadMaterialTextures(const Json::Ref &declaration, size_t index, MaterialRef &material);
+
+  struct MeshAt {
+    size_t Mesh = 0;
+    size_t Primitive = 0;
+  };
+
+  [[nodiscard]] static std::string Where(MeshAt at);
+  [[nodiscard]] bool ReadPrimitive(const Json::Ref &declared, MeshAt at, Primitive &into);
+  [[nodiscard]] bool
+  ReadPrimitiveAttributes(const Json::Ref &attributes, MeshAt at, Primitive &into);
+  [[nodiscard]] bool ReadMorphTargets(const Json::Ref &targets, MeshAt at, Primitive &into);
+
   [[nodiscard]] bool Refuse(std::string_view why);
 
   [[nodiscard]] bool Chain(int node, const Transform *posed, Transform &out) const;
@@ -111,7 +137,36 @@ private:
 
   [[nodiscard]] bool
   ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive, Primitive &into);
+  [[nodiscard]] bool ReadAsset(const Json::Ref &root);
+  [[nodiscard]] bool ReadMetadata(const Json::Ref &root);
+  [[nodiscard]] bool ReadViews(const Json::Ref &root);
+  [[nodiscard]] bool ReadAccessors(const Json::Ref &root);
+  [[nodiscard]] bool HoldAccessorBounds();
+  [[nodiscard]] bool ReadMeshes(const Json::Ref &root);
+  [[nodiscard]] bool ReadCameras(const Json::Ref &root);
+  [[nodiscard]] bool ReadNodeTransform(const Json::Ref &declaration, size_t index, Node &into);
+  [[nodiscard]] bool ReadNodeInstancing(const Json::Ref &declaration, size_t index, Node &into);
+  [[nodiscard]] bool HoldNodeReferences();
+  [[nodiscard]] bool HoldNodeForest();
+  [[nodiscard]] bool ReadNodes(const Json::Ref &root);
+  [[nodiscard]] bool ReadScenes(const Json::Ref &root);
   [[nodiscard]] bool ReadSkins(const Json::Ref &root);
+
+  struct TrackAt {
+    size_t Animation = 0;
+    size_t Sampler = 0;
+  };
+
+  struct ChannelAt {
+    size_t Animation = 0;
+    size_t Channel = 0;
+  };
+
+  [[nodiscard]] static std::string Where(TrackAt at);
+  [[nodiscard]] static std::string Where(ChannelAt at);
+  [[nodiscard]] bool
+  ReadAnimationSampler(const Json::Ref &declared, TrackAt at, AnimationSampler &into);
+  [[nodiscard]] bool ReadAnimationChannel(const Json::Ref &declared, ChannelAt at, Animation &into);
   [[nodiscard]] bool ReadAnimations(const Json &json);
   [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;

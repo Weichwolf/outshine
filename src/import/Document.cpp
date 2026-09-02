@@ -1,5 +1,6 @@
 #include <span>
 #include <algorithm>
+#include <optional>
 #include <limits>
 #include "Units.h"
 #include "math/Vec2.h"
@@ -456,42 +457,103 @@ struct AttributeShape {
 
 namespace {
 
+enum class Semantic : uint8_t { Position, Normal, Tangent, TexCoord, Colour, Joints, Weights };
+
+enum class Norm : uint8_t { No, Yes, Either };
+
+struct ShapeRow {
+  Semantic For;
+  ElementType Element;
+  ComponentType Component;
+  Norm Normalized;
+  bool NeedsQuantization;
+};
+
+constexpr ShapeRow Plain(Semantic which, ElementType element, ComponentType component, Norm norm) {
+  return {.For = which,
+          .Element = element,
+          .Component = component,
+          .Normalized = norm,
+          .NeedsQuantization = false};
+}
+
+constexpr ShapeRow Wider(Semantic which, ElementType element, ComponentType component, Norm norm) {
+  return {.For = which,
+          .Element = element,
+          .Component = component,
+          .Normalized = norm,
+          .NeedsQuantization = true};
+}
+
+constexpr std::array<ShapeRow, 29> kShapes = {{
+    Plain(Semantic::Position, ElementType::Vec3, ComponentType::Float32, Norm::No),
+    Wider(Semantic::Position, ElementType::Vec3, ComponentType::Int8, Norm::Either),
+    Wider(Semantic::Position, ElementType::Vec3, ComponentType::UInt8, Norm::Either),
+    Wider(Semantic::Position, ElementType::Vec3, ComponentType::Int16, Norm::Either),
+    Wider(Semantic::Position, ElementType::Vec3, ComponentType::UInt16, Norm::Either),
+
+    Plain(Semantic::Normal, ElementType::Vec3, ComponentType::Float32, Norm::No),
+    Wider(Semantic::Normal, ElementType::Vec3, ComponentType::Int8, Norm::Yes),
+    Wider(Semantic::Normal, ElementType::Vec3, ComponentType::Int16, Norm::Yes),
+
+    Plain(Semantic::Tangent, ElementType::Vec4, ComponentType::Float32, Norm::No),
+    Wider(Semantic::Tangent, ElementType::Vec4, ComponentType::Int8, Norm::Yes),
+    Wider(Semantic::Tangent, ElementType::Vec4, ComponentType::Int16, Norm::Yes),
+
+    Plain(Semantic::TexCoord, ElementType::Vec2, ComponentType::Float32, Norm::No),
+    Plain(Semantic::TexCoord, ElementType::Vec2, ComponentType::UInt8, Norm::Yes),
+    Plain(Semantic::TexCoord, ElementType::Vec2, ComponentType::UInt16, Norm::Yes),
+    Wider(Semantic::TexCoord, ElementType::Vec2, ComponentType::Int8, Norm::Either),
+    Wider(Semantic::TexCoord, ElementType::Vec2, ComponentType::UInt8, Norm::No),
+    Wider(Semantic::TexCoord, ElementType::Vec2, ComponentType::Int16, Norm::Either),
+    Wider(Semantic::TexCoord, ElementType::Vec2, ComponentType::UInt16, Norm::No),
+
+    Plain(Semantic::Colour, ElementType::Vec3, ComponentType::Float32, Norm::No),
+    Plain(Semantic::Colour, ElementType::Vec4, ComponentType::Float32, Norm::No),
+    Plain(Semantic::Colour, ElementType::Vec3, ComponentType::UInt8, Norm::Yes),
+    Plain(Semantic::Colour, ElementType::Vec4, ComponentType::UInt8, Norm::Yes),
+    Plain(Semantic::Colour, ElementType::Vec3, ComponentType::UInt16, Norm::Yes),
+    Plain(Semantic::Colour, ElementType::Vec4, ComponentType::UInt16, Norm::Yes),
+
+    Plain(Semantic::Joints, ElementType::Vec4, ComponentType::UInt8, Norm::No),
+    Plain(Semantic::Joints, ElementType::Vec4, ComponentType::UInt16, Norm::No),
+
+    Plain(Semantic::Weights, ElementType::Vec4, ComponentType::Float32, Norm::No),
+    Plain(Semantic::Weights, ElementType::Vec4, ComponentType::UInt8, Norm::Yes),
+    Plain(Semantic::Weights, ElementType::Vec4, ComponentType::UInt16, Norm::Yes),
+}};
+
+constexpr bool AnyRowFor(Semantic which) {
+  return std::ranges::any_of(
+      kShapes, [which](const ShapeRow &row) { return row.For == which && !row.NeedsQuantization; });
+}
+
+static_assert(AnyRowFor(Semantic::Position) && AnyRowFor(Semantic::Normal) &&
+                  AnyRowFor(Semantic::Tangent) && AnyRowFor(Semantic::TexCoord) &&
+                  AnyRowFor(Semantic::Colour) && AnyRowFor(Semantic::Joints) &&
+                  AnyRowFor(Semantic::Weights),
+              "every glTF 2.0 semantic stands without KHR_mesh_quantization");
+
+std::optional<Semantic> SemanticOf(const std::string &named) {
+  if (named == "POSITION") { return Semantic::Position; }
+  if (named == "NORMAL") { return Semantic::Normal; }
+  if (named == "TANGENT") { return Semantic::Tangent; }
+  if (named.starts_with("TEXCOORD_")) { return Semantic::TexCoord; }
+  if (named.starts_with("COLOR_")) { return Semantic::Colour; }
+  if (named.starts_with("JOINTS_")) { return Semantic::Joints; }
+  if (named.starts_with("WEIGHTS_")) { return Semantic::Weights; }
+  return std::nullopt;
+}
+
 bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
-  const bool f32 = shape.Component == ComponentType::Float32;
-  const bool u8 = shape.Component == ComponentType::UInt8;
-  const bool u16 = shape.Component == ComponentType::UInt16;
-  const bool i8 = shape.Component == ComponentType::Int8;
-  const bool i16 = shape.Component == ComponentType::Int16;
-  const bool vec2 = shape.Element == ElementType::Vec2;
-  const bool vec3 = shape.Element == ElementType::Vec3;
-  const bool vec4 = shape.Element == ElementType::Vec4;
-  const bool norm = shape.Normalized;
-
-  if (semantic == "POSITION") {
-    if (vec3 && f32 && !norm) { return true; }
-    return quantised && vec3 && (i8 || u8 || i16 || u16);
-  }
-  if (semantic == "NORMAL") {
-    if (vec3 && f32 && !norm) { return true; }
-    return quantised && vec3 && norm && (i8 || i16);
-  }
-  if (semantic == "TANGENT") {
-    if (vec4 && f32 && !norm) { return true; }
-    return quantised && vec4 && norm && (i8 || i16);
-  }
-  if (semantic.starts_with("TEXCOORD_")) {
-    if (vec2 && ((f32 && !norm) || ((u8 || u16) && norm))) { return true; }
-    return quantised && vec2 && (i8 || (u8 && !norm) || i16 || (u16 && !norm));
-  }
-  if (semantic.starts_with("COLOR_")) {
-    return (vec3 || vec4) && ((f32 && !norm) || ((u8 || u16) && norm));
-  }
-  if (semantic.starts_with("JOINTS_")) { return vec4 && (u8 || u16) && !norm; }
-  if (semantic.starts_with("WEIGHTS_")) {
-    return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
-  }
-
-  return !semantic.empty() && semantic.front() == '_';
+  const std::optional<Semantic> which = SemanticOf(semantic);
+  if (!which) { return !semantic.empty() && semantic.front() == '_'; }
+  const auto stands = [&](const ShapeRow &row) {
+    return row.For == *which && row.Element == shape.Element && row.Component == shape.Component &&
+           (row.Normalized == Norm::Either || (row.Normalized == Norm::Yes) == shape.Normalized) &&
+           (quantised || !row.NeedsQuantization);
+  };
+  return std::ranges::any_of(kShapes, stands);
 }
 } // namespace
 
@@ -672,6 +734,28 @@ bool Document::ReadJson(const char *text,
   const Json::Ref root = json.Root();
   if (root.GetKind() != Json::Kind::Object) { return Refuse("is not a glTF object"); }
 
+  if (!ReadAsset(root)) { return false; }
+  if (!ReadMetadata(root)) { return false; }
+  if (!ResolveBuffers(json, binaryChunk, binaryLength)) { return false; }
+
+  if (!ReadViews(root)) { return false; }
+  if (!ReadAccessors(root)) { return false; }
+  if (!ReadAppearance(json)) { return false; }
+  if (!ReadLights(json)) { return false; }
+  if (!ReadVariants(json)) { return false; }
+
+  if (!HoldAccessorBounds()) { return false; }
+  if (!ReadMeshes(root)) { return false; }
+  if (!ReadCameras(root)) { return false; }
+  if (!ReadNodes(root)) { return false; }
+  if (!ReadScenes(root)) { return false; }
+
+  if (!ReadSkins(root)) { return false; }
+  if (!ReadAnimations(json)) { return false; }
+  return true;
+}
+
+bool Document::ReadAsset(const Json::Ref &root) {
   Version_ = root["asset"]["version"].Str("");
   if (!Version_.starts_with("2.")) {
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
@@ -714,72 +798,74 @@ bool Document::ReadJson(const char *text,
       return Refuse("requires extension '" + extension + "', which this reader does not implement");
     }
   }
+  return true;
+}
 
-  {
-    const Json::Ref carried = root["extensions"]["KHR_xmp_json_ld"]["packets"];
-    for (size_t i = 0; i < carried.Size(); ++i) {
-      const Json::Ref packet = carried[i];
-      MetadataPacket held;
-      held.Held.reserve(packet.Size());
-      for (size_t at = 0; at < packet.Size(); ++at) {
-        std::string key = packet.Key(at);
-        if (key.empty()) { continue; }
-        const Json::Ref said = packet[at];
-        const bool spelled = said.GetKind() == Json::Kind::String ||
-                             said.GetKind() == Json::Kind::Number ||
-                             said.GetKind() == Json::Kind::Bool;
-        held.Held.push_back(
-            MetadataProperty{.Key = std::move(key),
-                             .Value = spelled ? said.Str("") : std::string(said.Source()),
-                             .Shape = spelled ? MetadataShape::Text : MetadataShape::Structure});
-      }
-      Metadata_.push_back(std::move(held));
+bool Document::ReadMetadata(const Json::Ref &root) {
+  const Json::Ref carried = root["extensions"]["KHR_xmp_json_ld"]["packets"];
+  for (size_t i = 0; i < carried.Size(); ++i) {
+    const Json::Ref packet = carried[i];
+    MetadataPacket held;
+    held.Held.reserve(packet.Size());
+    for (size_t at = 0; at < packet.Size(); ++at) {
+      std::string key = packet.Key(at);
+      if (key.empty()) { continue; }
+      const Json::Ref said = packet[at];
+      const bool spelled = said.GetKind() == Json::Kind::String ||
+                           said.GetKind() == Json::Kind::Number ||
+                           said.GetKind() == Json::Kind::Bool;
+      held.Held.push_back(
+          MetadataProperty{.Key = std::move(key),
+                           .Value = spelled ? said.Str("") : std::string(said.Source()),
+                           .Shape = spelled ? MetadataShape::Text : MetadataShape::Structure});
     }
-
-    struct Carrier {
-      const char *Array;
-      MetadataCarrier Kind;
-    };
-
-    static constexpr std::array<Carrier, 6> kCarriers = {{
-        {.Array = "scenes", .Kind = MetadataCarrier::Scene},
-        {.Array = "nodes", .Kind = MetadataCarrier::Node},
-        {.Array = "meshes", .Kind = MetadataCarrier::Mesh},
-        {.Array = "materials", .Kind = MetadataCarrier::Material},
-        {.Array = "images", .Kind = MetadataCarrier::Image},
-        {.Array = "animations", .Kind = MetadataCarrier::Animation},
-    }};
-
-    const auto Points =
-        [&](const Json::Ref &at, MetadataCarrier carrier, size_t which, const char *what) -> bool {
-      const Json::Ref names = at["extensions"]["KHR_xmp_json_ld"]["packet"];
-      if (!names.Valid()) { return true; }
-      const int packet = names.Int(-1);
-      if (packet < 0 || static_cast<size_t>(packet) >= Metadata_.size()) {
-        return Refuse(std::string(what) + " names metadata packet " +
-                      Number(static_cast<size_t>(packet < 0 ? 0 : packet)) + " of " +
-                      Number(Metadata_.size()) +
-                      " -- a packet index outside the array it indexes is a refusal");
-      }
-      MetadataUses_.push_back(MetadataUse{.Carrier = carrier,
-                                          .Which = static_cast<uint32_t>(which),
-                                          .Packet = static_cast<uint32_t>(packet)});
-      return true;
-    };
-
-    if (!Points(root["asset"], MetadataCarrier::Asset, 0, "asset")) { return false; }
-    AssetMetadata_ = MetadataOf(MetadataCarrier::Asset, 0);
-    for (const Carrier &carrier : kCarriers) {
-      const Json::Ref held = root[carrier.Array];
-      for (size_t which = 0; which < held.Size(); ++which) {
-        const std::string what = std::string(carrier.Array) + " " + Number(which);
-        if (!Points(held[which], carrier.Kind, which, what.c_str())) { return false; }
-      }
-    }
+    Metadata_.push_back(std::move(held));
   }
 
-  if (!ResolveBuffers(json, binaryChunk, binaryLength)) { return false; }
+  struct Carrier {
+    const char *Array;
+    MetadataCarrier Kind;
+  };
 
+  static constexpr std::array<Carrier, 6> kCarriers = {{
+      {.Array = "scenes", .Kind = MetadataCarrier::Scene},
+      {.Array = "nodes", .Kind = MetadataCarrier::Node},
+      {.Array = "meshes", .Kind = MetadataCarrier::Mesh},
+      {.Array = "materials", .Kind = MetadataCarrier::Material},
+      {.Array = "images", .Kind = MetadataCarrier::Image},
+      {.Array = "animations", .Kind = MetadataCarrier::Animation},
+  }};
+
+  const auto Points =
+      [&](const Json::Ref &at, MetadataCarrier carrier, size_t which, const char *what) -> bool {
+    const Json::Ref names = at["extensions"]["KHR_xmp_json_ld"]["packet"];
+    if (!names.Valid()) { return true; }
+    const int packet = names.Int(-1);
+    if (packet < 0 || static_cast<size_t>(packet) >= Metadata_.size()) {
+      return Refuse(std::string(what) + " names metadata packet " +
+                    Number(static_cast<size_t>(packet < 0 ? 0 : packet)) + " of " +
+                    Number(Metadata_.size()) +
+                    " -- a packet index outside the array it indexes is a refusal");
+    }
+    MetadataUses_.push_back(MetadataUse{.Carrier = carrier,
+                                        .Which = static_cast<uint32_t>(which),
+                                        .Packet = static_cast<uint32_t>(packet)});
+    return true;
+  };
+
+  if (!Points(root["asset"], MetadataCarrier::Asset, 0, "asset")) { return false; }
+  AssetMetadata_ = MetadataOf(MetadataCarrier::Asset, 0);
+  for (const Carrier &carrier : kCarriers) {
+    const Json::Ref held = root[carrier.Array];
+    for (size_t which = 0; which < held.Size(); ++which) {
+      const std::string what = std::string(carrier.Array) + " " + Number(which);
+      if (!Points(held[which], carrier.Kind, which, what.c_str())) { return false; }
+    }
+  }
+  return true;
+}
+
+bool Document::ReadViews(const Json::Ref &root) {
   const Json::Ref views = root["bufferViews"];
   for (size_t i = 0; i < views.Size(); ++i) {
     const Json::Ref declaration = views[i];
@@ -810,7 +896,10 @@ bool Document::ReadJson(const char *text,
     }
     Views_.push_back(view);
   }
+  return true;
+}
 
+bool Document::ReadAccessors(const Json::Ref &root) {
   const Json::Ref accessors = root["accessors"];
   for (size_t i = 0; i < accessors.Size(); ++i) {
     const Json::Ref declaration = accessors[i];
@@ -879,11 +968,10 @@ bool Document::ReadJson(const char *text,
     }
     Accessors_.push_back(std::move(accessor));
   }
+  return true;
+}
 
-  if (!ReadAppearance(json)) { return false; }
-  if (!ReadLights(json)) { return false; }
-  if (!ReadVariants(json)) { return false; }
-
+bool Document::HoldAccessorBounds() {
   for (size_t a = 0; a < Accessors_.size(); ++a) {
     if (Accessors_[a].Min.empty() || Accessors_[a].Max.empty()) { continue; }
     std::string why;
@@ -891,7 +979,102 @@ bool Document::ReadJson(const char *text,
       return Refuse("accessor " + Number(a) + " " + why);
     }
   }
+  return true;
+}
 
+std::string Document::Where(MeshAt at) {
+  return "mesh " + Number(at.Mesh) + " primitive " + Number(at.Primitive);
+}
+
+bool Document::ReadPrimitiveAttributes(const Json::Ref &attributes, MeshAt at, Primitive &into) {
+  for (size_t a = 0; a < attributes.Size(); ++a) {
+    Attribute attribute;
+    attribute.Semantic = attributes.Key(a);
+    attribute.Accessor = attributes[a].Int(-1);
+    if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
+      return Refuse(Where(at) + " attribute " + attribute.Semantic +
+                    " names an accessor the file does not carry");
+    }
+    const Accessor &carried = Accessors_[static_cast<size_t>(attribute.Accessor)];
+    if (attribute.Semantic == "POSITION" &&
+        (carried.Min.size() != ElementComponents(carried.Element) ||
+         carried.Max.size() != ElementComponents(carried.Element))) {
+      return Refuse(Where(at) +
+                    " has a POSITION accessor without the min/max bounds glTF 2.0 requires");
+    }
+    const AttributeShape shape{.Element = carried.Element,
+                               .Component = carried.Component,
+                               .Normalized = carried.Normalized};
+    if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
+      return Refuse(Where(at) + " attribute " + attribute.Semantic +
+                    " is an accessor shape glTF 2.0 does not permit for it" +
+                    (Quantised_ ? ", even with KHR_mesh_quantization"
+                                : " -- KHR_mesh_quantization widens this and the file does not "
+                                  "require it"));
+    }
+    into.Attributes.push_back(std::move(attribute));
+  }
+  return true;
+}
+
+bool Document::ReadMorphTargets(const Json::Ref &targets, MeshAt at, Primitive &into) {
+  for (size_t t = 0; t < targets.Size(); ++t) {
+    MorphTarget target;
+    const Json::Ref declaredTarget = targets[t];
+    const std::string which = Where(at) + " morph target " + Number(t);
+    for (size_t a = 0; a < declaredTarget.Size(); ++a) {
+      Attribute attribute;
+      attribute.Semantic = declaredTarget.Key(a);
+      attribute.Accessor = declaredTarget[a].Int(-1);
+      if (attribute.Semantic != "POSITION" && attribute.Semantic != "NORMAL" &&
+          attribute.Semantic != "TANGENT") {
+        return Refuse(which + " displaces " + attribute.Semantic +
+                      ", and glTF 2.0 states a target carries POSITION, NORMAL or TANGENT");
+      }
+      if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
+        return Refuse(which + " names an accessor the file does not carry for " +
+                      attribute.Semantic);
+      }
+      const int base = into.Find(attribute.Semantic.c_str());
+      if (base < 0) {
+        return Refuse(which + " displaces " + attribute.Semantic +
+                      " and the primitive carries none, so the delta has nothing to displace");
+      }
+      if (Accessors_[static_cast<size_t>(base)].Count !=
+          Accessors_[static_cast<size_t>(attribute.Accessor)].Count) {
+        return Refuse(which + " carries " +
+                      Number(Accessors_[static_cast<size_t>(attribute.Accessor)].Count) + " " +
+                      attribute.Semantic + " deltas over " +
+                      Number(Accessors_[static_cast<size_t>(base)].Count) + " vertices");
+      }
+      target.Attributes.push_back(std::move(attribute));
+    }
+    into.Targets.push_back(std::move(target));
+  }
+  return true;
+}
+
+bool Document::ReadPrimitive(const Json::Ref &declared, MeshAt at, Primitive &into) {
+  if (!KnownMode(declared["mode"].Valid() ? declared["mode"].Int(4) : 4, into.Mode)) {
+    return Refuse(Where(at) + " has a mode glTF 2.0 does not define");
+  }
+  into.Indices = declared["indices"].Valid() ? declared["indices"].Int(-1) : -1;
+  into.Material = declared["material"].Valid() ? declared["material"].Int(-1) : -1;
+  if (!ReadPrimitiveAttributes(declared["attributes"], at, into)) { return false; }
+  if (!ReadMorphTargets(declared["targets"], at, into)) { return false; }
+
+  if (into.Indices >= 0 && static_cast<size_t>(into.Indices) >= Accessors_.size()) {
+    return Refuse(Where(at) + " names an index accessor the file does not carry");
+  }
+  if (into.Material >= 0 && static_cast<size_t>(into.Material) >= Materials_.size()) {
+    return Refuse(Where(at) + " names material " + Number(static_cast<size_t>(into.Material)) +
+                  " of " + Number(Materials_.size()));
+  }
+  const Json::Ref variants = declared["extensions"][kMaterialsVariants];
+  return !variants.Valid() || ReadVariantMappings(variants, at.Mesh, at.Primitive, into);
+}
+
+bool Document::ReadMeshes(const Json::Ref &root) {
   const Json::Ref meshes = root["meshes"];
   for (size_t i = 0; i < meshes.Size(); ++i) {
     const Json::Ref declaration = meshes[i];
@@ -901,100 +1084,12 @@ bool Document::ReadJson(const char *text,
     for (size_t w = 0; w < weights.Size(); ++w) { mesh.Weights.push_back(weights[w].Num(0.0)); }
     const Json::Ref primitives = declaration["primitives"];
     for (size_t p = 0; p < primitives.Size(); ++p) {
-      const Json::Ref declared = primitives[p];
+      const MeshAt at{.Mesh = i, .Primitive = p};
       Primitive primitive;
-      if (!KnownMode(declared["mode"].Valid() ? declared["mode"].Int(4) : 4, primitive.Mode)) {
-        return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
-                      " has a mode glTF 2.0 does not define");
-      }
-      primitive.Indices = declared["indices"].Valid() ? declared["indices"].Int(-1) : -1;
-      primitive.Material = declared["material"].Valid() ? declared["material"].Int(-1) : -1;
-      const Json::Ref attributes = declared["attributes"];
-      for (size_t a = 0; a < attributes.Size(); ++a) {
-        Attribute attribute;
-        attribute.Semantic = attributes.Key(a);
-        attribute.Accessor = attributes[a].Int(-1);
-        if (attribute.Accessor < 0 ||
-            static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
-          return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
-                        attribute.Semantic + " names an accessor the file does not carry");
-        }
-        const Accessor &carried = Accessors_[static_cast<size_t>(attribute.Accessor)];
-        if (attribute.Semantic == "POSITION" &&
-            (carried.Min.size() != ElementComponents(carried.Element) ||
-             carried.Max.size() != ElementComponents(carried.Element))) {
-          return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
-                        " has a POSITION accessor without the min/max bounds glTF 2.0 "
-                        "requires");
-        }
-        const AttributeShape shape{.Element = carried.Element,
-                                   .Component = carried.Component,
-                                   .Normalized = carried.Normalized};
-        if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
-          return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
-                        attribute.Semantic +
-                        " is an accessor shape glTF 2.0 does not permit for it" +
-                        (Quantised_ ? ", even with KHR_mesh_quantization"
-                                    : " -- KHR_mesh_quantization widens this and the file does not "
-                                      "require it"));
-        }
-        primitive.Attributes.push_back(std::move(attribute));
-      }
-
-      const Json::Ref targets = declared["targets"];
-      for (size_t t = 0; t < targets.Size(); ++t) {
-        MorphTarget target;
-        const Json::Ref declaredTarget = targets[t];
-        for (size_t a = 0; a < declaredTarget.Size(); ++a) {
-          Attribute attribute;
-          attribute.Semantic = declaredTarget.Key(a);
-          attribute.Accessor = declaredTarget[a].Int(-1);
-          if (attribute.Semantic != "POSITION" && attribute.Semantic != "NORMAL" &&
-              attribute.Semantic != "TANGENT") {
-            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
-                          Number(t) + " displaces " + attribute.Semantic +
-                          ", and glTF 2.0 states a target carries POSITION, NORMAL or TANGENT");
-          }
-          if (attribute.Accessor < 0 ||
-              static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
-            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
-                          Number(t) + " names an accessor the file does not carry for " +
-                          attribute.Semantic);
-          }
-          const int base = primitive.Find(attribute.Semantic.c_str());
-          if (base < 0) {
-            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
-                          Number(t) + " displaces " + attribute.Semantic +
-                          " and the primitive carries none, so the delta has nothing to displace");
-          }
-          if (Accessors_[static_cast<size_t>(base)].Count !=
-              Accessors_[static_cast<size_t>(attribute.Accessor)].Count) {
-            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
-                          Number(t) + " carries " +
-                          Number(Accessors_[static_cast<size_t>(attribute.Accessor)].Count) + " " +
-                          attribute.Semantic + " deltas over " +
-                          Number(Accessors_[static_cast<size_t>(base)].Count) + " vertices");
-          }
-          target.Attributes.push_back(std::move(attribute));
-        }
-        primitive.Targets.push_back(std::move(target));
-      }
-      if (primitive.Indices >= 0 && static_cast<size_t>(primitive.Indices) >= Accessors_.size()) {
-        return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
-                      " names an index accessor the file does not carry");
-      }
-      if (primitive.Material >= 0 && static_cast<size_t>(primitive.Material) >= Materials_.size()) {
-        return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " names material " +
-                      Number(static_cast<size_t>(primitive.Material)) + " of " +
-                      Number(Materials_.size()));
-      }
-      const Json::Ref variants = declared["extensions"][kMaterialsVariants];
-      if (variants.Valid() && !ReadVariantMappings(variants, i, p, primitive)) { return false; }
-
+      if (!ReadPrimitive(primitives[p], at, primitive)) { return false; }
       if (!mesh.Primitives.empty() &&
           mesh.Primitives[0].Targets.size() != primitive.Targets.size()) {
-        return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " declares " +
-                      Number(primitive.Targets.size()) +
+        return Refuse(Where(at) + " declares " + Number(primitive.Targets.size()) +
                       " morph targets and primitive 0 declares " +
                       Number(mesh.Primitives[0].Targets.size()) +
                       ", and one weight run drives every primitive of a mesh");
@@ -1009,7 +1104,10 @@ bool Document::ReadJson(const char *text,
     }
     Meshes_.push_back(std::move(mesh));
   }
+  return true;
+}
 
+bool Document::ReadCameras(const Json::Ref &root) {
   const Json::Ref cameras = root["cameras"];
   for (size_t i = 0; i < cameras.Size(); ++i) {
     const Json::Ref declaration = cameras[i];
@@ -1049,77 +1147,68 @@ bool Document::ReadJson(const char *text,
     }
     Cameras_.push_back(std::move(camera));
   }
+  return true;
+}
 
-  const Json::Ref nodes = root["nodes"];
-  for (size_t i = 0; i < nodes.Size(); ++i) {
-    const Json::Ref declaration = nodes[i];
-    Node node;
-    node.Name = declaration["name"].Str("");
-    node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
-    node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
-
-    node.Visible = declaration["extensions"]["KHR_node_visibility"]["visible"].Bool(true);
-    node.Skin = declaration["skin"].Valid() ? declaration["skin"].Int(-1) : -1;
-    const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
-    node.Light = lit.Valid() ? lit.Int(-1) : -1;
-    const Json::Ref matrix = declaration["matrix"];
-    const Json::Ref translation = declaration["translation"];
-    const Json::Ref rotation = declaration["rotation"];
-    const Json::Ref scale = declaration["scale"];
-    if (matrix.Valid()) {
-      if (translation.Valid() || rotation.Valid() || scale.Valid()) {
-        return Refuse("node " + Number(i) +
-                      " carries both a matrix and a TRS component, which glTF 2.0 forbids");
-      }
-      if (matrix.Size() != 16) {
-        return Refuse("node " + Number(i) + " has a matrix of " + Number(matrix.Size()) +
-                      " numbers");
-      }
-      node.HasMatrix = true;
-      for (size_t k = 0; k < 16; ++k) { node.Matrix[k] = matrix[k].Num(0.0); }
-    } else {
-      for (size_t k = 0; k < 3 && k < translation.Size(); ++k) {
-        node.Translation[k] = translation[k].Num(0.0);
-      }
-      if (rotation.Size() >= 4) {
-        node.Rotation = {.X = rotation[size_t{0}].Num(0.0),
-                         .Y = rotation[size_t{1}].Num(0.0),
-                         .Z = rotation[size_t{2}].Num(0.0),
-                         .W = rotation[size_t{3}].Num(0.0)};
-      }
-      for (size_t k = 0; k < 3 && k < scale.Size(); ++k) { node.Scale[k] = scale[k].Num(1.0); }
+bool Document::ReadNodeTransform(const Json::Ref &declaration, size_t index, Node &into) {
+  const Json::Ref matrix = declaration["matrix"];
+  const Json::Ref translation = declaration["translation"];
+  const Json::Ref rotation = declaration["rotation"];
+  const Json::Ref scale = declaration["scale"];
+  if (!matrix.Valid()) {
+    for (size_t k = 0; k < 3 && k < translation.Size(); ++k) {
+      into.Translation[k] = translation[k].Num(0.0);
     }
-
-    const Json::Ref instancing = declaration["extensions"][kMeshGpuInstancing]["attributes"];
-    if (instancing.Valid()) {
-      node.InstanceTranslation =
-          instancing["TRANSLATION"].Valid() ? instancing["TRANSLATION"].Int(-1) : -1;
-      node.InstanceRotation = instancing["ROTATION"].Valid() ? instancing["ROTATION"].Int(-1) : -1;
-      node.InstanceScale = instancing["SCALE"].Valid() ? instancing["SCALE"].Int(-1) : -1;
-      const std::array<int, 3> named = {
-          {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale}};
-      size_t count = 0;
-      for (const int accessor : named) {
-        if (accessor < 0) { continue; }
-        if (static_cast<size_t>(accessor) >= Accessors_.size()) {
-          return Refuse("node " + Number(i) + " instances on accessor " +
-                        Number(static_cast<size_t>(accessor)) + " of " + Number(Accessors_.size()));
-        }
-        const size_t here = Accessors_[static_cast<size_t>(accessor)].Count;
-
-        if (count != 0 && here != count) {
-          return Refuse("node " + Number(i) +
-                        " instances on accessors of different lengths, and the extension requires "
-                        "one count");
-        }
-        count = here;
-      }
+    if (rotation.Size() >= 4) {
+      into.Rotation = {.X = rotation[size_t{0}].Num(0.0),
+                       .Y = rotation[size_t{1}].Num(0.0),
+                       .Z = rotation[size_t{2}].Num(0.0),
+                       .W = rotation[size_t{3}].Num(0.0)};
     }
-    const Json::Ref children = declaration["children"];
-    for (size_t k = 0; k < children.Size(); ++k) { node.Children.push_back(children[k].Int(-1)); }
-    Nodes_.push_back(std::move(node));
+    for (size_t k = 0; k < 3 && k < scale.Size(); ++k) { into.Scale[k] = scale[k].Num(1.0); }
+    return true;
   }
+  if (translation.Valid() || rotation.Valid() || scale.Valid()) {
+    return Refuse("node " + Number(index) +
+                  " carries both a matrix and a TRS component, which glTF 2.0 forbids");
+  }
+  if (matrix.Size() != 16) {
+    return Refuse("node " + Number(index) + " has a matrix of " + Number(matrix.Size()) +
+                  " numbers");
+  }
+  into.HasMatrix = true;
+  for (size_t k = 0; k < 16; ++k) { into.Matrix[k] = matrix[k].Num(0.0); }
+  return true;
+}
 
+bool Document::ReadNodeInstancing(const Json::Ref &declaration, size_t index, Node &into) {
+  const Json::Ref instancing = declaration["extensions"][kMeshGpuInstancing]["attributes"];
+  if (!instancing.Valid()) { return true; }
+  into.InstanceTranslation =
+      instancing["TRANSLATION"].Valid() ? instancing["TRANSLATION"].Int(-1) : -1;
+  into.InstanceRotation = instancing["ROTATION"].Valid() ? instancing["ROTATION"].Int(-1) : -1;
+  into.InstanceScale = instancing["SCALE"].Valid() ? instancing["SCALE"].Int(-1) : -1;
+  const std::array<int, 3> named = {
+      {into.InstanceTranslation, into.InstanceRotation, into.InstanceScale}};
+  size_t count = 0;
+  for (const int accessor : named) {
+    if (accessor < 0) { continue; }
+    if (static_cast<size_t>(accessor) >= Accessors_.size()) {
+      return Refuse("node " + Number(index) + " instances on accessor " +
+                    Number(static_cast<size_t>(accessor)) + " of " + Number(Accessors_.size()));
+    }
+    const size_t here = Accessors_[static_cast<size_t>(accessor)].Count;
+    if (count != 0 && here != count) {
+      return Refuse("node " + Number(index) +
+                    " instances on accessors of different lengths, and the extension requires "
+                    "one count");
+    }
+    count = here;
+  }
+  return true;
+}
+
+bool Document::HoldNodeReferences() {
   Parent_.assign(Nodes_.size(), -1);
   for (size_t i = 0; i < Nodes_.size(); ++i) {
     const Node &node = Nodes_[i];
@@ -1146,27 +1235,52 @@ bool Document::ReadJson(const char *text,
       Parent_[static_cast<size_t>(child)] = static_cast<int>(i);
     }
   }
+  return true;
+}
 
-  {
-    std::vector<uint8_t> rooted(Nodes_.size(), 0);
-    std::vector<int> walked;
-    for (size_t i = 0; i < Nodes_.size(); ++i) {
-      walked.clear();
-      size_t steps = 0;
-      int at = static_cast<int>(i);
-      while (at >= 0 && rooted[static_cast<size_t>(at)] == 0) {
-        if (++steps > Nodes_.size()) {
-          return Refuse("node " + Number(i) +
-                        " never reaches a root, and a glTF hierarchy is a forest -- the "
-                        "chain of parents is a cycle");
-        }
-        walked.push_back(at);
-        at = Parent_[static_cast<size_t>(at)];
+bool Document::HoldNodeForest() {
+  std::vector<uint8_t> rooted(Nodes_.size(), 0);
+  std::vector<int> walked;
+  for (size_t i = 0; i < Nodes_.size(); ++i) {
+    walked.clear();
+    size_t steps = 0;
+    int at = static_cast<int>(i);
+    while (at >= 0 && rooted[static_cast<size_t>(at)] == 0) {
+      if (++steps > Nodes_.size()) {
+        return Refuse("node " + Number(i) +
+                      " never reaches a root, and a glTF hierarchy is a forest -- the "
+                      "chain of parents is a cycle");
       }
-      for (const int seen : walked) { rooted[static_cast<size_t>(seen)] = 1; }
+      walked.push_back(at);
+      at = Parent_[static_cast<size_t>(at)];
     }
+    for (const int seen : walked) { rooted[static_cast<size_t>(seen)] = 1; }
   }
+  return true;
+}
 
+bool Document::ReadNodes(const Json::Ref &root) {
+  const Json::Ref nodes = root["nodes"];
+  for (size_t i = 0; i < nodes.Size(); ++i) {
+    const Json::Ref declaration = nodes[i];
+    Node node;
+    node.Name = declaration["name"].Str("");
+    node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
+    node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
+    node.Visible = declaration["extensions"]["KHR_node_visibility"]["visible"].Bool(true);
+    node.Skin = declaration["skin"].Valid() ? declaration["skin"].Int(-1) : -1;
+    const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
+    node.Light = lit.Valid() ? lit.Int(-1) : -1;
+    if (!ReadNodeTransform(declaration, i, node)) { return false; }
+    if (!ReadNodeInstancing(declaration, i, node)) { return false; }
+    const Json::Ref children = declaration["children"];
+    for (size_t k = 0; k < children.Size(); ++k) { node.Children.push_back(children[k].Int(-1)); }
+    Nodes_.push_back(std::move(node));
+  }
+  return HoldNodeReferences() && HoldNodeForest();
+}
+
+bool Document::ReadScenes(const Json::Ref &root) {
   const Json::Ref scenes = root["scenes"];
   for (size_t i = 0; i < scenes.Size(); ++i) {
     Scene scene;
@@ -1204,8 +1318,6 @@ bool Document::ReadJson(const char *text,
     }
     MorphAt_[node + 1] = MorphAt_[node] + count;
   }
-  if (!ReadSkins(root)) { return false; }
-  if (!ReadAnimations(json)) { return false; }
   return true;
 }
 
@@ -1258,6 +1370,107 @@ bool Document::ReadSkins(const Json::Ref &root) {
   return true;
 }
 
+std::string Document::Where(TrackAt at) {
+  return "animation " + Number(at.Animation) + " sampler " + Number(at.Sampler);
+}
+
+std::string Document::Where(ChannelAt at) {
+  return "animation " + Number(at.Animation) + " channel " + Number(at.Channel);
+}
+
+bool Document::ReadAnimationSampler(const Json::Ref &declared, TrackAt at, AnimationSampler &into) {
+  into.Input = declared["input"].Int(-1);
+  into.Output = declared["output"].Int(-1);
+  const std::string how = declared["interpolation"].Str("LINEAR");
+  if (how == "LINEAR") {
+    into.How = Interpolation::Linear;
+  } else if (how == "STEP") {
+    into.How = Interpolation::Step;
+  } else if (how == "CUBICSPLINE") {
+    into.How = Interpolation::CubicSpline;
+  } else {
+    return Refuse(Where(at) + " interpolates by '" + how +
+                  "', which is none of LINEAR, STEP or CUBICSPLINE");
+  }
+  for (const int accessor : {into.Input, into.Output}) {
+    if (accessor < 0 || static_cast<size_t>(accessor) >= Accessors_.size()) {
+      return Refuse(Where(at) + " names an accessor the file does not carry");
+    }
+  }
+  const Accessor &times = Accessors_[static_cast<size_t>(into.Input)];
+  if (times.Element != ElementType::Scalar) {
+    return Refuse(Where(at) + " has a time grid that is not SCALAR");
+  }
+  const size_t perKeyframe = (into.How == Interpolation::CubicSpline) ? 3u : 1u;
+  const Accessor &values = Accessors_[static_cast<size_t>(into.Output)];
+  const size_t wanted = times.Count * perKeyframe;
+  if (wanted == 0 || values.Count == 0 || values.Count % wanted != 0) {
+    return Refuse(Where(at) + " states " + Number(times.Count) + " keyframes and " +
+                  Number(values.Count) +
+                  " output elements, which is not a whole number of values per keyframe of " +
+                  Number(wanted));
+  }
+  if (into.How == Interpolation::CubicSpline && times.Count < 2) {
+    return Refuse(Where(at) +
+                  " is CUBICSPLINE over fewer than two keyframes, which has no tangent span");
+  }
+  return true;
+}
+
+bool Document::ReadAnimationChannel(const Json::Ref &declared, ChannelAt at, Animation &into) {
+  AnimationChannel channel;
+  channel.Sampler = declared["sampler"].Int(-1);
+  if (channel.Sampler < 0 || static_cast<size_t>(channel.Sampler) >= into.Samplers.size()) {
+    return Refuse(Where(at) + " names sampler " +
+                  Number(static_cast<size_t>(channel.Sampler < 0 ? 0 : channel.Sampler)) + " of " +
+                  Number(into.Samplers.size()));
+  }
+  const Json::Ref target = declared["target"];
+  channel.Node = target["node"].Valid() ? target["node"].Int(-1) : -1;
+  if (channel.Node >= 0 && static_cast<size_t>(channel.Node) >= Nodes_.size()) {
+    return Refuse(Where(at) + " targets a node the file does not carry");
+  }
+  const std::string path = target["path"].Str("");
+  if (path == "translation") {
+    channel.Path = AnimationPath::Translation;
+  } else if (path == "rotation") {
+    channel.Path = AnimationPath::Rotation;
+  } else if (path == "scale") {
+    channel.Path = AnimationPath::Scale;
+  } else if (path == "weights") {
+    channel.Path = AnimationPath::Weights;
+  } else if (path == "pointer") {
+    const std::string pointer = target["extensions"][kAnimationPointer]["pointer"].Str("");
+    UndrivenReason why = UndrivenReason::PointerUnparsed;
+    if (!ResolveMaterialPointer(pointer, channel, why)) {
+      into.Undriven.push_back(UndrivenChannel{.Pointer = pointer, .Why = why});
+      return true;
+    }
+  } else {
+    return Refuse(Where(at) + " drives '" + path +
+                  "', which is none of translation, rotation, scale, weights or pointer");
+  }
+
+  const size_t components = PathComponents(channel.Path);
+  const AnimationSampler &driving = into.Samplers[static_cast<size_t>(channel.Sampler)];
+  const Accessor &values = Accessors_[static_cast<size_t>(driving.Output)];
+  if (components > 0 && ElementComponents(values.Element) != components) {
+    return Refuse(Where(at) + " drives '" + path + "', which is " + Number(components) +
+                  " components, from an output of " + Number(ElementComponents(values.Element)));
+  }
+  if (channel.Path != AnimationPath::Weights) {
+    const Accessor &grid = Accessors_[static_cast<size_t>(driving.Input)];
+    const size_t perKeyframe = driving.How == Interpolation::CubicSpline ? 3u : 1u;
+    if (values.Count != grid.Count * perKeyframe) {
+      return Refuse(Where(at) + " drives '" + path + "' with " + Number(values.Count) +
+                    " outputs over " + Number(grid.Count) + " keyframes, and the spec demands " +
+                    "exactly " + Number(grid.Count * perKeyframe));
+    }
+  }
+  into.Channels.push_back(channel);
+  return true;
+}
+
 bool Document::ReadAnimations(const Json &json) {
   const Json::Ref animations = json.Root()["animations"];
   for (size_t i = 0; i < animations.Size(); ++i) {
@@ -1267,106 +1480,18 @@ bool Document::ReadAnimations(const Json &json) {
 
     const Json::Ref samplers = declaration["samplers"];
     for (size_t s = 0; s < samplers.Size(); ++s) {
-      const Json::Ref declared = samplers[s];
       AnimationSampler sampler;
-      sampler.Input = declared["input"].Int(-1);
-      sampler.Output = declared["output"].Int(-1);
-      const std::string how = declared["interpolation"].Str("LINEAR");
-      if (how == "LINEAR") {
-        sampler.How = Interpolation::Linear;
-      } else if (how == "STEP") {
-        sampler.How = Interpolation::Step;
-      } else if (how == "CUBICSPLINE") {
-        sampler.How = Interpolation::CubicSpline;
-      } else {
-        return Refuse("animation " + Number(i) + " sampler " + Number(s) + " interpolates by '" +
-                      how + "', which is none of LINEAR, STEP or CUBICSPLINE");
-      }
-      for (const int accessor : {sampler.Input, sampler.Output}) {
-        if (accessor < 0 || static_cast<size_t>(accessor) >= Accessors_.size()) {
-          return Refuse("animation " + Number(i) + " sampler " + Number(s) +
-                        " names an accessor the file does not carry");
-        }
-      }
-      const Accessor &times = Accessors_[static_cast<size_t>(sampler.Input)];
-      if (times.Element != ElementType::Scalar) {
-        return Refuse("animation " + Number(i) + " sampler " + Number(s) +
-                      " has a time grid that is not SCALAR");
-      }
-
-      const size_t perKeyframe = (sampler.How == Interpolation::CubicSpline) ? 3u : 1u;
-      const Accessor &values = Accessors_[static_cast<size_t>(sampler.Output)];
-      const size_t wanted = times.Count * perKeyframe;
-      if (wanted == 0 || values.Count == 0 || values.Count % wanted != 0) {
-        return Refuse("animation " + Number(i) + " sampler " + Number(s) + " states " +
-                      Number(times.Count) + " keyframes and " + Number(values.Count) +
-                      " output elements, which is not a whole number of values per keyframe of " +
-                      Number(wanted));
-      }
-      if (sampler.How == Interpolation::CubicSpline && times.Count < 2) {
-        return Refuse("animation " + Number(i) + " sampler " + Number(s) +
-                      " is CUBICSPLINE over fewer than two keyframes, which has no tangent span");
+      if (!ReadAnimationSampler(samplers[s], {.Animation = i, .Sampler = s}, sampler)) {
+        return false;
       }
       animation.Samplers.push_back(sampler);
     }
 
     const Json::Ref channels = declaration["channels"];
     for (size_t c = 0; c < channels.Size(); ++c) {
-      const Json::Ref declared = channels[c];
-      AnimationChannel channel;
-      channel.Sampler = declared["sampler"].Int(-1);
-      if (channel.Sampler < 0 ||
-          static_cast<size_t>(channel.Sampler) >= animation.Samplers.size()) {
-        return Refuse("animation " + Number(i) + " channel " + Number(c) + " names sampler " +
-                      Number(static_cast<size_t>(channel.Sampler < 0 ? 0 : channel.Sampler)) +
-                      " of " + Number(animation.Samplers.size()));
+      if (!ReadAnimationChannel(channels[c], {.Animation = i, .Channel = c}, animation)) {
+        return false;
       }
-      const Json::Ref target = declared["target"];
-      channel.Node = target["node"].Valid() ? target["node"].Int(-1) : -1;
-      if (channel.Node >= 0 && static_cast<size_t>(channel.Node) >= Nodes_.size()) {
-        return Refuse("animation " + Number(i) + " channel " + Number(c) +
-                      " targets a node the file does not carry");
-      }
-      const std::string path = target["path"].Str("");
-      if (path == "translation") {
-        channel.Path = AnimationPath::Translation;
-      } else if (path == "rotation") {
-        channel.Path = AnimationPath::Rotation;
-      } else if (path == "scale") {
-        channel.Path = AnimationPath::Scale;
-      } else if (path == "weights") {
-        channel.Path = AnimationPath::Weights;
-      } else if (path == "pointer") {
-        const std::string pointer = target["extensions"][kAnimationPointer]["pointer"].Str("");
-        UndrivenReason why = UndrivenReason::PointerUnparsed;
-        if (!ResolveMaterialPointer(pointer, channel, why)) {
-          animation.Undriven.push_back(UndrivenChannel{.Pointer = pointer, .Why = why});
-          continue;
-        }
-      } else {
-        return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
-                      "', which is none of translation, rotation, scale, weights or pointer");
-      }
-      const size_t components = PathComponents(channel.Path);
-      const Accessor &values = Accessors_[static_cast<size_t>(
-          animation.Samplers[static_cast<size_t>(channel.Sampler)].Output)];
-      if (components > 0 && ElementComponents(values.Element) != components) {
-        return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
-                      "', which is " + Number(components) + " components, from an output of " +
-                      Number(ElementComponents(values.Element)));
-      }
-      if (channel.Path != AnimationPath::Weights) {
-        const AnimationSampler &driving = animation.Samplers[static_cast<size_t>(channel.Sampler)];
-        const Accessor &grid = Accessors_[static_cast<size_t>(driving.Input)];
-        const size_t perKeyframe = driving.How == Interpolation::CubicSpline ? 3u : 1u;
-        if (values.Count != grid.Count * perKeyframe) {
-          return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
-                        "' with " + Number(values.Count) + " outputs over " + Number(grid.Count) +
-                        " keyframes, and the spec demands exactly " +
-                        Number(grid.Count * perKeyframe));
-        }
-      }
-      animation.Channels.push_back(channel);
     }
     Animations_.push_back(std::move(animation));
   }
@@ -1594,229 +1719,77 @@ bool Document::ReadAppearance(const Json &json) {
   return true;
 }
 
-bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
-  MaterialRef material;
-  material.Name = declaration["name"].Str("");
-  material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
+bool Document::Factor(
+    const Json::Ref &at, const char *named, size_t material, Ranged within, float &into) {
+  if (!at.Valid()) { return true; }
+  const std::string who = "material " + Number(material) + " declares a" +
+                          (std::string_view("aeiou").contains(*named) ? "n " : " ") + named;
+  if (at.GetKind() != Json::Kind::Number) { return Refuse(who + " that is not a number"); }
+  const double said = at.Num();
+  const bool low = within.LowOpen ? said > within.Low : said >= within.Low;
+  if (!low || said > within.High) {
+    return Refuse(who + " of " + std::format("{}", said) + ", and glTF 2.0 holds it to " +
+                  (within.LowOpen ? "(" : "[") + std::format("{}", within.Low) + ", " +
+                  (within.High == std::numeric_limits<double>::infinity()
+                       ? std::string("infinity)")
+                       : std::format("{}]", within.High)));
+  }
+  into = static_cast<float>(said);
+  return true;
+}
 
-  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
-  const Json::Ref baseColour = pbr["baseColorFactor"];
+bool Document::ReadMaterialColours(const Json::Ref &declaration, size_t index, Material &into) {
+  const Json::Ref baseColour = declaration["pbrMetallicRoughness"]["baseColorFactor"];
   for (size_t k = 0; k < 4 && k < baseColour.Size(); ++k) {
-    material.Surface.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
+    into.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
   }
   if (!baseColour.Valid()) {
-    for (float &channel : material.Surface.BaseColour) { channel = 1.0f; }
+    for (float &channel : into.BaseColour) { channel = 1.0f; }
   }
-  material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
-  material.Surface.Roughness = static_cast<float>(pbr["roughnessFactor"].Num(1.0));
 
   const Json::Ref emissive = declaration["emissiveFactor"];
   for (size_t k = 0; k < 3 && k < emissive.Size(); ++k) {
-    material.Surface.Emission[k] = static_cast<float>(emissive[k].Num(0.0));
+    into.Emission[k] = static_cast<float>(emissive[k].Num(0.0));
   }
 
-  const Json::Ref ior = declaration["extensions"][kIor]["ior"];
-  if (ior.Valid()) {
-    if (ior.GetKind() != Json::Kind::Number) {
-      return Refuse("material " + Number(index) + " declares an ior that is not a number");
-    }
-    if (!(ior.Num() >= 0.0)) {
-      return Refuse("material " + Number(index) + " declares a negative ior");
-    }
-    material.Surface.Ior = static_cast<float>(ior.Num());
+  const Json::Ref tint = declaration["extensions"][kSpecular]["specularColorFactor"];
+  for (size_t k = 0; k < 3 && k < tint.Size(); ++k) {
+    into.SpecularColour[k] = static_cast<float>(tint[k].Num(1.0));
   }
+
+  const Json::Ref attenuation = declaration["extensions"][kVolume]["attenuationColor"];
+  if (attenuation.Valid()) {
+    if (attenuation.GetKind() != Json::Kind::Array || attenuation.Size() != 3) {
+      return Refuse("material " + Number(index) +
+                    " declares an attenuationColor that is not three numbers");
+    }
+    for (size_t channel = 0; channel < 3; ++channel) {
+      const Json::Ref component = attenuation[channel];
+      if (component.GetKind() != Json::Kind::Number || !(component.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares an attenuationColor component below 0");
+      }
+      into.AttenuationColour[channel] = static_cast<float>(component.Num());
+    }
+  }
+
+  const Json::Ref sheenColour = declaration["extensions"][kSheen]["sheenColorFactor"];
+  for (size_t k = 0; k < 3 && k < sheenColour.Size(); ++k) {
+    const Json::Ref channel = sheenColour[k];
+    if (channel.GetKind() != Json::Kind::Number || !(channel.Num() >= 0.0)) {
+      return Refuse("material " + Number(index) +
+                    " declares a sheenColorFactor channel that is not a number at or above zero");
+    }
+    into.SheenColour[k] = static_cast<float>(channel.Num());
+  }
+  return true;
+}
+
+bool Document::ReadMaterialTextures(const Json::Ref &declaration,
+                                    size_t index,
+                                    MaterialRef &material) {
+  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
   const Json::Ref specular = declaration["extensions"][kSpecular];
-  if (specular.Valid()) {
-    const Json::Ref factor = specular["specularFactor"];
-    if (factor.Valid()) {
-      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0)) {
-        return Refuse("material " + Number(index) +
-                      " declares a specularFactor that is not a number at or above zero");
-      }
-      material.Surface.SpecularFactor = static_cast<float>(factor.Num());
-    }
-    const Json::Ref tint = specular["specularColorFactor"];
-    for (size_t k = 0; k < 3 && k < tint.Size(); ++k) {
-      material.Surface.SpecularColour[k] = static_cast<float>(tint[k].Num(1.0));
-    }
-  }
-
-  const Json::Ref transmission = declaration["extensions"][kTransmission];
-  if (transmission.Valid()) {
-    const Json::Ref factor = transmission["transmissionFactor"];
-    if (factor.Valid()) {
-      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
-        return Refuse("material " + Number(index) +
-                      " declares a transmissionFactor outside [0, 1]");
-      }
-      material.Surface.Transmission = static_cast<float>(factor.Num());
-    }
-  }
-
-  const Json::Ref volume = declaration["extensions"][kVolume];
-  if (volume.Valid()) {
-    const Json::Ref thickness = volume["thicknessFactor"];
-    if (thickness.Valid()) {
-      if (thickness.GetKind() != Json::Kind::Number || !(thickness.Num() >= 0.0)) {
-        return Refuse("material " + Number(index) + " declares a thicknessFactor below 0");
-      }
-      material.Surface.Thickness = static_cast<float>(thickness.Num());
-    }
-    const Json::Ref distance = volume["attenuationDistance"];
-    if (distance.Valid()) {
-      if (distance.GetKind() != Json::Kind::Number || !(distance.Num() > 0.0)) {
-        return Refuse("material " + Number(index) +
-                      " declares an attenuationDistance that is not above 0");
-      }
-      material.Surface.AttenuationDistance = static_cast<float>(distance.Num());
-    }
-    const Json::Ref colour = volume["attenuationColor"];
-    if (colour.Valid()) {
-      if (colour.GetKind() != Json::Kind::Array || colour.Size() != 3) {
-        return Refuse("material " + Number(index) +
-                      " declares an attenuationColor that is not three numbers");
-      }
-      for (size_t channel = 0; channel < 3; ++channel) {
-        const Json::Ref component = colour[channel];
-        if (component.GetKind() != Json::Kind::Number || !(component.Num() >= 0.0)) {
-          return Refuse("material " + Number(index) +
-                        " declares an attenuationColor component below 0");
-        }
-        material.Surface.AttenuationColour[channel] = static_cast<float>(component.Num());
-      }
-    }
-  }
-
-  const Json::Ref sheen = declaration["extensions"][kSheen];
-  if (sheen.Valid()) {
-    const Json::Ref colour = sheen["sheenColorFactor"];
-    for (size_t k = 0; k < 3 && k < colour.Size(); ++k) {
-      const Json::Ref channel = colour[k];
-      if (channel.GetKind() != Json::Kind::Number || !(channel.Num() >= 0.0)) {
-        return Refuse("material " + Number(index) +
-                      " declares a sheenColorFactor channel that is not a number at or above zero");
-      }
-      material.Surface.SheenColour[k] = static_cast<float>(channel.Num());
-    }
-    const Json::Ref roughness = sheen["sheenRoughnessFactor"];
-    if (roughness.Valid()) {
-      if (roughness.GetKind() != Json::Kind::Number || !(roughness.Num() >= 0.0) ||
-          roughness.Num() > 1.0) {
-        return Refuse("material " + Number(index) +
-                      " declares a sheenRoughnessFactor outside [0, 1]");
-      }
-      material.Surface.SheenRoughness = static_cast<float>(roughness.Num());
-    }
-  }
-
-  const Json::Ref clearcoat = declaration["extensions"][kClearcoat];
-  if (clearcoat.Valid()) {
-    const Json::Ref factor = clearcoat["clearcoatFactor"];
-    if (factor.Valid()) {
-      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
-        return Refuse("material " + Number(index) + " declares a clearcoatFactor outside [0, 1]");
-      }
-      material.Surface.Clearcoat = static_cast<float>(factor.Num());
-    }
-    const Json::Ref rough = clearcoat["clearcoatRoughnessFactor"];
-    if (rough.Valid()) {
-      if (rough.GetKind() != Json::Kind::Number || !(rough.Num() >= 0.0) || rough.Num() > 1.0) {
-        return Refuse("material " + Number(index) +
-                      " declares a clearcoatRoughnessFactor outside [0, 1]");
-      }
-      material.Surface.ClearcoatRoughness = static_cast<float>(rough.Num());
-    }
-  }
-
-  const Json::Ref anisotropy = declaration["extensions"][kAnisotropy];
-  if (anisotropy.Valid()) {
-    const Json::Ref strengthOf = anisotropy["anisotropyStrength"];
-    if (strengthOf.Valid()) {
-      if (strengthOf.GetKind() != Json::Kind::Number || !(strengthOf.Num() >= 0.0) ||
-          strengthOf.Num() > 1.0) {
-        return Refuse("material " + Number(index) +
-                      " declares an anisotropyStrength outside [0, 1]");
-      }
-      material.Surface.Anisotropy = static_cast<float>(strengthOf.Num());
-    }
-    const Json::Ref turn = anisotropy["anisotropyRotation"];
-    if (turn.Valid()) {
-      if (turn.GetKind() != Json::Kind::Number) {
-        return Refuse("material " + Number(index) +
-                      " declares an anisotropyRotation that is not a number");
-      }
-      material.Surface.AnisotropyRotationRad = static_cast<float>(turn.Num());
-    }
-  }
-
-  const Json::Ref iridescence = declaration["extensions"][kIridescence];
-  if (iridescence.Valid()) {
-    const Json::Ref factor = iridescence["iridescenceFactor"];
-    if (factor.Valid()) {
-      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
-        return Refuse("material " + Number(index) +
-                      " declares an iridescenceFactor outside [0, 1]");
-      }
-      material.Surface.Iridescence = static_cast<float>(factor.Num());
-    }
-    const Json::Ref filmIor = iridescence["iridescenceIor"];
-    if (filmIor.Valid()) {
-      if (filmIor.GetKind() != Json::Kind::Number || !(filmIor.Num() >= 1.0)) {
-        return Refuse("material " + Number(index) + " declares an iridescenceIor below 1");
-      }
-      material.Surface.IridescenceIor = static_cast<float>(filmIor.Num());
-    }
-    const Json::Ref least = iridescence["iridescenceThicknessMinimum"];
-    if (least.Valid()) {
-      if (least.GetKind() != Json::Kind::Number || !(least.Num() >= 0.0)) {
-        return Refuse("material " + Number(index) +
-                      " declares an iridescenceThicknessMinimum below 0");
-      }
-      material.Surface.IridescenceThicknessMinNm = static_cast<float>(least.Num());
-    }
-    const Json::Ref most = iridescence["iridescenceThicknessMaximum"];
-    if (most.Valid()) {
-      if (most.GetKind() != Json::Kind::Number || !(most.Num() >= 0.0)) {
-        return Refuse("material " + Number(index) +
-                      " declares an iridescenceThicknessMaximum below 0");
-      }
-      material.Surface.IridescenceThicknessMaxNm = static_cast<float>(most.Num());
-    }
-  }
-  const Json::Ref strength = declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
-  if (strength.Valid()) {
-    if (strength.GetKind() != Json::Kind::Number) {
-      return Refuse("material " + Number(index) +
-                    " declares an emissiveStrength that is not a "
-                    "number");
-    }
-    const double scale = strength.Num();
-    if (!(scale >= 0.0)) {
-      return Refuse("material " + Number(index) + " declares an emissiveStrength of " +
-                    std::to_string(scale) + ", and the extension's minimum is 0");
-    }
-    for (float &channel : material.Surface.Emission) {
-      channel = static_cast<float>(channel * scale);
-    }
-  }
-
-  const Json::Ref unlit = declaration["extensions"][kUnlit];
-  if (unlit.Valid()) {
-    if (unlit.GetKind() != Json::Kind::Object) {
-      return Refuse("material " + Number(index) +
-                    " declares KHR_materials_unlit as something "
-                    "other than an object, and the extension defines an empty object");
-    }
-    material.Surface.Unlit = true;
-  }
-
-  const std::string mode = declaration["alphaMode"].Str("");
-  if (!KnownAlphaMode(mode, material.Surface.Alpha)) {
-    return Refuse("material " + Number(index) + " has alphaMode '" + mode +
-                  "', and glTF 2.0 has "
-                  "OPAQUE, MASK and BLEND");
-  }
-  material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
 
   struct SlotRow {
     Json::Ref Under;
@@ -1853,6 +1826,139 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       return Refuse("material " + Number(index) + " " + slot.Slot + " names a negative UV set");
     }
   }
+  return true;
+}
+
+bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
+  MaterialRef material;
+  material.Name = declaration["name"].Str("");
+  material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
+
+  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
+  material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
+  material.Surface.Roughness = static_cast<float>(pbr["roughnessFactor"].Num(1.0));
+  if (!ReadMaterialColours(declaration, index, material.Surface)) { return false; }
+
+  const Json::Ref specular = declaration["extensions"][kSpecular];
+  const Json::Ref volume = declaration["extensions"][kVolume];
+  const Json::Ref sheen = declaration["extensions"][kSheen];
+
+  const Json::Ref clearcoat = declaration["extensions"][kClearcoat];
+  const Json::Ref anisotropy = declaration["extensions"][kAnisotropy];
+  const Json::Ref iridescence = declaration["extensions"][kIridescence];
+  constexpr Ranged kAtLeastZero{};
+  constexpr Ranged kUnitInterval{.Low = 0.0, .High = 1.0};
+  constexpr Ranged kAboveZero{.Low = 0.0, .LowOpen = true};
+  constexpr Ranged kAnyNumber{.Low = -std::numeric_limits<double>::infinity()};
+
+  struct FactorRow {
+    Json::Ref At;
+    const char *Named;
+    Ranged Within;
+    float *Into;
+  };
+
+  const std::array<FactorRow, 14> factors = {{
+      {.At = declaration["extensions"][kIor]["ior"],
+       .Named = "ior",
+       .Within = kAtLeastZero,
+       .Into = &material.Surface.Ior},
+      {.At = specular["specularFactor"],
+       .Named = "specularFactor",
+       .Within = kAtLeastZero,
+       .Into = &material.Surface.SpecularFactor},
+      {.At = declaration["extensions"][kTransmission]["transmissionFactor"],
+       .Named = "transmissionFactor",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.Transmission},
+      {.At = volume["thicknessFactor"],
+       .Named = "thicknessFactor",
+       .Within = kAtLeastZero,
+       .Into = &material.Surface.Thickness},
+      {.At = volume["attenuationDistance"],
+       .Named = "attenuationDistance",
+       .Within = kAboveZero,
+       .Into = &material.Surface.AttenuationDistance},
+      {.At = sheen["sheenRoughnessFactor"],
+       .Named = "sheenRoughnessFactor",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.SheenRoughness},
+      {.At = clearcoat["clearcoatFactor"],
+       .Named = "clearcoatFactor",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.Clearcoat},
+      {.At = clearcoat["clearcoatRoughnessFactor"],
+       .Named = "clearcoatRoughnessFactor",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.ClearcoatRoughness},
+      {.At = anisotropy["anisotropyStrength"],
+       .Named = "anisotropyStrength",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.Anisotropy},
+      {.At = anisotropy["anisotropyRotation"],
+       .Named = "anisotropyRotation",
+       .Within = kAnyNumber,
+       .Into = &material.Surface.AnisotropyRotationRad},
+      {.At = iridescence["iridescenceFactor"],
+       .Named = "iridescenceFactor",
+       .Within = kUnitInterval,
+       .Into = &material.Surface.Iridescence},
+      {.At = iridescence["iridescenceIor"],
+       .Named = "iridescenceIor",
+       .Within = Ranged{.Low = 1.0},
+       .Into = &material.Surface.IridescenceIor},
+      {.At = iridescence["iridescenceThicknessMinimum"],
+       .Named = "iridescenceThicknessMinimum",
+       .Within = kAtLeastZero,
+       .Into = &material.Surface.IridescenceThicknessMinNm},
+      {.At = iridescence["iridescenceThicknessMaximum"],
+       .Named = "iridescenceThicknessMaximum",
+       .Within = kAtLeastZero,
+       .Into = &material.Surface.IridescenceThicknessMaxNm},
+  }};
+  ;
+
+  for (const FactorRow &row : factors) {
+    if (!Factor(row.At, row.Named, index, row.Within, *row.Into)) { return false; }
+  }
+
+  const Json::Ref strength = declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
+  if (strength.Valid()) {
+    if (strength.GetKind() != Json::Kind::Number) {
+      return Refuse("material " + Number(index) +
+                    " declares an emissiveStrength that is not a "
+                    "number");
+    }
+    const double scale = strength.Num();
+    if (!(scale >= 0.0)) {
+      return Refuse("material " + Number(index) + " declares an emissiveStrength of " +
+                    std::to_string(scale) + ", and the extension's minimum is 0");
+    }
+    for (float &channel : material.Surface.Emission) {
+      channel = static_cast<float>(channel * scale);
+    }
+  }
+
+  const Json::Ref unlit = declaration["extensions"][kUnlit];
+  if (unlit.Valid()) {
+    if (unlit.GetKind() != Json::Kind::Object) {
+      return Refuse("material " + Number(index) +
+                    " declares KHR_materials_unlit as something "
+                    "other than an object, and the extension defines an empty object");
+    }
+    material.Surface.Unlit = true;
+  }
+
+  const std::string mode = declaration["alphaMode"].Str("");
+  if (!KnownAlphaMode(mode, material.Surface.Alpha)) {
+    return Refuse("material " + Number(index) + " has alphaMode '" + mode +
+                  "', and glTF 2.0 has "
+                  "OPAQUE, MASK and BLEND");
+  }
+  material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
+
+  if (!ReadMaterialTextures(declaration, index, material)) { return false; }
+
   material.NormalScale = declaration["normalTexture"]["scale"].Num(1.0);
   material.OcclusionStrength = declaration["occlusionTexture"]["strength"].Num(1.0);
   Materials_.push_back(std::move(material));
