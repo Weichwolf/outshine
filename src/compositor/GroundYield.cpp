@@ -19,6 +19,11 @@ constexpr uint32_t kNoVertex = 0xffffffffu;
 
 namespace {
 
+constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ULL;
+constexpr uint64_t kCellBias = 0x2000000000ULL;
+constexpr double kNoNearestYet = 1.0e29;
+constexpr unsigned kNorthingShift = 24u;
+
 constexpr int kMostPasses = 6;
 constexpr double kWeldM = 0.01;
 constexpr double kMovedM = 0.01;
@@ -43,13 +48,13 @@ uint64_t EdgeKey(double aE, double aS, double bE, double bS) {
       static_cast<uint64_t>(static_cast<int64_t>(std::llround(bS / kWeldM)) + 0x2000000000LL);
   const uint64_t from = (one << 24U) ^ two;
   const uint64_t to = (three << 24U) ^ four;
-  return from < to ? (from * 0x9e3779b97f4a7c15ULL) ^ to : (to * 0x9e3779b97f4a7c15ULL) ^ from;
+  return from < to ? (from * kGoldenWord) ^ to : (to * kGoldenWord) ^ from;
 }
 
 uint64_t PlaceKey(double eastM, double southM) {
   const auto atE = static_cast<int64_t>(std::llround(eastM / kWeldM));
   const auto atS = static_cast<int64_t>(std::llround(southM / kWeldM));
-  return (static_cast<uint64_t>(atE + 0x2000000000LL) << 24u) ^
+  return (static_cast<uint64_t>(atE + kCellBias) << kNorthingShift) ^
          static_cast<uint64_t>(atS + 0x2000000000LL);
 }
 
@@ -203,7 +208,7 @@ double WantedEdgeM(const Buckets &buckets,
   for (const uint32_t which : bucket->second) {
     nearest = std::min(nearest, AwayFrom(these[which], centreE, centreS));
   }
-  if (nearest > 1.0e29) { return 0.0; }
+  if (nearest > kNoNearestYet) { return 0.0; }
   double wanted = std::clamp(finestM + kEdgeGrade * nearest, finestM, kCoarsestM);
   if (nearest > kNearM) { return wanted; }
   double lowest = kBeyondAnyCoordinate;

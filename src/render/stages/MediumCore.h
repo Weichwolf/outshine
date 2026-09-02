@@ -1,6 +1,10 @@
 #ifndef OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
 #define OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
 
+#define OUTSHINE_RAYLEIGH_NUMERATOR 3.0f
+#define OUTSHINE_RAYLEIGH_DENOMINATOR 16.0f
+#define OUTSHINE_MIE_EXPONENT 1.5f
+
 static inline float mediumTopReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) {
   const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
                       medium.TopRadiusKm * medium.TopRadiusKm;
@@ -47,12 +51,14 @@ static inline void mediumTransmittanceParams(MEDIUM_CONST Medium &medium,
 }
 
 static inline float rayleighPhase(float cosTheta) {
-  return 3.0f / (16.0f * OUTSHINE_PI) * (1.0f + cosTheta * cosTheta);
+  return OUTSHINE_RAYLEIGH_NUMERATOR / (OUTSHINE_RAYLEIGH_DENOMINATOR * OUTSHINE_PI) *
+         (1.0f + cosTheta * cosTheta);
 }
 
 static inline float miePhase(float g, float cosTheta) {
   const float k = 3.0f / (8.0f * OUTSHINE_PI) * (1.0f - g * g) / (2.0f + g * g);
-  return k * (1.0f + cosTheta * cosTheta) / pow(1.0f + g * g - 2.0f * g * cosTheta, 1.5f);
+  return k * (1.0f + cosTheta * cosTheta) /
+         pow(1.0f + g * g - 2.0f * g * cosTheta, OUTSHINE_MIE_EXPONENT);
 }
 
 static inline float subUvsToUnit(float u, float resolution) {

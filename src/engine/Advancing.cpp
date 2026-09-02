@@ -19,6 +19,9 @@
 
 namespace outshine {
 
+constexpr double kFovUnsaidDeg = 55.0;
+constexpr double kBelowAnyGroundM = -1.0e3;
+
 bool Engine::State::Rides() {
   return Carries(Ticking.Drive.State.Body, Ticking.Drive.Stood.ModelShiftM);
 }
@@ -83,7 +86,7 @@ bool Engine::State::Watches() {
   const Vec3 onto = seen.Sees.LooksAt ? seen.Sees.LookAtM : station + ahead;
   Render::Viewpoint standing;
   if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.UpM, standing)) { return true; }
-  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * kDeg2Rad;
+  standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
   if (seen.Sees.Orthographic) {
@@ -171,7 +174,7 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   if (!Render::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
-  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : 55.0) * kDeg2Rad;
+  from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
   if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;
 }
@@ -386,7 +389,7 @@ void Engine::State::Inspected() {
       for (size_t at = 0; at + 1 < velocity.size(); at += 2) {
         const auto across = static_cast<double>(velocity[at]);
         const auto down = static_cast<double>(velocity[at + 1]);
-        if (across <= -1.0e3 || down <= -1.0e3) { continue; }
+        if (across <= kBelowAnyGroundM || down <= kBelowAnyGroundM) { continue; }
         const double moved = std::sqrt(across * across + down * down);
         if (moved > 0.0) { moving += 1.0; }
         if (moved > furthest) { furthest = moved; }

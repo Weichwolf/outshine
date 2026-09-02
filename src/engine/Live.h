@@ -30,6 +30,8 @@
 
 namespace outshine::Core {
 
+constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
+
 struct Declaration {
   Scenario::AssetAnimation Animation = Scenario::AssetAnimation::Play;
   int Clip = 0;
@@ -55,7 +57,7 @@ struct Declaration {
 
   double MetresPerUnit = 1.0;
 
-  double Fps = 60.0;
+  double Fps = Scenario::kFpsUnsaid;
 
   double Fill = 0.0;
 
@@ -325,7 +327,7 @@ private:
   Render::SceneRenderer *Renderer_ = nullptr;
   Overlay Over_;
   Declaration Declared_;
-  std::array<double, 3> GroundAlbedo_ = {0.10, 0.13, 0.07};
+  Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::Viewpoint Eye_;

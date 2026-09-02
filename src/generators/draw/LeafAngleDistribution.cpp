@@ -9,6 +9,11 @@
 
 namespace outshine::Generators {
 
+constexpr double kQuarterTurnDeg = 90.0;
+constexpr double kNoBestYet = 1e30;
+constexpr int kFitSteps = 1150;
+constexpr double kSingularDet = 1e-12;
+
 namespace {}
 
 void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
@@ -28,7 +33,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
     const double e = std::asin(static_cast<double>(std::fmin(std::fabs(p.Dir[1]), 1.0f))) *
                      kDegPerHalfTurn / kPi;
     elevSum += e;
-    int bin = static_cast<int>(e / (90.0 / static_cast<double>(kTiltBins)));
+    int bin = static_cast<int>(e / (kQuarterTurnDeg / static_cast<double>(kTiltBins)));
     if (bin >= kTiltBins) { bin = kTiltBins - 1; }
     Histogram_[static_cast<size_t>(bin)] += 1.0f;
   }
@@ -59,12 +64,12 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
         static_cast<float>(2.0 / kPi * acc / static_cast<double>(kAzimuths));
   }
 
-  double bestErr = 1e30;
+  double bestErr = kNoBestYet;
   double bestG0 = 0.0;
   double bestG1 = 0.0;
   double bestP = 1.0;
   std::vector<double> x(static_cast<size_t>(kElevations));
-  for (int step = 0; step <= 1150; ++step) {
+  for (int step = 0; step <= kFitSteps; ++step) {
     const double p = 0.25 + static_cast<double>(step) * 0.005;
     double sx = 0.0;
     double sxx = 0.0;
@@ -81,7 +86,7 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
     }
     const auto n = static_cast<double>(kElevations);
     const double det = n * sxx - sx * sx;
-    if (std::fabs(det) < 1e-12) { continue; }
+    if (std::fabs(det) < kSingularDet) { continue; }
     const double g1 = (n * sxy - sx * sy) / det;
     const double g0 = (sy - g1 * sx) / n;
     double err = 0.0;

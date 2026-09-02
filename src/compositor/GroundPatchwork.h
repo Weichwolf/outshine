@@ -12,6 +12,8 @@
 
 namespace outshine {
 
+constexpr size_t kZoomLevels = 24;
+
 constexpr int kPatchGrid = 33;
 
 struct Around {
@@ -46,8 +48,8 @@ struct Patchwork {
   size_t ClustersDrawn = 0;
   size_t Skipped = 0;
   size_t Bare = 0;
-  std::array<int, 24> PendingAtZoom = {{}};
-  std::array<int, 24> WantedAtZoom = {{}};
+  std::array<int, kZoomLevels> PendingAtZoom = {{}};
+  std::array<int, kZoomLevels> WantedAtZoom = {{}};
   size_t Overlapped = 0;
   long ReachTiles = 0;
   int CoarsestZoom = 0;

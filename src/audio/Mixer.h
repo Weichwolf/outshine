@@ -13,6 +13,9 @@
 
 namespace outshine::Audio {
 
+constexpr double kSpeedOfSoundUnsaidMs = 343.0;
+constexpr int kSampleRateUnsaidHz = 48000;
+
 struct Heard {
   std::string Id;
   Vec3 AtM;
@@ -55,8 +58,8 @@ public:
 private:
   struct Held;
   std::unique_ptr<Held> Held_;
-  double SpeedOfSoundMs_ = 343.0;
-  int Rate_ = 48000;
+  double SpeedOfSoundMs_ = kSpeedOfSoundUnsaidMs;
+  int Rate_ = kSampleRateUnsaidHz;
 };
 
 } // namespace outshine::Audio

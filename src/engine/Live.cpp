@@ -35,6 +35,10 @@
 
 namespace outshine::Core {
 
+constexpr double kLuminanceRed = 0.2126;
+constexpr double kLuminanceGreen = 0.7152;
+constexpr double kLuminanceBlue = 0.0722;
+
 namespace {
 
 bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
@@ -152,8 +156,9 @@ namespace {
 constexpr double kSolarIlluminanceLx = 133000.0;
 
 double Photopic(const Vec3f &triple) {
-  return 0.2126 * static_cast<double>(triple[0]) + 0.7152 * static_cast<double>(triple[1]) +
-         0.0722 * static_cast<double>(triple[2]);
+  return kLuminanceRed * static_cast<double>(triple[0]) +
+         kLuminanceGreen * static_cast<double>(triple[1]) +
+         kLuminanceBlue * static_cast<double>(triple[2]);
 }
 
 } // namespace

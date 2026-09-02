@@ -9,6 +9,9 @@
 
 namespace outshine {
 
+constexpr double kInt32Least = -2147483648.0;
+constexpr double kInt32Most = 2147483647.0;
+
 class Json {
 public:
   enum class Kind : uint8_t { Invalid, Null, Bool, Number, String, Array, Object };
@@ -40,7 +43,7 @@ public:
 
     [[nodiscard]] int Int(int def = 0) const {
       const double v = Num(static_cast<double>(def));
-      if (!(v >= -2147483648.0) || !(v <= 2147483647.0) ||
+      if (!(v >= kInt32Least) || !(v <= kInt32Most) ||
           v != static_cast<double>(static_cast<long long>(v))) {
         return def;
       }
