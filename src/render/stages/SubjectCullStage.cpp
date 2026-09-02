@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Mat4.h"
 #include "math/Vec4.h"
 #include "SubjectCullStage.h"
@@ -16,6 +17,7 @@
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
+
 namespace {
 
 struct CullView {
@@ -56,7 +58,7 @@ void PlanesOf(const Mat4f &mvp, std::span<float, 24> out) {
     }
     const float length = std::sqrt(out[at * 4] * out[at * 4] + out[at * 4 + 1] * out[at * 4 + 1] +
                                    out[at * 4 + 2] * out[at * 4 + 2]);
-    if (length < 1.0e-12f) {
+    if (length < static_cast<float>(kParallelCross)) {
       for (int c = 0; c < 4; ++c) { out[at * 4 + c] = 0.0f; }
       continue;
     }
@@ -133,8 +135,9 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
   const float yfov = std::acos(std::fmin(std::fmax(-between, -1.0f), 1.0f));
   const float halfTangent = std::tan(0.5f * yfov);
-  into.ErrorPerMetre =
-      halfTangent > 1.0e-6f && HeightPx_ > 0.0f ? HeightPx_ * 0.5f / halfTangent : 0.0f;
+  into.ErrorPerMetre = halfTangent > static_cast<float>(kLeastRunM) && HeightPx_ > 0.0f
+                           ? HeightPx_ * 0.5f / halfTangent
+                           : 0.0f;
   gErrorPerMetre.store(into.ErrorPerMetre, std::memory_order_relaxed);
   return jobs;
 }

@@ -109,7 +109,7 @@ int Deduped(std::span<Line> lines, int n) {
   int kept = 0;
   for (int i = 0; i < n; i++) {
     const double reach = std::hypot(lines[i].A, lines[i].B);
-    if (reach < 1.0e-9) { continue; }
+    if (reach < kLeastTurnRad) { continue; }
     const Line unit{.A = lines[i].A / reach, .B = lines[i].B / reach, .C = lines[i].C / reach};
     bool seen = false;
     for (int j = 0; j < kept && !seen; j++) {
@@ -293,7 +293,7 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     if (std::fabs(span) < kOnLineM) { continue; }
     const double t = d0 / span;
     const double reach = std::hypot(to.E - from.E, to.N - from.N);
-    const double keepAway = reach > 1.0e-6 ? kWeldM / reach : 1.0;
+    const double keepAway = reach > kLeastRunM ? kWeldM / reach : 1.0;
     if (t > keepAway && t < 1.0 - keepAway) {
       at.push_back(t);
       gBreaksKept.fetch_add(1u, std::memory_order_relaxed);
@@ -370,7 +370,7 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double e1 = b.E - p.E;
     const double n1 = b.N - p.N;
     const double l1 = std::hypot(e1, n1);
-    if (l0 < 1.0e-6 || l1 < 1.0e-6) { return {}; }
+    if (l0 < kLeastRunM || l1 < kLeastRunM) { return {}; }
 
     const double a0 = n0 / l0;
     const double b0 = -e0 / l0;
@@ -379,8 +379,8 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double d0 = before < held.size() && (held[before] != 0u) ? 0.0 : byM;
     const double d1 = i < held.size() && (held[i] != 0u) ? 0.0 : byM;
     const double det = a0 * b1 - b0 * a1;
-    if (std::fabs(det) < 1.0e-6) {
-      if (std::fabs(d0 - d1) > 1.0e-9) { return {}; }
+    if (std::fabs(det) < kLeastRunM) {
+      if (std::fabs(d0 - d1) > kLeastTurnRad) { return {}; }
       out.push_back({.E = p.E + a0 * d0, .N = p.N + b0 * d0});
       continue;
     }

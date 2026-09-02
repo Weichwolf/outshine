@@ -51,7 +51,7 @@ inline constexpr double kFresnelInverseCeiling = 0.9999;
 inline void IridescenceSensitivity(double opdNm,
                                    const std::array<double, 3> &shift,
                                    std::array<double, 3> &rgb) {
-  const double phase = 2.0 * kPi * opdNm * 1.0e-9;
+  const double phase = 2.0 * kPi * opdNm * kLeastTurnRad;
   std::array<double, 3> xyz{};
   for (int c = 0; c < 3; ++c) {
     xyz[static_cast<std::size_t>(c)] =

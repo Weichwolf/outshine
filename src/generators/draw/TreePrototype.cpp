@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "TreePrototype.h"
 #include "math/Vec3.h"
 
@@ -16,6 +17,7 @@
 #include "ModelLadder.h"
 
 namespace outshine::Generators {
+
 namespace {
 
 const Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
@@ -71,7 +73,7 @@ void TreePrototype::MaterialRow(const TreeLook &look, std::span<float, kMaterial
   out[Row::LeafLobes] = look.LeafLobes;
   out[Row::LeafLobeDepth] = look.LeafLobeDepth;
   out[Row::LeafSerration] = look.LeafSerration;
-  out[Row::LeafPeakInverse] = peak > 1.0e-6f ? 1.0f / peak : 0.0f;
+  out[Row::LeafPeakInverse] = peak > static_cast<float>(kLeastRunM) ? 1.0f / peak : 0.0f;
   for (int c = Row::RowSpare; c < Row::RowFloats; ++c) { out[c] = 0.0f; }
 }
 

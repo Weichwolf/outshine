@@ -34,6 +34,7 @@
 #include "Wgs84.h"
 
 namespace outshine::Core {
+
 namespace {
 
 bool DeclarePlan(const std::vector<Render::SubjectMaterial> &surfaces,
@@ -158,7 +159,7 @@ double Photopic(const Vec3f &triple) {
 } // namespace
 
 void Live::SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const {
-  if (std::fabs(cosSun - AirStoodAt_) > 1.0e-6) {
+  if (std::fabs(cosSun - AirStoodAt_) > kLeastRunM) {
     const Render::Medium medium = Render::kEarthAir;
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
     const auto toSun = [&](float radiusKm, float cosZenith, Vec3f &out) {

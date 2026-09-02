@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "RoadMesh.h"
 #include "math/Vec3.h"
 
@@ -56,7 +57,7 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
   const Vec3 n = {
       {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]}};
   const double run = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-  if (!(run > 1.0e-12)) { return; }
+  if (!(run > kParallelCross)) { return; }
   for (const uint32_t one : {a, b, c}) {
     for (int axis = 0; axis < 3; ++axis) {
       into.NormalM[static_cast<size_t>(one) * 3 + static_cast<size_t>(axis)] +=
@@ -221,14 +222,14 @@ bool LayPiece(Span<const double> eastNorthM,
   std::vector<Knot> rise;
   rise.reserve(gradeM.Size());
   for (size_t one = 0; one < gradeM.Size(); ++one) {
-    const double part = wholeM > 1.0e-9 ? (reachedM[one] - reachedM[0]) / wholeM : 0.0;
+    const double part = wholeM > kLeastTurnRad ? (reachedM[one] - reachedM[0]) / wholeM : 0.0;
     double rate = 0.0;
     if (one + 1u < gradeM.Size()) {
       const double span = reachedM[one + 1u] - reachedM[one];
-      rate = span > 1.0e-9 ? (gradeM[one + 1u] - gradeM[one]) / span : 0.0;
+      rate = span > kLeastTurnRad ? (gradeM[one + 1u] - gradeM[one]) / span : 0.0;
     } else if (one > 0) {
       const double span = reachedM[one] - reachedM[one - 1u];
-      rate = span > 1.0e-9 ? (gradeM[one] - gradeM[one - 1u]) / span : 0.0;
+      rate = span > kLeastTurnRad ? (gradeM[one] - gradeM[one - 1u]) / span : 0.0;
     }
     rise.push_back(Knot{.AlongM = part * line.LengthM(), .Value = gradeM[one], .RatePerM = rate});
   }
@@ -270,14 +271,14 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
   std::vector<double> grade(along.Size() - 1u, 0.0);
   for (size_t one = 0; one + 1u < along.Size(); ++one) {
     const double span = reached[one + 1u] - reached[one];
-    grade[one] = span > 1.0e-9 ? (along[one + 1u].GradeM - along[one].GradeM) / span : 0.0;
+    grade[one] = span > kLeastTurnRad ? (along[one + 1u].GradeM - along[one].GradeM) / span : 0.0;
     grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
   }
 
   for (int pass = 0; pass < kProfilePasses; ++pass) {
     for (size_t one = 0; one + 2u < along.Size(); ++one) {
       const double span = 0.5 * (reached[one + 2u] - reached[one]);
-      if (!(span > 1.0e-9)) { continue; }
+      if (!(span > kLeastTurnRad)) { continue; }
       const double most = span / (100.0 * leastCrestK);
       const double apart = grade[one + 1u] - grade[one];
       if (std::fabs(apart) <= most) { continue; }
@@ -299,7 +300,7 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
     const double shutE = along[along.Size() - 1u].EastM - along[0].EastM;
     const double shutS = along[along.Size() - 1u].SouthM - along[0].SouthM;
     const double whole = reached[along.Size() - 1u];
-    if (shutE * shutE + shutS * shutS < kShutM * kShutM && whole > 1.0e-9) {
+    if (shutE * shutE + shutS * shutS < kShutM * kShutM && whole > kLeastTurnRad) {
       const double adrift = along[along.Size() - 1u].GradeM - along[0].GradeM;
       for (size_t one = 0; one < along.Size(); ++one) {
         along[one].GradeM -= adrift * reached[one] / whole;
@@ -393,8 +394,8 @@ void SweepRoad(Span<const RoadStation> along,
           const double runE = along[two].EastM - along[one].EastM;
           const double runS = along[two].SouthM - along[one].SouthM;
           const double runM = std::sqrt(runE * runE + runS * runS);
-          return runM > 1.0e-9 ? std::pair<double, double>{runE / runM, runS / runM}
-                               : std::pair<double, double>{0.0, 0.0};
+          return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runS / runM}
+                                      : std::pair<double, double>{0.0, 0.0};
         };
         const auto back = facing(at, at - 1u);
         const auto on = facing(at, at + 1u);

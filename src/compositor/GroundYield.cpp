@@ -98,10 +98,10 @@ public:
     const auto cE = static_cast<double>(held[static_cast<size_t>(c) * 3u]);
     const auto cS = static_cast<double>(held[static_cast<size_t>(c) * 3u + 2u]);
     const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
-    const double one = std::fabs(twice) > 1.0e-9
+    const double one = std::fabs(twice) > kLeastTurnRad
                            ? ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice
                            : 1.0 / 3.0;
-    const double two = std::fabs(twice) > 1.0e-9
+    const double two = std::fabs(twice) > kLeastTurnRad
                            ? ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice
                            : 1.0 / 3.0;
     Blend(*Mesh_.PositionM, 3u, a, b, c, one, two);
@@ -331,7 +331,7 @@ bool MeetsAt(double aE,
   const double overE = dE - cE;
   const double overS = dS - cS;
   const double under = runE * overS - runS * overE;
-  if (std::fabs(under) < 1.0e-12) { return false; }
+  if (std::fabs(under) < kParallelCross) { return false; }
   const double mine = ((cE - aE) * overS - (cS - aS) * overE) / under;
   const double yours = ((cE - aE) * runS - (cS - aS) * runE) / under;
   if (mine <= kOffEndM || mine >= 1.0 - kOffEndM || yours < 0.0 || yours > 1.0) { return false; }
@@ -550,11 +550,11 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
         const auto cE = static_cast<double>(positionM[c]);
         const auto cS = static_cast<double>(positionM[c + 2u]);
         const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
-        if (std::fabs(twice) < 1.0e-9) { continue; }
+        if (std::fabs(twice) < kLeastTurnRad) { continue; }
         const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
         const double two = ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice;
         const double three = 1.0 - one - two;
-        if (one < -1.0e-9 || two < -1.0e-9 || three < -1.0e-9) { continue; }
+        if (one < -kLeastTurnRad || two < -kLeastTurnRad || three < -kLeastTurnRad) { continue; }
         if (claimed.contains(face)) {
           held = true;
           continue;
@@ -639,7 +639,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
         const double runS = bS - aS;
         const double runM = runE * runE + runS * runS;
         const double part =
-            runM > 1.0e-9
+            runM > kLeastTurnRad
                 ? std::clamp(((eastM - aE) * runE + (southM - aS) * runS) / runM, 0.0, 1.0)
                 : 0.0;
         const double offE = eastM - (aE + runE * part);
@@ -721,7 +721,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
         static_cast<double>(normalM[at * 3u]) * static_cast<double>(normalM[at * 3u]) +
         static_cast<double>(normalM[at * 3u + 1u]) * static_cast<double>(normalM[at * 3u + 1u]) +
         static_cast<double>(normalM[at * 3u + 2u]) * static_cast<double>(normalM[at * 3u + 2u]));
-    if (!(len > 1.0e-9)) {
+    if (!(len > kLeastTurnRad)) {
       normalM[at * 3u + 1u] = 1.0f;
       continue;
     }

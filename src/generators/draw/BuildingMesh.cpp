@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "Digest.h"
 #include "BuildingMesh.h"
 #include "math/Vec3.h"
@@ -184,7 +185,7 @@ public:
     const double z2 = c.Z - a.Z;
     Vec3 nrm = {{n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2}};
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
-    if (len < 1.0e-12) { return; }
+    if (len < kParallelCross) { return; }
     Face_.push_back(ia);
     Face_.push_back(ib);
     Face_.push_back(ic);
@@ -290,7 +291,7 @@ public:
       for (int r = c + 1; r < 3; r++) {
         if (std::fabs(m[r][c]) > std::fabs(m[piv][c])) { piv = r; }
       }
-      if (std::fabs(m[piv][c]) < 1.0e-6) { return; }
+      if (std::fabs(m[piv][c]) < kLeastRunM) { return; }
       for (int k = 0; k < 4; k++) { std::swap(m[c][k], m[piv][k]); }
       for (int r = 0; r < 3; r++) {
         if (r == c) { continue; }
@@ -789,7 +790,7 @@ constexpr double kBoxTris = 12.0;
     const double dE = b.E - a.E;
     const double dN = b.N - a.N;
     const double len = std::hypot(dE, dN);
-    if (len < 1.0e-6) { continue; }
+    if (len < kLeastRunM) { continue; }
     const double uE = dE / len;
     const double uN = dN / len;
     double loU = 1.0e300;

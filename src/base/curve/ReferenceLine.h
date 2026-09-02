@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_CURVE_REFERENCELINE_H
 #define OUTSHINE_BASE_CURVE_REFERENCELINE_H
 
+#include "Units.h"
 #include <cstddef>
 #include <initializer_list>
 #include <span>
@@ -13,7 +14,7 @@ inline constexpr size_t kMaxCorridorSegments = 262144;
 inline constexpr size_t kMaxCorridorKnots = 262144;
 inline constexpr double kResectionCoarseM = 1.0;
 inline constexpr int kResectionRefinements = 24;
-inline constexpr double kTangentTolerance = 1.0e-9;
+inline constexpr double kTangentTolerance = kLeastTurnRad;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };
 

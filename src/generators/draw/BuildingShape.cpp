@@ -403,7 +403,7 @@ size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
     most[1] = std::max(most[1], p.N);
   }
   const double across = std::max(most[0] - least[0], most[1] - least[1]);
-  const double flat = std::max(1.0e-6 * across * across, 1.0e-6);
+  const double flat = std::max(kLeastRunM * across * across, kLeastRunM);
   const double together = std::max(1.0e-3 * across, 1.0e-3);
   size_t dropped = 0;
   bool again = true;
@@ -480,7 +480,7 @@ En UnitFrom(const En &a, const En &b) {
   const double e = b.E - a.E;
   const double n = b.N - a.N;
   const double l = std::hypot(e, n);
-  return l < 1.0e-6 ? En{.E = 1.0, .N = 0.0} : En{.E = e / l, .N = n / l};
+  return l < kLeastRunM ? En{.E = 1.0, .N = 0.0} : En{.E = e / l, .N = n / l};
 }
 
 [[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {

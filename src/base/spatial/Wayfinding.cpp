@@ -34,7 +34,7 @@ double MetresPerDegreeLat(double sphereRadiusM) {
 
 double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   const double shrink = std::cos(latDeg * kDegToRad);
-  return MetresPerDegreeLat(sphereRadiusM) * (shrink > 1.0e-6 ? shrink : 1.0e-6);
+  return MetresPerDegreeLat(sphereRadiusM) * (shrink > kLeastRunM ? shrink : kLeastRunM);
 }
 
 [[nodiscard]] double LonApartDeg(double toDeg, double fromDeg) {
@@ -931,7 +931,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
           const double turnRad = std::acos(std::clamp(turned, -1.0, 1.0));
           const double half = 0.5 * turnRad;
           if (std::tan(half) > 0.0 && tightestM > 0.0 && edge.LengthM > 0.0 &&
-              std::fabs(turnRad) > 1.0e-9) {
+              std::fabs(turnRad) > kLeastTurnRad) {
             const double shorter =
                 edge.LengthM < Edges_[state].LengthM ? edge.LengthM : Edges_[state].LengthM;
             const double room = 0.5 * shorter / std::tan(half);

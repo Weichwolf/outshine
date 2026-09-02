@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 #define OUTSHINE_BASE_SPATIAL_CLUSTERDAG_H
 
+#include "Units.h"
 #include "math/Vec3.h"
 #include <algorithm>
 #include <numbers>
@@ -84,12 +85,12 @@ struct ClusterDagOpts {
 inline float DagCrossFactor(const Vec3f &ctr, float rad, const Vec3 &eye, const Vec3f &up) {
   const double u2 = static_cast<double>(up[0]) * up[0] + static_cast<double>(up[1]) * up[1] +
                     static_cast<double>(up[2]) * up[2];
-  if (u2 < 1.0e-12) { return 1.0f; }
+  if (u2 < kParallelCross) { return 1.0f; }
   const double dx = static_cast<double>(ctr[0]) - eye[0];
   const double dy = static_cast<double>(ctr[1]) - eye[1];
   const double dz = static_cast<double>(ctr[2]) - eye[2];
   const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
-  if (!(d > 1.0e-6) || static_cast<double>(rad) >= d) { return 1.0f; }
+  if (!(d > kLeastRunM) || static_cast<double>(rad) >= d) { return 1.0f; }
   const double iu = 1.0 / std::sqrt(u2);
   const double cosT = (static_cast<double>(up[0]) * dx + static_cast<double>(up[1]) * dy +
                        static_cast<double>(up[2]) * dz) *

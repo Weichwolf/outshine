@@ -25,6 +25,7 @@
 #include "Sha256.h"
 
 namespace outshine::Shots {
+
 namespace {
 
 constexpr double kPatienceS = 15.0;
@@ -49,8 +50,8 @@ void WalkedTo(
   const double heading = bearingDeg * kDeg2Rad;
   lat = fromLat + alongM * std::cos(heading) / kMetresPerDegree;
   const double shrink = std::cos(fromLat * kDeg2Rad);
-  lon =
-      fromLon + alongM * std::sin(heading) / (kMetresPerDegree * (shrink > 1.0e-6 ? shrink : 1.0));
+  lon = fromLon +
+        alongM * std::sin(heading) / (kMetresPerDegree * (shrink > kLeastRunM ? shrink : 1.0));
 }
 
 constexpr std::array<Place, 9> kPlaces{{

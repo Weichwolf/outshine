@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "math/Vec2.h"
 #include "ClassBuilder.h"
 
@@ -44,7 +45,7 @@ void CatmullPoint(
   const auto knot = [](float t, const float *a, const float *b) {
     const float dx = b[0] - a[0];
     const float dy = b[1] - a[1];
-    return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + 1.0e-6f);
+    return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + static_cast<float>(kLeastRunM));
   };
   const float t0 = 0.0f;
   const float t1 = knot(t0, p0, p1);

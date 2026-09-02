@@ -1070,7 +1070,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const double y = laid->NormalM[at + 1];
         const double z = laid->NormalM[at + 2];
         const double length = std::sqrt(x * x + y * y + z * z);
-        if (!(length > 1.0e-6)) { continue; }
+        if (!(length > kLeastRunM)) { continue; }
         const double leanDeg = std::acos(std::fmin(1.0, y / length)) * kRad2Deg;
         steepest = leanDeg > steepest ? leanDeg : steepest;
         mean += leanDeg;
@@ -1569,12 +1569,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               const double spanCE = static_cast<double>(inFrame[c]) - aE;
               const double spanCS = static_cast<double>(inFrame[c + 2]) - aS;
               const double twice = spanBE * spanCS - spanCE * spanBS;
-              if (std::fabs(twice) < 1.0e-9) { continue; }
+              if (std::fabs(twice) < kLeastTurnRad) { continue; }
               const double intoE = eastM - aE;
               const double intoS = southM - aS;
               const double towardB = (intoE * spanCS - spanCE * intoS) / twice;
               const double towardC = (spanBE * intoS - intoE * spanBS) / twice;
-              if (towardB < -1.0e-6 || towardC < -1.0e-6 || towardB + towardC > 1.0 + 1.0e-6) {
+              if (towardB < -kLeastRunM || towardC < -kLeastRunM ||
+                  towardB + towardC > 1.0 + kLeastRunM) {
                 continue;
               }
               return static_cast<double>(inFrame[a + 1]) * (1.0 - towardB - towardC) +
@@ -1888,7 +1889,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double outE = (points[next + 1] - points[here + 1]) * perLon;
           double outN = (points[next] - points[here]) * 111132.0;
           const double run = std::sqrt(outE * outE + outN * outN);
-          if (!(run > 1.0e-6)) { continue; }
+          if (!(run > kLeastRunM)) { continue; }
           outE /= run;
           outN /= run;
           meeting[WayEndKey(points[here], points[here + 1])].push_back(
@@ -2154,7 +2155,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 size_t at = 1;
                 while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
                 const double span = reached[at] - reached[at - 1];
-                const double part = span > 1.0e-9 ? (alongM - reached[at - 1]) / span : 0.0;
+                const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
                 const Generators::RoadStation &from = along[at - 1];
                 const Generators::RoadStation &to = along[at];
                 return Generators::RoadStation{
@@ -2240,7 +2241,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                   reached[at] = runM;
                 }
                 for (size_t at = 0; at < along.size(); ++at) {
-                  const double along01 = runM > 1.0e-6 ? reached[at] / runM : 0.0;
+                  const double along01 = runM > kLeastRunM ? reached[at] / runM : 0.0;
                   const double wanted = from->second + (to->second - from->second) * along01;
                   along[at].GradeM = std::max(along[at].GradeM, wanted);
                 }
@@ -2383,7 +2384,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 double outE = to.EastM - at.EastM;
                 double outS = to.SouthM - at.SouthM;
                 const double run = std::sqrt(outE * outE + outS * outS);
-                if (!(run > 1.0e-6)) { continue; }
+                if (!(run > kLeastRunM)) { continue; }
                 outE /= run;
                 outS /= run;
                 gates[key[side]].push_back(
@@ -2766,11 +2767,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const auto cE = static_cast<double>(inFrame[c]);
           const auto cS = static_cast<double>(inFrame[c + 2u]);
           const double twice = (bS - cS) * (aE - cE) + (cE - bE) * (aS - cS);
-          if (std::fabs(twice) < 1.0e-9) { continue; }
+          if (std::fabs(twice) < kLeastTurnRad) { continue; }
           const double one = ((bS - cS) * (eastM - cE) + (cE - bE) * (southM - cS)) / twice;
           const double two = ((cS - aS) * (eastM - cE) + (aE - cE) * (southM - cS)) / twice;
           const double three = 1.0 - one - two;
-          if (one < -1.0e-6 || two < -1.0e-6 || three < -1.0e-6) { continue; }
+          if (one < -kLeastRunM || two < -kLeastRunM || three < -kLeastRunM) { continue; }
           const double upM = one * static_cast<double>(inFrame[a + 1u]) +
                              two * static_cast<double>(inFrame[b + 1u]) +
                              three * static_cast<double>(inFrame[c + 1u]);

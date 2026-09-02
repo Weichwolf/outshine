@@ -21,7 +21,7 @@ struct Geodesic {
                                          double semiMajorM,
                                          double flattening) {
   constexpr int kMostTurns = 200;
-  constexpr double kSettledRad = 1.0e-12;
+  constexpr double kSettledRad = kParallelCross;
 
   Geodesic out;
   const double f = flattening;

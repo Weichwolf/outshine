@@ -26,7 +26,7 @@ namespace outshine::Sim {
 namespace {
 
 constexpr double kNoLeastYet = 1.0e9;
-constexpr double kTurnLeastRad = 1.0e-9;
+constexpr double kTurnLeastRad = kLeastTurnRad;
 constexpr double kMmPerM = 1000.0;
 constexpr double kGripMargin = 0.95;
 constexpr int kSweeps = 400;

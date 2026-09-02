@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "Alignment.h"
 #include "Angle.h"
 
@@ -13,6 +14,10 @@
 namespace outshine {
 
 namespace {
+
+constexpr int kSpiralSteps = 96;
+constexpr double kShiftDenominator = 96.0;
+constexpr double kSpiralShiftDenominator = 24.0;
 
 struct Turned {
   double TurnRad = 0.0;
@@ -33,7 +38,7 @@ struct Turned {
   const double bRunE = std::cos(bHeading);
   const double bRunN = std::sin(bHeading);
   const double cross = aRunE * bRunN - aRunN * bRunE;
-  if (std::fabs(cross) < 1.0e-12) { return false; }
+  if (std::fabs(cross) < kParallelCross) { return false; }
   const double alongA = ((bEast - aEast) * bRunN - (bNorth - aNorth) * bRunE) / cross;
   atEast = aEast + alongA * aRunE;
   atNorth = aNorth + alongA * aRunN;
@@ -41,7 +46,7 @@ struct Turned {
 }
 
 [[nodiscard]] double ShiftShare(double swing) {
-  return 1.0 + swing * swing / 96.0;
+  return 1.0 + swing * swing / kShiftDenominator;
 }
 
 constexpr double kLeastClothoidShare = 1.0 / 3.0;
@@ -56,7 +61,9 @@ constexpr double kMostClothoidShare = 1.0;
 }
 
 [[nodiscard]] double TangentFor(double radiusM, double swing, double spiralM) {
-  return (radiusM + spiralM * spiralM / (24.0 * radiusM)) * std::tan(0.5 * swing) + 0.5 * spiralM;
+  return (radiusM + spiralM * spiralM / (kSpiralShiftDenominator * radiusM)) *
+             std::tan(0.5 * swing) +
+         0.5 * spiralM;
 }
 
 [[nodiscard]] double SpiralInto(double radiusM, double swing, double roomM, bool againstAStraight) {
@@ -132,7 +139,7 @@ constexpr double kMostClothoidShare = 1.0;
   bend.TurnRad = Wrapped(legs[last].HeadingRad - legs[at - 1].HeadingRad);
 
   const double swing = std::fabs(bend.TurnRad);
-  if (swing < 1.0e-9 || swing > std::numbers::pi - 1.0e-9) {
+  if (swing < kLeastTurnRad || swing > std::numbers::pi - kLeastTurnRad) {
     return std::unexpected(
         Refusal{.Said = "vertices " + std::to_string(at) + ".." + std::to_string(last) +
                         " turn through " + std::to_string(bend.TurnRad) +
@@ -166,7 +173,7 @@ constexpr double kMostClothoidShare = 1.0;
       AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (last + 1)], points[2 * (last + 1) + 1]);
   const double roomM = intoM < outOfM ? intoM : outOfM;
   const bool againstAStraight =
-      at > 1 || last + 2 < points.size() / 2 || std::fabs(intoM - outOfM) > 1.0e-6;
+      at > 1 || last + 2 < points.size() / 2 || std::fabs(intoM - outOfM) > kLeastRunM;
   const double byRoom = roomM / TangentFor(1.0, swing, SpiralAtLeast(1.0, againstAStraight));
   if (!(byRoom > tightestM)) {
     return std::unexpected(
@@ -186,7 +193,7 @@ constexpr double kMostClothoidShare = 1.0;
   } else {
     double low = tightestM;
     double high = byRoom;
-    for (int step = 0; step < 96; ++step) {
+    for (int step = 0; step < kSpiralSteps; ++step) {
       const double oneThird = low + (high - low) / 3.0;
       const double twoThirds = high - (high - low) / 3.0;
       double aE = 0.0;
@@ -238,7 +245,7 @@ constexpr double kMostClothoidShare = 1.0;
 
 double JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM) {
   const double swing = std::fabs(deflectionRad);
-  if (!(swing > 1.0e-9) || swing >= std::numbers::pi - 1.0e-9) { return 0.0; }
+  if (!(swing > kLeastTurnRad) || swing >= std::numbers::pi - kLeastTurnRad) { return 0.0; }
   const double kerbM =
       std::sqrt(halfAM * halfAM + halfBM * halfBM - 2.0 * halfAM * halfBM * std::cos(swing)) /
       std::sin(swing);
@@ -277,13 +284,13 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
   Aligned out;
   size_t at = 1;
   while (at + 1 < points) {
-    if (std::fabs(legs[at].TurnRad) < 1.0e-9) {
+    if (std::fabs(legs[at].TurnRad) < kLeastTurnRad) {
       ++at;
       continue;
     }
     const bool leftward = legs[at].TurnRad > 0.0;
     size_t last = at;
-    while (last + 2 < points && std::fabs(legs[last + 1].TurnRad) >= 1.0e-9 &&
+    while (last + 2 < points && std::fabs(legs[last + 1].TurnRad) >= kLeastTurnRad &&
            (legs[last + 1].TurnRad > 0.0) == leftward) {
       ++last;
     }
@@ -386,7 +393,7 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
     const double straightM = AwayM(atEast, atNorth, bend.IntoEastM, bend.IntoNorthM);
     const double ahead = (bend.IntoEastM - atEast) * std::cos(heading) +
                          (bend.IntoNorthM - atNorth) * std::sin(heading);
-    if (ahead < -1.0e-6) {
+    if (ahead < -kLeastRunM) {
       return std::unexpected(Refusal{
           .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
                   std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
@@ -396,8 +403,8 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
           .AtVertex = bend.FirstVertex,
           .Undrivable = 1});
     }
-    const bool leadsWithAStraight = straightM > 1.0e-6;
-    if ((leadsWithAStraight || untransitioned != nullptr) && !(bend.SpiralM > 1.0e-6)) {
+    const bool leadsWithAStraight = straightM > kLeastRunM;
+    if ((leadsWithAStraight || untransitioned != nullptr) && !(bend.SpiralM > kLeastRunM)) {
       return std::unexpected(Refusal{
           .Said = "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
                   std::to_string(bend.LastVertex) + " meets " + std::to_string(straightM) +
@@ -410,7 +417,7 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
           .AtVertex = bend.FirstVertex,
           .Undrivable = 1});
     }
-    if (untransitioned != nullptr && straightM > 1.0e-6) {
+    if (untransitioned != nullptr && straightM > kLeastRunM) {
       return std::unexpected(
           Refusal{.Said = "the bend over vertices " + std::to_string(untransitioned->FirstVertex) +
                           ".." + std::to_string(untransitioned->LastVertex) + " leaves into " +
@@ -431,32 +438,32 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
                               .ExitCurvature = 0.0});
     }
     const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
-    if (bend.SpiralM > 1.0e-6) {
+    if (bend.SpiralM > kLeastRunM) {
       along.push_back(Segment{.Shape = Curve::Spiral,
                               .LengthM = bend.SpiralM,
                               .EntryCurvature = 0.0,
                               .ExitCurvature = curvature});
     }
-    if (bend.ArcM > 1.0e-6) {
+    if (bend.ArcM > kLeastRunM) {
       along.push_back(Segment{.Shape = Curve::Arc,
                               .LengthM = bend.ArcM,
                               .EntryCurvature = curvature,
                               .ExitCurvature = curvature});
     }
-    if (bend.SpiralM > 1.0e-6) {
+    if (bend.SpiralM > kLeastRunM) {
       along.push_back(Segment{.Shape = Curve::Spiral,
                               .LengthM = bend.SpiralM,
                               .EntryCurvature = curvature,
                               .ExitCurvature = 0.0});
     }
-    if (!(bend.SpiralM > 1.0e-6)) { untransitioned = &bend; }
+    if (!(bend.SpiralM > kLeastRunM)) { untransitioned = &bend; }
     atEast = bend.OutOfEastM;
     atNorth = bend.OutOfNorthM;
     heading = bend.OutOfHeadingRad;
   }
   const double lastM =
       AwayM(atEast, atNorth, eastNorthM[2 * (points - 1)], eastNorthM[2 * (points - 1) + 1]);
-  if (untransitioned != nullptr && lastM > 1.0e-6) {
+  if (untransitioned != nullptr && lastM > kLeastRunM) {
     return std::unexpected(Refusal{
         .Said = "the bend over vertices " + std::to_string(untransitioned->FirstVertex) + ".." +
                 std::to_string(untransitioned->LastVertex) + " leaves into the closing " +
@@ -466,7 +473,7 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
         .AtVertex = untransitioned->FirstVertex,
         .Undrivable = 1});
   }
-  if (lastM > 1.0e-6) {
+  if (lastM > kLeastRunM) {
     along.push_back(Segment{
         .Shape = Curve::Straight, .LengthM = lastM, .EntryCurvature = 0.0, .ExitCurvature = 0.0});
   }

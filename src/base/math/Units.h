@@ -26,6 +26,10 @@ constexpr double kMsToKmh = kSPerHour / kMPerKm;
 
 constexpr double kBeyondAnyCoordinate = 1.0e30;
 
+constexpr double kLeastRunM = 1.0e-6;
+constexpr double kLeastTurnRad = 1.0e-9;
+constexpr double kParallelCross = 1.0e-12;
+
 constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kNmToM = 1852.0;
