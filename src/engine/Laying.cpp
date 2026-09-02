@@ -102,7 +102,7 @@ constexpr double kBrokenGroundM = 1.0;
 constexpr double kFitTightestM = 5.5;
 constexpr double kLeastRoadM = 2.0;
 
-constexpr int kClassPasses = 4;
+constexpr int kClassPasses = 0;
 
 } // namespace
 
