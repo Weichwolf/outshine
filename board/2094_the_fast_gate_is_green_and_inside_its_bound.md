@@ -56,7 +56,7 @@ turning the sanitiser back off** -- that is how it came to be pointed at nothing
 `make test` prints no RED case and no overrun line, and one deliberately broken oracle turns it red
 again.
 
-## CentralPark is UNPREPARED and its picture is CORRECT -- the guard is mis-specified
+## CentralPark sits a hundredth under the bar, and the OWNER has ruled the guard correct
 
 Measured 2026-09-02, and the owner has looked at the frame and confirmed it.
 
@@ -72,12 +72,14 @@ says the thing this bar walks over:
 
 > what the frame SHOWS is the owner's to judge, and no number invented here may stand in for that
 
-**The property is testable without a proxy.** The engine already renders a SurfaceIdentity buffer
-and the door already exposes `readPixels(Buffer::SurfaceIdentity, ...)`. "The frame holds geometry
-that was built for it" is then: some pixel carries a subject surface rather than the sky's or the
-ground's. That is the measurement the guard was reaching for, it needs no threshold, and its
-negative control is the blank frame the file already renders.
+**THE OWNER HAS RULED, AND THE RULING STANDS AGAINST MY READING OF IT.** I filed this as a
+mis-specified check and proposed replacing the proxy with a SurfaceIdentity readback -- the engine
+renders that buffer and the door exposes `readPixels(Buffer::SurfaceIdentity, ...)`, so "some pixel
+carries a subject surface" would need no threshold at all. The owner's answer: **the guard is
+correct as it stands.** Pictures are not to move; a hundredth under the bar during a heavy refactor
+is a deviation to live with and not a bar to lower.
 
-Until it is written the guard stays -- a place that renders nothing must still be caught -- but it
-is a PROXY and this item says so, so the next reader does not read CentralPark's UNPREPARED as a
-defect in the engine. **It is a defect in the case.**
+So the guard does not change here. What this section is for is the next reader: CentralPark's
+UNPREPARED is a REAL red about a real number, it is close, and it is tolerated for the duration of
+the refactor rather than argued away. When the tree is still again it goes back to green or it says
+why.
