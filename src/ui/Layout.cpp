@@ -182,6 +182,25 @@ struct Placer {
 
   [[nodiscard]] Computed StyleOf(int node, const Computed *inherited) const;
 
+  [[nodiscard]] Box
+  BoxOf(int node, const Computed &style, int parentBox, Area container, double emPx) const;
+
+  struct Framing {
+    int Node = 0;
+    const Computed *Inherited = nullptr;
+    const Computed *Style = nullptr;
+    const Box *Held = nullptr;
+    Area Container;
+    double EmPx = 0;
+    double FrameX = 0;
+    double FrameY = 0;
+    double UsedWidth = -1;
+    bool BorderBox = false;
+  };
+
+  [[nodiscard]] double ContentWidthOf(const Framing &sized, bool &widthAbsent);
+  [[nodiscard]] double DeclaredHeightOf(const Framing &sized, bool &heightAbsent) const;
+  void SettleBaseline(int self, double marginBottom) const;
   double Place(int node,
                const Computed *inherited,
                Area container,
@@ -189,9 +208,141 @@ struct Placer {
                Measured used = {.Width = -1, .Height = -1});
   double Children(int node, const Computed &style, int self, Area content, double emPx);
   double Blocks(int node, const Computed &style, int self, Area content, double emPx);
+
+  struct FlexItem {
+    int Node = 0;
+    Computed Style;
+    double Base = 0, Main = 0, Cross = 0;
+    double MainMarginStart = 0, MainMarginEnd = 0, CrossMarginStart = 0, CrossMarginEnd = 0;
+    double Grow = 0, Shrink = 1;
+    double Em = 0, Floor = 0, Hypothetical = 0, Frame = 0;
+    Property Least = Property::MinWidth, Most = Property::MaxWidth;
+    bool CrossDeclared = false;
+  };
+
+  struct FlexLine {
+    size_t From = 0, Count = 0;
+    double Cross = 0, CrossAt = 0;
+  };
+
+  struct Flexing {
+    Area Content;
+    double MainRoom = 0, CrossRoom = 0, Gap = 0, EmPx = 0;
+    uint32_t Justify = 0, Align = 0, Wrapping = 0;
+    bool Column = false, MainReversed = false, Reversed = false, Wraps = false;
+    bool DefiniteMain = false;
+  };
+
+  [[nodiscard]] bool
+  CollectFlexItem(int child, const Computed &style, const Flexing &over, FlexItem &item);
+  void FlexBaseSize(int child, const Computed &style, const Flexing &over, FlexItem &item);
+  [[nodiscard]] double
+  ContentSuggestionOf(int child, const Computed &style, const Flexing &over, const FlexItem &item);
+  void FlexItemFloor(int child, const Computed &style, const Flexing &over, FlexItem &item);
+  [[nodiscard]] bool CollectFlexItems(int node,
+                                      const Computed &style,
+                                      const Flexing &over,
+                                      std::vector<FlexItem> &items);
+  static void CollectFlexLines(const std::vector<FlexItem> &items,
+                               const Flexing &over,
+                               std::vector<FlexLine> &lines);
+  [[nodiscard]] static bool FreezeInflexible(const Flexing &over,
+                                             const FlexLine &line,
+                                             std::vector<FlexItem> &items,
+                                             std::vector<bool> &frozen);
+
+  struct FlexPass {
+    double Free = 0;
+    double Factors = 0;
+    size_t Loose = 0;
+  };
+
+  [[nodiscard]] static double FlexShareOf(const FlexItem &one, bool growing);
+  [[nodiscard]] static double
+  FlexWantedOf(const FlexItem &one, bool growing, double free, double factors);
+  [[nodiscard]] static FlexPass MeasureFlexPass(const Flexing &over,
+                                                const FlexLine &line,
+                                                bool growing,
+                                                const std::vector<FlexItem> &items,
+                                                const std::vector<bool> &frozen);
+  [[nodiscard]] double ApplyFlexShares(const Flexing &over,
+                                       const FlexLine &line,
+                                       bool growing,
+                                       FlexPass pass,
+                                       std::vector<FlexItem> &items,
+                                       const std::vector<bool> &frozen);
+  void DistributeFreeSpace(const Flexing &over,
+                           const FlexLine &line,
+                           bool growing,
+                           std::vector<FlexItem> &items,
+                           std::vector<bool> &frozen);
+  void LineCrossSize(const Computed &style,
+                     const Flexing &over,
+                     FlexLine &line,
+                     std::vector<FlexItem> &items);
+  void ResolveFlexibleLengths(const Computed &style,
+                              const Flexing &over,
+                              std::vector<FlexItem> &items,
+                              std::vector<FlexLine> &lines);
+  static void
+  AlignFlexLines(const Computed &style, const Flexing &over, std::vector<FlexLine> &lines);
+
+  struct CrossPlaced {
+    uint32_t Align = 0;
+    double Cross = 0;
+    double InLine = 0;
+  };
+
+  [[nodiscard]] CrossPlaced AlignInCrossAxis(const Computed &style,
+                                             const Flexing &over,
+                                             const FlexLine &flexLine,
+                                             const FlexItem &one,
+                                             double lineBaseline);
+
+  struct Placing {
+    double Cursor = 0;
+    double LineUsed = 0;
+    double LineBaseline = 0;
+  };
+
+  double PlaceFlexItem(const Computed &style,
+                       const Flexing &over,
+                       const FlexLine &flexLine,
+                       const FlexItem &one,
+                       Placing placing,
+                       int self);
+  double PlaceFlexLine(const Computed &style,
+                       const Flexing &over,
+                       const FlexLine &flexLine,
+                       std::vector<FlexItem> &items,
+                       int self,
+                       double lineBaseline);
   double Flex(int node, const Computed &style, int self, Area content, double emPx);
   [[nodiscard]] double
   Runs(int node, const Computed &style, int self, Area content, double emPx) const;
+
+  struct Typesetting {
+    FontFace Face;
+    FontMetrics Metrics;
+  };
+
+  [[nodiscard]] size_t
+  BreakRun(std::string_view text, size_t at, const Typesetting &set, double roomPx) const;
+
+  struct LineSetting {
+    int Child = 0;
+    int Self = 0;
+    std::string Text;
+    Typesetting Set;
+    const Computed *Style = nullptr;
+    Area At;
+    double RoomPx = 0;
+    double LineHeight = 0;
+    double EmPx = 0;
+    uint32_t Align = 0;
+  };
+
+  [[nodiscard]] Box LineBoxOf(const LineSetting &set) const;
 
   [[nodiscard]] Measured Measure(Sizing what, const Computed *inherited);
 
@@ -467,6 +618,56 @@ double Placer::BaselineOf(int node, const Computed *inherited, double widthRoom)
   return baseline;
 }
 
+size_t
+Placer::BreakRun(std::string_view text, size_t at, const Typesetting &set, double roomPx) const {
+  size_t take = text.size() - at;
+  if (roomPx > 0) {
+    double width = 0;
+    size_t lastSpace = std::string::npos;
+    size_t cursor = at;
+    while (cursor < text.size()) {
+      char32_t code = 0;
+      const size_t step = ReadUtf8(text, cursor, code);
+      const Glyph glyph = Face->Shape(code, set.Face);
+      const double advance = glyph.AdvancePx > 0 ? glyph.AdvancePx : set.Metrics.Advance;
+      if (width + advance > roomPx && cursor > at) { break; }
+      if (code == U' ') { lastSpace = cursor; }
+      width += advance;
+      cursor += step;
+    }
+    if (cursor < text.size()) {
+      if (lastSpace != std::string::npos && lastSpace > at) {
+        take = lastSpace - at;
+      } else {
+        const size_t next = text.find(' ', at);
+        take = next == std::string::npos ? text.size() - at : next - at;
+      }
+    }
+  }
+  return take;
+}
+
+Box Placer::LineBoxOf(const LineSetting &set) const {
+  Box line;
+  line.Node = set.Child;
+  line.Text = set.Text;
+  line.FontSize = set.EmPx;
+  line.Face = set.Set.Face.Name;
+  line.Colour =
+      set.Style->Has(Property::Colour) ? set.Style->Of(Property::Colour).Word : kOpaqueAlpha;
+  line.Width = Width(line.Text, set.Set.Face);
+  line.Height = set.LineHeight;
+  line.Y = set.At.Y;
+  line.X = set.At.X;
+  if (set.Align == kCentre) { line.X = set.At.X + (set.RoomPx - line.Width) / 2.0; }
+  if (set.Align == kRight) { line.X = set.At.X + set.RoomPx - line.Width; }
+  line.Parent = set.Self;
+  line.Baseline = (set.LineHeight - (set.Set.Metrics.Ascent + set.Set.Metrics.Descent)) / 2.0 +
+                  set.Set.Metrics.Ascent;
+
+  return line;
+}
+
 double Placer::Runs(int node, const Computed &style, int self, Area content, double emPx) const {
   const double contentX = content.X;
   const double contentY = content.Y;
@@ -490,45 +691,17 @@ double Placer::Runs(int node, const Computed &style, int self, Area content, dou
 
     size_t at = 0;
     while (at < text.size()) {
-      size_t take = text.size() - at;
-      if (contentWidth > 0) {
-        double width = 0;
-        size_t lastSpace = std::string::npos;
-        size_t cursor = at;
-        while (cursor < text.size()) {
-          char32_t code = 0;
-          const size_t step = ReadUtf8(text, cursor, code);
-          const Glyph glyph = Face->Shape(code, face);
-          const double advance = glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
-          if (width + advance > contentWidth && cursor > at) { break; }
-          if (code == U' ') { lastSpace = cursor; }
-          width += advance;
-          cursor += step;
-        }
-        if (cursor < text.size()) {
-          if (lastSpace != std::string::npos && lastSpace > at) {
-            take = lastSpace - at;
-          } else {
-            const size_t next = text.find(' ', at);
-            take = next == std::string::npos ? text.size() - at : next - at;
-          }
-        }
-      }
-      Box line;
-      line.Node = child;
-      line.Text = text.substr(at, take);
-      line.FontSize = emPx;
-      line.Face = face.Name;
-      line.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : kOpaqueAlpha;
-      line.Width = Width(line.Text, face);
-      line.Height = lineHeight;
-      line.Y = y;
-      line.X = contentX;
-      if (align == kCentre) { line.X = contentX + (contentWidth - line.Width) / 2.0; }
-      if (align == kRight) { line.X = contentX + contentWidth - line.Width; }
-      line.Parent = self;
-      line.Baseline = (lineHeight - (metrics.Ascent + metrics.Descent)) / 2.0 + metrics.Ascent;
-
+      const size_t take = BreakRun(text, at, {.Face = face, .Metrics = metrics}, contentWidth);
+      const Box line = LineBoxOf({.Child = child,
+                                  .Self = self,
+                                  .Text = text.substr(at, take),
+                                  .Set = {.Face = face, .Metrics = metrics},
+                                  .Style = &style,
+                                  .At = {.X = contentX, .Y = y},
+                                  .RoomPx = contentWidth,
+                                  .LineHeight = lineHeight,
+                                  .EmPx = emPx,
+                                  .Align = align});
       if ((*Out)[static_cast<size_t>(self)].Baseline == 0.0) {
         (*Out)[static_cast<size_t>(self)].Baseline =
             (y - contentY) + line.Baseline +
@@ -559,184 +732,175 @@ double Placer::Blocks(int node, const Computed &style, int self, Area content, d
   return y - content.Y;
 }
 
-double Placer::Flex(int node, const Computed &style, int self, Area content, double emPx) {
-  const double contentX = content.X;
-  const double contentY = content.Y;
-  const double contentWidth = content.Width;
-  const double contentHeight = content.Height;
-  const uint32_t direction = style.Word(Property::FlexDirection, 0);
-  const bool column = direction == kColumn || direction == kColumnReverse;
-
-  const bool mainReversed = direction == kRowReverse || direction == kColumnReverse;
-  const double mainRoom = column ? contentHeight : contentWidth;
-  const double crossRoom = column ? contentWidth : std::fmax(0.0, contentHeight);
-
-  const bool definiteMain = mainRoom >= 0.0;
-  const double gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0;
-  const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
-  const bool reversed = wrapping == kWrapReverse;
-
-  const uint32_t justify = Aligned(style.Word(Property::JustifyContent, 0), mainReversed);
-  const uint32_t align = Aligned(style.Word(Property::AlignItems, kStretch), reversed);
-
-  struct Item {
-    int Node = 0;
-    Computed Style;
-    double Base = 0, Main = 0, Cross = 0;
-    double MainMarginStart = 0, MainMarginEnd = 0, CrossMarginStart = 0, CrossMarginEnd = 0;
-    double Grow = 0, Shrink = 1;
-    double Em = 0, Floor = 0, Hypothetical = 0, Frame = 0;
-    Property Least = Property::MinWidth, Most = Property::MaxWidth;
-    bool CrossDeclared = false;
+void Placer::FlexBaseSize(int child, const Computed &style, const Flexing &over, FlexItem &item) {
+  const auto len = [&](Property what, double against) -> std::optional<double> {
+    if (!item.Style.Has(what)) { return std::nullopt; }
+    return Resolve(item.Style.Of(what),
+                   {.AgainstPx = against, .EmPx = item.Em, .RootEmPx = RootEm});
   };
+  bool haveBase = false;
+  const Property mainSize = over.Column ? Property::Height : Property::Width;
+  if (item.Style.Has(Property::FlexBasis) && item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
+    const std::optional<double> basis =
+        Resolve(item.Style.Of(Property::FlexBasis),
+                {.AgainstPx = over.MainRoom, .EmPx = item.Em, .RootEmPx = RootEm});
+    haveBase = basis.has_value();
+    item.Base = basis.value_or(0.0);
+  }
+  if (!haveBase && item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
+    const std::optional<double> declared = Resolve(
+        item.Style.Of(mainSize), {.AgainstPx = over.MainRoom, .EmPx = item.Em, .RootEmPx = RootEm});
+    haveBase = declared.has_value();
+    item.Base = declared.value_or(0.0);
+  }
 
-  std::vector<Item> items;
+  if (haveBase && item.Style.Word(Property::BoxSizing, 0) != kBorderBox) {
+    const double frame =
+        over.Column ? len(Property::BorderTopWidth, over.Content.Width).value_or(0) +
+                          len(Property::BorderBottomWidth, over.Content.Width).value_or(0) +
+                          len(Property::PaddingTop, over.Content.Width).value_or(0) +
+                          len(Property::PaddingBottom, over.Content.Width).value_or(0)
+                    : len(Property::BorderLeftWidth, over.Content.Width).value_or(0) +
+                          len(Property::BorderRightWidth, over.Content.Width).value_or(0) +
+                          len(Property::PaddingLeft, over.Content.Width).value_or(0) +
+                          len(Property::PaddingRight, over.Content.Width).value_or(0);
+    item.Base += frame;
+  }
+  item.Frame = over.Column ? len(Property::BorderTopWidth, over.Content.Width).value_or(0) +
+                                 len(Property::BorderBottomWidth, over.Content.Width).value_or(0) +
+                                 len(Property::PaddingTop, over.Content.Width).value_or(0) +
+                                 len(Property::PaddingBottom, over.Content.Width).value_or(0)
+                           : len(Property::BorderLeftWidth, over.Content.Width).value_or(0) +
+                                 len(Property::BorderRightWidth, over.Content.Width).value_or(0) +
+                                 len(Property::PaddingLeft, over.Content.Width).value_or(0) +
+                                 len(Property::PaddingRight, over.Content.Width).value_or(0);
+  if (!haveBase) {
+    if (over.Column) {
+      item.Base = Measure({.Node = child, .AvailableWidth = over.Content.Width}, &style).Height;
+    } else {
+      item.Base = MaxContent(child, &style) - item.MainMarginStart - item.MainMarginEnd;
+    }
+  }
+}
+
+double Placer::ContentSuggestionOf(int child,
+                                   const Computed &style,
+                                   const Flexing &over,
+                                   const FlexItem &item) {
+  const Property mainSize = over.Column ? Property::Height : Property::Width;
+  const double narrowest =
+      MinContent(child, &style, false) - item.MainMarginStart - item.MainMarginEnd;
+  if (!item.Style.Has(mainSize) || item.Style.Of(mainSize).How == Unit::Auto) { return narrowest; }
+  const std::optional<double> specified = Resolve(
+      item.Style.Of(mainSize), {.AgainstPx = over.MainRoom, .EmPx = item.Em, .RootEmPx = RootEm});
+  if (!specified) { return narrowest; }
+  return std::fmin(narrowest,
+                   *specified +
+                       (item.Style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : item.Frame));
+}
+
+void Placer::FlexItemFloor(int child, const Computed &style, const Flexing &over, FlexItem &item) {
+  if (item.Style.Has(item.Least) && item.Style.Of(item.Least).How != Unit::Auto) { return; }
+  const Value spilling =
+      item.Style.Has(Property::Overflow) ? item.Style.Of(Property::Overflow) : Value{};
+  if (spilling.How == Unit::Auto || spilling.Word == kHidden || spilling.Word == kScroll) {
+    return;
+  }
+  if (over.Column) {
+    item.Floor = Measure({.Node = child, .AvailableWidth = over.Content.Width}, &style).Height;
+    return;
+  }
+  item.Floor = Clamped(ContentSuggestionOf(child, style, over, item),
+                       item.Style,
+                       {.Least = Property::kCount, .Most = item.Most},
+                       {.AgainstPx = over.Content.Width, .EmPx = item.Em, .RootEmPx = RootEm},
+                       item.Frame);
+}
+
+bool Placer::CollectFlexItem(int child,
+                             const Computed &style,
+                             const Flexing &over,
+                             FlexItem &item) {
+  item.Node = child;
+  item.Style = StyleOf(child, &style);
+  if (item.Style.Word(Property::Display, kDisplayBlock) == kDisplayNone) { return false; }
+  const double itemEm =
+      item.Style.Has(Property::FontSize)
+          ? Resolve(item.Style.Of(Property::FontSize),
+                    {.AgainstPx = over.EmPx, .EmPx = over.EmPx, .RootEmPx = RootEm})
+                .value_or(over.EmPx)
+          : over.EmPx;
+  const auto len = [&](Property what, double against) -> std::optional<double> {
+    if (!item.Style.Has(what)) { return std::nullopt; }
+    return Resolve(item.Style.Of(what), {.AgainstPx = against, .EmPx = itemEm, .RootEmPx = RootEm});
+  };
+  item.MainMarginStart = over.Column ? len(Property::MarginTop, over.Content.Width).value_or(0)
+                                     : len(Property::MarginLeft, over.Content.Width).value_or(0);
+  item.MainMarginEnd = over.Column ? len(Property::MarginBottom, over.Content.Width).value_or(0)
+                                   : len(Property::MarginRight, over.Content.Width).value_or(0);
+  item.CrossMarginStart = over.Column ? len(Property::MarginLeft, over.Content.Width).value_or(0)
+                                      : len(Property::MarginTop, over.Content.Width).value_or(0);
+  item.CrossMarginEnd = over.Column ? len(Property::MarginRight, over.Content.Width).value_or(0)
+                                    : len(Property::MarginBottom, over.Content.Width).value_or(0);
+  item.Grow = item.Style.Number(Property::FlexGrow, 0);
+  item.Shrink = item.Style.Number(Property::FlexShrink, 1);
+
+  FlexBaseSize(child, style, over, item);
+  const Property crossSize = over.Column ? Property::Width : Property::Height;
+  item.CrossDeclared = item.Style.Has(crossSize) && item.Style.Of(crossSize).How != Unit::Auto;
+  if (item.CrossDeclared) {
+    const std::optional<double> across =
+        Resolve(item.Style.Of(crossSize),
+                {.AgainstPx = over.CrossRoom, .EmPx = itemEm, .RootEmPx = RootEm});
+    item.CrossDeclared = across.has_value();
+    item.Cross = across.value_or(0.0);
+  }
+
+  item.Least = over.Column ? Property::MinHeight : Property::MinWidth;
+  item.Most = over.Column ? Property::MaxHeight : Property::MaxWidth;
+  item.Em = itemEm;
+
+  FlexItemFloor(child, style, over, item);
+  item.Main = item.Base;
+
+  item.Hypothetical =
+      std::fmax(Clamped(item.Base,
+                        item.Style,
+                        {.Least = item.Least, .Most = item.Most},
+                        {.AgainstPx = over.MainRoom, .EmPx = itemEm, .RootEmPx = RootEm},
+                        item.Frame),
+                item.Floor);
+  return true;
+}
+
+bool Placer::CollectFlexItems(int node,
+                              const Computed &style,
+                              const Flexing &over,
+                              std::vector<FlexItem> &items) {
   for (const int child : Tree->Nodes()[static_cast<size_t>(node)].Children) {
     if (Tree->Nodes()[static_cast<size_t>(child)].Kind != NodeKind::Element) { continue; }
-    Item item;
-    item.Node = child;
-    item.Style = StyleOf(child, &style);
-    if (item.Style.Word(Property::Display, kDisplayBlock) == kDisplayNone) { continue; }
-    const double itemEm = item.Style.Has(Property::FontSize)
-                              ? Resolve(item.Style.Of(Property::FontSize),
-                                        {.AgainstPx = emPx, .EmPx = emPx, .RootEmPx = RootEm})
-                                    .value_or(emPx)
-                              : emPx;
-    const auto len = [&](Property what, double against) -> std::optional<double> {
-      if (!item.Style.Has(what)) { return std::nullopt; }
-      return Resolve(item.Style.Of(what),
-                     {.AgainstPx = against, .EmPx = itemEm, .RootEmPx = RootEm});
-    };
-    item.MainMarginStart = column ? len(Property::MarginTop, content.Width).value_or(0)
-                                  : len(Property::MarginLeft, content.Width).value_or(0);
-    item.MainMarginEnd = column ? len(Property::MarginBottom, content.Width).value_or(0)
-                                : len(Property::MarginRight, content.Width).value_or(0);
-    item.CrossMarginStart = column ? len(Property::MarginLeft, content.Width).value_or(0)
-                                   : len(Property::MarginTop, content.Width).value_or(0);
-    item.CrossMarginEnd = column ? len(Property::MarginRight, content.Width).value_or(0)
-                                 : len(Property::MarginBottom, content.Width).value_or(0);
-    item.Grow = item.Style.Number(Property::FlexGrow, 0);
-    item.Shrink = item.Style.Number(Property::FlexShrink, 1);
-
-    bool haveBase = false;
-    const Property mainSize = column ? Property::Height : Property::Width;
-    if (item.Style.Has(Property::FlexBasis) &&
-        item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
-      const std::optional<double> basis =
-          Resolve(item.Style.Of(Property::FlexBasis),
-                  {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
-      haveBase = basis.has_value();
-      item.Base = basis.value_or(0.0);
-    }
-    if (!haveBase && item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
-      const std::optional<double> declared = Resolve(
-          item.Style.Of(mainSize), {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
-      haveBase = declared.has_value();
-      item.Base = declared.value_or(0.0);
-    }
-
-    if (haveBase && item.Style.Word(Property::BoxSizing, 0) != kBorderBox) {
-      const double frame = column
-                               ? len(Property::BorderTopWidth, content.Width).value_or(0) +
-                                     len(Property::BorderBottomWidth, content.Width).value_or(0) +
-                                     len(Property::PaddingTop, content.Width).value_or(0) +
-                                     len(Property::PaddingBottom, content.Width).value_or(0)
-                               : len(Property::BorderLeftWidth, content.Width).value_or(0) +
-                                     len(Property::BorderRightWidth, content.Width).value_or(0) +
-                                     len(Property::PaddingLeft, content.Width).value_or(0) +
-                                     len(Property::PaddingRight, content.Width).value_or(0);
-      item.Base += frame;
-    }
-    item.Frame = column ? len(Property::BorderTopWidth, content.Width).value_or(0) +
-                              len(Property::BorderBottomWidth, content.Width).value_or(0) +
-                              len(Property::PaddingTop, content.Width).value_or(0) +
-                              len(Property::PaddingBottom, content.Width).value_or(0)
-                        : len(Property::BorderLeftWidth, content.Width).value_or(0) +
-                              len(Property::BorderRightWidth, content.Width).value_or(0) +
-                              len(Property::PaddingLeft, content.Width).value_or(0) +
-                              len(Property::PaddingRight, content.Width).value_or(0);
-    if (!haveBase) {
-      if (column) {
-        item.Base = Measure({.Node = child, .AvailableWidth = contentWidth}, &style).Height;
-      } else {
-        item.Base = MaxContent(child, &style) - item.MainMarginStart - item.MainMarginEnd;
-      }
-    }
-    const Property crossSize = column ? Property::Width : Property::Height;
-    item.CrossDeclared = item.Style.Has(crossSize) && item.Style.Of(crossSize).How != Unit::Auto;
-    if (item.CrossDeclared) {
-      const std::optional<double> across = Resolve(
-          item.Style.Of(crossSize), {.AgainstPx = crossRoom, .EmPx = itemEm, .RootEmPx = RootEm});
-      item.CrossDeclared = across.has_value();
-      item.Cross = across.value_or(0.0);
-    }
-
-    item.Least = column ? Property::MinHeight : Property::MinWidth;
-    item.Most = column ? Property::MaxHeight : Property::MaxWidth;
-    item.Em = itemEm;
-
-    if (!item.Style.Has(item.Least) || item.Style.Of(item.Least).How == Unit::Auto) {
-      const Value spilling =
-          item.Style.Has(Property::Overflow) ? item.Style.Of(Property::Overflow) : Value{};
-      if (spilling.How != Unit::Auto && spilling.Word != kHidden && spilling.Word != kScroll) {
-        if (column) {
-          item.Floor = Measure({.Node = child, .AvailableWidth = contentWidth}, &style).Height;
-        } else {
-          const double narrowest =
-              MinContent(child, &style, false) - item.MainMarginStart - item.MainMarginEnd;
-
-          double suggestion = narrowest;
-          if (item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
-            const std::optional<double> specified =
-                Resolve(item.Style.Of(mainSize),
-                        {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
-            if (specified) {
-              suggestion = std::fmin(
-                  narrowest,
-                  *specified +
-                      (item.Style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : item.Frame));
-            }
-          }
-          item.Floor = Clamped(suggestion,
-                               item.Style,
-                               {.Least = Property::kCount, .Most = item.Most},
-                               {.AgainstPx = contentWidth, .EmPx = itemEm, .RootEmPx = RootEm},
-                               item.Frame);
-        }
-      }
-    }
-    item.Main = item.Base;
-
-    item.Hypothetical =
-        std::fmax(Clamped(item.Base,
-                          item.Style,
-                          {.Least = item.Least, .Most = item.Most},
-                          {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm},
-                          item.Frame),
-                  item.Floor);
+    FlexItem item;
+    if (!CollectFlexItem(child, style, over, item)) { continue; }
     items.push_back(item);
   }
-  if (items.empty()) { return 0; }
+  return !items.empty();
+}
 
-  const bool wraps = wrapping == kWrap || wrapping == kWrapReverse;
-
-  struct Line {
-    size_t From = 0, Count = 0;
-    double Cross = 0, CrossAt = 0;
-  };
-
-  std::vector<Line> lines;
+void Placer::CollectFlexLines(const std::vector<FlexItem> &items,
+                              const Flexing &over,
+                              std::vector<FlexLine> &lines) {
   {
-    Line line;
+    FlexLine line;
     line.From = 0;
     double taken = 0;
     for (size_t i = 0; i < items.size(); ++i) {
       const double outer =
           items[i].Hypothetical + items[i].MainMarginStart + items[i].MainMarginEnd;
-      const double withGap = line.Count == 0 ? outer : taken + gap + outer;
-      if (wraps && line.Count > 0 && definiteMain && mainRoom > 0 && withGap > mainRoom) {
+      const double withGap = line.Count == 0 ? outer : taken + over.Gap + outer;
+      if (over.Wraps && line.Count > 0 && over.DefiniteMain && over.MainRoom > 0 &&
+          withGap > over.MainRoom) {
         lines.push_back(line);
-        line = Line{.From = i, .Count = 0, .Cross = 0, .CrossAt = 0};
+        line = FlexLine{.From = i, .Count = 0, .Cross = 0, .CrossAt = 0};
         taken = outer;
       } else {
         taken = withGap;
@@ -745,131 +909,216 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
     }
     lines.push_back(line);
   }
+}
 
-  for (Line &line : lines) {
-    double taken = gap * static_cast<double>(line.Count - 1);
-    for (size_t i = line.From; i < line.From + line.Count; ++i) {
-      taken += items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
+bool Placer::FreezeInflexible(const Flexing &over,
+                              const FlexLine &line,
+                              std::vector<FlexItem> &items,
+                              std::vector<bool> &frozen) {
+  double taken = over.Gap * static_cast<double>(line.Count - 1);
+  for (size_t i = line.From; i < line.From + line.Count; ++i) {
+    taken += items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
+  }
+
+  const double outerBases = taken;
+  const bool growing = over.DefiniteMain && over.MainRoom > outerBases;
+  for (size_t i = 0; i < line.Count; ++i) {
+    FlexItem &one = items[line.From + i];
+    one.Main = one.Base;
+    if (!over.DefiniteMain) {
+      one.Main = one.Hypothetical;
+      frozen[i] = true;
+      continue;
     }
+    const double factor = growing ? one.Grow : one.Shrink;
+    if (factor == 0.0 || (growing && one.Base > one.Hypothetical) ||
+        (!growing && one.Base < one.Hypothetical)) {
+      one.Main = one.Hypothetical;
+      frozen[i] = true;
+    }
+  }
+  return growing;
+}
 
-    const double outerBases = taken;
-    const bool growing = definiteMain && mainRoom > outerBases;
-    std::vector<bool> frozen(line.Count, false);
+double Placer::FlexShareOf(const FlexItem &one, bool growing) {
+  return growing ? one.Grow : one.Shrink * one.Base;
+}
+
+double Placer::FlexWantedOf(const FlexItem &one, bool growing, double free, double factors) {
+  return std::fmax(0.0, one.Base + free * (FlexShareOf(one, growing) / factors));
+}
+
+Placer::FlexPass Placer::MeasureFlexPass(const Flexing &over,
+                                         const FlexLine &line,
+                                         bool growing,
+                                         const std::vector<FlexItem> &items,
+                                         const std::vector<bool> &frozen) {
+  FlexPass pass;
+  double held = over.Gap * static_cast<double>(line.Count - 1);
+  for (size_t i = 0; i < line.Count; ++i) {
+    const FlexItem &one = items[line.From + i];
+    held += one.MainMarginStart + one.MainMarginEnd + (frozen[i] ? one.Main : one.Base);
+    if (frozen[i]) { continue; }
+    ++pass.Loose;
+    pass.Factors += FlexShareOf(one, growing);
+  }
+  pass.Free = over.MainRoom - held;
+  return pass;
+}
+
+double Placer::ApplyFlexShares(const Flexing &over,
+                               const FlexLine &line,
+                               bool growing,
+                               FlexPass pass,
+                               std::vector<FlexItem> &items,
+                               const std::vector<bool> &frozen) {
+  double violation = 0;
+  for (size_t i = 0; i < line.Count; ++i) {
+    if (frozen[i]) { continue; }
+    FlexItem &one = items[line.From + i];
+    const double wanted = FlexWantedOf(one, growing, pass.Free, pass.Factors);
+    const double clamped = Clamped(std::fmax(wanted, one.Floor),
+                                   one.Style,
+                                   {.Least = one.Least, .Most = one.Most},
+                                   {.AgainstPx = over.MainRoom, .EmPx = one.Em, .RootEmPx = RootEm},
+                                   one.Frame);
+    one.Main = clamped;
+    violation += clamped - wanted;
+  }
+  return violation;
+}
+
+void Placer::DistributeFreeSpace(const Flexing &over,
+                                 const FlexLine &line,
+                                 bool growing,
+                                 std::vector<FlexItem> &items,
+                                 std::vector<bool> &frozen) {
+  for (size_t pass = 0; pass <= line.Count; ++pass) {
+    const FlexPass measured = MeasureFlexPass(over, line, growing, items, frozen);
+    if (measured.Loose == 0 || measured.Factors <= 0.0) { break; }
+    const double violation = ApplyFlexShares(over, line, growing, measured, items, frozen);
+    if (violation == 0.0) {
+      frozen.assign(line.Count, true);
+      break;
+    }
     for (size_t i = 0; i < line.Count; ++i) {
-      Item &one = items[line.From + i];
-      one.Main = one.Base;
-      if (!definiteMain) {
-        one.Main = one.Hypothetical;
-        frozen[i] = true;
-        continue;
-      }
-      const double factor = growing ? one.Grow : one.Shrink;
-      if (factor == 0.0 || (growing && one.Base > one.Hypothetical) ||
-          (!growing && one.Base < one.Hypothetical)) {
-        one.Main = one.Hypothetical;
-        frozen[i] = true;
-      }
-    }
-    for (size_t pass = 0; pass <= line.Count; ++pass) {
-      double held = gap * static_cast<double>(line.Count - 1);
-      double factors = 0;
-      size_t loose = 0;
-      for (size_t i = 0; i < line.Count; ++i) {
-        const Item &one = items[line.From + i];
-        held += one.MainMarginStart + one.MainMarginEnd + (frozen[i] ? one.Main : one.Base);
-        if (frozen[i]) { continue; }
-        ++loose;
-        factors += growing ? one.Grow : one.Shrink * one.Base;
-      }
-      if (loose == 0 || factors <= 0.0) { break; }
-      const double free = mainRoom - held;
-      double violation = 0;
-      for (size_t i = 0; i < line.Count; ++i) {
-        if (frozen[i]) { continue; }
-        Item &one = items[line.From + i];
-        const double share = growing ? one.Grow : one.Shrink * one.Base;
-        const double wanted = std::fmax(0.0, one.Base + free * (share / factors));
-        const double clamped = Clamped(std::fmax(wanted, one.Floor),
-                                       one.Style,
-                                       {.Least = one.Least, .Most = one.Most},
-                                       {.AgainstPx = mainRoom, .EmPx = one.Em, .RootEmPx = RootEm},
-                                       one.Frame);
-        one.Main = clamped;
-        violation += clamped - wanted;
-      }
-      if (violation == 0.0) {
-        for (size_t i = 0; i < line.Count; ++i) { frozen[i] = true; }
-        break;
-      }
-
-      for (size_t i = 0; i < line.Count; ++i) {
-        if (frozen[i]) { continue; }
-        const Item &one = items[line.From + i];
-        const double share = growing ? one.Grow : one.Shrink * one.Base;
-        const double wanted = std::fmax(0.0, one.Base + free * (share / factors));
-        const double mine = one.Main - wanted;
-        if ((violation > 0 && mine > 0) || (violation < 0 && mine < 0)) { frozen[i] = true; }
-      }
-    }
-    for (size_t i = line.From; i < line.From + line.Count; ++i) {
-      Item &one = items[i];
-      if (!one.CrossDeclared) {
-        if (column) {
-          one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
-        } else {
-          one.Cross = Measure({.Node = one.Node, .AvailableWidth = one.Main}, &style).Height;
-        }
-      }
-      line.Cross = std::fmax(line.Cross, one.Cross + one.CrossMarginStart + one.CrossMarginEnd);
+      if (frozen[i]) { continue; }
+      const FlexItem &one = items[line.From + i];
+      const double mine = one.Main - FlexWantedOf(one, growing, measured.Free, measured.Factors);
+      if ((violation > 0 && mine > 0) || (violation < 0 && mine < 0)) { frozen[i] = true; }
     }
   }
+}
 
+void Placer::LineCrossSize(const Computed &style,
+                           const Flexing &over,
+                           FlexLine &line,
+                           std::vector<FlexItem> &items) {
+  for (size_t i = line.From; i < line.From + line.Count; ++i) {
+    FlexItem &one = items[i];
+    if (!one.CrossDeclared) {
+      if (over.Column) {
+        one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
+      } else {
+        one.Cross = Measure({.Node = one.Node, .AvailableWidth = one.Main}, &style).Height;
+      }
+    }
+    line.Cross = std::fmax(line.Cross, one.Cross + one.CrossMarginStart + one.CrossMarginEnd);
+  }
+}
+
+void Placer::ResolveFlexibleLengths(const Computed &style,
+                                    const Flexing &over,
+                                    std::vector<FlexItem> &items,
+                                    std::vector<FlexLine> &lines) {
+  for (FlexLine &line : lines) {
+    std::vector<bool> frozen(line.Count, false);
+    const bool growing = FreezeInflexible(over, line, items, frozen);
+    DistributeFreeSpace(over, line, growing, items, frozen);
+    LineCrossSize(style, over, line, items);
+  }
+}
+
+void Placer::AlignFlexLines(const Computed &style,
+                            const Flexing &over,
+                            std::vector<FlexLine> &lines) {
   double linesDeep = 0;
-  for (const Line &line : lines) { linesDeep += line.Cross; }
-  linesDeep += gap * static_cast<double>(lines.size() - 1);
-  if (!wraps && crossRoom > 0) {
-    lines[0].Cross = crossRoom;
-    linesDeep = crossRoom;
+  for (const FlexLine &line : lines) { linesDeep += line.Cross; }
+  linesDeep += over.Gap * static_cast<double>(lines.size() - 1);
+  if (!over.Wraps && over.CrossRoom > 0) {
+    lines[0].Cross = over.CrossRoom;
+    linesDeep = over.CrossRoom;
   }
 
-  const uint32_t alignLines = Aligned(style.Word(Property::AlignContent, kStretch), reversed);
+  const uint32_t alignLines = Aligned(style.Word(Property::AlignContent, kStretch), over.Reversed);
   double lineAt = 0;
-  double betweenLines = gap;
-  const double crossSlack = crossRoom - linesDeep;
-  if (crossRoom > 0 && crossSlack > 0 && !lines.empty()) {
+  double betweenLines = over.Gap;
+  const double crossSlack = over.CrossRoom - linesDeep;
+  if (over.CrossRoom > 0 && crossSlack > 0 && !lines.empty()) {
     if (alignLines == kStretch) {
       const double share = crossSlack / static_cast<double>(lines.size());
-      for (Line &line : lines) { line.Cross += share; }
+      for (FlexLine &line : lines) { line.Cross += share; }
     } else if (alignLines == kFlexEnd) {
       lineAt = crossSlack;
     } else if (alignLines == kCentre) {
       lineAt = crossSlack / 2.0;
     } else if (alignLines == kSpaceBetween && lines.size() > 1) {
-      betweenLines = gap + crossSlack / static_cast<double>(lines.size() - 1);
+      betweenLines = over.Gap + crossSlack / static_cast<double>(lines.size() - 1);
     } else if (alignLines == kSpaceAround) {
       lineAt = crossSlack / static_cast<double>(lines.size() * 2);
-      betweenLines = gap + crossSlack / static_cast<double>(lines.size());
+      betweenLines = over.Gap + crossSlack / static_cast<double>(lines.size());
     } else if (alignLines == kSpaceEvenly) {
       lineAt = crossSlack / static_cast<double>(lines.size() + 1);
-      betweenLines = gap + lineAt;
+      betweenLines = over.Gap + lineAt;
     }
   }
-  for (Line &line : lines) {
+  for (FlexLine &line : lines) {
     line.CrossAt = lineAt;
     lineAt += line.Cross + betweenLines;
   }
-  if (wrapping == kWrapReverse && crossRoom > 0) {
-    for (Line &line : lines) { line.CrossAt = crossRoom - line.CrossAt - line.Cross; }
+  if (over.Wrapping == kWrapReverse && over.CrossRoom > 0) {
+    for (FlexLine &line : lines) { line.CrossAt = over.CrossRoom - line.CrossAt - line.Cross; }
   }
+}
+
+double Placer::Flex(int node, const Computed &style, int self, Area content, double emPx) {
+  const uint32_t direction = style.Word(Property::FlexDirection, 0);
+  const bool column = direction == kColumn || direction == kColumnReverse;
+  const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
+  const bool reversed = wrapping == kWrapReverse;
+  const Flexing over{
+      .Content = content,
+      .MainRoom = column ? content.Height : content.Width,
+      .CrossRoom = column ? content.Width : std::fmax(0.0, content.Height),
+      .Gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0,
+      .EmPx = emPx,
+      .Justify = Aligned(style.Word(Property::JustifyContent, 0),
+                         direction == kRowReverse || direction == kColumnReverse),
+      .Align = Aligned(style.Word(Property::AlignItems, kStretch), reversed),
+      .Wrapping = wrapping,
+      .Column = column,
+      .MainReversed = direction == kRowReverse || direction == kColumnReverse,
+      .Reversed = reversed,
+      .Wraps = wrapping == kWrap || wrapping == kWrapReverse,
+      .DefiniteMain = (column ? content.Height : content.Width) >= 0.0,
+  };
+
+  std::vector<FlexItem> items;
+  if (!CollectFlexItems(node, style, over, items)) { return 0; }
+  std::vector<FlexLine> lines;
+  CollectFlexLines(items, over, lines);
+  ResolveFlexibleLengths(style, over, items, lines);
+  AlignFlexLines(style, over, lines);
 
   std::vector<double> lineBaseline(lines.size(), 0.0);
   for (size_t at = 0; at < lines.size(); ++at) {
     for (size_t i = lines[at].From; i < lines[at].From + lines[at].Count; ++i) {
-      const Item &one = items[i];
-      const uint32_t how = one.Style.Has(Property::AlignSelf)
-                               ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
-                               : align;
-      if (how != kBaseline || column) { continue; }
+      const FlexItem &one = items[i];
+      const uint32_t how =
+          one.Style.Has(Property::AlignSelf)
+              ? Aligned(one.Style.Word(Property::AlignSelf, over.Align), over.Reversed)
+              : over.Align;
+      if (how != kBaseline || over.Column) { continue; }
 
       lineBaseline[at] = std::fmax(lineBaseline[at],
                                    BaselineOf(one.Node, &style, one.Main) + one.CrossMarginStart);
@@ -878,100 +1127,142 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
 
   double deepest = 0;
   for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
-    const Line &flexLine = lines[lineIndex];
-    double lineUsed = gap * static_cast<double>(flexLine.Count - 1);
-    for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
-      lineUsed += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
-    }
-    double cursor = 0;
-    double between = gap;
-    const double slack = definiteMain ? mainRoom - lineUsed : 0.0;
-    if (slack > 0) {
-      if (justify == kFlexEnd) {
-        cursor = slack;
-      } else if (justify == kCentre) {
-        cursor = slack / 2.0;
-      } else if (justify == kSpaceBetween && flexLine.Count > 1) {
-        between = gap + slack / static_cast<double>(flexLine.Count - 1);
-      } else if (justify == kSpaceAround) {
-        cursor = slack / static_cast<double>(flexLine.Count * 2);
-        between = gap + slack / static_cast<double>(flexLine.Count);
-      } else if (justify == kSpaceEvenly) {
-        cursor = slack / static_cast<double>(flexLine.Count + 1);
-        between = gap + cursor;
-      }
-    } else if (justify == kCentre) {
-      cursor = slack / 2.0;
-    }
-
-    for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
-      const Item &one = items[i];
-      cursor += one.MainMarginStart;
-      const uint32_t self_align =
-          one.Style.Has(Property::AlignSelf)
-              ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
-              : align;
-      double cross = one.Cross;
-      if (!one.CrossDeclared && self_align == kStretch) {
-        cross = flexLine.Cross - one.CrossMarginStart - one.CrossMarginEnd;
-      }
-      double inLine = one.CrossMarginStart;
-      if (self_align == kCentre) {
-        inLine = (flexLine.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
-                 one.CrossMarginStart;
-      } else if (self_align == kFlexEnd) {
-        inLine = flexLine.Cross - cross - one.CrossMarginEnd;
-      }
-
-      if (self_align == kBaseline && !column) {
-        inLine =
-            one.CrossMarginStart + (lineBaseline[lineIndex] -
-                                    BaselineOf(one.Node, &style, one.Main) - one.CrossMarginStart);
-        inLine = std::fmax(inLine, 0.0);
-      }
-      if (wrapping == kWrapReverse) { inLine = flexLine.Cross - inLine - cross; }
-      const double crossAt = flexLine.CrossAt + inLine;
-
-      const double mirrorAgainst = definiteMain ? mainRoom : lineUsed;
-      const double mainAt = mainReversed ? mirrorAgainst - cursor - one.Main : cursor;
-      const double x = column ? contentX + crossAt : contentX + mainAt;
-      const double y = column ? contentY + mainAt : contentY + crossAt;
-
-      const bool stretched = !one.CrossDeclared && self_align == kStretch;
-      const double across = stretched || one.CrossDeclared ? cross : -1.0;
-      const double usedW = column ? across : one.Main;
-      const double usedH = column ? one.Main : across;
-      const int before = static_cast<int>(Out->size());
-      Place(one.Node,
-            &style,
-            {.X = x - (column ? one.CrossMarginStart : one.MainMarginStart),
-             .Y = y - (column ? one.MainMarginStart : one.CrossMarginStart),
-             .Width = contentWidth,
-             .Height = contentHeight},
-            self,
-            {.Width = usedW, .Height = usedH});
-      if (std::cmp_less(before, Out->size())) {
-        Box &placed = (*Out)[static_cast<size_t>(before)];
-        if (column) {
-          placed.Height = one.Main;
-          if (!one.CrossDeclared && self_align == kStretch) { placed.Width = cross; }
-        } else {
-          placed.Width = one.Main;
-          if (!one.CrossDeclared && self_align == kStretch) { placed.Height = cross; }
-        }
-        deepest = std::fmax(deepest,
-                            column ? mainAt + one.Main + one.MainMarginEnd
-                                   : crossAt + placed.Height + one.CrossMarginEnd);
-      }
-      cursor += one.Main + one.MainMarginEnd + between;
-    }
+    deepest = std::fmax(
+        deepest,
+        PlaceFlexLine(style, over, lines[lineIndex], items, self, lineBaseline[lineIndex]));
   }
 
   double crossExtent = 0;
-  for (const Line &line : lines) {
+  for (const FlexLine &line : lines) {
     crossExtent = std::fmax(crossExtent, line.CrossAt + line.Cross);
   }
-  return column ? deepest : std::fmax(deepest, crossExtent);
+  return over.Column ? deepest : std::fmax(deepest, crossExtent);
+}
+
+Placer::CrossPlaced Placer::AlignInCrossAxis(const Computed &style,
+                                             const Flexing &over,
+                                             const FlexLine &flexLine,
+                                             const FlexItem &one,
+                                             double lineBaseline) {
+  const uint32_t self_align =
+      one.Style.Has(Property::AlignSelf)
+          ? Aligned(one.Style.Word(Property::AlignSelf, over.Align), over.Reversed)
+          : over.Align;
+  double cross = one.Cross;
+  if (!one.CrossDeclared && self_align == kStretch) {
+    cross = flexLine.Cross - one.CrossMarginStart - one.CrossMarginEnd;
+  }
+  double inLine = one.CrossMarginStart;
+  if (self_align == kCentre) {
+    inLine = (flexLine.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
+             one.CrossMarginStart;
+  } else if (self_align == kFlexEnd) {
+    inLine = flexLine.Cross - cross - one.CrossMarginEnd;
+  }
+
+  if (self_align == kBaseline && !over.Column) {
+    inLine = one.CrossMarginStart +
+             (lineBaseline - BaselineOf(one.Node, &style, one.Main) - one.CrossMarginStart);
+    inLine = std::fmax(inLine, 0.0);
+  }
+  if (over.Wrapping == kWrapReverse) { inLine = flexLine.Cross - inLine - cross; }
+
+  return {.Align = self_align, .Cross = cross, .InLine = inLine};
+}
+
+double Placer::PlaceFlexItem(const Computed &style,
+                             const Flexing &over,
+                             const FlexLine &flexLine,
+                             const FlexItem &one,
+                             Placing placing,
+                             int self) {
+  double deepest = 0;
+  const CrossPlaced placed = AlignInCrossAxis(style, over, flexLine, one, placing.LineBaseline);
+  const uint32_t self_align = placed.Align;
+  const double cross = placed.Cross;
+  const double crossAt = flexLine.CrossAt + placed.InLine;
+
+  const double mirrorAgainst = over.DefiniteMain ? over.MainRoom : placing.LineUsed;
+  const double mainAt =
+      over.MainReversed ? mirrorAgainst - placing.Cursor - one.Main : placing.Cursor;
+  const double x = over.Column ? over.Content.X + crossAt : over.Content.X + mainAt;
+  const double y = over.Column ? over.Content.Y + mainAt : over.Content.Y + crossAt;
+
+  const bool stretched = !one.CrossDeclared && self_align == kStretch;
+  const double across = stretched || one.CrossDeclared ? cross : -1.0;
+  const double usedW = over.Column ? across : one.Main;
+  const double usedH = over.Column ? one.Main : across;
+  const int before = static_cast<int>(Out->size());
+  Place(one.Node,
+        &style,
+        {.X = x - (over.Column ? one.CrossMarginStart : one.MainMarginStart),
+         .Y = y - (over.Column ? one.MainMarginStart : one.CrossMarginStart),
+         .Width = over.Content.Width,
+         .Height = over.Content.Height},
+        self,
+        {.Width = usedW, .Height = usedH});
+  if (std::cmp_less(before, Out->size())) {
+    Box &box = (*Out)[static_cast<size_t>(before)];
+    if (over.Column) {
+      box.Height = one.Main;
+      if (!one.CrossDeclared && self_align == kStretch) { box.Width = cross; }
+    } else {
+      box.Width = one.Main;
+      if (!one.CrossDeclared && self_align == kStretch) { box.Height = cross; }
+    }
+    deepest = std::fmax(deepest,
+                        over.Column ? mainAt + one.Main + one.MainMarginEnd
+                                    : crossAt + box.Height + one.CrossMarginEnd);
+  }
+  return deepest;
+}
+
+double Placer::PlaceFlexLine(const Computed &style,
+                             const Flexing &over,
+                             const FlexLine &flexLine,
+                             std::vector<FlexItem> &items,
+                             int self,
+                             double lineBaseline) {
+  double deepest = 0;
+  double lineUsed = over.Gap * static_cast<double>(flexLine.Count - 1);
+  for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
+    lineUsed += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
+  }
+  double cursor = 0;
+  double between = over.Gap;
+  const double slack = over.DefiniteMain ? over.MainRoom - lineUsed : 0.0;
+  if (slack > 0) {
+    if (over.Justify == kFlexEnd) {
+      cursor = slack;
+    } else if (over.Justify == kCentre) {
+      cursor = slack / 2.0;
+    } else if (over.Justify == kSpaceBetween && flexLine.Count > 1) {
+      between = over.Gap + slack / static_cast<double>(flexLine.Count - 1);
+    } else if (over.Justify == kSpaceAround) {
+      cursor = slack / static_cast<double>(flexLine.Count * 2);
+      between = over.Gap + slack / static_cast<double>(flexLine.Count);
+    } else if (over.Justify == kSpaceEvenly) {
+      cursor = slack / static_cast<double>(flexLine.Count + 1);
+      between = over.Gap + cursor;
+    }
+  } else if (over.Justify == kCentre) {
+    cursor = slack / 2.0;
+  }
+
+  for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
+    const FlexItem &one = items[i];
+    cursor += one.MainMarginStart;
+    deepest = std::fmax(
+        deepest,
+        PlaceFlexItem(style,
+                      over,
+                      flexLine,
+                      one,
+                      {.Cursor = cursor, .LineUsed = lineUsed, .LineBaseline = lineBaseline},
+                      self));
+    cursor += one.Main + one.MainMarginEnd + between;
+  }
+  return deepest;
 }
 
 double Placer::Children(int node, const Computed &style, int self, Area content, double emPx) {
@@ -981,37 +1272,12 @@ double Placer::Children(int node, const Computed &style, int self, Area content,
              : Blocks(node, style, self, content, emPx);
 }
 
-double
-Placer::Place(int node, const Computed *inherited, Area container, int parentBox, Measured used) {
-  ++Places;
-  if (Places > Budget) { TooCostly = true; }
-  if (TooCostly) { return 0; }
-  if (TooDeep) { return 0; }
-  if (Depth >= kDeepestNesting) {
-    TooDeep = true;
-    return 0;
-  }
-  const DepthHeld held(*this);
-  const Node &element = Tree->Nodes()[static_cast<size_t>(node)];
-  if (element.Kind == NodeKind::Text) { return 0; }
-
-  const Computed style = StyleOf(node, inherited);
-  const uint32_t display = style.Word(Property::Display, kDisplayInline);
-  if (display == kDisplayNone) { return 0; }
-
-  double emPx = kEmPx;
-  if (style.Has(Property::FontSize)) {
-    emPx =
-        Resolve(
-            style.Of(Property::FontSize),
-            {.AgainstPx = inherited != nullptr ? kEmPx : RootEm, .EmPx = kEmPx, .RootEmPx = RootEm})
-            .value_or(emPx);
-  }
+Box Placer::BoxOf(
+    int node, const Computed &style, int parentBox, Area container, double emPx) const {
   const auto len = [&](Property what, double against) -> std::optional<double> {
     if (!style.Has(what)) { return std::nullopt; }
     return Resolve(style.Of(what), {.AgainstPx = against, .EmPx = emPx, .RootEmPx = RootEm});
   };
-
   Box box;
   box.Node = node;
   box.Margin = {.Top = len(Property::MarginTop, container.Width).value_or(0),
@@ -1040,50 +1306,126 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   box.FontSize = emPx;
   box.Parent = parentBox;
 
-  const bool borderBox = style.Word(Property::BoxSizing, 0) == kBorderBox;
-  const double frameX = box.Border.Left + box.Border.Right + box.Padding.Left + box.Padding.Right;
-  const double frameY = box.Border.Top + box.Border.Bottom + box.Padding.Top + box.Padding.Bottom;
+  return box;
+}
 
-  bool widthAbsent = true;
+double Placer::ContentWidthOf(const Framing &sized, bool &widthAbsent) {
   double contentWidth = 0;
-  if (style.Has(Property::Width) && style.Of(Property::Width).How != Unit::Auto) {
+  if (sized.Style->Has(Property::Width) && sized.Style->Of(Property::Width).How != Unit::Auto) {
     const std::optional<double> declared =
-        Resolve(style.Of(Property::Width),
-                {.AgainstPx = container.Width, .EmPx = emPx, .RootEmPx = RootEm});
+        Resolve(sized.Style->Of(Property::Width),
+                {.AgainstPx = sized.Container.Width, .EmPx = sized.EmPx, .RootEmPx = RootEm});
     widthAbsent = !declared.has_value();
     contentWidth = declared.value_or(0.0);
-    if (!widthAbsent && borderBox) { contentWidth = std::fmax(0.0, contentWidth - frameX); }
+    if (!widthAbsent && sized.BorderBox) {
+      contentWidth = std::fmax(0.0, contentWidth - sized.FrameX);
+    }
   }
   if (widthAbsent) {
-    contentWidth = std::fmax(0.0, container.Width - box.Margin.Left - box.Margin.Right - frameX);
+    contentWidth = std::fmax(0.0,
+                             sized.Container.Width - sized.Held->Margin.Left -
+                                 sized.Held->Margin.Right - sized.FrameX);
 
-    if (style.Word(Property::Display, kDisplayInline) == kDisplayInlineFlex) {
-      const double wants =
-          MaxContent(node, inherited) - box.Margin.Left - box.Margin.Right - frameX;
+    if (sized.Style->Word(Property::Display, kDisplayInline) == kDisplayInlineFlex) {
+      const double wants = MaxContent(sized.Node, sized.Inherited) - sized.Held->Margin.Left -
+                           sized.Held->Margin.Right - sized.FrameX;
       contentWidth = std::fmax(0.0, std::fmin(contentWidth, wants));
     }
   }
-  contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0),
-                         style,
-                         {.Least = Property::MinWidth, .Most = Property::MaxWidth},
-                         {.AgainstPx = container.Width, .EmPx = emPx, .RootEmPx = RootEm}) -
-                 (borderBox ? frameX : 0.0);
+  contentWidth =
+      Clamped(contentWidth + (sized.BorderBox ? sized.FrameX : 0.0),
+              *sized.Style,
+              {.Least = Property::MinWidth, .Most = Property::MaxWidth},
+              {.AgainstPx = sized.Container.Width, .EmPx = sized.EmPx, .RootEmPx = RootEm}) -
+      (sized.BorderBox ? sized.FrameX : 0.0);
 
-  if (used.Width >= 0) {
+  if (sized.UsedWidth >= 0) {
     widthAbsent = false;
-    contentWidth = std::fmax(0.0, used.Width - frameX);
+    contentWidth = std::fmax(0.0, sized.UsedWidth - sized.FrameX);
   }
 
-  bool heightAbsent = true;
+  return contentWidth;
+}
+
+double Placer::DeclaredHeightOf(const Framing &sized, bool &heightAbsent) const {
+  const Computed &style = *sized.Style;
   double contentHeight = 0;
   if (style.Has(Property::Height) && style.Of(Property::Height).How != Unit::Auto) {
     const std::optional<double> declared =
         Resolve(style.Of(Property::Height),
-                {.AgainstPx = container.Height, .EmPx = emPx, .RootEmPx = RootEm});
+                {.AgainstPx = sized.Container.Height, .EmPx = sized.EmPx, .RootEmPx = RootEm});
     heightAbsent = !declared.has_value();
     contentHeight = declared.value_or(0.0);
-    if (!heightAbsent && borderBox) { contentHeight = std::fmax(0.0, contentHeight - frameY); }
+    if (!heightAbsent && sized.BorderBox) {
+      contentHeight = std::fmax(0.0, contentHeight - sized.FrameY);
+    }
   }
+
+  return contentHeight;
+}
+
+void Placer::SettleBaseline(int self, double marginBottom) const {
+  if ((*Out)[static_cast<size_t>(self)].Baseline == 0.0) {
+    for (const int child : (*Out)[static_cast<size_t>(self)].Children) {
+      const Box &inner = (*Out)[static_cast<size_t>(child)];
+      if (inner.Baseline > 0.0) {
+        (*Out)[static_cast<size_t>(self)].Baseline =
+            (inner.Y - (*Out)[static_cast<size_t>(self)].Y) + inner.Baseline;
+        break;
+      }
+    }
+  }
+  if ((*Out)[static_cast<size_t>(self)].Baseline == 0.0) {
+    (*Out)[static_cast<size_t>(self)].Baseline =
+        (*Out)[static_cast<size_t>(self)].Height + marginBottom;
+  }
+}
+
+double
+Placer::Place(int node, const Computed *inherited, Area container, int parentBox, Measured used) {
+  ++Places;
+  if (Places > Budget) { TooCostly = true; }
+  if (TooCostly) { return 0; }
+  if (TooDeep) { return 0; }
+  if (Depth >= kDeepestNesting) {
+    TooDeep = true;
+    return 0;
+  }
+  const DepthHeld held(*this);
+  const Node &element = Tree->Nodes()[static_cast<size_t>(node)];
+  if (element.Kind == NodeKind::Text) { return 0; }
+
+  const Computed style = StyleOf(node, inherited);
+  const uint32_t display = style.Word(Property::Display, kDisplayInline);
+  if (display == kDisplayNone) { return 0; }
+
+  double emPx = kEmPx;
+  if (style.Has(Property::FontSize)) {
+    emPx =
+        Resolve(
+            style.Of(Property::FontSize),
+            {.AgainstPx = inherited != nullptr ? kEmPx : RootEm, .EmPx = kEmPx, .RootEmPx = RootEm})
+            .value_or(emPx);
+  }
+  Box box = BoxOf(node, style, parentBox, container, emPx);
+  const bool borderBox = style.Word(Property::BoxSizing, 0) == kBorderBox;
+  const double frameX = box.Border.Left + box.Border.Right + box.Padding.Left + box.Padding.Right;
+  const double frameY = box.Border.Top + box.Border.Bottom + box.Padding.Top + box.Padding.Bottom;
+
+  const Framing sized{.Node = node,
+                      .Inherited = inherited,
+                      .Style = &style,
+                      .Held = &box,
+                      .Container = container,
+                      .EmPx = emPx,
+                      .FrameX = frameX,
+                      .FrameY = frameY,
+                      .UsedWidth = used.Width,
+                      .BorderBox = borderBox};
+  bool widthAbsent = true;
+  const double contentWidth = ContentWidthOf(sized, widthAbsent);
+  bool heightAbsent = true;
+  double contentHeight = DeclaredHeightOf(sized, heightAbsent);
 
   box.X = container.X + box.Margin.Left;
   box.Y = container.Y + box.Margin.Top;
@@ -1125,20 +1467,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   (*Out)[static_cast<size_t>(self)].Width = contentWidth + frameX;
   (*Out)[static_cast<size_t>(self)].Height = contentHeight + frameY;
 
-  if ((*Out)[static_cast<size_t>(self)].Baseline == 0.0) {
-    for (const int child : (*Out)[static_cast<size_t>(self)].Children) {
-      const Box &inner = (*Out)[static_cast<size_t>(child)];
-      if (inner.Baseline > 0.0) {
-        (*Out)[static_cast<size_t>(self)].Baseline =
-            (inner.Y - (*Out)[static_cast<size_t>(self)].Y) + inner.Baseline;
-        break;
-      }
-    }
-  }
-  if ((*Out)[static_cast<size_t>(self)].Baseline == 0.0) {
-    (*Out)[static_cast<size_t>(self)].Baseline =
-        (*Out)[static_cast<size_t>(self)].Height + box.Margin.Bottom;
-  }
+  SettleBaseline(self, box.Margin.Bottom);
+
   return (*Out)[static_cast<size_t>(self)].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
@@ -1184,6 +1514,45 @@ const char *UserAgentSheet() {
          "html { color: black; font-size: 16px; line-height: 1.2; text-align: left }\n"
 
          "head, title, link, meta, style, script, base, noscript { display: none }\n";
+}
+
+bool Layout::DescendsFrom(size_t at, Under root) const {
+  for (int up = Boxes_[at].Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
+    if (std::cmp_equal(up, root.Box)) { return true; }
+  }
+  return false;
+}
+
+double Layout::ReachesUnder(Under root, double from) const {
+  double reaches = from;
+  for (size_t at = 0; at < Boxes_.size(); ++at) {
+    if (DescendsFrom(at, root)) { reaches = std::fmax(reaches, Boxes_[at].Y + Boxes_[at].Height); }
+  }
+  return reaches;
+}
+
+void Layout::ShiftUnder(Under root, double byPx) {
+  for (size_t at = 0; at < Boxes_.size(); ++at) {
+    if (DescendsFrom(at, root)) { Boxes_[at].Y -= byPx; }
+  }
+}
+
+void Layout::SettleScrollers(std::span<const Scrolled> scrolled) {
+  for (size_t at = 0; at < Boxes_.size(); ++at) {
+    Box &over = Boxes_[at];
+    if (!over.Scrolls) { continue; }
+    const double reaches = ReachesUnder({.Box = at}, over.Y);
+    const double room = over.Height - over.Border.Top - over.Border.Bottom;
+    over.ContentPx = reaches - over.Y;
+    const double most = over.ContentPx > room ? over.ContentPx - room : 0.0;
+    double by = 0.0;
+    for (const Scrolled &one : scrolled) {
+      if (one.Node == over.Node) { by = one.Px; }
+    }
+    over.ScrolledPx = std::clamp(by, 0.0, most);
+    if (over.ScrolledPx <= 0.0) { continue; }
+    ShiftUnder({.Box = at}, over.ScrolledPx);
+  }
 }
 
 bool Layout::Build(const Markup &markup,
@@ -1246,34 +1615,7 @@ bool Layout::Build(const Markup &markup,
     return false;
   }
 
-  for (size_t at = 0; at < Boxes_.size(); ++at) {
-    Box &over = Boxes_[at];
-    if (!over.Scrolls) { continue; }
-    double reaches = over.Y;
-    for (const Box &under : Boxes_) {
-      for (int up = under.Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
-        if (std::cmp_not_equal(up, at)) { continue; }
-        reaches = std::fmax(reaches, under.Y + under.Height);
-        break;
-      }
-    }
-    const double room = over.Height - over.Border.Top - over.Border.Bottom;
-    over.ContentPx = reaches - over.Y;
-    const double most = over.ContentPx > room ? over.ContentPx - room : 0.0;
-    double by = 0.0;
-    for (const Scrolled &one : scrolled) {
-      if (one.Node == over.Node) { by = one.Px; }
-    }
-    over.ScrolledPx = std::clamp(by, 0.0, most);
-    if (over.ScrolledPx <= 0.0) { continue; }
-    for (auto &Boxe : Boxes_) {
-      for (int up = Boxe.Parent; up >= 0; up = Boxes_[static_cast<size_t>(up)].Parent) {
-        if (std::cmp_not_equal(up, at)) { continue; }
-        Boxe.Y -= over.ScrolledPx;
-        break;
-      }
-    }
-  }
+  SettleScrollers(scrolled);
   return true;
 }
 
@@ -1316,5 +1658,4 @@ int Layout::Hit(double x, double y) const {
   }
   return -1;
 }
-
 } // namespace outshine::Ui

@@ -130,6 +130,15 @@ public:
     double Px = 0.0;
   };
 
+  struct Under {
+    size_t Box = 0;
+  };
+
+  [[nodiscard]] bool DescendsFrom(size_t at, Under root) const;
+  [[nodiscard]] double ReachesUnder(Under root, double from) const;
+  void ShiftUnder(Under root, double byPx);
+  void SettleScrollers(std::span<const Scrolled> scrolled);
+
   [[nodiscard]] bool Build(const Markup &markup,
                            Stylesheet &sheet,
                            double viewportWidth,
