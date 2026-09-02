@@ -108,7 +108,8 @@ struct Pull {
 
   [[nodiscard]] bool Run() {
     for (const Resource r : Spec.Outputs) { Want(r); }
-    for (auto &at : Wanted) { (void)Resolve(at); }
+    size_t drained = 0;
+    while (drained < Wanted.size()) { (void)Resolve(Wanted[drained++]); }
     return Error.empty();
   }
 };
