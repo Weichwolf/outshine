@@ -15,6 +15,12 @@
 
 namespace outshine::Generators {
 
+constexpr float kChordShare = 0.9f;
+constexpr float kBaseApex = -0.6f;
+constexpr float kPointApex = 2.4f;
+constexpr float kBrokenApex = 1.4f;
+constexpr uint32_t kKnuthWord = 2654435761u;
+
 namespace {
 
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
@@ -103,7 +109,7 @@ float TreeMesher::RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &s
   sides = std::max(sides, 3);
   const float along = 0.5f * Length(upper.Pos - lower.Pos);
   const float around = upper.Radius * std::sin(kTau * 0.5f / static_cast<float>(sides));
-  return 0.9f * std::sqrt(along * along + around * around);
+  return kChordShare * std::sqrt(along * along + around * around);
 }
 
 void TreeMesher::Ring(const TreeSkeleton::Node &node, float radius, int sides, std::span<int> out) {
@@ -144,11 +150,11 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node,
                      uint32_t seed) {
   float apex = 0.0f;
   switch (cap) {
-    case RingCap::Base: apex = -0.6f; break;
-    case RingCap::Point: apex = 2.4f; break;
+    case RingCap::Base: apex = kBaseApex; break;
+    case RingCap::Point: apex = kPointApex; break;
     case RingCap::Cut: apex = 0.0f; break;
 
-    case RingCap::Broken: apex = 1.4f; break;
+    case RingCap::Broken: apex = kBrokenApex; break;
   }
   const int ci = AddVert(node.Pos + node.Dir * (node.Radius * apex));
   std::array<float, kMaxSides> splinter = {{}};
@@ -280,7 +286,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
         ring,
         sides,
         shoot.End,
-        plant.Seed * 2654435761u + static_cast<uint32_t>(i) + 1u);
+        plant.Seed * kKnuthWord + static_cast<uint32_t>(i) + 1u);
   }
 
   Export(out);

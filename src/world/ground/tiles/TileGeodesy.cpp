@@ -7,6 +7,10 @@
 
 namespace outshine::Ground {
 
+constexpr double kAtPoleXy = 1e-9;
+constexpr double kPoleLatDeg = 90.0;
+constexpr double kOriginMostLatDeg = 89.9;
+
 namespace {
 
 constexpr double kDeg2Rad = kPi / kDegPerHalfTurn;
@@ -105,9 +109,9 @@ Geo EcefToGeoWgs84(Ecef p) {
 
   Geo g;
 
-  if (pxy < 1e-9) {
+  if (pxy < kAtPoleXy) {
     g.LonDeg = 0.0;
-    g.LatDeg = (p.Z >= 0.0) ? 90.0 : -90.0;
+    g.LatDeg = (p.Z >= 0.0) ? kPoleLatDeg : -kPoleLatDeg;
     g.AltM = std::fabs(p.Z) - b;
     return g;
   }
@@ -129,7 +133,7 @@ Geo EcefToGeoWgs84(Ecef p) {
 }
 
 EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
-  if (originLatDeg < -89.9 || originLatDeg > 89.9) {
+  if (originLatDeg < -kOriginMostLatDeg || originLatDeg > kOriginMostLatDeg) {
     return {State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0};
   }
 

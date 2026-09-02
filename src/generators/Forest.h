@@ -9,14 +9,18 @@
 
 namespace outshine::Generators {
 
+constexpr double kStemHeightUnsaidM = 20.0;
+constexpr float kTrunkRadiusUnsaidM = 0.15f;
+constexpr float kStemMassUnsaidKg = 1000.0f;
+
 class Forest : public Making {
 public:
   struct Stem {
-    double HeightM = 20.0;
+    double HeightM = kStemHeightUnsaidM;
 
     float HeightSigma = 0.0f;
-    float TrunkRadiusM = 0.15f;
-    float MassKg = 1000.0f;
+    float TrunkRadiusM = kTrunkRadiusUnsaidM;
+    float MassKg = kStemMassUnsaidKg;
     ContactMaterial Contact = ContactMaterial{0};
   };
 

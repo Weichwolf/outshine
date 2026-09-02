@@ -10,6 +10,14 @@
 
 namespace outshine::Ground {
 
+constexpr double kRoughnessUnsaid = 0.9;
+constexpr double kGrainSizeUnsaidM = 0.002;
+constexpr double kHeightAmplitudeUnsaidM = 0.0005;
+constexpr double kDetailCoarseUnsaidM = 2.0;
+constexpr double kDetailFineUnsaidM = 0.3;
+constexpr double kSlopeMaxUnsaidDeg = 90.0;
+constexpr double kAlbedoUnsaid = 0.15;
+
 int GroundMaterials::Find(std::string_view name) const {
   for (size_t i = 0; i < Mats_.size(); i++) {
     if (Mats_[i].Name == name) { return static_cast<int>(i); }
@@ -68,7 +76,7 @@ bool GroundMaterials::Load(const char *path) {
     const Json::Ref c = cls[i];
     Material m{};
     m.Name = c["name"].Str("?");
-    m.Roughness = static_cast<float>(c["roughness"].Num(0.9));
+    m.Roughness = static_cast<float>(c["roughness"].Num(kRoughnessUnsaid));
     const Json::Ref peak = c["peakFriction"];
     if (peak.GetKind() != Json::Kind::Number || !(peak.Num(0.0) > 0.0)) {
       Error_ = "class " + m.Name + ": peakFriction must be a positive number";
@@ -76,17 +84,19 @@ bool GroundMaterials::Load(const char *path) {
     }
     m.PeakFriction = static_cast<float>(peak.Num(0.0));
     m.Moisture = static_cast<float>(c["moisture"].Num(0.0));
-    m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(0.002));
-    m.HeightAmplitudeM = static_cast<float>(c["heightAmplitudeM"].Num(0.0005));
-    m.DetailCoarseM = static_cast<float>(c["detailScaleM"][static_cast<size_t>(0)].Num(2.0));
-    m.DetailFineM = static_cast<float>(c["detailScaleM"][static_cast<size_t>(1)].Num(0.3));
+    m.GrainSizeM = static_cast<float>(c["grainSizeM"].Num(kGrainSizeUnsaidM));
+    m.HeightAmplitudeM = static_cast<float>(c["heightAmplitudeM"].Num(kHeightAmplitudeUnsaidM));
+    m.DetailCoarseM =
+        static_cast<float>(c["detailScaleM"][static_cast<size_t>(0)].Num(kDetailCoarseUnsaidM));
+    m.DetailFineM =
+        static_cast<float>(c["detailScaleM"][static_cast<size_t>(1)].Num(kDetailFineUnsaidM));
     m.LitterCoverage = static_cast<float>(c["litter"]["coverage"].Num(0.0));
     const Json::Ref pd = c["slope"]["plausibleDeg"];
     if (pd.Size() != 2) {
       Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair";
       return false;
     }
-    m.SlopeMaxDeg = static_cast<float>(pd[static_cast<size_t>(1)].Num(90.0));
+    m.SlopeMaxDeg = static_cast<float>(pd[static_cast<size_t>(1)].Num(kSlopeMaxUnsaidDeg));
     litterName[i] = c["litter"]["class"].Str("");
 
     const Json::Ref surf = c["surface"];
@@ -109,8 +119,8 @@ bool GroundMaterials::Load(const char *path) {
 
     m.VisibleRatio = static_cast<float>(c["visibleBroadbandRatio"].Num(1.0));
     for (int k = 0; k < 3; k++) {
-      m.Albedo[k] =
-          static_cast<float>(c["albedo"][static_cast<size_t>(k)].Num(0.15)) * wet * m.VisibleRatio;
+      m.Albedo[k] = static_cast<float>(c["albedo"][static_cast<size_t>(k)].Num(kAlbedoUnsaid)) *
+                    wet * m.VisibleRatio;
     }
 
     m.LitterClass = -1;

@@ -15,6 +15,11 @@
 #include <vector>
 
 namespace outshine::Ui {
+
+constexpr unsigned kFamilyShift = 56u;
+constexpr uint64_t kGoldenWord32 = 0x9E3779B97F4A7C15ull;
+constexpr double kAdvanceShare = 0.5;
+
 namespace {
 
 constexpr int kSheetEdge = 2048;
@@ -67,7 +72,7 @@ static_assert(sizeof(kFiles) / sizeof(kFiles[0]) == static_cast<size_t>(Family::
               "every family the catalogue offers names the file it is set in");
 
 [[nodiscard]] uint64_t Keyed(Family family, int sizePx, char32_t code) {
-  return (static_cast<uint64_t>(family) << 56u) |
+  return (static_cast<uint64_t>(family) << kFamilyShift) |
          (static_cast<uint64_t>(static_cast<uint32_t>(sizePx)) << 32u) |
          static_cast<uint64_t>(code);
 }
@@ -194,7 +199,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   static const Cell kNotdef;
   if (Cells_.empty()) { return kNotdef; }
   const uint64_t key = Keyed(family, sizePx, code);
-  size_t slot = static_cast<size_t>(key * 0x9E3779B97F4A7C15ull >> 50u) & (kCellSlots - 1u);
+  size_t slot = static_cast<size_t>(key * kGoldenWord32 >> 50u) & (kCellSlots - 1u);
   for (size_t step = 0; step < kCellSlots; ++step) {
     const Cell &held = Cells_[slot];
     if (held.Held && held.Key == key) { return held; }
@@ -265,7 +270,7 @@ FontMetrics Typeface::At(double sizePx, Family family) const {
   const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   const TTF_Font *set = Set(family, rounded);
   if (set == nullptr) {
-    return {.Advance = sizePx * 0.5, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
+    return {.Advance = sizePx * kAdvanceShare, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
   }
   const auto ascent = static_cast<double>(TTF_GetFontAscent(set));
   const double descent = -static_cast<double>(TTF_GetFontDescent(set));
