@@ -47,8 +47,7 @@ struct SubjectResidency {
   };
 
   struct Crossing {
-    OwnedBuffer *Into = nullptr;
-    uint32_t *Held = nullptr;
+    Stream Which = Stream::Count;
     SDL_GPUBufferUsageFlags Usage = 0;
     const void *From = nullptr;
     uint32_t Bytes = 0;
@@ -66,14 +65,36 @@ struct SubjectResidency {
 
   enum class Transfer { Srgb, Linear };
 
-  SDL_GPUDevice *Device = nullptr;
-  bool FiltersFloat32 = false;
+  struct Shaping {
+    uint32_t Vertices = 0;
+    uint32_t Indices = 0;
+    bool HasUv = false;
+    bool HasUv1 = false;
+    bool HasNormal = false;
+    bool HasTangent = false;
+    bool HasColour = false;
+  };
 
-  OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
-  OwnedBuffer ClusterSpheres, ClusterJobs, ClusterBatches;
-  OwnedBuffer ClusterKept, ClusterSlot, DrawIdx, DrawArgs;
-  OwnedBuffer Placed;
-  std::array<uint32_t, static_cast<size_t>(Stream::Count)> Held{};
+  static constexpr size_t kStreams = static_cast<size_t>(Stream::Count);
+
+  void StandsOn(SDL_GPUDevice *device, bool filtersFloat32) {
+    Device_ = device;
+    FiltersFloat32_ = filtersFloat32;
+  }
+
+  [[nodiscard]] SDL_GPUDevice *Device() const { return Device_; }
+
+  [[nodiscard]] bool FiltersFloat32() const { return FiltersFloat32_; }
+
+  [[nodiscard]] OwnedBuffer &Buffer(Stream which) { return Buffers_[static_cast<size_t>(which)]; }
+
+  [[nodiscard]] const OwnedBuffer &Buffer(Stream which) const {
+    return Buffers_[static_cast<size_t>(which)];
+  }
+
+  [[nodiscard]] uint32_t *HeldAt(Stream which) { return &Held_[static_cast<size_t>(which)]; }
+
+  [[nodiscard]] uint32_t HeldOf(Stream which) const { return Held_[static_cast<size_t>(which)]; }
 
   [[nodiscard]] uint32_t StagedBytes() const { return StagedThisFrame_; }
 
@@ -81,16 +102,13 @@ struct SubjectResidency {
 
   [[nodiscard]] uint32_t HeldBytes() const {
     uint32_t bytes = 0;
-    for (const uint32_t one : Held) { bytes += one; }
+    for (const uint32_t one : Held_) { bytes += one; }
     return bytes;
   }
 
-  uint32_t NVerts = 0, NIdx = 0;
-  bool HasUv = false;
-  bool HasUv1 = false;
-  bool HasNormal = false;
-  bool HasTangent = false;
-  bool HasColour = false;
+  [[nodiscard]] Shaping &Shape() { return Shape_; }
+
+  [[nodiscard]] const Shaping &Shape() const { return Shape_; }
 
   [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
@@ -111,6 +129,12 @@ private:
     uint32_t Bytes = 0;
     SDL_GPUTransferBuffer *Staging = nullptr;
   };
+
+  SDL_GPUDevice *Device_ = nullptr;
+  bool FiltersFloat32_ = false;
+  std::array<OwnedBuffer, kStreams> Buffers_;
+  std::array<uint32_t, kStreams> Held_{};
+  Shaping Shape_;
 
   OwnedTransfer Staging_;
   std::vector<OwnedTransfer> Retired_;

@@ -217,8 +217,9 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   const SubjectResidency &Resident_ = Subjects_->Resident();
   const Vec3 &Anchor = Subjects_->AnchorM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
-  if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx ||
-      into.Pass == nullptr) {
+  if (!DepthOnly_ || Resident_.Shape().Indices == 0 || Batches.empty() ||
+      !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
+      !Resident_.Buffer(SubjectResidency::Stream::Index) || into.Pass == nullptr) {
     return;
   }
   SDL_GPUViewport square{};
@@ -228,12 +229,15 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
   SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  const SDL_GPUBufferBinding vertices{.buffer = Resident_.Vtx.Get(), .offset = 0};
+  const SDL_GPUBufferBinding vertices{
+      .buffer = Resident_.Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  const SDL_GPUBufferBinding indices{.buffer = Resident_.Idx.Get(), .offset = 0};
+  const SDL_GPUBufferBinding indices{
+      .buffer = Resident_.Buffer(SubjectResidency::Stream::Index).Get(), .offset = 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-  std::array<SDL_GPUBuffer *const, 1> rows = {Resident_.Placed.Get()};
+  std::array<SDL_GPUBuffer *const, 1> rows = {
+      Resident_.Buffer(SubjectResidency::Stream::Placements).Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   std::array<float, kUniformFloats> uniform = {{}};

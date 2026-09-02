@@ -177,8 +177,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Device = gpu.Device;
-  Bound().Device = gpu.Device;
-  Bound().FiltersFloat32 = gpu.FiltersFloat32;
+  Bound().StandsOn(gpu.Device, gpu.FiltersFloat32);
 
   Colours.clear();
   for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
@@ -419,12 +418,12 @@ bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::
   Slots.clear();
   Batches.clear();
   BatchLayout.clear();
-  Bound().NIdx = 0;
+  Bound().Shape().Indices = 0;
   if (Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
   }
-  if (!Bound().FiltersFloat32) {
+  if (!Bound().FiltersFloat32()) {
     error = "the device did not grant float32-filterable, and this unit's colour image is linear "
             "f32 so that the filter runs on exact linear values";
     return false;
@@ -450,13 +449,13 @@ bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   ++Reshaped_;
   Bound().DropStaged();
-  Bound().NVerts = mesh.VertexCount;
-  Bound().NIdx = mesh.IndexCount;
-  Bound().HasUv = mesh.Uv.Stands();
-  Bound().HasUv1 = mesh.Uv1.Stands();
-  Bound().HasNormal = mesh.Normals.Stands();
-  Bound().HasTangent = mesh.Tangents.Stands();
-  Bound().HasColour = mesh.Colours.Stands();
+  Bound().Shape().Vertices = mesh.VertexCount;
+  Bound().Shape().Indices = mesh.IndexCount;
+  Bound().Shape().HasUv = mesh.Uv.Stands();
+  Bound().Shape().HasUv1 = mesh.Uv1.Stands();
+  Bound().Shape().HasNormal = mesh.Normals.Stands();
+  Bound().Shape().HasTangent = mesh.Tangents.Stands();
+  Bound().Shape().HasColour = mesh.Colours.Stands();
   Batches.clear();
   BatchLayout.clear();
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = mesh.Anchor[axis]; }
@@ -466,14 +465,14 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
   RowsStale_ = true;
-  if (Bound().NVerts == 0 || Bound().NIdx == 0) {
-    Bound().NIdx = 0;
+  if (Bound().Shape().Vertices == 0 || Bound().Shape().Indices == 0) {
+    Bound().Shape().Indices = 0;
     return true;
   }
   if (Device == nullptr) {
-    Bound().NIdx = 0;
-    error = "the subject stage carries no device, so a mesh of " + std::to_string(Bound().NVerts) +
-            " vertices has nowhere to become resident";
+    Bound().Shape().Indices = 0;
+    error = "the subject stage carries no device, so a mesh of " +
+            std::to_string(Bound().Shape().Vertices) + " vertices has nowhere to become resident";
     return false;
   }
   {
@@ -493,36 +492,36 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
               missing +
               " -- a declaration that names geometry it does not hand over draws "
               "nothing, and drawing nothing is not what it asked for";
-      Bound().NIdx = 0;
+      Bound().Shape().Indices = 0;
       return false;
     }
   }
 
   if (mesh.PrevVerts.Stands() && !WritesVelocity) {
-    Bound().NIdx = 0;
+    Bound().Shape().Indices = 0;
     error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
             "would reach no shader";
     return false;
   }
   for (const DrawBatch &batch : mesh.Draws->Batches()) {
     if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
-        !(CarriesUv1(batch.Layout) && Bound().HasUv1)) {
-      Bound().NIdx = 0;
+        !(CarriesUv1(batch.Layout) && Bound().Shape().HasUv1)) {
+      Bound().Shape().Indices = 0;
       error = "surface slot " + std::to_string(batch.MaterialSlot) +
               " reads an image from the second uv set and the draw wearing it " +
-              (Bound().HasUv1 ? "takes a vertex layout that binds no second run"
-                              : "has no second uv run at all") +
+              (Bound().Shape().HasUv1 ? "takes a vertex layout that binds no second run"
+                                      : "has no second uv run at all") +
               ", and the first set is not a substitute for it";
       return false;
     }
     if (batch.MaterialSlot >= Slots.size()) {
-      Bound().NIdx = 0;
+      Bound().Shape().Indices = 0;
       error = "a draw names surface slot " + std::to_string(batch.MaterialSlot) +
               " over a table of " + std::to_string(Slots.size()) + " surfaces";
       return false;
     }
-    if (batch.FirstIndex + batch.IndexCount > Bound().NIdx) {
-      Bound().NIdx = 0;
+    if (batch.FirstIndex + batch.IndexCount > Bound().Shape().Indices) {
+      Bound().Shape().Indices = 0;
       error = "a draw covers indices " + std::to_string(batch.FirstIndex) + " to " +
               std::to_string(batch.FirstIndex + batch.IndexCount) + " over a run of " +
               std::to_string(mesh.IndexCount);
@@ -534,15 +533,15 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   BatchLayout.reserve(Batches.size());
   for (const DrawBatch &batch : Batches) {
     VertexRunsCarried carried;
-    carried.Uv = CarriesUv(batch.Layout) && Bound().HasUv;
-    carried.Normal = CarriesNormal(batch.Layout) && Bound().HasNormal;
+    carried.Uv = CarriesUv(batch.Layout) && Bound().Shape().HasUv;
+    carried.Normal = CarriesNormal(batch.Layout) && Bound().Shape().HasNormal;
     carried.Tangent =
-        CarriesTangent(batch.Layout) && carried.Normal && carried.Uv && Bound().HasTangent;
-    carried.Uv1 = CarriesUv1(batch.Layout) && carried.Uv && Bound().HasUv1;
-    carried.Colour = CarriesColour(batch.Layout) && Bound().HasColour;
+        CarriesTangent(batch.Layout) && carried.Normal && carried.Uv && Bound().Shape().HasTangent;
+    carried.Uv1 = CarriesUv1(batch.Layout) && carried.Uv && Bound().Shape().HasUv1;
+    carried.Colour = CarriesColour(batch.Layout) && Bound().Shape().HasColour;
     VertexLayout drawn = VertexLayout::Position;
     if (!LayoutOf(carried, drawn)) {
-      Bound().NIdx = 0;
+      Bound().Shape().Indices = 0;
       Batches.clear();
       BatchLayout.clear();
       error = "a draw's runs name no vertex layout this engine builds, and the nearest one is not "
@@ -559,18 +558,17 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   {
     const Heap::Tagged uploading("mesh-upload");
     std::array run = {SubjectResidency::Crossing{
-        .Into = &Bound().Idx,
-        .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Index)],
+        .Which = SubjectResidency::Stream::Index,
         .Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
         .From = mesh.Indices,
-        .Bytes = Bound().NIdx * static_cast<uint32_t>(sizeof(uint32_t))}};
+        .Bytes = Bound().Shape().Indices * static_cast<uint32_t>(sizeof(uint32_t))}};
     if (!Bound().Cross(run, false, error)) {
-      Bound().NIdx = 0;
+      Bound().Shape().Indices = 0;
       return false;
     }
   }
-  if (!Bound().Idx) {
-    Bound().NIdx = 0;
+  if (!Bound().Buffer(SubjectResidency::Stream::Index)) {
+    Bound().Shape().Indices = 0;
     error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
     return false;
   }
@@ -581,18 +579,17 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
-  const uint32_t positionBytes = Bound().NVerts * 3u * static_cast<uint32_t>(sizeof(float));
-  const uint32_t pairBytes = Bound().NVerts * 2u * static_cast<uint32_t>(sizeof(float));
-  const uint32_t quadBytes = Bound().NVerts * 4u * static_cast<uint32_t>(sizeof(float));
+  const uint32_t positionBytes =
+      Bound().Shape().Vertices * 3u * static_cast<uint32_t>(sizeof(float));
+  const uint32_t pairBytes = Bound().Shape().Vertices * 2u * static_cast<uint32_t>(sizeof(float));
+  const uint32_t quadBytes = Bound().Shape().Vertices * 4u * static_cast<uint32_t>(sizeof(float));
   const SubjectStream &previousPose = pose.PrevVerts.Stands() ? pose.PrevVerts : pose.Verts;
-  const auto crossing = [](OwnedBuffer *into,
-                           uint32_t *held,
+  const auto crossing = [](SubjectResidency::Stream which,
                            const SubjectStream &stream,
                            bool carried,
                            uint32_t bytes) {
     SubjectResidency::Crossing made;
-    made.Into = into;
-    made.Held = held;
+    made.Which = which;
     made.Usage = SDL_GPU_BUFFERUSAGE_VERTEX;
     made.Bytes = carried ? bytes : 0u;
     if (carried) {
@@ -604,55 +601,28 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   };
 
   std::array streams = {
-      crossing(&Bound().Vtx,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Vertex)],
-               pose.Verts,
-               true,
-               positionBytes),
-      crossing(&Bound().Emit,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Emitted)],
-               pose.Emitted,
-               true,
-               positionBytes),
-      crossing(&Bound().Nrm,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Normal)],
-               pose.Normals,
-               Bound().HasNormal,
-               positionBytes),
-      crossing(&Bound().Tan,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Tangent)],
-               pose.Tangents,
-               Bound().HasTangent,
-               quadBytes),
-      crossing(&Bound().Uv,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Uv)],
-               pose.Uv,
-               Bound().HasUv,
-               pairBytes),
-      crossing(&Bound().Uv1,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Uv1)],
-               pose.Uv1,
-               Bound().HasUv1,
-               pairBytes),
-      crossing(&Bound().Col,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Colour)],
-               pose.Colours,
-               Bound().HasColour,
-               quadBytes),
-      crossing(&Bound().Prev,
-               &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Previous)],
-               previousPose,
-               WritesVelocity,
-               positionBytes),
+      crossing(SubjectResidency::Stream::Vertex, pose.Verts, true, positionBytes),
+      crossing(SubjectResidency::Stream::Emitted, pose.Emitted, true, positionBytes),
+      crossing(
+          SubjectResidency::Stream::Normal, pose.Normals, Bound().Shape().HasNormal, positionBytes),
+      crossing(
+          SubjectResidency::Stream::Tangent, pose.Tangents, Bound().Shape().HasTangent, quadBytes),
+      crossing(SubjectResidency::Stream::Uv, pose.Uv, Bound().Shape().HasUv, pairBytes),
+      crossing(SubjectResidency::Stream::Uv1, pose.Uv1, Bound().Shape().HasUv1, pairBytes),
+      crossing(
+          SubjectResidency::Stream::Colour, pose.Colours, Bound().Shape().HasColour, quadBytes),
+      crossing(SubjectResidency::Stream::Previous, previousPose, WritesVelocity, positionBytes),
   };
   if (!HandPlacements(deferred, error)) { return false; }
   if (!Bound().Cross(streams, deferred, error)) {
-    Bound().NIdx = 0;
+    Bound().Shape().Indices = 0;
     return false;
   }
-  if (!Bound().Vtx || !Bound().Emit || (WritesVelocity && !Bound().Prev) ||
-      (Bound().HasColour && !Bound().Col)) {
-    Bound().NIdx = 0;
+  if (!Bound().Buffer(SubjectResidency::Stream::Vertex) ||
+      !Bound().Buffer(SubjectResidency::Stream::Emitted) ||
+      (WritesVelocity && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
+      (Bound().Shape().HasColour && !Bound().Buffer(SubjectResidency::Stream::Colour))) {
+    Bound().Shape().Indices = 0;
     error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
     return false;
   }
@@ -691,23 +661,18 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
   const auto read = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
   std::array cut = {
       SubjectResidency::Crossing{
-          .Into = &Bound().ClusterSpheres,
-          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterSpheres)],
+          .Which = SubjectResidency::Stream::ClusterSpheres,
           .Usage = read,
           .From = mesh.ClusterSpheres.data(),
           .Bytes = static_cast<uint32_t>(mesh.ClusterSpheres.size() * sizeof(float))},
-      SubjectResidency::Crossing{
-          .Into = &Bound().ClusterJobs,
-          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterJobs)],
-          .Usage = read,
-          .From = jobs.data(),
-          .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
-      SubjectResidency::Crossing{
-          .Into = &Bound().ClusterBatches,
-          .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::ClusterBatches)],
-          .Usage = read,
-          .From = rows.data(),
-          .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
+      SubjectResidency::Crossing{.Which = SubjectResidency::Stream::ClusterJobs,
+                                 .Usage = read,
+                                 .From = jobs.data(),
+                                 .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
+      SubjectResidency::Crossing{.Which = SubjectResidency::Stream::ClusterBatches,
+                                 .Usage = read,
+                                 .From = rows.data(),
+                                 .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
   };
   if (!Bound().Cross(cut, false, error)) {
     Args_.clear();
@@ -715,20 +680,16 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
     return false;
   }
 
-  if (!Room(Bound().ClusterKept,
-            SubjectResidency::Stream::ClusterKept,
+  if (!Room(SubjectResidency::Stream::ClusterKept,
             SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
             Jobs_ * static_cast<uint32_t>(sizeof(uint32_t))) ||
-      !Room(Bound().ClusterSlot,
-            SubjectResidency::Stream::ClusterSlot,
+      !Room(SubjectResidency::Stream::ClusterSlot,
             SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
             Jobs_ * static_cast<uint32_t>(sizeof(uint32_t))) ||
-      !Room(Bound().DrawIdx,
-            SubjectResidency::Stream::DrawIndex,
+      !Room(SubjectResidency::Stream::DrawIndex,
             SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
             base * static_cast<uint32_t>(sizeof(uint32_t))) ||
-      !Room(Bound().DrawArgs,
-            SubjectResidency::Stream::DrawArguments,
+      !Room(SubjectResidency::Stream::DrawArguments,
             SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
             static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)))) {
     Args_.clear();
@@ -740,15 +701,13 @@ bool SubjectDraw::HandClusters(const SubjectMesh &mesh, std::string &error) {
 }
 
 bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
-  if (Args_.empty() || !Bound().DrawArgs) { return true; }
+  if (Args_.empty() || !Bound().Buffer(SubjectResidency::Stream::DrawArguments)) { return true; }
   for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
   const auto bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
-  std::array table = {SubjectResidency::Crossing{
-      .Into = &Bound().DrawArgs,
-      .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::DrawArguments)],
-      .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
-      .From = Args_.data(),
-      .Bytes = bytes}};
+  std::array table = {SubjectResidency::Crossing{.Which = SubjectResidency::Stream::DrawArguments,
+                                                 .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
+                                                 .From = Args_.data(),
+                                                 .Bytes = bytes}};
   return Bound().Cross(table, deferred, error);
 }
 
@@ -774,8 +733,7 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     }
   }
   std::array rows = {SubjectResidency::Crossing{
-      .Into = &Bound().Placed,
-      .Held = &Bound().Held[static_cast<size_t>(SubjectResidency::Stream::Placements)],
+      .Which = SubjectResidency::Stream::Placements,
       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
       .From = Rows_.data(),
       .Bytes = static_cast<uint32_t>(Rows_.size() * sizeof(float))}};
@@ -785,13 +743,13 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   ++Reshaped_;
   if (Borrows()) { return true; }
-  if (Bound().NIdx == 0) {
+  if (Bound().Shape().Indices == 0) {
     error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
     return false;
   }
-  if (pose.VertexCount != Bound().NVerts) {
+  if (pose.VertexCount != Bound().Shape().Vertices) {
     error = "the pose carries " + std::to_string(pose.VertexCount) +
-            " vertices and the subject has " + std::to_string(Bound().NVerts) +
+            " vertices and the subject has " + std::to_string(Bound().Shape().Vertices) +
             ", so it is a different body rather than the same one moved";
     return false;
   }
@@ -878,7 +836,10 @@ static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t)
 inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
 
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (Bound().NIdx == 0 || Batches.empty() || !Bound().Vtx || !Bound().Idx || !Bound().Emit) {
+  if (Bound().Shape().Indices == 0 || Batches.empty() ||
+      !Bound().Buffer(SubjectResidency::Stream::Vertex) ||
+      !Bound().Buffer(SubjectResidency::Stream::Index) ||
+      !Bound().Buffer(SubjectResidency::Stream::Emitted)) {
     return;
   }
   std::array<float, kUniFloats> uniform = {{}};
@@ -906,13 +867,15 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   bool boundCut = false;
   bool anyIndex = false;
 
-  std::array<SDL_GPUBuffer *const, 1> rows = {Bound().Placed.Get()};
+  std::array<SDL_GPUBuffer *const, 1> rows = {
+      Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   size_t bound = kPipelines;
   size_t boundSlot = 0;
   bool slotBound = false;
-  const bool cut = Bound().DrawIdx && Bound().DrawArgs && !Args_.empty();
+  const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
+                   Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
   for (size_t at = 0; at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
     const bool culled = cut && batch.JobCount > 0;
@@ -936,24 +899,32 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
       std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
       uint32_t count = 0;
-      runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Vtx.Get(), .offset = 0};
+      runs[count++] = SDL_GPUBufferBinding{
+          .buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
       if (textured) {
-        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Uv.Get(), .offset = 0};
+        runs[count++] = SDL_GPUBufferBinding{
+            .buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
       }
       if (secondUv) {
-        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Uv1.Get(), .offset = 0};
+        runs[count++] = SDL_GPUBufferBinding{
+            .buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
       }
-      runs[count++] =
-          SDL_GPUBufferBinding{.buffer = lit ? Bound().Nrm.Get() : Bound().Emit.Get(), .offset = 0};
+      runs[count++] = SDL_GPUBufferBinding{
+          .buffer = lit ? Bound().Buffer(SubjectResidency::Stream::Normal).Get()
+                        : Bound().Buffer(SubjectResidency::Stream::Emitted).Get(),
+          .offset = 0};
       if (mapped) {
-        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Tan.Get(), .offset = 0};
+        runs[count++] = SDL_GPUBufferBinding{
+            .buffer = Bound().Buffer(SubjectResidency::Stream::Tangent).Get(), .offset = 0};
       }
       if (tinted) {
-        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Col.Get(), .offset = 0};
+        runs[count++] = SDL_GPUBufferBinding{
+            .buffer = Bound().Buffer(SubjectResidency::Stream::Colour).Get(), .offset = 0};
       }
 
       if (WritesVelocity) {
-        runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Prev.Get(), .offset = 0};
+        runs[count++] = SDL_GPUBufferBinding{
+            .buffer = Bound().Buffer(SubjectResidency::Stream::Previous).Get(), .offset = 0};
       }
       SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
       bound = wantedPipeline;
@@ -989,14 +960,19 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     }
     if (!anyIndex || boundCut != culled) {
       const SDL_GPUBufferBinding indices{
-          .buffer = culled ? Bound().DrawIdx.Get() : Bound().Idx.Get(), .offset = 0};
+          .buffer = culled ? Bound().Buffer(SubjectResidency::Stream::DrawIndex).Get()
+                           : Bound().Buffer(SubjectResidency::Stream::Index).Get(),
+          .offset = 0};
       SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
       boundCut = culled;
       anyIndex = true;
     }
     if (culled) {
       SDL_DrawGPUIndexedPrimitivesIndirect(
-          into.Pass, Bound().DrawArgs.Get(), static_cast<Uint32>(at * kIndirectStride), 1u);
+          into.Pass,
+          Bound().Buffer(SubjectResidency::Stream::DrawArguments).Get(),
+          static_cast<Uint32>(at * kIndirectStride),
+          1u);
       continue;
     }
     SDL_DrawGPUIndexedPrimitives(

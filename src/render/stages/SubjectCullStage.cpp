@@ -152,11 +152,12 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
   std::array<SDL_GPUBuffer *const, 5> read = {
-      resident.ClusterSpheres.Get(),
-      resident.ClusterJobs.Get(),
-      resident.Placed.Get(),
-      resident.DrawArgs.Get(),
-      PyramidBuffer_ != nullptr ? PyramidBuffer_ : resident.ClusterSpheres.Get()};
+      resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get(),
+      resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
+      resident.Buffer(SubjectResidency::Stream::Placements).Get(),
+      resident.Buffer(SubjectResidency::Stream::DrawArguments).Get(),
+      PyramidBuffer_ != nullptr ? PyramidBuffer_
+                                : resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
@@ -175,8 +176,9 @@ void SubjectCullStage::EncodeScan(const FrameContext &ctx, const PassRecording &
   const uint32_t batches = Subjects_ != nullptr ? Subjects_->ClusterBatchRows() : 0u;
   if (jobs == 0 || batches == 0 || !Scan_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  std::array<SDL_GPUBuffer *const, 2> read = {resident.ClusterKept.Get(),
-                                              resident.ClusterBatches.Get()};
+  std::array<SDL_GPUBuffer *const, 2> read = {
+      resident.Buffer(SubjectResidency::Stream::ClusterKept).Get(),
+      resident.Buffer(SubjectResidency::Stream::ClusterBatches).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }
@@ -191,10 +193,11 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Compact_ || into.Dispatch == nullptr) { return; }
   const SubjectResidency &resident = Subjects_->Resident();
-  std::array<SDL_GPUBuffer *const, 4> read = {resident.ClusterJobs.Get(),
-                                              resident.Idx.Get(),
-                                              resident.ClusterSlot.Get(),
-                                              resident.DrawArgs.Get()};
+  std::array<SDL_GPUBuffer *const, 4> read = {
+      resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get(),
+      resident.Buffer(SubjectResidency::Stream::Index).Get(),
+      resident.Buffer(SubjectResidency::Stream::ClusterSlot).Get(),
+      resident.Buffer(SubjectResidency::Stream::DrawArguments).Get()};
   for (const SDL_GPUBuffer *const one : read) {
     if (one == nullptr) { return; }
   }

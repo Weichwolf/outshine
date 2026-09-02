@@ -158,19 +158,17 @@ private:
   [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
   [[nodiscard]] bool HandClusters(const SubjectMesh &mesh, std::string &error);
 
-  [[nodiscard]] bool Room(OwnedBuffer &into,
-                          SubjectResidency::Stream held,
-                          SDL_GPUBufferUsageFlags usage,
-                          uint32_t bytes) {
-    if (into && Bound().Held[static_cast<size_t>(held)] >= bytes) { return true; }
+  [[nodiscard]] bool
+  Room(SubjectResidency::Stream held, SDL_GPUBufferUsageFlags usage, uint32_t bytes) {
+    OwnedBuffer &into = Bound().Buffer(held);
+    uint32_t *const stood = Bound().HeldAt(held);
+    if (into && *stood >= bytes) { return true; }
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = usage;
-    wanted.size = Bound().Held[static_cast<size_t>(held)] > 0
-                      ? Bound().Held[static_cast<size_t>(held)]
-                      : bytes;
+    wanted.size = *stood > 0 ? *stood : bytes;
     while (wanted.size < bytes) { wanted.size *= 2u; }
     into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
-    Bound().Held[static_cast<size_t>(held)] = into ? wanted.size : 0u;
+    *stood = into ? wanted.size : 0u;
     return static_cast<bool>(into);
   }
 
@@ -220,9 +218,11 @@ public:
 
   void ForgetStagedCount() { Bound().ForgetStagedCount(); }
 
-  [[nodiscard]] uint32_t VertexCount() const { return Bound().NVerts; }
+  [[nodiscard]] uint32_t VertexCount() const { return Bound().Shape().Vertices; }
 
-  [[nodiscard]] long TriangleCount() const { return static_cast<long>(Bound().NIdx) / 3; }
+  [[nodiscard]] long TriangleCount() const {
+    return static_cast<long>(Bound().Shape().Indices) / 3;
+  }
 
   [[nodiscard]] uint32_t BatchCount() const { return static_cast<uint32_t>(Batches.size()); }
 

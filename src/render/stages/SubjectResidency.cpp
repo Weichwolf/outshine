@@ -98,23 +98,25 @@ size_t SubjectResidency::StagingMadeTaken() {
 bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
   uint32_t total = 0;
   for (const auto &one : what) {
+    OwnedBuffer &into = Buffer(one.Which);
+    uint32_t *const stood = HeldAt(one.Which);
     if (one.Bytes == 0 || !one.Stands()) {
-      one.Into->Reset();
-      *one.Held = 0;
+      into.Reset();
+      *stood = 0;
       continue;
     }
-    if (*one.Held < one.Bytes || !*one.Into) {
+    if (*stood < one.Bytes || !into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
       wanted.size = one.Bytes;
-      *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
+      into = OwnedBuffer(Device_, SDL_CreateGPUBuffer(Device_, &wanted));
       gBuffersMade.fetch_add(1u, std::memory_order_relaxed);
-      if (!*one.Into) {
-        *one.Held = 0;
+      if (!into) {
+        *stood = 0;
         error = std::format(Says::kStreamFoundNoRoom, SDL_GetError());
         return false;
       }
-      *one.Held = one.Bytes;
+      *stood = one.Bytes;
     }
 
     total = (total + one.Bytes + 15u) & ~15u;
@@ -127,7 +129,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     SDL_GPUTransferBufferCreateInfo room{};
     room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     room.size = widened;
-    OwnedTransfer fresh(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+    OwnedTransfer fresh(Device_, SDL_CreateGPUTransferBuffer(Device_, &room));
     if (!fresh) {
       error = std::format(Says::kPoseStagingFoundNoRoom, SDL_GetError());
       return false;
@@ -139,7 +141,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
   }
 
   auto *const mapped =
-      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), StagingUsed_ == 0));
+      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device_, Staging_.Get(), StagingUsed_ == 0));
   if (mapped == nullptr) {
     error = std::format(Says::kPoseStagingDidNotMap, SDL_GetError());
     return false;
@@ -156,14 +158,14 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     }
     at = (at + one.Bytes + 15u) & ~15u;
   }
-  SDL_UnmapGPUTransferBuffer(Device, Staging_.Get());
+  SDL_UnmapGPUTransferBuffer(Device_, Staging_.Get());
 
   at = StagingUsed_;
   for (auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
-    Staged_[StagedCount_++] =
-        Staged{.Into = one.Into->Get(), .From = at, .Bytes = one.Bytes, .Staging = Staging_.Get()};
+    Staged_[StagedCount_++] = Staged{
+        .Into = Buffer(one.Which).Get(), .From = at, .Bytes = one.Bytes, .Staging = Staging_.Get()};
     at = (at + one.Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
@@ -176,7 +178,7 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   room.size = total;
   if (BulkBytes_ < total || !Bulk_) {
-    Bulk_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+    Bulk_ = OwnedTransfer(Device_, SDL_CreateGPUTransferBuffer(Device_, &room));
     BulkBytes_ = Bulk_ ? total : 0u;
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
   }
@@ -187,7 +189,7 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
     error = std::format(Says::kTopologyStagingFoundNoRoom, SDL_GetError());
     return false;
   }
-  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Bulk_.Get(), true));
+  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device_, Bulk_.Get(), true));
   if (mapped == nullptr) {
     error = std::format(Says::kTopologyStagingDidNotMap, SDL_GetError());
     return false;
@@ -204,15 +206,16 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
     }
     at = (at + one.Bytes + 15u) & ~15u;
   }
-  SDL_UnmapGPUTransferBuffer(Device, Bulk_.Get());
+  SDL_UnmapGPUTransferBuffer(Device_, Bulk_.Get());
 
-  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
+  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
   for (auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
-    const SDL_GPUBufferRegion into{.buffer = one.Into->Get(), .offset = 0, .size = one.Bytes};
+    const SDL_GPUBufferRegion into{
+        .buffer = Buffer(one.Which).Get(), .offset = 0, .size = one.Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
     at = (at + one.Bytes + 15u) & ~15u;
   }
@@ -276,7 +279,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   if (texture.Mip == SubjectMip::None || !kChainIsReadable) { levels = 1; }
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
-  bound.Image = OwnedTexture(Device, SDL_CreateGPUTexture(Device, &wantedTexture));
+  bound.Image = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
 
   const uint32_t indexChannels = kind == TexelKind::Direction ? 0u : IndexChannelsOf(linear);
   std::vector<float> level = linear;
@@ -295,20 +298,20 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     SDL_GPUTransferBufferCreateInfo wantedTransfer{};
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;
-    SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+    SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer);
     gStagingMade.fetch_add(1u, std::memory_order_relaxed);
     gUploads.fetch_add(1u, std::memory_order_relaxed);
     gUploadsEver.fetch_add(1u, std::memory_order_relaxed);
     gUploadBytes.fetch_add(bytes, std::memory_order_relaxed);
-    void *const mappedLevel = SDL_MapGPUTransferBuffer(Device, staging, false);
+    void *const mappedLevel = SDL_MapGPUTransferBuffer(Device_, staging, false);
     if (mappedLevel == nullptr) {
-      SDL_ReleaseGPUTransferBuffer(Device, staging);
+      SDL_ReleaseGPUTransferBuffer(Device_, staging);
       bound.Image.Reset();
       return bound;
     }
     std::memcpy(mappedLevel, level.data(), bytes);
-    SDL_UnmapGPUTransferBuffer(Device, staging);
-    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
+    SDL_UnmapGPUTransferBuffer(Device_, staging);
+    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_);
     SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
     SDL_GPUTextureTransferInfo source{};
     source.transfer_buffer = staging;
@@ -323,7 +326,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     SDL_UploadToGPUTexture(copy, &source, &into, false);
     SDL_EndGPUCopyPass(copy);
     SDL_SubmitGPUCommandBuffer(commands);
-    SDL_ReleaseGPUTransferBuffer(Device, staging);
+    SDL_ReleaseGPUTransferBuffer(Device_, staging);
   }
 
   SDL_GPUSamplerCreateInfo wantedSampler{};
@@ -338,7 +341,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
                                                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
 
   wantedSampler.max_lod = kEveryMip;
-  bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
+  bound.Sample = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &wantedSampler));
   return bound;
 }
 

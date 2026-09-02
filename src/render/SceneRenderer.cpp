@@ -549,14 +549,17 @@ SDL_GPUTexture *SceneRenderer::Target(Resource resource) const {
 SDL_GPUBuffer *SceneRenderer::BufferFor(Resource resource) const {
   const SubjectResidency &resident = Subjects_.Resident();
   switch (resource) {
-    case Resource::ClusterSphere: return resident.ClusterSpheres.Get();
-    case Resource::ClusterIndex: return resident.Idx.Get();
-    case Resource::ClusterJobs: return resident.ClusterJobs.Get();
-    case Resource::ClusterBatches: return resident.ClusterBatches.Get();
-    case Resource::ClusterKept: return resident.ClusterKept.Get();
-    case Resource::ClusterSlot: return resident.ClusterSlot.Get();
-    case Resource::DrawIndex: return resident.DrawIdx.Get();
-    case Resource::DrawArguments: return resident.DrawArgs.Get();
+    case Resource::ClusterSphere:
+      return resident.Buffer(SubjectResidency::Stream::ClusterSpheres).Get();
+    case Resource::ClusterIndex: return resident.Buffer(SubjectResidency::Stream::Index).Get();
+    case Resource::ClusterJobs: return resident.Buffer(SubjectResidency::Stream::ClusterJobs).Get();
+    case Resource::ClusterBatches:
+      return resident.Buffer(SubjectResidency::Stream::ClusterBatches).Get();
+    case Resource::ClusterKept: return resident.Buffer(SubjectResidency::Stream::ClusterKept).Get();
+    case Resource::ClusterSlot: return resident.Buffer(SubjectResidency::Stream::ClusterSlot).Get();
+    case Resource::DrawIndex: return resident.Buffer(SubjectResidency::Stream::DrawIndex).Get();
+    case Resource::DrawArguments:
+      return resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
     case Resource::IrradianceBuffer: return IrradianceBuffer_.Get();
     case Resource::DepthPyramid: return Pyramid_.Get();
     default: return nullptr;
@@ -1307,7 +1310,7 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
   const SubjectResidency &resident = Subjects_.Resident();
-  SDL_GPUBuffer *const args = resident.DrawArgs.Get();
+  SDL_GPUBuffer *const args = resident.Buffer(SubjectResidency::Stream::DrawArguments).Get();
   const uint32_t rows = Subjects_.ClusterBatchRows();
   if (!Ready_ || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
