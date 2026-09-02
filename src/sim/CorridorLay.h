@@ -89,15 +89,18 @@ AsideRatePerM(double budgetM, double heldMs) noexcept {
   return budgetM / (kLagMargin * Pilot::kSettleS * heldMs);
 }
 
+constexpr double kProvedRatePerS = 0.7195;
+constexpr double kProvedSpeedMs = 30.0;
+
 static_assert(!AsideRatePerM(1.0, 0.0).has_value(),
               "a rate scaled to no speed at all is refused, and the compiler says so");
 static_assert(!AsideRatePerM(1.0, -3.0).has_value(),
               "a rate scaled to a speed running backwards is refused");
 static_assert(!AsideRatePerM(1.0, std::numeric_limits<double>::infinity()).has_value(),
               "a rate scaled to an unbounded speed -- a declared vacuum -- is refused");
-static_assert(AsideRatePerM(0.7195, 30.0).has_value(),
+static_assert(AsideRatePerM(kProvedRatePerS, kProvedSpeedMs).has_value(),
               "and a finite positive speed carries a rate");
-static_assert(AsideRatePerM(0.7195, 30.0).value() > 0.0, "which is positive");
+static_assert(AsideRatePerM(kProvedRatePerS, kProvedSpeedMs).value() > 0.0, "which is positive");
 
 [[nodiscard]] bool LayCorridor(const Path::Route &route,
                                const GroundQuery &ground,

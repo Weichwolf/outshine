@@ -14,6 +14,16 @@
 
 namespace outshine::Render {
 
+constexpr float kSrgbKnee = 0.04045f;
+constexpr float kSrgbLinearSlope = 12.92f;
+constexpr float kSrgbOffset = 0.055f;
+constexpr float kSrgbScale = 1.055f;
+constexpr float kSrgbGamma = 2.4f;
+constexpr uint64_t kBytesPerMegabyte = 1000000u;
+constexpr float kEveryMip = 1000.0f;
+constexpr size_t kRgbaChannels = 4u;
+constexpr size_t kAlphaChannel = 3u;
+
 namespace Says {
 inline constexpr std::string_view kStreamFoundNoRoom =
     "a vertex stream found no room on the device: {}";
@@ -31,8 +41,8 @@ namespace {
 
 float LinearFromSrgb8(uint8_t code) {
   const float encoded = static_cast<float>(code) * (1.0f / 255.0f);
-  if (encoded < 0.04045f) { return encoded * (1.0f / 12.92f); }
-  return std::pow((encoded + 0.055f) * (1.0f / 1.055f), 2.4f);
+  if (encoded < kSrgbKnee) { return encoded * (1.0f / kSrgbLinearSlope); }
+  return std::pow((encoded + kSrgbOffset) * (1.0f / kSrgbScale), kSrgbGamma);
 }
 
 SDL_GPUSamplerAddressMode AddressOf(SubjectWrap wrap) {
@@ -72,7 +82,7 @@ size_t SubjectResidency::CrossingsFlushed() {
 }
 
 size_t SubjectResidency::UploadMBTaken() {
-  return gUploadBytes.exchange(0u) / 1000000u;
+  return gUploadBytes.exchange(0u) / kBytesPerMegabyte;
 }
 
 size_t SubjectResidency::BuffersMadeTaken() {
@@ -243,11 +253,14 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
       linear[texel * 4u + channel] =
           decode == Transfer::Srgb ? LinearFromSrgb8(code) : static_cast<float>(code) / 255.0f;
     }
-    linear[texel * 4u + 3u] = static_cast<float>(texels[texel * 4u + 3u]) / 255.0f;
+    linear[texel * kRgbaChannels + kAlphaChannel] =
+        static_cast<float>(texels[texel * kRgbaChannels + kAlphaChannel]) / 255.0f;
   }
 
   if (kind == TexelKind::Direction) {
-    for (size_t texel = 0; texel < linear.size() / 4u; ++texel) { linear[texel * 4u + 3u] = 1.0f; }
+    for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
+      linear[texel * kRgbaChannels + kAlphaChannel] = 1.0f;
+    }
   }
 
   BoundImage bound;
@@ -334,7 +347,7 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
                                                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
 
-  wantedSampler.max_lod = 1000.0f;
+  wantedSampler.max_lod = kEveryMip;
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }

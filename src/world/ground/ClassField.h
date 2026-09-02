@@ -18,6 +18,18 @@
 
 namespace outshine::Ground {
 
+constexpr int kFineZoom = 14;
+constexpr int kFineRings = 1;
+constexpr double kFineCellM = 16.0;
+constexpr int kFineSide = 64;
+constexpr double kFineReachM = 448.0;
+
+constexpr int kCoarseZoom = 11;
+constexpr int kCoarseRings = 1;
+constexpr double kCoarseCellM = 64.0;
+constexpr int kCoarseSide = 128;
+constexpr double kCoarseReachM = 3800.0;
+
 class VegetationTemplates;
 
 class ClassField {
@@ -137,8 +149,8 @@ private:
 
   const VegetationTemplates *Veg_ = nullptr;
 
-  Tier Fine_{14, 1, 16.0, 64, 448.0};
-  Tier Coarse_{11, 1, 64.0, 128, 3800.0};
+  Tier Fine_{kFineZoom, kFineRings, kFineCellM, kFineSide, kFineReachM};
+  Tier Coarse_{kCoarseZoom, kCoarseRings, kCoarseCellM, kCoarseSide, kCoarseReachM};
 
   ClassBuilder Builder_;
   std::optional<ClassGrain> Submitted_;

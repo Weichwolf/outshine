@@ -11,14 +11,26 @@
 #include <unordered_map>
 
 namespace outshine {
+
+constexpr uint32_t kMortonBits = 0x3ffu;
+constexpr uint32_t kMortonSpread16 = 0x030000ffu;
+constexpr uint32_t kMortonSpread8 = 0x0300f00fu;
+constexpr uint32_t kMortonSpread4 = 0x030c30c3u;
+constexpr uint32_t kMortonSpread2 = 0x09249249u;
+constexpr float kMortonSteps = 1023.0f;
+
+constexpr size_t kCellWordX = 73856093;
+constexpr size_t kCellWordY = 19349663;
+constexpr size_t kCellWordZ = 83492791;
+
 namespace {
 
 [[nodiscard]] uint32_t Spread(uint32_t bits) {
-  bits &= 0x3ffu;
-  bits = (bits | (bits << 16u)) & 0x030000ffu;
-  bits = (bits | (bits << 8u)) & 0x0300f00fu;
-  bits = (bits | (bits << 4u)) & 0x030c30c3u;
-  bits = (bits | (bits << 2u)) & 0x09249249u;
+  bits &= kMortonBits;
+  bits = (bits | (bits << 16u)) & kMortonSpread16;
+  bits = (bits | (bits << 8u)) & kMortonSpread8;
+  bits = (bits | (bits << 4u)) & kMortonSpread4;
+  bits = (bits | (bits << 2u)) & kMortonSpread2;
   return bits;
 }
 
@@ -27,7 +39,7 @@ namespace {
   for (int axis = 0; axis < 3; ++axis) {
     const float part = span[axis] > 0.0f ? (at[axis] - least[axis]) / span[axis] : 0.0f;
     const float held01 = std::clamp(part, 0.0f, 1.0f);
-    held[axis] = static_cast<uint32_t>(held01 * 1023.0f);
+    held[axis] = static_cast<uint32_t>(held01 * kMortonSteps);
   }
   return (Spread(held[0]) << 2u) | (Spread(held[1]) << 1u) | Spread(held[2]);
 }
@@ -128,8 +140,8 @@ struct Cell {
 
 struct CellHash {
   [[nodiscard]] size_t operator()(const Cell &of) const {
-    return static_cast<size_t>(of.At[0] * 73856093) ^ static_cast<size_t>(of.At[1] * 19349663) ^
-           static_cast<size_t>(of.At[2] * 83492791);
+    return static_cast<size_t>(of.At[0] * kCellWordX) ^ static_cast<size_t>(of.At[1] * kCellWordY) ^
+           static_cast<size_t>(of.At[2] * kCellWordZ);
   }
 };
 
