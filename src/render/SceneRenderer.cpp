@@ -2,6 +2,7 @@
 #include "math/Mat4.h"
 #include "math/Vec2.h"
 #include "Heap.h"
+#include <algorithm>
 #include <span>
 #include <array>
 #include <chrono>
@@ -427,7 +428,7 @@ void SceneRenderer::Create(Resource resource) {
         OwnedTexture *Into;
       };
 
-      const LutShape shape = [this, resource]() -> LutShape {
+      const LutShape shape = [this, resource] -> LutShape {
         switch (resource) {
           case Resource::MultiScatterLut:
             return {kMultiScatterLutSize, kMultiScatterLutSize, &MultiScatterLut_};

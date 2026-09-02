@@ -54,12 +54,11 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Scenario:
         }
         cells.push_back(std::move(cell));
       }
-      if (!cells.empty()) {
-        if (!stood.ByKey.emplace(cells[0].Spelling, stood.RowCount).second) {
-          return std::unexpected("the table '" + table.Id + "' keys two rows by '" +
-                                 cells[0].Spelling + "', and a lookup with two answers has none");
-        }
+      if ((!cells.empty()) && (!stood.ByKey.emplace(cells[0].Spelling, stood.RowCount).second)) {
+        return std::unexpected("the table '" + table.Id + "' keys two rows by '" +
+                               cells[0].Spelling + "', and a lookup with two answers has none");
       }
+
       for (Cell &one : cells) { stood.Cells.push_back(std::move(one)); }
       ++stood.RowCount;
     }

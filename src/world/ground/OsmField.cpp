@@ -13,6 +13,7 @@
 #include "TileGeodesy.h"
 
 #include <cstdio>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>

@@ -70,7 +70,7 @@ private:
 class GroundStream final : public GroundQuery {
 public:
   GroundStream(TilePool &tiles, GroundSurface surface);
-  ~GroundStream();
+  ~GroundStream() override;
   GroundStream(const GroundStream &) = delete;
   GroundStream &operator=(const GroundStream &) = delete;
 

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <limits>
 #include "Units.h"
 #include "math/Vec2.h"
@@ -444,11 +445,13 @@ bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
 
 } // namespace
 
+namespace {
 struct AttributeShape {
   ElementType Element;
   ComponentType Component;
   bool Normalized;
 };
+} // namespace
 
 namespace {
 
@@ -501,10 +504,9 @@ Transform LocalOf(const Node &step) {
 } // namespace
 
 bool Document::Honours(std::string_view extension) {
-  for (const char *const known : kHonouredExtensions) {
-    if (known != nullptr && extension == known) { return true; }
-  }
-  return false;
+  return std::ranges::any_of(kHonouredExtensions, [&extension](const char *const known) {
+    return known != nullptr && extension == known;
+  });
 }
 
 bool Document::Refuse(std::string_view why) {
@@ -1950,11 +1952,10 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   Span<const uint8_t> span;
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
-    if (accessor.Count > 0) {
-      if (accessor.ByteOffset > span.Size() || element > span.Size() - accessor.ByteOffset ||
-          (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride) {
-        return false;
-      }
+    if ((accessor.Count > 0) &&
+        (accessor.ByteOffset > span.Size() || element > span.Size() - accessor.ByteOffset ||
+         (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride)) {
+      return false;
     }
   }
 

@@ -873,7 +873,7 @@ void Engine::State::PaveLane(const Paving &on,
   }
 
   auto tookFrom = std::chrono::steady_clock::now();
-  const auto since = [&tookFrom]() {
+  const auto since = [&tookFrom] {
     const auto was = tookFrom;
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
@@ -1495,7 +1495,7 @@ void Engine::State::Paves(const TangentFrame &standing,
   const int waterRow = World.Stack.Materials().Find("water");
 
   auto tookFrom = std::chrono::steady_clock::now();
-  const auto since = [&tookFrom]() {
+  const auto since = [&tookFrom] {
     const auto was = tookFrom;
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();

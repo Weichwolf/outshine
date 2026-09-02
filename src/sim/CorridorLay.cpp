@@ -12,6 +12,7 @@
 #include "Alignment.h"
 #include "Angle.h"
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>

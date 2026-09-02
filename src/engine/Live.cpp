@@ -465,7 +465,7 @@ bool Live::Build(std::string &error) {
       return false;
     }
     Plan_ = *std::move(made);
-    PlanDeclared_ = declaration;
+    PlanDeclared_ = std::move(declaration);
     PlanInits_ += 1;
     Renderer_->Init({.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx},
                     Plan_);
@@ -985,16 +985,16 @@ bool Live::Carry(size_t body, const Mat4 &worldFromBodyM, const Mat4 &built, std
   PartBounds_.clear();
   Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
 
-  if (bodyMoved && joined > 0) {
-    if (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, bodyM, error)) {
-      return false;
-    }
+  if ((bodyMoved && joined > 0) &&
+      (!Render::MovedInstance(*Renderer_, rows, instances, body, 0, joined, bodyM, error))) {
+    return false;
   }
-  if (builtMoved && joined < parts) {
-    if (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, built, error)) {
-      return false;
-    }
+
+  if ((builtMoved && joined < parts) &&
+      (!Render::MovedInstance(*Renderer_, rows, instances, body, joined, parts, built, error))) {
+    return false;
   }
+
   SentBody_[body] = bodyM;
   SentBuilt_ = built;
   return true;

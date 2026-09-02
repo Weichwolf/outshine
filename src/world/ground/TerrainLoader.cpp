@@ -12,6 +12,7 @@
 #include <cstring>
 #include <memory>
 #include <ratio>
+#include <span>
 #include <thread>
 #include <utility>
 #include <vector>

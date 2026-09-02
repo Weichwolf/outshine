@@ -5,7 +5,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <utility>
 
 namespace outshine::Ground {
 
@@ -226,7 +225,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       uint32_t ringFirst = 0;
       int ringCount = 0;
 
-      const auto flushLine = [&]() {
+      const auto flushLine = [&] {
         if (f.Type != 2 || ringCount < 2) { return; }
         Ring r{};
         r.First = ringFirst;

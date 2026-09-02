@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>

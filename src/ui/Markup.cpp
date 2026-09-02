@@ -10,7 +10,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <utility>
 
 namespace outshine::Ui {
 
@@ -105,10 +104,7 @@ bool ClosesItself(std::string_view tag) {
                                                            "source",
                                                            "track",
                                                            "wbr"}};
-  for (const char *one : kVoid) {
-    if (Matches(tag, one)) { return true; }
-  }
-  return false;
+  return std::ranges::any_of(kVoid, [tag](const char *one) { return Matches(tag, one); });
 }
 
 bool HoldsRawText(std::string_view tag) {
@@ -121,10 +117,7 @@ bool IsBlockLevel(std::string_view tag) {
        "figure",  "footer",  "form",    "h1",         "h2",   "h3",  "h4",
        "h5",      "h6",      "header",  "hr",         "main", "nav", "ol",
        "p",       "pre",     "section", "table",      "ul"}};
-  for (const char *one : kBlock) {
-    if (Matches(tag, one)) { return true; }
-  }
-  return false;
+  return std::ranges::any_of(kBlock, [tag](const char *one) { return Matches(tag, one); });
 }
 
 const std::string *Markup::AttributeOf(int node, std::string_view name) const {

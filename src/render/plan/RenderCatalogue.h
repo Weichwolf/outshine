@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_PLAN_RENDERCATALOGUE_H
 #define OUTSHINE_RENDER_PLAN_RENDERCATALOGUE_H
 
+#include <algorithm>
 #include <array>
 #include <span>
 #include <cstddef>
@@ -419,10 +420,8 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
 }
 
 [[nodiscard]] constexpr bool ElementsAreStated() {
-  for (const ResourceRow &row : kResources) {
-    if (IsBuffer(row) != (row.Stride > 0u)) { return false; }
-  }
-  return true;
+  return std::ranges::all_of(
+      kResources, [](const ResourceRow &row) { return IsBuffer(row) == (row.Stride > 0u); });
 }
 
 static_assert(ElementsAreStated(),

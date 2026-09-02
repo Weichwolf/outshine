@@ -147,7 +147,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     return false;
   }
   uint32_t at = StagingUsed_;
-  for (auto &one : what) {
+  for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (one.Writes != nullptr) {
       one.Writes(one.Carrying,
@@ -161,7 +161,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
   SDL_UnmapGPUTransferBuffer(Device_, Staging_.Get());
 
   at = StagingUsed_;
-  for (auto &one : what) {
+  for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
     Staged_[StagedCount_++] = Staged{
@@ -195,7 +195,7 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
     return false;
   }
   uint32_t at = 0;
-  for (auto &one : what) {
+  for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (one.Writes != nullptr) {
       one.Writes(one.Carrying,
@@ -211,7 +211,7 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
   SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device_);
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
-  for (auto &one : what) {
+  for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
     const SDL_GPUBufferRegion into{

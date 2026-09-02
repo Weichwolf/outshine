@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENE_H
 #define OUTSHINE_SCENE_H
 
+#include <algorithm>
 #include <span>
 #include <array>
 #include <cstddef>
@@ -154,10 +155,8 @@ static_assert(EachRuleStandsAtItsOwnRelation(),
               "every relation carries its rule, and no rule allows nothing");
 
 constexpr bool EveryAcyclicRelationIsExclusive() {
-  for (const auto kRule : kRules) {
-    if (kRule.Acyclic && !kRule.Exclusive) { return false; }
-  }
-  return true;
+  return std::ranges::none_of(kRules,
+                              [](const auto &kRule) { return kRule.Acyclic && !kRule.Exclusive; });
 }
 
 static_assert(EveryAcyclicRelationIsExclusive(),
@@ -173,10 +172,8 @@ constexpr size_t OwnedRelationCount() {
 }
 
 constexpr bool EveryOwnedRelationIsExclusive() {
-  for (const auto kRule : kRules) {
-    if (kRule.OwnedByTarget && !kRule.Exclusive) { return false; }
-  }
-  return true;
+  return std::ranges::none_of(
+      kRules, [](const auto &kRule) { return kRule.OwnedByTarget && !kRule.Exclusive; });
 }
 
 static_assert(EveryOwnedRelationIsExclusive(),

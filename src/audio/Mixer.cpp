@@ -171,6 +171,7 @@ void Voiced(const Scenario::Sound &sound,
 
 } // namespace
 
+namespace {
 struct Reverberation {
   std::vector<std::vector<double>> Combs;
   std::vector<size_t> CombAt;
@@ -182,6 +183,7 @@ struct Reverberation {
   double WetShare = 0.0;
   bool Standing = false;
 };
+} // namespace
 
 struct Mixer::Held {
   BusGraph Routing;

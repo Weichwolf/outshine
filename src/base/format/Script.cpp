@@ -1,5 +1,6 @@
 #include "Script.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 
@@ -1024,14 +1025,14 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       if (node.Spelling == ",") { return Evaluate(node.B, host, out, error); }
       if (node.Spelling == "&&") {
         if (!left.Truth()) {
-          out = left;
+          out = std::move(left);
           return true;
         }
         return Evaluate(node.B, host, out, error);
       }
       if (node.Spelling == "||") {
         if (left.Truth()) {
-          out = left;
+          out = std::move(left);
           return true;
         }
         return Evaluate(node.B, host, out, error);

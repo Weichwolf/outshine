@@ -1,5 +1,6 @@
 #include "Keyframes.h"
 #include <cstddef>
+#include <span>
 
 namespace outshine {
 

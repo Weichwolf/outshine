@@ -1,4 +1,5 @@
 #include "BuildingDraw.h"
+#include <cstdint>
 
 namespace outshine::Generators {
 

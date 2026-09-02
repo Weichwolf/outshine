@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <vector>
 #include <utility>
 
@@ -616,7 +617,7 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
     rest = beyond;
   }
   if (made == 0) { return 0; }
-  out[made++] = rest;
+  out[made++] = std::move(rest);
   return made;
 }
 

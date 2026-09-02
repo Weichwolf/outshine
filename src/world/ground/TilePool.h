@@ -43,7 +43,7 @@ using outshine::TileBuild;
 
 class TilePool : public TileMeshes {
 public:
-  using Reply = TileMeshes::Reply;
+  using TileMeshes::Reply;
 
   void Shapes(const ShapedGround &how);
 
@@ -80,7 +80,7 @@ public:
   };
 
   TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
-  ~TilePool();
+  ~TilePool() override;
   TilePool(const TilePool &) = delete;
   TilePool &operator=(const TilePool &) = delete;
 

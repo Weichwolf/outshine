@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <span>

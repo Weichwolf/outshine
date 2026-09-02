@@ -272,10 +272,12 @@ Property PropertyNamed(std::string_view name) {
   return Property::kCount;
 }
 
+namespace {
 struct Vocabulary {
   Property What;
   const std::array<const char *, 14> Words;
 };
+} // namespace
 
 const std::array<Vocabulary, 12> kVocabularies = {{
     {.What = Property::Display,

@@ -367,7 +367,7 @@ Result Engine::preload(double patienceS) {
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
   const auto began = std::chrono::steady_clock::now();
-  const auto say = [&]() {
+  const auto say = [&] {
     if (!tell) { return; }
     Loading said = loading();
     said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();

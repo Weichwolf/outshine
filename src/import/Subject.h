@@ -27,7 +27,7 @@ namespace outshine::Gltf {
 class Document;
 struct Primitive;
 
-using Viewpoint = Render::Viewpoint;
+using Render::Viewpoint;
 
 [[nodiscard]] bool ViewOf(const Viewpoint &from, Transform &out);
 

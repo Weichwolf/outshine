@@ -1,6 +1,7 @@
 #include "Overlay.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <span>
 #include <cstddef>
 #include <string>

@@ -502,7 +502,7 @@ void TilePool::Carry() {
       const auto parked = Awaiting_.find(job.Key);
       if (parked != Awaiting_.end()) {
         if (said != Reply::Pending) {
-          for (Job &held : parked->second) { Queue_.push_back(held); }
+          for (const Job &held : parked->second) { Queue_.push_back(held); }
         } else {
           for (const Job &held : parked->second) { Posted_.erase(held.Key); }
         }
@@ -661,7 +661,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     }
     const auto parked = Awaiting_.find(job.Key);
     if (parked != Awaiting_.end()) {
-      for (Job &held : parked->second) { Queue_.push_back(held); }
+      for (const Job &held : parked->second) { Queue_.push_back(held); }
       Awaiting_.erase(parked);
       lock.unlock();
       Wake_.notify_all();

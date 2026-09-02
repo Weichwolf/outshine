@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_TYPES_H
 #define OUTSHINE_IMPORT_TYPES_H
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -213,10 +214,8 @@ struct MetadataPacket {
   }
 
   [[nodiscard]] bool Carries(std::string_view key) const {
-    for (const MetadataProperty &one : Held) {
-      if (one.Key == key) { return true; }
-    }
-    return false;
+    return std::ranges::any_of(Held,
+                               [&key](const MetadataProperty &one) { return one.Key == key; });
   }
 };
 

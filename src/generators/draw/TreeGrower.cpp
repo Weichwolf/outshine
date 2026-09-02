@@ -14,7 +14,7 @@ constexpr float kRootCoverM = 0.6f;
 constexpr float kPointApex = 2.4f;
 constexpr float kBrokenApex = 1.4f;
 
-float ApexOf(RingCap end) {
+static float ApexOf(RingCap end) {
   switch (end) {
     case RingCap::Point: return kPointApex;
     case RingCap::Broken: return kBrokenApex;

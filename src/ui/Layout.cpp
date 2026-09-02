@@ -835,7 +835,7 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
   double lineAt = 0;
   double betweenLines = gap;
   const double crossSlack = crossRoom - linesDeep;
-  if (crossRoom > 0 && crossSlack > 0 && lines.size() > 0) {
+  if (crossRoom > 0 && crossSlack > 0 && !lines.empty()) {
     if (alignLines == kStretch) {
       const double share = crossSlack / static_cast<double>(lines.size());
       for (Line &line : lines) { line.Cross += share; }
@@ -1156,10 +1156,8 @@ constexpr std::array<std::string_view, 39> kNotABox = {{
 }
 
 bool ElementIsInTheSubset(std::string_view tag) {
-  for (const std::string_view different : kNotABox) {
-    if (different == tag) { return false; }
-  }
-  return true;
+  return std::ranges::none_of(kNotABox,
+                              [tag](std::string_view different) { return different == tag; });
 }
 
 std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {

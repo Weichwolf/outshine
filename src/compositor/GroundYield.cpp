@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <ratio>
 #include <span>
 #include <utility>
 #include <vector>
@@ -780,7 +781,7 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
   told.Taken = taking.size();
   const std::span<const Yields> held(taking);
   auto tookFrom = std::chrono::steady_clock::now();
-  const auto since = [&tookFrom]() {
+  const auto since = [&tookFrom] {
     const auto was = tookFrom;
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
