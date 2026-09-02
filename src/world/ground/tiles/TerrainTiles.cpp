@@ -58,7 +58,7 @@ const TerrainField *TerrainTiles::CacheLookup(int z, uint32_t x, uint32_t y) {
 
 void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField &field) {
   if (Cache_.empty() || !field.Meshable()) { return; }
-  CacheEntry *victim = &Cache_[0];
+  CacheEntry *victim = Cache_.data();
   uint64_t oldest = std::numeric_limits<uint64_t>::max();
   for (CacheEntry &e : Cache_) {
     if (!e.Used) {

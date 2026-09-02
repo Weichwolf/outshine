@@ -192,7 +192,7 @@ const Tile *GroundStream::CoarseResident(long x, long y) const {
 
 void GroundStream::KeepCoarse(long x, long y) const {
   Held &held = *Held_;
-  Tile *victim = &held.Coarse[0];
+  Tile *victim = held.Coarse.data();
   for (Tile &t : held.Coarse) {
     if (t.Resident && t.X == x && t.Y == y) { return; }
     if (t.Used < victim->Used) { victim = &t; }
@@ -299,7 +299,7 @@ GroundSample GroundStream::Resident(double lat, double lon) const {
 
 const Tile *GroundStream::TileAt(long x, long y) const {
   Held &held = *Held_;
-  Tile *victim = &held.Ground[0];
+  Tile *victim = held.Ground.data();
   for (Tile &t : held.Ground) {
     if (t.Resident && t.X == x && t.Y == y) {
       t.Used = ++held.Clock;

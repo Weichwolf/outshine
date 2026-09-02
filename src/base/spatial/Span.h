@@ -16,7 +16,7 @@ public:
 
   template <typename U>
   constexpr Span(const Span<U> &other)
-    requires std::is_same<const U, T>::value
+    requires std::is_same_v<const U, T>
       : Data_(other.Data()), Size_(other.Size()) {}
 
   [[nodiscard]] constexpr T *Data() const { return Data_; }

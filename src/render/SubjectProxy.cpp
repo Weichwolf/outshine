@@ -592,9 +592,7 @@ bool Place(SceneRenderer &renderer,
 
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
-  if (!Placed(renderer, proxy, error)) { return false; }
-
-  return true;
+  return Placed(renderer, proxy, error);
 }
 
 bool Move(SceneRenderer &renderer,
@@ -668,8 +666,7 @@ bool Move(SceneRenderer &renderer,
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   const Heap::Tagged handing("subject-pose");
-  if (!renderer.SetSubjectPose(pose, error)) { return false; }
-  return true;
+  return renderer.SetSubjectPose(pose, error);
 }
 
 } // namespace outshine::Render

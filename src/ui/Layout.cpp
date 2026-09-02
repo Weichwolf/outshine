@@ -1303,9 +1303,7 @@ double Layout::ScrollableBy(int node) const {
 int Layout::Hit(double x, double y) const {
   for (size_t at = Boxes_.size(); at-- > 0;) {
     const Box &box = Boxes_[at];
-    if (!(x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height)) {
-      continue;
-    }
+    if (x < box.X || x >= box.X + box.Width || y < box.Y || y >= box.Y + box.Height) { continue; }
 
     bool seen = true;
     for (int up = box.Parent; up >= 0 && seen; up = Boxes_[static_cast<size_t>(up)].Parent) {

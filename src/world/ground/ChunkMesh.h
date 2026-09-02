@@ -44,7 +44,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
     }
   }
   const uint32_t R = (C != 0u) ? nVertices / C : 0;
-  if (!(C >= 2 && R >= 2 && nVertices % C == 0)) { return 0; }
+  if (C < 2 || R < 2 || nVertices % C != 0) { return 0; }
 
   int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
 #define W3_MH(r, c) (p[((size_t)(r) * C + (size_t)(c)) * 3 + 2])

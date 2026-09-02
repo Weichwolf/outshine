@@ -40,7 +40,7 @@ TagRow *RowFor(const char *tag) {
     const char *empty = nullptr;
     gTags[0].Name.compare_exchange_strong(empty, kOverflow, std::memory_order_relaxed);
   }
-  if (tag == kOverflow) { return &gTags[0]; }
+  if (tag == kOverflow) { return gTags.data(); }
   for (size_t at = 1; at < kTagSlots; ++at) {
     const char *held = gTags[at].Name.load(std::memory_order_relaxed);
     if (held == tag) { return &gTags[at]; }

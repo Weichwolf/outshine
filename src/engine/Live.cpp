@@ -578,8 +578,7 @@ bool Live::PartVolumes(std::string &error) {
     if (!Measure(Seconds(sample), error)) { return false; }
     fold();
   }
-  if (Held_.Frames() > 1 && !Measure(Held_.AtS(), error)) { return false; }
-  return true;
+  return Held_.Frames() <= 1 || Measure(Held_.AtS(), error);
 }
 
 bool Live::PlacedBounds(Vec3 &least, Vec3 &most, std::string &error) {

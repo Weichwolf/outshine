@@ -75,7 +75,7 @@ struct Scene::Kept {
     size_t GivenCount = 0;
     std::array<Pair, kPairsPerEntity> Pairs = {{}};
     size_t PairCount = 0;
-    Tag Offers{};
+    Tag Offers;
     size_t SeatCount = 0;
     std::array<Taken, kSeatsPerOffer> Seats = {{}};
     std::array<uint32_t, kRelations> InHead = NoRefs<kRelations>();

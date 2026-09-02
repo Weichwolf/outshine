@@ -78,7 +78,7 @@ struct RelationRule {
   bool OwnedByTarget = false;
   bool SameRole = false;
   uint8_t TargetRoles = 0;
-  Tag SourceDoes{};
+  Tag SourceDoes;
   Relation Requires = kNoRelation;
 };
 

@@ -112,7 +112,7 @@ private:
     SDL_GPUTransferBuffer *Staging = nullptr;
   };
 
-  OwnedTransfer Staging_{};
+  OwnedTransfer Staging_;
   std::vector<OwnedTransfer> Retired_;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;

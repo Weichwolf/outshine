@@ -60,7 +60,7 @@ Span<const char *const> Forest::NoteNames() const noexcept {
                                                                    "woodyDraw",
                                                                    "highestStandAslM"};
   static_assert(sizeof(Forest::Stem) == kStemBytes, "sizeof(Forest::Stem)");
-  static_assert(std::is_trivially_copyable<Forest::Stem>::value, "a stem is copied per cell");
+  static_assert(std::is_trivially_copyable_v<Forest::Stem>, "a stem is copied per cell");
   static_assert(Forest::kSpeciesTableBytes == Forest::kMostSpecies * kStemBytes,
                 "the species table is as many stems wide as the catalogue holds");
 

@@ -1636,7 +1636,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           return true;
         };
         std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-        if (held(west, north, &corner[0]) && held(west + 1, north, &corner[1]) &&
+        if (held(west, north, corner.data()) && held(west + 1, north, &corner[1]) &&
             held(west, north + 1, &corner[2]) && held(west + 1, north + 1, &corner[3])) {
           const double above = corner[0] + (corner[1] - corner[0]) * alongE;
           const double below = corner[2] + (corner[3] - corner[2]) * alongE;
@@ -1871,7 +1871,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
         if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
         Vec2 stood = {{0.0, 0.0}};
-        if (!groundAt(corner[0], corner[1], &stood[0]) ||
+        if (!groundAt(corner[0], corner[1], stood.data()) ||
             !groundAt(corner[2], corner[3], &stood[1])) {
           continue;
         }

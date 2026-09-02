@@ -628,9 +628,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
     if (part.empty()) { return false; }
 
     for (const char c : part) {
-      if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')) {
-        return false;
-      }
+      if ((c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' && c != '_') { return false; }
     }
     if (lead == '.') {
       out.Classes.push_back(part);
@@ -642,8 +640,8 @@ bool ReadCompound(std::string_view text, Compound &out) {
       out.Tag = part;
     }
   }
-  return out.Universal ||
-         !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
+  return out.Universal || !out.Tag.empty() || !out.Classes.empty() || !out.Id.empty() ||
+         out.NthChild != 0;
 }
 
 } // namespace

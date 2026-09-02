@@ -294,7 +294,7 @@ struct Surrounds {
   size_t Rebuilds = 0;
   bool Grown = false;
   Generators::BuildingMesh Shaper;
-  std::chrono::steady_clock::time_point LaidAt{};
+  std::chrono::steady_clock::time_point LaidAt;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;
   size_t Placed = 0;

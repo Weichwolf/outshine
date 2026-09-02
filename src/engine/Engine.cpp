@@ -190,8 +190,7 @@ bool Engine::State::Routes() {
   }
   if (!Composes()) { return false; }
   const bool aWorldStands = Ticking.Drove;
-  if (aWorldStands && !Rides()) { return false; }
-  return true;
+  return !aWorldStands || Rides();
 }
 
 Engine::~Engine() = default;

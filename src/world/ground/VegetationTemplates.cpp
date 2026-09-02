@@ -37,7 +37,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   const long n = ftell(f);
   fseek(f, 0, SEEK_SET);
   std::string text(static_cast<size_t>(n > 0 ? n : 0), '\0');
-  const size_t got = n > 0 ? fread(&text[0], 1, static_cast<size_t>(n), f) : 0;
+  const size_t got = n > 0 ? fread(text.data(), 1, static_cast<size_t>(n), f) : 0;
   fclose(f);
   if (got != text.size()) {
     Error_ = "short read";
