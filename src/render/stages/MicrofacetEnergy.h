@@ -56,12 +56,6 @@ inline constexpr int kEnergySamples = 2048;
 
     const double lz = 2.0 * vh * hz - clampedNv;
     if (!(lz > 0.0)) { continue; }
-    BrdfGeometry at;
-    at.Nl = lz;
-    at.Nv = clampedNv;
-    at.Nh = hz;
-    at.Vh = vh;
-
     total += 4.0 * lz * BrdfVisibility(lz, clampedNv, a2) * vh / hz;
   }
   return std::fmin(total / kEnergySamples, 1.0);
@@ -74,28 +68,6 @@ inline constexpr int kEnergySamples = 2048;
     total += GgxDirectionalAlbedo(mu, roughness) * mu;
   }
   return std::fmin(2.0 * total / kEnergyQuadrature, 1.0);
-}
-
-[[nodiscard]] inline double SchlickAverage(double f0) {
-  return f0 + (1.0 - f0) / kSchlickTail;
-}
-
-inline void GgxEnergyScale(const std::array<double, 3> &f0,
-                           double roughness,
-                           double nv,
-                           std::array<double, 3> &out) {
-  const double e = GgxDirectionalAlbedo(nv, roughness);
-  if (!(e > 0.0) || !(e < 1.0)) {
-    out = {1.0, 1.0, 1.0};
-    return;
-  }
-  const double missing = (1.0 - e) / e;
-  const double eAverage = GgxEnergyAverage(roughness);
-  for (std::size_t channel = 0; channel < 3; ++channel) {
-    const double favg = SchlickAverage(f0[channel]);
-    const double fms = favg * eAverage / (1.0 - favg * (1.0 - eAverage));
-    out[channel] = 1.0 + fms * missing;
-  }
 }
 
 inline constexpr int kEnergyRoughnessSteps = 32;
