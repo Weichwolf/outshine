@@ -2,7 +2,6 @@
 #define OUTSHINE_SIM_SUPPORT_H
 
 #include "math/Vec3.h"
-#include "math/Vec3.h"
 
 namespace outshine::Sim {
 

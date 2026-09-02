@@ -3,7 +3,6 @@
 
 #include "math/Mat4.h"
 #include "math/Vec3.h"
-#include "math/Vec3.h"
 
 namespace outshine::Gltf {
 

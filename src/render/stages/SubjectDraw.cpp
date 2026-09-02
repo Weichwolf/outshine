@@ -14,7 +14,6 @@
 #include "Heap.h"
 #include "LightVisibilityStage.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>

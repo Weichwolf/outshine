@@ -7,7 +7,6 @@
 
 #include <array>
 #include <algorithm>
-#include <algorithm>
 #include <cstdint>
 #include <ranges>
 #include <span>
@@ -15,7 +14,6 @@
 #include <scene/Geometry.h>
 
 #include <numbers>
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -23,7 +21,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <utility>
 
 #include "Document.h"
 #include "Framing.h"

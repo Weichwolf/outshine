@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <span>
-#include <algorithm>
 #include <cstdint>
 #include <vector>
 

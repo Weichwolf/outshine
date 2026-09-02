@@ -6,7 +6,6 @@
 #include <chrono>
 #include <curl/curl.h>
 
-#include <algorithm>
 #include <thread>
 #include <mutex>
 #include <string>

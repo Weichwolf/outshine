@@ -5,7 +5,6 @@
 
 #include <array>
 #include <algorithm>
-#include <algorithm>
 #include <cstddef>
 #include <mutex>
 #include <cstdint>
@@ -17,7 +16,6 @@
 #include "Log.h"
 #include "VegetationTemplates.h"
 
-#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>

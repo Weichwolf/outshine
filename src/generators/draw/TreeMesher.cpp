@@ -4,11 +4,9 @@
 
 #include <array>
 #include <algorithm>
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
-#include <algorithm>
 #include <cmath>
 
 #include "TreeRandom.h"

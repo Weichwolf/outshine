@@ -5,7 +5,6 @@
 #include "math/Vec3.h"
 #include <algorithm>
 #include <numbers>
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <span>

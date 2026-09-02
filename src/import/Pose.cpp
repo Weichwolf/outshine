@@ -7,7 +7,6 @@
 #include <vector>
 #include <cstddef>
 #include <memory>
-#include <utility>
 
 namespace outshine::Gltf {
 

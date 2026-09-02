@@ -2,7 +2,6 @@
 #define OUTSHINE_GENERATORS_BASE_TREELOOK_H
 
 #include "math/Vec3.h"
-#include "math/Vec3.h"
 
 namespace outshine {
 

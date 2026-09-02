@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <atomic>
 #include <mutex>
-#include <algorithm>
 #include <condition_variable>
 #include <numbers>
 #include <chrono>

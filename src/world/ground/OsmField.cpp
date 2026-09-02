@@ -13,7 +13,6 @@
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <span>
 #include <string>
