@@ -55,3 +55,29 @@ turning the sanitiser back off** -- that is how it came to be pointed at nothing
 
 `make test` prints no RED case and no overrun line, and one deliberately broken oracle turns it red
 again.
+
+## CentralPark is UNPREPARED and its picture is CORRECT -- the guard is mis-specified
+
+Measured 2026-09-02, and the owner has looked at the frame and confirmed it.
+
+`test/harness/shared/ClientShot.h` refuses a place when `Triangles > 0 && Variation < 1.0`, where
+Variation is how much the picture varies of 255 ALONG ITS ROWS. CentralPark meshed 3 673 071
+building triangles and reads **0.9903** -- under the bar by a hundredth.
+
+The guard's own negative control is honest and passes: a blank ellipsoid under a sky reads under
+0.5, so 1.0 does separate something. But the guard is a PROXY -- horizontal variance standing in
+for "the built geometry is in the frame" -- and it fails on a place whose geometry IS in the frame:
+a park seen over trees and grass simply has little row-to-row contrast. The same file's last line
+says the thing this bar walks over:
+
+> what the frame SHOWS is the owner's to judge, and no number invented here may stand in for that
+
+**The property is testable without a proxy.** The engine already renders a SurfaceIdentity buffer
+and the door already exposes `readPixels(Buffer::SurfaceIdentity, ...)`. "The frame holds geometry
+that was built for it" is then: some pixel carries a subject surface rather than the sky's or the
+ground's. That is the measurement the guard was reaching for, it needs no threshold, and its
+negative control is the blank frame the file already renders.
+
+Until it is written the guard stays -- a place that renders nothing must still be caught -- but it
+is a PROXY and this item says so, so the next reader does not read CentralPark's UNPREPARED as a
+defect in the engine. **It is a defect in the case.**
