@@ -112,6 +112,10 @@ struct Rule {
 
 class Stylesheet {
 public:
+  [[nodiscard]] size_t PastAtRule(std::string_view css, size_t at);
+  [[nodiscard]] static bool ReadSelector(std::string_view head, Rule &rule);
+  [[nodiscard]] static int SpecificityOf(const Rule &rule);
+  void ReadRule(std::string_view heads, const std::vector<Declaration> &declares);
   void Read(std::string_view text);
 
   [[nodiscard]] std::vector<Declaration> Inline(std::string_view text);

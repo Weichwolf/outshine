@@ -1,4 +1,6 @@
 #include <array>
+#include <algorithm>
+#include <span>
 #include <charconv>
 #include "Style.h"
 
@@ -12,6 +14,7 @@
 namespace outshine::Ui {
 
 constexpr int kOpaque = 255;
+constexpr int kHexPlace = 16;
 constexpr int kNibbleToByte = 17;
 constexpr unsigned kRedShift = 24u;
 constexpr unsigned kGreenShift = 16u;
@@ -182,39 +185,38 @@ int HexOf(char c) {
   return -1;
 }
 
+bool ReadHexColour(std::string_view digits, uint32_t &out) {
+  std::array<int, 4> channel = {{0, 0, 0, kOpaque}};
+  if (digits.size() == 3 || digits.size() == 4) {
+    for (size_t at = 0; at < digits.size(); ++at) {
+      const int one = HexOf(digits[at]);
+      if (one < 0) { return false; }
+      channel[at] = one * kNibbleToByte;
+    }
+  } else if (digits.size() == 6 || digits.size() == 8) {
+    for (size_t at = 0; at + 1 < digits.size(); at += 2) {
+      const int high = HexOf(digits[at]);
+      const int low = HexOf(digits[at + 1]);
+      if (high < 0 || low < 0) { return false; }
+      channel[at / 2] = high * kHexPlace + low;
+    }
+  } else {
+    return false;
+  }
+  out = (static_cast<uint32_t>(channel[0]) << kRedShift) |
+        (static_cast<uint32_t>(channel[1]) << kGreenShift) |
+        (static_cast<uint32_t>(channel[2]) << kBlueShift) | static_cast<uint32_t>(channel[3]);
+  return true;
+}
+
 bool ReadColour(std::string_view text, uint32_t &out) {
-  if (!text.empty() && text[0] == '#') {
-    const std::string_view digits = text.substr(1);
-    std::array<int, 4> channel = {{0, 0, 0, kOpaque}};
-    if (digits.size() == 3 || digits.size() == 4) {
-      for (size_t at = 0; at < digits.size(); ++at) {
-        const int one = HexOf(digits[at]);
-        if (one < 0) { return false; }
-        channel[at] = one * kNibbleToByte;
-      }
-    } else if (digits.size() == 6 || digits.size() == 8) {
-      for (size_t at = 0; at + 1 < digits.size(); at += 2) {
-        const int high = HexOf(digits[at]);
-        const int low = HexOf(digits[at + 1]);
-        if (high < 0 || low < 0) { return false; }
-        channel[at / 2] = high * 16 + low;
-      }
-    } else {
-      return false;
-    }
-    out = (static_cast<uint32_t>(channel[0]) << kRedShift) |
-          (static_cast<uint32_t>(channel[1]) << kGreenShift) |
-          (static_cast<uint32_t>(channel[2]) << kBlueShift) | static_cast<uint32_t>(channel[3]);
-    return true;
-  }
+  if (!text.empty() && text[0] == '#') { return ReadHexColour(text.substr(1), out); }
   const std::string lowered = Lower(text);
-  for (const NamedColour &one : kColours) {
-    if (lowered == one.Spelling) {
-      out = one.Rgba;
-      return true;
-    }
-  }
-  return false;
+  const auto *const named = std::ranges::find_if(
+      kColours, [&lowered](const NamedColour &one) { return lowered == one.Spelling; });
+  if (named == std::end(kColours)) { return false; }
+  out = named->Rgba;
+  return true;
 }
 
 Value ReadValue(std::string_view text) {
@@ -364,211 +366,253 @@ bool Bare(std::string_view text) {
   return value.How == Unit::None;
 }
 
-void Expand(std::string_view name,
-            std::string_view text,
+struct Shorthand {
+  const char *Name;
+  enum class How : uint8_t { Sides, Border, Flex, FlexFlow, Single } Kind;
+  std::array<Property, 4> Sides;
+};
+
+constexpr std::array<Shorthand, 11> kShorthands = {{
+    {.Name = "margin",
+     .Kind = Shorthand::How::Sides,
+     .Sides = {Property::MarginTop,
+               Property::MarginRight,
+               Property::MarginBottom,
+               Property::MarginLeft}},
+    {.Name = "padding",
+     .Kind = Shorthand::How::Sides,
+     .Sides = {Property::PaddingTop,
+               Property::PaddingRight,
+               Property::PaddingBottom,
+               Property::PaddingLeft}},
+    {.Name = "border-width",
+     .Kind = Shorthand::How::Sides,
+     .Sides = {Property::BorderTopWidth,
+               Property::BorderRightWidth,
+               Property::BorderBottomWidth,
+               Property::BorderLeftWidth}},
+    {.Name = "flex", .Kind = Shorthand::How::Flex, .Sides = {}},
+    {.Name = "flex-flow", .Kind = Shorthand::How::FlexFlow, .Sides = {}},
+    {.Name = "background",
+     .Kind = Shorthand::How::Single,
+     .Sides = {Property::BackgroundColour, Property::kCount, Property::kCount, Property::kCount}},
+    {.Name = "border",
+     .Kind = Shorthand::How::Border,
+     .Sides = {Property::BorderTopWidth,
+               Property::BorderRightWidth,
+               Property::BorderBottomWidth,
+               Property::BorderLeftWidth}},
+    {.Name = "border-top",
+     .Kind = Shorthand::How::Border,
+     .Sides = {Property::BorderTopWidth, Property::kCount, Property::kCount, Property::kCount}},
+    {.Name = "border-right",
+     .Kind = Shorthand::How::Border,
+     .Sides = {Property::kCount, Property::BorderRightWidth, Property::kCount, Property::kCount}},
+    {.Name = "border-bottom",
+     .Kind = Shorthand::How::Border,
+     .Sides = {Property::kCount, Property::kCount, Property::BorderBottomWidth, Property::kCount}},
+    {.Name = "border-left",
+     .Kind = Shorthand::How::Border,
+     .Sides = {Property::kCount, Property::kCount, Property::kCount, Property::BorderLeftWidth}},
+}};
+
+std::vector<std::string_view> Words(std::string_view text) {
+  std::vector<std::string_view> parts;
+  size_t at = 0;
+  while (at < text.size()) {
+    while (at < text.size() && Space(text[at])) { ++at; }
+    const size_t from = at;
+    while (at < text.size() && !Space(text[at])) { ++at; }
+    if (at > from) { parts.push_back(text.substr(from, at - from)); }
+  }
+  return parts;
+}
+
+void Declare(std::vector<Declaration> &into, Property what, std::string_view value) {
+  into.push_back({.What = what, .How = ReadValue(value)});
+}
+
+bool ExpandSides(std::string_view text,
+                 std::span<const Property, 4> sides,
+                 std::vector<Declaration> &into) {
+  const std::vector<std::string_view> parts = Words(text);
+  if (parts.empty() || parts.size() > 4) { return false; }
+  const std::string_view top = parts[0];
+  const std::string_view right = parts.size() > 1 ? parts[1] : top;
+  const std::string_view bottom = parts.size() > 2 ? parts[2] : top;
+  const std::string_view left = parts.size() > 3 ? parts[3] : right;
+  Declare(into, sides[0], top);
+  Declare(into, sides[1], right);
+  Declare(into, sides[2], bottom);
+  Declare(into, sides[3], left);
+  return true;
+}
+
+bool BasisSitsBetween(std::span<const std::string_view> parts, size_t basisAt) {
+  size_t first = parts.size();
+  size_t second = parts.size();
+  for (size_t at = 0; at < parts.size(); ++at) {
+    if (!Bare(parts[at])) { continue; }
+    if (first == parts.size()) {
+      first = at;
+    } else {
+      second = at;
+    }
+  }
+  return basisAt > first && basisAt < second;
+}
+
+bool ExpandFlex(std::string_view text, std::vector<Declaration> &into) {
+  const std::vector<std::string_view> parts = Words(text);
+  if (parts.empty() || parts.size() > 3) { return false; }
+  if (parts.size() == 1 && (parts[0] == "none" || parts[0] == "auto" || parts[0] == "initial")) {
+    Declare(into, Property::FlexGrow, parts[0] == "auto" ? "1" : "0");
+    Declare(into, Property::FlexShrink, parts[0] == "none" ? "0" : "1");
+    Declare(into, Property::FlexBasis, "auto");
+    return true;
+  }
+  size_t numbers = 0;
+  size_t basisAt = parts.size();
+  std::array<std::string_view, 2> bare{};
+  for (size_t at = 0; at < parts.size(); ++at) {
+    if (Bare(parts[at])) {
+      if (numbers >= 2) { return true; }
+      bare[numbers++] = parts[at];
+    } else if (basisAt == parts.size()) {
+      basisAt = at;
+    } else {
+      return true;
+    }
+  }
+  if (numbers == 0) {
+    if (basisAt == parts.size()) { return false; }
+    Declare(into, Property::FlexGrow, "1");
+    Declare(into, Property::FlexShrink, "1");
+    Declare(into, Property::FlexBasis, parts[basisAt]);
+    return true;
+  }
+  if (numbers == 2 && basisAt < parts.size() && BasisSitsBetween(parts, basisAt)) { return true; }
+  Declare(into, Property::FlexGrow, bare[0]);
+  Declare(into, Property::FlexShrink, numbers > 1 ? bare[1] : std::string_view("1"));
+  Declare(
+      into, Property::FlexBasis, basisAt < parts.size() ? parts[basisAt] : std::string_view("0%"));
+  return true;
+}
+
+bool ExpandFlexFlow(std::string_view text, std::vector<Declaration> &into) {
+  const std::vector<std::string_view> parts = Words(text);
+  if (parts.empty() || parts.size() > 2) { return false; }
+  for (const std::string_view part : parts) {
+    const bool wraps = part == "wrap" || part == "nowrap" || part == "wrap-reverse";
+    Declare(into, wraps ? Property::FlexWrap : Property::FlexDirection, part);
+  }
+  return true;
+}
+
+bool ExpandSingle(std::string_view text, Property what, std::vector<Declaration> &into) {
+  const std::vector<std::string_view> parts = Words(text);
+  if (parts.size() != 1) { return false; }
+  if (ReadValue(parts[0]).How != Unit::Colour) { return false; }
+  Declare(into, what, parts[0]);
+  return true;
+}
+
+bool BorderWidthFrom(std::span<const std::string_view> parts,
+                     std::vector<Declaration> &into,
+                     std::string_view &width,
+                     bool &drawn) {
+  bool sawStyle = false;
+  for (const std::string_view part : parts) {
+    const Value read = ReadValue(part);
+    if (part == "none" || part == "hidden") {
+      sawStyle = true;
+      drawn = false;
+    } else if (part == "solid") {
+      sawStyle = true;
+    } else if (read.How == Unit::Colour) {
+      Declare(into, Property::BorderColour, part);
+    } else if (part == "thin" || part == "medium" || part == "thick") {
+      width = BorderWidthOf(part);
+    } else if (read.How == Unit::Pixels || read.How == Unit::Em ||
+               (read.How == Unit::None && read.Number == 0.0)) {
+      width = part == "0" ? std::string_view("0px") : part;
+    } else {
+      return false;
+    }
+  }
+  if (!sawStyle && parts.size() == 1 && ReadValue(parts[0]).How != Unit::Colour) {
+    sawStyle = true;
+    drawn = true;
+  }
+  return sawStyle;
+}
+
+bool ExpandBorder(std::string_view text,
+                  std::span<const Property, 4> sides,
+                  std::vector<Declaration> &into) {
+  const std::vector<std::string_view> parts = Words(text);
+  if (parts.empty() || parts.size() > 3) { return false; }
+  std::string_view width = "medium";
+  bool drawn = true;
+  if (!BorderWidthFrom(parts, into, width, drawn)) { return false; }
+  const std::string_view used = drawn ? width : std::string_view("0");
+  for (const Property side : sides) {
+    if (side != Property::kCount) { Declare(into, side, used); }
+  }
+  return true;
+}
+
+bool ExpandShorthand(const Shorthand &row, std::string_view text, std::vector<Declaration> &into) {
+  switch (row.Kind) {
+    case Shorthand::How::Sides: return ExpandSides(text, row.Sides, into);
+    case Shorthand::How::Border: return ExpandBorder(text, row.Sides, into);
+    case Shorthand::How::Flex: return ExpandFlex(text, into);
+    case Shorthand::How::FlexFlow: return ExpandFlexFlow(text, into);
+    case Shorthand::How::Single: return ExpandSingle(text, row.Sides[0], into);
+  }
+  return false;
+}
+
+size_t MatchingBrace(std::string_view css, size_t brace) {
+  int depth = 0;
+  for (size_t at = brace; at < css.size(); ++at) {
+    if (css[at] == '{') { ++depth; }
+    if (css[at] == '}' && --depth == 0) { return at; }
+  }
+  return css.size();
+}
+
+struct Spelled {
+  std::string_view Name;
+  std::string_view Text;
+};
+
+void Expand(Spelled said,
             std::vector<Declaration> &into,
             size_t &unheld,
             std::vector<std::string> &names) {
-  const std::string lowered = Lower(name);
-
+  const std::string_view text = said.Text;
+  const std::string lowered = Lower(said.Name);
   if (!lowered.empty() && lowered.front() == '-') { return; }
-  const auto one = [&](Property what, std::string_view value) {
-    into.push_back({.What = what, .How = ReadValue(value)});
-  };
-  const auto words = [&] {
-    std::vector<std::string_view> parts;
-    size_t at = 0;
-    while (at < text.size()) {
-      while (at < text.size() && Space(text[at])) { ++at; }
-      const size_t from = at;
-      while (at < text.size() && !Space(text[at])) { ++at; }
-      if (at > from) { parts.push_back(text.substr(from, at - from)); }
-    }
-    return parts;
-  };
 
-  const auto sides = [&](Property top, Property right, Property bottom, Property left) {
-    const std::vector<std::string_view> parts = words();
-    if (parts.empty() || parts.size() > 4) { return false; }
-    const std::string_view t = parts[0];
-    const std::string_view r = parts.size() > 1 ? parts[1] : t;
-    const std::string_view b = parts.size() > 2 ? parts[2] : t;
-    const std::string_view l = parts.size() > 3 ? parts[3] : r;
-    one(top, t);
-    one(right, r);
-    one(bottom, b);
-    one(left, l);
-    return true;
-  };
+  const auto *const named = std::ranges::find_if(
+      kShorthands, [&lowered](const Shorthand &row) { return lowered == row.Name; });
+  if (named != kShorthands.end()) {
+    if (ExpandShorthand(*named, text, into)) { return; }
+    ++unheld;
+    if (names.size() < 64) { names.push_back(lowered + ":" + std::string(Trim(text))); }
+    return;
+  }
 
-  const auto flex = [&] {
-    const std::vector<std::string_view> parts = words();
-    if (parts.empty() || parts.size() > 3) { return false; }
-    if (parts.size() == 1 && (parts[0] == "none" || parts[0] == "auto" || parts[0] == "initial")) {
-      one(Property::FlexGrow, parts[0] == "auto" ? "1" : "0");
-      one(Property::FlexShrink, parts[0] == "none" ? "0" : "1");
-      one(Property::FlexBasis, "auto");
-      return true;
-    }
-    size_t numbers = 0;
-    size_t basisAt = parts.size();
-    std::array<std::string_view, 2> bare{};
-    for (size_t at = 0; at < parts.size(); ++at) {
-      if (Bare(parts[at])) {
-        if (numbers >= 2) { return true; }
-        bare[numbers++] = parts[at];
-      } else if (basisAt == parts.size()) {
-        basisAt = at;
-      } else {
-        return true;
-      }
-    }
-    if (numbers == 0) {
-      if (basisAt == parts.size()) { return false; }
-      one(Property::FlexGrow, "1");
-      one(Property::FlexShrink, "1");
-      one(Property::FlexBasis, parts[basisAt]);
-      return true;
-    }
-
-    if (numbers == 2 && basisAt < parts.size()) {
-      size_t first = parts.size();
-      size_t second = parts.size();
-      for (size_t at = 0; at < parts.size(); ++at) {
-        if (!Bare(parts[at])) { continue; }
-        if (first == parts.size()) {
-          first = at;
-        } else {
-          second = at;
-        }
-      }
-      if (basisAt > first && basisAt < second) { return true; }
-    }
-    one(Property::FlexGrow, bare[0]);
-    one(Property::FlexShrink, numbers > 1 ? bare[1] : std::string_view("1"));
-
-    one(Property::FlexBasis, basisAt < parts.size() ? parts[basisAt] : std::string_view("0%"));
-    return true;
-  };
-  const auto flexFlow = [&] {
-    const std::vector<std::string_view> parts = words();
-    if (parts.empty() || parts.size() > 2) { return false; }
-    for (const std::string_view part : parts) {
-      const bool wraps = part == "wrap" || part == "nowrap" || part == "wrap-reverse";
-      one(wraps ? Property::FlexWrap : Property::FlexDirection, part);
-    }
-    return true;
-  };
-
-  const auto single = [&](Property what) {
-    const std::vector<std::string_view> parts = words();
-    if (parts.size() != 1) { return false; }
-    const Value value = ReadValue(parts[0]);
-    if (value.How != Unit::Colour) { return false; }
-    one(what, parts[0]);
-    return true;
-  };
-  const auto border = [&](Property top, Property right, Property bottom, Property left) {
-    const std::vector<std::string_view> parts = words();
-    if (parts.empty() || parts.size() > 3) { return false; }
-    std::string_view width = "medium";
-    bool sawStyle = false;
-    bool drawn = true;
-    for (const std::string_view part : parts) {
-      if (part == "none" || part == "hidden") {
-        sawStyle = true;
-        drawn = false;
-      } else if (part == "solid") {
-        sawStyle = true;
-      } else if (ReadValue(part).How == Unit::Colour) {
-        one(Property::BorderColour, part);
-      } else if (part == "thin" || part == "medium" || part == "thick") {
-        width = BorderWidthOf(part);
-      } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em ||
-                 (ReadValue(part).How == Unit::None && ReadValue(part).Number == 0.0)) {
-        width = part == "0" ? std::string_view("0px") : part;
-      } else {
-        return false;
-      }
-    }
-
-    if (!sawStyle && parts.size() == 1 && ReadValue(parts[0]).How != Unit::Colour) {
-      sawStyle = true;
-      drawn = true;
-    }
-    if (!sawStyle) { return false; }
-    const std::string_view used = drawn ? width : std::string_view("0");
-
-    for (const Property side : {top, right, bottom, left}) {
-      if (side != Property::kCount) { one(side, used); }
-    }
-    return true;
-  };
-  if (lowered == "margin") {
-    if (sides(Property::MarginTop,
-              Property::MarginRight,
-              Property::MarginBottom,
-              Property::MarginLeft)) {
-      return;
-    }
-  } else if (lowered == "padding") {
-    if (sides(Property::PaddingTop,
-              Property::PaddingRight,
-              Property::PaddingBottom,
-              Property::PaddingLeft)) {
-      return;
-    }
-  } else if (lowered == "border-width") {
-    if (sides(Property::BorderTopWidth,
-              Property::BorderRightWidth,
-              Property::BorderBottomWidth,
-              Property::BorderLeftWidth)) {
-      return;
-    }
-  } else if (lowered == "flex") {
-    if (flex()) { return; }
-  } else if (lowered == "flex-flow") {
-    if (flexFlow()) { return; }
-  } else if (lowered == "background") {
-    if (single(Property::BackgroundColour)) { return; }
-  } else if (lowered == "border") {
-    if (border(Property::BorderTopWidth,
-               Property::BorderRightWidth,
-               Property::BorderBottomWidth,
-               Property::BorderLeftWidth)) {
-      return;
-    }
-  } else if (lowered == "border-top") {
-    if (border(Property::BorderTopWidth, Property::kCount, Property::kCount, Property::kCount)) {
-      return;
-    }
-  } else if (lowered == "border-right") {
-    if (border(Property::kCount, Property::BorderRightWidth, Property::kCount, Property::kCount)) {
-      return;
-    }
-  } else if (lowered == "border-bottom") {
-    if (border(Property::kCount, Property::kCount, Property::BorderBottomWidth, Property::kCount)) {
-      return;
-    }
-  } else if (lowered == "border-left") {
-    if (border(Property::kCount, Property::kCount, Property::kCount, Property::BorderLeftWidth)) {
-      return;
-    }
-  } else {
-    const Property what = PropertyNamed(lowered);
-    if (what != Property::kCount) {
-      const Value value = ReadValue(text);
-      if (!WordIsHeld(what, value)) {
-        ++unheld;
-        if (names.size() < 64) { names.push_back(lowered + ":" + std::string(Trim(text))); }
-        return;
-      }
+  const Property what = PropertyNamed(lowered);
+  if (what != Property::kCount) {
+    const Value value = ReadValue(text);
+    if (WordIsHeld(what, value)) {
       into.push_back({.What = what, .How = value});
       return;
     }
   }
   ++unheld;
-
   if (names.size() < 64) { names.push_back(lowered + ":" + std::string(Trim(text))); }
 }
 
@@ -600,52 +644,66 @@ void ReadBlock(std::string_view body,
     if (one.empty()) { continue; }
     const size_t colon = one.find(':');
     if (colon == std::string_view::npos) { continue; }
-    Expand(Trim(one.substr(0, colon)), Trim(one.substr(colon + 1)), into, unheld, names);
+    Expand({.Name = Trim(one.substr(0, colon)), .Text = Trim(one.substr(colon + 1))},
+           into,
+           unheld,
+           names);
   }
 }
 
-bool ReadCompound(std::string_view text, Compound &out) {
-  size_t at = 0;
-
+bool ReadNthChild(std::string_view &text, Compound &out) {
   const size_t nth = text.find(":nth-child(");
-  if (nth != std::string_view::npos) {
-    const size_t close = text.find(')', nth);
-    if (close == std::string_view::npos) { return false; }
-    const std::string_view inside = text.substr(nth + 11, close - nth - 11);
-    if (close + 1 != text.size() || inside.empty()) { return false; }
-    for (const char c : inside) {
-      if (c < '0' || c > '9') { return false; }
-    }
-    out.NthChild = 0;
-    (void)std::from_chars(inside.data(), inside.data() + inside.size(), out.NthChild);
-    if (out.NthChild <= 0) { return false; }
-    text = text.substr(0, nth);
-    if (text.empty()) { return true; }
+  if (nth == std::string_view::npos) { return true; }
+  constexpr size_t kNthOpens = 11;
+  const size_t close = text.find(')', nth);
+  if (close == std::string_view::npos) { return false; }
+  const std::string_view inside = text.substr(nth + kNthOpens, close - nth - kNthOpens);
+  if (close + 1 != text.size() || inside.empty()) { return false; }
+  if (!std::ranges::all_of(inside, [](char c) { return c >= '0' && c <= '9'; })) { return false; }
+  out.NthChild = 0;
+  (void)std::from_chars(inside.data(), inside.data() + inside.size(), out.NthChild);
+  if (out.NthChild <= 0) { return false; }
+  text = text.substr(0, nth);
+  return true;
+}
+
+bool NameIsASelector(std::string_view part) {
+  return std::ranges::all_of(part, [](char c) {
+    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
+  });
+}
+
+bool TakeSimpleSelector(char lead, const std::string &part, Compound &out) {
+  if (lead == '.') {
+    out.Classes.push_back(part);
+    return true;
   }
+  if (lead == '#') {
+    if (!out.Id.empty()) { return false; }
+    out.Id = part;
+    return true;
+  }
+  if (!out.Tag.empty()) { return false; }
+  out.Tag = part;
+  return true;
+}
+
+bool ReadCompound(std::string_view text, Compound &out) {
+  if (!ReadNthChild(text, out)) { return false; }
+  if (text.empty()) { return out.NthChild != 0; }
   if (text == "*") {
     out.Universal = true;
     return true;
   }
+  size_t at = 0;
   while (at < text.size()) {
     const char lead = text[at];
     if (lead == '.' || lead == '#') { ++at; }
     const size_t from = at;
     while (at < text.size() && text[at] != '.' && text[at] != '#') { ++at; }
     const std::string part = Lower(text.substr(from, at - from));
-    if (part.empty()) { return false; }
-
-    for (const char c : part) {
-      if ((c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' && c != '_') { return false; }
-    }
-    if (lead == '.') {
-      out.Classes.push_back(part);
-    } else if (lead == '#') {
-      if (!out.Id.empty()) { return false; }
-      out.Id = part;
-    } else {
-      if (!out.Tag.empty()) { return false; }
-      out.Tag = part;
-    }
+    if (part.empty() || !NameIsASelector(part)) { return false; }
+    if (!TakeSimpleSelector(lead, part, out)) { return false; }
   }
   return out.Universal || !out.Tag.empty() || !out.Classes.empty() || !out.Id.empty() ||
          out.NthChild != 0;
@@ -659,6 +717,80 @@ std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   return out;
 }
 
+size_t Stylesheet::PastAtRule(std::string_view css, size_t at) {
+  ++Unselectable_;
+  if (Names_.size() < 64) {
+    const size_t stops = css.find_first_of("{; \t\r\n", at);
+    Names_.emplace_back(
+        css.substr(at, (stops == std::string_view::npos ? css.size() : stops) - at));
+  }
+  const size_t brace = css.find('{', at);
+  const size_t semi = css.find(';', at);
+  if (semi != std::string_view::npos && (brace == std::string_view::npos || semi < brace)) {
+    return semi + 1;
+  }
+  if (brace == std::string_view::npos) { return css.size(); }
+  const size_t close = MatchingBrace(css, brace);
+  return close < css.size() ? close + 1 : css.size();
+}
+
+bool Stylesheet::ReadSelector(std::string_view head, Rule &rule) {
+  bool held = true;
+  Reach reach = Reach::Descendant;
+  size_t cursor = 0;
+  while (cursor < head.size() && held) {
+    while (cursor < head.size() && Space(head[cursor])) { ++cursor; }
+    if (cursor < head.size() && head[cursor] == '>') {
+      reach = Reach::Child;
+      ++cursor;
+      continue;
+    }
+    const size_t start = cursor;
+    while (cursor < head.size() && !Space(head[cursor]) && head[cursor] != '>') { ++cursor; }
+    if (cursor == start) { break; }
+    Compound compound;
+    held = ReadCompound(head.substr(start, cursor - start), compound);
+    if (held) {
+      if (!rule.Chain.empty()) { rule.Links.push_back(reach); }
+      reach = Reach::Descendant;
+      rule.Chain.push_back(std::move(compound));
+    }
+  }
+  return held && !rule.Chain.empty();
+}
+
+int Stylesheet::SpecificityOf(const Rule &rule) {
+  int specificity = 0;
+  for (const Compound &one : rule.Chain) {
+    specificity += one.Id.empty() ? 0 : kIdWeight;
+    specificity +=
+        static_cast<int>(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * kClassWeight;
+    specificity += one.Tag.empty() ? 0 : 1;
+  }
+  return specificity;
+}
+
+void Stylesheet::ReadRule(std::string_view heads, const std::vector<Declaration> &declares) {
+  size_t from = 0;
+  while (from <= heads.size()) {
+    const size_t comma = heads.find(',', from);
+    const std::string_view head = Trim(heads.substr(
+        from, comma == std::string_view::npos ? std::string_view::npos : comma - from));
+    from = comma == std::string_view::npos ? heads.size() + 1 : comma + 1;
+    if (head.empty()) { continue; }
+    Rule rule;
+    if (!ReadSelector(head, rule)) {
+      ++Unselectable_;
+      if (Names_.size() < 64) { Names_.emplace_back(head); }
+      continue;
+    }
+    rule.Specificity = SpecificityOf(rule);
+    rule.Order = Order_++;
+    rule.Declares = declares;
+    Rules_.push_back(std::move(rule));
+  }
+}
+
 void Stylesheet::Read(std::string_view text) {
   const std::string stripped = WithoutComments(text);
   const std::string_view css = stripped;
@@ -668,46 +800,19 @@ void Stylesheet::Read(std::string_view text) {
       ++at;
       continue;
     }
-
     if (css[at] == '@') {
-      ++Unselectable_;
-      if (Names_.size() < 64) {
-        const size_t stops = css.find_first_of("{; \t\r\n", at);
-        Names_.emplace_back(
-            css.substr(at, (stops == std::string_view::npos ? css.size() : stops) - at));
-      }
-      const size_t brace = css.find('{', at);
-      const size_t semi = css.find(';', at);
-      if (semi != std::string_view::npos && (brace == std::string_view::npos || semi < brace)) {
-        at = semi + 1;
-        continue;
-      }
-      if (brace == std::string_view::npos) { break; }
-      int depth = 0;
-      size_t cursor = brace;
-      for (; cursor < css.size(); ++cursor) {
-        if (css[cursor] == '{') { ++depth; }
-        if (css[cursor] == '}' && --depth == 0) { break; }
-      }
-      at = cursor < css.size() ? cursor + 1 : css.size();
+      at = PastAtRule(css, at);
       continue;
     }
     const size_t brace = css.find('{', at);
     if (brace == std::string_view::npos) { break; }
-
-    size_t close = brace;
-    int depth = 0;
-    for (; close < css.size(); ++close) {
-      if (css[close] == '{') { ++depth; }
-      if (css[close] == '}' && --depth == 0) { break; }
-    }
+    const size_t close = MatchingBrace(css, brace);
     const std::string_view heads = css.substr(at, brace - at);
     const std::string_view body =
         css.substr(brace + 1, (close >= css.size() ? css.size() : close) - brace - 1);
     at = close >= css.size() ? css.size() : close + 1;
 
     std::vector<Declaration> declares;
-
     const size_t nested = body.find('{');
     if (nested != std::string_view::npos) {
       ++Unselectable_;
@@ -717,93 +822,53 @@ void Stylesheet::Read(std::string_view text) {
               declares,
               Unheld_,
               Names_);
-
-    size_t from = 0;
-    while (from <= heads.size()) {
-      const size_t comma = heads.find(',', from);
-      const std::string_view head = Trim(heads.substr(
-          from, comma == std::string_view::npos ? std::string_view::npos : comma - from));
-      from = comma == std::string_view::npos ? heads.size() + 1 : comma + 1;
-      if (head.empty()) { continue; }
-      Rule rule;
-      bool held = true;
-      Reach reach = Reach::Descendant;
-      size_t cursor = 0;
-      while (cursor < head.size() && held) {
-        while (cursor < head.size() && Space(head[cursor])) { ++cursor; }
-
-        if (cursor < head.size() && head[cursor] == '>') {
-          reach = Reach::Child;
-          ++cursor;
-          continue;
-        }
-        const size_t start = cursor;
-        while (cursor < head.size() && !Space(head[cursor]) && head[cursor] != '>') { ++cursor; }
-        if (cursor == start) { break; }
-        Compound compound;
-        held = ReadCompound(head.substr(start, cursor - start), compound);
-        if (held) {
-          if (!rule.Chain.empty()) { rule.Links.push_back(reach); }
-          reach = Reach::Descendant;
-          rule.Chain.push_back(std::move(compound));
-        }
-      }
-      if (!held || rule.Chain.empty()) {
-        ++Unselectable_;
-        if (Names_.size() < 64) { Names_.emplace_back(head); }
-        continue;
-      }
-      for (const Compound &one : rule.Chain) {
-        rule.Specificity += one.Id.empty() ? 0 : kIdWeight;
-
-        rule.Specificity +=
-            static_cast<int>(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * kClassWeight;
-        rule.Specificity += one.Tag.empty() ? 0 : 1;
-      }
-      rule.Order = Order_++;
-      rule.Declares = declares;
-      Rules_.push_back(std::move(rule));
-    }
+    ReadRule(heads, declares);
   }
 }
 
 namespace {
 
+int PositionAmongSiblings(const Markup &markup, int node) {
+  const Node &element = markup.Nodes()[static_cast<size_t>(node)];
+  if (element.Parent < 0) { return 0; }
+  int position = 0;
+  for (const int sibling : markup.Nodes()[static_cast<size_t>(element.Parent)].Children) {
+    if (markup.Nodes()[static_cast<size_t>(sibling)].Kind != NodeKind::Element) { continue; }
+    ++position;
+    if (sibling == node) { return position; }
+  }
+  return 0;
+}
+
+bool ClassListHolds(std::string_view lowered, std::string_view wanted) {
+  size_t at = 0;
+  while (at < lowered.size()) {
+    while (at < lowered.size() && Space(lowered[at])) { ++at; }
+    const size_t from = at;
+    while (at < lowered.size() && !Space(lowered[at])) { ++at; }
+    if (at > from && lowered.compare(from, at - from, wanted) == 0) { return true; }
+  }
+  return false;
+}
+
 bool Holds(const Compound &compound, const Markup &markup, int node) {
   const Node &element = markup.Nodes()[static_cast<size_t>(node)];
   if (element.Kind != NodeKind::Element) { return false; }
   if (!compound.Tag.empty() && element.Name != compound.Tag) { return false; }
-  if (compound.NthChild > 0) {
-    if (element.Parent < 0) { return false; }
-    int position = 0;
-    for (const int sibling : markup.Nodes()[static_cast<size_t>(element.Parent)].Children) {
-      if (markup.Nodes()[static_cast<size_t>(sibling)].Kind != NodeKind::Element) { continue; }
-      ++position;
-      if (sibling == node) { break; }
-    }
-    if (position != compound.NthChild) { return false; }
+  if (compound.NthChild > 0 && PositionAmongSiblings(markup, node) != compound.NthChild) {
+    return false;
   }
   if (!compound.Id.empty()) {
     const std::string *id = markup.AttributeOf(node, "id");
     if (id == nullptr || Lower(*id) != compound.Id) { return false; }
   }
-  if (!compound.Classes.empty()) {
-    const std::string *classes = markup.AttributeOf(node, "class");
-    if (classes == nullptr) { return false; }
-    const std::string lowered = Lower(*classes);
-    for (const std::string &wanted : compound.Classes) {
-      bool found = false;
-      size_t at = 0;
-      while (at < lowered.size()) {
-        while (at < lowered.size() && Space(lowered[at])) { ++at; }
-        const size_t from = at;
-        while (at < lowered.size() && !Space(lowered[at])) { ++at; }
-        if (at > from && lowered.compare(from, at - from, wanted) == 0) { found = true; }
-      }
-      if (!found) { return false; }
-    }
-  }
-  return true;
+  if (compound.Classes.empty()) { return true; }
+  const std::string *classes = markup.AttributeOf(node, "class");
+  if (classes == nullptr) { return false; }
+  const std::string lowered = Lower(*classes);
+  return std::ranges::all_of(compound.Classes, [&lowered](const std::string &wanted) {
+    return ClassListHolds(lowered, wanted);
+  });
 }
 
 } // namespace
