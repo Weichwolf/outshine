@@ -221,7 +221,9 @@ MediumMultiScatterTexel(const Medium &medium, MediumUv unit, ToSun &&transmittan
       const float shadowed =
           mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
       Vec3f sun = {0.0f, 0.0f, 0.0f};
-      if (shadowed > 0.0f) { sun = transmittanceToSun(MediumLook{hereKm, cosSunAt}); }
+      if (shadowed > 0.0f) {
+        sun = transmittanceToSun(MediumLook{.RadiusKm = hereKm, .CosZenith = cosSunAt});
+      }
 
       for (int channel = 0; channel < 3; ++channel) {
         const double stepT =
@@ -285,8 +287,10 @@ template <typename ToSun, typename Psi>
     const float shadowed =
         mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
     Vec3f toSun = {0.0f, 0.0f, 0.0f};
-    if (shadowed > 0.0f) { toSun = transmittanceToSun(MediumLook{hereKm, cosSunAt}); }
-    const Vec3f psi = multiScattered(MediumLook{hereKm, cosSunAt});
+    if (shadowed > 0.0f) {
+      toSun = transmittanceToSun(MediumLook{.RadiusKm = hereKm, .CosZenith = cosSunAt});
+    }
+    const Vec3f psi = multiScattered(MediumLook{.RadiusKm = hereKm, .CosZenith = cosSunAt});
 
     for (int channel = 0; channel < 3; ++channel) {
       const float scatterRay = rayleigh * medium.RayleighScatteringPerKm[channel];
@@ -309,7 +313,8 @@ template <typename ToSun, typename Psi>
     const float sunDot = dir[0] * sun[0] + dir[2] * sun[2];
     const float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
     if (cosSunAt > 0.0f) {
-      const Vec3f toSunGround = transmittanceToSun(MediumLook{hereKm, cosSunAt});
+      const Vec3f toSunGround =
+          transmittanceToSun(MediumLook{.RadiusKm = hereKm, .CosZenith = cosSunAt});
       for (int channel = 0; channel < 3; ++channel) {
         summed[channel] += throughput[channel] * static_cast<double>(toSunGround[channel]) *
                            static_cast<double>(cosSunAt) *
@@ -339,7 +344,7 @@ template <typename ToSun, typename Psi>
                          static_cast<float>(kMultiScatterGrid);
     const float azimuth = 2.0f * std::numbers::pi_v<float> * ring;
 
-    const SkyViewLook look = {std::sqrt(around), std::cos(azimuth)};
+    const SkyViewLook look = {.CosView = std::sqrt(around), .LightViewCos = std::cos(azimuth)};
     const Vec3f luminance =
         MediumSkyRay(medium, radiusKm, look, cosSunZenith, transmittanceToSun, multiScattered);
     for (int channel = 0; channel < 3; ++channel) {

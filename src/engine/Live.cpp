@@ -174,9 +174,9 @@ Live::AirReach Live::SunThroughTheAir(double cosSun) const {
       return Render::MediumTransmittance(medium, look, Render::kTransmittanceSteps);
     };
     const auto secondOrder = [&](Render::MediumLook look) {
-      const Render::MediumUv unit = {look.CosZenith * 0.5f + 0.5f,
-                                     (look.RadiusKm - medium.BottomRadiusKm) /
-                                         (medium.TopRadiusKm - medium.BottomRadiusKm)};
+      const Render::MediumUv unit = {.U = look.CosZenith * 0.5f + 0.5f,
+                                     .V = (look.RadiusKm - medium.BottomRadiusKm) /
+                                          (medium.TopRadiusKm - medium.BottomRadiusKm)};
       const Render::MultiScatterSample sample =
           Render::MediumMultiScatterTexel(medium, unit, toSun);
       Vec3f out;
@@ -185,12 +185,13 @@ Live::AirReach Live::SunThroughTheAir(double cosSun) const {
       }
       return out;
     };
-    const Render::MediumLook stands = {stoodAt, static_cast<float>(cosSun)};
+    const Render::MediumLook stands = {.RadiusKm = stoodAt,
+                                       .CosZenith = static_cast<float>(cosSun)};
     SkylightStood_ = Render::MediumSkyIrradiance(medium, stands, toSun, secondOrder);
     SunReachStood_ = toSun(stands);
     AirStoodAt_ = cosSun;
   }
-  return {SunReachStood_, SkylightStood_};
+  return {.SunReach = SunReachStood_, .Skylight = SkylightStood_};
 }
 
 double Live::MeteredLux() const {

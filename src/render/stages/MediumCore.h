@@ -43,7 +43,9 @@ static inline MediumLook mediumTransmittanceParams(MEDIUM_CONST Medium &medium, 
   const float cosZenith =
       reach == 0.0f ? 1.0f
                     : (span * span - ground * ground - reach * reach) / (2.0f * radiusKm * reach);
-  MediumLook look = {radiusKm, clamp(cosZenith, -1.0f, 1.0f)};
+  MediumLook look;
+  look.RadiusKm = radiusKm;
+  look.CosZenith = clamp(cosZenith, -1.0f, 1.0f);
   return look;
 }
 
@@ -84,7 +86,9 @@ skyViewParams(MEDIUM_CONST Medium &medium, float radiusKm, MediumUv sub, MediumL
     coord *= coord;
     cosView = cos(zenithToHorizon + beta * coord);
   }
-  SkyViewLook look = {cosView, -(u * u * 2.0f - 1.0f)};
+  SkyViewLook look;
+  look.CosView = cosView;
+  look.LightViewCos = -(u * u * 2.0f - 1.0f);
   return look;
 }
 

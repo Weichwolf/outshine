@@ -310,11 +310,13 @@ double Placer::MinContentUncached(int node, const Computed *inherited, bool ownS
 
   double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
-    emPx = Resolve(style.Of(Property::FontSize), {kEmPx, kEmPx, RootEm}).value_or(emPx);
+    emPx = Resolve(style.Of(Property::FontSize),
+                   {.AgainstPx = kEmPx, .EmPx = kEmPx, .RootEmPx = RootEm})
+               .value_or(emPx);
   }
   const auto len = [&](Property what) -> std::optional<double> {
     if (!style.Has(what)) { return std::nullopt; }
-    return Resolve(style.Of(what), {0.0, emPx, RootEm});
+    return Resolve(style.Of(what), {.AgainstPx = 0.0, .EmPx = emPx, .RootEmPx = RootEm});
   };
   const double frame =
       len(Property::BorderLeftWidth).value_or(0) + len(Property::BorderRightWidth).value_or(0) +
@@ -338,7 +340,8 @@ double Placer::MinContentUncached(int node, const Computed *inherited, bool ownS
         const size_t end = text.find(' ', at);
         const size_t stop = end == std::string::npos ? text.size() : end;
         own = std::fmax(own,
-                        Width(std::string_view(text).substr(at, stop - at), {FaceOf(style), emPx}));
+                        Width(std::string_view(text).substr(at, stop - at),
+                              {.Name = FaceOf(style), .SizePx = emPx}));
         at = stop == text.size() ? stop : stop + 1;
       }
       continue;
@@ -370,11 +373,13 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
 
   double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
-    emPx = Resolve(style.Of(Property::FontSize), {kEmPx, kEmPx, RootEm}).value_or(emPx);
+    emPx = Resolve(style.Of(Property::FontSize),
+                   {.AgainstPx = kEmPx, .EmPx = kEmPx, .RootEmPx = RootEm})
+               .value_or(emPx);
   }
   const auto len = [&](Property what) -> std::optional<double> {
     if (!style.Has(what)) { return std::nullopt; }
-    return Resolve(style.Of(what), {0.0, emPx, RootEm});
+    return Resolve(style.Of(what), {.AgainstPx = 0.0, .EmPx = emPx, .RootEmPx = RootEm});
   };
   const double frame =
       len(Property::BorderLeftWidth).value_or(0) + len(Property::BorderRightWidth).value_or(0) +
@@ -396,7 +401,7 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
   for (const int child : element.Children) {
     const Node &node2 = Tree->Nodes()[static_cast<size_t>(child)];
     if (node2.Kind == NodeKind::Text) {
-      own = std::fmax(own, Width(Collapsed(node2.Text), {FaceOf(style), emPx}));
+      own = std::fmax(own, Width(Collapsed(node2.Text), {.Name = FaceOf(style), .SizePx = emPx}));
       continue;
     }
     const double child2 = MaxContent(child, &style);
@@ -470,7 +475,7 @@ double Placer::Runs(int node, const Computed &style, int self, Area content, dou
   const double contentWidth = content.Width;
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
   const double lineHeight = lineFactor > 3.0 ? lineFactor : lineFactor * emPx;
-  const FontFace face = {FaceOf(style), emPx};
+  const FontFace face = {.Name = FaceOf(style), .SizePx = emPx};
   const FontMetrics metrics = Face->At(face);
   const bool keepSpace = style.Word(Property::WhiteSpace, 0) == kPre;
   const uint32_t align = style.Word(Property::TextAlign, 0);
@@ -594,13 +599,15 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
     item.Node = child;
     item.Style = StyleOf(child, &style);
     if (item.Style.Word(Property::Display, kDisplayBlock) == kDisplayNone) { continue; }
-    const double itemEm =
-        item.Style.Has(Property::FontSize)
-            ? Resolve(item.Style.Of(Property::FontSize), {emPx, emPx, RootEm}).value_or(emPx)
-            : emPx;
+    const double itemEm = item.Style.Has(Property::FontSize)
+                              ? Resolve(item.Style.Of(Property::FontSize),
+                                        {.AgainstPx = emPx, .EmPx = emPx, .RootEmPx = RootEm})
+                                    .value_or(emPx)
+                              : emPx;
     const auto len = [&](Property what, double against) -> std::optional<double> {
       if (!item.Style.Has(what)) { return std::nullopt; }
-      return Resolve(item.Style.Of(what), {against, itemEm, RootEm});
+      return Resolve(item.Style.Of(what),
+                     {.AgainstPx = against, .EmPx = itemEm, .RootEmPx = RootEm});
     };
     item.MainMarginStart = column ? len(Property::MarginTop, content.Width).value_or(0)
                                   : len(Property::MarginLeft, content.Width).value_or(0);
@@ -618,13 +625,14 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
     if (item.Style.Has(Property::FlexBasis) &&
         item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
       const std::optional<double> basis =
-          Resolve(item.Style.Of(Property::FlexBasis), {mainRoom, itemEm, RootEm});
+          Resolve(item.Style.Of(Property::FlexBasis),
+                  {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
       haveBase = basis.has_value();
       item.Base = basis.value_or(0.0);
     }
     if (!haveBase && item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
-      const std::optional<double> declared =
-          Resolve(item.Style.Of(mainSize), {mainRoom, itemEm, RootEm});
+      const std::optional<double> declared = Resolve(
+          item.Style.Of(mainSize), {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
       haveBase = declared.has_value();
       item.Base = declared.value_or(0.0);
     }
@@ -659,8 +667,8 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
     const Property crossSize = column ? Property::Width : Property::Height;
     item.CrossDeclared = item.Style.Has(crossSize) && item.Style.Of(crossSize).How != Unit::Auto;
     if (item.CrossDeclared) {
-      const std::optional<double> across =
-          Resolve(item.Style.Of(crossSize), {crossRoom, itemEm, RootEm});
+      const std::optional<double> across = Resolve(
+          item.Style.Of(crossSize), {.AgainstPx = crossRoom, .EmPx = itemEm, .RootEmPx = RootEm});
       item.CrossDeclared = across.has_value();
       item.Cross = across.value_or(0.0);
     }
@@ -682,7 +690,8 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
           double suggestion = narrowest;
           if (item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
             const std::optional<double> specified =
-                Resolve(item.Style.Of(mainSize), {mainRoom, itemEm, RootEm});
+                Resolve(item.Style.Of(mainSize),
+                        {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm});
             if (specified) {
               suggestion = std::fmin(
                   narrowest,
@@ -692,18 +701,21 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
           }
           item.Floor = Clamped(suggestion,
                                item.Style,
-                               {Property::kCount, item.Most},
-                               {contentWidth, itemEm, RootEm},
+                               {.Least = Property::kCount, .Most = item.Most},
+                               {.AgainstPx = contentWidth, .EmPx = itemEm, .RootEmPx = RootEm},
                                item.Frame);
         }
       }
     }
     item.Main = item.Base;
 
-    item.Hypothetical = std::fmax(
-        Clamped(
-            item.Base, item.Style, {item.Least, item.Most}, {mainRoom, itemEm, RootEm}, item.Frame),
-        item.Floor);
+    item.Hypothetical =
+        std::fmax(Clamped(item.Base,
+                          item.Style,
+                          {.Least = item.Least, .Most = item.Most},
+                          {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm},
+                          item.Frame),
+                  item.Floor);
     items.push_back(std::move(item));
   }
   if (items.empty()) { return 0; }
@@ -781,8 +793,8 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
         const double wanted = std::fmax(0.0, one.Base + free * (share / factors));
         const double clamped = Clamped(std::fmax(wanted, one.Floor),
                                        one.Style,
-                                       {one.Least, one.Most},
-                                       {mainRoom, one.Em, RootEm},
+                                       {.Least = one.Least, .Most = one.Most},
+                                       {.AgainstPx = mainRoom, .EmPx = one.Em, .RootEmPx = RootEm},
                                        one.Frame);
         one.Main = clamped;
         violation += clamped - wanted;
@@ -990,13 +1002,15 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
 
   double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
-    emPx = Resolve(style.Of(Property::FontSize),
-                   {inherited != nullptr ? kEmPx : RootEm, kEmPx, RootEm})
-               .value_or(emPx);
+    emPx =
+        Resolve(
+            style.Of(Property::FontSize),
+            {.AgainstPx = inherited != nullptr ? kEmPx : RootEm, .EmPx = kEmPx, .RootEmPx = RootEm})
+            .value_or(emPx);
   }
   const auto len = [&](Property what, double against) -> std::optional<double> {
     if (!style.Has(what)) { return std::nullopt; }
-    return Resolve(style.Of(what), {against, emPx, RootEm});
+    return Resolve(style.Of(what), {.AgainstPx = against, .EmPx = emPx, .RootEmPx = RootEm});
   };
 
   Box box;
@@ -1035,7 +1049,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   double contentWidth = 0;
   if (style.Has(Property::Width) && style.Of(Property::Width).How != Unit::Auto) {
     const std::optional<double> declared =
-        Resolve(style.Of(Property::Width), {container.Width, emPx, RootEm});
+        Resolve(style.Of(Property::Width),
+                {.AgainstPx = container.Width, .EmPx = emPx, .RootEmPx = RootEm});
     widthAbsent = !declared.has_value();
     contentWidth = declared.value_or(0.0);
     if (!widthAbsent && borderBox) { contentWidth = std::fmax(0.0, contentWidth - frameX); }
@@ -1051,8 +1066,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   }
   contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0),
                          style,
-                         {Property::MinWidth, Property::MaxWidth},
-                         {container.Width, emPx, RootEm}) -
+                         {.Least = Property::MinWidth, .Most = Property::MaxWidth},
+                         {.AgainstPx = container.Width, .EmPx = emPx, .RootEmPx = RootEm}) -
                  (borderBox ? frameX : 0.0);
 
   if (used.Width >= 0) {
@@ -1064,7 +1079,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   double contentHeight = 0;
   if (style.Has(Property::Height) && style.Of(Property::Height).How != Unit::Auto) {
     const std::optional<double> declared =
-        Resolve(style.Of(Property::Height), {container.Height, emPx, RootEm});
+        Resolve(style.Of(Property::Height),
+                {.AgainstPx = container.Height, .EmPx = emPx, .RootEmPx = RootEm});
     heightAbsent = !declared.has_value();
     contentHeight = declared.value_or(0.0);
     if (!heightAbsent && borderBox) { contentHeight = std::fmax(0.0, contentHeight - frameY); }
@@ -1087,7 +1103,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
   if (heightAbsent && style.Has(Property::MaxHeight) &&
       style.Of(Property::MaxHeight).How != Unit::Auto) {
     const std::optional<double> ceiling =
-        Resolve(style.Of(Property::MaxHeight), {container.Height, emPx, RootEm});
+        Resolve(style.Of(Property::MaxHeight),
+                {.AgainstPx = container.Height, .EmPx = emPx, .RootEmPx = RootEm});
     if (ceiling) { heightRoom = std::fmax(0.0, *ceiling - (borderBox ? frameY : 0.0)); }
   }
   const double deep = Children(node,
@@ -1102,8 +1119,8 @@ Placer::Place(int node, const Computed *inherited, Area container, int parentBox
 
   contentHeight = Clamped(contentHeight + (borderBox ? frameY : 0.0),
                           style,
-                          {Property::MinHeight, Property::MaxHeight},
-                          {container.Height, emPx, RootEm}) -
+                          {.Least = Property::MinHeight, .Most = Property::MaxHeight},
+                          {.AgainstPx = container.Height, .EmPx = emPx, .RootEmPx = RootEm}) -
                   (borderBox ? frameY : 0.0);
 
   (*Out)[static_cast<size_t>(self)].Width = contentWidth + frameX;
