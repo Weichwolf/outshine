@@ -470,15 +470,15 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
     if (vec4 && f32 && !norm) { return true; }
     return quantised && vec4 && norm && (i8 || i16);
   }
-  if (semantic.rfind("TEXCOORD_", 0) == 0) {
+  if (semantic.starts_with("TEXCOORD_")) {
     if (vec2 && ((f32 && !norm) || ((u8 || u16) && norm))) { return true; }
     return quantised && vec2 && (i8 || (u8 && !norm) || i16 || (u16 && !norm));
   }
-  if (semantic.rfind("COLOR_", 0) == 0) {
+  if (semantic.starts_with("COLOR_")) {
     return (vec3 || vec4) && ((f32 && !norm) || ((u8 || u16) && norm));
   }
-  if (semantic.rfind("JOINTS_", 0) == 0) { return vec4 && (u8 || u16) && !norm; }
-  if (semantic.rfind("WEIGHTS_", 0) == 0) {
+  if (semantic.starts_with("JOINTS_")) { return vec4 && (u8 || u16) && !norm; }
+  if (semantic.starts_with("WEIGHTS_")) {
     return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
   }
 
@@ -599,7 +599,7 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
         return Refuse("buffer " + Number(i) + " has no uri and the file carries no binary chunk");
       }
       bytes.assign(binaryChunk, binaryChunk + binaryLength);
-    } else if (uri.rfind("data:", 0) == 0) {
+    } else if (uri.starts_with("data:")) {
       std::string_view payload;
       if (!Base64Payload(uri, payload)) {
         return Refuse("buffer " + Number(i) +
@@ -656,7 +656,7 @@ bool Document::ReadJson(const char *text,
   if (root.GetKind() != Json::Kind::Object) { return Refuse("is not a glTF object"); }
 
   Version_ = root["asset"]["version"].Str("");
-  if (Version_.rfind("2.", 0) != 0) {
+  if (!Version_.starts_with("2.")) {
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
   }
 
@@ -685,7 +685,7 @@ bool Document::ReadJson(const char *text,
   }
 
   MinVersion_ = root["asset"]["minVersion"].Str("");
-  if (!MinVersion_.empty() && MinVersion_.rfind("2.0", 0) != 0) {
+  if (!MinVersion_.empty() && !MinVersion_.starts_with("2.0")) {
     return Refuse("declares asset.minVersion '" + MinVersion_ +
                   "', which is above the glTF 2.0 this reader is");
   }
@@ -1519,7 +1519,7 @@ bool Document::ReadAppearance(const Json &json) {
       return Refuse("image " + Number(i) + " names bufferView " +
                     Number(static_cast<size_t>(image.View)) + " of " + Number(Views_.size()));
     }
-    if (image.Uri.rfind("data:", 0) == 0) {
+    if (image.Uri.starts_with("data:")) {
       std::string_view payload;
       if (!Base64Payload(image.Uri, payload)) {
         return Refuse("image " + Number(i) +

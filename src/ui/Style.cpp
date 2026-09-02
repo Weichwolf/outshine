@@ -1005,7 +1005,7 @@ const char *WhyOutside(std::string_view name) {
 
     const bool fragment =
         row.front() == ':' || row.front() == '+' || row.front() == '~' || row.front() == '!';
-    const bool matched = fragment ? name.contains(row) : name.compare(0, row.size(), row) == 0;
+    const bool matched = fragment ? name.contains(row) : name.starts_with(row);
     if (matched) { return boundary.Why; }
   }
   return nullptr;
