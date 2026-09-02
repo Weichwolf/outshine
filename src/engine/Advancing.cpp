@@ -1,3 +1,4 @@
+#include "Earth.h"
 #include "Units.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -276,8 +277,9 @@ void Engine::State::Falls() {
   if (Ticking.Freestanding.empty()) { return; }
   const double stepS =
       Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
-  const double gravityMs2 =
-      Session.Declared.Ground.GravityMs2 > 0.0 ? Session.Declared.Ground.GravityMs2 : 9.80665;
+  const double gravityMs2 = Session.Declared.Ground.GravityMs2 > 0.0
+                                ? Session.Declared.Ground.GravityMs2
+                                : kStandardGravityMs2;
   for (Physics::Rigid &held : Ticking.Freestanding) {
     Physics::Wrench pulled;
     pulled.ForceN[1] = -held.MassKg * gravityMs2;

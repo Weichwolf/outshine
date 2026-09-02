@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "Earth.h"
 #include "math/Mat4.h"
 #include "scene/Material.h"
 #include "math/Quat.h"
@@ -14,6 +15,37 @@
 #include "Extent.h"
 
 namespace outshine::Scenario {
+
+/// What PatienceS stands at when a scenario declares none.
+constexpr double kPatienceUnsaidS = 30.0;
+
+/// What SightM stands at when a scenario declares none.
+constexpr double kSightUnsaidM = 240000.0;
+
+/// What Fps stands at when a scenario declares none.
+constexpr double kFpsUnsaid = 60.0;
+
+/// What Fill stands at when a scenario declares none.
+constexpr double kFillUnsaid = 0.9;
+
+/// What RisesBy stands at when a scenario declares none.
+constexpr double kRisesByUnsaid = 0.35;
+
+/// How far a view may pitch before it would look past straight up or down, in degrees.
+constexpr double kPitchLimitUnsaidDeg = 89.0;
+
+/// The height a person's eye stands at when a scenario declares none, in metres.
+constexpr double kEyeHeightUnsaidM = 1.7;
+
+/// How fast a person walks and runs when a scenario declares neither, in metres per second.
+constexpr double kWalkUnsaidMs = 1.4;
+constexpr double kRunUnsaidMs = 4.5;
+
+/// The simulation step a scenario gets when it declares none: one sixtieth of a second.
+constexpr double kStepUnsaidS = 1.0 / kFpsUnsaid;
+
+/// How far one notch of a wheel scrolls, in pixels.
+constexpr double kWheelStepUnsaidPx = 48.0;
 
 struct Light {
   double Lux = 0.0;
@@ -38,7 +70,7 @@ struct Layer {
 struct Georeference {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
-  double RadiusM = 6371008.8;
+  double RadiusM = kEarthMeanRadiusM;
 };
 
 struct Weather {
@@ -120,11 +152,11 @@ struct WorldSettings {
   /// The map a scenario states itself. Empty means the map is fetched, which is every scenario that
   /// is not a test.
   std::vector<Structure> Osm;
-  double GravityMs2 = 9.80665;
-  double AirDensityKgM3 = 1.2250;
+  double GravityMs2 = kStandardGravityMs2;
+  double AirDensityKgM3 = kIsaSeaLevelDensityKgM3;
   Weather Sky;
-  double PatienceS = 30.0;
-  double SightM = 240000.0;
+  double PatienceS = kPatienceUnsaidS;
+  double SightM = kSightUnsaidM;
 };
 
 struct Provider {
@@ -162,8 +194,8 @@ struct RenderPlan {
   bool Declared = false;
   Extent Frame;
   Patch Picture;
-  double Fps = 60.0;
-  double Fill = 0.9;
+  double Fps = kFpsUnsaid;
+  double Fill = kFillUnsaid;
   double OrbitDegPerFrame = 0.0;
   std::vector<std::string> Outputs;
   std::vector<std::string> Stages;
@@ -438,8 +470,8 @@ struct View {
   std::string Person;
   Vec3 OffsetM;
   double DistanceM = 0.0;
-  double RisesBy = 0.35;
-  double PitchLimitDeg = 89.0;
+  double RisesBy = kRisesByUnsaid;
+  double PitchLimitDeg = kPitchLimitUnsaidDeg;
   double TimeScale = 1.0;
 };
 
@@ -565,15 +597,15 @@ struct Player {
   std::string Is;
   std::string Starts;
   std::string View;
-  double EyeHeightM = 1.7;
-  double WalkMs = 1.4;
-  double RunMs = 4.5;
+  double EyeHeightM = kEyeHeightUnsaidM;
+  double WalkMs = kWalkUnsaidMs;
+  double RunMs = kRunUnsaidMs;
 };
 
 struct PhysicsSettings {
   bool Declared = false;
   std::string Dial;
-  double StepS = 1.0 / 60.0;
+  double StepS = kStepUnsaidS;
   int MostStepsInArrears = 8;
 };
 
@@ -624,7 +656,7 @@ struct Document {
   PhysicsSettings Motion;
   Clock Time;
   std::vector<Binding> Input;
-  double WheelStepPx = 48.0;
+  double WheelStepPx = kWheelStepUnsaidPx;
   std::vector<Persisted> State;
 
   [[nodiscard]] const Asset *subject() const;
