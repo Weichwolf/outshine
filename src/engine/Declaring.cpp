@@ -355,8 +355,8 @@ bool Engine::generated(const Scenario::Document &scenario) {
   const Stands stands(S_->World.Stack.Ground());
 
   Generators::Request asked;
-  asked.LatDeg = scenario.Ground.Origin.LatitudeDeg;
-  asked.LonDeg = scenario.Ground.Origin.LongitudeDeg;
+  asked.LatitudeDeg = scenario.Ground.Origin.LatitudeDeg;
+  asked.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg;
   asked.ExtentM = scenario.Ground.Origin.RadiusM;
   asked.Ground = &stands;
 

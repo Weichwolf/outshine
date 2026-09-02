@@ -150,7 +150,7 @@ size_t Network::Cross() {
 
   struct Cut {
     uint32_t After = 0;
-    double LatDeg = 0.0, LonDeg = 0.0;
+    double LatitudeDeg = 0.0, LongitudeDeg = 0.0;
     double Along = 0.0;
   };
 
@@ -173,13 +173,14 @@ size_t Network::Cross() {
       const double runLat = toLat - fromLat;
       const double runLon = LonApartDeg(toLon, fromLon);
       const double square = runLat * runLat + runLon * runLon;
-      const double along =
-          square > 0.0
-              ? ((held.LatDeg - fromLat) * runLat + LonApartDeg(held.LonDeg, fromLon) * runLon) /
-                    square
-              : 0.0;
-      perWay[ways[side]].push_back(
-          Cut{.After = local, .LatDeg = held.LatDeg, .LonDeg = held.LonDeg, .Along = along});
+      const double along = square > 0.0 ? ((held.LatitudeDeg - fromLat) * runLat +
+                                           LonApartDeg(held.LongitudeDeg, fromLon) * runLon) /
+                                              square
+                                        : 0.0;
+      perWay[ways[side]].push_back(Cut{.After = local,
+                                       .LatitudeDeg = held.LatitudeDeg,
+                                       .LongitudeDeg = held.LongitudeDeg,
+                                       .Along = along});
     }
   }
   if (Joined_ == 0) { return 0; }
@@ -201,8 +202,8 @@ size_t Network::Cross() {
       laid.push_back(Points_[2 * (way.First + at) + 1]);
       owner.push_back(static_cast<uint32_t>(which));
       while (next < cuts.size() && cuts[next].After == at) {
-        laid.push_back(cuts[next].LatDeg);
-        laid.push_back(cuts[next].LonDeg);
+        laid.push_back(cuts[next].LatitudeDeg);
+        laid.push_back(cuts[next].LongitudeDeg);
         owner.push_back(static_cast<uint32_t>(which));
         ++next;
       }
@@ -302,9 +303,11 @@ bool Network::Weave(std::string &error) {
         const auto seen = byCell.find(KeyAt(row, column));
         if (seen == byCell.end()) { continue; }
         for (const size_t candidate : seen->second) {
-          if (ApartM(
-                  latDeg, lonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg, RadiusM_) <=
-              SnapM_) {
+          if (ApartM(latDeg,
+                     lonDeg,
+                     Nodes_[candidate].LatitudeDeg,
+                     Nodes_[candidate].LongitudeDeg,
+                     RadiusM_) <= SnapM_) {
             found = candidate;
             break;
           }
@@ -314,8 +317,8 @@ bool Network::Weave(std::string &error) {
 
     if (found == Nodes_.size()) {
       Node made;
-      made.LatDeg = latDeg;
-      made.LonDeg = lonDeg;
+      made.LatitudeDeg = latDeg;
+      made.LongitudeDeg = lonDeg;
       const Way &from = Ways_[WayOf_[point]];
       made.HalfWidthM = from.HalfWidthM;
       made.Friction = from.Friction;
@@ -351,8 +354,11 @@ bool Network::Weave(std::string &error) {
       const size_t from = nodeOf[way.First + step - 1];
       const size_t to = nodeOf[way.First + step];
       if (from == to) { continue; }
-      const double lengthM = ApartM(
-          Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
+      const double lengthM = ApartM(Nodes_[from].LatitudeDeg,
+                                    Nodes_[from].LongitudeDeg,
+                                    Nodes_[to].LatitudeDeg,
+                                    Nodes_[to].LongitudeDeg,
+                                    RadiusM_);
       outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
       outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
     }
@@ -370,12 +376,14 @@ bool Network::Weave(std::string &error) {
       if (static_cast<uint32_t>(edge.To) < from) { continue; }
       const Node &a = Nodes_[from];
       const Node &b = Nodes_[edge.To];
-      const int64_t firstRow = RowOver(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg, tieReachM);
-      const int64_t lastRow = RowOver(a.LatDeg < b.LatDeg ? b.LatDeg : a.LatDeg, tieReachM);
+      const int64_t firstRow =
+          RowOver(a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg, tieReachM);
+      const int64_t lastRow =
+          RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg, tieReachM);
       for (int64_t row = firstRow; row <= lastRow; ++row) {
         const RowShape shape = ShapeRowOver(row, tieReachM);
-        const int64_t one = ColumnIn(shape, a.LonDeg);
-        const int64_t two = ColumnIn(shape, b.LonDeg);
+        const int64_t one = ColumnIn(shape, a.LongitudeDeg);
+        const int64_t two = ColumnIn(shape, b.LongitudeDeg);
         const int64_t firstColumn = one < two ? one : two;
         const int64_t lastColumn = one < two ? two : one;
         for (int64_t column = firstColumn; column <= lastColumn; ++column) {
@@ -399,12 +407,14 @@ bool Network::Weave(std::string &error) {
     const Node &b = Nodes_[to];
     const auto one = static_cast<uint32_t>(from < to ? from : to);
     const auto two = static_cast<uint32_t>(from < to ? to : from);
-    const int64_t firstRow = RowOver(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg, tieReachM);
-    const int64_t lastRow = RowOver(a.LatDeg < b.LatDeg ? b.LatDeg : a.LatDeg, tieReachM);
+    const int64_t firstRow =
+        RowOver(a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg, tieReachM);
+    const int64_t lastRow =
+        RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg, tieReachM);
     for (int64_t row = firstRow; row <= lastRow; ++row) {
       const RowShape shape = ShapeRowOver(row, tieReachM);
-      const int64_t here = ColumnIn(shape, a.LonDeg);
-      const int64_t there = ColumnIn(shape, b.LonDeg);
+      const int64_t here = ColumnIn(shape, a.LongitudeDeg);
+      const int64_t there = ColumnIn(shape, b.LongitudeDeg);
       const int64_t firstColumn = here < there ? here : there;
       const int64_t lastColumn = here < there ? there : here;
       for (int64_t column = firstColumn; column <= lastColumn; ++column) {
@@ -428,17 +438,19 @@ bool Network::Weave(std::string &error) {
     if (outgoing[loose].size() != 1) { continue; }
     const Node &end = Nodes_[loose];
     const double reachM = end.HalfWidthM > 0.0 ? 2.0 * end.HalfWidthM : SnapM_;
-    const double perLatM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg + 1.0, end.LonDeg, RadiusM_);
-    const double perLonM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg, end.LonDeg + 1.0, RadiusM_);
+    const double perLatM = ApartM(
+        end.LatitudeDeg, end.LongitudeDeg, end.LatitudeDeg + 1.0, end.LongitudeDeg, RadiusM_);
+    const double perLonM = ApartM(
+        end.LatitudeDeg, end.LongitudeDeg, end.LatitudeDeg, end.LongitudeDeg + 1.0, RadiusM_);
 
     size_t bestFrom = Nodes_.size();
     size_t bestTo = Nodes_.size();
     double bestM = reachM;
-    const int64_t rowHere = RowOver(end.LatDeg, tieReachM);
+    const int64_t rowHere = RowOver(end.LatitudeDeg, tieReachM);
     const int64_t rowReach = static_cast<int64_t>(std::ceil(reachM / tieReachM)) + 1;
     for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
       const RowShape shape = ShapeRowOver(row, tieReachM);
-      const int64_t centre = ColumnIn(shape, end.LonDeg);
+      const int64_t centre = ColumnIn(shape, end.LongitudeDeg);
       const int64_t colReach =
           static_cast<int64_t>(std::ceil(reachM / (shape.LonCellDeg * perLonM))) + 1;
       for (int64_t step = -colReach; step <= colReach; ++step) {
@@ -450,10 +462,10 @@ bool Network::Weave(std::string &error) {
           const size_t over = held.second;
           if (near == loose || over == loose) { continue; }
           {
-            const double ax = (Nodes_[near].LonDeg - end.LonDeg) * perLonM;
-            const double ay = (Nodes_[near].LatDeg - end.LatDeg) * perLatM;
-            const double bx = (Nodes_[over].LonDeg - end.LonDeg) * perLonM;
-            const double by = (Nodes_[over].LatDeg - end.LatDeg) * perLatM;
+            const double ax = (Nodes_[near].LongitudeDeg - end.LongitudeDeg) * perLonM;
+            const double ay = (Nodes_[near].LatitudeDeg - end.LatitudeDeg) * perLatM;
+            const double bx = (Nodes_[over].LongitudeDeg - end.LongitudeDeg) * perLonM;
+            const double by = (Nodes_[over].LatitudeDeg - end.LatitudeDeg) * perLatM;
             const double dx = bx - ax;
             const double dy = by - ay;
             const double span = dx * dx + dy * dy;
@@ -485,8 +497,11 @@ bool Network::Weave(std::string &error) {
     if (!unlink(bestFrom, bestTo) || !unlink(bestTo, bestFrom)) { continue; }
     overCells(bestFrom, bestTo, false);
     const auto link = [this, &outgoing](size_t from, size_t to) {
-      const double lengthM = ApartM(
-          Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg, Nodes_[to].LonDeg, RadiusM_);
+      const double lengthM = ApartM(Nodes_[from].LatitudeDeg,
+                                    Nodes_[from].LongitudeDeg,
+                                    Nodes_[to].LatitudeDeg,
+                                    Nodes_[to].LongitudeDeg,
+                                    RadiusM_);
       outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
       outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
     };
@@ -687,8 +702,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
         while (back < -kDegPerHalfTurn) { back += kDegPerTurn; }
         into.push_back(Crossing{.OverWay = static_cast<uint32_t>(segWay[mine]),
                                 .UnderWay = static_cast<uint32_t>(segWay[theirs]),
-                                .LatDeg = atY,
-                                .LonDeg = back,
+                                .LatitudeDeg = atY,
+                                .LongitudeDeg = back,
                                 .OverAt = static_cast<uint32_t>(firstA),
                                 .UnderAt = static_cast<uint32_t>(firstB)});
       }
@@ -715,11 +730,17 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   }
   if (found.empty()) { Within(to, std::numbers::pi * RadiusM_, found); }
   size_t best = found.empty() ? 0 : found.front();
-  double bestAway =
-      ApartM(to.LatDeg, to.LonDeg, Nodes_[best].LatDeg, Nodes_[best].LonDeg, RadiusM_);
+  double bestAway = ApartM(to.LatitudeDeg,
+                           to.LongitudeDeg,
+                           Nodes_[best].LatitudeDeg,
+                           Nodes_[best].LongitudeDeg,
+                           RadiusM_);
   for (const size_t which : found) {
-    const double away =
-        ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_);
+    const double away = ApartM(to.LatitudeDeg,
+                               to.LongitudeDeg,
+                               Nodes_[which].LatitudeDeg,
+                               Nodes_[which].LongitudeDeg,
+                               RadiusM_);
     if (away < bestAway) {
       bestAway = away;
       best = which;
@@ -737,14 +758,17 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
       static_cast<uint64_t>(2 * across + 1) * static_cast<uint64_t>(2 * across + 1);
   if (Cells_.empty() || cells > Cells_.size()) {
     for (size_t which = 0; which < Nodes_.size(); ++which) {
-      if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <=
-          reachM) {
+      if (ApartM(of.LatitudeDeg,
+                 of.LongitudeDeg,
+                 Nodes_[which].LatitudeDeg,
+                 Nodes_[which].LongitudeDeg,
+                 RadiusM_) <= reachM) {
         nodes.push_back(which);
       }
     }
     return;
   }
-  const int64_t rowHere = RowOf(of.LatDeg);
+  const int64_t rowHere = RowOf(of.LatitudeDeg);
   const RowShape mine = ShapeRow(rowHere);
   for (int64_t row = rowHere - across; row <= rowHere + across; ++row) {
     const RowShape shape = ShapeRow(row);
@@ -752,17 +776,17 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
                                                              mine.LonCellDeg / shape.LonCellDeg)) +
                               1;
     const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
-    const int64_t centre = ColumnIn(shape, of.LonDeg);
+    const int64_t centre = ColumnIn(shape, of.LongitudeDeg);
     for (int64_t step = 0; step < span; ++step) {
       const int64_t column =
           ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
       const auto seen = Cells_.find(KeyAt(row, column));
       if (seen == Cells_.end()) { continue; }
       for (const size_t candidate : seen->second) {
-        if (ApartM(of.LatDeg,
-                   of.LonDeg,
-                   Nodes_[candidate].LatDeg,
-                   Nodes_[candidate].LonDeg,
+        if (ApartM(of.LatitudeDeg,
+                   of.LongitudeDeg,
+                   Nodes_[candidate].LatitudeDeg,
+                   Nodes_[candidate].LongitudeDeg,
                    RadiusM_) <= reachM) {
           nodes.push_back(candidate);
         }
@@ -828,7 +852,8 @@ Network::Pieces Network::InPieces() const {
 
 Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) const {
   Route out;
-  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, RadiusM_);
+  out.StraightM =
+      ApartM(from.LatitudeDeg, from.LongitudeDeg, to.LatitudeDeg, to.LongitudeDeg, RadiusM_);
   if (!Woven_) {
     out.Error = "a network is planned over only after it is woven";
     return out;
@@ -873,10 +898,10 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     return state < edges ? Edges_[state].To : nearStart[state - edges];
   };
   const auto goalM = [&](size_t node) {
-    return ApartM(Nodes_[node].LatDeg,
-                  Nodes_[node].LonDeg,
-                  Nodes_[finish].LatDeg,
-                  Nodes_[finish].LonDeg,
+    return ApartM(Nodes_[node].LatitudeDeg,
+                  Nodes_[node].LongitudeDeg,
+                  Nodes_[finish].LatitudeDeg,
+                  Nodes_[finish].LongitudeDeg,
                   RadiusM_);
   };
 
@@ -884,8 +909,11 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   std::priority_queue<Step, std::vector<Step>, std::greater<>> open;
   for (size_t which = 0; which < nearStart.size(); ++which) {
     const size_t seed = nearStart[which];
-    const double awayM =
-        ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, RadiusM_);
+    const double awayM = ApartM(from.LatitudeDeg,
+                                from.LongitudeDeg,
+                                Nodes_[seed].LatitudeDeg,
+                                Nodes_[seed].LongitudeDeg,
+                                RadiusM_);
     const size_t state = edges + which;
     if (awayM >= best[state]) { continue; }
     best[state] = awayM;
@@ -917,17 +945,18 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     double backNorth = 0.0;
     if (hasBack) {
       const Node &was = Nodes_[leaves[state]];
-      backEast = LonApartDeg(here.LonDeg, was.LonDeg) * std::cos(here.LatDeg * kDegToRad);
-      backNorth = here.LatDeg - was.LatDeg;
+      backEast =
+          LonApartDeg(here.LongitudeDeg, was.LongitudeDeg) * std::cos(here.LatitudeDeg * kDegToRad);
+      backNorth = here.LatitudeDeg - was.LatitudeDeg;
     }
     for (size_t which = 0; which < here.EdgeCount; ++which) {
       const size_t next = here.FirstEdge + which;
       const Edge &edge = Edges_[next];
       if (hasBack && edge.LengthM > 0.0) {
         const Node &there = Nodes_[edge.To];
-        const double onEast =
-            LonApartDeg(there.LonDeg, here.LonDeg) * std::cos(here.LatDeg * kDegToRad);
-        const double onNorth = there.LatDeg - here.LatDeg;
+        const double onEast = LonApartDeg(there.LongitudeDeg, here.LongitudeDeg) *
+                              std::cos(here.LatitudeDeg * kDegToRad);
+        const double onNorth = there.LatitudeDeg - here.LatitudeDeg;
         const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
         const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
         if (wasLength > 0.0 && onLength > 0.0) {
@@ -986,11 +1015,12 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     const Node &node = Nodes_[back[which]];
     if (which > 0) {
       const Node &was = Nodes_[back[which - 1]];
-      alongM += ApartM(was.LatDeg, was.LonDeg, node.LatDeg, node.LonDeg, RadiusM_);
+      alongM +=
+          ApartM(was.LatitudeDeg, was.LongitudeDeg, node.LatitudeDeg, node.LongitudeDeg, RadiusM_);
     }
     Leg leg;
-    leg.At.LatDeg = node.LatDeg;
-    leg.At.LonDeg = node.LonDeg;
+    leg.At.LatitudeDeg = node.LatitudeDeg;
+    leg.At.LongitudeDeg = node.LongitudeDeg;
     leg.AlongM = alongM;
     leg.HalfWidthM = node.HalfWidthM;
     leg.Friction = node.Friction;

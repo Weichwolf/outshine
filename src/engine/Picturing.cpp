@@ -177,8 +177,8 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
   }
   const Ground::Geo above =
       Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
-  atLat = above.LatDeg;
-  atLon = above.LonDeg;
+  atLat = above.LatitudeDeg;
+  atLon = above.LongitudeDeg;
 }
 
 bool Engine::State::Grows(double atLat, double atLon) {
@@ -376,19 +376,19 @@ bool Engine::State::Asks() {
   if (!declared.Ground.Declared && !overADrive) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over;
-  over.LatDeg = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
-  over.LonDeg = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
+  over.LatitudeDeg = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
+  over.LongitudeDeg = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Asking = true;
   {
     const double tileSpanM =
-        40075017.0 * std::cos(over.LatDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
+        40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
     const double nearest = 4.0 * tileSpanM;
     const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
     over.Levels =
         1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
   }
-  World.Stack.Pool().Focus(over.LatDeg, over.LonDeg);
+  World.Stack.Pool().Focus(over.LatitudeDeg, over.LongitudeDeg);
   auto asked = LayPatchwork(World.Stack.Pool(), over);
   if (!asked) {
     Error = asked.error();
@@ -637,8 +637,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                    "m");
 
   Around over;
-  over.LatDeg = atLat;
-  over.LonDeg = atLon;
+  over.LatitudeDeg = atLat;
+  over.LongitudeDeg = atLon;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   {
     const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
@@ -671,8 +671,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
   }
   {
-    const Ground::TileFrac here =
-        Ground::ToTileFracClamped(Ground::Geo{.LonDeg = atLon, .LatDeg = atLat}, over.Zoom);
+    const Ground::TileFrac here = Ground::ToTileFracClamped(
+        Ground::Geo{.LongitudeDeg = atLon, .LatitudeDeg = atLat}, over.Zoom);
     const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
                           static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
                           (static_cast<uint64_t>(over.Levels) << 56u);
@@ -773,16 +773,16 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     inFrame[at + 2] = static_cast<float>(-northM);
     const Ground::Geo where =
         Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
-    const double below = where.AltM - upM;
+    const double below = where.HeightM - upM;
     if (below > sank) {
       sank = below;
       sankAt = std::sqrt(eastM * eastM + northM * northM);
     }
-    if (where.AltM > tallest) {
-      tallest = where.AltM;
+    if (where.HeightM > tallest) {
+      tallest = where.HeightM;
       tallestOut = std::sqrt(eastM * eastM + northM * northM);
     }
-    if (where.AltM < lowest) { lowest = where.AltM; }
+    if (where.HeightM < lowest) { lowest = where.HeightM; }
   }
   Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", tallest, "m");
   Published.Places("relief: and how far out it lies", tallestOut, "m");
@@ -884,12 +884,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
         double edgeM = 0.0;
         int second = -1;
-        const int which =
-            World.Stack.Classes().ClassAt(*classes, where.LatDeg, where.LonDeg, &edgeM, &second);
+        const int which = World.Stack.Classes().ClassAt(
+            *classes, where.LatitudeDeg, where.LongitudeDeg, &edgeM, &second);
         {
           double eastM = 0.0;
           double northM = 0.0;
-          World.Stack.Classes().ToEnu(where.LatDeg, where.LonDeg, &eastM, &northM);
+          World.Stack.Classes().ToEnu(where.LatitudeDeg, where.LongitudeDeg, &eastM, &northM);
           classUv[one * 2] = static_cast<float>(eastM);
           classUv[one * 2 + 1] = static_cast<float>(northM);
         }
@@ -902,8 +902,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         tinted[one * 4 + 2] = stands ? wore.Ground[2] : fallback.GroundAlbedo[2];
         tinted[one * 4 + 3] = 1.0f;
         classOf.push_back(which);
-        atGeo.push_back(where.LatDeg);
-        atGeo.push_back(where.LonDeg);
+        atGeo.push_back(where.LatitudeDeg);
+        atGeo.push_back(where.LongitudeDeg);
       }
       for (int pass = 0; pass < kClassPasses; ++pass) {
         std::unordered_map<uint64_t, uint32_t> split;
@@ -1729,8 +1729,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
-          standing.Place(one.LatDeg, one.LonDeg, 0.0, &eastM, &upM, &northM);
-          const uint64_t named = WayEndKey(one.LatDeg, one.LonDeg) | 1ULL;
+          standing.Place(one.LatitudeDeg, one.LongitudeDeg, 0.0, &eastM, &upM, &northM);
+          const uint64_t named = WayEndKey(one.LatitudeDeg, one.LongitudeDeg) | 1ULL;
           const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
           const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
           for (int64_t stepE = -1; stepE <= 1; ++stepE) {
@@ -1752,11 +1752,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const size_t spans = first.Bridge ? a : b;
           const Ground::StreetField::Way &below = first.Bridge ? second : first;
           double aslM = 0.0;
-          if (!World.Stack.Ground().At(one.LatDeg, one.LonDeg).TryAslM(&aslM)) { continue; }
+          if (!World.Stack.Ground().At(one.LatitudeDeg, one.LongitudeDeg).TryAslM(&aslM)) {
+            continue;
+          }
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
-          standing.Place(one.LatDeg, one.LonDeg, aslM, &eastM, &upM, &northM);
+          standing.Place(one.LatitudeDeg, one.LongitudeDeg, aslM, &eastM, &upM, &northM);
           const double onDrawn = drapedOver(eastM, -northM, upM);
           const double need = onDrawn + static_cast<double>(below.ClearanceM);
           if (need > deckM[spans]) {

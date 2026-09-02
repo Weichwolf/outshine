@@ -61,8 +61,8 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
   Refused_ = 0;
 
   Geo centre;
-  centre.LonDeg = lon;
-  centre.LatDeg = lat;
+  centre.LongitudeDeg = lon;
+  centre.LatitudeDeg = lat;
   if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) { return 0; }
   CentreX_ = static_cast<int>(cx);
   CentreY_ = static_cast<int>(cy);
@@ -186,12 +186,12 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
           const auto py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
           const Geo g = TileFracToGeo(
               Zoom_, static_cast<uint32_t>(tx), static_cast<uint32_t>(ty), px / ext, py / ext);
-          Points_.push_back(g.LatDeg);
-          Points_.push_back(g.LonDeg);
-          f.MinLat = std::min(f.MinLat, g.LatDeg);
-          f.MaxLat = std::max(f.MaxLat, g.LatDeg);
-          f.MinLon = std::min(f.MinLon, g.LonDeg);
-          f.MaxLon = std::max(f.MaxLon, g.LonDeg);
+          Points_.push_back(g.LatitudeDeg);
+          Points_.push_back(g.LongitudeDeg);
+          f.MinLat = std::min(f.MinLat, g.LatitudeDeg);
+          f.MaxLat = std::max(f.MaxLat, g.LatitudeDeg);
+          f.MinLon = std::min(f.MinLon, g.LongitudeDeg);
+          f.MaxLon = std::max(f.MaxLon, g.LongitudeDeg);
         }
         Rings_.push_back(ring);
       }

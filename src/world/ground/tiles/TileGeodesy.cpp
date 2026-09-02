@@ -19,13 +19,13 @@ constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 } // namespace
 
 TileIndex TileIndex::Of(Geo g, int z) {
-  if (g.LatDeg < -kMercatorLatMaxDeg || g.LatDeg > kMercatorLatMaxDeg) {
+  if (g.LatitudeDeg < -kMercatorLatMaxDeg || g.LatitudeDeg > kMercatorLatMaxDeg) {
     return {State::OutsideMercatorBand, 0, 0};
   }
 
   const double n = std::ldexp(1.0, z);
-  const double xf = (g.LonDeg + kDegPerHalfTurn) / kDegPerTurn * n;
-  const double yf = (1.0 - std::asinh(std::tan(g.LatDeg * kDeg2Rad)) / kPi) * 0.5 * n;
+  const double xf = (g.LongitudeDeg + kDegPerHalfTurn) / kDegPerTurn * n;
+  const double yf = (1.0 - std::asinh(std::tan(g.LatitudeDeg * kDeg2Rad)) / kPi) * 0.5 * n;
 
   double xc = std::floor(xf);
   double yc = std::floor(yf);
@@ -58,10 +58,10 @@ Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t local
   const double xf = static_cast<double>(x) + static_cast<double>(localX) * invExtent;
   const double yf = static_cast<double>(y) + static_cast<double>(localY) * invExtent;
 
-  g.LonDeg = xf / n * kDegPerTurn - kDegPerHalfTurn;
+  g.LongitudeDeg = xf / n * kDegPerTurn - kDegPerHalfTurn;
   const double yy = 1.0 - 2.0 * yf / n;
-  g.LatDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
-  g.AltM = 0.0;
+  g.LatitudeDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
+  g.HeightM = 0.0;
   return g;
 }
 
@@ -71,10 +71,10 @@ Geo TileFracToGeo(int z, uint32_t x, uint32_t y, double fx, double fy) {
   const double yf = (static_cast<double>(y) + fy) / n;
 
   Geo g;
-  g.LonDeg = xf * kDegPerTurn - kDegPerHalfTurn;
+  g.LongitudeDeg = xf * kDegPerTurn - kDegPerHalfTurn;
   const double yy = 1.0 - 2.0 * yf;
-  g.LatDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
-  g.AltM = 0.0;
+  g.LatitudeDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
+  g.HeightM = 0.0;
   return g;
 }
 
@@ -83,8 +83,8 @@ Ecef GeoToEcefWgs84(Geo g) {
   const double f = kWgs84F;
   const double e2 = f * (2.0 - f);
 
-  const double phi = g.LatDeg * kDeg2Rad;
-  const double lam = g.LonDeg * kDeg2Rad;
+  const double phi = g.LatitudeDeg * kDeg2Rad;
+  const double lam = g.LongitudeDeg * kDeg2Rad;
   const double sphi = std::sin(phi);
   const double cphi = std::cos(phi);
   const double slam = std::sin(lam);
@@ -93,9 +93,9 @@ Ecef GeoToEcefWgs84(Geo g) {
   const double N = a / std::sqrt(1.0 - e2 * sphi * sphi);
 
   Ecef p;
-  p.X = (N + g.AltM) * cphi * clam;
-  p.Y = (N + g.AltM) * cphi * slam;
-  p.Z = (N * (1.0 - e2) + g.AltM) * sphi;
+  p.X = (N + g.HeightM) * cphi * clam;
+  p.Y = (N + g.HeightM) * cphi * slam;
+  p.Z = (N * (1.0 - e2) + g.HeightM) * sphi;
   return p;
 }
 
@@ -110,13 +110,13 @@ Geo EcefToGeoWgs84(Ecef p) {
   Geo g;
 
   if (pxy < kAtPoleXy) {
-    g.LonDeg = 0.0;
-    g.LatDeg = (p.Z >= 0.0) ? kPoleLatDeg : -kPoleLatDeg;
-    g.AltM = std::fabs(p.Z) - b;
+    g.LongitudeDeg = 0.0;
+    g.LatitudeDeg = (p.Z >= 0.0) ? kPoleLatDeg : -kPoleLatDeg;
+    g.HeightM = std::fabs(p.Z) - b;
     return g;
   }
 
-  g.LonDeg = kRad2Deg * std::atan2(p.Y, p.X);
+  g.LongitudeDeg = kRad2Deg * std::atan2(p.Y, p.X);
 
   const double ep2 = e2 / (1.0 - e2);
   const double theta = std::atan2(p.Z * a, pxy * b);
@@ -127,8 +127,8 @@ Geo EcefToGeoWgs84(Ecef p) {
   const double clat = std::cos(lat);
   const double N = a / std::sqrt(1.0 - e2 * slat * slat);
 
-  g.LatDeg = kRad2Deg * lat;
-  g.AltM = pxy / clat - N;
+  g.LatitudeDeg = kRad2Deg * lat;
+  g.HeightM = pxy / clat - N;
   return g;
 }
 
@@ -144,11 +144,11 @@ EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
 TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent) {
   const GeoBounds b = TileBounds(z, x, y);
   Geo topLeft;
-  topLeft.LonDeg = b.MinLonDeg;
-  topLeft.LatDeg = b.MaxLatDeg;
+  topLeft.LongitudeDeg = b.MinLonDeg;
+  topLeft.LatitudeDeg = b.MaxLatDeg;
   Geo bottomRight;
-  bottomRight.LonDeg = b.MaxLonDeg;
-  bottomRight.LatDeg = b.MinLatDeg;
+  bottomRight.LongitudeDeg = b.MaxLonDeg;
+  bottomRight.LatitudeDeg = b.MinLatDeg;
 
   TileEnuMap map;
   Enu etl;

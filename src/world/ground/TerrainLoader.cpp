@@ -237,8 +237,8 @@ const Tile *GroundStream::TileResident(long x, long y) const {
 
 GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, double lon) const {
   Geo place;
-  place.LatDeg = lat;
-  place.LonDeg = lon;
+  place.LatitudeDeg = lat;
+  place.LongitudeDeg = lon;
   const TileFrac f = ToTileFracClamped(place, zoom);
   const double u = f.X - static_cast<double>(static_cast<long>(f.X));
   const double v = f.Y - static_cast<double>(static_cast<long>(f.Y));
@@ -278,8 +278,8 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
 GroundSample GroundStream::Resident(double lat, double lon) const {
   lon = Wrapped180(lon);
   Geo place;
-  place.LatDeg = lat;
-  place.LonDeg = lon;
+  place.LatitudeDeg = lat;
+  place.LongitudeDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
@@ -362,8 +362,8 @@ const Tile *GroundStream::TileAt(long x, long y) const {
 GroundSample GroundStream::At(double lat, double lon) const {
   lon = Wrapped180(lon);
   Geo place;
-  place.LatDeg = lat;
-  place.LonDeg = lon;
+  place.LatitudeDeg = lat;
+  place.LongitudeDeg = lon;
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
@@ -409,11 +409,11 @@ GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
 void GroundBlock::AslMRow(
     double latDeg, double lonFromDeg, double lonStepDeg, int count, double *out) const noexcept {
   Geo from;
-  from.LatDeg = latDeg;
-  from.LonDeg = Wrapped180(lonFromDeg);
+  from.LatitudeDeg = latDeg;
+  from.LongitudeDeg = Wrapped180(lonFromDeg);
   Geo to;
-  to.LatDeg = latDeg;
-  to.LonDeg = Wrapped180(lonFromDeg + lonStepDeg);
+  to.LatitudeDeg = latDeg;
+  to.LongitudeDeg = Wrapped180(lonFromDeg + lonStepDeg);
   const TileFrac fromFrac = ToTileFracClamped(from, Zoom_);
   const double tx0 = fromFrac.X;
   const double ty = fromFrac.Y;

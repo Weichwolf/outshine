@@ -3,15 +3,14 @@
 
 #include <cstdint>
 
+#include "Earth.h"
 #include "Units.h"
 #include "TileMath.h"
 #include "Wgs84.h"
 
 namespace outshine::Ground {
 
-struct Geo {
-  double LonDeg = 0.0, LatDeg = 0.0, AltM = 0.0;
-};
+using Geo = outshine::LongitudeLatitudeHeight;
 
 struct Enu {
   double E = 0.0, N = 0.0, U = 0.0;
@@ -57,8 +56,8 @@ private:
 
 inline TileFrac ToTileFracClamped(Geo g, int z) {
   const double n = std::ldexp(1.0, z);
-  const double latDeg = ClampD(g.LatDeg, -kMercatorLatMaxDeg, kMercatorLatMaxDeg);
-  const double lonDeg = ClampD(g.LonDeg, -kDegPerHalfTurn, kDegPerHalfTurn);
+  const double latDeg = ClampD(g.LatitudeDeg, -kMercatorLatMaxDeg, kMercatorLatMaxDeg);
+  const double lonDeg = ClampD(g.LongitudeDeg, -kDegPerHalfTurn, kDegPerHalfTurn);
   const double lr = latDeg * kDeg2Rad;
   TileFrac f;
   f.X = (lonDeg + kDegPerHalfTurn) / kDegPerTurn * n;
@@ -92,17 +91,17 @@ public:
 
   [[nodiscard]] bool TryFromGeo(Geo g, Enu *out) const {
     if (Where_ != State::Usable) { return false; }
-    out->E = (g.LonDeg - OriginLonDeg_) * MetresPerDegLon_;
-    out->N = (g.LatDeg - OriginLatDeg_) * MetresPerDegLat_;
-    out->U = g.AltM;
+    out->E = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_;
+    out->N = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_;
+    out->U = g.HeightM;
     return true;
   }
 
   [[nodiscard]] bool TryToGeo(Enu e, Geo *out) const {
     if (Where_ != State::Usable) { return false; }
-    out->LonDeg = OriginLonDeg_ + e.E / MetresPerDegLon_;
-    out->LatDeg = OriginLatDeg_ + e.N / MetresPerDegLat_;
-    out->AltM = e.U;
+    out->LongitudeDeg = OriginLonDeg_ + e.E / MetresPerDegLon_;
+    out->LatitudeDeg = OriginLatDeg_ + e.N / MetresPerDegLat_;
+    out->HeightM = e.U;
     return true;
   }
 

@@ -17,8 +17,8 @@ constexpr size_t kZoomLevels = 24;
 constexpr int kPatchGrid = 33;
 
 struct Around {
-  double LatDeg = 0.0;
-  double LonDeg = 0.0;
+  double LatitudeDeg = 0.0;
+  double LongitudeDeg = 0.0;
   int Zoom = 0;
   int Levels = 1;
   int Grid = kPatchGrid;

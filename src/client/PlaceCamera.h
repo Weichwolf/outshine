@@ -29,8 +29,8 @@ struct Place {
   enum class Seen : uint8_t { Eye, Plan };
 
   const char *Name = "";
-  double LatDeg = 0.0;
-  double LonDeg = 0.0;
+  double LatitudeDeg = 0.0;
+  double LongitudeDeg = 0.0;
   double BearingDeg = 0.0;
 
   Seen From = Seen::Eye;

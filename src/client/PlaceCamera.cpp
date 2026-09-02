@@ -63,64 +63,64 @@ void WalkedTo(
 
 constexpr std::array<Place, 9> kPlaces{{
     {.Name = "OldTown",
-     .LatDeg = 49.3777,
-     .LonDeg = 10.179,
+     .LatitudeDeg = 49.3777,
+     .LongitudeDeg = 10.179,
      .BearingDeg = 70.0,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:19:00Z"},
     {.Name = "Heidelberg",
-     .LatDeg = 49.4147,
-     .LonDeg = 8.6968,
+     .LatitudeDeg = 49.4147,
+     .LongitudeDeg = 8.6968,
      .BearingDeg = 108.50,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:25:00Z"},
     {.Name = "Shibuya",
-     .LatDeg = 35.6595,
-     .LonDeg = 139.7005,
+     .LatitudeDeg = 35.6595,
+     .LongitudeDeg = 139.7005,
      .BearingDeg = 40.0,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T02:41:00Z"},
     {.Name = "CentralPark",
-     .LatDeg = 40.7968,
-     .LonDeg = -73.9520,
+     .LatitudeDeg = 40.7968,
+     .LongitudeDeg = -73.9520,
      .BearingDeg = 218.32,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T16:56:00Z"},
     {.Name = "Venice",
-     .LatDeg = 45.438,
-     .LonDeg = 12.3358,
+     .LatitudeDeg = 45.438,
+     .LongitudeDeg = 12.3358,
      .BearingDeg = 30.0,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:11:00Z"},
     {.Name = "Jura",
-     .LatDeg = 47.2492,
-     .LonDeg = 7.5108,
+     .LatitudeDeg = 47.2492,
+     .LongitudeDeg = 7.5108,
      .BearingDeg = 156.53,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:30:00Z"},
     {.Name = "ZurichPlan",
-     .LatDeg = 47.3667,
-     .LonDeg = 8.5500,
+     .LatitudeDeg = 47.3667,
+     .LongitudeDeg = 8.5500,
      .BearingDeg = 0.0,
      .From = Place::Seen::Plan,
      .SpanM = 3000.0,
      .WhenUtc = "2026-06-21T11:26:00Z"},
     {.Name = "Kaiserberg",
-     .LatDeg = 51.4400,
-     .LonDeg = 6.8040,
+     .LatitudeDeg = 51.4400,
+     .LongitudeDeg = 6.8040,
      .BearingDeg = 45.0,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
      .WhenUtc = "2026-06-21T11:32:00Z"},
     {.Name = "Koehlbrand",
-     .LatDeg = 53.5195,
-     .LonDeg = 9.9205,
+     .LatitudeDeg = 53.5195,
+     .LongitudeDeg = 9.9205,
      .BearingDeg = 58.0,
      .From = Place::Seen::Eye,
      .SpanM = 0.0,
@@ -186,8 +186,8 @@ bool Audits = false;
 Scenario::Document ScenarioFor(const Place &place) {
   Scenario::Document stands;
   stands.Ground.Declared = true;
-  stands.Ground.Origin.LatitudeDeg = place.LatDeg;
-  stands.Ground.Origin.LongitudeDeg = place.LonDeg;
+  stands.Ground.Origin.LatitudeDeg = place.LatitudeDeg;
+  stands.Ground.Origin.LongitudeDeg = place.LongitudeDeg;
   stands.Ground.PatienceS = 3.0;
   stands.Ground.SightM = kSightM;
   stands.Render.Declared = true;
@@ -203,8 +203,8 @@ Scenario::Document ScenarioFor(const Place &place) {
   watches.Id = "station";
   watches.Person = "first";
   watches.Sees.Stands.GlobeAnchor = true;
-  watches.Sees.Stands.Geodetic.LatitudeDeg = place.LatDeg;
-  watches.Sees.Stands.Geodetic.LongitudeDeg = place.LonDeg;
+  watches.Sees.Stands.Geodetic.LatitudeDeg = place.LatitudeDeg;
+  watches.Sees.Stands.Geodetic.LongitudeDeg = place.LongitudeDeg;
   const bool overhead = place.From == Place::Seen::Plan;
   watches.Sees.Stands.Geodetic.HeightM = overhead ? kPlanAboveM : kEyeAglM;
   watches.Sees.Stands.SamplesHeight = !overhead;
@@ -224,10 +224,10 @@ Scenario::Document ScenarioFor(const Place &place) {
   for (int step = 1; step <= kWalkViews; ++step) {
     Scenario::View along = watches;
     along.Id = "walk" + std::to_string(step - 1);
-    double lat = place.LatDeg;
-    double lon = place.LonDeg;
-    WalkedTo(place.LatDeg,
-             place.LonDeg,
+    double lat = place.LatitudeDeg;
+    double lon = place.LongitudeDeg;
+    WalkedTo(place.LatitudeDeg,
+             place.LongitudeDeg,
              place.BearingDeg,
              static_cast<double>(step) * kWalkStepM,
              lat,

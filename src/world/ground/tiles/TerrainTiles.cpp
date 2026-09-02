@@ -121,7 +121,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
         const double fx = static_cast<double>(col) / static_cast<double>(kShapedSide - 1u);
         const double fy = static_cast<double>(row) / static_cast<double>(kShapedSide - 1u);
         const Geo at = TileFracToGeo(z, static_cast<long>(x), static_cast<long>(y), fx, fy);
-        postings[row, col] = static_cast<float>(ShapedAslM(at.LatDeg, at.LonDeg));
+        postings[row, col] = static_cast<float>(ShapedAslM(at.LatitudeDeg, at.LongitudeDeg));
       }
     }
     return TerrainGrid::Holding(std::move(field));

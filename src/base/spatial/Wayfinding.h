@@ -20,8 +20,8 @@ inline constexpr double kStartReachM = 250.0;
     double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg, double sphereRadiusM);
 
 struct Waypoint {
-  double LatDeg = 0.0;
-  double LonDeg = 0.0;
+  double LatitudeDeg = 0.0;
+  double LongitudeDeg = 0.0;
 };
 
 struct Leg {
@@ -85,7 +85,7 @@ public:
 
   struct Crossing {
     uint32_t OverWay = 0, UnderWay = 0;
-    double LatDeg = 0.0, LonDeg = 0.0;
+    double LatitudeDeg = 0.0, LongitudeDeg = 0.0;
     uint32_t OverAt = 0, UnderAt = 0;
   };
 
@@ -141,8 +141,8 @@ private:
   };
 
   struct Node {
-    double LatDeg = 0.0;
-    double LonDeg = 0.0;
+    double LatitudeDeg = 0.0;
+    double LongitudeDeg = 0.0;
     size_t FirstEdge = 0;
     size_t EdgeCount = 0;
     double HalfWidthM = 0.0;

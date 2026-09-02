@@ -62,7 +62,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
     const int rc = W3_RI(gr / 2);
     const int cc = W3_CI(gc / 2);
     Geo gc0 = TileFracToGeo(z, x, y, 0.5, 0.5);
-    gc0.AltM = W3_MH(rc, cc);
+    gc0.HeightM = W3_MH(rc, cc);
     const Ecef o = GeoToEcefWgs84(gc0);
     origin_out[0] = o.X;
     origin_out[1] = o.Y;
@@ -77,7 +77,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       const double fy = static_cast<double>(r) / static_cast<double>(R - 1);
       const float h = W3_MH(r, c);
       Geo g = TileFracToGeo(z, x, y, fx, fy);
-      g.AltM = h;
+      g.HeightM = h;
       const Ecef e = GeoToEcefWgs84(g);
       double *d = pe + (static_cast<size_t>(j) * gc + i) * 3;
       d[0] = e.X - origin_out[0];

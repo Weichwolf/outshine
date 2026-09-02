@@ -44,10 +44,10 @@ struct Request {
   /// The centre, in DEGREES. A generator that reads a public map has to know where on Earth it is,
   /// and a local metre offset with no origin cannot say. The fields carried metres in their names
   /// and degrees in their values until board:2083 measured it.
-  double LatDeg = 0.0;
+  double LatitudeDeg = 0.0;
 
   /// The centre's longitude, in degrees.
-  double LonDeg = 0.0;
+  double LongitudeDeg = 0.0;
 
   /// How far the window reaches, in metres.
   double ExtentM = 0.0;

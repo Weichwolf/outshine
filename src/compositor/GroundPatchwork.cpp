@@ -57,9 +57,9 @@ constexpr long kBlockTiles = 4;
 static void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   const int side = grid < 2 ? 2 : grid;
   const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
-  const Ground::Geo middle{.LonDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
-                           .LatDeg = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg),
-                           .AltM = 0.0};
+  const Ground::Geo middle{.LongitudeDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
+                           .LatitudeDeg = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg),
+                           .HeightM = 0.0};
   const Ground::Ecef anchor = Ground::GeoToEcefWgs84(middle);
   out->OriginEcef[0] = anchor.X;
   out->OriginEcef[1] = anchor.Y;
@@ -74,9 +74,9 @@ static void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *ou
     for (int column = 0; column < side; ++column) {
       const double u = static_cast<double>(column) / static_cast<double>(side - 1);
       const Ground::Geo where{
-          .LonDeg = bounds.MinLonDeg + u * (bounds.MaxLonDeg - bounds.MinLonDeg),
-          .LatDeg = bounds.MaxLatDeg + v * (bounds.MinLatDeg - bounds.MaxLatDeg),
-          .AltM = 0.0};
+          .LongitudeDeg = bounds.MinLonDeg + u * (bounds.MaxLonDeg - bounds.MinLonDeg),
+          .LatitudeDeg = bounds.MaxLatDeg + v * (bounds.MinLatDeg - bounds.MaxLatDeg),
+          .HeightM = 0.0};
       const Ground::Ecef at = Ground::GeoToEcefWgs84(where);
       const double away = std::sqrt(at.X * at.X + at.Y * at.Y + at.Z * at.Z);
       out->Verts.push_back(static_cast<float>(at.X - anchor.X));
@@ -128,7 +128,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     const int coarsest = over.Zoom - (levels - 1) < 1 ? 1 : over.Zoom - (levels - 1);
     const long span = 1L << static_cast<uint32_t>(over.Zoom - coarsest);
     const Ground::TileFrac at = Ground::ToTileFracClamped(
-        Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, coarsest);
+        Ground::Geo{.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}, coarsest);
     maskX0 = 2 *
              static_cast<long>(std::floor(
                  (static_cast<double>(static_cast<long>(std::floor(at.X))) - 1.0) / 2.0)) *
@@ -150,8 +150,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     const int zoom = over.Zoom - level;
     if (zoom < 1) { break; }
     const long span = 1L << static_cast<uint32_t>(level);
-    const Ground::TileFrac at =
-        Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, zoom);
+    const Ground::TileFrac at = Ground::ToTileFracClamped(
+        Ground::Geo{.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}, zoom);
     const long originX =
         2 * static_cast<long>(
                 std::floor((static_cast<double>(static_cast<long>(std::floor(at.X))) - 1.0) / 2.0));
@@ -291,10 +291,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
 
   if (out.Tiles == 0) {
     return std::unexpected("no tile of the " + std::to_string(levels) + "-level cascade around " +
-                           std::to_string(over.LatDeg) + ", " + std::to_string(over.LonDeg) +
-                           " meshed -- " + std::to_string(out.Pending) + " pending, " +
-                           std::to_string(out.Absent) + " absent, " + std::to_string(out.Refused) +
-                           " refused");
+                           std::to_string(over.LatitudeDeg) + ", " +
+                           std::to_string(over.LongitudeDeg) + " meshed -- " +
+                           std::to_string(out.Pending) + " pending, " + std::to_string(out.Absent) +
+                           " absent, " + std::to_string(out.Refused) + " refused");
   }
   return out;
 }

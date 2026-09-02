@@ -315,8 +315,11 @@ int main(int argc, char **argv) {
   }
   if (verb == "places") {
     for (const Place &one : outshine::Shots::Places()) {
-      std::printf(
-          "%-14s %10.5f %11.5f  bearing %6.2f\n", one.Name, one.LatDeg, one.LonDeg, one.BearingDeg);
+      std::printf("%-14s %10.5f %11.5f  bearing %6.2f\n",
+                  one.Name,
+                  one.LatitudeDeg,
+                  one.LongitudeDeg,
+                  one.BearingDeg);
     }
     return 0;
   }

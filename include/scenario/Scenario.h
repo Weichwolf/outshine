@@ -243,19 +243,13 @@ struct Asset {
   std::vector<SurfaceOverride> Surfaces;
 };
 
-struct LongitudeLatitudeHeight {
-  double LongitudeDeg = 0.0;
-  double LatitudeDeg = 0.0;
-  double HeightM = 0.0;
-};
-
 struct Standing {
   Vec3 AtM;
   Quat Facing;
   Vec3 ScaleXyz = {{1.0, 1.0, 1.0}};
 
   bool GlobeAnchor = false;
-  LongitudeLatitudeHeight Geodetic;
+  outshine::LongitudeLatitudeHeight Geodetic;
   bool SamplesHeight = false;
   double BearingDeg = 0.0;
   double PitchDeg = 0.0;
