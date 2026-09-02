@@ -68,3 +68,33 @@ the item closes, not during it.
 - [ ] Proving case: Venice and OldTown render byte-identical across each mechanical sweep, and all
       nine places once at the end.
 - [ ] Negative control: put one `(float)` cast back and require the gate to go RED at 1.
+
+## 2026-09-02: a fixit is a SUGGESTION about code the tool did not read
+
+Half the tail is mechanical and `run-clang-tidy -fix` applies it in seconds, one check at a time.
+That is the fast lane and it is where the round's one regression came from.
+
+`modernize-loop-convert` rewrote `src/render/plan/Compiled.cpp`:
+
+    for (size_t at = 0; at < Wanted.size(); ++at) { (void)Resolve(Wanted[at]); }
+    for (auto &at : Wanted) { (void)Resolve(at); }                    // what it became
+
+`Resolve` reaches `Want`, and `Want` pushes onto `Wanted`. **It is a worklist**: the index loop
+re-read the bound every round because the list grows as it is walked. The range-for takes `begin`
+and `end` once, so every resource pulled in by a dependency was dropped -- and a vector that
+reallocates under an iterator is undefined behaviour besides. Every place refused to assemble, and
+the audit said so correctly: *"nothing this plan requests reads what it draws into"*.
+
+The check cannot see that `Resolve` reaches `Want`. **Nothing it emits is a patch until a person has
+read the loop.** Every loop-convert of the round was re-read afterwards; the other five convert a
+fixed array or a span nobody grows.
+
+The repair is not a revert, it is a shape no fixit can mistake:
+
+    size_t drained = 0;
+    while (drained < Wanted.size()) { (void)Resolve(Wanted[drained++]); }
+
+**AND THE GATE WOULD HAVE CAUGHT IT ON THE DAY.** `test/outshine` holds a render case per place and
+all of them would have gone red. The commit went in without one, because the checks before it had
+been textual and the habit had gone slack. THE GATE RUNS BEFORE THE COMMIT, not after it -- for
+every check that touches a body, which after the textual ones is all of them.
