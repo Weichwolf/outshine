@@ -162,29 +162,4 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-uint32_t Forest::Proposes(double areaM2) const noexcept {
-  double densest = 0.0;
-  for (size_t i = 0; i < PerM2_.Size(); i++) {
-    densest = std::max(static_cast<double>(PerM2_[i]), densest);
-  }
-  const double cellM2 = kCellM * kCellM;
-  double p = densest * cellM2;
-  p = std::min(p, 1.0);
-  const double n = areaM2 / cellM2;
-  const double mean = n * p;
-  const double sd = std::sqrt(n * p * (1.0 - p));
-  constexpr double kSigmaHeadroom = 8.0;
-  return static_cast<uint32_t>(mean + kSigmaHeadroom * sd + 1.0);
-}
-
-bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
-  const Lattice lattice = Of(ground.Where());
-  const Cell cell{.I = static_cast<int>(std::floor(eastM / lattice.Em)),
-                  .J = static_cast<int>(std::floor(northM / lattice.Nm))};
-  if (cell.I < 0 || cell.J < 0 || cell.I >= lattice.Cols || cell.J >= lattice.Rows) {
-    return false;
-  }
-  return Consider(ground, lattice, cell, out) == Outcome::Placed;
-}
-
 } // namespace outshine::Generators

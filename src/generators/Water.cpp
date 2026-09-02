@@ -61,12 +61,4 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-uint32_t Water::Proposes(double) const noexcept {
-  return 0;
-}
-
-bool Water::At(const Ground &, double, double, Body *) const noexcept {
-  return false;
-}
-
 } // namespace outshine::Generators

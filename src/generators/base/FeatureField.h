@@ -54,7 +54,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const;
 
 private:
-  FeatureField(Span<const Feature>, Span<const Ring>, Span<const Vertex>);
+  FeatureField(Span<const Feature> features, Span<const Ring> rings, Span<const Vertex> vertices);
 
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;

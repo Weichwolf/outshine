@@ -163,9 +163,9 @@ private:
     Scratch() = default;
     ~Scratch() = default;
 
-    Scratch(const Scratch &) {}
+    Scratch([[maybe_unused]] const Scratch &other) {}
 
-    Scratch &operator=(const Scratch &) { return *this; }
+    Scratch &operator=([[maybe_unused]] const Scratch &other) { return *this; }
 
     Scratch(Scratch &&) noexcept = default;
     Scratch &operator=(Scratch &&) noexcept = default;

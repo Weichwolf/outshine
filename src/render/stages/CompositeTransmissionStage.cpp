@@ -55,7 +55,8 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu,
   return true;
 }
 
-void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecording &into) {
+void CompositeTransmissionStage::Encode([[maybe_unused]] const FrameContext &ctx,
+                                        const PassRecording &into) {
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   const std::array<SDL_GPUTextureSamplerBinding, kCompositeImages> images = {

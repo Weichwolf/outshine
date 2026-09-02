@@ -78,7 +78,7 @@ bool TonemapStage::Configure(const Gpu &gpu,
   return true;
 }
 
-void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
+void TonemapStage::Encode([[maybe_unused]] const FrameContext &ctx, const PassRecording &into) {
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   if (Temporal) {

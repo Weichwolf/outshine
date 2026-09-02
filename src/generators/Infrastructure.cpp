@@ -41,12 +41,4 @@ void Infrastructure::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-uint32_t Infrastructure::Proposes(double) const noexcept {
-  return 0;
-}
-
-bool Infrastructure::At(const Ground &, double, double, Body *) const noexcept {
-  return false;
-}
-
 } // namespace outshine::Generators

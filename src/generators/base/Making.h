@@ -25,11 +25,6 @@ public:
 
   virtual void Occupy(const Ground &ground, Yield &yield) const noexcept = 0;
 
-  [[nodiscard]] virtual uint32_t Proposes(double areaM2) const noexcept = 0;
-
-  [[nodiscard]] virtual bool
-  At(const Ground &ground, double eastM, double northM, Body *out) const noexcept = 0;
-
   [[nodiscard]] virtual Span<const char *const> NoteNames() const noexcept { return {}; }
 
 protected:

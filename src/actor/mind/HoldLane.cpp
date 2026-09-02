@@ -2,7 +2,7 @@
 
 namespace outshine::Control {
 
-Doing HoldsLane::Act(double) {
+Doing HoldsLane::Act([[maybe_unused]] double dtS) {
   if (Now_.Along == nullptr || Now_.With == nullptr || Now_.At == nullptr) {
     Asked_ = Pilot::Demand{};
     return Doing::Done;
