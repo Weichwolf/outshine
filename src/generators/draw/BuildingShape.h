@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_BUILDINGSHAPE_H
 #define OUTSHINE_GENERATORS_DRAW_BUILDINGSHAPE_H
 
+#include "Earth.h"
 #include <cstdint>
 #include <vector>
 
@@ -11,9 +12,7 @@ namespace outshine::Generators {
 
 constexpr double kFloorUnsaidM = 2.9;
 
-struct En {
-  double E = 0.0, N = 0.0;
-};
+using En = outshine::EastNorth;
 
 enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome };
 
@@ -54,7 +53,7 @@ struct BuildingShape {
 
   [[nodiscard]] double TopM() const { return SeatM + FootM + EavesM + RiseM; }
 
-  [[nodiscard]] En AxisV() const { return {.E = -AxisU.N, .N = AxisU.E}; }
+  [[nodiscard]] En AxisV() const { return {.EastM = -AxisU.NorthM, .NorthM = AxisU.EastM}; }
 
   void ToBox(const En &p, double *u, double *v) const;
   [[nodiscard]] En FromBox(double u, double v) const;

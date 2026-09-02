@@ -167,15 +167,15 @@ public:
 
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
-    out.P.E = std::round(v.P.E * kWeldPerM) / kWeldPerM;
-    out.P.N = std::round(v.P.N * kWeldPerM) / kWeldPerM;
+    out.P.EastM = std::round(v.P.EastM * kWeldPerM) / kWeldPerM;
+    out.P.NorthM = std::round(v.P.NorthM * kWeldPerM) / kWeldPerM;
     out.Z = std::round(v.Z * kWeldPerM) / kWeldPerM;
     return out;
   }
 
   [[nodiscard]] uint32_t Index(const Vtx &v) {
-    const auto ce = static_cast<int64_t>(std::llround(v.P.E * 1000.0));
-    const auto cn = static_cast<int64_t>(std::llround(v.P.N * 1000.0));
+    const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * 1000.0));
+    const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
     const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
     const uint64_t key = static_cast<uint64_t>(ce * 73856093LL) ^
                          static_cast<uint64_t>(cn * 19349663LL) ^
@@ -195,11 +195,11 @@ public:
     const uint32_t ib = Index(b);
     const uint32_t ic = Index(c);
     if (ia == ib || ib == ic || ic == ia) { return; }
-    const double e1 = b.P.E - a.P.E;
-    const double n1 = b.P.N - a.P.N;
+    const double e1 = b.P.EastM - a.P.EastM;
+    const double n1 = b.P.NorthM - a.P.NorthM;
     const double z1 = b.Z - a.Z;
-    const double e2 = c.P.E - a.P.E;
-    const double n2 = c.P.N - a.P.N;
+    const double e2 = c.P.EastM - a.P.EastM;
+    const double n2 = c.P.NorthM - a.P.NorthM;
     const double z2 = c.Z - a.Z;
     Vec3 nrm = {{n1 * z2 - z1 * n2, z1 * e2 - e1 * z2, e1 * n2 - n1 * e2}};
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
@@ -262,8 +262,8 @@ private:
     const auto made = static_cast<uint32_t>(soup.size() / 8u);
     Corners_[side].emplace(key, made);
     for (int c = 0; c < 3; c++) {
-      soup.push_back(
-          static_cast<float>(Origin_[c] + v.P.E * East_[c] + v.P.N * North_[c] + v.Z * Up_[c]));
+      soup.push_back(static_cast<float>(Origin_[c] + v.P.EastM * East_[c] + v.P.NorthM * North_[c] +
+                                        v.Z * Up_[c]));
     }
     soup.push_back(v.U);
     soup.push_back(v.V);
@@ -322,7 +322,9 @@ public:
     SlopeN_ = m[2][3] / m[2][2];
   }
 
-  [[nodiscard]] double At(const En &p) const { return Const_ + SlopeE_ * p.E + SlopeN_ * p.N; }
+  [[nodiscard]] double At(const En &p) const {
+    return Const_ + SlopeE_ * p.EastM + SlopeN_ * p.NorthM;
+  }
 
   [[nodiscard]] double High() const { return HighM_; }
 
@@ -334,11 +336,12 @@ private:
 };
 
 double EdgeLength(const En &p, const En &q) {
-  return std::hypot(q.E - p.E, q.N - p.N);
+  return std::hypot(q.EastM - p.EastM, q.NorthM - p.NorthM);
 }
 
 En Along(const En &p, const En &q, double t) {
-  return {.E = p.E + (q.E - p.E) * t, .N = p.N + (q.N - p.N) * t};
+  return {.EastM = p.EastM + (q.EastM - p.EastM) * t,
+          .NorthM = p.NorthM + (q.NorthM - p.NorthM) * t};
 }
 
 double BaysOn(double lengthM, double bayM) {
@@ -711,12 +714,12 @@ void Box(Site &site,
          double highZ,
          Facade side) {
   std::array<En, 4> c{};
-  const En u{.E = s.AxisU.E * halfU, .N = s.AxisU.N * halfU};
-  const En v{.E = -s.AxisU.N * halfV, .N = s.AxisU.E * halfV};
-  c[0] = {.E = centre.E - u.E - v.E, .N = centre.N - u.N - v.N};
-  c[1] = {.E = centre.E + u.E - v.E, .N = centre.N + u.N - v.N};
-  c[2] = {.E = centre.E + u.E + v.E, .N = centre.N + u.N + v.N};
-  c[3] = {.E = centre.E - u.E + v.E, .N = centre.N - u.N + v.N};
+  const En u{.EastM = s.AxisU.EastM * halfU, .NorthM = s.AxisU.NorthM * halfU};
+  const En v{.EastM = -s.AxisU.NorthM * halfV, .NorthM = s.AxisU.EastM * halfV};
+  c[0] = {.EastM = centre.EastM - u.EastM - v.EastM, .NorthM = centre.NorthM - u.NorthM - v.NorthM};
+  c[1] = {.EastM = centre.EastM + u.EastM - v.EastM, .NorthM = centre.NorthM + u.NorthM - v.NorthM};
+  c[2] = {.EastM = centre.EastM + u.EastM + v.EastM, .NorthM = centre.NorthM + u.NorthM + v.NorthM};
+  c[3] = {.EastM = centre.EastM - u.EastM + v.EastM, .NorthM = centre.NorthM - u.NorthM + v.NorthM};
   for (int i = 0; i < 4; i++) {
     const int j = (i + 1) % 4;
     site.Quad(Face(s, c[i], lowZ, side),
@@ -812,8 +815,8 @@ constexpr double kBoxTris = 12.0;
   for (size_t i = 0; i < n; i++) {
     const En &a = ring[i];
     const En &b = ring[(i + 1) % n];
-    const double dE = b.E - a.E;
-    const double dN = b.N - a.N;
+    const double dE = b.EastM - a.EastM;
+    const double dN = b.NorthM - a.NorthM;
     const double len = std::hypot(dE, dN);
     if (len < kLeastRunM) { continue; }
     const double uE = dE / len;
@@ -823,8 +826,8 @@ constexpr double kBoxTris = 12.0;
     double loV = kBeyondAnyCoordinate;
     double hiV = -kBeyondAnyCoordinate;
     for (const En &p : ring) {
-      const double u = p.E * uE + p.N * uN;
-      const double v = -p.E * uN + p.N * uE;
+      const double u = p.EastM * uE + p.NorthM * uN;
+      const double v = -p.EastM * uN + p.NorthM * uE;
       loU = std::min(loU, u);
       hiU = std::max(hiU, u);
       loV = std::min(loV, v);
@@ -842,7 +845,7 @@ constexpr double kBoxTris = 12.0;
     }
   }
   const auto at = [&](double u, double v) {
-    return En{.E = u * axE - v * axN, .N = u * axN + v * axE};
+    return En{.EastM = u * axE - v * axN, .NorthM = u * axN + v * axE};
   };
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
@@ -877,10 +880,10 @@ void RaisePart(const BuildingShape &s, Site &site) {
     double leastN = kBeyondAnyCoordinate;
     double mostN = -kBeyondAnyCoordinate;
     for (const En &p : s.Ring) {
-      leastE = std::min(leastE, p.E);
-      mostE = std::max(mostE, p.E);
-      leastN = std::min(leastN, p.N);
-      mostN = std::max(mostN, p.N);
+      leastE = std::min(leastE, p.EastM);
+      mostE = std::max(mostE, p.EastM);
+      leastN = std::min(leastN, p.NorthM);
+      mostN = std::max(mostN, p.NorthM);
     }
     const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
     const double highM = s.TopM() - s.SoleM;
@@ -937,11 +940,12 @@ void RaisePart(const BuildingShape &s, Site &site) {
 }
 
 double StandBack(const Frontage &street, const En &p) {
-  return (p.E - street.KerbEm) * street.ToStreetE + (p.N - street.KerbNm) * street.ToStreetN;
+  return (p.EastM - street.KerbEm) * street.ToStreetE +
+         (p.NorthM - street.KerbNm) * street.ToStreetN;
 }
 
 En OntoKerb(const Frontage &street, const En &p, double back) {
-  return {.E = p.E - back * street.ToStreetE, .N = p.N - back * street.ToStreetN};
+  return {.EastM = p.EastM - back * street.ToStreetE, .NorthM = p.NorthM - back * street.ToStreetN};
 }
 
 void Pavement(const BuildingShape &s,
@@ -955,8 +959,8 @@ void Pavement(const BuildingShape &s,
     if (s.Party[i] != 0u) { continue; }
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
-    const double e = q.E - p.E;
-    const double nn = q.N - p.N;
+    const double e = q.EastM - p.EastM;
+    const double nn = q.NorthM - p.NorthM;
     const double len = std::hypot(e, nn);
     if (len < kFrontLeastEdgeM) { continue; }
     if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < kFrontLeastLook) {

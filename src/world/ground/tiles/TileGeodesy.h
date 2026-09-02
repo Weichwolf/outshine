@@ -12,9 +12,7 @@ namespace outshine::Ground {
 
 using Geo = outshine::LongitudeLatitudeHeight;
 
-struct Enu {
-  double E = 0.0, N = 0.0, U = 0.0;
-};
+using Enu = outshine::EastNorthUp;
 
 struct Ecef {
   double X = 0.0, Y = 0.0, Z = 0.0;
@@ -91,17 +89,17 @@ public:
 
   [[nodiscard]] bool TryFromGeo(Geo g, Enu *out) const {
     if (Where_ != State::Usable) { return false; }
-    out->E = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_;
-    out->N = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_;
-    out->U = g.HeightM;
+    out->EastM = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_;
+    out->NorthM = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_;
+    out->UpM = g.HeightM;
     return true;
   }
 
   [[nodiscard]] bool TryToGeo(Enu e, Geo *out) const {
     if (Where_ != State::Usable) { return false; }
-    out->LongitudeDeg = OriginLonDeg_ + e.E / MetresPerDegLon_;
-    out->LatitudeDeg = OriginLatDeg_ + e.N / MetresPerDegLat_;
-    out->HeightM = e.U;
+    out->LongitudeDeg = OriginLonDeg_ + e.EastM / MetresPerDegLon_;
+    out->LatitudeDeg = OriginLatDeg_ + e.NorthM / MetresPerDegLat_;
+    out->HeightM = e.UpM;
     return true;
   }
 
@@ -134,9 +132,9 @@ public:
 
   [[nodiscard]] Enu Apply(int32_t localX, int32_t localY) const {
     Enu r;
-    r.E = OriginE_ + static_cast<double>(localX) * ScaleE_;
-    r.N = OriginN_ + static_cast<double>(localY) * ScaleN_;
-    r.U = 0.0;
+    r.EastM = OriginE_ + static_cast<double>(localX) * ScaleE_;
+    r.NorthM = OriginN_ + static_cast<double>(localY) * ScaleN_;
+    r.UpM = 0.0;
     return r;
   }
 

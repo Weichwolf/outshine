@@ -37,6 +37,36 @@ struct LongitudeLatitudeHeight {
   [[nodiscard]] constexpr bool operator==(const LongitudeLatitudeHeight &) const = default;
 };
 
+/// A place in the local horizontal frame of some origin, in metres.
+///
+/// East and north span the tangent plane and up leaves it. Cesium calls the frame a local
+/// horizontal coordinate system; this is a point inside one.
+struct EastNorthUp {
+  /// Toward the east, in metres.
+  double EastM = 0.0;
+  /// Toward the north, in metres.
+  double NorthM = 0.0;
+  /// Away from the ellipsoid, in metres.
+  double UpM = 0.0;
+
+  /// Two offsets are the same offset when all three measures are.
+  [[nodiscard]] constexpr bool operator==(const EastNorthUp &) const = default;
+};
+
+/// A place in the local horizontal PLANE, in metres.
+///
+/// Kept apart from @ref EastNorthUp rather than folded into it: a building outline is stored in
+/// bulk and a third measure it never uses would make every one of them half again as large.
+struct EastNorth {
+  /// Toward the east, in metres.
+  double EastM = 0.0;
+  /// Toward the north, in metres.
+  double NorthM = 0.0;
+
+  /// Two points are the same point when both measures are.
+  [[nodiscard]] constexpr bool operator==(const EastNorth &) const = default;
+};
+
 } // namespace outshine
 
 #endif

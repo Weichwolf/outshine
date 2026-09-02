@@ -39,9 +39,12 @@ constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 
 void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
-  const double ab = (a.E - b.E) * (a.E - b.E) + (a.N - b.N) * (a.N - b.N);
-  const double bc = (b.E - c.E) * (b.E - c.E) + (b.N - c.N) * (b.N - c.N);
-  const double ca = (c.E - a.E) * (c.E - a.E) + (c.N - a.N) * (c.N - a.N);
+  const double ab =
+      (a.EastM - b.EastM) * (a.EastM - b.EastM) + (a.NorthM - b.NorthM) * (a.NorthM - b.NorthM);
+  const double bc =
+      (b.EastM - c.EastM) * (b.EastM - c.EastM) + (b.NorthM - c.NorthM) * (b.NorthM - c.NorthM);
+  const double ca =
+      (c.EastM - a.EastM) * (c.EastM - a.EastM) + (c.NorthM - a.NorthM) * (c.NorthM - a.NorthM);
   if (ab < kSliverM2 || bc < kSliverM2 || ca < kSliverM2) { return; }
   out.push_back(a);
   out.push_back(b);
@@ -54,8 +57,8 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   std::vector<uint32_t> poly(n);
   for (size_t i = 0; i < n; i++) { poly[i] = static_cast<uint32_t>(i); }
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
-    return (ring[b].E - ring[a].E) * (ring[c].N - ring[a].N) -
-           (ring[c].E - ring[a].E) * (ring[b].N - ring[a].N);
+    return (ring[b].EastM - ring[a].EastM) * (ring[c].NorthM - ring[a].NorthM) -
+           (ring[c].EastM - ring[a].EastM) * (ring[b].NorthM - ring[a].NorthM);
   };
   int guard = static_cast<int>(n * n) + 8;
   while (poly.size() > 2 && guard-- > 0) {
@@ -89,22 +92,24 @@ void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
   if (n < 3) { return true; }
   bool in = false;
   for (size_t i = 0, j = n - 1; i < n; j = i++) {
-    const bool straddles = (ring[i].N > p.N) != (ring[j].N > p.N);
+    const bool straddles = (ring[i].NorthM > p.NorthM) != (ring[j].NorthM > p.NorthM);
     if (!straddles) { continue; }
-    const double at =
-        (ring[j].E - ring[i].E) * (p.N - ring[i].N) / (ring[j].N - ring[i].N) + ring[i].E;
-    if (p.E < at) { in = !in; }
+    const double at = (ring[j].EastM - ring[i].EastM) * (p.NorthM - ring[i].NorthM) /
+                          (ring[j].NorthM - ring[i].NorthM) +
+                      ring[i].EastM;
+    if (p.EastM < at) { in = !in; }
   }
   if (in) { return true; }
   double nearest = kBeyondAnyCoordinate;
   for (size_t i = 0, j = n - 1; i < n; j = i++) {
-    const double ex = ring[j].E - ring[i].E;
-    const double ny = ring[j].N - ring[i].N;
+    const double ex = ring[j].EastM - ring[i].EastM;
+    const double ny = ring[j].NorthM - ring[i].NorthM;
     const double run = ex * ex + ny * ny;
-    double along = run > 0.0 ? ((p.E - ring[i].E) * ex + (p.N - ring[i].N) * ny) / run : 0.0;
+    double along =
+        run > 0.0 ? ((p.EastM - ring[i].EastM) * ex + (p.NorthM - ring[i].NorthM) * ny) / run : 0.0;
     along = std::clamp(along, 0.0, 1.0);
-    const double dx = p.E - (ring[i].E + along * ex);
-    const double dy = p.N - (ring[i].N + along * ny);
+    const double dx = p.EastM - (ring[i].EastM + along * ex);
+    const double dy = p.NorthM - (ring[i].NorthM + along * ny);
     nearest = std::min(nearest, dx * dx + dy * dy);
   }
   return nearest <= marginM * marginM;
@@ -174,9 +179,9 @@ void Refine(std::vector<En> &tris, int passes) {
       const En a = tris[i];
       const En b = tris[i + 1];
       const En c = tris[i + 2];
-      const En ab{.E = 0.5 * (a.E + b.E), .N = 0.5 * (a.N + b.N)};
-      const En bc{.E = 0.5 * (b.E + c.E), .N = 0.5 * (b.N + c.N)};
-      const En ca{.E = 0.5 * (c.E + a.E), .N = 0.5 * (c.N + a.N)};
+      const En ab{.EastM = 0.5 * (a.EastM + b.EastM), .NorthM = 0.5 * (a.NorthM + b.NorthM)};
+      const En bc{.EastM = 0.5 * (b.EastM + c.EastM), .NorthM = 0.5 * (b.NorthM + c.NorthM)};
+      const En ca{.EastM = 0.5 * (c.EastM + a.EastM), .NorthM = 0.5 * (c.NorthM + a.NorthM)};
       PushTri(out, a, ab, ca);
       PushTri(out, ab, b, bc);
       PushTri(out, ca, bc, c);
@@ -256,10 +261,11 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
     if (da >= -kOnLineM) { out.push_back(a); }
     if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
       const double f = da / (da - db);
-      En cut{.E = a.E + (b.E - a.E) * f, .N = a.N + (b.N - a.N) * f};
-      if (std::hypot(cut.E - a.E, cut.N - a.N) < kWeldM) {
+      En cut{.EastM = a.EastM + (b.EastM - a.EastM) * f,
+             .NorthM = a.NorthM + (b.NorthM - a.NorthM) * f};
+      if (std::hypot(cut.EastM - a.EastM, cut.NorthM - a.NorthM) < kWeldM) {
         cut = a;
-      } else if (std::hypot(cut.E - b.E, cut.N - b.N) < kWeldM) {
+      } else if (std::hypot(cut.EastM - b.EastM, cut.NorthM - b.NorthM) < kWeldM) {
         cut = b;
       }
       out.push_back(cut);
@@ -297,7 +303,7 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     const double span = d0 - d1;
     if (std::fabs(span) < kOnLineM) { continue; }
     const double t = d0 / span;
-    const double reach = std::hypot(to.E - from.E, to.N - from.N);
+    const double reach = std::hypot(to.EastM - from.EastM, to.NorthM - from.NorthM);
     const double keepAway = reach > kLeastRunM ? kWeldM / reach : 1.0;
     if (t > keepAway && t < 1.0 - keepAway) {
       at.push_back(t);
@@ -369,11 +375,11 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const En &p = ring[i];
     const En &a = ring[before];
     const En &b = ring[(i + 1) % n];
-    const double e0 = p.E - a.E;
-    const double n0 = p.N - a.N;
+    const double e0 = p.EastM - a.EastM;
+    const double n0 = p.NorthM - a.NorthM;
     const double l0 = std::hypot(e0, n0);
-    const double e1 = b.E - p.E;
-    const double n1 = b.N - p.N;
+    const double e1 = b.EastM - p.EastM;
+    const double n1 = b.NorthM - p.NorthM;
     const double l1 = std::hypot(e1, n1);
     if (l0 < kLeastRunM || l1 < kLeastRunM) { return {}; }
 
@@ -386,13 +392,13 @@ RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8
     const double det = a0 * b1 - b0 * a1;
     if (std::fabs(det) < kLeastRunM) {
       if (std::fabs(d0 - d1) > kLeastTurnRad) { return {}; }
-      out.push_back({.E = p.E + a0 * d0, .N = p.N + b0 * d0});
+      out.push_back({.EastM = p.EastM + a0 * d0, .NorthM = p.NorthM + b0 * d0});
       continue;
     }
     const double yE = (d0 * b1 - d1 * b0) / det;
     const double yN = (a0 * d1 - a1 * d0) / det;
     if (std::hypot(yE, yN) > 4.0 * std::fabs(byM)) { return {}; }
-    out.push_back({.E = p.E + yE, .N = p.N + yN});
+    out.push_back({.EastM = p.EastM + yE, .NorthM = p.NorthM + yN});
   }
   return out;
 }

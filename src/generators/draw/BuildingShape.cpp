@@ -152,14 +152,15 @@ std::vector<En> RingInMetres(Span<const double> latLon) {
   ring.reserve(latLon.Size() / 2);
   for (size_t k = 0; k + 1 < latLon.Size(); k += 2) {
     En p;
-    EnuOffsetM(refLat, refLon, latLon[k], latLon[k + 1], p.E, p.N);
-    if (!ring.empty() && std::hypot(p.E - ring.back().E, p.N - ring.back().N) < kSameCornerM) {
+    EnuOffsetM(refLat, refLon, latLon[k], latLon[k + 1], p.EastM, p.NorthM);
+    if (!ring.empty() &&
+        std::hypot(p.EastM - ring.back().EastM, p.NorthM - ring.back().NorthM) < kSameCornerM) {
       continue;
     }
     ring.push_back(p);
   }
-  while (ring.size() >= 2 && std::hypot(ring.front().E - ring.back().E,
-                                        ring.front().N - ring.back().N) < kSameCornerM) {
+  while (ring.size() >= 2 && std::hypot(ring.front().EastM - ring.back().EastM,
+                                        ring.front().NorthM - ring.back().NorthM) < kSameCornerM) {
     ring.pop_back();
   }
   return ring;
@@ -170,7 +171,7 @@ double SignedArea(const std::vector<En> &ring) {
   for (size_t i = 0, n = ring.size(); i < n; i++) {
     const En &p = ring[i];
     const En &q = ring[(i + 1) % n];
-    a += p.E * q.N - q.E * p.N;
+    a += p.EastM * q.NorthM - q.EastM * p.NorthM;
   }
   return 0.5 * a;
 }
@@ -188,7 +189,7 @@ Piece WholeOf(const std::vector<En> &ring) {
 }
 
 double SideOf(const En &at, const En &normal, const En &p) {
-  return (p.E - at.E) * normal.E + (p.N - at.N) * normal.N;
+  return (p.EastM - at.EastM) * normal.EastM + (p.NorthM - at.NorthM) * normal.NorthM;
 }
 
 void DropSpurs(Piece *p) {
@@ -200,10 +201,10 @@ void DropSpurs(Piece *p) {
       const En &a = p->P[(i + n - 1) % n];
       const En &b = p->P[i];
       const En &c = p->P[(i + 1) % n];
-      const double e1 = b.E - a.E;
-      const double n1 = b.N - a.N;
-      const double e2 = c.E - b.E;
-      const double n2 = c.N - b.N;
+      const double e1 = b.EastM - a.EastM;
+      const double n1 = b.NorthM - a.NorthM;
+      const double e2 = c.EastM - b.EastM;
+      const double n2 = c.NorthM - b.NorthM;
       const double area2 = std::fabs(e1 * n2 - e2 * n1);
       if (area2 > kOnCutM * std::max(1.0, std::hypot(e1, n1) + std::hypot(e2, n2))) { continue; }
       if (e1 * e2 + n1 * n2 >= 0.0) { continue; }
@@ -252,8 +253,8 @@ void DropSpurs(Piece *p) {
       }
       if (si * sj >= 0) { continue; }
       const double f = s[i] / (s[i] - s[j]);
-      out->P.push_back({.E = in.P[i].E + (in.P[j].E - in.P[i].E) * f,
-                        .N = in.P[i].N + (in.P[j].N - in.P[i].N) * f});
+      out->P.push_back({.EastM = in.P[i].EastM + (in.P[j].EastM - in.P[i].EastM) * f,
+                        .NorthM = in.P[i].NorthM + (in.P[j].NorthM - in.P[i].NorthM) * f});
       out->Party.push_back(si > 0 ? 1u : in.Party[i]);
     }
   };
@@ -267,7 +268,7 @@ void DropSpurs(Piece *p) {
   double t1 = -kBeyondAnyCoordinate;
   for (const En &p : front->P) {
     if (std::fabs(SideOf(at, normal, p)) > kOnCutM) { continue; }
-    const double t = (p.E - at.E) * -normal.N + (p.N - at.N) * normal.E;
+    const double t = (p.EastM - at.EastM) * -normal.NorthM + (p.NorthM - at.NorthM) * normal.EastM;
     t0 = std::min(t0, t);
     t1 = std::max(t1, t);
   }
@@ -285,8 +286,8 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
   for (size_t i = 0, n = ring.size(); i < n; i++) {
     const En &p = ring[i];
     const En &q = ring[(i + 1) % n];
-    double ax = q.E - p.E;
-    double ay = q.N - p.N;
+    double ax = q.EastM - p.EastM;
+    double ay = q.NorthM - p.NorthM;
     const double len = std::hypot(ax, ay);
     if (len < kSameCornerM) { continue; }
     ax /= len;
@@ -296,8 +297,8 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
     double v0 = kBeyondAnyCoordinate;
     double v1 = -kBeyondAnyCoordinate;
     for (const En &r : ring) {
-      const double u = r.E * ax + r.N * ay;
-      const double v = -r.E * ay + r.N * ax;
+      const double u = r.EastM * ax + r.NorthM * ay;
+      const double v = -r.EastM * ay + r.NorthM * ax;
       u0 = std::min(u0, u);
       u1 = std::max(u1, u);
       v0 = std::min(v0, v);
@@ -308,14 +309,14 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
     best = area;
     const double cu = 0.5 * (u0 + u1);
     const double cv = 0.5 * (v0 + v1);
-    out->Centre = {.E = cu * ax - cv * ay, .N = cu * ay + cv * ax};
-    out->AxisU = {.E = ax, .N = ay};
+    out->Centre = {.EastM = cu * ax - cv * ay, .NorthM = cu * ay + cv * ax};
+    out->AxisU = {.EastM = ax, .NorthM = ay};
     out->HalfUm = 0.5 * (u1 - u0);
     out->HalfVm = 0.5 * (v1 - v0);
   }
   if (out->HalfUm < out->HalfVm) {
     std::swap(out->HalfUm, out->HalfVm);
-    out->AxisU = {.E = -out->AxisU.N, .N = out->AxisU.E};
+    out->AxisU = {.EastM = -out->AxisU.NorthM, .NorthM = out->AxisU.EastM};
   }
 }
 
@@ -451,13 +452,13 @@ struct PartOrder {
 
 size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
   if (ring.size() < 3) { return 0; }
-  Vec2 least = {{ring[0].E, ring[0].N}};
-  Vec2 most = {{ring[0].E, ring[0].N}};
+  Vec2 least = {{ring[0].EastM, ring[0].NorthM}};
+  Vec2 most = {{ring[0].EastM, ring[0].NorthM}};
   for (const En &p : ring) {
-    least[0] = std::min(least[0], p.E);
-    least[1] = std::min(least[1], p.N);
-    most[0] = std::max(most[0], p.E);
-    most[1] = std::max(most[1], p.N);
+    least[0] = std::min(least[0], p.EastM);
+    least[1] = std::min(least[1], p.NorthM);
+    most[0] = std::max(most[0], p.EastM);
+    most[1] = std::max(most[1], p.NorthM);
   }
   const double across = std::max(most[0] - least[0], most[1] - least[1]);
   const double flat = std::max(kLeastRunM * across * across, kLeastRunM);
@@ -469,8 +470,10 @@ size_t TidyRing(std::vector<En> &ring, std::vector<uint8_t> &party) {
     for (size_t at = 0; at < ring.size() && ring.size() > 3; ++at) {
       const size_t before = (at + ring.size() - 1) % ring.size();
       const size_t after = (at + 1) % ring.size();
-      const Vec2 toward = {{ring[at].E - ring[before].E, ring[at].N - ring[before].N}};
-      const Vec2 onward = {{ring[after].E - ring[at].E, ring[after].N - ring[at].N}};
+      const Vec2 toward = {
+          {ring[at].EastM - ring[before].EastM, ring[at].NorthM - ring[before].NorthM}};
+      const Vec2 onward = {
+          {ring[after].EastM - ring[at].EastM, ring[after].NorthM - ring[at].NorthM}};
       const double reach = std::sqrt(toward[0] * toward[0] + toward[1] * toward[1]);
       const double turn = std::fabs(toward[0] * onward[1] - toward[1] * onward[0]);
       if (reach > together && turn > 2.0 * flat) { continue; }
@@ -532,14 +535,15 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   const En &a = ring[(i + n - 1) % n];
   const En &b = ring[i];
   const En &c = ring[(i + 1) % n];
-  return (b.E - a.E) * (c.N - b.N) - (c.E - b.E) * (b.N - a.N) < 0.0;
+  return (b.EastM - a.EastM) * (c.NorthM - b.NorthM) - (c.EastM - b.EastM) * (b.NorthM - a.NorthM) <
+         0.0;
 }
 
 En UnitFrom(const En &a, const En &b) {
-  const double e = b.E - a.E;
-  const double n = b.N - a.N;
+  const double e = b.EastM - a.EastM;
+  const double n = b.NorthM - a.NorthM;
   const double l = std::hypot(e, n);
-  return l < kLeastRunM ? En{.E = 1.0, .N = 0.0} : En{.E = e / l, .N = n / l};
+  return l < kLeastRunM ? En{.EastM = 1.0, .NorthM = 0.0} : En{.EastM = e / l, .NorthM = n / l};
 }
 
 [[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
@@ -557,7 +561,9 @@ En UnitFrom(const En &a, const En &b) {
       Piece lo;
       Piece hi;
       double len = 0.0;
-      if (!CutPiece(whole, ring[i], {.E = dir.N, .N = -dir.E}, &lo, &hi, &len)) { continue; }
+      if (!CutPiece(whole, ring[i], {.EastM = dir.NorthM, .NorthM = -dir.EastM}, &lo, &hi, &len)) {
+        continue;
+      }
       if (len < 1.0 || len >= bestLen) { continue; }
       if (!BothWorthIt(lo, hi, wholeM2)) { continue; }
       a = lo;
@@ -609,7 +615,8 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
 }
 
 double DistanceToKerb(const Frontage &street, const En &p) {
-  return (p.E - street.KerbEm) * street.ToStreetE + (p.N - street.KerbNm) * street.ToStreetN;
+  return (p.EastM - street.KerbEm) * street.ToStreetE +
+         (p.NorthM - street.KerbNm) * street.ToStreetN;
 }
 
 void FaceTheStreet(BuildingShape *s, const Frontage &street) {
@@ -620,16 +627,16 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
     if (s->Party[i] != 0u) { continue; }
     const En &p = s->Ring[i];
     const En &q = s->Ring[(i + 1) % n];
-    const double e = q.E - p.E;
-    const double nn = q.N - p.N;
+    const double e = q.EastM - p.EastM;
+    const double nn = q.NorthM - p.NorthM;
     const double len = std::hypot(e, nn);
     if (len < kFrontLeastEdgeM) { continue; }
     const double outE = nn / len;
     const double outN = -e / len;
     const double look = outE * street.ToStreetE + outN * street.ToStreetN;
     if (look <= best) { continue; }
-    const double standBack =
-        DistanceToKerb(street, {.E = 0.5 * (p.E + q.E), .N = 0.5 * (p.N + q.N)});
+    const double standBack = DistanceToKerb(
+        street, {.EastM = 0.5 * (p.EastM + q.EastM), .NorthM = 0.5 * (p.NorthM + q.NorthM)});
     if (standBack > kKerbNearestM || standBack < kKerbFarthestM) { continue; }
     best = look;
     s->FrontEdge = static_cast<int>(i);
@@ -639,14 +646,15 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
 } // namespace
 
 void BuildingShape::ToBox(const En &p, double *u, double *v) const {
-  const double e = p.E - Centre.E;
-  const double n = p.N - Centre.N;
-  *u = e * AxisU.E + n * AxisU.N;
-  *v = -e * AxisU.N + n * AxisU.E;
+  const double e = p.EastM - Centre.EastM;
+  const double n = p.NorthM - Centre.NorthM;
+  *u = e * AxisU.EastM + n * AxisU.NorthM;
+  *v = -e * AxisU.NorthM + n * AxisU.EastM;
 }
 
 En BuildingShape::FromBox(double u, double v) const {
-  return {.E = Centre.E + u * AxisU.E - v * AxisU.N, .N = Centre.N + u * AxisU.N + v * AxisU.E};
+  return {.EastM = Centre.EastM + u * AxisU.EastM - v * AxisU.NorthM,
+          .NorthM = Centre.NorthM + u * AxisU.NorthM + v * AxisU.EastM};
 }
 
 Massing

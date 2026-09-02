@@ -63,9 +63,9 @@ bool Engine::State::Watches() {
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
-    station[0] = where.E + seen.OffsetM[0];
-    station[1] = where.U + seen.OffsetM[1];
-    station[2] = -where.N + seen.OffsetM[2];
+    station[0] = where.EastM + seen.OffsetM[0];
+    station[1] = where.UpM + seen.OffsetM[1];
+    station[2] = -where.NorthM + seen.OffsetM[2];
   }
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");

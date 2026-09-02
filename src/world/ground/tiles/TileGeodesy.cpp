@@ -155,11 +155,11 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
   Enu ebr;
   if (!frame.TryFromGeo(topLeft, &etl) || !frame.TryFromGeo(bottomRight, &ebr)) { return map; }
 
-  map.OriginE_ = etl.E;
-  map.OriginN_ = etl.N;
+  map.OriginE_ = etl.EastM;
+  map.OriginN_ = etl.NorthM;
   const double invExtent = (extent == 0) ? 0.0 : 1.0 / static_cast<double>(extent);
-  map.ScaleE_ = (ebr.E - etl.E) * invExtent;
-  map.ScaleN_ = (ebr.N - etl.N) * invExtent;
+  map.ScaleE_ = (ebr.EastM - etl.EastM) * invExtent;
+  map.ScaleN_ = (ebr.NorthM - etl.NorthM) * invExtent;
   map.Extent_ = extent;
   return map;
 }
