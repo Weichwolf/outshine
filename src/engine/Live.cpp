@@ -663,9 +663,9 @@ bool Live::Stand(std::string &error) {
   ReshapeAgainMs_ = sinceStand();
   Stood_.Stands(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();
-  Mat4 standing;
+  const Mat4 unmoved;
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
-    if (!Stood_.Places(part, standing)) { return false; }
+    if (!Stood_.Places(part, unmoved)) { return false; }
   }
   Looking_ = {.Eye = HaveEye_ ? Eye_ : Render::Viewpoint{},
               .StandsInside = HaveEye_,

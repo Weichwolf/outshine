@@ -97,8 +97,7 @@ size_t SubjectResidency::StagingMadeTaken() {
 
 bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::string &error) {
   uint32_t total = 0;
-  for (size_t at = 0; at < what.size(); ++at) {
-    const Crossing &one = what[at];
+  for (const auto &one : what) {
     if (one.Bytes == 0 || !one.Stands()) {
       one.Into->Reset();
       *one.Held = 0;
@@ -146,28 +145,26 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     return false;
   }
   uint32_t at = StagingUsed_;
-  for (size_t one = 0; one < what.size(); ++one) {
-    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
-    if (what[one].Writes != nullptr) {
-      what[one].Writes(what[one].Carrying,
-                       reinterpret_cast<float *>(mapped + at),
-                       what[one].Bytes / static_cast<uint32_t>(sizeof(float)));
+  for (auto &one : what) {
+    if (one.Bytes == 0 || !one.Stands()) { continue; }
+    if (one.Writes != nullptr) {
+      one.Writes(one.Carrying,
+                 reinterpret_cast<float *>(mapped + at),
+                 one.Bytes / static_cast<uint32_t>(sizeof(float)));
     } else {
-      std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+      std::memcpy(mapped + at, one.From, one.Bytes);
     }
-    at = (at + what[one].Bytes + 15u) & ~15u;
+    at = (at + one.Bytes + 15u) & ~15u;
   }
   SDL_UnmapGPUTransferBuffer(Device, Staging_.Get());
 
   at = StagingUsed_;
-  for (size_t one = 0; one < what.size(); ++one) {
-    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
+  for (auto &one : what) {
+    if (one.Bytes == 0 || !one.Stands()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
-    Staged_[StagedCount_++] = Staged{.Into = what[one].Into->Get(),
-                                     .From = at,
-                                     .Bytes = what[one].Bytes,
-                                     .Staging = Staging_.Get()};
-    at = (at + what[one].Bytes + 15u) & ~15u;
+    Staged_[StagedCount_++] =
+        Staged{.Into = one.Into->Get(), .From = at, .Bytes = one.Bytes, .Staging = Staging_.Get()};
+    at = (at + one.Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
   StagedThisFrame_ += at;
@@ -196,29 +193,28 @@ bool SubjectResidency::Submit(std::span<Crossing> what, uint32_t total, std::str
     return false;
   }
   uint32_t at = 0;
-  for (size_t one = 0; one < what.size(); ++one) {
-    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
-    if (what[one].Writes != nullptr) {
-      what[one].Writes(what[one].Carrying,
-                       reinterpret_cast<float *>(mapped + at),
-                       what[one].Bytes / static_cast<uint32_t>(sizeof(float)));
+  for (auto &one : what) {
+    if (one.Bytes == 0 || !one.Stands()) { continue; }
+    if (one.Writes != nullptr) {
+      one.Writes(one.Carrying,
+                 reinterpret_cast<float *>(mapped + at),
+                 one.Bytes / static_cast<uint32_t>(sizeof(float)));
     } else {
-      std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+      std::memcpy(mapped + at, one.From, one.Bytes);
     }
-    at = (at + what[one].Bytes + 15u) & ~15u;
+    at = (at + one.Bytes + 15u) & ~15u;
   }
   SDL_UnmapGPUTransferBuffer(Device, Bulk_.Get());
 
   SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
-  for (size_t one = 0; one < what.size(); ++one) {
-    if (what[one].Bytes == 0 || !what[one].Stands()) { continue; }
+  for (auto &one : what) {
+    if (one.Bytes == 0 || !one.Stands()) { continue; }
     const SDL_GPUTransferBufferLocation source{.transfer_buffer = Bulk_.Get(), .offset = at};
-    const SDL_GPUBufferRegion into{
-        .buffer = what[one].Into->Get(), .offset = 0, .size = what[one].Bytes};
+    const SDL_GPUBufferRegion into{.buffer = one.Into->Get(), .offset = 0, .size = one.Bytes};
     SDL_UploadToGPUBuffer(copy, &source, &into, false);
-    at = (at + what[one].Bytes + 15u) & ~15u;
+    at = (at + one.Bytes + 15u) & ~15u;
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);

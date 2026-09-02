@@ -153,7 +153,7 @@ public:
   [[nodiscard]] Result restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> parked() const;
 
-  void logsTo(LogSink *sink);
+  static void logsTo(LogSink *sink);
 
   [[nodiscard]] bool standing() const;
   [[nodiscard]] const std::string &error() const;

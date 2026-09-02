@@ -44,7 +44,7 @@ void LightVisibilityStage::Declare(const Vec3f &toSun, const Vec3f &up, double r
 void LightVisibilityStage::Build(const Vec3 &preView) {
   Vec3 forward = {{-ToSun_[0], -ToSun_[1], -ToSun_[2]}};
   double length = 0.0;
-  for (double axis : forward) { length += axis * axis; }
+  for (const double axis : forward) { length += axis * axis; }
   length = std::sqrt(length);
   for (double &axis : forward) { axis /= length; }
 

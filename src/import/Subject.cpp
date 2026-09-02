@@ -430,7 +430,7 @@ bool Subject::FlatNormalsFor(Part &part) {
     } else {
       face[0] = face[1] = face[2] = 0.0;
     }
-    for (unsigned int corner : of) {
+    for (const unsigned int corner : of) {
       for (size_t axis = 0; axis < 3; ++axis) {
         Normals_[static_cast<size_t>(corner) * 3 + axis] = face[axis];
       }
@@ -622,7 +622,7 @@ bool Subject::Flatten(const Document &document,
     }
     const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
     if (!node.Visible) { continue; }
-    for (int child : std::views::reverse(node.Children)) { pending.push_back(child); }
+    for (const int child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
       Transform placement;
       if (!placementOf(nodeIndex, placement)) {
@@ -770,10 +770,11 @@ bool Subject::Flatten(const Document &document,
         const VertexPlacement place{.Node = placedWorld,
                                     .Skinned = skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          Vec3 local = {{elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]}};
+          const Vec3 local = {
+              {elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]}};
           Vec3 global;
           place.At(vertex).Point(local, global);
-          for (double axis : global) { atPos.push_back(axis); }
+          for (const double axis : global) { atPos.push_back(axis); }
         }
 
         struct UvSetRow {
@@ -878,7 +879,7 @@ bool Subject::Flatten(const Document &document,
             directions[at] += morphedNormals[at];
           }
           for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            Vec3 local = {
+            const Vec3 local = {
                 {directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]}};
             Vec3 global;
 

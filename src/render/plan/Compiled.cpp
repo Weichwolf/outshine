@@ -108,7 +108,7 @@ struct Pull {
 
   [[nodiscard]] bool Run() {
     for (const Resource r : Spec.Outputs) { Want(r); }
-    for (size_t at = 0; at < Wanted.size(); ++at) { (void)Resolve(Wanted[at]); }
+    for (auto &at : Wanted) { (void)Resolve(at); }
     return Error.empty();
   }
 };

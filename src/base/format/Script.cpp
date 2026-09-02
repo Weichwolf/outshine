@@ -1058,7 +1058,7 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
   const Node &node = Nodes_[at];
   switch (node.What) {
     case Node::Shape::Block: {
-      for (unsigned long Part : Nodes_[at].Parts) {
+      for (const unsigned long Part : Nodes_[at].Parts) {
         if (!Perform(Part, host, error)) { return false; }
       }
       return true;

@@ -119,3 +119,15 @@ does not look at the tree buys its clarity with somebody else's. The repair is n
 per-word, and each one has to say which meaning keeps the word and what the other becomes. `Node` is
 the loudest at eight files, and a `Node` in a JSON reader and a `Node` in a road graph share nothing
 but four letters.
+
+## `Engine::logsTo` looks per-engine and is process-wide
+
+Found 2026-09-02 by `readability-convert-member-functions-to-static`, which is right that the method
+never touches `this`: `Engine::logsTo(sink)` calls `Log::SetSink(sink)`, one pointer for the whole
+process. `SwapChain::logsTo` is a second door onto the same one.
+
+Both references keep logging global and say so -- Unreal's `UE_LOG` and Filament's `utils::slog` are
+free, and neither hangs a sink off an engine handle. So the global is not the finding; the METHOD
+is, because a client holding two engines would watch the second silently take the first's sink. It
+is `static` for now, which at least stops the signature from lying, and the repair is a free
+`outshine::logsTo` beside `LogSink` -- or a sink per engine, if a client ever needs two.

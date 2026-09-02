@@ -59,7 +59,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
                                                   lat + halfDeg,
                                                   lon - halfDeg}};
   const std::array<double, kCorners> corners = {{0.0, 0.0, 0.0, 0.0}};
-  Vec3 anchor;
+  const Vec3 anchor;
 
   StructurePlan plan;
   plan.RingLatLon = Span<const double>(ring.data(), kCorners * 2);

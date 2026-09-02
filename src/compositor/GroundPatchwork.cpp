@@ -165,7 +165,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
     for (long row = 0; row < kBlockTiles; ++row) {
       for (long column = 0; column < kBlockTiles; ++column) {
         long x = originX + column;
-        long y = originY + row;
+        const long y = originY + row;
         const long heldX0 = x * span;
         const long heldX1 = heldX0 + span - 1;
         const long heldY0 = y * span;

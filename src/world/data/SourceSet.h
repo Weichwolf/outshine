@@ -38,7 +38,7 @@ public:
   private:
     friend class SourceSet;
 
-    explicit Query(Request request) : Request_(std::move(request)) {}
+    explicit Query(Request request) : Request_(request) {}
 
     Request Request_;
     std::vector<const Source *> Candidates_;

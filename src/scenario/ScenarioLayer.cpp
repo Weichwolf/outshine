@@ -38,7 +38,7 @@ struct ByKindName {
     return a.Name == b.Name;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Kind &row) const { return row.Name; }
+  [[nodiscard]] static std::string Identity(const Scenario::Kind &row) { return row.Name; }
 };
 
 struct ByInstanceId {
@@ -46,7 +46,7 @@ struct ByInstanceId {
     return !a.Id.empty() && a.Id == b.Id;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Instance &row) const { return row.Id; }
+  [[nodiscard]] static std::string Identity(const Scenario::Instance &row) { return row.Id; }
 };
 
 struct ByAssetUri {
@@ -54,7 +54,7 @@ struct ByAssetUri {
     return a.Uri == b.Uri;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Asset &row) const { return row.Uri; }
+  [[nodiscard]] static std::string Identity(const Scenario::Asset &row) { return row.Uri; }
 };
 
 template <class Row> struct ByKindField {
@@ -74,7 +74,7 @@ struct ByDoorEnds {
     return a.From == b.From && a.To == b.To;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Door &row) const {
+  [[nodiscard]] static std::string Identity(const Scenario::Door &row) {
     return row.From + "->" + row.To;
   }
 };
@@ -84,7 +84,7 @@ struct BySoundUri {
     return a.Uri == b.Uri;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Sound &row) const { return row.Uri; }
+  [[nodiscard]] static std::string Identity(const Scenario::Sound &row) { return row.Uri; }
 };
 
 struct ByEventName {
@@ -92,7 +92,7 @@ struct ByEventName {
     return a.Name == b.Name;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Event &row) const { return row.Name; }
+  [[nodiscard]] static std::string Identity(const Scenario::Event &row) { return row.Name; }
 };
 
 struct BySurfaceDocument {
@@ -100,7 +100,7 @@ struct BySurfaceDocument {
     return a.Document == b.Document;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Surface &row) const { return row.Document; }
+  [[nodiscard]] static std::string Identity(const Scenario::Surface &row) { return row.Document; }
 };
 
 struct ByBindingEvent {
@@ -108,7 +108,7 @@ struct ByBindingEvent {
     return a.Event == b.Event;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Binding &row) const { return row.Event; }
+  [[nodiscard]] static std::string Identity(const Scenario::Binding &row) { return row.Event; }
 };
 
 struct ByPersistedWhat {
@@ -116,7 +116,7 @@ struct ByPersistedWhat {
     return a.What == b.What;
   }
 
-  [[nodiscard]] std::string Identity(const Scenario::Persisted &row) const { return row.What; }
+  [[nodiscard]] static std::string Identity(const Scenario::Persisted &row) { return row.What; }
 };
 
 } // namespace

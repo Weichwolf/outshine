@@ -472,7 +472,7 @@ void TilePool::Carry() {
       std::unique_lock<std::mutex> lock(QueueMutex_);
       Wake_.wait(lock, [this] { return Stopping_ || !Carrying_.empty(); });
       if (Stopping_) { break; }
-      job = std::move(Carrying_.front());
+      job = Carrying_.front();
       Carrying_.erase(Carrying_.begin());
     }
     Result result;
@@ -548,7 +548,7 @@ void TilePool::Work(int slot) {
           best = i;
         }
       }
-      job = std::move(Queue_[best]);
+      job = Queue_[best];
       Queue_.erase(Queue_.begin() + static_cast<long>(best));
     }
     Result result;

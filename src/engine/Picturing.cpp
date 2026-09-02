@@ -429,6 +429,8 @@ bool Engine::State::Asks() {
   return true;
 }
 
+namespace {
+
 size_t CarryIntoTheFrame(const std::vector<float> &corners,
                          const Vec3 &anchor,
                          const TangentFrame &standing,
@@ -465,6 +467,9 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
   }
   return count;
 }
+} // namespace
+
+namespace {
 
 void CensusOverEveryTriangle(Core::Ledger &Published,
                              std::chrono::steady_clock::time_point &censusAt,
@@ -615,6 +620,7 @@ void CensusOverEveryTriangle(Core::Ledger &Published,
                    "edges");
   Published.Places("solid: building edges in all", static_cast<double>(edges.size()), "edges");
 }
+} // namespace
 
 bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const Heap::Tagged laying("world-ground");

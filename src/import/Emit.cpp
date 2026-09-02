@@ -98,12 +98,12 @@ public:
 
   [[nodiscard]] bool Run(std::vector<uint8_t> &glb) {
     if (!Admissible()) { return false; }
-    std::string json = "{\"asset\":{\"version\":\"2.0\"";
+    std::string json = R"({"asset":{"version":"2.0")";
     if (!What_.Generator.empty()) { json += ",\"generator\":" + Quoted(What_.Generator); }
     json += "}";
     json += Materials();
     json += Parts();
-    json += ",\"buffers\":[{\"byteLength\":" + Integer(Binary_.size()) + "}]}";
+    json += R"(,"buffers":[{"byteLength":)" + Integer(Binary_.size()) + "}]}";
     if (!GlbFits(json.size(), Binary_.size())) {
       return Refuse("the subject needs " + Integer(json.size()) + " bytes of JSON and " +
                     Integer(Binary_.size()) +
@@ -196,7 +196,7 @@ private:
       if (index > 0) { json += ","; }
       json += "{";
       if (!material.Name.empty()) { json += "\"name\":" + Quoted(material.Name) + ","; }
-      json += "\"pbrMetallicRoughness\":{\"baseColorFactor\":[";
+      json += R"("pbrMetallicRoughness":{"baseColorFactor":[)";
       for (int channel = 0; channel < 4; ++channel) {
         json += (channel > 0 ? "," : "") + Number(surface.BaseColour[channel]);
       }
@@ -204,18 +204,18 @@ private:
       json += ",\"roughnessFactor\":" + Number(surface.Roughness) + "}";
       json += ",\"emissiveFactor\":[" + Number(surface.Emission[0]) + "," +
               Number(surface.Emission[1]) + "," + Number(surface.Emission[2]) + "]";
-      json += ",\"alphaMode\":\"" + std::string(AlphaSpelling(surface.Alpha)) + "\"";
+      json += R"(,"alphaMode":")" + std::string(AlphaSpelling(surface.Alpha)) + "\"";
       json += ",\"alphaCutoff\":" + Number(surface.CoverageCut);
       json += ",\"doubleSided\":" + std::string(surface.DoubleSided ? "true" : "false");
       if (surface.Unlit) {
-        json += ",\"extensions\":{\"KHR_materials_unlit\":{}}";
+        json += R"(,"extensions":{"KHR_materials_unlit":{}})";
         unlit = true;
       }
       json += "}";
     }
     json += "]";
 
-    if (unlit) { json += ",\"extensionsUsed\":[\"KHR_materials_unlit\"]"; }
+    if (unlit) { json += R"(,"extensionsUsed":["KHR_materials_unlit"])"; }
     return json;
   }
 
@@ -234,14 +234,14 @@ private:
       nodes += "{\"mesh\":" + Integer(part);
       if (!drawn.NodeName.empty()) { nodes += ",\"name\":" + Quoted(drawn.NodeName); }
       nodes += "}";
-      meshes += "{\"primitives\":[{\"attributes\":{" + Streams(drawn) +
+      meshes += R"({"primitives":[{"attributes":{)" + Streams(drawn) +
                 "},\"indices\":" + Integer(Indices(drawn));
       if (drawn.Material >= 0) {
         meshes += ",\"material\":" + Integer(static_cast<size_t>(drawn.Material));
       }
       meshes += "}]}";
     }
-    return nodes + "]" + meshes + "]" + ",\"scene\":0,\"scenes\":[{\"nodes\":[" + roots + "]}]" +
+    return nodes + "]" + meshes + "]" + R"(,"scene":0,"scenes":[{"nodes":[)" + roots + "]}]" +
            ",\"accessors\":[" + Accessors_ + "],\"bufferViews\":[" + Views_ + "]";
   }
 
@@ -314,7 +314,7 @@ private:
   size_t View(size_t at, size_t length) {
     if (!Views_.empty()) { Views_ += ","; }
     Views_ +=
-        "{\"buffer\":0,\"byteOffset\":" + Integer(at) + ",\"byteLength\":" + Integer(length) + "}";
+        R"({"buffer":0,"byteOffset":)" + Integer(at) + ",\"byteLength\":" + Integer(length) + "}";
     return ViewCount_++;
   }
 
@@ -327,7 +327,7 @@ private:
     if (!Accessors_.empty()) { Accessors_ += ","; }
     Accessors_ += "{\"bufferView\":" + Integer(view) +
                   ",\"componentType\":" + Integer(static_cast<size_t>(component)) +
-                  ",\"count\":" + Integer(count) + ",\"type\":\"" + element + "\"";
+                  ",\"count\":" + Integer(count) + R"(,"type":")" + element + "\"";
     if (lowest != nullptr && highest != nullptr) {
       Accessors_ += ",\"min\":[";
       for (size_t axis = 0; axis < lowest->size(); ++axis) {

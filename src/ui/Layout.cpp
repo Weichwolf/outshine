@@ -201,11 +201,8 @@ struct Placer {
   double MinContent(int node, const Computed *inherited, bool ownSize = true);
 
   double BaselineOf(int node, const Computed *inherited, double widthRoom);
-  [[nodiscard]] double Clamped(double used,
-                               const Computed &style,
-                               Limits within,
-                               LengthContext in,
-                               double frame = 0.0) const;
+  [[nodiscard]] static double
+  Clamped(double used, const Computed &style, Limits within, LengthContext in, double frame = 0.0);
   [[nodiscard]] double Width(std::string_view text, FontFace face) const;
 };
 
@@ -433,8 +430,8 @@ double Placer::Width(std::string_view text, FontFace face) const {
   return width;
 }
 
-double Placer::Clamped(
-    double used, const Computed &style, Limits within, LengthContext in, double frame) const {
+double
+Placer::Clamped(double used, const Computed &style, Limits within, LengthContext in, double frame) {
   const double sides = style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : frame;
   double out = used;
 

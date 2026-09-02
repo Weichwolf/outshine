@@ -154,7 +154,7 @@ static_assert(EachRuleStandsAtItsOwnRelation(),
               "every relation carries its rule, and no rule allows nothing");
 
 constexpr bool EveryAcyclicRelationIsExclusive() {
-  for (auto kRule : kRules) {
+  for (const auto kRule : kRules) {
     if (kRule.Acyclic && !kRule.Exclusive) { return false; }
   }
   return true;
@@ -166,14 +166,14 @@ static_assert(EveryAcyclicRelationIsExclusive(),
 
 constexpr size_t OwnedRelationCount() {
   size_t owned = 0;
-  for (auto kRule : kRules) {
+  for (const auto kRule : kRules) {
     if (kRule.OwnedByTarget) { ++owned; }
   }
   return owned;
 }
 
 constexpr bool EveryOwnedRelationIsExclusive() {
-  for (auto kRule : kRules) {
+  for (const auto kRule : kRules) {
     if (kRule.OwnedByTarget && !kRule.Exclusive) { return false; }
   }
   return true;
