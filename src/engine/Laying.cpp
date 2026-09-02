@@ -754,7 +754,7 @@ void Engine::State::RefineChords(const Paving &on, Paved &into) {
       const double midE = 0.5 * (into.Along[at - 1u].EastM + into.Along[at].EastM);
       const double midS = 0.5 * (into.Along[at - 1u].SouthM + into.Along[at].SouthM);
       const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
-      const double overM = on.Draped.At(midE, midS, chord);
+      const double overM = on.Draped.At({.EastM = midE, .SouthM = midS}, chord);
       if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
       into.Finer.push_back(Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
       ++added;
@@ -787,7 +787,7 @@ void Engine::State::DesignLane(const Paving &on,
     northM = eastMEnu.NorthM;
     into.Along.push_back({.EastM = eastM,
                           .SouthM = -northM,
-                          .GradeM = on.Draped.At(eastM, -northM, upM),
+                          .GradeM = on.Draped.At({.EastM = eastM, .SouthM = -northM}, upM),
                           .Node = node});
     return true;
   };
@@ -1009,10 +1009,11 @@ void Engine::State::PaveLane(const Paving &on,
     const double runS = into.Along[at].SouthM - into.Along[at - 1u].SouthM;
     const double runM = std::sqrt(runE * runE + runS * runS);
     if (!(runM > kLeastSpanM)) { continue; }
-    const double groundAt =
-        on.Draped.At(into.Along[at].EastM, -into.Along[at].SouthM, into.Along[at].GradeM);
-    const double groundBefore = on.Draped.At(
-        into.Along[at - 1u].EastM, -into.Along[at - 1u].SouthM, into.Along[at - 1u].GradeM);
+    const double groundAt = on.Draped.At(
+        {.EastM = into.Along[at].EastM, .SouthM = -into.Along[at].SouthM}, into.Along[at].GradeM);
+    const double groundBefore =
+        on.Draped.At({.EastM = into.Along[at - 1u].EastM, .SouthM = -into.Along[at - 1u].SouthM},
+                     into.Along[at - 1u].GradeM);
     const double yieldM = std::max(std::fabs(into.Along[at].GradeM - groundAt),
                                    std::fabs(into.Along[at - 1u].GradeM - groundBefore));
     const double outE = -runS / runM;
@@ -1024,7 +1025,8 @@ void Engine::State::PaveLane(const Paving &on,
         const Generators::RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
         const double sideE = one.EastM + outE * half * hand;
         const double sideS = one.SouthM + outS * half * hand;
-        reliefM = std::max(reliefM, on.Draped.At(sideE, -sideS, one.GradeM) - one.GradeM);
+        reliefM = std::max(
+            reliefM, on.Draped.At({.EastM = sideE, .SouthM = -sideS}, one.GradeM) - one.GradeM);
       }
     }
     if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
@@ -1275,7 +1277,7 @@ void Engine::State::RaiseDeckOver(const Path::Network::Crossing &one,
   if (!stood) { return; }
   const EastNorthUp at = standing.Place(
       {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = *stood});
-  const double onDrawn = drapedOver.At(at.EastM, -at.NorthM, at.UpM);
+  const double onDrawn = drapedOver.At({.EastM = at.EastM, .SouthM = -at.NorthM}, at.UpM);
   const double need = onDrawn + static_cast<double>(below.ClearanceM);
   if (need <= into.DeckM[spans]) { return; }
   if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
@@ -1334,7 +1336,7 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
     eastM = eastMEnu.EastM;
     upM = eastMEnu.UpM;
     northM = eastMEnu.NorthM;
-    *out = drapedOver.At(eastM, -northM, upM);
+    *out = drapedOver.At({.EastM = eastM, .SouthM = -northM}, upM);
     return true;
   };
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
@@ -1818,7 +1820,8 @@ void Engine::State::Paves(const TangentFrame &standing,
     size_t flying = 0;
     for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
       const double under = drapedOver.At(
-          pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -kBeyondAnyCoordinate);
+          {.EastM = pavement.PositionM[vertex], .SouthM = pavement.PositionM[vertex + 2]},
+          -kBeyondAnyCoordinate);
       if (under < kUnraisedDeckM) { continue; }
       const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
       aboveM.push_back(aloft);

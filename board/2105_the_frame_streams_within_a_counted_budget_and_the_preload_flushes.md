@@ -29,8 +29,8 @@ Two of nine places draw a DIFFERENT picture from the same declaration:
 The other seven are bit-identical across all three. OldTown is bit-identical across six runs at
 349 766 triangles. The two that wander are the two densest.
 
-**AND A THIRD, WHICH THREE RUNS CALLED CLEAN.** Kaiserberg drew `984cb74e` once on
-2026-09-03 against `7530376c` on the eight runs before and the two after, with the
+**AND A THIRD, WHICH THREE RUNS CALLED CLEAN.** Kaiserberg drew `984cb74e` three times
+across 2026-09-03 against `7530376c` on roughly twenty-five other runs, with the
 tree's road code byte-identical across the pair (the change under test was a pure
 dissolution of `Network::Weave`, compared character by character). So three runs of
 `shots --all` are not enough to call a place deterministic -- they were enough to
