@@ -60,6 +60,35 @@ inline void AppendUtf8(std::string &out, uint32_t code) {
   }
 }
 
+constexpr uint32_t kTwoByteLeadMask = 0xE0u;
+constexpr uint32_t kThreeByteLeadMask = 0xF0u;
+constexpr uint32_t kFourByteLeadMask = 0xF8u;
+constexpr uint32_t kTwoByteBits = 0x1Fu;
+constexpr uint32_t kThreeByteBits = 0x0Fu;
+constexpr uint32_t kFourByteBits = 0x07u;
+
+inline size_t ReadUtf8(const std::string &text, size_t at, char32_t &code) {
+  const auto lead = static_cast<unsigned char>(text[at]);
+  size_t length = 1;
+  code = lead;
+  if ((lead & kTwoByteLeadMask) == kTwoByteMark) {
+    length = 2;
+    code = lead & kTwoByteBits;
+  } else if ((lead & kThreeByteLeadMask) == kThreeByteMark) {
+    length = 3;
+    code = lead & kThreeByteBits;
+  } else if ((lead & kFourByteLeadMask) == kFourByteMark) {
+    length = 4;
+    code = lead & kFourByteBits;
+  }
+  if (at + length > text.size()) { return text.size() - at; }
+  for (size_t i = 1; i < length; ++i) {
+    code = (code << kContinuationBits) |
+           (static_cast<unsigned char>(text[at + i]) & kContinuationMask);
+  }
+  return length;
+}
+
 static_assert(PairedSurrogates(0xD83Du, 0xDE00u) == 0x1F600u,
               "a surrogate pair folds to the code point the standard states");
 

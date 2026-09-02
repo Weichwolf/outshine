@@ -8,6 +8,13 @@
 
 namespace outshine {
 
+constexpr double kTreelineBaseLatDeg = 47.4;
+constexpr double kTreelineBaseM = 1900.0;
+constexpr double kTreelinePerDegM = -58.8;
+constexpr double kTreelineBandM = 200.0;
+constexpr double kTreelineJitterM = 150.0;
+constexpr double kTreelineJitterScaleM = 700.0;
+
 class AlpineLimit {
 public:
   [[nodiscard]] bool Load(const Json::Ref &root);
@@ -43,8 +50,9 @@ public:
 private:
   [[nodiscard]] double Noise(double e, double n) const;
 
-  double BaseLatDeg_ = 47.4, BaseM_ = 1900.0, PerDegM_ = -58.8, BandM_ = 200.0;
-  double JitterM_ = 150.0, JitterScaleM_ = 700.0;
+  double BaseLatDeg_ = kTreelineBaseLatDeg, BaseM_ = kTreelineBaseM, PerDegM_ = kTreelinePerDegM,
+         BandM_ = kTreelineBandM;
+  double JitterM_ = kTreelineJitterM, JitterScaleM_ = kTreelineJitterScaleM;
   float SlopeBandDeg_ = 4.0f;
   std::string RockTemplate_, Error_;
   bool Ready_ = false;

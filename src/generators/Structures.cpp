@@ -16,16 +16,28 @@ namespace outshine::Generators {
 
 namespace {
 
+constexpr uint64_t kSplitMixWord = 6364136223846793005ull;
+constexpr uint64_t kSplitMixFinaliser = 0xff51afd7ed558ccdull;
+constexpr unsigned kSplitMixShift = 33u;
+constexpr uint64_t kMantissaMask = 0xFFFFFFull;
+
+constexpr double kHeightLeastM = 6.0;
+constexpr double kHeightSwingM = 12.0;
+
+constexpr float kWallRed = 0.62f;
+constexpr float kWallGreen = 0.60f;
+constexpr float kWallBlue = 0.56f;
+constexpr float kWallRoughness = 0.85f;
+
 constexpr size_t kCorners = 4;
 constexpr double kMetresPerDegree = 111320.0;
 
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
-  uint64_t held =
-      seed * 6364136223846793005ull + static_cast<uint64_t>(at) * 1442695040888963407ull + 1u;
-  held ^= held >> 33u;
-  held *= 0xff51afd7ed558ccdull;
-  held ^= held >> 33u;
-  return static_cast<double>(held & 0xFFFFFFull) / static_cast<double>(0xFFFFFF);
+  uint64_t held = seed * kSplitMixWord + static_cast<uint64_t>(at) * 1442695040888963407ull + 1u;
+  held ^= held >> kSplitMixShift;
+  held *= kSplitMixFinaliser;
+  held ^= held >> kSplitMixShift;
+  return static_cast<double>(held & kMantissaMask) / static_cast<double>(0xFFFFFF);
 }
 
 } // namespace
@@ -51,7 +63,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   plan.RingLatLon = Span<const double>(ring.data(), kCorners * 2);
   plan.CornerAslM = Span<const double>(corners.data(), kCorners);
   plan.BaseAslM = 0.0;
-  plan.HeightM = 6.0 + 12.0 * Spun(asked.Seed, 1u);
+  plan.HeightM = kHeightLeastM + kHeightSwingM * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;
   plan.AnchorEcef = anchor;
 
@@ -76,10 +88,10 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   if (stood.parts() == 0) { return false; }
 
   Material walls;
-  walls.BaseColour[0] = 0.62f;
-  walls.BaseColour[1] = 0.60f;
-  walls.BaseColour[2] = 0.56f;
-  walls.Roughness = 0.85f;
+  walls.BaseColour[0] = kWallRed;
+  walls.BaseColour[1] = kWallGreen;
+  walls.BaseColour[2] = kWallBlue;
+  walls.Roughness = kWallRoughness;
   const MaterialInstance named = into.addSurface("walls", walls);
   for (int part = 0; part < stood.parts(); ++part) {
     const int here = into.addPart("structure", named);

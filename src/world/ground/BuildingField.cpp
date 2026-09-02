@@ -25,6 +25,11 @@ constexpr double kNoLeastYet = 1.0e9;
 
 namespace {
 
+constexpr uint32_t kPlaceMixWord = 3266489917u;
+constexpr double kMicroDegree = 1.0e6;
+constexpr double kOnStreetAcrossM = 14.0;
+constexpr double kOffStreetAcrossM = 26.0;
+
 constexpr double kFillHeightM = 5.0;
 
 constexpr double kStoreyM = 2.9;
@@ -35,11 +40,12 @@ constexpr double kOnTheStreetM = 16.0;
 constexpr double kCarriagewayM = 4.0;
 
 uint32_t PlaceHash(double latDeg, double lonDeg) {
-  uint32_t h =
-      static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * 1.0e6))) * 2654435761u;
-  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * 1.0e6))) * 2246822519u;
+  uint32_t h = static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * kMicroDegree))) *
+               2654435761u;
+  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * kMicroDegree))) *
+       2246822519u;
   h ^= h >> 13u;
-  h *= 3266489917u;
+  h *= kPlaceMixWord;
   return h ^ (h >> 16u);
 }
 
@@ -50,7 +56,7 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
   const bool aPlot = areaM2 >= 70.0;
   int least = 1;
   int most = 2;
-  if (onStreet && aPlot && acrossM <= 14.0) {
+  if (onStreet && aPlot && acrossM <= kOnStreetAcrossM) {
     least = 3;
     most = 5;
   } else if (onStreet && aPlot) {
@@ -59,7 +65,7 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
   } else if (!aPlot) {
     least = 1;
     most = 2;
-  } else if (acrossM > 26.0) {
+  } else if (acrossM > kOffStreetAcrossM) {
     least = 1;
     most = 2;
   } else {
@@ -101,10 +107,10 @@ double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   const std::span<const double> pts = field.Points();
   const double refLat = pts[static_cast<size_t>(ring.First) * 2];
   const double refLon = pts[static_cast<size_t>(ring.First) * 2 + 1];
-  double e0 = 1e30;
-  double e1 = -1e30;
-  double n0 = 1e30;
-  double n1 = -1e30;
+  double e0 = kBeyondAnyCoordinate;
+  double e1 = -kBeyondAnyCoordinate;
+  double n0 = kBeyondAnyCoordinate;
+  double n1 = -kBeyondAnyCoordinate;
   for (uint32_t k = 0; k < ring.Count; k++) {
     double e = 0.0;
     double n = 0.0;
@@ -408,7 +414,7 @@ int BuildingField::Build(const GroundQuery &ground,
              {"total", static_cast<int>(Prints_.size())},
              {"osmHeight", OsmHeights_},
              {"defaultHeight", DefaultHeights_},
-             {"vertsMB", static_cast<double>(Built_.HeapBytes()) / 1.0e6},
+             {"vertsMB", static_cast<double>(Built_.HeapBytes()) / kMicroDegree},
              {"noGround", NoGround_},
              {"onStreet", Fronted_},
              {"deferrals", Mark_.Deferrals()},

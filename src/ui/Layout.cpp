@@ -1,3 +1,4 @@
+#include "Utf8.h"
 #include "Layout.h"
 
 #include <array>
@@ -15,6 +16,9 @@
 namespace outshine::Ui {
 
 namespace {
+
+constexpr double kEmPx = 16.0;
+constexpr int kFarBeforeAny = -1000000;
 
 constexpr uint32_t kDisplayBlock = Keyword("block");
 constexpr uint32_t kDisplayFlex = Keyword("flex");
@@ -260,7 +264,7 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
     }
   };
 
-  gather(*Agent, -1000000);
+  gather(*Agent, kFarBeforeAny);
   gather(*Author, 0);
   std::ranges::stable_sort(found, [](const Ranked &a, const Ranked &b) {
     return a.Specificity == b.Specificity ? a.Order < b.Order : a.Specificity < b.Specificity;
@@ -323,7 +327,7 @@ double Placer::MinContentUncached(int node, const Computed *inherited, bool ownS
   const uint32_t display = style.Word(Property::Display, kDisplayInline);
   if (display == kDisplayNone) { return 0; }
 
-  double emPx = 16.0;
+  double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
     bool absent = false;
     const double found = Resolve(style.Of(Property::FontSize), 16.0, 16.0, RootEm, absent);
@@ -384,7 +388,7 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
   const uint32_t display = style.Word(Property::Display, kDisplayInline);
   if (display == kDisplayNone) { return 0; }
 
-  double emPx = 16.0;
+  double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
     bool absent = false;
     const double found = Resolve(style.Of(Property::FontSize), 16.0, 16.0, RootEm, absent);
@@ -433,30 +437,7 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
   return own + frame + margins;
 }
 
-namespace {
-
-size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
-  const auto lead = static_cast<unsigned char>(text[at]);
-  size_t length = 1;
-  code = lead;
-  if ((lead & 0xE0u) == 0xC0u) {
-    length = 2;
-    code = lead & 0x1Fu;
-  } else if ((lead & 0xF0u) == 0xE0u) {
-    length = 3;
-    code = lead & 0x0Fu;
-  } else if ((lead & 0xF8u) == 0xF0u) {
-    length = 4;
-    code = lead & 0x07u;
-  }
-  if (at + length > text.size()) { return text.size() - at; }
-  for (size_t i = 1; i < length; ++i) {
-    code = (code << 6u) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
-  }
-  return length;
-}
-
-} // namespace
+namespace {}
 
 double
 Placer::Width(const std::string &text, size_t from, size_t to, double emPx, Family face) const {
@@ -464,7 +445,7 @@ Placer::Width(const std::string &text, size_t from, size_t to, double emPx, Fami
   double width = 0;
   for (size_t at = from; at < to && at < text.size();) {
     char32_t code = 0;
-    at += NextCodePoint(text, at, code);
+    at += ReadUtf8(text, at, code);
     const Glyph glyph = Face->Shape(code, emPx, face);
     width += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
   }
@@ -545,7 +526,7 @@ double Placer::Runs(int node,
         size_t cursor = at;
         while (cursor < text.size()) {
           char32_t code = 0;
-          const size_t step = NextCodePoint(text, cursor, code);
+          const size_t step = ReadUtf8(text, cursor, code);
           const Glyph glyph = Face->Shape(code, emPx, face);
           const double advance = glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
           if (width + advance > contentWidth && cursor > at) { break; }
@@ -1074,7 +1055,7 @@ double Placer::Place(int node,
   const uint32_t display = style.Word(Property::Display, kDisplayInline);
   if (display == kDisplayNone) { return 0; }
 
-  double emPx = 16.0;
+  double emPx = kEmPx;
   if (style.Has(Property::FontSize)) {
     bool absent = false;
     const double found = Resolve(

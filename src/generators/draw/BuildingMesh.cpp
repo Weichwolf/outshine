@@ -22,6 +22,13 @@
 namespace outshine::Generators {
 
 namespace {
+
+constexpr double kWeldPerM = 1000.0;
+constexpr double kLeastWallM = 1.9;
+constexpr double kSameHeightM = 1.0e-3;
+constexpr double kLeastEdgeM = 0.05;
+constexpr double kLeastRiseM = 0.03;
+
 std::atomic<size_t> gBuried{0};
 std::atomic<size_t> gDeepestMm{0};
 std::atomic<size_t> gRaised{0};
@@ -149,9 +156,9 @@ public:
 
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
-    out.P.E = std::round(v.P.E * 1000.0) / 1000.0;
-    out.P.N = std::round(v.P.N * 1000.0) / 1000.0;
-    out.Z = std::round(v.Z * 1000.0) / 1000.0;
+    out.P.E = std::round(v.P.E * kWeldPerM) / kWeldPerM;
+    out.P.N = std::round(v.P.N * kWeldPerM) / kWeldPerM;
+    out.Z = std::round(v.Z * kWeldPerM) / kWeldPerM;
     return out;
   }
 
@@ -324,7 +331,7 @@ En Along(const En &p, const En &q, double t) {
 }
 
 double BaysOn(double lengthM, double bayM) {
-  if (lengthM < 1.9) { return 0.0; }
+  if (lengthM < kLeastWallM) { return 0.0; }
   return std::max(1.0, std::round(lengthM / bayM));
 }
 
@@ -375,7 +382,7 @@ void BreaksBoth(const RoofSurface &roof,
     std::ranges::sort(at);
     at.erase(std::ranges::unique(at,
 
-                                 [](double a, double b) { return std::fabs(a - b) < 1.0e-3; })
+                                 [](double a, double b) { return std::fabs(a - b) < kSameHeightM; })
                  .begin(),
              at.end());
   }
@@ -442,7 +449,7 @@ void Walls(const BuildingShape &s,
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
-    if (len < 0.05) { continue; }
+    if (len < kLeastEdgeM) { continue; }
     const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
@@ -568,7 +575,7 @@ void Gables(const BuildingShape &s,
     const En &p = s.Ring[i];
     const En &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
-    if (len < 0.05) { continue; }
+    if (len < kLeastEdgeM) { continue; }
     const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(
@@ -581,7 +588,7 @@ void Gables(const BuildingShape &s,
       const double ha = std::max(roof.HeightAt(a), 0.0);
       const double hb = std::max(roof.HeightAt(b), 0.0);
       was = now;
-      if (ha < 0.03 && hb < 0.03) { continue; }
+      if (ha < kLeastRiseM && hb < kLeastRiseM) { continue; }
       site.Quad(Wall(s, a, eaves, 0.0, Fields::Back),
                 Wall(s, b, eaves, bays, Fields::Back),
                 Wall(s, b, eaves + hb, bays, Fields::Back),

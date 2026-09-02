@@ -7,18 +7,24 @@ namespace outshine {
 
 namespace {
 
+constexpr uint32_t kJitterWordA = 0x8da6b343u;
+constexpr uint32_t kJitterWordB = 0x2c1b3c6du;
+constexpr uint32_t kJitterWordC = 0x297a2d39u;
+constexpr uint32_t kMantissaMask = 0xFFFFFFu;
+constexpr double kMantissaSteps = 16777216.0;
+
 uint32_t Hash2(int32_t i, int32_t j) {
-  uint32_t h = static_cast<uint32_t>(i) * 0x8da6b343u ^ static_cast<uint32_t>(j) * 0xd8163841u;
+  uint32_t h = static_cast<uint32_t>(i) * kJitterWordA ^ static_cast<uint32_t>(j) * 0xd8163841u;
   h ^= h >> 15u;
-  h *= 0x2c1b3c6du;
+  h *= kJitterWordB;
   h ^= h >> 12u;
-  h *= 0x297a2d39u;
+  h *= kJitterWordC;
   h ^= h >> 15u;
   return h;
 }
 
 double U(uint32_t h) {
-  return static_cast<double>(h & 0xFFFFFFu) / 16777216.0;
+  return static_cast<double>(h & kMantissaMask) / kMantissaSteps;
 }
 
 } // namespace
@@ -31,12 +37,12 @@ bool AlpineLimit::Load(const Json::Ref &root) {
     Error_ = "no alpineLimit object";
     return false;
   }
-  BaseLatDeg_ = a["treelineBaseLatDeg"].Num(47.4);
-  BaseM_ = a["treelineBaseM"].Num(1900.0);
-  PerDegM_ = a["treelinePerDegM"].Num(-58.8);
-  BandM_ = a["treelineBandM"].Num(200.0);
-  JitterM_ = a["treelineJitterM"].Num(150.0);
-  JitterScaleM_ = a["treelineJitterScaleM"].Num(700.0);
+  BaseLatDeg_ = a["treelineBaseLatDeg"].Num(kTreelineBaseLatDeg);
+  BaseM_ = a["treelineBaseM"].Num(kTreelineBaseM);
+  PerDegM_ = a["treelinePerDegM"].Num(kTreelinePerDegM);
+  BandM_ = a["treelineBandM"].Num(kTreelineBandM);
+  JitterM_ = a["treelineJitterM"].Num(kTreelineJitterM);
+  JitterScaleM_ = a["treelineJitterScaleM"].Num(kTreelineJitterScaleM);
   SlopeBandDeg_ = static_cast<float>(a["slopeBandDeg"].Num(4.0));
   RockTemplate_ = a["rockTemplate"].Str("");
   if (RockTemplate_.empty()) {
