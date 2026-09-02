@@ -15,6 +15,11 @@
 
 namespace outshine::Generators {
 
+constexpr double kRidgeInset = 0.85;
+constexpr double kSameLineM = 1.0e-3;
+constexpr double kHipShare = 0.85;
+constexpr double kHipTailShare = 0.15;
+
 namespace {
 
 struct Line {
@@ -153,7 +158,7 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
       int n = 0;
       for (double u = -s.HalfUm; u < s.HalfUm && n + 1 < kMaxCreases; u += s.PeriodM) {
         lines[n++] = {.A = 1.0, .B = 0.0, .C = u};
-        lines[n++] = {.A = 1.0, .B = 0.0, .C = u + 0.85 * s.PeriodM};
+        lines[n++] = {.A = 1.0, .B = 0.0, .C = u + kRidgeInset * s.PeriodM};
       }
       return n;
     }
@@ -202,14 +207,14 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
       const double b = Shape_.BreakFracV * hv;
       const double a = std::fabs(v);
       const double br = Shape_.BreakRiseM;
-      return a >= b ? br * (hv - a) / std::max(hv - b, 1.0e-3)
-                    : br + (rise - br) * (b - a) / std::max(b, 1.0e-3);
+      return a >= b ? br * (hv - a) / std::max(hv - b, kSameLineM)
+                    : br + (rise - br) * (b - a) / std::max(b, kSameLineM);
     }
     case RoofKind::Sawtooth: {
       const double p = std::max(Shape_.PeriodM, 1.0);
       double x = std::fmod(u + hu, p);
       if (x < 0.0) { x += p; }
-      f = std::min(x / (0.85 * p), (p - x) / (0.15 * p));
+      f = std::min(x / (kHipShare * p), (p - x) / (kHipTailShare * p));
       break;
     }
     case RoofKind::Dome: {
@@ -303,9 +308,9 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
   }
   std::ranges::sort(at);
   const size_t before = at.size();
-  at.erase(
-      std::ranges::unique(at, [](double a, double b) { return std::fabs(a - b) < 1.0e-3; }).begin(),
-      at.end());
+  at.erase(std::ranges::unique(at, [](double a, double b) { return std::fabs(a - b) < kSameLineM; })
+               .begin(),
+           at.end());
   gBreaksMerged.fetch_add(before - at.size(), std::memory_order_relaxed);
 }
 
@@ -356,7 +361,7 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
 std::vector<En>
 RoofSurface::Widened(std::span<const En> ring, double byM, std::span<const uint8_t> held) {
   const size_t n = ring.size();
-  if (n < 3 || std::fabs(byM) < 1.0e-3) { return {}; }
+  if (n < 3 || std::fabs(byM) < kSameLineM) { return {}; }
   std::vector<En> out;
   out.reserve(n);
   for (size_t i = 0; i < n; i++) {

@@ -26,6 +26,13 @@
 
 namespace outshine::Shots {
 
+constexpr std::uint8_t kByteMost = 255;
+constexpr double kFillShare = 0.6;
+constexpr double kOverheadPitchDeg = -90.0;
+constexpr double kProgressEveryS = 0.25;
+constexpr double kBroadQuantile = 0.95;
+constexpr double kWidestQuantile = 0.99;
+
 namespace {
 
 constexpr double kPatienceS = 15.0;
@@ -167,7 +174,7 @@ double ControlVariation() {
                              4u;
       gradient[at] = shade;
       gradient[at + 1] = shade;
-      gradient[at + 2] = static_cast<std::uint8_t>(255 - shade);
+      gradient[at + 2] = static_cast<std::uint8_t>(kByteMost - shade);
     }
   }
   return VariationAlongRows(gradient, kWidePx, kHighPx);
@@ -185,7 +192,7 @@ Scenario::Document ScenarioFor(const Place &place) {
   stands.Ground.SightM = kSightM;
   stands.Render.Declared = true;
   stands.Render.Frame = Extent{.WidthPx = kWidePx, .HeightPx = kHighPx};
-  stands.Render.Fill = 0.6;
+  stands.Render.Fill = kFillShare;
   stands.Render.Audits = Audits;
   stands.Lit.Declared = true;
   stands.Time.Declared = true;
@@ -202,7 +209,7 @@ Scenario::Document ScenarioFor(const Place &place) {
   watches.Sees.Stands.Geodetic.HeightM = overhead ? kPlanAboveM : kEyeAglM;
   watches.Sees.Stands.SamplesHeight = !overhead;
   watches.Sees.Stands.BearingDeg = place.BearingDeg;
-  watches.Sees.Stands.PitchDeg = overhead ? -90.0 : kPitchDeg;
+  watches.Sees.Stands.PitchDeg = overhead ? kOverheadPitchDeg : kPitchDeg;
   watches.Sees.FovDeg = kFovDeg;
   if (overhead) {
     watches.Sees.Orthographic = true;
@@ -270,27 +277,28 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   Shot shot;
   const auto asked = std::chrono::steady_clock::now();
   Loading last;
-  const bool ready = engine
-                         .preload(kPatienceS,
-                                  [&](const Loading &how) {
-                                    if (!tells) { return; }
-                                    if (how.ElapsedS - last.ElapsedS < 0.25 && how.share() < 1.0) {
-                                      return;
-                                    }
-                                    last = how;
-                                    std::printf("\r    loading  terrain %zu/%zu  osm %zu/%zu  "
-                                                "%zu in flight  %.1f MB  %.0f Mbit/s  %.1f s   ",
-                                                how.GroundArrived,
-                                                how.GroundWanted,
-                                                how.VectorArrived,
-                                                how.VectorWanted,
-                                                how.Outstanding,
-                                                how.FetchedMB,
-                                                how.Megabits,
-                                                how.ElapsedS);
-                                    std::fflush(stdout);
-                                  })
-                         .has_value();
+  const bool ready =
+      engine
+          .preload(kPatienceS,
+                   [&](const Loading &how) {
+                     if (!tells) { return; }
+                     if (how.ElapsedS - last.ElapsedS < kProgressEveryS && how.share() < 1.0) {
+                       return;
+                     }
+                     last = how;
+                     std::printf("\r    loading  terrain %zu/%zu  osm %zu/%zu  "
+                                 "%zu in flight  %.1f MB  %.0f Mbit/s  %.1f s   ",
+                                 how.GroundArrived,
+                                 how.GroundWanted,
+                                 how.VectorArrived,
+                                 how.VectorWanted,
+                                 how.Outstanding,
+                                 how.FetchedMB,
+                                 how.Megabits,
+                                 how.ElapsedS);
+                     std::fflush(stdout);
+                   })
+          .has_value();
   if (tells) { std::printf("\n"); }
 
   const auto stood = std::chrono::steady_clock::now();
@@ -373,8 +381,8 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
     return heldMs[which < heldMs.size() ? which : heldMs.size() - 1];
   };
   shot.P50Ms = quantile(0.50);
-  shot.P95Ms = quantile(0.95);
-  shot.P99Ms = quantile(0.99);
+  shot.P95Ms = quantile(kBroadQuantile);
+  shot.P99Ms = quantile(kWidestQuantile);
 
   shot.Measures = engine.measures();
 

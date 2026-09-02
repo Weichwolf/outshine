@@ -21,6 +21,13 @@
 
 namespace outshine::Generators {
 
+constexpr double kChimneyHalfWide = 0.5;
+constexpr double kChimneyHalfDeep = 0.4;
+constexpr double kDormerLeastHalfUm = 0.9;
+constexpr double kDormerLeastHalfVm = 0.7;
+constexpr double kDormerRiseM = 2.1;
+constexpr double kFrontLeastEdgeM = 1.2;
+
 namespace {
 
 constexpr double kWeldPerM = 1000.0;
@@ -737,17 +744,24 @@ void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const En foot = s.FromBox(along, 0.0);
   const double eaves = EavesZ(s);
   const double stack = eaves + roof.HeightAt(foot) + kChimneyOverRidgeM;
-  Box(site, s, foot, 0.5 * kChimneyWideM, 0.4 * kChimneyWideM, eaves, stack, Facade::Trim);
+  Box(site,
+      s,
+      foot,
+      kChimneyHalfWide * kChimneyWideM,
+      kChimneyHalfDeep * kChimneyWideM,
+      eaves,
+      stack,
+      Facade::Trim);
 }
 
 void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   const double halfU = std::min(2.6, 0.30 * s.HalfUm);
   const double halfV = std::min(1.9, 0.30 * s.HalfVm);
-  if (halfU < 0.9 || halfV < 0.7) { return; }
+  if (halfU < kDormerLeastHalfUm || halfV < kDormerLeastHalfVm) { return; }
   const double along =
       ((static_cast<double>(s.Seed >> 13u & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
   const En foot = s.FromBox(along, 0.0);
-  Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
+  Box(site, s, foot, halfU, halfV, deckZ, deckZ + kDormerRiseM, Facade::Metal);
 }
 
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
@@ -940,7 +954,7 @@ void Pavement(const BuildingShape &s,
     const double e = q.E - p.E;
     const double nn = q.N - p.N;
     const double len = std::hypot(e, nn);
-    if (len < 1.2) { continue; }
+    if (len < kFrontLeastEdgeM) { continue; }
     if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) { continue; }
     double bp = StandBack(street, p);
     double bq = StandBack(street, q);

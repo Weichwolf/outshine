@@ -89,7 +89,11 @@ inline size_t ReadUtf8(const std::string &text, size_t at, char32_t &code) {
   return length;
 }
 
-static_assert(PairedSurrogates(0xD83Du, 0xDE00u) == 0x1F600u,
+constexpr uint32_t kGrinHigh = 0xD83Du;
+constexpr uint32_t kGrinLow = 0xDE00u;
+constexpr uint32_t kGrinCodePoint = 0x1F600u;
+
+static_assert(PairedSurrogates(kGrinHigh, kGrinLow) == kGrinCodePoint,
               "a surrogate pair folds to the code point the standard states");
 
 } // namespace outshine
