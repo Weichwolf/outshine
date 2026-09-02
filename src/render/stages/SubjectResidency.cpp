@@ -285,19 +285,11 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   for (uint32_t which = 0; which < levels; ++which) {
     if (which > 0) {
       std::vector<float> smaller;
-      uint32_t smallerWidth = 0;
-      uint32_t smallerHeight = 0;
-      HalveInPlace(level,
-                   levelWidth,
-                   levelHeight,
-                   smaller,
-                   smallerWidth,
-                   smallerHeight,
-                   kind,
-                   indexChannels);
+      const Texels made = HalveInPlace(
+          level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind, indexChannels);
       level.swap(smaller);
-      levelWidth = smallerWidth;
-      levelHeight = smallerHeight;
+      levelWidth = made.WidthPx;
+      levelHeight = made.HeightPx;
     }
     const uint32_t bytes = levelWidth * levelHeight * 4u * static_cast<uint32_t>(sizeof(float));
     SDL_GPUTransferBufferCreateInfo wantedTransfer{};

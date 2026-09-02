@@ -11,6 +11,11 @@
 
 namespace outshine::Render {
 
+struct Texels {
+  uint32_t WidthPx = 0;
+  uint32_t HeightPx = 0;
+};
+
 enum class TexelKind { Value, Direction };
 
 inline uint32_t IndexChannelsOf(std::span<const float> texels) {
@@ -33,16 +38,15 @@ inline uint32_t IndexChannelsOf(std::span<const float> texels) {
   return mask;
 }
 
-inline void HalveInPlace(std::span<const float> from,
-                         uint32_t fromWidth,
-                         uint32_t fromHeight,
-                         std::vector<float> &into,
-                         uint32_t &toWidth,
-                         uint32_t &toHeight,
-                         TexelKind kind,
-                         uint32_t indexChannels = 0) {
-  toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
-  toHeight = fromHeight > 1 ? fromHeight / 2u : 1u;
+inline Texels HalveInPlace(std::span<const float> from,
+                           Texels was,
+                           std::vector<float> &into,
+                           TexelKind kind,
+                           uint32_t indexChannels = 0) {
+  const uint32_t fromWidth = was.WidthPx;
+  const uint32_t fromHeight = was.HeightPx;
+  const uint32_t toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
+  const uint32_t toHeight = fromHeight > 1 ? fromHeight / 2u : 1u;
   into.assign(static_cast<size_t>(toWidth) * toHeight * 4u, 0.0f);
   for (uint32_t y = 0; y < toHeight; ++y) {
     for (uint32_t x = 0; x < toWidth; ++x) {
@@ -93,6 +97,7 @@ inline void HalveInPlace(std::span<const float> from,
       }
     }
   }
+  return {.WidthPx = toWidth, .HeightPx = toHeight};
 }
 
 } // namespace outshine::Render

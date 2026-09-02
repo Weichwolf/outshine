@@ -12,6 +12,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "ParticipatingMedium.h"
+#include "SkyPass.h"
 
 namespace outshine::Render {
 
@@ -20,24 +21,22 @@ public:
   [[nodiscard]] static std::string ShaderSource();
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
-  [[nodiscard]] bool Configure(const Gpu &gpu,
-                               SDL_GPUTexture *skyView,
-                               SDL_GPUTexture *transmittance,
-                               SDL_GPUSampler *lut,
-                               std::string &error);
 
-  void Declare(const Medium &medium,
-               const Vec3f &sunDir,
-               const Vec3f &up,
-               float illuminanceLux,
-               float eyeHeightM);
+  struct Tables {
+    SDL_GPUTexture *SkyView = nullptr;
+    SDL_GPUTexture *Transmittance = nullptr;
+    SDL_GPUSampler *Lut = nullptr;
+  };
+
+  [[nodiscard]] bool Configure(const Gpu &gpu, Tables from, std::string &error);
+
+  void Declare(const Medium &medium, SkyStanding stands);
 
   void Eye(const Medium &medium, float eyeHeightM);
 
   [[nodiscard]] bool Stands() const { return Declared_; }
 
-  void SetBasis(
-      const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH);
+  void SetBasis(const EyeBasis &eye);
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 

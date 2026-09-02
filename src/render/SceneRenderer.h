@@ -67,12 +67,20 @@ public:
 
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
 
-  void SetPictureRegion(double x, double y, double width, double height, double aspect = 0.0) {
-    RegionX_ = x;
-    RegionY_ = y;
-    RegionW_ = width;
-    RegionH_ = height;
-    RegionAspect_ = aspect;
+  struct Region {
+    double X = 0.0;
+    double Y = 0.0;
+    double Width = 0.0;
+    double Height = 0.0;
+    double Aspect = 0.0;
+  };
+
+  void SetPictureRegion(Region into) {
+    RegionX_ = into.X;
+    RegionY_ = into.Y;
+    RegionW_ = into.Width;
+    RegionH_ = into.Height;
+    RegionAspect_ = into.Aspect;
   }
 
   void RenderFrame();
@@ -196,8 +204,10 @@ public:
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
     SkyIrradianceStage_.Declare(Medium_, CosSunZenith_);
-    Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
-    Aerial_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
+    const SkyStanding stands = {
+        .SunDir = toSun, .WorldUp = up, .IlluminanceLux = illuminanceLux, .EyeHeightM = eyeHeightM};
+    Sky_.Declare(Medium_, stands);
+    Aerial_.Declare(Medium_, stands);
   }
 
   void SetSkyEye(float eyeHeightM) {
@@ -335,6 +345,7 @@ private:
 
   void EncodeIrradiance(const FrameContext &ctx, const PassRecording &into);
   void EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] EyeBasis Eye() const;
   void EncodeSky(const FrameContext &ctx, const PassRecording &into);
   void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
   void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);

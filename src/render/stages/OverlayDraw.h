@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 
+#include "Extent.h"
 #include "KernelShape.h"
 
 #include "FrameContext.h"
@@ -39,9 +40,9 @@ public:
   [[nodiscard]] bool
   SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t count, std::string &error);
 
-  void Bind(int widthPx, int heightPx) {
-    WidthPx = widthPx;
-    HeightPx = heightPx;
+  void Bind(Extent frame) {
+    WidthPx = frame.WidthPx;
+    HeightPx = frame.HeightPx;
   }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);

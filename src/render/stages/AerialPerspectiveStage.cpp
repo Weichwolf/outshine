@@ -12,20 +12,15 @@ namespace outshine::Render {
 constexpr float kMPerKmF = 1000.0f;
 
 bool AerialPerspectiveStage::Configure(const Gpu &gpu,
-                                       SDL_GPUTexture *scene,
-                                       SDL_GPUTexture *depth,
-                                       SDL_GPUTexture *skyView,
-                                       SDL_GPUTexture *transmittance,
-                                       SDL_GPUSampler *exact,
-                                       SDL_GPUSampler *lut,
+                                       Tables from,
                                        SDL_GPUTextureFormat targetFormat,
                                        std::string &error) {
-  Scene = scene;
-  Depth = depth;
-  SkyView = skyView;
-  Veil = transmittance;
-  Exact = exact;
-  Lut = lut;
+  Scene = from.Scene;
+  Depth = from.Depth;
+  SkyView = from.SkyView;
+  Veil = from.Transmittance;
+  Exact = from.Exact;
+  Lut = from.Lut;
 
   const std::string source = ShaderSource(error);
   if (source.empty()) { return false; }
@@ -58,18 +53,14 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu,
   return true;
 }
 
-void AerialPerspectiveStage::Declare(const Medium &medium,
-                                     const Vec3f &sunDir,
-                                     const Vec3f &up,
-                                     float illuminanceLux,
-                                     float eyeHeightM) {
+void AerialPerspectiveStage::Declare(const Medium &medium, SkyStanding stands) {
   for (int axis = 0; axis < 3; ++axis) {
-    Pushed_.SunDir[axis] = sunDir[axis];
-    Pushed_.WorldUp[axis] = up[axis];
+    Pushed_.SunDir[axis] = stands.SunDir[axis];
+    Pushed_.WorldUp[axis] = stands.WorldUp[axis];
   }
-  Pushed_.Illuminance = illuminanceLux;
+  Pushed_.Illuminance = stands.IlluminanceLux;
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
+                        (stands.EyeHeightM > 0.0f ? stands.EyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.Air = medium;
   Declared_ = true;
 }
@@ -80,15 +71,14 @@ void AerialPerspectiveStage::Eye(const Medium &medium, float eyeHeightM) {
                         (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
 }
 
-void AerialPerspectiveStage::SetBasis(
-    const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH) {
+void AerialPerspectiveStage::SetBasis(const EyeBasis &eye) {
   for (int axis = 0; axis < 3; ++axis) {
-    Pushed_.Right[axis] = right[axis];
-    Pushed_.Up[axis] = upAxis[axis];
-    Pushed_.Fwd[axis] = fwd[axis];
+    Pushed_.Right[axis] = eye.Right[axis];
+    Pushed_.Up[axis] = eye.Up[axis];
+    Pushed_.Fwd[axis] = eye.Forward[axis];
   }
-  Pushed_.TanHalf[0] = tanHalfW;
-  Pushed_.TanHalf[1] = tanHalfH;
+  Pushed_.TanHalf[0] = eye.TanHalfWidth;
+  Pushed_.TanHalf[1] = eye.TanHalfHeight;
 }
 
 void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording &into) {

@@ -122,7 +122,7 @@ Live::~Live() {
   std::string ignored;
   (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
-  Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
+  Renderer_->SetPictureRegion({});
 }
 
 bool Live::Open(Render::SceneRenderer &renderer,
@@ -498,11 +498,10 @@ bool Live::Build(std::string &error) {
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
   if (Shaped_.TriangleCount() > 0) {
-    Renderer_->SetPictureRegion(Declared_.PictureLeftFrac,
-                                Declared_.PictureTopFrac,
-                                Declared_.PictureWidthFrac,
-                                Declared_.PictureHeightFrac,
-                                0.0);
+    Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
+                                 .Y = Declared_.PictureTopFrac,
+                                 .Width = Declared_.PictureWidthFrac,
+                                 .Height = Declared_.PictureHeightFrac});
     auto insideFrom = std::chrono::steady_clock::now();
     const auto sinceInside = [&insideFrom] {
       const double ms =
@@ -524,7 +523,7 @@ bool Live::Build(std::string &error) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
             .count();
   } else {
-    Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
+    Renderer_->SetPictureRegion({});
   }
   const auto composedFrom = std::chrono::steady_clock::now();
   const bool composed = Compose(error);

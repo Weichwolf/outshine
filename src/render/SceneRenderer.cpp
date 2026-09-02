@@ -470,9 +470,10 @@ void SceneRenderer::Create(Resource resource) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage =
           SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-      wanted.size =
-          PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_)).Texels *
-          static_cast<uint32_t>(sizeof(float));
+      wanted.size = PyramidOver({.WidthPx = static_cast<uint32_t>(Width_),
+                                 .HeightPx = static_cast<uint32_t>(Height_)})
+                        .Texels *
+                    static_cast<uint32_t>(sizeof(float));
       Pyramid_ = OwnedBuffer(Handles_.Device, SDL_CreateGPUBuffer(Handles_.Device, &wanted));
       return;
     }
@@ -686,18 +687,21 @@ bool SceneRenderer::ConfigureMediumRadiance(std::string &error) {
 }
 
 bool SceneRenderer::ConfigureSky(std::string &error) {
-  return Sky_.Configure(
-      Handles_, SkyViewLut_.Get(), TransmittanceLut_.Get(), LutSamp_.Get(), error);
+  return Sky_.Configure(Handles_,
+                        {.SkyView = SkyViewLut_.Get(),
+                         .Transmittance = TransmittanceLut_.Get(),
+                         .Lut = LutSamp_.Get()},
+                        error);
 }
 
 bool SceneRenderer::ConfigureAerialPerspective(std::string &error) {
   return Aerial_.Configure(Handles_,
-                           Target(Plan_->Bound(Resource::SceneComposited)),
-                           DepthTex_.Get(),
-                           SkyViewLut_.Get(),
-                           TransmittanceLut_.Get(),
-                           Samp_.Get(),
-                           LutSamp_.Get(),
+                           {.Scene = Target(Plan_->Bound(Resource::SceneComposited)),
+                            .Depth = DepthTex_.Get(),
+                            .SkyView = SkyViewLut_.Get(),
+                            .Transmittance = TransmittanceLut_.Get(),
+                            .Exact = Samp_.Get(),
+                            .Lut = LutSamp_.Get()},
                            FormatOf(Plan_->Format(Resource::SceneAerial)),
                            error);
 }
@@ -796,15 +800,17 @@ void SceneRenderer::EncodeCompositeTransmission(const FrameContext &ctx,
 void SceneRenderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
   Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneLinear)));
   const Vec2f delta = {{Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]}};
-  Tonemap_.BindTemporal(
-      LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta, HistoryHeld_);
+  Tonemap_.BindTemporal({.History = LinearTex_[1 - LinearAt_].Get(), .Velocity = VelTex_.Get()},
+                        Extent{.WidthPx = Width_, .HeightPx = Height_},
+                        delta,
+                        HistoryHeld_);
   Picture(true, into);
   Tonemap_.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
-  Overlay_.Bind(Width_, Height_);
+  Overlay_.Bind(Extent{.WidthPx = Width_, .HeightPx = Height_});
   Overlay_.Encode(ctx, into);
 }
 
@@ -910,8 +916,10 @@ bool SceneRenderer::SetGroundClasses(const uint32_t *words,
                     error)) {
     return false;
   }
-  Subjects_.GroundFrom(GroundClasses_.Get(), GroundPalette_.Get());
-  if (DrawsGlass_) { Glass_.GroundFrom(GroundClasses_.Get(), GroundPalette_.Get()); }
+  Subjects_.GroundFrom({.Classes = GroundClasses_.Get(), .Palette = GroundPalette_.Get()});
+  if (DrawsGlass_) {
+    Glass_.GroundFrom({.Classes = GroundClasses_.Get(), .Palette = GroundPalette_.Get()});
+  }
   return true;
 }
 
@@ -947,7 +955,8 @@ void SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx, const PassRecord
 
 bool SceneRenderer::ConfigureSubjectCull(std::string &error) {
   Cull_.PyramidFrom(Pyramid_.Get(),
-                    PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_)));
+                    PyramidOver({.WidthPx = static_cast<uint32_t>(Width_),
+                                 .HeightPx = static_cast<uint32_t>(Height_)}));
   return Cull_.Configure(Subjects_, Handles_, error);
 }
 
@@ -974,38 +983,29 @@ void SceneRenderer::SettleShadow() {
   Touched_[static_cast<size_t>(Resource::ShadowAtlas)] = Shadow_.Cached();
 }
 
+EyeBasis SceneRenderer::Eye() const {
+  EyeBasis eye;
+  eye.TanHalfHeight = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
+  eye.TanHalfWidth =
+      eye.TanHalfHeight * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
+  for (int axis = 0; axis < 3; ++axis) {
+    eye.Right[axis] = static_cast<float>(Right_[axis]);
+    eye.Up[axis] = static_cast<float>(Up_[axis]);
+    eye.Forward[axis] = static_cast<float>(Fwd_[axis]);
+  }
+  return eye;
+}
+
 void SceneRenderer::EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
-  const float tanHalfW =
-      tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
-  Vec3f right;
-  Vec3f up;
-  Vec3f fwd;
-  for (int axis = 0; axis < 3; ++axis) {
-    right[axis] = static_cast<float>(Right_[axis]);
-    up[axis] = static_cast<float>(Up_[axis]);
-    fwd[axis] = static_cast<float>(Fwd_[axis]);
-  }
-  Aerial_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
+  Aerial_.SetBasis(Eye());
   Aerial_.SetNear(NearMetres());
   Aerial_.Encode(ctx, into);
 }
 
 void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan(static_cast<float>(FovDeg_ * kDeg2Rad) * 0.5f);
-  const float tanHalfW =
-      tanHalfH * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
-  Vec3f right;
-  Vec3f up;
-  Vec3f fwd;
-  for (int axis = 0; axis < 3; ++axis) {
-    right[axis] = static_cast<float>(Right_[axis]);
-    up[axis] = static_cast<float>(Up_[axis]);
-    fwd[axis] = static_cast<float>(Fwd_[axis]);
-  }
-  Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
+  Sky_.SetBasis(Eye());
   Sky_.Encode(ctx, into);
 }
 
@@ -1347,8 +1347,8 @@ ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mea
   farthest = 1.0f;
   mean = 0.0f;
   if (!Ready_ || !Pyramid_) { return ReadState::Failed; }
-  const PyramidShape shape =
-      PyramidOver(static_cast<uint32_t>(Width_), static_cast<uint32_t>(Height_));
+  const PyramidShape shape = PyramidOver(
+      {.WidthPx = static_cast<uint32_t>(Width_), .HeightPx = static_cast<uint32_t>(Height_)});
   const uint32_t texels = shape.Wide[0] * shape.High[0];
   if (texels == 0) { return ReadState::Failed; }
   Readback read;

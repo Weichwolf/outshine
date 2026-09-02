@@ -181,9 +181,14 @@ public:
 
   void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
 
-  void GroundFrom(SDL_GPUBuffer *classes, SDL_GPUBuffer *palette) {
-    GroundClasses_ = classes;
-    GroundPalette_ = palette;
+  struct GroundBuffers {
+    SDL_GPUBuffer *Classes = nullptr;
+    SDL_GPUBuffer *Palette = nullptr;
+  };
+
+  void GroundFrom(GroundBuffers from) {
+    GroundClasses_ = from.Classes;
+    GroundPalette_ = from.Palette;
   }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);

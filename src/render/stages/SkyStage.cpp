@@ -17,14 +17,10 @@ constexpr float kMPerKmF = 1000.0f;
 
 namespace {}
 
-bool SkyStage::Configure(const Gpu &gpu,
-                         SDL_GPUTexture *skyView,
-                         SDL_GPUTexture *transmittance,
-                         SDL_GPUSampler *lut,
-                         std::string &error) {
-  SkyView = skyView;
-  Veil = transmittance;
-  Lut = lut;
+bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
+  SkyView = from.SkyView;
+  Veil = from.Transmittance;
+  Lut = from.Lut;
   if (SkyView == nullptr || Veil == nullptr || Lut == nullptr) {
     error = "the sky draw needs the sky view table and its sampler, and the plan did not hold both";
     return false;
@@ -67,18 +63,14 @@ bool SkyStage::Configure(const Gpu &gpu,
   return true;
 }
 
-void SkyStage::Declare(const Medium &medium,
-                       const Vec3f &sunDir,
-                       const Vec3f &up,
-                       float illuminanceLux,
-                       float eyeHeightM) {
+void SkyStage::Declare(const Medium &medium, SkyStanding stands) {
   for (int axis = 0; axis < 3; ++axis) {
-    Pushed_.SunDir[axis] = sunDir[axis];
-    Pushed_.WorldUp[axis] = up[axis];
+    Pushed_.SunDir[axis] = stands.SunDir[axis];
+    Pushed_.WorldUp[axis] = stands.WorldUp[axis];
   }
-  Pushed_.Illuminance = illuminanceLux;
+  Pushed_.Illuminance = stands.IlluminanceLux;
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
+                        (stands.EyeHeightM > 0.0f ? stands.EyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.BottomRadiusKm = medium.BottomRadiusKm;
   Pushed_.SunHalfAngleRad = kSunHalfAngleRad;
   Pushed_.Air = medium;
@@ -92,12 +84,13 @@ void SkyStage::Eye(const Medium &medium, float eyeHeightM) {
                         (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
 }
 
-void SkyStage::SetBasis(
-    const Vec3f &right, const Vec3f &upAxis, const Vec3f &fwd, float tanHalfW, float tanHalfH) {
+void SkyStage::SetBasis(const EyeBasis &eye) {
+  const float tanHalfW = eye.TanHalfWidth;
+  const float tanHalfH = eye.TanHalfHeight;
   for (int axis = 0; axis < 3; ++axis) {
-    Pushed_.Right[axis] = right[axis];
-    Pushed_.Up[axis] = upAxis[axis];
-    Pushed_.Fwd[axis] = fwd[axis];
+    Pushed_.Right[axis] = eye.Right[axis];
+    Pushed_.Up[axis] = eye.Up[axis];
+    Pushed_.Fwd[axis] = eye.Forward[axis];
   }
   Pushed_.TanHalf[0] = tanHalfW;
   Pushed_.TanHalf[1] = tanHalfH;

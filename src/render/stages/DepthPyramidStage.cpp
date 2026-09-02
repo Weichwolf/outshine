@@ -35,7 +35,7 @@ bool DepthPyramidStage::Configure(const Gpu &gpu,
   Into_ = into;
   Wide_ = static_cast<uint32_t>(widePx > 0 ? widePx : 0);
   High_ = static_cast<uint32_t>(highPx > 0 ? highPx : 0);
-  Shape_ = PyramidOver(Wide_, High_);
+  Shape_ = PyramidOver({.WidthPx = Wide_, .HeightPx = High_});
   if (Depth_ == nullptr || Held_ == nullptr || Into_ == nullptr || Wide_ == 0 || High_ == 0) {
     error = "the depth pyramid needs the frame's depth, a sampler and a buffer of its own, and "
             "the plan did not hold all three";

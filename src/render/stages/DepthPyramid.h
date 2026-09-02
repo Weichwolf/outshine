@@ -4,6 +4,8 @@
 #include <array>
 #include <cstdint>
 
+#include "TexelChain.h"
+
 namespace outshine::Render {
 
 inline constexpr uint32_t kPyramidLevels = 4u;
@@ -15,10 +17,10 @@ struct PyramidShape {
   uint32_t Texels = 0;
 };
 
-[[nodiscard]] inline PyramidShape PyramidOver(uint32_t wide, uint32_t high) {
+[[nodiscard]] inline PyramidShape PyramidOver(Texels of) {
   PyramidShape out;
-  uint32_t across = wide > 1u ? wide / 2u : 1u;
-  uint32_t down = high > 1u ? high / 2u : 1u;
+  uint32_t across = of.WidthPx > 1u ? of.WidthPx / 2u : 1u;
+  uint32_t down = of.HeightPx > 1u ? of.HeightPx / 2u : 1u;
   uint32_t at = 0u;
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     out.Wide[level] = across;

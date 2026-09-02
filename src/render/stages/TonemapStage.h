@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "Extent.h"
 #include "math/Vec2.h"
 #include "FrameContext.h"
 #include "Gpu.h"
@@ -30,14 +31,16 @@ public:
 
   void Bind(SDL_GPUTexture *scene) { Scene = scene; }
 
-  void BindTemporal(SDL_GPUTexture *history,
-                    SDL_GPUTexture *velocity,
-                    int width,
-                    int height,
-                    const Vec2f &jitterDelta,
-                    bool historyHeld) {
-    History = history;
-    Velocity = velocity;
+  struct Temporal {
+    SDL_GPUTexture *History = nullptr;
+    SDL_GPUTexture *Velocity = nullptr;
+  };
+
+  void BindTemporal(Temporal from, Extent frame, const Vec2f &jitterDelta, bool historyHeld) {
+    const int width = frame.WidthPx;
+    const int height = frame.HeightPx;
+    History = from.History;
+    Velocity = from.Velocity;
     Width = width;
     Height = height;
     JitterDelta[0] = jitterDelta[0];
