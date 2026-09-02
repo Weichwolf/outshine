@@ -43,6 +43,7 @@
 #include "GroundSupport.h"
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
+#include "GroundYield.h"
 #include "TileGeodesy.h"
 #include "SceneRenderer.h"
 #include "ScenarioRead.h"
@@ -385,6 +386,48 @@ struct Engine::State {
   void Inspected();
   [[nodiscard]] bool Rides();
   [[nodiscard]] bool Watches();
+
+  struct Classed {
+    std::vector<float> Tinted;
+    std::vector<float> Uv;
+    std::vector<float> Palette;
+    std::shared_ptr<const ClassStructure> Structure;
+  };
+
+  [[nodiscard]] Classed Classify(Patchwork &laid, std::vector<float> &inFrame);
+
+  struct Phasing {
+    std::chrono::steady_clock::time_point PhaseAt;
+    std::chrono::steady_clock::time_point CensusAt;
+    std::chrono::steady_clock::time_point WiresAt;
+  };
+
+  void Models(const TangentFrame &standing,
+              std::span<const float> inFrame,
+              LongitudeLatitude stands,
+              Geometry &ground,
+              Phasing &clocks);
+
+  static constexpr size_t kDrapeRungs = 6;
+
+  struct Drape {
+    const std::unordered_map<uint64_t, float> &DrawnGround;
+    const std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs> &FacesAt;
+    std::span<const float> InFrame;
+    std::span<const uint32_t> Index;
+
+    [[nodiscard]] double At(double eastM, double southM, double fallback) const;
+  };
+
+  void Paves(const TangentFrame &standing,
+             const Around &over,
+             const std::shared_ptr<const ClassStructure> &classStructure,
+             const Drape &drapedOver,
+             std::vector<Yields> &corridor,
+             Generators::RoadRaised &pavement,
+             Geometry &ground,
+             Phasing &clocks);
+
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded);
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool Carries(const Physics::Rigid &body, const Vec3 &shiftM);
