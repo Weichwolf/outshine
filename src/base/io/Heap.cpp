@@ -168,11 +168,11 @@ void *operator new[](size_t bytes, std::align_val_t alignment) {
   return outshine::TakeAligned("object array", bytes, static_cast<size_t>(alignment));
 }
 
-void *operator new(size_t bytes, const std::nothrow_t &neverThrows) noexcept {
+void *operator new(size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
   return std::malloc((bytes != 0u) ? bytes : 1);
 }
 
-void *operator new[](size_t bytes, const std::nothrow_t &neverThrows) noexcept {
+void *operator new[](size_t bytes, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
   return outshine::Counted(std::malloc((bytes != 0u) ? bytes : 1));
 }
 
@@ -184,34 +184,38 @@ void operator delete[](void *block) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete(void *block, size_t bytes) noexcept {
+void operator delete(void *block, [[maybe_unused]] size_t bytes) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete[](void *block, size_t bytes) noexcept {
+void operator delete[](void *block, [[maybe_unused]] size_t bytes) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete(void *block, std::align_val_t alignment) noexcept {
+void operator delete(void *block, [[maybe_unused]] std::align_val_t alignment) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete[](void *block, std::align_val_t alignment) noexcept {
+void operator delete[](void *block, [[maybe_unused]] std::align_val_t alignment) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete(void *block, size_t bytes, std::align_val_t alignment) noexcept {
+void operator delete(void *block,
+                     [[maybe_unused]] size_t bytes,
+                     [[maybe_unused]] std::align_val_t alignment) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete[](void *block, size_t bytes, std::align_val_t alignment) noexcept {
+void operator delete[](void *block,
+                       [[maybe_unused]] size_t bytes,
+                       [[maybe_unused]] std::align_val_t alignment) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete(void *block, const std::nothrow_t &neverThrows) noexcept {
+void operator delete(void *block, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
   outshine::Returned(block);
 }
 
-void operator delete[](void *block, const std::nothrow_t &neverThrows) noexcept {
+void operator delete[](void *block, [[maybe_unused]] const std::nothrow_t &neverThrows) noexcept {
   outshine::Returned(block);
 }

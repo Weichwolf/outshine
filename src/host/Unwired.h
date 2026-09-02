@@ -7,11 +7,15 @@ namespace outshine {
 
 class Unwired final : public Data::Transport {
 public:
-  [[nodiscard]] Data::Ticket Begin(const std::string &url) override { return Data::Ticket::None; }
+  [[nodiscard]] Data::Ticket Begin([[maybe_unused]] const std::string &url) override {
+    return Data::Ticket::None;
+  }
 
-  [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override { return Data::Wire::Never(); }
+  [[nodiscard]] Data::Wire Collect([[maybe_unused]] Data::Ticket ticket) override {
+    return Data::Wire::Never();
+  }
 
-  void Cancel(Data::Ticket ticket) override {}
+  void Cancel([[maybe_unused]] Data::Ticket ticket) override {}
 };
 
 } // namespace outshine

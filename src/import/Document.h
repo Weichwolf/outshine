@@ -18,7 +18,7 @@ namespace outshine::Gltf {
 
 class Document {
 public:
-  [[nodiscard]] bool Read(Span<const uint8_t> bytes, std::string_view path);
+  [[nodiscard]] bool Read(Span<const uint8_t> whole, std::string_view path);
   [[nodiscard]] bool ReadFile(std::string_view path);
 
   [[nodiscard]] const std::string &Error() const { return Error_; }

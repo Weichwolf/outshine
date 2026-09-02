@@ -128,3 +128,29 @@ rest of the scope for where it is READ.** The worklist was the same thing seen f
 -- the loop's shape carried a fact about `Resolve` that the diff did not show. The guard is not a
 better checker, it is finishing the scope: after any change to how a value arrives, grep the
 function for every use of it before building.
+
+## Two checks contradicted each other over the global allocator, and the tree owns neither name
+
+`src/base/io/Heap.cpp` replaces the twelve global `operator new` / `operator delete` forms so every
+allocation lands in the tagged tally -- which is what RAGE's `sysMemAllocator` and Unreal's
+`ModuleBoilerplate.h` do too. `readability-inconsistent-declaration-parameter-name` then reports
+sixteen findings, and it reports them AT libc++'s header, because the only declaration these twelve
+definitions have is the standard library's:
+
+    void operator delete(void* __p, std::size_t __sz) _NOEXCEPT;
+
+**Measured, not argued.** Spelling ours the same takes that check to 0 and lights
+`bugprone-reserved-identifier` at **20** -- a double underscore is reserved to the implementation
+and clang-tidy is right to refuse it. Declaring the twelve in `Heap.h` first changes nothing: the
+language declares `operator new` implicitly in every unit, so libc++'s named redeclaration is still
+in the chain. `-header-filter` does not suppress them either; the check reports at the declaration
+whatever the filter says. Measured all three.
+
+So there is no edit to `src/` that removes them, and the two checks cannot both be satisfied.
+
+**THE COUNT IS ABOUT CODE THIS TREE OWNS.** `test/lint.sh` drops a diagnostic whose location is
+under `/Library`, `/usr`, `/opt`, `/System` or `/Applications` -- paths no commit here can lower --
+and counts every other one. No check is switched off, the eight real mismatches this same check
+found in Script.h, Document.h, ClassBuilder.h, TreeFoliage.h, Tangents.cpp and the door's `logsTo`
+were all repaired, and a finding about a line this tree wrote still counts exactly as before. The
+filter names its five prefixes so it cannot quietly grow.

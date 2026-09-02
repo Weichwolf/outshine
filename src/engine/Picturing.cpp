@@ -3441,8 +3441,8 @@ bool Engine::readPixels(Buffer which, std::vector<float> &out) {
   return S_->Picture.Standing->ReadBuffer(which, out, S_->Error);
 }
 
-void Engine::logsTo(LogSink *listening) {
-  outshine::Log::SetSink(listening);
+void Engine::logsTo(LogSink *sink) {
+  outshine::Log::SetSink(sink);
 }
 
 Extent Engine::canvas() const {

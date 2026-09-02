@@ -39,7 +39,17 @@ fi
 printf '\n== analysis ==\n'
 "$LLVM/run-clang-tidy" -p . -quiet -j "$(sysctl -n hw.ncpu)" \
   '/src/.*\.cpp$' > "$REPORT/tidy.log" 2>&1 || true
-grep 'warning:' "$REPORT/tidy.log" | sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
+# THE COUNT IS ABOUT CODE THIS TREE OWNS. clang-tidy reports a diagnostic at the location it is
+# ABOUT, and for a replaceable global operator that location is the standard library's own header:
+# `readability-inconsistent-declaration-parameter-name` compares src/base/io/Heap.cpp's twelve
+# replacements against libc++'s declarations, which name their parameters `__sz` and `__p`. This
+# tree may not match those -- `bugprone-reserved-identifier` refuses them, and it is right, a
+# double underscore is reserved to the implementation -- and it may not change libc++. Measured:
+# our names give 16 findings, libc++'s give 20. So a diagnostic located outside src/, include/ and
+# test/ is not counted, because there is no commit that could lower it. No check is switched off
+# and every finding about a line this tree wrote still counts.
+grep 'warning:' "$REPORT/tidy.log" | grep -vE '^/(Library|usr|opt|System|Applications)/' |
+  sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
 found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
 # A LINT THAT FINDS NOTHING HAS BROKEN, NOT PASSED. clang-tidy writes its diagnostics to STDERR and
 # this redirected them to /dev/null for one round, which reported zero and recorded a baseline of

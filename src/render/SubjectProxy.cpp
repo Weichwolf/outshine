@@ -138,7 +138,7 @@ void Anchored(const Vec3 &anchorEcefM, const Vec3 &gltf, Vec3 &out) {
 [[nodiscard]] bool ClearsNearPlane(const Shape &subject,
                                    const Viewpoint &eye,
                                    size_t framedParts,
-                                   bool standsInside,
+                                   [[maybe_unused]] bool standsInside,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
   Vec3 framedLeast;
@@ -221,7 +221,8 @@ SetProjection(SceneRenderer &renderer, const Viewpoint &eye, std::string &error)
   return true;
 }
 
-double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
+double
+DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, const Viewpoint &eye) {
   if (part.VertexCount == 0) { return 0.0; }
   if (part.PositionsM.size() < 3) { return 0.0; }
   Vec3 low;
@@ -432,7 +433,7 @@ bool Aim(SceneRenderer &renderer,
 
 bool Surface(SceneRenderer &renderer,
              const SubjectProxy &proxy,
-             const Eye &view,
+             [[maybe_unused]] const Eye &view,
              SubjectScratch &scratch,
              std::string &error) {
   if (proxy.Shaped() == nullptr) {

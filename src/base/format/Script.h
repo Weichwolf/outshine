@@ -116,8 +116,8 @@ public:
   [[nodiscard]] const std::string &Stopped() const { return Stopped_; }
 
 private:
-  [[nodiscard]] bool Evaluate(size_t node, Host &host, Value &out, std::string &error);
-  [[nodiscard]] bool Perform(size_t node, Host &host, std::string &error);
+  [[nodiscard]] bool Evaluate(size_t at, Host &host, Value &out, std::string &error);
+  [[nodiscard]] bool Perform(size_t at, Host &host, std::string &error);
 
   std::vector<Node> Nodes_;
   size_t Root_ = 0;

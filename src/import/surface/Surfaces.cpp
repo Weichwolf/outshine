@@ -74,7 +74,7 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
 
 } // namespace
 
-void ResolveSurfaceTable(const Document &file,
+void ResolveSurfaceTable([[maybe_unused]] const Document &file,
                          const Subject &geometry,
                          bool carriesTransmission,
                          bool ownMaterials,

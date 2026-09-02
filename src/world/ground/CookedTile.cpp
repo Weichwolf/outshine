@@ -20,7 +20,7 @@ constexpr size_t kTileSoupFloats = 8;
 void CookTile(const float *soup,
               int nverts,
               int gridverts,
-              const Vec3 &origin,
+              [[maybe_unused]] const Vec3 &origin,
               std::vector<float> &outVerts,
               std::vector<uint32_t> &outIdx,
               std::vector<DagCluster> &outClusters) {

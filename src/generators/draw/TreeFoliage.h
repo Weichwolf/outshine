@@ -19,7 +19,7 @@ public:
   static constexpr int kMaxInstances = 1000000;
 
   void
-  Build(const TreeSkeleton &plant, const TreeMesh &leaf, const TreeSpecies &species, int mult = 1);
+  Build(const TreeSkeleton &plant, const TreeMesh &shape, const TreeSpecies &species, int mult = 1);
 
   [[nodiscard]] const std::vector<float> &Instances() const { return Inst_; }
 

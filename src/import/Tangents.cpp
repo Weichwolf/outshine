@@ -137,7 +137,7 @@ private:
   }
 
   [[nodiscard]] Space Evaluate(const std::vector<int> &faces, size_t vertex) const;
-  void Reach(int face, int group);
+  void Reach(int start, int group);
 
   const TangentSubject &Subject_;
 

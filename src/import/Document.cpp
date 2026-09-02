@@ -1841,17 +1841,17 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   return true;
 }
 
-bool Document::ImageBytes(int index, std::vector<uint8_t> &out) const {
+bool Document::ImageBytes(int image, std::vector<uint8_t> &out) const {
   out.clear();
-  if (index < 0 || static_cast<size_t>(index) >= Images_.size()) { return false; }
-  const Image &image = Images_[static_cast<size_t>(index)];
-  if (image.View >= 0) {
+  if (image < 0 || static_cast<size_t>(image) >= Images_.size()) { return false; }
+  const Image &held = Images_[static_cast<size_t>(image)];
+  if (held.View >= 0) {
     Span<const uint8_t> span;
-    if (!ViewSpan(image.View, span)) { return false; }
+    if (!ViewSpan(held.View, span)) { return false; }
     out.assign(span.Data(), span.Data() + span.Size());
     return true;
   }
-  std::ifstream file(DirectoryOf(Path_) + image.Uri, std::ios::binary);
+  std::ifstream file(DirectoryOf(Path_) + held.Uri, std::ios::binary);
   if (!file) { return false; }
   out.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
   return !out.empty();
