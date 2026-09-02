@@ -148,10 +148,12 @@ void Live::Reshape() {
   ShapedAt_ = Held_.Changed();
   EverShaped_ = true;
   const bool alsoStands = Held_.Stands() && !Held_.Assembled().Parts().empty();
-  Shaped_ = Held_.HoldsBuilt()
-                ? (alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
-                              : Gltf::Shaped(Held_.Built(), ShapeParts_))
-                : Gltf::Shaped(Held_.Assembled(), ShapeParts_);
+  if (!Held_.HoldsBuilt()) {
+    Shaped_ = Gltf::Shaped(Held_.Assembled(), ShapeParts_);
+    return;
+  }
+  Shaped_ = alsoStands ? Gltf::Shaped(Held_.Assembled(), Held_.Built(), ShapeParts_)
+                       : Gltf::Shaped(Held_.Built(), ShapeParts_);
 }
 
 namespace {

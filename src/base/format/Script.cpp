@@ -48,7 +48,26 @@ std::string Value::AsText() const {
 
 namespace {
 
+char Unescaped(char after) {
+  switch (after) {
+    case 'n': return '\n';
+    case 't': return '\t';
+    default: return after;
+  }
+}
+
 enum class Word : uint8_t { End, Number, Text, Name, Mark };
+
+std::string_view NamedWord(Word what) {
+  switch (what) {
+    case Word::Number: return "a number";
+    case Word::Text: return "a string";
+    case Word::End: return "the end";
+    case Word::Name:
+    case Word::Mark: return {};
+  }
+  return {};
+}
 
 struct Token {
   Word What = Word::End;
@@ -145,7 +164,7 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
         if (text[at] == '\\' && at + 1 < text.size()) {
           ++at;
           const char escaped = text[at];
-          token.Spelling.push_back(escaped == 'n' ? '\n' : escaped == 't' ? '\t' : escaped);
+          token.Spelling.push_back(Unescaped(escaped));
         } else {
           token.Spelling.push_back(text[at]);
         }
@@ -671,10 +690,8 @@ bool Program::Read(std::string_view text, std::string &error) {
   while (in.Now().What != Word::End) {
     size_t statement = 0;
     if (!ReadStatement(in, statement)) {
-      Stopped_ = in.Now().What == Word::Number ? "a number"
-                 : in.Now().What == Word::Text ? "a string"
-                 : in.Now().What == Word::End  ? "the end"
-                                               : in.Now().Spelling;
+      const std::string_view named = NamedWord(in.Now().What);
+      Stopped_ = named.empty() ? in.Now().Spelling : std::string(named);
       Nodes_.clear();
       return false;
     }
@@ -847,6 +864,20 @@ namespace {
 
 namespace {
 
+bool Same(const Value &left, const Value &right) {
+  if (left.What == Kind::Text || right.What == Kind::Text) {
+    return left.AsText() == right.AsText();
+  }
+  if (left.What == Kind::Ref || right.What == Kind::Ref) {
+    return left.What == right.What && left.Ref == right.Ref;
+  }
+  return left.Number == right.Number;
+}
+
+} // namespace
+
+namespace {
+
 [[nodiscard]] double TextToNumber(const std::string &text) {
   std::string_view held(text);
   while (!held.empty() && (held.front() == ' ' || held.front() == '\t' || held.front() == '\n' ||
@@ -978,11 +1009,12 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       Value inner;
       if (!Evaluate(node.A, host, inner, error)) { return false; }
 
-      out =
-          node.Spelling == "!" ? Value::OfNumber(inner.Truth() ? 0.0 : 1.0)
-          : node.Spelling == "+"
-              ? Value::OfNumber(inner.What == Kind::Text ? TextToNumber(inner.Text) : inner.Number)
-              : Value::OfNumber(-inner.Number);
+      if (node.Spelling == "!") {
+        out = Value::OfNumber(inner.Truth() ? 0.0 : 1.0);
+        return true;
+      }
+      const double held = inner.What == Kind::Text ? TextToNumber(inner.Text) : inner.Number;
+      out = Value::OfNumber(node.Spelling == "+" ? held : -inner.Number);
       return true;
     }
     case Node::Shape::Binary: {
@@ -1012,11 +1044,7 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
         return true;
       }
       if (node.Spelling == "==" || node.Spelling == "!=") {
-        const bool same = left.What == Kind::Text || right.What == Kind::Text
-                              ? left.AsText() == right.AsText()
-                              : (left.What == Kind::Ref || right.What == Kind::Ref
-                                     ? left.What == right.What && left.Ref == right.Ref
-                                     : left.Number == right.Number);
+        const bool same = Same(left, right);
         out = Value::OfNumber((node.Spelling == "==") == same ? 1.0 : 0.0);
         return true;
       }

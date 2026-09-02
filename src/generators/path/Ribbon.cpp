@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "math/Vec2.h"
 #include "Ribbon.h"
 
@@ -146,10 +147,8 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
   }
 
   for (const bool atEnd : {false, true}) {
-    const double atM = atEnd ? (fromM + static_cast<double>(stations - 1) * stepM > toM
-                                    ? toM
-                                    : fromM + static_cast<double>(stations - 1) * stepM)
-                             : fromM;
+    const double atM =
+        atEnd ? std::min(fromM + static_cast<double>(stations - 1) * stepM, toM) : fromM;
     Placed on;
     if (!along.At(atM, on)) { continue; }
     const double outward = atEnd ? 1.0 : -1.0;

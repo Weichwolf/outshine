@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_ASSET_H
 #define OUTSHINE_ENGINE_ASSET_H
 
+#include <algorithm>
 #include <string>
 #include <cmath>
 #include <vector>
@@ -77,7 +78,7 @@ public:
       AtS_ = 0.0;
       return;
     }
-    AtS_ = loops ? next - end * std::floor(next / end) : (next > end ? end : next);
+    AtS_ = loops ? next - end * std::floor(next / end) : std::min(next, end);
   }
 
 private:

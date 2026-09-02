@@ -491,6 +491,15 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
 }
 } // namespace
 
+namespace {
+
+Transform LocalOf(const Node &step) {
+  return step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
+                        : Transform::FromTrs(step.Translation, step.Rotation, step.Scale);
+}
+
+} // namespace
+
 bool Document::Honours(std::string_view extension) {
   for (const char *const known : kHonouredExtensions) {
     if (known != nullptr && extension == known) { return true; }
@@ -1175,7 +1184,8 @@ bool Document::ReadJson(const char *text,
     }
     Scenes_.push_back(std::move(scene));
   }
-  DefaultScene_ = root["scene"].Valid() ? root["scene"].Int(-1) : (Scenes_.empty() ? -1 : 0);
+  const int firstScene = Scenes_.empty() ? -1 : 0;
+  DefaultScene_ = root["scene"].Valid() ? root["scene"].Int(-1) : firstScene;
   if (DefaultScene_ >= 0 && static_cast<size_t>(DefaultScene_) >= Scenes_.size()) {
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
@@ -2063,11 +2073,7 @@ bool Document::Chain(int node, const Transform *posed, Transform &out) const {
   for (size_t i = chain.size(); i > 0; --i) {
     const auto index = static_cast<size_t>(chain[i - 1]);
     const Node &step = Nodes_[index];
-    const Transform local =
-        (posed != nullptr)
-            ? posed[index]
-            : (step.HasMatrix ? Transform::FromColumnMajor(step.Matrix)
-                              : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
+    const Transform local = (posed != nullptr) ? posed[index] : LocalOf(step);
     out = out * local;
   }
   return true;

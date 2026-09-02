@@ -266,8 +266,8 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
     bool began = false;
     const auto widen = [&least, &most, &began](const Vec3f &point) {
       for (int axis = 0; axis < 3; ++axis) {
-        least[axis] = began ? (point[axis] < least[axis] ? point[axis] : least[axis]) : point[axis];
-        most[axis] = began ? (point[axis] > most[axis] ? point[axis] : most[axis]) : point[axis];
+        least[axis] = began ? std::min(point[axis], least[axis]) : point[axis];
+        most[axis] = began ? std::max(point[axis], most[axis]) : point[axis];
       }
       began = true;
     };

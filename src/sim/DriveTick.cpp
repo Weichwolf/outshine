@@ -102,7 +102,7 @@ const Ridden &DriveTick(const Corridor &way,
     } else {
       const double mayMoveM = drive.AsideRatePerM * speedMs * dtS;
       const double byM = wantAsideM - drive.HeldAsideM;
-      drive.HeldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
+      drive.HeldAsideM += std::clamp(byM, -mayMoveM, mayMoveM);
     }
     const double roomM = here.EdgeM - 0.5 * drive.CarWidthM - way.BudgetM;
     if (roomM > 0.0) {

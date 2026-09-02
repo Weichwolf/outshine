@@ -17,6 +17,27 @@
 #include "surface/Surfaces.h"
 
 namespace outshine {
+namespace {
+
+MipFilter MipOf(Render::SubjectMip mip) {
+  switch (mip) {
+    case Render::SubjectMip::None: return MipFilter::None;
+    case Render::SubjectMip::Nearest: return MipFilter::Nearest;
+    case Render::SubjectMip::Linear: return MipFilter::Linear;
+  }
+  return MipFilter::Linear;
+}
+
+Wrap WrapOf(Render::SubjectWrap held) {
+  switch (held) {
+    case Render::SubjectWrap::ClampToEdge: return Wrap::ClampToEdge;
+    case Render::SubjectWrap::MirroredRepeat: return Wrap::MirroredRepeat;
+    case Render::SubjectWrap::Repeat: return Wrap::Repeat;
+  }
+  return Wrap::Repeat;
+}
+
+} // namespace
 
 struct Loaded::Held {
   Gltf::Document File;
@@ -91,16 +112,9 @@ struct Loaded::Held {
         from.Magnify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
     into.HeightSampler.Minify =
         from.Minify == Render::SubjectFilter::Nearest ? Filter::Nearest : Filter::Linear;
-    into.HeightSampler.Mip = from.Mip == Render::SubjectMip::None      ? MipFilter::None
-                             : from.Mip == Render::SubjectMip::Nearest ? MipFilter::Nearest
-                                                                       : MipFilter::Linear;
-    const auto wrapped = [](Render::SubjectWrap held) {
-      return held == Render::SubjectWrap::ClampToEdge      ? Wrap::ClampToEdge
-             : held == Render::SubjectWrap::MirroredRepeat ? Wrap::MirroredRepeat
-                                                           : Wrap::Repeat;
-    };
-    into.HeightSampler.WrapU = wrapped(from.WrapU);
-    into.HeightSampler.WrapV = wrapped(from.WrapV);
+    into.HeightSampler.Mip = MipOf(from.Mip);
+    into.HeightSampler.WrapU = WrapOf(from.WrapU);
+    into.HeightSampler.WrapV = WrapOf(from.WrapV);
   }
 
   [[nodiscard]] int Keeps(const Render::SubjectTexture &from) {

@@ -95,7 +95,7 @@ bool LayCorridor(const Path::Route &route,
   for (size_t at = 0; at < keptAt.size(); ++at) {
     const double mine = route.Legs[keptAt[at]].MinRadiusM;
     const double before = at > 0 ? route.Legs[keptAt[at - 1]].MinRadiusM : mine;
-    classTightestM[at] = mine <= 0.0 || before <= 0.0 ? 0.0 : (mine < before ? mine : before);
+    classTightestM[at] = mine <= 0.0 || before <= 0.0 ? 0.0 : std::min(mine, before);
     if (classTightestM[at] > 0.0) { ++designed; }
     const double half = route.Legs[keptAt[at]].HalfWidthM;
     roadWithinM = std::max(half, roadWithinM);

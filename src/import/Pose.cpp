@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include "Pose.h"
 
@@ -147,8 +148,8 @@ bool Pose::Build(const Document &document,
         return false;
       }
       for (const double when : held->Times) {
-        out.StartS_ = first ? when : (when < out.StartS_ ? when : out.StartS_);
-        out.EndS_ = first ? when : (when > out.EndS_ ? when : out.EndS_);
+        out.StartS_ = first ? when : std::min(when, out.StartS_);
+        out.EndS_ = first ? when : std::max(when, out.EndS_);
         first = false;
       }
       for (size_t already = 0; already < claimed.size(); ++already) {

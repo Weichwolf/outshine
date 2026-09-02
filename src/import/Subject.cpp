@@ -678,9 +678,10 @@ bool Subject::Flatten(const Document &document,
       const std::vector<double> &declared =
           document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
       for (size_t at = 0; at < morphCount; ++at) {
+        const double asDeclared = at < declared.size() ? declared[at] : 0.0;
         nodeWeights.push_back((weights != nullptr)
                                   ? weights[document.MorphWeightsFirst(nodeIndex) + at]
-                                  : (at < declared.size() ? declared[at] : 0.0));
+                                  : asDeclared);
       }
     }
 

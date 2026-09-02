@@ -200,9 +200,8 @@ bool Assemble(const Scenario::Document &declared,
       return false;
     }
     for (const Scenario::Drive &does : declaredBody.Driven) {
-      const char *const named = does.Does == Scenario::Drives::Motion
-                                    ? "steer"
-                                    : (does.Opposes ? "torque-opposing" : "torque");
+      const char *const opposing = does.Opposes ? "torque-opposing" : "torque";
+      const char *const named = does.Does == Scenario::Drives::Motion ? "steer" : opposing;
       if (!into.giveTag(body, TagCatalogue::under(tags::Does, Interned(out.TagNames, named)))) {
         error = into.error();
         return false;

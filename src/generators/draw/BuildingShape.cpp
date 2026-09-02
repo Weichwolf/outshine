@@ -68,6 +68,11 @@ constexpr double kSameCornerM = 0.20;
 
 constexpr double kOnCutM = 0.02;
 
+int SideSign(double away) {
+  if (away > kOnCutM) { return 1; }
+  return away < -kOnCutM ? -1 : 0;
+}
+
 constexpr double kFloorHouseM = 2.85;
 constexpr double kFloorBlockM = 3.15;
 constexpr double kFloorHallM = 5.50;
@@ -224,7 +229,7 @@ void DropSpurs(Piece *p) {
   std::vector<int> sg(n);
   for (size_t i = 0; i < n; i++) {
     s[i] = SideOf(at, normal, in.P[i]);
-    sg[i] = s[i] > kOnCutM ? 1 : (s[i] < -kOnCutM ? -1 : 0);
+    sg[i] = SideSign(s[i]);
   }
   int last = 0;
   for (size_t i = 0; i < n; i++) {
@@ -526,7 +531,8 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   s.BayM = bay * (kBayJitterFloor + kBayJitterSwing * UnitOf(s.Seed, kBayJitterStream));
 
   const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
-  s.OverhangM = verged ? (s.Use == BuildingUse::Hall ? kOverhangHallM : kOverhangEavesM) : 0.0;
+  const double eaves = s.Use == BuildingUse::Hall ? kOverhangHallM : kOverhangEavesM;
+  s.OverhangM = verged ? eaves : 0.0;
   return s;
 }
 

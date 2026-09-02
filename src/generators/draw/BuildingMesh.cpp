@@ -911,9 +911,8 @@ void RaisePart(const BuildingShape &s, Site &site) {
   const std::vector<En> crownOut = RoofSurface::Widened(s.Ring, kCorniceM);
   const bool crowned = s.Roof == RoofKind::Flat && crownInner.size() == s.Ring.size() &&
                        crownOut.size() == s.Ring.size() && s.HalfVm > 2.2 && s.RiseM > 0.0;
-  const double wallTopZ = s.Roof != RoofKind::Flat ? EavesZ(s)
-                          : crowned                ? EavesZ(s) - 0.34
-                                                   : EavesZ(s) + s.RiseM;
+  const double flatTopZ = crowned ? EavesZ(s) - 0.34 : EavesZ(s) + s.RiseM;
+  const double wallTopZ = s.Roof != RoofKind::Flat ? EavesZ(s) : flatTopZ;
   if (s.OnGround()) {
     Plinth(s, roof, overhang, s.SeatM, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);

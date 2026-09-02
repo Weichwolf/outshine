@@ -13,6 +13,15 @@ namespace {
 
 namespace {
 
+Render::SubjectMip MipOf(MipFilter mip) {
+  switch (mip) {
+    case MipFilter::None: return Render::SubjectMip::None;
+    case MipFilter::Nearest: return Render::SubjectMip::Nearest;
+    case MipFilter::Linear: return Render::SubjectMip::Linear;
+  }
+  return Render::SubjectMip::Linear;
+}
+
 Render::SubjectWrap WrapOf(Wrap wrap) {
   switch (wrap) {
     case Wrap::ClampToEdge: return Render::SubjectWrap::ClampToEdge;
@@ -62,10 +71,7 @@ Render::SubjectWrap WrapOf(Wrap wrap) {
                                                    : Render::SubjectFilter::Linear;
     bound.Minify = sampler.Min == Filter::Nearest ? Render::SubjectFilter::Nearest
                                                   : Render::SubjectFilter::Linear;
-    bound.Mip = sampler.Mip == MipFilter::None
-                    ? Render::SubjectMip::None
-                    : (sampler.Mip == MipFilter::Nearest ? Render::SubjectMip::Nearest
-                                                         : Render::SubjectMip::Linear);
+    bound.Mip = MipOf(sampler.Mip);
   }
   return true;
 }
@@ -172,10 +178,7 @@ void ResolveSurfaceTable([[maybe_unused]] const Document &file,
                                                     : Render::SubjectFilter::Linear;
       base.Minify = sampler.Min == Filter::Nearest ? Render::SubjectFilter::Nearest
                                                    : Render::SubjectFilter::Linear;
-      base.Mip = sampler.Mip == MipFilter::None
-                     ? Render::SubjectMip::None
-                     : (sampler.Mip == MipFilter::Nearest ? Render::SubjectMip::Nearest
-                                                          : Render::SubjectMip::Linear);
+      base.Mip = MipOf(sampler.Mip);
     }
     ++textured;
   }

@@ -51,7 +51,7 @@ void OccupancySink::Open(const Ground &ground) noexcept {
 
 int OccupancySink::CellOf(double m, int cells) const noexcept {
   const int i = static_cast<int>(std::floor(m / Store_.CellM));
-  return i < 0 ? 0 : (i >= cells ? cells - 1 : i);
+  return std::clamp(i, 0, cells - 1);
 }
 
 bool OccupancySink::Clear(const Body &body) const noexcept {

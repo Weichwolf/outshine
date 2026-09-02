@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_LIVE_H
 #define OUTSHINE_ENGINE_LIVE_H
 
+#include <algorithm>
 #include <span>
 #include <array>
 #include "math/Mat4.h"
@@ -302,7 +303,7 @@ private:
 
   [[nodiscard]] int Sweeps() const {
     const int frames = Held_.Frames();
-    return frames < 1 ? 1 : (frames < kSweepSamples ? frames : kSweepSamples);
+    return std::clamp(frames, 1, kSweepSamples);
   }
 
   [[nodiscard]] double Seconds(int sample) const {

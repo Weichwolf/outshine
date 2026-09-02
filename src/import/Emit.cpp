@@ -32,6 +32,15 @@ constexpr uint32_t kGlbVersion = 2;
 constexpr uint32_t kChunkJson = 0x4E4F534A;
 constexpr uint32_t kChunkBinary = 0x004E4942;
 constexpr int kFloat32 = 5126;
+
+const char *AccessorType(int components) {
+  switch (components) {
+    case 2: return "VEC2";
+    case 4: return "VEC4";
+    default: return "VEC3";
+  }
+}
+
 constexpr int kUInt32 = 5125;
 
 template <class Scalar> void Append(std::vector<uint8_t> &out, Scalar value) {
@@ -293,8 +302,7 @@ private:
     const bool bounded = std::strcmp(attribute.Semantic, "POSITION") == 0;
     return Accessor(View(at, Binary_.size() - at),
                     kFloat32,
-                    attribute.Components == 2 ? "VEC2"
-                                              : (attribute.Components == 4 ? "VEC4" : "VEC3"),
+                    AccessorType(attribute.Components),
                     drawn.VertexCount,
                     bounded ? &lowest : nullptr,
                     bounded ? &highest : nullptr);

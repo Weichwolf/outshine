@@ -46,6 +46,18 @@ static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
 
 namespace {
 
+struct Declaring {
+  bool Area = false;
+  bool Wet = false;
+};
+
+Ground::OsmLayer LayerFor(Declaring what) {
+  if (what.Area) {
+    return what.Wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings;
+  }
+  return what.Wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets;
+}
+
 constexpr size_t kBaseSnapshotRows = 40;
 constexpr double kBroadQuantile = 0.95;
 constexpr double kLeastSineBetween = 1.0e-3;
@@ -328,9 +340,7 @@ bool Engine::State::Composes() {
     for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
       Ground::OsmField::Declared made;
       const bool wet = one.Kind == "water";
-      const Ground::OsmLayer holds =
-          one.Area ? (wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings)
-                   : (wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets);
+      const Ground::OsmLayer holds = LayerFor({.Area = one.Area, .Wet = wet});
       made.Layer = OsmLayerName(holds);
       made.Key = "kind";
       made.Value = one.Kind;
@@ -3213,11 +3223,11 @@ void Engine::State::Tells() {
     Published.Places(
         std::string("heap taken under ") + tag, static_cast<double>(Heap::TakenAt(at)), "bytes");
   }
-  if (Cost.Advance.Count > 0) {
-    Published.Places("the step's own time, last", Cost.Advance.LastMs, "ms");
-    Published.Places("the step's own time, least", Cost.Advance.LeastMs, "ms");
-    Published.Places("the step's own time, most", Cost.Advance.MostMs, "ms");
-    Published.Places("steps taken", static_cast<double>(Cost.Advance.Count), "steps");
+  if (Cost.Advance.Taken() > 0) {
+    Published.Places("the step's own time, last", Cost.Advance.LastMs(), "ms");
+    Published.Places("the step's own time, least", Cost.Advance.LeastMs(), "ms");
+    Published.Places("the step's own time, most", Cost.Advance.MostMs(), "ms");
+    Published.Places("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
   }
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {
@@ -3253,11 +3263,11 @@ void Engine::State::Tells() {
                        "layouts");
     }
   }
-  if (Cost.Render.Count > 0) {
-    Published.Places("the picture's own time, last", Cost.Render.LastMs, "ms");
-    Published.Places("the picture's own time, least", Cost.Render.LeastMs, "ms");
-    Published.Places("the picture's own time, most", Cost.Render.MostMs, "ms");
-    Published.Places("pictures drawn", static_cast<double>(Cost.Render.Count), "pictures");
+  if (Cost.Render.Taken() > 0) {
+    Published.Places("the picture's own time, last", Cost.Render.LastMs(), "ms");
+    Published.Places("the picture's own time, least", Cost.Render.LeastMs(), "ms");
+    Published.Places("the picture's own time, most", Cost.Render.MostMs(), "ms");
+    Published.Places("pictures drawn", static_cast<double>(Cost.Render.Taken()), "pictures");
   }
   {
     const std::vector<std::string> clashed = Published.Clashed();

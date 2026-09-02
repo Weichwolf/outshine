@@ -304,46 +304,53 @@ struct Surrounds {
 };
 
 struct Spent {
-  struct Counter {
-    double LastMs = 0.0;
-    double LeastMs = 0.0;
-    double MostMs = 0.0;
-    uint64_t Count = 0;
+  class Counter {
+  public:
+    [[nodiscard]] double LastMs() const { return LastMs_; }
 
-    std::vector<double> Kept;
-    size_t At = 0;
+    [[nodiscard]] double LeastMs() const { return LeastMs_; }
+
+    [[nodiscard]] double MostMs() const { return MostMs_; }
+
+    [[nodiscard]] uint64_t Taken() const { return Count_; }
 
     void Took(double ms) {
-      LastMs = ms;
-      LeastMs = Count == 0 || ms < LeastMs ? ms : LeastMs;
-      MostMs = ms > MostMs ? ms : MostMs;
-      ++Count;
-      if (Kept.empty()) { return; }
-      Kept[At] = ms;
-      At = At + 1 == Kept.size() ? 0 : At + 1;
-      Filled_ = Filled_ || At == 0;
+      LastMs_ = ms;
+      LeastMs_ = Count_ == 0 || ms < LeastMs_ ? ms : LeastMs_;
+      MostMs_ = std::max(ms, MostMs_);
+      ++Count_;
+      if (Kept_.empty()) { return; }
+      Kept_[At_] = ms;
+      At_ = At_ + 1 == Kept_.size() ? 0 : At_ + 1;
+      Filled_ = Filled_ || At_ == 0;
     }
 
     void Keeps(size_t deep) {
-      Kept.assign(deep, 0.0);
-      At = 0;
+      Kept_.assign(deep, 0.0);
+      At_ = 0;
       Filled_ = false;
     }
 
     void Into(std::vector<double> &out) const {
-      if (Kept.empty()) {
+      if (Kept_.empty()) {
         out.clear();
         return;
       }
       if (!Filled_) {
-        out.assign(Kept.begin(), Kept.begin() + static_cast<long>(At));
+        out.assign(Kept_.begin(), Kept_.begin() + static_cast<long>(At_));
         return;
       }
-      out.assign(Kept.begin(), Kept.end());
-      if (At != 0) { std::rotate(out.begin(), out.begin() + static_cast<long>(At), out.end()); }
+      out.assign(Kept_.begin(), Kept_.end());
+      if (At_ != 0) { std::rotate(out.begin(), out.begin() + static_cast<long>(At_), out.end()); }
     }
 
   private:
+    double LastMs_ = 0.0;
+    double LeastMs_ = 0.0;
+    double MostMs_ = 0.0;
+    uint64_t Count_ = 0;
+    std::vector<double> Kept_;
+    size_t At_ = 0;
     bool Filled_ = false;
   };
 

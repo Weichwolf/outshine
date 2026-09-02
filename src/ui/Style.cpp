@@ -21,6 +21,11 @@ constexpr int kClassWeight = 100;
 
 namespace {
 
+std::string_view BorderWidthOf(std::string_view part) {
+  if (part == "thin") { return "1px"; }
+  return part == "medium" ? "3px" : "5px";
+}
+
 bool Space(char c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
 }
@@ -476,7 +481,7 @@ void Expand(std::string_view name,
       } else if (ReadValue(part).How == Unit::Colour) {
         one(Property::BorderColour, part);
       } else if (part == "thin" || part == "medium" || part == "thick") {
-        width = part == "thin" ? "1px" : part == "medium" ? "3px" : "5px";
+        width = BorderWidthOf(part);
       } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em ||
                  (ReadValue(part).How == Unit::None && ReadValue(part).Number == 0.0)) {
         width = part == "0" ? std::string_view("0px") : part;

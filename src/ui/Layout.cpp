@@ -937,8 +937,9 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
       const double y = column ? contentY + mainAt : contentY + crossAt;
 
       const bool stretched = !one.CrossDeclared && self_align == kStretch;
-      const double usedW = column ? (stretched || one.CrossDeclared ? cross : -1.0) : one.Main;
-      const double usedH = column ? one.Main : (stretched || one.CrossDeclared ? cross : -1.0);
+      const double across = stretched || one.CrossDeclared ? cross : -1.0;
+      const double usedW = column ? across : one.Main;
+      const double usedH = column ? one.Main : across;
       const int before = static_cast<int>(Out->size());
       Place(one.Node,
             &style,

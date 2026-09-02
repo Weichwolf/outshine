@@ -320,9 +320,7 @@ bool Mixer::Fills(std::span<float> stereo,
       rightShare = 0.5 * (1.0 + along);
       leftShare = 1.0 - rightShare;
 
-      const double blocked = standing->Blocked < 0.0   ? 0.0
-                             : standing->Blocked > 1.0 ? 1.0
-                                                       : standing->Blocked;
+      const double blocked = std::clamp(standing->Blocked, 0.0, 1.0);
       gain *= 1.0 + blocked * (sound.Heard.BlockedGain - 1.0);
       if (sound.Heard.BlockedHz > 0.0 && blocked > 0.0) { dullHz = sound.Heard.BlockedHz; }
     }

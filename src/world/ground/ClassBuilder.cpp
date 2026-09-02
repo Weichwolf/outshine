@@ -86,7 +86,7 @@ void CurveRing(
     if (closed) {
       i = ((i % n) + n) % n;
     } else {
-      i = i < 0 ? 0 : (i >= n ? n - 1 : i);
+      i = std::clamp(i, 0, n - 1);
     }
     return pts + (static_cast<size_t>(first) + static_cast<size_t>(i)) * 2;
   };

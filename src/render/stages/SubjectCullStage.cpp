@@ -56,7 +56,8 @@ void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
     for (int c = 0; c < 4; ++c) {
       const float w = row(3, c);
       const float a = row(axis, c);
-      out[at * 4 + c] = axis == 2 ? (minus ? w - a : a) : (minus ? w - a : w + a);
+      const float plus = axis == 2 ? a : w + a;
+      out[at * 4 + c] = minus ? w - a : plus;
     }
     const float length =
         std::sqrt(out[static_cast<size_t>(at) * 4] * out[static_cast<size_t>(at) * 4] +
