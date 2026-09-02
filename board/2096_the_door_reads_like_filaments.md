@@ -5,7 +5,12 @@ Tags: measured
 
 # A reader who knows Filament finds every door name where Filament puts it
 
-**Benchmark** — Filament ships one header per public type: `Engine.h`, `View.h`, `Camera.h`,
+**Benchmark** — Unreal answers this with a PREFIX system and one class per file (`UWorld`,
+`AActor`, `FVector`); RAGE answers it with a two-letter subsystem prefix on every type (`grcTexture`,
+`fwEntity`, `rage::sysTaskManager`), so a name says which library owns it before you open anything.
+The two agree on the property and differ on the mechanism, and this tree takes the third that both
+of its door's sources take -- a NAMESPACE plus one header per type. Filament ships one header per
+public type: `Engine.h`, `View.h`, `Camera.h`,
 `Scene.h`, `Material.h`, and groups them under `filament/`, `math/`, `utils/`. Cesium does the same
 with `CesiumGltf/Model.h`. Unreal has no namespaces and answers the same question with a prefix
 system (`U`, `A`, `F`) plus one class per file. **All three agree that a public type is findable by
@@ -84,3 +89,33 @@ Whoever takes this states which of the two is right for a tree whose views are D
 scenario -- a `View*` a client holds is a handle into a document it does not own, and that may be
 the reason ours differs rather than an oversight. An item that cannot say which is not understood
 yet.
+
+
+## A word that means two things: 14 types and 2 constants, measured 2026-09-02
+
+`harness/claims/EveryTypeNameIsDeclaredOnce` declares a ceiling of 9 and 1; the tree stands at 14
+and 2, so this half is a REGRESSION and the ceiling was raised by work that did not look.
+
+| the word | where it is declared |
+|---|---|
+| `Node` | `ui/Markup.h` · `import/Types.h` · `generators/draw/TreeSkeleton.h` · `base/format/Json.h` · `base/format/Script.h` · `base/format/Xml.h` · `base/spatial/Capacity.h` · `base/spatial/Wayfinding.h` |
+| `Document` | `import/Variant.h` · `import/Document.h` · `import/Pose.h` · `import/Subject.h` · `scenario/Scenario.h` |
+| `Attribute` | `ui/Markup.h` · `import/Types.h` · `import/Emit.cpp` · `base/format/Xml.h` |
+| `Value` | `ui/Style.h` · `world/ground/OsmField.h` · `base/format/Script.h` |
+| `Request` | `world/data/Request.h` · `generators/draw/TreeGrower.h` · `generate/Generate.h` |
+| `Scene` | `scene/Scene.cpp` · `import/Types.h` · `scene/Scene.h` |
+| `Body` | `generators/base/ContactMaterial.h` · `generators/base/BodyId.h` · `scenario/Scenario.h` |
+| `Attitude` | `actor/mind/Fly.h` · `Earth.h` |
+| `Camera` | `import/Viewport.h` · `scenario/Scenario.h` |
+| `Declaration` | `ui/Style.h` · `engine/Live.h` |
+| `Generator` | `generate/Generate.h` · `scenario/Scenario.h` |
+| `Host` | `base/format/Script.h` · `scenario/Event.h` |
+| `Instance` | `generators/draw/ClusterId.h` · `scenario/Scenario.h` |
+| `Sampler` | `import/Types.h` · `scene/Texture.h` |
+
+**Five of them were added by the door's own renames** -- `Document`, `Request`, `Attitude`,
+`Camera`, `Generator` -- and that is the finding: a rename that makes ONE header read better and
+does not look at the tree buys its clarity with somebody else's. The repair is not a regex; it is
+per-word, and each one has to say which meaning keeps the word and what the other becomes. `Node` is
+the loudest at eight files, and a `Node` in a JSON reader and a `Node` in a road graph share nothing
+but four letters.
