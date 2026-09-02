@@ -3,6 +3,7 @@
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Heap.h"
+#include <algorithm>
 #include <chrono>
 #include <numbers>
 #include <array>
@@ -347,8 +348,8 @@ void Engine::State::Inspected() {
       double most = -kBeyondAnyCoordinate;
       double written = 0.0;
       for (const float one : depth) {
-        if (static_cast<double>(one) < least) { least = static_cast<double>(one); }
-        if (static_cast<double>(one) > most) { most = static_cast<double>(one); }
+        least = std::min(static_cast<double>(one), least);
+        most = std::max(static_cast<double>(one), most);
         if (one > 0.0f) { written += 1.0; }
       }
       Published.Places("the shadow atlas, least depth", least, "");
@@ -392,7 +393,7 @@ void Engine::State::Inspected() {
         if (across <= kBelowAnyGroundM || down <= kBelowAnyGroundM) { continue; }
         const double moved = std::sqrt(across * across + down * down);
         if (moved > 0.0) { moving += 1.0; }
-        if (moved > furthest) { furthest = moved; }
+        furthest = std::max(moved, furthest);
       }
       Published.Places("pixels the velocity target says moved", moving, "px");
       Published.Places("the furthest any of them moved", furthest, "ndc");

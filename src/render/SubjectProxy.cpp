@@ -2,6 +2,7 @@
 #include "Units.h"
 #include "math/Mat4.h"
 #include "Shape.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -233,8 +234,8 @@ double DepthFraction(const Shape &subject, const ShapePart &part, const Viewpoin
     for (int axis = 0; axis < 3; ++axis) {
       const auto value =
           static_cast<double>(part.PositionsM[vertex * 3 + static_cast<size_t>(axis)]);
-      if (value < low[axis]) { low[axis] = value; }
-      if (value > high[axis]) { high[axis] = value; }
+      low[axis] = std::min(value, low[axis]);
+      high[axis] = std::max(value, high[axis]);
     }
   }
   double along = 0;

@@ -3,6 +3,7 @@
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Log.h"
+#include <algorithm>
 #include <atomic>
 #include <bit>
 #include <cstddef>
@@ -782,7 +783,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       tallest = where.HeightM;
       tallestOut = std::sqrt(eastM * eastM + northM * northM);
     }
-    if (where.HeightM < lowest) { lowest = where.HeightM; }
+    lowest = std::min(where.HeightM, lowest);
   }
   Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", tallest, "m");
   Published.Places("relief: and how far out it lies", tallestOut, "m");
@@ -814,7 +815,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       ++shared;
       const double apart =
           std::fabs(static_cast<double>(inFrame[at + 1]) - static_cast<double>(stood->second));
-      if (apart > widest) { widest = apart; }
+      widest = std::max(apart, widest);
       if (at + 2 < laid->NormalM.size() && stood->second == inFrame[at + 1]) {
         const size_t twin = met2[key];
         double dot = 0.0;
@@ -3056,8 +3057,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double most = -kBeyondAnyCoordinate;
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const auto up = static_cast<double>(inFrame[at + 1]);
-      if (up < least) { least = up; }
-      if (up > most) { most = up; }
+      least = std::min(up, least);
+      most = std::max(up, most);
     }
     double west = kBeyondAnyCoordinate;
     double east = -kBeyondAnyCoordinate;
@@ -3066,10 +3067,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
       const auto alongE = static_cast<double>(inFrame[at]);
       const auto alongS = static_cast<double>(inFrame[at + 2]);
-      if (alongE < west) { west = alongE; }
-      if (alongE > east) { east = alongE; }
-      if (alongS < north) { north = alongS; }
-      if (alongS > south) { south = alongS; }
+      west = std::min(alongE, west);
+      east = std::max(alongE, east);
+      north = std::min(alongS, north);
+      south = std::max(alongS, south);
     }
     if (most >= least) {
       Published.Places("the ring's lowest vertex", least, "m");

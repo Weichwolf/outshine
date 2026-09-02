@@ -2,6 +2,7 @@
 #include "TreePrototype.h"
 #include "math/Vec3.h"
 
+#include <algorithm>
 #include <span>
 #include <cmath>
 #include <optional>
@@ -65,7 +66,7 @@ void TreePrototype::MaterialRow(const TreeLook &look, std::span<float, kMaterial
   constexpr float kLeastExponent = 0.55f;
   const float a = look.LeafWidest * kModeSlope + kNearFloor;
   float b = (1.0f - look.LeafWidest) * kModeSlope + kFarFloor - look.LeafTip * kTipSharpen;
-  if (b < kLeastExponent) { b = kLeastExponent; }
+  b = std::max(b, kLeastExponent);
   const float peak = std::pow(look.LeafWidest, a) * std::pow(1.0f - look.LeafWidest, b);
   for (int c = 0; c < 3; c++) { out[Row::BarkRgb + c] = look.BarkRgb[c]; }
   out[Row::BarkDark] = look.BarkDark;
