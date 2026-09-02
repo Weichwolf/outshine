@@ -488,6 +488,18 @@ struct Engine::State {
 
   static void FitLane(size_t laneAt, Paved &into);
 
+  static void LayLanesIntoNetwork(const Ground::StreetField &ways,
+                                  std::span<const double> points,
+                                  Path::Network &net,
+                                  std::vector<size_t> &netToLane);
+  static void
+  FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
+  void RaiseDeckOver(const Path::Network::Crossing &one,
+                     const Ground::StreetField &ways,
+                     std::span<const size_t> netToLane,
+                     const TangentFrame &standing,
+                     const Drape &drapedOver,
+                     Paved &into) const;
   void Crosses(const Ground::StreetField &ways,
                const Ground::OsmField &vectors,
                const TangentFrame &standing,

@@ -1203,14 +1203,10 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   return Laid::Wanted;
 }
 
-void Engine::State::Crosses(const Ground::StreetField &ways,
-                            const Ground::OsmField &vectors,
-                            const TangentFrame &standing,
-                            const Drape &drapedOver,
-                            Paved &into) const {
-  const std::span<const double> points = vectors.Points();
-  Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
-  std::vector<size_t> netToLane;
+void Engine::State::LayLanesIntoNetwork(const Ground::StreetField &ways,
+                                        std::span<const double> points,
+                                        Path::Network &net,
+                                        std::vector<size_t> &netToLane) {
   netToLane.reserve(ways.Ways().size());
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const Ground::StreetField::Way &lane = ways.Ways()[at];
@@ -1226,58 +1222,71 @@ void Engine::State::Crosses(const Ground::StreetField &ways,
                            .Spans = lane.Bridge});
     netToLane.push_back(at);
   }
+}
+
+void Engine::State::FileCrossing(const Path::Network::Crossing &one,
+                                 const TangentFrame &standing,
+                                 Paved &into) {
+  const EastNorthUp crossedAt = standing.Place(
+      {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
+  const uint64_t named =
+      PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
+  const auto east = static_cast<int64_t>(std::floor(crossedAt.EastM / kCrossCellM));
+  const auto south = static_cast<int64_t>(std::floor(-crossedAt.NorthM / kCrossCellM));
+  for (int64_t stepE = -1; stepE <= 1; ++stepE) {
+    for (int64_t stepS = -1; stepS <= 1; ++stepS) {
+      const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
+      const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
+      into.AtCrossing[(atE << 32U) | atS].push_back(
+          Meets{.EastM = crossedAt.EastM, .SouthM = -crossedAt.NorthM, .Named = named});
+    }
+  }
+}
+
+void Engine::State::RaiseDeckOver(const Path::Network::Crossing &one,
+                                  const Ground::StreetField &ways,
+                                  std::span<const size_t> netToLane,
+                                  const TangentFrame &standing,
+                                  const Drape &drapedOver,
+                                  Paved &into) const {
+  if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { return; }
+  const size_t a = netToLane[one.OverWay];
+  const size_t b = netToLane[one.UnderWay];
+  const Ground::StreetField::Way &first = ways.Ways()[a];
+  const Ground::StreetField::Way &second = ways.Ways()[b];
+  if (first.Bridge == second.Bridge) { return; }
+  const size_t spans = first.Bridge ? a : b;
+  const Ground::StreetField::Way &below = first.Bridge ? second : first;
+  const std::optional<double> stood =
+      World.Stack.Ground()
+          .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
+          .AslM();
+  if (!stood) { return; }
+  const EastNorthUp at = standing.Place(
+      {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = *stood});
+  const double onDrawn = drapedOver.At(at.EastM, -at.NorthM, at.UpM);
+  const double need = onDrawn + static_cast<double>(below.ClearanceM);
+  if (need <= into.DeckM[spans]) { return; }
+  if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
+  into.DeckM[spans] = need;
+  into.MostRaisedM = std::max(into.MostRaisedM, need - onDrawn);
+}
+
+void Engine::State::Crosses(const Ground::StreetField &ways,
+                            const Ground::OsmField &vectors,
+                            const TangentFrame &standing,
+                            const Drape &drapedOver,
+                            Paved &into) const {
+  Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
+  std::vector<size_t> netToLane;
+  LayLanesIntoNetwork(ways, vectors.Points(), net, netToLane);
+
   std::vector<Path::Network::Crossing> crossed;
-  if (net.Crossings(crossed)) {
-    into.CrossingsSeen = crossed.size();
-    for (const Path::Network::Crossing &one : crossed) {
-      const EastNorthUp crossedAt = standing.Place(
-          {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
-      const double eastM = crossedAt.EastM;
-      const double northM = crossedAt.NorthM;
-      const uint64_t named =
-          PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
-      const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
-      const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
-      for (int64_t stepE = -1; stepE <= 1; ++stepE) {
-        for (int64_t stepS = -1; stepS <= 1; ++stepS) {
-          const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
-          const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
-          into.AtCrossing[(atE << 32U) | atS].push_back(
-              Meets{.EastM = eastM, .SouthM = -northM, .Named = named});
-        }
-      }
-    }
-    for (const Path::Network::Crossing &one : crossed) {
-      if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { continue; }
-      const size_t a = netToLane[one.OverWay];
-      const size_t b = netToLane[one.UnderWay];
-      const Ground::StreetField::Way &first = ways.Ways()[a];
-      const Ground::StreetField::Way &second = ways.Ways()[b];
-      if (first.Bridge == second.Bridge) { continue; }
-      const size_t spans = first.Bridge ? a : b;
-      const Ground::StreetField::Way &below = first.Bridge ? second : first;
-      const std::optional<double> stood =
-          World.Stack.Ground()
-              .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
-              .AslM();
-      if (!stood) { continue; }
-      const double aslM = *stood;
-      double eastM = 0.0;
-      double upM = 0.0;
-      double northM = 0.0;
-      const EastNorthUp eastMEnu = standing.Place(
-          {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = aslM});
-      eastM = eastMEnu.EastM;
-      upM = eastMEnu.UpM;
-      northM = eastMEnu.NorthM;
-      const double onDrawn = drapedOver.At(eastM, -northM, upM);
-      const double need = onDrawn + static_cast<double>(below.ClearanceM);
-      if (need > into.DeckM[spans]) {
-        if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
-        into.DeckM[spans] = need;
-        into.MostRaisedM = std::max(into.MostRaisedM, need - onDrawn);
-      }
-    }
+  if (!net.Crossings(crossed)) { return; }
+  into.CrossingsSeen = crossed.size();
+  for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, standing, into); }
+  for (const Path::Network::Crossing &one : crossed) {
+    RaiseDeckOver(one, ways, netToLane, standing, drapedOver, into);
   }
 }
 
@@ -1405,20 +1414,19 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
   }
 }
 
-void Engine::State::Shortens(const Ground::StreetField &ways,
-                             const Ground::OsmField &vectors,
-                             Paved &into) {
-  const std::span<const double> points = vectors.Points();
+namespace {
 
-  struct Leaving {
-    uint32_t Way = 0;
-    uint8_t Side = 0;
-    float DirE = 0.0f;
-    float DirN = 0.0f;
-    float HalfM = 0.0f;
-  };
+struct Leaving {
+  uint32_t Way = 0;
+  uint8_t Side = 0;
+  float DirE = 0.0f;
+  float DirN = 0.0f;
+  float HalfM = 0.0f;
+};
 
-  std::unordered_map<uint64_t, std::vector<Leaving>> meeting;
+void EndsMeetingAt(const Ground::StreetField &ways,
+                   std::span<const double> points,
+                   std::unordered_map<uint64_t, std::vector<Leaving>> &meeting) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
@@ -1444,37 +1452,57 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
                   .HalfM = lane.HalfWidthM});
     }
   }
+}
+
+double BackOffFor(const Leaving &mine, std::span<const Leaving> leaving) {
+  double back = 0.0;
+  for (const Leaving &other : leaving) {
+    if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+    const double cosBetween =
+        static_cast<double>(mine.DirE) * other.DirE + static_cast<double>(mine.DirN) * other.DirN;
+    const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
+                                        static_cast<double>(mine.DirN) * other.DirE);
+    if (sinBetween < kLeastSineBetween) { continue; }
+    back =
+        std::max(back,
+                 (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
+                     sinBetween);
+  }
+  return back;
+}
+
+double SharpestForkFor(const Leaving &mine, std::span<const Leaving> leaving) {
+  double sharpest = kDegPerHalfTurn;
+  for (const Leaving &other : leaving) {
+    if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+    const double between = std::acos(std::clamp(static_cast<double>(mine.DirE) * other.DirE +
+                                                    static_cast<double>(mine.DirN) * other.DirN,
+                                                -1.0,
+                                                1.0));
+    sharpest = std::min(sharpest, kDegPerHalfTurn - between * kRad2Deg);
+  }
+  return sharpest;
+}
+
+} // namespace
+
+void Engine::State::Shortens(const Ground::StreetField &ways,
+                             const Ground::OsmField &vectors,
+                             Paved &into) {
+  std::unordered_map<uint64_t, std::vector<Leaving>> meeting;
+  EndsMeetingAt(ways, vectors.Points(), meeting);
+
   std::vector<uint64_t> met;
   met.reserve(meeting.size());
   for (const auto &one : meeting) {
     if (one.second.size() >= 2) { met.push_back(one.first); }
   }
   std::ranges::sort(met);
+
   for (const uint64_t at : met) {
     const std::vector<Leaving> &leaving = meeting[at];
     for (const Leaving &mine : leaving) {
-      double back = 0.0;
-      for (const Leaving &other : leaving) {
-        if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-        const double cosBetween = static_cast<double>(mine.DirE) * other.DirE +
-                                  static_cast<double>(mine.DirN) * other.DirN;
-        const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
-                                            static_cast<double>(mine.DirN) * other.DirE);
-        if (sinBetween < kLeastSineBetween) { continue; }
-        const double reach =
-            (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
-            sinBetween;
-        back = std::max(back, reach);
-      }
-      double sharpest = kDegPerHalfTurn;
-      for (const Leaving &other : leaving) {
-        if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-        const double between = std::acos(std::clamp(static_cast<double>(mine.DirE) * other.DirE +
-                                                        static_cast<double>(mine.DirN) * other.DirN,
-                                                    -1.0,
-                                                    1.0));
-        sharpest = std::min(sharpest, kDegPerHalfTurn - between * kRad2Deg);
-      }
+      const double back = BackOffFor(mine, leaving);
       const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
       into.TrimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
       if (capped > kLeastCapM) {
@@ -1484,7 +1512,7 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
       if (back > capped + kLeastCapM) {
         ++into.EndsStillCrossing;
         into.ShortByM.push_back(back - capped);
-        into.ForkDeg.push_back(sharpest);
+        into.ForkDeg.push_back(SharpestForkFor(mine, leaving));
       }
     }
   }
@@ -2719,5 +2747,4 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   Published.Places("the worst error any of them carries", laid->WorstErrM, "m");
   return true;
 }
-
 } // namespace outshine
