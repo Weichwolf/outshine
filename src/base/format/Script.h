@@ -116,6 +116,13 @@ public:
   [[nodiscard]] const std::string &Stopped() const { return Stopped_; }
 
 private:
+  [[nodiscard]] bool PerformAssign(const Node &node, Host &host, std::string &error);
+  [[nodiscard]] bool PerformAssignMember(const Node &node, Host &host, std::string &error);
+  [[nodiscard]] bool PerformWhile(const Node &node, Host &host, std::string &error);
+  [[nodiscard]] bool EvaluateCall(const Node &node, Host &host, Value &out, std::string &error);
+  [[nodiscard]] bool EvaluateStep(const Node &node, Host &host, Value &out, std::string &error);
+  [[nodiscard]] bool EvaluateUnary(const Node &node, Host &host, Value &out, std::string &error);
+  [[nodiscard]] bool EvaluateBinary(const Node &node, Host &host, Value &out, std::string &error);
   [[nodiscard]] bool Evaluate(size_t at, Host &host, Value &out, std::string &error);
   [[nodiscard]] bool Perform(size_t at, Host &host, std::string &error);
 

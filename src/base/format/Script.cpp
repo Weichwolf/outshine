@@ -133,9 +133,8 @@ std::string Where(std::string_view text, size_t at) {
   return "line " + std::to_string(line) + " column " + std::to_string(column);
 }
 
-bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error) {
-  size_t at = 0;
-  while (at < text.size()) {
+size_t PastTrivia(std::string_view text, size_t at) {
+  for (;;) {
     if (const size_t run = SpaceRun(text, at)) {
       at += run;
       continue;
@@ -150,6 +149,91 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
       at = end == std::string::npos ? text.size() : end + 2;
       continue;
     }
+    return at;
+  }
+}
+
+bool ReadStringToken(std::string_view text, size_t &at, Token &token, std::string &error) {
+  const char quote = text[at];
+  ++at;
+  token.What = Word::Text;
+  while (at < text.size() && text[at] != quote) {
+    if (text[at] == '\\' && at + 1 < text.size()) {
+      ++at;
+      token.Spelling.push_back(Unescaped(text[at]));
+    } else {
+      token.Spelling.push_back(text[at]);
+    }
+    ++at;
+  }
+  if (at >= text.size()) {
+    error = "the script opens a string at " + Where(text, token.At) + " and never closes it";
+    return false;
+  }
+  ++at;
+  return true;
+}
+
+bool ReadHexToken(std::string_view text, size_t &at, Token &token) {
+  uint64_t wide = 0;
+  const auto hex = std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
+  if (hex.ec == std::errc::result_out_of_range) {
+    size_t digitEnd = at + 2;
+    while (digitEnd < text.size() && ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
+                                      (text[digitEnd] >= 'a' && text[digitEnd] <= 'f') ||
+                                      (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
+      ++digitEnd;
+    }
+    const auto whole = std::from_chars(
+        text.data() + at + 2, text.data() + digitEnd, token.Number, std::chars_format::hex);
+    if (whole.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
+    at = digitEnd;
+    return true;
+  }
+  if (hex.ptr == text.data() + at + 2) { return false; }
+  token.Number = static_cast<double>(wide);
+  at = static_cast<size_t>(hex.ptr - text.data());
+  return true;
+}
+
+void ReadNumberToken(std::string_view text, size_t &at, Token &token) {
+  token.What = Word::Number;
+  const bool hexadecimal =
+      text[at] == '0' && at + 1 < text.size() && (text[at + 1] == 'x' || text[at + 1] == 'X');
+  if (hexadecimal && ReadHexToken(text, at, token)) { return; }
+  const auto scanned = std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
+  if (scanned.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
+  at = static_cast<size_t>(scanned.ptr - text.data());
+}
+
+void ReadNameToken(std::string_view text, size_t &at, Token &token) {
+  token.What = Word::Name;
+  while (at < text.size() && Continues(text[at])) { token.Spelling.push_back(text[at++]); }
+  for (const char *word : kReserved) {
+    if (token.Spelling == word) { token.What = Word::Mark; }
+  }
+}
+
+bool ReadMarkToken(std::string_view text, size_t &at, Token &token) {
+  for (const char *mark : kMarks) {
+    const size_t length = std::char_traits<char>::length(mark);
+    if (text.compare(at, length, mark) != 0) { continue; }
+    token.What = Word::Mark;
+    token.Spelling = mark;
+    at += length;
+    return true;
+  }
+  return false;
+}
+
+bool NumberStartsAt(std::string_view text, size_t at) {
+  return (text[at] >= '0' && text[at] <= '9') ||
+         (text[at] == '.' && at + 1 < text.size() && text[at + 1] >= '0' && text[at + 1] <= '9');
+}
+
+bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error) {
+  size_t at = 0;
+  while ((at = PastTrivia(text, at)) < text.size()) {
     if (out.size() >= kMaxTokens) {
       error = "the script reaches the token bound of " + std::to_string(kMaxTokens) + " at " +
               Where(text, at) + ", and a program cut in half is a program that did something else";
@@ -158,86 +242,17 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
     Token token;
     token.At = at;
     if (text[at] == '"' || text[at] == '\'') {
-      const char quote = text[at];
-      ++at;
-      token.What = Word::Text;
-      while (at < text.size() && text[at] != quote) {
-        if (text[at] == '\\' && at + 1 < text.size()) {
-          ++at;
-          const char escaped = text[at];
-          token.Spelling.push_back(Unescaped(escaped));
-        } else {
-          token.Spelling.push_back(text[at]);
-        }
-        ++at;
-      }
-      if (at >= text.size()) {
-        error = "the script opens a string at " + Where(text, token.At) + " and never closes it";
-        return false;
-      }
-      ++at;
-      out.push_back(std::move(token));
-      continue;
-    }
-    if ((text[at] >= '0' && text[at] <= '9') ||
-        (text[at] == '.' && at + 1 < text.size() && text[at + 1] >= '0' && text[at + 1] <= '9')) {
-      token.What = Word::Number;
-      if (text[at] == '0' && at + 1 < text.size() && (text[at + 1] == 'x' || text[at + 1] == 'X')) {
-        uint64_t wide = 0;
-        const auto hex = std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
-        if (hex.ec == std::errc::result_out_of_range) {
-          size_t digitEnd = at + 2;
-          while (digitEnd < text.size() && ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
-                                            (text[digitEnd] >= 'a' && text[digitEnd] <= 'f') ||
-                                            (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
-            ++digitEnd;
-          }
-          const auto whole = std::from_chars(
-              text.data() + at + 2, text.data() + digitEnd, token.Number, std::chars_format::hex);
-          if (whole.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
-          at = digitEnd;
-          out.push_back(std::move(token));
-          continue;
-        }
-        if (hex.ptr != text.data() + at + 2) {
-          token.Number = static_cast<double>(wide);
-          at = static_cast<size_t>(hex.ptr - text.data());
-          out.push_back(std::move(token));
-          continue;
-        }
-      }
-      const auto scanned =
-          std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
-      if (scanned.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
-      at = static_cast<size_t>(scanned.ptr - text.data());
-      out.push_back(std::move(token));
-      continue;
-    }
-    if (Starts(text[at])) {
-      token.What = Word::Name;
-      while (at < text.size() && Continues(text[at])) { token.Spelling.push_back(text[at++]); }
-      for (const char *word : kReserved) {
-        if (token.Spelling == word) { token.What = Word::Mark; }
-      }
-      out.push_back(std::move(token));
-      continue;
-    }
-    bool marked = false;
-    for (const char *mark : kMarks) {
-      const size_t length = std::char_traits<char>::length(mark);
-      if (text.compare(at, length, mark) != 0) { continue; }
-      token.What = Word::Mark;
-      token.Spelling = mark;
-      at += length;
-      out.push_back(std::move(token));
-      marked = true;
-      break;
-    }
-    if (!marked) {
+      if (!ReadStringToken(text, at, token, error)) { return false; }
+    } else if (NumberStartsAt(text, at)) {
+      ReadNumberToken(text, at, token);
+    } else if (Starts(text[at])) {
+      ReadNameToken(text, at, token);
+    } else if (!ReadMarkToken(text, at, token)) {
       error = std::string("the script carries '") + text[at] + "' at " + Where(text, at) +
               ", which is outside the subset this interpreter declares";
       return false;
     }
+    out.push_back(std::move(token));
   }
   Token end;
   end.At = text.size();
@@ -332,127 +347,153 @@ using Shape = Program::Node::Shape;
 bool ReadExpression(Reading &in, size_t &out);
 
 bool ReadSequence(Reading &in, size_t &out);
+
+bool ReadPrimary(Reading &in, size_t &out);
 bool ReadStatement(Reading &in, size_t &out);
+
+bool ReadLiteral(Reading &in, const Token &token, size_t &out) {
+  ++in.At;
+  Program::Node node;
+  if (token.What == Word::Number) {
+    node.What = Shape::Number;
+    node.Number = token.Number;
+  } else if (token.What == Word::Text) {
+    node.What = Shape::Text;
+    node.Spelling = token.Spelling;
+  } else if (token.Spelling == "true" || token.Spelling == "false") {
+    node.What = Shape::Number;
+    node.Number = token.Spelling == "true" ? 1.0 : 0.0;
+  } else if (token.Spelling == "null" || token.Spelling == "undefined") {
+    node.What = Shape::Nothing;
+  } else {
+    node.What = Shape::Name;
+    node.Spelling = token.Spelling;
+  }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadPrefixStep(Reading &in, size_t &out) {
+  const std::string mark = in.Now().Spelling;
+  ++in.At;
+  size_t target = 0;
+  if (!ReadPrimary(in, target)) { return false; }
+  if (in.Nodes[target].What != Shape::Name) {
+    in.Error =
+        "the script increments something that is not a name, at " + Where(in.Text, in.Now().At);
+    return false;
+  }
+  Program::Node node;
+  node.What = Shape::Step;
+  node.Spelling = in.Nodes[target].Spelling;
+  node.Number = mark == "++" ? 1.0 : -1.0;
+  node.A = 0;
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadUnary(Reading &in, const Token &token, size_t &out) {
+  const std::string mark = token.Spelling;
+  ++in.At;
+  size_t inner = 0;
+  if (!ReadPrimary(in, inner)) { return false; }
+  Program::Node node;
+  node.What = Shape::Unary;
+  node.Spelling = mark;
+  node.A = inner;
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadArguments(Reading &in, Program::Node &node) {
+  if (in.Is(")")) { return true; }
+  for (;;) {
+    size_t argument = 0;
+    if (!ReadExpression(in, argument)) { return false; }
+    if (node.Parts.size() >= kMaxArgs) {
+      in.Error = "the script passes past the argument bound of " + std::to_string(kMaxArgs) +
+                 " at " + Where(in.Text, in.Now().At);
+      return false;
+    }
+    node.Parts.push_back(argument);
+    if (!in.Take(",")) { return true; }
+  }
+}
+
+bool ReadMemberTail(Reading &in, size_t &out) {
+  if (in.Now().What != Word::Name) {
+    in.Error = "the script expected a member name at " + Where(in.Text, in.Now().At);
+    return false;
+  }
+  Program::Node node;
+  node.What = Shape::Member;
+  node.Spelling = in.Now().Spelling;
+  node.A = out;
+  ++in.At;
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadPostfixStep(Reading &in, size_t &out) {
+  Program::Node node;
+  node.What = Shape::Step;
+  node.Spelling = in.Nodes[out].Spelling;
+  node.Number = in.Now().Spelling == "++" ? 1.0 : -1.0;
+  node.A = 1;
+  ++in.At;
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadCallTail(Reading &in, size_t &out) {
+  Program::Node node;
+  node.What = Shape::Call;
+  node.A = out;
+  if (!ReadArguments(in, node) || !in.Want(")") || !in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadTail(Reading &in, size_t &out) {
+  for (;;) {
+    if (in.Take(".")) {
+      if (!ReadMemberTail(in, out)) { return false; }
+      continue;
+    }
+    if (in.Is("++") || in.Is("--")) {
+      if (in.Nodes[out].What != Shape::Name) { return true; }
+      if (!ReadPostfixStep(in, out)) { return false; }
+      continue;
+    }
+    if (in.Take("(")) {
+      if (!ReadCallTail(in, out)) { return false; }
+      continue;
+    }
+    return true;
+  }
+}
 
 bool ReadPrimary(Reading &in, size_t &out) {
   if (!in.Room()) { return false; }
   const Token &token = in.Now();
-  if (token.What == Word::Number) {
-    ++in.At;
-    Program::Node node;
-    node.What = Shape::Number;
-    node.Number = token.Number;
-    out = in.Make(std::move(node));
-  } else if (token.What == Word::Text) {
-    ++in.At;
-    Program::Node node;
-    node.What = Shape::Text;
-    node.Spelling = token.Spelling;
-    out = in.Make(std::move(node));
-  } else if (token.What == Word::Name) {
-    ++in.At;
-    Program::Node node;
-
-    if (token.Spelling == "true" || token.Spelling == "false") {
-      node.What = Shape::Number;
-      node.Number = token.Spelling == "true" ? 1.0 : 0.0;
-    } else if (token.Spelling == "null" || token.Spelling == "undefined") {
-      node.What = Shape::Nothing;
-    } else {
-      node.What = Shape::Name;
-      node.Spelling = token.Spelling;
-    }
-    out = in.Make(std::move(node));
+  if (token.What == Word::Number || token.What == Word::Text || token.What == Word::Name) {
+    (void)ReadLiteral(in, token, out);
   } else if (in.Take("(")) {
-    if (!ReadSequence(in, out)) { return false; }
-    if (!in.Want(")")) { return false; }
+    if (!ReadSequence(in, out) || !in.Want(")")) { return false; }
   } else if (in.Is("++") || in.Is("--")) {
-    const std::string mark = in.Now().Spelling;
-    ++in.At;
-    size_t target = 0;
-    if (!ReadPrimary(in, target)) { return false; }
-    if (in.Nodes[target].What != Shape::Name) {
-      in.Error =
-          "the script increments something that is not a name, at " + Where(in.Text, in.Now().At);
-      return false;
-    }
-    Program::Node node;
-    node.What = Shape::Step;
-    node.Spelling = in.Nodes[target].Spelling;
-    node.Number = mark == "++" ? 1.0 : -1.0;
-    node.A = 0;
-    if (!in.Room()) { return false; }
-    out = in.Make(std::move(node));
-    return true;
+    return ReadPrefixStep(in, out);
   } else if (in.Is("-") || in.Is("+") || in.Is("!")) {
-    const std::string mark = token.Spelling;
-    ++in.At;
-    size_t inner = 0;
-    if (!ReadPrimary(in, inner)) { return false; }
-    Program::Node node;
-    node.What = Shape::Unary;
-    node.Spelling = mark;
-    node.A = inner;
-    out = in.Make(std::move(node));
+    if (!ReadUnary(in, token, out)) { return false; }
   } else {
     in.Error = "the script expected a value at " + Where(in.Text, token.At) + " and found " +
                (token.What == Word::End ? std::string("the end of the script")
                                         : "'" + token.Spelling + "'");
     return false;
   }
-
-  for (;;) {
-    if (in.Take(".")) {
-      if (in.Now().What != Word::Name) {
-        in.Error = "the script expected a member name at " + Where(in.Text, in.Now().At);
-        return false;
-      }
-      Program::Node node;
-      node.What = Shape::Member;
-      node.Spelling = in.Now().Spelling;
-      node.A = out;
-      ++in.At;
-      if (!in.Room()) { return false; }
-      out = in.Make(std::move(node));
-      continue;
-    }
-    if (in.Is("++") || in.Is("--")) {
-      if (in.Nodes[out].What != Shape::Name) { break; }
-      Program::Node node;
-      node.What = Shape::Step;
-      node.Spelling = in.Nodes[out].Spelling;
-      node.Number = in.Now().Spelling == "++" ? 1.0 : -1.0;
-      node.A = 1;
-      ++in.At;
-      if (!in.Room()) { return false; }
-      out = in.Make(std::move(node));
-      continue;
-    }
-    if (in.Take("(")) {
-      Program::Node node;
-      node.What = Shape::Call;
-      node.A = out;
-      if (!in.Is(")")) {
-        for (;;) {
-          size_t argument = 0;
-          if (!ReadExpression(in, argument)) { return false; }
-          if (node.Parts.size() >= kMaxArgs) {
-            in.Error = "the script passes past the argument bound of " + std::to_string(kMaxArgs) +
-                       " at " + Where(in.Text, in.Now().At);
-            return false;
-          }
-          node.Parts.push_back(argument);
-          if (!in.Take(",")) { break; }
-        }
-      }
-      if (!in.Want(")")) { return false; }
-      if (!in.Room()) { return false; }
-      out = in.Make(std::move(node));
-      continue;
-    }
-    break;
-  }
-  return true;
+  return ReadTail(in, out);
 }
 
 struct Level {
@@ -534,135 +575,134 @@ bool ReadBlock(Reading &in, size_t &out) {
   return true;
 }
 
+bool ReadIfStatement(Reading &in, size_t &out) {
+  ++in.At;
+  Program::Node node;
+  node.What = Shape::If;
+  node.C = 0;
+  bool held = in.Want("(") && ReadSequence(in, node.A) && in.Want(")");
+  if (held) { held = ReadStatement(in, node.B); }
+  if (held && in.IsWord("else")) {
+    ++in.At;
+    size_t otherwise = 0;
+    held = ReadStatement(in, otherwise);
+    node.C = held ? otherwise + 1 : 0;
+  }
+  if (!held || !in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadWhileStatement(Reading &in, size_t &out) {
+  ++in.At;
+  Program::Node node;
+  node.What = Shape::While;
+  const bool held =
+      in.Want("(") && ReadSequence(in, node.A) && in.Want(")") && ReadStatement(in, node.B);
+  if (!held || !in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadVariableStatement(Reading &in, size_t &out) {
+  Program::Node list;
+  list.What = Shape::Block;
+  for (;;) {
+    if (in.Now().What != Word::Name) {
+      in.Error =
+          "the script declares something that is not a name, at " + Where(in.Text, in.Now().At);
+      return false;
+    }
+    Program::Node node;
+    node.What = Shape::Assign;
+    node.Spelling = in.Now().Spelling;
+    ++in.At;
+    if (in.Take("=")) {
+      if (!ReadExpression(in, node.A)) { return false; }
+    } else {
+      Program::Node nothing;
+      nothing.What = Shape::Nothing;
+      if (!in.Room()) { return false; }
+      node.A = in.Make(std::move(nothing));
+    }
+    if (!in.Room()) { return false; }
+    list.Parts.push_back(in.Make(std::move(node)));
+    if (!in.Take(",")) { break; }
+  }
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(list));
+  return true;
+}
+
+bool ReadAssignment(Reading &in, size_t left, size_t &out) {
+  size_t right = 0;
+  if (!ReadExpression(in, right)) { return false; }
+  const Program::Node &target = in.Nodes[left];
+  Program::Node node;
+  if (target.What == Shape::Name) {
+    node.What = Shape::Assign;
+    node.Spelling = target.Spelling;
+    node.A = right;
+  } else if (target.What == Shape::Member) {
+    node.What = Shape::AssignMember;
+    node.Spelling = target.Spelling;
+    node.A = target.A;
+    node.B = right;
+  } else {
+    in.Error = "the script assigns to something that is neither a name nor a member, at " +
+               Where(in.Text, in.Now().At);
+    return false;
+  }
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
+bool ReadCommaChain(Reading &in, size_t left, size_t &out) {
+  while (in.Take(",")) {
+    size_t right = 0;
+    if (!ReadExpression(in, right) || !in.Room()) { return false; }
+    Program::Node node;
+    node.What = Shape::Binary;
+    node.Spelling = ",";
+    node.A = left;
+    node.B = right;
+    left = in.Make(std::move(node));
+  }
+  out = left;
+  return true;
+}
+
+bool ReadExpressionStatement(Reading &in, size_t &out) {
+  size_t left = 0;
+  if (!ReadExpression(in, left)) { return false; }
+  if (in.Take("=")) { return ReadAssignment(in, left, out); }
+  return ReadCommaChain(in, left, out);
+}
+
+bool ReadEmptyStatement(Reading &in, size_t &out) {
+  Program::Node node;
+  node.What = Shape::Block;
+  if (!in.Room()) { return false; }
+  out = in.Make(std::move(node));
+  return true;
+}
+
 bool ReadStatement(Reading &in, size_t &out) {
   if (!in.Deeper()) { return false; }
   bool held = true;
   if (in.Take(";")) {
-    Program::Node node;
-    node.What = Shape::Block;
-    if (in.Room()) {
-      out = in.Make(std::move(node));
-    } else {
-      held = false;
-    }
+    held = ReadEmptyStatement(in, out);
   } else if (in.Is("{")) {
     held = ReadBlock(in, out);
   } else if (in.IsWord("if")) {
-    ++in.At;
-    Program::Node node;
-    node.What = Shape::If;
-    node.C = 0;
-    held = in.Want("(") && ReadSequence(in, node.A) && in.Want(")");
-    if (held) { held = ReadStatement(in, node.B); }
-    if (held && in.IsWord("else")) {
-      ++in.At;
-      size_t otherwise = 0;
-      held = ReadStatement(in, otherwise);
-
-      node.C = held ? otherwise + 1 : 0;
-    }
-    if (held && in.Room()) {
-      out = in.Make(std::move(node));
-    } else {
-      held = false;
-    }
+    held = ReadIfStatement(in, out);
   } else if (in.IsWord("while")) {
-    ++in.At;
-    Program::Node node;
-    node.What = Shape::While;
-    held = in.Want("(") && ReadSequence(in, node.A) && in.Want(")") && ReadStatement(in, node.B);
-    if (held && in.Room()) {
-      out = in.Make(std::move(node));
-    } else {
-      held = false;
-    }
+    held = ReadWhileStatement(in, out);
   } else {
     const bool declaring = in.IsWord("var") || in.IsWord("let") || in.IsWord("const");
     if (declaring) { ++in.At; }
-    if (declaring) {
-      Program::Node list;
-      list.What = Shape::Block;
-      for (;;) {
-        if (in.Now().What != Word::Name) {
-          in.Error =
-              "the script declares something that is not a name, at " + Where(in.Text, in.Now().At);
-          held = false;
-          break;
-        }
-        Program::Node node;
-        node.What = Shape::Assign;
-        node.Spelling = in.Now().Spelling;
-        ++in.At;
-        if (in.Take("=")) {
-          held = ReadExpression(in, node.A);
-        } else {
-          Program::Node nothing;
-          nothing.What = Shape::Nothing;
-          if (!in.Room()) {
-            held = false;
-            break;
-          }
-          node.A = in.Make(std::move(nothing));
-        }
-        if (!held || !in.Room()) {
-          held = false;
-          break;
-        }
-        list.Parts.push_back(in.Make(std::move(node)));
-        if (!in.Take(",")) { break; }
-      }
-      if (held && in.Room()) {
-        out = in.Make(std::move(list));
-      } else {
-        held = false;
-      }
-    } else {
-      size_t left = 0;
-      held = ReadExpression(in, left);
-      if (held && in.Take("=")) {
-        size_t right = 0;
-        held = ReadExpression(in, right);
-        if (held) {
-          const Program::Node &target = in.Nodes[left];
-          Program::Node node;
-          if (target.What == Shape::Name) {
-            node.What = Shape::Assign;
-            node.Spelling = target.Spelling;
-            node.A = right;
-          } else if (target.What == Shape::Member) {
-            node.What = Shape::AssignMember;
-            node.Spelling = target.Spelling;
-            node.A = target.A;
-            node.B = right;
-          } else {
-            in.Error = "the script assigns to something that is neither a name nor a member, at " +
-                       Where(in.Text, in.Now().At);
-            held = false;
-          }
-          if (held && in.Room()) {
-            out = in.Make(std::move(node));
-          } else {
-            held = false;
-          }
-        }
-      } else if (held) {
-        while (held && in.Take(",")) {
-          size_t right = 0;
-          held = ReadExpression(in, right);
-          if (!held || !in.Room()) {
-            held = false;
-            break;
-          }
-          Program::Node node;
-          node.What = Shape::Binary;
-          node.Spelling = ",";
-          node.A = left;
-          node.B = right;
-          left = in.Make(std::move(node));
-        }
-        out = left;
-      }
-    }
+    held = declaring ? ReadVariableStatement(in, out) : ReadExpressionStatement(in, out);
     if (held) { (void)in.Take(";"); }
   }
   in.Shallower();
@@ -879,16 +919,27 @@ bool Same(const Value &left, const Value &right) {
 
 namespace {
 
+std::string_view TrimmedForNumber(std::string_view held) {
+  const auto blank = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; };
+  while (!held.empty() && blank(held.front())) { held.remove_prefix(1); }
+  while (!held.empty() && blank(held.back())) { held.remove_suffix(1); }
+  return held;
+}
+
+double HexTextToNumber(std::string_view held) {
+  const auto hexadecimal = [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  };
+  if (!std::ranges::all_of(held.substr(2), hexadecimal)) { return std::nan(""); }
+  double value = 0.0;
+  const auto hex =
+      std::from_chars(held.data() + 2, held.data() + held.size(), value, std::chars_format::hex);
+  if (hex.ec == std::errc::result_out_of_range) { return HUGE_VAL; }
+  return hex.ec == std::errc() ? value : std::nan("");
+}
+
 [[nodiscard]] double TextToNumber(const std::string &text) {
-  std::string_view held(text);
-  while (!held.empty() && (held.front() == ' ' || held.front() == '\t' || held.front() == '\n' ||
-                           held.front() == '\r')) {
-    held.remove_prefix(1);
-  }
-  while (!held.empty() && (held.back() == ' ' || held.back() == '\t' || held.back() == '\n' ||
-                           held.back() == '\r')) {
-    held.remove_suffix(1);
-  }
+  std::string_view held = TrimmedForNumber(text);
   if (held.empty()) { return 0.0; }
   double sign = 1.0;
   bool wroteSign = false;
@@ -899,17 +950,7 @@ namespace {
   }
   if (held == "Infinity") { return sign * HUGE_VAL; }
   if (held.size() > 2 && held[0] == '0' && (held[1] == 'x' || held[1] == 'X')) {
-    if (wroteSign) { return std::nan(""); }
-    for (size_t at = 2; at < held.size(); ++at) {
-      const char c = held[at];
-      const bool digit = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-      if (!digit) { return std::nan(""); }
-    }
-    double value = 0.0;
-    const auto hex =
-        std::from_chars(held.data() + 2, held.data() + held.size(), value, std::chars_format::hex);
-    if (hex.ec == std::errc::result_out_of_range) { return HUGE_VAL; }
-    return hex.ec == std::errc() ? value : std::nan("");
+    return wroteSign ? std::nan("") : HexTextToNumber(held);
   }
   if (!EcmaDecimalShaped(held)) { return std::nan(""); }
   double value = 0.0;
@@ -948,6 +989,98 @@ const Value *Program::Named(std::string_view name) const {
   return nullptr;
 }
 
+bool Program::EvaluateCall(const Node &node, Host &host, Value &out, std::string &error) {
+  Value callee;
+  if (!Evaluate(node.A, host, callee, error)) { return false; }
+  std::array<Value, kMaxArgs> args{};
+  for (size_t i = 0; i < node.Parts.size() && i < kMaxArgs; ++i) {
+    if (!Evaluate(node.Parts[i], host, args[i], error)) { return false; }
+  }
+  if (host.Call(callee, std::span(args).first(std::min(node.Parts.size(), kMaxArgs)), out)) {
+    return true;
+  }
+  error = "the host does not answer this call, and a call that quietly did nothing is the "
+          "defect a refusal here prevents";
+  return false;
+}
+
+bool Program::EvaluateStep(const Node &node, Host &host, Value &out, std::string &error) {
+  const Value *held = Named(node.Spelling);
+  const double was = held != nullptr ? held->Number : host.Global(node.Spelling).Number;
+  const Value now = Value::OfNumber(was + node.Number);
+  bool set = false;
+  for (size_t i = 0; i < Names_.size(); ++i) {
+    if (Names_[i] == node.Spelling) {
+      Held_[i] = now;
+      set = true;
+    }
+  }
+  if (!set) {
+    if (Names_.size() >= kMaxNames) {
+      error = "the script reaches the name bound of " + std::to_string(kMaxNames);
+      return false;
+    }
+    Names_.push_back(node.Spelling);
+    Held_.push_back(now);
+  }
+  out = node.A == 0 ? now : Value::OfNumber(was);
+  return true;
+}
+
+bool Program::EvaluateUnary(const Node &node, Host &host, Value &out, std::string &error) {
+  Value inner;
+  if (!Evaluate(node.A, host, inner, error)) { return false; }
+  if (node.Spelling == "!") {
+    out = Value::OfNumber(inner.Truth() ? 0.0 : 1.0);
+    return true;
+  }
+  const double held = inner.What == Kind::Text ? TextToNumber(inner.Text) : inner.Number;
+  out = Value::OfNumber(node.Spelling == "+" ? held : -inner.Number);
+  return true;
+}
+
+namespace {
+
+double ArithmeticOf(std::string_view mark, double a, double b) {
+  if (mark == "+") { return a + b; }
+  if (mark == "-") { return a - b; }
+  if (mark == "*") { return a * b; }
+  if (mark == "/") { return b == 0.0 ? 0.0 : a / b; }
+  if (mark == "%") { return b == 0.0 ? 0.0 : std::fmod(a, b); }
+  if (mark == "<") { return a < b ? 1.0 : 0.0; }
+  if (mark == "<=") { return a <= b ? 1.0 : 0.0; }
+  if (mark == ">") { return a > b ? 1.0 : 0.0; }
+  return a >= b ? 1.0 : 0.0;
+}
+
+} // namespace
+
+bool Program::EvaluateBinary(const Node &node, Host &host, Value &out, std::string &error) {
+  Value left;
+  if (!Evaluate(node.A, host, left, error)) { return false; }
+
+  if (node.Spelling == ",") { return Evaluate(node.B, host, out, error); }
+  if (node.Spelling == "&&" || node.Spelling == "||") {
+    const bool shortens = node.Spelling == "&&" ? !left.Truth() : left.Truth();
+    if (!shortens) { return Evaluate(node.B, host, out, error); }
+    out = std::move(left);
+    return true;
+  }
+
+  Value right;
+  if (!Evaluate(node.B, host, right, error)) { return false; }
+  if (node.Spelling == "+" && (left.What == Kind::Text || right.What == Kind::Text)) {
+    out = Value::OfText(left.AsText() + right.AsText());
+    return true;
+  }
+  if (node.Spelling == "==" || node.Spelling == "!=") {
+    out = Value::OfNumber((node.Spelling == "==") == Same(left, right) ? 1.0 : 0.0);
+    return true;
+  }
+  out = Value::OfNumber(ArithmeticOf(node.Spelling, left.Number, right.Number));
+  return true;
+}
+
 bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
   if (++Steps_ > kMaxSteps) {
     error = "the script reaches the step bound of " + std::to_string(kMaxSteps);
@@ -960,7 +1093,6 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
     case Node::Shape::Nothing: out = Value(); return true;
     case Node::Shape::Name: {
       const Value *held = Named(node.Spelling);
-
       out = held != nullptr ? *held : host.Global(node.Spelling);
       return true;
     }
@@ -970,113 +1102,51 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       out = host.Member(object, node.Spelling);
       return true;
     }
-    case Node::Shape::Call: {
-      Value callee;
-      if (!Evaluate(node.A, host, callee, error)) { return false; }
-      std::array<Value, kMaxArgs> args{};
-      for (size_t i = 0; i < node.Parts.size() && i < kMaxArgs; ++i) {
-        if (!Evaluate(node.Parts[i], host, args[i], error)) { return false; }
-      }
-      if (!host.Call(callee, std::span(args).first(std::min(node.Parts.size(), kMaxArgs)), out)) {
-        error = "the host does not answer this call, and a call that quietly did nothing is the "
-                "defect a refusal here prevents";
-        return false;
-      }
-      return true;
-    }
-    case Node::Shape::Step: {
-      const Value *held = Named(node.Spelling);
-      const double was = held != nullptr ? held->Number : host.Global(node.Spelling).Number;
-      const Value now = Value::OfNumber(was + node.Number);
-      bool set = false;
-      for (size_t i = 0; i < Names_.size(); ++i) {
-        if (Names_[i] == node.Spelling) {
-          Held_[i] = now;
-          set = true;
-        }
-      }
-      if (!set) {
-        if (Names_.size() >= kMaxNames) {
-          error = "the script reaches the name bound of " + std::to_string(kMaxNames);
-          return false;
-        }
-        Names_.push_back(node.Spelling);
-        Held_.push_back(now);
-      }
-      out = node.A == 0 ? now : Value::OfNumber(was);
-      return true;
-    }
-    case Node::Shape::Unary: {
-      Value inner;
-      if (!Evaluate(node.A, host, inner, error)) { return false; }
-
-      if (node.Spelling == "!") {
-        out = Value::OfNumber(inner.Truth() ? 0.0 : 1.0);
-        return true;
-      }
-      const double held = inner.What == Kind::Text ? TextToNumber(inner.Text) : inner.Number;
-      out = Value::OfNumber(node.Spelling == "+" ? held : -inner.Number);
-      return true;
-    }
-    case Node::Shape::Binary: {
-      Value left;
-      if (!Evaluate(node.A, host, left, error)) { return false; }
-
-      if (node.Spelling == ",") { return Evaluate(node.B, host, out, error); }
-      if (node.Spelling == "&&") {
-        if (!left.Truth()) {
-          out = std::move(left);
-          return true;
-        }
-        return Evaluate(node.B, host, out, error);
-      }
-      if (node.Spelling == "||") {
-        if (left.Truth()) {
-          out = std::move(left);
-          return true;
-        }
-        return Evaluate(node.B, host, out, error);
-      }
-      Value right;
-      if (!Evaluate(node.B, host, right, error)) { return false; }
-
-      if (node.Spelling == "+" && (left.What == Kind::Text || right.What == Kind::Text)) {
-        out = Value::OfText(left.AsText() + right.AsText());
-        return true;
-      }
-      if (node.Spelling == "==" || node.Spelling == "!=") {
-        const bool same = Same(left, right);
-        out = Value::OfNumber((node.Spelling == "==") == same ? 1.0 : 0.0);
-        return true;
-      }
-      const double a = left.Number;
-      const double b = right.Number;
-      double answer = 0.0;
-      if (node.Spelling == "+") {
-        answer = a + b;
-      } else if (node.Spelling == "-") {
-        answer = a - b;
-      } else if (node.Spelling == "*") {
-        answer = a * b;
-      } else if (node.Spelling == "/") {
-        answer = b == 0.0 ? 0.0 : a / b;
-      } else if (node.Spelling == "%") {
-        answer = b == 0.0 ? 0.0 : std::fmod(a, b);
-      } else if (node.Spelling == "<") {
-        answer = a < b ? 1.0 : 0.0;
-      } else if (node.Spelling == "<=") {
-        answer = a <= b ? 1.0 : 0.0;
-      } else if (node.Spelling == ">") {
-        answer = a > b ? 1.0 : 0.0;
-      } else {
-        answer = a >= b ? 1.0 : 0.0;
-      }
-      out = Value::OfNumber(answer);
-      return true;
-    }
+    case Node::Shape::Call: return EvaluateCall(node, host, out, error);
+    case Node::Shape::Step: return EvaluateStep(node, host, out, error);
+    case Node::Shape::Unary: return EvaluateUnary(node, host, out, error);
+    case Node::Shape::Binary: return EvaluateBinary(node, host, out, error);
     default: break;
   }
   return Perform(at, host, error);
+}
+
+bool Program::PerformAssign(const Node &node, Host &host, std::string &error) {
+  Value held;
+  if (!Evaluate(node.A, host, held, error)) { return false; }
+  for (size_t i = 0; i < Names_.size(); ++i) {
+    if (Names_[i] == node.Spelling) {
+      Held_[i] = std::move(held);
+      return true;
+    }
+  }
+  if (Names_.size() >= kMaxNames) {
+    error = "the script reaches the name bound of " + std::to_string(kMaxNames);
+    return false;
+  }
+  Names_.push_back(node.Spelling);
+  Held_.push_back(std::move(held));
+  return true;
+}
+
+bool Program::PerformAssignMember(const Node &node, Host &host, std::string &error) {
+  Value object;
+  Value held;
+  if (!Evaluate(node.A, host, object, error)) { return false; }
+  if (!Evaluate(node.B, host, held, error)) { return false; }
+  if (host.SetMember(object, node.Spelling, held)) { return true; }
+  error = "the host does not take '" + node.Spelling +
+          "', so the script wrote where nothing is listening";
+  return false;
+}
+
+bool Program::PerformWhile(const Node &node, Host &host, std::string &error) {
+  for (;;) {
+    Value held;
+    if (!Evaluate(node.A, host, held, error)) { return false; }
+    if (!held.Truth()) { return true; }
+    if (!Perform(node.B, host, error)) { return false; }
+  }
 }
 
 bool Program::Perform(size_t at, Host &host, std::string &error) {
@@ -1086,58 +1156,20 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
   }
   const Node &node = Nodes_[at];
   switch (node.What) {
-    case Node::Shape::Block: {
-      for (const unsigned long Part : Nodes_[at].Parts) {
-        if (!Perform(Part, host, error)) { return false; }
+    case Node::Shape::Block:
+      for (const size_t part : Nodes_[at].Parts) {
+        if (!Perform(part, host, error)) { return false; }
       }
       return true;
-    }
-    case Node::Shape::Assign: {
-      Value held;
-      if (!Evaluate(node.A, host, held, error)) { return false; }
-      for (size_t i = 0; i < Names_.size(); ++i) {
-        if (Names_[i] == node.Spelling) {
-          Held_[i] = std::move(held);
-          return true;
-        }
-      }
-      if (Names_.size() >= kMaxNames) {
-        error = "the script reaches the name bound of " + std::to_string(kMaxNames);
-        return false;
-      }
-      Names_.push_back(node.Spelling);
-      Held_.push_back(std::move(held));
-      return true;
-    }
-    case Node::Shape::AssignMember: {
-      Value object;
-      Value held;
-      if (!Evaluate(node.A, host, object, error)) { return false; }
-      if (!Evaluate(node.B, host, held, error)) { return false; }
-      if (!host.SetMember(object, node.Spelling, held)) {
-        error = "the host does not take '" + node.Spelling +
-                "', so the script wrote where nothing "
-                "is listening";
-        return false;
-      }
-      return true;
-    }
+    case Node::Shape::Assign: return PerformAssign(node, host, error);
+    case Node::Shape::AssignMember: return PerformAssignMember(node, host, error);
     case Node::Shape::If: {
       Value condition;
       if (!Evaluate(node.A, host, condition, error)) { return false; }
       if (condition.Truth()) { return Perform(node.B, host, error); }
-      return node.C == 0 ? true : Perform(node.C - 1, host, error);
+      return node.C == 0 || Perform(node.C - 1, host, error);
     }
-    case Node::Shape::While: {
-      const size_t condition = node.A;
-      const size_t body = node.B;
-      for (;;) {
-        Value held;
-        if (!Evaluate(condition, host, held, error)) { return false; }
-        if (!held.Truth()) { return true; }
-        if (!Perform(body, host, error)) { return false; }
-      }
-    }
+    case Node::Shape::While: return PerformWhile(node, host, error);
     default: break;
   }
   Value discarded;
@@ -1152,5 +1184,4 @@ bool Program::Run(Host &host, std::string &error) {
   Steps_ = 0;
   return Perform(Root_, host, error);
 }
-
 } // namespace outshine::Script
