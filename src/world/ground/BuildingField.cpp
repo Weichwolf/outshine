@@ -21,6 +21,11 @@
 
 namespace outshine::Ground {
 
+constexpr uint32_t kKnuthWord = 2654435761u;
+constexpr uint32_t kSecondKnuthWord = 2246822519u;
+constexpr double kNoNearestYet = 1.0e29;
+constexpr double kSameHeightM = 0.01;
+
 constexpr double kNoLeastYet = 1.0e9;
 
 namespace {
@@ -40,10 +45,10 @@ constexpr double kOnTheStreetM = 16.0;
 constexpr double kCarriagewayM = 4.0;
 
 uint32_t PlaceHash(double latDeg, double lonDeg) {
-  uint32_t h = static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * kMicroDegree))) *
-               2654435761u;
+  uint32_t h =
+      static_cast<uint32_t>(static_cast<int32_t>(std::llround(latDeg * kMicroDegree))) * kKnuthWord;
   h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(lonDeg * kMicroDegree))) *
-       2246822519u;
+       kSecondKnuthWord;
   h ^= h >> 13u;
   h *= kPlaceMixWord;
   return h ^ (h >> 16u);
@@ -191,7 +196,7 @@ Frontage NearestStreet(const OsmField &field,
       bHalf = w.HalfWidthM;
     }
   }
-  if (best > 1.0e29 || best <= bHalf) { return out; }
+  if (best > kNoNearestYet || best <= bHalf) { return out; }
 
   const double toE = (bE - cE) / best;
   const double toN = (bN - cN) / best;
@@ -363,7 +368,7 @@ int BuildingField::Build(const GroundQuery &ground,
         }
         const double perLonM = 111320.0 * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
         SeatSpread_.push_back(seat - base);
-        Across_.push_back(std::max((highLat - lowLat) * 111132.0, (highLon - lowLon) * perLonM));
+        Across_.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
       }
 
       double standBackM = -1.0;
@@ -374,7 +379,7 @@ int BuildingField::Build(const GroundQuery &ground,
       fp.PointCount = ring.Count;
       fp.Street = street;
       if (street.Known) { Fronted_++; }
-      if (h > 0.0 && std::fabs(h - kFillHeightM) > 0.01) {
+      if (h > 0.0 && std::fabs(h - kFillHeightM) > kSameHeightM) {
         fp.HeightM = static_cast<float>(h);
         fp.Source = HeightSource::Osm;
         OsmHeights_++;

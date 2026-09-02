@@ -11,6 +11,14 @@
 
 namespace outshine::Ui {
 
+constexpr int kOpaque = 255;
+constexpr int kNibbleToByte = 17;
+constexpr unsigned kRedShift = 24u;
+constexpr unsigned kGreenShift = 16u;
+constexpr unsigned kBlueShift = 8u;
+constexpr int kIdWeight = 10000;
+constexpr int kClassWeight = 100;
+
 namespace {
 
 bool Space(char c) {
@@ -172,12 +180,12 @@ int HexOf(char c) {
 bool ReadColour(std::string_view text, uint32_t &out) {
   if (!text.empty() && text[0] == '#') {
     const std::string_view digits = text.substr(1);
-    std::array<int, 4> channel = {{0, 0, 0, 255}};
+    std::array<int, 4> channel = {{0, 0, 0, kOpaque}};
     if (digits.size() == 3 || digits.size() == 4) {
       for (size_t at = 0; at < digits.size(); ++at) {
         const int one = HexOf(digits[at]);
         if (one < 0) { return false; }
-        channel[at] = one * 17;
+        channel[at] = one * kNibbleToByte;
       }
     } else if (digits.size() == 6 || digits.size() == 8) {
       for (size_t at = 0; at + 1 < digits.size(); at += 2) {
@@ -189,8 +197,9 @@ bool ReadColour(std::string_view text, uint32_t &out) {
     } else {
       return false;
     }
-    out = (static_cast<uint32_t>(channel[0]) << 24u) | (static_cast<uint32_t>(channel[1]) << 16u) |
-          (static_cast<uint32_t>(channel[2]) << 8u) | static_cast<uint32_t>(channel[3]);
+    out = (static_cast<uint32_t>(channel[0]) << kRedShift) |
+          (static_cast<uint32_t>(channel[1]) << kGreenShift) |
+          (static_cast<uint32_t>(channel[2]) << kBlueShift) | static_cast<uint32_t>(channel[3]);
     return true;
   }
   const std::string lowered = Lower(text);
@@ -737,10 +746,10 @@ void Stylesheet::Read(std::string_view text) {
         continue;
       }
       for (const Compound &one : rule.Chain) {
-        rule.Specificity += one.Id.empty() ? 0 : 10000;
+        rule.Specificity += one.Id.empty() ? 0 : kIdWeight;
 
         rule.Specificity +=
-            static_cast<int>(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * 100;
+            static_cast<int>(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * kClassWeight;
         rule.Specificity += one.Tag.empty() ? 0 : 1;
       }
       rule.Order = Order_++;

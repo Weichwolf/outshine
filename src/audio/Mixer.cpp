@@ -18,6 +18,14 @@
 
 namespace outshine::Audio {
 
+constexpr double kDopplerLeast = 0.25;
+constexpr double kDopplerMost = 4.0;
+constexpr uint32_t kLcgWord = 1664525u;
+constexpr uint32_t kLcgOffset = 1013904223u;
+constexpr unsigned kNoiseDrop = 8u;
+constexpr double kNoiseHalfSteps = 8388608.0;
+constexpr double kRt60Decades = -3.0;
+
 namespace {
 
 [[nodiscard]] double
@@ -80,7 +88,7 @@ struct Running {
   const double under = speedMs + sourceAway;
   if (!(under > 0.0)) { return 1.0; }
   const double shift = (speedMs + earToward) / under;
-  return std::clamp(shift, 0.25, 4.0);
+  return std::clamp(shift, kDopplerLeast, kDopplerMost);
 }
 
 void Voiced(const Scenario::Sound &sound,
@@ -119,8 +127,8 @@ void Voiced(const Scenario::Sound &sound,
       }
       case Scenario::Makes::Noise:
         for (size_t frame = 0; frame < frames; ++frame) {
-          kept.Seed = kept.Seed * 1664525u + 1013904223u;
-          out[frame] = static_cast<double>(kept.Seed >> 8u) / 8388608.0 - 1.0;
+          kept.Seed = kept.Seed * kLcgWord + kLcgOffset;
+          out[frame] = static_cast<double>(kept.Seed >> kNoiseDrop) / kNoiseHalfSteps - 1.0;
         }
         break;
       case Scenario::Makes::Gain: {
@@ -228,7 +236,8 @@ bool Mixer::Stands(std::span<const Scenario::Bus> buses,
       Held_->Room.CombKept.push_back(0.0);
       const double delayS =
           static_cast<double>(Held_->Room.Combs.back().size()) / static_cast<double>(rate);
-      Held_->Room.CombBack.push_back(std::pow(10.0, -3.0 * delayS / one.Reverberates.SecondsRt60));
+      Held_->Room.CombBack.push_back(
+          std::pow(10.0, kRt60Decades * delayS / one.Reverberates.SecondsRt60));
     }
     for (const int held : kPasses) {
       const auto taps =

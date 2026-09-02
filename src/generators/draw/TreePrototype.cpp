@@ -18,12 +18,19 @@
 
 namespace outshine::Generators {
 
+constexpr float kSrgbKnee = 0.04045f;
+constexpr float kSrgbLinearSlope = 12.92f;
+constexpr float kSrgbOffset = 0.055f;
+constexpr float kSrgbScale = 1.055f;
+constexpr float kSrgbGamma = 2.4f;
+
 namespace {
 
 const Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
 
 float SrgbToLinear(float v) {
-  return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
+  return v <= kSrgbKnee ? v / kSrgbLinearSlope
+                        : std::pow((v + kSrgbOffset) / kSrgbScale, kSrgbGamma);
 }
 
 } // namespace

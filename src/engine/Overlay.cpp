@@ -8,6 +8,11 @@
 
 namespace outshine::Core {
 
+constexpr unsigned kRedShift = 24u;
+constexpr unsigned kGreenShift = 16u;
+constexpr unsigned kBlueShift = 8u;
+constexpr float kByteSteps = 255.0f;
+
 constexpr uint32_t kByteMask = 0xFFu;
 
 namespace {
@@ -27,10 +32,10 @@ void AsOverlay(const std::vector<Ui::Quad> &from,
     to.V0 = static_cast<float>(quad.V0);
     to.U1 = static_cast<float>(quad.U1);
     to.V1 = static_cast<float>(quad.V1);
-    to.Red = static_cast<float>((quad.Colour >> 24u) & kByteMask) / 255.0f;
-    to.Green = static_cast<float>((quad.Colour >> 16u) & kByteMask) / 255.0f;
-    to.Blue = static_cast<float>((quad.Colour >> 8u) & kByteMask) / 255.0f;
-    to.Alpha = static_cast<float>(quad.Colour & kByteMask) / 255.0f;
+    to.Red = static_cast<float>((quad.Colour >> kRedShift) & kByteMask) / kByteSteps;
+    to.Green = static_cast<float>((quad.Colour >> kGreenShift) & kByteMask) / kByteSteps;
+    to.Blue = static_cast<float>((quad.Colour >> kBlueShift) & kByteMask) / kByteSteps;
+    to.Alpha = static_cast<float>(quad.Colour & kByteMask) / kByteSteps;
     to.ClipLeftPx = static_cast<float>(quad.ClipX + offsetX);
     to.ClipTopPx = static_cast<float>(quad.ClipY + offsetY);
     to.ClipWidthPx = static_cast<float>(quad.ClipWidth);
