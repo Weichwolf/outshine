@@ -38,6 +38,8 @@ constexpr int kSeedCap = 32;
 constexpr int kRefCap = 255;
 
 constexpr float kCurveTolM = 0.60f;
+constexpr uint8_t kFullCover = 0xFF;
+constexpr unsigned kAlphaShift = 24u;
 constexpr int kCurveMaxSplit = 8;
 
 void CatmullPoint(
@@ -209,7 +211,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
 
   std::vector<uint8_t> &base = work.Base;
   std::vector<uint8_t> &baseRank = work.BaseRank;
-  base.assign(static_cast<size_t>(W) * H, 0xFF);
+  base.assign(static_cast<size_t>(W) * H, kFullCover);
   baseRank.assign(static_cast<size_t>(W) * H, 0);
 
   std::vector<int32_t> &seedHead = work.SeedHead;
@@ -380,7 +382,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         B.Seeds.push_back(
             static_cast<uint32_t>(f.Tpl) | (static_cast<uint32_t>(f.Rank) << 8u) | (nce << 16u) |
             (static_cast<uint32_t>(static_cast<uint8_t>(std::max(-128, std::min(127, wind)) + 128))
-             << 24u));
+             << kAlphaShift));
         B.Seeds.push_back(refFirst);
         {
           const float hw = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;

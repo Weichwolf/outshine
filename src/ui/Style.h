@@ -10,6 +10,9 @@
 
 namespace outshine::Ui {
 
+constexpr uint32_t kFnvBasis32 = 2166136261u;
+constexpr uint32_t kFnvPrime32 = 16777619u;
+
 enum class Property : uint8_t {
   Display,
   Position,
@@ -73,11 +76,11 @@ struct Value {
 };
 
 [[nodiscard]] constexpr uint32_t Keyword(std::string_view word) {
-  uint32_t hash = 2166136261u;
+  uint32_t hash = kFnvBasis32;
   for (const char c : word) {
     hash ^=
         static_cast<uint32_t>(static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c));
-    hash *= 16777619u;
+    hash *= kFnvPrime32;
   }
   return hash;
 }

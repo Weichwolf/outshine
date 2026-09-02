@@ -19,6 +19,9 @@ constexpr float kTipTaper = 0.74f;
 constexpr float kLeafRadiusFactor = 1.7f;
 constexpr int kLeafPointsPerWhorl = 4;
 constexpr float kLyingRise = 0.35f;
+constexpr float kLeastHeightM = 1e-6f;
+constexpr float kCrownFromTrunk = 1.6f;
+constexpr float kDbhSettledRel = 0.005f;
 
 constexpr float kWhorlJitterRad = 0.25f;
 constexpr float kSpiralJitterRad = 0.4f;
@@ -436,7 +439,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
       lying ? mn[1]
             : (TrunkProfile_.empty() ? mn[1] : TrunkProfile_[0][0] - 0.6f * TrunkProfile_[0][1]);
   float h = lying ? std::fmax(mx[0] - mn[0], mx[2] - mn[2]) : mx[1] - y0;
-  if (h < 1e-6f) { h = 1.0f; }
+  if (h < kLeastHeightM) { h = 1.0f; }
   GrowHeight_ = h;
   const float s = 1.0f / h;
   for (TreeSkeleton::Node &n : Plant_->Nodes) {
@@ -476,7 +479,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   const float targetR = species.DbhM() * 0.5f;
   out.Seed = g.Seed;
 
-  SetCrown(species, 1.6f * static_cast<float>(g.TrunkSteps) * g.StepLen);
+  SetCrown(species, kCrownFromTrunk * static_cast<float>(g.TrunkSteps) * g.StepLen);
   Passes_ = 1;
   GrowOnce(g, h);
 
@@ -489,7 +492,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   for (int i = 0; i < 4; ++i) {
     const float haveR = out.DbhRadius * h;
     DbhErrorRel_ = haveR > 0.0f ? (haveR - targetR) / targetR : 0.0f;
-    if (haveR <= 0.0f || std::fabs(DbhErrorRel_) < 0.005f) { break; }
+    if (haveR <= 0.0f || std::fabs(DbhErrorRel_) < kDbhSettledRel) { break; }
     const float f = targetR / haveR;
     g.BaseRadius *= f;
     g.MinRadius *= f;

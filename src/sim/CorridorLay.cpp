@@ -29,6 +29,7 @@ constexpr double kNoLeastYet = 1.0e9;
 constexpr double kTurnLeastRad = kLeastTurnRad;
 constexpr double kMmPerM = 1000.0;
 constexpr double kGripMargin = 0.95;
+constexpr size_t kSayLineBytes = 96;
 constexpr int kSweeps = 400;
 constexpr double kSlowStationKmh = 30.0;
 constexpr double kNearestQuantile = 0.01;
@@ -197,7 +198,7 @@ bool LayCorridor(const Path::Route &route,
     const auto at = static_cast<size_t>(fitted.UndrivableAtM);
     for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size();
          ++which) {
-      std::array<char, 96> atLine{};
+      std::array<char, kSayLineBytes> atLine{};
       std::snprintf(atLine.data(),
                     atLine.size(),
                     "AT %zu  %.7f %.7f",
@@ -207,7 +208,7 @@ bool LayCorridor(const Path::Route &route,
       say.Say(atLine.data());
     }
     if (at >= 1 && at + 1 < route.Legs.size()) {
-      std::array<char, 96> legs{};
+      std::array<char, kSayLineBytes> legs{};
       std::snprintf(legs.data(),
                     legs.size(),
                     "LEGS in %.2f m  out %.2f m",

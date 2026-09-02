@@ -13,16 +13,20 @@
 
 namespace outshine {
 
+constexpr long kTimeoutUnsaidS = 20;
+constexpr size_t kBodyMostMegabytes = 64u;
+constexpr unsigned kMegabyteShift = 20u;
+
 class Fetching : public Data::Transport {
 public:
   struct Config {
     int Threads = 0;
 
-    long TimeoutS = 20;
+    long TimeoutS = kTimeoutUnsaidS;
 
     std::string UserAgent = "outshine/1 (game engine; non-commercial research)";
 
-    size_t MaxBodyBytes = 64u << 20u;
+    size_t MaxBodyBytes = kBodyMostMegabytes << kMegabyteShift;
   };
 
   explicit Fetching(const Config &config);

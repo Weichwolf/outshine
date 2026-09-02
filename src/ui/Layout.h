@@ -11,6 +11,9 @@
 
 namespace outshine::Ui {
 
+constexpr double kAscentShare = 0.8;
+constexpr double kDescentShare = 0.2;
+
 struct FontMetrics {
   double Advance = 0;
   double Ascent = 0;
@@ -52,7 +55,7 @@ struct Font {
 struct AhemFont final : Font {
   [[nodiscard]] FontMetrics At(double sizePx, Family family) const override {
     (void)family;
-    return {.Advance = sizePx, .Ascent = sizePx * 0.8, .Descent = sizePx * 0.2};
+    return {.Advance = sizePx, .Ascent = sizePx * kAscentShare, .Descent = sizePx * kDescentShare};
   }
 
   [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override {
