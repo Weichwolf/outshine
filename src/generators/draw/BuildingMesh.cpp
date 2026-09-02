@@ -21,6 +21,10 @@
 
 namespace outshine::Generators {
 
+constexpr double kPlinthClearM = 0.05;
+
+constexpr double kFrontLeastLook = 0.35;
+
 constexpr double kChimneyHalfWide = 0.5;
 constexpr double kChimneyHalfDeep = 0.4;
 constexpr double kDormerLeastHalfUm = 0.9;
@@ -955,7 +959,9 @@ void Pavement(const BuildingShape &s,
     const double nn = q.N - p.N;
     const double len = std::hypot(e, nn);
     if (len < kFrontLeastEdgeM) { continue; }
-    if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < 0.35) { continue; }
+    if ((nn / len) * street.ToStreetE - (e / len) * street.ToStreetN < kFrontLeastLook) {
+      continue;
+    }
     double bp = StandBack(street, p);
     double bq = StandBack(street, q);
     if (bp > -kPavementLeastM || bq > -kPavementLeastM) { continue; }
@@ -968,7 +974,7 @@ void Pavement(const BuildingShape &s,
     const En pe = OntoKerb(street, p, bp);
     const En qe = OntoKerb(street, q, bq);
     const auto walk = [&](const En &at) {
-      return std::min(ground.At(at) + kKerbUpM, plinthZ - 0.05);
+      return std::min(ground.At(at) + kKerbUpM, plinthZ - kPlinthClearM);
     };
     const double zp = walk(p);
     const double zq = walk(q);

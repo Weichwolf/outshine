@@ -15,6 +15,8 @@
 
 namespace outshine::Generators {
 
+constexpr float kCapRise = 1.4f;
+
 constexpr float kChordShare = 0.9f;
 constexpr float kBaseApex = -0.6f;
 constexpr float kPointApex = 2.4f;
@@ -162,7 +164,7 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node,
   for (int j = 0; j < sides; ++j) {
     if (cap == RingCap::Broken) {
       Verts_[static_cast<size_t>(ring[j])] =
-          Verts_[static_cast<size_t>(ring[j])] + node.Dir * (node.Radius * splinter[j] * 1.4f);
+          Verts_[static_cast<size_t>(ring[j])] + node.Dir * (node.Radius * splinter[j] * kCapRise);
     }
     if (cap == RingCap::Base) {
       AddFace(ci, ring[(j + 1) % sides], ring[j], -1);

@@ -6,6 +6,8 @@
 
 namespace outshine::Generators {
 
+constexpr float kBoleFracUnsaid = 0.35f;
+
 enum class Architecture : uint8_t {
   SingleStemTree,
   MultiStemTree,
@@ -37,7 +39,7 @@ struct GrowthForm {
   int Leaders = 1;
   float LeaderSplayDeg = 0.0f;
 
-  float BoleFrac = 0.35f;
+  float BoleFrac = kBoleFracUnsaid;
 
   float BreakFrac = 0.0f;
 

@@ -31,6 +31,8 @@
 
 namespace outshine::Gltf {
 
+constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ull;
+
 namespace {
 
 [[nodiscard]] bool RunIsStatable(std::span<const float> run,
@@ -333,7 +335,7 @@ bool Subject::GeneratedTangentsFor(Part &part) {
     if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
     BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);
 
-    key.Bits[0] ^= static_cast<uint64_t>(vertex) * 0x9e3779b97f4a7c15ull;
+    key.Bits[0] ^= static_cast<uint64_t>(vertex) * kGoldenWord;
     const auto found = split.find(key);
     if (found != split.end()) {
       Indices_[part.FirstIndex + corner] = found->second;

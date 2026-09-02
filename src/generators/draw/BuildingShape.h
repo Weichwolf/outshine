@@ -9,6 +9,8 @@
 
 namespace outshine::Generators {
 
+constexpr double kFloorUnsaidM = 2.9;
+
 struct En {
   double E = 0.0, N = 0.0;
 };
@@ -31,7 +33,7 @@ struct BuildingShape {
   BuildingUse Use = BuildingUse::House;
   RoofKind Roof = RoofKind::Flat;
   int Storeys = 1;
-  double FloorM = 2.9;
+  double FloorM = kFloorUnsaidM;
   double FootM = 0.0;
   double SeatM = 0.0;
   double SoleM = 0.0;

@@ -17,6 +17,8 @@
 
 namespace outshine::Script {
 
+constexpr double kWholeMost = 1e15;
+
 bool Value::Truth() const {
   switch (What) {
     case Kind::Nothing: return false;
@@ -36,7 +38,7 @@ std::string Value::AsText() const {
   }
 
   std::array<char, 32> held{};
-  if (Number == std::floor(Number) && std::fabs(Number) < 1e15) {
+  if (Number == std::floor(Number) && std::fabs(Number) < kWholeMost) {
     std::snprintf(held.data(), held.size(), "%lld", static_cast<long long>(Number));
   } else {
     std::snprintf(held.data(), held.size(), "%g", Number);

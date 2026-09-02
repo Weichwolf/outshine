@@ -14,6 +14,8 @@
 
 namespace outshine::Generators {
 
+constexpr uint64_t kSplitMixOffset = 1442695040888963407ull;
+
 namespace {
 
 constexpr uint64_t kSplitMixWord = 6364136223846793005ull;
@@ -33,11 +35,11 @@ constexpr size_t kCorners = 4;
 constexpr double kMetresPerDegree = 111320.0;
 
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
-  uint64_t held = seed * kSplitMixWord + static_cast<uint64_t>(at) * 1442695040888963407ull + 1u;
+  uint64_t held = seed * kSplitMixWord + static_cast<uint64_t>(at) * kSplitMixOffset + 1u;
   held ^= held >> kSplitMixShift;
   held *= kSplitMixFinaliser;
   held ^= held >> kSplitMixShift;
-  return static_cast<double>(held & kMantissaMask) / static_cast<double>(0xFFFFFF);
+  return static_cast<double>(held & kMantissaMask) / static_cast<double>(kMantissaMask);
 }
 
 } // namespace

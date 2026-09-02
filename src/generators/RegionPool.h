@@ -13,6 +13,8 @@
 
 namespace outshine::Generators {
 
+constexpr double kCellPerRung = 8.0;
+
 class RegionPool {
 public:
   struct Shape {

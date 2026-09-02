@@ -12,6 +12,8 @@
 
 namespace outshine::Gltf {
 
+constexpr size_t kDecimalDigits = 40;
+
 constexpr uint32_t kNoIndex = 0xffffffffu;
 
 bool GlbFits(size_t jsonBytes, size_t binaryBytes) {
@@ -42,7 +44,7 @@ void PadTo4(std::vector<uint8_t> &out, uint8_t filler) {
 }
 
 std::string Number(double value) {
-  std::array<char, 40> text{};
+  std::array<char, kDecimalDigits> text{};
   std::snprintf(text.data(), text.size(), "%.9g", value);
   return text.data();
 }

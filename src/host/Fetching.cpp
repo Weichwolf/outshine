@@ -14,6 +14,9 @@
 #include <vector>
 
 namespace outshine {
+
+constexpr double kMsPerSecond = 1000.0;
+
 namespace {
 
 constexpr int kDefaultThreads = 8;
@@ -106,7 +109,7 @@ bool Fetching::Await(double forMs) {
   const bool outstanding = !Transfers_.empty();
   if (!outstanding) { return false; }
   return Landed_.wait_for(lock,
-                          std::chrono::microseconds(static_cast<long long>(forMs * 1000.0)),
+                          std::chrono::microseconds(static_cast<long long>(forMs * kMsPerSecond)),
                           [this, stood] { return Stopping_ || Completions_ != stood; }) &&
          Completions_ != stood;
 }

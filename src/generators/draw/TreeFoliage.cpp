@@ -10,6 +10,12 @@
 
 namespace outshine::Generators {
 
+constexpr float kScaleFallbackM = 0.1f;
+
+constexpr uint32_t kFoliageSeed = 0x1eaf0001u;
+
+constexpr double kQuarterOfPi = 0.25;
+
 namespace {
 
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
@@ -27,7 +33,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   AreaM2_ = 0.0;
   PerPoint_ = 0.0;
   const float len = leaf.Length > 1.0e-4f ? leaf.Length : 1.0f;
-  ScaleM_ = leaf.CardH > 0.0f ? leaf.CardH / len : 0.1f;
+  ScaleM_ = leaf.CardH > 0.0f ? leaf.CardH / len : kScaleFallbackM;
 
   double lamina = 0.0;
   for (size_t i = 0; i + 2 < shape.LeafIdx.size(); i += 3) {
@@ -49,8 +55,9 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   const size_t points = plant.LeafPoints.size();
   const double oneM2 = lamina * static_cast<double>(ScaleM_) * static_cast<double>(ScaleM_);
   const auto h = static_cast<double>(species.HeightM());
-  CrownProjM2_ = 0.25 * std::numbers::pi * static_cast<double>(plant.BoxMax[0] - plant.BoxMin[0]) *
-                 h * static_cast<double>(plant.BoxMax[2] - plant.BoxMin[2]) * h;
+  CrownProjM2_ = kQuarterOfPi * std::numbers::pi *
+                 static_cast<double>(plant.BoxMax[0] - plant.BoxMin[0]) * h *
+                 static_cast<double>(plant.BoxMax[2] - plant.BoxMin[2]) * h;
   if (points == 0 || oneM2 <= 0.0) { return; }
   double want = static_cast<double>(species.Lai()) * CrownProjM2_ / oneM2;
   want *= static_cast<double>(mult > 0 ? mult : 1);
@@ -62,7 +69,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   if (PerPoint_ <= 0.0) { return; }
   Inst_.reserve(static_cast<size_t>(PerPoint_ * static_cast<double>(points) + 1.0) * kFloats);
 
-  TreeRandom rng(0x1eaf0001u);
+  TreeRandom rng(kFoliageSeed);
   double owed = 0.0;
   for (const LeafPoint &p : plant.LeafPoints) {
     owed += PerPoint_;

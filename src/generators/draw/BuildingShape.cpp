@@ -17,6 +17,8 @@
 
 namespace outshine::Generators {
 
+constexpr double kOverhangEavesM = 0.42;
+
 namespace {
 
 constexpr double kFrontLeastLook = 0.35;
@@ -521,7 +523,7 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   s.BayM = bay * (kBayJitterFloor + kBayJitterSwing * UnitOf(s.Seed, kBayJitterStream));
 
   const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
-  s.OverhangM = verged ? (s.Use == BuildingUse::Hall ? kOverhangHallM : 0.42) : 0.0;
+  s.OverhangM = verged ? (s.Use == BuildingUse::Hall ? kOverhangHallM : kOverhangEavesM) : 0.0;
   return s;
 }
 

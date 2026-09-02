@@ -97,7 +97,12 @@ template <typename Number>
   return {{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]}};
 }
 
-static_assert(Dot(Vec3{{1.0, 2.0, 3.0}}, Vec3{{4.0, 5.0, 6.0}}) == 32.0,
+inline constexpr Vec3 kProofLeft = {{1.0, 2.0, 3.0}};
+inline constexpr Vec3 kProofRight = {{4.0, 5.0, 6.0}};
+
+static_assert(Dot(kProofLeft, kProofRight) == kProofLeft[0] * kProofRight[0] +
+                                                  kProofLeft[1] * kProofRight[1] +
+                                                  kProofLeft[2] * kProofRight[2],
               "the scalar product is checked where it is written, not where it is used");
 
 static_assert(Cross(Vec3{{1.0, 0.0, 0.0}}, Vec3{{0.0, 1.0, 0.0}})[2] == 1.0 &&
@@ -106,7 +111,7 @@ static_assert(Cross(Vec3{{1.0, 0.0, 0.0}}, Vec3{{0.0, 1.0, 0.0}})[2] == 1.0 &&
               "every normal in the tree inside out, and this is the one place it can be caught "
               "without running anything");
 
-static_assert((Vec3{{1.0, 2.0, 3.0}} - Vec3{{1.0, 1.0, 1.0}}) * 2.0 == Vec3{{0.0, 2.0, 4.0}},
+static_assert((kProofLeft - Vec3{{1.0, 1.0, 1.0}}) * 2.0 == Vec3{{0.0, 2.0, 4.0}},
               "difference and scale compose the way the arithmetic they replace did");
 
 /// The euclidean length of a vector.

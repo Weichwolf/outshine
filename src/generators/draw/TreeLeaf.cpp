@@ -14,6 +14,10 @@
 
 namespace outshine::Generators {
 
+constexpr float kBaseFillFalloff = 9.0f;
+
+constexpr float kTipGain = 1.25f;
+
 namespace {
 
 constexpr float kNeedleNarrowing = 0.12f;
@@ -64,13 +68,13 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
     return w;
   }
   const float a = p.Widest * 1.5f + 0.80f;
-  float b = (1.0f - p.Widest) * kBroadWidestGain + kBroadBase - p.Tip * 1.25f;
+  float b = (1.0f - p.Widest) * kBroadWidestGain + kBroadBase - p.Tip * kTipGain;
   b = std::max(b, kBroadLeast);
   const float peak = std::pow(p.Widest, a) * std::pow(1.0f - p.Widest, b);
   float w = (peak > static_cast<float>(kLeastRunM)) ? std::pow(t, a) * std::pow(1.0f - t, b) / peak
                                                     : 0.0f;
   w *= p.Width;
-  if (p.BaseFill > 0.0f) { w += p.BaseFill * p.Width * std::exp(-t * 9.0f); }
+  if (p.BaseFill > 0.0f) { w += p.BaseFill * p.Width * std::exp(-t * kBaseFillFalloff); }
   if (p.Lobes > 0) {
     const float lob = 0.5f + 0.5f * std::cos(kTau * static_cast<float>(p.Lobes) * t);
     w *= 1.0f - p.LobeDepth * lob;

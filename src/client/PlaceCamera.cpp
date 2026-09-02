@@ -165,7 +165,7 @@ double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high
 
 double ControlVariation() {
   std::vector<std::uint8_t> gradient(
-      static_cast<std::size_t>(kWidePx) * static_cast<std::size_t>(kHighPx) * 4u, 255u);
+      static_cast<std::size_t>(kWidePx) * static_cast<std::size_t>(kHighPx) * 4u, kByteMost);
   for (int y = 0; y < kHighPx; ++y) {
     const auto shade = static_cast<std::uint8_t>(255 * y / (kHighPx - 1));
     for (int x = 0; x < kWidePx; ++x) {

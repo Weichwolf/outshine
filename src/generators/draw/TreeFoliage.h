@@ -10,6 +10,8 @@
 
 namespace outshine::Generators {
 
+constexpr float kScaleUnsaidM = 0.1f;
+
 class TreeFoliage {
 public:
   static constexpr int kFloats = 8;
@@ -42,7 +44,7 @@ public:
 
 private:
   std::vector<float> Inst_;
-  float ScaleM_ = 0.1f;
+  float ScaleM_ = kScaleUnsaidM;
   double AreaM2_ = 0.0;
   double LocalArea_ = 0.0;
   double PerPoint_ = 0.0;

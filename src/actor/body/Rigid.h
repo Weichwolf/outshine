@@ -9,6 +9,8 @@
 
 namespace outshine::Physics {
 
+constexpr size_t kRigidBytes = 176;
+
 struct Rigid {
   double MassKg = 0.0;
   alignas(16) Vec3 InertiaKgM2;
@@ -18,7 +20,7 @@ struct Rigid {
   alignas(16) Vec3 SpinBodyRadS;
 };
 
-static_assert(alignof(Rigid) == 16 && sizeof(Rigid) == 176,
+static_assert(alignof(Rigid) == 16 && sizeof(Rigid) == kRigidBytes,
               "each vector row of the body starts on a 128-bit boundary; the 40 bytes over the "
               "packed 136 are the declared price of whole-row NEON loads");
 

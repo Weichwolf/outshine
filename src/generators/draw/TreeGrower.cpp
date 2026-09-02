@@ -10,6 +10,12 @@
 
 namespace outshine::Generators {
 
+constexpr float kRootCoverM = 0.6f;
+constexpr float kPointApex = 2.4f;
+constexpr float kBrokenApex = 1.4f;
+
+constexpr float kLeafRollTurn = 1.1f;
+
 namespace {
 
 constexpr float kLeastRadiusM = 1e-5f;
@@ -368,7 +374,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     if (t.Foliate &&
         ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
         t.Radius < leafThreshold * kLeafRadiusFactor) {
-      EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, kLeafPointsPerWhorl, leafRoll + 1.1f);
+      EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, kLeafPointsPerWhorl, leafRoll + kLeafRollTurn);
     }
   }
 
@@ -424,10 +430,10 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
                                 n.Radius * std::sqrt(std::fmax(0.0f, 1.0f - n.Dir[1] * n.Dir[1])),
                                 n.Radius * std::sqrt(std::fmax(0.0f, 1.0f - n.Dir[2] * n.Dir[2]))}};
       cover(n.Pos, disc);
-      if (i == s.First && s.Parent < 0) { cover(n.Pos - n.Dir * (0.6f * n.Radius), disc); }
+      if (i == s.First && s.Parent < 0) { cover(n.Pos - n.Dir * (kRootCoverM * n.Radius), disc); }
       if (i + 1 == s.First + s.Count) {
         const float apex =
-            s.End == RingCap::Point ? 2.4f : (s.End == RingCap::Broken ? 1.4f : 0.0f);
+            s.End == RingCap::Point ? kPointApex : (s.End == RingCap::Broken ? kBrokenApex : 0.0f);
         cover(n.Pos + n.Dir * (apex * n.Radius), disc);
       }
     }
@@ -437,7 +443,8 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   const bool lying = GrowthForm::Lying(Form_.Arch);
   const float y0 =
       lying ? mn[1]
-            : (TrunkProfile_.empty() ? mn[1] : TrunkProfile_[0][0] - 0.6f * TrunkProfile_[0][1]);
+            : (TrunkProfile_.empty() ? mn[1]
+                                     : TrunkProfile_[0][0] - kRootCoverM * TrunkProfile_[0][1]);
   float h = lying ? std::fmax(mx[0] - mn[0], mx[2] - mn[2]) : mx[1] - y0;
   if (h < kLeastHeightM) { h = 1.0f; }
   GrowHeight_ = h;

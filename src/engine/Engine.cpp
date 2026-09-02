@@ -14,6 +14,8 @@
 
 namespace outshine {
 
+constexpr double kBitsPerByte = 8.0;
+
 namespace {}
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
@@ -368,7 +370,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (!tell) { return; }
     Loading said = loading();
     said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * 8.0 / said.ElapsedS : 0.0;
+    said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * kBitsPerByte / said.ElapsedS : 0.0;
     tell(said);
   };
   const double bound = patienceS > 0.0 ? patienceS : 0.0;

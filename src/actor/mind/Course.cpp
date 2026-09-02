@@ -8,6 +8,8 @@
 
 namespace outshine::Pilot {
 
+constexpr double kOutOfReachM = 1.0e-3;
+
 namespace {
 
 Placed Beside(const Placed &on, double asideM) {
@@ -89,7 +91,7 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, dou
   if (!(reachedM > 0.0)) { return out; }
 
   out.Found = true;
-  out.OutOfReach = !out.AtEnd && std::fabs(reachedM - chordM) > 1.0e-3;
+  out.OutOfReach = !out.AtEnd && std::fabs(reachedM - chordM) > kOutOfReachM;
   out.AlongM = atM;
   out.ChordM = reachedM;
   out.BearingRad = std::atan2(aimed.NorthM - from.NorthM, aimed.EastM - from.EastM);

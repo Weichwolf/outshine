@@ -5,20 +5,26 @@
 
 namespace outshine::Generators {
 
+constexpr float kMantissaSteps = 16777216.0f;
+
+constexpr unsigned kXorShift = 17u;
+
+constexpr uint32_t kGoldenWord = 0x9e3779b9u;
+
 class TreeRandom {
 public:
-  explicit TreeRandom(uint32_t seed) : State_((seed != 0u) ? seed : 0x9e3779b9u) {}
+  explicit TreeRandom(uint32_t seed) : State_((seed != 0u) ? seed : kGoldenWord) {}
 
   uint32_t Next() {
     uint32_t x = State_;
     x ^= x << 13u;
-    x ^= x >> 17u;
+    x ^= x >> kXorShift;
     x ^= x << 5u;
     State_ = x;
     return x;
   }
 
-  float Unit() { return static_cast<float>(Next() >> 8u) * (1.0f / 16777216.0f); }
+  float Unit() { return static_cast<float>(Next() >> 8u) * (1.0f / kMantissaSteps); }
 
   float Signed() { return Unit() * 2.0f - 1.0f; }
 

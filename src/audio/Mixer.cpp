@@ -18,6 +18,8 @@
 
 namespace outshine::Audio {
 
+constexpr double kDecadeBase = 10.0;
+
 constexpr double kDopplerLeast = 0.25;
 constexpr double kDopplerMost = 4.0;
 constexpr uint32_t kLcgWord = 1664525u;
@@ -237,7 +239,7 @@ bool Mixer::Stands(std::span<const Scenario::Bus> buses,
       const double delayS =
           static_cast<double>(Held_->Room.Combs.back().size()) / static_cast<double>(rate);
       Held_->Room.CombBack.push_back(
-          std::pow(10.0, kRt60Decades * delayS / one.Reverberates.SecondsRt60));
+          std::pow(kDecadeBase, kRt60Decades * delayS / one.Reverberates.SecondsRt60));
     }
     for (const int held : kPasses) {
       const auto taps =

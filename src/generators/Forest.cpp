@@ -14,6 +14,8 @@
 
 namespace outshine::Generators {
 
+constexpr float kRootSix = 2.4494897f;
+
 namespace {
 
 constexpr uint64_t kMantissa24Mask = 0xFFFFFFu;
@@ -36,7 +38,7 @@ float Unit16(uint64_t bits) {
 }
 
 float SizeFactor(uint64_t bits, float sigma) {
-  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> kSecondDrawShift) - 1.0f) * 2.4494897f;
+  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> kSecondDrawShift) - 1.0f) * kRootSix;
 }
 
 } // namespace

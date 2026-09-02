@@ -13,6 +13,8 @@
 
 namespace outshine {
 
+constexpr double kControlShare = 0.75;
+
 namespace {
 
 double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
@@ -142,7 +144,7 @@ Fitted Fit(std::span<const double> eastNorthM,
       out.SharpestTurnAtM = static_cast<double>(vertex);
     }
     if (swing > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
-    if (swing > 0.75 * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
+    if (swing > kControlShare * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
   }
 
   if (points < 3) {

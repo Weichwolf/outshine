@@ -9,6 +9,8 @@
 
 namespace outshine::Generators {
 
+constexpr size_t kBodyBytes = 48;
+
 enum class ContactMaterial : uint32_t {};
 
 class Body {
@@ -35,7 +37,7 @@ private:
 
 static_assert(sizeof(Body) == 3 * sizeof(double) + 4 * sizeof(float) + 2 * sizeof(uint32_t),
               "Body carries padding");
-static_assert(sizeof(Body) == 48, "sizeof(Body)");
+static_assert(sizeof(Body) == kBodyBytes, "sizeof(Body)");
 static_assert(std::is_trivially_copyable<Body>::value, "collect is a memcpy");
 
 } // namespace outshine::Generators

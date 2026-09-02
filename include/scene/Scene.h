@@ -31,7 +31,7 @@ public:
 
   [[nodiscard]] constexpr bool within(Tag parent) const {
     uint32_t mask = kEveryTagBit;
-    for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8u) {
+    for (uint32_t held = parent.Value_; held != 0 && (held & kOrdinalMask) == 0; held >>= 8u) {
       mask <<= 8u;
     }
     return parent.Value_ != 0 && (Value_ & mask) == parent.Value_;

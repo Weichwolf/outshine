@@ -11,6 +11,8 @@
 
 namespace outshine::Io {
 
+constexpr uint32_t kByteMask = 0xffu;
+
 constexpr unsigned kByteShift = 8u;
 
 namespace {
@@ -149,7 +151,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
           return Refuse("row " + std::to_string(row) + " declares filter " +
                         std::to_string(static_cast<int>(filter)) + ", and PNG has five");
       }
-      outRow[byte] = static_cast<uint8_t>(static_cast<uint32_t>(value) & 0xff);
+      outRow[byte] = static_cast<uint8_t>(static_cast<uint32_t>(value) & kByteMask);
     }
   }
 

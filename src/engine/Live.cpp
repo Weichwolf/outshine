@@ -35,6 +35,9 @@
 
 namespace outshine::Core {
 
+constexpr double kExposureCalibration = 1.2;
+constexpr double kMeteredMiddleGrey = 2.5;
+
 constexpr double kLuminanceRed = 0.2126;
 constexpr double kLuminanceGreen = 0.7152;
 constexpr double kLuminanceBlue = 0.0722;
@@ -450,9 +453,9 @@ bool Live::Build(std::string &error) {
   } else {
     const double metered = MeteredLux();
     if (metered > 0.0) {
-      const double ev100 = std::log2(metered / 2.5);
-      declaration.Exposure =
-          Render::Declared<float>(static_cast<float>(1.0 / (1.2 * std::pow(2.0, ev100))));
+      const double ev100 = std::log2(metered / kMeteredMiddleGrey);
+      declaration.Exposure = Render::Declared<float>(
+          static_cast<float>(1.0 / (kExposureCalibration * std::pow(2.0, ev100))));
     }
   }
   if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }

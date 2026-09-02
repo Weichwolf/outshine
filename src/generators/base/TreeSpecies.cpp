@@ -9,6 +9,8 @@
 
 namespace outshine::Generators {
 
+constexpr float kCmToM = 0.01f;
+
 namespace {
 
 float NumF(const Json::Ref &r, const char *key, float def) {
@@ -53,7 +55,7 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   HeightM_ = NumF(r, "height_m", HeightM_);
   SpreadM_ = NumF(r, "spread_m", SpreadM_);
   HeightSigma_ = NumF(r, "height_sigma", HeightSigma_);
-  DbhM_ = NumF(r, "dbh_cm", 0.0f) * 0.01f;
+  DbhM_ = NumF(r, "dbh_cm", 0.0f) * kCmToM;
   Lai_ = NumF(r, "lai", 0.0f);
 
   GrowthForm &f = Form_;

@@ -11,6 +11,8 @@
 
 namespace outshine::Core {
 
+constexpr uint64_t kDigestModulus = 1000000007ull;
+
 void Posed::Clears() {
   Assembled_ = Gltf::Subject();
   Built_.clear();
@@ -70,7 +72,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
           keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * kDigestPrime;
         }
       }
-      LocalsDigest_ = static_cast<double>(keyed % 1000000007ull);
+      LocalsDigest_ = static_cast<double>(keyed % kDigestModulus);
     }
     const Heap::Tagged building("pose-build");
     if (Assembled_.Build(File_,
@@ -84,7 +86,7 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
         for (const double part : Assembled_.PositionsM()) {
           keyed = (keyed ^ std::bit_cast<uint64_t>(part)) * kDigestPrime;
         }
-        AssembledDigest_ = static_cast<double>(keyed % 1000000007ull);
+        AssembledDigest_ = static_cast<double>(keyed % kDigestModulus);
       }
       return true;
     }

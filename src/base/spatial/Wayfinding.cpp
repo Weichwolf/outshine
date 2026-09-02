@@ -22,6 +22,8 @@
 
 namespace outshine::Path {
 
+constexpr uint64_t kKnuthWord = 2654435761ull;
+
 constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 
 constexpr double kNoLeastYet = 1.0e9;
@@ -616,7 +618,7 @@ Network::Crossings(std::vector<Crossing> &into) const {
     return static_cast<uint32_t>((y < high ? y : high - 1u) * wide + (x < wide ? x : wide - 1u));
   };
   const auto bucketOf = [&](uint32_t square) {
-    return static_cast<size_t>((static_cast<uint64_t>(square) * 2654435761ull) %
+    return static_cast<size_t>((static_cast<uint64_t>(square) * kKnuthWord) %
                                static_cast<uint64_t>(cells));
   };
 

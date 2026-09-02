@@ -2587,8 +2587,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
         uint64_t keyed = kDigestBasis;
         for (size_t axis = 0; axis < 3; ++axis) {
-          keyed =
-              (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * 1099511628211ULL;
+          keyed = (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * kDigestPrime;
         }
         if (++corner[keyed] == 2u) { shared += 2; }
       }
