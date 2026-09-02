@@ -68,8 +68,12 @@ bool LayCorridor(const Path::Route &route,
 
   const double frameLat = route.Legs.front().At.LatitudeDeg;
   const double frameLon = route.Legs.front().At.LongitudeDeg;
-  const double perLatM = Path::ApartM(frameLat, frameLon, frameLat + 1.0, frameLon, sphereRadiusM);
-  const double perLonM = Path::ApartM(frameLat, frameLon, frameLat, frameLon + 1.0, sphereRadiusM);
+  const double perLatM = Path::ApartM({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat},
+                                      {.LongitudeDeg = frameLon, .LatitudeDeg = frameLat + 1.0},
+                                      Path::Sphere{.RadiusM = sphereRadiusM});
+  const double perLonM = Path::ApartM({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat},
+                                      {.LongitudeDeg = frameLon + 1.0, .LatitudeDeg = frameLat},
+                                      Path::Sphere{.RadiusM = sphereRadiusM});
   out.FrameLat = frameLat;
   out.FrameLon = frameLon;
   out.PerLatM = perLatM;
@@ -213,16 +217,16 @@ bool LayCorridor(const Path::Route &route,
       std::snprintf(legs.data(),
                     legs.size(),
                     "LEGS in %.2f m  out %.2f m",
-                    Path::ApartM(route.Legs[at - 1].At.LatitudeDeg,
-                                 route.Legs[at - 1].At.LongitudeDeg,
-                                 route.Legs[at].At.LatitudeDeg,
-                                 route.Legs[at].At.LongitudeDeg,
-                                 sphereRadiusM),
-                    Path::ApartM(route.Legs[at].At.LatitudeDeg,
-                                 route.Legs[at].At.LongitudeDeg,
-                                 route.Legs[at + 1].At.LatitudeDeg,
-                                 route.Legs[at + 1].At.LongitudeDeg,
-                                 sphereRadiusM));
+                    Path::ApartM({.LongitudeDeg = route.Legs[at - 1].At.LongitudeDeg,
+                                  .LatitudeDeg = route.Legs[at - 1].At.LatitudeDeg},
+                                 {.LongitudeDeg = route.Legs[at].At.LongitudeDeg,
+                                  .LatitudeDeg = route.Legs[at].At.LatitudeDeg},
+                                 Path::Sphere{.RadiusM = sphereRadiusM}),
+                    Path::ApartM({.LongitudeDeg = route.Legs[at].At.LongitudeDeg,
+                                  .LatitudeDeg = route.Legs[at].At.LatitudeDeg},
+                                 {.LongitudeDeg = route.Legs[at + 1].At.LongitudeDeg,
+                                  .LatitudeDeg = route.Legs[at + 1].At.LatitudeDeg},
+                                 Path::Sphere{.RadiusM = sphereRadiusM}));
       say.Say(legs.data());
     }
   }

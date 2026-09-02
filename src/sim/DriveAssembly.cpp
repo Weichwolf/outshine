@@ -32,7 +32,6 @@ using outshine::Ground::VegetationTemplates;
 using outshine::Path::ApartM;
 using outshine::Path::Network;
 using outshine::Path::Route;
-using outshine::Path::Waypoint;
 
 namespace outshine::Sim {
 
@@ -76,7 +75,9 @@ bool AssembleDrive(const Scene &scene,
   const auto &corridor = out.Way.Line;
   auto &stood = out.Stood;
 
-  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.Origin.RadiusM);
+  const double straightM = ApartM({.LongitudeDeg = fromLonDeg, .LatitudeDeg = fromLatDeg},
+                                  {.LongitudeDeg = toLonDeg, .LatitudeDeg = toLatDeg},
+                                  Path::Sphere{.RadiusM = world.Origin.RadiusM});
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
   say.Number("start to destination as the crow flies", straightM / kMPerKm, "km");
@@ -175,7 +176,8 @@ bool AssembleDrive(const Scene &scene,
 
   const double quantumM = outshine::Ground::kMercatorGirthM /
                           (static_cast<double>(1L << static_cast<uint32_t>(kZoom)) * 4096.0);
-  Network roads(kSpeedMargin * quantumM, world.Origin.RadiusM);
+  Network roads(Path::Snap{.CellM = kSpeedMargin * quantumM},
+                Path::Sphere{.RadiusM = world.Origin.RadiusM});
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
   out.Found.StreetsAbsent = reaped.StreetsAbsent;
@@ -262,31 +264,31 @@ bool AssembleDrive(const Scene &scene,
                "segments");
   }
 
-  size_t atFrom = 0;
-  size_t atTo = 0;
-  double fromAwayM = 0.0;
-  double toAwayM = 0.0;
-  if (!roads.Nearest(
-          Waypoint{.LatitudeDeg = fromLatDeg, .LongitudeDeg = fromLonDeg}, atFrom, fromAwayM) ||
-      !roads.Nearest(Waypoint{.LatitudeDeg = toLatDeg, .LongitudeDeg = toLonDeg}, atTo, toAwayM)) {
+  const std::optional<Network::Found> from =
+      roads.Nearest(LongitudeLatitude{.LongitudeDeg = fromLonDeg, .LatitudeDeg = fromLatDeg});
+  const std::optional<Network::Found> to =
+      roads.Nearest(LongitudeLatitude{.LongitudeDeg = toLonDeg, .LatitudeDeg = toLatDeg});
+  if (!from || !to) {
     say.Refuse("a waypoint resolves to no node of the network");
     return false;
   }
-  out.Found.FromAwayM = fromAwayM;
-  out.Found.ToAwayM = toAwayM;
-  say.Number("how far the start is from the nearest road node", fromAwayM, "m");
-  say.Number("how far the destination is from the nearest road node", toAwayM, "m");
-  say.Number(
-      "how far each walk is as a share of the drive", (fromAwayM + toAwayM) / straightM, "of it");
+  out.Found.FromAwayM = from->AwayM;
+  out.Found.ToAwayM = to->AwayM;
+  say.Number("how far the start is from the nearest road node", from->AwayM, "m");
+  say.Number("how far the destination is from the nearest road node", to->AwayM, "m");
+  say.Number("how far each walk is as a share of the drive",
+             (from->AwayM + to->AwayM) / straightM,
+             "of it");
 
   stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
   if (!stood.Stood) { say.Refuse(Line("%s", stood.Error.c_str())); }
   if (!stood.Stood) { return false; }
   const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
-  const Route route = roads.Plan(Waypoint{.LatitudeDeg = fromLatDeg, .LongitudeDeg = fromLonDeg},
-                                 Waypoint{.LatitudeDeg = toLatDeg, .LongitudeDeg = toLonDeg},
-                                 tightestM);
+  const Route route =
+      roads.Plan(LongitudeLatitude{.LongitudeDeg = fromLonDeg, .LatitudeDeg = fromLatDeg},
+                 LongitudeLatitude{.LongitudeDeg = toLonDeg, .LatitudeDeg = toLatDeg},
+                 tightestM);
   say.Number("turns the search refused as too sharp for the car",
              static_cast<double>(route.TurnsRefused),
              "turns");

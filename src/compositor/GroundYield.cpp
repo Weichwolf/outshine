@@ -37,34 +37,34 @@ constexpr double kSewCellM = 16.0;
 constexpr int kCutPasses = 5;
 constexpr double kOffEndM = 0.02;
 
-uint64_t EdgeKey(double aE, double aS, double bE, double bS) {
-  const auto one =
-      static_cast<uint64_t>(static_cast<int64_t>(std::llround(aE / kWeldM)) + 0x2000000000LL);
-  const auto two =
-      static_cast<uint64_t>(static_cast<int64_t>(std::llround(aS / kWeldM)) + 0x2000000000LL);
+uint64_t EdgeKey(EastSouth from, EastSouth to) {
+  const auto one = static_cast<uint64_t>(static_cast<int64_t>(std::llround(from.EastM / kWeldM)) +
+                                         0x2000000000LL);
+  const auto two = static_cast<uint64_t>(static_cast<int64_t>(std::llround(from.SouthM / kWeldM)) +
+                                         0x2000000000LL);
   const auto three =
-      static_cast<uint64_t>(static_cast<int64_t>(std::llround(bE / kWeldM)) + 0x2000000000LL);
-  const auto four =
-      static_cast<uint64_t>(static_cast<int64_t>(std::llround(bS / kWeldM)) + 0x2000000000LL);
-  const uint64_t from = (one << 24U) ^ two;
-  const uint64_t to = (three << 24U) ^ four;
-  return from < to ? (from * kGoldenWord) ^ to : (to * kGoldenWord) ^ from;
+      static_cast<uint64_t>(static_cast<int64_t>(std::llround(to.EastM / kWeldM)) + 0x2000000000LL);
+  const auto four = static_cast<uint64_t>(static_cast<int64_t>(std::llround(to.SouthM / kWeldM)) +
+                                          0x2000000000LL);
+  const uint64_t here = (one << 24U) ^ two;
+  const uint64_t there = (three << 24U) ^ four;
+  return here < there ? (here * kGoldenWord) ^ there : (there * kGoldenWord) ^ here;
 }
 
-uint64_t PlaceKey(double eastM, double southM) {
-  const auto atE = static_cast<int64_t>(std::llround(eastM / kWeldM));
-  const auto atS = static_cast<int64_t>(std::llround(southM / kWeldM));
+uint64_t PlaceKey(EastSouth at) {
+  const auto atE = static_cast<int64_t>(std::llround(at.EastM / kWeldM));
+  const auto atS = static_cast<int64_t>(std::llround(at.SouthM / kWeldM));
   return (static_cast<uint64_t>(atE + kCellBias) << kNorthingShift) ^
          static_cast<uint64_t>(atS + 0x2000000000LL);
 }
 
 constexpr double kBucketM = 32.0;
 
-uint64_t BucketAt(double eastM, double southM) {
+uint64_t BucketAt(EastSouth at) {
   const auto atE =
-      static_cast<uint64_t>(static_cast<int64_t>(std::floor(eastM / kBucketM)) + 0x20000000LL);
+      static_cast<uint64_t>(static_cast<int64_t>(std::floor(at.EastM / kBucketM)) + 0x20000000LL);
   const auto atS =
-      static_cast<uint64_t>(static_cast<int64_t>(std::floor(southM / kBucketM)) + 0x20000000LL);
+      static_cast<uint64_t>(static_cast<int64_t>(std::floor(at.SouthM / kBucketM)) + 0x20000000LL);
   return (atE << 32U) | atS;
 }
 
@@ -93,8 +93,9 @@ class Attributes {
 public:
   explicit Attributes(const GroundMesh &mesh) : Mesh_(mesh) {}
 
-  [[nodiscard]] uint32_t
-  Inside(uint32_t a, uint32_t b, uint32_t c, double eastM, double southM) const {
+  [[nodiscard]] uint32_t Inside(uint32_t a, uint32_t b, uint32_t c, EastSouth at) const {
+    const double eastM = at.EastM;
+    const double southM = at.SouthM;
     const std::vector<float> &held = *Mesh_.PositionM;
     const auto aE = static_cast<double>(held[static_cast<size_t>(a) * 3u]);
     const auto aS = static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]);
@@ -157,12 +158,13 @@ private:
     Lerp(held, wide, a, b, 0.5);
   }
 
-  static void Lerp(std::vector<float> &held, uint32_t wide, uint32_t a, uint32_t b, double part) {
+  static void
+  Lerp(std::vector<float> &held, uint32_t wide, uint32_t from, uint32_t to, double part) {
     if (held.empty()) { return; }
     for (uint32_t axis = 0; axis < wide; ++axis) {
-      const auto from = static_cast<double>(held[static_cast<size_t>(a) * wide + axis]);
-      const auto to = static_cast<double>(held[static_cast<size_t>(b) * wide + axis]);
-      held.push_back(static_cast<float>(from + (to - from) * part));
+      const auto was = static_cast<double>(held[static_cast<size_t>(from) * wide + axis]);
+      const auto now = static_cast<double>(held[static_cast<size_t>(to) * wide + axis]);
+      held.push_back(static_cast<float>(was + (now - was) * part));
     }
   }
 
@@ -183,9 +185,9 @@ double LongestEdgeM(const float *positionM, std::span<const uint32_t, 3> face) {
   return most;
 }
 
-double AwayFrom(const Yields &one, double eastM, double southM) {
-  const double offE = std::max({one.LowE - eastM, 0.0, eastM - one.HighE});
-  const double offS = std::max({one.LowS - southM, 0.0, southM - one.HighS});
+double AwayFrom(const Yields &one, EastSouth at) {
+  const double offE = std::max({one.LowE - at.EastM, 0.0, at.EastM - one.HighE});
+  const double offS = std::max({one.LowS - at.SouthM, 0.0, at.SouthM - one.HighS});
   return std::sqrt(offE * offE + offS * offS);
 }
 
@@ -202,11 +204,11 @@ double WantedEdgeM(const Buckets &buckets,
   }
   centreE /= 3.0;
   centreS /= 3.0;
-  const auto bucket = buckets.find(BucketAt(centreE, centreS));
+  const auto bucket = buckets.find(BucketAt({.EastM = centreE, .SouthM = centreS}));
   if (bucket == buckets.end()) { return 0.0; }
   double nearest = kBeyondAnyCoordinate;
   for (const uint32_t which : bucket->second) {
-    nearest = std::min(nearest, AwayFrom(these[which], centreE, centreS));
+    nearest = std::min(nearest, AwayFrom(these[which], {.EastM = centreE, .SouthM = centreS}));
   }
   if (nearest > kNoNearestYet) { return 0.0; }
   double wanted = std::clamp(finestM + kEdgeGrade * nearest, finestM, kCoarsestM);
@@ -245,11 +247,11 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
       for (int edge = 0; edge < 3; ++edge) {
         const uint32_t a = face[edge];
         const uint32_t b = face[(edge + 1) % 3];
-        const uint64_t key =
-            PlaceKey(0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u]) +
-                            static_cast<double>(positionM[static_cast<size_t>(b) * 3u])),
-                     0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) +
-                            static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u])));
+        const uint64_t key = PlaceKey(
+            {.EastM = 0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u]) +
+                             static_cast<double>(positionM[static_cast<size_t>(b) * 3u])),
+             .SouthM = 0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) +
+                              static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]))});
         split.emplace(key, kNoVertex);
       }
     }
@@ -259,10 +261,10 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
     const auto midpoint = [&](uint32_t a, uint32_t b) {
       const float *held = mesh.PositionM->data();
       const uint64_t key =
-          PlaceKey(0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u]) +
-                          static_cast<double>(held[static_cast<size_t>(b) * 3u])),
-                   0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]) +
-                          static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u])));
+          PlaceKey({.EastM = 0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u]) +
+                                    static_cast<double>(held[static_cast<size_t>(b) * 3u])),
+                    .SouthM = 0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]) +
+                                     static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]))});
       const auto found = split.find(key);
       if (found == split.end()) { return kNoVertex; }
       if (found->second == kNoVertex) {
@@ -390,7 +392,7 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
         const auto aS = static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]);
         const auto bE = static_cast<double>(positionM[static_cast<size_t>(b) * 3u]);
         const auto bS = static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]);
-        const uint64_t key = EdgeKey(aE, aS, bE, bS);
+        const uint64_t key = EdgeKey({.EastM = aE, .SouthM = aS}, {.EastM = bE, .SouthM = bS});
         if (split.contains(key)) { continue; }
         const auto atE = static_cast<uint64_t>(
             static_cast<int64_t>(std::floor(0.5 * (aE + bE) / kSewCellM)) + 0x20000000LL);
@@ -429,7 +431,8 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const auto aS = static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]);
       const auto bE = static_cast<double>(held[static_cast<size_t>(b) * 3u]);
       const auto bS = static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]);
-      const auto found = split.find(EdgeKey(aE, aS, bE, bS));
+      const auto found =
+          split.find(EdgeKey({.EastM = aE, .SouthM = aS}, {.EastM = bE, .SouthM = bS}));
       if (found == split.end()) { return kNoVertex; }
       if (found->second.first == kNoVertex) {
         const bool forward = aE < bE || (aE == bE && aS < bS);
@@ -586,12 +589,15 @@ void Sew(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const uint32_t which = found->second;
       const double eastM = seams[static_cast<size_t>(which) * 2u];
       const double southM = seams[static_cast<size_t>(which) * 2u + 1u];
-      const uint64_t key = PlaceKey(eastM, southM);
+      const uint64_t key = PlaceKey({.EastM = eastM, .SouthM = southM});
       auto stood = made.find(key);
       if (stood == made.end()) {
-        stood =
-            made.emplace(key, lerp.Inside(index[at], index[at + 1u], index[at + 2u], eastM, southM))
-                .first;
+        stood = made.emplace(key,
+                             lerp.Inside(index[at],
+                                         index[at + 1u],
+                                         index[at + 2u],
+                                         {.EastM = eastM, .SouthM = southM}))
+                    .first;
         ++told.VerticesAdded;
       }
       const uint32_t point = stood->second;
@@ -620,7 +626,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
     double lowest = was;
     double highest = was;
     double roofM = kBeyondAnyCoordinate;
-    const auto bucket = buckets.find(BucketAt(eastM, southM));
+    const auto bucket = buckets.find(BucketAt({.EastM = eastM, .SouthM = southM}));
     if (bucket == buckets.end()) { continue; }
     for (const uint32_t which : bucket->second) {
       const Yields &held = these[which];
@@ -653,7 +659,7 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
       }
       const double out = inside ? 0.0 : nearest;
       if (out > held.ApronM) { continue; }
-      const double onRoad = held.WantsAt(eastM, southM);
+      const double onRoad = held.WantsAt({.EastM = eastM, .SouthM = southM});
       const double cutAt = onRoad + out * kBatterRise;
       const double fillAt = onRoad - out * kBatterRise;
       lowest = std::min(lowest, cutAt);
@@ -739,11 +745,9 @@ void Press(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told)
 
 } // namespace
 
-void YieldGround(std::span<const Yields> these,
-                 double finestM,
-                 size_t mostTriangles,
-                 GroundMesh mesh,
-                 Yielded &told) {
+void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, Yielded &told) {
+  const double finestM = within.FinestM;
+  const size_t mostTriangles = within.MostTriangles;
   if (these.empty() || mesh.PositionM == nullptr || mesh.Index == nullptr) { return; }
   std::vector<uint32_t> deepestFirst(these.size());
   for (size_t at = 0; at < deepestFirst.size(); ++at) {
@@ -780,15 +784,16 @@ void YieldGround(std::span<const Yields> these,
     std::unordered_map<uint64_t, uint32_t> standing;
     const std::vector<float> &positionM = *mesh.PositionM;
     for (size_t at = 0; at + 2 < positionM.size(); at += 3) {
-      ++standing[PlaceKey(static_cast<double>(positionM[at]),
-                          static_cast<double>(positionM[at + 2u]))];
+      ++standing[PlaceKey({.EastM = static_cast<double>(positionM[at]),
+                           .SouthM = static_cast<double>(positionM[at + 2u])})];
     }
     for (const Yields &one : taking) {
       for (size_t at = 0; at + 1 < one.SeamEastSouthM.size(); at += 2) {
         ++told.Seams;
-        told.SeamsShared +=
-            standing.contains(PlaceKey(one.SeamEastSouthM[at], one.SeamEastSouthM[at + 1u])) ? 1u
-                                                                                             : 0u;
+        told.SeamsShared += standing.contains(PlaceKey({.EastM = one.SeamEastSouthM[at],
+                                                        .SouthM = one.SeamEastSouthM[at + 1u]}))
+                                ? 1u
+                                : 0u;
       }
     }
   }

@@ -1726,7 +1726,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double mostRaisedM = 0.0;
     if (vectors != nullptr) {
       const std::span<const double> points = vectors->Points();
-      Path::Network net(kNodeSnapM, Data::kWgs84A);
+      Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
       std::vector<size_t> netToLane;
       netToLane.reserve(ways.Ways().size());
       for (size_t at = 0; at < ways.Ways().size(); ++at) {
@@ -2750,8 +2750,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                     std::make_move_iterator(corridor.end()));
     Yielded told;
     YieldGround(std::span<const Yields>(yielding),
-                kFinestGroundM,
-                kMostYieldTriangles,
+                Budget{.FinestM = kFinestGroundM, .MostTriangles = kMostYieldTriangles},
                 GroundMesh{.PositionM = &inFrame,
                            .NormalM = &laid->NormalM,
                            .ColourRgba = tinted.empty() ? nullptr : &tinted,

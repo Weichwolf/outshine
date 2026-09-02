@@ -8,7 +8,10 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <optional>
 #include <vector>
+
+#include "Earth.h"
 
 namespace outshine::Path {
 
@@ -16,16 +19,23 @@ inline constexpr size_t kMaxNetworkPoints = 4000000;
 inline constexpr size_t kMaxRouteLegs = 262144;
 inline constexpr double kStartReachM = 250.0;
 
-[[nodiscard]] double ApartM(
-    double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg, double sphereRadiusM);
-
-struct Waypoint {
-  double LatitudeDeg = 0.0;
-  double LongitudeDeg = 0.0;
+struct Sphere {
+  double RadiusM = kEarthMeanRadiusM;
 };
 
+struct Snap {
+  double CellM = 0.0;
+};
+
+struct RowColumn {
+  int64_t Row = 0;
+  int64_t Column = 0;
+};
+
+[[nodiscard]] double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on);
+
 struct Leg {
-  Waypoint At;
+  LongitudeLatitude At;
   double AlongM = 0.0;
   double HalfWidthM = 0.0;
   double MaxGradient = 0.0;
@@ -59,7 +69,7 @@ struct Route {
 
 class Network {
 public:
-  Network(double snapM, double sphereRadiusM) : SnapM_(snapM), RadiusM_(sphereRadiusM) {}
+  Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
 
   void Lay(std::span<const double> latLonPairs, const WayClass &of);
   [[nodiscard]] size_t Cross();
@@ -113,7 +123,7 @@ public:
     return points > 0 ? PointStreamBytes() / points : 0;
   }
 
-  [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
+  [[nodiscard]] Route Plan(LongitudeLatitude from, LongitudeLatitude to, double tightestM) const;
   [[nodiscard]] size_t Reaches(std::span<const size_t> from) const;
 
   struct Pieces {
@@ -124,8 +134,14 @@ public:
   };
 
   [[nodiscard]] Pieces InPieces() const;
-  [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
-  void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
+
+  struct Found {
+    size_t Node = 0;
+    double AwayM = 0.0;
+  };
+
+  [[nodiscard]] std::optional<Found> Nearest(LongitudeLatitude to) const;
+  void Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const;
 
 private:
   struct Way {
@@ -164,12 +180,12 @@ private:
   };
 
   [[nodiscard]] RowShape ShapeRow(int64_t row) const;
-  [[nodiscard]] RowShape ShapeRowOver(int64_t row, double cellM) const;
+  [[nodiscard]] RowShape ShapeRowOver(int64_t row, Snap over) const;
   [[nodiscard]] int64_t RowOf(double latDeg) const;
-  [[nodiscard]] int64_t RowOver(double latDeg, double cellM) const;
+  [[nodiscard]] int64_t RowOver(double latDeg, Snap over) const;
   [[nodiscard]] static int64_t ColumnIn(const RowShape &shape, double lonDeg);
-  [[nodiscard]] static int64_t KeyAt(int64_t row, int64_t column);
-  [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
+  [[nodiscard]] static int64_t KeyAt(RowColumn at);
+  [[nodiscard]] int64_t CellOf(LongitudeLatitude at) const;
 
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;

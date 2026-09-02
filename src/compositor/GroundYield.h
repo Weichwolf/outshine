@@ -8,6 +8,11 @@
 
 namespace outshine {
 
+struct EastSouth {
+  double EastM = 0.0;
+  double SouthM = 0.0;
+};
+
 struct Yields {
   std::vector<double> RingEastSouthM;
   double LowE = 0.0, HighE = 0.0, LowS = 0.0, HighS = 0.0;
@@ -19,8 +24,8 @@ struct Yields {
   double YieldM = 0.0;
   bool Fills = false;
 
-  [[nodiscard]] double WantsAt(double eastM, double southM) const {
-    return PlateauM + SlopeE * (eastM - AtE) + SlopeS * (southM - AtS);
+  [[nodiscard]] double WantsAt(EastSouth at) const {
+    return PlateauM + SlopeE * (at.EastM - AtE) + SlopeS * (at.SouthM - AtS);
   }
 };
 
@@ -31,7 +36,7 @@ struct GroundMesh {
   std::vector<float> *Uv = nullptr;
   std::vector<uint32_t> *Index = nullptr;
 
-  int (*ClassAt)(const void *with, double eastM, double southM) = nullptr;
+  int (*ClassAt)(const void *with, EastSouth at) = nullptr;
   const void *With = nullptr;
 };
 
@@ -51,11 +56,12 @@ struct Yielded {
 
 void DivideOnClass(const GroundMesh &mesh, double finestM, Yielded &told);
 
-void YieldGround(std::span<const Yields> these,
-                 double finestM,
-                 size_t mostTriangles,
-                 GroundMesh mesh,
-                 Yielded &told);
+struct Budget {
+  double FinestM = 0.0;
+  size_t MostTriangles = 0;
+};
+
+void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, Yielded &told);
 
 } // namespace outshine
 #endif

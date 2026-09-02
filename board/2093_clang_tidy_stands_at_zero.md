@@ -154,3 +154,26 @@ and counts every other one. No check is switched off, the eight real mismatches 
 found in Script.h, Document.h, ClassBuilder.h, TreeFoliage.h, Tangents.cpp and the door's `logsTo`
 were all repaired, and a finding about a line this tree wrote still counts exactly as before. The
 filter names its five prefixes so it cannot quietly grow.
+
+## Where it stands, 2026-09-02
+
+| check | was | is |
+|---|---|---|
+| `bugprone-easily-swappable-parameters` | 313 | 227 |
+| `readability-function-cognitive-complexity` | 139 | 138 |
+| `misc-non-private-member-variables-in-classes` | 76 | 60 |
+| `readability-avoid-nested-conditional-operator` | 50 | 37 |
+| `modernize-use-designated-initializers` · `misc-use-anonymous-namespace` · `readability-container-contains` · `readability-use-std-min-max` · `readability-redundant-parentheses` · `modernize-use-starts-ends-with` · `readability-duplicate-include` · `readability-named-parameter` · `misc-unused-parameters` · `readability-inconsistent-declaration-parameter-name` · `bugprone-implicit-widening-of-multiplication-result` · `bugprone-integer-division` · `bugprone-incorrect-roundings` · and ten more | 260 | **0** |
+| the total | 12 979 | **~700** |
+
+**The two that are left are the two that are WORK rather than sweeping.** Swappable parameters is a
+long tail across ninety files at three each, and every one is a judgement about what the pair IS --
+the sweeps that paid were the ones that found a type the tree already owned and was not using:
+`EastNorth`, `EastNorthUp`, `LongitudeLatitude`, `TileId`, `LookDirection`, `EastSouth`. Cognitive
+complexity is `Grounds` and board:2091.
+
+**AND A THIRD PROCESS RULE, PAID FOR THREE TIMES TODAY.** `make` and `make test` share one nest and
+one tree: editing while the gate runs makes it compile a half-written file and report BUILD on
+cases that are fine, and running `make` beside it makes
+`harness/claims/TheNestRefusesASecondRunner` correctly go red about ME. The gate runs alone: no
+edit, no second build, until it has printed its trailer.

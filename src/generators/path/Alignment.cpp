@@ -1,3 +1,4 @@
+#include "Earth.h"
 #include "Units.h"
 #include "Alignment.h"
 #include "Angle.h"
@@ -7,6 +8,7 @@
 #include <cstddef>
 #include <expected>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -25,24 +27,23 @@ struct Turned {
   double LegM = 0.0;
 };
 
-[[nodiscard]] bool Meets(double aEast,
-                         double aNorth,
-                         double aHeading,
-                         double bEast,
-                         double bNorth,
-                         double bHeading,
-                         double &atEast,
-                         double &atNorth) {
-  const double aRunE = std::cos(aHeading);
-  const double aRunN = std::sin(aHeading);
-  const double bRunE = std::cos(bHeading);
-  const double bRunN = std::sin(bHeading);
+struct Ray {
+  EastNorth From;
+  double HeadingRad = 0.0;
+};
+
+[[nodiscard]] std::optional<EastNorth> Meets(Ray entering, Ray leaving) {
+  const double aRunE = std::cos(entering.HeadingRad);
+  const double aRunN = std::sin(entering.HeadingRad);
+  const double bRunE = std::cos(leaving.HeadingRad);
+  const double bRunN = std::sin(leaving.HeadingRad);
   const double cross = aRunE * bRunN - aRunN * bRunE;
-  if (std::fabs(cross) < kParallelCross) { return false; }
-  const double alongA = ((bEast - aEast) * bRunN - (bNorth - aNorth) * bRunE) / cross;
-  atEast = aEast + alongA * aRunE;
-  atNorth = aNorth + alongA * aRunN;
-  return true;
+  if (std::fabs(cross) < kParallelCross) { return std::nullopt; }
+  const double alongA = ((leaving.From.EastM - entering.From.EastM) * bRunN -
+                         (leaving.From.NorthM - entering.From.NorthM) * bRunE) /
+                        cross;
+  return EastNorth{.EastM = entering.From.EastM + alongA * aRunE,
+                   .NorthM = entering.From.NorthM + alongA * aRunN};
 }
 
 [[nodiscard]] double ShiftShare(double swing) {
@@ -66,9 +67,10 @@ constexpr double kMostClothoidShare = 1.0;
          0.5 * spiralM;
 }
 
-[[nodiscard]] double SpiralInto(double radiusM, double swing, double roomM, bool againstAStraight) {
+[[nodiscard]] double
+SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight) {
   if (!(radiusM > 0.0)) { return 0.0; }
-  const double half = std::tan(0.5 * swing);
+  const double half = std::tan(0.5 * swingRad);
   const double bareM = radiusM * half;
   const double least = SpiralAtLeast(radiusM, againstAStraight);
   if (!(roomM > bareM)) { return least; }
@@ -77,29 +79,25 @@ constexpr double kMostClothoidShare = 1.0;
   double held = solved < least ? least : solved;
   const double most = SpiralAtMost(radiusM);
   held = std::min(held, most);
-  const double sweptOut = radiusM * swing;
+  const double sweptOut = radiusM * swingRad;
   return held < sweptOut ? held : sweptOut;
 }
 
-[[nodiscard]] double FurthestFromArcM(std::span<const double> points,
-                                      size_t from,
-                                      size_t to,
-                                      double centreE,
-                                      double centreN,
-                                      double radiusM) {
+[[nodiscard]] double FurthestFromArcM(
+    std::span<const double> points, size_t from, size_t to, EastNorth centre, double radiusM) {
   double worst = 0.0;
   for (size_t at = from; at <= to; ++at) {
-    const double east = points[2 * at] - centreE;
-    const double north = points[2 * at + 1] - centreN;
+    const double east = points[2 * at] - centre.EastM;
+    const double north = points[2 * at + 1] - centre.NorthM;
     const double away = std::fabs(std::sqrt(east * east + north * north) - radiusM);
     worst = away > worst ? away : worst;
   }
   return worst;
 }
 
-[[nodiscard]] double AwayM(double fromE, double fromN, double toE, double toN) {
-  const double east = toE - fromE;
-  const double north = toN - fromN;
+[[nodiscard]] double AwayM(EastNorth from, EastNorth to) {
+  const double east = to.EastM - from.EastM;
+  const double north = to.NorthM - from.NorthM;
   return std::sqrt(east * east + north * north);
 }
 
@@ -110,15 +108,14 @@ constexpr double kMostClothoidShare = 1.0;
 [[nodiscard]] double FurthestShareOfArc(std::span<const double> points,
                                         size_t from,
                                         size_t to,
-                                        double centreE,
-                                        double centreN,
+                                        EastNorth centre,
                                         double radiusM,
                                         std::span<const double> withinAtM,
                                         double withinM) {
   double worst = 0.0;
   for (size_t at = from; at <= to; ++at) {
-    const double east = points[2 * at] - centreE;
-    const double north = points[2 * at + 1] - centreN;
+    const double east = points[2 * at] - centre.EastM;
+    const double north = points[2 * at + 1] - centre.NorthM;
     const double away = std::fabs(std::sqrt(east * east + north * north) - radiusM);
     const double share = away / AllowedAt(withinAtM, at, withinM);
     worst = share > worst ? share : worst;
@@ -145,18 +142,18 @@ constexpr double kMostClothoidShare = 1.0;
                         " turn through " + std::to_string(bend.TurnRad) +
                         " rad, which no single arc between two straights can carry"});
   }
-  if (!Meets(points[2 * (at - 1)],
-             points[2 * (at - 1) + 1],
-             legs[at - 1].HeadingRad,
-             points[2 * (last + 1)],
-             points[2 * (last + 1) + 1],
-             legs[last].HeadingRad,
-             bend.PiEastM,
-             bend.PiNorthM)) {
+  const std::optional<EastNorth> met =
+      Meets(Ray{.From = {.EastM = points[2 * (at - 1)], .NorthM = points[2 * (at - 1) + 1]},
+                .HeadingRad = legs[at - 1].HeadingRad},
+            Ray{.From = {.EastM = points[2 * (last + 1)], .NorthM = points[2 * (last + 1) + 1]},
+                .HeadingRad = legs[last].HeadingRad});
+  if (!met) {
     return std::unexpected(Refusal{.Said = "the legs entering and leaving vertices " +
                                            std::to_string(at) + ".." + std::to_string(last) +
                                            " are parallel and meet nowhere"});
   }
+  bend.PiEastM = met->EastM;
+  bend.PiNorthM = met->NorthM;
 
   const double half = 0.5 * swing;
   const double toCentre = (bend.TurnRad > 0.0 ? 1.0 : -1.0) * (0.5 * std::numbers::pi);
@@ -167,10 +164,11 @@ constexpr double kMostClothoidShare = 1.0;
     centreN = bend.PiNorthM + away * std::sin(bisector);
   };
 
-  const double intoM =
-      AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (at - 1)], points[2 * (at - 1) + 1]);
+  const double intoM = AwayM({.EastM = bend.PiEastM, .NorthM = bend.PiNorthM},
+                             {.EastM = points[2 * (at - 1)], .NorthM = points[2 * (at - 1) + 1]});
   const double outOfM =
-      AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (last + 1)], points[2 * (last + 1) + 1]);
+      AwayM({.EastM = bend.PiEastM, .NorthM = bend.PiNorthM},
+            {.EastM = points[2 * (last + 1)], .NorthM = points[2 * (last + 1) + 1]});
   const double roomM = intoM < outOfM ? intoM : outOfM;
   const bool againstAStraight =
       at > 1 || last + 2 < points.size() / 2 || std::fabs(intoM - outOfM) > kLeastRunM;
@@ -202,8 +200,10 @@ constexpr double kMostClothoidShare = 1.0;
       double bN = 0.0;
       centreOf(oneThird, aE, aN);
       centreOf(twoThirds, bE, bN);
-      if (FurthestShareOfArc(points, at, last, aE, aN, oneThird, withinAtM, withinM) <
-          FurthestShareOfArc(points, at, last, bE, bN, twoThirds, withinAtM, withinM)) {
+      if (FurthestShareOfArc(
+              points, at, last, {.EastM = aE, .NorthM = aN}, oneThird, withinAtM, withinM) <
+          FurthestShareOfArc(
+              points, at, last, {.EastM = bE, .NorthM = bN}, twoThirds, withinAtM, withinM)) {
         high = twoThirds;
       } else {
         low = oneThird;
@@ -226,9 +226,10 @@ constexpr double kMostClothoidShare = 1.0;
   double centreE = 0.0;
   double centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
-  bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
-  bend.AwayShare =
-      FurthestShareOfArc(points, at, last, centreE, centreN, bend.RadiusM, withinAtM, withinM);
+  bend.AwayM =
+      FurthestFromArcM(points, at, last, {.EastM = centreE, .NorthM = centreN}, bend.RadiusM);
+  bend.AwayShare = FurthestShareOfArc(
+      points, at, last, {.EastM = centreE, .NorthM = centreN}, bend.RadiusM, withinAtM, withinM);
   bend.SpiralM = SpiralInto(bend.RadiusM, swing, roomM, againstAStraight);
   bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
   bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
@@ -336,7 +337,8 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
     for (size_t one = 0; one + 1 < out.Bends.size(); ++one) {
       Bend &before = out.Bends[one];
       Bend &after = out.Bends[one + 1];
-      const double betweenM = AwayM(before.PiEastM, before.PiNorthM, after.PiEastM, after.PiNorthM);
+      const double betweenM = AwayM({.EastM = before.PiEastM, .NorthM = before.PiNorthM},
+                                    {.EastM = after.PiEastM, .NorthM = after.PiNorthM});
       const double wantedM = before.TangentM + after.TangentM;
       if (wantedM <= betweenM) { continue; }
       crowded = true;
@@ -390,7 +392,8 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
   double heading = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
   const Bend *untransitioned = nullptr;
   for (const Bend &bend : aligned.Bends) {
-    const double straightM = AwayM(atEast, atNorth, bend.IntoEastM, bend.IntoNorthM);
+    const double straightM = AwayM({.EastM = atEast, .NorthM = atNorth},
+                                   {.EastM = bend.IntoEastM, .NorthM = bend.IntoNorthM});
     const double ahead = (bend.IntoEastM - atEast) * std::cos(heading) +
                          (bend.IntoNorthM - atNorth) * std::sin(heading);
     if (ahead < -kLeastRunM) {
@@ -462,7 +465,8 @@ LayAligned(std::span<const double> eastNorthM, const Aligned &aligned, Reference
     heading = bend.OutOfHeadingRad;
   }
   const double lastM =
-      AwayM(atEast, atNorth, eastNorthM[2 * (points - 1)], eastNorthM[2 * (points - 1) + 1]);
+      AwayM({.EastM = atEast, .NorthM = atNorth},
+            {.EastM = eastNorthM[2 * (points - 1)], .NorthM = eastNorthM[2 * (points - 1) + 1]});
   if (untransitioned != nullptr && lastM > kLeastRunM) {
     return std::unexpected(Refusal{
         .Said = "the bend over vertices " + std::to_string(untransitioned->FirstVertex) + ".." +
