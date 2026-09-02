@@ -47,8 +47,8 @@ const Ridden &DriveTick(const Corridor &way,
                         const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;
-  auto &corridor = way.Line;
-  auto &profile = way.Profile;
+  const auto &corridor = way.Line;
+  const auto &profile = way.Profile;
 
   auto &rig = drive.Rig;
   auto &body = drive.Body;

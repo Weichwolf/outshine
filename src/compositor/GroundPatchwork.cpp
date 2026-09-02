@@ -2,6 +2,7 @@
 #include "math/Vec3.h"
 
 #include <cmath>
+#include <utility>
 #include <vector>
 #include <cstdint>
 #include <cstddef>
@@ -194,10 +195,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         const TileMeshes::Reply said =
             over.Asking ? tiles.Wants(asked, over.Grid) : tiles.Mesh(asked, over.Grid, &built);
         bool ofTheGround = true;
-        if (zoom >= 0 && zoom < static_cast<int>(kZoomLevels)) { ++out.WantedAtZoom[zoom]; }
+        if (zoom >= 0 && std::cmp_less(zoom, kZoomLevels)) { ++out.WantedAtZoom[zoom]; }
         if (said == TileMeshes::Reply::Pending) {
           ++out.Pending;
-          if (zoom >= 0 && zoom < static_cast<int>(kZoomLevels)) { ++out.PendingAtZoom[zoom]; }
+          if (zoom >= 0 && std::cmp_less(zoom, kZoomLevels)) { ++out.PendingAtZoom[zoom]; }
           ofTheGround = false;
         } else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
           ++out.Absent;

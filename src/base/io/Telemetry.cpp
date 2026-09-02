@@ -34,7 +34,7 @@ void TelemetryBus::Start() {
   if (Sink_ != nullptr) {
     std::vector<std::string> cols;
     cols.reserve(Schema_.Channels().size());
-    for (auto &c : Schema_.Channels()) { cols.push_back(c.Name); }
+    for (const auto &c : Schema_.Channels()) { cols.push_back(c.Name); }
     Sink_->Header(cols);
   }
   Started_ = true;

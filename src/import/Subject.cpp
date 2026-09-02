@@ -1,3 +1,4 @@
+#include <format>
 #include "math/Vec4.h"
 #include "math/Mat4.h"
 #include "Heap.h"
@@ -179,10 +180,14 @@ bool Subject::BlendSkinFor(const Document &document,
     const int weights = primitive.Find(("WEIGHTS_" + which).c_str());
     if (bones < 0 && weights < 0) { break; }
     if (bones < 0 || weights < 0) {
-      return Refuse(document.Path() + ": a primitive on a skinned node carries " +
-                    std::string(bones < 0 ? "no JOINTS_" : "JOINTS_") + which + " and " +
-                    std::string(weights < 0 ? "no WEIGHTS_" : "WEIGHTS_") + which +
-                    ", and a set without both binds no vertex to any joint");
+      return Refuse(std::format(
+          "{}: a primitive on a skinned node carries {}{} and {}{}, and a set without both "
+          "binds no vertex to any joint",
+          document.Path(),
+          bones < 0 ? "no JOINTS_" : "JOINTS_",
+          which,
+          weights < 0 ? "no WEIGHTS_" : "WEIGHTS_",
+          which));
     }
     std::vector<double> theseIndices;
     std::vector<double> theseWeights;
@@ -195,10 +200,15 @@ bool Subject::BlendSkinFor(const Document &document,
                     " does not decode: " + document.Error());
     }
     if (theseIndices.size() != vertices * 4 || theseWeights.size() != vertices * 4) {
-      return Refuse(document.Path() + ": JOINTS_" + which + " decodes to " +
-                    std::to_string(theseIndices.size() / 4) + " and WEIGHTS_" + which + " to " +
-                    std::to_string(theseWeights.size() / 4) + " sets over " +
-                    std::to_string(vertices) + " vertices, and glTF states both are VEC4");
+      return Refuse(std::format(
+          "{}: JOINTS_{} decodes to {} and WEIGHTS_{} to {} sets over {} vertices, and glTF "
+          "states both are VEC4",
+          document.Path(),
+          which,
+          theseIndices.size() / 4,
+          which,
+          theseWeights.size() / 4,
+          vertices));
     }
     index.insert(index.end(), theseIndices.begin(), theseIndices.end());
     weight.insert(weight.end(), theseWeights.begin(), theseWeights.end());

@@ -35,7 +35,7 @@ thread_local uintptr_t tBase = 0, tPaintBottom = 0, tPaintTop = 0;
 thread_local StackProbe::Purpose tPurpose = StackProbe::Purpose::Frame;
 
 void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
-#if defined(__APPLE__)
+#ifdef __APPLE__
   const pthread_t self = pthread_self();
   *base = reinterpret_cast<uintptr_t>(pthread_get_stackaddr_np(self));
   *end = *base - static_cast<uintptr_t>(pthread_get_stacksize_np(self));

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <ratio>
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #include <malloc/malloc.h>
 #else
 #include <malloc.h>
@@ -22,7 +22,7 @@ std::atomic<double> gCostMs{0.0};
 } // namespace
 
 size_t HeapProbe::LiveBytes() {
-#if defined(__APPLE__)
+#ifdef __APPLE__
   malloc_statistics_t s{};
   malloc_zone_statistics(malloc_default_zone(), &s);
   return s.size_in_use;
@@ -33,7 +33,7 @@ size_t HeapProbe::LiveBytes() {
 }
 
 size_t HeapProbe::BreakBytes() {
-#if defined(__APPLE__)
+#ifdef __APPLE__
 
   malloc_statistics_t s{};
   malloc_zone_statistics(malloc_default_zone(), &s);

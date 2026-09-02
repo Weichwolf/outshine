@@ -713,7 +713,7 @@ double Placer::Flex(int node, const Computed &style, int self, Area content, dou
                           {.AgainstPx = mainRoom, .EmPx = itemEm, .RootEmPx = RootEm},
                           item.Frame),
                   item.Floor);
-    items.push_back(std::move(item));
+    items.push_back(item);
   }
   if (items.empty()) { return 0; }
 

@@ -42,6 +42,11 @@ struct GroundMesh {
 
 struct Yielded {
   size_t Divided = 0;
+  double RefineMs = 0.0;
+  double CutMs = 0.0;
+  double SewMs = 0.0;
+  double PressMs = 0.0;
+  double SeamMs = 0.0;
   size_t Seams = 0;
   size_t SeamsShared = 0;
   size_t Taken = 0;

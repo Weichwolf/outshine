@@ -151,7 +151,7 @@ private:
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
 
   ShapedGround Shape_;
-  [[nodiscard]] Reply Poll(Job &&job, Result *out);
+  [[nodiscard]] Reply Poll(const Job &job, Result *out);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(Data::TileId of) const;
 

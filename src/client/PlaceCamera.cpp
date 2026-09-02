@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <print>
 #include <ratio>
 #include <span>
 #include <string_view>
@@ -279,20 +280,20 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
                        return;
                      }
                      last = how;
-                     std::printf("\r    loading  terrain %zu/%zu  osm %zu/%zu  "
-                                 "%zu in flight  %.1f MB  %.0f Mbit/s  %.1f s   ",
-                                 how.GroundArrived,
-                                 how.GroundWanted,
-                                 how.VectorArrived,
-                                 how.VectorWanted,
-                                 how.Outstanding,
-                                 how.FetchedMB,
-                                 how.Megabits,
-                                 how.ElapsedS);
+                     std::print("\r    loading  terrain {}/{}  osm {}/{}  {} in flight  {:.1f} MB  "
+                                "{:.0f} Mbit/s  {:.1f} s   ",
+                                how.GroundArrived,
+                                how.GroundWanted,
+                                how.VectorArrived,
+                                how.VectorWanted,
+                                how.Outstanding,
+                                how.FetchedMB,
+                                how.Megabits,
+                                how.ElapsedS);
                      std::fflush(stdout);
                    })
           .has_value();
-  if (tells) { std::printf("\n"); }
+  if (tells) { std::println(""); }
 
   const auto stood = std::chrono::steady_clock::now();
   shot.StreamedS = last.ElapsedS;

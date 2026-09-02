@@ -79,7 +79,7 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
     return std::unexpected(S_->Error);
   }
   std::vector<size_t> ordered(surfaces.size());
-  std::iota(ordered.begin(), ordered.end(), size_t{0});
+  std::ranges::iota(ordered, size_t{0});
   std::ranges::stable_sort(
       ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
   std::vector<Core::Shows> laid;
@@ -238,7 +238,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
 
   std::vector<size_t> ordered(scenario.Surfaces.size());
-  std::iota(ordered.begin(), ordered.end(), size_t{0});
+  std::ranges::iota(ordered, size_t{0});
   std::ranges::stable_sort(ordered, [&scenario](size_t a, size_t b) {
     return scenario.Surfaces[a].Z < scenario.Surfaces[b].Z;
   });

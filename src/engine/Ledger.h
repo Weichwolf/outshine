@@ -33,8 +33,7 @@ public:
     for (size_t at = Standing_; at < Numbers_.size(); ++at) {
       if (Numbers_[at].What == what) {
         if (Rounds_[at] == Round_) {
-          if (Numbers_[at].How != how &&
-              std::find(Clashed_.begin(), Clashed_.end(), what) == Clashed_.end()) {
+          if (Numbers_[at].How != how && std::ranges::find(Clashed_, what) == Clashed_.end()) {
             Clashed_.emplace_back(what);
           }
           return;

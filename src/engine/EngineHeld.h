@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_ENGINEHELD_H
 #define OUTSHINE_ENGINE_ENGINEHELD_H
 
+#include <algorithm>
 #include <array>
 #include <Outshine.h>
 #include "Units.h"
@@ -343,7 +344,7 @@ struct Spent {
         return;
       }
       out.assign(Kept_.begin(), Kept_.end());
-      if (At_ != 0) { std::rotate(out.begin(), out.begin() + static_cast<long>(At_), out.end()); }
+      if (At_ != 0) { std::ranges::rotate(out, out.begin() + static_cast<long>(At_)); }
     }
 
   private:
@@ -469,6 +470,11 @@ struct Engine::State {
     double DeepestTrimM = 0.0;
     std::vector<double> ShortByM;
     double MostOverWaterM = 0.0;
+    double FitMs = 0.0;
+    double WaterMs = 0.0;
+    double SweepMs = 0.0;
+    double CorridorMs = 0.0;
+    double RestMs = 0.0;
   };
 
   void

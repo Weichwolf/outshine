@@ -14,6 +14,9 @@
 
 namespace outshine {
 
+constexpr double kFitWindowLegs = 0.9;
+constexpr double kFitWindowM = 6.0;
+
 constexpr double kControlShare = 0.75;
 
 namespace {
@@ -208,13 +211,20 @@ Fitted Fit(std::span<const double> eastNorthM,
     }
   }
 
+  double sweptM = 0.0;
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
-    const std::optional<double> found = into.Nearest(
-        {.EastM = eastM, .NorthM = northM}, {.AboutM = 0.5 * out.LengthM, .WithinM = out.LengthM});
+    const double inM = vertex > 0 ? legM[vertex - 1] : 0.0;
+    const double outM = vertex + 1 < points ? legM[vertex] : 0.0;
+    const Nearby about = vertex == 0
+                             ? Nearby{.AboutM = 0.5 * out.LengthM, .WithinM = out.LengthM}
+                             : Nearby{.AboutM = sweptM + inM,
+                                      .WithinM = kFitWindowLegs * (inM + outM) + kFitWindowM};
+    const std::optional<double> found = into.Nearest({.EastM = eastM, .NorthM = northM}, about);
     if (!found) { continue; }
     const double alongM = *found;
+    sweptM = alongM;
     Placed on;
     if (!into.At(alongM, on)) { continue; }
     const double east = eastM - on.EastM;

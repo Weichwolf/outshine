@@ -1,4 +1,5 @@
 #include "EngineHeld.h"
+#include <algorithm>
 #include <array>
 #include <string_view>
 #include <expected>
@@ -44,7 +45,7 @@ Result Engine::save(std::string_view path) const {
     const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), *value);
     lines.push_back(row.What + " " + std::string(digits.data(), written.ptr) + "\n");
   }
-  std::sort(lines.begin(), lines.end());
+  std::ranges::sort(lines);
   std::string text = "outshine-save 1 " + S_->Session.Declared.Named.Name + " " +
                      S_->Session.Declared.Named.Version + "\n";
   for (const std::string &line : lines) { text += line; }

@@ -1,3 +1,4 @@
+#include <format>
 #include <array>
 #include <cmath>
 #include "ScenarioRead.h"
@@ -208,7 +209,7 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
               (*known->Children == 0 ? std::string("none") : std::string(known->Children));
       return false;
     }
-    if (!Grammatical(child, path + "/" + name, error)) { return false; }
+    if (!Grammatical(child, std::format("{}/{}", path, name), error)) { return false; }
   }
   return true;
 }

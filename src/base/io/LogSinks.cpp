@@ -1,4 +1,5 @@
 #include "LogSinks.h"
+#include <print>
 #include <span>
 #include <cstdio>
 
@@ -23,16 +24,16 @@ void TextLogSink::Write(double simTimeS,
                         const char *event,
                         std::span<const LogField> fields) {
   if (File_ == nullptr) { return; }
-  fprintf(File_, "t=%.1f %s %s %s", simTimeS, LevelStr(level), tag, event);
-  if (unit != nullptr) { fprintf(File_, " unit=%s", unit); }
+  std::print(File_, "t={:.1f} {} {} {}", simTimeS, LevelStr(level), tag, event);
+  if (unit != nullptr) { std::print(File_, " unit={}", unit); }
   for (const auto &fld : fields) {
     if (fld.Value.contains(' ')) {
-      fprintf(File_, " %s=\"%s\"", fld.Key, fld.Value.c_str());
+      std::print(File_, " {}=\"{}\"", fld.Key, fld.Value);
     } else {
-      fprintf(File_, " %s=%s", fld.Key, fld.Value.c_str());
+      std::print(File_, " {}={}", fld.Key, fld.Value);
     }
   }
-  fprintf(File_, "\n");
+  std::println(File_, "");
   fflush(File_);
 }
 

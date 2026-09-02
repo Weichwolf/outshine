@@ -153,7 +153,7 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
   int secondRank = -1;
   double bestDist = kNoEdgeM;
   const std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
-  for (auto &grid : grids) {
+  for (const auto &grid : grids) {
     const Grid &B = *grid;
     if (B.W == 0) { continue; }
     const int i = static_cast<int>(std::floor((e - B.OrgE) / B.CellM));

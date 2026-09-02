@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <new>
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #include <malloc/malloc.h>
 #else
 #include <malloc.h>
@@ -56,7 +56,7 @@ TagRow *RowFor(const char *tag) {
 }
 
 inline size_t BlockBytes(const void *block) {
-#if defined(__APPLE__)
+#ifdef __APPLE__
   return malloc_size(block);
 #else
   return malloc_usable_size(block);

@@ -1,3 +1,4 @@
+#include <chrono>
 #include "Units.h"
 #include "GroundYield.h"
 #include "math/Vec3.h"
@@ -776,10 +777,20 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
   }
   told.Taken = taking.size();
   const std::span<const Yields> held(taking);
+  auto tookFrom = std::chrono::steady_clock::now();
+  const auto since = [&tookFrom]() {
+    const auto was = tookFrom;
+    tookFrom = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
+  };
   Refine(held, finestM, mesh, told);
+  told.RefineMs = since();
   Cut(held, mesh, told);
+  told.CutMs = since();
   Sew(held, mesh, told);
+  told.SewMs = since();
   Press(held, mesh, told);
+  told.PressMs = since();
   {
     std::unordered_map<uint64_t, uint32_t> standing;
     const std::vector<float> &positionM = *mesh.PositionM;
@@ -797,6 +808,7 @@ void YieldGround(std::span<const Yields> these, Budget within, GroundMesh mesh, 
       }
     }
   }
+  told.SeamMs = since();
 }
 
 } // namespace outshine

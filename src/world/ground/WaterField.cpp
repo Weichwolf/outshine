@@ -302,7 +302,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
                                                &L[static_cast<size_t>(k) * 3],
                                                &R[static_cast<size_t>(k + 1) * 3],
                                                &L[static_cast<size_t>(k + 1) * 3]};
-      for (auto &t : q) {
+      for (const auto &t : q) {
         out.push_back(static_cast<float>(t[0]));
         out.push_back(static_cast<float>(t[1]));
         out.push_back(static_cast<float>(t[2]));

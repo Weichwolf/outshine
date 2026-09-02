@@ -872,7 +872,14 @@ void Engine::State::PaveLane(const Paving &on,
     return;
   }
 
+  auto tookFrom = std::chrono::steady_clock::now();
+  const auto since = [&tookFrom]() {
+    const auto was = tookFrom;
+    tookFrom = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
+  };
   FitLane(laneAt, into);
+  into.FitMs += since();
   if (into.Along.size() < 2) {
     ++into.RefusedWays;
     return;
@@ -967,6 +974,7 @@ void Engine::State::PaveLane(const Paving &on,
     const Vec4f &cover = World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
     wears = {{cover[0], cover[1], cover[2]}};
   }
+  into.WaterMs += since();
   if (lane.Bridge) {
     Generators::SweepRoad(Span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
                           static_cast<double>(lane.HalfWidthM),
@@ -979,6 +987,7 @@ void Engine::State::PaveLane(const Paving &on,
                           &into.SweptRefused,
                           &into.SweptWhy);
   }
+  into.SweepMs += since();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
     const double runS = into.Along[at].SouthM - into.Along[at - 1u].SouthM;
@@ -1482,7 +1491,14 @@ void Engine::State::Paves(const TangentFrame &standing,
   into.Designed.resize(ways.Ways().size());
   const int waterRow = World.Stack.Materials().Find("water");
 
+  auto tookFrom = std::chrono::steady_clock::now();
+  const auto since = [&tookFrom]() {
+    const auto was = tookFrom;
+    tookFrom = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
+  };
   if (vectors != nullptr) { Crosses(ways, *vectors, standing, drapedOver, into); }
+  Published.Places("streets: of that, finding the crossings", since(), "ms");
   if (vectors != nullptr && into.DecksRaised > 0) {
     Bridges(ways, *vectors, standing, drapedOver, into);
   }
@@ -1494,7 +1510,9 @@ void Engine::State::Paves(const TangentFrame &standing,
   Published.Places(
       "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
   Published.Places("streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
+  Published.Places("streets: of that, raising the decks", since(), "ms");
   if (vectors != nullptr) { Shortens(ways, *vectors, into); }
+  Published.Places("streets: of that, shortening the ends", since(), "ms");
   if (!into.ShortByM.empty()) {
     std::ranges::sort(into.ShortByM);
     std::ranges::sort(into.ForkDeg);
@@ -1537,18 +1555,39 @@ void Engine::State::Paves(const TangentFrame &standing,
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
         PaveLane(on, phase, laneAt, into, corridor, pavement);
       }
+      Published.Places(phase == 0 ? "streets: of that, designing every lane"
+                                  : "streets: of that, paving every lane",
+                       since(),
+                       "ms");
+      Published.Places(phase == 0 ? "streets: of designing, the fit"
+                                  : "streets: of paving, the fit",
+                       into.FitMs,
+                       "ms");
+      Published.Places(phase == 0 ? "streets: of designing, the water"
+                                  : "streets: of paving, the water",
+                       into.WaterMs,
+                       "ms");
+      Published.Places(phase == 0 ? "streets: of designing, the sweep"
+                                  : "streets: of paving, the sweep",
+                       into.SweepMs,
+                       "ms");
+      into.FitMs = 0.0;
+      into.WaterMs = 0.0;
+      into.SweepMs = 0.0;
       if (phase == 0) {
         double movedM = 0.0;
-        for (int pass = 0; pass < kLevelPasses; ++pass) {
-          std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
-          for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
-            for (uint32_t one = 0; one < static_cast<uint32_t>(into.Designed[lane].size()); ++one) {
-              if (into.Designed[lane][one].Node == 0u) { continue; }
-              atNode[into.Designed[lane][one].Node].emplace_back(lane, one);
-            }
+        std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
+        for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
+          for (uint32_t one = 0; one < static_cast<uint32_t>(into.Designed[lane].size()); ++one) {
+            if (into.Designed[lane][one].Node == 0u) { continue; }
+            atNode[into.Designed[lane][one].Node].emplace_back(lane, one);
           }
-          std::vector<double> pullM(into.Designed.size(), 0.0);
-          std::vector<uint32_t> pulls(into.Designed.size(), 0u);
+        }
+        std::vector<double> pullM(into.Designed.size(), 0.0);
+        std::vector<uint32_t> pulls(into.Designed.size(), 0u);
+        for (int pass = 0; pass < kLevelPasses; ++pass) {
+          std::ranges::fill(pullM, 0.0);
+          std::ranges::fill(pulls, 0u);
           for (const auto &node : atNode) {
             if (node.second.size() < 2) { continue; }
             double wanted = 0.0;
@@ -1572,6 +1611,7 @@ void Engine::State::Paves(const TangentFrame &standing,
           if (most < kLevelledM) { break; }
         }
         Published.Places("streets: the levelling's last shift", movedM, "m");
+        Published.Places("streets: of that, levelling the junctions", since(), "ms");
       }
     }
   }
@@ -2215,6 +2255,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                            .Uv = classUv.empty() ? nullptr : &classUv,
                            .Index = &laid->Index},
                 told);
+    Published.Places("ground: of that, refining", told.RefineMs, "ms");
+    Published.Places("ground: of that, cutting the seams", told.CutMs, "ms");
+    Published.Places("ground: of that, sewing them", told.SewMs, "ms");
+    Published.Places("ground: of that, pressing", told.PressMs, "ms");
+    Published.Places("ground: of that, counting the seams", told.SeamMs, "ms");
     Published.Places("ground: pads that may press it", static_cast<double>(builtPads), "pads");
     Published.Places("ground: corridor pieces that may press it",
                      static_cast<double>(yielding.size() - builtPads),

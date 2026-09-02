@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 #include <utility>
 
@@ -44,7 +45,7 @@ struct Reader {
   Reader Bytes() {
     const uint64_t n = Varint();
     Reader r{.P = P, .End = P, .Ok = false};
-    if (!Ok || static_cast<uint64_t>(End - P) < n) {
+    if (!Ok || std::cmp_less(End - P, n)) {
       Ok = false;
       return r;
     }
@@ -65,7 +66,7 @@ struct Reader {
         return true;
       case 2: {
         const uint64_t n = Varint();
-        if (!Ok || static_cast<uint64_t>(End - P) < n) {
+        if (!Ok || std::cmp_less(End - P, n)) {
           Ok = false;
           return false;
         }

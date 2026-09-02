@@ -1,3 +1,4 @@
+#include <format>
 #include "VegetationTemplates.h"
 
 #include "Json.h"
@@ -203,10 +204,10 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       rule.Lanes = static_cast<int>(r["lanes"].Num(0.0));
       rule.Oneway = r["oneway"].Num(0.0) > 0.5;
       if (rule.Rank < 0) {
-        Error_ = "osm row without rank: " + layer + "/" + kind;
+        Error_ = std::format("osm row without rank: {}/{}", layer, kind);
         return false;
       }
-      const std::string key = layer + "/" + kind;
+      const std::string key = std::format("{}/{}", layer, kind);
       if (!Rules_.emplace(key, rule).second) {
         Error_ = "duplicate osm row: " + key;
         return false;

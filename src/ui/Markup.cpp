@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <string_view>
 #include <string>
+#include <utility>
 #include <vector>
 #include <utility>
 
@@ -70,7 +71,7 @@ void Resolve(std::string_view raw, std::string &out) {
       const std::string_view digits = name.substr(hex ? 2 : 1);
       long parsed = 0;
       (void)std::from_chars(digits.data(), digits.data() + digits.size(), parsed, hex ? 16 : 10);
-      if (parsed <= 0 || parsed > kUnicodeMost) {
+      if (parsed <= 0 || std::cmp_greater(parsed, kUnicodeMost)) {
         out.push_back('&');
         ++at;
         continue;
