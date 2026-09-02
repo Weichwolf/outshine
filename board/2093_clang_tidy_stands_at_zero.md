@@ -98,3 +98,33 @@ The repair is not a revert, it is a shape no fixit can mistake:
 all of them would have gone red. The commit went in without one, because the checks before it had
 been textual and the habit had gone slack. THE GATE RUNS BEFORE THE COMMIT, not after it -- for
 every check that touches a body, which after the textual ones is all of them.
+
+## The second self-inflicted red, and it is the same shape as the first
+
+`OsmField::Build` opened with two locals the centre tile was written into:
+
+    uint32_t cx = 0, cy = 0;
+    if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) { return 0; }
+    CentreX_ = static_cast<int>(cx);
+    CentreY_ = static_cast<int>(cy);
+
+Turning `TryXy` into a `std::optional<TileId>` meant rewriting the two lines that READ `cx` and `cy`
+into the members -- which I did -- and leaving the two lines forty rows further down that read them
+again for the tile ring:
+
+    const long tx = static_cast<long>(cx) + dx;
+
+They were still declared, still initialised, still used, so nothing warned. Every OSM tile was then
+fetched around tile (0, 0) -- open ocean off Africa -- and OldTown rendered with its buildings gone
+and its four-second streaming stall gone with them, because there was nothing left to wait for. The
+digest read 9a94420c and the frame time looked BETTER: p50 3.25 -> 1.77 ms, p99 5.5 s -> 232 ms.
+
+**A number improving is not evidence.** The only thing that caught it was 545 119 of 921 600 pixels
+differing by up to 138 of 255, and a wall at (519, 337) that had turned into grass. CLAUDE.md's
+third question, exactly: if it draws, LOOK AT IT before believing any number.
+
+Both of this round's reds are one habit: **I replaced where a value is WRITTEN and did not read the
+rest of the scope for where it is READ.** The worklist was the same thing seen from the other side
+-- the loop's shape carried a fact about `Resolve` that the diff did not show. The guard is not a
+better checker, it is finishing the scope: after any change to how a value arrives, grep the
+function for every use of it before building.
