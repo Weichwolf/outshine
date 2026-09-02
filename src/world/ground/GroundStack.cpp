@@ -137,6 +137,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
 }
 
 void GroundStack::Settle() {
+  Cls_.Settle();
   Footprints_.Settle();
   Ways_.Settle();
   WaterBodies_.Settle();

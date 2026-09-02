@@ -107,6 +107,8 @@ public:
 
   size_t HeapBytes() const;
 
+  void Settle();
+
 private:
   std::vector<OsmField::Declared> Declared_;
 
@@ -132,6 +134,7 @@ private:
     Tier(int zoom, int tileRadius, double cellM, int halfCells, double slackM)
         : TileRadius(tileRadius), CellM(cellM), HalfCells(halfCells), SlackM(slackM), Zoom(zoom) {}
 
+    void Settle();
     [[nodiscard]] size_t HeapBytes() const;
   };
 

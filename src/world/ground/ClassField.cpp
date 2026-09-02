@@ -45,9 +45,23 @@ void ClassField::Open(double lat, double lon) {
   Opened_ = true;
 }
 
+void ClassField::Tier::Settle() {
+  if (Field) { Field->Settle(); }
+  Pts.shrink_to_fit();
+  Rings.shrink_to_fit();
+  Feats.shrink_to_fit();
+}
+
 size_t ClassField::Tier::HeapBytes() const {
   return (Field ? Field->HeapBytes() : 0) + CapacityBytes(Pts) + CapacityBytes(Rings) +
          CapacityBytes(Feats);
+}
+
+void ClassField::Settle() {
+  const std::scoped_lock lk(Mu_);
+  if (Fine_.ArraysLent || Coarse_.ArraysLent) { return; }
+  Fine_.Settle();
+  Coarse_.Settle();
 }
 
 size_t ClassField::HeapBytes() const {
