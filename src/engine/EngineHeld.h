@@ -419,6 +419,98 @@ struct Engine::State {
     [[nodiscard]] double At(double eastM, double southM, double fallback) const;
   };
 
+  struct Meets {
+    double EastM = 0.0;
+    double SouthM = 0.0;
+    uint64_t Named = 0;
+  };
+
+  struct Paving {
+    const Ground::StreetField &Ways;
+    const Ground::OsmField &Vectors;
+    std::span<const double> Points;
+    const std::unordered_map<uint64_t, uint32_t> &SharedNodes;
+    const Drape &Draped;
+    const TangentFrame &Standing;
+    const std::shared_ptr<const ClassStructure> &Classes;
+    int WaterRow = -1;
+  };
+
+  struct Paved {
+    std::vector<std::vector<Generators::RoadStation>> Designed;
+    std::vector<Generators::RoadStation> Along;
+    std::vector<Generators::RoadStation> Finer;
+    std::vector<double> FitOffsetM;
+    std::vector<double> FitRadiusM;
+    std::vector<double> FitEastNorth;
+    std::vector<double> TightDemandM;
+    std::vector<double> DeckM;
+    std::vector<double> TrimM;
+    std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
+    std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> Gates;
+    std::unordered_map<uint64_t, double> EndM;
+    std::unordered_map<uint64_t, double> GroundEndM;
+    Generators::RoadRefusals SweptWhy;
+    size_t ChordAdded = 0;
+    size_t DecksOverWater = 0;
+    size_t AskedOverBridge = 0;
+    size_t NamedOverBridge = 0;
+    size_t WetOverBridge = 0;
+    size_t RefusedWays = 0;
+    size_t LaidWays = 0;
+    size_t GroundWays = 0;
+    size_t FitLaid = 0;
+    size_t FitRefused = 0;
+    size_t FitUndrivable = 0;
+    size_t FitTooTight = 0;
+    size_t FitUnsplittable = 0;
+    size_t FitCuts = 0;
+    size_t SweptPieces = 0;
+    size_t SweptCuts = 0;
+    size_t SweptRefused = 0;
+    size_t CrossingsSeen = 0;
+    size_t DecksRaised = 0;
+    double MostRaisedM = 0.0;
+    size_t RampsRaised = 0;
+    double SteepestRamp = 0.0;
+    size_t EndsTrimmed = 0;
+    size_t EndsStillCrossing = 0;
+    std::vector<double> ForkDeg;
+    double DeepestTrimM = 0.0;
+    std::vector<double> ShortByM;
+    double MostOverWaterM = 0.0;
+  };
+
+  void
+  DesignLane(const Paving &on, const Ground::StreetField::Way &lane, size_t laneAt, Paved &into);
+
+  enum class Laid : uint8_t { Refused, Unchanged, Wanted };
+
+  [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
+
+  void FitLane(size_t laneAt, Paved &into);
+
+  void Crosses(const Ground::StreetField &ways,
+               const Ground::OsmField &vectors,
+               const TangentFrame &standing,
+               const Drape &drapedOver,
+               Paved &into);
+
+  void Bridges(const Ground::StreetField &ways,
+               const Ground::OsmField &vectors,
+               const TangentFrame &standing,
+               const Drape &drapedOver,
+               Paved &into);
+
+  void Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
+
+  void PaveLane(const Paving &on,
+                int phase,
+                size_t laneAt,
+                Paved &into,
+                std::vector<Yields> &corridor,
+                Generators::RoadRaised &pavement);
+
   void Paves(const TangentFrame &standing,
              const Around &over,
              const std::shared_ptr<const ClassStructure> &classStructure,

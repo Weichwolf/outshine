@@ -944,6 +944,814 @@ void Engine::State::Models(const TangentFrame &standing,
   }
 }
 
+void Engine::State::FitLane(size_t laneAt, Paved &into) {
+  into.FitEastNorth.clear();
+  into.FitEastNorth.reserve(into.Along.size() * 2u);
+  for (const Generators::RoadStation &one : into.Along) {
+    into.FitEastNorth.push_back(one.EastM);
+    into.FitEastNorth.push_back(-one.SouthM);
+  }
+  size_t from = 0;
+  size_t cuts = 0;
+  bool wholeWay = true;
+  while (from * 2u + 6u <= into.FitEastNorth.size()) {
+    ReferenceLine fitted;
+    const Fitted got = Fit(Span<const double>(into.FitEastNorth.data() + from * 2u,
+                                              into.FitEastNorth.size() - from * 2u),
+                           kFitWithinM,
+                           kFitTightestM,
+                           fitted);
+    if (got.Laid) {
+      ++into.FitLaid;
+      into.FitOffsetM.push_back(got.WorstOffsetM);
+      if (got.TightestRadiusM > 0.0) { into.FitRadiusM.push_back(got.TightestRadiusM); }
+      into.FitUndrivable += got.Undrivable;
+      break;
+    }
+    if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
+      if (wholeWay) { ++into.FitRefused; }
+      ++into.FitUnsplittable;
+      break;
+    }
+    const size_t upTo = got.TightestDemandedAtVertex;
+    if (upTo + 1u >= 3u) {
+      ReferenceLine piece;
+      const Fitted head =
+          Fit(Span<const double>(into.FitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
+              kFitWithinM,
+              kFitTightestM,
+              piece);
+      if (head.Laid) {
+        ++into.FitLaid;
+        into.FitOffsetM.push_back(head.WorstOffsetM);
+        if (head.TightestRadiusM > 0.0) { into.FitRadiusM.push_back(head.TightestRadiusM); }
+      } else {
+        ++into.FitUnsplittable;
+      }
+    }
+    ++into.FitTooTight;
+    ++cuts;
+    if (got.TightestDemandedM > 0.0) { into.TightDemandM.push_back(got.TightestDemandedM); }
+    from += upTo + 1u;
+    wholeWay = false;
+  }
+  into.FitCuts += cuts;
+
+  std::vector<double> reached(into.Along.size(), 0.0);
+  for (size_t at = 1; at < into.Along.size(); ++at) {
+    const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
+    const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
+    reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
+  }
+  const double wholeM = reached.back();
+  const double fromM = into.TrimM[laneAt * 2u];
+  const double toM = wholeM - into.TrimM[laneAt * 2u + 1u];
+  if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - kLeastCapM)) {
+    const auto standAt = [&](double alongM) {
+      size_t at = 1;
+      while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
+      const double span = reached[at] - reached[at - 1];
+      const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
+      const Generators::RoadStation &from = into.Along[at - 1];
+      const Generators::RoadStation &to = into.Along[at];
+      return Generators::RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
+                                     .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                                     .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+    };
+    std::vector<Generators::RoadStation> kept;
+    kept.push_back(standAt(fromM));
+    for (size_t at = 0; at < into.Along.size(); ++at) {
+      if (reached[at] > fromM && reached[at] < toM) { kept.push_back(into.Along[at]); }
+    }
+    kept.push_back(standAt(toM));
+    into.Along.swap(kept);
+  }
+}
+
+void Engine::State::DesignLane(const Paving &on,
+                               const Ground::StreetField::Way &lane,
+                               size_t laneAt,
+                               Paved &into) {
+  into.Along.clear();
+  bool whole = true;
+  const auto station = [&](double lat, double lon, uint64_t node) {
+    const std::optional<double> stood =
+        World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
+    if (!stood) { return false; }
+    const double aslM = *stood;
+    double eastM = 0.0;
+    double upM = 0.0;
+    double northM = 0.0;
+    const EastNorthUp eastMEnu =
+        on.Standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
+    eastM = eastMEnu.EastM;
+    upM = eastMEnu.UpM;
+    northM = eastMEnu.NorthM;
+    into.Along.push_back({.EastM = eastM,
+                          .SouthM = -northM,
+                          .GradeM = on.Draped.At(eastM, -northM, upM),
+                          .Node = node});
+    return true;
+  };
+  for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
+    const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
+    const size_t next = here + 2;
+    if (next + 1 >= on.Points.size()) {
+      whole = false;
+      break;
+    }
+    const double perLon = 111320.0 * std::cos(on.Points[here] * kDeg2Rad);
+    const double spanE = (on.Points[next + 1] - on.Points[here + 1]) * perLon;
+    const double spanN = (on.Points[next] - on.Points[here]) * kMPerDegLat;
+    const auto pieces =
+        static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
+    for (size_t piece = 0; piece < pieces && whole; ++piece) {
+      const double at = static_cast<double>(piece) / static_cast<double>(pieces);
+      const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
+      const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
+      const auto seen =
+          piece == 0 ? on.SharedNodes.find(WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
+                     : on.SharedNodes.end();
+      whole = station(onLat,
+                      onLon,
+                      seen != on.SharedNodes.end() && seen->second > 1u
+                          ? WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
+                          : 0u);
+    }
+  }
+  if (whole) {
+    const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
+    if (last + 1 < on.Points.size()) {
+      const auto seen = on.SharedNodes.find(
+          WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
+      whole = station(
+          on.Points[last],
+          on.Points[last + 1],
+          seen != on.SharedNodes.end() && seen->second > 1u
+              ? WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})
+              : 0ULL);
+    } else {
+      whole = false;
+    }
+  }
+  if (!whole || into.Along.size() < 2) {
+    ++into.RefusedWays;
+    return;
+  }
+  for (int pass = 0; pass < kChordPasses; ++pass) {
+    size_t added = 0;
+    into.Finer.clear();
+    into.Finer.reserve(into.Along.size() * 2u);
+    for (size_t at = 1; at < into.Along.size(); ++at) {
+      into.Finer.push_back(into.Along[at - 1u]);
+      const double midE = 0.5 * (into.Along[at - 1u].EastM + into.Along[at].EastM);
+      const double midS = 0.5 * (into.Along[at - 1u].SouthM + into.Along[at].SouthM);
+      const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
+      const double overM = on.Draped.At(midE, midS, chord);
+      if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
+      into.Finer.push_back(Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+      ++added;
+    }
+    into.Finer.push_back(into.Along.back());
+    into.Along.swap(into.Finer);
+    into.ChordAdded += added;
+    if (added == 0) { break; }
+  }
+
+  if (lane.MaxGradient > 0.0f) {
+    Generators::DesignProfile(Span<Generators::RoadStation>(into.Along.data(), into.Along.size()),
+                              static_cast<double>(lane.MaxGradient),
+                              kLeastCrestK);
+  }
+  for (Generators::RoadStation &one : into.Along) {
+    if (one.Node != 0u || into.AtCrossing.empty()) { continue; }
+    const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
+    const auto south = static_cast<int64_t>(std::floor(one.SouthM / kCrossCellM));
+    const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
+    const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
+    const auto near = into.AtCrossing.find((atE << 32U) | atS);
+    if (near == into.AtCrossing.end()) { continue; }
+    for (const auto &met : near->second) {
+      const double offE = one.EastM - met.EastM;
+      const double offS = one.SouthM - met.SouthM;
+      if (offE * offE + offS * offS <= kMeetsWithinM * kMeetsWithinM) {
+        one.Node = met.Named;
+        break;
+      }
+    }
+  }
+  into.Designed[laneAt] = into.Along;
+  return;
+}
+
+void Engine::State::PaveLane(const Paving &on,
+                             int phase,
+                             size_t laneAt,
+                             Paved &into,
+                             std::vector<Yields> &corridor,
+                             Generators::RoadRaised &pavement) {
+  const Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
+      !(lane.HalfWidthM > 0.0f)) {
+    into.RefusedWays += phase == 0 ? 1u : 0u;
+    return;
+  }
+  if (phase == 1) {
+    into.Along = into.Designed[laneAt];
+    if (into.Along.size() < 2) { return; }
+  } else {
+    DesignLane(on, lane, laneAt, into);
+    return;
+  }
+
+  FitLane(laneAt, into);
+  if (into.Along.size() < 2) {
+    ++into.RefusedWays;
+    return;
+  }
+  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) {
+    double overWaterM = 0.0;
+    for (size_t at = 1; at < into.Along.size(); ++at) {
+      double lat = 0.0;
+      double lon = 0.0;
+      const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
+      const double midS = 0.5 * (into.Along[at - 1].SouthM + into.Along[at].SouthM);
+      const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = -midS});
+      lat = midAt.LatitudeDeg;
+      lon = midAt.LongitudeDeg;
+      double edgeM = 0.0;
+      int second = -1;
+      const int which = World.Stack.Classes().ClassAt(
+          *on.Classes, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
+      ++into.AskedOverBridge;
+      if (which < 0 || static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {
+        continue;
+      }
+      ++into.NamedOverBridge;
+      if (World.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) {
+        continue;
+      }
+      ++into.WetOverBridge;
+      const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
+      const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
+      overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
+    }
+    if (overWaterM > 0.0) {
+      double clear = 0.0;
+      for (const Ground::VegetationTemplates::WaterBand &band :
+           World.Stack.Vegetation().WaterBands()) {
+        clear = static_cast<double>(band.ClearanceM);
+        if (overWaterM <= static_cast<double>(band.RunM)) { break; }
+      }
+      if (clear > 0.0) {
+        double stood = -kBeyondAnyCoordinate;
+        for (const Generators::RoadStation &one : into.Along) {
+          stood = std::max(stood, one.GradeM);
+        }
+        into.DeckM[laneAt] = std::max(into.DeckM[laneAt], stood + clear);
+        ++into.DecksOverWater;
+        into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
+      }
+    }
+  }
+  if (lane.Bridge) {
+    double deck = into.DeckM[laneAt];
+    for (const Generators::RoadStation &one : into.Along) { deck = std::max(deck, one.GradeM); }
+    for (Generators::RoadStation &one : into.Along) { one.GradeM = deck; }
+  } else if (!into.EndM.empty()) {
+    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
+    const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
+    if (last + 1 < on.Points.size()) {
+      const auto from = into.EndM.find(
+          WayEndKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}));
+      const auto to = into.EndM.find(
+          WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
+      if (from != into.EndM.end() && to != into.EndM.end()) {
+        double runM = 0.0;
+        std::vector<double> reached(into.Along.size(), 0.0);
+        for (size_t at = 1; at < into.Along.size(); ++at) {
+          const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
+          const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
+          runM += std::sqrt(spanE * spanE + spanS * spanS);
+          reached[at] = runM;
+        }
+        for (size_t at = 0; at < into.Along.size(); ++at) {
+          const double along01 = runM > kLeastRunM ? reached[at] / runM : 0.0;
+          const double wanted = from->second + (to->second - from->second) * along01;
+          into.Along[at].GradeM = std::max(into.Along[at].GradeM, wanted);
+        }
+      }
+    }
+  }
+  into.LaidWays += lane.Bridge ? 1u : 0u;
+  into.GroundWays += lane.Bridge ? 0u : 1u;
+  const bool sealed =
+      lane.CoverRow >= 0 &&
+      static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount() &&
+      World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
+  Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
+  if (sealed) {
+    profile = lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
+  }
+  Vec3f wears = {{0.5f, 0.5f, 0.5f}};
+  if (lane.CoverRow >= 0 &&
+      static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
+    const Vec4f &cover = World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
+    wears = {{cover[0], cover[1], cover[2]}};
+  }
+  if (lane.Bridge) {
+    Generators::SweepRoad(Span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
+                          static_cast<double>(lane.HalfWidthM),
+                          profile,
+                          wears,
+                          std::atan(Generators::kCrossfall),
+                          pavement,
+                          &into.SweptPieces,
+                          &into.SweptCuts,
+                          &into.SweptRefused,
+                          &into.SweptWhy);
+  }
+  for (size_t at = 1; at < into.Along.size(); ++at) {
+    const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
+    const double runS = into.Along[at].SouthM - into.Along[at - 1u].SouthM;
+    const double runM = std::sqrt(runE * runE + runS * runS);
+    if (!(runM > kLeastSpanM)) { continue; }
+    const double groundAt =
+        on.Draped.At(into.Along[at].EastM, -into.Along[at].SouthM, into.Along[at].GradeM);
+    const double groundBefore = on.Draped.At(
+        into.Along[at - 1u].EastM, -into.Along[at - 1u].SouthM, into.Along[at - 1u].GradeM);
+    const double yieldM = std::max(std::fabs(into.Along[at].GradeM - groundAt),
+                                   std::fabs(into.Along[at - 1u].GradeM - groundBefore));
+    const double outE = -runS / runM;
+    const double outS = runE / runM;
+    const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
+    double reliefM = std::fabs(groundAt - groundBefore);
+    for (const double hand : {1.0, -1.0}) {
+      for (int end = 0; end < 2; ++end) {
+        const Generators::RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
+        const double sideE = one.EastM + outE * half * hand;
+        const double sideS = one.SouthM + outS * half * hand;
+        reliefM = std::max(reliefM, on.Draped.At(sideE, -sideS, one.GradeM) - one.GradeM);
+      }
+    }
+    if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
+    Yields made;
+    made.RingEastSouthM = {into.Along[at - 1u].EastM + outE * half,
+                           into.Along[at - 1u].SouthM + outS * half,
+                           into.Along[at].EastM + outE * half,
+                           into.Along[at].SouthM + outS * half,
+                           into.Along[at].EastM - outE * half,
+                           into.Along[at].SouthM - outS * half,
+                           into.Along[at - 1u].EastM - outE * half,
+                           into.Along[at - 1u].SouthM - outS * half};
+    made.LowE = made.HighE = made.RingEastSouthM[0];
+    made.LowS = made.HighS = made.RingEastSouthM[1];
+    for (size_t k = 2; k + 1 < made.RingEastSouthM.size(); k += 2) {
+      made.LowE = std::min(made.LowE, made.RingEastSouthM[k]);
+      made.HighE = std::max(made.HighE, made.RingEastSouthM[k]);
+      made.LowS = std::min(made.LowS, made.RingEastSouthM[k + 1]);
+      made.HighS = std::max(made.HighS, made.RingEastSouthM[k + 1]);
+    }
+    made.AtE = into.Along[at - 1u].EastM;
+    made.AtS = into.Along[at - 1u].SouthM;
+    made.PlateauM = into.Along[at - 1u].GradeM;
+    const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
+    made.SlopeE = rise * runE / runM;
+    made.SlopeS = rise * runS / runM;
+    made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
+    made.YieldM = yieldM;
+    const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
+    if (rests) {
+      made.SeamEastSouthM = {
+          into.Along[at - 1u].EastM + outE * static_cast<double>(lane.HalfWidthM),
+          into.Along[at - 1u].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].EastM + outE * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].SouthM + outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].EastM - outE * static_cast<double>(lane.HalfWidthM),
+          into.Along[at].SouthM - outS * static_cast<double>(lane.HalfWidthM),
+          into.Along[at - 1u].EastM - outE * static_cast<double>(lane.HalfWidthM),
+          into.Along[at - 1u].SouthM - outS * static_cast<double>(lane.HalfWidthM)};
+    }
+    made.Fills = !lane.Bridge;
+    corridor.push_back(std::move(made));
+  }
+  if (!lane.Bridge && into.Along.size() > 3) {
+    const size_t shutFrom = static_cast<size_t>(lane.FirstPoint) * 2u;
+    const size_t shutTo = shutFrom + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
+    const bool shut = shutTo + 1 < on.Points.size() &&
+                      std::fabs(on.Points[shutFrom] - on.Points[shutTo]) < 1.0e-7 &&
+                      std::fabs(on.Points[shutFrom + 1] - on.Points[shutTo + 1]) < 1.0e-7;
+    if (shut) {
+      Yields island;
+      island.RingEastSouthM.reserve(into.Along.size() * 2u);
+      island.LowE = island.HighE = into.Along.front().EastM;
+      island.LowS = island.HighS = into.Along.front().SouthM;
+      double summed = 0.0;
+      for (const Generators::RoadStation &one : into.Along) {
+        island.RingEastSouthM.push_back(one.EastM);
+        island.RingEastSouthM.push_back(one.SouthM);
+        island.LowE = std::min(island.LowE, one.EastM);
+        island.HighE = std::max(island.HighE, one.EastM);
+        island.LowS = std::min(island.LowS, one.SouthM);
+        island.HighS = std::max(island.HighS, one.SouthM);
+        summed += one.GradeM;
+      }
+      island.AtE = into.Along.front().EastM;
+      island.AtS = into.Along.front().SouthM;
+      island.PlateauM = summed / static_cast<double>(into.Along.size());
+      island.ApronM = kLeastApronM;
+      island.YieldM = kBrokenGroundM;
+      island.Fills = true;
+      corridor.push_back(std::move(island));
+    }
+  }
+  {
+    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+    const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
+    if (last + 1 < on.Points.size()) {
+      const std::array<uint64_t, 2> key = {
+          {WayEndKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}),
+           WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})}};
+      for (int side = 0; side < 2; ++side) {
+        const Generators::RoadStation &at = side == 0 ? into.Along.front() : into.Along.back();
+        const Generators::RoadStation &to =
+            side == 0 ? into.Along[1] : into.Along[into.Along.size() - 2u];
+        double outE = to.EastM - at.EastM;
+        double outS = to.SouthM - at.SouthM;
+        const double run = std::sqrt(outE * outE + outS * outS);
+        if (!(run > kLeastRunM)) { continue; }
+        outE /= run;
+        outS /= run;
+        into.Gates[key[side]].push_back(
+            Generators::RoadGate{.EastM = at.EastM,
+                                 .SouthM = at.SouthM,
+                                 .GradeM = at.GradeM,
+                                 .OutE = outE,
+                                 .OutS = outS,
+                                 .HalfWidthM = static_cast<double>(lane.HalfWidthM)});
+      }
+    }
+  }
+}
+
+Engine::State::Laid
+Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded) {
+  const double atLat = at.LatitudeDeg;
+  const double atLon = at.LongitudeDeg;
+  const Ground::TileFrac here = Ground::ToTileFracClamped(
+      Ground::Geo{.LongitudeDeg = atLon, .LatitudeDeg = atLat}, over.Zoom);
+  const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
+                        static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
+                        (static_cast<uint64_t>(over.Levels) << 56u);
+  World.Stack.Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
+  ++World.Asked;
+  Around asking = over;
+  asking.Asking = true;
+  auto sees = LayPatchwork(World.Stack.Pool(), asking);
+  if (!sees) {
+    Error = sees.error();
+    return Laid::Refused;
+  }
+  World.Pending = sees->Pending;
+  World.Bare = sees->Bare;
+  World.Wanted = sees->Tiles;
+  World.AskedPending = sees->Pending;
+  World.AskedWanted = sees->Tiles;
+  const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
+  const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
+  const uint64_t classes = naming ? naming->Version() : 0;
+  const bool elsewhere = from != World.LaidFrom;
+  const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
+  const bool renamed = classes != World.LaidClasses;
+  {
+    const Raised &standing = World.Stack.Footprints().Built();
+    const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
+    Published.Places(
+        "building triangles the world meshed", static_cast<double>(triangles), "triangles");
+  }
+  Published.Places(
+      "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
+  Published.Places("world: of that, the land classes",
+                   static_cast<double>(World.Stack.Classes().HeapBytes()),
+                   "bytes");
+  Published.Places(
+      "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
+  Published.Places(
+      "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
+  Published.Places(
+      "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
+  Published.Places("world: the ceiling its fields stand under",
+                   static_cast<double>(Ground::GroundStack::kHoldsBytes),
+                   "bytes");
+  Published.Places("world: times a round stopped at that ceiling",
+                   static_cast<double>(World.Stack.OverCeiling()),
+                   "rounds");
+  Published.Places("world: and the OSM features",
+                   World.Stack.Vectors() != nullptr
+                       ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
+                       : 0.0,
+                   "bytes");
+  Published.Places("tiles laid bare on the ellipsoid",
+                   static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
+                   "tiles");
+  if (World.EverLaid && !elsewhere && !grew && !renamed) { return Laid::Unchanged; }
+  Published.Places(
+      "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
+  Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
+  Published.Places("rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
+  Published.Places(
+      "rebuild: and resident the time before", static_cast<double>(World.LaidResident), "tiles");
+  Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
+  World.LaidFrom = from;
+  World.LaidResident = resident;
+  World.LaidClasses = classes;
+  World.EverLaid = true;
+  ++World.Relaid;
+  return Laid::Wanted;
+}
+
+void Engine::State::Crosses(const Ground::StreetField &ways,
+                            const Ground::OsmField &vectors,
+                            const TangentFrame &standing,
+                            const Drape &drapedOver,
+                            Paved &into) {
+  const std::span<const double> points = vectors.Points();
+  Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
+  std::vector<size_t> netToLane;
+  netToLane.reserve(ways.Ways().size());
+  for (size_t at = 0; at < ways.Ways().size(); ++at) {
+    const Ground::StreetField::Way &lane = ways.Ways()[at];
+    if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
+    if (first + static_cast<size_t>(lane.PointCount) * 2 > points.size()) { continue; }
+    net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
+            Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
+                           .MaxGradient = 0.0,
+                           .MinRadiusM = 0.0,
+                           .Friction = 0.0,
+                           .Lanes = lane.Lanes,
+                           .Spans = lane.Bridge});
+    netToLane.push_back(at);
+  }
+  std::vector<Path::Network::Crossing> crossed;
+  if (net.Crossings(crossed)) {
+    into.CrossingsSeen = crossed.size();
+    for (const Path::Network::Crossing &one : crossed) {
+      const EastNorthUp crossedAt = standing.Place(
+          {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
+      const double eastM = crossedAt.EastM;
+      const double northM = crossedAt.NorthM;
+      const uint64_t named =
+          WayEndKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
+      const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
+      const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
+      for (int64_t stepE = -1; stepE <= 1; ++stepE) {
+        for (int64_t stepS = -1; stepS <= 1; ++stepS) {
+          const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
+          const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
+          into.AtCrossing[(atE << 32U) | atS].push_back(
+              Meets{.EastM = eastM, .SouthM = -northM, .Named = named});
+        }
+      }
+    }
+    for (const Path::Network::Crossing &one : crossed) {
+      if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { continue; }
+      const size_t a = netToLane[one.OverWay];
+      const size_t b = netToLane[one.UnderWay];
+      const Ground::StreetField::Way &first = ways.Ways()[a];
+      const Ground::StreetField::Way &second = ways.Ways()[b];
+      if (first.Bridge == second.Bridge) { continue; }
+      const size_t spans = first.Bridge ? a : b;
+      const Ground::StreetField::Way &below = first.Bridge ? second : first;
+      const std::optional<double> stood =
+          World.Stack.Ground()
+              .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
+              .AslM();
+      if (!stood) { continue; }
+      const double aslM = *stood;
+      double eastM = 0.0;
+      double upM = 0.0;
+      double northM = 0.0;
+      const EastNorthUp eastMEnu = standing.Place(
+          {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = aslM});
+      eastM = eastMEnu.EastM;
+      upM = eastMEnu.UpM;
+      northM = eastMEnu.NorthM;
+      const double onDrawn = drapedOver.At(eastM, -northM, upM);
+      const double need = onDrawn + static_cast<double>(below.ClearanceM);
+      if (need > into.DeckM[spans]) {
+        if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
+        into.DeckM[spans] = need;
+        into.MostRaisedM = std::max(into.MostRaisedM, need - onDrawn);
+      }
+    }
+  }
+}
+
+void Engine::State::Bridges(const Ground::StreetField &ways,
+                            const Ground::OsmField &vectors,
+                            const TangentFrame &standing,
+                            const Drape &drapedOver,
+                            Paved &into) {
+  const std::span<const double> points = vectors.Points();
+  const auto endsOf = [&](const Ground::StreetField::Way &lane,
+                          std::span<uint64_t, 2> out,
+                          std::span<double, 4> at) {
+    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+    const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
+    if (last + 1 >= points.size()) { return false; }
+    at[0] = points[first];
+    at[1] = points[first + 1];
+    at[2] = points[last];
+    at[3] = points[last + 1];
+    out[0] = WayEndKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
+    out[1] = WayEndKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
+    return true;
+  };
+  const auto groundAt = [&](double lat, double lon, double *out) {
+    const std::optional<double> stood =
+        World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
+    if (!stood) { return false; }
+    const double aslM = *stood;
+    double eastM = 0.0;
+    double upM = 0.0;
+    double northM = 0.0;
+    const EastNorthUp eastMEnu =
+        standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
+    eastM = eastMEnu.EastM;
+    upM = eastMEnu.UpM;
+    northM = eastMEnu.NorthM;
+    *out = drapedOver.At(eastM, -northM, upM);
+    return true;
+  };
+  for (size_t at = 0; at < ways.Ways().size(); ++at) {
+    const Ground::StreetField::Way &lane = ways.Ways()[at];
+    if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+    std::array<uint64_t, 2> key = {{0, 0}};
+    std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
+    if (!endsOf(lane, key, corner)) { continue; }
+    for (int side = 0; side < 2; ++side) {
+      double stood = 0.0;
+      const size_t axis = static_cast<size_t>(side) * 2u;
+      if (!groundAt(corner[axis], corner[axis + 1u], &stood)) { continue; }
+      const auto found = into.EndM.find(key[side]);
+      if (found == into.EndM.end()) {
+        into.EndM.emplace(key[side], stood);
+        into.GroundEndM.emplace(key[side], stood);
+      } else {
+        found->second = std::max(found->second, stood);
+        const auto seeded = into.GroundEndM.find(key[side]);
+        if (seeded != into.GroundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
+      }
+    }
+    if (lane.Bridge && into.DeckM[at] > kUnraisedDeckM) {
+      for (const uint64_t one : key) {
+        const auto found = into.EndM.find(one);
+        if (found == into.EndM.end()) {
+          into.EndM.emplace(one, into.DeckM[at]);
+        } else {
+          found->second = std::max(found->second, into.DeckM[at]);
+        }
+      }
+    }
+  }
+  double mostDeckM = 0.0;
+  for (const auto &one : into.EndM) {
+    const auto seeded = into.GroundEndM.find(one.first);
+    if (seeded == into.GroundEndM.end()) { continue; }
+    mostDeckM = std::max(mostDeckM, one.second - seeded->second);
+  }
+  Published.Places("streets: the highest deck a ramp must reach", mostDeckM, "m");
+  for (int pass = 0; pass < kRampPasses; ++pass) {
+    for (const Ground::StreetField::Way &lane : ways.Ways()) {
+      if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+      if (!(lane.MaxGradient > 0.0f)) { continue; }
+      std::array<uint64_t, 2> key = {{0, 0}};
+      std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
+      if (!endsOf(lane, key, corner)) { continue; }
+      const auto low = into.EndM.find(key[0]);
+      const auto high = into.EndM.find(key[1]);
+      if (low == into.EndM.end() || high == into.EndM.end()) { continue; }
+      const double perLon = 111320.0 * std::cos(corner[0] * kDeg2Rad);
+      const double runE = (corner[3] - corner[1]) * perLon;
+      const double runN = (corner[2] - corner[0]) * kMPerDegLat;
+      const double runM = std::sqrt(runE * runE + runN * runN);
+      const double mostM = runM * static_cast<double>(lane.MaxGradient);
+      const double apartM = high->second - low->second;
+      const auto capped = [&](uint64_t at, double toM) {
+        const auto seeded = into.GroundEndM.find(at);
+        return seeded == into.GroundEndM.end() ? toM : std::min(toM, seeded->second + mostDeckM);
+      };
+      if (apartM > mostM) {
+        low->second = capped(low->first, high->second - mostM);
+      } else if (-apartM > mostM) {
+        high->second = capped(high->first, low->second - mostM);
+      }
+    }
+  }
+  for (const Ground::StreetField::Way &lane : ways.Ways()) {
+    if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
+    std::array<uint64_t, 2> key = {{0, 0}};
+    std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
+    if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
+    Vec2 stood = {{0.0, 0.0}};
+    if (!groundAt(corner[0], corner[1], stood.data()) ||
+        !groundAt(corner[2], corner[3], &stood[1])) {
+      continue;
+    }
+    double rose = 0.0;
+    for (int side = 0; side < 2; ++side) {
+      const auto found = into.EndM.find(key[side]);
+      if (found == into.EndM.end()) { continue; }
+      rose = std::max(rose, found->second - stood[side]);
+    }
+    if (rose > kRoseLeast) {
+      ++into.RampsRaised;
+      into.SteepestRamp = std::max(into.SteepestRamp, rose);
+    }
+  }
+}
+
+void Engine::State::Shortens(const Ground::StreetField &ways,
+                             const Ground::OsmField &vectors,
+                             Paved &into) {
+  const std::span<const double> points = vectors.Points();
+
+  struct Leaving {
+    uint32_t Way = 0;
+    uint8_t Side = 0;
+    float DirE = 0.0f;
+    float DirN = 0.0f;
+    float HalfM = 0.0f;
+  };
+
+  std::unordered_map<uint64_t, std::vector<Leaving>> meeting;
+  for (size_t at = 0; at < ways.Ways().size(); ++at) {
+    const Ground::StreetField::Way &lane = ways.Ways()[at];
+    if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+    if (!(lane.HalfWidthM > 0.0f)) { continue; }
+    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
+    const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
+    if (last + 1 >= points.size()) { continue; }
+    for (int side = 0; side < 2; ++side) {
+      const size_t here = side == 0 ? first : last;
+      const size_t next = side == 0 ? first + 2u : last - 2u;
+      const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
+      double outE = (points[next + 1] - points[here + 1]) * perLon;
+      double outN = (points[next] - points[here]) * kMPerDegLat;
+      const double run = std::sqrt(outE * outE + outN * outN);
+      if (!(run > kLeastRunM)) { continue; }
+      outE /= run;
+      outN /= run;
+      meeting[WayEndKey({.LongitudeDeg = points[here + 1], .LatitudeDeg = points[here]})].push_back(
+          Leaving{.Way = static_cast<uint32_t>(at),
+                  .Side = static_cast<uint8_t>(side),
+                  .DirE = static_cast<float>(outE),
+                  .DirN = static_cast<float>(outN),
+                  .HalfM = lane.HalfWidthM});
+    }
+  }
+  for (const auto &node : meeting) {
+    const std::vector<Leaving> &leaving = node.second;
+    if (leaving.size() < 2) { continue; }
+    for (const Leaving &mine : leaving) {
+      double back = 0.0;
+      for (const Leaving &other : leaving) {
+        if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+        const double cosBetween = static_cast<double>(mine.DirE) * other.DirE +
+                                  static_cast<double>(mine.DirN) * other.DirN;
+        const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
+                                            static_cast<double>(mine.DirN) * other.DirE);
+        if (sinBetween < kLeastSineBetween) { continue; }
+        const double reach =
+            (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
+            sinBetween;
+        back = std::max(back, reach);
+      }
+      double sharpest = kDegPerHalfTurn;
+      for (const Leaving &other : leaving) {
+        if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
+        const double between = std::acos(std::clamp(static_cast<double>(mine.DirE) * other.DirE +
+                                                        static_cast<double>(mine.DirN) * other.DirN,
+                                                    -1.0,
+                                                    1.0));
+        sharpest = std::min(sharpest, kDegPerHalfTurn - between * kRad2Deg);
+      }
+      const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
+      into.TrimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
+      if (capped > kLeastCapM) {
+        ++into.EndsTrimmed;
+        into.DeepestTrimM = std::max(into.DeepestTrimM, capped);
+      }
+      if (back > capped + kLeastCapM) {
+        ++into.EndsStillCrossing;
+        into.ShortByM.push_back(back - capped);
+        into.ForkDeg.push_back(sharpest);
+      }
+    }
+  }
+}
+
 void Engine::State::Paves(const TangentFrame &standing,
                           const Around &over,
                           const std::shared_ptr<const ClassStructure> &classStructure,
@@ -960,349 +1768,44 @@ void Engine::State::Paves(const TangentFrame &standing,
   clocks.WiresAt = std::chrono::steady_clock::now();
   const Ground::StreetField &ways = World.Stack.Ways();
   const Ground::OsmField *const vectors = World.Stack.Vectors();
-  std::vector<Generators::RoadStation> along;
-  std::vector<Generators::RoadStation> finer;
-  size_t chordAdded = 0;
+  Paved into;
+  into.DeckM.assign(ways.Ways().size(), -kBeyondAnyCoordinate);
+  into.TrimM.assign(ways.Ways().size() * 2u, 0.0);
+  into.Designed.resize(ways.Ways().size());
   const int waterRow = World.Stack.Materials().Find("water");
-  size_t decksOverWater = 0;
-  size_t askedOverBridge = 0;
-  size_t namedOverBridge = 0;
-  size_t wetOverBridge = 0;
-  double mostOverWaterM = 0.0;
-  size_t laidWays = 0;
-  size_t groundWays = 0;
-  size_t refusedWays = 0;
-  size_t fitLaid = 0;
-  size_t fitRefused = 0;
-  size_t fitUndrivable = 0;
-  size_t fitTooTight = 0;
-  std::vector<double> tightDemandM;
-  size_t fitUnsplittable = 0;
-  size_t fitCuts = 0;
-  size_t sweptPieces = 0;
-  size_t sweptCuts = 0;
-  size_t sweptRefused = 0;
-  Generators::RoadRefusals sweptWhy;
-  std::vector<double> fitOffsetM;
-  std::vector<double> fitRadiusM;
-  std::vector<double> fitEastNorth;
 
-  std::vector<double> deckM(ways.Ways().size(), -kBeyondAnyCoordinate);
-  size_t crossingsSeen = 0;
-
-  struct Meets {
-    double EastM, SouthM;
-    uint64_t Named;
-  };
-
-  std::unordered_map<uint64_t, std::vector<Meets>> atCrossing;
-  size_t decksRaised = 0;
-  double mostRaisedM = 0.0;
-  if (vectors != nullptr) {
-    const std::span<const double> points = vectors->Points();
-    Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
-    std::vector<size_t> netToLane;
-    netToLane.reserve(ways.Ways().size());
-    for (size_t at = 0; at < ways.Ways().size(); ++at) {
-      const Ground::StreetField::Way &lane = ways.Ways()[at];
-      if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-      const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
-      if (first + static_cast<size_t>(lane.PointCount) * 2 > points.size()) { continue; }
-      net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
-              Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                             .MaxGradient = 0.0,
-                             .MinRadiusM = 0.0,
-                             .Friction = 0.0,
-                             .Lanes = lane.Lanes,
-                             .Spans = lane.Bridge});
-      netToLane.push_back(at);
-    }
-    std::vector<Path::Network::Crossing> crossed;
-    if (net.Crossings(crossed)) {
-      crossingsSeen = crossed.size();
-      for (const Path::Network::Crossing &one : crossed) {
-        const EastNorthUp crossedAt = standing.Place(
-            {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
-        const double eastM = crossedAt.EastM;
-        const double northM = crossedAt.NorthM;
-        const uint64_t named =
-            WayEndKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
-        const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
-        const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
-        for (int64_t stepE = -1; stepE <= 1; ++stepE) {
-          for (int64_t stepS = -1; stepS <= 1; ++stepS) {
-            const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
-            const auto atS = static_cast<uint64_t>(south + stepS + 0x20000000LL);
-            atCrossing[(atE << 32U) | atS].push_back(
-                Meets{.EastM = eastM, .SouthM = -northM, .Named = named});
-          }
-        }
-      }
-      for (const Path::Network::Crossing &one : crossed) {
-        if (one.OverWay >= netToLane.size() || one.UnderWay >= netToLane.size()) { continue; }
-        const size_t a = netToLane[one.OverWay];
-        const size_t b = netToLane[one.UnderWay];
-        const Ground::StreetField::Way &first = ways.Ways()[a];
-        const Ground::StreetField::Way &second = ways.Ways()[b];
-        if (first.Bridge == second.Bridge) { continue; }
-        const size_t spans = first.Bridge ? a : b;
-        const Ground::StreetField::Way &below = first.Bridge ? second : first;
-        const std::optional<double> stood =
-            World.Stack.Ground()
-                .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
-                .AslM();
-        if (!stood) { continue; }
-        const double aslM = *stood;
-        double eastM = 0.0;
-        double upM = 0.0;
-        double northM = 0.0;
-        const EastNorthUp eastMEnu = standing.Place(
-            {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = aslM});
-        eastM = eastMEnu.EastM;
-        upM = eastMEnu.UpM;
-        northM = eastMEnu.NorthM;
-        const double onDrawn = drapedOver.At(eastM, -northM, upM);
-        const double need = onDrawn + static_cast<double>(below.ClearanceM);
-        if (need > deckM[spans]) {
-          if (deckM[spans] < kUnraisedDeckM) { ++decksRaised; }
-          deckM[spans] = need;
-          mostRaisedM = std::max(mostRaisedM, need - onDrawn);
-        }
-      }
-    }
-  }
-  std::unordered_map<uint64_t, double> endM;
-  std::unordered_map<uint64_t, double> groundEndM;
-  size_t rampsRaised = 0;
-  double steepestRamp = 0.0;
-  if (vectors != nullptr && decksRaised > 0) {
-    const std::span<const double> points = vectors->Points();
-    const auto endsOf = [&](const Ground::StreetField::Way &lane,
-                            std::span<uint64_t, 2> out,
-                            std::span<double, 4> at) {
-      const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
-      const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-      if (last + 1 >= points.size()) { return false; }
-      at[0] = points[first];
-      at[1] = points[first + 1];
-      at[2] = points[last];
-      at[3] = points[last + 1];
-      out[0] = WayEndKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
-      out[1] = WayEndKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
-      return true;
-    };
-    const auto groundAt = [&](double lat, double lon, double *out) {
-      const std::optional<double> stood =
-          World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
-      if (!stood) { return false; }
-      const double aslM = *stood;
-      double eastM = 0.0;
-      double upM = 0.0;
-      double northM = 0.0;
-      const EastNorthUp eastMEnu =
-          standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
-      eastM = eastMEnu.EastM;
-      upM = eastMEnu.UpM;
-      northM = eastMEnu.NorthM;
-      *out = drapedOver.At(eastM, -northM, upM);
-      return true;
-    };
-    for (size_t at = 0; at < ways.Ways().size(); ++at) {
-      const Ground::StreetField::Way &lane = ways.Ways()[at];
-      if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-      std::array<uint64_t, 2> key = {{0, 0}};
-      std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-      if (!endsOf(lane, key, corner)) { continue; }
-      for (int side = 0; side < 2; ++side) {
-        double stood = 0.0;
-        const size_t axis = static_cast<size_t>(side) * 2u;
-        if (!groundAt(corner[axis], corner[axis + 1u], &stood)) { continue; }
-        const auto found = endM.find(key[side]);
-        if (found == endM.end()) {
-          endM.emplace(key[side], stood);
-          groundEndM.emplace(key[side], stood);
-        } else {
-          found->second = std::max(found->second, stood);
-          const auto seeded = groundEndM.find(key[side]);
-          if (seeded != groundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
-        }
-      }
-      if (lane.Bridge && deckM[at] > kUnraisedDeckM) {
-        for (const uint64_t one : key) {
-          const auto found = endM.find(one);
-          if (found == endM.end()) {
-            endM.emplace(one, deckM[at]);
-          } else {
-            found->second = std::max(found->second, deckM[at]);
-          }
-        }
-      }
-    }
-    double mostDeckM = 0.0;
-    for (const auto &one : endM) {
-      const auto seeded = groundEndM.find(one.first);
-      if (seeded == groundEndM.end()) { continue; }
-      mostDeckM = std::max(mostDeckM, one.second - seeded->second);
-    }
-    Published.Places("streets: the highest deck a ramp must reach", mostDeckM, "m");
-    for (int pass = 0; pass < kRampPasses; ++pass) {
-      for (const Ground::StreetField::Way &lane : ways.Ways()) {
-        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-        if (!(lane.MaxGradient > 0.0f)) { continue; }
-        std::array<uint64_t, 2> key = {{0, 0}};
-        std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-        if (!endsOf(lane, key, corner)) { continue; }
-        const auto low = endM.find(key[0]);
-        const auto high = endM.find(key[1]);
-        if (low == endM.end() || high == endM.end()) { continue; }
-        const double perLon = 111320.0 * std::cos(corner[0] * kDeg2Rad);
-        const double runE = (corner[3] - corner[1]) * perLon;
-        const double runN = (corner[2] - corner[0]) * kMPerDegLat;
-        const double runM = std::sqrt(runE * runE + runN * runN);
-        const double mostM = runM * static_cast<double>(lane.MaxGradient);
-        const double apartM = high->second - low->second;
-        const auto capped = [&](uint64_t at, double toM) {
-          const auto seeded = groundEndM.find(at);
-          return seeded == groundEndM.end() ? toM : std::min(toM, seeded->second + mostDeckM);
-        };
-        if (apartM > mostM) {
-          low->second = capped(low->first, high->second - mostM);
-        } else if (-apartM > mostM) {
-          high->second = capped(high->first, low->second - mostM);
-        }
-      }
-    }
-    for (const Ground::StreetField::Way &lane : ways.Ways()) {
-      if (lane.Bridge || lane.Form != Ground::StreetField::Shape::Ribbon) { continue; }
-      std::array<uint64_t, 2> key = {{0, 0}};
-      std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-      if (lane.PointCount < 2 || !endsOf(lane, key, corner)) { continue; }
-      Vec2 stood = {{0.0, 0.0}};
-      if (!groundAt(corner[0], corner[1], stood.data()) ||
-          !groundAt(corner[2], corner[3], &stood[1])) {
-        continue;
-      }
-      double rose = 0.0;
-      for (int side = 0; side < 2; ++side) {
-        const auto found = endM.find(key[side]);
-        if (found == endM.end()) { continue; }
-        rose = std::max(rose, found->second - stood[side]);
-      }
-      if (rose > kRoseLeast) {
-        ++rampsRaised;
-        steepestRamp = std::max(steepestRamp, rose);
-      }
-    }
+  if (vectors != nullptr) { Crosses(ways, *vectors, standing, drapedOver, into); }
+  if (vectors != nullptr && into.DecksRaised > 0) {
+    Bridges(ways, *vectors, standing, drapedOver, into);
   }
   Published.Places(
-      "streets: ways a ramp lifted off the ground", static_cast<double>(rampsRaised), "ways");
-  Published.Places("streets: and the most one was lifted", steepestRamp, "m");
+      "streets: ways a ramp lifted off the ground", static_cast<double>(into.RampsRaised), "ways");
+  Published.Places("streets: and the most one was lifted", into.SteepestRamp, "m");
   Published.Places(
-      "streets: crossings the plan found", static_cast<double>(crossingsSeen), "crossings");
-  Published.Places("streets: decks a crossing raised", static_cast<double>(decksRaised), "decks");
-  Published.Places("streets: and the most one stands over what it crosses", mostRaisedM, "m");
-  std::unordered_map<uint64_t, std::vector<Generators::RoadGate>> gates;
-  std::vector<double> trimM(ways.Ways().size() * 2u, 0.0);
-  size_t endsTrimmed = 0;
-  size_t endsStillCrossing = 0;
-  double deepestTrimM = 0.0;
-  std::vector<double> shortByM;
-  std::vector<double> forkDeg;
-  if (vectors != nullptr) {
-    const std::span<const double> points = vectors->Points();
-
-    struct Leaving {
-      uint32_t Way = 0;
-      uint8_t Side = 0;
-      float DirE = 0.0f;
-      float DirN = 0.0f;
-      float HalfM = 0.0f;
-    };
-
-    std::unordered_map<uint64_t, std::vector<Leaving>> meeting;
-    for (size_t at = 0; at < ways.Ways().size(); ++at) {
-      const Ground::StreetField::Way &lane = ways.Ways()[at];
-      if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
-      if (!(lane.HalfWidthM > 0.0f)) { continue; }
-      const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
-      const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-      if (last + 1 >= points.size()) { continue; }
-      for (int side = 0; side < 2; ++side) {
-        const size_t here = side == 0 ? first : last;
-        const size_t next = side == 0 ? first + 2u : last - 2u;
-        const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
-        double outE = (points[next + 1] - points[here + 1]) * perLon;
-        double outN = (points[next] - points[here]) * kMPerDegLat;
-        const double run = std::sqrt(outE * outE + outN * outN);
-        if (!(run > kLeastRunM)) { continue; }
-        outE /= run;
-        outN /= run;
-        meeting[WayEndKey({.LongitudeDeg = points[here + 1], .LatitudeDeg = points[here]})]
-            .push_back(Leaving{.Way = static_cast<uint32_t>(at),
-                               .Side = static_cast<uint8_t>(side),
-                               .DirE = static_cast<float>(outE),
-                               .DirN = static_cast<float>(outN),
-                               .HalfM = lane.HalfWidthM});
-      }
-    }
-    for (const auto &node : meeting) {
-      const std::vector<Leaving> &leaving = node.second;
-      if (leaving.size() < 2) { continue; }
-      for (const Leaving &mine : leaving) {
-        double back = 0.0;
-        for (const Leaving &other : leaving) {
-          if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-          const double cosBetween = static_cast<double>(mine.DirE) * other.DirE +
-                                    static_cast<double>(mine.DirN) * other.DirN;
-          const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
-                                              static_cast<double>(mine.DirN) * other.DirE);
-          if (sinBetween < kLeastSineBetween) { continue; }
-          const double reach =
-              (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
-              sinBetween;
-          back = std::max(back, reach);
-        }
-        double sharpest = kDegPerHalfTurn;
-        for (const Leaving &other : leaving) {
-          if (other.Way == mine.Way && other.Side == mine.Side) { continue; }
-          const double between =
-              std::acos(std::clamp(static_cast<double>(mine.DirE) * other.DirE +
-                                       static_cast<double>(mine.DirN) * other.DirN,
-                                   -1.0,
-                                   1.0));
-          sharpest = std::min(sharpest, kDegPerHalfTurn - between * kRad2Deg);
-        }
-        const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
-        trimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
-        if (capped > kLeastCapM) {
-          ++endsTrimmed;
-          deepestTrimM = std::max(deepestTrimM, capped);
-        }
-        if (back > capped + kLeastCapM) {
-          ++endsStillCrossing;
-          shortByM.push_back(back - capped);
-          forkDeg.push_back(sharpest);
-        }
-      }
-    }
-  }
-  if (!shortByM.empty()) {
-    std::ranges::sort(shortByM);
-    std::ranges::sort(forkDeg);
+      "streets: crossings the plan found", static_cast<double>(into.CrossingsSeen), "crossings");
+  Published.Places(
+      "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
+  Published.Places("streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
+  if (vectors != nullptr) { Shortens(ways, *vectors, into); }
+  if (!into.ShortByM.empty()) {
+    std::ranges::sort(into.ShortByM);
+    std::ranges::sort(into.ForkDeg);
     const auto pick = [](const std::vector<double> &of, double part) {
       return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
     };
-    Published.Places("streets: what a capped end was short by, p50", pick(shortByM, 0.5), "m");
-    Published.Places("streets: and p95", pick(shortByM, kBroadQuantile), "m");
-    Published.Places("streets: and the most", shortByM.back(), "m");
-    Published.Places("streets: the fork angle where the cap bit, p50", pick(forkDeg, 0.5), "deg");
-    Published.Places("streets: and the sharpest", forkDeg.front(), "deg");
+    Published.Places("streets: what a capped end was short by, p50", pick(into.ShortByM, 0.5), "m");
+    Published.Places("streets: and p95", pick(into.ShortByM, kBroadQuantile), "m");
+    Published.Places("streets: and the most", into.ShortByM.back(), "m");
+    Published.Places(
+        "streets: the fork angle where the cap bit, p50", pick(into.ForkDeg, 0.5), "deg");
+    Published.Places("streets: and the sharpest", into.ForkDeg.front(), "deg");
   }
   Published.Places(
-      "streets: way ends a junction trimmed", static_cast<double>(endsTrimmed), "ends");
-  Published.Places("streets: and the deepest trim", deepestTrimM, "m");
-  Published.Places(
-      "streets: ends STILL crossing, the cap bit", static_cast<double>(endsStillCrossing), "ends");
+      "streets: way ends a junction trimmed", static_cast<double>(into.EndsTrimmed), "ends");
+  Published.Places("streets: and the deepest trim", into.DeepestTrimM, "m");
+  Published.Places("streets: ends STILL crossing, the cap bit",
+                   static_cast<double>(into.EndsStillCrossing),
+                   "ends");
   if (vectors != nullptr) {
     const std::span<const double> points = vectors->Points();
     std::unordered_map<uint64_t, uint32_t> sharedNodes;
@@ -1314,479 +1817,47 @@ void Engine::State::Paves(const TangentFrame &standing,
         ++sharedNodes[WayEndKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
       }
     }
-    std::vector<std::vector<Generators::RoadStation>> designed(ways.Ways().size());
+    const Paving on{.Ways = ways,
+                    .Vectors = *vectors,
+                    .Points = points,
+                    .SharedNodes = sharedNodes,
+                    .Draped = drapedOver,
+                    .Standing = standing,
+                    .Classes = classStructure,
+                    .WaterRow = waterRow};
     for (int phase = 0; phase < 2; ++phase) {
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
-        const Ground::StreetField::Way &lane = ways.Ways()[laneAt];
-        if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
-            !(lane.HalfWidthM > 0.0f)) {
-          refusedWays += phase == 0 ? 1u : 0u;
-          continue;
-        }
-        if (phase == 1) {
-          along = designed[laneAt];
-          if (along.size() < 2) { continue; }
-        } else {
-          along.clear();
-          bool whole = true;
-          const auto station = [&](double lat, double lon, uint64_t node) {
-            const std::optional<double> stood =
-                World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
-            if (!stood) { return false; }
-            const double aslM = *stood;
-            double eastM = 0.0;
-            double upM = 0.0;
-            double northM = 0.0;
-            const EastNorthUp eastMEnu =
-                standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
-            eastM = eastMEnu.EastM;
-            upM = eastMEnu.UpM;
-            northM = eastMEnu.NorthM;
-            along.push_back({.EastM = eastM,
-                             .SouthM = -northM,
-                             .GradeM = drapedOver.At(eastM, -northM, upM),
-                             .Node = node});
-            return true;
-          };
-          for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
-            const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
-            const size_t next = here + 2;
-            if (next + 1 >= points.size()) {
-              whole = false;
-              break;
-            }
-            const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
-            const double spanE = (points[next + 1] - points[here + 1]) * perLon;
-            const double spanN = (points[next] - points[here]) * kMPerDegLat;
-            const auto pieces =
-                static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
-            for (size_t piece = 0; piece < pieces && whole; ++piece) {
-              const double at = static_cast<double>(piece) / static_cast<double>(pieces);
-              const double onLat = points[here] + (points[next] - points[here]) * at;
-              const double onLon = points[here + 1] + (points[next + 1] - points[here + 1]) * at;
-              const auto seen =
-                  piece == 0
-                      ? sharedNodes.find(WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
-                      : sharedNodes.end();
-              whole = station(onLat,
-                              onLon,
-                              seen != sharedNodes.end() && seen->second > 1u
-                                  ? WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
-                                  : 0u);
-            }
-          }
-          if (whole) {
-            const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
-            if (last + 1 < points.size()) {
-              const auto seen = sharedNodes.find(
-                  WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]}));
-              whole = station(
-                  points[last],
-                  points[last + 1],
-                  seen != sharedNodes.end() && seen->second > 1u
-                      ? WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]})
-                      : 0ULL);
-            } else {
-              whole = false;
-            }
-          }
-          if (!whole || along.size() < 2) {
-            ++refusedWays;
-            continue;
-          }
-          for (int pass = 0; pass < kChordPasses; ++pass) {
-            size_t added = 0;
-            finer.clear();
-            finer.reserve(along.size() * 2u);
-            for (size_t at = 1; at < along.size(); ++at) {
-              finer.push_back(along[at - 1u]);
-              const double midE = 0.5 * (along[at - 1u].EastM + along[at].EastM);
-              const double midS = 0.5 * (along[at - 1u].SouthM + along[at].SouthM);
-              const double chord = 0.5 * (along[at - 1u].GradeM + along[at].GradeM);
-              const double overM = drapedOver.At(midE, midS, chord);
-              if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
-              finer.push_back(
-                  Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
-              ++added;
-            }
-            finer.push_back(along.back());
-            along.swap(finer);
-            chordAdded += added;
-            if (added == 0) { break; }
-          }
-
-          if (lane.MaxGradient > 0.0f) {
-            Generators::DesignProfile(Span<Generators::RoadStation>(along.data(), along.size()),
-                                      static_cast<double>(lane.MaxGradient),
-                                      kLeastCrestK);
-          }
-          for (Generators::RoadStation &one : along) {
-            if (one.Node != 0u || atCrossing.empty()) { continue; }
-            const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
-            const auto south = static_cast<int64_t>(std::floor(one.SouthM / kCrossCellM));
-            const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-            const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
-            const auto near = atCrossing.find((atE << 32U) | atS);
-            if (near == atCrossing.end()) { continue; }
-            for (const auto &met : near->second) {
-              const double offE = one.EastM - met.EastM;
-              const double offS = one.SouthM - met.SouthM;
-              if (offE * offE + offS * offS <= kMeetsWithinM * kMeetsWithinM) {
-                one.Node = met.Named;
-                break;
-              }
-            }
-          }
-          designed[laneAt] = along;
-          continue;
-        }
-
-        {
-          fitEastNorth.clear();
-          fitEastNorth.reserve(along.size() * 2u);
-          for (const Generators::RoadStation &one : along) {
-            fitEastNorth.push_back(one.EastM);
-            fitEastNorth.push_back(-one.SouthM);
-          }
-          size_t from = 0;
-          size_t cuts = 0;
-          bool wholeWay = true;
-          while (from * 2u + 6u <= fitEastNorth.size()) {
-            ReferenceLine fitted;
-            const Fitted got = Fit(Span<const double>(fitEastNorth.data() + from * 2u,
-                                                      fitEastNorth.size() - from * 2u),
-                                   kFitWithinM,
-                                   kFitTightestM,
-                                   fitted);
-            if (got.Laid) {
-              ++fitLaid;
-              fitOffsetM.push_back(got.WorstOffsetM);
-              if (got.TightestRadiusM > 0.0) { fitRadiusM.push_back(got.TightestRadiusM); }
-              fitUndrivable += got.Undrivable;
-              break;
-            }
-            if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
-              if (wholeWay) { ++fitRefused; }
-              ++fitUnsplittable;
-              break;
-            }
-            const size_t upTo = got.TightestDemandedAtVertex;
-            if (upTo + 1u >= 3u) {
-              ReferenceLine piece;
-              const Fitted head =
-                  Fit(Span<const double>(fitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
-                      kFitWithinM,
-                      kFitTightestM,
-                      piece);
-              if (head.Laid) {
-                ++fitLaid;
-                fitOffsetM.push_back(head.WorstOffsetM);
-                if (head.TightestRadiusM > 0.0) { fitRadiusM.push_back(head.TightestRadiusM); }
-              } else {
-                ++fitUnsplittable;
-              }
-            }
-            ++fitTooTight;
-            ++cuts;
-            if (got.TightestDemandedM > 0.0) { tightDemandM.push_back(got.TightestDemandedM); }
-            from += upTo + 1u;
-            wholeWay = false;
-          }
-          fitCuts += cuts;
-        }
-
-        {
-          std::vector<double> reached(along.size(), 0.0);
-          for (size_t at = 1; at < along.size(); ++at) {
-            const double spanE = along[at].EastM - along[at - 1].EastM;
-            const double spanS = along[at].SouthM - along[at - 1].SouthM;
-            reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
-          }
-          const double wholeM = reached.back();
-          const double fromM = trimM[laneAt * 2u];
-          const double toM = wholeM - trimM[laneAt * 2u + 1u];
-          if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - kLeastCapM)) {
-            const auto standAt = [&](double alongM) {
-              size_t at = 1;
-              while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
-              const double span = reached[at] - reached[at - 1];
-              const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
-              const Generators::RoadStation &from = along[at - 1];
-              const Generators::RoadStation &to = along[at];
-              return Generators::RoadStation{
-                  .EastM = from.EastM + (to.EastM - from.EastM) * part,
-                  .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
-                  .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
-            };
-            std::vector<Generators::RoadStation> kept;
-            kept.push_back(standAt(fromM));
-            for (size_t at = 0; at < along.size(); ++at) {
-              if (reached[at] > fromM && reached[at] < toM) { kept.push_back(along[at]); }
-            }
-            kept.push_back(standAt(toM));
-            along.swap(kept);
-          }
-        }
-        if (along.size() < 2) {
-          ++refusedWays;
-          continue;
-        }
-        if (lane.Bridge && waterRow >= 0 && classStructure) {
-          double overWaterM = 0.0;
-          for (size_t at = 1; at < along.size(); ++at) {
-            double lat = 0.0;
-            double lon = 0.0;
-            const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
-            const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
-            const LongitudeLatitude midAt = standing.Geo({.EastM = midE, .NorthM = -midS});
-            lat = midAt.LatitudeDeg;
-            lon = midAt.LongitudeDeg;
-            double edgeM = 0.0;
-            int second = -1;
-            const int which = World.Stack.Classes().ClassAt(
-                *classStructure, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
-            ++askedOverBridge;
-            if (which < 0 ||
-                static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {
-              continue;
-            }
-            ++namedOverBridge;
-            if (World.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass !=
-                waterRow) {
-              continue;
-            }
-            ++wetOverBridge;
-            const double spanE = along[at].EastM - along[at - 1].EastM;
-            const double spanS = along[at].SouthM - along[at - 1].SouthM;
-            overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
-          }
-          if (overWaterM > 0.0) {
-            double clear = 0.0;
-            for (const Ground::VegetationTemplates::WaterBand &band :
-                 World.Stack.Vegetation().WaterBands()) {
-              clear = static_cast<double>(band.ClearanceM);
-              if (overWaterM <= static_cast<double>(band.RunM)) { break; }
-            }
-            if (clear > 0.0) {
-              double stood = -kBeyondAnyCoordinate;
-              for (const Generators::RoadStation &one : along) {
-                stood = std::max(stood, one.GradeM);
-              }
-              deckM[laneAt] = std::max(deckM[laneAt], stood + clear);
-              ++decksOverWater;
-              mostOverWaterM = std::max(mostOverWaterM, clear);
-            }
-          }
-        }
-        if (lane.Bridge) {
-          double deck = deckM[laneAt];
-          for (const Generators::RoadStation &one : along) { deck = std::max(deck, one.GradeM); }
-          for (Generators::RoadStation &one : along) { one.GradeM = deck; }
-        } else if (!endM.empty()) {
-          const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
-          const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
-          if (last + 1 < points.size()) {
-            const auto from = endM.find(
-                WayEndKey({.LongitudeDeg = points[first + 1], .LatitudeDeg = points[first]}));
-            const auto to = endM.find(
-                WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]}));
-            if (from != endM.end() && to != endM.end()) {
-              double runM = 0.0;
-              std::vector<double> reached(along.size(), 0.0);
-              for (size_t at = 1; at < along.size(); ++at) {
-                const double spanE = along[at].EastM - along[at - 1].EastM;
-                const double spanS = along[at].SouthM - along[at - 1].SouthM;
-                runM += std::sqrt(spanE * spanE + spanS * spanS);
-                reached[at] = runM;
-              }
-              for (size_t at = 0; at < along.size(); ++at) {
-                const double along01 = runM > kLeastRunM ? reached[at] / runM : 0.0;
-                const double wanted = from->second + (to->second - from->second) * along01;
-                along[at].GradeM = std::max(along[at].GradeM, wanted);
-              }
-            }
-          }
-        }
-        laidWays += lane.Bridge ? 1u : 0u;
-        groundWays += lane.Bridge ? 0u : 1u;
-        const bool sealed =
-            lane.CoverRow >= 0 &&
-            static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount() &&
-            World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
-        Generators::RoadProfile profile = Generators::RoadProfile::Rounded;
-        if (sealed) {
-          profile =
-              lane.Lanes >= 2 ? Generators::RoadProfile::Kerbed : Generators::RoadProfile::Simple;
-        }
-        Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-        if (lane.CoverRow >= 0 &&
-            static_cast<size_t>(lane.CoverRow) < World.Stack.Vegetation().TemplateCount()) {
-          const Vec4f &cover =
-              World.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
-          wears = {{cover[0], cover[1], cover[2]}};
-        }
-        if (lane.Bridge) {
-          Generators::SweepRoad(Span<const Generators::RoadStation>(along.data(), along.size()),
-                                static_cast<double>(lane.HalfWidthM),
-                                profile,
-                                wears,
-                                std::atan(Generators::kCrossfall),
-                                pavement,
-                                &sweptPieces,
-                                &sweptCuts,
-                                &sweptRefused,
-                                &sweptWhy);
-        }
-        for (size_t at = 1; at < along.size(); ++at) {
-          const double runE = along[at].EastM - along[at - 1u].EastM;
-          const double runS = along[at].SouthM - along[at - 1u].SouthM;
-          const double runM = std::sqrt(runE * runE + runS * runS);
-          if (!(runM > kLeastSpanM)) { continue; }
-          const double groundAt =
-              drapedOver.At(along[at].EastM, -along[at].SouthM, along[at].GradeM);
-          const double groundBefore =
-              drapedOver.At(along[at - 1u].EastM, -along[at - 1u].SouthM, along[at - 1u].GradeM);
-          const double yieldM = std::max(std::fabs(along[at].GradeM - groundAt),
-                                         std::fabs(along[at - 1u].GradeM - groundBefore));
-          const double outE = -runS / runM;
-          const double outS = runE / runM;
-          const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
-          double reliefM = std::fabs(groundAt - groundBefore);
-          for (const double hand : {1.0, -1.0}) {
-            for (int end = 0; end < 2; ++end) {
-              const Generators::RoadStation &one = end == 0 ? along[at - 1u] : along[at];
-              const double sideE = one.EastM + outE * half * hand;
-              const double sideS = one.SouthM + outS * half * hand;
-              reliefM = std::max(reliefM, drapedOver.At(sideE, -sideS, one.GradeM) - one.GradeM);
-            }
-          }
-          if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
-          Yields made;
-          made.RingEastSouthM = {along[at - 1u].EastM + outE * half,
-                                 along[at - 1u].SouthM + outS * half,
-                                 along[at].EastM + outE * half,
-                                 along[at].SouthM + outS * half,
-                                 along[at].EastM - outE * half,
-                                 along[at].SouthM - outS * half,
-                                 along[at - 1u].EastM - outE * half,
-                                 along[at - 1u].SouthM - outS * half};
-          made.LowE = made.HighE = made.RingEastSouthM[0];
-          made.LowS = made.HighS = made.RingEastSouthM[1];
-          for (size_t k = 2; k + 1 < made.RingEastSouthM.size(); k += 2) {
-            made.LowE = std::min(made.LowE, made.RingEastSouthM[k]);
-            made.HighE = std::max(made.HighE, made.RingEastSouthM[k]);
-            made.LowS = std::min(made.LowS, made.RingEastSouthM[k + 1]);
-            made.HighS = std::max(made.HighS, made.RingEastSouthM[k + 1]);
-          }
-          made.AtE = along[at - 1u].EastM;
-          made.AtS = along[at - 1u].SouthM;
-          made.PlateauM = along[at - 1u].GradeM;
-          const double rise = (along[at].GradeM - along[at - 1u].GradeM) / runM;
-          made.SlopeE = rise * runE / runM;
-          made.SlopeS = rise * runS / runM;
-          made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
-          made.YieldM = yieldM;
-          const bool rests = !lane.Bridge || at == 1u || at + 1u == along.size();
-          if (rests) {
-            made.SeamEastSouthM = {
-                along[at - 1u].EastM + outE * static_cast<double>(lane.HalfWidthM),
-                along[at - 1u].SouthM + outS * static_cast<double>(lane.HalfWidthM),
-                along[at].EastM + outE * static_cast<double>(lane.HalfWidthM),
-                along[at].SouthM + outS * static_cast<double>(lane.HalfWidthM),
-                along[at].EastM - outE * static_cast<double>(lane.HalfWidthM),
-                along[at].SouthM - outS * static_cast<double>(lane.HalfWidthM),
-                along[at - 1u].EastM - outE * static_cast<double>(lane.HalfWidthM),
-                along[at - 1u].SouthM - outS * static_cast<double>(lane.HalfWidthM)};
-          }
-          made.Fills = !lane.Bridge;
-          corridor.push_back(std::move(made));
-        }
-        if (!lane.Bridge && along.size() > 3) {
-          const size_t shutFrom = static_cast<size_t>(lane.FirstPoint) * 2u;
-          const size_t shutTo = shutFrom + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-          const bool shut = shutTo + 1 < points.size() &&
-                            std::fabs(points[shutFrom] - points[shutTo]) < 1.0e-7 &&
-                            std::fabs(points[shutFrom + 1] - points[shutTo + 1]) < 1.0e-7;
-          if (shut) {
-            Yields island;
-            island.RingEastSouthM.reserve(along.size() * 2u);
-            island.LowE = island.HighE = along.front().EastM;
-            island.LowS = island.HighS = along.front().SouthM;
-            double summed = 0.0;
-            for (const Generators::RoadStation &one : along) {
-              island.RingEastSouthM.push_back(one.EastM);
-              island.RingEastSouthM.push_back(one.SouthM);
-              island.LowE = std::min(island.LowE, one.EastM);
-              island.HighE = std::max(island.HighE, one.EastM);
-              island.LowS = std::min(island.LowS, one.SouthM);
-              island.HighS = std::max(island.HighS, one.SouthM);
-              summed += one.GradeM;
-            }
-            island.AtE = along.front().EastM;
-            island.AtS = along.front().SouthM;
-            island.PlateauM = summed / static_cast<double>(along.size());
-            island.ApronM = kLeastApronM;
-            island.YieldM = kBrokenGroundM;
-            island.Fills = true;
-            corridor.push_back(std::move(island));
-          }
-        }
-        {
-          const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
-          const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-          if (last + 1 < points.size()) {
-            const std::array<uint64_t, 2> key = {
-                {WayEndKey({.LongitudeDeg = points[first + 1], .LatitudeDeg = points[first]}),
-                 WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]})}};
-            for (int side = 0; side < 2; ++side) {
-              const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
-              const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
-              double outE = to.EastM - at.EastM;
-              double outS = to.SouthM - at.SouthM;
-              const double run = std::sqrt(outE * outE + outS * outS);
-              if (!(run > kLeastRunM)) { continue; }
-              outE /= run;
-              outS /= run;
-              gates[key[side]].push_back(
-                  Generators::RoadGate{.EastM = at.EastM,
-                                       .SouthM = at.SouthM,
-                                       .GradeM = at.GradeM,
-                                       .OutE = outE,
-                                       .OutS = outS,
-                                       .HalfWidthM = static_cast<double>(lane.HalfWidthM)});
-            }
-          }
-        }
+        PaveLane(on, phase, laneAt, into, corridor, pavement);
       }
       if (phase == 0) {
         double movedM = 0.0;
         for (int pass = 0; pass < kLevelPasses; ++pass) {
           std::unordered_map<uint64_t, std::vector<std::pair<uint32_t, uint32_t>>> atNode;
-          for (uint32_t lane = 0; lane < static_cast<uint32_t>(designed.size()); ++lane) {
-            for (uint32_t one = 0; one < static_cast<uint32_t>(designed[lane].size()); ++one) {
-              if (designed[lane][one].Node == 0u) { continue; }
-              atNode[designed[lane][one].Node].emplace_back(lane, one);
+          for (uint32_t lane = 0; lane < static_cast<uint32_t>(into.Designed.size()); ++lane) {
+            for (uint32_t one = 0; one < static_cast<uint32_t>(into.Designed[lane].size()); ++one) {
+              if (into.Designed[lane][one].Node == 0u) { continue; }
+              atNode[into.Designed[lane][one].Node].emplace_back(lane, one);
             }
           }
-          std::vector<double> pullM(designed.size(), 0.0);
-          std::vector<uint32_t> pulls(designed.size(), 0u);
+          std::vector<double> pullM(into.Designed.size(), 0.0);
+          std::vector<uint32_t> pulls(into.Designed.size(), 0u);
           for (const auto &node : atNode) {
             if (node.second.size() < 2) { continue; }
             double wanted = 0.0;
             for (const auto &held : node.second) {
-              wanted += designed[held.first][held.second].GradeM;
+              wanted += into.Designed[held.first][held.second].GradeM;
             }
             wanted /= static_cast<double>(node.second.size());
             for (const auto &held : node.second) {
-              pullM[held.first] += wanted - designed[held.first][held.second].GradeM;
+              pullM[held.first] += wanted - into.Designed[held.first][held.second].GradeM;
               ++pulls[held.first];
             }
           }
           double most = 0.0;
-          for (size_t lane = 0; lane < designed.size(); ++lane) {
+          for (size_t lane = 0; lane < into.Designed.size(); ++lane) {
             if (pulls[lane] == 0u) { continue; }
             const double by = pullM[lane] / static_cast<double>(pulls[lane]);
-            for (Generators::RoadStation &one : designed[lane]) { one.GradeM += by; }
+            for (Generators::RoadStation &one : into.Designed[lane]) { one.GradeM += by; }
             most = std::max(most, std::fabs(by));
           }
           movedM = most;
@@ -1796,22 +1867,24 @@ void Engine::State::Paves(const TangentFrame &standing,
       }
     }
   }
+  Published.Places("streets: stations under a bridge asked",
+                   static_cast<double>(into.AskedOverBridge),
+                   "stations");
   Published.Places(
-      "streets: stations under a bridge asked", static_cast<double>(askedOverBridge), "stations");
+      "streets: of those a class named", static_cast<double>(into.NamedOverBridge), "stations");
   Published.Places(
-      "streets: of those a class named", static_cast<double>(namedOverBridge), "stations");
-  Published.Places("streets: and of those, water", static_cast<double>(wetOverBridge), "stations");
+      "streets: and of those, water", static_cast<double>(into.WetOverBridge), "stations");
   Published.Places(
       "streets: the water class the table names", static_cast<double>(waterRow), "index");
   Published.Places("streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
   Published.Places(
-      "streets: decks a WATERWAY raised", static_cast<double>(decksOverWater), "decks");
-  Published.Places("streets: and the clearance the widest one took", mostOverWaterM, "m");
+      "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
+  Published.Places("streets: and the clearance the widest one took", into.MostOverWaterM, "m");
   size_t junctionsRaised = 0;
   {
     std::vector<uint64_t> nodes;
-    nodes.reserve(gates.size());
-    for (const auto &one : gates) {
+    nodes.reserve(into.Gates.size());
+    for (const auto &one : into.Gates) {
       if (one.second.size() >= 2) { nodes.push_back(one.first); }
     }
     std::ranges::sort(nodes);
@@ -1819,7 +1892,7 @@ void Engine::State::Paves(const TangentFrame &standing,
     Vec3f wears = {{0.5f, 0.5f, 0.5f}};
     if (asphalt >= 0) { wears = World.Stack.Materials().At(static_cast<size_t>(asphalt)).Albedo; }
     for (const uint64_t node : nodes) {
-      const std::vector<Generators::RoadGate> &met = gates[node];
+      const std::vector<Generators::RoadGate> &met = into.Gates[node];
       Generators::RaiseJunction(
           Span<const Generators::RoadGate>(met.data(), met.size()), wears, pavement);
       ++junctionsRaised;
@@ -1827,61 +1900,70 @@ void Engine::State::Paves(const TangentFrame &standing,
   }
   Published.Places(
       "streets: junction bodies raised", static_cast<double>(junctionsRaised), "junctions");
-  if (!fitOffsetM.empty()) {
-    std::ranges::sort(fitOffsetM);
-    std::ranges::sort(fitRadiusM);
+  if (!into.FitOffsetM.empty()) {
+    std::ranges::sort(into.FitOffsetM);
+    std::ranges::sort(into.FitRadiusM);
     const auto pick = [](const std::vector<double> &of, double part) {
       return of.empty() ? 0.0 : of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
     };
     Published.Places(
-        "streets: ways a reference line was fitted to", static_cast<double>(fitLaid), "ways");
-    Published.Places("streets: and ways the fit refused", static_cast<double>(fitRefused), "ways");
+        "streets: ways a reference line was fitted to", static_cast<double>(into.FitLaid), "ways");
+    Published.Places(
+        "streets: and ways the fit refused", static_cast<double>(into.FitRefused), "ways");
     Published.Places("streets: corners too tight to drive, cut instead",
-                     static_cast<double>(fitTooTight),
+                     static_cast<double>(into.FitTooTight),
                      "corners");
-    Published.Places("streets: cuts the split made", static_cast<double>(fitCuts), "cuts");
+    Published.Places("streets: cuts the split made", static_cast<double>(into.FitCuts), "cuts");
     Published.Places(
-        "streets: stations a chord asked for", static_cast<double>(chordAdded), "stations");
-    Published.Places(
-        "streets: pieces the sweep laid on a line", static_cast<double>(sweptPieces), "pieces");
-    Published.Places("streets: cuts the sweep made", static_cast<double>(sweptCuts), "cuts");
-    Published.Places(
-        "streets: pieces the sweep could not lay", static_cast<double>(sweptRefused), "pieces");
-    Published.Places(
-        "streets: of those, the fit refused", static_cast<double>(sweptWhy.Fit), "pieces");
-    Published.Places(
-        "streets: of those, the rise refused", static_cast<double>(sweptWhy.Rise), "pieces");
-    Published.Places(
-        "streets: of those, the bank refused", static_cast<double>(sweptWhy.Bank), "pieces");
-    Published.Places(
-        "streets: of those, the sweep refused", static_cast<double>(sweptWhy.Sweep), "pieces");
-    Published.Places(
-        "streets: of those, too short to lay", static_cast<double>(sweptWhy.TooShort), "pieces");
-    Published.Places("streets: pieces the split still could not lay",
-                     static_cast<double>(fitUnsplittable),
+        "streets: stations a chord asked for", static_cast<double>(into.ChordAdded), "stations");
+    Published.Places("streets: pieces the sweep laid on a line",
+                     static_cast<double>(into.SweptPieces),
                      "pieces");
-    if (!tightDemandM.empty()) {
-      std::ranges::sort(tightDemandM);
+    Published.Places("streets: cuts the sweep made", static_cast<double>(into.SweptCuts), "cuts");
+    Published.Places("streets: pieces the sweep could not lay",
+                     static_cast<double>(into.SweptRefused),
+                     "pieces");
+    Published.Places(
+        "streets: of those, the fit refused", static_cast<double>(into.SweptWhy.Fit), "pieces");
+    Published.Places(
+        "streets: of those, the rise refused", static_cast<double>(into.SweptWhy.Rise), "pieces");
+    Published.Places(
+        "streets: of those, the bank refused", static_cast<double>(into.SweptWhy.Bank), "pieces");
+    Published.Places(
+        "streets: of those, the sweep refused", static_cast<double>(into.SweptWhy.Sweep), "pieces");
+    Published.Places("streets: of those, too short to lay",
+                     static_cast<double>(into.SweptWhy.TooShort),
+                     "pieces");
+    Published.Places("streets: pieces the split still could not lay",
+                     static_cast<double>(into.FitUnsplittable),
+                     "pieces");
+    if (!into.TightDemandM.empty()) {
+      std::ranges::sort(into.TightDemandM);
       Published.Places("streets: the radius such a corner demanded, p50",
-                       tightDemandM[tightDemandM.size() / 2u],
+                       into.TightDemandM[into.TightDemandM.size() / 2u],
                        "m");
-      Published.Places("streets: and the tightest", tightDemandM.front(), "m");
+      Published.Places("streets: and the tightest", into.TightDemandM.front(), "m");
     }
-    Published.Places("streets: the offset a fitted line needed, p50", pick(fitOffsetM, 0.5), "m");
     Published.Places(
-        "streets: the offset a fitted line needed, p95", pick(fitOffsetM, kBroadQuantile), "m");
-    Published.Places("streets: the offset a fitted line needed, worst", fitOffsetM.back(), "m");
+        "streets: the offset a fitted line needed, p50", pick(into.FitOffsetM, 0.5), "m");
+    Published.Places("streets: the offset a fitted line needed, p95",
+                     pick(into.FitOffsetM, kBroadQuantile),
+                     "m");
     Published.Places(
-        "streets: the radius a fitted line found, tightest", pick(fitRadiusM, 0.0), "m");
-    Published.Places("streets: the radius a fitted line found, p50", pick(fitRadiusM, 0.5), "m");
+        "streets: the offset a fitted line needed, worst", into.FitOffsetM.back(), "m");
+    Published.Places(
+        "streets: the radius a fitted line found, tightest", pick(into.FitRadiusM, 0.0), "m");
+    Published.Places(
+        "streets: the radius a fitted line found, p50", pick(into.FitRadiusM, 0.5), "m");
     Published.Places("streets: stations the fit calls undrivable",
-                     static_cast<double>(fitUndrivable),
+                     static_cast<double>(into.FitUndrivable),
                      "stations");
   }
+  Published.Places("streets: ways laid as ribbons, all of them FLOATING",
+                   static_cast<double>(into.LaidWays),
+                   "ways");
   Published.Places(
-      "streets: ways laid as ribbons, all of them FLOATING", static_cast<double>(laidWays), "ways");
-  Published.Places(
-      "streets: ways the GROUND carries instead", static_cast<double>(groundWays), "ways");
+      "streets: ways the GROUND carries instead", static_cast<double>(into.GroundWays), "ways");
   Published.Places(
       "streets: ways the field holds", static_cast<double>(ways.Ways().size()), "ways");
   Published.Places(
@@ -1899,7 +1981,7 @@ void Engine::State::Paves(const TangentFrame &standing,
       "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
   Published.Places(
       "streets: ways whose layer is a STRING", static_cast<double>(ways.LayerSaidCount()), "ways");
-  Published.Places("streets: ways it refused", static_cast<double>(refusedWays), "ways");
+  Published.Places("streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
   {
     std::unordered_map<uint64_t, uint32_t> corner;
     corner.reserve(pavement.PositionM.size() / 3);
@@ -2029,76 +2111,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     over.FocalPx =
         static_cast<float>(0.5 * static_cast<double>(Picture.Frame.HeightPx) / std::tan(halfFov));
   }
-  {
-    const Ground::TileFrac here = Ground::ToTileFracClamped(
-        Ground::Geo{.LongitudeDeg = atLon, .LatitudeDeg = atLat}, over.Zoom);
-    const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
-                          static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
-                          (static_cast<uint64_t>(over.Levels) << 56u);
-    World.Stack.Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
-    ++World.Asked;
-    Around asking = over;
-    asking.Asking = true;
-    auto sees = LayPatchwork(World.Stack.Pool(), asking);
-    if (!sees) {
-      Error = sees.error();
-      return false;
-    }
-    World.Pending = sees->Pending;
-    World.Bare = sees->Bare;
-    World.Wanted = sees->Tiles;
-    World.AskedPending = sees->Pending;
-    World.AskedWanted = sees->Tiles;
-    const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
-    const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
-    const uint64_t classes = naming ? naming->Version() : 0;
-    const bool elsewhere = from != World.LaidFrom;
-    const bool grew = alsoWhenTilesLanded && resident != World.LaidResident;
-    const bool renamed = classes != World.LaidClasses;
-    {
-      const Raised &standing = World.Stack.Footprints().Built();
-      const size_t triangles = (standing.WallRun.size() + standing.RoofRun.size()) / 3u;
-      Published.Places(
-          "building triangles the world meshed", static_cast<double>(triangles), "triangles");
-    }
-    Published.Places(
-        "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
-    Published.Places("world: of that, the land classes",
-                     static_cast<double>(World.Stack.Classes().HeapBytes()),
-                     "bytes");
-    Published.Places(
-        "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
-    Published.Places(
-        "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
-    Published.Places(
-        "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
-    Published.Places("world: the ceiling its fields stand under",
-                     static_cast<double>(Ground::GroundStack::kHoldsBytes),
-                     "bytes");
-    Published.Places("world: times a round stopped at that ceiling",
-                     static_cast<double>(World.Stack.OverCeiling()),
-                     "rounds");
-    Published.Places("world: and the OSM features",
-                     World.Stack.Vectors() != nullptr
-                         ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
-                         : 0.0,
-                     "bytes");
-    Published.Places("tiles laid bare on the ellipsoid",
-                     static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
-                     "tiles");
-    if (World.EverLaid && !elsewhere && !grew && !renamed) { return true; }
-    Published.Places(
-        "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
-    Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
-    Published.Places("rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
-    Published.Places(
-        "rebuild: and resident the time before", static_cast<double>(World.LaidResident), "tiles");
-    Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
-    World.LaidFrom = from;
-    World.LaidResident = resident;
-    World.LaidClasses = classes;
-    World.EverLaid = true;
-    ++World.Relaid;
+  switch (Focuses(over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded)) {
+    case Laid::Refused: return false;
+    case Laid::Unchanged: return true;
+    case Laid::Wanted: break;
   }
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
