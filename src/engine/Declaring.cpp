@@ -101,14 +101,16 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
                                                                      : std::unexpected(S_->Error);
 }
 
-[[nodiscard]] static bool SameShows(const Core::Shows &a, const Core::Shows &b) {
+namespace {
+
+[[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
   return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
          a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
          a.HeightFrac == b.HeightFrac;
 }
 
-[[nodiscard]] static bool SameSurfaces(const std::vector<Core::Shows> &a,
-                                       const std::vector<Core::Shows> &b) {
+[[nodiscard]] bool SameSurfaces(const std::vector<Core::Shows> &a,
+                                const std::vector<Core::Shows> &b) {
   if (a.size() != b.size()) { return false; }
   for (size_t at = 0; at < a.size(); ++at) {
     if (!SameShows(a[at], b[at])) { return false; }
@@ -116,7 +118,7 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
   return true;
 }
 
-[[nodiscard]] static bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
+[[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
   return a.SurfaceWidthPx == b.SurfaceWidthPx && a.SurfaceHeightPx == b.SurfaceHeightPx &&
          a.Built == b.Built && a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
          a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
@@ -129,10 +131,12 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
          a.KeyElevationDeg == b.KeyElevationDeg && a.KeyBearingDeg == b.KeyBearingDeg;
 }
 
-[[nodiscard]] static bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
+[[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
   return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
          a.Animation == b.Animation && a.Clip == b.Clip;
 }
+
+} // namespace
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }

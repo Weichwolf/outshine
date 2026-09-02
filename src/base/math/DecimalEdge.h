@@ -7,7 +7,8 @@
 
 namespace outshine {
 
-constexpr int kExponentReach = 62;
+constexpr unsigned kExponentReach = 62U;
+constexpr long long kExponentSpan = static_cast<long long>(1ULL << kExponentReach);
 
 enum class Edge { Zero, Infinity };
 
@@ -47,8 +48,8 @@ enum class Edge { Zero, Infinity };
       return shrinks ? Edge::Zero : Edge::Infinity;
     }
     if (shrinks) { shift = -shift; }
-    if (shift > (1LL << kExponentReach)) { return Edge::Infinity; }
-    if (shift < -(1LL << kExponentReach)) { return Edge::Zero; }
+    if (shift > kExponentSpan) { return Edge::Infinity; }
+    if (shift < -kExponentSpan) { return Edge::Zero; }
   }
   return lead + shift < 0 ? Edge::Zero : Edge::Infinity;
 }

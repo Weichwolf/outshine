@@ -857,7 +857,7 @@ void Engine::State::PaveLane(const Paving &on,
                              size_t laneAt,
                              Paved &into,
                              std::vector<Yields> &corridor,
-                             Generators::RoadRaised &pavement) {
+                             Generators::RoadRaised &pavement) const {
   const Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
@@ -1474,7 +1474,6 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
 }
 
 void Engine::State::Paves(const TangentFrame &standing,
-                          const Around &,
                           const std::shared_ptr<const ClassStructure> &classStructure,
                           const Drape &drapedOver,
                           std::vector<Yields> &corridor,
@@ -2212,7 +2211,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   const Drape drapedOver{
       .DrawnGround = drawnGround, .FacesAt = facesAt, .InFrame = inFrame, .Index = laid->Index};
-  Paves(standing, over, classStructure, drapedOver, corridor, pavement, ground, clocks);
+  Paves(standing, classStructure, drapedOver, corridor, pavement, ground, clocks);
 
   {
     const Ground::BuildingField &pads = World.Stack.Footprints();

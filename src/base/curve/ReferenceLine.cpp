@@ -272,7 +272,9 @@ std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
   double bestM = lowM;
   double bestAway = 0.0;
   bool have = false;
-  for (double atM = lowM; atM <= highM; atM += kResectionCoarseM) {
+  const auto steps = static_cast<size_t>((highM - lowM) / kResectionCoarseM);
+  for (size_t step = 0; step <= steps; ++step) {
+    const double atM = lowM + static_cast<double>(step) * kResectionCoarseM;
     Placed there;
     if (!At(atM, there)) { continue; }
     const double is = away(there);

@@ -979,22 +979,28 @@ void Pavement(const BuildingShape &s,
 
 } // namespace
 
-void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
-  if (plan.RingLatLon.size() < 6) { return; }
-  Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
-  if (mass.Parts.empty()) { return; }
+bool BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
+  if (plan.RingLatLon.size() < 6) { return false; }
+  try {
+    Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
+    if (mass.Parts.empty()) { return false; }
 
-  Site site(plan, into);
-  const Site2Ground ground(
-      plan.RingLatLon, plan.CornerAslM, plan.BaseAslM, plan.SeatAslM, plan.FootAslM);
-  for (BuildingShape &part : mass.Parts) {
-    part.SeatM = PlinthTopZ(part, ground);
-    part.SoleM = PlinthFootZ(part, ground);
+    Site site(plan, into);
+    const Site2Ground ground(
+        plan.RingLatLon, plan.CornerAslM, plan.BaseAslM, plan.SeatAslM, plan.FootAslM);
+    for (BuildingShape &part : mass.Parts) {
+      part.SeatM = PlinthTopZ(part, ground);
+      part.SoleM = PlinthFootZ(part, ground);
+    }
+    for (const BuildingShape &part : mass.Parts) {
+      RaisePart(part, site);
+      Pavement(part, plan.Street, ground, part.SeatM, site);
+    }
+  } catch (...) {
+    into.Clear();
+    return false;
   }
-  for (const BuildingShape &part : mass.Parts) {
-    RaisePart(part, site);
-    Pavement(part, plan.Street, ground, part.SeatM, site);
-  }
+  return true;
 }
 
 } // namespace outshine::Generators

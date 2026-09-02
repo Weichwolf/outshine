@@ -74,10 +74,10 @@ void RaiseJunction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, Ro
   double centreE = 0.0;
   double centreS = 0.0;
   double centreGrade = 0.0;
-  for (size_t at = 0; at < gates.size(); ++at) {
-    centreE += gates[at].EastM;
-    centreS += gates[at].SouthM;
-    centreGrade += gates[at].GradeM;
+  for (const auto &gate : gates) {
+    centreE += gate.EastM;
+    centreS += gate.SouthM;
+    centreGrade += gate.GradeM;
   }
   centreE /= static_cast<double>(gates.size());
   centreS /= static_cast<double>(gates.size());
@@ -89,8 +89,7 @@ void RaiseJunction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, Ro
 
   std::vector<Corner> around;
   around.reserve(gates.size() * 2u);
-  for (size_t at = 0; at < gates.size(); ++at) {
-    const RoadGate &gate = gates[at];
+  for (const auto &gate : gates) {
     const double sideE = -gate.OutS * gate.HalfWidthM;
     const double sideS = gate.OutE * gate.HalfWidthM;
     for (const double hand : {1.0, -1.0}) {
@@ -319,7 +318,7 @@ void DesignProfile(std::span<RoadStation> along, double mostGradient, double lea
     over = along.size();
   }
   apart /= static_cast<double>(over);
-  for (size_t one = 0; one < along.size(); ++one) { along[one].GradeM -= apart; }
+  for (auto &one : along) { one.GradeM -= apart; }
 }
 
 void SweepRoad(std::span<const RoadStation> along,

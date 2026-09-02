@@ -517,12 +517,12 @@ bool Subject::Build(const Document &document,
                   std::to_string(document.Nodes().size()) + " nodes");
   }
 
-  if (weights.size() != 0 && weights.size() != document.MorphWeightsTotal()) {
+  if (!weights.empty() && weights.size() != document.MorphWeightsTotal()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(weights.size()) +
                   " morph weights and the file's nodes carry " +
                   std::to_string(document.MorphWeightsTotal()));
   }
-  return Flatten(document, pose.data(), (weights.size() != 0u) ? weights.data() : nullptr, variant);
+  return Flatten(document, pose.data(), (!weights.empty()) ? weights.data() : nullptr, variant);
 }
 
 namespace {

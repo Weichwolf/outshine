@@ -322,7 +322,10 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   shot.Triangles = measured("building triangles the world meshed");
   shot.BareTiles = measured("tiles laid bare on the ellipsoid");
 
-  if (Audits) { (void)engine.inspect(); }
+  if (Audits && !engine.inspect()) {
+    shot.Why = std::string(name) + " refused its audit: " + engine.error();
+    return shot;
+  }
   shot.SettledOver = static_cast<double>(wanted);
   shot.PosedAtS = measured("and the instant it is posed at");
 
@@ -357,7 +360,11 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
   for (int at = 0; at < kTimedFrames; ++at) {
     const int step = at * kWalkViews / kTimedFrames;
-    (void)engine.setView("walk" + std::to_string(step));
+    if (!engine.setView("walk" + std::to_string(step))) {
+      shot.Why = std::string(name) + " could not take view walk" + std::to_string(step) + ": " +
+                 engine.error();
+      return shot;
+    }
     const auto before = std::chrono::steady_clock::now();
     if (!engine.advance() || !engine.renderer().render(Extent{})) { break; }
     heldMs.push_back(

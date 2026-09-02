@@ -14,13 +14,17 @@ constexpr float kRootCoverM = 0.6f;
 constexpr float kPointApex = 2.4f;
 constexpr float kBrokenApex = 1.4f;
 
-static float ApexOf(RingCap end) {
+namespace {
+
+float ApexOf(RingCap end) {
   switch (end) {
     case RingCap::Point: return kPointApex;
     case RingCap::Broken: return kBrokenApex;
     default: return 0.0f;
   }
 }
+
+} // namespace
 
 constexpr float kLeafRollTurn = 1.1f;
 

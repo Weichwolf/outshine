@@ -340,7 +340,6 @@ private:
   [[nodiscard]] bool ConfigureSubjects(std::string &error);
   [[nodiscard]] bool ConfigureGlass(std::string &error);
   [[nodiscard]] bool ConfigureCompositeTransmission(std::string &error);
-  [[nodiscard]] bool ConfigureTemporalResolve(std::string &error);
   [[nodiscard]] bool ConfigureOverlay(std::string &error);
   [[nodiscard]] bool ConfigurePresent(std::string &error);
   [[nodiscard]] bool ConfigureTonemap(std::string &error);

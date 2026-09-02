@@ -62,8 +62,10 @@ public:
                          Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override {
     if (Full()) { return false; }
-    Into_->push_back(
-        {.Body = body.Index(), .Cluster = static_cast<uint32_t>(cluster), .Where = instance});
+    try {
+      Into_->push_back(
+          {.Body = body.Index(), .Cluster = static_cast<uint32_t>(cluster), .Where = instance});
+    } catch (...) { return false; }
     return true;
   }
 
@@ -120,8 +122,8 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how = Generators::SnapshotOver(
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
-  World.Reached = kBaseSnapshotRows + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
-                  (snapshot.Features ? 4 : 0);
+  World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
+                  (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.Places("generators: the snapshot",
                    static_cast<double>(static_cast<int>(how)),
                    "0=taken 1=waiting 2=no ground");

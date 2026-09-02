@@ -160,7 +160,9 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
       return 3;
     case RoofKind::Sawtooth: {
       int n = 0;
-      for (double u = -s.HalfUm; u < s.HalfUm && n + 1 < kMaxCreases; u += s.PeriodM) {
+      for (int crease = 0; n + 1 < kMaxCreases; ++crease) {
+        const double u = -s.HalfUm + static_cast<double>(crease) * s.PeriodM;
+        if (!(u < s.HalfUm)) { break; }
         lines[n++] = {.A = 1.0, .B = 0.0, .C = u};
         lines[n++] = {.A = 1.0, .B = 0.0, .C = u + kRidgeInset * s.PeriodM};
       }

@@ -508,10 +508,9 @@ struct Engine::State {
                 size_t laneAt,
                 Paved &into,
                 std::vector<Yields> &corridor,
-                Generators::RoadRaised &pavement);
+                Generators::RoadRaised &pavement) const;
 
   void Paves(const TangentFrame &standing,
-             const Around &over,
              const std::shared_ptr<const ClassStructure> &classStructure,
              const Drape &drapedOver,
              std::vector<Yields> &corridor,

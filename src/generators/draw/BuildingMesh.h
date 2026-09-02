@@ -19,7 +19,7 @@ public:
   [[nodiscard]] static size_t FloorRimTaken();
   [[nodiscard]] static size_t OverBudgetTaken();
 
-  void Mesh(const StructurePlan &plan, Raised &into) const noexcept override;
+  [[nodiscard]] bool Mesh(const StructurePlan &plan, Raised &into) const noexcept override;
 };
 
 } // namespace outshine::Generators

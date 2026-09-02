@@ -31,15 +31,15 @@ Slot &SlotOf(StackProbe::Purpose p) {
   return slots[static_cast<int>(p)];
 }
 
-thread_local uintptr_t tBase = 0, tPaintBottom = 0, tPaintTop = 0;
+thread_local std::byte *tBase = nullptr, *tPaintBottom = nullptr, *tPaintTop = nullptr;
 thread_local StackProbe::Purpose tPurpose = StackProbe::Purpose::Frame;
 
-void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
+void ThisStack(std::byte **base, std::byte **end, std::byte **current) {
 #ifdef __APPLE__
   const pthread_t self = pthread_self();
-  *base = reinterpret_cast<uintptr_t>(pthread_get_stackaddr_np(self));
-  *end = *base - static_cast<uintptr_t>(pthread_get_stacksize_np(self));
-  *current = reinterpret_cast<uintptr_t>(__builtin_frame_address(0));
+  *base = static_cast<std::byte *>(pthread_get_stackaddr_np(self));
+  *end = *base - pthread_get_stacksize_np(self);
+  *current = static_cast<std::byte *>(__builtin_frame_address(0));
 #else
   pthread_attr_t attr;
   void *low = nullptr;
@@ -47,9 +47,9 @@ void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
   pthread_getattr_np(pthread_self(), &attr);
   pthread_attr_getstack(&attr, &low, &size);
   pthread_attr_destroy(&attr);
-  *end = (uintptr_t)low;
+  *end = static_cast<std::byte *>(low);
   *base = *end + size;
-  *current = (uintptr_t)__builtin_frame_address(0);
+  *current = static_cast<std::byte *>(__builtin_frame_address(0));
 #endif
 }
 
@@ -61,17 +61,18 @@ void Raise(std::atomic<size_t> &target, size_t value) {
 } // namespace
 
 void StackProbe::Enter(Purpose purpose) {
-  uintptr_t base = 0;
-  uintptr_t end = 0;
-  uintptr_t current = 0;
+  std::byte *base = nullptr;
+  std::byte *end = nullptr;
+  std::byte *current = nullptr;
   ThisStack(&base, &end, &current);
-  const uintptr_t deepest = end + kToolchainCookie;
-  if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) { return; }
-  const uintptr_t top = (current - kLiveMargin) & ~static_cast<uintptr_t>(7);
+  std::byte *const deepest = end + kToolchainCookie;
+  if (base == nullptr || current < deepest + kLiveMargin + sizeof(uint64_t)) { return; }
+  std::byte *top = current - kLiveMargin;
+  top -= reinterpret_cast<uintptr_t>(top) & static_cast<uintptr_t>(7);
 
-  const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
-  for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) {
-    *reinterpret_cast<uint64_t *>(a) = kPaint;
+  std::byte *const bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
+  for (std::byte *at = bottom; at < top; at += sizeof(uint64_t)) {
+    *reinterpret_cast<uint64_t *>(at) = kPaint;
   }
   tBase = base;
   tPaintBottom = bottom;
@@ -85,11 +86,11 @@ void StackProbe::Enter(Purpose purpose) {
 }
 
 void StackProbe::Mark() {
-  if (tBase == 0) { return; }
-  uintptr_t frontier = tPaintTop;
-  for (uintptr_t a = tPaintBottom; a < tPaintTop; a += sizeof(uint64_t)) {
-    if (*reinterpret_cast<const uint64_t *>(a) != kPaint) {
-      frontier = a;
+  if (tBase == nullptr) { return; }
+  const std::byte *frontier = tPaintTop;
+  for (const std::byte *at = tPaintBottom; at < tPaintTop; at += sizeof(uint64_t)) {
+    if (*reinterpret_cast<const uint64_t *>(at) != kPaint) {
+      frontier = at;
       break;
     }
   }

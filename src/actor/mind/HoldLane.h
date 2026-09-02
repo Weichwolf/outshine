@@ -20,9 +20,10 @@ public:
 
   void Sees(const Sight &now) { Now_ = now; }
 
-private:
+protected:
   [[nodiscard]] Doing Act(double dtS) override;
 
+private:
   Sight Now_;
   Pilot::Demand Asked_;
 };

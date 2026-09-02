@@ -114,8 +114,9 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   for (uint32_t i = 0; i < 8u; i++) {
     for (uint32_t n = 0; n < 4u; n++) {
       const auto byte = static_cast<uint8_t>(state[i] >> (24u - 8u * n));
-      out[static_cast<size_t>(i * 8 + n * 2)] = kHex[byte >> 4u];
-      out[static_cast<size_t>(i * 8 + n * 2 + 1)] = kHex[byte & 15u];
+      const size_t at = static_cast<size_t>(i) * 8u + static_cast<size_t>(n) * 2u;
+      out[at] = kHex[byte >> 4u];
+      out[at + 1u] = kHex[byte & 15u];
     }
   }
   return out;

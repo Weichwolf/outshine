@@ -50,7 +50,7 @@ Forest::Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, A
     : PerM2_(perM2ByRow), Limit_(std::move(limit)) {
   Held_ = stems.size() < kMostSpecies ? stems.size() : kMostSpecies;
   Refused_ = stems.size() - Held_;
-  for (size_t at = 0; at < Held_; ++at) { Stems_[at] = stems.data()[at]; }
+  for (size_t at = 0; at < Held_; ++at) { Stems_[at] = stems[at]; }
 }
 
 std::span<const char *const> Forest::NoteNames() const noexcept {

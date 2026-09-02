@@ -33,7 +33,7 @@ constexpr uint32_t kChunkJson = 0x4E4F534A;
 constexpr uint32_t kChunkBinary = 0x004E4942;
 constexpr int kFloat32 = 5126;
 
-const char *AccessorType(int components) {
+const char *AccessorType(size_t components) {
   switch (components) {
     case 2: return "VEC2";
     case 4: return "VEC4";
@@ -109,7 +109,7 @@ public:
     if (!Admissible()) { return false; }
     std::string json = R"({"asset":{"version":"2.0")";
     if (!What_.Generator.empty()) { json += ",\"generator\":" + Quoted(What_.Generator); }
-    json += "}";
+    json += '}';
     json += Materials();
     json += Parts();
     json += R"(,"buffers":[{"byteLength":)" + Integer(Binary_.size()) + "}]}";
@@ -202,8 +202,8 @@ private:
     for (size_t index = 0; index < What_.Materials.size(); ++index) {
       const MaterialRef &material = What_.Materials[index];
       const Material &surface = material.Surface;
-      if (index > 0) { json += ","; }
-      json += "{";
+      if (index > 0) { json += ','; }
+      json += '{';
       if (!material.Name.empty()) { json += "\"name\":" + Quoted(material.Name) + ","; }
       json += R"("pbrMetallicRoughness":{"baseColorFactor":[)";
       for (int channel = 0; channel < 4; ++channel) {
@@ -220,9 +220,9 @@ private:
         json += R"(,"extensions":{"KHR_materials_unlit":{}})";
         unlit = true;
       }
-      json += "}";
+      json += '}';
     }
-    json += "]";
+    json += ']';
 
     if (unlit) { json += R"(,"extensionsUsed":["KHR_materials_unlit"])"; }
     return json;
@@ -235,14 +235,14 @@ private:
     for (size_t part = 0; part < Subject_.Parts().size(); ++part) {
       const Part &drawn = Subject_.Parts()[part];
       if (part > 0) {
-        nodes += ",";
-        meshes += ",";
-        roots += ",";
+        nodes += ',';
+        meshes += ',';
+        roots += ',';
       }
       roots += Integer(part);
       nodes += "{\"mesh\":" + Integer(part);
       if (!drawn.NodeName.empty()) { nodes += ",\"name\":" + Quoted(drawn.NodeName); }
-      nodes += "}";
+      nodes += '}';
       meshes += R"({"primitives":[{"attributes":{)" + Streams(drawn) +
                 "},\"indices\":" + Integer(Indices(drawn));
       if (drawn.Material >= 0) {
@@ -276,7 +276,7 @@ private:
     std::string json;
     for (const Attribute &attribute : declared) {
       if (attribute.From == nullptr) { continue; }
-      if (!json.empty()) { json += ","; }
+      if (!json.empty()) { json += ','; }
       json += std::string("\"") + attribute.Semantic + "\":" + Integer(Vertices(drawn, attribute));
     }
     return json;
@@ -320,7 +320,7 @@ private:
   }
 
   size_t View(size_t at, size_t length) {
-    if (!Views_.empty()) { Views_ += ","; }
+    if (!Views_.empty()) { Views_ += ','; }
     Views_ +=
         R"({"buffer":0,"byteOffset":)" + Integer(at) + ",\"byteLength\":" + Integer(length) + "}";
     return ViewCount_++;
@@ -332,7 +332,7 @@ private:
                   size_t count,
                   const std::vector<double> *lowest,
                   const std::vector<double> *highest) {
-    if (!Accessors_.empty()) { Accessors_ += ","; }
+    if (!Accessors_.empty()) { Accessors_ += ','; }
     Accessors_ += "{\"bufferView\":" + Integer(view) +
                   ",\"componentType\":" + Integer(static_cast<size_t>(component)) +
                   ",\"count\":" + Integer(count) + R"(,"type":")" + element + "\"";
@@ -345,9 +345,9 @@ private:
       for (size_t axis = 0; axis < highest->size(); ++axis) {
         Accessors_ += (axis > 0 ? "," : "") + Number((*highest)[axis]);
       }
-      Accessors_ += "]";
+      Accessors_ += ']';
     }
-    Accessors_ += "}";
+    Accessors_ += '}';
     return AccessorCount_++;
   }
 

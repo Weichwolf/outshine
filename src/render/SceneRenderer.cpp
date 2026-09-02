@@ -210,9 +210,7 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::DepthPyramid,
          .Configure = &SceneRenderer::ConfigureDepthPyramid,
          .Encode = &SceneRenderer::EncodeDepthPyramid},
-        {.Named = Stage::TemporalResolve,
-         .Configure = &SceneRenderer::ConfigureTemporalResolve,
-         .Encode = nullptr},
+        {.Named = Stage::TemporalResolve, .Configure = nullptr, .Encode = nullptr},
         {.Named = Stage::Tonemap,
          .Configure = &SceneRenderer::ConfigureTonemap,
          .Encode = &SceneRenderer::EncodeTonemap},
@@ -404,8 +402,7 @@ void SceneRenderer::Create(Resource resource) {
       return;
     case Resource::FrameTex: FrameTex_ = target(resource, colour); return;
 
-    case Resource::Surface: return;
-
+    case Resource::Surface:
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:
@@ -630,6 +627,7 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
     error = "this device layer does not execute the stage";
     return false;
   }
+  if (seat->Configure == nullptr) { return true; }
   return (this->*seat->Configure)(error);
 }
 
@@ -651,11 +649,6 @@ bool SceneRenderer::ConfigureCompositeTransmission(std::string &error) {
                                           Samp_.Get(),
                                           FormatOf(Plan_->Format(Resource::SceneComposited)),
                                           error);
-}
-
-bool SceneRenderer::ConfigureTemporalResolve(std::string &error) {
-  (void)error;
-  return true;
 }
 
 bool SceneRenderer::ConfigureOverlay(std::string &error) {
@@ -1324,7 +1317,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
   if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
-  const auto *const held = static_cast<const uint32_t *>(static_cast<const void *>(read.Rows()));
+  const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
   for (uint32_t at = 0; at < rows; ++at) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
@@ -1345,7 +1338,7 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
                       texels * static_cast<uint32_t>(sizeof(float))) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const auto *const held = static_cast<const float *>(static_cast<const void *>(read.Rows()));
+  const auto *const held = reinterpret_cast<const float *>(read.Rows());
   double summed = 0.0;
   into.Nearest = held[0];
   into.Farthest = held[0];

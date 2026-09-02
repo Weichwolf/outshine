@@ -16,15 +16,15 @@ void Number(std::string &into, const char *named, double how) {
 
 void Said(std::string &into, const char *named, const std::string &how) {
   if (how.empty()) { return; }
-  into += " ";
+  into += ' ';
   into += named;
   into += "=\"";
   into += how;
-  into += "\"";
+  into += '\"';
 }
 
 void Yes(std::string &into, const char *named, bool how) {
-  into += " ";
+  into += ' ';
   into += named;
   into += how ? "=\"yes\"" : "=\"no\"";
 }
@@ -90,7 +90,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
         if (one.Level != 0) { Number(said, "level", static_cast<double>(one.Level)); }
         std::string shape;
         for (size_t at = 0; at + 1 < one.LatLon.size(); at += 2) {
-          if (!shape.empty()) { shape += " "; }
+          if (!shape.empty()) { shape += ' '; }
           shape += std::to_string(one.LatLon[at]) + "," + std::to_string(one.LatLon[at + 1]);
         }
         Said(said, "points", shape);

@@ -729,7 +729,9 @@ size_t Network::JunctionCount() const {
 std::optional<Network::Found> Network::Nearest(LongitudeLatitude to) const {
   if (Nodes_.empty()) { return std::nullopt; }
   std::vector<size_t> found;
-  for (double reachM = 4.0 * SnapM_; reachM < std::numbers::pi * RadiusM_; reachM *= 4.0) {
+  for (int widening = 0;; ++widening) {
+    const double reachM = 4.0 * SnapM_ * std::pow(4.0, widening);
+    if (!(reachM < std::numbers::pi * RadiusM_)) { break; }
     Within(to, reachM, found);
     if (!found.empty()) { break; }
   }

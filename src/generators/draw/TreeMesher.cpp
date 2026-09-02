@@ -254,7 +254,7 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
     const int wall = static_cast<int>(Faces_.size());
     if (face >= 0 && Collar(face,
                             anchor,
-                            plant.Nodes[static_cast<size_t>(shoot.First + 1)],
+                            plant.Nodes[static_cast<size_t>(shoot.First) + 1u],
                             sides,
                             RoomAt(plant, shoot),
                             ring)) {

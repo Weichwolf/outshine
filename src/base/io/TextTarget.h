@@ -11,7 +11,7 @@ enum class TextStream { Stdout, Stderr };
 
 class TextTarget {
 public:
-  explicit TextTarget(TextStream stream) noexcept;
+  explicit TextTarget(TextStream stream);
   explicit TextTarget(const std::string &path);
 
   [[nodiscard]] const std::string &Refusal() const noexcept { return Refusal_; }

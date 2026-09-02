@@ -15,23 +15,23 @@ Coverage WebTileSource::Covers(const Request &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return Coverage::Outside; }
-  const auto [z, x, y] = *tile;
-  if (z < Decl_.MinZoom || z > kDeepestTileZoom) { return Coverage::Outside; }
-  if (z > Decl_.MaxZoom && !Decl_.AncestorFill) { return Coverage::Outside; }
-  const uint32_t side = 1u << static_cast<uint32_t>(z);
-  if (x >= side || y >= side) { return Coverage::Outside; }
+  const auto [zoom, tileX, tileY] = *tile;
+  if (zoom < Decl_.MinZoom || zoom > kDeepestTileZoom) { return Coverage::Outside; }
+  if (zoom > Decl_.MaxZoom && !Decl_.AncestorFill) { return Coverage::Outside; }
+  const uint32_t side = 1u << static_cast<uint32_t>(zoom);
+  if (tileX >= side || tileY >= side) { return Coverage::Outside; }
   return Coverage::Inside;
 }
 
 Address WebTileSource::Serves(const Request &request) const noexcept {
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return request.Where(); }
-  const auto [z, x, y] = *tile;
-  if (z <= Decl_.MaxZoom) { return request.Where(); }
-  const int steps = z - Decl_.MaxZoom;
+  const auto [zoom, tileX, tileY] = *tile;
+  if (zoom <= Decl_.MaxZoom) { return request.Where(); }
+  const int steps = zoom - Decl_.MaxZoom;
   return Address::At(TileId{.Zoom = Decl_.MaxZoom,
-                            .X = x >> static_cast<uint32_t>(steps),
-                            .Y = y >> static_cast<uint32_t>(steps)});
+                            .X = tileX >> static_cast<uint32_t>(steps),
+                            .Y = tileY >> static_cast<uint32_t>(steps)});
 }
 
 Ticket WebTileSource::Begin(const Address &at, Transport &transport) const {

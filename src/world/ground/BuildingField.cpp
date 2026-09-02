@@ -430,7 +430,7 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   plan.Street = f.Street;
   plan.AnchorEcef = Anchor_;
   plan.FocalPx = FocalPx_;
-  Mesher_->Mesh(plan, Built_);
+  if (!Mesher_->Mesh(plan, Built_)) { return; }
 }
 
 } // namespace outshine::Ground

@@ -72,7 +72,7 @@ bool Structures::make(const Request &asked, Geometry &into) const {
 
   const BuildingMesh mesher;
   Raised raised;
-  mesher.Mesh(plan, raised);
+  if (!mesher.Mesh(plan, raised)) { return false; }
   std::vector<float> soup;
   const auto spread = [&soup](const std::vector<float> &corners, const std::vector<uint32_t> &run) {
     for (const uint32_t corner : run) {

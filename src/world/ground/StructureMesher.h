@@ -66,7 +66,7 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  virtual void Mesh(const StructurePlan &plan, Raised &into) const noexcept = 0;
+  [[nodiscard]] virtual bool Mesh(const StructurePlan &plan, Raised &into) const noexcept = 0;
 
 protected:
   StructureMesher() = default;
