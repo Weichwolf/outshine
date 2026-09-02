@@ -76,7 +76,7 @@ public:
 
   [[nodiscard]] bool IsShaped() const noexcept { return !Shape_.Kind.empty(); }
 
-  [[nodiscard]] double ShapedAslM(double latDeg, double lonDeg) const noexcept;
+  [[nodiscard]] double ShapedAslM(LongitudeLatitude at) const noexcept;
 
   TerrainGrid StitchedGrid(int z, uint32_t x, uint32_t y);
 
@@ -95,20 +95,19 @@ private:
   struct CacheEntry {
     uint64_t Seq = 0;
     bool Used = false;
-    int Z = 0;
-    uint32_t X = 0, Y = 0;
+    Data::TileId Of;
     TerrainField Field;
   };
 
-  TerrainGrid RawGrid(int z, uint32_t x, uint32_t y);
+  TerrainGrid RawGrid(Data::TileId of);
   [[nodiscard]] TerrainGrid::State
-  StitchCorner(TerrainField &self, float selfRawM, int z, uint32_t x, uint32_t y, Corner corner);
+  StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, Corner corner);
 
   [[nodiscard]] TerrainGrid::State
   StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side);
 
-  const TerrainField *CacheLookup(int z, uint32_t x, uint32_t y);
-  void CacheStore(int z, uint32_t x, uint32_t y, const TerrainField &field);
+  const TerrainField *CacheLookup(Data::TileId of);
+  void CacheStore(Data::TileId of, const TerrainField &field);
 
   TerrainSource &Source_;
   EnuFrame Frame_;

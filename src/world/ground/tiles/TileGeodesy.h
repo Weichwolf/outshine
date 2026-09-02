@@ -69,15 +69,18 @@ inline TileFrac ToTileFracClamped(Geo g, int z) {
   return *y >= 0 && *y < n;
 }
 
-GeoBounds TileBounds(int z, uint32_t x, uint32_t y);
+GeoBounds TileBounds(Data::TileId of);
 
-Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t localX, int32_t localY);
-
-Geo TileFracToGeo(int z, uint32_t x, uint32_t y, double fx, double fy);
+Geo TileFracToGeo(TileFrac at, int z);
 
 Ecef GeoToEcefWgs84(Geo g);
 
 Geo EcefToGeoWgs84(Ecef p);
+
+struct MetresPerDegree {
+  double Longitude = 0.0;
+  double Latitude = 0.0;
+};
 
 class EnuFrame {
 public:
@@ -89,27 +92,23 @@ public:
 
   [[nodiscard]] std::optional<Enu> FromGeo(Geo g) const {
     if (Where_ != State::Usable) { return std::nullopt; }
-    return Enu{.EastM = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_,
-               .NorthM = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_,
+    return Enu{.EastM = (g.LongitudeDeg - Origin_.LongitudeDeg) * Per_.Longitude,
+               .NorthM = (g.LatitudeDeg - Origin_.LatitudeDeg) * Per_.Latitude,
                .UpM = g.HeightM};
   }
 
 private:
-  EnuFrame(State where, double latDeg, double lonDeg, double mPerDegLat, double mPerDegLon)
-      : Where_(where),
-        OriginLatDeg_(latDeg),
-        OriginLonDeg_(lonDeg),
-        MetresPerDegLat_(mPerDegLat),
-        MetresPerDegLon_(mPerDegLon) {}
+  EnuFrame(State where, LongitudeLatitude origin, MetresPerDegree per)
+      : Where_(where), Origin_(origin), Per_(per) {}
 
   State Where_;
-  double OriginLatDeg_, OriginLonDeg_;
-  double MetresPerDegLat_, MetresPerDegLon_;
+  LongitudeLatitude Origin_;
+  MetresPerDegree Per_;
 };
 
 class TileEnuMap {
 public:
-  static TileEnuMap Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent);
+  static TileEnuMap Over(const EnuFrame &frame, Data::TileId of, uint32_t extent);
 
   [[nodiscard]] double OriginE() const { return OriginE_; }
 

@@ -122,11 +122,9 @@ Snapped SnapshotOver(const Tile &region,
         region.Geo({.EastM = 0.0, .NorthM = static_cast<double>(j) * stepN});
     const LongitudeLatitude next =
         region.Geo({.EastM = stepE, .NorthM = static_cast<double>(j) * stepN});
-    block.AslMRow(from.LatitudeDeg,
-                  from.LongitudeDeg,
+    block.AslMRow(from,
                   next.LongitudeDeg - from.LongitudeDeg,
-                  side,
-                  row.data());
+                  std::span<double>(row.data(), static_cast<size_t>(side)));
     for (int i = 0; i < side; i++) {
       postings[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)].Height =
           GroundSample::At(row[static_cast<size_t>(i)]);

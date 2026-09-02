@@ -47,16 +47,16 @@ TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
   Cache_.resize(static_cast<size_t>(slots));
 }
 
-const TerrainField *TerrainTiles::CacheLookup(int z, uint32_t x, uint32_t y) {
+const TerrainField *TerrainTiles::CacheLookup(Data::TileId of) {
   for (CacheEntry &e : Cache_) {
-    if (!e.Used || e.Z != z || e.X != x || e.Y != y) { continue; }
+    if (!e.Used || !(e.Of == of)) { continue; }
     e.Seq = ++Seq_;
     return &e.Field;
   }
   return nullptr;
 }
 
-void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField &field) {
+void TerrainTiles::CacheStore(Data::TileId of, const TerrainField &field) {
   if (Cache_.empty() || !field.Meshable()) { return; }
   CacheEntry *victim = Cache_.data();
   uint64_t oldest = std::numeric_limits<uint64_t>::max();
@@ -71,17 +71,15 @@ void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField 
     }
   }
   victim->Used = true;
-  victim->Z = z;
-  victim->X = x;
-  victim->Y = y;
+  victim->Of = of;
   victim->Field = field;
   victim->Seq = ++Seq_;
 }
 
-double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
+double TerrainTiles::ShapedAslM(LongitudeLatitude at) const noexcept {
   const double perLon = kMPerDegLon * std::cos(Shape_.FocusLatDeg * kPi / kDegPerHalfTurn);
-  const double eastM = (lonDeg - Shape_.FocusLonDeg) * perLon;
-  const double northM = (latDeg - Shape_.FocusLatDeg) * kMPerDegLat;
+  const double eastM = (at.LongitudeDeg - Shape_.FocusLonDeg) * perLon;
+  const double northM = (at.LatitudeDeg - Shape_.FocusLatDeg) * kMPerDegLat;
   const double facing = Shape_.BearingDeg * kPi / kDegPerHalfTurn;
   const double along = eastM * std::sin(facing) + northM * std::cos(facing);
   const double across = eastM * std::cos(facing) - northM * std::sin(facing);
@@ -110,7 +108,7 @@ double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
   return up;
 }
 
-TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
+TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
   if (IsShaped()) {
     constexpr uint32_t kShapedSide = 257;
     TerrainField field(kShapedSide, kShapedSide);
@@ -119,17 +117,19 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
       for (uint32_t col = 0; col < kShapedSide; ++col) {
         const double fx = static_cast<double>(col) / static_cast<double>(kShapedSide - 1u);
         const double fy = static_cast<double>(row) / static_cast<double>(kShapedSide - 1u);
-        const Geo at = TileFracToGeo(z, static_cast<long>(x), static_cast<long>(y), fx, fy);
-        postings[row, col] = static_cast<float>(ShapedAslM(at.LatitudeDeg, at.LongitudeDeg));
+        const Geo stands = TileFracToGeo(
+            {.X = static_cast<double>(of.X) + fx, .Y = static_cast<double>(of.Y) + fy}, of.Zoom);
+        postings[row, col] = static_cast<float>(
+            ShapedAslM({.LongitudeDeg = stands.LongitudeDeg, .LatitudeDeg = stands.LatitudeDeg}));
       }
     }
     return TerrainGrid::Holding(std::move(field));
   }
-  if (const TerrainField *cached = CacheLookup(z, x, y)) {
+  if (const TerrainField *cached = CacheLookup(of)) {
     return TerrainGrid::Holding(TerrainField(*cached));
   }
 
-  TerrainBytes answer = Source_.Take(Data::TileId{.Zoom = z, .X = x, .Y = y});
+  TerrainBytes answer = Source_.Take(of);
   auto delivered = answer.Take();
   if (!delivered) {
     switch (answer.Where()) {
@@ -142,11 +142,11 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   const Data::TileId source = delivered->first;
   std::vector<uint8_t> png = std::move(delivered->second);
 
-  const int steps = z - source.Zoom;
+  const int steps = of.Zoom - source.Zoom;
   if (steps < 0 || steps >= kZoomMost) { return TerrainGrid::Refused(); }
   const uint32_t subDiv = 1u << static_cast<uint32_t>(steps);
-  const uint32_t subX = x & (subDiv - 1);
-  const uint32_t subY = y & (subDiv - 1);
+  const uint32_t subX = of.X & (subDiv - 1);
+  const uint32_t subY = of.Y & (subDiv - 1);
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
   const TerrainField *field = grid.TryFieldMutable();
@@ -168,13 +168,13 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   }
 
   if (!field->Meshable()) { return TerrainGrid::NotHere(); }
-  CacheStore(z, x, y, *field);
+  CacheStore(of, *field);
   return grid;
 }
 
 TerrainGrid::State
 TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side) {
-  const TerrainGrid neighbour = RawGrid(z, nx, ny);
+  const TerrainGrid neighbour = RawGrid({.Zoom = z, .X = nx, .Y = ny});
   const TerrainField *n = neighbour.TryField();
   if ((n == nullptr) || !n->Meshable()) { return neighbour.Where(); }
 
@@ -183,21 +183,28 @@ TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Si
     const double neighbourFrac = (side == Side::West) ? 1.0 : 0.0;
     for (uint32_t r = 0; r < self.Rows(); r++) {
       const double along = PostingFrac(r, self.Rows());
-      self.SetM(r, selfCol, 0.5f * (self.AtM(r, selfCol) + n->PostingM(neighbourFrac, along)));
+      self.SetM(r,
+                selfCol,
+                0.5f * (self.AtM(r, selfCol) + n->PostingM({.Col = neighbourFrac, .Row = along})));
     }
   } else {
     const uint32_t selfRow = (side == Side::North) ? 0 : self.Rows() - 1;
     const double neighbourFrac = (side == Side::North) ? 1.0 : 0.0;
     for (uint32_t c = 0; c < self.Cols(); c++) {
       const double along = PostingFrac(c, self.Cols());
-      self.SetM(selfRow, c, 0.5f * (self.AtM(selfRow, c) + n->PostingM(along, neighbourFrac)));
+      self.SetM(selfRow,
+                c,
+                0.5f * (self.AtM(selfRow, c) + n->PostingM({.Col = along, .Row = neighbourFrac})));
     }
   }
   return TerrainGrid::State::Decoded;
 }
 
-TerrainGrid::State TerrainTiles::StitchCorner(
-    TerrainField &self, float selfRawM, int z, uint32_t x, uint32_t y, Corner corner) {
+TerrainGrid::State
+TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, Corner corner) {
+  const int z = of.Zoom;
+  const uint32_t x = of.X;
+  const uint32_t y = of.Y;
   const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
   const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
   const uint32_t n = 1u << static_cast<uint32_t>(z);
@@ -206,9 +213,9 @@ TerrainGrid::State TerrainTiles::StitchCorner(
 
   const uint32_t acrossX = west ? x - 1 : x + 1;
   const uint32_t acrossY = north ? y - 1 : y + 1;
-  const TerrainGrid sideways = RawGrid(z, acrossX, y);
-  const TerrainGrid updown = RawGrid(z, x, acrossY);
-  const TerrainGrid diagonal = RawGrid(z, acrossX, acrossY);
+  const TerrainGrid sideways = RawGrid({.Zoom = z, .X = acrossX, .Y = y});
+  const TerrainGrid updown = RawGrid({.Zoom = z, .X = x, .Y = acrossY});
+  const TerrainGrid diagonal = RawGrid({.Zoom = z, .X = acrossX, .Y = acrossY});
   const TerrainField *a = sideways.TryField();
   const TerrainField *b = updown.TryField();
   const TerrainField *c = diagonal.TryField();
@@ -229,7 +236,7 @@ TerrainGrid::State TerrainTiles::StitchCorner(
 }
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
-  TerrainGrid grid = RawGrid(z, x, y);
+  TerrainGrid grid = RawGrid({.Zoom = z, .X = x, .Y = y});
   TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr) { return grid; }
 
@@ -248,9 +255,11 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
        {Corner::NorthWest, Corner::NorthEast, Corner::SouthWest, Corner::SouthEast}) {
     const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
     const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
-    worst = Worse(
-        worst,
-        StitchCorner(*field, rawCorners[(west ? 0u : 1u) + (north ? 0u : 2u)], z, x, y, corner));
+    worst = Worse(worst,
+                  StitchCorner(*field,
+                               rawCorners[(west ? 0u : 1u) + (north ? 0u : 2u)],
+                               {.Zoom = z, .X = x, .Y = y},
+                               corner));
   }
   if (worst == TerrainGrid::State::Refused) { return TerrainGrid::Refused(); }
   if (worst == TerrainGrid::State::Deferred) { return TerrainGrid::Deferred(); }
@@ -272,7 +281,8 @@ TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
     }
   }
   constexpr uint32_t kTileExtent = 4096;
-  return TerrainMesh::Over(*field, TileEnuMap::Over(Frame_, z, x, y, kTileExtent), Config_.Stride);
+  return TerrainMesh::Over(
+      *field, TileEnuMap::Over(Frame_, {.Zoom = z, .X = x, .Y = y}, kTileExtent), Config_.Stride);
 }
 
 size_t TerrainTiles::HeapBytes() const {

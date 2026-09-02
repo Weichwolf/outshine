@@ -109,7 +109,9 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const double latDeg = region.AnchorLat();
   const double jitterE = Wrap180(region.AnchorLon()) * kMPerDeg * std::cos(latDeg * kDeg2Rad);
   const double jitterN = latDeg * kMPerDeg;
-  const double woody = Limit_.WoodyFraction(latDeg, aslM, jitterE + eastM, jitterN + northM);
+  const double woody = Limit_.WoodyFraction(
+      {.LongitudeDeg = region.AnchorLon(), .LatitudeDeg = latDeg, .HeightM = aslM},
+      {.EastM = jitterE + eastM, .NorthM = jitterN + northM});
   double steep = 0.0;
   if (woody > 0.0 && static_cast<size_t>(*row) < ground.Table().Count()) {
     steep = Limit_.BareBySlope(

@@ -54,10 +54,11 @@ public:
 private:
   explicit TangentFrame(LongitudeLatitude anchor) : Anchor_(anchor) {
     GeoToEcef({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg}, O_);
-    EnuAxesEcef({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg},
-                East_,
-                North_,
-                Up_);
+    const EnuAxes axes =
+        EnuAxesEcef({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg});
+    East_ = axes.East;
+    North_ = axes.North;
+    Up_ = axes.Up;
   }
 
   LongitudeLatitude Anchor_;

@@ -154,7 +154,10 @@ public:
     const double lon = plan.RingLatLon[1];
     Vec3 origin;
     GeoToEcef({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = plan.BaseAslM}, origin);
-    EnuAxesEcef({.LongitudeDeg = lon, .LatitudeDeg = lat}, East_, North_, Up_);
+    const EnuAxes axes = EnuAxesEcef({.LongitudeDeg = lon, .LatitudeDeg = lat});
+    East_ = axes.East;
+    North_ = axes.North;
+    Up_ = axes.Up;
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
     ReachM_ =
         std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);

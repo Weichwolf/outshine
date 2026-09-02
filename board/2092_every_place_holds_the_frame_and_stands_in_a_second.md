@@ -321,3 +321,26 @@ returns only when it stands or refuses outright. The first frame comes after tha
 frame time, the frame path has no streaming left to do, and a per-frame budget can be as small as
 the frame needs without touching a picture. That last clause is why the clock had to go first: with
 a wall clock, even a fully preloaded world is not reproducible.
+
+### CORRECTION, same day: the clock was A mechanism and not THE mechanism
+
+After the repair above, and after the still-camera gate below it, Venice rendered `9c9a4758` again
+on a first run after a build. The 4/4 against 0/8 measurement stands as evidence that the clock
+HAS an effect; it does not support the sentence "the clock is the mechanism", and that sentence is
+withdrawn. What is measured is that removing it made the flip rarer, not that it made it impossible.
+
+**AND THERE IS A SECOND ONE, in the same sentence of CLAUDE.md.** `OsmField::Build` walks its ring
+and skips a tile whose bytes have not landed; a later call picks that tile up. So `Tiles_` --
+and with it `Points_`, `Rings_` and `Features_` -- is filled in ARRIVAL order and not in ring
+order: everything ready at the first call in ring order, then everything ready at the second, and
+so on. Which tile is in which group is decided by the network.
+
+The three sinks (`StreetField::Ingest`, `WaterField::Ingest`, `Footprints::Build`) then consume
+that array in the order it happens to hold, so what they assemble is combined in COMPLETION order.
+That is the exact wording the fourth invariant forbids, and it is a far better candidate for a
+one-level-per-pixel difference at the horizon than a missing tile ever was: the same features in a
+different order, summed in floating point, differ in the last bits.
+
+**What is to be true:** a field's tiles stand in a DECLARED order -- the ring's -- whatever order
+their bytes arrived in, and a sink consumes them in that order. Then two runs that fetched the same
+bytes assemble the same world whatever the network did.

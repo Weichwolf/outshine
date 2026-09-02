@@ -59,9 +59,9 @@ bool AlpineLimit::Load(const Json::Ref &root) {
   return true;
 }
 
-double AlpineLimit::Noise(double e, double n) const {
-  const double x = e / JitterScaleM_;
-  const double y = n / JitterScaleM_;
+double AlpineLimit::Noise(EastNorth at) const {
+  const double x = at.EastM / JitterScaleM_;
+  const double y = at.NorthM / JitterScaleM_;
   const double fx = std::floor(x);
   const double fy = std::floor(y);
   const auto i = static_cast<int32_t>(fx);

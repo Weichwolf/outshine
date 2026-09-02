@@ -81,7 +81,7 @@ void FillNodeHeights(const TerrainField &field,
     for (int i = 0; i < nodes; i++) {
       const double fc = PostingFrac(Ground::ChunkNodePosting(i, colPostings, nodes), colPostings);
       (*out)[static_cast<size_t>(j) * static_cast<size_t>(nodes) + static_cast<size_t>(i)] =
-          field.PostingM(fc, fr);
+          field.PostingM({.Col = fc, .Row = fr});
     }
   }
 }
@@ -397,15 +397,16 @@ GroundBlock GroundStream::BlockAt(TileSpot at) const {
   return block;
 }
 
-void GroundBlock::AslMRow(
-    double latDeg, double lonFromDeg, double lonStepDeg, int count, double *out) const noexcept {
-  Geo from;
-  from.LatitudeDeg = latDeg;
-  from.LongitudeDeg = Wrapped180(lonFromDeg);
+void GroundBlock::AslMRow(LongitudeLatitude from,
+                          double lonStepDeg,
+                          std::span<double> out) const noexcept {
+  Geo begins;
+  begins.LatitudeDeg = from.LatitudeDeg;
+  begins.LongitudeDeg = Wrapped180(from.LongitudeDeg);
   Geo to;
-  to.LatitudeDeg = latDeg;
-  to.LongitudeDeg = Wrapped180(lonFromDeg + lonStepDeg);
-  const TileFrac fromFrac = ToTileFracClamped(from, Zoom_);
+  to.LatitudeDeg = from.LatitudeDeg;
+  to.LongitudeDeg = Wrapped180(from.LongitudeDeg + lonStepDeg);
+  const TileFrac fromFrac = ToTileFracClamped(begins, Zoom_);
   const double tx0 = fromFrac.X;
   const double ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
@@ -415,19 +416,21 @@ void GroundBlock::AslMRow(
   const double fy = ty - static_cast<double>(Y_);
   const double fx0 = tx0 - static_cast<double>(X_);
   const double fxStep = tx1 - tx0;
-  for (int i = 0; i < count; i++) {
+  for (size_t i = 0; i < out.size(); i++) {
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + static_cast<double>(i) * fxStep, fy);
   }
 }
 
-TilePool::Config GroundPoolConfig(LongitudeLatitude at, int workers, double patienceS) {
+TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how) {
   TilePool::Config config;
   config.OriginLatDeg = at.LatitudeDeg;
   config.OriginLonDeg = at.LongitudeDeg;
-  config.Threads = DerivedThreads(workers);
+  config.Threads = DerivedThreads(how.Workers);
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;
-  if (patienceS > 0.0) { config.PollAttempts = static_cast<int>(patienceS * kPollsPerSecond); }
+  if (how.PatienceS > 0.0) {
+    config.PollAttempts = static_cast<int>(how.PatienceS * kPollsPerSecond);
+  }
   return config;
 }
 

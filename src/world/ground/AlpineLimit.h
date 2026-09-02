@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_ALPINELIMIT_H
 #define OUTSHINE_WORLD_GROUND_ALPINELIMIT_H
 
+#include "Earth.h"
 #include <cmath>
 #include <string>
 
@@ -31,12 +32,12 @@ public:
     return BaseM_ + PerDegM_ * (std::fabs(latDeg) - BaseLatDeg_) + BandM_;
   }
 
-  [[nodiscard]] double WoodyFraction(double latDeg, double elevM, double e, double n) const {
-    const double top = SpeciesLimitM(latDeg);
-    if (elevM >= top) { return 0.0; }
-    const double floorM = top - BandM_ - JitterM_ * Noise(e, n);
-    if (elevM <= floorM) { return 1.0; }
-    const double t = (top - elevM) / (top - floorM);
+  [[nodiscard]] double WoodyFraction(LongitudeLatitudeHeight at, EastNorth jitterAt) const {
+    const double top = SpeciesLimitM(at.LatitudeDeg);
+    if (at.HeightM >= top) { return 0.0; }
+    const double floorM = top - BandM_ - JitterM_ * Noise(jitterAt);
+    if (at.HeightM <= floorM) { return 1.0; }
+    const double t = (top - at.HeightM) / (top - floorM);
     return t * t * (3.0 - 2.0 * t);
   }
 
@@ -48,7 +49,7 @@ public:
   }
 
 private:
-  [[nodiscard]] double Noise(double e, double n) const;
+  [[nodiscard]] double Noise(EastNorth at) const;
 
   double BaseLatDeg_ = kTreelineBaseLatDeg, BaseM_ = kTreelineBaseM, PerDegM_ = kTreelinePerDegM,
          BandM_ = kTreelineBandM;

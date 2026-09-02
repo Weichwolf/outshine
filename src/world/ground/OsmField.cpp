@@ -179,7 +179,8 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
           const auto px = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2]);
           const auto py = static_cast<double>(pts[(static_cast<size_t>(sr.First) + k) * 2 + 1]);
           const Geo g = TileFracToGeo(
-              Zoom_, static_cast<uint32_t>(tx), static_cast<uint32_t>(ty), px / ext, py / ext);
+              {.X = static_cast<double>(tx) + px / ext, .Y = static_cast<double>(ty) + py / ext},
+              Zoom_);
           Points_.push_back(g.LatitudeDeg);
           Points_.push_back(g.LongitudeDeg);
           f.MinLat = std::min(f.MinLat, g.LatitudeDeg);

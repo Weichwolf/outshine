@@ -11,6 +11,11 @@
 
 namespace outshine::Ground {
 
+struct GridFraction {
+  double Col = 0.0;
+  double Row = 0.0;
+};
+
 class TerrainField {
 public:
   TerrainField() = default;
@@ -42,9 +47,9 @@ public:
 
   void SetM(uint32_t row, uint32_t col, float m) { Field()[row, col] = m; }
 
-  [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
-    const double gx = Cols_ < 2u ? 0.0 : fracCol * static_cast<double>(Cols_ - 1u);
-    const double gy = Rows_ < 2u ? 0.0 : fracRow * static_cast<double>(Rows_ - 1u);
+  [[nodiscard]] float PostingM(GridFraction at) const {
+    const double gx = Cols_ < 2u ? 0.0 : at.Col * static_cast<double>(Cols_ - 1u);
+    const double gy = Rows_ < 2u ? 0.0 : at.Row * static_cast<double>(Rows_ - 1u);
     return Bilinear(Field(), gx, gy);
   }
 

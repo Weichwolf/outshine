@@ -61,7 +61,7 @@ TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, 
 
       mesh.PositionsEnuM_[vi * 3 + 0] = static_cast<float>(map.OriginE() + fc * tileWidthE);
       mesh.PositionsEnuM_[vi * 3 + 1] = static_cast<float>(map.OriginN() + fr * tileHeightN);
-      mesh.PositionsEnuM_[vi * 3 + 2] = field.PostingM(fc, fr);
+      mesh.PositionsEnuM_[vi * 3 + 2] = field.PostingM({.Col = fc, .Row = fr});
     }
   }
   return mesh;

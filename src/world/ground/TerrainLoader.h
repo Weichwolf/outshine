@@ -42,8 +42,7 @@ public:
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
-  void AslMRow(
-      double latDeg, double lonFromDeg, double lonStepDeg, int count, double *out) const noexcept;
+  void AslMRow(LongitudeLatitude from, double lonStepDeg, std::span<double> out) const noexcept;
 
   static GroundBlock
   Over(const float *nodes, int zoom, long x, long y, int side, uint32_t postings) {
@@ -101,8 +100,12 @@ private:
   std::unique_ptr<Held> Held_;
 };
 
-[[nodiscard]] TilePool::Config
-GroundPoolConfig(LongitudeLatitude at, int workers = 0, double patienceS = 0.0);
+struct Pooling {
+  int Workers = 0;
+  double PatienceS = 0.0;
+};
+
+[[nodiscard]] TilePool::Config GroundPoolConfig(LongitudeLatitude at, Pooling how = {});
 
 } // namespace outshine::Ground
 

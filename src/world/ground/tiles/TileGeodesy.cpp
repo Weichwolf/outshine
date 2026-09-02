@@ -38,39 +38,22 @@ TileIndex TileIndex::Of(Geo g, int z) {
           Data::TileId{.Zoom = z, .X = static_cast<uint32_t>(xc), .Y = static_cast<uint32_t>(yc)}};
 }
 
-GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
+GeoBounds TileBounds(Data::TileId of) {
   GeoBounds b;
-  const double n = std::ldexp(1.0, z);
-  b.MinLonDeg = static_cast<double>(x) / n * kDegPerTurn - kDegPerHalfTurn;
-  b.MaxLonDeg = static_cast<double>(x + 1) / n * kDegPerTurn - kDegPerHalfTurn;
-  const double yn = 1.0 - 2.0 * static_cast<double>(y) / n;
-  const double ys = 1.0 - 2.0 * static_cast<double>(y + 1) / n;
+  const double n = std::ldexp(1.0, of.Zoom);
+  b.MinLonDeg = static_cast<double>(of.X) / n * kDegPerTurn - kDegPerHalfTurn;
+  b.MaxLonDeg = static_cast<double>(of.X + 1) / n * kDegPerTurn - kDegPerHalfTurn;
+  const double yn = 1.0 - 2.0 * static_cast<double>(of.Y) / n;
+  const double ys = 1.0 - 2.0 * static_cast<double>(of.Y + 1) / n;
   b.MaxLatDeg = kRad2Deg * std::atan(std::sinh(kPi * yn));
   b.MinLatDeg = kRad2Deg * std::atan(std::sinh(kPi * ys));
   return b;
 }
 
-Geo TileLocalToGeo(int z, uint32_t x, uint32_t y, uint32_t extent, int32_t localX, int32_t localY) {
-  Geo g;
-  if (extent == 0) { return g; }
-
+Geo TileFracToGeo(TileFrac at, int z) {
   const double n = std::ldexp(1.0, z);
-  const double invExtent = 1.0 / static_cast<double>(extent);
-
-  const double xf = static_cast<double>(x) + static_cast<double>(localX) * invExtent;
-  const double yf = static_cast<double>(y) + static_cast<double>(localY) * invExtent;
-
-  g.LongitudeDeg = xf / n * kDegPerTurn - kDegPerHalfTurn;
-  const double yy = 1.0 - 2.0 * yf / n;
-  g.LatitudeDeg = kRad2Deg * std::atan(std::sinh(kPi * yy));
-  g.HeightM = 0.0;
-  return g;
-}
-
-Geo TileFracToGeo(int z, uint32_t x, uint32_t y, double fx, double fy) {
-  const double n = std::ldexp(1.0, z);
-  const double xf = (static_cast<double>(x) + fx) / n;
-  const double yf = (static_cast<double>(y) + fy) / n;
+  const double xf = at.X / n;
+  const double yf = at.Y / n;
 
   Geo g;
   g.LongitudeDeg = xf * kDegPerTurn - kDegPerHalfTurn;
@@ -135,18 +118,20 @@ Geo EcefToGeoWgs84(Ecef p) {
 }
 
 EnuFrame EnuFrame::At(Geo origin) {
-  const double originLatDeg = origin.LatitudeDeg;
-  const double originLonDeg = origin.LongitudeDeg;
-  if (originLatDeg < -kOriginMostLatDeg || originLatDeg > kOriginMostLatDeg) {
-    return {State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0};
+  const LongitudeLatitude stands{.LongitudeDeg = origin.LongitudeDeg,
+                                 .LatitudeDeg = origin.LatitudeDeg};
+  if (stands.LatitudeDeg < -kOriginMostLatDeg || stands.LatitudeDeg > kOriginMostLatDeg) {
+    return {State::OriginTooPolar, stands, {}};
   }
 
   const double mpd = kPi * kWgs84A / kDegPerHalfTurn;
-  return {State::Usable, originLatDeg, originLonDeg, mpd, std::cos(originLatDeg * kDeg2Rad) * mpd};
+  return {State::Usable,
+          stands,
+          {.Longitude = std::cos(stands.LatitudeDeg * kDeg2Rad) * mpd, .Latitude = mpd}};
 }
 
-TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y, uint32_t extent) {
-  const GeoBounds b = TileBounds(z, x, y);
+TileEnuMap TileEnuMap::Over(const EnuFrame &frame, Data::TileId of, uint32_t extent) {
+  const GeoBounds b = TileBounds(of);
   Geo topLeft;
   topLeft.LongitudeDeg = b.MinLonDeg;
   topLeft.LatitudeDeg = b.MaxLatDeg;

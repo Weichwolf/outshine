@@ -58,7 +58,7 @@ namespace {
 
 void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   const int side = grid < 2 ? 2 : grid;
-  const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
+  const Ground::GeoBounds bounds = Ground::TileBounds({.Zoom = zoom, .X = x, .Y = y});
   const Ground::Geo middle{.LongitudeDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
                            .LatitudeDeg = 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg),
                            .HeightM = 0.0};
