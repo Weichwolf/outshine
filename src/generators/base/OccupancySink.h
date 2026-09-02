@@ -1,34 +1,36 @@
 #ifndef OUTSHINE_GENERATORS_BASE_OCCUPANCYSINK_H
 #define OUTSHINE_GENERATORS_BASE_OCCUPANCYSINK_H
 
+#include <span>
 #include <array>
 #include <cstdint>
 
 #include "ContactMaterial.h"
 #include "Claim.h"
 #include "Ground.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
 class OccupancySink {
 public:
   struct Storage {
-    Span<Body> Bodies;
-    Span<uint32_t> Links;
-    Span<uint32_t> Cells;
+    std::span<Body> Bodies;
+    std::span<uint32_t> Links;
+    std::span<uint32_t> Cells;
     double CellM = 0.0;
   };
 
   explicit OccupancySink(const Storage &storage);
 
   [[nodiscard]] uint32_t Capacity() const noexcept {
-    return static_cast<uint32_t>(Store_.Bodies.Size());
+    return static_cast<uint32_t>(Store_.Bodies.size());
   }
 
   [[nodiscard]] Claim Place(const Body &body) noexcept;
 
-  [[nodiscard]] Span<const Body> Placed() const noexcept { return Store_.Bodies.Sub(0, Count()); }
+  [[nodiscard]] std::span<const Body> Placed() const noexcept {
+    return Store_.Bodies.subspan(0, Count());
+  }
 
   [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept {
     return Claims_[static_cast<size_t>(why)];

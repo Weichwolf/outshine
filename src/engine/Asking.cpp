@@ -158,12 +158,12 @@ bool Engine::State::Grows(double atLat, double atLon) {
   yields.reserve(placing.Count());
   for (size_t at = 0; at < placing.Count(); ++at) {
     const Generators::Making &stood = placing.At(at);
-    notes[at].assign(stood.NoteNames().Size(), Generators::Yield::Note{});
+    notes[at].assign(stood.NoteNames().size(), Generators::Yield::Note{});
     yields.emplace_back(lease->Sink(),
                         stood.NoteNames(),
-                        Span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
+                        std::span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
   }
-  placing.Occupy(*over, Span<Generators::Yield>(yields.data(), yields.size()));
+  placing.Occupy(*over, std::span<Generators::Yield>(yields.data(), yields.size()));
   for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
   Published.Places("generators: bodies they placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
@@ -172,7 +172,7 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Instancing sink(World.Instances);
   World.Shipping.Drawing().Draw(*over,
                                 placing,
-                                Span<const Generators::Yield>(yields.data(), yields.size()),
+                                std::span<const Generators::Yield>(yields.data(), yields.size()),
                                 lease->Sink().Placed(),
                                 sink);
   World.Instanced = World.Instances.size();

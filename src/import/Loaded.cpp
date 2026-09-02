@@ -57,8 +57,8 @@ struct Loaded::Held {
     const bool built =
         Moves ? (Motion.At(seconds, Locals, Weights),
                  Assembled.Build(File,
-                                 Span<const Gltf::Transform>(Locals.data(), Locals.size()),
-                                 Span<const double>(Weights.data(), Weights.size()),
+                                 std::span<const Gltf::Transform>(Locals.data(), Locals.size()),
+                                 std::span<const double>(Weights.data(), Weights.size()),
                                  Variant))
               : Assembled.Build(File, Variant);
     if (!built) {
@@ -142,7 +142,7 @@ Loaded &Loaded::operator=(Loaded &&) noexcept = default;
 
 bool Loaded::reads(std::string_view path) {
   Held &held = *Held_;
-  if (!held.File.ReadFile(std::string(path))) {
+  if (!held.File.ReadFile(path)) {
     held.Why = held.File.Error();
     return false;
   }
@@ -178,7 +178,7 @@ bool Loaded::plays(std::span<const int> animations) {
     return held.Assemble(0.0);
   }
   if (!Gltf::Pose::Build(held.File,
-                         Span<const int>(held.Plays.data(), held.Plays.size()),
+                         std::span<const int>(held.Plays.data(), held.Plays.size()),
                          held.Motion,
                          held.Why)) {
     return false;

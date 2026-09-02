@@ -477,20 +477,22 @@ struct Engine::State {
     double RestMs = 0.0;
   };
 
-  void
-  DesignLane(const Paving &on, const Ground::StreetField::Way &lane, size_t laneAt, Paved &into);
+  void DesignLane(const Paving &on,
+                  const Ground::StreetField::Way &lane,
+                  size_t laneAt,
+                  Paved &into) const;
 
   enum class Laid : uint8_t { Refused, Unchanged, Wanted };
 
   [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
 
-  void FitLane(size_t laneAt, Paved &into);
+  static void FitLane(size_t laneAt, Paved &into);
 
   void Crosses(const Ground::StreetField &ways,
                const Ground::OsmField &vectors,
                const TangentFrame &standing,
                const Drape &drapedOver,
-               Paved &into);
+               Paved &into) const;
 
   void Bridges(const Ground::StreetField &ways,
                const Ground::OsmField &vectors,
@@ -498,7 +500,8 @@ struct Engine::State {
                const Drape &drapedOver,
                Paved &into);
 
-  void Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
+  static void
+  Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
 
   void PaveLane(const Paving &on,
                 int phase,

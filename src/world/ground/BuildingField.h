@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
+#include <span>
 #include "math/Vec3.h"
 #include "OsmField.h"
 
@@ -12,7 +13,6 @@
 #include "GroundSample.h"
 #include "GroundQuery.h"
 #include "StructureMesher.h"
-#include "Span.h"
 #include "TileRanges.h"
 #include "TileWatermark.h"
 
@@ -38,7 +38,7 @@ public:
 
   void AnchorAt(const Vec3 &ecef);
 
-  int Build(const GroundQuery &ground, const OsmField &field, Span<const WayLine> ways);
+  int Build(const GroundQuery &ground, const OsmField &field, std::span<const WayLine> ways);
 
   [[nodiscard]] uint32_t AddedFirst() const { return AddedFirst_; }
 
@@ -52,7 +52,7 @@ public:
 
   [[nodiscard]] const std::vector<Footprint> &Footprints() const { return Prints_; }
 
-  [[nodiscard]] Span<const Footprint> OfTile(int tile) const {
+  [[nodiscard]] std::span<const Footprint> OfTile(int tile) const {
     if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return {Prints_.data() + r.First, r.Count};

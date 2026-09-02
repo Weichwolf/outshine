@@ -1,3 +1,4 @@
+#include <span>
 #include <algorithm>
 #include <limits>
 #include "Units.h"
@@ -525,12 +526,12 @@ bool Document::ReadFile(std::string_view path) {
   return Read({bytes.data(), bytes.size()}, path);
 }
 
-bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
+bool Document::Read(std::span<const uint8_t> whole, std::string_view path) {
   *this = Document();
   Path_ = path;
-  if (whole.Empty()) { return Refuse("is empty"); }
-  const uint8_t *const bytes = whole.Data();
-  const size_t length = whole.Size();
+  if (whole.empty()) { return Refuse("is empty"); }
+  const uint8_t *const bytes = whole.data();
+  const size_t length = whole.size();
 
   if (length >= kGlbHeaderBytes && LittleWord(bytes) == kGlbMagic) {
     const uint32_t version = LittleWord(bytes + 4);
@@ -1863,9 +1864,9 @@ bool Document::ImageBytes(int image, std::vector<uint8_t> &out) const {
   if (image < 0 || static_cast<size_t>(image) >= Images_.size()) { return false; }
   const Image &held = Images_[static_cast<size_t>(image)];
   if (held.View >= 0) {
-    Span<const uint8_t> span;
+    std::span<const uint8_t> span;
     if (!ViewSpan(held.View, span)) { return false; }
-    out.assign(span.Data(), span.Data() + span.Size());
+    out.assign(span.data(), span.data() + span.size());
     return true;
   }
   std::ifstream file(DirectoryOf(Path_) + held.Uri, std::ios::binary);
@@ -1874,10 +1875,10 @@ bool Document::ImageBytes(int image, std::vector<uint8_t> &out) const {
   return !out.empty();
 }
 
-bool Document::ViewSpan(int view, Span<const uint8_t> &out) const {
+bool Document::ViewSpan(int view, std::span<const uint8_t> &out) const {
   if (view < 0 || static_cast<size_t>(view) >= Views_.size()) { return false; }
   const BufferView &span = Views_[static_cast<size_t>(view)];
-  out = Span<const uint8_t>(Buffers_[span.Buffer].data() + span.ByteOffset, span.ByteLength);
+  out = std::span<const uint8_t>(Buffers_[span.Buffer].data() + span.ByteOffset, span.ByteLength);
   return true;
 }
 
@@ -1949,12 +1950,12 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   if (!ElementBytes(accessor, stride, element)) { return false; }
   const size_t columnBytes = (columns > 1) ? element / columns : 0;
 
-  Span<const uint8_t> span;
+  std::span<const uint8_t> span;
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
     if ((accessor.Count > 0) &&
-        (accessor.ByteOffset > span.Size() || element > span.Size() - accessor.ByteOffset ||
-         (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride)) {
+        (accessor.ByteOffset > span.size() || element > span.size() - accessor.ByteOffset ||
+         (accessor.Count - 1) > (span.size() - accessor.ByteOffset - element) / stride)) {
       return false;
     }
   }
@@ -1972,7 +1973,7 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   out.assign(accessor.Count * components, 0.0);
   if (accessor.View >= 0) {
     for (size_t i = 0; i < accessor.Count; ++i) {
-      const uint8_t *at = span.Data() + accessor.ByteOffset + i * stride;
+      const uint8_t *at = span.data() + accessor.ByteOffset + i * stride;
       for (size_t column = 0; column < columns; ++column) {
         const uint8_t *columnAt = at + column * columnBytes;
         for (size_t row = 0; row < rows; ++row) {
@@ -2006,24 +2007,24 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
     return false;
   }
 
-  Span<const uint8_t> indices;
-  Span<const uint8_t> values;
+  std::span<const uint8_t> indices;
+  std::span<const uint8_t> values;
   if (!ViewSpan(sparse.IndicesBufferView, indices)) { return false; }
   if (!ViewSpan(sparse.ValuesBufferView, values)) { return false; }
-  if (sparse.IndicesByteOffset > indices.Size() ||
-      sparse.Count > (indices.Size() - sparse.IndicesByteOffset) / indexBytes) {
+  if (sparse.IndicesByteOffset > indices.size() ||
+      sparse.Count > (indices.size() - sparse.IndicesByteOffset) / indexBytes) {
     return false;
   }
-  if (sparse.ValuesByteOffset > values.Size() ||
-      (element > 0 && sparse.Count > (values.Size() - sparse.ValuesByteOffset) / element)) {
+  if (sparse.ValuesByteOffset > values.size() ||
+      (element > 0 && sparse.Count > (values.size() - sparse.ValuesByteOffset) / element)) {
     return false;
   }
 
   for (size_t k = 0; k < sparse.Count; ++k) {
-    const double index = Component(indices.Data() + sparse.IndicesByteOffset + k * indexBytes,
+    const double index = Component(indices.data() + sparse.IndicesByteOffset + k * indexBytes,
                                    sparse.IndicesComponent);
     if (index < 0 || static_cast<size_t>(index) >= accessor.Count) { return false; }
-    const uint8_t *at = values.Data() + sparse.ValuesByteOffset + k * element;
+    const uint8_t *at = values.data() + sparse.ValuesByteOffset + k * element;
     for (size_t column = 0; column < columns; ++column) {
       for (size_t row = 0; row < rows; ++row) {
         const double raw =
@@ -2058,9 +2059,9 @@ bool Document::WorldTransform(int node, Transform &out) const {
   return Chain(node, nullptr, out);
 }
 
-bool Document::WorldTransform(int node, Span<const Transform> locals, Transform &out) const {
-  if (locals.Size() != Nodes_.size()) { return false; }
-  return Chain(node, locals.Data(), out);
+bool Document::WorldTransform(int node, std::span<const Transform> locals, Transform &out) const {
+  if (locals.size() != Nodes_.size()) { return false; }
+  return Chain(node, locals.data(), out);
 }
 
 bool Document::Chain(int node, const Transform *posed, Transform &out) const {

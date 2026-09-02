@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_ROADMESH_H
 #define OUTSHINE_GENERATORS_DRAW_ROADMESH_H
 
+#include <span>
 #include <cstdint>
 #include <vector>
 
 #include "math/Vec3.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -36,7 +36,7 @@ struct RoadGate {
   double HalfWidthM = 0.0;
 };
 
-void RaiseJunction(Span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into);
+void RaiseJunction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into);
 
 struct RoadRefusals {
   size_t Fit = 0;
@@ -46,9 +46,9 @@ struct RoadRefusals {
   size_t TooShort = 0;
 };
 
-void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCrestK);
+void DesignProfile(std::span<RoadStation> along, double mostGradient, double leastCrestK);
 
-void SweepRoad(Span<const RoadStation> along,
+void SweepRoad(std::span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
                const Vec3f &wearsLinear,

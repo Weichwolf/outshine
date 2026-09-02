@@ -1,3 +1,4 @@
+#include <span>
 #include "FeatureField.h"
 #include <algorithm>
 #include <memory>
@@ -6,22 +7,22 @@
 
 namespace outshine::Generators {
 
-std::shared_ptr<const FeatureField> FeatureField::Of(Span<const Feature> features,
-                                                     Span<const Ring> rings,
-                                                     Span<const Vertex> vertices) {
+std::shared_ptr<const FeatureField> FeatureField::Of(std::span<const Feature> features,
+                                                     std::span<const Ring> rings,
+                                                     std::span<const Vertex> vertices) {
   for (const Feature &f : features) {
-    if (static_cast<size_t>(f.FirstRing) + f.RingCount > rings.Size()) { return nullptr; }
+    if (static_cast<size_t>(f.FirstRing) + f.RingCount > rings.size()) { return nullptr; }
     for (uint32_t i = 0; i < f.RingCount; i++) {
       const Ring &r = rings[f.FirstRing + i];
-      if (static_cast<size_t>(r.First) + r.Count > vertices.Size()) { return nullptr; }
+      if (static_cast<size_t>(r.First) + r.Count > vertices.size()) { return nullptr; }
     }
   }
   return std::shared_ptr<const FeatureField>(new FeatureField(features, rings, vertices));
 }
 
-FeatureField::FeatureField(Span<const Feature> features,
-                           Span<const Ring> rings,
-                           Span<const Vertex> vertices)
+FeatureField::FeatureField(std::span<const Feature> features,
+                           std::span<const Ring> rings,
+                           std::span<const Vertex> vertices)
     : Features_(features.begin(), features.end()),
       Rings_(rings.begin(), rings.end()),
       Vertices_(vertices.begin(), vertices.end()) {
@@ -52,11 +53,11 @@ FeatureField::FeatureField(Span<const Feature> features,
   }
 }
 
-Span<const FeatureField::Ring> FeatureField::Rings(const Feature &f) const {
+std::span<const FeatureField::Ring> FeatureField::Rings(const Feature &f) const {
   return {Rings_.data() + f.FirstRing, f.RingCount};
 }
 
-Span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
+std::span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
   return {Vertices_.data() + r.First, r.Count};
 }
 
@@ -85,8 +86,8 @@ bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
   if (f.Form == FeatureForm::Ribbon) {
     const double reach2 = static_cast<double>(f.HalfWidthM) * static_cast<double>(f.HalfWidthM);
     for (const Ring &r : Rings(f)) {
-      const Span<const Vertex> v = Vertices(r);
-      for (size_t i = 0; i + 1 < v.Size(); i++) {
+      const std::span<const Vertex> v = Vertices(r);
+      for (size_t i = 0; i + 1 < v.size(); i++) {
         if (SegmentGapM2(eastM, northM, v[i].Em, v[i].Nm, v[i + 1].Em, v[i + 1].Nm) <= reach2) {
           return true;
         }
@@ -96,9 +97,9 @@ bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
   }
   int crossings = 0;
   for (const Ring &r : Rings(f)) {
-    const Span<const Vertex> v = Vertices(r);
-    if (v.Size() < 3) { continue; }
-    for (size_t i = 0, j = v.Size() - 1; i < v.Size(); j = i++) {
+    const std::span<const Vertex> v = Vertices(r);
+    if (v.size() < 3) { continue; }
+    for (size_t i = 0, j = v.size() - 1; i < v.size(); j = i++) {
       const double ei = v[i].Em;
       const double ni = v[i].Nm;
       const double ej = v[j].Em;

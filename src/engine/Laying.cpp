@@ -664,8 +664,8 @@ void Engine::State::FitLane(size_t laneAt, Paved &into) {
   bool wholeWay = true;
   while (from * 2u + 6u <= into.FitEastNorth.size()) {
     ReferenceLine fitted;
-    const Fitted got = Fit(Span<const double>(into.FitEastNorth.data() + from * 2u,
-                                              into.FitEastNorth.size() - from * 2u),
+    const Fitted got = Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u,
+                                                   into.FitEastNorth.size() - from * 2u),
                            kFitWithinM,
                            kFitTightestM,
                            fitted);
@@ -685,7 +685,7 @@ void Engine::State::FitLane(size_t laneAt, Paved &into) {
     if (upTo + 1u >= 3u) {
       ReferenceLine piece;
       const Fitted head =
-          Fit(Span<const double>(into.FitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
+          Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
               kFitWithinM,
               kFitTightestM,
               piece);
@@ -739,7 +739,7 @@ void Engine::State::FitLane(size_t laneAt, Paved &into) {
 void Engine::State::DesignLane(const Paving &on,
                                const Ground::StreetField::Way &lane,
                                size_t laneAt,
-                               Paved &into) {
+                               Paved &into) const {
   into.Along.clear();
   bool whole = true;
   const auto station = [&](double lat, double lon, uint64_t node) {
@@ -827,9 +827,10 @@ void Engine::State::DesignLane(const Paving &on,
   }
 
   if (lane.MaxGradient > 0.0f) {
-    Generators::DesignProfile(Span<Generators::RoadStation>(into.Along.data(), into.Along.size()),
-                              static_cast<double>(lane.MaxGradient),
-                              kLeastCrestK);
+    Generators::DesignProfile(
+        std::span<Generators::RoadStation>(into.Along.data(), into.Along.size()),
+        static_cast<double>(lane.MaxGradient),
+        kLeastCrestK);
   }
   for (Generators::RoadStation &one : into.Along) {
     if (one.Node != 0u || into.AtCrossing.empty()) { continue; }
@@ -849,7 +850,6 @@ void Engine::State::DesignLane(const Paving &on,
     }
   }
   into.Designed[laneAt] = into.Along;
-  return;
 }
 
 void Engine::State::PaveLane(const Paving &on,
@@ -979,16 +979,17 @@ void Engine::State::PaveLane(const Paving &on,
   }
   into.WaterMs += since();
   if (lane.Bridge) {
-    Generators::SweepRoad(Span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
-                          static_cast<double>(lane.HalfWidthM),
-                          profile,
-                          wears,
-                          std::atan(Generators::kCrossfall),
-                          pavement,
-                          &into.SweptPieces,
-                          &into.SweptCuts,
-                          &into.SweptRefused,
-                          &into.SweptWhy);
+    Generators::SweepRoad(
+        std::span<const Generators::RoadStation>(into.Along.data(), into.Along.size()),
+        static_cast<double>(lane.HalfWidthM),
+        profile,
+        wears,
+        std::atan(Generators::kCrossfall),
+        pavement,
+        &into.SweptPieces,
+        &into.SweptCuts,
+        &into.SweptRefused,
+        &into.SweptWhy);
   }
   into.SweepMs += since();
   for (size_t at = 1; at < into.Along.size(); ++at) {
@@ -1194,7 +1195,7 @@ void Engine::State::Crosses(const Ground::StreetField &ways,
                             const Ground::OsmField &vectors,
                             const TangentFrame &standing,
                             const Drape &drapedOver,
-                            Paved &into) {
+                            Paved &into) const {
   const std::span<const double> points = vectors.Points();
   Path::Network net(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = Data::kWgs84A});
   std::vector<size_t> netToLane;
@@ -1473,7 +1474,7 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
 }
 
 void Engine::State::Paves(const TangentFrame &standing,
-                          const Around &over,
+                          const Around &,
                           const std::shared_ptr<const ClassStructure> &classStructure,
                           const Drape &drapedOver,
                           std::vector<Yields> &corridor,
@@ -1646,7 +1647,7 @@ void Engine::State::Paves(const TangentFrame &standing,
     for (const uint64_t node : nodes) {
       const std::vector<Generators::RoadGate> &met = into.Gates[node];
       Generators::RaiseJunction(
-          Span<const Generators::RoadGate>(met.data(), met.size()), wears, pavement);
+          std::span<const Generators::RoadGate>(met.data(), met.size()), wears, pavement);
       ++junctionsRaised;
     }
   }

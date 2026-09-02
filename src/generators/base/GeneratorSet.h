@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_BASE_GENERATORSET_H
 #define OUTSHINE_GENERATORS_BASE_GENERATORSET_H
 
+#include <span>
 #include <vector>
 
 #include "Making.h"
 #include "Rank.h"
-#include "Span.h"
 #include "Yield.h"
 
 namespace outshine::Generators {
@@ -20,7 +20,7 @@ public:
 
   [[nodiscard]] const Making &At(size_t i) const { return *Entries_[i].G; }
 
-  void Occupy(const Ground &ground, Span<Yield> yields) const noexcept;
+  void Occupy(const Ground &ground, std::span<Yield> yields) const noexcept;
 
 private:
   struct Entry {

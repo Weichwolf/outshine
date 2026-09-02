@@ -1,3 +1,4 @@
+#include <span>
 #include <array>
 #include "Types.h"
 
@@ -104,7 +105,7 @@ size_t PathComponents(AnimationPath path) {
   return 0;
 }
 
-Span<const AnimatablePointer> AnimatablePointers() {
+std::span<const AnimatablePointer> AnimatablePointers() {
   static constexpr std::array kPointers = {
       AnimatablePointer{.Tail = "emissiveFactor", .Factor = MaterialFactor::Emissive},
       AnimatablePointer{.Tail = "pbrMetallicRoughness/baseColorFactor",

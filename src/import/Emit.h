@@ -1,11 +1,10 @@
 #ifndef OUTSHINE_IMPORT_EMIT_H
 #define OUTSHINE_IMPORT_EMIT_H
 
+#include <span>
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#include "Span.h"
 
 #include "Subject.h"
 #include "Types.h"
@@ -14,7 +13,7 @@ namespace outshine::Gltf {
 
 struct Emission {
   const Subject *Geometry = nullptr;
-  Span<const MaterialRef> Materials;
+  std::span<const MaterialRef> Materials;
   std::string Generator;
 };
 

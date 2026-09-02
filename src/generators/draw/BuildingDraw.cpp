@@ -1,10 +1,11 @@
+#include <span>
 #include "BuildingDraw.h"
 #include <cstdint>
 
 namespace outshine::Generators {
 
 void BuildingDraw::Draw(const Ground &ground,
-                        Span<const Body> placed,
+                        std::span<const Body> placed,
                         BodyRange mine,
                         DrawSink &sink) const noexcept {
   (void)ground;

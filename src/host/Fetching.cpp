@@ -37,7 +37,7 @@ size_t Write(const void *data, size_t size, size_t members, void *user) {
 
 } // namespace
 
-Fetching::Fetching(const Config &config) : Config_(config) {
+Fetching::Fetching(Config config) : Config_(std::move(config)) {
   curl_global_init(CURL_GLOBAL_DEFAULT);
   int n = Config_.Threads;
   if (n <= 0) {

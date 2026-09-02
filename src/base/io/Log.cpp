@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string>
 #include <span>
+#include <utility>
 
 namespace outshine {
 
@@ -20,7 +21,7 @@ LogField::LogField(const char *key, bool v) : Key(key), Value(v ? "1" : "0") {}
 
 LogField::LogField(const char *key, const char *v) : Key(key), Value(v) {}
 
-LogField::LogField(const char *key, const std::string &v) : Key(key), Value(v) {}
+LogField::LogField(const char *key, std::string v) : Key(key), Value(std::move(v)) {}
 
 LogSink *Log::Sink_ = nullptr;
 

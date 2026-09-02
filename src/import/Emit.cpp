@@ -148,13 +148,13 @@ private:
                       "reader would regenerate needs the normal texture that produced it, and this "
                       "writer has no image bytes");
       }
-      if (drawn.Material >= 0 && static_cast<size_t>(drawn.Material) >= What_.Materials.Size()) {
+      if (drawn.Material >= 0 && static_cast<size_t>(drawn.Material) >= What_.Materials.size()) {
         return Refuse("part " + Integer(part) + " names material " +
                       Integer(static_cast<size_t>(drawn.Material)) + " over a table of " +
-                      Integer(What_.Materials.Size()));
+                      Integer(What_.Materials.size()));
       }
     }
-    for (size_t index = 0; index < What_.Materials.Size(); ++index) {
+    for (size_t index = 0; index < What_.Materials.size(); ++index) {
       if (!Statable(What_.Materials[index], index)) { return false; }
     }
     return true;
@@ -196,10 +196,10 @@ private:
   }
 
   std::string Materials() {
-    if (What_.Materials.Empty()) { return ""; }
+    if (What_.Materials.empty()) { return ""; }
     std::string json = ",\"materials\":[";
     bool unlit = false;
-    for (size_t index = 0; index < What_.Materials.Size(); ++index) {
+    for (size_t index = 0; index < What_.Materials.size(); ++index) {
       const MaterialRef &material = What_.Materials[index];
       const Material &surface = material.Surface;
       if (index > 0) { json += ","; }

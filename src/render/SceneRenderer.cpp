@@ -431,9 +431,16 @@ void SceneRenderer::Create(Resource resource) {
       const LutShape shape = [this, resource] -> LutShape {
         switch (resource) {
           case Resource::MultiScatterLut:
-            return {kMultiScatterLutSize, kMultiScatterLutSize, &MultiScatterLut_};
-          case Resource::SkyViewLut: return {kSkyViewLutWidth, kSkyViewLutHeight, &SkyViewLut_};
-          default: return {kTransmittanceLutWidth, kTransmittanceLutHeight, &TransmittanceLut_};
+            return {.WidthPx = kMultiScatterLutSize,
+                    .HeightPx = kMultiScatterLutSize,
+                    .Into = &MultiScatterLut_};
+          case Resource::SkyViewLut:
+            return {
+                .WidthPx = kSkyViewLutWidth, .HeightPx = kSkyViewLutHeight, .Into = &SkyViewLut_};
+          default:
+            return {.WidthPx = kTransmittanceLutWidth,
+                    .HeightPx = kTransmittanceLutHeight,
+                    .Into = &TransmittanceLut_};
         }
       }();
       wanted.width = shape.WidthPx;

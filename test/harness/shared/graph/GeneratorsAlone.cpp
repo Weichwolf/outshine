@@ -1,3 +1,4 @@
+#include <span>
 #include <cstdio>
 #include <vector>
 

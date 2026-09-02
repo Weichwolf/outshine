@@ -1,3 +1,4 @@
+#include <span>
 #include "TriangleBvh.h"
 #include "math/Vec3.h"
 
@@ -169,11 +170,12 @@ void Thread(Building &work, uint32_t here, uint32_t escape) {
 
 } // namespace
 
-TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t> indices) {
+TriangleBvh TriangleBvh::Over(std::span<const float> positionsM,
+                              std::span<const uint32_t> indices) {
   TriangleBvh built;
-  const size_t triangles = indices.Size() / 3u;
-  if (triangles == 0 || indices.Size() % 3u != 0 || triangles > kBvhLeafFirstMask) { return built; }
-  const size_t vertices = positionsM.Size() / 3u;
+  const size_t triangles = indices.size() / 3u;
+  if (triangles == 0 || indices.size() % 3u != 0 || triangles > kBvhLeafFirstMask) { return built; }
+  const size_t vertices = positionsM.size() / 3u;
 
   Building work;
   work.Bounds.resize(triangles);
@@ -236,9 +238,9 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
   return built;
 }
 
-bool TriangleBvh::Refit(Span<const float> positionsM) {
+bool TriangleBvh::Refit(std::span<const float> positionsM) {
   if (Nodes_.empty() || Corners_.size() != Tris_.size() * 3u) { return false; }
-  const size_t vertices = positionsM.Size() / 3u;
+  const size_t vertices = positionsM.size() / 3u;
 
   for (size_t at = 0; at < Tris_.size(); ++at) {
     std::array<std::array<float, 3>, 3> corner;

@@ -1,12 +1,11 @@
 #ifndef OUTSHINE_IMPORT_DOCUMENT_H
 #define OUTSHINE_IMPORT_DOCUMENT_H
 
+#include <span>
 #include <string_view>
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#include "Span.h"
 
 #include "Viewport.h"
 #include "Transform.h"
@@ -18,7 +17,7 @@ namespace outshine::Gltf {
 
 class Document {
 public:
-  [[nodiscard]] bool Read(Span<const uint8_t> whole, std::string_view path);
+  [[nodiscard]] bool Read(std::span<const uint8_t> whole, std::string_view path);
   [[nodiscard]] bool ReadFile(std::string_view path);
 
   [[nodiscard]] const std::string &Error() const { return Error_; }
@@ -93,7 +92,8 @@ public:
 
   [[nodiscard]] bool WorldTransform(int node, Transform &out) const;
 
-  [[nodiscard]] bool WorldTransform(int node, Span<const Transform> locals, Transform &out) const;
+  [[nodiscard]] bool
+  WorldTransform(int node, std::span<const Transform> locals, Transform &out) const;
 
   [[nodiscard]] bool ViewTransform(int cameraNode, Transform &out) const;
 
@@ -115,7 +115,7 @@ private:
   [[nodiscard]] bool ReadAnimations(const Json &json);
   [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;
-  [[nodiscard]] bool ViewSpan(int view, Span<const uint8_t> &out) const;
+  [[nodiscard]] bool ViewSpan(int view, std::span<const uint8_t> &out) const;
   [[nodiscard]] bool ApplySparse(const Accessor &accessor, std::vector<double> &out) const;
 
   std::string Path_, Error_, Version_, MinVersion_;

@@ -1,10 +1,10 @@
 #ifndef OUTSHINE_GENERATORS_BASE_MAKING_H
 #define OUTSHINE_GENERATORS_BASE_MAKING_H
 
+#include <span>
 #include <array>
 #include "ContactMaterial.h"
 #include "Ground.h"
-#include "Span.h"
 #include "Yield.h"
 
 namespace outshine::Generators {
@@ -25,7 +25,7 @@ public:
 
   virtual void Occupy(const Ground &ground, Yield &yield) const noexcept = 0;
 
-  [[nodiscard]] virtual Span<const char *const> NoteNames() const noexcept { return {}; }
+  [[nodiscard]] virtual std::span<const char *const> NoteNames() const noexcept { return {}; }
 
 protected:
   Making() = default;

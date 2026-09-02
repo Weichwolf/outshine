@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_TYPES_H
 #define OUTSHINE_IMPORT_TYPES_H
 
+#include <span>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -14,7 +15,6 @@
 #include "math/Mat4.h"
 #include "math/Quat.h"
 #include "math/Vec3.h"
-#include "Span.h"
 
 #include "Keyframes.h"
 
@@ -266,7 +266,7 @@ struct AnimatablePointer {
   MaterialFactor Factor;
 };
 
-Span<const AnimatablePointer> AnimatablePointers();
+std::span<const AnimatablePointer> AnimatablePointers();
 
 enum class UndrivenReason : uint8_t {
 

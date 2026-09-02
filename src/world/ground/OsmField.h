@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "OsmLayer.h"
-#include "Span.h"
 #include "TilePool.h"
 
 namespace outshine::Ground {

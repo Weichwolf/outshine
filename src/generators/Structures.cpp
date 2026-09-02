@@ -1,3 +1,4 @@
+#include <span>
 #include "Structures.h"
 
 #include <array>
@@ -62,8 +63,8 @@ bool Structures::make(const Request &asked, Geometry &into) const {
   const Vec3 anchor;
 
   StructurePlan plan;
-  plan.RingLatLon = Span<const double>(ring.data(), kCorners * 2);
-  plan.CornerAslM = Span<const double>(corners.data(), kCorners);
+  plan.RingLatLon = std::span<const double>(ring.data(), kCorners * 2);
+  plan.CornerAslM = std::span<const double>(corners.data(), kCorners);
   plan.BaseAslM = 0.0;
   plan.HeightM = kHeightLeastM + kHeightSwingM * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;

@@ -263,13 +263,13 @@ private:
 
 class Site2Ground {
 public:
-  Site2Ground(Span<const double> ringLatLon,
-              Span<const double> cornerAslM,
+  Site2Ground(std::span<const double> ringLatLon,
+              std::span<const double> cornerAslM,
               double baseAslM,
               double seatAslM,
               double footAslM)
       : HighM_(seatAslM - baseAslM), LowM_(footAslM - baseAslM) {
-    const size_t n = std::min(cornerAslM.Size(), ringLatLon.Size() / 2);
+    const size_t n = std::min(cornerAslM.size(), ringLatLon.size() / 2);
     if (n < 3) { return; }
     std::array<std::array<double, 4>, 3> m = {};
     for (size_t k = 0; k < n; k++) {
@@ -980,7 +980,7 @@ void Pavement(const BuildingShape &s,
 } // namespace
 
 void BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept {
-  if (plan.RingLatLon.Size() < 6) { return; }
+  if (plan.RingLatLon.size() < 6) { return; }
   Massing mass = MassOf(plan.RingLatLon, plan.HeightM, plan.HeightMeasured, plan.Street);
   if (mass.Parts.empty()) { return; }
 

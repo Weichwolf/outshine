@@ -26,7 +26,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
                           Chunk *out,
                           Vec3 &origin_out) {
   if (out == nullptr) { return 0; }
-  out->verts = 0;
+  out->verts = nullptr;
   out->nverts = 0;
   out->gridverts = 0;
   out->err = 0.f;

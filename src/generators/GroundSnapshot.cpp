@@ -10,7 +10,6 @@
 
 #include "GroundPatch.h"
 #include "GroundSample.h"
-#include "Span.h"
 #include "VegetationTemplates.h"
 
 namespace outshine::Generators {
@@ -26,7 +25,7 @@ std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTem
     table[at].Surface.Roughness = rows[at].Ground[3];
     table[at].SlopeMaxDeg = rows[at].Edge[3];
   }
-  return GroundTable::Of(Span<const GroundTable::Row>(table.data(), table.size()));
+  return GroundTable::Of(std::span<const GroundTable::Row>(table.data(), table.size()));
 }
 
 std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Fields &stands) {
@@ -84,9 +83,9 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     take(f, w.FirstPoint, w.PointCount);
   }
 
-  return FeatureField::Of(Span<const FeatureField::Feature>(features.data(), features.size()),
-                          Span<const FeatureField::Ring>(rings.data(), rings.size()),
-                          Span<const FeatureField::Vertex>(vertices.data(), vertices.size()));
+  return FeatureField::Of(std::span<const FeatureField::Feature>(features.data(), features.size()),
+                          std::span<const FeatureField::Ring>(rings.data(), rings.size()),
+                          std::span<const FeatureField::Vertex>(vertices.data(), vertices.size()));
 }
 
 Snapped SnapshotOver(const Tile &region,
@@ -131,7 +130,7 @@ Snapped SnapshotOver(const Tile &region,
     }
   }
   out->Patch = GroundPatch::Complete(
-      region, side, Span<const GroundPatch::Posting>(postings.data(), postings.size()));
+      region, side, std::span<const GroundPatch::Posting>(postings.data(), postings.size()));
   out->Classes = classes.Read();
   out->Features = FeaturesOver(region, stands);
   out->Table = std::move(table);

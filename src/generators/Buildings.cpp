@@ -1,3 +1,4 @@
+#include <span>
 #include "Buildings.h"
 
 #include <array>
@@ -12,7 +13,7 @@ namespace {}
 
 Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 
-Span<const char *const> Buildings::NoteNames() const noexcept {
+std::span<const char *const> Buildings::NoteNames() const noexcept {
   static constexpr std::array<const char *const, kNotes> kNames = {
       "footprints", "roofless", "highestRoofAglM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");

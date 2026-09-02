@@ -1,3 +1,4 @@
+#include <span>
 #include "Yield.h"
 
 #include <cassert>
@@ -6,10 +7,12 @@
 
 namespace outshine::Generators {
 
-Yield::Yield(OccupancySink &space, Span<const char *const> names, Span<Note> notes) noexcept
+Yield::Yield(OccupancySink &space,
+             std::span<const char *const> names,
+             std::span<Note> notes) noexcept
     : Space_(&space), Notes_(notes) {
-  assert(names.Size() == notes.Size());
-  for (size_t i = 0; i < names.Size(); i++) {
+  assert(names.size() == notes.size());
+  for (size_t i = 0; i < names.size(); i++) {
     Notes_[i] = Note{.Name = names[i], .Times = 0, .Peak = 0.0, .Raised = false};
   }
 }

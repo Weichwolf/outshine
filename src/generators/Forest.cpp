@@ -1,3 +1,4 @@
+#include <span>
 #include "Forest.h"
 
 #include <array>
@@ -9,6 +10,7 @@
 
 #include <numbers>
 #include <cmath>
+#include <utility>
 
 #include "Geodesy.h"
 #include "Units.h"
@@ -44,14 +46,14 @@ float SizeFactor(uint64_t bits, float sigma) {
 
 } // namespace
 
-Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit)
-    : PerM2_(perM2ByRow), Limit_(limit) {
-  Held_ = stems.Size() < kMostSpecies ? stems.Size() : kMostSpecies;
-  Refused_ = stems.Size() - Held_;
-  for (size_t at = 0; at < Held_; ++at) { Stems_[at] = stems.Data()[at]; }
+Forest::Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit)
+    : PerM2_(perM2ByRow), Limit_(std::move(limit)) {
+  Held_ = stems.size() < kMostSpecies ? stems.size() : kMostSpecies;
+  Refused_ = stems.size() - Held_;
+  for (size_t at = 0; at < Held_; ++at) { Stems_[at] = stems.data()[at]; }
 }
 
-Span<const char *const> Forest::NoteNames() const noexcept {
+std::span<const char *const> Forest::NoteNames() const noexcept {
   static constexpr std::array<const char *const, kNotes> kNames = {"noTemplate",
                                                                    "noSpecies",
                                                                    "zeroDensity",
@@ -95,7 +97,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
       lattice.Nm;
 
   const std::optional<int> row = ground.CoverAt({.EastM = eastM, .NorthM = northM}).Row();
-  if (!row || static_cast<size_t>(*row) >= PerM2_.Size()) { return Outcome::NoTemplate; }
+  if (!row || static_cast<size_t>(*row) >= PerM2_.size()) { return Outcome::NoTemplate; }
   const float perM2 = PerM2_[static_cast<size_t>(*row)];
   if (perM2 <= 0.0f) { return Outcome::ZeroDensity; }
 

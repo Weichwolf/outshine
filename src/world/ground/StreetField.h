@@ -1,12 +1,12 @@
 #ifndef OUTSHINE_WORLD_GROUND_STREETFIELD_H
 #define OUTSHINE_WORLD_GROUND_STREETFIELD_H
 
+#include <span>
 #include <cstdint>
 #include <vector>
 
 #include "Capacity.h"
 #include "OsmField.h"
-#include "Span.h"
 #include "TileRanges.h"
 #include "TileWatermark.h"
 #include "VegetationTemplates.h"
@@ -33,7 +33,7 @@ public:
 
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
-  [[nodiscard]] Span<const Way> OfTile(int tile) const {
+  [[nodiscard]] std::span<const Way> OfTile(int tile) const {
     if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return {Ways_.data() + r.First, r.Count};

@@ -1,3 +1,4 @@
+#include <span>
 #include "GeneratorSet.h"
 
 #include <cassert>
@@ -13,8 +14,8 @@ bool GeneratorSet::Add(Rank rank, const Making &generator) {
   return true;
 }
 
-void GeneratorSet::Occupy(const Ground &ground, Span<Yield> yields) const noexcept {
-  assert(yields.Size() == Entries_.size());
+void GeneratorSet::Occupy(const Ground &ground, std::span<Yield> yields) const noexcept {
+  assert(yields.size() == Entries_.size());
   for (size_t i = 0; i < Entries_.size(); i++) { Entries_[i].G->Occupy(ground, yields[i]); }
 }
 

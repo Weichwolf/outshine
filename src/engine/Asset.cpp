@@ -1,3 +1,4 @@
+#include <span>
 #include "Digest.h"
 #include "Heap.h"
 #include <algorithm>
@@ -7,8 +8,6 @@
 #include <cstdint>
 
 #include "Asset.h"
-
-#include "Span.h"
 
 namespace outshine::Core {
 
@@ -77,8 +76,8 @@ bool Posed::PoseInto(double seconds, bool records, std::string &error) {
     }
     const Heap::Tagged building("pose-build");
     if (Assembled_.Build(File_,
-                         Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
-                         Span<const double>(Weights_.data(), Weights_.size()),
+                         std::span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
+                         std::span<const double>(Weights_.data(), Weights_.size()),
                          Variant_)) {
       Changed_ += 1;
       if (first && records) { PreviousPositionsM_ = Assembled_.PositionsM(); }

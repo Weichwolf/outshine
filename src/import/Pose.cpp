@@ -1,3 +1,4 @@
+#include <span>
 #include <algorithm>
 #include <array>
 #include "Pose.h"
@@ -28,21 +29,21 @@ const char *PathName(AnimationPath path) {
 
 bool Pose::Build(const Document &document, int animation, Pose &out, std::string &error) {
   const std::array<int, 1> one = {{animation}};
-  return Build(document, Span<const int>(one.data(), 1), out, error);
+  return Build(document, std::span<const int>(one.data(), 1), out, error);
 }
 
 bool Pose::Build(const Document &document,
-                 Span<const int> animations,
+                 std::span<const int> animations,
                  Pose &out,
                  std::string &error) {
   out = Pose();
   const std::vector<Animation> &declared = document.Animations();
-  if (animations.Size() == 0) {
+  if (animations.size() == 0) {
     error = document.Path() + ": a pose is built from a declared set of animations and the set is "
                               "empty, which is a different statement from a file with none";
     return false;
   }
-  for (size_t which = 0; which < animations.Size(); ++which) {
+  for (size_t which = 0; which < animations.size(); ++which) {
     const int animation = animations[which];
     if (animation < 0 || static_cast<size_t>(animation) >= declared.size()) {
       error = document.Path() + ": animation " + std::to_string(animation) + " of " +
@@ -82,7 +83,7 @@ bool Pose::Build(const Document &document,
 
   std::vector<Claim> claimed;
   std::vector<int> claimedBy;
-  for (size_t which = 0; which < animations.Size(); ++which) {
+  for (size_t which = 0; which < animations.size(); ++which) {
     const int animation = animations[which];
     const Animation &what = declared[static_cast<size_t>(animation)];
     for (const AnimationChannel &channel : what.Channels) {

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_GROUNDPATCH_H
 #define OUTSHINE_GENERATORS_BASE_GROUNDPATCH_H
 
+#include <span>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -8,7 +9,6 @@
 #include "GroundSample.h"
 #include "Earth.h"
 #include "Tile.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -24,7 +24,7 @@ public:
   };
 
   static std::shared_ptr<const GroundPatch>
-  Complete(const Tile &region, int side, Span<const Posting> postings);
+  Complete(const Tile &region, int side, std::span<const Posting> postings);
 
   [[nodiscard]] int Side() const { return Side_; }
 
@@ -40,7 +40,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const;
 
 private:
-  GroundPatch(int side, double spacingEm, double spacingNm, Span<const Posting> postings);
+  GroundPatch(int side, double spacingEm, double spacingNm, std::span<const Posting> postings);
 
   int Side_;
   double SpacingEm_, SpacingNm_;

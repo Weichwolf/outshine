@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 #define OUTSHINE_WORLD_GROUND_STRUCTUREMESHER_H
 
+#include <span>
 #include <cstdint>
 #include <vector>
 
 #include "math/Vec3.h"
-#include "Span.h"
 
 namespace outshine {
 
@@ -29,7 +29,7 @@ struct Raised {
 };
 
 struct WayLine {
-  Span<const double> LatLon;
+  std::span<const double> LatLon;
   double HalfWidthM = 0.0;
   double MinLat = 0.0, MinLon = 0.0, MaxLat = 0.0, MaxLon = 0.0;
 };
@@ -43,13 +43,13 @@ struct Frontage {
 };
 
 struct StructurePlan {
-  Span<const double> RingLatLon;
+  std::span<const double> RingLatLon;
   double BaseAslM = 0.0;
 
   double SeatAslM = 0.0;
   double FootAslM = 0.0;
 
-  Span<const double> CornerAslM;
+  std::span<const double> CornerAslM;
 
   double HeightM = 0.0;
   bool HeightMeasured = false;

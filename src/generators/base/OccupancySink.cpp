@@ -26,7 +26,7 @@ constexpr uint32_t kNoBody = kNoCell;
 } // namespace
 
 OccupancySink::OccupancySink(const Storage &storage) : Store_(storage) {
-  assert(Store_.Links.Size() == Store_.Bodies.Size());
+  assert(Store_.Links.size() == Store_.Bodies.size());
   assert(Store_.CellM > 0.0);
 }
 
@@ -40,7 +40,7 @@ void OccupancySink::Open(const Ground &ground) noexcept {
   SpanNm_ = ground.Where().SpanNm();
   CellsE_ = Cells(SpanEm_, Store_.CellM);
   CellsN_ = Cells(SpanNm_, Store_.CellM);
-  assert((size_t)CellsE_ * (size_t)CellsN_ <= Store_.Cells.Size());
+  assert((size_t)CellsE_ * (size_t)CellsN_ <= Store_.Cells.size());
   for (size_t i = 0, cells = static_cast<size_t>(CellsE_) * static_cast<size_t>(CellsN_); i < cells;
        i++) {
     Store_.Cells[i] = kNoBody;
@@ -78,7 +78,7 @@ Claim OccupancySink::Place(const Body &body) noexcept {
     Claims_[static_cast<size_t>(why)]++;
     return Claim::Refused(why);
   };
-  if (Count() >= Store_.Bodies.Size()) { return refuse(Claim::Outcome::Full); }
+  if (Count() >= Store_.Bodies.size()) { return refuse(Claim::Outcome::Full); }
   if (!(body.Em >= 0.0) || !(body.Nm >= 0.0) || !(body.Em < SpanEm_) || !(body.Nm < SpanNm_)) {
     return refuse(Claim::Outcome::Outside);
   }

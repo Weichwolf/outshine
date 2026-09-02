@@ -29,7 +29,7 @@ public:
     size_t MaxBodyBytes = kBodyMostMegabytes << kMegabyteShift;
   };
 
-  explicit Fetching(const Config &config);
+  explicit Fetching(Config config);
   ~Fetching() override;
   Fetching(const Fetching &) = delete;
   Fetching &operator=(const Fetching &) = delete;

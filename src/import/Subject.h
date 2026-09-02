@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "scene/PunctualLight.h"
-#include "Span.h"
 
 #include "Viewport.h"
 #include "Framing.h"
@@ -78,8 +77,8 @@ public:
   [[nodiscard]] bool Build(const Document &document, const VariantSelection &variant = {});
 
   [[nodiscard]] bool Build(const Document &document,
-                           Span<const Transform> pose,
-                           Span<const double> weights,
+                           std::span<const Transform> pose,
+                           std::span<const double> weights,
                            const VariantSelection &variant = {});
 
   [[nodiscard]] bool Assemble(const outshine::Geometry &what);
@@ -204,14 +203,14 @@ private:
   [[nodiscard]] bool SuppliedTangentsFor(const Document &document,
                                          const Primitive &primitive,
                                          const VertexPlacement &place,
-                                         Span<const double> morphWeights,
+                                         std::span<const double> morphWeights,
                                          Part &part,
                                          size_t vertices,
                                          std::vector<double> &into);
   [[nodiscard]] bool BuildTangentsFor(const Document &document,
                                       const Primitive &primitive,
                                       const VertexPlacement &place,
-                                      Span<const double> morphWeights,
+                                      std::span<const double> morphWeights,
                                       Part &part,
                                       size_t vertices);
 

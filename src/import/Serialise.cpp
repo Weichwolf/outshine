@@ -1,4 +1,5 @@
 
+#include <span>
 #include "generate/Generate.h"
 
 #include "Emit.h"
@@ -28,7 +29,7 @@ bool writeGlb(const Geometry &what, std::vector<uint8_t> &glb, std::string &erro
   }
   Gltf::Emission emission;
   emission.Geometry = &stood;
-  emission.Materials = Span<const Gltf::MaterialRef>(wearing.data(), wearing.size());
+  emission.Materials = std::span<const Gltf::MaterialRef>(wearing.data(), wearing.size());
   emission.Generator = "outshine generators";
   return Gltf::Emit(emission, glb, error);
 }

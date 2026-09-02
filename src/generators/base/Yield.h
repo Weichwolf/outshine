@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_YIELD_H
 #define OUTSHINE_GENERATORS_BASE_YIELD_H
 
+#include <span>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +10,6 @@
 #include "Claim.h"
 #include "OccupancySink.h"
 #include "Rank.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -22,7 +22,7 @@ public:
     bool Raised = false;
   };
 
-  Yield(OccupancySink &space, Span<const char *const> names, Span<Note> notes) noexcept;
+  Yield(OccupancySink &space, std::span<const char *const> names, std::span<Note> notes) noexcept;
 
   [[nodiscard]] Claim Place(const Body &body) noexcept;
 
@@ -37,7 +37,7 @@ public:
 
   [[nodiscard]] BodyRange Placed() const noexcept { return Range_; }
 
-  [[nodiscard]] Span<const Note> Notes() const noexcept { return Notes_; }
+  [[nodiscard]] std::span<const Note> Notes() const noexcept { return Notes_; }
 
   [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept {
     return Claims_[static_cast<size_t>(why)];
@@ -45,7 +45,7 @@ public:
 
 private:
   OccupancySink *Space_;
-  Span<Note> Notes_;
+  std::span<Note> Notes_;
   BodyRange Range_;
   std::array<uint32_t, Claim::kOutcomes> Claims_ = {{0, 0, 0, 0}};
 };

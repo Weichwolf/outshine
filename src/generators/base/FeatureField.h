@@ -1,13 +1,13 @@
 #ifndef OUTSHINE_GENERATORS_BASE_FEATUREFIELD_H
 #define OUTSHINE_GENERATORS_BASE_FEATUREFIELD_H
 
+#include <span>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "FeatureLevel.h"
 #include "Earth.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -36,15 +36,16 @@ public:
     float MinEm, MinNm, MaxEm, MaxNm;
   };
 
-  static std::shared_ptr<const FeatureField>
-  Of(Span<const Feature> features, Span<const Ring> rings, Span<const Vertex> vertices);
+  static std::shared_ptr<const FeatureField> Of(std::span<const Feature> features,
+                                                std::span<const Ring> rings,
+                                                std::span<const Vertex> vertices);
 
   [[nodiscard]] size_t Count() const { return Features_.size(); }
 
   [[nodiscard]] const Feature &At(size_t i) const { return Features_[i]; }
 
-  [[nodiscard]] Span<const Ring> Rings(const Feature &f) const;
-  [[nodiscard]] Span<const Vertex> Vertices(const Ring &r) const;
+  [[nodiscard]] std::span<const Ring> Rings(const Feature &f) const;
+  [[nodiscard]] std::span<const Vertex> Vertices(const Ring &r) const;
 
   [[nodiscard]] static bool Boxed(const Feature &f, EastNorth at) noexcept {
     return at.EastM >= f.MinEm && at.EastM <= f.MaxEm && at.NorthM >= f.MinNm &&
@@ -56,7 +57,9 @@ public:
   [[nodiscard]] size_t HeapBytes() const;
 
 private:
-  FeatureField(Span<const Feature> features, Span<const Ring> rings, Span<const Vertex> vertices);
+  FeatureField(std::span<const Feature> features,
+               std::span<const Ring> rings,
+               std::span<const Vertex> vertices);
 
   std::vector<Feature> Features_;
   std::vector<Ring> Rings_;

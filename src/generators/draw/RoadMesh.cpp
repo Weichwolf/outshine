@@ -69,27 +69,27 @@ void Facet(RoadRaised &into, uint32_t a, uint32_t b, uint32_t c) {
 
 } // namespace
 
-void RaiseJunction(Span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into) {
-  if (gates.Size() < 2) { return; }
+void RaiseJunction(std::span<const RoadGate> gates, const Vec3f &wearsLinear, RoadRaised &into) {
+  if (gates.size() < 2) { return; }
   double centreE = 0.0;
   double centreS = 0.0;
   double centreGrade = 0.0;
-  for (size_t at = 0; at < gates.Size(); ++at) {
+  for (size_t at = 0; at < gates.size(); ++at) {
     centreE += gates[at].EastM;
     centreS += gates[at].SouthM;
     centreGrade += gates[at].GradeM;
   }
-  centreE /= static_cast<double>(gates.Size());
-  centreS /= static_cast<double>(gates.Size());
-  centreGrade /= static_cast<double>(gates.Size());
+  centreE /= static_cast<double>(gates.size());
+  centreS /= static_cast<double>(gates.size());
+  centreGrade /= static_cast<double>(gates.size());
 
   struct Corner {
     double EastM, SouthM, GradeM, AroundRad;
   };
 
   std::vector<Corner> around;
-  around.reserve(gates.Size() * 2u);
-  for (size_t at = 0; at < gates.Size(); ++at) {
+  around.reserve(gates.size() * 2u);
+  for (size_t at = 0; at < gates.size(); ++at) {
     const RoadGate &gate = gates[at];
     const double sideE = -gate.OutS * gate.HalfWidthM;
     const double sideS = gate.OutE * gate.HalfWidthM;
@@ -179,9 +179,9 @@ void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
   for (const uint32_t one : woven.Index) { into.Index.push_back(firstVertex + one); }
 }
 
-bool LayPiece(Span<const double> eastNorthM,
-              Span<const double> gradeM,
-              Span<const double> reachedM,
+bool LayPiece(std::span<const double> eastNorthM,
+              std::span<const double> gradeM,
+              std::span<const double> reachedM,
               double halfWidthM,
               RoadProfile profile,
               const Vec3f &wearsLinear,
@@ -190,7 +190,7 @@ bool LayPiece(Span<const double> eastNorthM,
               RoadRefusals *why) {
   ReferenceLine line;
   double tightestM = 0.0;
-  if (eastNorthM.Size() == 4) {
+  if (eastNorthM.size() == 4) {
     const double runE = eastNorthM[2] - eastNorthM[0];
     const double runN = eastNorthM[3] - eastNorthM[1];
     const double runM = std::sqrt(runE * runE + runN * runN);
@@ -207,7 +207,7 @@ bool LayPiece(Span<const double> eastNorthM,
       return false;
     }
   } else {
-    const Fitted laid = Fit(std::span<const double>(eastNorthM.Data(), eastNorthM.Size()),
+    const Fitted laid = Fit(std::span<const double>(eastNorthM.data(), eastNorthM.size()),
                             kLayWithinM,
                             kLayTightestM,
                             line);
@@ -218,13 +218,13 @@ bool LayPiece(Span<const double> eastNorthM,
     tightestM = laid.TightestRadiusM;
   }
 
-  const double wholeM = reachedM[reachedM.Size() - 1u] - reachedM[0];
+  const double wholeM = reachedM[reachedM.size() - 1u] - reachedM[0];
   std::vector<Knot> rise;
-  rise.reserve(gradeM.Size());
-  for (size_t one = 0; one < gradeM.Size(); ++one) {
+  rise.reserve(gradeM.size());
+  for (size_t one = 0; one < gradeM.size(); ++one) {
     const double part = wholeM > kLeastTurnRad ? (reachedM[one] - reachedM[0]) / wholeM : 0.0;
     double rate = 0.0;
-    if (one + 1u < gradeM.Size()) {
+    if (one + 1u < gradeM.size()) {
       const double span = reachedM[one + 1u] - reachedM[one];
       rate = span > kLeastTurnRad ? (gradeM[one + 1u] - gradeM[one]) / span : 0.0;
     } else if (one > 0) {
@@ -258,25 +258,25 @@ bool LayPiece(Span<const double> eastNorthM,
 
 } // namespace
 
-void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCrestK) {
-  if (along.Size() < 3 || !(mostGradient > 0.0) || !(leastCrestK > 0.0)) { return; }
+void DesignProfile(std::span<RoadStation> along, double mostGradient, double leastCrestK) {
+  if (along.size() < 3 || !(mostGradient > 0.0) || !(leastCrestK > 0.0)) { return; }
 
-  std::vector<double> reached(along.Size(), 0.0);
-  for (size_t one = 1; one < along.Size(); ++one) {
+  std::vector<double> reached(along.size(), 0.0);
+  for (size_t one = 1; one < along.size(); ++one) {
     const double spanE = along[one].EastM - along[one - 1u].EastM;
     const double spanS = along[one].SouthM - along[one - 1u].SouthM;
     reached[one] = reached[one - 1u] + std::sqrt(spanE * spanE + spanS * spanS);
   }
 
-  std::vector<double> grade(along.Size() - 1u, 0.0);
-  for (size_t one = 0; one + 1u < along.Size(); ++one) {
+  std::vector<double> grade(along.size() - 1u, 0.0);
+  for (size_t one = 0; one + 1u < along.size(); ++one) {
     const double span = reached[one + 1u] - reached[one];
     grade[one] = span > kLeastTurnRad ? (along[one + 1u].GradeM - along[one].GradeM) / span : 0.0;
     grade[one] = std::clamp(grade[one], -mostGradient, mostGradient);
   }
 
   for (int pass = 0; pass < kProfilePasses; ++pass) {
-    for (size_t one = 0; one + 2u < along.Size(); ++one) {
+    for (size_t one = 0; one + 2u < along.size(); ++one) {
       const double span = 0.5 * (reached[one + 2u] - reached[one]);
       if (!(span > kLeastTurnRad)) { continue; }
       const double most = span / (100.0 * leastCrestK);
@@ -290,39 +290,39 @@ void DesignProfile(Span<RoadStation> along, double mostGradient, double leastCre
     }
   }
 
-  std::vector<double> asFound(along.Size(), 0.0);
-  for (size_t one = 0; one < along.Size(); ++one) { asFound[one] = along[one].GradeM; }
-  for (size_t one = 1; one < along.Size(); ++one) {
+  std::vector<double> asFound(along.size(), 0.0);
+  for (size_t one = 0; one < along.size(); ++one) { asFound[one] = along[one].GradeM; }
+  for (size_t one = 1; one < along.size(); ++one) {
     along[one].GradeM =
         along[one - 1u].GradeM + grade[one - 1u] * (reached[one] - reached[one - 1u]);
   }
   {
-    const double shutE = along[along.Size() - 1u].EastM - along[0].EastM;
-    const double shutS = along[along.Size() - 1u].SouthM - along[0].SouthM;
-    const double whole = reached[along.Size() - 1u];
+    const double shutE = along[along.size() - 1u].EastM - along[0].EastM;
+    const double shutS = along[along.size() - 1u].SouthM - along[0].SouthM;
+    const double whole = reached[along.size() - 1u];
     if (shutE * shutE + shutS * shutS < kShutM * kShutM && whole > kLeastTurnRad) {
-      const double adrift = along[along.Size() - 1u].GradeM - along[0].GradeM;
-      for (size_t one = 0; one < along.Size(); ++one) {
+      const double adrift = along[along.size() - 1u].GradeM - along[0].GradeM;
+      for (size_t one = 0; one < along.size(); ++one) {
         along[one].GradeM -= adrift * reached[one] / whole;
       }
     }
   }
   double apart = 0.0;
   size_t over = 0;
-  for (size_t one = 0; one < along.Size(); ++one) {
+  for (size_t one = 0; one < along.size(); ++one) {
     if (along[one].Node == 0u) { continue; }
     apart += along[one].GradeM - asFound[one];
     ++over;
   }
   if (over == 0) {
-    for (size_t one = 0; one < along.Size(); ++one) { apart += along[one].GradeM - asFound[one]; }
-    over = along.Size();
+    for (size_t one = 0; one < along.size(); ++one) { apart += along[one].GradeM - asFound[one]; }
+    over = along.size();
   }
   apart /= static_cast<double>(over);
-  for (size_t one = 0; one < along.Size(); ++one) { along[one].GradeM -= apart; }
+  for (size_t one = 0; one < along.size(); ++one) { along[one].GradeM -= apart; }
 }
 
-void SweepRoad(Span<const RoadStation> along,
+void SweepRoad(std::span<const RoadStation> along,
                double halfWidthM,
                RoadProfile profile,
                const Vec3f &wearsLinear,
@@ -332,15 +332,15 @@ void SweepRoad(Span<const RoadStation> along,
                size_t *cutsMade,
                size_t *piecesRefused,
                RoadRefusals *why) {
-  if (along.Size() < 3 || !(halfWidthM > 0.0)) { return; }
+  if (along.size() < 3 || !(halfWidthM > 0.0)) { return; }
 
   std::vector<double> eastNorth;
   std::vector<double> grade;
   std::vector<double> reached;
-  eastNorth.reserve(along.Size() * 2u);
-  grade.reserve(along.Size());
-  reached.reserve(along.Size());
-  for (size_t one = 0; one < along.Size(); ++one) {
+  eastNorth.reserve(along.size() * 2u);
+  grade.reserve(along.size());
+  reached.reserve(along.size());
+  for (size_t one = 0; one < along.size(); ++one) {
     eastNorth.push_back(along[one].EastM);
     eastNorth.push_back(-along[one].SouthM);
     grade.push_back(along[one].GradeM);
@@ -354,19 +354,19 @@ void SweepRoad(Span<const RoadStation> along,
   }
 
   size_t from = 0;
-  while (from + 3u <= along.Size()) {
+  while (from + 3u <= along.size()) {
     ReferenceLine probe;
     const Fitted got =
-        Fit(std::span<const double>(eastNorth.data() + from * 2u, (along.Size() - from) * 2u),
+        Fit(std::span<const double>(eastNorth.data() + from * 2u, (along.size() - from) * 2u),
             kLayWithinM,
             kLayTightestM,
             probe);
-    const size_t upTo = got.Laid ? along.Size() - from - 1u : got.TightestDemandedAtVertex;
+    const size_t upTo = got.Laid ? along.size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
     if (count >= 2u) {
-      if (LayPiece(Span<const double>(eastNorth.data() + from * 2u, count * 2u),
-                   Span<const double>(grade.data() + from, count),
-                   Span<const double>(reached.data() + from, count),
+      if (LayPiece(std::span<const double>(eastNorth.data() + from * 2u, count * 2u),
+                   std::span<const double>(grade.data() + from, count),
+                   std::span<const double>(reached.data() + from, count),
                    halfWidthM,
                    profile,
                    wearsLinear,
@@ -389,7 +389,7 @@ void SweepRoad(Span<const RoadStation> along,
     if (cutsMade != nullptr) { ++*cutsMade; }
     {
       const size_t at = from + upTo;
-      if (at > 0 && at + 1u < along.Size()) {
+      if (at > 0 && at + 1u < along.size()) {
         const auto facing = [&](size_t one, size_t two) {
           const double runE = along[two].EastM - along[one].EastM;
           const double runS = along[two].SouthM - along[one].SouthM;
@@ -411,7 +411,7 @@ void SweepRoad(Span<const RoadStation> along,
                                                           .OutE = on.first,
                                                           .OutS = on.second,
                                                           .HalfWidthM = halfWidthM}}};
-        RaiseJunction(Span<const RoadGate>(corner.data(), 2), wearsLinear, into);
+        RaiseJunction(std::span<const RoadGate>(corner.data(), 2), wearsLinear, into);
       }
     }
     from += upTo;

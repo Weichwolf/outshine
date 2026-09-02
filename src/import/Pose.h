@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_POSE_H
 #define OUTSHINE_IMPORT_POSE_H
 
+#include <span>
 #include <array>
 #include <memory>
 #include <string>
@@ -11,7 +12,6 @@
 #include "math/Quat.h"
 #include "math/Vec3.h"
 #include "Track.h"
-#include "Span.h"
 #include "Transform.h"
 #include "Types.h"
 
@@ -25,7 +25,7 @@ public:
   Build(const Document &document, int animation, Pose &out, std::string &error);
 
   [[nodiscard]] static bool
-  Build(const Document &document, Span<const int> animations, Pose &out, std::string &error);
+  Build(const Document &document, std::span<const int> animations, Pose &out, std::string &error);
 
   [[nodiscard]] bool Valid() const { return !Nodes_.empty(); }
 

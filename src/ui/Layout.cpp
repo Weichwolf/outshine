@@ -190,7 +190,8 @@ struct Placer {
   double Children(int node, const Computed &style, int self, Area content, double emPx);
   double Blocks(int node, const Computed &style, int self, Area content, double emPx);
   double Flex(int node, const Computed &style, int self, Area content, double emPx);
-  double Runs(int node, const Computed &style, int self, Area content, double emPx) const;
+  [[nodiscard]] double
+  Runs(int node, const Computed &style, int self, Area content, double emPx) const;
 
   [[nodiscard]] Measured Measure(Sizing what, const Computed *inherited);
 

@@ -1,3 +1,4 @@
+#include <span>
 #include "Shipped.h"
 
 #include "ForestDraw.h"
@@ -40,8 +41,8 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
     return false;
   }
 
-  auto made = std::make_unique<Forest>(Span<const Forest::Stem>(Stems_.data(), Stems_.size()),
-                                       Span<const float>(PerM2_.data(), PerM2_.size()),
+  auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(Stems_.data(), Stems_.size()),
+                                       std::span<const float>(PerM2_.data(), PerM2_.size()),
                                        declared.Limit());
   auto drawn = std::make_unique<ForestDraw>(ClusterId{0}, Stems_.front().HeightM);
   if (!Placing_.Add(Rank{0}, *made) || !Drawing_.Add(Rank{0}, *drawn)) {

@@ -255,7 +255,7 @@ bool Subject::BlendSkinFor(const Document &document,
 bool Subject::SuppliedTangentsFor(const Document &document,
                                   const Primitive &primitive,
                                   const VertexPlacement &place,
-                                  Span<const double> morphWeights,
+                                  std::span<const double> morphWeights,
                                   Part &part,
                                   size_t vertices,
                                   std::vector<double> &into) {
@@ -275,8 +275,8 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     if (!MorphDeltasFor(document,
                         primitive,
                         "TANGENT",
-                        morphWeights.Data(),
-                        morphWeights.Size(),
+                        morphWeights.data(),
+                        morphWeights.size(),
                         3,
                         vertices,
                         morphedTangents)) {
@@ -508,21 +508,21 @@ bool Subject::Build(const Document &document, const VariantSelection &variant) {
 }
 
 bool Subject::Build(const Document &document,
-                    Span<const Transform> pose,
-                    Span<const double> weights,
+                    std::span<const Transform> pose,
+                    std::span<const double> weights,
                     const VariantSelection &variant) {
-  if (pose.Size() != document.Nodes().size()) {
-    return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +
+  if (pose.size() != document.Nodes().size()) {
+    return Refuse(document.Path() + ": the pose states " + std::to_string(pose.size()) +
                   " local transforms and the file carries " +
                   std::to_string(document.Nodes().size()) + " nodes");
   }
 
-  if (weights.Size() != 0 && weights.Size() != document.MorphWeightsTotal()) {
-    return Refuse(document.Path() + ": the pose states " + std::to_string(weights.Size()) +
+  if (weights.size() != 0 && weights.size() != document.MorphWeightsTotal()) {
+    return Refuse(document.Path() + ": the pose states " + std::to_string(weights.size()) +
                   " morph weights and the file's nodes carry " +
                   std::to_string(document.MorphWeightsTotal()));
   }
-  return Flatten(document, pose.Data(), (weights.Size() != 0u) ? weights.Data() : nullptr, variant);
+  return Flatten(document, pose.data(), (weights.size() != 0u) ? weights.data() : nullptr, variant);
 }
 
 namespace {
@@ -585,7 +585,7 @@ bool Subject::Flatten(const Document &document,
                       const VariantSelection &variant) {
   const auto placementOf = [&document, pose](int node, Transform &out) {
     return pose ? document.WorldTransform(
-                      node, Span<const Transform>(pose, document.Nodes().size()), out)
+                      node, std::span<const Transform>(pose, document.Nodes().size()), out)
                 : document.WorldTransform(node, out);
   };
   Error_.clear();
@@ -958,7 +958,7 @@ bool Subject::Flatten(const Document &document,
         if (!SuppliedTangentsFor(document,
                                  primitive,
                                  place,
-                                 Span<const double>(nodeWeights.data(), morphCount),
+                                 std::span<const double>(nodeWeights.data(), morphCount),
                                  part,
                                  vertices,
                                  atTan)) {

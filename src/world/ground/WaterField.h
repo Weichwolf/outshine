@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_WATERFIELD_H
 #define OUTSHINE_WORLD_GROUND_WATERFIELD_H
 
+#include <span>
 #include "math/Vec3.h"
 #include "OsmField.h"
 #include "VegetationTemplates.h"
@@ -9,7 +10,6 @@
 #include <vector>
 
 #include "Capacity.h"
-#include "Span.h"
 #include "TileRanges.h"
 #include "GroundQuery.h"
 #include "TileWatermark.h"
@@ -35,7 +35,7 @@ public:
 
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
-  [[nodiscard]] Span<const Surface> OfTile(int tile) const {
+  [[nodiscard]] std::span<const Surface> OfTile(int tile) const {
     if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
     return {Surfaces_.data() + r.First, r.Count};

@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_DRAWSOURCE_H
 #define OUTSHINE_GENERATORS_DRAW_DRAWSOURCE_H
 
+#include <span>
 #include "BodyId.h"
 #include "ContactMaterial.h"
 #include "DrawSink.h"
 #include "Ground.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -16,7 +16,7 @@ public:
   DrawSource &operator=(const DrawSource &) = delete;
 
   virtual void Draw(const Ground &ground,
-                    Span<const Body> placed,
+                    std::span<const Body> placed,
                     BodyRange mine,
                     DrawSink &sink) const noexcept = 0;
 

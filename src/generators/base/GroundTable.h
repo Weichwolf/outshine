@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_BASE_GROUNDTABLE_H
 #define OUTSHINE_GENERATORS_BASE_GROUNDTABLE_H
 
+#include <span>
 #include <memory>
 #include <vector>
 
 #include "scene/Material.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -22,7 +22,7 @@ public:
     float SlopeMaxDeg = kSlopeMaxUnsaidDeg;
   };
 
-  static std::shared_ptr<const GroundTable> Of(Span<const Row> rows);
+  static std::shared_ptr<const GroundTable> Of(std::span<const Row> rows);
 
   [[nodiscard]] size_t Count() const { return Rows_.size(); }
 
@@ -31,7 +31,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const { return Rows_.capacity() * sizeof(Row); }
 
 private:
-  explicit GroundTable(Span<const Row> rows) : Rows_(rows.begin(), rows.end()) {}
+  explicit GroundTable(std::span<const Row> rows) : Rows_(rows.begin(), rows.end()) {}
 
   std::vector<Row> Rows_;
 };

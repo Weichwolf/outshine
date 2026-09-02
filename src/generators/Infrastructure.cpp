@@ -1,3 +1,4 @@
+#include <span>
 #include "Infrastructure.h"
 #include <array>
 #include <optional>
@@ -6,7 +7,7 @@
 
 namespace outshine::Generators {
 
-Span<const char *const> Infrastructure::NoteNames() const noexcept {
+std::span<const char *const> Infrastructure::NoteNames() const noexcept {
   static constexpr std::array<const char *const, kNotes> kNames = {"ways", "widestWayM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
   return {kNames.data(), kNames.size()};

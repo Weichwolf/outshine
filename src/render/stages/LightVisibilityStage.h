@@ -45,7 +45,6 @@ public:
 
   [[nodiscard]] bool Standing() const { return Declared_; }
 
-public:
   void CastsBelow(uint32_t slot) { CastsBelow_ = slot; }
 
 private:

@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_BASE_SPATIAL_TRIANGLEBVH_H
 #define OUTSHINE_BASE_SPATIAL_TRIANGLEBVH_H
 
+#include <span>
 #include <cstdint>
 #include <vector>
 
 #include "math/Vec3.h"
-#include "Span.h"
 
 namespace outshine {
 
@@ -51,15 +51,18 @@ static_assert(sizeof(BvhTriangle) == kBvhTriangleBytes,
 
 class TriangleBvh {
 public:
-  [[nodiscard]] static TriangleBvh Over(Span<const float> positionsM, Span<const uint32_t> indices);
+  [[nodiscard]] static TriangleBvh Over(std::span<const float> positionsM,
+                                        std::span<const uint32_t> indices);
 
   [[nodiscard]] bool Occludes(const Ray &along, float nearM, float distanceM) const;
 
-  [[nodiscard]] Span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
+  [[nodiscard]] std::span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
 
-  [[nodiscard]] Span<const BvhTriangle> Triangles() const { return {Tris_.data(), Tris_.size()}; }
+  [[nodiscard]] std::span<const BvhTriangle> Triangles() const {
+    return {Tris_.data(), Tris_.size()};
+  }
 
-  [[nodiscard]] bool Refit(Span<const float> positionsM);
+  [[nodiscard]] bool Refit(std::span<const float> positionsM);
 
   [[nodiscard]] bool Empty() const { return Nodes_.empty(); }
 

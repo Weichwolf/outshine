@@ -15,7 +15,7 @@ struct KnownEvent {
   InputMap::Kind What;
 };
 
-static constexpr std::array kEvents = {
+constexpr std::array kEvents = {
     KnownEvent{.Name = "KeyW", .What = InputMap::Kind::Button},
     KnownEvent{.Name = "KeyA", .What = InputMap::Kind::Button},
     KnownEvent{.Name = "KeyS", .What = InputMap::Kind::Button},

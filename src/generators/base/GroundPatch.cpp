@@ -1,3 +1,4 @@
+#include <span>
 #include "GroundPatch.h"
 
 #include <algorithm>
@@ -18,8 +19,8 @@ double Clamped(double v, double lo, double hi) {
 } // namespace
 
 std::shared_ptr<const GroundPatch>
-GroundPatch::Complete(const Tile &region, int side, Span<const Posting> postings) {
-  if (side < 2 || postings.Size() != static_cast<size_t>(side) * static_cast<size_t>(side)) {
+GroundPatch::Complete(const Tile &region, int side, std::span<const Posting> postings) {
+  if (side < 2 || postings.size() != static_cast<size_t>(side) * static_cast<size_t>(side)) {
     return nullptr;
   }
   for (const Posting &p : postings) {
@@ -30,9 +31,12 @@ GroundPatch::Complete(const Tile &region, int side, Span<const Posting> postings
       new GroundPatch(side, region.SpanEm() / steps, region.SpanNm() / steps, postings));
 }
 
-GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<const Posting> postings)
+GroundPatch::GroundPatch(int side,
+                         double spacingEm,
+                         double spacingNm,
+                         std::span<const Posting> postings)
     : Side_(side), SpacingEm_(spacingEm), SpacingNm_(spacingNm) {
-  AslM_.reserve(postings.Size());
+  AslM_.reserve(postings.size());
   for (const Posting &p : postings) {
     double aslM = 0.0;
     aslM = p.Height.AslM().value_or(aslM);

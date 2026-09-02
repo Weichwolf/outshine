@@ -17,7 +17,7 @@ struct LogField {
   LogField(const char *key, long long v);
   LogField(const char *key, bool v);
   LogField(const char *key, const char *v);
-  LogField(const char *key, const std::string &v);
+  LogField(const char *key, std::string v);
 };
 
 class LogSink {

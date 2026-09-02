@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_BUILDINGSHAPE_H
 #define OUTSHINE_GENERATORS_DRAW_BUILDINGSHAPE_H
 
+#include <span>
 #include "Earth.h"
 #include <cstdint>
 #include <vector>
 
-#include "Span.h"
 #include "StructureMesher.h"
 
 namespace outshine::Generators {
@@ -69,8 +69,10 @@ struct Massing {
   std::vector<BuildingShape> Parts;
 };
 
-Massing
-MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const Frontage &street);
+Massing MassOf(std::span<const double> ringLatLon,
+               double heightM,
+               bool heightMeasured,
+               const Frontage &street);
 
 } // namespace outshine::Generators
 #endif

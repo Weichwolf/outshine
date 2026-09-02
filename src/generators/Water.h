@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_WATER_H
 #define OUTSHINE_GENERATORS_WATER_H
 
+#include <span>
 #include "FeatureField.h"
 #include "Earth.h"
 #include "Making.h"
@@ -14,7 +15,7 @@ public:
 
   enum Note { Surfaces, Untested, LevelBelowGround, DeepestM, kNotes };
 
-  [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
+  [[nodiscard]] std::span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 };

@@ -122,7 +122,7 @@ double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
 
 Frontage NearestStreet(const OsmField &field,
                        const OsmField::Ring &ring,
-                       Span<const WayLine> ways,
+                       std::span<const WayLine> ways,
                        double *standBackM) {
   Frontage out;
   *standBackM = -1.0;
@@ -153,7 +153,7 @@ Frontage NearestStreet(const OsmField &field,
     if (w.HalfWidthM * 2.0 < kCarriagewayM) { continue; }
     if (refLat < w.MinLat - padDeg || refLat > w.MaxLat + padDeg) { continue; }
     if (refLon < w.MinLon - padDeg || refLon > w.MaxLon + padDeg) { continue; }
-    for (size_t k = 0; k + 3 < w.LatLon.Size(); k += 2) {
+    for (size_t k = 0; k + 3 < w.LatLon.size(); k += 2) {
       const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
       const EastNorth a =
           EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 1], .LatitudeDeg = w.LatLon[k]});
@@ -302,7 +302,7 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
 
 int BuildingField::Build(const GroundQuery &ground,
                          const OsmField &field,
-                         Span<const WayLine> ways) {
+                         std::span<const WayLine> ways) {
   assert(Anchored_);
   AddedFirst_ = static_cast<uint32_t>(Built_.WallCorners.size() + Built_.RoofCorners.size());
   AddedCount_ = 0;
@@ -419,12 +419,12 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   if (Mesher_ == nullptr) { return; }
   const std::span<const double> pts = field.Points();
   StructurePlan plan;
-  plan.RingLatLon = Span<const double>(pts.data() + static_cast<size_t>(f.FirstPoint) * 2,
-                                       static_cast<size_t>(f.PointCount) * 2);
+  plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(f.FirstPoint) * 2,
+                                            static_cast<size_t>(f.PointCount) * 2);
   plan.BaseAslM = f.BaseM;
   plan.SeatAslM = f.SeatM;
   plan.FootAslM = f.FootM;
-  plan.CornerAslM = Span<const double>(Corners_.data(), Corners_.size());
+  plan.CornerAslM = std::span<const double>(Corners_.data(), Corners_.size());
   plan.HeightM = f.HeightM;
   plan.HeightMeasured = f.Source == HeightSource::Osm;
   plan.Street = f.Street;

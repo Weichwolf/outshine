@@ -71,7 +71,7 @@ Result Engine::save(std::string_view path) const {
 }
 
 Result Engine::restore(std::string_view path) {
-  if ((S_->Cast.Stood.Instances.empty()) && S_->Session.Declared.Instances.empty()) {
+  if (S_->Cast.Stood.Instances.empty() && S_->Session.Declared.Instances.empty()) {
     S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
                 "and then applying the state -- one arrival route";
     return std::unexpected(S_->Error);

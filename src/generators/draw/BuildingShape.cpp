@@ -150,13 +150,13 @@ double UnitOf(uint32_t seed, int stream) {
          kMantissaSteps;
 }
 
-std::vector<En> RingInMetres(Span<const double> latLon) {
+std::vector<En> RingInMetres(std::span<const double> latLon) {
   std::vector<En> ring;
-  if (latLon.Size() < 6) { return ring; }
+  if (latLon.size() < 6) { return ring; }
   const double refLat = latLon[0];
   const double refLon = latLon[1];
-  ring.reserve(latLon.Size() / 2);
-  for (size_t k = 0; k + 1 < latLon.Size(); k += 2) {
+  ring.reserve(latLon.size() / 2);
+  for (size_t k = 0; k + 1 < latLon.size(); k += 2) {
     const En p = EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
                             {.LongitudeDeg = latLon[k + 1], .LatitudeDeg = latLon[k]});
     if (!ring.empty() &&
@@ -665,8 +665,10 @@ En BuildingShape::FromBox(Boxed at) const {
           .NorthM = Centre.NorthM + u * AxisU.NorthM + v * AxisU.EastM};
 }
 
-Massing
-MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const Frontage &street) {
+Massing MassOf(std::span<const double> ringLatLon,
+               double heightM,
+               bool heightMeasured,
+               const Frontage &street) {
   Massing out;
   out.Outline = RingInMetres(ringLatLon);
   if (out.Outline.size() < 3) {

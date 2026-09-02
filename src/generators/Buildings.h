@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDINGS_H
 #define OUTSHINE_GENERATORS_BUILDINGS_H
 
+#include <span>
 #include "FeatureField.h"
 #include "Earth.h"
 #include "Making.h"
@@ -13,7 +14,7 @@ public:
 
   enum Note { Footprints, Roofless, HighestRoofAglM, kNotes };
 
-  [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
+  [[nodiscard]] std::span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 

@@ -1,12 +1,12 @@
 #ifndef OUTSHINE_GENERATORS_DRAW_DRAWSET_H
 #define OUTSHINE_GENERATORS_DRAW_DRAWSET_H
 
+#include <span>
 #include <vector>
 
 #include "DrawSource.h"
 #include "GeneratorSet.h"
 #include "Rank.h"
-#include "Span.h"
 #include "Yield.h"
 
 namespace outshine::Generators {
@@ -19,8 +19,8 @@ public:
 
   void Draw(const Ground &ground,
             const GeneratorSet &generators,
-            Span<const Yield> yields,
-            Span<const Body> placed,
+            std::span<const Yield> yields,
+            std::span<const Body> placed,
             DrawSink &sink) const noexcept;
 
 private:

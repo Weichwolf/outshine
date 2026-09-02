@@ -378,7 +378,6 @@ private:
     return TerrainBytes::From(*at, std::move(landing.Bytes));
   }
 
-private:
   TilePool &Pool_;
 };
 

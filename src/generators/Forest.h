@@ -1,11 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_FOREST_H
 #define OUTSHINE_GENERATORS_FOREST_H
 
+#include <span>
 #include "AlpineLimit.h"
 #include <array>
 
 #include "Making.h"
-#include "Span.h"
 
 namespace outshine::Generators {
 
@@ -24,10 +24,10 @@ public:
     ContactMaterial Contact = ContactMaterial{0};
   };
 
-  Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit);
+  Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit);
 
-  Forest(const Stem &stem, Span<const float> perM2ByRow, const AlpineLimit &limit)
-      : Forest(Span<const Stem>(&stem, 1), perM2ByRow, limit) {}
+  Forest(const Stem &stem, std::span<const float> perM2ByRow, const AlpineLimit &limit)
+      : Forest(std::span<const Stem>(&stem, 1), perM2ByRow, limit) {}
 
   [[nodiscard]] size_t SpeciesCount() const noexcept { return Held_; }
 
@@ -48,7 +48,7 @@ public:
     kNotes
   };
 
-  [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
+  [[nodiscard]] std::span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 
@@ -82,7 +82,7 @@ private:
   std::array<Stem, kMostSpecies> Stems_{};
   size_t Held_ = 0;
   size_t Refused_ = 0;
-  Span<const float> PerM2_;
+  std::span<const float> PerM2_;
   AlpineLimit Limit_;
 };
 

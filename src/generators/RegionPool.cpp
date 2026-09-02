@@ -1,3 +1,4 @@
+#include <span>
 #include "RegionPool.h"
 #include <cstddef>
 #include <cstdint>
@@ -17,9 +18,9 @@ RegionPool::RegionPool(const Extent &extent, const Shape &shape) {
     s.Links.resize(shape.BodyCapacity);
     s.Cells.resize(cells);
     OccupancySink::Storage storage;
-    storage.Bodies = Span<Body>(s.Bodies.data(), s.Bodies.size());
-    storage.Links = Span<uint32_t>(s.Links.data(), s.Links.size());
-    storage.Cells = Span<uint32_t>(s.Cells.data(), s.Cells.size());
+    storage.Bodies = std::span<Body>(s.Bodies.data(), s.Bodies.size());
+    storage.Links = std::span<uint32_t>(s.Links.data(), s.Links.size());
+    storage.Cells = std::span<uint32_t>(s.Cells.data(), s.Cells.size());
     storage.CellM = shape.CellM;
     s.Sink = std::make_unique<OccupancySink>(storage);
     Bytes_ += s.Bodies.size() * sizeof(Body) + (s.Links.size() + s.Cells.size()) * sizeof(uint32_t);
