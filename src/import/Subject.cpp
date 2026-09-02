@@ -579,15 +579,406 @@ bool InstanceTransforms(const Document &document,
 }
 } // namespace
 
+bool Subject::ReadTriangleRun(const Document &document,
+                              const Primitive &primitive,
+                              const Transform &world,
+                              std::span<const Transform> skinned,
+                              size_t vertices) {
+  std::vector<uint32_t> &run = Scratch_.Run;
+  std::vector<uint32_t> &indices = Scratch_.Loop;
+  if (primitive.Indices >= 0) {
+    if (!document.ReadIndices(primitive.Indices, run)) {
+      return Refuse(document.Path() + ": the index accessor does not decode: " + document.Error());
+    }
+  } else {
+    run.resize(vertices);
+    for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      run[vertex] = static_cast<uint32_t>(vertex);
+    }
+  }
+  if (!RunIsWhole(primitive.Mode, run.size())) {
+    return Refuse(document.Path() + ": " + std::to_string(run.size()) +
+                  " indices do not make a whole run of " + ModeName(primitive.Mode));
+  }
+
+  Handedness handedness = Handedness::Preserved;
+  if (skinned.empty()) {
+    handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
+  } else {
+    const bool mirrored = skinned[0].LinearDeterminant() < 0;
+    for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
+      if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
+        return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
+                      " of a skinned primitive blends to a transform whose determinant has the "
+                      "opposite sign to vertex 0's, so the primitive would need two windings");
+      }
+    }
+    handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
+  }
+  Triangulate(primitive.Mode, handedness, run, indices);
+  for (const uint32_t index : indices) {
+    if (index >= vertices) {
+      return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
+                    std::to_string(vertices) + " vertices of its own primitive");
+    }
+    Scratch_.Idx.push_back(index);
+  }
+  return true;
+}
+
+void Subject::EmitPart(outshine::Geometry &made, const Part &part) {
+  std::vector<float> &narrowed = Scratch_.Narrowed;
+  const auto asFloat = [&narrowed](const std::vector<double> &from) {
+    narrowed.resize(from.size());
+    for (size_t at = 0; at < from.size(); ++at) { narrowed[at] = static_cast<float>(from[at]); }
+    return std::span<const float>(narrowed.data(), narrowed.size());
+  };
+  const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
+  (void)made.setPositions(emitted, asFloat(Scratch_.Pos));
+  if (part.HasNormal) { (void)made.setNormals(emitted, asFloat(Scratch_.Nor)); }
+  if (part.HasUv) { (void)made.setTexture(emitted, asFloat(Scratch_.Uv), 0); }
+  if (part.HasUv1) { (void)made.setTexture(emitted, asFloat(Scratch_.Uv1), 1); }
+  if (part.HasTangent()) { (void)made.setTangents(emitted, asFloat(Scratch_.Tan)); }
+  if (part.HasColour) { (void)made.setColours(emitted, asFloat(Scratch_.Col)); }
+  (void)made.setTriangles(emitted,
+                          std::span<const uint32_t>(Scratch_.Idx.data(), Scratch_.Idx.size()));
+}
+
+bool Subject::FlattenLight(const Document &document,
+                           int nodeIndex,
+                           const Node &node,
+                           const Transform &placement) {
+  const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
+  PlacedLight placed;
+  placed.NodeName = node.Name;
+  placed.LightName = declared.Name;
+  placed.Light = declared.Light;
+
+  const Vec3 origin = {{0, 0, 0}};
+  Vec3 position;
+  placement.Point(origin, position);
+
+  const Vec3 axis = {{0, 0, -1}};
+  Vec3 beam;
+  placement.Direction(axis, beam);
+  if (!Normalise(beam)) {
+    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                  " carries a light and its transform collapses the beam to zero length");
+  }
+  for (int component = 0; component < 3; ++component) {
+    placed.Light.Position[component] = static_cast<float>(position[component]);
+    placed.Light.Direction[component] = static_cast<float>(beam[component]);
+  }
+  Lights_.push_back(std::move(placed));
+  return true;
+}
+
+bool Subject::ReadUvSets(const Document &document,
+                         const Primitive &primitive,
+                         size_t vertices,
+                         Part &part) {
+  struct UvSetRow {
+    const char *Semantic;
+    bool Part::*Carried;
+    std::vector<double> *Into;
+  };
+
+  const std::array<UvSetRow, kUvSets> sets = {
+      {{.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Into = &Scratch_.Uv},
+       {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Into = &Scratch_.Uv1}}};
+
+  for (const UvSetRow &set : sets) {
+    const int uv = primitive.Find(set.Semantic);
+    part.*set.Carried = uv >= 0;
+    set.Into->assign(vertices * 2, 0.0);
+    if (uv < 0) { continue; }
+    std::vector<double> &coordinates = Scratch_.Coordinates;
+    coordinates.clear();
+    if (!document.ReadElements(uv, coordinates)) {
+      return Refuse(document.Path() + ": " + set.Semantic +
+                    " does not decode: " + document.Error());
+    }
+    if (coordinates.size() != vertices * 2) {
+      return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
+                    std::to_string(coordinates.size() / 2) + " pairs over " +
+                    std::to_string(vertices) + " vertices");
+    }
+    std::ranges::copy(coordinates, set.Into->begin());
+  }
+  return true;
+}
+
+bool Subject::ReadVertexColours(const Document &document,
+                                const Primitive &primitive,
+                                size_t vertices,
+                                Part &part) {
+  const int colour = primitive.Find("COLOR_0");
+  part.HasColour = colour >= 0;
+  Scratch_.Col.assign(vertices * 4, 0.0);
+  if (colour >= 0) {
+    if (static_cast<size_t>(colour) >= document.Accessors().size()) {
+      return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
+                    ", which the file does not carry");
+    }
+    size_t components = 0;
+    std::string why;
+    if (!VertexColourComponents(
+            document.Accessors()[static_cast<size_t>(colour)], components, why)) {
+      return Refuse(document.Path() + ": COLOR_0 " + why);
+    }
+    std::vector<double> &tints = Scratch_.Tints;
+    tints.clear();
+    if (!document.ReadElements(colour, tints)) {
+      return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
+    }
+    if (tints.size() != vertices * components) {
+      return Refuse(document.Path() + ": COLOR_0 decodes to " +
+                    std::to_string(tints.size() / components) + " colours over " +
+                    std::to_string(vertices) + " vertices");
+    }
+    for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      for (size_t channel = 0; channel < 4; ++channel) {
+        const double value = channel < components ? tints[vertex * components + channel] : 1.0;
+        if (!(value >= 0.0) || !(value <= 1.0)) {
+          return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
+                        " carries " + std::to_string(value) + " in channel " +
+                        std::to_string(channel) +
+                        ", and the format requires every component in [0, 1]");
+        }
+        Scratch_.Col[vertex * 4 + channel] = value;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool Subject::ReadVertexNormals(const Document &document,
+                                const Primitive &primitive,
+                                const VertexPlacement &place,
+                                Morphing morph,
+                                size_t vertices,
+                                Part &part) {
+  const int normal = primitive.Find("NORMAL");
+  part.HasNormal = normal >= 0;
+  Scratch_.Nor.assign(vertices * 3, 0.0);
+  if (normal >= 0) {
+    std::vector<double> &directions = Scratch_.Directions;
+    directions.clear();
+    if (!document.ReadElements(normal, directions)) {
+      return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
+    }
+    if (directions.size() != vertices * 3) {
+      return Refuse(document.Path() + ": NORMAL decodes to " +
+                    std::to_string(directions.size() / 3) + " vectors over " +
+                    std::to_string(vertices) + " vertices");
+    }
+    std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
+    morphedNormals.clear();
+    if (!MorphDeltasFor(document,
+                        primitive,
+                        "NORMAL",
+                        morph.Weights.data(),
+                        morph.Count,
+                        3,
+                        vertices,
+                        morphedNormals)) {
+      return false;
+    }
+    for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
+    for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      const Vec3 local = {
+          {directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]}};
+      Vec3 global;
+
+      if (!place.At(vertex).Normal(local, global)) { global[0] = global[1] = global[2] = 0.0; }
+
+      (void)Normalise(global);
+      for (int axis = 0; axis < 3; ++axis) {
+        Scratch_.Nor[vertex * 3 + static_cast<size_t>(axis)] = global[axis];
+      }
+    }
+  }
+
+  return true;
+}
+
+bool Subject::PlacementOf(const Document &document, const Posing &posed, int node, Transform &out) {
+  return posed.Pose != nullptr
+             ? document.WorldTransform(
+                   node, std::span<const Transform>(posed.Pose, document.Nodes().size()), out)
+             : document.WorldTransform(node, out);
+}
+
+bool Subject::FlattenMesh(const Document &document,
+                          const Posing &posed,
+                          int nodeIndex,
+                          outshine::Geometry &made,
+                          size_t &primitives) {
+  const Node &node = document.Nodes()[static_cast<size_t>(nodeIndex)];
+  if (node.Mesh < 0) { return true; }
+  if (static_cast<size_t>(node.Mesh) >= document.Meshes().size()) {
+    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
+                  std::to_string(node.Mesh) + ", which the file does not carry");
+  }
+  Transform world;
+  if (!PlacementOf(document, posed, nodeIndex, world)) {
+    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                  " has no world transform: " + document.Error());
+  }
+
+  const size_t morphCount = document.MorphWeightsCount(nodeIndex);
+  std::vector<double> &nodeWeights = Scratch_.NodeWeights;
+  nodeWeights.clear();
+  if (morphCount > 0) {
+    const std::vector<double> &declared = document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
+    for (size_t at = 0; at < morphCount; ++at) {
+      const double asDeclared = at < declared.size() ? declared[at] : 0.0;
+      nodeWeights.push_back((posed.Weights != nullptr)
+                                ? posed.Weights[document.MorphWeightsFirst(nodeIndex) + at]
+                                : asDeclared);
+    }
+  }
+
+  std::vector<Transform> &jointMatrices = Scratch_.Joints;
+  jointMatrices.clear();
+  if (node.Skin >= 0) {
+    const Skin &skin = document.Skins()[static_cast<size_t>(node.Skin)];
+    jointMatrices.assign(skin.Joints.size(), Transform());
+    for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
+      Transform placed;
+      if (!PlacementOf(document, posed, skin.Joints[joint], placed)) {
+        return Refuse(document.Path() + ": joint node " + std::to_string(skin.Joints[joint]) +
+                      " has no world transform: " + document.Error());
+      }
+      jointMatrices[joint] = JointMatrix(skin, joint, placed);
+    }
+  }
+
+  std::vector<Transform> &instances = Scratch_.Instances;
+  instances.clear();
+  if (!InstanceTransforms(document, node, world, instances)) {
+    return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                  " instances on an accessor this reader cannot decode: " + document.Error());
+  }
+  for (const Transform &placedWorld : instances) {
+    for (const Primitive &primitive :
+         document.Meshes()[static_cast<size_t>(node.Mesh)].Primitives) {
+      ++primitives;
+      const Placing under{
+          .Node = node,
+          .World = world,
+          .Placed = placedWorld,
+          .Joints = jointMatrices,
+          .Morph = {.Weights = std::span<const double>(nodeWeights.data(), morphCount),
+                    .Count = morphCount},
+          .Variant = posed.Variant};
+      if (!FlattenPrimitive(document, primitive, under, made)) { return false; }
+    }
+  }
+  return true;
+}
+
+bool Subject::FlattenPrimitive(const Document &document,
+                               const Primitive &primitive,
+                               const Placing &under,
+                               outshine::Geometry &made) {
+  std::vector<double> &elements = Scratch_.Elements;
+  Part part;
+  part.NodeName = under.Node.Name;
+  part.Material = primitive.MaterialUnder(under.Variant);
+  part.FirstVertex = 0;
+  part.FirstIndex = 0;
+  std::vector<double> &atPos = Scratch_.Pos;
+  std::vector<double> &atNor = Scratch_.Nor;
+  std::vector<double> &atUv = Scratch_.Uv;
+  std::vector<double> &atUv1 = Scratch_.Uv1;
+  std::vector<double> &atCol = Scratch_.Col;
+  std::vector<double> &atTan = Scratch_.Tan;
+  std::vector<uint32_t> &atIdx = Scratch_.Idx;
+  atPos.clear();
+  atNor.clear();
+  atUv.clear();
+  atUv1.clear();
+  atCol.clear();
+  atTan.clear();
+  atIdx.clear();
+
+  if (!DrawsASurface(primitive.Mode)) {
+    ++Undrawn_.Primitives;
+    const auto mode = static_cast<size_t>(primitive.Mode);
+    if (mode < 7) { ++Undrawn_.ByMode[mode]; }
+    return true;
+  }
+  const int position = primitive.Find("POSITION");
+  if (position < 0) {
+    return Refuse(document.Path() + ": primitive of mesh " + std::to_string(under.Node.Mesh) +
+                  " carries no POSITION, and nothing here invents one");
+  }
+  if (!document.ReadElements(position, elements)) {
+    return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
+  }
+  if (elements.size() % 3 != 0) {
+    return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
+                  " components, which is not a whole number of points");
+  }
+  const size_t vertices = elements.size() / 3;
+
+  std::vector<double> &morphedPositions = Scratch_.Morphed;
+  morphedPositions.clear();
+  if (!MorphDeltasFor(document,
+                      primitive,
+                      "POSITION",
+                      under.Morph.Weights.data(),
+                      under.Morph.Count,
+                      3,
+                      vertices,
+                      morphedPositions)) {
+    return false;
+  }
+  for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
+  std::vector<Transform> &skinned = Scratch_.Skinned;
+  skinned.clear();
+  if (under.Node.Skin >= 0 && !BlendSkinFor(document,
+                                            document.Skins()[static_cast<size_t>(under.Node.Skin)],
+                                            under.Joints,
+                                            primitive,
+                                            vertices,
+                                            skinned)) {
+    return false;
+  }
+  const VertexPlacement place{.Node = under.Placed,
+                              .Skinned = skinned.empty() ? nullptr : skinned.data()};
+  for (size_t vertex = 0; vertex < vertices; ++vertex) {
+    const Vec3 local = {{elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]}};
+    Vec3 global;
+    place.At(vertex).Point(local, global);
+    for (const double axis : global) { atPos.push_back(axis); }
+  }
+
+  if (!ReadUvSets(document, primitive, vertices, part)) { return false; }
+
+  if (!ReadVertexColours(document, primitive, vertices, part)) { return false; }
+
+  if (!ReadVertexNormals(document, primitive, place, under.Morph, vertices, part)) { return false; }
+
+  if (!ReadTriangleRun(document, primitive, under.World, skinned, vertices)) { return false; }
+  part.IndexCount = atIdx.size();
+  if (!SuppliedTangentsFor(
+          document, primitive, place, under.Morph.Weights, part, vertices, atTan)) {
+    return false;
+  }
+  part.VertexCount = atPos.size() / 3;
+
+  if (part.IndexCount == 0) { return true; }
+  EmitPart(made, part);
+  return true;
+}
+
 bool Subject::Flatten(const Document &document,
                       const Transform *pose,
                       const double *weights,
                       const VariantSelection &variant) {
-  const auto placementOf = [&document, pose](int node, Transform &out) {
-    return pose ? document.WorldTransform(
-                      node, std::span<const Transform>(pose, document.Nodes().size()), out)
-                : document.WorldTransform(node, out);
-  };
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
@@ -606,12 +997,6 @@ bool Subject::Flatten(const Document &document,
     row.NeedsTangents = declared.Normal.Texture >= 0;
     (void)made.addSurface("", row);
   }
-  bool anyUv = false;
-  bool anyUv1 = false;
-  bool anyNormal = false;
-  bool anyTangent = false;
-  bool anyColour = false;
-
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= document.Scenes().size()) {
     return Refuse(document.Path() + ": no default scene to draw");
@@ -624,13 +1009,11 @@ bool Subject::Flatten(const Document &document,
       return Refuse(document.Path() + ": the declaration " + why);
     }
   }
+  const Posing posed{.Pose = pose, .Weights = weights, .Variant = activeVariant};
 
   std::vector<int> pending(document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rbegin(),
                            document.Scenes()[static_cast<size_t>(sceneIndex)].Roots.rend());
 
-  std::vector<double> &elements = Scratch_.Elements;
-  std::vector<uint32_t> &run = Scratch_.Run;
-  std::vector<uint32_t> &indices = Scratch_.Loop;
   size_t primitives = 0;
   while (!pending.empty()) {
     const int nodeIndex = pending.back();
@@ -644,349 +1027,13 @@ bool Subject::Flatten(const Document &document,
     for (const int child : std::views::reverse(node.Children)) { pending.push_back(child); }
     if (node.Light >= 0) {
       Transform placement;
-      if (!placementOf(nodeIndex, placement)) {
+      if (!PlacementOf(document, posed, nodeIndex, placement)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
       }
-      const LightRef &declared = document.Lights()[static_cast<size_t>(node.Light)];
-      PlacedLight placed;
-      placed.NodeName = node.Name;
-      placed.LightName = declared.Name;
-      placed.Light = declared.Light;
-      const Vec3 origin = {{0, 0, 0}};
-      Vec3 position;
-      placement.Point(origin, position);
-
-      const Vec3 axis = {{0, 0, -1}};
-      Vec3 beam;
-      placement.Direction(axis, beam);
-      if (!Normalise(beam)) {
-        return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                      " carries a light and its transform collapses the beam to zero length");
-      }
-      for (int component = 0; component < 3; ++component) {
-        placed.Light.Position[component] = static_cast<float>(position[component]);
-        placed.Light.Direction[component] = static_cast<float>(beam[component]);
-      }
-      Lights_.push_back(std::move(placed));
+      if (!FlattenLight(document, nodeIndex, node, placement)) { return false; }
     }
-    if (node.Mesh < 0) { continue; }
-    if (static_cast<size_t>(node.Mesh) >= document.Meshes().size()) {
-      return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) + " names mesh " +
-                    std::to_string(node.Mesh) + ", which the file does not carry");
-    }
-    Transform world;
-    if (!placementOf(nodeIndex, world)) {
-      return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                    " has no world transform: " + document.Error());
-    }
-
-    const size_t morphCount = document.MorphWeightsCount(nodeIndex);
-    std::vector<double> &nodeWeights = Scratch_.NodeWeights;
-    nodeWeights.clear();
-    if (morphCount > 0) {
-      const std::vector<double> &declared =
-          document.Meshes()[static_cast<size_t>(node.Mesh)].Weights;
-      for (size_t at = 0; at < morphCount; ++at) {
-        const double asDeclared = at < declared.size() ? declared[at] : 0.0;
-        nodeWeights.push_back((weights != nullptr)
-                                  ? weights[document.MorphWeightsFirst(nodeIndex) + at]
-                                  : asDeclared);
-      }
-    }
-
-    std::vector<Transform> &jointMatrices = Scratch_.Joints;
-    jointMatrices.clear();
-    if (node.Skin >= 0) {
-      const Skin &skin = document.Skins()[static_cast<size_t>(node.Skin)];
-      jointMatrices.assign(skin.Joints.size(), Transform());
-      for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
-        Transform placed;
-        if (!placementOf(skin.Joints[joint], placed)) {
-          return Refuse(document.Path() + ": joint node " + std::to_string(skin.Joints[joint]) +
-                        " has no world transform: " + document.Error());
-        }
-        jointMatrices[joint] = JointMatrix(skin, joint, placed);
-      }
-    }
-
-    std::vector<Transform> &instances = Scratch_.Instances;
-    instances.clear();
-    if (!InstanceTransforms(document, node, world, instances)) {
-      return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                    " instances on an accessor this reader cannot decode: " + document.Error());
-    }
-    for (const Transform &placedWorld : instances) {
-      for (const Primitive &primitive :
-           document.Meshes()[static_cast<size_t>(node.Mesh)].Primitives) {
-        ++primitives;
-        Part part;
-        part.NodeName = node.Name;
-        part.Material = primitive.MaterialUnder(activeVariant);
-        part.FirstVertex = 0;
-        part.FirstIndex = 0;
-        std::vector<double> &atPos = Scratch_.Pos;
-        std::vector<double> &atNor = Scratch_.Nor;
-        std::vector<double> &atUv = Scratch_.Uv;
-        std::vector<double> &atUv1 = Scratch_.Uv1;
-        std::vector<double> &atCol = Scratch_.Col;
-        std::vector<double> &atTan = Scratch_.Tan;
-        std::vector<uint32_t> &atIdx = Scratch_.Idx;
-        atPos.clear();
-        atNor.clear();
-        atUv.clear();
-        atUv1.clear();
-        atCol.clear();
-        atTan.clear();
-        atIdx.clear();
-
-        if (!DrawsASurface(primitive.Mode)) {
-          ++Undrawn_.Primitives;
-          const auto mode = static_cast<size_t>(primitive.Mode);
-          if (mode < 7) { ++Undrawn_.ByMode[mode]; }
-
-          continue;
-        }
-        const int position = primitive.Find("POSITION");
-        if (position < 0) {
-          return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
-                        " carries no POSITION, and nothing here invents one");
-        }
-        if (!document.ReadElements(position, elements)) {
-          return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
-        }
-        if (elements.size() % 3 != 0) {
-          return Refuse(document.Path() + ": POSITION decodes to " +
-                        std::to_string(elements.size()) +
-                        " components, which is not a whole number of points");
-        }
-        const size_t vertices = elements.size() / 3;
-
-        std::vector<double> &morphedPositions = Scratch_.Morphed;
-        morphedPositions.clear();
-        if (!MorphDeltasFor(document,
-                            primitive,
-                            "POSITION",
-                            nodeWeights.data(),
-                            morphCount,
-                            3,
-                            vertices,
-                            morphedPositions)) {
-          return false;
-        }
-        for (size_t at = 0; at < morphedPositions.size(); ++at) {
-          elements[at] += morphedPositions[at];
-        }
-        std::vector<Transform> &skinned = Scratch_.Skinned;
-        skinned.clear();
-        if (node.Skin >= 0 && !BlendSkinFor(document,
-                                            document.Skins()[static_cast<size_t>(node.Skin)],
-                                            jointMatrices,
-                                            primitive,
-                                            vertices,
-                                            skinned)) {
-          return false;
-        }
-        const VertexPlacement place{.Node = placedWorld,
-                                    .Skinned = skinned.empty() ? nullptr : skinned.data()};
-        for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          const Vec3 local = {
-              {elements[vertex * 3], elements[vertex * 3 + 1], elements[vertex * 3 + 2]}};
-          Vec3 global;
-          place.At(vertex).Point(local, global);
-          for (const double axis : global) { atPos.push_back(axis); }
-        }
-
-        struct UvSetRow {
-          const char *Semantic;
-          bool Part::*Carried;
-          bool *Any;
-          std::vector<double> *Into;
-        };
-
-        const std::array<UvSetRow, kUvSets> sets = {
-            {{.Semantic = "TEXCOORD_0", .Carried = &Part::HasUv, .Any = &anyUv, .Into = &atUv},
-             {.Semantic = "TEXCOORD_1", .Carried = &Part::HasUv1, .Any = &anyUv1, .Into = &atUv1}}};
-
-        for (const auto &set : sets) {
-          const int uv = primitive.Find(set.Semantic);
-          part.*set.Carried = uv >= 0;
-          *set.Any = *set.Any || part.*set.Carried;
-          set.Into->assign(vertices * 2, 0.0);
-          if (uv < 0) { continue; }
-          std::vector<double> &coordinates = Scratch_.Coordinates;
-          coordinates.clear();
-          if (!document.ReadElements(uv, coordinates)) {
-            return Refuse(document.Path() + ": " + set.Semantic +
-                          " does not decode: " + document.Error());
-          }
-          if (coordinates.size() != vertices * 2) {
-            return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
-                          std::to_string(coordinates.size() / 2) + " pairs over " +
-                          std::to_string(vertices) + " vertices");
-          }
-          std::ranges::copy(coordinates, set.Into->begin());
-        }
-
-        const int colour = primitive.Find("COLOR_0");
-        part.HasColour = colour >= 0;
-        anyColour = anyColour || part.HasColour;
-        atCol.assign(vertices * 4, 0.0);
-        if (colour >= 0) {
-          if (static_cast<size_t>(colour) >= document.Accessors().size()) {
-            return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
-                          ", which the file does not carry");
-          }
-          size_t components = 0;
-          std::string why;
-          if (!VertexColourComponents(
-                  document.Accessors()[static_cast<size_t>(colour)], components, why)) {
-            return Refuse(document.Path() + ": COLOR_0 " + why);
-          }
-          std::vector<double> &tints = Scratch_.Tints;
-          tints.clear();
-          if (!document.ReadElements(colour, tints)) {
-            return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
-          }
-          if (tints.size() != vertices * components) {
-            return Refuse(document.Path() + ": COLOR_0 decodes to " +
-                          std::to_string(tints.size() / components) + " colours over " +
-                          std::to_string(vertices) + " vertices");
-          }
-          for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            for (size_t channel = 0; channel < 4; ++channel) {
-              const double value =
-                  channel < components ? tints[vertex * components + channel] : 1.0;
-              if (!(value >= 0.0) || !(value <= 1.0)) {
-                return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
-                              " carries " + std::to_string(value) + " in channel " +
-                              std::to_string(channel) +
-                              ", and the format requires every component in [0, 1]");
-              }
-              atCol[vertex * 4 + channel] = value;
-            }
-          }
-        }
-
-        const int normal = primitive.Find("NORMAL");
-        part.HasNormal = normal >= 0;
-        anyNormal = anyNormal || part.HasNormal;
-        atNor.assign(vertices * 3, 0.0);
-        if (normal >= 0) {
-          std::vector<double> &directions = Scratch_.Directions;
-          directions.clear();
-          if (!document.ReadElements(normal, directions)) {
-            return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
-          }
-          if (directions.size() != vertices * 3) {
-            return Refuse(document.Path() + ": NORMAL decodes to " +
-                          std::to_string(directions.size() / 3) + " vectors over " +
-                          std::to_string(vertices) + " vertices");
-          }
-          std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
-          morphedNormals.clear();
-          if (!MorphDeltasFor(document,
-                              primitive,
-                              "NORMAL",
-                              nodeWeights.data(),
-                              morphCount,
-                              3,
-                              vertices,
-                              morphedNormals)) {
-            return false;
-          }
-          for (size_t at = 0; at < morphedNormals.size(); ++at) {
-            directions[at] += morphedNormals[at];
-          }
-          for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            const Vec3 local = {
-                {directions[vertex * 3], directions[vertex * 3 + 1], directions[vertex * 3 + 2]}};
-            Vec3 global;
-
-            if (!place.At(vertex).Normal(local, global)) {
-              global[0] = global[1] = global[2] = 0.0;
-            }
-
-            (void)Normalise(global);
-            for (int axis = 0; axis < 3; ++axis) {
-              atNor[vertex * 3 + static_cast<size_t>(axis)] = global[axis];
-            }
-          }
-        }
-
-        if (primitive.Indices >= 0) {
-          if (!document.ReadIndices(primitive.Indices, run)) {
-            return Refuse(document.Path() +
-                          ": the index accessor does not decode: " + document.Error());
-          }
-        } else {
-          run.resize(vertices);
-          for (size_t vertex = 0; vertex < vertices; ++vertex) {
-            run[vertex] = static_cast<uint32_t>(vertex);
-          }
-        }
-        if (!RunIsWhole(primitive.Mode, run.size())) {
-          return Refuse(document.Path() + ": " + std::to_string(run.size()) +
-                        " indices do not make a whole run of " + ModeName(primitive.Mode));
-        }
-
-        Handedness handedness = Handedness::Preserved;
-        if (skinned.empty()) {
-          handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
-        } else {
-          const bool mirrored = skinned[0].LinearDeterminant() < 0;
-          for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
-            if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
-              return Refuse(
-                  document.Path() + ": vertex " + std::to_string(vertex) +
-                  " of a skinned primitive blends to a transform whose determinant has the "
-                  "opposite sign to vertex 0's, so the primitive would need two windings");
-            }
-          }
-          handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
-        }
-        Triangulate(primitive.Mode, handedness, run, indices);
-        for (const uint32_t index : indices) {
-          if (index >= vertices) {
-            return Refuse(document.Path() + ": index " + std::to_string(index) +
-                          " addresses past the " + std::to_string(vertices) +
-                          " vertices of its own primitive");
-          }
-          atIdx.push_back(index);
-        }
-        part.IndexCount = atIdx.size();
-        if (!SuppliedTangentsFor(document,
-                                 primitive,
-                                 place,
-                                 std::span<const double>(nodeWeights.data(), morphCount),
-                                 part,
-                                 vertices,
-                                 atTan)) {
-          return false;
-        }
-        anyTangent = anyTangent || part.HasTangent();
-        anyNormal = anyNormal || part.HasNormal;
-        part.VertexCount = atPos.size() / 3;
-
-        if (part.IndexCount == 0) { continue; }
-        std::vector<float> &narrowed = Scratch_.Narrowed;
-        const auto asFloat = [&narrowed](const std::vector<double> &from) {
-          narrowed.resize(from.size());
-          for (size_t at = 0; at < from.size(); ++at) {
-            narrowed[at] = static_cast<float>(from[at]);
-          }
-          return std::span<const float>(narrowed.data(), narrowed.size());
-        };
-        const int emitted = made.addPart(part.NodeName, MaterialInstance(part.Material));
-        (void)made.setPositions(emitted, asFloat(atPos));
-        if (part.HasNormal) { (void)made.setNormals(emitted, asFloat(atNor)); }
-        if (part.HasUv) { (void)made.setTexture(emitted, asFloat(atUv), 0); }
-        if (part.HasUv1) { (void)made.setTexture(emitted, asFloat(atUv1), 1); }
-        if (part.HasTangent()) { (void)made.setTangents(emitted, asFloat(atTan)); }
-        if (part.HasColour) { (void)made.setColours(emitted, asFloat(atCol)); }
-        (void)made.setTriangles(emitted, std::span<const uint32_t>(atIdx.data(), atIdx.size()));
-      }
-    }
+    if (!FlattenMesh(document, posed, nodeIndex, made, primitives)) { return false; }
   }
 
   if (made.parts() == 0) {
@@ -1114,11 +1161,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
         "an assembly of no piece draws nothing, and a subject with no triangle is not one");
   }
 
-  bool anyUv = false;
-  bool anyUv1 = false;
-  bool anyNormal = false;
-  bool anyTangent = false;
-  bool anyColour = false;
   for (size_t index = 0; std::cmp_less(index, what.parts()); ++index) {
     const int slot = static_cast<int>(index);
     const std::span<const float> pPos = what.positionsOf(slot);
@@ -1172,11 +1214,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     part.HasColour = !pColours.empty();
 
     part.Tangent = pTangents.empty() ? TangentSource::None : TangentSource::Supplied;
-    anyUv = anyUv || part.HasUv;
-    anyUv1 = anyUv1 || part.HasUv1;
-    anyNormal = anyNormal || part.HasNormal;
-    anyTangent = anyTangent || part.HasTangent();
-    anyColour = anyColour || part.HasColour;
 
     if (Positions_.capacity() < Positions_.size() + pPos.size()) {
       Positions_.reserve(wholeFloats);
@@ -1219,7 +1256,6 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     part.IndexCount = Indices_.size() - part.FirstIndex;
     if (!FlatNormalsFor(part) || !GeneratedTangentsFor(part)) { return false; }
     part.VertexCount = VertexCount() - part.FirstVertex;
-    anyNormal = anyNormal || part.HasNormal;
     Parts_.push_back(part);
   }
 

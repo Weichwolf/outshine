@@ -150,6 +150,61 @@ public:
   [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 
 private:
+  struct Morphing {
+    std::span<const double> Weights;
+    size_t Count = 0;
+  };
+
+  struct Posing {
+    const Transform *Pose = nullptr;
+    const double *Weights = nullptr;
+    int Variant = -1;
+  };
+
+  [[nodiscard]] static bool
+  PlacementOf(const Document &document, const Posing &posed, int node, Transform &out);
+  [[nodiscard]] bool FlattenMesh(const Document &document,
+                                 const Posing &posed,
+                                 int nodeIndex,
+                                 outshine::Geometry &made,
+                                 size_t &primitives);
+
+  struct Placing {
+    const Node &Node;
+    const Transform &World;
+    const Transform &Placed;
+    std::span<const Transform> Joints;
+    Morphing Morph;
+    int Variant = -1;
+  };
+
+  [[nodiscard]] bool FlattenPrimitive(const Document &document,
+                                      const Primitive &primitive,
+                                      const Placing &under,
+                                      outshine::Geometry &made);
+  [[nodiscard]] bool ReadTriangleRun(const Document &document,
+                                     const Primitive &primitive,
+                                     const Transform &world,
+                                     std::span<const Transform> skinned,
+                                     size_t vertices);
+  void EmitPart(outshine::Geometry &made, const Part &part);
+  [[nodiscard]] bool FlattenLight(const Document &document,
+                                  int nodeIndex,
+                                  const Node &node,
+                                  const Transform &placement);
+  [[nodiscard]] bool
+  ReadUvSets(const Document &document, const Primitive &primitive, size_t vertices, Part &part);
+  [[nodiscard]] bool ReadVertexColours(const Document &document,
+                                       const Primitive &primitive,
+                                       size_t vertices,
+                                       Part &part);
+  [[nodiscard]] bool ReadVertexNormals(const Document &document,
+                                       const Primitive &primitive,
+                                       const VertexPlacement &place,
+                                       Morphing morph,
+                                       size_t vertices,
+                                       Part &part);
+
   struct Scratch {
     outshine::Geometry Made;
     std::vector<float> Narrowed;
