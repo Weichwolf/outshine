@@ -68,6 +68,7 @@ void Engine::State::Blocks(const Gltf::Subject &standing) {
 
 void Engine::State::Tells() {
   const Heap::Tagged telling("frame-tells");
+  Published.Places("heap: bytes LIVE right now", static_cast<double>(Heap::LiveBytes()), "bytes");
   for (size_t at = 0; at < Heap::TagCount(); ++at) {
     const char *const tag = Heap::TagAt(at);
     if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }

@@ -1,4 +1,5 @@
 #include <chrono>
+#include "FlatMap.h"
 #include "Units.h"
 #include "GroundYield.h"
 #include "math/Vec3.h"
@@ -234,10 +235,11 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
   const Attributes lerp(mesh);
   std::vector<uint32_t> &index = *mesh.Index;
   std::vector<uint32_t> next;
+  FlatMap<uint32_t> split;
 
   for (int pass = 0; pass < kMostPasses; ++pass) {
     const float *positionM = mesh.PositionM->data();
-    std::unordered_map<uint64_t, uint32_t> split;
+    split.Clear();
     bool any = false;
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
       const std::array<uint32_t, 3> face = {{index[at], index[at + 1u], index[at + 2u]}};
@@ -253,7 +255,7 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
                              static_cast<double>(positionM[static_cast<size_t>(b) * 3u])),
              .SouthM = 0.5 * (static_cast<double>(positionM[static_cast<size_t>(a) * 3u + 2u]) +
                               static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]))});
-        split.emplace(key, kNoVertex);
+        (void)split.Emplace(key, kNoVertex);
       }
     }
     if (!any) { break; }
@@ -266,13 +268,13 @@ void Refine(std::span<const Yields> these, double finestM, GroundMesh &mesh, Yie
                                     static_cast<double>(held[static_cast<size_t>(b) * 3u])),
                     .SouthM = 0.5 * (static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]) +
                                      static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]))});
-      const auto found = split.find(key);
-      if (found == split.end()) { return kNoVertex; }
-      if (found->second == kNoVertex) {
-        found->second = lerp.Midpoint(a, b);
+      uint32_t *const found = split.Find(key);
+      if (found == nullptr) { return kNoVertex; }
+      if (*found == kNoVertex) {
+        *found = lerp.Midpoint(a, b);
         ++told.VerticesAdded;
       }
-      return found->second;
+      return *found;
     };
 
     next.clear();
@@ -381,10 +383,11 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
   std::vector<uint32_t> &index = *mesh.Index;
   const Attributes lerp(mesh);
   std::vector<uint32_t> next;
+  FlatMap<std::pair<uint32_t, double>> split;
 
   for (int pass = 0; pass < kCutPasses; ++pass) {
     const float *positionM = mesh.PositionM->data();
-    std::unordered_map<uint64_t, std::pair<uint32_t, double>> split;
+    split.Clear();
     for (size_t at = 0; at + 2 < index.size(); at += 3) {
       for (int edge = 0; edge < 3; ++edge) {
         const uint32_t a = index[at + static_cast<size_t>(edge)];
@@ -394,7 +397,7 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
         const auto bE = static_cast<double>(positionM[static_cast<size_t>(b) * 3u]);
         const auto bS = static_cast<double>(positionM[static_cast<size_t>(b) * 3u + 2u]);
         const uint64_t key = EdgeKey({.EastM = aE, .SouthM = aS}, {.EastM = bE, .SouthM = bS});
-        if (split.contains(key)) { continue; }
+        if (split.Holds(key)) { continue; }
         const auto atE = static_cast<uint64_t>(
             static_cast<int64_t>(std::floor(0.5 * (aE + bE) / kSewCellM)) + 0x20000000LL);
         const auto atS = static_cast<uint64_t>(
@@ -418,12 +421,12 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
           }
         }
         if (!met) { continue; }
-        split.emplace(key,
-                      std::pair<uint32_t, double>{
-                          kNoVertex, aE < bE || (aE == bE && aS < bS) ? part : 1.0 - part});
+        (void)split.Emplace(key,
+                            std::pair<uint32_t, double>{
+                                kNoVertex, aE < bE || (aE == bE && aS < bS) ? part : 1.0 - part});
       }
     }
-    if (split.empty()) { break; }
+    if (split.Empty()) { break; }
     told.Passes = std::max(told.Passes, static_cast<size_t>(pass) + 1u);
 
     const auto cutOf = [&](uint32_t a, uint32_t b) {
@@ -432,16 +435,15 @@ void Cut(std::span<const Yields> these, const GroundMesh &mesh, Yielded &told) {
       const auto aS = static_cast<double>(held[static_cast<size_t>(a) * 3u + 2u]);
       const auto bE = static_cast<double>(held[static_cast<size_t>(b) * 3u]);
       const auto bS = static_cast<double>(held[static_cast<size_t>(b) * 3u + 2u]);
-      const auto found =
-          split.find(EdgeKey({.EastM = aE, .SouthM = aS}, {.EastM = bE, .SouthM = bS}));
-      if (found == split.end()) { return kNoVertex; }
-      if (found->second.first == kNoVertex) {
+      auto *const found =
+          split.Find(EdgeKey({.EastM = aE, .SouthM = aS}, {.EastM = bE, .SouthM = bS}));
+      if (found == nullptr) { return kNoVertex; }
+      if (found->first == kNoVertex) {
         const bool forward = aE < bE || (aE == bE && aS < bS);
-        found->second.first =
-            lerp.Along(a, b, forward ? found->second.second : 1.0 - found->second.second);
+        found->first = lerp.Along(a, b, forward ? found->second : 1.0 - found->second);
         ++told.VerticesAdded;
       }
-      return found->second.first;
+      return found->first;
     };
 
     next.clear();

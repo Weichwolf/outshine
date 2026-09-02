@@ -878,7 +878,10 @@ void Engine::State::PaveLane(const Paving &on,
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
   };
-  FitLane(laneAt, into);
+  {
+    const Heap::Tagged fitting("road-fit");
+    FitLane(laneAt, into);
+  }
   into.FitMs += since();
   if (into.Along.size() < 2) {
     ++into.RefusedWays;
@@ -1551,6 +1554,7 @@ void Engine::State::Paves(const TangentFrame &standing,
                     .Standing = standing,
                     .Classes = classStructure,
                     .WaterRow = waterRow};
+    const Heap::Tagged paving("road-pave");
     for (int phase = 0; phase < 2; ++phase) {
       for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
         PaveLane(on, phase, laneAt, into, corridor, pavement);
@@ -1867,11 +1871,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const auto rebuildBegan = std::chrono::steady_clock::now();
   {}
 
-  auto laid = LayPatchwork(World.Stack.Pool(), over);
-  if (!laid) {
-    Error = laid.error();
-    return false;
+  std::optional<Patchwork> patchwork;
+  {
+    const Heap::Tagged patching("ground-patchwork");
+    auto made = LayPatchwork(World.Stack.Pool(), over);
+    if (!made) {
+      Error = made.error();
+      return false;
+    }
+    patchwork = *std::move(made);
   }
+  Patchwork *const laid = &*patchwork;
 
   const double frameLat = anchorLat;
   const double frameLon = anchorLon;
@@ -1972,7 +1982,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                      leanCount > 0 ? leanSum / static_cast<double>(leanCount) : 0.0,
                      "deg");
   }
-  Classed classed = Classify(*laid, inFrame);
+  Classed classed;
+  {
+    const Heap::Tagged classing("ground-classify");
+    classed = Classify(*laid, inFrame);
+  }
   std::vector<float> &tinted = classed.Tinted;
   std::vector<float> &classUv = classed.Uv;
   const std::vector<float> &classPalette = classed.Palette;
@@ -2099,7 +2113,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const int ringPart = ground.addPart("ground", ringSurface);
 
   Phasing clocks{.PhaseAt = phaseAt, .CensusAt = censusAt, .WiresAt = wiresAt};
-  Models(standing, inFrame, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks);
+  {
+    const Heap::Tagged modelling("ground-model");
+    Models(
+        standing, inFrame, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, ground, clocks);
+  }
   phaseAt = clocks.PhaseAt;
   censusAt = clocks.CensusAt;
   wiresAt = clocks.WiresAt;
@@ -2247,6 +2265,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                     std::make_move_iterator(corridor.begin()),
                     std::make_move_iterator(corridor.end()));
     Yielded told;
+    const Heap::Tagged yielding_("ground-yield");
     YieldGround(std::span<const Yields>(yielding),
                 Budget{.FinestM = kFinestGroundM, .MostTriangles = kMostYieldTriangles},
                 GroundMesh{.PositionM = &inFrame,
