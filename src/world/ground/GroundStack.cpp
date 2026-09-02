@@ -115,6 +115,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
     Vectors_->Declare(
         std::span<const OsmField::Declared>(Declared_), at.LongitudeDeg, at.LatitudeDeg);
   }
+  if (Vectors_->PendingTiles() > 0) { return; }
   for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       Settle();

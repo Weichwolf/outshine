@@ -95,6 +95,34 @@ never in completion order. The fix is the same `FlushLevelStreaming` shape this 
 already argues for: fetch the whole ring FIRST, then mesh it in the watermark's order,
 so the candidate set is the ring rather than whatever landed.
 
+## AND THE MEASURES CANNOT SEE IT
+
+Two CentralPark runs drawing `3cdca8d5` and `d56ae2e1`, every published measure diffed.
+Of roughly 340 numbers, FIVE differ, and not one of them is geometric:
+
+| measure | `3cdca8d5` | `d56ae2e1` |
+|---|---|---|
+| asks that repeated a posted job | 266 | 200 |
+| heap: bytes LIVE right now | 1 415 061 248 | 1 415 012 096 |
+| heap taken under tile-worker | 1 784 761 744 | 1 749 021 504 |
+| heap taken under tile-carrier | 80 016 272 | 79 426 448 |
+| heap taken under frame-tells | 699 856 | 696 880 |
+
+Everything else -- triangles, vertices, class features taken, street stations, water
+surfaces, ring extents, lighting -- agrees to the last digit. Same geometry, different
+picture. **The instrument does not see the defect**, which is CLAUDE.md's "a measure
+that cannot see" and means the next step is a MEASUREMENT rather than a repair.
+
+What the five do say: `tile-worker` differs by 36 MB of churn between the two runs, so
+the workers divided the work differently. The invariant names that case exactly --
+work that ran on more than one thread, combined in completion order -- and the place to
+look is what the tile pool hands back and in what order, not the watermark.
+
+The one-line repair this item argued for (`if (Vectors_->PendingTiles() > 0) return;`
+before ingesting, so the candidate set is the ring rather than whatever landed) is IN,
+and it is right by the invariant, but six runs after it CentralPark still draws both
+pictures. The candidate set was not the mechanism.
+
 ## And the ceiling cannot see a quarter of what is held
 
 Measured at Shibuya, 2026-09-03:
