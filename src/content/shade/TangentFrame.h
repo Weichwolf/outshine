@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 #define OUTSHINE_CONTENT_SHADE_TANGENTFRAME_H
 
+#include <vector>
+#include <span>
 #include <cmath>
 
 #include "math/Vec3.h"
@@ -64,6 +66,61 @@ private:
   LongitudeLatitude Anchor_;
   Vec3 O_, East_, North_, Up_;
 };
+
+struct Carrying {
+  std::span<const float> Corners;
+  size_t Stride = 0;
+  Vec3 AnchorEcefM = {{0.0, 0.0, 0.0}};
+  size_t Already = 0;
+};
+
+struct Carried {
+  std::vector<float> &PlacesM;
+  std::vector<float> &Turned;
+};
+
+inline size_t CarryIntoTheFrame(const Carrying &from, const TangentFrame &standing, Carried into) {
+  const std::span<const float> corners = from.Corners;
+  const Vec3 &anchor = from.AnchorEcefM;
+  std::vector<float> &places = into.PlacesM;
+  std::vector<float> &turned = into.Turned;
+  size_t already = from.Already;
+  const size_t count = corners.size() / from.Stride;
+  if (already > count || places.size() != already * 3 || turned.size() != already * 3) {
+    already = 0;
+  }
+  places.resize(count * 3);
+  turned.resize(count * 3);
+  for (size_t at = already; at < count; ++at) {
+    const float *const one = corners.data() + at * from.Stride;
+    const Vec3 held = {{anchor[0] + static_cast<double>(one[0]),
+                        anchor[1] + static_cast<double>(one[1]),
+                        anchor[2] + static_cast<double>(one[2])}};
+    double eastM = 0.0;
+    double upM = 0.0;
+    double northM = 0.0;
+    const EastNorthUp eastMEnu = standing.Place(held);
+    eastM = eastMEnu.EastM;
+    upM = eastMEnu.UpM;
+    northM = eastMEnu.NorthM;
+    places[at * 3] = static_cast<float>(eastM);
+    places[at * 3 + 1] = static_cast<float>(upM);
+    places[at * 3 + 2] = static_cast<float>(-northM);
+    const Vec3 aim = {
+        {static_cast<double>(one[5]), static_cast<double>(one[6]), static_cast<double>(one[7])}};
+    double alongEast = 0.0;
+    double alongUp = 0.0;
+    double alongNorth = 0.0;
+    const EastNorthUp alongEastEnu = standing.Turn(aim);
+    alongEast = alongEastEnu.EastM;
+    alongUp = alongEastEnu.UpM;
+    alongNorth = alongEastEnu.NorthM;
+    turned[at * 3] = static_cast<float>(alongEast);
+    turned[at * 3 + 1] = static_cast<float>(alongUp);
+    turned[at * 3 + 2] = static_cast<float>(-alongNorth);
+  }
+  return count;
+}
 
 } // namespace outshine
 #endif

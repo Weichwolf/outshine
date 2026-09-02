@@ -44,6 +44,7 @@
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
 #include "GroundYield.h"
+#include "spatial/Drape.h"
 #include "TileGeodesy.h"
 #include "SceneRenderer.h"
 #include "ScenarioRead.h"
@@ -407,17 +408,6 @@ struct Engine::State {
               LongitudeLatitude stands,
               Geometry &ground,
               Phasing &clocks);
-
-  static constexpr size_t kDrapeRungs = 6;
-
-  struct Drape {
-    const std::unordered_map<uint64_t, float> &DrawnGround;
-    const std::array<std::unordered_map<uint64_t, std::vector<uint32_t>>, kDrapeRungs> &FacesAt;
-    std::span<const float> InFrame;
-    std::span<const uint32_t> Index;
-
-    [[nodiscard]] double At(double eastM, double southM, double fallback) const;
-  };
 
   struct Meets {
     double EastM = 0.0;

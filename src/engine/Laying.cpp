@@ -29,14 +29,16 @@
 #include "Fit.h"
 #include "ReferenceLine.h"
 
+#include "spatial/Census.h"
+#include "spatial/Drape.h"
+#include "geo/PlaceKey.h"
+#include "spatial/Refine.h"
 #include "EngineHeld.h"
 #include "GroundYield.h"
 
 namespace outshine {
 
 constexpr double kNoLeastYet = 1.0e9;
-
-constexpr uint32_t kNoVertex = 0xffffffffu;
 
 static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
               "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
@@ -58,8 +60,6 @@ constexpr float kLagoonGreen = 0.11f;
 constexpr float kLagoonBlue = 0.16f;
 constexpr float kLagoonRoughness = 0.14f;
 
-constexpr double kFinestCellM = 32.0;
-constexpr double kCellPerRung = 8.0;
 constexpr double kPerMille = 1000.0;
 constexpr double kFootprintReachM = 3200.0;
 constexpr double kSliverAreaM2 = 0.01;
@@ -101,338 +101,14 @@ constexpr double kStampWorthM = 0.25;
 constexpr double kBrokenGroundM = 1.0;
 constexpr double kFitTightestM = 5.5;
 constexpr double kLeastRoadM = 2.0;
-constexpr double kDrapeGridM = 32.0;
-
-double DrapeCellM(size_t rung) {
-  double cellM = kFinestCellM;
-  for (size_t step = 0; step < rung; ++step) { cellM *= kCellPerRung; }
-  return cellM;
-}
 
 constexpr int kClassPasses = 4;
 
-[[nodiscard]] uint64_t EdgeKey(uint32_t a, uint32_t b) {
-  return a < b ? (static_cast<uint64_t>(a) << 32U) | b : (static_cast<uint64_t>(b) << 32U) | a;
-}
-
-void Divided(std::span<const uint32_t, 3> face,
-             std::span<const uint32_t, 3> cut,
-             std::vector<uint32_t> &into) {
-  const auto lay = [&into](uint32_t a, uint32_t b, uint32_t c) {
-    into.push_back(a);
-    into.push_back(b);
-    into.push_back(c);
-  };
-  const int cuts =
-      (cut[0] != kNoVertex ? 1 : 0) + (cut[1] != kNoVertex ? 1 : 0) + (cut[2] != kNoVertex ? 1 : 0);
-  if (cuts == 0) {
-    lay(face[0], face[1], face[2]);
-    return;
-  }
-  if (cuts == 3) {
-    lay(face[0], cut[0], cut[2]);
-    lay(cut[0], face[1], cut[1]);
-    lay(cut[2], cut[1], face[2]);
-    lay(cut[0], cut[1], cut[2]);
-    return;
-  }
-  if (cuts == 1) {
-    for (int edge = 0; edge < 3; ++edge) {
-      if (cut[edge] == kNoVertex) { continue; }
-      lay(face[edge], cut[edge], face[(edge + 2) % 3]);
-      lay(cut[edge], face[(edge + 1) % 3], face[(edge + 2) % 3]);
-    }
-    return;
-  }
-  for (int edge = 0; edge < 3; ++edge) {
-    if (cut[edge] != kNoVertex) { continue; }
-    lay(face[edge], face[(edge + 1) % 3], cut[(edge + 1) % 3]);
-    lay(face[edge], cut[(edge + 1) % 3], cut[(edge + 2) % 3]);
-    lay(cut[(edge + 2) % 3], cut[(edge + 1) % 3], face[(edge + 2) % 3]);
-    return;
-  }
-}
-
-[[nodiscard]] uint64_t WayEndKey(LongitudeLatitude at) {
-  constexpr int64_t kBias = 0x20000000;
-  const auto y = static_cast<int64_t>(std::llround(at.LatitudeDeg * 100000.0));
-  const auto x = static_cast<int64_t>(std::llround(at.LongitudeDeg * 100000.0));
-  return (static_cast<uint64_t>(y + kBias) << 32U) | static_cast<uint64_t>(x + kBias);
-}
-
 } // namespace
 
-namespace {
+namespace {}
 
-size_t CarryIntoTheFrame(const std::vector<float> &corners,
-                         const Vec3 &anchor,
-                         const TangentFrame &standing,
-                         std::vector<float> &places,
-                         std::vector<float> &turned,
-                         size_t already) {
-  const size_t count = corners.size() / kTileVertexFloats;
-  if (already > count || places.size() != already * 3 || turned.size() != already * 3) {
-    already = 0;
-  }
-  places.resize(count * 3);
-  turned.resize(count * 3);
-  for (size_t at = already; at < count; ++at) {
-    const float *const one = corners.data() + at * kTileVertexFloats;
-    const Vec3 held = {{anchor[0] + static_cast<double>(one[0]),
-                        anchor[1] + static_cast<double>(one[1]),
-                        anchor[2] + static_cast<double>(one[2])}};
-    double eastM = 0.0;
-    double upM = 0.0;
-    double northM = 0.0;
-    const EastNorthUp eastMEnu = standing.Place(held);
-    eastM = eastMEnu.EastM;
-    upM = eastMEnu.UpM;
-    northM = eastMEnu.NorthM;
-    places[at * 3] = static_cast<float>(eastM);
-    places[at * 3 + 1] = static_cast<float>(upM);
-    places[at * 3 + 2] = static_cast<float>(-northM);
-    const Vec3 aim = {
-        {static_cast<double>(one[5]), static_cast<double>(one[6]), static_cast<double>(one[7])}};
-    double alongEast = 0.0;
-    double alongUp = 0.0;
-    double alongNorth = 0.0;
-    const EastNorthUp alongEastEnu = standing.Turn(aim);
-    alongEast = alongEastEnu.EastM;
-    alongUp = alongEastEnu.UpM;
-    alongNorth = alongEastEnu.NorthM;
-    turned[at * 3] = static_cast<float>(alongEast);
-    turned[at * 3 + 1] = static_cast<float>(alongUp);
-    turned[at * 3 + 2] = static_cast<float>(-alongNorth);
-  }
-  return count;
-}
-} // namespace
-
-namespace {
-
-void CensusOverEveryTriangle(Core::Ledger &Published,
-                             std::chrono::steady_clock::time_point &censusAt,
-                             std::span<const float> wallPlaces,
-                             std::span<const float> wallFacing,
-                             std::span<const uint32_t> wallRun,
-                             std::span<const float> roofPlaces,
-                             std::span<const float> roofFacing,
-                             std::span<const uint32_t> roofRun) {
-  const size_t wallVerts = wallPlaces.size() / 3;
-  const size_t wallTris = wallRun.size() / 3;
-  const size_t vertices = wallVerts + roofPlaces.size() / 3;
-  const size_t triangles = wallTris + roofRun.size() / 3;
-  const auto placeAt = [&](size_t one) {
-    return one < wallVerts ? wallPlaces.data() + one * 3
-                           : roofPlaces.data() + (one - wallVerts) * 3;
-  };
-  const auto turnAt = [&](size_t one) {
-    return one < wallVerts ? wallFacing.data() + one * 3
-                           : roofFacing.data() + (one - wallVerts) * 3;
-  };
-  const auto cornerOf = [&](size_t tri, size_t corner) -> size_t {
-    return tri < wallTris ? wallRun[tri * 3 + corner]
-                          : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
-  };
-
-  struct AtCm {
-    int64_t X = 0, Y = 0, Z = 0;
-
-    bool operator==(const AtCm &other) const noexcept {
-      return X == other.X && Y == other.Y && Z == other.Z;
-    }
-  };
-
-  struct AtCmHash {
-    size_t operator()(const AtCm &of) const noexcept {
-      uint64_t mixed = kDigestBasis;
-      mixed = (mixed ^ static_cast<uint64_t>(of.X)) * kDigestPrime;
-      mixed = (mixed ^ static_cast<uint64_t>(of.Y)) * kDigestPrime;
-      mixed = (mixed ^ static_cast<uint64_t>(of.Z)) * kDigestPrime;
-      return static_cast<size_t>(mixed);
-    }
-  };
-
-  std::unordered_map<AtCm, uint32_t, AtCmHash> seenAt;
-  std::vector<uint32_t> welded;
-  welded.reserve(vertices);
-  size_t coincident = 0;
-  for (size_t one = 0; one < vertices; ++one) {
-    const float *const held = placeAt(one);
-    const auto cx = static_cast<int64_t>(std::llround(static_cast<double>(held[0]) * 100.0));
-    const auto cy = static_cast<int64_t>(std::llround(static_cast<double>(held[1]) * 100.0));
-    const auto cz = static_cast<int64_t>(std::llround(static_cast<double>(held[2]) * 100.0));
-    const AtCm key{.X = cx, .Y = cy, .Z = cz};
-    const auto found = seenAt.find(key);
-    if (found == seenAt.end()) {
-      const auto made = static_cast<uint32_t>(seenAt.size());
-      seenAt.emplace(key, made);
-      welded.push_back(made);
-    } else {
-      ++coincident;
-      welded.push_back(found->second);
-    }
-  }
-  std::unordered_map<uint64_t, int> edges;
-  size_t degenerate = 0;
-  for (size_t tri = 0; tri < triangles; ++tri) {
-    const std::array<uint32_t, 3> corner = {
-        {welded[cornerOf(tri, 0)], welded[cornerOf(tri, 1)], welded[cornerOf(tri, 2)]}};
-    if (corner[0] == corner[1] || corner[1] == corner[2] || corner[2] == corner[0]) {
-      ++degenerate;
-      continue;
-    }
-    for (int side = 0; side < 3; ++side) {
-      const uint32_t from = corner[side];
-      const uint32_t to = corner[(side + 1) % 3];
-      const uint64_t low = from < to ? from : to;
-      const uint64_t high = from < to ? to : from;
-      edges[(low << 32U) | high] += 1;
-    }
-  }
-  size_t open = 0;
-  size_t overused = 0;
-  for (const auto &one : edges) {
-    if (one.second == 1) {
-      ++open;
-    } else if (one.second > 2) {
-      ++overused;
-    }
-  }
-  {
-    struct Corner {
-      std::array<uint32_t, 6> Bits = {{0, 0, 0, 0, 0, 0}};
-
-      bool operator==(const Corner &other) const noexcept {
-        for (size_t part = 0; part < 6; ++part) {
-          if (Bits[part] != other.Bits[part]) { return false; }
-        }
-        return true;
-      }
-    };
-
-    struct CornerHash {
-      size_t operator()(const Corner &of) const noexcept {
-        size_t mixed = kDigestBasis;
-        for (const uint32_t one : of.Bits) { mixed = (mixed ^ one) * kDigestPrime; }
-        return mixed;
-      }
-    };
-
-    std::unordered_map<Corner, uint32_t, CornerHash> whole;
-    size_t exact = 0;
-    for (size_t one = 0; one < vertices; ++one) {
-      const float *const held = placeAt(one);
-      const float *const aim = turnAt(one);
-      Corner key;
-      for (size_t part = 0; part < 3; ++part) {
-        key.Bits[part] = std::bit_cast<uint32_t>(held[part]);
-        key.Bits[part + 3] = std::bit_cast<uint32_t>(aim[part]);
-      }
-      if (whole.emplace(key, static_cast<uint32_t>(whole.size())).second) { continue; }
-      ++exact;
-    }
-    Published.Places("solid: building corners identical in POSITION AND NORMAL",
-                     static_cast<double>(exact),
-                     "corners");
-    Published.Places(
-        "solid: and how many distinct ones remain", static_cast<double>(whole.size()), "corners");
-  }
-  Published.Places("solid: building vertices welded away as coincident",
-                   static_cast<double>(coincident),
-                   "vertices");
-  Published.Places(
-      "solid: building vertices standing apart", static_cast<double>(seenAt.size()), "vertices");
-  Published.Places(
-      "rebuild: of that, welding and counting edges",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - censusAt)
-          .count(),
-      "ms");
-  censusAt = std::chrono::steady_clock::now();
-  Published.Places("solid: building triangles with two corners in one place",
-                   static_cast<double>(degenerate),
-                   "triangles");
-  Published.Places(
-      "solid: building edges on ONE triangle, so a HOLE", static_cast<double>(open), "edges");
-  Published.Places("solid: building edges on MORE than two, so not a surface",
-                   static_cast<double>(overused),
-                   "edges");
-  Published.Places("solid: building edges in all", static_cast<double>(edges.size()), "edges");
-}
-} // namespace
-
-double Engine::State::Drape::At(double eastM, double southM, double fallback) const {
-  for (size_t rung = 0; rung < kDrapeRungs; ++rung) {
-    const double cellM = DrapeCellM(rung);
-    const auto cellE = static_cast<int64_t>(std::floor(eastM / cellM));
-    const auto cellS = static_cast<int64_t>(std::floor(southM / cellM));
-    const auto atE = static_cast<uint64_t>(cellE + 0x20000000LL);
-    const auto atS = static_cast<uint64_t>(cellS + 0x20000000LL);
-    const auto bucket = FacesAt[rung].find((atE << 32U) | atS);
-    if (bucket != FacesAt[rung].end()) {
-      for (const uint32_t at : bucket->second) {
-        const size_t a = static_cast<size_t>(Index[at]) * 3u;
-        const size_t b = static_cast<size_t>(Index[at + 1u]) * 3u;
-        const size_t c = static_cast<size_t>(Index[at + 2u]) * 3u;
-        if (c + 2 >= InFrame.size()) { continue; }
-        const double aE = InFrame[a];
-        const double aS = InFrame[a + 2];
-        const double spanBE = static_cast<double>(InFrame[b]) - aE;
-        const double spanBS = static_cast<double>(InFrame[b + 2]) - aS;
-        const double spanCE = static_cast<double>(InFrame[c]) - aE;
-        const double spanCS = static_cast<double>(InFrame[c + 2]) - aS;
-        const double twice = spanBE * spanCS - spanCE * spanBS;
-        if (std::fabs(twice) < kLeastTurnRad) { continue; }
-        const double intoE = eastM - aE;
-        const double intoS = southM - aS;
-        const double towardB = (intoE * spanCS - spanCE * intoS) / twice;
-        const double towardC = (spanBE * intoS - intoE * spanBS) / twice;
-        if (towardB < -kLeastRunM || towardC < -kLeastRunM ||
-            towardB + towardC > 1.0 + kLeastRunM) {
-          continue;
-        }
-        return static_cast<double>(InFrame[a + 1]) * (1.0 - towardB - towardC) +
-               static_cast<double>(InFrame[b + 1]) * towardB +
-               static_cast<double>(InFrame[c + 1]) * towardC;
-      }
-    }
-  }
-  const double atE = eastM / kDrapeGridM;
-  const double atS = southM / kDrapeGridM;
-  const auto west = static_cast<int64_t>(std::floor(atE));
-  const auto north = static_cast<int64_t>(std::floor(atS));
-  const double alongE = atE - static_cast<double>(west);
-  const double alongS = atS - static_cast<double>(north);
-  const auto held = [this](int64_t east, int64_t south, double *out) {
-    const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-    const auto atS = static_cast<uint64_t>(south + 0x20000000LL);
-    const uint64_t key = (atE << 32U) | atS;
-    const auto stood = DrawnGround.find(key);
-    if (stood == DrawnGround.end()) { return false; }
-    *out = static_cast<double>(stood->second);
-    return true;
-  };
-  std::array<double, 4> corner = {{0.0, 0.0, 0.0, 0.0}};
-  if (held(west, north, corner.data()) && held(west + 1, north, &corner[1]) &&
-      held(west, north + 1, &corner[2]) && held(west + 1, north + 1, &corner[3])) {
-    const double above = corner[0] + (corner[1] - corner[0]) * alongE;
-    const double below = corner[2] + (corner[3] - corner[2]) * alongE;
-    return above + (below - above) * alongS;
-  }
-  const auto east = static_cast<int64_t>(std::llround(atE));
-  const auto south = static_cast<int64_t>(std::llround(atS));
-  double summed = 0.0;
-  size_t took = 0;
-  for (int64_t dy = -1; dy <= 1; ++dy) {
-    for (int64_t dx = -1; dx <= 1; ++dx) {
-      double stood = 0.0;
-      if (!held(east + dx, south + dy, &stood)) { continue; }
-      summed += stood;
-      ++took;
-    }
-  }
-  return took > 0 ? summed / static_cast<double>(took) : fallback;
-}
+namespace {}
 
 Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<float> &inFrame) {
   Classed out;
@@ -546,7 +222,7 @@ Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<floa
             {laid.Index[at], laid.Index[at + 1u], laid.Index[at + 2u]}};
         const std::array<uint32_t, 3> cut = {
             {halve(face[0], face[1]), halve(face[1], face[2]), halve(face[2], face[0])}};
-        Divided(face, cut, finer);
+        Divide(face, cut, finer);
       }
       classDivided += (finer.size() - laid.Index.size()) / 3u;
       laid.Index.swap(finer);
@@ -707,10 +383,18 @@ void Engine::State::Models(const TangentFrame &standing,
     std::vector<float> &wallFacing = World.WallFacing;
     std::vector<float> &roofPlaces = World.RoofPlaces;
     std::vector<float> &roofFacing = World.RoofFacing;
-    World.WallCarried = CarryIntoTheFrame(
-        built.WallCorners, anchor, standing, wallPlaces, wallFacing, World.WallCarried);
-    World.RoofCarried = CarryIntoTheFrame(
-        built.RoofCorners, anchor, standing, roofPlaces, roofFacing, World.RoofCarried);
+    World.WallCarried = CarryIntoTheFrame({.Corners = built.WallCorners,
+                                           .Stride = kTileVertexFloats,
+                                           .AnchorEcefM = anchor,
+                                           .Already = World.WallCarried},
+                                          standing,
+                                          {.PlacesM = wallPlaces, .Turned = wallFacing});
+    World.RoofCarried = CarryIntoTheFrame({.Corners = built.RoofCorners,
+                                           .Stride = kTileVertexFloats,
+                                           .AnchorEcefM = anchor,
+                                           .Already = World.RoofCarried},
+                                          standing,
+                                          {.PlacesM = roofPlaces, .Turned = roofFacing});
     const std::vector<uint32_t> &wallRun = built.WallRun;
     const std::vector<uint32_t> &roofRun = built.RoofRun;
     const size_t wallVerts = wallPlaces.size() / 3;
@@ -756,14 +440,38 @@ void Engine::State::Models(const TangentFrame &standing,
         "ms");
     clocks.CensusAt = std::chrono::steady_clock::now();
     if (declared.Render.Audits) {
-      CensusOverEveryTriangle(Published,
-                              clocks.CensusAt,
-                              wallPlaces,
-                              wallFacing,
-                              wallRun,
-                              roofPlaces,
-                              roofFacing,
-                              roofRun);
+      const std::array<Surface, 2> made = {
+          {{.PlacesM = wallPlaces, .Facing = wallFacing, .Run = wallRun},
+           {.PlacesM = roofPlaces, .Facing = roofFacing, .Run = roofRun}}};
+      const Census counted = CensusOver(made);
+      Published.Places("solid: building corners identical in POSITION AND NORMAL",
+                       static_cast<double>(counted.Identical),
+                       "corners");
+      Published.Places("solid: and how many distinct ones remain",
+                       static_cast<double>(counted.Distinct),
+                       "corners");
+      Published.Places("solid: building vertices welded away as coincident",
+                       static_cast<double>(counted.Coincident),
+                       "vertices");
+      Published.Places("solid: building vertices standing apart",
+                       static_cast<double>(counted.Apart),
+                       "vertices");
+      Published.Places("rebuild: of that, welding and counting edges",
+                       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                                 clocks.CensusAt)
+                           .count(),
+                       "ms");
+      clocks.CensusAt = std::chrono::steady_clock::now();
+      Published.Places("solid: building triangles with two corners in one place",
+                       static_cast<double>(counted.Degenerate),
+                       "triangles");
+      Published.Places("solid: building edges on ONE triangle, so a HOLE",
+                       static_cast<double>(counted.Open),
+                       "edges");
+      Published.Places("solid: building edges on MORE than two, so not a surface",
+                       static_cast<double>(counted.Overused),
+                       "edges");
+      Published.Places("solid: building edges in all", static_cast<double>(counted.Edges), "edges");
     }
     const size_t roofTriangles = roofRun.size() / 3;
     const size_t wallTriangles = wallRun.size() / 3;
@@ -1070,12 +778,12 @@ void Engine::State::DesignLane(const Paving &on,
       const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
       const auto seen =
-          piece == 0 ? on.SharedNodes.find(WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
+          piece == 0 ? on.SharedNodes.find(PlaceKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
                      : on.SharedNodes.end();
       whole = station(onLat,
                       onLon,
                       seen != on.SharedNodes.end() && seen->second > 1u
-                          ? WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
+                          ? PlaceKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
                           : 0u);
     }
   }
@@ -1083,12 +791,12 @@ void Engine::State::DesignLane(const Paving &on,
     const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
     if (last + 1 < on.Points.size()) {
       const auto seen = on.SharedNodes.find(
-          WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
+          PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
       whole = station(
           on.Points[last],
           on.Points[last + 1],
           seen != on.SharedNodes.end() && seen->second > 1u
-              ? WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})
+              ? PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})
               : 0ULL);
     } else {
       whole = false;
@@ -1223,9 +931,9 @@ void Engine::State::PaveLane(const Paving &on,
     const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
     if (last + 1 < on.Points.size()) {
       const auto from = into.EndM.find(
-          WayEndKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}));
+          PlaceKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}));
       const auto to = into.EndM.find(
-          WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
+          PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
       if (from != into.EndM.end() && to != into.EndM.end()) {
         double runM = 0.0;
         std::vector<double> reached(into.Along.size(), 0.0);
@@ -1370,8 +1078,8 @@ void Engine::State::PaveLane(const Paving &on,
     const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
     if (last + 1 < on.Points.size()) {
       const std::array<uint64_t, 2> key = {
-          {WayEndKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}),
-           WayEndKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})}};
+          {PlaceKey({.LongitudeDeg = on.Points[first + 1], .LatitudeDeg = on.Points[first]}),
+           PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})}};
       for (int side = 0; side < 2; ++side) {
         const Generators::RoadStation &at = side == 0 ? into.Along.front() : into.Along.back();
         const Generators::RoadStation &to =
@@ -1502,7 +1210,7 @@ void Engine::State::Crosses(const Ground::StreetField &ways,
       const double eastM = crossedAt.EastM;
       const double northM = crossedAt.NorthM;
       const uint64_t named =
-          WayEndKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
+          PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
       const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
       const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
       for (int64_t stepE = -1; stepE <= 1; ++stepE) {
@@ -1564,8 +1272,8 @@ void Engine::State::Bridges(const Ground::StreetField &ways,
     at[1] = points[first + 1];
     at[2] = points[last];
     at[3] = points[last + 1];
-    out[0] = WayEndKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
-    out[1] = WayEndKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
+    out[0] = PlaceKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
+    out[1] = PlaceKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
     return true;
   };
   const auto groundAt = [&](double lat, double lon, double *out) {
@@ -1703,7 +1411,7 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
       if (!(run > kLeastRunM)) { continue; }
       outE /= run;
       outN /= run;
-      meeting[WayEndKey({.LongitudeDeg = points[here + 1], .LatitudeDeg = points[here]})].push_back(
+      meeting[PlaceKey({.LongitudeDeg = points[here + 1], .LatitudeDeg = points[here]})].push_back(
           Leaving{.Way = static_cast<uint32_t>(at),
                   .Side = static_cast<uint8_t>(side),
                   .DirE = static_cast<float>(outE),
@@ -1814,7 +1522,7 @@ void Engine::State::Paves(const TangentFrame &standing,
       for (uint32_t step = 0; step < one.PointCount; ++step) {
         const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
         if (at + 1 >= points.size()) { break; }
-        ++sharedNodes[WayEndKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
+        ++sharedNodes[PlaceKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
       }
     }
     const Paving on{.Ways = ways,
