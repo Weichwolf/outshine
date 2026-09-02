@@ -26,7 +26,7 @@ void TextLogSink::Write(double simTimeS,
   fprintf(File_, "t=%.1f %s %s %s", simTimeS, LevelStr(level), tag, event);
   if (unit != nullptr) { fprintf(File_, " unit=%s", unit); }
   for (const auto &fld : fields) {
-    if (fld.Value.find(' ') != std::string::npos) {
+    if (fld.Value.contains(' ')) {
       fprintf(File_, " %s=\"%s\"", fld.Key, fld.Value.c_str());
     } else {
       fprintf(File_, " %s=%s", fld.Key, fld.Value.c_str());

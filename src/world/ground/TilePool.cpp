@@ -229,7 +229,7 @@ TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
 void TilePool::Remember(
     const std::string &key, const uint8_t *data, size_t len, const Data::Address &at, bool absent) {
   const std::scoped_lock lock(CacheMutex_);
-  if (CacheAt_.find(key) != CacheAt_.end()) { return; }
+  if (CacheAt_.contains(key)) { return; }
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
     size_t victim = 0;
@@ -490,7 +490,7 @@ void TilePool::Carry() {
       const std::scoped_lock lock(QueueMutex_);
       if (result.State == Reply::Pending) {
         Posted_.erase(job.Key);
-      } else if (Posted_.find(job.Key) != Posted_.end()) {
+      } else if (Posted_.contains(job.Key)) {
         Done_[job.Key] = std::move(result);
         Kept_.push_back(job.Key);
         while (Kept_.size() > kMostKept) {
@@ -586,13 +586,13 @@ void TilePool::Work(int slot) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
       std::unique_lock<std::mutex> lock(QueueMutex_);
-      if (Done_.find(awaited) != Done_.end()) {
+      if (Done_.contains(awaited)) {
         Queue_.push_back(std::move(job));
         lock.unlock();
         Wake_.notify_all();
         continue;
       }
-      if (Posted_.find(awaited) != Posted_.end()) {
+      if (Posted_.contains(awaited)) {
         Awaiting_[awaited].push_back(std::move(job));
         continue;
       }
@@ -624,7 +624,7 @@ void TilePool::Work(int slot) {
         Landed_.notify_all();
       }
 
-      else if (Posted_.find(job.Key) != Posted_.end()) {
+      else if (Posted_.contains(job.Key)) {
         if (result.State == Reply::Absent || result.State == Reply::Undeclared) {
           result.Build = TileBuild{};
         }
@@ -689,7 +689,7 @@ TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
     const std::scoped_lock lock(QueueMutex_);
     const auto done = Done_.find(key);
     if (done != Done_.end()) { return done->second.State; }
-    if (Posted_.find(key) != Posted_.end()) { return Reply::Pending; }
+    if (Posted_.contains(key)) { return Reply::Pending; }
   }
   Job job;
   job.Kind = Rank::Mesh;
@@ -732,8 +732,7 @@ TilePool::Reply TilePool::MeshAwaited(int z, uint32_t x, uint32_t y, int grid, T
   const uint64_t key = MeshKey(z, x, y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(
-        lock, [&] { return Done_.find(key) != Done_.end() || Posted_.find(key) == Posted_.end(); });
+    Landed_.wait(lock, [&] { return Done_.contains(key) || !Posted_.contains(key); });
   }
   return Mesh(z, x, y, grid, out);
 }
@@ -754,7 +753,7 @@ void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
 
 bool TilePool::Known(uint64_t key) {
   const std::scoped_lock lock(QueueMutex_);
-  return Done_.find(key) != Done_.end() || Posted_.find(key) != Posted_.end();
+  return Done_.contains(key) || Posted_.contains(key);
 }
 
 } // namespace outshine::Ground

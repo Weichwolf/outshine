@@ -109,8 +109,7 @@ private:
 }
 
 [[nodiscard]] inline std::string Beneath(const std::string &under, const std::string &named) {
-  if (under.empty() || named.empty() || named.front() == '/' ||
-      named.find("://") != std::string::npos) {
+  if (under.empty() || named.empty() || named.front() == '/' || named.contains("://")) {
     return named;
   }
   return under.back() == '/' ? under + named : under + "/" + named;

@@ -15,7 +15,7 @@ namespace outshine {
 std::expected<TableBook, std::string> TableBook::Stand(std::span<const Scenario::Table> declared) {
   TableBook standing;
   for (const Scenario::Table &table : declared) {
-    if (standing.Held_.count(table.Id) != 0) {
+    if (standing.Held_.contains(table.Id)) {
       return std::unexpected("the table '" + table.Id +
                              "' is declared twice, and a number has one home");
     }
