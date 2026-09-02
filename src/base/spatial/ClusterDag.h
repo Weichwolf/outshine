@@ -16,6 +16,8 @@
 
 namespace outshine {
 
+constexpr double kLeastClusterM = 0.05;
+
 struct DagCluster {
   Vec3f SelfCenter = {{0, 0, 0}};
   float SelfRadius = 0.0f;
@@ -113,7 +115,7 @@ DagSse(const Vec3f &ctr, float rad, float err, const Vec3 &eye, float fPx, const
   const double dy = static_cast<double>(ctr[1]) - eye[1];
   const double dz = static_cast<double>(ctr[2]) - eye[2];
   double d = std::sqrt(dx * dx + dy * dy + dz * dz) - static_cast<double>(rad);
-  d = std::max(d, 0.05);
+  d = std::max(d, kLeastClusterM);
   return static_cast<float>(static_cast<double>(err) *
                             static_cast<double>(DagCrossFactor(ctr, rad, eye, up)) *
                             static_cast<double>(fPx) / d);

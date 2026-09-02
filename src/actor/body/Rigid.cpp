@@ -12,6 +12,8 @@ namespace outshine::Physics {
 
 using outshine::Cross;
 
+constexpr double kQuarterOfRoot = 0.25;
+
 void Turn(const Quat &orientationQ, const Vec3 &bodyV, Vec3 &worldV) {
   const Vec3 q = {{orientationQ.X, orientationQ.Y, orientationQ.Z}};
   const Vec3 qv = Cross(q, bodyV);
@@ -119,28 +121,28 @@ void Lie(Rigid &body, const Vec3 &aheadM, const Vec3 &upM) {
   Quat q;
   if (trace > 0.0) {
     const double root = std::sqrt(trace + 1.0) * 2.0;
-    q.W = 0.25 * root;
+    q.W = kQuarterOfRoot * root;
     q.X = (m[2][1] - m[1][2]) / root;
     q.Y = (m[0][2] - m[2][0]) / root;
     q.Z = (m[1][0] - m[0][1]) / root;
   } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
     const double root = std::sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0;
     q.W = (m[2][1] - m[1][2]) / root;
-    q.X = 0.25 * root;
+    q.X = kQuarterOfRoot * root;
     q.Y = (m[0][1] + m[1][0]) / root;
     q.Z = (m[0][2] + m[2][0]) / root;
   } else if (m[1][1] > m[2][2]) {
     const double root = std::sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0;
     q.W = (m[0][2] - m[2][0]) / root;
     q.X = (m[0][1] + m[1][0]) / root;
-    q.Y = 0.25 * root;
+    q.Y = kQuarterOfRoot * root;
     q.Z = (m[1][2] + m[2][1]) / root;
   } else {
     const double root = std::sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0;
     q.W = (m[1][0] - m[0][1]) / root;
     q.X = (m[0][2] + m[2][0]) / root;
     q.Y = (m[1][2] + m[2][1]) / root;
-    q.Z = 0.25 * root;
+    q.Z = kQuarterOfRoot * root;
   }
   body.OrientationQ = q;
 }

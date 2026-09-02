@@ -9,6 +9,15 @@
 
 namespace outshine {
 
+/// The index of refraction a dielectric stands at when nothing declares one -- ordinary glass.
+constexpr float kIorUnsaid = 1.5f;
+
+/// The index of refraction of the thin film an iridescent surface carries.
+constexpr float kIridescenceIorUnsaid = 1.3f;
+
+/// How thick that film may become, in nanometres.
+constexpr float kIridescenceThicknessMaxUnsaidNm = 400.0f;
+
 enum class AlphaMode { Opaque, Masked, Blended };
 
 struct Material {
@@ -16,7 +25,7 @@ struct Material {
   float Metalness = 0.0f;
   float Roughness = 1.0f;
   float Transmission = 0.0f;
-  float Ior = 1.5f;
+  float Ior = kIorUnsaid;
   Vec3f Emission;
   AlphaMode Alpha = AlphaMode::Opaque;
 
@@ -41,9 +50,9 @@ struct Material {
   float AnisotropyRotationRad = 0.0f;
 
   float Iridescence = 0.0f;
-  float IridescenceIor = 1.3f;
+  float IridescenceIor = kIridescenceIorUnsaid;
   float IridescenceThicknessMinNm = 100.0f;
-  float IridescenceThicknessMaxNm = 400.0f;
+  float IridescenceThicknessMaxNm = kIridescenceThicknessMaxUnsaidNm;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   Vec3f AttenuationColour = {{1.0f, 1.0f, 1.0f}};

@@ -16,6 +16,8 @@
 
 namespace outshine {
 
+constexpr size_t kCountDigits = 24;
+
 namespace {
 
 std::atomic<size_t> gLiveBytes{0};
@@ -92,7 +94,7 @@ inline void Returned(void *block) noexcept {
 }
 
 [[noreturn]] void EndWithCount(const char *item, size_t bytes) {
-  std::array<char, 24> count{};
+  std::array<char, kCountDigits> count{};
   std::snprintf(count.data(), count.size(), "%zu", bytes);
   End(item, count.data());
 }

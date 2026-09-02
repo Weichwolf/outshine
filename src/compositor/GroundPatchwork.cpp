@@ -192,10 +192,10 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                 : tiles.Mesh(
                       zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid, &built);
         bool ofTheGround = true;
-        if (zoom >= 0 && zoom < 24) { ++out.WantedAtZoom[zoom]; }
+        if (zoom >= 0 && zoom < static_cast<int>(kZoomLevels)) { ++out.WantedAtZoom[zoom]; }
         if (said == TileMeshes::Reply::Pending) {
           ++out.Pending;
-          if (zoom >= 0 && zoom < 24) { ++out.PendingAtZoom[zoom]; }
+          if (zoom >= 0 && zoom < static_cast<int>(kZoomLevels)) { ++out.PendingAtZoom[zoom]; }
           ofTheGround = false;
         } else if (said == TileMeshes::Reply::Absent || said == TileMeshes::Reply::Undeclared) {
           ++out.Absent;

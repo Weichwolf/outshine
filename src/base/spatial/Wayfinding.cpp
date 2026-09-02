@@ -22,6 +22,8 @@
 
 namespace outshine::Path {
 
+constexpr uint64_t kWordMost = 0xFFFFFFFFull;
+
 constexpr double kNoLeastYet = 1.0e9;
 
 namespace {
@@ -599,7 +601,7 @@ Network::Crossings(std::vector<Crossing> &into) const {
 
   const uint64_t wide = static_cast<uint64_t>(std::floor((eastLon - westLon) / cellDeg)) + 2u;
   const uint64_t high = static_cast<uint64_t>(std::floor((northLat - southLat) / cellDeg)) + 2u;
-  if (wide > 0xFFFFFFFFull / high) {
+  if (wide > kWordMost / high) {
     return std::unexpected(
         "the network's extent over its mean segment reach needs more squares than a 32-bit "
         "square index holds");

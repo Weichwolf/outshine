@@ -49,6 +49,9 @@
 
 namespace outshine {
 
+constexpr int kFrameUnsaidWidePx = 1280;
+constexpr int kFrameUnsaidHighPx = 720;
+
 inline constexpr size_t kParkedBound = 8;
 inline constexpr size_t kMostSaveBytes = 1u << 20u;
 
@@ -221,7 +224,7 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
 struct Seen {
   Render::SceneRenderer Device;
   std::unique_ptr<Core::Live> Standing;
-  Extent Frame{.WidthPx = 1280, .HeightPx = 720};
+  Extent Frame{.WidthPx = kFrameUnsaidWidePx, .HeightPx = kFrameUnsaidHighPx};
   bool Targeted = false;
   bool FrameOpen = false;
   Core::Declaration Shown;

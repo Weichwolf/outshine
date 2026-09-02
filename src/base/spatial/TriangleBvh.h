@@ -9,6 +9,8 @@
 
 namespace outshine {
 
+constexpr size_t kBvhTriangleBytes = 36;
+
 constexpr uint32_t kBvhLeafFirstBits = 24;
 constexpr uint32_t kBvhLeafFirstMask = (1u << kBvhLeafFirstBits) - 1u;
 constexpr uint32_t kBvhInterior = 0u;
@@ -39,7 +41,8 @@ struct BvhTriangle {
 };
 
 static_assert(sizeof(BvhNode) == 32, "the traversal reads a 32-byte node");
-static_assert(sizeof(BvhTriangle) == 36, "the intersection test reads a 36-byte triangle");
+static_assert(sizeof(BvhTriangle) == kBvhTriangleBytes,
+              "the intersection test reads a 36-byte triangle");
 
 class TriangleBvh {
 public:

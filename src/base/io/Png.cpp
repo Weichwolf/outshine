@@ -11,14 +11,17 @@
 
 namespace outshine::Io {
 
+constexpr unsigned kByteShift = 8u;
+
 namespace {
 
 constexpr std::array<uint8_t, 8> kSignature = {{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}};
 constexpr size_t kMaxSide = 16384;
 
 uint32_t Big(const uint8_t *at) {
-  return (static_cast<uint32_t>(at[0]) << 24u) | (static_cast<uint32_t>(at[1]) << 16u) |
-         (static_cast<uint32_t>(at[2]) << 8u) | static_cast<uint32_t>(at[3]);
+  return (static_cast<uint32_t>(at[0]) << (3u * kByteShift)) |
+         (static_cast<uint32_t>(at[1]) << (2u * kByteShift)) |
+         (static_cast<uint32_t>(at[2]) << kByteShift) | static_cast<uint32_t>(at[3]);
 }
 
 int Paeth(int left, int above, int corner) {

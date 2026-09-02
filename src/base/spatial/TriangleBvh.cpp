@@ -13,6 +13,8 @@
 namespace outshine {
 namespace {
 
+constexpr float kParallelRay = 1.0e-20f;
+
 constexpr int kBins = 12;
 
 constexpr uint32_t kMaxLeafBits = 8;
@@ -333,7 +335,7 @@ bool TriangleBvh::Occludes(const Vec3f &originM,
                            direction[2] * tri.E2[0] - direction[0] * tri.E2[2],
                            direction[0] * tri.E2[1] - direction[1] * tri.E2[0]}};
       const float determinant = tri.E1[0] * pvec[0] + tri.E1[1] * pvec[1] + tri.E1[2] * pvec[2];
-      if (std::fabs(determinant) < 1.0e-20f) { continue; }
+      if (std::fabs(determinant) < kParallelRay) { continue; }
       const float reciprocal = 1.0f / determinant;
       const Vec3f tvec = {{originM[0] - tri.V0[0], originM[1] - tri.V0[1], originM[2] - tri.V0[2]}};
       const float u = (tvec[0] * pvec[0] + tvec[1] * pvec[1] + tvec[2] * pvec[2]) * reciprocal;

@@ -8,6 +8,8 @@
 
 namespace outshine::Work {
 
+constexpr uint32_t kNoNode = 0xFFFFFFFFu;
+
 Graph::Graph(unsigned hands) : Hands_(hands == 0 ? 1u : hands) {
   Hand_.reserve(Hands_);
   for (unsigned at = 0; at + 1u < Hands_; ++at) {
@@ -41,7 +43,7 @@ uint32_t Graph::Adds(Does does, void *with) {
   if (Steps_ >= kMostSteps || does == nullptr) {
     Error_ = "a frame declares more steps than the graph holds, or a step that does nothing -- "
              "the capacity is fixed so a frame allocates none of it";
-    return 0xFFFFFFFFu;
+    return kNoNode;
   }
   Step &one = Held_[Steps_];
   one.Act = does;
@@ -67,7 +69,7 @@ bool Graph::After(uint32_t step, uint32_t earlier) {
 
 void Graph::Serves(bool untilDone) {
   for (;;) {
-    uint32_t next = 0xFFFFFFFFu;
+    uint32_t next = kNoNode;
     {
       std::unique_lock<std::mutex> held(Guard_);
       Woke_.wait(held, [this, untilDone] {

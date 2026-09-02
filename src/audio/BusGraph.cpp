@@ -8,13 +8,15 @@
 
 namespace outshine::Audio {
 
+constexpr double kDecibelsPerDecade = 20.0;
+
 namespace {
 
 constexpr size_t kMostBuses = 64;
 constexpr size_t kMostSounds = 1024;
 
 [[nodiscard]] double Linear(double gainDb) {
-  return std::pow(10.0, gainDb / 20.0);
+  return std::pow(10.0, gainDb / kDecibelsPerDecade);
 }
 
 } // namespace

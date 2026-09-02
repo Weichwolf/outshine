@@ -7,6 +7,8 @@
 
 namespace outshine {
 
+constexpr int kExponentReach = 62;
+
 enum class Edge { Zero, Infinity };
 
 [[nodiscard]] inline Edge DecimalEdge(std::string_view number) {
@@ -45,8 +47,8 @@ enum class Edge { Zero, Infinity };
       return shrinks ? Edge::Zero : Edge::Infinity;
     }
     if (shrinks) { shift = -shift; }
-    if (shift > (1LL << 62)) { return Edge::Infinity; }
-    if (shift < -(1LL << 62)) { return Edge::Zero; }
+    if (shift > (1LL << kExponentReach)) { return Edge::Infinity; }
+    if (shift < -(1LL << kExponentReach)) { return Edge::Zero; }
   }
   return lead + shift < 0 ? Edge::Zero : Edge::Infinity;
 }

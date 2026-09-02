@@ -10,6 +10,12 @@
 
 namespace outshine {
 
+/// Every bit of a tag word set, which is what a tag with no parent matches against.
+constexpr uint32_t kEveryTagBit = 0xFFFFFFFFu;
+
+/// How many ordinals a tag family holds before it needs a wider word.
+constexpr uint32_t kOrdinalMask = 0xFFu;
+
 enum class Role : uint8_t { Body, Mind, Tool, Assignment };
 inline constexpr size_t kRoles = 4;
 
@@ -24,7 +30,7 @@ public:
   [[nodiscard]] constexpr uint32_t value() const { return Value_; }
 
   [[nodiscard]] constexpr bool within(Tag parent) const {
-    uint32_t mask = 0xFFFFFFFFu;
+    uint32_t mask = kEveryTagBit;
     for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8u) {
       mask <<= 8u;
     }
@@ -45,7 +51,7 @@ struct TagCatalogue {
   static constexpr Tag Offers{0x02000000};
 
   [[nodiscard]] static constexpr Tag under(Tag family, uint32_t ordinal) {
-    return Tag(family.Value_ | ((ordinal & 0xFFu) << 16u));
+    return Tag(family.Value_ | ((ordinal & kOrdinalMask) << 16u));
   }
 };
 
