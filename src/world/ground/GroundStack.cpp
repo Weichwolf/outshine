@@ -93,7 +93,8 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
 }
 
 void GroundStack::Restand(LongitudeLatitude at) {
-  if (!Pool_) { return; }
+  if (!Pool_ || StandsAt(at)) { return; }
+  Stood_ = at;
   Cls_.Update(*Pool_, at);
   if (!Vegetated_) { return; }
   if (!Vectors_) {

@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_GROUNDSTACK_H
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -89,6 +90,9 @@ public:
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
   void Restand(LongitudeLatitude at);
+
+  [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
+
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
@@ -108,6 +112,7 @@ private:
   WaterField WaterBodies_;
   StreetField Ways_;
   int SurfaceZoom_ = 0;
+  std::optional<LongitudeLatitude> Stood_;
   bool Vegetated_ = false;
   bool Opened_ = false;
 };
