@@ -4,6 +4,7 @@
 #include "math/Mat4.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
+#include "Extent.h"
 #include "Heap.h"
 #include "scenario/Scenario.h"
 #include <array>
@@ -22,6 +23,7 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "Readback.h"
+#include "Viewing.h"
 #include "Compiled.h"
 #include "stages/OverlayDraw.h"
 #include "stages/PresentStage.h"
@@ -43,9 +45,29 @@ namespace outshine::Render {
 
 constexpr float kFovUnsaidDeg = 60.0f;
 
+struct KeptDraws {
+  uint32_t Indices = 0;
+  uint32_t Batches = 0;
+};
+
+struct Lens {
+  double WidePx = 0;
+  double HighPx = 0;
+  float FovDeg = kFovUnsaidDeg;
+  float OrthoM = 0.0f;
+  float NearM = 0.0f;
+  Vec2f Jitter = {{0.0f, 0.0f}};
+};
+
+struct PyramidDepths {
+  float Nearest = 0.0f;
+  float Farthest = 1.0f;
+  float Mean = 0.0f;
+};
+
 class SceneRenderer {
 public:
-  void Init(int width, int height, std::shared_ptr<const Compiled> plan);
+  void Init(Extent frame, std::shared_ptr<const Compiled> plan);
 
   [[nodiscard]] const Compiled &Plan() const { return *Plan_; }
 
@@ -119,11 +141,11 @@ public:
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
-  [[nodiscard]] ReadState ReadKeptIndices(uint32_t &kept, uint32_t &batches);
+  [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
-  [[nodiscard]] ReadState ReadPyramid(float &nearest, float &farthest, float &mean);
+  [[nodiscard]] ReadState ReadPyramid(PyramidDepths &into);
 
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
 
@@ -269,7 +291,7 @@ public:
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-  void SetCameraBasis(const Vec3 &eye, const Vec3 &fwd, const Vec3 &right, const Vec3 &up);
+  void SetCameraBasis(const CameraBasis &stands);
 
   void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? static_cast<float>(deg) : FovDeg_; }
 
@@ -438,8 +460,8 @@ private:
   };
 
   [[nodiscard]] Placed PictureRect() const;
-  Vec3 Eye_ = {{0, 0, 0}};
-  Vec3 Fwd_, Right_, Up_;
+  [[nodiscard]] Lens Through() const;
+  CameraBasis Camera_;
   float FovDeg_ = kFovUnsaidDeg;
   float OrthoM_ = 0.0f;
   float NearM_ = kNearM;

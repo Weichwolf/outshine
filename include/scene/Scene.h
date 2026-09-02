@@ -204,6 +204,29 @@ inline constexpr size_t kSeatsPerOffer = 4;
 
 enum class Seat : uint8_t { Free, Claimed, Occupied };
 
+/// WHO sits WHERE -- the claimant and the entity whose seats were offered.
+///
+/// The two are one argument rather than two because both are an @ref Entity and nothing in the
+/// type system would catch them the wrong way round. Written with designated initialisers the
+/// order stops mattering: `takeSeat({.By = walker, .At = bench})`.
+struct Seating {
+  /// The entity that claims, takes or releases the seat.
+  Entity By = kNoEntity;
+  /// The entity that offered the seats, and where the seat stands.
+  Entity At = kNoEntity;
+};
+
+/// A child of a PREFAB and the INSTANCE to find that child's copy in.
+///
+/// Both ends are an @ref Entity, so they are one argument for the same reason @ref Seating is:
+/// `copyOf({.Instance = house, .PrefabChild = door})` cannot be written backwards by accident.
+struct Instanced {
+  /// The entity @ref Scene::instantiate returned.
+  Entity Instance = kNoEntity;
+  /// The entity inside the prefab whose copy is wanted.
+  Entity PrefabChild = kNoEntity;
+};
+
 class Scene {
 public:
   Scene();
@@ -235,14 +258,14 @@ public:
   [[nodiscard]] size_t entitiesWithTagAndRole(Tag tag, Role role, std::span<Entity> into) const;
 
   [[nodiscard]] Entity instantiate(Entity prefab);
-  [[nodiscard]] Entity copyOf(Entity instance, Entity prefabChild) const;
+  [[nodiscard]] Entity copyOf(Instanced which) const;
 
   [[nodiscard]] bool offerSeats(Entity at, Tag activity, size_t seats);
   [[nodiscard]] size_t entitiesOffering(Tag activity, std::span<Entity> into) const;
-  [[nodiscard]] bool claimSeat(Entity by, Entity at);
-  [[nodiscard]] bool takeSeat(Entity by, Entity at);
-  [[nodiscard]] bool releaseSeat(Entity by, Entity at);
-  [[nodiscard]] Seat seatOf(Entity by, Entity at) const;
+  [[nodiscard]] bool claimSeat(Seating who);
+  [[nodiscard]] bool takeSeat(Seating who);
+  [[nodiscard]] bool releaseSeat(Seating who);
+  [[nodiscard]] Seat seatOf(Seating who) const;
 
   [[nodiscard]] size_t capacity() const;
   [[nodiscard]] std::string_view error() const;

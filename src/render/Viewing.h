@@ -15,12 +15,14 @@ namespace outshine::Render {
 
 enum class CameraKind : uint8_t { Perspective, Orthographic };
 
-struct Viewpoint {
+struct CameraBasis {
   Vec3 EyeM = {{0, 0, 0}};
   Vec3 Forward = {{0, 0, -1}};
   Vec3 Right = {{1, 0, 0}};
   Vec3 Up = {{0, 1, 0}};
+};
 
+struct Viewpoint : CameraBasis {
   CameraKind Kind = CameraKind::Perspective;
   double YfovRad = 0;
   double XMagM = 0;

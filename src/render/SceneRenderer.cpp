@@ -52,32 +52,27 @@ constexpr bool kGpuValidation = false;
 
 namespace {
 
-void MvpCamRel(Mat4f &m,
-               const Vec3 &R,
-               const Vec3 &Uc,
-               const Vec3 &F,
-               double w,
-               double h,
-               float fovDeg,
-               float orthoM,
-               float jitterX,
-               float jitterY,
-               float nearM) {
-  const float fov = fovDeg * static_cast<float>(kDeg2Rad);
-  const float asp = static_cast<float>(w) / static_cast<float>(h);
-  const float zn = nearM;
+Mat4f MvpCamRel(const CameraBasis &stands, const Lens &through) {
+  const Vec3 &right = stands.Right;
+  const Vec3 &up = stands.Up;
+  const Vec3 &forward = stands.Forward;
+  const double widePx = through.WidePx;
+  const double highPx = through.HighPx;
+  const float fov = through.FovDeg * static_cast<float>(kDeg2Rad);
+  const float asp = static_cast<float>(widePx) / static_cast<float>(highPx);
+  const float zn = through.NearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
-  const Mat4f v = {{static_cast<float>(R[0]),
-                    static_cast<float>(Uc[0]),
-                    -static_cast<float>(F[0]),
+  const Mat4f v = {{static_cast<float>(right[0]),
+                    static_cast<float>(up[0]),
+                    -static_cast<float>(forward[0]),
                     0,
-                    static_cast<float>(R[1]),
-                    static_cast<float>(Uc[1]),
-                    -static_cast<float>(F[1]),
+                    static_cast<float>(right[1]),
+                    static_cast<float>(up[1]),
+                    -static_cast<float>(forward[1]),
                     0,
-                    static_cast<float>(R[2]),
-                    static_cast<float>(Uc[2]),
-                    -static_cast<float>(F[2]),
+                    static_cast<float>(right[2]),
+                    static_cast<float>(up[2]),
+                    -static_cast<float>(forward[2]),
                     0,
                     0,
                     0,
@@ -86,13 +81,13 @@ void MvpCamRel(Mat4f &m,
 
   Mat4f p = {{f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0}};
 
-  const float ndcX = w > 0 ? 2.0f * jitterX / static_cast<float>(w) : 0.0f;
-  const float ndcY = h > 0 ? 2.0f * jitterY / static_cast<float>(h) : 0.0f;
+  const float ndcX = widePx > 0 ? 2.0f * through.Jitter[0] / static_cast<float>(widePx) : 0.0f;
+  const float ndcY = highPx > 0 ? 2.0f * through.Jitter[1] / static_cast<float>(highPx) : 0.0f;
   p[8] = -ndcX;
   p[9] = -ndcY;
-  if (orthoM > 0.0f) {
-    const float hw = 0.5f * orthoM * asp;
-    const float hh = 0.5f * orthoM;
+  if (through.OrthoM > 0.0f) {
+    const float hw = 0.5f * through.OrthoM * asp;
+    const float hh = 0.5f * through.OrthoM;
     const float zf = 60000.0f;
     const float rz = 1.0f / (zf - zn);
     Mat4f q = {{1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1}};
@@ -100,12 +95,14 @@ void MvpCamRel(Mat4f &m,
     q[13] = ndcY;
     for (int i = 0; i < 16; i++) { p[i] = q[i]; }
   }
+  Mat4f m = {};
   for (int c = 0; c < 4; c++) {
     for (int r = 0; r < 4; r++) {
       m[c * 4 + r] = 0;
       for (int k = 0; k < 4; k++) { m[c * 4 + r] += p[k * 4 + r] * v[c * 4 + k]; }
     }
   }
+  return m;
 }
 
 SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
@@ -154,17 +151,18 @@ float HalfToFloat(uint16_t bits) {
 
 } // namespace
 
-void SceneRenderer::SetCameraBasis(const Vec3 &eye,
-                                   const Vec3 &fwd,
-                                   const Vec3 &right,
-                                   const Vec3 &up) {
-  for (int axis = 0; axis < 3; axis++) {
-    Eye_[axis] = eye[axis];
-    Fwd_[axis] = fwd[axis];
-    Right_[axis] = right[axis];
-    Up_[axis] = up[axis];
-  }
+void SceneRenderer::SetCameraBasis(const CameraBasis &stands) {
+  Camera_ = stands;
   CameraFull_ = true;
+}
+
+Lens SceneRenderer::Through() const {
+  return {.WidePx = PictureW(),
+          .HighPx = PictureH(),
+          .FovDeg = FovDeg_,
+          .OrthoM = OrthoM_,
+          .NearM = NearM_,
+          .Jitter = Jitter_};
 }
 
 const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
@@ -277,12 +275,12 @@ std::expected<void, std::string_view> SceneRenderer::StandsOffscreen() {
   return {};
 }
 
-void SceneRenderer::Init(int width, int height, std::shared_ptr<const Compiled> plan) {
+void SceneRenderer::Init(Extent frame, std::shared_ptr<const Compiled> plan) {
   WhyNot_.clear();
   Ready_ = false;
   Plan_ = std::move(plan);
-  Width_ = width;
-  Height_ = height;
+  Width_ = frame.WidthPx;
+  Height_ = frame.HeightPx;
 
   for (const Stage stage : Plan_->Order()) {
     if (Executable(stage)) { continue; }
@@ -724,19 +722,9 @@ void SceneRenderer::Picture(bool picture, const PassRecording &into) {
 
 FrameContext SceneRenderer::Framing() const {
   FrameContext ctx{};
-  for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
+  for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Camera_.EyeM[axis]; }
 
-  MvpCamRel(ctx.Mvp,
-            Right_,
-            Up_,
-            Fwd_,
-            PictureW(),
-            PictureH(),
-            FovDeg_,
-            OrthoM_,
-            Jitter_[0],
-            Jitter_[1],
-            NearM_);
+  ctx.Mvp = MvpCamRel(Camera_, Through());
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevPreViewTranslation[axis] = Submitted_ ? -PrevEye_[axis] : ctx.PreViewTranslation[axis];
   }
@@ -989,9 +977,9 @@ EyeBasis SceneRenderer::Eye() const {
   eye.TanHalfWidth =
       eye.TanHalfHeight * (PictureH() > 0.0 ? static_cast<float>(PictureW() / PictureH()) : 1.0f);
   for (int axis = 0; axis < 3; ++axis) {
-    eye.Right[axis] = static_cast<float>(Right_[axis]);
-    eye.Up[axis] = static_cast<float>(Up_[axis]);
-    eye.Forward[axis] = static_cast<float>(Fwd_[axis]);
+    eye.Right[axis] = static_cast<float>(Camera_.Right[axis]);
+    eye.Up[axis] = static_cast<float>(Camera_.Up[axis]);
+    eye.Forward[axis] = static_cast<float>(Camera_.Forward[axis]);
   }
   return eye;
 }
@@ -1011,16 +999,20 @@ void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into
 
 namespace {
 
-float RadicalInverse(int index, int base) {
+template <int Base> float RadicalInverse(int index) {
   float result = 0.0f;
-  float weight = 1.0f / static_cast<float>(base);
+  float weight = 1.0f / static_cast<float>(Base);
   int at = index + 1;
   while (at > 0) {
-    result += weight * static_cast<float>(at % base);
-    at /= base;
-    weight /= static_cast<float>(base);
+    result += weight * static_cast<float>(at % Base);
+    at /= Base;
+    weight /= static_cast<float>(Base);
   }
   return result;
+}
+
+Vec2f HaltonJitter(int at) {
+  return {{RadicalInverse<2>(at) - 0.5f, RadicalInverse<3>(at) - 0.5f}};
 }
 } // namespace
 
@@ -1116,11 +1108,9 @@ void SceneRenderer::RenderFrame() {
   }
 
   if (Plan_->Holds(Stage::TemporalResolve)) {
-    PrevJitter_[0] = Jitter_[0];
-    PrevJitter_[1] = Jitter_[1];
+    PrevJitter_ = Jitter_;
     JitterAt_ = (JitterAt_ + 1) % kJitterPeriod;
-    Jitter_[0] = RadicalInverse(JitterAt_, 2) - 0.5f;
-    Jitter_[1] = RadicalInverse(JitterAt_, 3) - 0.5f;
+    Jitter_ = HaltonJitter(JitterAt_);
 
     HistoryHeld_ = HistoryStarted_;
     HistoryStarted_ = true;
@@ -1197,21 +1187,11 @@ void SceneRenderer::RenderFrame() {
   }
   if (swapchain != nullptr) { HostSurface_ = Offscreen_; }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
-  for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Eye_[axis]; }
+  for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Camera_.EyeM[axis]; }
   Subjects_.CarryFrame();
   Glass_.CarryFrame();
 
-  MvpCamRel(PrevMvp_,
-            Right_,
-            Up_,
-            Fwd_,
-            PictureW(),
-            PictureH(),
-            FovDeg_,
-            OrthoM_,
-            Jitter_[0],
-            Jitter_[1],
-            NearM_);
+  PrevMvp_ = MvpCamRel(Camera_, Through());
   Submitted_ = true;
 }
 
@@ -1324,9 +1304,8 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
-  kept = 0;
-  batches = 0;
+ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
+  into = {};
   const SubjectResidency &resident = Subjects_.Resident();
   SDL_GPUBuffer *const args = resident.DrawArgs.Get();
   const uint32_t rows = Subjects_.ClusterBatchRows();
@@ -1336,16 +1315,14 @@ ReadState SceneRenderer::ReadKeptIndices(uint32_t &kept, uint32_t &batches) {
   if (read.FromBuffer(Device_.Get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
   const auto *const held = static_cast<const uint32_t *>(static_cast<const void *>(read.Rows()));
   for (uint32_t at = 0; at < rows; ++at) {
-    kept += held[static_cast<size_t>(at) * 5];
-    batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
+    into.Indices += held[static_cast<size_t>(at) * 5];
+    into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mean) {
-  nearest = 0.0f;
-  farthest = 1.0f;
-  mean = 0.0f;
+ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
+  into = {};
   if (!Ready_ || !Pyramid_) { return ReadState::Failed; }
   const PyramidShape shape = PyramidOver(
       {.WidthPx = static_cast<uint32_t>(Width_), .HeightPx = static_cast<uint32_t>(Height_)});
@@ -1359,14 +1336,14 @@ ReadState SceneRenderer::ReadPyramid(float &nearest, float &farthest, float &mea
   }
   const auto *const held = static_cast<const float *>(static_cast<const void *>(read.Rows()));
   double summed = 0.0;
-  nearest = held[0];
-  farthest = held[0];
+  into.Nearest = held[0];
+  into.Farthest = held[0];
   for (uint32_t at = 0; at < texels; ++at) {
-    nearest = held[at] > nearest ? held[at] : nearest;
-    farthest = held[at] < farthest ? held[at] : farthest;
+    into.Nearest = std::max(held[at], into.Nearest);
+    into.Farthest = std::min(held[at], into.Farthest);
     summed += static_cast<double>(held[at]);
   }
-  mean = static_cast<float>(summed / static_cast<double>(texels));
+  into.Mean = static_cast<float>(summed / static_cast<double>(texels));
   return ReadState::Ready;
 }
 

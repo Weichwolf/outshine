@@ -205,3 +205,61 @@ a hundred runs saying how often.
 What the round did settle: reading indeterminate padding to decide whether to recompute a lighting
 table is a defect whatever it does to a digest, all four medium stages compare by value now, and
 CLAUDE.md carries the rule. The wander itself is still open and this item still owns it.
+
+## The state IS published, and it says the content is identical
+
+The step this item asked for needed no code: `Shots::Draw` already writes `Triangles`, `BareTiles`,
+`VariationAlongRows`, `Preloaded`, `SettledOver` and `PosedAtS`, and `shots --rows` prints them. The
+earlier runs were measured with the human-readable line, which prints none of them.
+
+One `9c9a4758` beside five `05b6863d`, same binary, 2026-09-02:
+
+| field | `9c9a4758` | `05b6863d` (×5) |
+|---|---|---|
+| triangles | 1 379 233 | 1 379 233 |
+| bare tiles | 0 | 0 |
+| variation along rows | 1.4150 | 1.4150 |
+| preloaded | 1 | 1 |
+| settled over | 2 | 2 |
+| posed at | 0.0000 | 0.0000 |
+
+**Every measure the shot publishes agrees.** The world that was drawn is the same world by every
+count the instrument can take, and the picture still differs in 18 pixels by one level. So the
+difference is not "a tile arrived in one run and not the other" -- that hypothesis is now measured
+and dead. It is in the DRAWING of an identical scene, or in a state the shot does not yet publish.
+
+**And the settle is TWO frames.** `Plan_->SettleFrames()` reads 2, so the picture is a two-frame
+temporal accumulation: frame 1 has no history, frame 2 blends against it with the Halton jitter at
+index 2. Anything that is one frame late is half of what the shutter sees.
+
+## THE ENGINE CUTS ITS WORLD AT A WALL CLOCK, in three places
+
+`grep steady_clock` over the ground path, and the fourth invariant is breached by construction:
+
+| where | what the clock decides |
+|---|---|
+| `GroundStack::Restand`, the ingest loop | how many tiles of ways, water and footprints enter this frame |
+| `OsmField::Build` | whether the next vector tile is DECODED this frame (`mayDecode`) |
+| `ClassField::Update` | passes the same budget down to both its fields |
+
+All three take `kStreamBudgetMs = 2.0` and stop when `steady_clock::now()` has passed it. A machine
+that is 2 % busier ingests one tile fewer, and the frame that renders next stands on a different
+world. **"The same declaration renders the same bytes, twice, on this machine" cannot hold while a
+wall clock decides what is in the world.** Whether the remaining work always lands before the
+shutter is exactly the question the 18 pixels are asking.
+
+Both references budget streaming by WORK rather than by time for this reason -- RAGE's replay plays
+a drive back frame for frame, and Unreal's automation compares screenshots bit for bit. A time
+budget is what you use when a dropped frame is worse than a wrong one; here the invariant says the
+opposite.
+
+**The repair is a DECLARED budget**: a count of tiles per frame, taken from the same declaration
+every run, with the millisecond figure kept only as an instrument that reports what the count cost.
+That changes streaming behaviour and possibly every picture, so it is its own round with its own
+before-and-after, and it belongs beside board 2091's passes rather than inside a lint commit.
+
+**One correlation, three for three, unexplained.** The flip has now appeared on the first run after
+a build three times running, and on no other run: 84 clean, build, flip; 30 clean, build, flip. A
+build does not touch the tile cache -- it lives in the system temp directory -- so the mechanism is
+not "cold cache" and is not yet named. Recorded because it is a cheap trigger for whoever measures
+this next: rebuild, then run once.

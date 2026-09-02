@@ -363,11 +363,11 @@ void Engine::State::Inspected() {
     }
   }
   {
-    uint32_t kept = 0;
-    uint32_t batches = 0;
-    if (Picture.Device.ReadKeptIndices(kept, batches) == Render::ReadState::Ready) {
-      Published.Places("cull: indices the subject cull kept", static_cast<double>(kept), "indices");
-      Published.Places("cull: batches that kept any", static_cast<double>(batches), "batches");
+    Render::KeptDraws kept;
+    if (Picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
+      Published.Places(
+          "cull: indices the subject cull kept", static_cast<double>(kept.Indices), "indices");
+      Published.Places("cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
     }
   }
   {

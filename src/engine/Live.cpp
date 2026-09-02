@@ -465,7 +465,8 @@ bool Live::Build(std::string &error) {
     Plan_ = *std::move(made);
     PlanDeclared_ = declaration;
     PlanInits_ += 1;
-    Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
+    Renderer_->Init({.WidthPx = Declared_.SurfaceWidthPx, .HeightPx = Declared_.SurfaceHeightPx},
+                    Plan_);
     if (!Renderer_->DeviceUsable()) {
       error = Renderer_->WhyNot().empty()
                   ? std::string("the device did not come up, so this scenario cannot be stood up")
@@ -491,11 +492,7 @@ bool Live::Build(std::string &error) {
     if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
   }
 
-  const Vec3 eye = {{0.0, 0.0, 0.0}};
-  const Vec3 forward = {{0.0, 0.0, -1.0}};
-  const Vec3 right = {{1.0, 0.0, 0.0}};
-  const Vec3 up = {{0.0, 1.0, 0.0}};
-  Renderer_->SetCameraBasis(eye, forward, right, up);
+  Renderer_->SetCameraBasis(Render::CameraBasis{});
 
   if (Shaped_.TriangleCount() > 0) {
     Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,

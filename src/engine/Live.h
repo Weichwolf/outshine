@@ -168,8 +168,8 @@ public:
 
   [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
 
-  [[nodiscard]] Render::ReadState Pyramid(float &nearest, float &farthest, float &mean) const {
-    return Renderer_->ReadPyramid(nearest, farthest, mean);
+  [[nodiscard]] Render::ReadState Pyramid(Render::PyramidDepths &into) const {
+    return Renderer_->ReadPyramid(into);
   }
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const { return Renderer_->ShadowStoodAtM(); }

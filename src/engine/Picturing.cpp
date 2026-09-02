@@ -3386,14 +3386,12 @@ bool Engine::render(Extent frame) {
                        static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
                        "jobs");
   if (S_->Session.Declared.Render.Audits) {
-    float nearest = 0.0f;
-    float farthest = 0.0f;
-    float mean = 0.0f;
-    if (S_->Picture.Standing->Pyramid(nearest, farthest, mean) == Render::ReadState::Ready) {
+    Render::PyramidDepths depths;
+    if (S_->Picture.Standing->Pyramid(depths) == Render::ReadState::Ready) {
       S_->Published.Places(
-          "cull: the pyramid's nearest depth", static_cast<double>(nearest), "0..1");
-      S_->Published.Places("cull: its farthest", static_cast<double>(farthest), "0..1");
-      S_->Published.Places("cull: and its mean", static_cast<double>(mean), "0..1");
+          "cull: the pyramid's nearest depth", static_cast<double>(depths.Nearest), "0..1");
+      S_->Published.Places("cull: its farthest", static_cast<double>(depths.Farthest), "0..1");
+      S_->Published.Places("cull: and its mean", static_cast<double>(depths.Mean), "0..1");
     }
   }
   {

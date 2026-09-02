@@ -422,7 +422,8 @@ bool Aim(SceneRenderer &renderer,
   }
   Vec3 position;
   position = eye.EyeM + anchorEcefM;
-  renderer.SetCameraBasis(position, eye.Forward, eye.Right, eye.Up);
+  renderer.SetCameraBasis(
+      {.EyeM = position, .Forward = eye.Forward, .Right = eye.Right, .Up = eye.Up});
   return true;
 }
 
