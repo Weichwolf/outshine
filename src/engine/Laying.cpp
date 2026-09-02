@@ -1432,9 +1432,14 @@ void Engine::State::Shortens(const Ground::StreetField &ways,
                   .HalfM = lane.HalfWidthM});
     }
   }
-  for (const auto &node : meeting) {
-    const std::vector<Leaving> &leaving = node.second;
-    if (leaving.size() < 2) { continue; }
+  std::vector<uint64_t> met;
+  met.reserve(meeting.size());
+  for (const auto &one : meeting) {
+    if (one.second.size() >= 2) { met.push_back(one.first); }
+  }
+  std::ranges::sort(met);
+  for (const uint64_t at : met) {
+    const std::vector<Leaving> &leaving = meeting[at];
     for (const Leaving &mine : leaving) {
       double back = 0.0;
       for (const Leaving &other : leaving) {
@@ -1587,19 +1592,26 @@ void Engine::State::Paves(const TangentFrame &standing,
             atNode[into.Designed[lane][one].Node].emplace_back(lane, one);
           }
         }
+        std::vector<uint64_t> levelling;
+        levelling.reserve(atNode.size());
+        for (const auto &one : atNode) {
+          if (one.second.size() >= 2) { levelling.push_back(one.first); }
+        }
+        std::ranges::sort(levelling);
+
         std::vector<double> pullM(into.Designed.size(), 0.0);
         std::vector<uint32_t> pulls(into.Designed.size(), 0u);
         for (int pass = 0; pass < kLevelPasses; ++pass) {
           std::ranges::fill(pullM, 0.0);
           std::ranges::fill(pulls, 0u);
-          for (const auto &node : atNode) {
-            if (node.second.size() < 2) { continue; }
+          for (const uint64_t node : levelling) {
+            const std::vector<std::pair<uint32_t, uint32_t>> &met = atNode[node];
             double wanted = 0.0;
-            for (const auto &held : node.second) {
+            for (const auto &held : met) {
               wanted += into.Designed[held.first][held.second].GradeM;
             }
-            wanted /= static_cast<double>(node.second.size());
-            for (const auto &held : node.second) {
+            wanted /= static_cast<double>(met.size());
+            for (const auto &held : met) {
               pullM[held.first] += wanted - into.Designed[held.first][held.second].GradeM;
               ++pulls[held.first];
             }
@@ -2148,11 +2160,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       ++cell.second;
     }
     drawnGround.reserve(summed.size());
+    std::vector<uint64_t> cells;
+    cells.reserve(summed.size());
+    for (const auto &one : summed) { cells.push_back(one.first); }
+    std::ranges::sort(cells);
     size_t crowded = 0;
-    for (const auto &one : summed) {
-      drawnGround[one.first] =
-          static_cast<float>(one.second.first / static_cast<double>(one.second.second));
-      if (one.second.second > 1) { ++crowded; }
+    for (const uint64_t key : cells) {
+      const std::pair<double, uint32_t> &one = summed[key];
+      drawnGround[key] = static_cast<float>(one.first / static_cast<double>(one.second));
+      if (one.second > 1) { ++crowded; }
     }
     Published.Places("ring: vertices the drape grid holds",
                      static_cast<double>(inFrame.size()) / 3.0,

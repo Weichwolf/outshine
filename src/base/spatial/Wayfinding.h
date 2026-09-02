@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <expected>
 #include <string_view>
+#include <limits>
+#include <type_traits>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -178,6 +180,110 @@ private:
     double LonCellDeg = 0.0;
     int64_t Columns = 1;
   };
+
+  using CellsByKey = std::unordered_map<int64_t, std::vector<size_t>>;
+  using OutgoingEdges = std::vector<std::vector<Edge>>;
+  using EdgesByCell = std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>>;
+
+  void SortWaysIntoDeclaredOrder();
+  [[nodiscard]] size_t NodeNear(LongitudeLatitude at, const CellsByKey &byCell) const;
+  static void FoldWayInto(Node &node, const Way &from);
+  void SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell);
+  void EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgoing) const;
+
+  struct Spanned {
+    static constexpr double kBeyond = std::numeric_limits<double>::infinity();
+
+    double WestLon = kBeyond;
+    double EastLon = -kBeyond;
+    double SouthLat = kBeyond;
+    double NorthLat = -kBeyond;
+  };
+
+  [[nodiscard]] size_t SegmentsOfWays(std::vector<uint32_t> &segWay,
+                                      std::vector<uint32_t> &segAt) const;
+  [[nodiscard]] Spanned SpanOfPoints(std::vector<double> &lon) const;
+
+  struct Sweeping {
+    std::span<const double> Lon;
+    std::span<const uint32_t> SegAt;
+    size_t Segments = 0;
+  };
+
+  struct Gridded {
+    double CellDeg = 1.0;
+    size_t Cells = 0;
+    uint64_t Wide = 0;
+    uint64_t High = 0;
+  };
+
+  [[nodiscard]] std::expected<Gridded, std::string_view> GridOver(const Sweeping &over,
+                                                                  Spanned box) const;
+  [[nodiscard]] static uint32_t SquareIn(const Gridded &grid, Spanned box, LongitudeLatitude at);
+
+  struct Filed {
+    uint32_t Square = 0;
+    uint32_t Seg = 0;
+  };
+
+  static_assert(sizeof(Filed) == 8);
+  static_assert(std::is_trivially_copyable_v<Filed>);
+
+  struct Filing {
+    std::span<const double> Lon;
+    std::span<const uint32_t> SegWay;
+    std::span<const uint32_t> SegAt;
+    std::span<const Filed> InCell;
+  };
+
+  struct CellSpan {
+    uint32_t From = 0;
+    uint32_t To = 0;
+  };
+
+  void CrossingsInCell(const Filing &filed,
+                       CellSpan span,
+                       const Gridded &grid,
+                       Spanned box,
+                       std::vector<Crossing> &into,
+                       Swept &swept) const;
+
+  struct EdgeEnds {
+    size_t From = 0;
+    size_t To = 0;
+  };
+
+  [[nodiscard]] bool
+  IndexOneEdge(EdgeEnds ends, double tieReachM, EdgesByCell &byEdgeCell, std::string &error);
+  [[nodiscard]] bool IndexEdgesByCell(const OutgoingEdges &outgoing,
+                                      double tieReachM,
+                                      EdgesByCell &byEdgeCell,
+                                      std::string &error);
+
+  struct PerDegree {
+    double Lat = 0.0;
+    double Lon = 0.0;
+  };
+
+  struct NearestEdge {
+    size_t From = 0;
+    size_t To = 0;
+    double AwayM = 0.0;
+  };
+
+  [[nodiscard]] double TieReachM() const;
+  [[nodiscard]] PerDegree MetresPerDegreeAt(const Node &at) const;
+  void
+  MarkEdgeOverCells(EdgeEnds ends, bool holding, double tieReachM, EdgesByCell &byEdgeCell) const;
+  [[nodiscard]] double AwayFromEdgeM(const Node &end, EdgeEnds ends, PerDegree per) const;
+  [[nodiscard]] NearestEdge
+  NearestEdgeTo(size_t loose, const EdgesByCell &byEdgeCell, double tieReachM) const;
+  [[nodiscard]] bool SpliceInto(size_t loose,
+                                NearestEdge best,
+                                double tieReachM,
+                                OutgoingEdges &outgoing,
+                                EdgesByCell &byEdgeCell);
+  [[nodiscard]] bool TieLooseEnds(OutgoingEdges &outgoing, std::string &error);
 
   [[nodiscard]] RowShape ShapeRow(int64_t row) const;
   [[nodiscard]] RowShape ShapeRowOver(int64_t row, Snap over) const;

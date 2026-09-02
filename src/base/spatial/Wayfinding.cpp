@@ -27,8 +27,6 @@ constexpr uint64_t kKnuthWord = 2654435761ull;
 
 constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 
-constexpr double kNoLeastYet = 1.0e9;
-
 namespace {
 
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
@@ -221,6 +219,320 @@ size_t Network::Cross() {
   return Joined_;
 }
 
+void Network::SortWaysIntoDeclaredOrder() {
+  std::vector<size_t> order(Ways_.size());
+  for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
+  std::ranges::sort(order, [this](size_t a, size_t b) {
+    const Way &wa = Ways_[a];
+    const Way &wb = Ways_[b];
+    const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
+    for (size_t at = 0; at < 2 * count; ++at) {
+      const double da = Points_[2 * wa.First + at];
+      const double db = Points_[2 * wb.First + at];
+      if (da != db) { return da < db; }
+    }
+    if (wa.Count != wb.Count) { return wa.Count < wb.Count; }
+    if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
+    if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
+    if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
+    return wa.Lanes < wb.Lanes;
+  });
+  std::vector<double> points;
+  std::vector<uint32_t> wayOf;
+  std::vector<Way> ways;
+  points.reserve(Points_.size());
+  wayOf.reserve(WayOf_.size());
+  ways.reserve(Ways_.size());
+  for (const size_t which : order) {
+    Way moved = Ways_[which];
+    const size_t first = moved.First;
+    moved.First = points.size() / 2;
+    const auto mine = static_cast<uint32_t>(ways.size());
+    ways.push_back(moved);
+    for (size_t at = 0; at < moved.Count; ++at) {
+      points.push_back(Points_[2 * (first + at)]);
+      points.push_back(Points_[2 * (first + at) + 1]);
+      wayOf.push_back(mine);
+    }
+  }
+  Points_ = std::move(points);
+  WayOf_ = std::move(wayOf);
+  Ways_ = std::move(ways);
+}
+
+size_t Network::NodeNear(LongitudeLatitude at, const CellsByKey &byCell) const {
+  const int64_t rowHere = RowOf(at.LatitudeDeg);
+  const RowShape mine = ShapeRow(rowHere);
+  for (int64_t row = rowHere - 1; row <= rowHere + 1; ++row) {
+    const RowShape shape = ShapeRow(row);
+    const int64_t reachCols =
+        static_cast<int64_t>(std::ceil(mine.LonCellDeg / shape.LonCellDeg)) + 1;
+    const int64_t centre = ColumnIn(shape, at.LongitudeDeg);
+    const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
+    for (int64_t step = 0; step < span; ++step) {
+      const int64_t column =
+          ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
+      const auto seen = byCell.find(KeyAt({.Row = row, .Column = column}));
+      if (seen == byCell.end()) { continue; }
+      for (const size_t candidate : seen->second) {
+        if (ApartM(at,
+                   {.LongitudeDeg = Nodes_[candidate].LongitudeDeg,
+                    .LatitudeDeg = Nodes_[candidate].LatitudeDeg},
+                   Sphere{.RadiusM = RadiusM_}) <= SnapM_) {
+          return candidate;
+        }
+      }
+    }
+  }
+  return Nodes_.size();
+}
+
+void Network::FoldWayInto(Node &node, const Way &from) {
+  node.HalfWidthM = std::max(from.HalfWidthM, node.HalfWidthM);
+  if (from.Friction > 0.0 && (node.Friction <= 0.0 || from.Friction < node.Friction)) {
+    node.Friction = from.Friction;
+  }
+  if (node.Lanes <= 0) { node.Lanes = from.Lanes; }
+  if (node.MaxGradient <= 0.0 || (from.MaxGradient > 0.0 && from.MaxGradient < node.MaxGradient)) {
+    node.MaxGradient = from.MaxGradient;
+  }
+  if (from.MinRadiusM <= 0.0 || node.MinRadiusM <= 0.0) {
+    node.MinRadiusM = 0.0;
+  } else if (from.MinRadiusM < node.MinRadiusM) {
+    node.MinRadiusM = from.MinRadiusM;
+  }
+}
+
+void Network::SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell) {
+  for (size_t point = 0; point < Points_.size() / 2; ++point) {
+    const LongitudeLatitude at{.LongitudeDeg = Points_[2 * point + 1],
+                               .LatitudeDeg = Points_[2 * point]};
+    const Way &from = Ways_[WayOf_[point]];
+    const size_t found = NodeNear(at, byCell);
+    if (found == Nodes_.size()) {
+      Node made;
+      made.LatitudeDeg = at.LatitudeDeg;
+      made.LongitudeDeg = at.LongitudeDeg;
+      made.HalfWidthM = from.HalfWidthM;
+      made.Friction = from.Friction;
+      made.MaxGradient = from.MaxGradient;
+      made.MinRadiusM = from.MinRadiusM;
+      made.Lanes = from.Lanes;
+      Nodes_.push_back(made);
+      byCell[CellOf(at)].push_back(found);
+    } else {
+      FoldWayInto(Nodes_[found], from);
+    }
+    nodeOf[point] = found;
+  }
+}
+
+void Network::EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgoing) const {
+  for (const Way &way : Ways_) {
+    for (size_t step = 1; step < way.Count; ++step) {
+      const size_t from = nodeOf[way.First + step - 1];
+      const size_t to = nodeOf[way.First + step];
+      if (from == to) { continue; }
+      const double lengthM = ApartM(
+          {.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
+          {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
+          Sphere{.RadiusM = RadiusM_});
+      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
+    }
+  }
+}
+
+bool Network::IndexOneEdge(EdgeEnds ends,
+                           double tieReachM,
+                           EdgesByCell &byEdgeCell,
+                           std::string &error) {
+  const Node &a = Nodes_[ends.From];
+  const Node &b = Nodes_[ends.To];
+  const int64_t firstRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg,
+                                   Snap{.CellM = tieReachM});
+  const int64_t lastRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg,
+                                  Snap{.CellM = tieReachM});
+  for (int64_t row = firstRow; row <= lastRow; ++row) {
+    const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
+    const int64_t one = ColumnIn(shape, a.LongitudeDeg);
+    const int64_t two = ColumnIn(shape, b.LongitudeDeg);
+    const int64_t firstColumn = one < two ? one : two;
+    const int64_t lastColumn = one < two ? two : one;
+    for (int64_t column = firstColumn; column <= lastColumn; ++column) {
+      if (IndexedCells_ >= kMaxNetworkPoints) {
+        error = "the tie index would hold more than " + std::to_string(kMaxNetworkPoints) +
+                " cells for " + std::to_string(Nodes_.size()) +
+                " nodes, which is a graph this network cannot weave at a snap of " +
+                std::to_string(SnapM_) + " m";
+        return false;
+      }
+      ++IndexedCells_;
+      byEdgeCell[KeyAt({.Row = row,
+                        .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns})]
+          .emplace_back(static_cast<uint32_t>(ends.From), static_cast<uint32_t>(ends.To));
+    }
+  }
+  return true;
+}
+
+bool Network::IndexEdgesByCell(const OutgoingEdges &outgoing,
+                               double tieReachM,
+                               EdgesByCell &byEdgeCell,
+                               std::string &error) {
+  for (size_t from = 0; from < Nodes_.size(); ++from) {
+    for (const Edge &edge : outgoing[from]) {
+      if (edge.To < from) { continue; }
+      if (!IndexOneEdge({.From = from, .To = edge.To}, tieReachM, byEdgeCell, error)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+double Network::TieReachM() const {
+  double tieReachM = SnapM_;
+  for (const Node &held : Nodes_) { tieReachM = std::max(2.0 * held.HalfWidthM, tieReachM); }
+  return tieReachM;
+}
+
+Network::PerDegree Network::MetresPerDegreeAt(const Node &at) const {
+  return {.Lat = ApartM({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg},
+                        {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg + 1.0},
+                        Sphere{.RadiusM = RadiusM_}),
+          .Lon = ApartM({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg},
+                        {.LongitudeDeg = at.LongitudeDeg + 1.0, .LatitudeDeg = at.LatitudeDeg},
+                        Sphere{.RadiusM = RadiusM_})};
+}
+
+void Network::MarkEdgeOverCells(EdgeEnds ends,
+                                bool holding,
+                                double tieReachM,
+                                EdgesByCell &byEdgeCell) const {
+  const Node &a = Nodes_[ends.From];
+  const Node &b = Nodes_[ends.To];
+  const auto one = static_cast<uint32_t>(ends.From < ends.To ? ends.From : ends.To);
+  const auto two = static_cast<uint32_t>(ends.From < ends.To ? ends.To : ends.From);
+  const int64_t firstRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg,
+                                   Snap{.CellM = tieReachM});
+  const int64_t lastRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg,
+                                  Snap{.CellM = tieReachM});
+  for (int64_t row = firstRow; row <= lastRow; ++row) {
+    const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
+    const int64_t here = ColumnIn(shape, a.LongitudeDeg);
+    const int64_t there = ColumnIn(shape, b.LongitudeDeg);
+    const int64_t firstColumn = here < there ? here : there;
+    const int64_t lastColumn = here < there ? there : here;
+    for (int64_t column = firstColumn; column <= lastColumn; ++column) {
+      const int64_t key =
+          KeyAt({.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns});
+      std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell[key];
+      if (holding) {
+        cell.emplace_back(one, two);
+        continue;
+      }
+      for (size_t at = 0; at < cell.size(); ++at) {
+        if (cell[at].first != one || cell[at].second != two) { continue; }
+        cell.erase(cell.begin() + static_cast<ptrdiff_t>(at));
+        break;
+      }
+    }
+  }
+}
+
+double Network::AwayFromEdgeM(const Node &end, EdgeEnds ends, PerDegree per) const {
+  const double ax = (Nodes_[ends.From].LongitudeDeg - end.LongitudeDeg) * per.Lon;
+  const double ay = (Nodes_[ends.From].LatitudeDeg - end.LatitudeDeg) * per.Lat;
+  const double bx = (Nodes_[ends.To].LongitudeDeg - end.LongitudeDeg) * per.Lon;
+  const double by = (Nodes_[ends.To].LatitudeDeg - end.LatitudeDeg) * per.Lat;
+  const double dx = bx - ax;
+  const double dy = by - ay;
+  const double span = dx * dx + dy * dy;
+  const double along = std::clamp(span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0, 0.0, 1.0);
+  const double cx = ax + along * dx;
+  const double cy = ay + along * dy;
+  return std::sqrt(cx * cx + cy * cy);
+}
+
+Network::NearestEdge
+Network::NearestEdgeTo(size_t loose, const EdgesByCell &byEdgeCell, double tieReachM) const {
+  const Node &end = Nodes_[loose];
+  const double reachM = end.HalfWidthM > 0.0 ? 2.0 * end.HalfWidthM : SnapM_;
+  const PerDegree per = MetresPerDegreeAt(end);
+
+  NearestEdge best{.From = Nodes_.size(), .To = Nodes_.size(), .AwayM = reachM};
+  const int64_t rowHere = RowOver(end.LatitudeDeg, Snap{.CellM = tieReachM});
+  const int64_t rowReach = static_cast<int64_t>(std::ceil(reachM / tieReachM)) + 1;
+  for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
+    const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
+    const int64_t centre = ColumnIn(shape, end.LongitudeDeg);
+    const int64_t colReach =
+        static_cast<int64_t>(std::ceil(reachM / (shape.LonCellDeg * per.Lon))) + 1;
+    for (int64_t step = -colReach; step <= colReach; ++step) {
+      const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
+      const auto seen = byEdgeCell.find(KeyAt({.Row = row, .Column = column}));
+      if (seen == byEdgeCell.end()) { continue; }
+      for (const auto &held : seen->second) {
+        const EdgeEnds ends{.From = held.first, .To = held.second};
+        if (ends.From == loose || ends.To == loose) { continue; }
+        const double awayM = AwayFromEdgeM(end, ends, per);
+        const double touchM = end.HalfWidthM + Nodes_[ends.From].HalfWidthM;
+        if (awayM >= best.AwayM || awayM > touchM) { continue; }
+        best = {.From = ends.From, .To = ends.To, .AwayM = awayM};
+      }
+    }
+  }
+  return best;
+}
+
+bool Network::SpliceInto(size_t loose,
+                         NearestEdge best,
+                         double tieReachM,
+                         OutgoingEdges &outgoing,
+                         EdgesByCell &byEdgeCell) {
+  const auto unlink = [&outgoing](size_t from, size_t to) {
+    std::vector<Edge> &held = outgoing[from];
+    for (size_t at = 0; at < held.size(); ++at) {
+      if (held[at].To != to) { continue; }
+      held.erase(held.begin() + static_cast<ptrdiff_t>(at));
+      return true;
+    }
+    return false;
+  };
+  if (!unlink(best.From, best.To) || !unlink(best.To, best.From)) { return false; }
+  MarkEdgeOverCells({.From = best.From, .To = best.To}, false, tieReachM, byEdgeCell);
+
+  const auto link = [this, &outgoing](size_t from, size_t to) {
+    const double lengthM =
+        ApartM({.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
+               {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
+               Sphere{.RadiusM = RadiusM_});
+    outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+    outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
+  };
+  link(best.From, loose);
+  link(loose, best.To);
+  MarkEdgeOverCells({.From = best.From, .To = loose}, true, tieReachM, byEdgeCell);
+  MarkEdgeOverCells({.From = loose, .To = best.To}, true, tieReachM, byEdgeCell);
+  return true;
+}
+
+bool Network::TieLooseEnds(OutgoingEdges &outgoing, std::string &error) {
+  const double tieReachM = TieReachM();
+  EdgesByCell byEdgeCell;
+  if (!IndexEdgesByCell(outgoing, tieReachM, byEdgeCell, error)) { return false; }
+
+  Tied_ = 0;
+  for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
+    if (outgoing[loose].size() != 1) { continue; }
+    const NearestEdge best = NearestEdgeTo(loose, byEdgeCell, tieReachM);
+    if (best.From == Nodes_.size()) { continue; }
+    if (SpliceInto(loose, best, tieReachM, outgoing, byEdgeCell)) { ++Tied_; }
+  }
+  return true;
+}
+
 bool Network::Weave(std::string &error) {
   Nodes_.clear();
   Edges_.clear();
@@ -242,279 +554,15 @@ bool Network::Weave(std::string &error) {
     return false;
   }
 
-  {
-    std::vector<size_t> order(Ways_.size());
-    for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-    std::ranges::sort(order, [this](size_t a, size_t b) {
-      const Way &wa = Ways_[a];
-      const Way &wb = Ways_[b];
-      const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
-      for (size_t at = 0; at < 2 * count; ++at) {
-        const double da = Points_[2 * wa.First + at];
-        const double db = Points_[2 * wb.First + at];
-        if (da != db) { return da < db; }
-      }
-      if (wa.Count != wb.Count) { return wa.Count < wb.Count; }
-      if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
-      if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
-      if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
-      return wa.Lanes < wb.Lanes;
-    });
-    std::vector<double> points;
-    std::vector<uint32_t> wayOf;
-    std::vector<Way> ways;
-    points.reserve(Points_.size());
-    wayOf.reserve(WayOf_.size());
-    ways.reserve(Ways_.size());
-    for (const size_t which : order) {
-      Way moved = Ways_[which];
-      const size_t first = moved.First;
-      moved.First = points.size() / 2;
-      const auto mine = static_cast<uint32_t>(ways.size());
-      ways.push_back(moved);
-      for (size_t at = 0; at < moved.Count; ++at) {
-        points.push_back(Points_[2 * (first + at)]);
-        points.push_back(Points_[2 * (first + at) + 1]);
-        wayOf.push_back(mine);
-      }
-    }
-    Points_ = std::move(points);
-    WayOf_ = std::move(wayOf);
-    Ways_ = std::move(ways);
-  }
+  SortWaysIntoDeclaredOrder();
 
   std::vector<size_t> nodeOf(Points_.size() / 2, 0);
-  std::unordered_map<int64_t, std::vector<size_t>> byCell;
-  for (size_t point = 0; point < Points_.size() / 2; ++point) {
-    const double latDeg = Points_[2 * point];
-    const double lonDeg = Points_[2 * point + 1];
-
-    size_t found = Nodes_.size();
-    const int64_t rowHere = RowOf(latDeg);
-    const RowShape mine = ShapeRow(rowHere);
-    for (int64_t row = rowHere - 1; row <= rowHere + 1 && found == Nodes_.size(); ++row) {
-      const RowShape shape = ShapeRow(row);
-      const int64_t reachCols =
-          static_cast<int64_t>(std::ceil(mine.LonCellDeg / shape.LonCellDeg)) + 1;
-      const int64_t centre = ColumnIn(shape, lonDeg);
-      const int64_t span = shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
-      for (int64_t step = 0; step < span && found == Nodes_.size(); ++step) {
-        const int64_t column =
-            ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
-        const auto seen = byCell.find(KeyAt({.Row = row, .Column = column}));
-        if (seen == byCell.end()) { continue; }
-        for (const size_t candidate : seen->second) {
-          if (ApartM({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg},
-                     {.LongitudeDeg = Nodes_[candidate].LongitudeDeg,
-                      .LatitudeDeg = Nodes_[candidate].LatitudeDeg},
-                     Sphere{.RadiusM = RadiusM_}) <= SnapM_) {
-            found = candidate;
-            break;
-          }
-        }
-      }
-    }
-
-    if (found == Nodes_.size()) {
-      Node made;
-      made.LatitudeDeg = latDeg;
-      made.LongitudeDeg = lonDeg;
-      const Way &from = Ways_[WayOf_[point]];
-      made.HalfWidthM = from.HalfWidthM;
-      made.Friction = from.Friction;
-      made.MaxGradient = from.MaxGradient;
-      made.MinRadiusM = from.MinRadiusM;
-      made.Lanes = from.Lanes;
-      Nodes_.push_back(made);
-      byCell[CellOf({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg})].push_back(found);
-    } else {
-      const Way &from = Ways_[WayOf_[point]];
-      Nodes_[found].HalfWidthM = std::max(from.HalfWidthM, Nodes_[found].HalfWidthM);
-      if (from.Friction > 0.0 &&
-          (Nodes_[found].Friction <= 0.0 || from.Friction < Nodes_[found].Friction)) {
-        Nodes_[found].Friction = from.Friction;
-      }
-      if (Nodes_[found].Lanes <= 0) { Nodes_[found].Lanes = from.Lanes; }
-      if (Nodes_[found].MaxGradient <= 0.0 ||
-          (from.MaxGradient > 0.0 && from.MaxGradient < Nodes_[found].MaxGradient)) {
-        Nodes_[found].MaxGradient = from.MaxGradient;
-      }
-      if (from.MinRadiusM <= 0.0 || Nodes_[found].MinRadiusM <= 0.0) {
-        Nodes_[found].MinRadiusM = 0.0;
-      } else if (from.MinRadiusM < Nodes_[found].MinRadiusM) {
-        Nodes_[found].MinRadiusM = from.MinRadiusM;
-      }
-    }
-    nodeOf[point] = found;
-  }
+  CellsByKey byCell;
+  SnapPointsIntoNodes(nodeOf, byCell);
 
   std::vector<std::vector<Edge>> outgoing(Nodes_.size());
-  for (const Way &way : Ways_) {
-    for (size_t step = 1; step < way.Count; ++step) {
-      const size_t from = nodeOf[way.First + step - 1];
-      const size_t to = nodeOf[way.First + step];
-      if (from == to) { continue; }
-      const double lengthM = ApartM(
-          {.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
-          {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
-          Sphere{.RadiusM = RadiusM_});
-      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
-    }
-  }
-
-  double tieReachM = SnapM_;
-  for (const Node &held : Nodes_) {
-    const double reachM = 2.0 * held.HalfWidthM;
-    tieReachM = std::max(reachM, tieReachM);
-  }
-
-  std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>> byEdgeCell;
-  for (uint32_t from = 0; from < static_cast<uint32_t>(Nodes_.size()); ++from) {
-    for (const Edge &edge : outgoing[from]) {
-      if (static_cast<uint32_t>(edge.To) < from) { continue; }
-      const Node &a = Nodes_[from];
-      const Node &b = Nodes_[edge.To];
-      const int64_t firstRow = RowOver(
-          a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg, Snap{.CellM = tieReachM});
-      const int64_t lastRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg,
-                                      Snap{.CellM = tieReachM});
-      for (int64_t row = firstRow; row <= lastRow; ++row) {
-        const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
-        const int64_t one = ColumnIn(shape, a.LongitudeDeg);
-        const int64_t two = ColumnIn(shape, b.LongitudeDeg);
-        const int64_t firstColumn = one < two ? one : two;
-        const int64_t lastColumn = one < two ? two : one;
-        for (int64_t column = firstColumn; column <= lastColumn; ++column) {
-          if (IndexedCells_ >= kMaxNetworkPoints) {
-            error = "the tie index would hold more than " + std::to_string(kMaxNetworkPoints) +
-                    " cells for " + std::to_string(Nodes_.size()) +
-                    " nodes, which is a graph this network cannot weave at a snap of " +
-                    std::to_string(SnapM_) + " m";
-            return false;
-          }
-          ++IndexedCells_;
-          byEdgeCell[KeyAt({.Row = row,
-                            .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns})]
-              .emplace_back(from, static_cast<uint32_t>(edge.To));
-        }
-      }
-    }
-  }
-
-  const auto overCells = [&](size_t from, size_t to, bool holding) {
-    const Node &a = Nodes_[from];
-    const Node &b = Nodes_[to];
-    const auto one = static_cast<uint32_t>(from < to ? from : to);
-    const auto two = static_cast<uint32_t>(from < to ? to : from);
-    const int64_t firstRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? a.LatitudeDeg : b.LatitudeDeg,
-                                     Snap{.CellM = tieReachM});
-    const int64_t lastRow = RowOver(a.LatitudeDeg < b.LatitudeDeg ? b.LatitudeDeg : a.LatitudeDeg,
-                                    Snap{.CellM = tieReachM});
-    for (int64_t row = firstRow; row <= lastRow; ++row) {
-      const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
-      const int64_t here = ColumnIn(shape, a.LongitudeDeg);
-      const int64_t there = ColumnIn(shape, b.LongitudeDeg);
-      const int64_t firstColumn = here < there ? here : there;
-      const int64_t lastColumn = here < there ? there : here;
-      for (int64_t column = firstColumn; column <= lastColumn; ++column) {
-        const int64_t key = KeyAt(
-            {.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns});
-        std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell[key];
-        if (holding) {
-          cell.emplace_back(one, two);
-          continue;
-        }
-        for (size_t at = 0; at < cell.size(); ++at) {
-          if (cell[at].first != one || cell[at].second != two) { continue; }
-          cell.erase(cell.begin() + static_cast<ptrdiff_t>(at));
-          break;
-        }
-      }
-    }
-  };
-
-  Tied_ = 0;
-  for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
-    if (outgoing[loose].size() != 1) { continue; }
-    const Node &end = Nodes_[loose];
-    const double reachM = end.HalfWidthM > 0.0 ? 2.0 * end.HalfWidthM : SnapM_;
-    const double perLatM =
-        ApartM({.LongitudeDeg = end.LongitudeDeg, .LatitudeDeg = end.LatitudeDeg},
-               {.LongitudeDeg = end.LongitudeDeg, .LatitudeDeg = end.LatitudeDeg + 1.0},
-               Sphere{.RadiusM = RadiusM_});
-    const double perLonM =
-        ApartM({.LongitudeDeg = end.LongitudeDeg, .LatitudeDeg = end.LatitudeDeg},
-               {.LongitudeDeg = end.LongitudeDeg + 1.0, .LatitudeDeg = end.LatitudeDeg},
-               Sphere{.RadiusM = RadiusM_});
-
-    size_t bestFrom = Nodes_.size();
-    size_t bestTo = Nodes_.size();
-    double bestM = reachM;
-    const int64_t rowHere = RowOver(end.LatitudeDeg, Snap{.CellM = tieReachM});
-    const int64_t rowReach = static_cast<int64_t>(std::ceil(reachM / tieReachM)) + 1;
-    for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
-      const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
-      const int64_t centre = ColumnIn(shape, end.LongitudeDeg);
-      const int64_t colReach =
-          static_cast<int64_t>(std::ceil(reachM / (shape.LonCellDeg * perLonM))) + 1;
-      for (int64_t step = -colReach; step <= colReach; ++step) {
-        const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
-        const auto seen = byEdgeCell.find(KeyAt({.Row = row, .Column = column}));
-        if (seen == byEdgeCell.end()) { continue; }
-        for (const auto &held : seen->second) {
-          const size_t near = held.first;
-          const size_t over = held.second;
-          if (near == loose || over == loose) { continue; }
-          {
-            const double ax = (Nodes_[near].LongitudeDeg - end.LongitudeDeg) * perLonM;
-            const double ay = (Nodes_[near].LatitudeDeg - end.LatitudeDeg) * perLatM;
-            const double bx = (Nodes_[over].LongitudeDeg - end.LongitudeDeg) * perLonM;
-            const double by = (Nodes_[over].LatitudeDeg - end.LatitudeDeg) * perLatM;
-            const double dx = bx - ax;
-            const double dy = by - ay;
-            const double span = dx * dx + dy * dy;
-            double along = span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0;
-            along = std::clamp(along, 0.0, 1.0);
-            const double cx = ax + along * dx;
-            const double cy = ay + along * dy;
-            const double awayM = std::sqrt(cx * cx + cy * cy);
-            const double touchM = end.HalfWidthM + Nodes_[near].HalfWidthM;
-            if (awayM >= bestM || awayM > touchM) { continue; }
-            bestM = awayM;
-            bestFrom = near;
-            bestTo = over;
-          }
-        }
-      }
-    }
-    if (bestFrom == Nodes_.size()) { continue; }
-
-    const auto unlink = [&outgoing](size_t from, size_t to) {
-      std::vector<Edge> &held = outgoing[from];
-      for (size_t at = 0; at < held.size(); ++at) {
-        if (held[at].To != to) { continue; }
-        held.erase(held.begin() + static_cast<ptrdiff_t>(at));
-        return true;
-      }
-      return false;
-    };
-    if (!unlink(bestFrom, bestTo) || !unlink(bestTo, bestFrom)) { continue; }
-    overCells(bestFrom, bestTo, false);
-    const auto link = [this, &outgoing](size_t from, size_t to) {
-      const double lengthM = ApartM(
-          {.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
-          {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
-          Sphere{.RadiusM = RadiusM_});
-      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-      outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM});
-    };
-    link(bestFrom, loose);
-    link(loose, bestTo);
-    overCells(bestFrom, loose, true);
-    overCells(loose, bestTo, true);
-    ++Tied_;
-  }
+  EdgesFromWays(nodeOf, outgoing);
+  if (!TieLooseEnds(outgoing, error)) { return false; }
 
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Nodes_[node].FirstEdge = Edges_.size();
@@ -555,15 +603,121 @@ struct Ends {
 
 namespace {
 
-struct Filed {
-  uint32_t Square = 0;
-  uint32_t Seg = 0;
-};
-
-static_assert(sizeof(Filed) == 8);
-static_assert(std::is_trivially_copyable_v<Filed>);
+double AboutTheMeridian(double lonDeg) {
+  while (lonDeg > kDegPerHalfTurn) { lonDeg -= kDegPerTurn; }
+  while (lonDeg < -kDegPerHalfTurn) { lonDeg += kDegPerTurn; }
+  return lonDeg;
+}
 
 } // namespace
+
+uint32_t Network::SquareIn(const Gridded &grid, Spanned box, LongitudeLatitude at) {
+  const double fx = std::floor((at.LongitudeDeg - box.WestLon) / grid.CellDeg);
+  const double fy = std::floor((at.LatitudeDeg - box.SouthLat) / grid.CellDeg);
+  const uint64_t x = fx <= 0.0 ? 0u : static_cast<uint64_t>(fx);
+  const uint64_t y = fy <= 0.0 ? 0u : static_cast<uint64_t>(fy);
+  return static_cast<uint32_t>((y < grid.High ? y : grid.High - 1u) * grid.Wide +
+                               (x < grid.Wide ? x : grid.Wide - 1u));
+}
+
+size_t Network::SegmentsOfWays(std::vector<uint32_t> &segWay, std::vector<uint32_t> &segAt) const {
+  size_t segments = 0;
+  for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
+  segWay.assign(segments, 0);
+  segAt.assign(segments, 0);
+  size_t made = 0;
+  for (size_t which = 0; which < Ways_.size(); ++which) {
+    const Way &way = Ways_[which];
+    for (size_t a = 0; a + 1 < way.Count; ++a) {
+      segWay[made] = static_cast<uint32_t>(which);
+      segAt[made] = static_cast<uint32_t>(way.First + a);
+      ++made;
+    }
+  }
+  return segments;
+}
+
+Network::Spanned Network::SpanOfPoints(std::vector<double> &lon) const {
+  const size_t points = Points_.size() / 2;
+  const double aboutLon = Points_[1];
+  Spanned over;
+  for (size_t at = 0; at < points; ++at) {
+    double away = Points_[2 * at + 1] - aboutLon;
+    while (away > kDegPerHalfTurn) { away -= kDegPerTurn; }
+    while (away < -kDegPerHalfTurn) { away += kDegPerTurn; }
+    lon[at] = aboutLon + away;
+    over.WestLon = std::min(lon[at], over.WestLon);
+    over.EastLon = std::max(lon[at], over.EastLon);
+    over.SouthLat = std::min(Points_[2 * at], over.SouthLat);
+    over.NorthLat = std::max(Points_[2 * at], over.NorthLat);
+  }
+  return over;
+}
+
+std::expected<Network::Gridded, std::string_view> Network::GridOver(const Sweeping &over,
+                                                                    Spanned box) const {
+  Gridded grid;
+  double reachSum = 0.0;
+  for (size_t seg = 0; seg < over.Segments; ++seg) {
+    const size_t first = over.SegAt[seg];
+    const double byLon = std::fabs(over.Lon[first + 1] - over.Lon[first]);
+    const double byLat = std::fabs(Points_[2 * first + 2] - Points_[2 * first]);
+    reachSum += byLon > byLat ? byLon : byLat;
+  }
+  grid.CellDeg = reachSum > 0.0 ? 2.0 * reachSum / static_cast<double>(over.Segments) : 1.0;
+  grid.Cells = 2u * over.Segments + 1u;
+
+  grid.Wide = static_cast<uint64_t>(std::floor((box.EastLon - box.WestLon) / grid.CellDeg)) + 2u;
+  grid.High = static_cast<uint64_t>(std::floor((box.NorthLat - box.SouthLat) / grid.CellDeg)) + 2u;
+  if (grid.Wide > kWordMost / grid.High) {
+    return std::unexpected(
+        "the network's extent over its mean segment reach needs more squares than a 32-bit "
+        "square index holds");
+  }
+
+  return grid;
+}
+
+void Network::CrossingsInCell(const Filing &filed,
+                              CellSpan span,
+                              const Gridded &grid,
+                              Spanned box,
+                              std::vector<Crossing> &into,
+                              Swept &swept) const {
+  const uint32_t begins = span.From;
+  const uint32_t ends = span.To;
+  for (uint32_t one = begins; one + 1u < ends; ++one) {
+    const Filed &ours = filed.InCell[one];
+    const size_t mine = ours.Seg;
+    const size_t firstA = filed.SegAt[mine];
+    const double ax = filed.Lon[firstA];
+    const double ay = Points_[2 * firstA];
+    const double bx = filed.Lon[firstA + 1];
+    const double by = Points_[2 * firstA + 2];
+    for (uint32_t two = one + 1u; two < ends; ++two) {
+      const Filed &yours = filed.InCell[two];
+      if (filed.SegWay[mine] == filed.SegWay[yours.Seg] || ours.Square != yours.Square) {
+        continue;
+      }
+      ++swept.PairsTested;
+      const size_t firstB = filed.SegAt[yours.Seg];
+      const std::optional<Vec2> met =
+          SegmentsMeet({.From = Vec2{{ax, ay}}, .To = Vec2{{bx, by}}},
+                       {.From = Vec2{{filed.Lon[firstB], Points_[2 * firstB]}},
+                        .To = Vec2{{filed.Lon[firstB + 1], Points_[2 * firstB + 2]}}});
+      if (!met || SquareIn(grid, box, {.LongitudeDeg = (*met)[0], .LatitudeDeg = (*met)[1]}) !=
+                      ours.Square) {
+        continue;
+      }
+      into.push_back(Crossing{.OverWay = filed.SegWay[mine],
+                              .UnderWay = filed.SegWay[yours.Seg],
+                              .LatitudeDeg = (*met)[1],
+                              .LongitudeDeg = AboutTheMeridian((*met)[0]),
+                              .OverAt = static_cast<uint32_t>(firstA),
+                              .UnderAt = static_cast<uint32_t>(firstB)});
+    }
+  }
+}
 
 std::expected<Network::Swept, std::string_view>
 Network::Crossings(std::vector<Crossing> &into) const {
@@ -572,67 +726,22 @@ Network::Crossings(std::vector<Crossing> &into) const {
   const size_t points = Points_.size() / 2;
   if (Ways_.size() < 2 || points < 4) { return swept; }
 
-  const double aboutLon = Points_[1];
   std::vector<double> lon(points, 0.0);
-  double westLon = kNoLeastYet;
-  double eastLon = -kNoLeastYet;
-  double southLat = kNoLeastYet;
-  double northLat = -kNoLeastYet;
-  for (size_t at = 0; at < points; ++at) {
-    double away = Points_[2 * at + 1] - aboutLon;
-    while (away > kDegPerHalfTurn) { away -= kDegPerTurn; }
-    while (away < -kDegPerHalfTurn) { away += kDegPerTurn; }
-    lon[at] = aboutLon + away;
-    westLon = lon[at] < westLon ? lon[at] : westLon;
-    eastLon = lon[at] > eastLon ? lon[at] : eastLon;
-    const double lat = Points_[2 * at];
-    southLat = lat < southLat ? lat : southLat;
-    northLat = lat > northLat ? lat : northLat;
-  }
-
-  size_t segments = 0;
-  for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
+  const Spanned over = SpanOfPoints(lon);
+  std::vector<uint32_t> segWay;
+  std::vector<uint32_t> segAt;
+  const size_t segments = SegmentsOfWays(segWay, segAt);
   if (segments < 2) { return swept; }
 
-  std::vector<uint32_t> segWay(segments, 0);
-  std::vector<uint32_t> segAt(segments, 0);
-  {
-    size_t made = 0;
-    for (size_t which = 0; which < Ways_.size(); ++which) {
-      const Way &way = Ways_[which];
-      for (size_t a = 0; a + 1 < way.Count; ++a) {
-        segWay[made] = static_cast<uint32_t>(which);
-        segAt[made] = static_cast<uint32_t>(way.First + a);
-        ++made;
-      }
-    }
-  }
-
-  double reachSum = 0.0;
-  for (size_t seg = 0; seg < segments; ++seg) {
-    const size_t first = segAt[seg];
-    const double byLon = std::fabs(lon[first + 1] - lon[first]);
-    const double byLat = std::fabs(Points_[2 * first + 2] - Points_[2 * first]);
-    reachSum += byLon > byLat ? byLon : byLat;
-  }
-  const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / static_cast<double>(segments) : 1.0;
-  const size_t cells = 2u * segments + 1u;
-
-  const uint64_t wide = static_cast<uint64_t>(std::floor((eastLon - westLon) / cellDeg)) + 2u;
-  const uint64_t high = static_cast<uint64_t>(std::floor((northLat - southLat) / cellDeg)) + 2u;
-  if (wide > kWordMost / high) {
-    return std::unexpected(
-        "the network's extent over its mean segment reach needs more squares than a 32-bit "
-        "square index holds");
-  }
+  const std::expected<Gridded, std::string_view> grid =
+      GridOver({.Lon = lon, .SegAt = segAt, .Segments = segments}, over);
+  if (!grid) { return std::unexpected(grid.error()); }
+  const size_t cells = grid->Cells;
+  const uint64_t wide = grid->Wide;
 
   std::vector<uint32_t> holds(cells + 1u, 0);
-  const auto squareOf = [&](double atLon, double atLat) -> uint32_t {
-    const double fx = std::floor((atLon - westLon) / cellDeg);
-    const double fy = std::floor((atLat - southLat) / cellDeg);
-    const uint64_t x = fx <= 0.0 ? 0u : static_cast<uint64_t>(fx);
-    const uint64_t y = fy <= 0.0 ? 0u : static_cast<uint64_t>(fy);
-    return static_cast<uint32_t>((y < high ? y : high - 1u) * wide + (x < wide ? x : wide - 1u));
+  const auto squareOf = [&](double atLon, double atLat) {
+    return SquareIn(*grid, over, {.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   };
   const auto bucketOf = [&](uint32_t square) {
     return static_cast<size_t>((static_cast<uint64_t>(square) * kKnuthWord) %
@@ -656,63 +765,32 @@ Network::Crossings(std::vector<Crossing> &into) const {
     }
   };
 
-  for (size_t seg = 0; seg < segments; ++seg) {
-    overSquares(seg, [&](uint32_t square) { ++holds[bucketOf(square) + 1u]; });
-  }
-  for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
-  std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
-  std::vector<Filed> inCell(holds[cells], Filed{});
-  for (size_t seg = 0; seg < segments; ++seg) {
-    overSquares(seg, [&](uint32_t square) {
-      inCell[filled[bucketOf(square)]++] =
-          Filed{.Square = square, .Seg = static_cast<uint32_t>(seg)};
-    });
+  std::vector<Filed> inCell;
+  {
+    for (size_t seg = 0; seg < segments; ++seg) {
+      overSquares(seg, [&](uint32_t square) { ++holds[bucketOf(square) + 1u]; });
+    }
+    for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
+    std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
+    inCell.assign(holds[cells], Filed{});
+    for (size_t seg = 0; seg < segments; ++seg) {
+      overSquares(seg, [&](uint32_t square) {
+        inCell[filled[bucketOf(square)]++] =
+            Filed{.Square = square, .Seg = static_cast<uint32_t>(seg)};
+      });
+    }
   }
   for (size_t cell = 0; cell < cells; ++cell) {
-    const size_t held = holds[cell + 1u] - holds[cell];
-    swept.FullestCell = held > swept.FullestCell ? held : swept.FullestCell;
+    swept.FullestCell = std::max<size_t>(holds[cell + 1u] - holds[cell], swept.FullestCell);
   }
 
   for (size_t cell = 0; cell < cells; ++cell) {
-    const uint32_t begins = holds[cell];
-    const uint32_t ends = holds[cell + 1u];
-    for (uint32_t one = begins; one + 1u < ends; ++one) {
-      const Filed &ours = inCell[one];
-      const size_t mine = ours.Seg;
-      const size_t firstA = segAt[mine];
-      const double ax = lon[firstA];
-      const double ay = Points_[2 * firstA];
-      const double bx = lon[firstA + 1];
-      const double by = Points_[2 * firstA + 2];
-      for (uint32_t two = one + 1u; two < ends; ++two) {
-        const Filed &yours = inCell[two];
-        const size_t theirs = yours.Seg;
-        if (segWay[mine] == segWay[theirs]) { continue; }
-        if (ours.Square != yours.Square) { continue; }
-        ++swept.PairsTested;
-        const size_t firstB = segAt[theirs];
-        const double cx = lon[firstB];
-        const double cy = Points_[2 * firstB];
-        const double dx = lon[firstB + 1];
-        const double dy = Points_[2 * firstB + 2];
-        const std::optional<Vec2> met =
-            SegmentsMeet({.From = Vec2{{ax, ay}}, .To = Vec2{{bx, by}}},
-                         {.From = Vec2{{cx, cy}}, .To = Vec2{{dx, dy}}});
-        if (!met) { continue; }
-        const double atX = (*met)[0];
-        const double atY = (*met)[1];
-        if (squareOf(atX, atY) != ours.Square) { continue; }
-        double back = atX;
-        while (back > kDegPerHalfTurn) { back -= kDegPerTurn; }
-        while (back < -kDegPerHalfTurn) { back += kDegPerTurn; }
-        into.push_back(Crossing{.OverWay = static_cast<uint32_t>(segWay[mine]),
-                                .UnderWay = static_cast<uint32_t>(segWay[theirs]),
-                                .LatitudeDeg = atY,
-                                .LongitudeDeg = back,
-                                .OverAt = static_cast<uint32_t>(firstA),
-                                .UnderAt = static_cast<uint32_t>(firstB)});
-      }
-    }
+    CrossingsInCell({.Lon = lon, .SegWay = segWay, .SegAt = segAt, .InCell = inCell},
+                    {.From = holds[cell], .To = holds[cell + 1u]},
+                    *grid,
+                    over,
+                    into,
+                    swept);
   }
   swept.Found = into.size();
   return swept;

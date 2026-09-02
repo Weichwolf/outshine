@@ -29,6 +29,15 @@ Two of nine places draw a DIFFERENT picture from the same declaration:
 The other seven are bit-identical across all three. OldTown is bit-identical across six runs at
 349 766 triangles. The two that wander are the two densest.
 
+**AND A THIRD, WHICH THREE RUNS CALLED CLEAN.** Kaiserberg drew `984cb74e` once on
+2026-09-03 against `7530376c` on the eight runs before and the two after, with the
+tree's road code byte-identical across the pair (the change under test was a pure
+dissolution of `Network::Weave`, compared character by character). So three runs of
+`shots --all` are not enough to call a place deterministic -- they were enough to
+clear Kaiserberg and it wanders anyway. Whatever count this item finally quotes, it
+is the count at which the WHOLE set has been quiet, not the count at which one place
+was.
+
 And the same runs say eight of nine places break the frame budget, each on ONE outlier:
 
 | place | p50 ms | p99 ms | over 16.67 | worst at frame |
