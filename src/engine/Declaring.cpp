@@ -22,11 +22,11 @@ Result Engine::handleEvent(const SDL_Event &event) {
     float xPx = 0.0f;
     float yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
-    return (S_->Picture.Standing->Wheeled(static_cast<double>(xPx),
-                                          static_cast<double>(yPx),
-                                          -static_cast<double>(event.wheel.y) *
-                                              S_->Session.Declared.WheelStepPx,
-                                          S_->Error))
+    return S_->Picture.Standing->Wheeled(static_cast<double>(xPx),
+                                         static_cast<double>(yPx),
+                                         -static_cast<double>(event.wheel.y) *
+                                             S_->Session.Declared.WheelStepPx,
+                                         S_->Error)
                ? Result{}
                : std::unexpected(S_->Error);
   }
@@ -42,7 +42,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
           .Is = Argument::Kind::Number, .Number = static_cast<double>(fired[at].Value), .Text = {}};
       acted = S_->Offered->calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
-    return (acted) ? Result{} : std::unexpected(S_->Error);
+    return acted ? Result{} : std::unexpected(S_->Error);
   }
   if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return std::unexpected(S_->Error); }
 
@@ -63,7 +63,7 @@ Result Engine::handleEvent(const SDL_Event &event) {
   if (!programme.Read(text, S_->Error)) { return std::unexpected(S_->Error); }
   Forwarding answering(S_->Offered);
   if (!programme.Run(answering, S_->Error)) { return std::unexpected(S_->Error); }
-  return (answering.Fired()) ? Result{} : std::unexpected(S_->Error);
+  return answering.Fired() ? Result{} : std::unexpected(S_->Error);
 }
 
 Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
@@ -97,8 +97,8 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
     laid.push_back(std::move(shows));
   }
   S_->Session.Declared.Surfaces = surfaces;
-  return (S_->Picture.Standing->Redeclare(std::move(laid), S_->Error)) ? Result{}
-                                                                       : std::unexpected(S_->Error);
+  return S_->Picture.Standing->Redeclare(std::move(laid), S_->Error) ? Result{}
+                                                                     : std::unexpected(S_->Error);
 }
 
 [[nodiscard]] bool SameShows(const Core::Shows &a, const Core::Shows &b) {
@@ -319,7 +319,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Taken = true;
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
-    return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
+    return generated(scenario) ? Result{} : std::unexpected(S_->Error);
   }
   if (!Core::Live::Open(S_->Picture.Device,
                         std::move(declared),
@@ -336,7 +336,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.Taken = true;
   S_->Session.Carried = Unacted(scenario);
   S_->Error.clear();
-  return (generated(scenario)) ? Result{} : std::unexpected(S_->Error);
+  return generated(scenario) ? Result{} : std::unexpected(S_->Error);
 }
 
 bool Engine::generated(const Scenario::Document &scenario) {
@@ -436,8 +436,8 @@ Result Engine::setGeometry(const Geometry &geometry) {
     S_->Error.clear();
     return {};
   }
-  return (S_->Picture.Standing->Restand(handed, 0, S_->Error)) ? Result{}
-                                                               : std::unexpected(S_->Error);
+  return S_->Picture.Standing->Restand(handed, 0, S_->Error) ? Result{}
+                                                             : std::unexpected(S_->Error);
 }
 
 std::string Engine::writeScenario() const {

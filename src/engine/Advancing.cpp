@@ -274,7 +274,7 @@ Result Engine::advance() {
   const bool drew = S_->Draws();
   S_->Cost.Advance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  return (drew) ? Result{} : std::unexpected(S_->Error);
+  return drew ? Result{} : std::unexpected(S_->Error);
 }
 
 void Engine::State::Falls() {
@@ -450,7 +450,7 @@ Result Engine::advance(double elapsedS) {
       S_->Session.Declared.Motion.MostStepsInArrears * S_->Session.Declared.Motion.StepS) {
     S_->Ticking.OwedS = 0.0;
   }
-  return (stood) ? Result{} : std::unexpected(S_->Error);
+  return stood ? Result{} : std::unexpected(S_->Error);
 }
 
 Result Engine::run() {
@@ -459,7 +459,7 @@ Result Engine::run() {
     return std::unexpected(S_->Error);
   }
   while (advance()) {}
-  return (S_->Error.empty()) ? Result{} : std::unexpected(S_->Error);
+  return S_->Error.empty() ? Result{} : std::unexpected(S_->Error);
 }
 
 } // namespace outshine

@@ -3302,8 +3302,8 @@ Result Engine::mix(std::span<float> stereo, int rate) {
     S_->Session.Mixing = true;
   }
   const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
-  return (S_->Session.Sounding.Fills(
-             stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error))
+  return S_->Session.Sounding.Fills(
+             stereo, S_->Session.Sources[told], S_->Session.Ear[told], S_->Error)
              ? Result{}
              : std::unexpected(S_->Error);
 }

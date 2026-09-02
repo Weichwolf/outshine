@@ -612,7 +612,7 @@ bool SceneRenderer::Configure(Stage stage, std::string &error) {
     error = "this device layer does not execute the stage";
     return false;
   }
-  return (this->*(seat->Configure))(error);
+  return (this->*seat->Configure)(error);
 }
 
 bool SceneRenderer::ConfigureSubjects(std::string &error) {
@@ -740,7 +740,7 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
-  (this->*(seat->Encode))(ctx, into);
+  (this->*seat->Encode)(ctx, into);
   Effort &spent = Spent_[static_cast<size_t>(stage)];
   spent.TookMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

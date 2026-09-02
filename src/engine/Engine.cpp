@@ -61,7 +61,7 @@ Result Engine::assemble() {
   }
   if (!declared.Buses.empty() || !declared.Sounds.empty()) { S_->Session.Mixing = false; }
 
-  return (S_->Routes()) ? Result{} : std::unexpected(S_->Error);
+  return S_->Routes() ? Result{} : std::unexpected(S_->Error);
 }
 
 namespace {
