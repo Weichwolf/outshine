@@ -12,6 +12,9 @@
 
 namespace outshine {
 
+constexpr double kCubicRateFactor = 3.0;
+constexpr double kSquareRateFactor = 2.0;
+
 namespace {
 
 constexpr size_t kNodes = 8;
@@ -129,15 +132,19 @@ void ReferenceLine::Read(
   const Knot &to = through[low + 1];
   const double span = to.AlongM - from.AlongM;
   const double t = (alongM - from.AlongM) / span;
-  const double tt = t * t;
-  const double ttt = tt * t;
 
-  value = (2.0 * ttt - 3.0 * tt + 1.0) * from.Value + (ttt - 2.0 * tt + t) * span * from.RatePerM +
-          (-2.0 * ttt + 3.0 * tt) * to.Value + (ttt - tt) * span * to.RatePerM;
-  rate = (6.0 * tt - 6.0 * t) / span * from.Value + (3.0 * tt - 4.0 * t + 1.0) * from.RatePerM +
-         (-6.0 * tt + 6.0 * t) / span * to.Value + (3.0 * tt - 2.0 * t) * to.RatePerM;
-  bend = (12.0 * t - 6.0) / (span * span) * from.Value + (6.0 * t - 4.0) / span * from.RatePerM +
-         (-12.0 * t + 6.0) / (span * span) * to.Value + (6.0 * t - 2.0) / span * to.RatePerM;
+  const double slopeFrom = span * from.RatePerM;
+  const double slopeTo = span * to.RatePerM;
+  const double cubed = kSquareRateFactor * (from.Value - to.Value) + slopeFrom + slopeTo;
+  const double squared =
+      kCubicRateFactor * (to.Value - from.Value) - kSquareRateFactor * slopeFrom - slopeTo;
+  const double linear = slopeFrom;
+  const double constant = from.Value;
+
+  value = ((cubed * t + squared) * t + linear) * t + constant;
+  rate = ((kCubicRateFactor * cubed * t + kSquareRateFactor * squared) * t + linear) / span;
+  bend = (kCubicRateFactor * kSquareRateFactor * cubed * t + kSquareRateFactor * squared) /
+         (span * span);
 }
 
 std::vector<double> ReferenceLine::Seams() const {

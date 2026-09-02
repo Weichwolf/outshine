@@ -15,6 +15,16 @@
 
 namespace outshine::Render {
 
+constexpr uint32_t kEvenBits = 0x55555555u;
+constexpr uint32_t kOddBits = 0xAAAAAAAAu;
+constexpr uint32_t kPairsLow = 0x33333333u;
+constexpr uint32_t kPairsHigh = 0xCCCCCCCCu;
+constexpr uint32_t kNibblesLow = 0x0F0F0F0Fu;
+constexpr uint32_t kNibblesHigh = 0xF0F0F0F0u;
+constexpr uint32_t kBytesLow = 0x00FF00FFu;
+constexpr uint32_t kBytesHigh = 0xFF00FF00u;
+constexpr double kSchlickTail = 21.0;
+
 inline constexpr int kEnergyQuadrature = 64;
 inline constexpr int kEnergySamples = 2048;
 
@@ -29,10 +39,10 @@ inline constexpr int kEnergySamples = 2048;
     const double u1 = (i + 0.5) / kEnergySamples;
     auto bits = static_cast<unsigned>(i);
     bits = std::rotl(bits, 16);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    bits = ((bits & kEvenBits) << 1u) | ((bits & kOddBits) >> 1u);
+    bits = ((bits & kPairsLow) << 2u) | ((bits & kPairsHigh) >> 2u);
+    bits = ((bits & kNibblesLow) << 4u) | ((bits & kNibblesHigh) >> 4u);
+    bits = ((bits & kBytesLow) << 8u) | ((bits & kBytesHigh) >> 8u);
     const double u2 = static_cast<double>(bits) * 2.3283064365386963e-10;
 
     const double cosH = std::sqrt((1.0 - u1) / (1.0 + (a2 - 1.0) * u1));
@@ -67,7 +77,7 @@ inline constexpr int kEnergySamples = 2048;
 }
 
 [[nodiscard]] inline double SchlickAverage(double f0) {
-  return f0 + (1.0 - f0) / 21.0;
+  return f0 + (1.0 - f0) / kSchlickTail;
 }
 
 inline void GgxEnergyScale(const std::array<double, 3> &f0,

@@ -35,6 +35,16 @@
 
 namespace outshine::Ground {
 
+constexpr unsigned kKindShift = 62u;
+constexpr uint64_t kTerrainKind = 1;
+constexpr uint64_t kVectorKind = 3;
+constexpr uint64_t kZoomMask = 31;
+constexpr unsigned kZoomShift = 56u;
+constexpr uint64_t kColumnMask = 0xFFFFFFFu;
+constexpr unsigned kColumnShift = 28u;
+constexpr uint64_t kVectorMask = 0x3FFFFFFFFFFFFFFFull;
+constexpr double kBytesPerMB = 1024.0 * 1024.0;
+
 namespace {
 
 constexpr int kPollMs = 1;
@@ -47,9 +57,10 @@ constexpr size_t kMostKept = 1024;
 thread_local uint64_t tAwaited = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
-  return (static_cast<uint64_t>(1) << 62u) |
-         (static_cast<uint64_t>(static_cast<uint32_t>(z) & 31) << 56u) |
-         (static_cast<uint64_t>(x & 0xFFFFFFFu) << 28u) | static_cast<uint64_t>(y & 0xFFFFFFFu);
+  return (kTerrainKind << kKindShift) |
+         (static_cast<uint64_t>(static_cast<uint32_t>(z) & kZoomMask) << kZoomShift) |
+         (static_cast<uint64_t>(x & kColumnMask) << kColumnShift) |
+         static_cast<uint64_t>(y & 0xFFFFFFFu);
 }
 
 uint64_t RequestKey(const std::string &key) {
@@ -57,7 +68,7 @@ uint64_t RequestKey(const std::string &key) {
   for (const char c : key) {
     h = (h ^ static_cast<uint64_t>(static_cast<uint8_t>(c))) * kDigestPrime;
   }
-  return (static_cast<uint64_t>(3) << 62u) | (h & 0x3FFFFFFFFFFFFFFFull);
+  return (kVectorKind << kKindShift) | (h & kVectorMask);
 }
 
 } // namespace
@@ -88,7 +99,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
             "tilepool",
             {{"threads", n},
              {"inFlightCap", n},
-             {"byteBudgetMB", static_cast<double>(ByteBudget_) / 1048576.0},
+             {"byteBudgetMB", static_cast<double>(ByteBudget_) / kBytesPerMB},
              {"demCacheTilesPerThread", DemCacheTiles_}});
 }
 
@@ -120,7 +131,7 @@ TilePool::~TilePool() {
               {"fetchOnCompute", static_cast<int>(l.FetchOnCompute)},
               {"retryWaitMs", l.FetchBlockedMs - l.FetchMs},
               {"fetchedMB", l.FetchedMB},
-              {"byteCacheMB", static_cast<double>(ByteCacheBytes()) / 1048576.0},
+              {"byteCacheMB", static_cast<double>(ByteCacheBytes()) / kBytesPerMB},
               {"byteCacheEntries", static_cast<int>(Cache_.size())},
               {"evictions", l.Evictions}});
 }
@@ -305,7 +316,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
     Ledger_.FetchMs += pollMs;
     Ledger_.FetchBlockedMs += blockedMs;
     if (reply == Reply::Ready) {
-      Ledger_.FetchedMB += static_cast<double>(out->Bytes.size()) / 1048576.0;
+      Ledger_.FetchedMB += static_cast<double>(out->Bytes.size()) / kBytesPerMB;
     }
     if (reply == Reply::Absent) { Ledger_.FetchAbsent++; }
 

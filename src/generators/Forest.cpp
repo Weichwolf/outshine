@@ -16,18 +16,27 @@ namespace outshine::Generators {
 
 namespace {
 
+constexpr uint64_t kMantissa24Mask = 0xFFFFFFu;
+constexpr float kMantissa24Steps = 16777216.0f;
+constexpr uint64_t kMantissa16Mask = 0xFFFFu;
+constexpr float kMantissa16Steps = 65536.0f;
+constexpr unsigned kSecondDrawShift = 16u;
+constexpr unsigned kWoodyShift = 24u;
+constexpr unsigned kYawShift = 48u;
+constexpr size_t kStemBytes = 24;
+
 constexpr uint64_t kStreamsPerCell = 4;
 
 float Unit24(uint64_t bits) {
-  return static_cast<float>(bits & 0xFFFFFFu) * (1.0f / 16777216.0f);
+  return static_cast<float>(bits & kMantissa24Mask) * (1.0f / kMantissa24Steps);
 }
 
 float Unit16(uint64_t bits) {
-  return static_cast<float>(bits & 0xFFFFu) * (1.0f / 65536.0f);
+  return static_cast<float>(bits & kMantissa16Mask) * (1.0f / kMantissa16Steps);
 }
 
 float SizeFactor(uint64_t bits, float sigma) {
-  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16u) - 1.0f) * 2.4494897f;
+  return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> kSecondDrawShift) - 1.0f) * 2.4494897f;
 }
 
 } // namespace
@@ -48,9 +57,10 @@ Span<const char *const> Forest::NoteNames() const noexcept {
                                                                    "tooSteep",
                                                                    "woodyDraw",
                                                                    "highestStandAslM"};
-  static_assert(sizeof(Forest::Stem) == 24, "sizeof(Forest::Stem)");
+  static_assert(sizeof(Forest::Stem) == kStemBytes, "sizeof(Forest::Stem)");
   static_assert(std::is_trivially_copyable<Forest::Stem>::value, "a stem is copied per cell");
-  static_assert(Forest::kSpeciesTableBytes == 1536, "the species table's bytes");
+  static_assert(Forest::kSpeciesTableBytes == Forest::kMostSpecies * kStemBytes,
+                "the species table is as many stems wide as the catalogue holds");
 
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
   return {kNames.data(), kNames.size()};
@@ -108,7 +118,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   if (woody <= 0.0) { return Outcome::AboveTreeline; }
   if (steep >= 1.0) { return Outcome::TooSteep; }
 
-  if (static_cast<double>(Unit24(draw >> 24u)) >= woody * (1.0 - steep)) {
+  if (static_cast<double>(Unit24(draw >> kWoodyShift)) >= woody * (1.0 - steep)) {
     return Outcome::WoodyDraw;
   }
 
@@ -121,7 +131,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   out->RadiusM = stem.TrunkRadiusM * size;
   out->HeightM = static_cast<float>(stem.HeightM * static_cast<double>(size));
   out->MassKg = stem.MassKg * size * size * size;
-  out->YawRad = Unit16(place >> 48u) * 2.0f * std::numbers::pi_v<float>;
+  out->YawRad = Unit16(place >> kYawShift) * 2.0f * std::numbers::pi_v<float>;
   out->Contact = stem.Contact;
   return Outcome::Placed;
 }
