@@ -155,6 +155,13 @@ private:
     size_t Count = 0;
   };
 
+  [[nodiscard]] uint32_t CloneVertex(uint32_t vertex);
+  [[nodiscard]] Vec3 FaceNormalOf(std::span<const uint32_t, 3> of) const;
+  void AssembleLights(const outshine::Geometry &what);
+  [[nodiscard]] bool AssembledPartHolds(const outshine::Geometry &what, int slot, size_t &vertices);
+  [[nodiscard]] bool
+  AssemblePartInto(const outshine::Geometry &what, int slot, const Part &part, size_t wholeFloats);
+
   struct Posing {
     const Transform *Pose = nullptr;
     const double *Weights = nullptr;
@@ -235,18 +242,36 @@ private:
 
   void Bound();
 
+  struct Deltas {
+    const char *Semantic = nullptr;
+    Morphing Morph;
+    size_t Components = 0;
+    size_t Vertices = 0;
+  };
+
   [[nodiscard]] bool MorphDeltasFor(const Document &document,
                                     const Primitive &primitive,
-                                    const char *semantic,
-                                    const double *weights,
-                                    size_t count,
-                                    size_t components,
-                                    size_t vertices,
+                                    const Deltas &over,
                                     std::vector<double> &out);
   [[nodiscard]] static Transform
   JointMatrix(const Skin &skin, size_t joint, const Transform &world);
+
+  struct SkinBinding {
+    std::vector<double> Index;
+    std::vector<double> Weight;
+    size_t Sets = 0;
+  };
+
+  [[nodiscard]] bool ReadSkinBinding(const Document &document,
+                                     const Primitive &primitive,
+                                     size_t vertices,
+                                     SkinBinding &into);
+  [[nodiscard]] bool BlendJoints(const Document &document,
+                                 std::span<const Transform> joints,
+                                 const SkinBinding &bound,
+                                 size_t vertices,
+                                 std::vector<Transform> &out);
   [[nodiscard]] bool BlendSkinFor(const Document &document,
-                                  const Skin &skin,
                                   std::span<const Transform> joints,
                                   const Primitive &primitive,
                                   size_t vertices,

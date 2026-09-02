@@ -129,17 +129,17 @@ BasisKey KeyOf(double x, double y, double z, double w) {
 
 bool Subject::MorphDeltasFor(const Document &document,
                              const Primitive &primitive,
-                             const char *semantic,
-                             const double *weights,
-                             size_t count,
-                             size_t components,
-                             size_t vertices,
+                             const Deltas &over,
                              std::vector<double> &out) {
+  const char *const semantic = over.Semantic;
+  const size_t components = over.Components;
+  const size_t vertices = over.Vertices;
   out.clear();
-  if (count == 0 || primitive.Targets.empty()) { return true; }
+  if (over.Morph.Count == 0 || primitive.Targets.empty()) { return true; }
   std::vector<double> delta;
-  for (size_t target = 0; target < count && target < primitive.Targets.size(); ++target) {
-    const double share = weights[target];
+  for (size_t target = 0; target < over.Morph.Count && target < primitive.Targets.size();
+       ++target) {
+    const double share = over.Morph.Weights[target];
     if (share == 0.0) { continue; }
     const int accessor = primitive.Targets[target].Find(semantic);
     if (accessor < 0) { continue; }
@@ -165,17 +165,15 @@ Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &
   return world * Transform::FromColumnMajor(bind);
 }
 
-bool Subject::BlendSkinFor(const Document &document,
-                           const Skin &skin,
-                           std::span<const Transform> joints,
-                           const Primitive &primitive,
-                           size_t vertices,
-                           std::vector<Transform> &out) {
-  std::vector<double> index;
-  std::vector<double> weight;
-  size_t sets = 0;
-  for (;; ++sets) {
-    const std::string which = std::to_string(sets);
+bool Subject::ReadSkinBinding(const Document &document,
+                              const Primitive &primitive,
+                              size_t vertices,
+                              SkinBinding &into) {
+  into.Index.clear();
+  into.Weight.clear();
+  into.Sets = 0;
+  for (;; ++into.Sets) {
+    const std::string which = std::to_string(into.Sets);
     const int bones = primitive.Find(("JOINTS_" + which).c_str());
     const int weights = primitive.Find(("WEIGHTS_" + which).c_str());
     if (bones < 0 && weights < 0) { break; }
@@ -210,26 +208,32 @@ bool Subject::BlendSkinFor(const Document &document,
           theseWeights.size() / 4,
           vertices));
     }
-    index.insert(index.end(), theseIndices.begin(), theseIndices.end());
-    weight.insert(weight.end(), theseWeights.begin(), theseWeights.end());
+    into.Index.insert(into.Index.end(), theseIndices.begin(), theseIndices.end());
+    into.Weight.insert(into.Weight.end(), theseWeights.begin(), theseWeights.end());
   }
-  if (sets == 0) {
-    return Refuse(
-        document.Path() +
-        ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a skin "
-        "without both binds no vertex to any joint");
+  if (into.Sets == 0) {
+    return Refuse(document.Path() +
+                  ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a "
+                  "skin without both binds no vertex to any joint");
   }
+  return true;
+}
 
+bool Subject::BlendJoints(const Document &document,
+                          std::span<const Transform> joints,
+                          const SkinBinding &bound,
+                          size_t vertices,
+                          std::vector<Transform> &out) {
   out.assign(vertices, Transform());
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
     Mat4 blended = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     double sum = 0;
-    for (size_t set = 0; set < sets; ++set) {
+    for (size_t set = 0; set < bound.Sets; ++set) {
       const size_t base = set * vertices * 4 + vertex * 4;
       for (size_t slot = 0; slot < 4; ++slot) {
-        const double share = weight[base + slot];
+        const double share = bound.Weight[base + slot];
         if (share == 0.0) { continue; }
-        const double named = index[base + slot];
+        const double named = bound.Index[base + slot];
         if (!(named >= 0.0) || static_cast<size_t>(named) >= joints.size()) {
           return Refuse(document.Path() + ": JOINTS_" + std::to_string(set) + " of vertex " +
                         std::to_string(vertex) + " names joint " +
@@ -243,13 +247,22 @@ bool Subject::BlendSkinFor(const Document &document,
     }
     if (sum == 0.0) {
       return Refuse(document.Path() + ": the weights of vertex " + std::to_string(vertex) +
-                    " sum to zero over all " + std::to_string(sets) +
+                    " sum to zero over all " + std::to_string(bound.Sets) +
                     " sets, so the vertex is bound to no joint and names no position");
     }
     for (int at = 0; at < 16; ++at) { out[vertex].M[at] = blended[at]; }
   }
-  (void)skin;
   return true;
+}
+
+bool Subject::BlendSkinFor(const Document &document,
+                           std::span<const Transform> joints,
+                           const Primitive &primitive,
+                           size_t vertices,
+                           std::vector<Transform> &out) {
+  SkinBinding bound;
+  return ReadSkinBinding(document, primitive, vertices, bound) &&
+         BlendJoints(document, joints, bound, vertices, out);
 }
 
 bool Subject::SuppliedTangentsFor(const Document &document,
@@ -274,11 +287,10 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     std::vector<double> morphedTangents;
     if (!MorphDeltasFor(document,
                         primitive,
-                        "TANGENT",
-                        morphWeights.data(),
-                        morphWeights.size(),
-                        3,
-                        vertices,
+                        {.Semantic = "TANGENT",
+                         .Morph = {.Weights = morphWeights, .Count = morphWeights.size()},
+                         .Components = 3,
+                         .Vertices = vertices},
                         morphedTangents)) {
       return false;
     }
@@ -306,6 +318,47 @@ bool Subject::SuppliedTangentsFor(const Document &document,
     return true;
   }
   return true;
+}
+
+Vec3 Subject::FaceNormalOf(std::span<const uint32_t, 3> of) const {
+  std::array<std::array<double, 3>, 2> edge;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    edge[0][axis] = Positions_[static_cast<size_t>(of[1]) * 3 + axis] -
+                    Positions_[static_cast<size_t>(of[0]) * 3 + axis];
+    edge[1][axis] = Positions_[static_cast<size_t>(of[2]) * 3 + axis] -
+                    Positions_[static_cast<size_t>(of[0]) * 3 + axis];
+  }
+  Vec3 face = {{edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
+                edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
+                edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]}};
+  const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
+  if (!(length > 0.0)) { return Vec3{{0.0, 0.0, 0.0}}; }
+  for (double &axis : face) { axis /= length; }
+  return face;
+}
+
+uint32_t Subject::CloneVertex(uint32_t vertex) {
+  const auto made = static_cast<uint32_t>(VertexCount());
+  const auto from = static_cast<size_t>(vertex);
+  const auto to = static_cast<size_t>(made);
+  for (size_t axis = 0; axis < 3; ++axis) { Positions_.push_back(Positions_[from * 3 + axis]); }
+  if (!Uv_.empty()) {
+    Uv_.resize(to * 2 + 2, 0.0);
+    Uv_[to * 2] = Uv_[from * 2];
+    Uv_[to * 2 + 1] = Uv_[from * 2 + 1];
+  }
+  if (!Uv1_.empty()) {
+    Uv1_.resize(to * 2 + 2, 0.0);
+    Uv1_[to * 2] = Uv1_[from * 2];
+    Uv1_[to * 2 + 1] = Uv1_[from * 2 + 1];
+  }
+  if (!Colours_.empty()) {
+    Colours_.resize(to * 4 + 4, 0.0);
+    for (size_t channel = 0; channel < 4; ++channel) {
+      Colours_[to * 4 + channel] = Colours_[from * 4 + channel];
+    }
+  }
+  return made;
 }
 
 bool Subject::GeneratedTangentsFor(Part &part) {
@@ -353,27 +406,7 @@ bool Subject::GeneratedTangentsFor(Part &part) {
       Indices_[part.FirstIndex + corner] = found->second;
       continue;
     }
-    const auto made = static_cast<uint32_t>(VertexCount());
-    for (size_t axis = 0; axis < 3; ++axis) {
-      Positions_.push_back(Positions_[static_cast<size_t>(vertex) * 3 + axis]);
-    }
-    Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-    Uv_[static_cast<size_t>(made) * 2] = Uv_[static_cast<size_t>(vertex) * 2];
-    Uv_[static_cast<size_t>(made) * 2 + 1] = Uv_[vertex * 2 + 1];
-
-    if (!Uv1_.empty()) {
-      Uv1_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-      Uv1_[static_cast<size_t>(made) * 2] = Uv1_[static_cast<size_t>(vertex) * 2];
-      Uv1_[static_cast<size_t>(made) * 2 + 1] = Uv1_[vertex * 2 + 1];
-    }
-
-    if (!Colours_.empty()) {
-      Colours_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
-      for (size_t channel = 0; channel < 4; ++channel) {
-        Colours_[static_cast<size_t>(made) * 4 + channel] =
-            Colours_[static_cast<size_t>(vertex) * 4 + channel];
-      }
-    }
+    const uint32_t made = CloneVertex(vertex);
     Normals_.resize(static_cast<size_t>(made) * 3 + 3, 0.0);
     for (size_t axis = 0; axis < 3; ++axis) {
       Normals_[static_cast<size_t>(made) * 3 + axis] =
@@ -405,50 +438,14 @@ bool Subject::FlatNormalsFor(Part &part) {
         continue;
       }
 
-      const auto made = static_cast<uint32_t>(VertexCount());
-      for (size_t axis = 0; axis < 3; ++axis) {
-        Positions_.push_back(Positions_[static_cast<size_t>(vertex) * 3 + axis]);
-      }
+      const uint32_t made = CloneVertex(vertex);
       Normals_.resize(static_cast<size_t>(made) * 3 + 3, 0.0);
-      if (!Uv_.empty()) {
-        Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-        Uv_[static_cast<size_t>(made) * 2] = Uv_[static_cast<size_t>(vertex) * 2];
-        Uv_[static_cast<size_t>(made) * 2 + 1] = Uv_[static_cast<size_t>(vertex) * 2 + 1];
-      }
-      if (!Uv1_.empty()) {
-        Uv1_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-        Uv1_[static_cast<size_t>(made) * 2] = Uv1_[static_cast<size_t>(vertex) * 2];
-        Uv1_[static_cast<size_t>(made) * 2 + 1] = Uv1_[static_cast<size_t>(vertex) * 2 + 1];
-      }
-      if (!Colours_.empty()) {
-        Colours_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
-        for (size_t channel = 0; channel < 4; ++channel) {
-          Colours_[static_cast<size_t>(made) * 4 + channel] =
-              Colours_[static_cast<size_t>(vertex) * 4 + channel];
-        }
-      }
       if (!Tangents_.empty()) { Tangents_.resize(static_cast<size_t>(made) * 4 + 4, 0.0); }
       of[corner] = made;
       Indices_[part.FirstIndex + triangle + corner] = made;
     }
 
-    std::array<std::array<double, 3>, 2> edge;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      edge[0][axis] = Positions_[static_cast<size_t>(of[1]) * 3 + axis] -
-                      Positions_[static_cast<size_t>(of[0]) * 3 + axis];
-      edge[1][axis] = Positions_[static_cast<size_t>(of[2]) * 3 + axis] -
-                      Positions_[static_cast<size_t>(of[0]) * 3 + axis];
-    }
-    Vec3 face = {{edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
-                  edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
-                  edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]}};
-    const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
-
-    if (length > 0.0) {
-      for (double &axis : face) { axis /= length; }
-    } else {
-      face[0] = face[1] = face[2] = 0.0;
-    }
+    const Vec3 face = FaceNormalOf(of);
     for (const unsigned int corner : of) {
       for (size_t axis = 0; axis < 3; ++axis) {
         Normals_[static_cast<size_t>(corner) * 3 + axis] = face[axis];
@@ -527,52 +524,49 @@ bool Subject::Build(const Document &document,
 
 namespace {
 
+struct InstanceChannel {
+  int Accessor = -1;
+  size_t Stride = 0;
+  std::vector<double> *Into = nullptr;
+};
+
 bool InstanceTransforms(const Document &document,
                         const Node &node,
                         const Transform &world,
                         std::vector<Transform> &out) {
   out.clear();
-  const std::array<int, 3> named = {
-      {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale}};
-  bool any = false;
-  for (const int accessor : named) { any = any || accessor >= 0; }
-  if (!any) {
-    out.push_back(world);
-    return true;
-  }
   std::vector<double> translation;
   std::vector<double> rotation;
   std::vector<double> scale;
-  if (node.InstanceTranslation >= 0 &&
-      !document.ReadElements(node.InstanceTranslation, translation)) {
-    return false;
-  }
-  if (node.InstanceRotation >= 0 && !document.ReadElements(node.InstanceRotation, rotation)) {
-    return false;
-  }
-  if (node.InstanceScale >= 0 && !document.ReadElements(node.InstanceScale, scale)) {
-    return false;
+  const std::array<InstanceChannel, 3> channels = {
+      {{.Accessor = node.InstanceTranslation, .Stride = 3, .Into = &translation},
+       {.Accessor = node.InstanceRotation, .Stride = 4, .Into = &rotation},
+       {.Accessor = node.InstanceScale, .Stride = 3, .Into = &scale}}};
+  const auto instanced = [](const InstanceChannel &channel) { return channel.Accessor >= 0; };
+  if (std::ranges::none_of(channels, instanced)) {
+    out.push_back(world);
+    return true;
   }
   size_t count = 0;
-  if (!translation.empty()) {
-    count = translation.size() / 3;
-  } else if (!rotation.empty()) {
-    count = rotation.size() / 4;
-  } else if (!scale.empty()) {
-    count = scale.size() / 3;
+  for (const InstanceChannel &channel : channels) {
+    if (channel.Accessor < 0) { continue; }
+    if (!document.ReadElements(channel.Accessor, *channel.Into)) { return false; }
+    if (count == 0) { count = channel.Into->size() / channel.Stride; }
   }
   out.reserve(count);
+  const auto held = [](const std::vector<double> &from, size_t at, double fallback) {
+    return from.empty() ? fallback : from[at];
+  };
   for (size_t at = 0; at < count; ++at) {
-    const Vec3 t = {{translation.empty() ? 0.0 : translation[at * 3 + 0],
-                     translation.empty() ? 0.0 : translation[at * 3 + 1],
-                     translation.empty() ? 0.0 : translation[at * 3 + 2]}};
-    const Quat r = {.X = rotation.empty() ? 0.0 : rotation[at * 4 + 0],
-                    .Y = rotation.empty() ? 0.0 : rotation[at * 4 + 1],
-                    .Z = rotation.empty() ? 0.0 : rotation[at * 4 + 2],
-                    .W = rotation.empty() ? 1.0 : rotation[at * 4 + 3]};
-    const Vec3 sc = {{scale.empty() ? 1.0 : scale[at * 3 + 0],
-                      scale.empty() ? 1.0 : scale[at * 3 + 1],
-                      scale.empty() ? 1.0 : scale[at * 3 + 2]}};
+    const Vec3 t = {{held(translation, at * 3 + 0, 0.0),
+                     held(translation, at * 3 + 1, 0.0),
+                     held(translation, at * 3 + 2, 0.0)}};
+    const Quat r = {.X = held(rotation, at * 4 + 0, 0.0),
+                    .Y = held(rotation, at * 4 + 1, 0.0),
+                    .Z = held(rotation, at * 4 + 2, 0.0),
+                    .W = held(rotation, at * 4 + 3, 1.0)};
+    const Vec3 sc = {
+        {held(scale, at * 3 + 0, 1.0), held(scale, at * 3 + 1, 1.0), held(scale, at * 3 + 2, 1.0)}};
     out.push_back(world * Transform::FromTrs(t, r, sc));
   }
   return true;
@@ -775,14 +769,11 @@ bool Subject::ReadVertexNormals(const Document &document,
     }
     std::vector<double> &morphedNormals = Scratch_.MorphedNormals;
     morphedNormals.clear();
-    if (!MorphDeltasFor(document,
-                        primitive,
-                        "NORMAL",
-                        morph.Weights.data(),
-                        morph.Count,
-                        3,
-                        vertices,
-                        morphedNormals)) {
+    if (!MorphDeltasFor(
+            document,
+            primitive,
+            {.Semantic = "NORMAL", .Morph = morph, .Components = 3, .Vertices = vertices},
+            morphedNormals)) {
       return false;
     }
     for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
@@ -926,25 +917,17 @@ bool Subject::FlattenPrimitive(const Document &document,
 
   std::vector<double> &morphedPositions = Scratch_.Morphed;
   morphedPositions.clear();
-  if (!MorphDeltasFor(document,
-                      primitive,
-                      "POSITION",
-                      under.Morph.Weights.data(),
-                      under.Morph.Count,
-                      3,
-                      vertices,
-                      morphedPositions)) {
+  if (!MorphDeltasFor(
+          document,
+          primitive,
+          {.Semantic = "POSITION", .Morph = under.Morph, .Components = 3, .Vertices = vertices},
+          morphedPositions)) {
     return false;
   }
   for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
   std::vector<Transform> &skinned = Scratch_.Skinned;
   skinned.clear();
-  if (under.Node.Skin >= 0 && !BlendSkinFor(document,
-                                            document.Skins()[static_cast<size_t>(under.Node.Skin)],
-                                            under.Joints,
-                                            primitive,
-                                            vertices,
-                                            skinned)) {
+  if (under.Node.Skin >= 0 && !BlendSkinFor(document, under.Joints, primitive, vertices, skinned)) {
     return false;
   }
   const VertexPlacement place{.Node = under.Placed,
@@ -1094,25 +1077,51 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     const std::vector<float> positions =
         floats(Positions_, one.FirstVertex * 3, one.VertexCount * 3);
     (void)out.setPositions(made, std::span<const float>(positions.data(), positions.size()));
-    if (one.HasNormal && !Normals_.empty()) {
-      const std::vector<float> held = floats(Normals_, one.FirstVertex * 3, one.VertexCount * 3);
-      (void)out.setNormals(made, std::span<const float>(held.data(), held.size()));
-    }
-    if (one.HasUv && !Uv_.empty()) {
-      const std::vector<float> held = floats(Uv_, one.FirstVertex * 2, one.VertexCount * 2);
-      (void)out.setTexture(made, std::span<const float>(held.data(), held.size()), 0);
-    }
-    if (one.HasUv1 && !Uv1_.empty()) {
-      const std::vector<float> held = floats(Uv1_, one.FirstVertex * 2, one.VertexCount * 2);
-      (void)out.setTexture(made, std::span<const float>(held.data(), held.size()), 1);
-    }
-    if (one.HasTangent() && !Tangents_.empty()) {
-      const std::vector<float> held = floats(Tangents_, one.FirstVertex * 4, one.VertexCount * 4);
-      (void)out.setTangents(made, std::span<const float>(held.data(), held.size()));
-    }
-    if (one.HasColour && !Colours_.empty()) {
-      const std::vector<float> held = floats(Colours_, one.FirstVertex * 4, one.VertexCount * 4);
-      (void)out.setColours(made, std::span<const float>(held.data(), held.size()));
+
+    struct ChannelRow {
+      bool Carried;
+      const std::vector<double> *From;
+      size_t Stride;
+      void (*Set)(outshine::Geometry &, int, std::span<const float>);
+    };
+
+    const std::array<ChannelRow, 5> channels = {
+        {{.Carried = one.HasNormal,
+          .From = &Normals_,
+          .Stride = 3,
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { (void)into.setNormals(at, held); }},
+         {.Carried = one.HasUv,
+          .From = &Uv_,
+          .Stride = 2,
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { (void)into.setTexture(at, held, 0); }},
+         {.Carried = one.HasUv1,
+          .From = &Uv1_,
+          .Stride = 2,
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { (void)into.setTexture(at, held, 1); }},
+         {.Carried = one.HasTangent(),
+          .From = &Tangents_,
+          .Stride = 4,
+          .Set = [](outshine::Geometry &into,
+                    int at,
+                    std::span<const float> held) { (void)into.setTangents(at, held); }},
+         {.Carried = one.HasColour,
+          .From = &Colours_,
+          .Stride = 4,
+          .Set = [](outshine::Geometry &into, int at, std::span<const float> held) {
+            (void)into.setColours(at, held);
+          }}}};
+
+    for (const ChannelRow &channel : channels) {
+      if (!channel.Carried || channel.From->empty()) { continue; }
+      const std::vector<float> held =
+          floats(*channel.From, one.FirstVertex * channel.Stride, one.VertexCount * channel.Stride);
+      channel.Set(out, made, std::span<const float>(held.data(), held.size()));
     }
     std::vector<uint32_t> run(one.IndexCount);
     for (size_t at = 0; at < one.IndexCount; ++at) {
@@ -1121,6 +1130,116 @@ outshine::Geometry Subject::Handed(const Document *naming) const {
     (void)out.setTriangles(made, std::span<const uint32_t>(run.data(), run.size()));
   }
   return out;
+}
+
+void Subject::AssembleLights(const outshine::Geometry &what) {
+  for (int lamp = 0; lamp < what.lamps(); ++lamp) {
+    PlacedLight placed;
+    placed.NodeName = std::string(what.lampNameOf(lamp));
+    placed.LightName = placed.NodeName;
+    placed.Light = what.lampAt(lamp);
+    const Mat4 &at = what.lampPlacementOf(lamp);
+    for (int axis = 0; axis < 3; ++axis) {
+      placed.Light.Position[axis] = static_cast<float>(at[12 + axis]);
+    }
+    Lights_.push_back(std::move(placed));
+  }
+}
+
+bool Subject::AssembledPartHolds(const outshine::Geometry &what, int slot, size_t &vertices) {
+  const std::span<const float> pPos = what.positionsOf(slot);
+  const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
+  const std::span<const float> pNormals = what.normalsOf(slot);
+  const std::span<const float> pUv = what.textureOf(slot, 0);
+  const std::span<const float> pUv1 = what.textureOf(slot, 1);
+  const std::span<const float> pTangents = what.tangentsOf(slot);
+  const std::span<const float> pColours = what.coloursOf(slot);
+  const std::string where = "assembled piece " + std::to_string(slot);
+  if (pPos.empty() || (pPos.size() % 3) != 0) {
+    return Refuse(where + " states " + std::to_string(pPos.size()) +
+                  " position components, which is not a whole run of points");
+  }
+  vertices = pPos.size() / 3;
+  if (pIndices.empty() || (pIndices.size() % 3) != 0) {
+    return Refuse(where + " states " + std::to_string(pIndices.size()) +
+                  " indices, which is not a whole run of triangles");
+  }
+  if (what.materialOf(slot).index() < -1) {
+    return Refuse(where + " names material " + std::to_string(what.materialOf(slot).index()) +
+                  ", and -1 is the only spelling of naming none");
+  }
+  std::string why;
+  if (!RunIsStatable(pPos, vertices, 3, "positions", where, why) ||
+      !RunIsStatable(pNormals, vertices, 3, "normals", where, why) ||
+      !RunIsStatable(pUv, vertices, 2, "uv pairs", where, why) ||
+      !RunIsStatable(pUv1, vertices, 2, "second-set uv pairs", where, why) ||
+      !RunIsStatable(pTangents, vertices, 4, "tangents", where, why) ||
+      !RunIsStatable(pColours, vertices, 4, "vertex colours", where, why)) {
+    return Refuse(why);
+  }
+
+  for (size_t at = 0; at < pColours.size(); ++at) {
+    if (pColours[at] >= 0.0f && pColours[at] <= 1.0f) { continue; }
+    return Refuse(where + " states a vertex colour component of " + std::to_string(pColours[at]) +
+                  " at " + std::to_string(at) +
+                  ", and the format requires every component in [0, 1]");
+  }
+
+  return true;
+}
+
+bool Subject::AssemblePartInto(const outshine::Geometry &what,
+                               int slot,
+                               const Part &part,
+                               size_t wholeFloats) {
+  const std::span<const float> pPos = what.positionsOf(slot);
+  const std::span<const float> pNormals = what.normalsOf(slot);
+  const std::span<const float> pUv = what.textureOf(slot, 0);
+  const std::span<const float> pUv1 = what.textureOf(slot, 1);
+  const std::span<const float> pTangents = what.tangentsOf(slot);
+  const std::span<const float> pColours = what.coloursOf(slot);
+  const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
+  const size_t vertices = pPos.size() / 3;
+  const std::string where = "assembled piece " + std::to_string(slot);
+  if (Positions_.capacity() < Positions_.size() + pPos.size()) {
+    Positions_.reserve(wholeFloats);
+    Uv_.reserve((wholeFloats / 3) * 2);
+    Uv1_.reserve((wholeFloats / 3) * 2);
+    Normals_.reserve(wholeFloats);
+    Tangents_.reserve((wholeFloats / 3) * 4);
+    Colours_.reserve((wholeFloats / 3) * 4);
+  }
+  for (const float component : pPos) { Positions_.push_back(static_cast<double>(component)); }
+
+  Uv_.resize((Positions_.size() / 3) * 2, 0.0);
+  Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
+  Normals_.resize(Positions_.size(), 0.0);
+  Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+  Colours_.resize((Positions_.size() / 3) * 4, 0.0);
+  for (size_t at = 0; at < pUv.size(); ++at) {
+    Uv_[part.FirstVertex * 2 + at] = static_cast<double>(pUv[at]);
+  }
+  for (size_t at = 0; at < pUv1.size(); ++at) {
+    Uv1_[part.FirstVertex * 2 + at] = static_cast<double>(pUv1[at]);
+  }
+  for (size_t at = 0; at < pNormals.size(); ++at) {
+    Normals_[part.FirstVertex * 3 + at] = static_cast<double>(pNormals[at]);
+  }
+  for (size_t at = 0; at < pTangents.size(); ++at) {
+    Tangents_[part.FirstVertex * 4 + at] = static_cast<double>(pTangents[at]);
+  }
+  for (size_t at = 0; at < pColours.size(); ++at) {
+    Colours_[part.FirstVertex * 4 + at] = static_cast<double>(pColours[at]);
+  }
+
+  for (const uint32_t local : pIndices) {
+    if (local >= vertices) {
+      return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
+                    std::to_string(vertices));
+    }
+    Indices_.push_back(static_cast<uint32_t>(part.FirstVertex) + local);
+  }
+  return true;
 }
 
 bool Subject::Assemble(const outshine::Geometry &what) {
@@ -1145,17 +1264,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
     Surfaces_.push_back(what.surfaceAt(MaterialInstance(surface)));
     TangentWanted_.push_back(Surfaces_.back().NeedsTangents ? 1u : 0u);
   }
-  for (int lamp = 0; lamp < what.lamps(); ++lamp) {
-    PlacedLight placed;
-    placed.NodeName = std::string(what.lampNameOf(lamp));
-    placed.LightName = placed.NodeName;
-    placed.Light = what.lampAt(lamp);
-    const Mat4 &at = what.lampPlacementOf(lamp);
-    for (int axis = 0; axis < 3; ++axis) {
-      placed.Light.Position[axis] = static_cast<float>(at[12 + axis]);
-    }
-    Lights_.push_back(std::move(placed));
-  }
+  AssembleLights(what);
   if (what.parts() == 0) {
     return Refuse(
         "an assembly of no piece draws nothing, and a subject with no triangle is not one");
@@ -1163,44 +1272,14 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
   for (size_t index = 0; std::cmp_less(index, what.parts()); ++index) {
     const int slot = static_cast<int>(index);
-    const std::span<const float> pPos = what.positionsOf(slot);
     const std::span<const float> pNormals = what.normalsOf(slot);
     const std::span<const float> pUv = what.textureOf(slot, 0);
     const std::span<const float> pUv1 = what.textureOf(slot, 1);
     const std::span<const float> pTangents = what.tangentsOf(slot);
     const std::span<const float> pColours = what.coloursOf(slot);
     const std::span<const uint32_t> pIndices = what.trianglesOf(slot);
-    const std::string where = "assembled piece " + std::to_string(index);
-    if (pPos.empty() || (pPos.size() % 3) != 0) {
-      return Refuse(where + " states " + std::to_string(pPos.size()) +
-                    " position components, which is not a whole run of points");
-    }
-    const size_t vertices = pPos.size() / 3;
-    if (pIndices.empty() || (pIndices.size() % 3) != 0) {
-      return Refuse(where + " states " + std::to_string(pIndices.size()) +
-                    " indices, which is not a whole run of triangles");
-    }
-    if (what.materialOf(slot).index() < -1) {
-      return Refuse(where + " names material " + std::to_string(what.materialOf(slot).index()) +
-                    ", and -1 is the only spelling of naming none");
-    }
-    std::string why;
-    if (!RunIsStatable(pPos, vertices, 3, "positions", where, why) ||
-        !RunIsStatable(pNormals, vertices, 3, "normals", where, why) ||
-        !RunIsStatable(pUv, vertices, 2, "uv pairs", where, why) ||
-        !RunIsStatable(pUv1, vertices, 2, "second-set uv pairs", where, why) ||
-        !RunIsStatable(pTangents, vertices, 4, "tangents", where, why) ||
-        !RunIsStatable(pColours, vertices, 4, "vertex colours", where, why)) {
-      return Refuse(why);
-    }
-
-    for (size_t at = 0; at < pColours.size(); ++at) {
-      if (pColours[at] >= 0.0f && pColours[at] <= 1.0f) { continue; }
-      return Refuse(where + " states a vertex colour component of " + std::to_string(pColours[at]) +
-                    " at " + std::to_string(at) +
-                    ", and the format requires every component in [0, 1]");
-    }
-
+    size_t vertices = 0;
+    if (!AssembledPartHolds(what, slot, vertices)) { return false; }
     Part part;
     part.NodeName = std::string(what.nameOf(slot));
     part.Material = what.materialOf(slot).index();
@@ -1215,44 +1294,7 @@ bool Subject::Assemble(const outshine::Geometry &what) {
 
     part.Tangent = pTangents.empty() ? TangentSource::None : TangentSource::Supplied;
 
-    if (Positions_.capacity() < Positions_.size() + pPos.size()) {
-      Positions_.reserve(wholeFloats);
-      Uv_.reserve((wholeFloats / 3) * 2);
-      Uv1_.reserve((wholeFloats / 3) * 2);
-      Normals_.reserve(wholeFloats);
-      Tangents_.reserve((wholeFloats / 3) * 4);
-      Colours_.reserve((wholeFloats / 3) * 4);
-    }
-    for (const float component : pPos) { Positions_.push_back(static_cast<double>(component)); }
-
-    Uv_.resize((Positions_.size() / 3) * 2, 0.0);
-    Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
-    Normals_.resize(Positions_.size(), 0.0);
-    Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
-    Colours_.resize((Positions_.size() / 3) * 4, 0.0);
-    for (size_t at = 0; at < pUv.size(); ++at) {
-      Uv_[part.FirstVertex * 2 + at] = static_cast<double>(pUv[at]);
-    }
-    for (size_t at = 0; at < pUv1.size(); ++at) {
-      Uv1_[part.FirstVertex * 2 + at] = static_cast<double>(pUv1[at]);
-    }
-    for (size_t at = 0; at < pNormals.size(); ++at) {
-      Normals_[part.FirstVertex * 3 + at] = static_cast<double>(pNormals[at]);
-    }
-    for (size_t at = 0; at < pTangents.size(); ++at) {
-      Tangents_[part.FirstVertex * 4 + at] = static_cast<double>(pTangents[at]);
-    }
-    for (size_t at = 0; at < pColours.size(); ++at) {
-      Colours_[part.FirstVertex * 4 + at] = static_cast<double>(pColours[at]);
-    }
-
-    for (const uint32_t local : pIndices) {
-      if (local >= vertices) {
-        return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
-                      std::to_string(vertices));
-      }
-      Indices_.push_back(static_cast<uint32_t>(part.FirstVertex) + local);
-    }
+    if (!AssemblePartInto(what, slot, part, wholeFloats)) { return false; }
     part.IndexCount = Indices_.size() - part.FirstIndex;
     if (!FlatNormalsFor(part) || !GeneratedTangentsFor(part)) { return false; }
     part.VertexCount = VertexCount() - part.FirstVertex;
