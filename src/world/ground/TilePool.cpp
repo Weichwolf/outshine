@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
@@ -354,8 +355,8 @@ class PoolTerrain : public TerrainSource {
 public:
   explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
 
-  TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
-    const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
+  TerrainBytes Take(Data::TileId at) override {
+    const Data::Request request(Data::DataKind::Elevation, Data::Address::At(at));
     TilePool::Landing landing;
     const TilePool::Reply asked =
         Pool_.Carries() ? Pool_.Bytes(request, &landing) : Pool_.BytesBlocking(request, &landing);
@@ -374,11 +375,9 @@ public:
 
 private:
   static TerrainBytes Answered(TilePool::Landing &landing) {
-    int az = 0;
-    uint32_t ax = 0;
-    uint32_t ay = 0;
-    if (!landing.At.TryTile(&az, &ax, &ay)) { return TerrainBytes::Wire(); }
-    return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
+    const std::optional<Data::TileId> at = landing.At.Tile();
+    if (!at) { return TerrainBytes::Wire(); }
+    return TerrainBytes::From(*at, std::move(landing.Bytes));
   }
 
 private:
@@ -519,7 +518,8 @@ void TilePool::Carry() {
 void TilePool::Work(int slot) {
   const Heap::Tagged working("tile-worker");
   StackProbe::Enter(StackProbe::Purpose::Tile);
-  const EnuFrame frame = EnuFrame::At(OriginLatDeg_, OriginLonDeg_);
+  const EnuFrame frame =
+      EnuFrame::At(Geo{.LongitudeDeg = OriginLonDeg_, .LatitudeDeg = OriginLatDeg_});
 
   if (frame.Where() != EnuFrame::State::Usable) {
     Log::Error("world", "tilepool_origin_too_polar", {{"lat", OriginLatDeg_}});

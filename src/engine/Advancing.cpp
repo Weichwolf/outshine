@@ -53,7 +53,8 @@ bool Engine::State::Watches() {
       heightM += aslM;
     }
     const Ground::EnuFrame frame = Ground::EnuFrame::At(
-        Session.Declared.Ground.Origin.LatitudeDeg, Session.Declared.Ground.Origin.LongitudeDeg);
+        Ground::Geo{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                    .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
     Ground::Enu where{};
     if (!frame.TryFromGeo(Ground::Geo{.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
                                       .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg,

@@ -1,6 +1,7 @@
 #include "TerrariumDem.h"
 
 #include <cstdint>
+#include <optional>
 #include <format>
 #include <string_view>
 
@@ -49,11 +50,9 @@ namespace {
 TerrariumDem::TerrariumDem() : WebTileSource(Declared()) {}
 
 std::string TerrariumDem::Url(const Address &at) const {
-  int z = 0;
-  uint32_t x = 0;
-  uint32_t y = 0;
-  if (!at.TryTile(&z, &x, &y)) { return {}; }
-  return std::format(Says::kTile, z, x, y);
+  const std::optional<TileId> tile = at.Tile();
+  if (!tile) { return {}; }
+  return std::format(Says::kTile, tile->Zoom, tile->X, tile->Y);
 }
 
 Meaning TerrariumDem::Classify(int status, size_t bytes) const noexcept {

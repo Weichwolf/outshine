@@ -24,15 +24,15 @@ std::string Address::Text() const {
   char *at = text.data();
   char *const end = text.data() + text.size();
   if (How_ == Scheme::TileZxy) {
-    at = Wrote(at, end, static_cast<long long>(Z_));
+    at = Wrote(at, end, static_cast<long long>(Held_.Zoom));
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(X_));
+    at = Wrote(at, end, static_cast<long long>(Held_.X));
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(Y_));
+    at = Wrote(at, end, static_cast<long long>(Held_.Y));
   } else {
     if (at < end) { *at++ = 'w'; }
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(X_));
+    at = Wrote(at, end, static_cast<long long>(Held_.X));
   }
   return {text.data(), static_cast<size_t>(at - text.data())};
 }

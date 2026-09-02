@@ -2,9 +2,12 @@
 #define OUTSHINE_WORLD_GROUND_TILES_TERRAINTILES_H
 
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "Address.h"
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
 
@@ -14,11 +17,9 @@ class TerrainBytes {
 public:
   enum class State { Delivered, Deferred, NoTile, Refused };
 
-  static TerrainBytes From(int z, uint32_t x, uint32_t y, std::vector<uint8_t> png) {
+  static TerrainBytes From(Data::TileId at, std::vector<uint8_t> png) {
     TerrainBytes b(State::Delivered);
-    b.Z_ = z;
-    b.X_ = x;
-    b.Y_ = y;
+    b.At_ = at;
     b.Png_ = std::move(png);
     return b;
   }
@@ -31,28 +32,23 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] bool TryTake(int *z, uint32_t *x, uint32_t *y, std::vector<uint8_t> *png) {
-    if (Where_ != State::Delivered) { return false; }
-    *z = Z_;
-    *x = X_;
-    *y = Y_;
-    *png = std::move(Png_);
-    return true;
+  [[nodiscard]] std::optional<std::pair<Data::TileId, std::vector<uint8_t>>> Take() {
+    if (Where_ != State::Delivered) { return std::nullopt; }
+    return std::pair{At_, std::move(Png_)};
   }
 
 private:
   explicit TerrainBytes(State where) : Where_(where) {}
 
   State Where_;
-  int Z_ = 0;
-  uint32_t X_ = 0, Y_ = 0;
+  Data::TileId At_;
   std::vector<uint8_t> Png_;
 };
 
 class TerrainSource {
 public:
   virtual ~TerrainSource() = default;
-  [[nodiscard]] virtual TerrainBytes Take(int z, uint32_t x, uint32_t y) = 0;
+  [[nodiscard]] virtual TerrainBytes Take(Data::TileId at) = 0;
 };
 
 class TerrainTiles {

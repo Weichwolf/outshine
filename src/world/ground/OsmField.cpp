@@ -54,17 +54,18 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 }
 
 int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs) {
-  uint32_t cx = 0;
-  uint32_t cy = 0;
   Pending_ = 0;
   Refused_ = 0;
 
   Geo centre;
   centre.LongitudeDeg = lon;
   centre.LatitudeDeg = lat;
-  if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) { return 0; }
-  CentreX_ = static_cast<int>(cx);
-  CentreY_ = static_cast<int>(cy);
+  const std::optional<Data::TileId> centreTile = TileIndex::Of(centre, Zoom_).Tile();
+  if (!centreTile) { return 0; }
+  CentreX_ = static_cast<int>(centreTile->X);
+  CentreY_ = static_cast<int>(centreTile->Y);
+  const long centreX = static_cast<long>(centreTile->X);
+  const long centreY = static_cast<long>(centreTile->Y);
 
   const long n = 1L << static_cast<uint32_t>(Zoom_);
   int added = 0;
@@ -72,8 +73,8 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++) {
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
-      const long tx = static_cast<long>(cx) + dx;
-      const long ty = static_cast<long>(cy) + dy;
+      const long tx = centreX + dx;
+      const long ty = centreY + dy;
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) { continue; }
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
@@ -121,9 +122,10 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
 }
 
 bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode) {
-  const Data::Request request(
-      Data::DataKind::VectorMap,
-      Data::Address::Tile(Zoom_, static_cast<uint32_t>(tx), static_cast<uint32_t>(ty)));
+  const Data::Request request(Data::DataKind::VectorMap,
+                              Data::Address::At(Data::TileId{.Zoom = Zoom_,
+                                                             .X = static_cast<uint32_t>(tx),
+                                                             .Y = static_cast<uint32_t>(ty)}));
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   refused = reply == TilePool::Reply::Refused;

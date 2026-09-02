@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <cstdio>
 #include <utility>
 #include <vector>
@@ -36,9 +37,9 @@ StarBands::StarBands(std::string directory) : Directory_(std::move(directory)), 
 
 Coverage StarBands::Covers(const Request &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
-  uint32_t band = 0;
-  if (!request.Where().TryIndex(&band)) { return Coverage::Outside; }
-  return band < kBands ? Coverage::Inside : Coverage::Outside;
+  const std::optional<uint32_t> band = request.Where().Index();
+  if (!band) { return Coverage::Outside; }
+  return *band < kBands ? Coverage::Inside : Coverage::Outside;
 }
 
 Ticket StarBands::Begin(const Address &at, Transport &transport) const {
@@ -50,10 +51,10 @@ Ticket StarBands::Begin(const Address &at, Transport &transport) const {
 Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transport) const {
   (void)ticket;
   (void)transport;
-  uint32_t band = 0;
-  if (!at.TryIndex(&band)) { return Fetched::Meant(Meaning::Refused); }
+  const std::optional<uint32_t> band = at.Index();
+  if (!band) { return Fetched::Meant(Meaning::Refused); }
   std::array<char, 512> path{};
-  std::snprintf(path.data(), path.size(), "%s/band%u.bin", Directory_.c_str(), band);
+  std::snprintf(path.data(), path.size(), "%s/band%u.bin", Directory_.c_str(), *band);
   std::FILE *f = std::fopen(path.data(), "rb");
   if (f == nullptr) { return Fetched::Meant(Meaning::Refused); }
   std::fseek(f, 0, SEEK_END);

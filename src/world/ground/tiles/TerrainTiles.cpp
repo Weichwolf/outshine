@@ -129,12 +129,9 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     return TerrainGrid::Holding(TerrainField(*cached));
   }
 
-  TerrainBytes answer = Source_.Take(z, x, y);
-  int sourceZ = 0;
-  uint32_t sourceX = 0;
-  uint32_t sourceY = 0;
-  std::vector<uint8_t> png;
-  if (!answer.TryTake(&sourceZ, &sourceX, &sourceY, &png)) {
+  TerrainBytes answer = Source_.Take(Data::TileId{.Zoom = z, .X = x, .Y = y});
+  auto delivered = answer.Take();
+  if (!delivered) {
     switch (answer.Where()) {
       case TerrainBytes::State::Deferred: return TerrainGrid::Deferred();
       case TerrainBytes::State::NoTile: return TerrainGrid::NotHere();
@@ -142,8 +139,10 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
       case TerrainBytes::State::Delivered: return TerrainGrid::Refused();
     }
   }
+  const Data::TileId source = delivered->first;
+  std::vector<uint8_t> png = std::move(delivered->second);
 
-  const int steps = z - sourceZ;
+  const int steps = z - source.Zoom;
   if (steps < 0 || steps >= kZoomMost) { return TerrainGrid::Refused(); }
   const uint32_t subDiv = 1u << static_cast<uint32_t>(steps);
   const uint32_t subX = x & (subDiv - 1);

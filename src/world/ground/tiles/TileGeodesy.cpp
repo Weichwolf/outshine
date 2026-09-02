@@ -20,7 +20,7 @@ constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
 TileIndex TileIndex::Of(Geo g, int z) {
   if (g.LatitudeDeg < -kMercatorLatMaxDeg || g.LatitudeDeg > kMercatorLatMaxDeg) {
-    return {State::OutsideMercatorBand, 0, 0};
+    return {State::OutsideMercatorBand, Data::TileId{}};
   }
 
   const double n = std::ldexp(1.0, z);
@@ -33,7 +33,8 @@ TileIndex TileIndex::Of(Geo g, int z) {
   yc = std::max<double>(yc, 0);
   xc = std::min(xc, n - 1);
   yc = std::min(yc, n - 1);
-  return {State::Inside, static_cast<uint32_t>(xc), static_cast<uint32_t>(yc)};
+  return {State::Inside,
+          Data::TileId{.Zoom = z, .X = static_cast<uint32_t>(xc), .Y = static_cast<uint32_t>(yc)}};
 }
 
 GeoBounds TileBounds(int z, uint32_t x, uint32_t y) {
@@ -132,7 +133,9 @@ Geo EcefToGeoWgs84(Ecef p) {
   return g;
 }
 
-EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
+EnuFrame EnuFrame::At(Geo origin) {
+  const double originLatDeg = origin.LatitudeDeg;
+  const double originLonDeg = origin.LongitudeDeg;
   if (originLatDeg < -kOriginMostLatDeg || originLatDeg > kOriginMostLatDeg) {
     return {State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0};
   }

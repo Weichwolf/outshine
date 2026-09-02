@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -115,17 +116,15 @@ struct GroundStream::Held {
   public:
     explicit Oracle(Held &held) : Held_(held) {}
 
-    TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
+    TerrainBytes Take(Data::TileId at) override {
       Held_.Decodes++;
-      const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
+      const Data::Request request(Data::DataKind::Elevation, Data::Address::At(at));
       TilePool::Landing landing;
       switch (Held_.Pool.BytesBlocking(request, &landing)) {
         case TilePool::Reply::Ready: {
-          int az = 0;
-          uint32_t ax = 0;
-          uint32_t ay = 0;
-          if (!landing.At.TryTile(&az, &ax, &ay)) { return TerrainBytes::Wire(); }
-          return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
+          const std::optional<Data::TileId> landed = landing.At.Tile();
+          if (!landed) { return TerrainBytes::Wire(); }
+          return TerrainBytes::From(*landed, std::move(landing.Bytes));
         }
         case TilePool::Reply::Absent: return TerrainBytes::Nothing();
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
@@ -143,7 +142,7 @@ struct GroundStream::Held {
   explicit Held(TilePool &pool) : Pool(pool), Source(*this) {
     TerrainTiles::Config config;
     config.DemCacheTiles = kGroundStitchGrids;
-    Stitched = std::make_unique<TerrainTiles>(Source, EnuFrame::At(0.0, 0.0), config);
+    Stitched = std::make_unique<TerrainTiles>(Source, EnuFrame::At(Geo{}), config);
   }
 
   TilePool &Pool;

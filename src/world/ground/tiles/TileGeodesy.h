@@ -2,7 +2,9 @@
 #define OUTSHINE_WORLD_GROUND_TILES_TILEGEODESY_H
 
 #include <cstdint>
+#include <optional>
 
+#include "Address.h"
 #include "Earth.h"
 #include "Units.h"
 #include "TileMath.h"
@@ -38,18 +40,16 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] bool TryXy(uint32_t *x, uint32_t *y) const {
-    if (Where_ != State::Inside) { return false; }
-    *x = X_;
-    *y = Y_;
-    return true;
+  [[nodiscard]] std::optional<Data::TileId> Tile() const {
+    if (Where_ != State::Inside) { return std::nullopt; }
+    return Held_;
   }
 
 private:
-  TileIndex(State where, uint32_t x, uint32_t y) : Where_(where), X_(x), Y_(y) {}
+  TileIndex(State where, Data::TileId held) : Where_(where), Held_(held) {}
 
   State Where_;
-  uint32_t X_, Y_;
+  Data::TileId Held_;
 };
 
 inline TileFrac ToTileFracClamped(Geo g, int z) {
@@ -83,7 +83,7 @@ class EnuFrame {
 public:
   enum class State { Usable, OriginTooPolar };
 
-  static EnuFrame At(double originLatDeg, double originLonDeg);
+  static EnuFrame At(Geo origin);
 
   [[nodiscard]] State Where() const { return Where_; }
 
