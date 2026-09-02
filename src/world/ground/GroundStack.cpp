@@ -1,5 +1,4 @@
 #include <array>
-#include <chrono>
 #include "GroundStack.h"
 
 #include <cstddef>
@@ -16,8 +15,6 @@
 #include "TileGeodesy.h"
 
 namespace outshine::Ground {
-
-constexpr int kVectorRing = 3;
 
 bool GroundStack::Open(std::string_view cacheDir,
                        std::string_view assetsDir,
@@ -95,9 +92,9 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
   return finest;
 }
 
-void GroundStack::Restand(double lat, double lon, double budgetMs) {
+void GroundStack::Restand(LongitudeLatitude at) {
   if (!Pool_) { return; }
-  Cls_.Update(*Pool_, lat, lon, budgetMs);
+  Cls_.Update(*Pool_, at);
   if (!Vegetated_) { return; }
   if (!Vectors_) {
     const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
@@ -112,12 +109,12 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {
-    (void)Vectors_->Build(*Pool_, lat, lon, kVectorRing, budgetMs);
+    (void)Vectors_->Build(*Pool_, at, kVectorRing);
   } else {
-    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), lat, lon);
+    Vectors_->Declare(
+        std::span<const OsmField::Declared>(Declared_), at.LongitudeDeg, at.LatitudeDeg);
   }
-  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
-  for (;;) {
+  for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       ++Overflowed_;
       break;
@@ -130,11 +127,6 @@ void GroundStack::Restand(double lat, double lon, double budgetMs) {
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }
-    if (budgetMs > 0.0 &&
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count() >= budgetMs) {
-      break;
-    }
   }
 }
 

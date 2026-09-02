@@ -127,7 +127,8 @@ bool AssembleDrive(const Scene &scene,
     const double atLat = fromLatDeg + part * (toLatDeg - fromLatDeg);
     const double atLon = fromLonDeg + part * (toLonDeg - fromLonDeg);
     for (;;) {
-      built += field.Build(stack.Pool(), atLat, atLon, kCorridorRing, 0.0);
+      built +=
+          field.Build(stack.Pool(), {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, kCorridorRing);
       ++passes;
       if (field.PendingTiles() == 0) { break; }
       if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >

@@ -42,7 +42,7 @@ public:
 
   void Open(double lat, double lon);
 
-  void Update(TilePool &tiles, double camLat, double camLon, double budgetMs);
+  void Update(TilePool &tiles, LongitudeLatitude at);
 
   std::shared_ptr<const ClassStructure> Read() const {
     const std::scoped_lock lk(Mu_);

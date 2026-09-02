@@ -156,7 +156,7 @@ bool Engine::State::Routes() {
                                                     Ticking.Drive);
   if (routed) {
     World.Stack.Restand(
-        Ticking.Drive.Way.FrameLat, Ticking.Drive.Way.FrameLon, Ground::kStreamBudgetMs);
+        {.LongitudeDeg = Ticking.Drive.Way.FrameLon, .LatitudeDeg = Ticking.Drive.Way.FrameLat});
     Ticking.Surface = std::make_unique<Sim::GroundSupport>(World.Stack, Ticking.Drive.Surfaces);
     Ticking.Surface->Restand();
   }
@@ -384,7 +384,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     if (!S_->Asks()) { return std::unexpected(S_->Error); }
     const double atLat = S_->Session.Declared.Ground.Origin.LatitudeDeg;
     const double atLon = S_->Session.Declared.Ground.Origin.LongitudeDeg;
-    S_->World.Stack.Restand(atLat, atLon, 0.0);
+    S_->World.Stack.Restand({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
     (void)S_->Grows(atLat, atLon);
     say();
     if (S_->World.AskedWanted > 0 && S_->World.AskedPending == 0 && S_->World.Grown &&

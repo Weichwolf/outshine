@@ -190,7 +190,7 @@ bool Engine::State::Updates() {
     WhereTheEyeStands(atLat, atLon);
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
-      World.Stack.Restand(atLat, atLon, Ground::kStreamBudgetMs);
+      World.Stack.Restand({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
       {
         const Heap::Tagged growing("world-grow");
         (void)Grows(atLat, atLon);

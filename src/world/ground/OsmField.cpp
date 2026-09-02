@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <functional>
 #include <numbers>
-#include <chrono>
 #include "Units.h"
 #include "OsmField.h"
 
@@ -53,13 +52,13 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   return id;
 }
 
-int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, double budgetMs) {
+int OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles) {
   Pending_ = 0;
   Refused_ = 0;
 
   Geo centre;
-  centre.LongitudeDeg = lon;
-  centre.LatitudeDeg = lat;
+  centre.LongitudeDeg = at.LongitudeDeg;
+  centre.LatitudeDeg = at.LatitudeDeg;
   const std::optional<Data::TileId> centreTile = TileIndex::Of(centre, Zoom_).Tile();
   if (!centreTile) { return 0; }
   CentreX_ = static_cast<int>(centreTile->X);
@@ -69,7 +68,6 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
 
   const long n = 1L << static_cast<uint32_t>(Zoom_);
   int added = 0;
-  const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++) {
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {
@@ -79,12 +77,8 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles, doub
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 
-      const double spentMs =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
-      const bool mayDecode = budgetMs <= 0.0 || spentMs < budgetMs;
       bool refused = false;
-      if (!AddTile(tiles, static_cast<int>(tx), static_cast<int>(ty), added, refused, mayDecode)) {
+      if (!AddTile(tiles, static_cast<int>(tx), static_cast<int>(ty), added, refused)) {
         if (refused) {
           Refused_++;
         } else {
@@ -121,7 +115,7 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
-bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused, bool mayDecode) {
+bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::At(Data::TileId{.Zoom = Zoom_,
                                                              .X = static_cast<uint32_t>(tx),
@@ -132,7 +126,6 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refuse
   if (reply == TilePool::Reply::Pending || refused) { return false; }
 
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) { return true; }
-  if (!mayDecode) { return false; }
   added += Accept(tx, ty, Scratch_.Bytes);
   return true;
 }

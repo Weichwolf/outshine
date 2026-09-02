@@ -196,7 +196,7 @@ void ClassField::SubmitDue(double camE, double camN) {
   }
 }
 
-void ClassField::Update(TilePool &tiles, double camLat, double camLon, double budgetMs) {
+void ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
   if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return; }
 
   if (!Fine_.Field) {
@@ -205,12 +205,12 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
   }
   const double t0 = Clock();
   if (Declared_.empty()) {
-    (void)Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius, budgetMs);
-    (void)Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius, budgetMs);
+    (void)Fine_.Field->Build(tiles, at, Fine_.TileRadius);
+    (void)Coarse_.Field->Build(tiles, at, Coarse_.TileRadius);
   } else {
     const std::span<const OsmField::Declared> these(Declared_);
-    Fine_.Field->Declare(these, camLat, camLon);
-    Coarse_.Field->Declare(these, camLat, camLon);
+    Fine_.Field->Declare(these, at.LongitudeDeg, at.LatitudeDeg);
+    Coarse_.Field->Declare(these, at.LongitudeDeg, at.LatitudeDeg);
   }
   const double t1 = Clock();
   Ingest(Fine_);
@@ -219,7 +219,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
   StreamMs_ = t1 - t0;
   IngestMs_ = t2 - t1;
 
-  const EastNorth cam = Project({.LongitudeDeg = camLon, .LatitudeDeg = camLat});
+  const EastNorth cam = Project(at);
   Cam_[0] = cam.EastM;
   Cam_[1] = cam.NorthM;
 

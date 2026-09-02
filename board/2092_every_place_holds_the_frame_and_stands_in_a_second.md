@@ -263,3 +263,61 @@ a build three times running, and on no other run: 84 clean, build, flip; 30 clea
 build does not touch the tile cache -- it lives in the system temp directory -- so the mechanism is
 not "cold cache" and is not yet named. Recorded because it is a cheap trigger for whoever measures
 this next: rebuild, then run once.
+
+## THE WANDER HAS ITS MECHANISM, MEASURED: a WALL CLOCK decided what was in the world
+
+`grep steady_clock` over the ground path found three cuts, all taking `kStreamBudgetMs = 2.0`:
+`GroundStack::Restand`'s ingest loop, `OsmField::Build`'s `mayDecode` gate, and `ClassField::Update`
+passing the same budget to both its tiers. A machine 2 % busier ingests one tile fewer and the next
+frame stands on a different world.
+
+**The trigger was found first and it is cheap: the FIRST run after a build.** Never after a plain
+idle, never back to back. A control settles that it is not simply CPU state -- ten processes spun
+for 55 s, then one run, and it came out clean.
+
+| the frame path's budget | runs, each the first after a build | flipped |
+|---|---|---|
+| `2.0 ms` | 4 | **4** |
+| no clock at all (control) | 4 | 0 |
+| the ring as the bound (the repair) | 4 | 0 |
+
+Fisher exact on 4/4 against 0/8: p = 0.002. **The clock is the mechanism.**
+
+**THE REPAIR IS THE RING, and it invents no number.** `OsmField::Build` already walks a ring once
+per call and skips what is settled, so the ring IS a bound -- the clock only made that bound smaller
+and non-reproducible. It is gone; the ingest loop is bounded by `kVectorTiles`, the tile count of
+the vector ring, which is what a stand can newly need. `Restand`, `Build` and `Update` now take a
+`LongitudeLatitude` instead of a lat/lon pair, so five swappable-parameter findings went with it.
+
+All nine places, after: eight render the digest recorded above, byte for byte, and Kaiserberg
+renders `2c14838f`, the second of the two values the control table already recorded for it.
+
+## AND THE INSTRUMENT IS MIXING TWO MEASUREMENTS -- the owner's specification, 2026-09-02
+
+> "erst wird initial geladen. wenn ALLES fertig ist wird der erste frame gerendert und ab da wird
+> fps gemessen. alles vorher ist preload."
+
+Against that, `Shots::Draw` is wrong in two nameable ways, and the second one invalidates most of
+the p99 column above.
+
+- **`preload` GIVES UP.** It takes `kPatienceS` and returns without the world standing; the row then
+  reports fps anyway with `Preloaded = 0`. Shibuya and CentralPark came out that way in the run
+  above. Under the specification there is no fps to report from a place that did not finish
+  loading -- the row REFUSES instead.
+- **THE TIMED FRAMES DO STREAMING.** `advance()` calls `Restand` every frame, and the 120 timed
+  frames walk the camera through the `walk` views while the preload stood only on the FIRST one. So
+  every frame that crosses into an unvisited tile pays for that tile, and the number is called p99.
+  That is CLAUDE.md's own trap -- a subject's rate quoted about a world -- inside the instrument the
+  whole board scores itself with.
+
+**What this costs the table above.** CentralPark reads p99 10.26 ms before the repair and 536 ms
+after, and NEITHER is a frame time: the first is the 2 ms clock REFUSING the work, which is also
+why that place's picture wandered between `8f5e8e3f` and `fd049bf7`; the second is the same work
+done honestly, in the frames that are being timed. The repair did not make the frame slower, it
+made the number stop hiding. Comparing the two as frame times is the mistake.
+
+**What is to be true.** `preload` stands the world for EVERY view the run will walk through, and
+returns only when it stands or refuses outright. The first frame comes after that. Then p99 is a
+frame time, the frame path has no streaming left to do, and a per-frame budget can be as small as
+the frame needs without touching a picture. That last clause is why the clock had to go first: with
+a wall clock, even a fully preloaded world is not reproducible.

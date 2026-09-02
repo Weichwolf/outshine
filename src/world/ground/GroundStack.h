@@ -24,7 +24,8 @@ class Sink;
 
 namespace outshine::Ground {
 
-constexpr double kStreamBudgetMs = 2.0;
+constexpr int kVectorRing = 3;
+constexpr int kVectorTiles = (2 * kVectorRing + 1) * (2 * kVectorRing + 1);
 
 class GroundStack {
 public:
@@ -87,7 +88,7 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  void Restand(double lat, double lon, double budgetMs);
+  void Restand(LongitudeLatitude at);
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
