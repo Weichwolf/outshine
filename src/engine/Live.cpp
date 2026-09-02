@@ -166,43 +166,39 @@ double Photopic(const Vec3f &triple) {
 
 } // namespace
 
-void Live::SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const {
+Live::AirReach Live::SunThroughTheAir(double cosSun) const {
   if (std::fabs(cosSun - AirStoodAt_) > kLeastRunM) {
     const Render::Medium medium = Render::kEarthAir;
     const float stoodAt = medium.BottomRadiusKm + Render::kMediumGroundLiftKm;
-    const auto toSun = [&](float radiusKm, float cosZenith, Vec3f &out) {
-      Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
+    const auto toSun = [&](Render::MediumLook look) {
+      return Render::MediumTransmittance(medium, look, Render::kTransmittanceSteps);
     };
-    const auto secondOrder = [&](float radiusKm, float cosZenith, Vec3f &out) {
-      Vec3f luminance;
-      Vec3f transfer;
-      const float unitU = cosZenith * 0.5f + 0.5f;
-      const float unitV =
-          (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-      Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
+    const auto secondOrder = [&](Render::MediumLook look) {
+      const Render::MediumUv unit = {look.CosZenith * 0.5f + 0.5f,
+                                     (look.RadiusKm - medium.BottomRadiusKm) /
+                                         (medium.TopRadiusKm - medium.BottomRadiusKm)};
+      const Render::MultiScatterSample sample =
+          Render::MediumMultiScatterTexel(medium, unit, toSun);
+      Vec3f out;
       for (int channel = 0; channel < 3; ++channel) {
-        out[channel] = luminance[channel] / (1.0f - transfer[channel]);
+        out[channel] = sample.Luminance[channel] / (1.0f - sample.Transfer[channel]);
       }
+      return out;
     };
-    Render::MediumSkyIrradiance(
-        medium, stoodAt, static_cast<float>(cosSun), toSun, secondOrder, SkylightStood_);
-    toSun(stoodAt, static_cast<float>(cosSun), SunReachStood_);
+    const Render::MediumLook stands = {stoodAt, static_cast<float>(cosSun)};
+    SkylightStood_ = Render::MediumSkyIrradiance(medium, stands, toSun, secondOrder);
+    SunReachStood_ = toSun(stands);
     AirStoodAt_ = cosSun;
   }
-  for (int channel = 0; channel < 3; ++channel) {
-    sunReach[channel] = SunReachStood_[channel];
-    skylight[channel] = SkylightStood_[channel];
-  }
+  return {SunReachStood_, SkylightStood_};
 }
 
 double Live::MeteredLux() const {
   if (!Declared_.KeyFromClock) { return Declared_.KeyLux; }
   const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
-  Vec3f sunReach;
-  Vec3f skylight;
-  SunThroughTheAir(cosSun, sunReach, skylight);
+  const AirReach reach = SunThroughTheAir(cosSun);
   const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
-  return kSolarIlluminanceLx * (straightDown * Photopic(sunReach) + Photopic(skylight));
+  return kSolarIlluminanceLx * (straightDown * Photopic(reach.SunReach) + Photopic(reach.Skylight));
 }
 
 bool Live::Build(std::string &error) {
@@ -703,11 +699,11 @@ bool Live::Stand(std::string &error) {
     key.Kind = LightKind::Directional;
     key.Intensity = static_cast<float>(Declared_.KeyLux);
     if (Declared_.KeyFromClock) {
-      Vec3f sunReach;
-      Vec3f skylight;
-      SunThroughTheAir(std::sin(elevation), sunReach, skylight);
+      const AirReach reach = SunThroughTheAir(std::sin(elevation));
       key.Intensity = static_cast<float>(kSolarIlluminanceLx);
-      for (int channel = 0; channel < 3; ++channel) { key.Colour[channel] = sunReach[channel]; }
+      for (int channel = 0; channel < 3; ++channel) {
+        key.Colour[channel] = reach.SunReach[channel];
+      }
     }
     key.Direction[0] = static_cast<float>(-std::cos(elevation) * std::sin(bearing));
     key.Direction[1] = static_cast<float>(-std::sin(elevation));
@@ -722,16 +718,14 @@ bool Live::Stand(std::string &error) {
   if (Declared_.DrawsSky && (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock)) {
     const double cosSun = std::sin(Declared_.KeyElevationDeg * kDeg2Rad);
     const double aboveTheAir = Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux;
-    Vec3f sunReach;
-    Vec3f skylight;
-    SunThroughTheAir(cosSun, sunReach, skylight);
+    const AirReach reach = SunThroughTheAir(cosSun);
     const double straightDown = cosSun > 0.0 ? cosSun : 0.0;
     for (int channel = 0; channel < 3; ++channel) {
       environment.RadianceLinear[channel] +=
-          static_cast<double>(skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
+          static_cast<double>(reach.Skylight[channel] / std::numbers::pi_v<float>) * aboveTheAir;
       const float onTheGround =
           static_cast<float>(aboveTheAir) *
-          static_cast<float>(straightDown * sunReach[channel] + skylight[channel]);
+          static_cast<float>(straightDown * reach.SunReach[channel] + reach.Skylight[channel]);
       environment.GroundLinear[channel] +=
           GroundAlbedo_[channel] * static_cast<double>(onTheGround / std::numbers::pi_v<float>);
     }

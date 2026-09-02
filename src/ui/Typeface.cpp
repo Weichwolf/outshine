@@ -268,7 +268,9 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   return Cells_[slot] = cut;
 }
 
-FontMetrics Typeface::At(double sizePx, Family family) const {
+FontMetrics Typeface::At(FontFace face) const {
+  const Family family = face.Name;
+  const double sizePx = face.SizePx;
   const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   const TTF_Font *set = Set(family, rounded);
   if (set == nullptr) {
@@ -281,7 +283,9 @@ FontMetrics Typeface::At(double sizePx, Family family) const {
   return {.Advance = Cell0f(family, rounded, U' ').AdvancePx, .Ascent = ascent, .Descent = descent};
 }
 
-Glyph Typeface::Shape(char32_t code, double sizePx, Family family) const {
+Glyph Typeface::Shape(char32_t code, FontFace face) const {
+  const Family family = face.Name;
+  const double sizePx = face.SizePx;
   const int rounded = std::max(1, static_cast<int>(std::lround(sizePx)));
   const Cell &cut = Cell0f(family, rounded, code);
   const double scale = sizePx / static_cast<double>(rounded);

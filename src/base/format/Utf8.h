@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace outshine {
 
@@ -67,7 +68,7 @@ constexpr uint32_t kTwoByteBits = 0x1Fu;
 constexpr uint32_t kThreeByteBits = 0x0Fu;
 constexpr uint32_t kFourByteBits = 0x07u;
 
-inline size_t ReadUtf8(const std::string &text, size_t at, char32_t &code) {
+inline size_t ReadUtf8(std::string_view text, size_t at, char32_t &code) {
   const auto lead = static_cast<unsigned char>(text[at]);
   size_t length = 1;
   code = lead;

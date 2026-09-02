@@ -32,14 +32,18 @@ enum class Family : uint8_t;
 
 [[nodiscard]] Family FamilyOf(uint32_t declared);
 
+struct FontFace {
+  Family Name = Family{};
+  double SizePx = 0;
+};
+
 struct Font {
   virtual ~Font() = default;
-  [[nodiscard]] virtual FontMetrics At(double sizePx, Family family) const = 0;
+  [[nodiscard]] virtual FontMetrics At(FontFace face) const = 0;
 
-  [[nodiscard]] virtual Glyph Shape(char32_t code, double sizePx, Family family) const {
+  [[nodiscard]] virtual Glyph Shape(char32_t code, FontFace face) const {
     (void)code;
-    (void)sizePx;
-    (void)family;
+    (void)face;
     return {};
   }
 
@@ -53,13 +57,13 @@ struct Font {
 };
 
 struct AhemFont final : Font {
-  [[nodiscard]] FontMetrics At(double sizePx, Family family) const override {
-    (void)family;
+  [[nodiscard]] FontMetrics At(FontFace face) const override {
+    const double sizePx = face.SizePx;
     return {.Advance = sizePx, .Ascent = sizePx * kAscentShare, .Descent = sizePx * kDescentShare};
   }
 
-  [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override {
-    (void)family;
+  [[nodiscard]] Glyph Shape(char32_t code, FontFace face) const override {
+    const double sizePx = face.SizePx;
     if (code == U' ') {
       return {.LeftPx = 0,
               .TopPx = 0,
@@ -87,6 +91,10 @@ struct AhemFont final : Font {
 
 struct Edges {
   double Top = 0, Right = 0, Bottom = 0, Left = 0;
+};
+
+struct Area {
+  double X = 0, Y = 0, Width = 0, Height = 0;
 };
 
 struct Box {

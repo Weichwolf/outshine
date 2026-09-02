@@ -7,14 +7,13 @@ static inline float3 mediumExtinctionPerKm(constant Medium &medium, float height
          ozone * float3(medium.OzoneAbsorptionPerKm);
 }
 
-static inline float2 mediumTransmittanceUv(constant Medium &medium, float radiusKm,
-                                           float cosZenith) {
+static inline float2 mediumTransmittanceUv(constant Medium &medium, MediumLook look) {
   float span = sqrt(max(0.0, medium.TopRadiusKm * medium.TopRadiusKm -
                              medium.BottomRadiusKm * medium.BottomRadiusKm));
-  float ground =
-      sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  float reach = mediumTopReach(medium, radiusKm, cosZenith);
-  float shortest = medium.TopRadiusKm - radiusKm;
+  float ground = sqrt(
+      max(0.0, look.RadiusKm * look.RadiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
+  float reach = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
+  float shortest = medium.TopRadiusKm - look.RadiusKm;
   float longest = ground + span;
   return float2((reach - shortest) / (longest - shortest), ground / span);
 }
@@ -67,7 +66,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
       float3 sun = float3(0.0);
       if (shadowed > 0.0) {
         sun = transmittance
-                  .sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
+                  .sample(lut, mediumTransmittanceUv(medium, MediumLook{hereKm, cosSunAt}), level(0.0))
                   .rgb;
       }
       float3 stepT = exp(-extinction * stride);
@@ -81,29 +80,12 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
   transfer = summedF / float(grid * grid);
 }
 
-static inline float2 skyViewUv(constant Medium &medium, float radiusKm, bool hitsGround,
-                               float cosView, float lightViewCos, float widthPx, float heightPx) {
-  float toHorizon =
-      sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = OUTSHINE_PI - beta;
-  float v;
-  if (!hitsGround) {
-    float coord = acos(clamp(cosView, -1.0, 1.0)) / zenithToHorizon;
-    coord = 1.0 - sqrt(max(0.0, 1.0 - coord));
-    v = coord * 0.5;
-  } else {
-    float coord = (acos(clamp(cosView, -1.0, 1.0)) - zenithToHorizon) / beta;
-    v = sqrt(max(0.0, coord)) * 0.5 + 0.5;
-  }
-  float u = sqrt(max(0.0, -lightViewCos * 0.5 + 0.5));
-  return float2(unitToSubUvs(u, widthPx), unitToSubUvs(v, heightPx));
-}
-
-static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float cosView,
-                                  float lightViewCos, float cosSunZenith,
+static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, SkyViewLook look,
+                                  float cosSunZenith,
                                   texture2d<float> transmittance, texture2d<float> multiScatter,
                                   sampler lut, uint steps, float segment, float liftKm) {
+  float cosView = look.CosView;
+  float lightViewCos = look.LightViewCos;
   float sinView = sqrt(max(0.0, 1.0 - cosView * cosView));
   float sinSun = sqrt(max(0.0, 1.0 - cosSunZenith * cosSunZenith));
   float3 dir = float3(sinView * lightViewCos,
@@ -132,7 +114,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
     float shadowed = mediumGroundReach(medium, hereKm - liftKm, cosSunAt) >= 0.0 ? 0.0 : 1.0;
     float3 toSun = float3(0.0);
     if (shadowed > 0.0) {
-      toSun = transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
+      toSun = transmittance.sample(lut, mediumTransmittanceUv(medium, MediumLook{hereKm, cosSunAt}), level(0.0))
                   .rgb;
     }
     float2 psiUv = float2(cosSunAt * 0.5 + 0.5,
@@ -157,7 +139,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
     float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
     if (cosSunAt > 0.0) {
       float3 toSunGround =
-          transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
+          transmittance.sample(lut, mediumTransmittanceUv(medium, MediumLook{hereKm, cosSunAt}), level(0.0))
               .rgb;
       summed += throughput * toSunGround * cosSunAt * float3(medium.GroundAlbedo) /
                 OUTSHINE_PI;
@@ -166,8 +148,10 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
   return summed;
 }
 
-static inline float3 mediumTransmittance(constant Medium &medium, float radiusKm, float cosZenith,
-                                         uint steps, float segment) {
+static inline float3
+mediumTransmittance(constant Medium &medium, MediumLook look, uint steps, float segment) {
+  float radiusKm = look.RadiusKm;
+  float cosZenith = look.CosZenith;
   float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
   float toTop = mediumTopReach(medium, radiusKm, cosZenith);
   float span = toGround < 0.0 ? toTop : min(toTop, toGround);

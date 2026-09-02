@@ -14,6 +14,36 @@ namespace outshine::Render {
 
 constexpr size_t kMediumBytes = 5 * 4 * sizeof(float);
 
+struct MediumUv {
+  float U;
+  float V;
+};
+
+struct MediumLutSize {
+  float WidthPx;
+  float HeightPx;
+};
+
+struct MediumLook {
+  float RadiusKm;
+  float CosZenith;
+};
+
+struct SkyViewLook {
+  float CosView;
+  float LightViewCos;
+};
+
+struct MediumSample {
+  Vec3f ScatteringPerKm;
+  Vec3f ExtinctionPerKm;
+};
+
+struct MultiScatterSample {
+  Vec3f Luminance;
+  Vec3f Transfer;
+};
+
 struct alignas(16) Medium {
   float BottomRadiusKm;
   float TopRadiusKm;
@@ -60,6 +90,10 @@ static_assert(alignof(Medium) == 16,
 
 namespace medium_core {
 using ::outshine::Render::Medium;
+using ::outshine::Render::MediumLook;
+using ::outshine::Render::MediumLutSize;
+using ::outshine::Render::MediumUv;
+using ::outshine::Render::SkyViewLook;
 
 inline float max(float a, float b) {
   return a > b ? a : b;
@@ -87,12 +121,8 @@ using std::sqrt;
 using medium_core::mediumGroundReach;
 using medium_core::mediumHeightAlong;
 using medium_core::mediumTopReach;
-using medium_core::mediumTransmittanceParams;
 using medium_core::miePhase;
 using medium_core::rayleighPhase;
-using medium_core::skyViewParams;
-using medium_core::subUvsToUnit;
-using medium_core::unitToSubUvs;
 
 inline constexpr uint32_t kTransmittanceLutWidth = 256;
 inline constexpr uint32_t kTransmittanceLutHeight = 64;
@@ -119,45 +149,43 @@ inline constexpr uint32_t kSkyViewLutHeight = 108;
 
 inline constexpr int kSkyViewSteps = 30;
 
-inline void MediumExtinctionPerKm(const Medium &medium, float heightKm, Vec3f &out) {
+[[nodiscard]] inline Vec3f MediumExtinctionPerKm(const Medium &medium, float heightKm) {
   const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
   const float mie = std::exp(-heightKm / medium.MieScaleHeightKm);
   const float tent = 1.0f - std::fabs(heightKm - medium.OzoneCentreKm) / medium.OzoneHalfWidthKm;
   const float ozone = std::fmin(1.0f, std::fmax(0.0f, tent));
+  Vec3f out;
   for (int channel = 0; channel < 3; ++channel) {
     out[channel] = rayleigh * medium.RayleighScatteringPerKm[channel] +
                    mie * medium.MieExtinctionPerKm + ozone * medium.OzoneAbsorptionPerKm[channel];
   }
+  return out;
 }
 
-inline void MediumScatterExtinctPerKm(const Medium &medium,
-                                      float heightKm,
-                                      Vec3f &scattering,
-                                      Vec3f &extinction) {
+[[nodiscard]] inline MediumSample MediumSampleAt(const Medium &medium, float heightKm) {
   const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
   const float mie = std::exp(-heightKm / medium.MieScaleHeightKm);
   const float tent = 1.0f - std::fabs(heightKm - medium.OzoneCentreKm) / medium.OzoneHalfWidthKm;
   const float ozone = std::fmin(1.0f, std::fmax(0.0f, tent));
+  MediumSample sample;
   for (int channel = 0; channel < 3; ++channel) {
-    scattering[channel] =
+    sample.ScatteringPerKm[channel] =
         rayleigh * medium.RayleighScatteringPerKm[channel] + mie * medium.MieScatteringPerKm;
-    extinction[channel] = rayleigh * medium.RayleighScatteringPerKm[channel] +
-                          mie * medium.MieExtinctionPerKm +
-                          ozone * medium.OzoneAbsorptionPerKm[channel];
+    sample.ExtinctionPerKm[channel] = rayleigh * medium.RayleighScatteringPerKm[channel] +
+                                      mie * medium.MieExtinctionPerKm +
+                                      ozone * medium.OzoneAbsorptionPerKm[channel];
   }
+  return sample;
 }
 
 template <typename ToSun>
-inline void MediumMultiScatterTexel(const Medium &medium,
-                                    float unitU,
-                                    float unitV,
-                                    ToSun &&transmittanceToSun,
-                                    Vec3f &luminance,
-                                    Vec3f &transfer) {
-  const float cosSun = unitU * 2.0f - 1.0f;
+[[nodiscard]] inline MultiScatterSample
+MediumMultiScatterTexel(const Medium &medium, MediumUv unit, ToSun &&transmittanceToSun) {
+  const float cosSun = unit.U * 2.0f - 1.0f;
   const float sinSun = std::sqrt(std::fmax(0.0f, 1.0f - cosSun * cosSun));
-  const float radiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                         unitV * (medium.TopRadiusKm - medium.BottomRadiusKm - kMediumGroundLiftKm);
+  const float radiusKm =
+      medium.BottomRadiusKm + kMediumGroundLiftKm +
+      unit.V * (medium.TopRadiusKm - medium.BottomRadiusKm - kMediumGroundLiftKm);
 
   Vec3 summedL = {0.0, 0.0, 0.0};
   Vec3 summedF = {0.0, 0.0, 0.0};
@@ -181,9 +209,9 @@ inline void MediumMultiScatterTexel(const Medium &medium,
     for (int step = 0; step < kMultiScatterSteps; ++step) {
       const float along = stride * (static_cast<float>(step) + kMediumLuminanceSegment);
       const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
-      Vec3f scattering;
-      Vec3f extinction;
-      MediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
+      const MediumSample sample = MediumSampleAt(medium, heightKm);
+      const Vec3f &scattering = sample.ScatteringPerKm;
+      const Vec3f &extinction = sample.ExtinctionPerKm;
 
       const float hereKm = heightKm + medium.BottomRadiusKm;
 
@@ -193,7 +221,7 @@ inline void MediumMultiScatterTexel(const Medium &medium,
       const float shadowed =
           mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
       Vec3f sun = {0.0f, 0.0f, 0.0f};
-      if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, sun); }
+      if (shadowed > 0.0f) { sun = transmittanceToSun(MediumLook{hereKm, cosSunAt}); }
 
       for (int channel = 0; channel < 3; ++channel) {
         const double stepT =
@@ -208,48 +236,25 @@ inline void MediumMultiScatterTexel(const Medium &medium,
       }
     }
   }
+  MultiScatterSample sample;
   for (int channel = 0; channel < 3; ++channel) {
-    luminance[channel] = static_cast<float>(
+    sample.Luminance[channel] = static_cast<float>(
         summedL[channel] / static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
-    transfer[channel] = static_cast<float>(
+    sample.Transfer[channel] = static_cast<float>(
         summedF[channel] / static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
   }
-}
-
-inline void SkyViewUv(const Medium &medium,
-                      float radiusKm,
-                      bool hitsGround,
-                      float cosView,
-                      float lightViewCos,
-                      float *u,
-                      float *v) {
-  const float toHorizon = std::sqrt(
-      std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float beta = std::acos(std::fmin(1.0f, std::fmax(-1.0f, toHorizon / radiusKm)));
-  const float zenithToHorizon = std::numbers::pi_v<float> - beta;
-  if (!hitsGround) {
-    float coord = std::acos(std::fmin(1.0f, std::fmax(-1.0f, cosView))) / zenithToHorizon;
-    coord = 1.0f - std::sqrt(std::fmax(0.0f, 1.0f - coord));
-    *v = coord * 0.5f;
-  } else {
-    const float coord =
-        (std::acos(std::fmin(1.0f, std::fmax(-1.0f, cosView))) - zenithToHorizon) / beta;
-    *v = std::sqrt(std::fmax(0.0f, coord)) * 0.5f + 0.5f;
-  }
-  *u = std::sqrt(std::fmax(0.0f, -lightViewCos * 0.5f + 0.5f));
-  *u = unitToSubUvs(*u, static_cast<float>(kSkyViewLutWidth));
-  *v = unitToSubUvs(*v, static_cast<float>(kSkyViewLutHeight));
+  return sample;
 }
 
 template <typename ToSun, typename Psi>
-inline void MediumSkyRay(const Medium &medium,
-                         float radiusKm,
-                         float cosView,
-                         float lightViewCos,
-                         float cosSunZenith,
-                         ToSun &&transmittanceToSun,
-                         Psi &&multiScattered,
-                         Vec3f &luminance) {
+[[nodiscard]] inline Vec3f MediumSkyRay(const Medium &medium,
+                                        float radiusKm,
+                                        SkyViewLook look,
+                                        float cosSunZenith,
+                                        ToSun &&transmittanceToSun,
+                                        Psi &&multiScattered) {
+  const float cosView = look.CosView;
+  const float lightViewCos = look.LightViewCos;
   const float sinView = std::sqrt(std::fmax(0.0f, 1.0f - cosView * cosView));
   const float sinSun = std::sqrt(std::fmax(0.0f, 1.0f - cosSunZenith * cosSunZenith));
   const Vec3f dir = {sinView * lightViewCos,
@@ -273,17 +278,15 @@ inline void MediumSkyRay(const Medium &medium,
     const float hereKm = heightKm + medium.BottomRadiusKm;
     const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
     const float mie = std::exp(-heightKm / medium.MieScaleHeightKm);
-    Vec3f extinction;
-    MediumExtinctionPerKm(medium, heightKm, extinction);
+    const Vec3f extinction = MediumExtinctionPerKm(medium, heightKm);
 
     const float sunDot = dir[0] * sun[0] + dir[2] * sun[2];
     const float cosSunAt = (radiusKm * cosSunZenith + along * sunDot) / hereKm;
     const float shadowed =
         mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
     Vec3f toSun = {0.0f, 0.0f, 0.0f};
-    if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, toSun); }
-    Vec3f psi = {0.0f, 0.0f, 0.0f};
-    multiScattered(hereKm, cosSunAt, psi);
+    if (shadowed > 0.0f) { toSun = transmittanceToSun(MediumLook{hereKm, cosSunAt}); }
+    const Vec3f psi = multiScattered(MediumLook{hereKm, cosSunAt});
 
     for (int channel = 0; channel < 3; ++channel) {
       const float scatterRay = rayleigh * medium.RayleighScatteringPerKm[channel];
@@ -306,8 +309,7 @@ inline void MediumSkyRay(const Medium &medium,
     const float sunDot = dir[0] * sun[0] + dir[2] * sun[2];
     const float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
     if (cosSunAt > 0.0f) {
-      Vec3f toSunGround;
-      transmittanceToSun(hereKm, cosSunAt, toSunGround);
+      const Vec3f toSunGround = transmittanceToSun(MediumLook{hereKm, cosSunAt});
       for (int channel = 0; channel < 3; ++channel) {
         summed[channel] += throughput[channel] * static_cast<double>(toSunGround[channel]) *
                            static_cast<double>(cosSunAt) *
@@ -315,18 +317,20 @@ inline void MediumSkyRay(const Medium &medium,
       }
     }
   }
+  Vec3f luminance;
   for (int channel = 0; channel < 3; ++channel) {
     luminance[channel] = static_cast<float>(summed[channel]);
   }
+  return luminance;
 }
 
 template <typename ToSun, typename Psi>
-inline void MediumSkyIrradiance(const Medium &medium,
-                                float radiusKm,
-                                float cosSunZenith,
-                                ToSun &&transmittanceToSun,
-                                Psi &&multiScattered,
-                                Vec3f &irradiance) {
+[[nodiscard]] inline Vec3f MediumSkyIrradiance(const Medium &medium,
+                                               MediumLook stands,
+                                               ToSun &&transmittanceToSun,
+                                               Psi &&multiScattered) {
+  const float radiusKm = stands.RadiusKm;
+  const float cosSunZenith = stands.CosZenith;
   Vec3 summed = {0.0, 0.0, 0.0};
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
     const float ring = (static_cast<float>(which / kMultiScatterGrid) + 0.5f) /
@@ -335,47 +339,26 @@ inline void MediumSkyIrradiance(const Medium &medium,
                          static_cast<float>(kMultiScatterGrid);
     const float azimuth = 2.0f * std::numbers::pi_v<float> * ring;
 
-    const float cosView = std::sqrt(around);
-    const float sinView = std::sqrt(std::fmax(0.0f, 1.0f - around));
-    const float lightViewCos = std::cos(azimuth);
-    (void)sinView;
-    Vec3f luminance;
-    MediumSkyRay(medium,
-                 radiusKm,
-                 cosView,
-                 lightViewCos,
-                 cosSunZenith,
-                 transmittanceToSun,
-                 multiScattered,
-                 luminance);
+    const SkyViewLook look = {std::sqrt(around), std::cos(azimuth)};
+    const Vec3f luminance =
+        MediumSkyRay(medium, radiusKm, look, cosSunZenith, transmittanceToSun, multiScattered);
     for (int channel = 0; channel < 3; ++channel) {
       summed[channel] += static_cast<double>(luminance[channel]);
     }
   }
 
+  Vec3f irradiance;
   for (int channel = 0; channel < 3; ++channel) {
     irradiance[channel] =
         static_cast<float>(summed[channel] * std::numbers::pi /
                            static_cast<double>(kMultiScatterGrid * kMultiScatterGrid));
   }
+  return irradiance;
 }
 
-inline void
-MediumTransmittanceUv(const Medium &medium, float radiusKm, float cosZenith, float *u, float *v) {
-  const float span = std::sqrt(std::fmax(0.0f,
-                                         medium.TopRadiusKm * medium.TopRadiusKm -
-                                             medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float ground = std::sqrt(
-      std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float reach = mediumTopReach(medium, radiusKm, cosZenith);
-  const float shortest = medium.TopRadiusKm - radiusKm;
-  const float longest = ground + span;
-  *u = (reach - shortest) / (longest - shortest);
-  *v = ground / span;
-}
-
-inline void
-MediumTransmittance(const Medium &medium, float radiusKm, float cosZenith, int steps, Vec3f &out) {
+[[nodiscard]] inline Vec3f MediumTransmittance(const Medium &medium, MediumLook look, int steps) {
+  const float radiusKm = look.RadiusKm;
+  const float cosZenith = look.CosZenith;
   const float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
   const float toTop = mediumTopReach(medium, radiusKm, cosZenith);
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
@@ -385,16 +368,17 @@ MediumTransmittance(const Medium &medium, float radiusKm, float cosZenith, int s
   for (int step = 0; step < steps; ++step) {
     const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
 
-    Vec3f extinction;
-    MediumExtinctionPerKm(
-        medium, mediumHeightAlong(medium, radiusKm, cosZenith, along), extinction);
+    const Vec3f extinction =
+        MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along));
     for (int channel = 0; channel < 3; ++channel) {
       depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
     }
   }
+  Vec3f out;
   for (int channel = 0; channel < 3; ++channel) {
     out[channel] = static_cast<float>(std::exp(-depth[channel]));
   }
+  return out;
 }
 
 [[nodiscard]] bool ParticipatingMediumMsl(std::string &into, std::string &error);

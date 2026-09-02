@@ -1,3 +1,8 @@
+struct MediumUv { float U; float V; };
+struct MediumLutSize { float WidthPx; float HeightPx; };
+struct MediumLook { float RadiusKm; float CosZenith; };
+struct SkyViewLook { float CosView; float LightViewCos; };
+
 struct Medium {
   float BottomRadiusKm; float TopRadiusKm; float RayleighScaleHeightKm; float MieScaleHeightKm;
   packed_float3 RayleighScatteringPerKm; float MieScatteringPerKm;

@@ -101,8 +101,8 @@ owns each millisecond, so the four seconds have a name rather than a theory.
 
 ## The nine places, CONFIRMED BY THE OWNER 2026-09-02
 
-Rendered together and looked at. These digests are the reference from here: a change that moves one
-of them says which and why, and a change that does not moves none.
+Rendered together and looked at. These digests are one STREAMING STATE and not a reference --
+the control below shows one unchanged binary rendering two of them differently.
 
 | place | digest | triangles | p50 | p95 | p99 | over 16.67 |
 |---|---|---|---|---|---|---|
@@ -123,3 +123,30 @@ eleven SECONDS, which is not a frame that is slightly late, it is a frame waitin
 
 Venice's digest is the one that wanders between 05b6863d and 9c9a4758; the others were seen once
 each here and their stability is not yet measured.
+
+## The control, 2026-09-02: the table above is a SNAPSHOT and not a reference
+
+The row of digests was about to be used as an oracle for a refactor. It cannot be, and the control
+that says so took four runs:
+
+| run | binary | place | digest |
+|---|---|---|---|
+| 1 | HEAD | Kaiserberg | `97c911b5` |
+| 2 | HEAD, THE SAME BUILD | Kaiserberg | `2c14838f` |
+| 3 | HEAD | Shibuya | `f7b85587` |
+| 4 | HEAD + a medium refactor | Shibuya | `f7b85587` |
+
+**Two consecutive runs of one unchanged binary render two different Kaiserberg pictures.** They
+differ in 400 of 921 600 pixels by at most 4 of 255, clustered -- a distant thing that arrived in
+one run and not the other, never a shifted sky, which would move every sky pixel by at least one.
+Shibuya's `70e2c675` and `f7b85587` differ in TWO pixels by 3.
+
+So the wandering is not Venice's alone: it is every place whose p99 is a multi-second stall, which
+is seven of the nine. The two that hold the frame -- CentralPark and ZurichPlan -- are the two that
+were stable across every run here, and that is the same fact from the other side.
+
+**What this costs.** `make shots` writes each picture under its digest so a frame that moved says
+so; while seven of nine wander, that instrument reports a change the tree did not make and stays
+silent about none it did. Until the stall is repaired the honest oracle is the PIXEL DELTA against
+a kept picture -- zero, or a handful of pixels at a handful of levels, or a shifted field -- and
+only the third is a change to the drawing. That is the reading this item has to make unnecessary.

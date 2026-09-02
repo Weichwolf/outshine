@@ -89,18 +89,24 @@ fragment float4 fs(VOut in [[stage_in]],
   // it below one, which is what the sign of the view's zenith angle decides.
   float3 through;
   if (cosZenith > 0.0) {
-    float3 atEye = veil.sample(veilSampler, mediumTransmittanceUv(pushed.air, radiusKm, cosZenith),
-                               level(0.0)).rgb;
-    float3 atEnd = veil.sample(veilSampler,
-                               mediumTransmittanceUv(pushed.air, endRadiusKm, endCosZenith),
-                               level(0.0)).rgb;
+    float3 atEye =
+        veil.sample(veilSampler,
+                    mediumTransmittanceUv(pushed.air, MediumLook{radiusKm, cosZenith}),
+                    level(0.0)).rgb;
+    float3 atEnd =
+        veil.sample(veilSampler,
+                    mediumTransmittanceUv(pushed.air, MediumLook{endRadiusKm, endCosZenith}),
+                    level(0.0)).rgb;
     through = clamp(atEye / max(atEnd, float3(1.0e-6)), float3(0.0), float3(1.0));
   } else {
-    float3 atEye = veil.sample(veilSampler, mediumTransmittanceUv(pushed.air, radiusKm, -cosZenith),
-                               level(0.0)).rgb;
-    float3 atEnd = veil.sample(veilSampler,
-                               mediumTransmittanceUv(pushed.air, endRadiusKm, -endCosZenith),
-                               level(0.0)).rgb;
+    float3 atEye =
+        veil.sample(veilSampler,
+                    mediumTransmittanceUv(pushed.air, MediumLook{radiusKm, -cosZenith}),
+                    level(0.0)).rgb;
+    float3 atEnd =
+        veil.sample(veilSampler,
+                    mediumTransmittanceUv(pushed.air, MediumLook{endRadiusKm, -endCosZenith}),
+                    level(0.0)).rgb;
     through = clamp(atEnd / max(atEye, float3(1.0e-6)), float3(0.0), float3(1.0));
   }
 

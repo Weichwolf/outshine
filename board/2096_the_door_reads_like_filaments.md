@@ -51,3 +51,36 @@ the same finding from the other side.
 
 Every public type is in a header named for what a client would look under, `Geometry` is `Model`,
 `Loaded` is `Asset`, and a stranger asked to find the camera declaration finds it without grep.
+
+## The SHAPES, measured 2026-09-02 -- and they are a separate half of the same debt
+
+Where the names go is above. This is what a client PASSES, and clang-tidy found it before I did:
+five door verbs take a run of bare doubles that a caller can transpose in silence.
+
+| the verb | now | what the reference does |
+|---|---|---|
+| `Camera::setProjection` | `(fovDeg, nearM, farM)` and `(left, right, bottom, top, near, far)` | Filament leads the second with `Projection::ORTHO`, so the two are told apart by a NAME rather than by counting arguments |
+| `Camera::setExposure` | `(apertureFStops, shutterS, sensitivityIso)` | Filament's is the same three, and Filament would be flagged here too |
+| `Engine::sampleHeight` | `(latitudeDeg, longitudeDeg, heightM&)` | Cesium passes a `Cartographic`; this tree already HAS `LongitudeLatitudeHeight` and does not use it at its own door |
+
+**The ortho overload is worse than a swap risk: it DROPS what it is handed.** It takes the four
+frustum edges and keeps `0.5 * (right - left)` and `0.5 * (top - bottom)`, so a client that declares
+an off-centre frustum gets a centred one and is told nothing. The one caller in this tree
+(`Render::CameraOf`) passes `-XMagM, +XMagM, -YMagM, +YMagM` -- it builds the symmetry the setter
+immediately undoes. Accepting a declaration and doing something else with it is the failure
+CLAUDE.md names by name.
+
+**The answer is glTF's camera, because that is where the numbers come from**: `perspective` is
+`{yfov, znear, zfar}` and `orthographic` is `{xmag, ymag, znear, zfar}` -- half-extents, never
+edges. Two named records, two overloads told apart by TYPE, and the asymmetry that cannot be held
+is refused at the door instead of silently centred.
+
+## `Renderer::render(Extent)` is the one STRUCTURAL question here, and it is not a rename
+
+Filament's is `Renderer::render(View*)` -- the view carries its own viewport, and rendering names
+what it draws. Ours is `Engine::setView(std::string_view)` followed by `Renderer::render(Extent)`:
+WHICH view is engine state and HOW BIG is the argument, which is the split Filament does not make.
+Whoever takes this states which of the two is right for a tree whose views are DECLARED by id in a
+scenario -- a `View*` a client holds is a handle into a document it does not own, and that may be
+the reason ours differs rather than an oversight. An item that cannot say which is not understood
+yet.

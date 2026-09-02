@@ -364,7 +364,12 @@ private:
   std::array<double, 3> AmbientStood_ = {0.0, 0.0, 0.0};
   std::array<double, 3> GroundStood_ = {0.0, 0.0, 0.0};
 
-  void SunThroughTheAir(double cosSun, Vec3f &sunReach, Vec3f &skylight) const;
+  struct AirReach {
+    Vec3f SunReach;
+    Vec3f Skylight;
+  };
+
+  [[nodiscard]] AirReach SunThroughTheAir(double cosSun) const;
 
   mutable double AirStoodAt_ = -2.0;
   mutable Vec3f SunReachStood_;

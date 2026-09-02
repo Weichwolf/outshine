@@ -15,12 +15,10 @@ kernel void mediumRadianceKernel(uint2 at [[thread_position_in_grid]],
   uint2 extent = uint2(into.get_width(), into.get_height());
   if (at.x >= extent.x || at.y >= extent.y) { return; }
   float2 uv = (float2(at) + 0.5) / float2(extent);
-  float cosView = 0.0;
-  float lightViewCos = 0.0;
-  skyViewParams(pushed.declared, pushed.eyeRadiusKm, uv.x, uv.y, float(extent.x), float(extent.y),
-                cosView, lightViewCos);
-  float3 luminance = mediumSkyRay(pushed.declared, pushed.eyeRadiusKm, cosView, lightViewCos,
-                                  pushed.cosSunZenith, transmittance, multiScatter, lut,
-                                  kSkyViewSteps, kMediumLuminanceSegment, kMediumGroundLiftKm);
+  SkyViewLook look = skyViewParams(pushed.declared, pushed.eyeRadiusKm, MediumUv{uv.x, uv.y},
+                                   MediumLutSize{float(extent.x), float(extent.y)});
+  float3 luminance = mediumSkyRay(pushed.declared, pushed.eyeRadiusKm, look, pushed.cosSunZenith,
+                                  transmittance, multiScatter, lut, kSkyViewSteps,
+                                  kMediumLuminanceSegment, kMediumGroundLiftKm);
   into.write(float4(luminance, 1.0), at);
 }

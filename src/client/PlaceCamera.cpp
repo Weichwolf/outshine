@@ -260,10 +260,7 @@ Shot Take(const Place &place, bool tells) {
 
   const auto began = std::chrono::steady_clock::now();
   if (!engine.declare(stands) || !engine.assemble()) {
-    shot.Why = std::string(place.Name) +
-               " needs terrain and OSM tiles and this machine has none "
-               "cached: " +
-               engine.error();
+    shot.Why = std::string(place.Name) + " was declared and did not assemble: " + engine.error();
     return shot;
   }
   const double stoodMs =

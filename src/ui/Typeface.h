@@ -27,8 +27,8 @@ public:
 
   [[nodiscard]] bool Opens(std::string_view fonts, std::string &error);
 
-  [[nodiscard]] FontMetrics At(double sizePx, Family family) const override;
-  [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;
+  [[nodiscard]] FontMetrics At(FontFace face) const override;
+  [[nodiscard]] Glyph Shape(char32_t code, FontFace face) const override;
 
   [[nodiscard]] const uint8_t *Sheet() const override { return Rgba_.data(); }
 
