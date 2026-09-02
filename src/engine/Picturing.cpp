@@ -46,9 +46,44 @@ static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
 
 namespace {
 
+constexpr size_t kBaseSnapshotRows = 40;
+constexpr double kBroadQuantile = 0.95;
+constexpr double kLeastSineBetween = 1.0e-3;
+constexpr double kLeastCapM = 0.01;
+constexpr double kLeastSpanM = 0.05;
+constexpr float kUnlitTint = 0.65f;
+constexpr double kAdriftMostM = 500.0;
+constexpr float kNearestOccluderM = 0.01f;
+
+constexpr float kLagoonRed = 0.05f;
+constexpr float kLagoonGreen = 0.11f;
+constexpr float kLagoonBlue = 0.16f;
+constexpr float kLagoonRoughness = 0.14f;
+
+constexpr double kFinestCellM = 32.0;
+constexpr double kCellPerRung = 8.0;
+constexpr int kZoomMost = 24;
+constexpr double kEastStepDeg = 0.0138;
+constexpr double kPerMille = 1000.0;
+constexpr double kFootprintReachM = 3200.0;
+constexpr double kSliverAreaM2 = 0.01;
+constexpr double kSliverEdgeM = 5.0;
+constexpr double kLongEdgeM = 20.0;
+constexpr double kUnraisedDeckM = -1.0e29;
+constexpr double kRoseLeast = 0.05;
+
+constexpr float kWallRed = 0.74f;
+constexpr float kWallGreen = 0.71f;
+constexpr float kWallBlue = 0.65f;
+constexpr float kWallRoughness = 0.88f;
+constexpr float kTileRed = 0.42f;
+constexpr float kTileGreen = 0.20f;
+constexpr float kTileBlue = 0.14f;
+constexpr float kTileRoughness = 0.72f;
+
 double DrapeCellM(size_t rung) {
-  double cellM = 32.0;
-  for (size_t step = 0; step < rung; ++step) { cellM *= 8.0; }
+  double cellM = kFinestCellM;
+  for (size_t step = 0; step < rung; ++step) { cellM *= kCellPerRung; }
   return cellM;
 }
 
@@ -167,8 +202,8 @@ bool Engine::State::Grows(double atLat, double atLon) {
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how = Generators::SnapshotOver(
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
-  World.Reached =
-      40 + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
+  World.Reached = kBaseSnapshotRows + (snapshot.Patch ? 1 : 0) + (snapshot.Classes ? 2 : 0) +
+                  (snapshot.Features ? 4 : 0);
   Published.Places("generators: the snapshot",
                    static_cast<double>(static_cast<int>(how)),
                    "0=taken 1=waiting 2=no ground");
@@ -279,7 +314,7 @@ bool Engine::State::Composes() {
     double hereM = 0.0;
     double eastM = 0.0;
     (void)World.Stack.Ground().At(atLat, atLon).TryAslM(&hereM);
-    (void)World.Stack.Ground().At(atLat, atLon + 0.0138).TryAslM(&eastM);
+    (void)World.Stack.Ground().At(atLat, atLon + kEastStepDeg).TryAslM(&eastM);
     Published.Places("ground: the relief says this at the origin", hereM, "m");
     Published.Places("ground: and this a kilometre east", eastM, "m");
   }
@@ -383,7 +418,7 @@ bool Engine::State::Asks() {
         "mesh jobs it dropped and will retry", static_cast<double>(kept.MeshDropped), "jobs");
     Published.Places("jobs waiting in the queue", static_cast<double>(kept.QueueDepth), "jobs");
   }
-  for (int zoom = 0; zoom < 24; ++zoom) {
+  for (int zoom = 0; zoom < kZoomMost; ++zoom) {
     if (asked->WantedAtZoom[zoom] == 0) { continue; }
     Published.Places("zoom " + std::to_string(zoom) + " wants " +
                          std::to_string(asked->WantedAtZoom[zoom]) + " and still waits for",
@@ -597,8 +632,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   double atLon = anchorLon;
   WhereTheEyeStands(atLat, atLon);
   Published.Places("the ring centres this far from the world's anchor",
-                   std::hypot((atLat - anchorLat) * 111132.0,
-                              (atLon - anchorLon) * 111320.0 * std::cos(anchorLat * kDeg2Rad)),
+                   std::hypot((atLat - anchorLat) * kMPerDegLat,
+                              (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
                    "m");
 
   Around over;
@@ -949,9 +984,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                               wornSum[2] / static_cast<double>(worn)}};
       Picture.Standing->Grounding(wornMean);
       Published.Places(
-          "lighting: the ground it bounces off, red", 1000.0 * wornMean[0], "albedo/1000");
-      Published.Places("lighting: green", 1000.0 * wornMean[1], "albedo/1000");
-      Published.Places("lighting: blue", 1000.0 * wornMean[2], "albedo/1000");
+          "lighting: the ground it bounces off, red", kPerMille * wornMean[0], "albedo/1000");
+      Published.Places("lighting: green", kPerMille * wornMean[1], "albedo/1000");
+      Published.Places("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
     }
     const Render::SubjectEnvironment &lighting = Picture.Standing->AmbientStanding();
     Published.Places("lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
@@ -1174,7 +1209,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             if (wide < kGroundCellM) { ++underOneCell; }
           }
           Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
-          Published.Places("buildings: a stamp would fill, p95", pick(fill, 0.95), "m");
+          Published.Places("buildings: a stamp would fill, p95", pick(fill, kBroadQuantile), "m");
           Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
           Published.Places(
               "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
@@ -1202,7 +1237,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
           const auto east = static_cast<double>(inFrame[at]);
           const auto south = static_cast<double>(inFrame[at + 2]);
-          if (east * east + south * south > 3200.0 * 3200.0) { continue; }
+          if (east * east + south * south > kFootprintReachM * kFootprintReachM) { continue; }
           const auto up = static_cast<double>(inFrame[at + 1]);
           least = up < least ? up : least;
           most = up > most ? up : most;
@@ -1250,15 +1285,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                               : wallVerts + roofRun[(tri - wallTris) * 3 + corner];
       };
       Material walls;
-      walls.BaseColour[0] = 0.74f;
-      walls.BaseColour[1] = 0.71f;
-      walls.BaseColour[2] = 0.65f;
-      walls.Roughness = 0.88f;
+      walls.BaseColour[0] = kWallRed;
+      walls.BaseColour[1] = kWallGreen;
+      walls.BaseColour[2] = kWallBlue;
+      walls.Roughness = kWallRoughness;
       Material tiles;
-      tiles.BaseColour[0] = 0.42f;
-      tiles.BaseColour[1] = 0.20f;
-      tiles.BaseColour[2] = 0.14f;
-      tiles.Roughness = 0.72f;
+      tiles.BaseColour[0] = kTileRed;
+      tiles.BaseColour[1] = kTileGreen;
+      tiles.BaseColour[2] = kTileBlue;
+      tiles.Roughness = kTileRoughness;
       const MaterialInstance wallSurface = ground.addSurface("walls", walls);
       const MaterialInstance roofSurface = ground.addSurface("roofs", tiles);
       Published.Places(
@@ -1392,11 +1427,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double edge = std::sqrt(std::max({ux * ux + uy * uy + uz * uz,
                                                   vx * vx + vy * vy + vz * vz,
                                                   wx * wx + wy * wy + wz * wz}));
-          if (area < 0.01 && edge > 5.0) {
+          if (area < kSliverAreaM2 && edge > kSliverEdgeM) {
             ++needles;
             longest = edge > longest ? edge : longest;
           }
-          if (edge > 20.0) {
+          if (edge > kLongEdgeM) {
             ++reaching;
             furthest = edge > furthest ? edge : furthest;
           }
@@ -1725,7 +1760,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const double onDrawn = drapedOver(eastM, -northM, upM);
           const double need = onDrawn + static_cast<double>(below.ClearanceM);
           if (need > deckM[spans]) {
-            if (deckM[spans] < -1.0e29) { ++decksRaised; }
+            if (deckM[spans] < kUnraisedDeckM) { ++decksRaised; }
             deckM[spans] = need;
             mostRaisedM = std::max(mostRaisedM, need - onDrawn);
           }
@@ -1782,7 +1817,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             if (seeded != groundEndM.end()) { seeded->second = std::max(seeded->second, stood); }
           }
         }
-        if (lane.Bridge && deckM[at] > -1.0e29) {
+        if (lane.Bridge && deckM[at] > kUnraisedDeckM) {
           for (const uint64_t one : key) {
             const auto found = endM.find(one);
             if (found == endM.end()) {
@@ -1812,7 +1847,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           if (low == endM.end() || high == endM.end()) { continue; }
           const double perLon = 111320.0 * std::cos(corner[0] * kDeg2Rad);
           const double runE = (corner[3] - corner[1]) * perLon;
-          const double runN = (corner[2] - corner[0]) * 111132.0;
+          const double runN = (corner[2] - corner[0]) * kMPerDegLat;
           const double runM = std::sqrt(runE * runE + runN * runN);
           const double mostM = runM * static_cast<double>(lane.MaxGradient);
           const double apartM = high->second - low->second;
@@ -1843,7 +1878,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           if (found == endM.end()) { continue; }
           rose = std::max(rose, found->second - stood[side]);
         }
-        if (rose > 0.05) {
+        if (rose > kRoseLeast) {
           ++rampsRaised;
           steepestRamp = std::max(steepestRamp, rose);
         }
@@ -1887,7 +1922,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const size_t next = side == 0 ? first + 2u : last - 2u;
           const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
           double outE = (points[next + 1] - points[here + 1]) * perLon;
-          double outN = (points[next] - points[here]) * 111132.0;
+          double outN = (points[next] - points[here]) * kMPerDegLat;
           const double run = std::sqrt(outE * outE + outN * outN);
           if (!(run > kLeastRunM)) { continue; }
           outE /= run;
@@ -1911,7 +1946,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                                       static_cast<double>(mine.DirN) * other.DirN;
             const double sinBetween = std::fabs(static_cast<double>(mine.DirE) * other.DirN -
                                                 static_cast<double>(mine.DirN) * other.DirE);
-            if (sinBetween < 1.0e-3) { continue; }
+            if (sinBetween < kLeastSineBetween) { continue; }
             const double reach =
                 (static_cast<double>(other.HalfM) + static_cast<double>(mine.HalfM) * cosBetween) /
                 sinBetween;
@@ -1929,11 +1964,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           }
           const double capped = std::min(back, static_cast<double>(mine.HalfM) * kTrimMostWidths);
           trimM[static_cast<size_t>(mine.Way) * 2u + mine.Side] = capped;
-          if (capped > 0.01) {
+          if (capped > kLeastCapM) {
             ++endsTrimmed;
             deepestTrimM = std::max(deepestTrimM, capped);
           }
-          if (back > capped + 0.01) {
+          if (back > capped + kLeastCapM) {
             ++endsStillCrossing;
             shortByM.push_back(back - capped);
             forkDeg.push_back(sharpest);
@@ -1948,7 +1983,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
       };
       Published.Places("streets: what a capped end was short by, p50", pick(shortByM, 0.5), "m");
-      Published.Places("streets: and p95", pick(shortByM, 0.95), "m");
+      Published.Places("streets: and p95", pick(shortByM, kBroadQuantile), "m");
       Published.Places("streets: and the most", shortByM.back(), "m");
       Published.Places("streets: the fork angle where the cap bit, p50", pick(forkDeg, 0.5), "deg");
       Published.Places("streets: and the sharpest", forkDeg.front(), "deg");
@@ -2007,7 +2042,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               }
               const double perLon = 111320.0 * std::cos(points[here] * kDeg2Rad);
               const double spanE = (points[next + 1] - points[here + 1]) * perLon;
-              const double spanN = (points[next] - points[here]) * 111132.0;
+              const double spanN = (points[next] - points[here]) * kMPerDegLat;
               const auto pieces =
                   static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
               for (size_t piece = 0; piece < pieces && whole; ++piece) {
@@ -2150,7 +2185,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const double wholeM = reached.back();
             const double fromM = trimM[laneAt * 2u];
             const double toM = wholeM - trimM[laneAt * 2u + 1u];
-            if (toM - fromM >= kLeastRoadM && (fromM > 0.01 || toM < wholeM - 0.01)) {
+            if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - 0.01)) {
               const auto standAt = [&](double alongM) {
                 size_t at = 1;
                 while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
@@ -2282,7 +2317,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const double runE = along[at].EastM - along[at - 1u].EastM;
             const double runS = along[at].SouthM - along[at - 1u].SouthM;
             const double runM = std::sqrt(runE * runE + runS * runS);
-            if (!(runM > 0.05)) { continue; }
+            if (!(runM > kLeastSpanM)) { continue; }
             const double groundAt =
                 drapedOver(along[at].EastM, -along[at].SouthM, along[at].GradeM);
             const double groundBefore =
@@ -2512,7 +2547,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       }
       Published.Places("streets: the offset a fitted line needed, p50", pick(fitOffsetM, 0.5), "m");
       Published.Places(
-          "streets: the offset a fitted line needed, p95", pick(fitOffsetM, 0.95), "m");
+          "streets: the offset a fitted line needed, p95", pick(fitOffsetM, kBroadQuantile), "m");
       Published.Places("streets: the offset a fitted line needed, worst", fitOffsetM.back(), "m");
       Published.Places(
           "streets: the radius a fitted line found, tightest", pick(fitRadiusM, 0.0), "m");
@@ -2550,7 +2585,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       corner.reserve(pavement.PositionM.size() / 3);
       size_t shared = 0;
       for (size_t at = 0; at + 2 < pavement.PositionM.size(); at += 3) {
-        uint64_t keyed = 1469598103934665603ULL;
+        uint64_t keyed = kDigestBasis;
         for (size_t axis = 0; axis < 3; ++axis) {
           keyed =
               (keyed ^ std::bit_cast<uint32_t>(pavement.PositionM[at + axis])) * 1099511628211ULL;
@@ -2569,7 +2604,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       for (size_t vertex = 0; vertex + 2 < pavement.PositionM.size(); vertex += 3) {
         const double under = drapedOver(
             pavement.PositionM[vertex], pavement.PositionM[vertex + 2], -kBeyondAnyCoordinate);
-        if (under < -1.0e29) { continue; }
+        if (under < kUnraisedDeckM) { continue; }
         const double aloft = static_cast<double>(pavement.PositionM[vertex + 1]) - under;
         aboveM.push_back(aloft);
         if (aloft > kFlyingM) { ++flying; }
@@ -2596,7 +2631,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         const int asphalt = World.Stack.Materials().Find("asphalt");
         tarmac.Roughness = asphalt >= 0
                                ? World.Stack.Materials().At(static_cast<size_t>(asphalt)).Roughness
-                               : 0.65f;
+                               : kUnlitTint;
       }
       const MaterialInstance paved = ground.addSurface("streets", tarmac);
       const int pavedPart = ground.addPart("streets", paved);
@@ -2777,7 +2812,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                              three * static_cast<double>(inFrame[c + 1u]);
           stood = std::max(stood, upM);
         }
-        if (stood < -1.0e29) { continue; }
+        if (stood < kUnraisedDeckM) { continue; }
         const double under = stood - static_cast<double>(pavement.PositionM[at + 1]);
         ++compared;
         summed += under > 0.0 ? under : 0.0;
@@ -2858,10 +2893,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     Published.Places("water: triangles", static_cast<double>(order.size() / 3), "triangles");
     if (order.size() >= 3) {
       Material lagoon;
-      lagoon.BaseColour[0] = 0.05f;
-      lagoon.BaseColour[1] = 0.11f;
-      lagoon.BaseColour[2] = 0.16f;
-      lagoon.Roughness = 0.14f;
+      lagoon.BaseColour[0] = kLagoonRed;
+      lagoon.BaseColour[1] = kLagoonGreen;
+      lagoon.BaseColour[2] = kLagoonBlue;
+      lagoon.Roughness = kLagoonRoughness;
       lagoon.DoubleSided = true;
       const MaterialInstance wetSurface = ground.addSurface("water", lagoon);
       const int wetPart = ground.addPart("water", wetSurface);
@@ -3050,7 +3085,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       size_t adrift = 0;
       for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
         const double off = static_cast<double>(inFrame[at + 1]) - mean;
-        if (off > 500.0 || off < -500.0) { ++adrift; }
+        if (off > kAdriftMostM || off < -kAdriftMostM) { ++adrift; }
       }
       Published.Places("the height its vertices average", mean, "m");
       Published.Places(
@@ -3252,7 +3287,7 @@ bool Engine::State::Blocked(const Vec3 &sourceM) const {
     fromM[axis] = static_cast<float>(eye.EyeM[axis]);
     along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
   }
-  return World.Blocking.Occludes(fromM, along, 0.01f, static_cast<float>(awayM));
+  return World.Blocking.Occludes(fromM, along, kNearestOccluderM, static_cast<float>(awayM));
 }
 
 Result Engine::mix(std::span<float> stereo, int rate) {

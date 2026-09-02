@@ -13,7 +13,9 @@ constexpr double kDegPerHalfTurn = 180.0;
 constexpr double kDeg2Rad = kPi / kDegPerHalfTurn;
 constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
-constexpr double kMPerDeg = 111320.0;
+constexpr double kMPerDegLon = 111320.0;
+constexpr double kMPerDegLat = 111132.0;
+constexpr double kMPerDeg = kMPerDegLon;
 
 constexpr double kMPerKm = 1000.0;
 constexpr double kMmPerM = 1000.0;
