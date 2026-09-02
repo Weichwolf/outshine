@@ -236,7 +236,7 @@ bool LayCorridor(const Path::Route &route,
              fitted.LengthM / route.LengthM - 1.0,
              "of it");
   say.Number("the speed the tightest radius allows at 0.95 g",
-             std::sqrt(kGripMargin * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6,
+             std::sqrt(kGripMargin * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * kMsToKmh,
              "km/h");
 
   const double postM = ground.PostM(middleLat);
@@ -429,7 +429,7 @@ bool LayCorridor(const Path::Route &route,
         "the top speed the declaration would allow", stood.Envelope.TopMs() * kMsToKmh, "km/h");
     say.Number("the look-ahead time the pilot settles over", outshine::Pilot::kSettleS, "s");
     say.Number("the reach that buys at the fastest the plan holds", reachM, "m");
-    say.Number("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
+    say.Number("the fastest the lane centre may move sideways", mostPerM * kMmPerM, "mm per metre");
     say.Number("so a full-budget shift is taken over", budgetM / mostPerM, "m of road");
     const double most = mostPerM * fineM;
 

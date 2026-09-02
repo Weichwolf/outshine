@@ -41,6 +41,8 @@
 
 namespace outshine::Render {
 
+constexpr float kFovUnsaidDeg = 60.0f;
+
 class SceneRenderer {
 public:
   void Init(int width, int height, std::shared_ptr<const Compiled> plan);
@@ -427,7 +429,7 @@ private:
   [[nodiscard]] Placed PictureRect() const;
   Vec3 Eye_ = {{0, 0, 0}};
   Vec3 Fwd_, Right_, Up_;
-  float FovDeg_ = 60.0f;
+  float FovDeg_ = kFovUnsaidDeg;
   float OrthoM_ = 0.0f;
   float NearM_ = kNearM;
 

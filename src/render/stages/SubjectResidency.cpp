@@ -14,6 +14,8 @@
 
 namespace outshine::Render {
 
+constexpr float kByteSteps = 255.0f;
+
 constexpr float kSrgbKnee = 0.04045f;
 constexpr float kSrgbLinearSlope = 12.92f;
 constexpr float kSrgbOffset = 0.055f;
@@ -40,7 +42,7 @@ inline constexpr std::string_view kTopologyStagingDidNotMap =
 namespace {
 
 float LinearFromSrgb8(uint8_t code) {
-  const float encoded = static_cast<float>(code) * (1.0f / 255.0f);
+  const float encoded = static_cast<float>(code) * (1.0f / kByteSteps);
   if (encoded < kSrgbKnee) { return encoded * (1.0f / kSrgbLinearSlope); }
   return std::pow((encoded + kSrgbOffset) * (1.0f / kSrgbScale), kSrgbGamma);
 }
@@ -251,10 +253,10 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     for (size_t channel = 0; channel < 3; ++channel) {
       const uint8_t code = texels[texel * 4u + channel];
       linear[texel * 4u + channel] =
-          decode == Transfer::Srgb ? LinearFromSrgb8(code) : static_cast<float>(code) / 255.0f;
+          decode == Transfer::Srgb ? LinearFromSrgb8(code) : static_cast<float>(code) / kByteSteps;
     }
     linear[texel * kRgbaChannels + kAlphaChannel] =
-        static_cast<float>(texels[texel * kRgbaChannels + kAlphaChannel]) / 255.0f;
+        static_cast<float>(texels[texel * kRgbaChannels + kAlphaChannel]) / kByteSteps;
   }
 
   if (kind == TexelKind::Direction) {

@@ -97,8 +97,8 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
   if (day < 1 || day > DaysInMonth(year, mon)) { return false; }
 
   if (hour > kHourMost || min > kMinuteMost || sec > kSecondMost) { return false; }
-  outUnixS =
-      DaysFromCivil(year, mon, day) * kSecondsPerDay + hour * kSecondsPerHour + min * 60 + sec;
+  outUnixS = DaysFromCivil(year, mon, day) * kSecondsPerDay + hour * kSecondsPerHour +
+             min * kSecondsPerMinute + sec;
   return true;
 }
 

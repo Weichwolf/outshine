@@ -11,6 +11,8 @@
 
 namespace outshine::Render {
 
+constexpr size_t kDefineBytes = 48;
+
 inline constexpr SDL_GPUTextureFormat kVelocityFormat = SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
 
 inline constexpr float kVelocityStatic = -1.0e4f;
@@ -27,7 +29,7 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
 }
 
 [[nodiscard]] inline std::string VelocityStaticDefine() {
-  std::array<char, 48> made{};
+  std::array<char, kDefineBytes> made{};
   std::snprintf(made.data(),
                 made.size(),
                 "#define VELOCITY_STATIC %.9ef\n",

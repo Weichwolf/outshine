@@ -13,6 +13,10 @@
 
 namespace outshine::Generators {
 
+constexpr double kCellUnsaidM = 8.0;
+
+constexpr double kCellPerRungStep = 8.0;
+
 constexpr double kCellPerRung = 8.0;
 
 class RegionPool {
@@ -22,7 +26,7 @@ public:
 
     uint32_t BodyCapacity = 4096;
 
-    double CellM = 8.0;
+    double CellM = kCellUnsaidM;
   };
 
   struct Extent {

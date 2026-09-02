@@ -15,6 +15,8 @@
 
 namespace outshine::Ui {
 
+constexpr uint32_t kOpaqueAlpha = 0x000000FFu;
+
 namespace {
 
 constexpr double kEmPx = 16.0;
@@ -548,7 +550,7 @@ double Placer::Runs(int node,
       line.Text = text.substr(at, take);
       line.FontSize = emPx;
       line.Face = face;
-      line.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
+      line.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : kOpaqueAlpha;
       line.Width = Width(line.Text, 0, line.Text.size(), emPx, face);
       line.Height = lineHeight;
       line.Y = y;
@@ -1093,7 +1095,7 @@ double Placer::Place(int node,
   box.Clips = spills.Word == kHidden || box.Scrolls;
   box.Positioned =
       style.Has(Property::Position) && style.Word(Property::Position, kStatic) != kStatic;
-  box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
+  box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : kOpaqueAlpha;
   box.FontSize = emPx;
   box.Parent = parentBox;
 

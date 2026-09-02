@@ -7,6 +7,9 @@
 #include <vector>
 
 namespace outshine::Data {
+
+constexpr size_t kTypicalPayloadBytes = 13380;
+
 namespace {
 
 [[nodiscard]] SourceDecl Declared() {
@@ -22,7 +25,7 @@ namespace {
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Local;
 
-  d.TypicalPayloadBytes = 13380;
+  d.TypicalPayloadBytes = kTypicalPayloadBytes;
   d.RetryBudget = 0;
   return d;
 }

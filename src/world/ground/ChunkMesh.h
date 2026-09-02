@@ -16,6 +16,8 @@
 
 namespace outshine::Ground {
 
+constexpr double kLeastNormalM = 1e-9;
+
 inline int ChunkBuildEcef(const TerrainMesh &mesh,
                           int z,
                           uint32_t x,
@@ -110,7 +112,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
       double ny = te[2] * tn[0] - te[0] * tn[2];
       double nz = te[0] * tn[1] - te[1] * tn[0];
       double L = sqrt(nx * nx + ny * ny + nz * nz);
-      if (L < 1e-9) {
+      if (L < kLeastNormalM) {
         nx = radial[0];
         ny = radial[1];
         nz = radial[2];

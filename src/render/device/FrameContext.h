@@ -8,6 +8,8 @@
 
 namespace outshine::Render {
 
+constexpr size_t kFrameContextBytes = 192;
+
 struct FrameContext {
   alignas(16) Vec3 PreViewTranslation;
   alignas(16) Mat4f Mvp{};
@@ -16,7 +18,7 @@ struct FrameContext {
   alignas(16) Mat4f PrevMvp{};
 };
 
-static_assert(alignof(FrameContext) == 16 && sizeof(FrameContext) == 192,
+static_assert(alignof(FrameContext) == 16 && sizeof(FrameContext) == kFrameContextBytes,
               "the frame's one translation and the matrix rows start on 128-bit boundaries");
 
 } // namespace outshine::Render

@@ -11,6 +11,8 @@
 
 namespace outshine::Render {
 
+constexpr size_t kPreludeBytes = 192;
+
 inline constexpr double kSheenPi = std::numbers::pi;
 
 [[nodiscard]] inline double SheenDistribution(double nh, double roughness) {
@@ -92,7 +94,7 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
       table += cell.data();
     }
   }
-  std::array<char, 192> head{};
+  std::array<char, kPreludeBytes> head{};
   std::snprintf(head.data(), head.size(), "constant int kSheenSteps = %d;\n", kSheenAlbedoSteps);
   return std::string(head.data()) + "constant float kSheenAlbedo[] = { " + table + " };\n" + body;
 }

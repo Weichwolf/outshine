@@ -13,6 +13,12 @@
 
 namespace outshine::Ui {
 
+constexpr uint32_t kUnicodeMost = 0x10FFFF;
+
+constexpr char kNbspTail = static_cast<char>(0xA0);
+
+constexpr char kNbspLead = static_cast<char>(0xC2);
+
 namespace {
 
 bool Matches(std::string_view a, const char *b) {
@@ -57,14 +63,14 @@ void Resolve(std::string_view raw, std::string &out) {
     } else if (Matches(name, "apos")) {
       out.push_back('\'');
     } else if (Matches(name, "nbsp")) {
-      out.push_back(static_cast<char>(0xC2));
-      out.push_back(static_cast<char>(0xA0));
+      out.push_back(kNbspLead);
+      out.push_back(kNbspTail);
     } else if (!name.empty() && name[0] == '#') {
       const bool hex = name.size() > 1 && (name[1] == 'x' || name[1] == 'X');
       const std::string_view digits = name.substr(hex ? 2 : 1);
       long parsed = 0;
       (void)std::from_chars(digits.data(), digits.data() + digits.size(), parsed, hex ? 16 : 10);
-      if (parsed <= 0 || parsed > 0x10FFFF) {
+      if (parsed <= 0 || parsed > kUnicodeMost) {
         out.push_back('&');
         ++at;
         continue;

@@ -18,10 +18,12 @@
 
 namespace outshine::Render {
 
+constexpr size_t kPlaneFloats = 24;
+
 namespace {
 
 struct CullView {
-  std::array<float, 24> Planes{};
+  std::array<float, kPlaneFloats> Planes{};
   Vec4f Shift;
   uint32_t Jobs;
   float ErrorPerMetre;
@@ -46,7 +48,7 @@ std::string Kernel(std::string &error) {
 std::atomic<float> gErrorPerMetre{0.0f};
 std::atomic<uint32_t> gJobsSwept{0};
 
-void PlanesOf(const Mat4f &mvp, std::span<float, 24> out) {
+void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
   for (int at = 0; at < 6; ++at) {
     const int axis = at / 2;

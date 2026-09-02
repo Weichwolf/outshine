@@ -12,6 +12,9 @@
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
+
+constexpr float kMPerKmF = 1000.0f;
+
 namespace {
 
 struct Pushed {
@@ -104,7 +107,7 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   pushed.Declared = Standing_.Declared;
   pushed.CosSunZenith = Standing_.CosSunZenith;
   pushed.EyeRadiusKm = Standing_.Declared.BottomRadiusKm + kMediumGroundLiftKm +
-                       std::fmax(0.0f, Standing_.EyeHeightM) / 1000.0f;
+                       std::fmax(0.0f, Standing_.EyeHeightM) / kMPerKmF;
   SDL_PushGPUComputeUniformData(into.Commands, 0, &pushed, static_cast<uint32_t>(sizeof pushed));
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   std::array<SDL_GPUTextureSamplerBinding, 2> bound = {

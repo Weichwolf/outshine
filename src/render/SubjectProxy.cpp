@@ -26,6 +26,8 @@
 
 namespace outshine::Render {
 
+constexpr uint64_t kDigestMask = 0xffffffffffffull;
+
 void SubjectProxy::Stands(const Shape &subject, const Vec3 &anchorEcefM) {
   Shape_ = &subject;
   for (int axis = 0; axis < 3; ++axis) { AnchorEcefM_[axis] = anchorEcefM[axis]; }
@@ -475,7 +477,7 @@ double DigestedMs() {
 }
 
 double HandedGeometryDigest() {
-  return static_cast<double>(gGeometryDigest.load(std::memory_order_relaxed) & 0xffffffffffffull);
+  return static_cast<double>(gGeometryDigest.load(std::memory_order_relaxed) & kDigestMask);
 }
 
 bool Place(SceneRenderer &renderer,

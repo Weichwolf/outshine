@@ -2185,7 +2185,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const double wholeM = reached.back();
             const double fromM = trimM[laneAt * 2u];
             const double toM = wholeM - trimM[laneAt * 2u + 1u];
-            if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - 0.01)) {
+            if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - kLeastCapM)) {
               const auto standAt = [&](double alongM) {
                 size_t at = 1;
                 while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
@@ -2614,7 +2614,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           return aboveM[static_cast<size_t>(static_cast<double>(aboveM.size() - 1u) * part)];
         };
         Published.Places("streets: a vertex stands over the ground, p50", pick(0.5), "m");
-        Published.Places("streets: a vertex stands over the ground, p95", pick(0.95), "m");
+        Published.Places(
+            "streets: a vertex stands over the ground, p95", pick(kBroadQuantile), "m");
         Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
         Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
         Published.Places(

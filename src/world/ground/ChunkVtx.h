@@ -8,6 +8,8 @@
 
 namespace outshine {
 
+constexpr size_t kChunkVtxBytes = 20;
+
 struct ChunkVtx {
   Vec3f pos;
   Vec2f uv;
@@ -45,7 +47,7 @@ inline void ChunkFree(Chunk *c) {
 static_assert(sizeof(ChunkVtx) == kVertexStrideB, "vertex must be tightly packed (no padding)");
 static_assert(offsetof(ChunkVtx, pos) == 0, "aPos offset");
 static_assert(offsetof(ChunkVtx, uv) == 12, "aUV offset");
-static_assert(offsetof(ChunkVtx, norm) == 20, "aNorm offset");
+static_assert(offsetof(ChunkVtx, norm) == kChunkVtxBytes, "aNorm offset");
 
 } // namespace outshine
 #endif

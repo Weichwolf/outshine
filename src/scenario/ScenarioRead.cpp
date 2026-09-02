@@ -16,11 +16,15 @@
 
 namespace outshine {
 
+constexpr double kPitchLimitUnsaidDeg = 89.0;
+
+constexpr double kExposureCalibration = 1.2;
+
 double Scenario::Camera::exposureScale() const {
   if (!exposed()) { return 0.0; }
   const double ev100 =
       std::log2(ApertureFStops * ApertureFStops / ShutterS) - std::log2(SensitivityIso / 100.0);
-  return 1.0 / (1.2 * std::pow(2.0, ev100));
+  return 1.0 / (kExposureCalibration * std::pow(2.0, ev100));
 }
 
 const Scenario::Asset *Scenario::Document::subject() const {
@@ -711,7 +715,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);
     made.RisesBy = one.Num("risesBy", made.RisesBy);
-    made.PitchLimitDeg = one.Num("pitchLimitDeg", 89.0);
+    made.PitchLimitDeg = one.Num("pitchLimitDeg", kPitchLimitUnsaidDeg);
     made.OffsetM[0] = one.Num("offsetX", 0.0);
     made.OffsetM[1] = one.Num("offsetY", 0.0);
     made.OffsetM[2] = one.Num("offsetZ", 0.0);

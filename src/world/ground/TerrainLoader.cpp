@@ -30,6 +30,10 @@ using outshine::Ground::TilePool;
 
 namespace {
 
+constexpr double kPollsPerSecond = 1000.0;
+
+constexpr double kBytesPerMB = 1048576.0;
+
 constexpr int kMaxTileThreads = 6;
 
 constexpr size_t kByteBudget = 64u * 1024u * 1024u;
@@ -171,7 +175,7 @@ GroundStream::~GroundStream() {
                 {"stitchMsPerBuild",
                  (Held_->Builds != 0) ? Held_->StitchMs / static_cast<double>(Held_->Builds) : 0.0},
                 {"gridCache", kGroundStitchGrids},
-                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
+                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / kBytesPerMB}});
   }
 }
 
@@ -432,7 +436,7 @@ TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double pa
   config.Threads = DerivedThreads(workers);
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;
-  if (patienceS > 0.0) { config.PollAttempts = static_cast<int>(patienceS * 1000.0); }
+  if (patienceS > 0.0) { config.PollAttempts = static_cast<int>(patienceS * kPollsPerSecond); }
   return config;
 }
 

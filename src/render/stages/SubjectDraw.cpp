@@ -37,6 +37,10 @@
 
 namespace outshine::Render {
 
+constexpr size_t kPrevAnchorSlot = 52;
+
+constexpr size_t kAnchorSlot = 48;
+
 namespace {
 
 constexpr SDL_GPUFrontFace kGltfFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
@@ -877,8 +881,9 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   std::array<float, kUniFloats> uniform = {{}};
   const auto place = [this, &ctx, &uniform, &into] {
     for (int axis = 0; axis < 3; ++axis) {
-      uniform[48 + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
-      uniform[52 + axis] = static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
+      uniform[kAnchorSlot + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
+      uniform[kPrevAnchorSlot + axis] =
+          static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
     }
     for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp[i]; }
     for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }

@@ -9,6 +9,8 @@
 
 namespace outshine::Render {
 
+constexpr float kMPerKmF = 1000.0f;
+
 bool AerialPerspectiveStage::Configure(const Gpu &gpu,
                                        SDL_GPUTexture *scene,
                                        SDL_GPUTexture *depth,
@@ -67,7 +69,7 @@ void AerialPerspectiveStage::Declare(const Medium &medium,
   }
   Pushed_.Illuminance = illuminanceLux;
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.Air = medium;
   Declared_ = true;
 }
@@ -75,7 +77,7 @@ void AerialPerspectiveStage::Declare(const Medium &medium,
 void AerialPerspectiveStage::Eye(const Medium &medium, float eyeHeightM) {
   if (!Declared_) { return; }
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
 }
 
 void AerialPerspectiveStage::SetBasis(

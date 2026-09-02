@@ -12,6 +12,12 @@
 
 namespace outshine::Ground {
 
+constexpr double kCoverUnsaid = 0.35;
+
+constexpr double kLitterUnsaid = 0.01;
+
+constexpr double kEdgeReachUnsaidM = 0.05;
+
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Table_.clear();
   Names_.clear();
@@ -119,7 +125,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row->Mix[1] = static_cast<float>(g["contrast"].Num(0.5));
     row->Mix[2] = gm.SpecularScale;
     row->Mix[3] = lm.SpecularScale;
-    row->Edge[0] = static_cast<float>(g["edgeReachM"].Num(0.05));
+    row->Edge[0] = static_cast<float>(g["edgeReachM"].Num(kEdgeReachUnsaidM));
     row->Edge[1] = static_cast<float>(g["edgeConstructed"].Num(0.0));
     row->Edge[3] = gm.SlopeMaxDeg;
     Friction_.push_back(gm.FrictionFactor);
@@ -148,9 +154,9 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row.Grass[3] = static_cast<float>(gr["perM2"].Num(0.0));
     row.Dry[3] = static_cast<float>(gr["heightM"].Num(0.0));
     row.Param[0] = static_cast<float>(gr["heightJitter"].Num(0.5));
-    row.Param[1] = static_cast<float>(gr["widthM"].Num(0.01));
+    row.Param[1] = static_cast<float>(gr["widthM"].Num(kLitterUnsaid));
     row.Param[2] = static_cast<float>(t["clutter"]["perM2"].Num(0.0));
-    row.Param[3] = static_cast<float>(gr["dryFraction"].Num(0.35));
+    row.Param[3] = static_cast<float>(gr["dryFraction"].Num(kCoverUnsaid));
     row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
     const float closure = static_cast<float>(g["swardClosure"].Num(0.0));

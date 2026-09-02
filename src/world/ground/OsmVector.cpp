@@ -8,6 +8,10 @@
 
 namespace outshine::Ground {
 
+constexpr int kVarintShiftMost = 63;
+
+constexpr uint64_t kVarintPayload = 0x7fu;
+
 namespace {
 
 struct Reader {
@@ -19,10 +23,10 @@ struct Reader {
     int s = 0;
     while (P < End) {
       const uint8_t b = *P++;
-      r |= static_cast<uint64_t>(b & 0x7fu) << static_cast<uint32_t>(s);
+      r |= static_cast<uint64_t>(b & kVarintPayload) << static_cast<uint32_t>(s);
       if ((b & 0x80u) == 0) { return r; }
       s += 7;
-      if (s > 63) { break; }
+      if (s > kVarintShiftMost) { break; }
     }
     Ok = false;
     return 0;

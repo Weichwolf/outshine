@@ -36,6 +36,8 @@ using outshine::Path::Waypoint;
 
 namespace outshine::Sim {
 
+constexpr double kSpeedMargin = 1.05;
+
 namespace {
 constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
@@ -172,7 +174,7 @@ bool AssembleDrive(const Scene &scene,
 
   const double quantumM = outshine::Ground::kMercatorGirthM /
                           (static_cast<double>(1L << static_cast<uint32_t>(kZoom)) * 4096.0);
-  Network roads(1.05 * quantumM, world.Origin.RadiusM);
+  Network roads(kSpeedMargin * quantumM, world.Origin.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
   out.Found.StreetsAbsent = reaped.StreetsAbsent;
@@ -338,7 +340,7 @@ bool AssembleDrive(const Scene &scene,
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
   say.Number("the fastest the car may move between lane centres",
-             out.Way.AsideRatePerM * 1000.0,
+             out.Way.AsideRatePerM * kMPerKm,
              "mm per metre");
   body.PositionM[0] = start.EastM - std::sin(start.HeadingRad) * startAsideM;
   body.PositionM[1] = under0.HeightM + stood.CentreM[1];

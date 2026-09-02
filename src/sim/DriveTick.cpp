@@ -21,7 +21,9 @@
 
 namespace outshine::Sim {
 
-static_assert(sizeof(Ridden) == 456, "sizeof(Ridden)");
+constexpr size_t kRiddenBytes = 456;
+
+static_assert(sizeof(Ridden) == kRiddenBytes, "sizeof(Ridden)");
 static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a value");
 static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
 

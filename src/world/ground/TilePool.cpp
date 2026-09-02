@@ -60,7 +60,7 @@ uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return (kTerrainKind << kKindShift) |
          (static_cast<uint64_t>(static_cast<uint32_t>(z) & kZoomMask) << kZoomShift) |
          (static_cast<uint64_t>(x & kColumnMask) << kColumnShift) |
-         static_cast<uint64_t>(y & 0xFFFFFFFu);
+         static_cast<uint64_t>(y & kColumnMask);
 }
 
 uint64_t RequestKey(const std::string &key) {

@@ -12,6 +12,11 @@
 
 namespace outshine::Ground {
 
+constexpr int kZoomMost = 24;
+
+constexpr double kWaveShoulder = 0.25;
+constexpr double kQuarterOfFour = 0.25;
+
 namespace {
 
 constexpr int kDemCacheCeiling = 128;
@@ -91,7 +96,7 @@ double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
   } else if (Shape_.Kind == "sineGrid") {
     up += Shape_.AmplitudeM * std::sin(turn * along / wave) * std::sin(turn * across / wave);
   } else if (Shape_.Kind == "escarpment" || Shape_.Kind == "noiseEscarpment") {
-    up += Shape_.AmplitudeM * std::tanh(across / (0.25 * wave));
+    up += Shape_.AmplitudeM * std::tanh(across / (kWaveShoulder * wave));
   }
   if (Shape_.Kind == "noise" || Shape_.Kind == "noiseEscarpment") {
     double octave = 1.0;
@@ -140,7 +145,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   }
 
   const int steps = z - sourceZ;
-  if (steps < 0 || steps >= 24) { return TerrainGrid::Refused(); }
+  if (steps < 0 || steps >= kZoomMost) { return TerrainGrid::Refused(); }
   const uint32_t subDiv = 1u << static_cast<uint32_t>(steps);
   const uint32_t subX = x & (subDiv - 1);
   const uint32_t subY = y & (subDiv - 1);
@@ -219,8 +224,9 @@ TerrainGrid::State TerrainTiles::StitchCorner(
   };
   const double sum = static_cast<double>(selfRawM) + cornerOf(*a, !west, north) +
                      cornerOf(*b, west, !north) + cornerOf(*c, !west, !north);
-  self.SetM(
-      north ? 0u : self.Rows() - 1u, west ? 0u : self.Cols() - 1u, static_cast<float>(sum * 0.25));
+  self.SetM(north ? 0u : self.Rows() - 1u,
+            west ? 0u : self.Cols() - 1u,
+            static_cast<float>(sum * kQuarterOfFour));
   return TerrainGrid::State::Decoded;
 }
 

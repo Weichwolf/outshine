@@ -8,6 +8,8 @@
 
 namespace outshine::Data {
 
+constexpr size_t kTextBytes = 48;
+
 namespace {
 
 char *Wrote(char *at, char *end, long long value) {
@@ -18,7 +20,7 @@ char *Wrote(char *at, char *end, long long value) {
 } // namespace
 
 std::string Address::Text() const {
-  std::array<char, 48> text{};
+  std::array<char, kTextBytes> text{};
   char *at = text.data();
   char *const end = text.data() + text.size();
   if (How_ == Scheme::TileZxy) {

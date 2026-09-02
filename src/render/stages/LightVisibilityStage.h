@@ -12,6 +12,8 @@
 
 namespace outshine::Render {
 
+constexpr uint32_t kNoBatch = 0xffffffffu;
+
 class SubjectDraw;
 
 inline constexpr int kShadowAtlasPx = 2048;
@@ -47,7 +49,7 @@ public:
   void CastsBelow(uint32_t slot) { CastsBelow_ = slot; }
 
 private:
-  uint32_t CastsBelow_ = 0xffffffffu;
+  uint32_t CastsBelow_ = kNoBatch;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
   void
   Cast(const Mat4 &lightFromWorld, const Vec3 &preView, int atlasPx, const PassRecording &into);

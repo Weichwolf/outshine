@@ -10,6 +10,8 @@
 
 namespace outshine::Data {
 
+constexpr double kMsPerS = 1000.0;
+
 namespace {
 constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
@@ -130,7 +132,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           query.Ticket_ = Ticket::None;
           query.RetryAtMs_ =
               transport.NowMs() +
-              std::fmax(answer.RetryAfterS() * 1000.0,
+              std::fmax(answer.RetryAfterS() * kMsPerS,
                         std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs));
           return Delivery::Waiting();
         }
@@ -142,7 +144,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           const std::scoped_lock lock(LedgerMutex_);
           Ledger_.Refused++;
         }
-        return Delivery::WireAfter(std::fmax(answer.RetryAfterS() * 1000.0, kRetryCapMs));
+        return Delivery::WireAfter(std::fmax(answer.RetryAfterS() * kMsPerS, kRetryCapMs));
     }
   }
 }

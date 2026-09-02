@@ -5,6 +5,8 @@
 
 namespace outshine {
 
+constexpr uint32_t kJitterWordD = 0xd8163841u;
+
 namespace {
 
 constexpr uint32_t kJitterWordA = 0x8da6b343u;
@@ -14,7 +16,7 @@ constexpr uint32_t kMantissaMask = 0xFFFFFFu;
 constexpr double kMantissaSteps = 16777216.0;
 
 uint32_t Hash2(int32_t i, int32_t j) {
-  uint32_t h = static_cast<uint32_t>(i) * kJitterWordA ^ static_cast<uint32_t>(j) * 0xd8163841u;
+  uint32_t h = static_cast<uint32_t>(i) * kJitterWordA ^ static_cast<uint32_t>(j) * kJitterWordD;
   h ^= h >> 15u;
   h *= kJitterWordB;
   h ^= h >> 12u;

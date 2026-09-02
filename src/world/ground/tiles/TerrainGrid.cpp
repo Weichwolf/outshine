@@ -8,6 +8,10 @@
 
 namespace outshine::Ground {
 
+constexpr float kTerrariumOffsetM = 32768.0f;
+
+constexpr float kByteSteps = 256.0f;
+
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   if ((png == nullptr) || len == 0) { return NotHere(); }
 
@@ -24,8 +28,8 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
     for (uint32_t c = 0; c < read.Wide; c++, p += read.Channels) {
       field.SetM(r,
                  c,
-                 static_cast<float>(p[0]) * 256.0f + static_cast<float>(p[1]) +
-                     static_cast<float>(p[2]) * (1.0f / 256.0f) - 32768.0f);
+                 static_cast<float>(p[0]) * kByteSteps + static_cast<float>(p[1]) +
+                     static_cast<float>(p[2]) * (1.0f / kByteSteps) - kTerrariumOffsetM);
     }
   }
   return Holding(std::move(field));

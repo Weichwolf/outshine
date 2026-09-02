@@ -593,7 +593,9 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
     Piece beyond;
     double len = 0.0;
     if (!CutPiece(rest, at, box.AxisU, &plot, &beyond, &len)) { break; }
-    if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, 0.4 * kPlotM * kPlotM)) { break; }
+    if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, kSliverShare * kPlotM * kPlotM)) {
+      break;
+    }
     if (std::fabs(SignedArea(beyond.P)) <
         std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2 * kSliverShare)) {
       break;

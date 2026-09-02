@@ -16,6 +16,8 @@
 
 namespace outshine::Render {
 
+constexpr size_t kUniformFloats = 20;
+
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
   return ConfigureDepthOnly(gpu, error);
@@ -234,7 +236,7 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   std::array<SDL_GPUBuffer *const, 1> rows = {Resident_.Placed.Get()};
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
-  std::array<float, 20> uniform = {{}};
+  std::array<float, kUniformFloats> uniform = {{}};
   for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
   for (int axis = 0; axis < 3; ++axis) {
     uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);

@@ -16,6 +16,8 @@
 
 namespace outshine::Ground {
 
+constexpr double kLeastRunM2 = 1e-9;
+
 namespace {
 
 constexpr double kLevelPercentile = 0.05;
@@ -286,7 +288,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       double tx = e1 - e0;
       double ty = n1 - n0;
       const double tl = std::sqrt(tx * tx + ty * ty);
-      if (tl < 1e-9) {
+      if (tl < kLeastRunM2) {
         tx = 1.0;
         ty = 0.0;
       } else {

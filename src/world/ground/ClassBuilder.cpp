@@ -20,6 +20,12 @@
 
 namespace outshine::Ground {
 
+constexpr double kMsPerMicrosecond = 1e-3;
+
+constexpr int kSignedByteLeast = -128;
+constexpr int kSignedByteMost = 127;
+constexpr int kSignedByteBias = 128;
+
 namespace {
 
 size_t GridBytes(const ClassStructure::Grid &g) {
@@ -31,7 +37,7 @@ double Clock() {
   using namespace std::chrono;
   return static_cast<double>(
              duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
-         1e-3;
+         kMsPerMicrosecond;
 }
 
 constexpr int kSeedCap = 32;
@@ -381,7 +387,8 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         seedCount[ci]++;
         B.Seeds.push_back(
             static_cast<uint32_t>(f.Tpl) | (static_cast<uint32_t>(f.Rank) << 8u) | (nce << 16u) |
-            (static_cast<uint32_t>(static_cast<uint8_t>(std::max(-128, std::min(127, wind)) + 128))
+            (static_cast<uint32_t>(static_cast<uint8_t>(
+                 std::max(kSignedByteLeast, std::min(kSignedByteMost, wind)) + kSignedByteBias))
              << kAlphaShift));
         B.Seeds.push_back(refFirst);
         {

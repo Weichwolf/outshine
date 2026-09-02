@@ -27,13 +27,17 @@
 
 namespace outshine::Ground {
 
+constexpr double kMsPerMicrosecond = 1e-3;
+
+constexpr double kBytesPerKB = 1024.0;
+
 namespace {
 
 double Clock() {
   using namespace std::chrono;
   return static_cast<double>(
              duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
-         1e-3;
+         kMsPerMicrosecond;
 }
 
 } // namespace
@@ -240,11 +244,11 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
                {{"version", static_cast<double>(done->Structure->Version())},
                 {"buildMs", buildMs},
                 {"packMs", done->Structure->Measured().PackMs},
-                {"bufferKB", static_cast<double>(done->Structure->Bytes()) / 1024.0},
+                {"bufferKB", static_cast<double>(done->Structure->Bytes()) / kBytesPerKB},
                 {"lentKB",
                  static_cast<double>(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
                                      CapacityBytes(t.Feats)) /
-                     1024.0}});
+                     kBytesPerKB}});
     const std::scoped_lock lk(Mu_);
     Published_ = std::move(done->Structure);
   }

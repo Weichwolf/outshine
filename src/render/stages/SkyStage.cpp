@@ -12,6 +12,9 @@
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
+
+constexpr float kMPerKmF = 1000.0f;
+
 namespace {}
 
 bool SkyStage::Configure(const Gpu &gpu,
@@ -75,7 +78,7 @@ void SkyStage::Declare(const Medium &medium,
   }
   Pushed_.Illuminance = illuminanceLux;
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.BottomRadiusKm = medium.BottomRadiusKm;
   Pushed_.SunHalfAngleRad = kSunHalfAngleRad;
   Pushed_.Air = medium;
@@ -86,7 +89,7 @@ void SkyStage::Declare(const Medium &medium,
 void SkyStage::Eye(const Medium &medium, float eyeHeightM) {
   if (!Declared_) { return; }
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
+                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
 }
 
 void SkyStage::SetBasis(

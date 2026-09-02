@@ -12,6 +12,8 @@
 
 namespace outshine::Render {
 
+constexpr size_t kMediumBytes = 5 * 4 * sizeof(float);
+
 struct alignas(16) Medium {
   float BottomRadiusKm;
   float TopRadiusKm;
@@ -50,7 +52,8 @@ inline constexpr Medium kEarthAir = {
     .Pad2 = 0.0f,
 };
 
-static_assert(sizeof(Medium) == 80, "the medium is five float4 rows a device can bind unpadded");
+static_assert(sizeof(Medium) == kMediumBytes,
+              "the medium is five float4 rows a device can bind unpadded");
 static_assert(alignof(Medium) == 16,
               "and the rows start on a 128-bit boundary -- the upload is a vector copy, and the "
               "declaration costs zero padding (80 = 5 x 16)");
