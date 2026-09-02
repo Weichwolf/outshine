@@ -86,7 +86,6 @@ Claim OccupancySink::Place(const Body &body) noexcept {
 
   const uint32_t slot = Count()++;
   Store_.Bodies[slot] = body;
-  Store_.Bodies[slot].Id_ = slot;
   const size_t cell = static_cast<size_t>(CellOf(body.Nm, CellsN_)) * static_cast<size_t>(CellsE_) +
                       static_cast<size_t>(CellOf(body.Em, CellsE_));
   Store_.Links[slot] = Store_.Cells[cell];

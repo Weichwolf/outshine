@@ -9,7 +9,10 @@ class BuildingDraw : public DrawSource {
 public:
   BuildingDraw(ClusterId cluster, double heightM) : Cluster_(cluster), HeightM_(heightM) {}
 
-  void Draw(const Ground &ground, Span<const Body> placed, DrawSink &sink) const noexcept override;
+  void Draw(const Ground &ground,
+            Span<const Body> placed,
+            BodyRange mine,
+            DrawSink &sink) const noexcept override;
 
 private:
   ClusterId Cluster_;

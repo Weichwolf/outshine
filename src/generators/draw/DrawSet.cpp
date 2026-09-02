@@ -23,7 +23,7 @@ void DrawSet::Draw(const Ground &ground,
     const BodyRange range = yields[i].Placed();
     for (const Entry &e : Entries_) {
       if (e.R != generators.RankAt(i)) { continue; }
-      e.S->Draw(ground, placed.Sub(range.First, range.Count), sink);
+      e.S->Draw(ground, placed.Sub(range.First, range.Count), range, sink);
     }
   }
 }

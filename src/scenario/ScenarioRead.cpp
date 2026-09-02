@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "Spelling.h"
 #include "Xml.h"
 
 namespace outshine {
@@ -35,6 +36,23 @@ const Scenario::Asset *Scenario::Document::subject() const {
 }
 
 namespace {
+
+constexpr Spellings<Scenario::Falls, 3> kFalls = {{{"linear", Scenario::Falls::Linear},
+                                                   {"inverse", Scenario::Falls::Inverse},
+                                                   {"exponential", Scenario::Falls::Exponential}}};
+
+constexpr Spellings<Scenario::Makes, 8> kMakes = {{{"oscillator", Scenario::Makes::Oscillator},
+                                                   {"noise", Scenario::Makes::Noise},
+                                                   {"biquad", Scenario::Makes::Biquad},
+                                                   {"delay", Scenario::Makes::Delay},
+                                                   {"gain", Scenario::Makes::Gain},
+                                                   {"shaper", Scenario::Makes::Shaper},
+                                                   {"convolver", Scenario::Makes::Convolver},
+                                                   {"mix", Scenario::Makes::Mix}}};
+
+static_assert(EverySpellingStandsOnce(kFalls) && EverySpellingStandsOnce(kMakes),
+              "a spelling table that carries a blank or a repeat resolves a declaration by "
+              "whichever row it reaches first");
 
 [[nodiscard]] bool Declares(const Xml::Ref &parent, const char *child) {
   const Xml::Ref::Siblings named = parent.Children(child);
@@ -638,9 +656,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.GainDb = one.Num("gainDb", 0.0);
     made.Heard.Positional = one.Flag("positional", false);
     const std::string falls = one.Attr("falls");
-    made.Heard.By = falls == "linear"        ? Scenario::Falls::Linear
-                    : falls == "exponential" ? Scenario::Falls::Exponential
-                                             : Scenario::Falls::Inverse;
+    made.Heard.By = Means(kFalls, falls, Scenario::Falls::Inverse);
     made.Heard.RefM = one.Num("refM", 1.0);
     made.Heard.MostM = one.Num("mostM", 0.0);
     made.Heard.Rolloff = one.Num("rolloff", 1.0);
@@ -654,14 +670,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
       Scenario::Voice makes;
       makes.Id = unit.Attr("id");
       const std::string does = unit.Attr("does");
-      makes.Does = does == "noise"       ? Scenario::Makes::Noise
-                   : does == "biquad"    ? Scenario::Makes::Biquad
-                   : does == "delay"     ? Scenario::Makes::Delay
-                   : does == "gain"      ? Scenario::Makes::Gain
-                   : does == "shaper"    ? Scenario::Makes::Shaper
-                   : does == "convolver" ? Scenario::Makes::Convolver
-                   : does == "mix"       ? Scenario::Makes::Mix
-                                         : Scenario::Makes::Oscillator;
+      makes.Does = Means(kMakes, does, Scenario::Makes::Oscillator);
       for (const Xml::Ref from : unit.Children("from")) { makes.From.push_back(from.Attr("id")); }
       for (const Xml::Ref set : unit.Children("set")) {
         makes.Parameters.push_back(

@@ -79,15 +79,14 @@ void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField 
 }
 
 double TerrainTiles::ShapedAslM(double latDeg, double lonDeg) const noexcept {
-  const double perLon =
-      111320.0 * std::cos(Shape_.FocusLatDeg * 3.14159265358979323846 / kDegPerHalfTurn);
+  const double perLon = kMPerDegLon * std::cos(Shape_.FocusLatDeg * kPi / kDegPerHalfTurn);
   const double eastM = (lonDeg - Shape_.FocusLonDeg) * perLon;
-  const double northM = (latDeg - Shape_.FocusLatDeg) * 111132.0;
-  const double facing = Shape_.BearingDeg * 3.14159265358979323846 / kDegPerHalfTurn;
+  const double northM = (latDeg - Shape_.FocusLatDeg) * kMPerDegLat;
+  const double facing = Shape_.BearingDeg * kPi / kDegPerHalfTurn;
   const double along = eastM * std::sin(facing) + northM * std::cos(facing);
   const double across = eastM * std::cos(facing) - northM * std::sin(facing);
   const double wave = Shape_.WavelengthM > 1.0 ? Shape_.WavelengthM : 1.0;
-  const double turn = 2.0 * 3.14159265358979323846;
+  const double turn = 2.0 * kPi;
   double up = Shape_.Gradient * along;
   if (Shape_.Kind == "sineRidge") {
     up += Shape_.AmplitudeM * std::cos(turn * across / wave);

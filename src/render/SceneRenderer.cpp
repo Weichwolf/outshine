@@ -422,19 +422,27 @@ void SceneRenderer::Create(Resource resource) {
       wanted.type = SDL_GPU_TEXTURETYPE_2D;
       wanted.format = FormatOf(Plan_->Format(resource));
       wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-      wanted.width = resource == Resource::MultiScatterLut ? kMultiScatterLutSize
-                     : resource == Resource::SkyViewLut    ? kSkyViewLutWidth
-                                                           : kTransmittanceLutWidth;
-      wanted.height = resource == Resource::MultiScatterLut ? kMultiScatterLutSize
-                      : resource == Resource::SkyViewLut    ? kSkyViewLutHeight
-                                                            : kTransmittanceLutHeight;
+
+      struct LutShape {
+        uint32_t WidthPx;
+        uint32_t HeightPx;
+        OwnedTexture *Into;
+      };
+
+      const LutShape shape = [this, resource]() -> LutShape {
+        switch (resource) {
+          case Resource::MultiScatterLut:
+            return {kMultiScatterLutSize, kMultiScatterLutSize, &MultiScatterLut_};
+          case Resource::SkyViewLut: return {kSkyViewLutWidth, kSkyViewLutHeight, &SkyViewLut_};
+          default: return {kTransmittanceLutWidth, kTransmittanceLutHeight, &TransmittanceLut_};
+        }
+      }();
+      wanted.width = shape.WidthPx;
+      wanted.height = shape.HeightPx;
       wanted.layer_count_or_depth = 1;
       wanted.num_levels = 1;
       wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
-      OwnedTexture &held = resource == Resource::MultiScatterLut ? MultiScatterLut_
-                           : resource == Resource::SkyViewLut    ? SkyViewLut_
-                                                                 : TransmittanceLut_;
-      held = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+      *shape.Into = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
       return;
     }
     case Resource::LutSampler: {

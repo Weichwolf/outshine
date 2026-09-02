@@ -5,8 +5,8 @@
 
 namespace outshine::Generators {
 
-class Body;
 class OccupancySink;
+struct BodyRange;
 
 class BodyId {
 public:
@@ -16,10 +16,16 @@ public:
 
 private:
   explicit BodyId(uint32_t index) : Index_(index) {}
-  friend class Body;
   friend class OccupancySink;
+  friend struct BodyRange;
 
   uint32_t Index_;
+};
+
+struct BodyRange {
+  uint32_t First = 0, Count = 0;
+
+  [[nodiscard]] BodyId Nth(uint32_t at) const { return BodyId(First + at); }
 };
 
 } // namespace outshine::Generators

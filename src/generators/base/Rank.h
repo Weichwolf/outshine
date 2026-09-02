@@ -3,13 +3,11 @@
 
 #include <cstdint>
 
+#include "BodyId.h"
+
 namespace outshine::Generators {
 
 enum class Rank : uint16_t {};
 
-struct BodyRange {
-  uint32_t First = 0, Count = 0;
-};
-
-} // namespace outshine::Generators
+}
 #endif

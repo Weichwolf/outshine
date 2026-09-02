@@ -98,9 +98,11 @@ SDL_GPUVertexAttribute At(uint32_t location, uint32_t slot, SDL_GPUVertexElement
 }
 
 SDL_GPUVertexElementFormat FormatOf(uint32_t floats) {
-  return floats == 2   ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2
-         : floats == 4 ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4
-                       : SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+  switch (floats) {
+    case 2: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+    case 4: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+    default: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+  }
 }
 
 VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
@@ -765,8 +767,8 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
     const bool placed = row * 16u + 16u <= Placed_.size();
     const double *const now = placed ? Placed_.data() + row * 16u : Model.data();
     const bool carried = placed ? row < Stamped_.size() && Stamped_[row] != 0u : ModelStamp_ != 0u;
-    const double *const was =
-        !carried ? now : (placed ? Before_.data() + row * 16u : ModelBefore_.data());
+    const double *const carriedFrom = placed ? Before_.data() + row * 16u : ModelBefore_.data();
+    const double *const was = carried ? carriedFrom : now;
     for (size_t at = 0; at < 16u; ++at) {
       Rows_[row * 32u + at] = static_cast<float>(now[at]);
       Rows_[row * 32u + 16u + at] = static_cast<float>(was[at]);
@@ -824,6 +826,11 @@ bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &e
   return true;
 }
 
+static_assert(static_cast<int>(LightKind::Directional) == 0 &&
+                  static_cast<int>(LightKind::Point) == 1 && static_cast<int>(LightKind::Spot) == 2,
+              "the shader reads the kind as the enum's own number, so reordering LightKind moves "
+              "every light to another shape");
+
 std::array<float, SubjectDraw::kLightFloats>
 SubjectDraw::PackedLights(const FrameContext &ctx) const {
   std::array<float, kLightFloats> packed{};
@@ -842,9 +849,7 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
     for (int channel = 0; channel < 3; ++channel) {
       entry[channel] = light.Colour[channel] * light.Intensity;
     }
-    entry[3] = light.Kind == LightKind::Directional
-                   ? 0.0f
-                   : (light.Kind == LightKind::Point ? 1.0f : 2.0f);
+    entry[3] = static_cast<float>(light.Kind);
     for (int axis = 0; axis < 3; ++axis) {
       entry[4 + axis] =
           static_cast<float>(Placed[at].PositionEcefM[axis] + ctx.PreViewTranslation[axis]);
