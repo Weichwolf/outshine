@@ -653,13 +653,7 @@ void Engine::State::Models(const TangentFrame &standing,
   }
 }
 
-void Engine::State::FitLane(size_t laneAt, Paved &into) {
-  into.FitEastNorth.clear();
-  into.FitEastNorth.reserve(into.Along.size() * 2u);
-  for (const Generators::RoadStation &one : into.Along) {
-    into.FitEastNorth.push_back(one.EastM);
-    into.FitEastNorth.push_back(-one.SouthM);
-  }
+void Engine::State::FitAlongLane(Paved &into) {
   size_t from = 0;
   size_t cuts = 0;
   bool wholeWay = true;
@@ -705,7 +699,9 @@ void Engine::State::FitLane(size_t laneAt, Paved &into) {
     wholeWay = false;
   }
   into.FitCuts += cuts;
+}
 
+void Engine::State::TrimLaneEnds(size_t laneAt, Paved &into) {
   std::vector<double> reached(into.Along.size(), 0.0);
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
@@ -715,25 +711,58 @@ void Engine::State::FitLane(size_t laneAt, Paved &into) {
   const double wholeM = reached.back();
   const double fromM = into.TrimM[laneAt * 2u];
   const double toM = wholeM - into.TrimM[laneAt * 2u + 1u];
-  if (toM - fromM >= kLeastRoadM && (fromM > kLeastCapM || toM < wholeM - kLeastCapM)) {
-    const auto standAt = [&](double alongM) {
-      size_t at = 1;
-      while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
-      const double span = reached[at] - reached[at - 1];
-      const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
-      const Generators::RoadStation &from = into.Along[at - 1];
-      const Generators::RoadStation &to = into.Along[at];
-      return Generators::RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
-                                     .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
-                                     .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
-    };
-    std::vector<Generators::RoadStation> kept;
-    kept.push_back(standAt(fromM));
-    for (size_t at = 0; at < into.Along.size(); ++at) {
-      if (reached[at] > fromM && reached[at] < toM) { kept.push_back(into.Along[at]); }
+  if (toM - fromM < kLeastRoadM || (fromM <= kLeastCapM && toM >= wholeM - kLeastCapM)) { return; }
+
+  const auto standAt = [&](double alongM) {
+    size_t at = 1;
+    while (at + 1 < reached.size() && reached[at] < alongM) { ++at; }
+    const double span = reached[at] - reached[at - 1];
+    const double part = span > kLeastTurnRad ? (alongM - reached[at - 1]) / span : 0.0;
+    const Generators::RoadStation &from = into.Along[at - 1];
+    const Generators::RoadStation &to = into.Along[at];
+    return Generators::RoadStation{.EastM = from.EastM + (to.EastM - from.EastM) * part,
+                                   .SouthM = from.SouthM + (to.SouthM - from.SouthM) * part,
+                                   .GradeM = from.GradeM + (to.GradeM - from.GradeM) * part};
+  };
+  std::vector<Generators::RoadStation> kept;
+  kept.push_back(standAt(fromM));
+  for (size_t at = 0; at < into.Along.size(); ++at) {
+    if (reached[at] > fromM && reached[at] < toM) { kept.push_back(into.Along[at]); }
+  }
+  kept.push_back(standAt(toM));
+  into.Along.swap(kept);
+}
+
+void Engine::State::FitLane(size_t laneAt, Paved &into) {
+  into.FitEastNorth.clear();
+  into.FitEastNorth.reserve(into.Along.size() * 2u);
+  for (const Generators::RoadStation &one : into.Along) {
+    into.FitEastNorth.push_back(one.EastM);
+    into.FitEastNorth.push_back(-one.SouthM);
+  }
+  FitAlongLane(into);
+  TrimLaneEnds(laneAt, into);
+}
+
+void Engine::State::RefineChords(const Paving &on, Paved &into) {
+  for (int pass = 0; pass < kChordPasses; ++pass) {
+    size_t added = 0;
+    into.Finer.clear();
+    into.Finer.reserve(into.Along.size() * 2u);
+    for (size_t at = 1; at < into.Along.size(); ++at) {
+      into.Finer.push_back(into.Along[at - 1u]);
+      const double midE = 0.5 * (into.Along[at - 1u].EastM + into.Along[at].EastM);
+      const double midS = 0.5 * (into.Along[at - 1u].SouthM + into.Along[at].SouthM);
+      const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
+      const double overM = on.Draped.At(midE, midS, chord);
+      if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
+      into.Finer.push_back(Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
+      ++added;
     }
-    kept.push_back(standAt(toM));
-    into.Along.swap(kept);
+    into.Finer.push_back(into.Along.back());
+    into.Along.swap(into.Finer);
+    into.ChordAdded += added;
+    if (added == 0) { break; }
   }
 }
 
@@ -807,25 +836,7 @@ void Engine::State::DesignLane(const Paving &on,
     ++into.RefusedWays;
     return;
   }
-  for (int pass = 0; pass < kChordPasses; ++pass) {
-    size_t added = 0;
-    into.Finer.clear();
-    into.Finer.reserve(into.Along.size() * 2u);
-    for (size_t at = 1; at < into.Along.size(); ++at) {
-      into.Finer.push_back(into.Along[at - 1u]);
-      const double midE = 0.5 * (into.Along[at - 1u].EastM + into.Along[at].EastM);
-      const double midS = 0.5 * (into.Along[at - 1u].SouthM + into.Along[at].SouthM);
-      const double chord = 0.5 * (into.Along[at - 1u].GradeM + into.Along[at].GradeM);
-      const double overM = on.Draped.At(midE, midS, chord);
-      if (std::fabs(overM - chord) <= kChordWithinM) { continue; }
-      into.Finer.push_back(Generators::RoadStation{.EastM = midE, .SouthM = midS, .GradeM = overM});
-      ++added;
-    }
-    into.Finer.push_back(into.Along.back());
-    into.Along.swap(into.Finer);
-    into.ChordAdded += added;
-    if (added == 0) { break; }
-  }
+  RefineChords(on, into);
 
   if (lane.MaxGradient > 0.0f) {
     Generators::DesignProfile(

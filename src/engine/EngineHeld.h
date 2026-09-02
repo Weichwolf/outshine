@@ -477,6 +477,7 @@ struct Engine::State {
     double RestMs = 0.0;
   };
 
+  static void RefineChords(const Paving &on, Paved &into);
   void DesignLane(const Paving &on,
                   const Ground::StreetField::Way &lane,
                   size_t laneAt,
@@ -486,6 +487,8 @@ struct Engine::State {
 
   [[nodiscard]] Laid Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTilesLanded);
 
+  static void FitAlongLane(Paved &into);
+  static void TrimLaneEnds(size_t laneAt, Paved &into);
   static void FitLane(size_t laneAt, Paved &into);
 
   static void LayLanesIntoNetwork(const Ground::StreetField &ways,
