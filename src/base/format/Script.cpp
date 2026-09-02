@@ -813,7 +813,9 @@ const std::array<Boundary, 85> kBoundaries = {{
 
 } // namespace
 
-[[nodiscard]] static bool EcmaDecimalShaped(std::string_view held) {
+namespace {
+
+[[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
   size_t at = 0;
   size_t whole = 0;
   while (at < held.size() && held[at] >= '0' && held[at] <= '9') {
@@ -841,8 +843,11 @@ const std::array<Boundary, 85> kBoundaries = {{
   }
   return at == held.size();
 }
+} // namespace
 
-[[nodiscard]] static double TextToNumber(const std::string &text) {
+namespace {
+
+[[nodiscard]] double TextToNumber(const std::string &text) {
   std::string_view held(text);
   while (!held.empty() && (held.front() == ' ' || held.front() == '\t' || held.front() == '\n' ||
                            held.front() == '\r')) {
@@ -882,6 +887,7 @@ const std::array<Boundary, 85> kBoundaries = {{
   }
   return scanned.ec == std::errc() ? sign * value : std::nan("");
 }
+} // namespace
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {

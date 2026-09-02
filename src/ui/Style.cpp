@@ -332,7 +332,9 @@ const std::array<Vocabulary, 12> kVocabularies = {{
     {.What = Property::WhiteSpace, .Words = {"normal", "pre", nullptr}},
 }};
 
-[[nodiscard]] static bool WordIsHeld(Property what, const Value &value) {
+namespace {
+
+[[nodiscard]] bool WordIsHeld(Property what, const Value &value) {
   if (value.How != Unit::Keyword) { return true; }
 
   if (value.Prefixed) { return true; }
@@ -346,6 +348,7 @@ const std::array<Vocabulary, 12> kVocabularies = {{
   }
   return true;
 }
+} // namespace
 
 namespace {
 
@@ -1009,7 +1012,9 @@ const char *WhyOutside(std::string_view name) {
   return nullptr;
 }
 
-static bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
+namespace {
+
+bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
   if (!Holds(rule.Chain[wanted], markup, node)) { return false; }
   if (wanted == 0) { return true; }
   const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;
@@ -1022,6 +1027,7 @@ static bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, 
   }
   return false;
 }
+} // namespace
 
 bool Selects(const Rule &rule, const Markup &markup, int node) {
   return !rule.Chain.empty() && ChainSelects(rule, markup, rule.Chain.size() - 1, node);

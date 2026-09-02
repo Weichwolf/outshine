@@ -62,14 +62,14 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
 
 constexpr bool kChainIsReadable = false;
 
-} // namespace
+std::atomic<size_t> gUploads{0};
+std::atomic<size_t> gUploadsEver{0};
+std::atomic<size_t> gCrossingsFlushed{0};
+std::atomic<size_t> gUploadBytes{0};
+std::atomic<size_t> gBuffersMade{0};
+std::atomic<size_t> gStagingMade{0};
 
-static std::atomic<size_t> gUploads{0};
-static std::atomic<size_t> gUploadsEver{0};
-static std::atomic<size_t> gCrossingsFlushed{0};
-static std::atomic<size_t> gUploadBytes{0};
-static std::atomic<size_t> gBuffersMade{0};
-static std::atomic<size_t> gStagingMade{0};
+} // namespace
 
 size_t SubjectResidency::UploadsTaken() {
   return gUploads.exchange(0u);

@@ -241,7 +241,9 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
   return true;
 }
 
-static std::vector<En>
+namespace {
+
+std::vector<En>
 ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line, double sign) {
   std::vector<En> out;
   const size_t n = poly.size();
@@ -272,6 +274,7 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
   }
   return out;
 }
+} // namespace
 
 size_t RoofSurface::BreaksKeptTaken() {
   return gBreaksKept.exchange(0u);

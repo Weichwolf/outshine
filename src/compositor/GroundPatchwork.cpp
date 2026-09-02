@@ -54,7 +54,9 @@ void NormalsFrom(const std::vector<float> &positionM,
 
 constexpr long kBlockTiles = 4;
 
-static void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
+namespace {
+
+void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *out) {
   const int side = grid < 2 ? 2 : grid;
   const Ground::GeoBounds bounds = Ground::TileBounds(zoom, x, y);
   const Ground::Geo middle{.LongitudeDeg = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg),
@@ -105,6 +107,7 @@ static void SphereTile(int zoom, uint32_t x, uint32_t y, int grid, TileBuild *ou
     }
   }
 }
+} // namespace
 
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
   if (over.Zoom <= 0) {

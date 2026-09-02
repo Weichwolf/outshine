@@ -445,7 +445,9 @@ struct AttributeShape {
   bool Normalized;
 };
 
-static bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
+namespace {
+
+bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
   const bool f32 = shape.Component == ComponentType::Float32;
   const bool u8 = shape.Component == ComponentType::UInt8;
   const bool u16 = shape.Component == ComponentType::UInt16;
@@ -482,6 +484,7 @@ static bool ShapeAllowed(const std::string &semantic, const AttributeShape &shap
 
   return !semantic.empty() && semantic.front() == '_';
 }
+} // namespace
 
 bool Document::Honours(std::string_view extension) {
   for (const char *const known : kHonouredExtensions) {
@@ -568,12 +571,15 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
 
 constexpr double kMostDeclaredBytes = 4294967295.0;
 
-[[nodiscard]] static bool DeclaredSize(const Json::Ref &ref, size_t &out) {
+namespace {
+
+[[nodiscard]] bool DeclaredSize(const Json::Ref &ref, size_t &out) {
   const double raw = ref.Num(0.0);
   if (!(raw >= 0.0) || raw != std::floor(raw) || raw > kMostDeclaredBytes) { return false; }
   out = static_cast<size_t>(raw);
   return true;
 }
+} // namespace
 
 bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size_t binaryLength) {
   const Json::Ref buffers = json.Root()["buffers"];

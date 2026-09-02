@@ -1001,7 +1001,9 @@ void SceneRenderer::EncodeSky(const FrameContext &ctx, const PassRecording &into
   Sky_.Encode(ctx, into);
 }
 
-static float RadicalInverse(int index, int base) {
+namespace {
+
+float RadicalInverse(int index, int base) {
   float result = 0.0f;
   float weight = 1.0f / static_cast<float>(base);
   int at = index + 1;
@@ -1012,6 +1014,7 @@ static float RadicalInverse(int index, int base) {
   }
   return result;
 }
+} // namespace
 
 void SceneRenderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const Compiled::Pass &declared = Plan_->Passes()[pass];

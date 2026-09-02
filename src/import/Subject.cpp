@@ -506,10 +506,12 @@ bool Subject::Build(const Document &document,
   return Flatten(document, pose.Data(), (weights.Size() != 0u) ? weights.Data() : nullptr, variant);
 }
 
-static bool InstanceTransforms(const Document &document,
-                               const Node &node,
-                               const Transform &world,
-                               std::vector<Transform> &out) {
+namespace {
+
+bool InstanceTransforms(const Document &document,
+                        const Node &node,
+                        const Transform &world,
+                        std::vector<Transform> &out) {
   out.clear();
   const std::array<int, 3> named = {
       {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale}};
@@ -556,6 +558,7 @@ static bool InstanceTransforms(const Document &document,
   }
   return true;
 }
+} // namespace
 
 bool Subject::Flatten(const Document &document,
                       const Transform *pose,
