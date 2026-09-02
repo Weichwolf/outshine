@@ -299,11 +299,10 @@ bool TriangleBvh::Refit(Span<const float> positionsM) {
   return true;
 }
 
-bool TriangleBvh::Occludes(const Vec3f &originM,
-                           const Vec3f &direction,
-                           float nearM,
-                           float distanceM) const {
+bool TriangleBvh::Occludes(const Ray &along, float nearM, float distanceM) const {
   if (Nodes_.empty()) { return false; }
+  const Vec3f &originM = along.OriginM;
+  const Vec3f &direction = along.Toward;
   Vec3f inverse;
   for (int axis = 0; axis < 3; ++axis) { inverse[axis] = 1.0f / direction[axis]; }
 

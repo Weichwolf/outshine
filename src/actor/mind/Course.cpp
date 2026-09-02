@@ -1,3 +1,4 @@
+#include <optional>
 #include "Units.h"
 #include "math/Vec2.h"
 #include "Course.h"
@@ -21,29 +22,26 @@ Placed Beside(const Placed &on, double asideM) {
   return out;
 }
 
-double AwayFrom(const Placed &line, double eastM, double northM) {
-  const double east = eastM - line.EastM;
-  const double north = northM - line.NorthM;
+double AwayFrom(const Placed &line, EastNorth at) {
+  const double east = at.EastM - line.EastM;
+  const double north = at.NorthM - line.NorthM;
   return east * east + north * north;
 }
 
 } // namespace
 
-Where Locate(const ReferenceLine &along,
-             double eastM,
-             double northM,
-             double heightM,
-             double headingRad,
-             double nearM,
-             double windowM) {
+Where Locate(const ReferenceLine &along, const Where &from, Nearby about) {
+  const double eastM = from.EastM;
+  const double northM = from.NorthM;
   Where out;
   out.EastM = eastM;
   out.NorthM = northM;
-  out.HeightM = heightM;
-  out.HeadingRad = headingRad;
+  out.HeightM = from.HeightM;
+  out.HeadingRad = from.HeadingRad;
 
-  double bestM = 0.0;
-  if (!along.Nearest(eastM, northM, nearM, windowM, bestM)) { return out; }
+  const std::optional<double> found = along.Nearest({.EastM = eastM, .NorthM = northM}, about);
+  if (!found) { return out; }
+  const double bestM = *found;
 
   Placed on;
   if (!along.At(bestM, on)) { return out; }
@@ -51,8 +49,8 @@ Where Locate(const ReferenceLine &along,
   out.Found = true;
   out.AlongM = bestM;
   out.OffsetM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
-  out.HeightErrorM = heightM - on.HeightM;
-  out.HeadingErrorRad = Wrapped(headingRad - on.HeadingRad);
+  out.HeightErrorM = from.HeightM - on.HeightM;
+  out.HeadingErrorRad = Wrapped(from.HeadingRad - on.HeadingRad);
   out.CurvaturePerM = on.CurvaturePerM;
   out.CurvatureRatePerM = on.CurvatureRatePerM;
   out.SlopeAt = on.Slope;
@@ -75,7 +73,8 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, dou
   double reachedM = 0.0;
   for (int narrow = 0; narrow < kChordSteps; ++narrow) {
     if (!along.At(atM, there)) { return out; }
-    reachedM = std::sqrt(AwayFrom(Beside(there, asideM), from.EastM, from.NorthM));
+    reachedM =
+        std::sqrt(AwayFrom(Beside(there, asideM), {.EastM = from.EastM, .NorthM = from.NorthM}));
     if (out.AtEnd || std::fabs(reachedM - chordM) < kLeastRunM) { break; }
     const double stepM = chordM - reachedM;
     atM += stepM;
@@ -87,7 +86,7 @@ Sighting Sight(const ReferenceLine &along, const Where &from, double chordM, dou
   }
   if (!along.At(atM, there)) { return out; }
   const Placed aimed = Beside(there, asideM);
-  reachedM = std::sqrt(AwayFrom(aimed, from.EastM, from.NorthM));
+  reachedM = std::sqrt(AwayFrom(aimed, {.EastM = from.EastM, .NorthM = from.NorthM}));
   if (!(reachedM > 0.0)) { return out; }
 
   out.Found = true;

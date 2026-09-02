@@ -65,7 +65,9 @@ const Ridden &DriveTick(const Corridor &way,
   const double headingRad = HeadingOf(body);
   const double windowM = kResectM + 3.0 * drive.LostM;
   const outshine::Pilot::Where at = outshine::Pilot::Locate(
-      corridor, eastM, northM, body.PositionM[1], headingRad, drive.NearM, windowM);
+      corridor,
+      {.EastM = eastM, .NorthM = northM, .HeightM = body.PositionM[1], .HeadingRad = headingRad},
+      {.AboutM = drive.NearM, .WithinM = windowM});
   if (!at.Found) {
     out.Lost = true;
     return out;

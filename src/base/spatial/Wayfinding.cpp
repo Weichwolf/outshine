@@ -529,15 +529,20 @@ bool Network::Weave(std::string &error) {
 
 namespace {
 
-[[nodiscard]] std::optional<Vec2> SegmentsMeet(Vec2 fromA, Vec2 toA, Vec2 fromB, Vec2 toB) {
-  const double ax = fromA[0];
-  const double ay = fromA[1];
-  const double rx = toA[0] - ax;
-  const double ry = toA[1] - ay;
-  const double cx = fromB[0];
-  const double cy = fromB[1];
-  const double sx = toB[0] - cx;
-  const double sy = toB[1] - cy;
+struct Ends {
+  Vec2 From;
+  Vec2 To;
+};
+
+[[nodiscard]] std::optional<Vec2> SegmentsMeet(Ends a, Ends b) {
+  const double ax = a.From[0];
+  const double ay = a.From[1];
+  const double rx = a.To[0] - ax;
+  const double ry = a.To[1] - ay;
+  const double cx = b.From[0];
+  const double cy = b.From[1];
+  const double sx = b.To[0] - cx;
+  const double sy = b.To[1] - cy;
   const double denominator = rx * sy - ry * sx;
   if (denominator == 0.0) { return std::nullopt; }
   const double along = ((cx - ax) * sy - (cy - ay) * sx) / denominator;
@@ -691,7 +696,8 @@ Network::Crossings(std::vector<Crossing> &into) const {
         const double dx = lon[firstB + 1];
         const double dy = Points_[2 * firstB + 2];
         const std::optional<Vec2> met =
-            SegmentsMeet(Vec2{{ax, ay}}, Vec2{{bx, by}}, Vec2{{cx, cy}}, Vec2{{dx, dy}});
+            SegmentsMeet({.From = Vec2{{ax, ay}}, .To = Vec2{{bx, by}}},
+                         {.From = Vec2{{cx, cy}}, .To = Vec2{{dx, dy}}});
         if (!met) { continue; }
         const double atX = (*met)[0];
         const double atY = (*met)[1];

@@ -9,6 +9,11 @@
 
 namespace outshine {
 
+struct Ray {
+  Vec3f OriginM;
+  Vec3f Toward;
+};
+
 constexpr size_t kBvhTriangleBytes = 36;
 
 constexpr uint32_t kBvhLeafFirstBits = 24;
@@ -48,8 +53,7 @@ class TriangleBvh {
 public:
   [[nodiscard]] static TriangleBvh Over(Span<const float> positionsM, Span<const uint32_t> indices);
 
-  [[nodiscard]] bool
-  Occludes(const Vec3f &originM, const Vec3f &direction, float nearM, float distanceM) const;
+  [[nodiscard]] bool Occludes(const Ray &along, float nearM, float distanceM) const;
 
   [[nodiscard]] Span<const BvhNode> Nodes() const { return {Nodes_.data(), Nodes_.size()}; }
 

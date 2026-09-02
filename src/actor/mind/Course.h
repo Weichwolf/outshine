@@ -23,13 +23,7 @@ struct Where {
   double BankRad = 0.0;
 };
 
-[[nodiscard]] Where Locate(const ReferenceLine &along,
-                           double eastM,
-                           double northM,
-                           double heightM,
-                           double headingRad,
-                           double nearM,
-                           double windowM);
+[[nodiscard]] Where Locate(const ReferenceLine &along, const Where &from, Nearby about);
 
 struct Sighting {
   bool Found = false;

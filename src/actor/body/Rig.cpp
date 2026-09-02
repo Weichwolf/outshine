@@ -97,7 +97,7 @@ Reading Bear(Rig &of,
     for (int axis = 0; axis < 3; ++axis) {
       patchM[axis] = mount.AtM[axis] - normalBody[axis] * standOffM;
     }
-    Push(into, body, patchM, forceN);
+    Push(into, body, {.AtBodyM = patchM, .Newtons = forceN});
   }
   return out;
 }

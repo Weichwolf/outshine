@@ -143,10 +143,10 @@ void Divided(std::span<const uint32_t, 3> face,
   }
 }
 
-[[nodiscard]] uint64_t WayEndKey(double latDeg, double lonDeg) {
+[[nodiscard]] uint64_t WayEndKey(LongitudeLatitude at) {
   constexpr int64_t kBias = 0x20000000;
-  const auto y = static_cast<int64_t>(std::llround(latDeg * 100000.0));
-  const auto x = static_cast<int64_t>(std::llround(lonDeg * 100000.0));
+  const auto y = static_cast<int64_t>(std::llround(at.LatitudeDeg * 100000.0));
+  const auto x = static_cast<int64_t>(std::llround(at.LongitudeDeg * 100000.0));
   return (static_cast<uint64_t>(y + kBias) << 32U) | static_cast<uint64_t>(x + kBias);
 }
 
@@ -172,14 +172,13 @@ private:
 
 } // namespace
 
-void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
+LongitudeLatitude Engine::State::WhereTheEyeStands() const {
   const Sim::Corridor &way = Ticking.Drive.Way;
   const bool overADrive = Ticking.Drove && !way.Fine.empty();
   const double anchorLat = overADrive ? way.FrameLat : Session.Declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = overADrive ? way.FrameLon : Session.Declared.Ground.Origin.LongitudeDeg;
-  atLat = anchorLat;
-  atLon = anchorLon;
-  if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return; }
+  LongitudeLatitude stands{.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat};
+  if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return stands; }
   const TangentFrame anchored =
       TangentFrame::At({.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat});
   const Vec3 &eye = Picture.Standing->Watching().EyeM;
@@ -190,8 +189,9 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
   }
   const Ground::Geo above =
       Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
-  atLat = above.LatitudeDeg;
-  atLon = above.LongitudeDeg;
+  stands.LatitudeDeg = above.LatitudeDeg;
+  stands.LongitudeDeg = above.LongitudeDeg;
+  return stands;
 }
 
 bool Engine::State::Grows(double atLat, double atLon) {
@@ -206,7 +206,8 @@ bool Engine::State::Grows(double atLat, double atLon) {
       World.Stack.Vectors() == nullptr) {
     return false;
   }
-  const Generators::Tile region = Generators::Tile::Of(World.Stack.Vectors()->Zoom(), atLat, atLon);
+  const Generators::Tile region = Generators::Tile::Of(
+      World.Stack.Vectors()->Zoom(), {.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   Generators::Fields stands;
   stands.Vectors = World.Stack.Vectors();
   stands.Footprints = &World.Stack.Footprints();
@@ -653,9 +654,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   const double anchorLat = overADrive ? way.FrameLat : declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = overADrive ? way.FrameLon : declared.Ground.Origin.LongitudeDeg;
 
-  double atLat = anchorLat;
-  double atLon = anchorLon;
-  WhereTheEyeStands(atLat, atLon);
+  const LongitudeLatitude eyeStands = WhereTheEyeStands();
+  const double atLat = eyeStands.LatitudeDeg;
+  const double atLon = eyeStands.LongitudeDeg;
   Published.Places("the ring centres this far from the world's anchor",
                    std::hypot((atLat - anchorLat) * kMPerDegLat,
                               (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
@@ -1762,7 +1763,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
           const double eastM = crossedAt.EastM;
           const double northM = crossedAt.NorthM;
-          const uint64_t named = WayEndKey(one.LatitudeDeg, one.LongitudeDeg) | 1ULL;
+          const uint64_t named =
+              WayEndKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
           const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
           const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
           for (int64_t stepE = -1; stepE <= 1; ++stepE) {
@@ -1823,8 +1825,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         at[1] = points[first + 1];
         at[2] = points[last];
         at[3] = points[last + 1];
-        out[0] = WayEndKey(at[0], at[1]);
-        out[1] = WayEndKey(at[2], at[3]);
+        out[0] = WayEndKey({.LongitudeDeg = at[1], .LatitudeDeg = at[0]});
+        out[1] = WayEndKey({.LongitudeDeg = at[3], .LatitudeDeg = at[2]});
         return true;
       };
       const auto groundAt = [&](double lat, double lon, double *out) {
@@ -1973,12 +1975,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           if (!(run > kLeastRunM)) { continue; }
           outE /= run;
           outN /= run;
-          meeting[WayEndKey(points[here], points[here + 1])].push_back(
-              Leaving{.Way = static_cast<uint32_t>(at),
-                      .Side = static_cast<uint8_t>(side),
-                      .DirE = static_cast<float>(outE),
-                      .DirN = static_cast<float>(outN),
-                      .HalfM = lane.HalfWidthM});
+          meeting[WayEndKey({.LongitudeDeg = points[here + 1], .LatitudeDeg = points[here]})]
+              .push_back(Leaving{.Way = static_cast<uint32_t>(at),
+                                 .Side = static_cast<uint8_t>(side),
+                                 .DirE = static_cast<float>(outE),
+                                 .DirN = static_cast<float>(outN),
+                                 .HalfM = lane.HalfWidthM});
         }
       }
       for (const auto &node : meeting) {
@@ -2048,7 +2050,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         for (uint32_t step = 0; step < one.PointCount; ++step) {
           const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
           if (at + 1 >= points.size()) { break; }
-          ++sharedNodes[WayEndKey(points[at], points[at + 1])];
+          ++sharedNodes[WayEndKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
         }
       }
       std::vector<std::vector<Generators::RoadStation>> designed(ways.Ways().size());
@@ -2102,22 +2104,27 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                 const double onLat = points[here] + (points[next] - points[here]) * at;
                 const double onLon = points[here + 1] + (points[next + 1] - points[here + 1]) * at;
                 const auto seen =
-                    piece == 0 ? sharedNodes.find(WayEndKey(onLat, onLon)) : sharedNodes.end();
-                whole = station(
-                    onLat,
-                    onLon,
-                    seen != sharedNodes.end() && seen->second > 1u ? WayEndKey(onLat, onLon) : 0u);
+                    piece == 0
+                        ? sharedNodes.find(WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat}))
+                        : sharedNodes.end();
+                whole = station(onLat,
+                                onLon,
+                                seen != sharedNodes.end() && seen->second > 1u
+                                    ? WayEndKey({.LongitudeDeg = onLon, .LatitudeDeg = onLat})
+                                    : 0u);
               }
             }
             if (whole) {
               const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
               if (last + 1 < points.size()) {
-                const auto seen = sharedNodes.find(WayEndKey(points[last], points[last + 1]));
-                whole = station(points[last],
-                                points[last + 1],
-                                seen != sharedNodes.end() && seen->second > 1u
-                                    ? WayEndKey(points[last], points[last + 1])
-                                    : 0ULL);
+                const auto seen = sharedNodes.find(
+                    WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]}));
+                whole = station(
+                    points[last],
+                    points[last + 1],
+                    seen != sharedNodes.end() && seen->second > 1u
+                        ? WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]})
+                        : 0ULL);
               } else {
                 whole = false;
               }
@@ -2318,8 +2325,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
             const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2;
             if (last + 1 < points.size()) {
-              const auto from = endM.find(WayEndKey(points[first], points[first + 1]));
-              const auto to = endM.find(WayEndKey(points[last], points[last + 1]));
+              const auto from = endM.find(
+                  WayEndKey({.LongitudeDeg = points[first + 1], .LatitudeDeg = points[first]}));
+              const auto to = endM.find(
+                  WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]}));
               if (from != endM.end() && to != endM.end()) {
                 double runM = 0.0;
                 std::vector<double> reached(along.size(), 0.0);
@@ -2465,8 +2474,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
             const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
             if (last + 1 < points.size()) {
-              const std::array<uint64_t, 2> key = {{WayEndKey(points[first], points[first + 1]),
-                                                    WayEndKey(points[last], points[last + 1])}};
+              const std::array<uint64_t, 2> key = {
+                  {WayEndKey({.LongitudeDeg = points[first + 1], .LatitudeDeg = points[first]}),
+                   WayEndKey({.LongitudeDeg = points[last + 1], .LatitudeDeg = points[last]})}};
               for (int side = 0; side < 2; ++side) {
                 const Generators::RoadStation &at = side == 0 ? along.front() : along.back();
                 const Generators::RoadStation &to = side == 0 ? along[1] : along[along.size() - 2u];
@@ -3336,7 +3346,8 @@ bool Engine::State::Blocked(const Vec3 &sourceM) const {
     fromM[axis] = static_cast<float>(eye.EyeM[axis]);
     along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
   }
-  return World.Blocking.Occludes(fromM, along, kNearestOccluderM, static_cast<float>(awayM));
+  return World.Blocking.Occludes(
+      {.OriginM = fromM, .Toward = along}, kNearestOccluderM, static_cast<float>(awayM));
 }
 
 Result Engine::mix(std::span<float> stereo, int rate) {

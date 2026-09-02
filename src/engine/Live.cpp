@@ -579,7 +579,7 @@ bool Live::PartVolumes(std::string &error) {
   return Held_.Frames() <= 1 || Measure(Held_.AtS(), error);
 }
 
-bool Live::PlacedBounds(Vec3 &least, Vec3 &most, std::string &error) {
+bool Live::PlacedBounds(Extents &into, std::string &error) {
   if (!PartVolumes(error)) { return false; }
   const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
   bool first = true;
@@ -604,8 +604,8 @@ bool Live::PlacedBounds(Vec3 &least, Vec3 &most, std::string &error) {
     }
   }
   for (int axis = 0; axis < 3; ++axis) {
-    least[axis] = leastM[axis];
-    most[axis] = mostM[axis];
+    into.LeastM[axis] = leastM[axis];
+    into.MostM[axis] = mostM[axis];
   }
   return true;
 }
@@ -619,9 +619,10 @@ bool Live::Look(std::string &error) {
     return Render::Aim(
         *Renderer_, Gltf::Shaped(Held_.Assembled(), aiming), Looking_, Stood_.Anchor(), error);
   }
-  Vec3 least;
-  Vec3 most;
-  if (!PlacedBounds(least, most, error)) { return false; }
+  Extents placed;
+  if (!PlacedBounds(placed, error)) { return false; }
+  const Vec3 &least = placed.LeastM;
+  const Vec3 &most = placed.MostM;
   Gltf::Viewpoint fromFile;
   if (!Gltf::FramingFor(least, most, fromFile, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";

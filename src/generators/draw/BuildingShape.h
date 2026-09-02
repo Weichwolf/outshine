@@ -18,6 +18,11 @@ enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome 
 
 enum class BuildingUse : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
 
+struct Boxed {
+  double U = 0.0;
+  double V = 0.0;
+};
+
 struct BuildingShape {
   std::vector<En> Ring;
   size_t TidiedAway = 0;
@@ -55,8 +60,8 @@ struct BuildingShape {
 
   [[nodiscard]] En AxisV() const { return {.EastM = -AxisU.NorthM, .NorthM = AxisU.EastM}; }
 
-  void ToBox(const En &p, double *u, double *v) const;
-  [[nodiscard]] En FromBox(double u, double v) const;
+  [[nodiscard]] Boxed ToBox(const En &p) const;
+  [[nodiscard]] En FromBox(Boxed at) const;
 };
 
 struct Massing {

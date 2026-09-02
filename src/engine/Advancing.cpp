@@ -185,15 +185,13 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
 
 bool Engine::State::Updates() {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
-    double atLat = 0.0;
-    double atLon = 0.0;
-    WhereTheEyeStands(atLat, atLon);
+    const LongitudeLatitude stands = WhereTheEyeStands();
     if (World.Stack.Opened()) {
       const Heap::Tagged restanding("world-restand");
-      World.Stack.Restand({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
+      World.Stack.Restand(stands);
       {
         const Heap::Tagged growing("world-grow");
-        (void)Grows(atLat, atLon);
+        (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
       }
     }
   }

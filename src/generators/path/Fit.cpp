@@ -1,3 +1,4 @@
+#include <optional>
 #include "Fit.h"
 #include "Alignment.h"
 #include "Angle.h"
@@ -210,8 +211,10 @@ Fitted Fit(std::span<const double> eastNorthM,
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
-    double alongM = 0.0;
-    if (!into.Nearest(eastM, northM, 0.5 * out.LengthM, out.LengthM, alongM)) { continue; }
+    const std::optional<double> found = into.Nearest(
+        {.EastM = eastM, .NorthM = northM}, {.AboutM = 0.5 * out.LengthM, .WithinM = out.LengthM});
+    if (!found) { continue; }
+    const double alongM = *found;
     Placed on;
     if (!into.At(alongM, on)) { continue; }
     const double east = eastM - on.EastM;

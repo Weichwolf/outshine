@@ -197,7 +197,9 @@ RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 double RoofSurface::HeightAt(const En &enu) const noexcept {
   double u = 0.0;
   double v = 0.0;
-  Shape_.ToBox(enu, &u, &v);
+  const Boxed boxed = Shape_.ToBox(enu);
+  u = boxed.U;
+  v = boxed.V;
   const double hu = Shape_.HalfUm;
   const double hv = Shape_.HalfVm;
   const double rise = Shape_.RiseM;
@@ -255,8 +257,12 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
     double va = 0.0;
     double ub = 0.0;
     double vb = 0.0;
-    shape.ToBox(a, &ua, &va);
-    shape.ToBox(b, &ub, &vb);
+    const Boxed boxedA = shape.ToBox(a);
+    ua = boxedA.U;
+    va = boxedA.V;
+    const Boxed boxedB = shape.ToBox(b);
+    ub = boxedB.U;
+    vb = boxedB.V;
     const double da = (line.A * ua + line.B * va - line.C) * sign;
     const double db = (line.A * ub + line.B * vb - line.C) * sign;
     if (da >= -kOnLineM) { out.push_back(a); }
@@ -296,8 +302,12 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
   double v0 = 0.0;
   double u1 = 0.0;
   double v1 = 0.0;
-  Shape_.ToBox(from, &u0, &v0);
-  Shape_.ToBox(to, &u1, &v1);
+  const Boxed boxedFrom = Shape_.ToBox(from);
+  u0 = boxedFrom.U;
+  v0 = boxedFrom.V;
+  const Boxed boxedTo = Shape_.ToBox(to);
+  u1 = boxedTo.U;
+  v1 = boxedTo.V;
   for (int i = 0; i < n; i++) {
     const double d0 = lines[i].A * u0 + lines[i].B * v0 - lines[i].C;
     const double d1 = lines[i].A * u1 + lines[i].B * v1 - lines[i].C;

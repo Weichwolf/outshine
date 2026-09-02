@@ -80,6 +80,11 @@ struct Declaration {
   std::vector<Shows> Surfaces;
 };
 
+struct Extents {
+  Vec3 LeastM = {{0.0, 0.0, 0.0}};
+  Vec3 MostM = {{0.0, 0.0, 0.0}};
+};
+
 class Live {
 public:
   ~Live();
@@ -189,7 +194,7 @@ public:
   [[nodiscard]] bool
   ReadBuffer(outshine::Buffer which, std::vector<float> &out, std::string &error);
 
-  [[nodiscard]] bool PlacedBounds(Vec3 &least, Vec3 &most, std::string &error);
+  [[nodiscard]] bool PlacedBounds(Extents &into, std::string &error);
 
   void SkyEye(double aboveGroundM);
 

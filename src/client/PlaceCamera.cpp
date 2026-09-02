@@ -51,14 +51,14 @@ constexpr int kTimedFrames = 120;
 constexpr int kWalkViews = 24;
 constexpr double kWalkStepM = 25.0;
 
-void WalkedTo(
-    double fromLat, double fromLon, double bearingDeg, double alongM, double &lat, double &lon) {
+LongitudeLatitude WalkedTo(LongitudeLatitude from, double bearingDeg, double alongM) {
   constexpr double kMetresPerDegree = 111320.0;
   const double heading = bearingDeg * kDeg2Rad;
-  lat = fromLat + alongM * std::cos(heading) / kMetresPerDegree;
-  const double shrink = std::cos(fromLat * kDeg2Rad);
-  lon = fromLon +
-        alongM * std::sin(heading) / (kMetresPerDegree * (shrink > kLeastRunM ? shrink : 1.0));
+  const double shrink = std::cos(from.LatitudeDeg * kDeg2Rad);
+  return {.LongitudeDeg =
+              from.LongitudeDeg + alongM * std::sin(heading) /
+                                      (kMetresPerDegree * (shrink > kLeastRunM ? shrink : 1.0)),
+          .LatitudeDeg = from.LatitudeDeg + alongM * std::cos(heading) / kMetresPerDegree};
 }
 
 constexpr std::array<Place, 9> kPlaces{{
@@ -224,16 +224,12 @@ Scenario::Document ScenarioFor(const Place &place) {
   for (int step = 1; step <= kWalkViews; ++step) {
     Scenario::View along = watches;
     along.Id = "walk" + std::to_string(step - 1);
-    double lat = place.LatitudeDeg;
-    double lon = place.LongitudeDeg;
-    WalkedTo(place.LatitudeDeg,
-             place.LongitudeDeg,
-             place.BearingDeg,
-             static_cast<double>(step) * kWalkStepM,
-             lat,
-             lon);
-    along.Sees.Stands.Geodetic.LatitudeDeg = lat;
-    along.Sees.Stands.Geodetic.LongitudeDeg = lon;
+    const LongitudeLatitude walked =
+        WalkedTo({.LongitudeDeg = place.LongitudeDeg, .LatitudeDeg = place.LatitudeDeg},
+                 place.BearingDeg,
+                 static_cast<double>(step) * kWalkStepM);
+    along.Sees.Stands.Geodetic.LatitudeDeg = walked.LatitudeDeg;
+    along.Sees.Stands.Geodetic.LongitudeDeg = walked.LongitudeDeg;
     stands.Views.push_back(along);
   }
   return stands;

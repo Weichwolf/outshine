@@ -14,12 +14,8 @@ struct Astride {
   Vec3 NormalM = {{0.0, 1.0, 0.0}};
 };
 
-[[nodiscard]] Astride Stand(const ReferenceLine &over,
-                            double eastM,
-                            double northM,
-                            double halfWidthM,
-                            double nearM,
-                            double windowM);
+[[nodiscard]] Astride
+Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby about);
 
 [[nodiscard]] Astride
 StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM);

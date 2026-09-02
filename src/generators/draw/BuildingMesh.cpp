@@ -218,30 +218,6 @@ public:
     run.push_back(Corner(side, c, ic, nrm));
   }
 
-  void Judged(size_t *open, size_t *overused, size_t *reversed) const {
-    std::map<std::pair<uint32_t, uint32_t>, int> walked;
-    std::map<std::pair<uint32_t, uint32_t>, int> counted;
-    for (size_t at = 0; at + 2 < Face_.size(); at += 3) {
-      for (int side = 0; side < 3; ++side) {
-        const uint32_t from = Face_[at + static_cast<size_t>(side)];
-        const uint32_t to = Face_[at + static_cast<size_t>((side + 1) % 3)];
-        const bool ahead = from < to;
-        const std::pair<uint32_t, uint32_t> key{ahead ? from : to, ahead ? to : from};
-        walked[key] += ahead ? 1 : -1;
-        counted[key] += 1;
-      }
-    }
-    for (const auto &edge : counted) {
-      if (edge.second == 1) {
-        ++*open;
-      } else if (edge.second > 2) {
-        ++*overused;
-      } else if (walked.at(edge.first) != 0) {
-        ++*reversed;
-      }
-    }
-  }
-
   void Quad(const Vtx &a, const Vtx &b, const Vtx &c, const Vtx &d) {
     Tri(a, b, c);
     Tri(a, c, d);
@@ -751,7 +727,7 @@ void Box(Site &site,
 void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const double along =
       ((static_cast<double>(s.Seed >> 9u & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
-  const En foot = s.FromBox(along, 0.0);
+  const En foot = s.FromBox({.U = along, .V = 0.0});
   const double eaves = EavesZ(s);
   const double stack = eaves + roof.HeightAt(foot) + kChimneyOverRidgeM;
   Box(site,
@@ -770,7 +746,7 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   if (halfU < kDormerLeastHalfUm || halfV < kDormerLeastHalfVm) { return; }
   const double along =
       ((static_cast<double>(s.Seed >> 13u & 0xffu) / 255.0) - 0.5) * 0.9 * s.HalfUm;
-  const En foot = s.FromBox(along, 0.0);
+  const En foot = s.FromBox({.U = along, .V = 0.0});
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + kDormerRiseM, Facade::Metal);
 }
 

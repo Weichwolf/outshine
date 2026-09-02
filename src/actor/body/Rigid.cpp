@@ -41,11 +41,11 @@ void Carry(const Rigid &body, const Vec3 &atBodyM, Vec3 &worldMs) {
   worldMs = body.VelocityMs + turned;
 }
 
-void Push(Wrench &wrench, const Rigid &body, const Vec3 &atBodyM, const Vec3 &forceN) {
+void Push(Wrench &wrench, const Rigid &body, const Force &applied) {
   Vec3 arm;
-  Turn(body.OrientationQ, atBodyM, arm);
-  const Vec3 torque = Cross(arm, forceN);
-  wrench.ForceN = wrench.ForceN + forceN;
+  Turn(body.OrientationQ, applied.AtBodyM, arm);
+  const Vec3 torque = Cross(arm, applied.Newtons);
+  wrench.ForceN = wrench.ForceN + applied.Newtons;
   wrench.TorqueNm = wrench.TorqueNm + torque;
 }
 
@@ -104,9 +104,9 @@ double EnergyJ(const Rigid &body, const Vec3 &gravityMs2) {
   return energy;
 }
 
-void Lie(Rigid &body, const Vec3 &aheadM, const Vec3 &upM) {
-  Vec3 ahead = aheadM;
-  Vec3 up = upM;
+void Lie(Rigid &body, const Facing &faces) {
+  Vec3 ahead = faces.AheadM;
+  Vec3 up = faces.UpM;
   (void)Normalise(up);
   const double along = ahead[0] * up[0] + ahead[1] * up[1] + ahead[2] * up[2];
   for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= along * up[axis]; }

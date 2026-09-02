@@ -30,12 +30,17 @@ struct DagCluster {
 
 inline constexpr float kDagRootErr = 3.0e38f;
 
-inline void
-BoundingSphere(const float *verts, uint32_t nverts, int stride, Vec3f &ctr, float *rad) {
+struct Bounding {
+  Vec3f CentreM;
+  float RadiusM = 0.0f;
+};
+
+[[nodiscard]] inline Bounding BoundingSphere(const float *verts, uint32_t nverts, int stride) {
+  Bounding out;
+  Vec3f &ctr = out.CentreM;
   if ((verts == nullptr) || nverts == 0) {
     ctr[0] = ctr[1] = ctr[2] = 0.0f;
-    *rad = 0.0f;
-    return;
+    return out;
   }
   Vec3f lo;
   Vec3f hi;
@@ -57,7 +62,8 @@ BoundingSphere(const float *verts, uint32_t nverts, int stride, Vec3f &ctr, floa
     const double h = 0.5 * (static_cast<double>(hi[a]) - static_cast<double>(lo[a]));
     r2 += h * h;
   }
-  *rad = static_cast<float>(std::sqrt(r2));
+  out.RadiusM = static_cast<float>(std::sqrt(r2));
+  return out;
 }
 
 inline constexpr float kPixelTau = 1.0f;

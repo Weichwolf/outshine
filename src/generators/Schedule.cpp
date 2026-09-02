@@ -24,7 +24,7 @@ Schedule::Schedule(const Ring &ring) : Zoom_(ring.Zoom) {
 
 std::optional<Tile> Schedule::At(size_t i, double lat, double lon) const {
   if (i >= Offsets_.size()) { return std::nullopt; }
-  const Tile centre = Tile::Of(Zoom_, lat, lon);
+  const Tile centre = Tile::Of(Zoom_, {.LongitudeDeg = lon, .LatitudeDeg = lat});
   const auto side = static_cast<int>(1u << static_cast<uint32_t>(Zoom_));
   const int y = centre.Y() + Offsets_[i].Y;
   if (y < 0 || y >= side) { return std::nullopt; }

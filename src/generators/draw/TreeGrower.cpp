@@ -53,10 +53,8 @@ constexpr int kMinBranchSteps = 3;
 constexpr float kCapReach = 2.4f;
 
 Vec3f RadialAt(Vec3f dir, Vec3f up, float roll) {
-  Vec3f n;
-  Vec3f b;
-  FrameFrom(dir, up, n, b);
-  return n * std::cos(roll) + b * std::sin(roll);
+  const Frame frame = FrameFrom({.Along = dir, .Reference = up});
+  return frame.Normal * std::cos(roll) + frame.Binormal * std::sin(roll);
 }
 
 } // namespace
@@ -188,9 +186,9 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
 
 void TreeGrower::EmitLeafPoints(
     Vec3f pos, Vec3f dir, Vec3f up, float radius, int count, float roll) {
-  Vec3f n;
-  Vec3f b;
-  FrameFrom(dir, up, n, b);
+  const Frame frame = FrameFrom({.Along = dir, .Reference = up});
+  const Vec3f &n = frame.Normal;
+  const Vec3f &b = frame.Binormal;
   count = std::max(count, 1);
   constexpr float kAzimuthJitterRad = 0.30f;
   constexpr float kSeatOfRadius = 0.95f;
@@ -283,12 +281,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     Plant_->Shoots[static_cast<size_t>(t.Shoot)].First = static_cast<int>(Plant_->Nodes.size());
     float leafRoll = t.Roll;
 
-    {
-      Vec3f n;
-      Vec3f b;
-      FrameFrom(t.Dir, t.Up, n, b);
-      t.Up = n;
-    }
+    { t.Up = FrameFrom({.Along = t.Dir, .Reference = t.Up}).Normal; }
     AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
     if (Plant_->Shoots[static_cast<size_t>(t.Shoot)].Parent >= 0) {
       t.Pos = t.Pos + t.Dir * t.Step;
@@ -302,9 +295,9 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       if (static_cast<int>(Plant_->Nodes.size()) >= kMaxNodes) { break; }
       const Vec3f oldDir = t.Dir;
 
-      Vec3f nf;
-      Vec3f bf;
-      FrameFrom(t.Dir, t.Up, nf, bf);
+      const Frame turned = FrameFrom({.Along = t.Dir, .Reference = t.Up});
+      const Vec3f &nf = turned.Normal;
+      const Vec3f &bf = turned.Binormal;
       const float wr = g.Wander * kDeg;
       const float ub = (t.Order == 0) ? g.LeaderBias : g.BranchUpBias;
       Vec3f want = t.Dir;

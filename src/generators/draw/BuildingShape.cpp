@@ -137,9 +137,9 @@ uint32_t Mix(uint32_t x) {
   return x;
 }
 
-uint32_t SeedOfPlace(double latDeg, double lonDeg) {
-  const auto la = static_cast<int32_t>(std::llround(latDeg * kMicroDegree));
-  const auto lo = static_cast<int32_t>(std::llround(lonDeg * kMicroDegree));
+uint32_t SeedOfPlace(LongitudeLatitude at) {
+  const auto la = static_cast<int32_t>(std::llround(at.LatitudeDeg * kMicroDegree));
+  const auto lo = static_cast<int32_t>(std::llround(at.LongitudeDeg * kMicroDegree));
   return Mix(static_cast<uint32_t>(la) * kGoldenWord ^ Mix(static_cast<uint32_t>(lo)));
 }
 
@@ -600,7 +600,7 @@ int RowCut(const Piece &whole, const BuildingShape &box, std::span<Piece> out) {
   Piece rest = whole;
   int made = 0;
   for (int k = 1; k < want; k++) {
-    const En at = box.FromBox(-box.HalfUm + step * static_cast<double>(k), 0.0);
+    const En at = box.FromBox({.U = -box.HalfUm + step * static_cast<double>(k), .V = 0.0});
     Piece plot;
     Piece beyond;
     double len = 0.0;
@@ -651,14 +651,15 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
 
 } // namespace
 
-void BuildingShape::ToBox(const En &p, double *u, double *v) const {
+Boxed BuildingShape::ToBox(const En &p) const {
   const double e = p.EastM - Centre.EastM;
   const double n = p.NorthM - Centre.NorthM;
-  *u = e * AxisU.EastM + n * AxisU.NorthM;
-  *v = -e * AxisU.NorthM + n * AxisU.EastM;
+  return {.U = e * AxisU.EastM + n * AxisU.NorthM, .V = -e * AxisU.NorthM + n * AxisU.EastM};
 }
 
-En BuildingShape::FromBox(double u, double v) const {
+En BuildingShape::FromBox(Boxed at) const {
+  const double u = at.U;
+  const double v = at.V;
   return {.EastM = Centre.EastM + u * AxisU.EastM - v * AxisU.NorthM,
           .NorthM = Centre.NorthM + u * AxisU.NorthM + v * AxisU.EastM};
 }
@@ -673,7 +674,7 @@ MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured, const
   }
   if (SignedArea(out.Outline) < 0.0) { std::ranges::reverse(out.Outline); }
 
-  const uint32_t seed = SeedOfPlace(ringLatLon[0], ringLatLon[1]);
+  const uint32_t seed = SeedOfPlace({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]});
   const double topM = std::max(heightM, 2.6);
   PartOrder whole;
   whole.TopOverFootM = topM;

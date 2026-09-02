@@ -24,6 +24,16 @@ static_assert(alignof(Rigid) == 16 && sizeof(Rigid) == kRigidBytes,
               "each vector row of the body starts on a 128-bit boundary; the 40 bytes over the "
               "packed 136 are the declared price of whole-row NEON loads");
 
+struct Force {
+  Vec3 AtBodyM = {{0.0, 0.0, 0.0}};
+  Vec3 Newtons = {{0.0, 0.0, 0.0}};
+};
+
+struct Facing {
+  Vec3 AheadM = {{0.0, 0.0, -1.0}};
+  Vec3 UpM = {{0.0, 1.0, 0.0}};
+};
+
 struct Wrench {
   alignas(16) Vec3 ForceN;
   alignas(16) Vec3 TorqueNm;
@@ -37,10 +47,10 @@ void Unturn(const Quat &orientationQ, const Vec3 &worldV, Vec3 &bodyV);
 
 void Place(const Rigid &body, const Vec3 &atBodyM, Vec3 &worldM);
 
-void Lie(Rigid &body, const Vec3 &aheadM, const Vec3 &upM);
+void Lie(Rigid &body, const Facing &faces);
 void Carry(const Rigid &body, const Vec3 &atBodyM, Vec3 &worldMs);
 
-void Push(Wrench &wrench, const Rigid &body, const Vec3 &atBodyM, const Vec3 &forceN);
+void Push(Wrench &wrench, const Rigid &body, const Force &applied);
 void Fall(Wrench &wrench, const Rigid &body, const Vec3 &gravityMs2);
 
 void Step(Rigid &body, const Wrench &wrench, double dtS);

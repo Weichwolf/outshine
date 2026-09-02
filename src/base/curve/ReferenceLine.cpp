@@ -100,21 +100,18 @@ bool ReferenceLine::Bank(std::span<const Knot> through, std::string &error) {
   return Fasten(through, "bank", "rate", Bank_, error);
 }
 
-void ReferenceLine::Read(
-    std::span<const Knot> through, double alongM, double &value, double &rate, double &bend) {
-  value = 0.0;
-  rate = 0.0;
-  bend = 0.0;
-  if (through.empty()) { return; }
+Curving ReferenceLine::Read(std::span<const Knot> through, double alongM) {
+  Curving out;
+  if (through.empty()) { return out; }
   if (through.size() < 2 || alongM < through.front().AlongM) {
-    rate = through.front().RatePerM;
-    value = through.front().Value + rate * (alongM - through.front().AlongM);
-    return;
+    out.Rate = through.front().RatePerM;
+    out.Value = through.front().Value + out.Rate * (alongM - through.front().AlongM);
+    return out;
   }
   if (alongM > through.back().AlongM) {
-    rate = through.back().RatePerM;
-    value = through.back().Value + rate * (alongM - through.back().AlongM);
-    return;
+    out.Rate = through.back().RatePerM;
+    out.Value = through.back().Value + out.Rate * (alongM - through.back().AlongM);
+    return out;
   }
 
   size_t low = 0;
@@ -141,10 +138,11 @@ void ReferenceLine::Read(
   const double linear = slopeFrom;
   const double constant = from.Value;
 
-  value = ((cubed * t + squared) * t + linear) * t + constant;
-  rate = ((kCubicRateFactor * cubed * t + kSquareRateFactor * squared) * t + linear) / span;
-  bend = (kCubicRateFactor * kSquareRateFactor * cubed * t + kSquareRateFactor * squared) /
-         (span * span);
+  out.Value = ((cubed * t + squared) * t + linear) * t + constant;
+  out.Rate = ((kCubicRateFactor * cubed * t + kSquareRateFactor * squared) * t + linear) / span;
+  out.Bend = (kCubicRateFactor * kSquareRateFactor * cubed * t + kSquareRateFactor * squared) /
+             (span * span);
+  return out;
 }
 
 std::vector<double> ReferenceLine::Seams() const {
@@ -255,19 +253,18 @@ bool ReferenceLine::Lay(const Placed &from, std::span<const Segment> along, std:
   return true;
 }
 
-bool ReferenceLine::Nearest(
-    double eastM, double northM, double nearM, double windowM, double &alongM) const {
-  if (Laid_.empty() || !(windowM > 0.0)) { return false; }
+std::optional<double> ReferenceLine::Nearest(EastNorth at, Nearby about) const {
+  if (Laid_.empty() || !(about.WithinM > 0.0)) { return std::nullopt; }
 
-  double lowM = nearM - windowM;
-  double highM = nearM + windowM;
+  double lowM = about.AboutM - about.WithinM;
+  double highM = about.AboutM + about.WithinM;
   lowM = std::max(lowM, 0.0);
   highM = std::min(highM, Length_);
-  if (!(highM > lowM)) { return false; }
+  if (!(highM > lowM)) { return std::nullopt; }
 
-  const auto away = [eastM, northM](const Placed &there) {
-    const double east = eastM - there.EastM;
-    const double north = northM - there.NorthM;
+  const auto away = [at](const Placed &there) {
+    const double east = at.EastM - there.EastM;
+    const double north = at.NorthM - there.NorthM;
     return east * east + north * north;
   };
 
@@ -284,7 +281,7 @@ bool ReferenceLine::Nearest(
       bestM = atM;
     }
   }
-  if (!have) { return false; }
+  if (!have) { return std::nullopt; }
 
   double lowBracket = bestM - kResectionCoarseM;
   double highBracket = bestM + kResectionCoarseM;
@@ -321,8 +318,7 @@ bool ReferenceLine::Nearest(
     bestM = 0.5 * (lowBracket + highBracket);
   }
 
-  alongM = bestM;
-  return true;
+  return bestM;
 }
 
 bool ReferenceLine::At(double alongM, Placed &out) const {
@@ -342,9 +338,13 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
   const Held &held = Laid_[low];
   out = Walk(held.Entry, held.Declared, alongM - held.AlongM);
 
-  double bend = 0.0;
-  Read(Rise_, alongM, out.HeightM, out.Slope, out.SlopeRatePerM);
-  Read(Bank_, alongM, out.BankRad, out.BankRatePerM, bend);
+  const Curving rise = Read(Rise_, alongM);
+  out.HeightM = rise.Value;
+  out.Slope = rise.Rate;
+  out.SlopeRatePerM = rise.Bend;
+  const Curving bank = Read(Bank_, alongM);
+  out.BankRad = bank.Value;
+  out.BankRatePerM = bank.Rate;
   return true;
 }
 

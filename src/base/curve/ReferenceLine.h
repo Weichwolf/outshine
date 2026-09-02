@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_BASE_CURVE_REFERENCELINE_H
 #define OUTSHINE_BASE_CURVE_REFERENCELINE_H
 
+#include "Earth.h"
+#include <optional>
 #include "Units.h"
 #include <cstddef>
 #include <initializer_list>
@@ -9,6 +11,17 @@
 #include <vector>
 
 namespace outshine {
+
+struct Nearby {
+  double AboutM = 0.0;
+  double WithinM = 0.0;
+};
+
+struct Curving {
+  double Value = 0.0;
+  double Rate = 0.0;
+  double Bend = 0.0;
+};
 
 inline constexpr size_t kMaxCorridorSegments = 262144;
 inline constexpr size_t kMaxCorridorKnots = 262144;
@@ -66,8 +79,7 @@ public:
   }
 
   [[nodiscard]] bool At(double alongM, Placed &out) const;
-  [[nodiscard]] bool
-  Nearest(double eastM, double northM, double nearM, double windowM, double &alongM) const;
+  [[nodiscard]] std::optional<double> Nearest(EastNorth at, Nearby about) const;
 
   [[nodiscard]] double LengthM() const { return Length_; }
 
@@ -95,8 +107,7 @@ private:
                             const char *unit,
                             std::vector<Knot> &into,
                             std::string &error);
-  static void
-  Read(std::span<const Knot> through, double alongM, double &value, double &rate, double &bend);
+  [[nodiscard]] static Curving Read(std::span<const Knot> through, double alongM);
 
   std::vector<Held> Laid_;
   std::vector<Knot> Rise_;

@@ -16,16 +16,26 @@ inline Vec3f DirectionOrUp(Vec3f a) {
   return l > kLeastLengthM ? a * (1.0f / l) : Vec3f{{0.0f, 1.0f, 0.0f}};
 }
 
-inline void FrameFrom(Vec3f t, Vec3f ref, Vec3f &n, Vec3f &b) {
-  const Vec3f tt = DirectionOrUp(t);
-  Vec3f nn = ref - tt * Dot(ref, tt);
+struct Framing {
+  Vec3f Along;
+  Vec3f Reference;
+};
+
+struct Frame {
+  Vec3f Normal;
+  Vec3f Binormal;
+};
+
+[[nodiscard]] inline Frame FrameFrom(Framing from) {
+  const Vec3f tt = DirectionOrUp(from.Along);
+  Vec3f nn = from.Reference - tt * Dot(from.Reference, tt);
   if (Length(nn) < kLeastPerpendicularM) {
     const Vec3f alt =
         std::fabs(tt[1]) < 0.9f ? Vec3f{{0.0f, 1.0f, 0.0f}} : Vec3f{{1.0f, 0.0f, 0.0f}};
     nn = alt - tt * Dot(alt, tt);
   }
-  n = DirectionOrUp(nn);
-  b = DirectionOrUp(Cross(tt, n));
+  const Vec3f normal = DirectionOrUp(nn);
+  return {.Normal = normal, .Binormal = DirectionOrUp(Cross(tt, normal))};
 }
 
 inline Vec3f RmfDouble(Vec3f p0, Vec3f p1, Vec3f t0, Vec3f t1, Vec3f x0) {

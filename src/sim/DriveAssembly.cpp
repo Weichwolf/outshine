@@ -341,8 +341,10 @@ bool AssembleDrive(const Scene &scene,
     say.Refuse("the corridor does not answer at its own start");
     return false;
   }
-  const outshine::Astride under0 =
-      outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
+  const outshine::Astride under0 = outshine::Stand(corridor,
+                                                   {.EastM = start.EastM, .NorthM = start.NorthM},
+                                                   0.0,
+                                                   {.AboutM = 0.0, .WithinM = 50.0});
   const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
   say.Number("the fastest the car may move between lane centres",
              out.Way.AsideRatePerM * kMPerKm,
@@ -358,7 +360,7 @@ bool AssembleDrive(const Scene &scene,
                    outshine::kPi,
                "deg");
     const Vec3 aheadM = {{std::cos(start.HeadingRad), start.Slope, -std::sin(start.HeadingRad)}};
-    outshine::Physics::Lie(body, aheadM, up);
+    outshine::Physics::Lie(body, {.AheadM = aheadM, .UpM = up});
     const Vec3 aheadBody = {{0.0, 0.0, -1.0}};
     Vec3 ahead;
     outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);

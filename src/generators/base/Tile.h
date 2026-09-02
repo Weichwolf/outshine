@@ -42,7 +42,7 @@ public:
 
   void AnchorEcef(double aslM, Vec3 &out) const;
 
-  static Tile Of(int zoom, double lat, double lon);
+  static Tile Of(int zoom, LongitudeLatitude at);
 
 private:
   int Zoom_, X_, Y_;

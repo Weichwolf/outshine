@@ -55,10 +55,11 @@ Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   SpanEm_ = (east - west) * kMPerDeg * std::cos(0.5 * (north + south) * kDeg2Rad);
 }
 
-Tile Tile::Of(int zoom, double lat, double lon) {
+Tile Tile::Of(int zoom, LongitudeLatitude at) {
   const auto scale = static_cast<double>(1u << static_cast<unsigned>(zoom));
-  const double s = std::sin(lat * kDeg2Rad);
-  const int x = static_cast<int>(std::floor((lon + kDegPerHalfTurn) / kDegPerTurn * scale));
+  const double s = std::sin(at.LatitudeDeg * kDeg2Rad);
+  const int x =
+      static_cast<int>(std::floor((at.LongitudeDeg + kDegPerHalfTurn) / kDegPerTurn * scale));
   const int y =
       static_cast<int>(std::floor((0.5 - std::log((1.0 + s) / (1.0 - s)) / (4.0 * kPi)) * scale));
   return {zoom, x, y};
