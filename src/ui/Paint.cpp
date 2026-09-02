@@ -9,6 +9,9 @@
 #include <vector>
 
 namespace outshine::Ui {
+
+constexpr uint32_t kByteMask = 0xFFu;
+
 namespace {
 
 struct Clip {
@@ -27,7 +30,7 @@ Clip Intersected(const Clip &a, const Clip &b) {
 }
 
 bool Reaches(uint32_t colour) {
-  return (colour & 0xFFu) != 0u;
+  return (colour & kByteMask) != 0u;
 }
 
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {

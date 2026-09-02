@@ -16,6 +16,16 @@ namespace outshine::Generators {
 
 namespace {
 
+constexpr float kQuarterTurnRad = std::numbers::pi_v<float> / 2.0f;
+constexpr float kOutlineFloor = 0.82f;
+constexpr float kOutlineSwing = 0.18f;
+constexpr float kSerrationDepth = 0.10f;
+constexpr float kSegmentM = 0.0085f;
+constexpr int kSegmentsLeast = 44;
+constexpr int kSegmentsMost = 180;
+constexpr uint32_t kBladeSeed = 99u;
+constexpr float kBladeTipShare = 0.93f;
+
 constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 constexpr float kDeg = static_cast<float>(kDeg2Rad);
 
@@ -153,11 +163,11 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
       const float fk = x - std::floor(x);
       const float tri = std::fabs(2.0f * fk - 1.0f);
       float outl = p.Length * (1.0f - p.LobeDepth * (1.0f - tri));
-      outl *= 0.82f + 0.18f * std::cos(th * (1.5708f / spread));
+      outl *= kOutlineFloor + kOutlineSwing * std::cos(th * (kQuarterTurnRad / spread));
       if (p.Serration > 0.0f) {
         const float f = static_cast<float>(nl - 1) * 4.0f;
         const float saw = std::fabs(2.0f * (t * f - std::floor(t * f + 0.5f)));
-        outl *= 1.0f - p.Serration * 0.10f * saw;
+        outl *= 1.0f - p.Serration * kSerrationDepth * saw;
       }
       const float rr = outl * static_cast<float>(i) / static_cast<float>(r);
       const Vec3f dir = Vec3f{{std::sin(th), std::cos(th), 0.0f}};
@@ -205,13 +215,13 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
 
 void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   const float len = p.Length;
-  int n = static_cast<int>(len / 0.0085f);
-  n = std::max(n, 44);
-  n = std::min(n, 180);
+  int n = static_cast<int>(len / kSegmentM);
+  n = std::max(n, kSegmentsLeast);
+  n = std::min(n, kSegmentsMost);
   const float nl = len * p.NeedleLen;
   const float nw = std::fmax(p.NeedleWidth * 0.26f, 0.0042f);
   const float fwd = p.NeedleFwd;
-  TreeRandom rng(99u);
+  TreeRandom rng(kBladeSeed);
   const float sw = len * 0.010f;
   const Vec3f up = Vec3f{{0, 0, 1}};
   const uint32_t s0 = sink.Vert(Vec3f{{-sw, 0, 0}}, up, 0.47f, 0.0f);
@@ -256,7 +266,7 @@ void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
     BuildBlade(sink, p, base, ang, ls);
     BuildBlade(sink, p, base, -ang, ls);
   }
-  BuildBlade(sink, p, Vec3f{{0, len * 0.93f, 0}}, 0.0f, ls);
+  BuildBlade(sink, p, Vec3f{{0, len * kBladeTipShare, 0}}, 0.0f, ls);
 }
 
 void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {

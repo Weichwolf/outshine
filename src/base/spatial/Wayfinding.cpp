@@ -839,7 +839,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     return out;
   }
 
-  const double never = 1.0e300;
+  const double never = kBeyondAnyCoordinate;
   const size_t edges = Edges_.size();
   const auto kNoState = static_cast<size_t>(-1);
   std::vector<size_t> nearStart;

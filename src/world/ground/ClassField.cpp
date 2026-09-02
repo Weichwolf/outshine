@@ -1,3 +1,4 @@
+#include "Units.h"
 #include "ClassField.h"
 
 #include "OsmLayer.h"
@@ -128,8 +129,8 @@ void ClassField::Ingest(Tier &t) {
     rec.Tpl = static_cast<uint16_t>(rule->Tpl);
     rec.Form = static_cast<ClassBuilder::Shape>(f.Type);
     rec.WidthM = rule->WidthM;
-    rec.MinE = rec.MinN = 1e30f;
-    rec.MaxE = rec.MaxN = -1e30f;
+    rec.MinE = rec.MinN = static_cast<float>(kBeyondAnyCoordinate);
+    rec.MaxE = rec.MaxN = -static_cast<float>(kBeyondAnyCoordinate);
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const ClassBuilder::Ring &ring = t.Rings[f.FirstRing + r];
       for (uint32_t k = 0; k < ring.Count; k++) {

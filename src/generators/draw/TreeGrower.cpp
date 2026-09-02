@@ -12,6 +12,14 @@ namespace outshine::Generators {
 
 namespace {
 
+constexpr float kLeastRadiusM = 1e-5f;
+constexpr float kLeastRunM = 1e-4f;
+constexpr float kFarBeyondAllowance = 1e3f;
+constexpr float kTipTaper = 0.74f;
+constexpr float kLeafRadiusFactor = 1.7f;
+constexpr int kLeafPointsPerWhorl = 4;
+constexpr float kLyingRise = 0.35f;
+
 constexpr float kWhorlJitterRad = 0.25f;
 constexpr float kSpiralJitterRad = 0.4f;
 
@@ -46,7 +54,7 @@ Vec3f TreeGrower::Inward(Vec3f p) const {
     return Vec3f{{p[0] > 0.0f ? -1.0f : 1.0f, 0, 0}};
   }
   const float r = std::sqrt(p[0] * p[0] + p[2] * p[2]);
-  if (r < 1e-5f) { return Vec3f{{0, 0, 0}}; }
+  if (r < kLeastRadiusM) { return Vec3f{{0, 0, 0}}; }
   return Vec3f{{-p[0] / r, 0, -p[2] / r}};
 }
 
@@ -59,11 +67,11 @@ float TreeGrower::Escape(Vec3f p) const {
     return std::fmax(std::fmax(w, l), h);
   }
   const float span = CrownTopY_ - CrownBaseY_;
-  if (span <= 1e-5f) { return 0.0f; }
+  if (span <= kLeastRadiusM) { return 0.0f; }
   const float allow =
       CrownHalfWidth_ * GrowthForm::Reach(Form_.Envelope, (p[1] - CrownBaseY_) / span);
   const float r = std::sqrt(p[0] * p[0] + p[2] * p[2]);
-  if (allow <= 1e-5f) { return r > 1e-5f ? 1e3f : 0.0f; }
+  if (allow <= kLeastRadiusM) { return r > kLeastRadiusM ? kFarBeyondAllowance : 0.0f; }
   return r / allow;
 }
 
@@ -127,7 +135,7 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
     const float lean = splay * (kLeanLeast + (1.0f - kLeanLeast) * Rng_.Unit());
     Tip t;
     t.Dir = outshine::Generators::GrowthForm::Lying(Form_.Arch)
-                ? DirectionOrUp(Vec3f{{std::cos(lean), std::sin(lean) * 0.35f, 0}})
+                ? DirectionOrUp(Vec3f{{std::cos(lean), std::sin(lean) * kLyingRise, 0}})
                 : DirectionOrUp(Vec3f{{std::sin(lean) * std::cos(roll),
                                        std::cos(lean),
                                        std::sin(lean) * std::sin(roll)}});
@@ -189,7 +197,7 @@ void TreeGrower::SpawnLateral(
 
   if (g.ShadePrune > 0.0f && t.Order >= 2) {
     const float rl = std::sqrt(t.Pos[0] * t.Pos[0] + t.Pos[2] * t.Pos[2]);
-    if (rl > 1e-4f) {
+    if (rl > kLeastRunM) {
       const float dOut = (dir[0] * t.Pos[0] + dir[2] * t.Pos[2]) / rl;
       constexpr float kInwardEnough = -0.05f;
       if (dOut < kInwardEnough && Rng_.Unit() < g.ShadePrune) { return; }
@@ -349,14 +357,15 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
                            .Roll = roll,
                            .Dir = dir,
                            .Up = fn,
-                           .Radius = t.Radius * 0.74f,
+                           .Radius = t.Radius * kTipTaper,
                            .Foliate = t.Foliate},
                    g);
       }
     }
-    if (t.Foliate && ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * 1.7f)) &&
-        t.Radius < leafThreshold * 1.7f) {
-      EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, 4, leafRoll + 1.1f);
+    if (t.Foliate &&
+        ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * kLeafRadiusFactor)) &&
+        t.Radius < leafThreshold * kLeafRadiusFactor) {
+      EmitLeafPoints(t.Pos, t.Dir, t.Up, t.Radius, kLeafPointsPerWhorl, leafRoll + 1.1f);
     }
   }
 
@@ -390,8 +399,12 @@ void TreeGrower::MeasureReach() {
 
 void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (Plant_->Nodes.empty()) { return; }
-  Vec3f mn = Vec3f{{1e30f, 1e30f, 1e30f}};
-  Vec3f mx = Vec3f{{-1e30f, -1e30f, -1e30f}};
+  Vec3f mn = Vec3f{{static_cast<float>(kBeyondAnyCoordinate),
+                    static_cast<float>(kBeyondAnyCoordinate),
+                    static_cast<float>(kBeyondAnyCoordinate)}};
+  Vec3f mx = Vec3f{{-static_cast<float>(kBeyondAnyCoordinate),
+                    -static_cast<float>(kBeyondAnyCoordinate),
+                    -static_cast<float>(kBeyondAnyCoordinate)}};
   const auto cover = [&mn, &mx](Vec3f p, Vec3f half) {
     mn = Vec3f{{std::fmin(mn[0], p[0] - half[0]),
                 std::fmin(mn[1], p[1] - half[1]),

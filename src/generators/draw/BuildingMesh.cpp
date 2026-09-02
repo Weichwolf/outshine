@@ -777,7 +777,7 @@ constexpr double kBoxTris = 12.0;
 
 [[nodiscard]] std::vector<En> Hull(const std::vector<En> &ring) {
   const size_t n = ring.size();
-  double bestArea = 1.0e300;
+  double bestArea = kBeyondAnyCoordinate;
   double axE = 1.0;
   double axN = 0.0;
   double minU = 0.0;
@@ -793,10 +793,10 @@ constexpr double kBoxTris = 12.0;
     if (len < kLeastRunM) { continue; }
     const double uE = dE / len;
     const double uN = dN / len;
-    double loU = 1.0e300;
-    double hiU = -1.0e300;
-    double loV = 1.0e300;
-    double hiV = -1.0e300;
+    double loU = kBeyondAnyCoordinate;
+    double hiU = -kBeyondAnyCoordinate;
+    double loV = kBeyondAnyCoordinate;
+    double hiV = -kBeyondAnyCoordinate;
     for (const En &p : ring) {
       const double u = p.E * uE + p.N * uN;
       const double v = -p.E * uN + p.N * uE;
@@ -847,10 +847,10 @@ void RaisePart(const BuildingShape &s, Site &site) {
   }
   const double focalPx = site.FocalPx();
   if (focalPx > 0.0) {
-    double leastE = 1.0e300;
-    double mostE = -1.0e300;
-    double leastN = 1.0e300;
-    double mostN = -1.0e300;
+    double leastE = kBeyondAnyCoordinate;
+    double mostE = -kBeyondAnyCoordinate;
+    double leastN = kBeyondAnyCoordinate;
+    double mostN = -kBeyondAnyCoordinate;
     for (const En &p : s.Ring) {
       leastE = std::min(leastE, p.E);
       mostE = std::max(mostE, p.E);
