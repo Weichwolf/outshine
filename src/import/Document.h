@@ -86,7 +86,20 @@ public:
 
   [[nodiscard]] bool ImageBytes(int image, std::vector<uint8_t> &out) const;
 
+  struct ElementSpan {
+    size_t Stride = 0;
+    size_t Element = 0;
+  };
+
+  static void DecodeElements(const Accessor &accessor,
+                             std::span<const uint8_t> span,
+                             ElementSpan over,
+                             std::vector<double> &out);
   [[nodiscard]] bool ReadElements(int accessor, std::vector<double> &out) const;
+  [[nodiscard]] static bool ComponentBoundHolds(const Accessor &accessor,
+                                                std::span<const double> held,
+                                                size_t component,
+                                                std::string &why);
   [[nodiscard]] bool BoundsHold(int accessor, std::string &why) const;
 
   [[nodiscard]] bool ReadIndices(int accessor, std::vector<uint32_t> &out) const;
@@ -131,6 +144,28 @@ private:
   ReadJson(const char *text, size_t length, const uint8_t *binaryChunk, size_t binaryLength);
   [[nodiscard]] bool
   ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size_t binaryLength);
+
+  struct CarriedBuffer {
+    std::string Uri;
+    std::string Directory;
+    const uint8_t *Chunk = nullptr;
+    size_t ChunkBytes = 0;
+    size_t Declared = 0;
+    size_t Index = 0;
+  };
+
+  struct GlbChunks {
+    const uint8_t *Json = nullptr;
+    size_t JsonBytes = 0;
+    const uint8_t *Binary = nullptr;
+    size_t BinaryBytes = 0;
+  };
+
+  [[nodiscard]] bool ReadBufferPayload(const CarriedBuffer &carried, std::vector<uint8_t> &bytes);
+  [[nodiscard]] bool WalkGlbChunks(const uint8_t *bytes, size_t declared, GlbChunks &into);
+  [[nodiscard]] bool ReadSamplers(const Json::Ref &root);
+  [[nodiscard]] bool ReadImages(const Json::Ref &root);
+  [[nodiscard]] bool ReadTextures(const Json::Ref &root);
   [[nodiscard]] bool ReadAppearance(const Json &json);
   [[nodiscard]] bool ReadLights(const Json &json);
   [[nodiscard]] bool ReadVariants(const Json &json);
@@ -138,8 +173,10 @@ private:
   [[nodiscard]] bool
   ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive, Primitive &into);
   [[nodiscard]] bool ReadAsset(const Json::Ref &root);
+  [[nodiscard]] bool ReadMetadataPackets(const Json::Ref &root);
   [[nodiscard]] bool ReadMetadata(const Json::Ref &root);
   [[nodiscard]] bool ReadViews(const Json::Ref &root);
+  [[nodiscard]] bool ReadSparseAccessor(const Json::Ref &sparse, size_t index, Accessor &accessor);
   [[nodiscard]] bool ReadAccessors(const Json::Ref &root);
   [[nodiscard]] bool HoldAccessorBounds();
   [[nodiscard]] bool ReadMeshes(const Json::Ref &root);
@@ -150,6 +187,8 @@ private:
   [[nodiscard]] bool HoldNodeForest();
   [[nodiscard]] bool ReadNodes(const Json::Ref &root);
   [[nodiscard]] bool ReadScenes(const Json::Ref &root);
+  [[nodiscard]] bool ReadSkin(const Json::Ref &declaration, size_t index, Skin &skin);
+  [[nodiscard]] bool HoldSkinReferences();
   [[nodiscard]] bool ReadSkins(const Json::Ref &root);
 
   struct TrackAt {

@@ -588,6 +588,40 @@ bool Document::ReadFile(std::string_view path) {
   return Read({bytes.data(), bytes.size()}, path);
 }
 
+bool Document::WalkGlbChunks(const uint8_t *bytes, size_t declared, GlbChunks &into) {
+  size_t at = kGlbHeaderBytes;
+  while (at + 8 <= declared) {
+    const uint32_t chunkLength = LittleWord(bytes + at);
+    const uint32_t chunkType = LittleWord(bytes + at + 4);
+    at += 8;
+    if (chunkLength > declared - at) {
+      return Refuse("has a GLB chunk of " + Number(chunkLength) + " bytes that runs past the file");
+    }
+    if (chunkType == kChunkJson) {
+      if (into.Json != nullptr) {
+        return Refuse("is a GLB carrying a second JSON chunk, and the container declares "
+                      "exactly one -- a file with two structures has no structure");
+      }
+      if (at != kGlbHeaderBytes + kGlbChunkHeaderBytes) {
+        return Refuse("is a GLB whose JSON chunk is not the first, and the container declares "
+                      "the structure ahead of what it describes");
+      }
+      into.Json = bytes + at;
+      into.JsonBytes = chunkLength;
+    } else if (chunkType == kChunkBinary) {
+      if (into.Binary != nullptr) {
+        return Refuse("is a GLB carrying a second binary chunk, and the container declares at "
+                      "most one -- a buffer view naming chunk 0 could mean either");
+      }
+      into.Binary = bytes + at;
+      into.BinaryBytes = chunkLength;
+    }
+
+    at += (chunkLength + 3) & ~size_t{3};
+  }
+  return true;
+}
+
 bool Document::Read(std::span<const uint8_t> whole, std::string_view path) {
   *this = Document();
   Path_ = path;
@@ -605,41 +639,12 @@ bool Document::Read(std::span<const uint8_t> whole, std::string_view path) {
       return Refuse("declares " + Number(declared) + " bytes and " + Number(length) +
                     " are present");
     }
-    const uint8_t *jsonChunk = nullptr;
-    size_t jsonLength = 0;
-    const uint8_t *binaryChunk = nullptr;
-    size_t binaryLength = 0;
-    size_t at = 12;
-    while (at + 8 <= declared) {
-      const uint32_t chunkLength = LittleWord(bytes + at);
-      const uint32_t chunkType = LittleWord(bytes + at + 4);
-      at += 8;
-      if (chunkLength > declared - at) {
-        return Refuse("has a GLB chunk of " + Number(chunkLength) +
-                      " bytes that runs past the file");
-      }
-      if (chunkType == kChunkJson) {
-        if (jsonChunk != nullptr) {
-          return Refuse("is a GLB carrying a second JSON chunk, and the container declares "
-                        "exactly one -- a file with two structures has no structure");
-        }
-        if (at != kGlbHeaderBytes + kGlbChunkHeaderBytes) {
-          return Refuse("is a GLB whose JSON chunk is not the first, and the container declares "
-                        "the structure ahead of what it describes");
-        }
-        jsonChunk = bytes + at;
-        jsonLength = chunkLength;
-      } else if (chunkType == kChunkBinary) {
-        if (binaryChunk != nullptr) {
-          return Refuse("is a GLB carrying a second binary chunk, and the container declares at "
-                        "most one -- a buffer view naming chunk 0 could mean either");
-        }
-        binaryChunk = bytes + at;
-        binaryLength = chunkLength;
-      }
-
-      at += (chunkLength + 3) & ~size_t{3};
-    }
+    GlbChunks chunks;
+    if (!WalkGlbChunks(bytes, declared, chunks)) { return false; }
+    const uint8_t *const jsonChunk = chunks.Json;
+    const size_t jsonLength = chunks.JsonBytes;
+    const uint8_t *const binaryChunk = chunks.Binary;
+    const size_t binaryLength = chunks.BinaryBytes;
     if (jsonChunk == nullptr) { return Refuse("is a GLB with no JSON chunk"); }
     return ReadJson(
         reinterpret_cast<const char *>(jsonChunk), jsonLength, binaryChunk, binaryLength);
@@ -660,6 +665,54 @@ namespace {
 }
 } // namespace
 
+bool Document::ReadBufferPayload(const Document::CarriedBuffer &carried,
+                                 std::vector<uint8_t> &bytes) {
+  if (carried.Uri.empty()) {
+    if (carried.Chunk == nullptr) {
+      return Refuse("buffer " + Number(carried.Index) +
+                    " has no uri and the file carries no binary chunk");
+    }
+    bytes.assign(carried.Chunk, carried.Chunk + carried.ChunkBytes);
+  } else if (carried.Uri.starts_with("data:")) {
+    std::string_view payload;
+    if (!Base64Payload(carried.Uri, payload)) {
+      return Refuse("buffer " + Number(carried.Index) +
+                    " is a data: URI that declares no ;base64 payload, and this reader "
+                    "carries no other encoding");
+    }
+    if (!DecodeBase64(payload, bytes)) {
+      return Refuse("buffer " + Number(carried.Index) +
+                    " is a data: URI whose base64 payload holds a character the alphabet "
+                    "does not, or a length no whole byte count can come from");
+    }
+    if (bytes.size() != carried.Declared) {
+      return Refuse("buffer " + Number(carried.Index) + " declares " + Number(carried.Declared) +
+                    " bytes and its data: URI decodes to " + Number(bytes.size()) +
+                    " -- a carried.Declared length that disagrees with its payload is a refusal "
+                    "rather than a resize");
+    }
+  } else {
+    std::error_code stat;
+    const auto measured = std::filesystem::file_size(carried.Directory + carried.Uri, stat);
+    if (stat) {
+      return Refuse("buffer " + Number(carried.Index) + " names " + carried.Uri +
+                    ", which cannot be opened");
+    }
+    const size_t reading = measured < static_cast<uintmax_t>(carried.Declared) + 1
+                               ? static_cast<size_t>(measured)
+                               : carried.Declared + 1;
+    std::ifstream file(carried.Directory + carried.Uri, std::ios::binary);
+    if (!file) {
+      return Refuse("buffer " + Number(carried.Index) + " names " + carried.Uri +
+                    ", which cannot be opened");
+    }
+    bytes.resize(reading);
+    file.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    bytes.resize(static_cast<size_t>(file.gcount()));
+  }
+  return true;
+}
+
 bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size_t binaryLength) {
   const Json::Ref buffers = json.Root()["buffers"];
   const std::string directory = DirectoryOf(Path_);
@@ -671,47 +724,15 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
                     " declares a byteLength that is not a whole "
                     "non-negative count under the container's ceiling");
     }
-    const std::string uri = PercentDecoded(buffer["uri"].Str(""));
     std::vector<uint8_t> bytes;
-    if (uri.empty()) {
-      if (binaryChunk == nullptr) {
-        return Refuse("buffer " + Number(i) + " has no uri and the file carries no binary chunk");
-      }
-      bytes.assign(binaryChunk, binaryChunk + binaryLength);
-    } else if (uri.starts_with("data:")) {
-      std::string_view payload;
-      if (!Base64Payload(uri, payload)) {
-        return Refuse("buffer " + Number(i) +
-                      " is a data: URI that declares no ;base64 payload, and this reader "
-                      "carries no other encoding");
-      }
-      if (!DecodeBase64(payload, bytes)) {
-        return Refuse("buffer " + Number(i) +
-                      " is a data: URI whose base64 payload holds a character the alphabet "
-                      "does not, or a length no whole byte count can come from");
-      }
-      if (bytes.size() != declared) {
-        return Refuse("buffer " + Number(i) + " declares " + Number(declared) +
-                      " bytes and its data: URI decodes to " + Number(bytes.size()) +
-                      " -- a declared length that disagrees with its payload is a refusal "
-                      "rather than a resize");
-      }
-    } else {
-      std::error_code stat;
-      const auto measured = std::filesystem::file_size(directory + uri, stat);
-      if (stat) {
-        return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
-      }
-      const size_t reading = measured < static_cast<uintmax_t>(declared) + 1
-                                 ? static_cast<size_t>(measured)
-                                 : declared + 1;
-      std::ifstream file(directory + uri, std::ios::binary);
-      if (!file) {
-        return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened");
-      }
-      bytes.resize(reading);
-      file.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-      bytes.resize(static_cast<size_t>(file.gcount()));
+    if (!ReadBufferPayload({.Uri = PercentDecoded(buffer["uri"].Str("")),
+                            .Directory = directory,
+                            .Chunk = binaryChunk,
+                            .ChunkBytes = binaryLength,
+                            .Declared = declared,
+                            .Index = i},
+                           bytes)) {
+      return false;
     }
     if (bytes.size() < declared) {
       return Refuse("buffer " + Number(i) + " declares " + Number(declared) + " bytes and " +
@@ -801,7 +822,7 @@ bool Document::ReadAsset(const Json::Ref &root) {
   return true;
 }
 
-bool Document::ReadMetadata(const Json::Ref &root) {
+bool Document::ReadMetadataPackets(const Json::Ref &root) {
   const Json::Ref carried = root["extensions"]["KHR_xmp_json_ld"]["packets"];
   for (size_t i = 0; i < carried.Size(); ++i) {
     const Json::Ref packet = carried[i];
@@ -821,6 +842,12 @@ bool Document::ReadMetadata(const Json::Ref &root) {
     }
     Metadata_.push_back(std::move(held));
   }
+
+  return true;
+}
+
+bool Document::ReadMetadata(const Json::Ref &root) {
+  if (!ReadMetadataPackets(root)) { return false; }
 
   struct Carrier {
     const char *Array;
@@ -899,6 +926,38 @@ bool Document::ReadViews(const Json::Ref &root) {
   return true;
 }
 
+bool Document::ReadSparseAccessor(const Json::Ref &sparse, size_t index, Accessor &accessor) {
+  if (!sparse.Valid()) { return true; }
+  accessor.HasSparse = true;
+  if (!DeclaredSize(sparse["count"], accessor.Sparse.Count)) {
+    return Refuse("accessor " + Number(index) +
+                  " declares a sparse count that is not a "
+                  "whole non-negative count under the container's ceiling");
+  }
+  accessor.Sparse.IndicesBufferView = sparse["indices"]["bufferView"].Int(-1);
+  if (!DeclaredSize(sparse["indices"]["byteOffset"], accessor.Sparse.IndicesByteOffset)) {
+    return Refuse("accessor " + Number(index) +
+                  " declares a sparse index offset that is "
+                  "not a whole non-negative count under the container's ceiling");
+  }
+  if (!KnownComponent(sparse["indices"]["componentType"].Int(0),
+                      accessor.Sparse.IndicesComponent)) {
+    return Refuse("accessor " + Number(index) +
+                  " has a sparse index componentType glTF 2.0 does not define");
+  }
+  accessor.Sparse.ValuesBufferView = sparse["values"]["bufferView"].Int(-1);
+  if (!DeclaredSize(sparse["values"]["byteOffset"], accessor.Sparse.ValuesByteOffset)) {
+    return Refuse("accessor " + Number(index) +
+                  " declares a sparse value offset that is "
+                  "not a whole non-negative count under the container's ceiling");
+  }
+  if (accessor.Sparse.Count > accessor.Count) {
+    return Refuse("accessor " + Number(index) + " overrides " + Number(accessor.Sparse.Count) +
+                  " of " + Number(accessor.Count) + " elements");
+  }
+  return true;
+}
+
 bool Document::ReadAccessors(const Json::Ref &root) {
   const Json::Ref accessors = root["accessors"];
   for (size_t i = 0; i < accessors.Size(); ++i) {
@@ -936,36 +995,7 @@ bool Document::ReadAccessors(const Json::Ref &root) {
     for (size_t k = 0; k < declaration["max"].Size(); ++k) {
       accessor.Max.push_back(declaration["max"][k].Num(0.0));
     }
-    const Json::Ref sparse = declaration["sparse"];
-    if (sparse.Valid()) {
-      accessor.HasSparse = true;
-      if (!DeclaredSize(sparse["count"], accessor.Sparse.Count)) {
-        return Refuse("accessor " + Number(i) +
-                      " declares a sparse count that is not a "
-                      "whole non-negative count under the container's ceiling");
-      }
-      accessor.Sparse.IndicesBufferView = sparse["indices"]["bufferView"].Int(-1);
-      if (!DeclaredSize(sparse["indices"]["byteOffset"], accessor.Sparse.IndicesByteOffset)) {
-        return Refuse("accessor " + Number(i) +
-                      " declares a sparse index offset that is "
-                      "not a whole non-negative count under the container's ceiling");
-      }
-      if (!KnownComponent(sparse["indices"]["componentType"].Int(0),
-                          accessor.Sparse.IndicesComponent)) {
-        return Refuse("accessor " + Number(i) +
-                      " has a sparse index componentType glTF 2.0 does not define");
-      }
-      accessor.Sparse.ValuesBufferView = sparse["values"]["bufferView"].Int(-1);
-      if (!DeclaredSize(sparse["values"]["byteOffset"], accessor.Sparse.ValuesByteOffset)) {
-        return Refuse("accessor " + Number(i) +
-                      " declares a sparse value offset that is "
-                      "not a whole non-negative count under the container's ceiling");
-      }
-      if (accessor.Sparse.Count > accessor.Count) {
-        return Refuse("accessor " + Number(i) + " overrides " + Number(accessor.Sparse.Count) +
-                      " of " + Number(accessor.Count) + " elements");
-      }
-    }
+    if (!ReadSparseAccessor(declaration["sparse"], i, accessor)) { return false; }
     Accessors_.push_back(std::move(accessor));
   }
   return true;
@@ -1321,40 +1351,38 @@ bool Document::ReadScenes(const Json::Ref &root) {
   return true;
 }
 
-bool Document::ReadSkins(const Json::Ref &root) {
-  const Json::Ref skins = root["skins"];
-  for (size_t i = 0; i < skins.Size(); ++i) {
-    const Json::Ref declaration = skins[i];
-    Skin skin;
-    skin.Name = declaration["name"].Str("");
-    skin.Skeleton = declaration["skeleton"].Valid() ? declaration["skeleton"].Int(-1) : -1;
-    const Json::Ref joints = declaration["joints"];
-    if (joints.Size() == 0) {
-      return Refuse("skin " + Number(i) +
-                    " names no joint, and a skin with no joint deforms nothing");
-    }
-    for (size_t k = 0; k < joints.Size(); ++k) {
-      const int node = joints[k].Int(-1);
-      if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) {
-        return Refuse("skin " + Number(i) + " names joint node " + Number(k) +
-                      " which the file does not carry");
-      }
-      skin.Joints.push_back(node);
-    }
-    if (skin.Skeleton >= 0 && static_cast<size_t>(skin.Skeleton) >= Nodes_.size()) {
-      return Refuse("skin " + Number(i) + " names a skeleton node the file does not carry");
-    }
-    const Json::Ref bind = declaration["inverseBindMatrices"];
-    if (bind.Valid()) {
-      if (!ReadElements(bind.Int(-1), skin.InverseBind)) { return false; }
-      if (skin.InverseBind.size() != skin.Joints.size() * 16) {
-        return Refuse("skin " + Number(i) + " names " + Number(skin.Joints.size()) +
-                      " joints and an inverseBindMatrices accessor holding " +
-                      Number(skin.InverseBind.size() / 16) + " matrices");
-      }
-    }
-    Skins_.push_back(std::move(skin));
+bool Document::ReadSkin(const Json::Ref &declaration, size_t index, Skin &skin) {
+  skin.Name = declaration["name"].Str("");
+  skin.Skeleton = declaration["skeleton"].Valid() ? declaration["skeleton"].Int(-1) : -1;
+  const Json::Ref joints = declaration["joints"];
+  if (joints.Size() == 0) {
+    return Refuse("skin " + Number(index) +
+                  " names no joint, and a skin with no joint deforms nothing");
   }
+  for (size_t k = 0; k < joints.Size(); ++k) {
+    const int node = joints[k].Int(-1);
+    if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) {
+      return Refuse("skin " + Number(index) + " names joint node " + Number(k) +
+                    " which the file does not carry");
+    }
+    skin.Joints.push_back(node);
+  }
+  if (skin.Skeleton >= 0 && static_cast<size_t>(skin.Skeleton) >= Nodes_.size()) {
+    return Refuse("skin " + Number(index) + " names a skeleton node the file does not carry");
+  }
+  const Json::Ref bind = declaration["inverseBindMatrices"];
+  if (bind.Valid()) {
+    if (!ReadElements(bind.Int(-1), skin.InverseBind)) { return false; }
+    if (skin.InverseBind.size() != skin.Joints.size() * 16) {
+      return Refuse("skin " + Number(index) + " names " + Number(skin.Joints.size()) +
+                    " joints and an inverseBindMatrices accessor holding " +
+                    Number(skin.InverseBind.size() / 16) + " matrices");
+    }
+  }
+  return true;
+}
+
+bool Document::HoldSkinReferences() {
   for (size_t i = 0; i < Nodes_.size(); ++i) {
     const int skin = Nodes_[i].Skin;
     if (skin >= 0 && static_cast<size_t>(skin) >= Skins_.size()) {
@@ -1368,6 +1396,16 @@ bool Document::ReadSkins(const Json::Ref &root) {
     }
   }
   return true;
+}
+
+bool Document::ReadSkins(const Json::Ref &root) {
+  const Json::Ref skins = root["skins"];
+  for (size_t i = 0; i < skins.Size(); ++i) {
+    Skin skin;
+    if (!ReadSkin(skins[i], i, skin)) { return false; }
+    Skins_.push_back(std::move(skin));
+  }
+  return HoldSkinReferences();
 }
 
 std::string Document::Where(TrackAt at) {
@@ -1618,9 +1656,7 @@ bool Document::ReadVariantMappings(const Json::Ref &declared,
   return true;
 }
 
-bool Document::ReadAppearance(const Json &json) {
-  const Json::Ref root = json.Root();
-
+bool Document::ReadSamplers(const Json::Ref &root) {
   const Json::Ref samplers = root["samplers"];
   for (size_t i = 0; i < samplers.Size(); ++i) {
     const Json::Ref declaration = samplers[i];
@@ -1647,6 +1683,10 @@ bool Document::ReadAppearance(const Json &json) {
     Samplers_.push_back(sampler);
   }
 
+  return true;
+}
+
+bool Document::ReadImages(const Json::Ref &root) {
   const Json::Ref images = root["images"];
   for (size_t i = 0; i < images.Size(); ++i) {
     const Json::Ref declaration = images[i];
@@ -1690,6 +1730,10 @@ bool Document::ReadAppearance(const Json &json) {
     Images_.push_back(std::move(image));
   }
 
+  return true;
+}
+
+bool Document::ReadTextures(const Json::Ref &root) {
   const Json::Ref textures = root["textures"];
   for (size_t i = 0; i < textures.Size(); ++i) {
     const Json::Ref declaration = textures[i];
@@ -1712,6 +1756,12 @@ bool Document::ReadAppearance(const Json &json) {
     Textures_.push_back(std::move(texture));
   }
 
+  return true;
+}
+
+bool Document::ReadAppearance(const Json &json) {
+  const Json::Ref root = json.Root();
+  if (!ReadSamplers(root) || !ReadImages(root) || !ReadTextures(root)) { return false; }
   const Json::Ref materials = root["materials"];
   for (size_t i = 0; i < materials.Size(); ++i) {
     if (!ReadMaterial(materials[i], i)) { return false; }
@@ -1999,6 +2049,44 @@ bool Document::ElementBytes(const Accessor &accessor, size_t &stride, size_t &el
   return stride >= element;
 }
 
+bool Document::ComponentBoundHolds(const Accessor &accessor,
+                                   std::span<const double> held,
+                                   size_t component,
+                                   std::string &why) {
+  const size_t components = ElementComponents(accessor.Element);
+  const bool single = accessor.Component == ComponentType::Float32 && !accessor.Normalized;
+  const auto narrow = [single](double value) {
+    return single ? static_cast<double>(static_cast<float>(value)) : value;
+  };
+  const auto declaredAs = [&accessor](double value) {
+    return accessor.Normalized ? Normalise(value, accessor.Component) : value;
+  };
+  double least = 0.0;
+  double most = 0.0;
+  for (size_t element = 0; element < accessor.Count; ++element) {
+    const double value = narrow(held[element * components + component]);
+    if (element == 0 || value < least) { least = value; }
+    if (element == 0 || value > most) { most = value; }
+  }
+  if (accessor.Count == 0) { return true; }
+  const double declaredLeast = narrow(declaredAs(accessor.Min[component]));
+  const double declaredMost = narrow(declaredAs(accessor.Max[component]));
+  if (least < declaredLeast || most > declaredMost) {
+    why = "carries an element outside the bounds it declares: component " + Number(component) +
+          " runs " + Decimal(least) + " to " + Decimal(most) + " over a declared " +
+          Decimal(declaredLeast) + " to " + Decimal(declaredMost);
+    return false;
+  }
+  if (least != declaredLeast || most != declaredMost) {
+    why = "declares bounds its data does not meet: component " + Number(component) + " runs " +
+          Decimal(least) + " to " + Decimal(most) + " and the accessor declares " +
+          Decimal(declaredLeast) + " to " + Decimal(declaredMost) +
+          " -- glTF 2.0 asks for the actual componentwise extremes, not a box around them";
+    return false;
+  }
+  return true;
+}
+
 bool Document::BoundsHold(int accessorIndex, std::string &why) const {
   const Accessor &accessor = Accessors_[static_cast<size_t>(accessorIndex)];
   const size_t components = ElementComponents(accessor.Element);
@@ -2007,38 +2095,32 @@ bool Document::BoundsHold(int accessorIndex, std::string &why) const {
   if (!ReadElements(accessorIndex, held)) { return true; }
   if (held.size() != accessor.Count * components) { return true; }
 
-  const bool single = accessor.Component == ComponentType::Float32 && !accessor.Normalized;
-  const auto narrow = [single](double value) {
-    return single ? static_cast<double>(static_cast<float>(value)) : value;
-  };
-  const auto declaredAs = [&accessor](double value) {
-    return accessor.Normalized ? Normalise(value, accessor.Component) : value;
-  };
   for (size_t component = 0; component < components; ++component) {
-    double least = 0.0;
-    double most = 0.0;
-    for (size_t element = 0; element < accessor.Count; ++element) {
-      const double value = narrow(held[element * components + component]);
-      if (element == 0 || value < least) { least = value; }
-      if (element == 0 || value > most) { most = value; }
-    }
-    const double declaredLeast = narrow(declaredAs(accessor.Min[component]));
-    const double declaredMost = narrow(declaredAs(accessor.Max[component]));
-    if (accessor.Count > 0 && (least < declaredLeast || most > declaredMost)) {
-      why = "carries an element outside the bounds it declares: component " + Number(component) +
-            " runs " + Decimal(least) + " to " + Decimal(most) + " over a declared " +
-            Decimal(declaredLeast) + " to " + Decimal(declaredMost);
-      return false;
-    }
-    if (accessor.Count > 0 && (least != declaredLeast || most != declaredMost)) {
-      why = "declares bounds its data does not meet: component " + Number(component) + " runs " +
-            Decimal(least) + " to " + Decimal(most) + " and the accessor declares " +
-            Decimal(declaredLeast) + " to " + Decimal(declaredMost) +
-            " -- glTF 2.0 asks for the actual componentwise extremes, not a box around them";
-      return false;
-    }
+    if (!ComponentBoundHolds(accessor, held, component, why)) { return false; }
   }
   return true;
+}
+
+void Document::DecodeElements(const Accessor &accessor,
+                              std::span<const uint8_t> span,
+                              ElementSpan over,
+                              std::vector<double> &out) {
+  const size_t components = ElementComponents(accessor.Element);
+  const size_t rows = ElementRows(accessor.Element);
+  const size_t columns = ElementColumns(accessor.Element);
+  const size_t componentBytes = ComponentBytes(accessor.Component);
+  const size_t columnBytes = (columns > 1) ? over.Element / columns : 0;
+  for (size_t i = 0; i < accessor.Count; ++i) {
+    const uint8_t *at = span.data() + accessor.ByteOffset + i * over.Stride;
+    for (size_t column = 0; column < columns; ++column) {
+      const uint8_t *columnAt = at + column * columnBytes;
+      for (size_t row = 0; row < rows; ++row) {
+        const double raw = Component(columnAt + row * componentBytes, accessor.Component);
+        out[i * components + column * rows + row] =
+            accessor.Normalized ? Normalise(raw, accessor.Component) : raw;
+      }
+    }
+  }
 }
 
 bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
@@ -2048,13 +2130,9 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   }
   const Accessor &accessor = Accessors_[static_cast<size_t>(accessorIndex)];
   const size_t components = ElementComponents(accessor.Element);
-  const size_t rows = ElementRows(accessor.Element);
-  const size_t columns = ElementColumns(accessor.Element);
-  const size_t componentBytes = ComponentBytes(accessor.Component);
   size_t stride = 0;
   size_t element = 0;
   if (!ElementBytes(accessor, stride, element)) { return false; }
-  const size_t columnBytes = (columns > 1) ? element / columns : 0;
 
   std::span<const uint8_t> span;
   if (accessor.View >= 0) {
@@ -2078,17 +2156,7 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   }
   out.assign(accessor.Count * components, 0.0);
   if (accessor.View >= 0) {
-    for (size_t i = 0; i < accessor.Count; ++i) {
-      const uint8_t *at = span.data() + accessor.ByteOffset + i * stride;
-      for (size_t column = 0; column < columns; ++column) {
-        const uint8_t *columnAt = at + column * columnBytes;
-        for (size_t row = 0; row < rows; ++row) {
-          const double raw = Component(columnAt + row * componentBytes, accessor.Component);
-          out[i * components + column * rows + row] =
-              accessor.Normalized ? Normalise(raw, accessor.Component) : raw;
-        }
-      }
-    }
+    DecodeElements(accessor, span, {.Stride = stride, .Element = element}, out);
   }
   if (accessor.HasSparse && !ApplySparse(accessor, out)) {
     out.clear();
@@ -2192,5 +2260,4 @@ bool Document::ViewTransform(int cameraNode, Transform &out) const {
   if (!WorldTransform(cameraNode, world)) { return false; }
   return world.Inverse(out);
 }
-
 } // namespace outshine::Gltf
