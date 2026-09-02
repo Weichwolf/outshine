@@ -121,11 +121,12 @@ bool LayCorridor(const Path::Route &route,
     widestJunctionM = std::max(withinAtM[at], widestJunctionM);
   }
   say.Number("the widest a junction lets an arc leave its corner", widestJunctionM, "m");
-  say.Number("vertices the route offered before simplifying",
-             static_cast<double>(eastNorthM.size() / 2),
-             "vertices");
+  const size_t offered = eastNorthM.size() / 2;
+  const size_t kept = keptM.size() / 2;
+  say.Number(
+      "vertices the route offered before simplifying", static_cast<double>(offered), "vertices");
   say.Number("vertices left after removing what the data cannot resolve",
-             static_cast<double>(keptM.size() / 2),
+             static_cast<double>(kept),
              "vertices");
   say.Number("the share removed",
              1.0 - static_cast<double>(keptM.size()) / static_cast<double>(eastNorthM.size()),

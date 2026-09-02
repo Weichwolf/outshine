@@ -105,7 +105,7 @@ inline constexpr int kEnergyViewSteps = 16;
   std::string body;
   if (!LoadShaderText("src/render/shaders/microfacetEnergy.msl", body, error)) { return {}; }
   std::string albedo;
-  albedo.reserve(kEnergyRoughnessSteps * kEnergyViewSteps * 12);
+  albedo.reserve(size_t{kEnergyRoughnessSteps} * kEnergyViewSteps * 12);
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
     const double roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1);
     for (int v = 0; v < kEnergyViewSteps; ++v) {

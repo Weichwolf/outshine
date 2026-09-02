@@ -37,7 +37,7 @@ constexpr double kBytesPerMB = 1048576.0;
 
 constexpr int kMaxTileThreads = 6;
 
-constexpr size_t kByteBudget = 64u * 1024u * 1024u;
+constexpr size_t kByteBudget = size_t{64} * 1024 * 1024;
 
 constexpr int kPoolDemCacheTiles = 16;
 

@@ -80,7 +80,7 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   std::string body;
   if (!LoadShaderText("src/render/shaders/sheenLobe.msl", body, error)) { return {}; }
   std::string table;
-  table.reserve(kSheenAlbedoSteps * kSheenAlbedoSteps * 12);
+  table.reserve(size_t{kSheenAlbedoSteps} * kSheenAlbedoSteps * 12);
   for (int r = 0; r < kSheenAlbedoSteps; ++r) {
     const double roughness = (r + 0.5) / kSheenAlbedoSteps;
     for (int v = 0; v < kSheenAlbedoSteps; ++v) {

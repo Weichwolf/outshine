@@ -1120,8 +1120,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       Published.Places("how far it leans on average", counted > 0.0 ? mean / counted : 0.0, "deg");
     }
     Published.Places("its normals with no length at all", unlengthed, "normals");
-    Published.Places(
-        "its normals in all", static_cast<double>(laid->NormalM.size() / 3), "normals");
+    const size_t normals = laid->NormalM.size() / 3;
+    Published.Places("its normals in all", static_cast<double>(normals), "normals");
     {
       double least = kBeyondAnyCoordinate;
       double most = -kBeyondAnyCoordinate;
@@ -1319,10 +1319,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         CensusOverEveryTriangle(
             Published, censusAt, wallPlaces, wallFacing, wallRun, roofPlaces, roofFacing, roofRun);
       }
+      const size_t roofTriangles = roofRun.size() / 3;
+      const size_t wallTriangles = wallRun.size() / 3;
       Published.Places(
-          "buildings: roof triangles", static_cast<double>(roofRun.size() / 3), "triangles");
+          "buildings: roof triangles", static_cast<double>(roofTriangles), "triangles");
       Published.Places(
-          "buildings: wall triangles", static_cast<double>(wallRun.size() / 3), "triangles");
+          "buildings: wall triangles", static_cast<double>(wallTriangles), "triangles");
       {
         size_t upright = 0;
         size_t facingDown = 0;
@@ -2631,8 +2633,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             "streets: vertices FLYING, over the bar", static_cast<double>(flying), "vertices");
       }
     }
-    Published.Places(
-        "streets: triangles", static_cast<double>(pavement.Index.size() / 3), "triangles");
+    const size_t pavedTriangles = pavement.Index.size() / 3;
+    Published.Places("streets: triangles", static_cast<double>(pavedTriangles), "triangles");
     if (pavement.Index.size() >= 3) {
       Material tarmac;
       for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
@@ -2899,7 +2901,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     }
     Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
     Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
-    Published.Places("water: triangles", static_cast<double>(order.size() / 3), "triangles");
+    const size_t waterTriangles = order.size() / 3;
+    Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
     if (order.size() >= 3) {
       Material lagoon;
       lagoon.BaseColour[0] = kLagoonRed;

@@ -12,7 +12,7 @@
 
 namespace outshine::Render {
 
-constexpr size_t kMediumBytes = 5 * 4 * sizeof(float);
+constexpr size_t kMediumBytes = size_t{5} * 4 * sizeof(float);
 
 struct MediumUv {
   float U;
@@ -190,8 +190,8 @@ MediumMultiScatterTexel(const Medium &medium, MediumUv unit, ToSun &&transmittan
   Vec3 summedL = {0.0, 0.0, 0.0};
   Vec3 summedF = {0.0, 0.0, 0.0};
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
-    const float ring = (static_cast<float>(which / kMultiScatterGrid) + 0.5f) /
-                       static_cast<float>(kMultiScatterGrid);
+    const int ringOf = which / kMultiScatterGrid;
+    const float ring = (static_cast<float>(ringOf) + 0.5f) / static_cast<float>(kMultiScatterGrid);
     const float around = (static_cast<float>(which % kMultiScatterGrid) + 0.5f) /
                          static_cast<float>(kMultiScatterGrid);
     const float theta = 2.0f * std::numbers::pi_v<float> * ring;
@@ -338,8 +338,8 @@ template <typename ToSun, typename Psi>
   const float cosSunZenith = stands.CosZenith;
   Vec3 summed = {0.0, 0.0, 0.0};
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
-    const float ring = (static_cast<float>(which / kMultiScatterGrid) + 0.5f) /
-                       static_cast<float>(kMultiScatterGrid);
+    const int ringOf = which / kMultiScatterGrid;
+    const float ring = (static_cast<float>(ringOf) + 0.5f) / static_cast<float>(kMultiScatterGrid);
     const float around = (static_cast<float>(which % kMultiScatterGrid) + 0.5f) /
                          static_cast<float>(kMultiScatterGrid);
     const float azimuth = 2.0f * std::numbers::pi_v<float> * ring;

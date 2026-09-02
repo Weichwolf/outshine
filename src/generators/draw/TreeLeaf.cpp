@@ -129,10 +129,11 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, Vec3f base, float ang, f
   }
   std::vector<uint32_t> idx(static_cast<size_t>(nv));
   for (int i = 0; i < nv; ++i) {
+    const int triangle = i / 3;
     idx[static_cast<size_t>(i)] = sink.Vert(pos[static_cast<size_t>(i)],
                                             DirectionOrUp(nrm[static_cast<size_t>(i)]),
                                             uu[static_cast<size_t>(i)],
-                                            static_cast<float>(i / 3) / static_cast<float>(n));
+                                            static_cast<float>(triangle) / static_cast<float>(n));
   }
   for (int i = 0; i < n; ++i) {
     const int a = i * 3;

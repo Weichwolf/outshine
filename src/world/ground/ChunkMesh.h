@@ -38,7 +38,7 @@ inline int ChunkBuildEcef(const TerrainMesh &mesh,
 
   uint32_t C = 0;
   for (uint32_t i = 1; i < nVertices; i++) {
-    if (p[i * 3] < p[(i - 1) * 3] - 0.5f) {
+    if (p[static_cast<size_t>(i) * 3] < p[static_cast<size_t>(i - 1) * 3] - 0.5f) {
       C = i;
       break;
     }

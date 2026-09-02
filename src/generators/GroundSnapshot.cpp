@@ -1,6 +1,7 @@
 #include "GroundSnapshot.h"
 
 #include <memory>
+#include <cmath>
 #include <cstddef>
 #include <span>
 #include <cstdint>
@@ -112,7 +113,8 @@ Snapped SnapshotOver(const Tile &region,
     case outshine::Ground::GroundBlock::State::Resolved: break;
   }
 
-  const int side = static_cast<int>(region.SpanNm() / heights.PostM(region.AnchorLat()) + 0.5) + 1;
+  const int side =
+      static_cast<int>(std::lround(region.SpanNm() / heights.PostM(region.AnchorLat()))) + 1;
   std::vector<GroundPatch::Posting> postings(static_cast<size_t>(side) * static_cast<size_t>(side));
   std::vector<double> row(static_cast<size_t>(side));
   const double stepE = region.SpanEm() / static_cast<double>(side - 1);

@@ -133,7 +133,7 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
       n > 1 && Form_.Arch != Architecture::Hedge ? kStoolOfCrown * CrownHalfWidth_ : 0.0f;
   int steps = g.TrunkSteps;
   if (Form_.BreakFrac > 0.0f) {
-    steps = static_cast<int>(Form_.BreakFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
+    steps = static_cast<int>(std::lround(Form_.BreakFrac * static_cast<float>(g.TrunkSteps)));
   }
   steps = std::max(steps, 1);
 
@@ -267,7 +267,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
   Rng_ = TreeRandom(g.Seed);
 
   const float leafThreshold = g.TwigRadius * g.FoliageFactor;
-  const int bareSteps = static_cast<int>(Form_.BoleFrac * static_cast<float>(g.TrunkSteps) + 0.5f);
+  const int bareSteps =
+      static_cast<int>(std::lround(Form_.BoleFrac * static_cast<float>(g.TrunkSteps)));
   SeedLeaders(g, bareSteps);
 
   for (auto t : Queue_) {

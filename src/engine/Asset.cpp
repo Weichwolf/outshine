@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <bit>
 #include <string>
+#include <cmath>
 #include <cstdint>
 
 #include "Asset.h"
@@ -41,7 +42,7 @@ bool Posed::Reads(const std::string &path,
                                       animation == Scenario::AssetAnimation::Loop)) {
     if (!Gltf::Pose::Build(File_, clip, Motion_, error)) { return false; }
     Moves_ = Motion_.EndS() > 0.0;
-    Frames_ = Moves_ ? static_cast<int>(Motion_.EndS() * fps + 0.5) : 1;
+    Frames_ = Moves_ ? static_cast<int>(std::lround(Motion_.EndS() * fps)) : 1;
     Frames_ = std::max(Frames_, 1);
   }
   Read_ = true;

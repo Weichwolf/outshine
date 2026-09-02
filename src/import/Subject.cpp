@@ -325,11 +325,15 @@ bool Subject::GeneratedTangentsFor(Part &part) {
     const uint32_t vertex = Indices_[part.FirstIndex + corner];
     const double *basis = &corners[corner * 4];
     if (written[vertex] == 0) {
-      for (size_t at = 0; at < 4; ++at) { Tangents_[vertex * 4 + at] = basis[at]; }
+      for (size_t at = 0; at < 4; ++at) {
+        Tangents_[static_cast<size_t>(vertex) * 4 + at] = basis[at];
+      }
       written[vertex] = 1;
       continue;
     }
-    if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
+    if (std::memcmp(&Tangents_[static_cast<size_t>(vertex) * 4], basis, 4 * sizeof(double)) == 0) {
+      continue;
+    }
     BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);
 
     key.Bits[0] ^= static_cast<uint64_t>(vertex) * kGoldenWord;
@@ -339,26 +343,30 @@ bool Subject::GeneratedTangentsFor(Part &part) {
       continue;
     }
     const auto made = static_cast<uint32_t>(VertexCount());
-    for (size_t axis = 0; axis < 3; ++axis) { Positions_.push_back(Positions_[vertex * 3 + axis]); }
+    for (size_t axis = 0; axis < 3; ++axis) {
+      Positions_.push_back(Positions_[static_cast<size_t>(vertex) * 3 + axis]);
+    }
     Uv_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-    Uv_[static_cast<size_t>(made) * 2] = Uv_[vertex * 2];
+    Uv_[static_cast<size_t>(made) * 2] = Uv_[static_cast<size_t>(vertex) * 2];
     Uv_[static_cast<size_t>(made) * 2 + 1] = Uv_[vertex * 2 + 1];
 
     if (!Uv1_.empty()) {
       Uv1_.resize(static_cast<size_t>(made) * 2 + 2, 0.0);
-      Uv1_[static_cast<size_t>(made) * 2] = Uv1_[vertex * 2];
+      Uv1_[static_cast<size_t>(made) * 2] = Uv1_[static_cast<size_t>(vertex) * 2];
       Uv1_[static_cast<size_t>(made) * 2 + 1] = Uv1_[vertex * 2 + 1];
     }
 
     if (!Colours_.empty()) {
       Colours_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
       for (size_t channel = 0; channel < 4; ++channel) {
-        Colours_[static_cast<size_t>(made) * 4 + channel] = Colours_[vertex * 4 + channel];
+        Colours_[static_cast<size_t>(made) * 4 + channel] =
+            Colours_[static_cast<size_t>(vertex) * 4 + channel];
       }
     }
     Normals_.resize(static_cast<size_t>(made) * 3 + 3, 0.0);
     for (size_t axis = 0; axis < 3; ++axis) {
-      Normals_[static_cast<size_t>(made) * 3 + axis] = Normals_[vertex * 3 + axis];
+      Normals_[static_cast<size_t>(made) * 3 + axis] =
+          Normals_[static_cast<size_t>(vertex) * 3 + axis];
     }
     Tangents_.resize(static_cast<size_t>(made) * 4 + 4, 0.0);
     for (size_t at = 0; at < 4; ++at) { Tangents_[static_cast<size_t>(made) * 4 + at] = basis[at]; }

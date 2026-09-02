@@ -150,7 +150,8 @@ bool AssembleDrive(const Scene &scene,
       "layers the server did not send", static_cast<double>(field.MissingLayers()), "layers");
   say.Number("tiles that would not decode", static_cast<double>(field.BadTiles()), "tiles");
   say.Number("features read", static_cast<double>(field.Features().size()), "features");
-  say.Number("points in them", static_cast<double>(field.Points().size() / 2), "points");
+  const size_t points = field.Points().size() / 2;
+  say.Number("points in them", static_cast<double>(points), "points");
   out.Found.FetchedS = fetchedS;
   say.Number("seconds spent fetching and decoding", fetchedS, "s");
 

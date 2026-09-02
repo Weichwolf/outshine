@@ -83,8 +83,8 @@ bool Transform::Normal(const Vec3 &normal, Vec3 &out) const {
   if (!Inverse(inverted)) { return false; }
 
   for (int row = 0; row < 3; ++row) {
-    out[row] = inverted.M[row * 4] * normal[0] + inverted.M[row * 4 + 1] * normal[1] +
-               inverted.M[row * 4 + 2] * normal[2];
+    out[row] = inverted.M[static_cast<size_t>(row) * 4] * normal[0] +
+               inverted.M[row * 4 + 1] * normal[1] + inverted.M[row * 4 + 2] * normal[2];
   }
   return true;
 }

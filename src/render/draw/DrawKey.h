@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DRAW_DRAWKEY_H
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include "scene/SurfaceState.h"
@@ -32,10 +33,11 @@ struct DrawOrder {
 
 class DrawKey {
 public:
-  [[nodiscard]] static constexpr DrawKey Of(const DrawOrder &order) {
+  [[nodiscard]] static DrawKey Of(const DrawOrder &order) {
     const double clamped = std::clamp(order.DepthFraction, 0.0, 1.0);
 
-    const auto step = static_cast<uint32_t>(clamped * static_cast<double>(kDepthSteps) + 0.5);
+    const auto step =
+        static_cast<uint32_t>(std::lround(clamped * static_cast<double>(kDepthSteps)));
     const uint32_t depth = order.Surface.Blends() ? kDepthSteps - step : step;
     uint64_t bits = order.Viewport & (kViewportSlots - 1u);
     bits = (bits << kViewLayerBits) | static_cast<uint64_t>(order.Layer);

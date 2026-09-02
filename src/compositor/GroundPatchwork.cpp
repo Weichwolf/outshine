@@ -22,17 +22,17 @@ void NormalsFrom(const std::vector<float> &positionM,
     const uint32_t b = index[at + 1];
     const uint32_t c = index[at + 2];
     if (static_cast<size_t>(c) * 3 + 2 >= positionM.size()) { continue; }
-    const float abx = positionM[b * 3] - positionM[a * 3];
+    const float abx = positionM[static_cast<size_t>(b) * 3] - positionM[static_cast<size_t>(a) * 3];
     const float aby = positionM[b * 3 + 1] - positionM[a * 3 + 1];
     const float abz = positionM[b * 3 + 2] - positionM[a * 3 + 2];
-    const float acx = positionM[c * 3] - positionM[a * 3];
+    const float acx = positionM[static_cast<size_t>(c) * 3] - positionM[static_cast<size_t>(a) * 3];
     const float acy = positionM[c * 3 + 1] - positionM[a * 3 + 1];
     const float acz = positionM[c * 3 + 2] - positionM[a * 3 + 2];
     const float nx = aby * acz - abz * acy;
     const float ny = abz * acx - abx * acz;
     const float nz = abx * acy - aby * acx;
     for (const uint32_t one : {a, b, c}) {
-      into[one * 3] += nx;
+      into[static_cast<size_t>(one) * 3] += nx;
       into[one * 3 + 1] += ny;
       into[one * 3 + 2] += nz;
     }

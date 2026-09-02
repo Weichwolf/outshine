@@ -149,7 +149,7 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
     const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
     const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
     for (uint32_t s = 0; s < nseed; s++) {
-      const uint32_t w0 = B.Seeds[(seedFirst + s) * 3];
+      const uint32_t w0 = B.Seeds[static_cast<size_t>(seedFirst + s) * 3];
       const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
       float halfW;
       std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);

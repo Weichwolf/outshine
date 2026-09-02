@@ -71,7 +71,7 @@ Reaped Reap(const OsmField &field,
       const OsmField::Ring &ring = field.Rings()[feature.FirstRing + which];
       if (ring.Count < 2) { continue; }
       along.clear();
-      along.reserve(ring.Count * 2);
+      along.reserve(static_cast<size_t>(ring.Count) * 2);
       for (uint32_t point = 0; point < ring.Count; ++point) {
         along.push_back(field.Points()[2 * (static_cast<size_t>(ring.First) + point)]);
         along.push_back(field.Points()[2 * (static_cast<size_t>(ring.First) + point) + 1]);

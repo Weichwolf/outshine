@@ -15,7 +15,7 @@ constexpr uint64_t kPaint = 0xA5C35A3CA5C35A3Cull;
 
 constexpr size_t kLiveMargin = 4096;
 
-constexpr size_t kPaintSpan = 512u * 1024u;
+constexpr size_t kPaintSpan = size_t{512} * 1024;
 
 constexpr size_t kToolchainCookie = 16;
 

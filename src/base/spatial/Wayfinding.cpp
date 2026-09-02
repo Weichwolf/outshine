@@ -164,7 +164,7 @@ size_t Network::Cross() {
     for (int side = 0; side < 2; ++side) {
       const Way &way = Ways_[ways[side]];
       const uint32_t local = sides[side] - static_cast<uint32_t>(way.First);
-      const double fromLat = Points_[2 * sides[side]];
+      const double fromLat = Points_[2 * static_cast<size_t>(sides[side])];
       const double fromLon = Points_[2 * sides[side] + 1];
       const double toLat = Points_[2 * sides[side] + 2];
       const double toLon = Points_[2 * sides[side] + 3];

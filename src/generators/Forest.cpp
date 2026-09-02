@@ -71,8 +71,8 @@ Span<const char *const> Forest::NoteNames() const noexcept {
 
 Forest::Lattice Forest::Of(const Tile &region) {
   Lattice l;
-  l.Cols = static_cast<int>(region.SpanEm() / kCellM + 0.5);
-  l.Rows = static_cast<int>(region.SpanNm() / kCellM + 0.5);
+  l.Cols = static_cast<int>(std::lround(region.SpanEm() / kCellM));
+  l.Rows = static_cast<int>(std::lround(region.SpanNm() / kCellM));
   l.Cols = std::max(l.Cols, 1);
   l.Rows = std::max(l.Rows, 1);
   l.Em = region.SpanEm() / static_cast<double>(l.Cols);

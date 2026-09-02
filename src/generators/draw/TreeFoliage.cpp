@@ -73,7 +73,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant,
   double owed = 0.0;
   for (const LeafPoint &p : plant.LeafPoints) {
     owed += PerPoint_;
-    const long n = static_cast<long>(owed + 0.5);
+    const long n = std::lround(owed);
     owed -= static_cast<double>(n);
     for (long k = 0; k < n; ++k) {
       const float roll = kGolden * static_cast<float>(Inst_.size()) / static_cast<float>(kFloats) +
