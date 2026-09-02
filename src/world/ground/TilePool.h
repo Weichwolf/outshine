@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Earth.h"
 #include "ClusterDag.h"
 #include "TileMeshes.h"
 #include "Request.h"
@@ -83,12 +84,12 @@ public:
   TilePool(const TilePool &) = delete;
   TilePool &operator=(const TilePool &) = delete;
 
-  void Focus(double latDeg, double lonDeg);
+  void Focus(LongitudeLatitude at);
 
-  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
-  [[nodiscard]] Reply Wants(int z, uint32_t x, uint32_t y, int grid) override;
+  [[nodiscard]] Reply Mesh(Data::TileId of, int grid, TileBuild *out) override;
+  [[nodiscard]] Reply Wants(Data::TileId of, int grid) override;
 
-  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
+  [[nodiscard]] Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) override;
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
@@ -152,7 +153,7 @@ private:
   ShapedGround Shape_;
   [[nodiscard]] Reply Poll(Job &&job, Result *out);
   [[nodiscard]] bool Known(uint64_t key);
-  double TileDistance(int z, uint32_t x, uint32_t y) const;
+  double TileDistance(Data::TileId of) const;
 
   [[nodiscard]] Reply Lookup(const std::string &key, Landing *out);
   void RefuseUntil(const std::string &key, double untilMs);

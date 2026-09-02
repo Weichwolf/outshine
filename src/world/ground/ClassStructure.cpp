@@ -1,3 +1,4 @@
+#include "math/Vec2.h"
 #include "ClassStructure.h"
 
 #include <array>
@@ -30,29 +31,49 @@ double Clock() {
          kMsPerMicrosecond;
 }
 
-inline int CrossX(float x0, float y0, float x1, float y1, double cy, double xa, double xb) {
+struct Edge {
+  Vec2f From;
+  Vec2f To;
+};
+
+struct Span {
+  double Least = 0.0;
+  double Most = 0.0;
+};
+
+[[nodiscard]] inline Edge EdgeAt(const float *p) {
+  return {.From = {{p[0], p[1]}}, .To = {{p[2], p[3]}}};
+}
+
+inline int CrossX(Edge of, double cy, Span within) {
+  const double x0 = of.From[0];
+  const double y0 = of.From[1];
+  const double x1 = of.To[0];
+  const double y1 = of.To[1];
   if ((y0 <= cy) == (y1 <= cy)) { return 0; }
-  const double xi =
-      static_cast<double>(x0) + (cy - static_cast<double>(y0)) *
-                                    (static_cast<double>(x1) - static_cast<double>(x0)) /
-                                    (static_cast<double>(y1) - static_cast<double>(y0));
-  if (xi < xa || xi >= xb) { return 0; }
+  const double xi = x0 + (cy - y0) * (x1 - x0) / (y1 - y0);
+  if (xi < within.Least || xi >= within.Most) { return 0; }
   return y1 > y0 ? 1 : -1;
 }
 
-inline int CrossY(float x0, float y0, float x1, float y1, double cx, double ya, double yb) {
+inline int CrossY(Edge of, double cx, Span within) {
+  const double x0 = of.From[0];
+  const double y0 = of.From[1];
+  const double x1 = of.To[0];
+  const double y1 = of.To[1];
   if ((x0 <= cx) == (x1 <= cx)) { return 0; }
-  const double yi =
-      static_cast<double>(y0) + (cx - static_cast<double>(x0)) *
-                                    (static_cast<double>(y1) - static_cast<double>(y0)) /
-                                    (static_cast<double>(x1) - static_cast<double>(x0));
-  if (yi < ya || yi >= yb) { return 0; }
+  const double yi = y0 + (cx - x0) * (y1 - y0) / (x1 - x0);
+  if (yi < within.Least || yi >= within.Most) { return 0; }
   return x1 > x0 ? -1 : 1;
 }
 
-double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
-  const double dx = static_cast<double>(x1) - x0;
-  const double dy = static_cast<double>(y1) - y0;
+double SegDist(Vec2 from, Edge of) {
+  const double px = from[0];
+  const double py = from[1];
+  const double x0 = of.From[0];
+  const double y0 = of.From[1];
+  const double dx = static_cast<double>(of.To[0]) - x0;
+  const double dy = static_cast<double>(of.To[1]) - y0;
   const double l2 = dx * dx + dy * dy;
   double t = l2 > 0.0 ? ((px - x0) * dx + (py - y0) * dy) / l2 : 0.0;
   t = std::clamp(t, 0.0, 1.0);
@@ -161,10 +182,10 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
       for (uint32_t r = 0; r < nref; r++) {
         const float *p = &B.Edges[static_cast<size_t>(B.Refs[refFirst + r]) * 4];
         if (halfW <= 0.0f) {
-          wind += CrossX(p[0], p[1], p[2], p[3], cy, cx, e);
-          wind += CrossY(p[0], p[1], p[2], p[3], e, cy, n);
+          wind += CrossX(EdgeAt(p), cy, {.Least = cx, .Most = e});
+          wind += CrossY(EdgeAt(p), e, {.Least = cy, .Most = n});
         }
-        d = std::min(d, SegDist(e, n, p[0], p[1], p[2], p[3]));
+        d = std::min(d, SegDist({{e, n}}, EdgeAt(p)));
       }
       if (halfW > 0.0f) {
         if (d > halfW) { continue; }

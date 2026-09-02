@@ -63,6 +63,8 @@ struct alignas(16) Medium {
 
   Vec3f GroundAlbedo;
   float Pad2;
+
+  [[nodiscard]] constexpr bool operator==(const Medium &) const = default;
 };
 
 inline constexpr Medium kEarthAir = {

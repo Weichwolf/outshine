@@ -95,10 +95,8 @@ bool IrradianceStage::Configure(const Gpu &gpu,
 }
 
 void IrradianceStage::Declare(const Medium &medium, float cosSunZenith) {
-  Standing wanted;
-  wanted.Declared = medium;
-  wanted.CosSunZenith = cosSunZenith;
-  if (Settled_ && std::memcmp(&Standing_, &wanted, sizeof wanted) == 0) { return; }
+  const Standing wanted = {.Declared = medium, .CosSunZenith = cosSunZenith};
+  if (Settled_ && Standing_ == wanted) { return; }
   Standing_ = wanted;
   Settled_ = false;
 }

@@ -409,12 +409,12 @@ void TreeGrower::MeasureReach() {
 
 void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (Plant_->Nodes.empty()) { return; }
-  Vec3f mn = Vec3f{{static_cast<float>(kBeyondAnyCoordinate),
-                    static_cast<float>(kBeyondAnyCoordinate),
-                    static_cast<float>(kBeyondAnyCoordinate)}};
-  Vec3f mx = Vec3f{{-static_cast<float>(kBeyondAnyCoordinate),
-                    -static_cast<float>(kBeyondAnyCoordinate),
-                    -static_cast<float>(kBeyondAnyCoordinate)}};
+  auto mn = Vec3f{{static_cast<float>(kBeyondAnyCoordinate),
+                   static_cast<float>(kBeyondAnyCoordinate),
+                   static_cast<float>(kBeyondAnyCoordinate)}};
+  auto mx = Vec3f{{-static_cast<float>(kBeyondAnyCoordinate),
+                   -static_cast<float>(kBeyondAnyCoordinate),
+                   -static_cast<float>(kBeyondAnyCoordinate)}};
   const auto cover = [&mn, &mx](Vec3f p, Vec3f half) {
     mn = Vec3f{{std::fmin(mn[0], p[0] - half[0]),
                 std::fmin(mn[1], p[1] - half[1]),

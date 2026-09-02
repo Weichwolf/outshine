@@ -28,7 +28,7 @@ std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::strin
                                        : "src/render/shaders/tonemap.msl",
                       body,
                       error)) {
-    return std::string();
+    return {};
   }
   return MslPrelude(error) + DisplayMsl(options) + body;
 }

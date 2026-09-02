@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ctime>
 #include <expected>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <span>
@@ -77,16 +78,14 @@ Result Engine::setSurfaces(const std::vector<Scenario::Surface> &surfaces) {
       !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  std::vector<const Scenario::Surface *> ordered;
-  ordered.reserve(surfaces.size());
-  for (const Scenario::Surface &surface : surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(
-      ordered.begin(), ordered.end(), [](const Scenario::Surface *a, const Scenario::Surface *b) {
-        return a->Z < b->Z;
-      });
+  std::vector<size_t> ordered(surfaces.size());
+  std::iota(ordered.begin(), ordered.end(), size_t{0});
+  std::ranges::stable_sort(
+      ordered, [&surfaces](size_t a, size_t b) { return surfaces[a].Z < surfaces[b].Z; });
   std::vector<Core::Shows> laid;
   laid.reserve(ordered.size());
-  for (const Scenario::Surface *surface : ordered) {
+  for (const size_t at : ordered) {
+    const Scenario::Surface *const surface = &surfaces[at];
     Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
@@ -238,14 +237,13 @@ Result Engine::declare(const Scenario::Document &scenario) {
     }
   }
 
-  std::vector<const Scenario::Surface *> ordered;
-  ordered.reserve(scenario.Surfaces.size());
-  for (const Scenario::Surface &surface : scenario.Surfaces) { ordered.push_back(&surface); }
-  std::stable_sort(
-      ordered.begin(), ordered.end(), [](const Scenario::Surface *a, const Scenario::Surface *b) {
-        return a->Z < b->Z;
-      });
-  for (const Scenario::Surface *surface : ordered) {
+  std::vector<size_t> ordered(scenario.Surfaces.size());
+  std::iota(ordered.begin(), ordered.end(), size_t{0});
+  std::ranges::stable_sort(ordered, [&scenario](size_t a, size_t b) {
+    return scenario.Surfaces[a].Z < scenario.Surfaces[b].Z;
+  });
+  for (const size_t at : ordered) {
+    const Scenario::Surface *const surface = &scenario.Surfaces[at];
     Core::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
@@ -347,7 +345,7 @@ bool Engine::generated(const Scenario::Document &scenario) {
 
     [[nodiscard]] std::optional<double>
     sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
-      return From_.At(at.LatitudeDeg, at.LongitudeDeg).AslM();
+      return From_.At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}).AslM();
     }
 
   private:

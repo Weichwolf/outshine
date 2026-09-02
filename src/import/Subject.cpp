@@ -331,7 +331,8 @@ bool Subject::GeneratedTangentsFor(Part &part) {
       written[vertex] = 1;
       continue;
     }
-    if (std::memcmp(&Tangents_[static_cast<size_t>(vertex) * 4], basis, 4 * sizeof(double)) == 0) {
+    if (std::ranges::equal(std::span(Tangents_).subspan(static_cast<size_t>(vertex) * 4, 4),
+                           std::span(basis, 4))) {
       continue;
     }
     BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);

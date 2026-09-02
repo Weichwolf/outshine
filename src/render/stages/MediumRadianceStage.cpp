@@ -92,11 +92,9 @@ bool MediumRadianceStage::Configure(const Gpu &gpu,
 }
 
 void MediumRadianceStage::Declare(const Medium &medium, float cosSunZenith, float eyeHeightM) {
-  Standing wanted;
-  wanted.Declared = medium;
-  wanted.CosSunZenith = cosSunZenith;
-  wanted.EyeHeightM = eyeHeightM;
-  if (Settled_ && std::memcmp(&Standing_, &wanted, sizeof wanted) == 0) { return; }
+  const Standing wanted = {
+      .Declared = medium, .CosSunZenith = cosSunZenith, .EyeHeightM = eyeHeightM};
+  if (Settled_ && Standing_ == wanted) { return; }
   Standing_ = wanted;
   Settled_ = false;
 }

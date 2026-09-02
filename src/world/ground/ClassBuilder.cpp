@@ -172,7 +172,7 @@ void ClassBuilder::Run() {
     {
       std::unique_lock<std::mutex> lk(Mu_);
       Cv_.wait(lk, [this] { return Stop_ || Pending_.has_value(); });
-      if (Stop_) { return; }
+      if (Stop_ || !Pending_) { return; }
       job = std::move(*Pending_);
       Pending_.reset();
     }

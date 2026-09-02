@@ -93,7 +93,7 @@ template <typename Number>
   Matrix4<Number> made;
   for (size_t column = 0; column < 4; ++column) {
     for (size_t row = 0; row < 4; ++row) {
-      Number summed = Number{0};
+      auto summed = Number{0};
       for (size_t step = 0; step < 4; ++step) {
         summed += left.At(row, step) * right.At(step, column);
       }

@@ -129,6 +129,14 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   already enforces stays out of this page
 - **The type system over checkers**: `std::span` / `std::string_view` at boundaries, `std::mdspan`
   for field and instance views, `std::expected` where a refusal carries its reason
+- **`alignas` BELONGS AT THE DEVICE BOUNDARY, and equality is `operator==`, never `memcmp`.** A
+  record a driver reads keeps the alignment that driver's rows demand and a `static_assert` on its
+  size, because the layout is the boundary's word and not ours -- the same rule as SDL3's. But that
+  alignment PADS, and `memcmp` compares the bytes nobody wrote: padding, and `-0.0` against `0.0`.
+  A defaulted `operator==` compares the members and cannot see either. Measured here: twelve
+  indeterminate bytes decided whether a sky table was recomputed, and the stage next door had
+  already patched the same defect by hand with a `Pad` member -- a workaround is evidence that the
+  rule was missing
 - **Private is the DEFAULT** and a wider door justifies itself; a public data member is an
   invariant nobody can hold. Composition usually; inheritance where a stable interface carries
   shared machinery

@@ -246,7 +246,7 @@ Shot Take(const Place &place, bool tells) {
     return shot;
   }
   Engine engine;
-  if (Telling != nullptr) { engine.logsTo(Telling); }
+  if (Telling != nullptr) { outshine::Engine::logsTo(Telling); }
   engine.setRoots(Roots{.Assets = "src/assets/drive",
                         .Shipped = "src/assets",
                         .Cache = "/tmp/outshine-drive-cache",

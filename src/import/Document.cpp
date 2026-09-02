@@ -4,6 +4,7 @@
 #include "Document.h"
 
 #include <array>
+#include <charconv>
 #include <cstdint>
 #include <cstdlib>
 #include <ios>
@@ -366,7 +367,11 @@ bool ResolveMaterialPointer(std::string_view pointer,
   for (const AnimatablePointer &known : AnimatablePointers()) {
     if (tail != known.Tail) { continue; }
     channel.Path = AnimationPath::MaterialFactor;
-    channel.Material = std::atoi(index.c_str());
+    int material = 0;
+    if (std::from_chars(index.data(), index.data() + index.size(), material).ec != std::errc()) {
+      return false;
+    }
+    channel.Material = material;
     channel.Factor = known.Factor;
     return true;
   }

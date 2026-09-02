@@ -72,11 +72,9 @@ void ClassField::Ingest(Tier &t) {
   if (havePts > t.PtsDone) {
     t.Pts.resize(havePts * 2);
     for (size_t i = t.PtsDone; i < havePts; i++) {
-      double e = 0;
-      double n = 0;
-      Project(pts[i * 2], pts[i * 2 + 1], &e, &n);
-      t.Pts[i * 2] = static_cast<float>(e);
-      t.Pts[i * 2 + 1] = static_cast<float>(n);
+      const EastNorth on = Project({.LongitudeDeg = pts[i * 2 + 1], .LatitudeDeg = pts[i * 2]});
+      t.Pts[i * 2] = static_cast<float>(on.EastM);
+      t.Pts[i * 2 + 1] = static_cast<float>(on.NorthM);
     }
     t.PtsDone = havePts;
   }
@@ -221,11 +219,9 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
   StreamMs_ = t1 - t0;
   IngestMs_ = t2 - t1;
 
-  double camE = 0;
-  double camN = 0;
-  Project(camLat, camLon, &camE, &camN);
-  Cam_[0] = camE;
-  Cam_[1] = camN;
+  const EastNorth cam = Project({.LongitudeDeg = camLon, .LatitudeDeg = camLat});
+  Cam_[0] = cam.EastM;
+  Cam_[1] = cam.NorthM;
 
   if (std::optional<ClassBuilder::Handback> done = Builder_.Collect()) {
     Tier &t = TierOf(done->Returned.Grain);
@@ -251,7 +247,7 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon, double bu
     Published_ = std::move(done->Structure);
   }
 
-  if (!Submitted_) { SubmitDue(camE, camN); }
+  if (!Submitted_) { SubmitDue(cam.EastM, cam.NorthM); }
 }
 
 bool ClassField::Complete() const {

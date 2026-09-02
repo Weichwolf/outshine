@@ -37,6 +37,8 @@ private:
   struct Standing {
     Medium Declared;
     float CosSunZenith = 0.0f;
+
+    [[nodiscard]] constexpr bool operator==(const Standing &) const = default;
   };
 
   OwnedComputePipeline Pipe;

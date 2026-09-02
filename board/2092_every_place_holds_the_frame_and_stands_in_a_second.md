@@ -150,3 +150,58 @@ so; while seven of nine wander, that instrument reports a change the tree did no
 silent about none it did. Until the stall is repaired the honest oracle is the PIXEL DELTA against
 a kept picture -- zero, or a handful of pixels at a handful of levels, or a shifted field -- and
 only the third is a change to the drawing. That is the reading this item has to make unnecessary.
+
+## The wander has a MECHANISM, and the picture is not taken where this item assumed
+
+Two measurements, 2026-09-02, and the first one moves this item's ground.
+
+**THE SCREENSHOT IS TAKEN BEFORE THE 120 TIMED FRAMES.** `Shots::Draw` preloads, renders
+`settleFrames()` frames, writes the PNG, and only THEN walks the camera for the timings. So the
+four-second stall at frame 55 cannot be what moves the digest -- it happens after the shutter. What
+the picture depends on is `preload` and the settle, and nothing else.
+
+**WHERE THE TWO PICTURES DIFFER SAYS WHAT MOVED.** Comparing the kept pairs pixel by pixel:
+
+| place | differing | worst | where |
+|---|---|---|---|
+| Venice `05b6863d` vs `9c9a4758` | 18 of 921 600 | 3 of 255 | y 293..329, x 89..1229 |
+| Shibuya `70e2c675` vs `f7b85587` | 2 | 3 | y 295 and 483 |
+| CentralPark `8f5e8e3f` vs `fd049bf7` | 138 | 1 | y 299..639, full width |
+
+All three start at **y ≈ 295** and spread across the whole width: the horizon and the ground below
+it, a handful of levels. Not a shifted sky, not a moved building -- the ground's LIGHT.
+
+**AND A MECHANISM THAT FITS.** `IrradianceStage::Declare` decided whether to recompute the sky's
+irradiance with
+
+    Standing wanted;                                   // default-initialised
+    if (Settled_ && std::memcmp(&Standing_, &wanted, sizeof wanted) == 0) { return; }
+
+`Standing` holds an `alignas(16)` 80-byte `Medium` and one `float`: 84 bytes rounded to 96, so
+**twelve bytes of padding nobody writes** sit inside the comparison. Reading them is undefined and
+their value is whatever the stack held. The stage next door, `MediumRadianceStage`, had already
+patched exactly this by hand -- an explicit `Vec2f Pad` and a static_assert saying "every byte of
+the settled comparison is a member, none is padding" -- which is evidence that somebody hit it
+before and fixed the symptom in one place.
+
+All four medium stages compare by value now (`operator== = default`), the hand-rolled `Pad` and its
+assert are gone, and CLAUDE.md carries the rule: `alignas` belongs at the device boundary, equality
+is `operator==`, never `memcmp`.
+
+**AND THE PADDING WAS NOT IT.** Before the repair: 24 runs of Venice, 23 `05b6863d` and one
+`9c9a4758` -- about one in twenty-four. After: 84 runs, all `05b6863d`, which at the old rate had a
+2.8 % chance of happening by luck. That looked like a repair. It was not: the very next run after
+the next build rendered `9c9a4758` again, byte for byte the same second picture. Eighty-four clean
+runs bought a 2.8 % coincidence, and the coincidence is what happened.
+
+**THE LESSON IS ABOUT THE MEASUREMENT AND IT IS THE EXPENSIVE ONE.** A rate of one in
+twenty-four needs on the order of seventy runs to see a single event, so a clean batch of eighty is
+barely one expected occurrence -- it can never distinguish "repaired" from "unlucky". Chasing a rare
+binary with a pass/fail count is the wrong instrument. What is needed is the STATE that differs:
+the shot must publish what it stood on -- how many tiles were coarse, which frame the settle ended
+on, what the irradiance buffer held -- so one run of each picture says what is different, instead of
+a hundred runs saying how often.
+
+What the round did settle: reading indeterminate padding to decide whether to recompute a lighting
+table is a defect whatever it does to a digest, all four medium stages compare by value now, and
+CLAUDE.md carries the rule. The wander itself is still open and this item still owns it.

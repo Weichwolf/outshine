@@ -75,9 +75,9 @@ public:
   GroundStream(const GroundStream &) = delete;
   GroundStream &operator=(const GroundStream &) = delete;
 
-  [[nodiscard]] GroundSample At(double lat, double lon) const override;
-  [[nodiscard]] GroundSample Resident(double lat, double lon) const override;
-  [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const override;
+  [[nodiscard]] GroundSample At(LongitudeLatitude at) const override;
+  [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override;
+  [[nodiscard]] GroundBlock BlockAt(TileSpot at) const override;
 
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 
@@ -94,7 +94,7 @@ private:
   [[nodiscard]] const struct Tile *CoarseResident(long x, long y) const;
   void KeepCoarse(long x, long y) const;
   [[nodiscard]] GroundSample
-  SampleFrom(const struct Tile &tile, int zoom, double lat, double lon) const;
+  SampleFrom(const struct Tile &tile, int zoom, LongitudeLatitude at) const;
 
   TilePool &Tiles_;
   GroundSurface Surface_;
@@ -102,7 +102,7 @@ private:
 };
 
 [[nodiscard]] TilePool::Config
-GroundPoolConfig(double lat, double lon, int workers = 0, double patienceS = 0.0);
+GroundPoolConfig(LongitudeLatitude at, int workers = 0, double patienceS = 0.0);
 
 } // namespace outshine::Ground
 

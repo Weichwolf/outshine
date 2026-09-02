@@ -136,19 +136,19 @@ TilePool::~TilePool() {
               {"evictions", l.Evictions}});
 }
 
-void TilePool::Focus(double latDeg, double lonDeg) {
+void TilePool::Focus(LongitudeLatitude at) {
   const std::scoped_lock lock(QueueMutex_);
-  FocusLatDeg_ = latDeg;
-  FocusLonDeg_ = lonDeg;
+  FocusLatDeg_ = at.LatitudeDeg;
+  FocusLonDeg_ = at.LongitudeDeg;
 }
 
-double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
-  const double n = std::ldexp(1.0, z);
+double TilePool::TileDistance(Data::TileId of) const {
+  const double n = std::ldexp(1.0, of.Zoom);
   const double cx = (FocusLonDeg_ + kDegPerHalfTurn) / kDegPerTurn * n;
   const double lat = FocusLatDeg_ * kDeg2Rad;
   const double cy = (1.0 - std::asinh(std::tan(lat)) / std::numbers::pi) * 0.5 * n;
-  const double dx = static_cast<double>(x) + 0.5 - cx;
-  const double dy = static_cast<double>(y) + 0.5 - cy;
+  const double dx = static_cast<double>(of.X) + 0.5 - cx;
+  const double dy = static_cast<double>(of.Y) + 0.5 - cy;
   return dx * dx + dy * dy;
 }
 
@@ -361,8 +361,7 @@ public:
         Pool_.Carries() ? Pool_.Bytes(request, &landing) : Pool_.BytesBlocking(request, &landing);
     switch (asked) {
       case TilePool::Reply::Ready: return Answered(landing);
-      case TilePool::Reply::Absent: return TerrainBytes::Nothing();
-
+      case TilePool::Reply::Absent:
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
       case TilePool::Reply::Refused: return TerrainBytes::Wire();
       case TilePool::Reply::Pending:
@@ -486,7 +485,8 @@ void TilePool::Carry() {
     }
     {
       const std::scoped_lock lock(QueueMutex_);
-      if (result.State == Reply::Pending) {
+      const Reply said = result.State;
+      if (said == Reply::Pending) {
         Posted_.erase(job.Key);
       } else if (Posted_.contains(job.Key)) {
         Done_[job.Key] = std::move(result);
@@ -501,7 +501,7 @@ void TilePool::Carry() {
       }
       const auto parked = Awaiting_.find(job.Key);
       if (parked != Awaiting_.end()) {
-        if (result.State != Reply::Pending) {
+        if (said != Reply::Pending) {
           for (Job &held : parked->second) { Queue_.push_back(std::move(held)); }
         } else {
           for (const Job &held : parked->second) { Posted_.erase(held.Key); }
@@ -671,7 +671,9 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   }
   if (Posted_.insert(job.Key).second) {
     Posts_++;
-    if (job.Kind == Rank::Mesh) { job.TileDist = TileDistance(job.Z, job.X, job.Y); }
+    if (job.Kind == Rank::Mesh) {
+      job.TileDist = TileDistance({.Zoom = job.Z, .X = job.X, .Y = job.Y});
+    }
     const bool carries = job.Kind == Rank::Fetch;
     (carries ? Carrying_ : Queue_).push_back(std::move(job));
     lock.unlock();
@@ -682,7 +684,10 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   return Reply::Pending;
 }
 
-TilePool::Reply TilePool::Wants(int z, uint32_t x, uint32_t y, int grid) {
+TilePool::Reply TilePool::Wants(Data::TileId of, int grid) {
+  const int z = of.Zoom;
+  const uint32_t x = of.X;
+  const uint32_t y = of.Y;
   const uint64_t key = MeshKey(z, x, y);
   {
     const std::scoped_lock lock(QueueMutex_);
@@ -711,7 +716,10 @@ void TilePool::Shapes(const ShapedGround &how) {
   Shape_ = how;
 }
 
-TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) {
+TilePool::Reply TilePool::Mesh(Data::TileId of, int grid, TileBuild *out) {
+  const int z = of.Zoom;
+  const uint32_t x = of.X;
+  const uint32_t y = of.Y;
   Job job;
   job.Kind = Rank::Mesh;
   job.Z = z;
@@ -725,15 +733,15 @@ TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuil
   return state;
 }
 
-TilePool::Reply TilePool::MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) {
-  const Reply asked = Mesh(z, x, y, grid, out);
+TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out) {
+  const Reply asked = Mesh(of, grid, out);
   if (asked != Reply::Pending) { return asked; }
-  const uint64_t key = MeshKey(z, x, y);
+  const uint64_t key = MeshKey(of.Zoom, of.X, of.Y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
     Landed_.wait(lock, [&] { return Done_.contains(key) || !Posted_.contains(key); });
   }
-  return Mesh(z, x, y, grid, out);
+  return Mesh(of, grid, out);
 }
 
 bool TilePool::AwaitLanding(double seconds) {

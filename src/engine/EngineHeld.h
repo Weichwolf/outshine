@@ -211,8 +211,8 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   note(scenario.Buses.size(), "buses");
   note(scenario.Sounds.size(), "sounds");
   note(scenario.State.size(), "persisted values");
-  if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
-  if (scenario.Time.Declared) { carried.push_back("a clock"); }
+  if (scenario.Motion.Declared) { carried.emplace_back("a physics dial"); }
+  if (scenario.Time.Declared) { carried.emplace_back("a clock"); }
   if (scenario.Assets.size() > 1) {
     carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the subject");
   }

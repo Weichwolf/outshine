@@ -11,7 +11,6 @@
 #include <iterator>
 #include <expected>
 #include <memory>
-#include <algorithm>
 #include <cmath>
 #include "Heap.h"
 #include "TangentFrame.h"
@@ -313,8 +312,12 @@ bool Engine::State::Composes() {
     how.Seed = Session.Declared.Ground.Shape.Seed;
     World.Stack.Pool().Shapes(how);
     Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
-    const double hereM = World.Stack.Ground().At(atLat, atLon).AslM().value_or(0.0);
-    const double eastM = World.Stack.Ground().At(atLat, atLon + kEastStepDeg).AslM().value_or(0.0);
+    const double hereM =
+        World.Stack.Ground().At({.LongitudeDeg = atLon, .LatitudeDeg = atLat}).AslM().value_or(0.0);
+    const double eastM = World.Stack.Ground()
+                             .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
+                             .AslM()
+                             .value_or(0.0);
     Published.Places("ground: the relief says this at the origin", hereM, "m");
     Published.Places("ground: and this a kilometre east", eastM, "m");
   }
@@ -388,7 +391,7 @@ bool Engine::State::Asks() {
     over.Levels =
         1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
   }
-  World.Stack.Pool().Focus(over.LatitudeDeg, over.LongitudeDeg);
+  World.Stack.Pool().Focus({.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
   auto asked = LayPatchwork(World.Stack.Pool(), over);
   if (!asked) {
     Error = asked.error();
@@ -688,7 +691,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
                           static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
                           (static_cast<uint64_t>(over.Levels) << 56u);
-    World.Stack.Pool().Focus(atLat, atLon);
+    World.Stack.Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
     ++World.Asked;
     Around asking = over;
     asking.Asking = true;
@@ -900,14 +903,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             Ground::EcefToGeoWgs84(Ground::Ecef{.X = held[0], .Y = held[1], .Z = held[2]});
         double edgeM = 0.0;
         int second = -1;
-        const int which = World.Stack.Classes().ClassAt(
-            *classes, where.LatitudeDeg, where.LongitudeDeg, &edgeM, &second);
+        const LongitudeLatitude place = {.LongitudeDeg = where.LongitudeDeg,
+                                         .LatitudeDeg = where.LatitudeDeg};
+        const int which = World.Stack.Classes().ClassAt(*classes, place, &edgeM, &second);
         {
-          double eastM = 0.0;
-          double northM = 0.0;
-          World.Stack.Classes().ToEnu(where.LatitudeDeg, where.LongitudeDeg, &eastM, &northM);
-          classUv[one * 2] = static_cast<float>(eastM);
-          classUv[one * 2 + 1] = static_cast<float>(northM);
+          const EastNorth on = World.Stack.Classes().Project(place);
+          classUv[one * 2] = static_cast<float>(on.EastM);
+          classUv[one * 2 + 1] = static_cast<float>(on.NorthM);
         }
         const bool stands = which >= 0 && static_cast<size_t>(which) < wearing.TemplateCount();
         if (stands) { ++named; }
@@ -953,13 +955,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           atGeo.push_back(lon);
           double edgeM = 0.0;
           int second = -1;
-          const int names = World.Stack.Classes().ClassAt(*classes, lat, lon, &edgeM, &second);
+          const LongitudeLatitude at = {.LongitudeDeg = lon, .LatitudeDeg = lat};
+          const int names = World.Stack.Classes().ClassAt(*classes, at, &edgeM, &second);
           classOf.push_back(names);
-          double eastM = 0.0;
-          double northM = 0.0;
-          World.Stack.Classes().ToEnu(lat, lon, &eastM, &northM);
-          classUv.push_back(static_cast<float>(eastM));
-          classUv.push_back(static_cast<float>(northM));
+          const EastNorth on = World.Stack.Classes().Project(at);
+          classUv.push_back(static_cast<float>(on.EastM));
+          classUv.push_back(static_cast<float>(on.NorthM));
           const bool named = names >= 0 && static_cast<size_t>(names) < wearing.TemplateCount();
           const Ground::VegetationTemplates::Row &wore =
               wearing.Rows()[named ? static_cast<size_t>(names) : 0];
@@ -1773,7 +1774,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           const size_t spans = first.Bridge ? a : b;
           const Ground::StreetField::Way &below = first.Bridge ? second : first;
           const std::optional<double> stood =
-              World.Stack.Ground().At(one.LatitudeDeg, one.LongitudeDeg).AslM();
+              World.Stack.Ground()
+                  .At({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg})
+                  .AslM();
           if (!stood) { continue; }
           const double aslM = *stood;
           double eastM = 0.0;
@@ -1815,7 +1818,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         return true;
       };
       const auto groundAt = [&](double lat, double lon, double *out) {
-        const std::optional<double> stood = World.Stack.Ground().At(lat, lon).AslM();
+        const std::optional<double> stood =
+            World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
         if (!stood) { return false; }
         const double aslM = *stood;
         double eastM = 0.0;
@@ -2053,7 +2057,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             along.clear();
             bool whole = true;
             const auto station = [&](double lat, double lon, uint64_t node) {
-              const std::optional<double> stood = World.Stack.Ground().At(lat, lon).AslM();
+              const std::optional<double> stood =
+                  World.Stack.Ground().At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
               if (!stood) { return false; }
               const double aslM = *stood;
               double eastM = 0.0;
@@ -2260,8 +2265,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               lon = midAt.LongitudeDeg;
               double edgeM = 0.0;
               int second = -1;
-              const int which =
-                  World.Stack.Classes().ClassAt(*classStructure, lat, lon, &edgeM, &second);
+              const int which = World.Stack.Classes().ClassAt(
+                  *classStructure, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
               ++askedOverBridge;
               if (which < 0 ||
                   static_cast<size_t>(which) >= World.Stack.Vegetation().TemplateCount()) {

@@ -188,12 +188,11 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         }
         if (touches) { ++out.Overlapped; }
         if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
+        const Data::TileId asked = {
+            .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
         TileBuild built;
         const TileMeshes::Reply said =
-            over.Asking
-                ? tiles.Wants(zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid)
-                : tiles.Mesh(
-                      zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y), over.Grid, &built);
+            over.Asking ? tiles.Wants(asked, over.Grid) : tiles.Mesh(asked, over.Grid, &built);
         bool ofTheGround = true;
         if (zoom >= 0 && zoom < static_cast<int>(kZoomLevels)) { ++out.WantedAtZoom[zoom]; }
         if (said == TileMeshes::Reply::Pending) {

@@ -161,10 +161,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             v.P += 8;
             val = d;
             isNum = true;
-          } else if (vn == 4 && vw == 0) {
-            val = static_cast<double>(v.Varint());
-            isNum = true;
-          } else if (vn == 5 && vw == 0) {
+          } else if ((vn == 4 || vn == 5) && vw == 0) {
             val = static_cast<double>(v.Varint());
             isNum = true;
           } else if (vn == 6 && vw == 0) {

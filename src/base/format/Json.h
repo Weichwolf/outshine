@@ -22,7 +22,7 @@ public:
 
     Ref(const Json *doc, int32_t node) : Doc(doc), Node(node) {}
 
-    [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
+    [[nodiscard]] bool Valid() const { return Doc != nullptr && Node >= 0; }
 
     [[nodiscard]] Kind GetKind() const {
       return Valid() ? Doc->Nodes_[static_cast<size_t>(Node)].K : Kind::Invalid;

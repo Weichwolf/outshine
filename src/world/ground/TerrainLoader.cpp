@@ -126,7 +126,7 @@ struct GroundStream::Held {
           if (!landed) { return TerrainBytes::Wire(); }
           return TerrainBytes::From(*landed, std::move(landing.Bytes));
         }
-        case TilePool::Reply::Absent: return TerrainBytes::Nothing();
+        case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
         case TilePool::Reply::Refused: return TerrainBytes::Wire();
         case TilePool::Reply::Pending: break;
@@ -234,10 +234,8 @@ const Tile *GroundStream::TileResident(long x, long y) const {
   return nullptr;
 }
 
-GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, double lon) const {
-  Geo place;
-  place.LatitudeDeg = lat;
-  place.LongitudeDeg = lon;
+GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, LongitudeLatitude at) const {
+  const Geo place = {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, zoom);
   const double u = f.X - static_cast<double>(static_cast<long>(f.X));
   const double v = f.Y - static_cast<double>(static_cast<long>(f.Y));
@@ -250,7 +248,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   const double westAt = clamped(u - step);
   const double southAt = clamped(v + step);
   const double northAt = clamped(v - step);
-  const double spanM = kMercatorGirthM * std::cos(lat * kDeg2Rad) /
+  const double spanM = kMercatorGirthM * std::cos(at.LatitudeDeg * kDeg2Rad) /
                        static_cast<double>(1ULL << static_cast<uint32_t>(zoom)) /
                        static_cast<double>(Surface_.Grid);
   const double acrossEastM = (eastAt - westAt) * static_cast<double>(tile.Postings) * spanM;
@@ -274,23 +272,20 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, double lat, do
   return GroundSample::At(here, normal);
 }
 
-GroundSample GroundStream::Resident(double lat, double lon) const {
-  lon = Wrapped180(lon);
-  Geo place;
-  place.LatitudeDeg = lat;
-  place.LongitudeDeg = lon;
+GroundSample GroundStream::Resident(LongitudeLatitude at) const {
+  const Geo place = {.LongitudeDeg = Wrapped180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
-  if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, lat, lon); }
+  if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, at); }
 
   const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
   long cx = static_cast<long>(static_cast<uint64_t>(hx) >> kCoarseDrop);
   const long cy = static_cast<long>(static_cast<uint64_t>(hy) >> kCoarseDrop);
   if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
     if (const Tile *coarse = CoarseResident(cx, cy)) {
-      return SampleFrom(*coarse, zoom, lat, lon).Coarser(kCoarseDrop);
+      return SampleFrom(*coarse, zoom, at).Coarser(kCoarseDrop);
     }
   }
   return GroundSample::Waiting();
@@ -358,11 +353,8 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   return victim;
 }
 
-GroundSample GroundStream::At(double lat, double lon) const {
-  lon = Wrapped180(lon);
-  Geo place;
-  place.LatitudeDeg = lat;
-  place.LongitudeDeg = lon;
+GroundSample GroundStream::At(LongitudeLatitude at) const {
+  const Geo place = {.LongitudeDeg = Wrapped180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
@@ -383,12 +375,12 @@ double GroundStream::PostM(double latDeg) const {
          static_cast<double>(Surface_.Grid);
 }
 
-GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
+GroundBlock GroundStream::BlockAt(TileSpot at) const {
   GroundBlock block;
-  if (z != Surface_.Z) { return block; }
-  long hx = x;
-  const long hy = y;
-  if (!WrapTile(z, &hx, &hy)) { return block; }
+  if (at.Zoom != Surface_.Z) { return block; }
+  long hx = at.X;
+  const long hy = at.Y;
+  if (!WrapTile(at.Zoom, &hx, &hy)) { return block; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
   if (t == nullptr) {
@@ -398,7 +390,7 @@ GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   block.Nodes_ = t->H.data();
   block.X_ = hx;
   block.Y_ = hy;
-  block.Zoom_ = z;
+  block.Zoom_ = at.Zoom;
   block.Side_ = t->Nodes;
   block.Postings_ = t->Postings;
   block.Where_ = GroundBlock::State::Resolved;
@@ -428,10 +420,10 @@ void GroundBlock::AslMRow(
   }
 }
 
-TilePool::Config GroundPoolConfig(double lat, double lon, int workers, double patienceS) {
+TilePool::Config GroundPoolConfig(LongitudeLatitude at, int workers, double patienceS) {
   TilePool::Config config;
-  config.OriginLatDeg = lat;
-  config.OriginLonDeg = lon;
+  config.OriginLatDeg = at.LatitudeDeg;
+  config.OriginLonDeg = at.LongitudeDeg;
   config.Threads = DerivedThreads(workers);
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;

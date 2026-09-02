@@ -67,10 +67,7 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
   } else if (onStreet && aPlot) {
     least = 2;
     most = 4;
-  } else if (!aPlot) {
-    least = 1;
-    most = 2;
-  } else if (acrossM > kOffStreetAcrossM) {
+  } else if (!aPlot || acrossM > kOffStreetAcrossM) {
     least = 1;
     most = 2;
   } else {
@@ -237,7 +234,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
   for (uint32_t k = 0; k < ring.Count; k++) {
     const double lat = pts[(static_cast<size_t>(ring.First) + k) * 2];
     const double lon = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
-    const GroundSample g = ground.At(lat, lon);
+    const GroundSample g = ground.At({.LongitudeDeg = lon, .LatitudeDeg = lat});
     const std::optional<double> stood = g.AslM();
     if (!stood) { return g; }
     const double aslM = *stood;
@@ -264,7 +261,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
         const double lon = westest + (eastest - westest) * static_cast<double>(column) /
                                          static_cast<double>(kInteriorGrid);
         if (!InsideRing(pts, ring, lat, lon)) { continue; }
-        const GroundSample g = ground.At(lat, lon);
+        const GroundSample g = ground.At({.LongitudeDeg = lon, .LatitudeDeg = lat});
         const std::optional<double> stood = g.AslM();
         if (!stood) { continue; }
         const double aslM = *stood;

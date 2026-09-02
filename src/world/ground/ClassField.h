@@ -57,33 +57,21 @@ public:
 
   const Vec3 &NorthEcef() const { return Frame_.NorthEcef(); }
 
-  void Project(double lat, double lon, double *e, double *n) const {
-    const EastNorth on = Frame_.Project({.LongitudeDeg = lon, .LatitudeDeg = lat});
-    *e = on.EastM;
-    *n = on.NorthM;
-  }
+  [[nodiscard]] EastNorth Project(LongitudeLatitude at) const { return Frame_.Project(at); }
 
   [[nodiscard]] int
-  ClassAt(const ClassStructure &held, double lat, double lon, double *edgeM, int *runnerUp) const {
-    double e = 0.0;
-    double n = 0.0;
-    Project(lat, lon, &e, &n);
-    return held.Evaluate(e, n, edgeM, runnerUp);
+  ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) const {
+    const EastNorth on = Project(at);
+    return held.Evaluate(on.EastM, on.NorthM, edgeM, runnerUp);
   }
 
-  [[nodiscard]] int ClassAt(double lat, double lon, double *edgeM, int *runnerUp) const {
+  [[nodiscard]] int ClassAt(LongitudeLatitude at, double *edgeM, int *runnerUp) const {
     const std::shared_ptr<const ClassStructure> held = Read();
     if (!held) { return -1; }
-    return ClassAt(*held, lat, lon, edgeM, runnerUp);
+    return ClassAt(*held, at, edgeM, runnerUp);
   }
 
-  void FromEnu(double e, double n, double *lat, double *lon) const {
-    const LongitudeLatitude at = Frame_.Geo({.EastM = e, .NorthM = n});
-    *lat = at.LatitudeDeg;
-    *lon = at.LongitudeDeg;
-  }
-
-  void ToEnu(double lat, double lon, double *e, double *n) const { Project(lat, lon, e, n); }
+  [[nodiscard]] LongitudeLatitude FromEnu(EastNorth at) const { return Frame_.Geo(at); }
 
   [[nodiscard]] bool Complete() const;
 

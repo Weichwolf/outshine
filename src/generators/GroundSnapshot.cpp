@@ -99,11 +99,12 @@ Snapped SnapshotOver(const Tile &region,
   const int blockZoom = heights.BlockZoom() > 0 ? heights.BlockZoom() : region.Zoom();
   const int coarser = region.Zoom() - blockZoom;
   const outshine::Ground::GroundBlock block =
-      coarser > 0
-          ? heights.BlockAt(blockZoom,
-                            static_cast<uint32_t>(region.X()) >> static_cast<uint32_t>(coarser),
-                            static_cast<uint32_t>(region.Y()) >> static_cast<uint32_t>(coarser))
-          : heights.BlockAt(blockZoom, region.X(), region.Y());
+      coarser > 0 ? heights.BlockAt({.Zoom = blockZoom,
+                                     .X = static_cast<long>(static_cast<uint32_t>(region.X()) >>
+                                                            static_cast<uint32_t>(coarser)),
+                                     .Y = static_cast<long>(static_cast<uint32_t>(region.Y()) >>
+                                                            static_cast<uint32_t>(coarser))})
+                  : heights.BlockAt({.Zoom = blockZoom, .X = region.X(), .Y = region.Y()});
   switch (block.Where()) {
     case outshine::Ground::GroundBlock::State::Pending: return done(Snapped::Waiting);
     case outshine::Ground::GroundBlock::State::Missing: return done(Snapped::NoGround);

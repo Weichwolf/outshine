@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Address.h"
 #include "math/Vec3.h"
 #include "ClusterDag.h"
 
@@ -25,12 +26,11 @@ public:
 
   virtual ~TileMeshes() = default;
 
-  [[nodiscard]] virtual Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) = 0;
+  [[nodiscard]] virtual Reply Mesh(Data::TileId of, int grid, TileBuild *out) = 0;
 
-  [[nodiscard]] virtual Reply
-  MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) = 0;
+  [[nodiscard]] virtual Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) = 0;
 
-  [[nodiscard]] virtual Reply Wants(int z, uint32_t x, uint32_t y, int grid) = 0;
+  [[nodiscard]] virtual Reply Wants(Data::TileId of, int grid) = 0;
 };
 
 } // namespace outshine

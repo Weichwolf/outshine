@@ -804,7 +804,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
       does.PeakNm = acts.Num("peakNm", 0.0);
       does.PeakN = acts.Num("peakN", 0.0);
       does.Turns = does.PeakN == 0.0;
-      does.AxisXyz[0] = acts.Num("axisX", does.Turns ? 0.0 : 0.0);
+      does.AxisXyz[0] = acts.Num("axisX", 0.0);
       does.AxisXyz[1] = acts.Num("axisY", does.Turns ? 1.0 : 0.0);
       does.AxisXyz[2] = acts.Num("axisZ", does.Turns ? 0.0 : -1.0);
       if (does.PeakNm != 0.0 && does.PeakN != 0.0) {

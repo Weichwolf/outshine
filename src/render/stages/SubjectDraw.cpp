@@ -399,9 +399,8 @@ uint32_t SubjectDraw::DistinctPlacements() const {
   for (size_t row = 0; row < rows; ++row) {
     bool seen = false;
     for (size_t over = 0; over < row && !seen; ++over) {
-      seen = std::memcmp(Placed_.data() + row * 16u,
-                         Placed_.data() + over * 16u,
-                         16u * sizeof(double)) == 0;
+      seen = std::ranges::equal(std::span(Placed_).subspan(row * 16u, 16u),
+                                std::span(Placed_).subspan(over * 16u, 16u));
     }
     if (!seen) { ++distinct; }
   }

@@ -41,8 +41,9 @@ bool Engine::State::Watches() {
                 "world before anything can be placed on it";
         return false;
       }
-      const GroundSample under = World.Stack.Ground().At(seen.Sees.Stands.Geodetic.LatitudeDeg,
-                                                         seen.Sees.Stands.Geodetic.LongitudeDeg);
+      const GroundSample under =
+          World.Stack.Ground().At({.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
+                                   .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg});
       const std::optional<double> aslM = under.AslM();
       if (!aslM) {
         Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) +

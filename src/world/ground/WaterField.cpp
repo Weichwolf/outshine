@@ -45,8 +45,8 @@ bool WaterField::TileGroundResolved(
       if (isLine && (ring.Count < 2 || ring.Count > 512)) { continue; }
       for (uint32_t k = 0; k < ring.Count; k++) {
         if (ground
-                .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
-                    pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
+                .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                     .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
                 .Where() == GroundSample::State::Pending) {
           return false;
         }
@@ -96,8 +96,8 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
         for (uint32_t k = 0; k < ring.Count; k++) {
           const std::optional<double> aslM =
               ground
-                  .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
-                      pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
+                  .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                       .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
                   .AslM();
           if (!aslM) {
             ok = false;
@@ -138,8 +138,8 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
       for (uint32_t k = 0; k < ring.Count; k++) {
         const std::optional<double> aslM =
             ground
-                .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
-                    pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
+                .At({.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                     .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]})
                 .AslM();
         if (!aslM) {
           resolved = false;

@@ -321,7 +321,9 @@ Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
     return std::unexpected(S_->Error);
   }
   const std::optional<double> aslM =
-      S_->World.Stack.Ground().At(at.LatitudeDeg, at.LongitudeDeg).AslM();
+      S_->World.Stack.Ground()
+          .At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg})
+          .AslM();
   if (!aslM) {
     S_->Error = "the terrain at " + there +
                 " is not resident, so the height there is not a number this engine may invent";

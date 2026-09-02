@@ -130,11 +130,6 @@ bool Moved(SceneRenderer &renderer,
 
 namespace {
 
-void Anchored(const Vec3 &anchorEcefM, const Vec3 &gltf, Vec3 &out) {
-  for (int axis = 0; axis < 3; ++axis) { out[axis] = gltf[axis]; }
-  for (int axis = 0; axis < 3; ++axis) { out[axis] += anchorEcefM[axis]; }
-}
-
 [[nodiscard]] bool ClearsNearPlane(const Shape &subject,
                                    const Viewpoint &eye,
                                    size_t framedParts,
@@ -406,7 +401,7 @@ PlaceLights(const SubjectProxy &proxy, std::vector<SubjectLight> &out, std::stri
       placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);
     }
     const Vec3 gltfPosition = {{declared.Position[0], declared.Position[1], declared.Position[2]}};
-    Anchored(proxy.Anchor(), gltfPosition, placed.PositionEcefM);
+    placed.PositionEcefM = gltfPosition + proxy.Anchor();
     out.push_back(placed);
   }
   return true;
@@ -426,7 +421,7 @@ bool Aim(SceneRenderer &renderer,
     return false;
   }
   Vec3 position;
-  Anchored(anchorEcefM, eye.EyeM, position);
+  position = eye.EyeM + anchorEcefM;
   renderer.SetCameraBasis(position, eye.Forward, eye.Right, eye.Up);
   return true;
 }

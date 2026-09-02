@@ -66,7 +66,7 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
 }
 
 void MediumTransmittanceStage::Declare(const Medium &medium) {
-  if (Settled_ && std::memcmp(&Declared_, &medium, sizeof medium) == 0) { return; }
+  if (Settled_ && Declared_ == medium) { return; }
   Declared_ = medium;
   Settled_ = false;
 }
