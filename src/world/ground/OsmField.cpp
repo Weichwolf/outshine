@@ -24,6 +24,13 @@
 
 namespace outshine::Ground {
 
+constexpr double kNoLeastYet = 1e9;
+
+constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ULL;
+constexpr uint64_t kStirPrime = 0x100000001b3ULL;
+constexpr double kFixedPointPerDeg = 1.0e7;
+constexpr double kFixedPointPerM = 1.0e3;
+
 namespace {
 
 uint64_t TileKey(int x, int y) {
@@ -165,8 +172,8 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
       f.Type = static_cast<uint8_t>(sf.Type);
       f.FirstRing = static_cast<uint32_t>(Rings_.size());
       f.FirstTag = static_cast<uint32_t>(Tags_.size());
-      f.MinLat = f.MinLon = 1e9;
-      f.MaxLat = f.MaxLon = -1e9;
+      f.MinLat = f.MinLon = kNoLeastYet;
+      f.MaxLat = f.MaxLon = -kNoLeastYet;
 
       for (uint32_t r = 0; r < sf.RingCount; r++) {
         const OsmVector::Ring &sr = mvt.Rings()[sf.FirstRing + r];
@@ -328,21 +335,21 @@ void OsmField::Declare(std::span<const Declared> these, int tx, int ty) {
   }
 
   {
-    uint64_t said = 0x9e3779b97f4a7c15ULL;
-    const auto stir = [&said](uint64_t by) { said = (said ^ by) * 0x100000001b3ULL; };
+    uint64_t said = kGoldenWord;
+    const auto stir = [&said](uint64_t by) { said = (said ^ by) * kStirPrime; };
     stir(static_cast<uint64_t>(static_cast<uint32_t>(tx)));
     stir(static_cast<uint64_t>(static_cast<uint32_t>(ty)));
     for (const Declared &one : these) {
       stir(std::hash<std::string>{}(one.Value));
       stir(std::hash<std::string>{}(one.Key));
       stir(std::hash<std::string>{}(one.Layer));
-      stir(static_cast<uint64_t>(std::llround(one.WidthM * 1000.0)));
-      stir(static_cast<uint64_t>(std::llround(one.HeightM * 1000.0)));
+      stir(static_cast<uint64_t>(std::llround(one.WidthM * kFixedPointPerM)));
+      stir(static_cast<uint64_t>(std::llround(one.HeightM * kFixedPointPerM)));
       stir(static_cast<uint64_t>(one.Area ? 1 : 0) | static_cast<uint64_t>(one.Bridge ? 2 : 0) |
            static_cast<uint64_t>(one.Tunnel ? 4 : 0));
       stir(static_cast<uint64_t>(static_cast<int64_t>(one.Level)));
       for (const double held : one.LatLon) {
-        stir(static_cast<uint64_t>(std::llround(held * 1.0e7)));
+        stir(static_cast<uint64_t>(std::llround(held * kFixedPointPerDeg)));
       }
     }
     if (said != Said_) {

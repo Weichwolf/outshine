@@ -9,13 +9,22 @@
 
 namespace outshine::Generators {
 
+constexpr uint64_t kGoldenWord = 0x9e3779b97f4a7c15ull;
+constexpr uint64_t kSplitMixFirst = 0xbf58476d1ce4e5b9ull;
+constexpr uint64_t kSplitMixSecond = 0x94d049bb133111ebull;
+constexpr unsigned kSplitMixShiftA = 30u;
+constexpr unsigned kSplitMixShiftB = 27u;
+constexpr unsigned kSplitMixShiftC = 31u;
+constexpr unsigned kZoomShift = 58u;
+constexpr unsigned kColumnShift = 29u;
+
 namespace {
 
 uint64_t Mix(uint64_t v) {
-  v += 0x9e3779b97f4a7c15ull;
-  v = (v ^ (v >> 30u)) * 0xbf58476d1ce4e5b9ull;
-  v = (v ^ (v >> 27u)) * 0x94d049bb133111ebull;
-  return v ^ (v >> 31u);
+  v += kGoldenWord;
+  v = (v ^ (v >> kSplitMixShiftA)) * kSplitMixFirst;
+  v = (v ^ (v >> kSplitMixShiftB)) * kSplitMixSecond;
+  return v ^ (v >> kSplitMixShiftC);
 }
 
 double TileLatDeg(int y, int zoom) {
@@ -33,8 +42,8 @@ double TileLonDeg(int x, int zoom) {
 } // namespace
 
 Tile::Tile(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
-  Seed_ = Mix((static_cast<uint64_t>(zoom) << 58u) ^
-              (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 29u) ^
+  Seed_ = Mix((static_cast<uint64_t>(zoom) << kZoomShift) ^
+              (static_cast<uint64_t>(static_cast<uint32_t>(x)) << kColumnShift) ^
               static_cast<uint64_t>(static_cast<uint32_t>(y)));
   const double south = TileLatDeg(y + 1, zoom);
   const double north = TileLatDeg(y, zoom);

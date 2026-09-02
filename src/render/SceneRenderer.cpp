@@ -28,6 +28,19 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+
+constexpr uint32_t kHalfSignBit = 0x8000u;
+constexpr unsigned kHalfSignShift = 16u;
+constexpr unsigned kHalfMantissaBits = 10u;
+constexpr uint32_t kHalfExponentMask = 0x1Fu;
+constexpr uint32_t kHalfMantissaMask = 0x3FFu;
+constexpr uint32_t kHalfHiddenBit = 0x400u;
+constexpr int kHalfExponentBias = 15;
+constexpr int kSingleExponentBias = 127;
+constexpr unsigned kSingleMantissaBits = 23u;
+constexpr unsigned kMantissaWiden = kSingleMantissaBits - kHalfMantissaBits;
+constexpr uint32_t kSingleInfinity = 0x7F800000u;
+
 namespace {
 
 #ifdef OUTSHINE_GPU_VALIDATION
@@ -111,24 +124,27 @@ SDL_GPUTextureFormat FormatOf(TexelFormat declared) {
 
 float HalfToFloat(uint16_t bits) {
   const auto held = static_cast<uint32_t>(bits);
-  const uint32_t sign = (held & 0x8000u) << 16u;
-  const uint32_t exponent = (held >> 10u) & 0x1Fu;
-  uint32_t mantissa = held & 0x3FFu;
+  const uint32_t sign = (held & kHalfSignBit) << kHalfSignShift;
+  const uint32_t exponent = (held >> kHalfMantissaBits) & kHalfExponentMask;
+  uint32_t mantissa = held & kHalfMantissaMask;
   uint32_t assembled = 0;
   if (exponent == 0) {
     if (mantissa != 0) {
       int shift = 0;
-      while ((mantissa & 0x400u) == 0) {
+      while ((mantissa & kHalfHiddenBit) == 0) {
         mantissa <<= 1u;
         ++shift;
       }
-      mantissa &= 0x3FFu;
-      assembled = (static_cast<uint32_t>(127 - 15 - shift + 1) << 23u) | (mantissa << 13u);
+      mantissa &= kHalfMantissaMask;
+      assembled = (static_cast<uint32_t>(kSingleExponentBias - kHalfExponentBias - shift + 1)
+                   << kSingleMantissaBits) |
+                  (mantissa << kMantissaWiden);
     }
-  } else if (exponent == 0x1Fu) {
-    assembled = 0x7F800000u | (mantissa << 13u);
+  } else if (exponent == kHalfExponentMask) {
+    assembled = kSingleInfinity | (mantissa << kMantissaWiden);
   } else {
-    assembled = ((exponent + 127 - 15) << 23u) | (mantissa << 13u);
+    assembled = ((exponent + kSingleExponentBias - kHalfExponentBias) << kSingleMantissaBits) |
+                (mantissa << kMantissaWiden);
   }
   assembled |= sign;
   float value = 0;

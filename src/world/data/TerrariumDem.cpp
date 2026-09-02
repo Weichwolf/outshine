@@ -8,6 +8,14 @@
 
 namespace outshine::Data {
 
+constexpr int kHttpOk = 200;
+constexpr int kHttpForbidden = 403;
+constexpr int kHttpNotFound = 404;
+constexpr int kHttpTimeout = 408;
+constexpr int kHttpTooMany = 429;
+constexpr int kHttpServerFirst = 500;
+constexpr size_t kTypicalPayloadBytes = 60000;
+
 namespace Says {
 inline constexpr std::string_view kTile =
     "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{}/{}/{}.png";
@@ -31,7 +39,7 @@ namespace {
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Distant;
 
-  d.TypicalPayloadBytes = 60000;
+  d.TypicalPayloadBytes = kTypicalPayloadBytes;
   d.RetryBudget = 4;
   return d;
 }
@@ -49,10 +57,12 @@ std::string TerrariumDem::Url(const Address &at) const {
 }
 
 Meaning TerrariumDem::Classify(int status, size_t bytes) const noexcept {
-  if (status == 200) { return bytes > 0 ? Meaning::Bytes : Meaning::Retry; }
+  if (status == kHttpOk) { return bytes > 0 ? Meaning::Bytes : Meaning::Retry; }
 
-  if (status == 403 || status == 404) { return Meaning::Absent; }
-  if (status == 408 || status == 429 || status >= 500) { return Meaning::Retry; }
+  if (status == kHttpForbidden || status == kHttpNotFound) { return Meaning::Absent; }
+  if (status == kHttpTimeout || status == kHttpTooMany || status >= kHttpServerFirst) {
+    return Meaning::Retry;
+  }
   return Meaning::Refused;
 }
 
