@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_DATA_FETCHED_H
 #define OUTSHINE_WORLD_DATA_FETCHED_H
 
+#include <optional>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -31,11 +32,14 @@ public:
 
   [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
 
-  [[nodiscard]] bool TryTake(Meaning *what, std::vector<uint8_t> *bytes) {
-    if (Where_ != State::Settled) { return false; }
-    *what = What_;
-    *bytes = std::move(Bytes_);
-    return true;
+  struct Settled {
+    Meaning What = Meaning::Refused;
+    std::vector<uint8_t> Bytes;
+  };
+
+  [[nodiscard]] std::optional<Settled> Take() {
+    if (Where_ != State::Settled) { return std::nullopt; }
+    return Settled{.What = What_, .Bytes = std::move(Bytes_)};
   }
 
 private:

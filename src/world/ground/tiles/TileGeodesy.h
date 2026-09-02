@@ -87,20 +87,11 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] bool TryFromGeo(Geo g, Enu *out) const {
-    if (Where_ != State::Usable) { return false; }
-    out->EastM = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_;
-    out->NorthM = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_;
-    out->UpM = g.HeightM;
-    return true;
-  }
-
-  [[nodiscard]] bool TryToGeo(Enu e, Geo *out) const {
-    if (Where_ != State::Usable) { return false; }
-    out->LongitudeDeg = OriginLonDeg_ + e.EastM / MetresPerDegLon_;
-    out->LatitudeDeg = OriginLatDeg_ + e.NorthM / MetresPerDegLat_;
-    out->HeightM = e.UpM;
-    return true;
+  [[nodiscard]] std::optional<Enu> FromGeo(Geo g) const {
+    if (Where_ != State::Usable) { return std::nullopt; }
+    return Enu{.EastM = (g.LongitudeDeg - OriginLonDeg_) * MetresPerDegLon_,
+               .NorthM = (g.LatitudeDeg - OriginLatDeg_) * MetresPerDegLat_,
+               .UpM = g.HeightM};
   }
 
 private:

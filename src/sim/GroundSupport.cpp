@@ -1,5 +1,6 @@
 #include "GroundSupport.h"
 #include <cstddef>
+#include <optional>
 
 namespace outshine::Sim {
 
@@ -10,7 +11,9 @@ void GroundSupport::Restand() {
 Underneath GroundSupport::At(double lat, double lon) const {
   Underneath out;
   const GroundSample sample = Stack_.Ground().Resident(lat, lon);
-  if (!sample.TryAslM(&out.HeightAslM)) { return out; }
+  const std::optional<double> aslM = sample.AslM();
+  if (!aslM) { return out; }
+  out.HeightAslM = *aslM;
   for (int axis = 0; axis < 3; ++axis) { out.NormalM[axis] = sample.NormalM()[axis]; }
   double edgeM = 0.0;
   int runnerUp = -1;

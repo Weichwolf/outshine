@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <thread>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -34,11 +35,14 @@ public:
 
   [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
 
-  [[nodiscard]] bool TryTake(int *status, std::vector<uint8_t> *body) {
-    if (Where_ != State::Answered) { return false; }
-    *status = Status_;
-    *body = std::move(Body_);
-    return true;
+  struct Response {
+    int Status = 0;
+    std::vector<uint8_t> Body;
+  };
+
+  [[nodiscard]] std::optional<Response> Take() {
+    if (Where_ != State::Answered) { return std::nullopt; }
+    return Response{.Status = Status_, .Body = std::move(Body_)};
   }
 
 private:

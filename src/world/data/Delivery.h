@@ -3,6 +3,7 @@
 
 #include <string>
 #include <utility>
+#include <optional>
 #include <vector>
 
 #include "Address.h"
@@ -45,10 +46,9 @@ public:
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
-  [[nodiscard]] bool TryTake(Answer *out) {
-    if (Where_ != State::Delivered) { return false; }
-    *out = std::move(Answer_);
-    return true;
+  [[nodiscard]] std::optional<Answer> Take() {
+    if (Where_ != State::Delivered) { return std::nullopt; }
+    return std::move(Answer_);
   }
 
 private:

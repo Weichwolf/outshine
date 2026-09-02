@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_BASE_FEATURELEVEL_H
 #define OUTSHINE_GENERATORS_BASE_FEATURELEVEL_H
 
+#include <optional>
+
 namespace outshine::Generators {
 
 class FeatureLevel {
@@ -14,10 +16,9 @@ public:
     return level;
   }
 
-  [[nodiscard]] bool TryAslM(float *out) const {
-    if (!Has_) { return false; }
-    *out = AslM_;
-    return true;
+  [[nodiscard]] std::optional<float> AslM() const {
+    if (!Has_) { return std::nullopt; }
+    return AslM_;
   }
 
 private:

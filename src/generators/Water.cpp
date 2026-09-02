@@ -1,6 +1,7 @@
 #include "Water.h"
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <cstdint>
 
 namespace outshine::Generators {
@@ -19,8 +20,7 @@ WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) noe
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Water || !FeatureField::Boxed(f, eastM, northM)) { continue; }
-    float atAslM = 0.0f;
-    (void)f.Top.TryAslM(&atAslM);
+    const float atAslM = f.Top.AslM().value_or(0.0f);
     if (wet && atAslM <= levelAslM) { continue; }
     if (!features.Contains(f, eastM, northM)) { continue; }
     wet = true;
@@ -50,14 +50,14 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
       yield.Count(Untested);
       continue;
     }
-    float levelAslM = 0.0f;
-    (void)f.Top.TryAslM(&levelAslM);
+    const float levelAslM = f.Top.AslM().value_or(0.0f);
     const WaterDepth depth = WaterDepth::Between(static_cast<double>(levelAslM),
                                                  ground.HeightAslM(e / count, n / count));
-    double m = 0.0;
-    if (depth.TryDepthM(&m)) { yield.Raise(DeepestM, m); }
+    if (const std::optional<double> m = depth.DepthM()) { yield.Raise(DeepestM, *m); }
 
-    if (depth.TryDisagreementM(&m)) { yield.Raise(LevelBelowGround, m); }
+    if (const std::optional<double> m = depth.DisagreementM()) {
+      yield.Raise(LevelBelowGround, *m);
+    }
   }
 }
 

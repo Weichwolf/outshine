@@ -6,6 +6,7 @@
 #include <mutex>
 #include <cstdint>
 #include <utility>
+#include <optional>
 #include <vector>
 
 namespace outshine::Data {
@@ -72,14 +73,13 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       query.At_ = query.Current_->Serves(query.Request_);
       const SourceDecl &decl = query.Current_->Declaration();
       if (decl.Keeps == Cacheability::Forever) {
-        std::vector<uint8_t> kept;
-        if (Store_.TryRead(ContentKey(decl, query.At_), &kept)) {
+        if (std::optional<std::vector<uint8_t>> kept = Store_.Read(ContentKey(decl, query.At_))) {
           const std::scoped_lock lock(LedgerMutex_);
           Ledger_.Asked++;
           Ledger_.Delivered++;
           Ledger_.FromStore++;
-          Ledger_.DeliveredBytes += static_cast<long long>(kept.size());
-          return Delivery::From(decl.Id, query.At_, std::move(kept));
+          Ledger_.DeliveredBytes += static_cast<long long>(kept->size());
+          return Delivery::From(decl.Id, query.At_, std::move(*kept));
         }
       }
       {
@@ -93,9 +93,8 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     if (answer.Where() == Fetched::State::Working) { return Delivery::Waiting(); }
     query.Ticket_ = Ticket::None;
 
-    Meaning what = Meaning::Refused;
-    std::vector<uint8_t> bytes;
-    if (!answer.TryTake(&what, &bytes)) {
+    std::optional<Fetched::Settled> settled = answer.Take();
+    if (!settled) {
       {
         const std::scoped_lock ledger(LedgerMutex_);
         ++Ledger_.Refused;
@@ -104,7 +103,8 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
     }
 
     const SourceDecl &decl = query.Current_->Declaration();
-    switch (what) {
+    std::vector<uint8_t> &bytes = settled->Bytes;
+    switch (settled->What) {
       case Meaning::Bytes: {
         if (decl.Keeps == Cacheability::Forever) {
           Store_.Keep(ContentKey(decl, query.At_), bytes.data(), bytes.size());

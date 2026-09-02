@@ -238,8 +238,9 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
     const double lat = pts[(static_cast<size_t>(ring.First) + k) * 2];
     const double lon = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1];
     const GroundSample g = ground.At(lat, lon);
-    double aslM = 0.0;
-    if (!g.TryAslM(&aslM)) { return g; }
+    const std::optional<double> stood = g.AslM();
+    if (!stood) { return g; }
+    const double aslM = *stood;
     if (corners != nullptr) { corners->push_back(aslM); }
     lowest = std::min(lowest, aslM);
     highest = std::max(highest, aslM);
@@ -264,8 +265,9 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground,
                                          static_cast<double>(kInteriorGrid);
         if (!InsideRing(pts, ring, lat, lon)) { continue; }
         const GroundSample g = ground.At(lat, lon);
-        double aslM = 0.0;
-        if (!g.TryAslM(&aslM)) { continue; }
+        const std::optional<double> stood = g.AslM();
+        if (!stood) { continue; }
+        const double aslM = *stood;
         lowest = std::min(lowest, aslM);
         highest = std::max(highest, aslM);
         summed += aslM;
@@ -331,12 +333,13 @@ int BuildingField::Build(const GroundQuery &ground,
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) { continue; }
 
-      double base = 0.0;
       double seat = 0.0;
-      if (!RingBase(ground, field, ring, &Corners_, &seat).TryAslM(&base)) {
+      const std::optional<double> stood = RingBase(ground, field, ring, &Corners_, &seat).AslM();
+      if (!stood) {
         NoGround_++;
         continue;
       }
+      const double base = *stood;
 
       {
         const std::span<const double> ringPts = field.Points();

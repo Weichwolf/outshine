@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <cstdint>
 
 namespace outshine::Generators {
@@ -23,11 +24,12 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Structure) { continue; }
-    float topAslM = 0.0f;
-    if (!f.Top.TryAslM(&topAslM)) {
+    const std::optional<float> roof = f.Top.AslM();
+    if (!roof) {
       yield.Count(Roofless);
       continue;
     }
+    const float topAslM = *roof;
     yield.Count(Footprints);
     const double e = 0.5 * (static_cast<double>(f.MinEm) + static_cast<double>(f.MaxEm));
     const double n = 0.5 * (static_cast<double>(f.MinNm) + static_cast<double>(f.MaxNm));
@@ -58,8 +60,7 @@ Buildings::Over(const Ground &ground, double eastM, double northM) noexcept {
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Structure || !FeatureField::Boxed(f, eastM, northM)) { continue; }
-    float topAslM = 0.0f;
-    (void)f.Top.TryAslM(&topAslM);
+    const float topAslM = f.Top.AslM().value_or(0.0f);
     if ((highest != nullptr) && topAslM <= highestAslM) { continue; }
     if (!features.Contains(f, eastM, northM)) { continue; }
     highest = &f;

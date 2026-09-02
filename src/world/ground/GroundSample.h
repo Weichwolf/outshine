@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_WORLD_GROUND_GROUNDSAMPLE_H
 #define OUTSHINE_WORLD_GROUND_GROUNDSAMPLE_H
 
+#include <optional>
+
 #include "math/Vec3.h"
 
 namespace outshine {
@@ -31,10 +33,9 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] bool TryAslM(double *out) const {
-    if (Where_ != State::Resolved) { return false; }
-    *out = AslM_;
-    return true;
+  [[nodiscard]] std::optional<double> AslM() const {
+    if (Where_ != State::Resolved) { return std::nullopt; }
+    return AslM_;
   }
 
   [[nodiscard]] const Vec3 &NormalM() const { return NormalM_; }

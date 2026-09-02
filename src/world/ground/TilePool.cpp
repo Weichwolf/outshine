@@ -278,11 +278,10 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
     Data::Delivery answer = Sources_.Collect(query, Wire_);
     pollMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    Data::Delivery::Answer taken;
-    if (answer.TryTake(&taken)) {
-      out->Bytes.assign(taken.Bytes.begin(), taken.Bytes.end());
-      out->At = taken.At;
-      Remember(key, out->Bytes.data(), out->Bytes.size(), taken.At, false);
+    if (const std::optional<Data::Delivery::Answer> taken = answer.Take()) {
+      out->Bytes.assign(taken->Bytes.begin(), taken->Bytes.end());
+      out->At = taken->At;
+      Remember(key, out->Bytes.data(), out->Bytes.size(), taken->At, false);
       reply = Reply::Ready;
       break;
     }

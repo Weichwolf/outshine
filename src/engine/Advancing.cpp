@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 #include <expected>
@@ -42,32 +43,32 @@ bool Engine::State::Watches() {
       }
       const GroundSample under = World.Stack.Ground().At(seen.Sees.Stands.Geodetic.LatitudeDeg,
                                                          seen.Sees.Stands.Geodetic.LongitudeDeg);
-      double aslM = 0.0;
-      if (!under.TryAslM(&aslM)) {
+      const std::optional<double> aslM = under.AslM();
+      if (!aslM) {
         Error = "a view samples the ground at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) +
                 ", " + Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
                 " and the terrain there is not resident -- the height it stands at is not a "
                 "number this engine may invent";
         return false;
       }
-      heightM += aslM;
+      heightM += *aslM;
     }
     const Ground::EnuFrame frame = Ground::EnuFrame::At(
         Ground::Geo{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                     .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    Ground::Enu where{};
-    if (!frame.TryFromGeo(Ground::Geo{.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
-                                      .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg,
-                                      .HeightM = heightM},
-                          &where)) {
+    const std::optional<Ground::Enu> where =
+        frame.FromGeo(Ground::Geo{.LongitudeDeg = seen.Sees.Stands.Geodetic.LongitudeDeg,
+                                  .LatitudeDeg = seen.Sees.Stands.Geodetic.LatitudeDeg,
+                                  .HeightM = heightM});
+    if (!where) {
       Error = "a view stands at " + Said(seen.Sees.Stands.Geodetic.LatitudeDeg) + ", " +
               Said(seen.Sees.Stands.Geodetic.LongitudeDeg) +
               " and the world's own origin is too polar for a local frame to carry it";
       return false;
     }
-    station[0] = where.EastM + seen.OffsetM[0];
-    station[1] = where.UpM + seen.OffsetM[1];
-    station[2] = -where.NorthM + seen.OffsetM[2];
+    station[0] = where->EastM + seen.OffsetM[0];
+    station[1] = where->UpM + seen.OffsetM[1];
+    station[2] = -where->NorthM + seen.OffsetM[2];
   }
   Published.Places("the standing eye, east", station[0], "m");
   Published.Places("the standing eye, up", station[1], "m");

@@ -35,3 +35,30 @@ cases first, and the baseline falls by what was actually removed.
 The baseline reads a number every entry of which has been looked at, and each entry that stays names
 who reaches it. A baseline may only fall, so it falls in the commit that removes something and never
 otherwise.
+
+## Measured 2026-09-02, walking the `Try*` idiom out of the tree
+
+Fourteen methods in ten files were a hand-rolled `std::optional`: `bool TryX(T *out)`. Converting
+them made the compiler name every reader, which is exactly what the pointer form does not do -- and
+it named four that do not exist:
+
+| unreached | its class |
+|---|---|
+| `EnuFrame::TryToGeo` | the inverse of the only direction anybody projects |
+| `Claim::TryId` | a `std::optional<BodyId>` behind a `bool` and an out-parameter |
+| `Cover::TryRunnerUp` | the second-best ground class at a point |
+| `Cover::TryEdgeM` | how far that point is from the class boundary |
+
+All four are deleted. `Claim::TryId` took its member with it: nothing read `Id_`, so `Claim` is now
+one `Outcome`, `Claim::Of(BodyId)` is `Claim::Placed()`, and `BodyId` lost `friend class
+OccupancySink` because the sink no longer mints one -- `BodyRange::Nth` is the only place that can.
+
+**AND ONE THAT IS STILL THERE, WITH ITS REASON.** `Cover` keeps `EdgeM_`, `HasEdge_` and
+`RunnerUp_`: `Ground::CoverAt` still WRITES them, so `-Wunused-private-field` is silent, and
+`ClassStructure::Evaluate` still computes both to fill them. Three fields and two out-parameters
+per ground sample, on a path that runs per generator cell, feeding nothing.
+
+Deleting the readers was bounded and safe. Deleting the writers reaches into the ground classifier
+and is a decision about what `Cover` is FOR -- a class row, or a class row with a boundary distance
+something was once going to blend across. That decision needs the generator author, not a sweep, so
+it is written here rather than taken in passing.

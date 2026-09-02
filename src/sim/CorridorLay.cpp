@@ -257,9 +257,8 @@ bool LayCorridor(const Path::Route &route,
     const double lonDeg = frameLon + on.EastM / perLonM;
     for (;;) {
       const outshine::GroundSample sample = ground.At(latDeg, lonDeg);
-      double aslM = 0.0;
-      if (sample.TryAslM(&aslM)) {
-        heightM[static_cast<size_t>(post)] = aslM;
+      if (const std::optional<double> aslM = sample.AslM()) {
+        heightM[static_cast<size_t>(post)] = *aslM;
         known[static_cast<size_t>(post)] = true;
         break;
       }

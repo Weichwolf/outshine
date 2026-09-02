@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ctime>
 #include <expected>
+#include <optional>
 #include <string>
 #include <span>
 #include <vector>
@@ -345,7 +346,10 @@ bool Engine::generated(const Scenario::Document &scenario) {
     explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
 
     [[nodiscard]] bool sampleHeightAslM(double latDeg, double lonDeg, double &into) const override {
-      return From_.At(latDeg, lonDeg).TryAslM(&into);
+      const std::optional<double> aslM = From_.At(latDeg, lonDeg).AslM();
+      if (!aslM) { return false; }
+      into = *aslM;
+      return true;
     }
 
   private:

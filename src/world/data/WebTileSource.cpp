@@ -48,12 +48,11 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
     case Wire::State::Never: return Fetched::Meant(Meaning::Refused);
     case Wire::State::Answered: break;
   }
-  int status = 0;
-  std::vector<uint8_t> body;
-  if (!wire.TryTake(&status, &body)) { return Fetched::Meant(Meaning::Refused); }
-  const Meaning what = Classify(status, body.size());
+  std::optional<Wire::Response> answered = wire.Take();
+  if (!answered) { return Fetched::Meant(Meaning::Refused); }
+  const Meaning what = Classify(answered->Status, answered->Body.size());
   if (what != Meaning::Bytes) { return Fetched::MeantAfter(what, wire.RetryAfterS()); }
-  return Fetched::Delivered(std::move(body));
+  return Fetched::Delivered(std::move(answered->Body));
 }
 
 } // namespace outshine::Data

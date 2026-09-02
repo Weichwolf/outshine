@@ -3,6 +3,7 @@
 #include <memory>
 #include <expected>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <iterator>
@@ -319,14 +320,14 @@ bool Engine::sampleHeight(double latitudeDeg, double longitudeDeg, double &heigh
         " and no world stands -- a scenario declares one before anything can be placed on it";
     return false;
   }
-  double aslM = 0.0;
-  if (!S_->World.Stack.Ground().At(latitudeDeg, longitudeDeg).TryAslM(&aslM)) {
+  const std::optional<double> aslM = S_->World.Stack.Ground().At(latitudeDeg, longitudeDeg).AslM();
+  if (!aslM) {
     S_->Error = "the terrain at " + std::to_string(latitudeDeg) + ", " +
                 std::to_string(longitudeDeg) +
                 " is not resident, so the height there is not a number this engine may invent";
     return false;
   }
-  heightM = aslM;
+  heightM = *aslM;
   return true;
 }
 

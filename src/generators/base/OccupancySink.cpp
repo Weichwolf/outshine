@@ -91,7 +91,7 @@ Claim OccupancySink::Place(const Body &body) noexcept {
   Store_.Links[slot] = Store_.Cells[cell];
   Store_.Cells[cell] = slot;
   MaxRadiusM_ = std::max(body.RadiusM, MaxRadiusM_);
-  return Claim::Of(BodyId(slot));
+  return Claim::Placed();
 }
 
 } // namespace outshine::Generators

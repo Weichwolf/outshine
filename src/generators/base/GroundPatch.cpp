@@ -35,7 +35,7 @@ GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<cons
   AslM_.reserve(postings.Size());
   for (const Posting &p : postings) {
     double aslM = 0.0;
-    (void)p.Height.TryAslM(&aslM);
+    aslM = p.Height.AslM().value_or(aslM);
     AslM_.push_back(aslM);
   }
 }

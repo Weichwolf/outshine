@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -31,7 +32,7 @@ public:
   ContentStore(const ContentStore &) = delete;
   ContentStore &operator=(const ContentStore &) = delete;
 
-  [[nodiscard]] bool TryRead(std::string_view key, std::vector<uint8_t> *out) const;
+  [[nodiscard]] std::optional<std::vector<uint8_t>> Read(std::string_view key) const;
   void Keep(std::string_view key, const uint8_t *data, size_t bytes);
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }

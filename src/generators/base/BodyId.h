@@ -16,7 +16,6 @@ public:
 
 private:
   explicit BodyId(uint32_t index) : Index_(index) {}
-  friend class OccupancySink;
   friend struct BodyRange;
 
   uint32_t Index_;

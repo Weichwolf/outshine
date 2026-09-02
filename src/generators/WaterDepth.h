@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_WATERDEPTH_H
 #define OUTSHINE_GENERATORS_WATERDEPTH_H
 
+#include <optional>
+
 namespace outshine {
 
 class WaterDepth {
@@ -16,16 +18,14 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] bool TryDepthM(double *out) const {
-    if (Where_ != State::Fields) { return false; }
-    *out = M_;
-    return true;
+  [[nodiscard]] std::optional<double> DepthM() const {
+    if (Where_ != State::Fields) { return std::nullopt; }
+    return M_;
   }
 
-  [[nodiscard]] bool TryDisagreementM(double *out) const {
-    if (Where_ != State::LevelBelowGround) { return false; }
-    *out = M_;
-    return true;
+  [[nodiscard]] std::optional<double> DisagreementM() const {
+    if (Where_ != State::LevelBelowGround) { return std::nullopt; }
+    return M_;
   }
 
 private:

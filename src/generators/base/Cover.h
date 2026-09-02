@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_COVER_H
 #define OUTSHINE_GENERATORS_BASE_COVER_H
 
+#include <optional>
 #include <cstdint>
 
 namespace outshine::Generators {
@@ -23,22 +24,9 @@ public:
     return c;
   }
 
-  [[nodiscard]] bool TryRow(int *out) const {
-    if (Row_ < 0) { return false; }
-    *out = Row_;
-    return true;
-  }
-
-  [[nodiscard]] bool TryRunnerUp(int *out) const {
-    if (RunnerUp_ < 0) { return false; }
-    *out = RunnerUp_;
-    return true;
-  }
-
-  [[nodiscard]] bool TryEdgeM(float *out) const {
-    if (!HasEdge_) { return false; }
-    *out = EdgeM_;
-    return true;
+  [[nodiscard]] std::optional<int> Row() const {
+    if (Row_ < 0) { return std::nullopt; }
+    return Row_;
   }
 
 private:

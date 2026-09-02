@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <cstdint>
 #include <utility>
@@ -93,15 +94,16 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
         hs.clear();
         bool ok = true;
         for (uint32_t k = 0; k < ring.Count; k++) {
-          double aslM = 0.0;
-          if (!ground
-                   .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
-                       pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
-                   .TryAslM(&aslM)) {
+          const std::optional<double> aslM =
+              ground
+                  .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
+                      pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
+                  .AslM();
+          if (!aslM) {
             ok = false;
             break;
           }
-          hs.push_back(aslM);
+          hs.push_back(*aslM);
         }
         if (!ok) {
           NoGround_++;
@@ -134,15 +136,16 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
       hs.clear();
       bool resolved = true;
       for (uint32_t k = 0; k < ring.Count; k++) {
-        double aslM = 0.0;
-        if (!ground
-                 .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
-                     pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
-                 .TryAslM(&aslM)) {
+        const std::optional<double> aslM =
+            ground
+                .At(pts[(static_cast<size_t>(ring.First) + k) * 2],
+                    pts[(static_cast<size_t>(ring.First) + k) * 2 + 1])
+                .AslM();
+        if (!aslM) {
           resolved = false;
           break;
         }
-        hs.push_back(aslM);
+        hs.push_back(*aslM);
       }
       if (!resolved) {
         NoGround_++;

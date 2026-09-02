@@ -2,6 +2,7 @@
 
 #include <array>
 #include <algorithm>
+#include <optional>
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
@@ -93,11 +94,9 @@ Forest::Outcome Forest::Consider(const Ground &ground,
       (static_cast<double>(cell.J) + 0.25 + 0.5 * static_cast<double>(Unit24(place >> 24u))) *
       lattice.Nm;
 
-  int row = 0;
-  if (!ground.CoverAt(eastM, northM).TryRow(&row) || static_cast<size_t>(row) >= PerM2_.Size()) {
-    return Outcome::NoTemplate;
-  }
-  const float perM2 = PerM2_[static_cast<size_t>(row)];
+  const std::optional<int> row = ground.CoverAt(eastM, northM).Row();
+  if (!row || static_cast<size_t>(*row) >= PerM2_.Size()) { return Outcome::NoTemplate; }
+  const float perM2 = PerM2_[static_cast<size_t>(*row)];
   if (perM2 <= 0.0f) { return Outcome::ZeroDensity; }
 
   const uint64_t draw = region.Seed(index * kStreamsPerCell + 1);
@@ -112,10 +111,10 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const double jitterN = latDeg * kMPerDeg;
   const double woody = Limit_.WoodyFraction(latDeg, aslM, jitterE + eastM, jitterN + northM);
   double steep = 0.0;
-  if (woody > 0.0 && static_cast<size_t>(row) < ground.Table().Count()) {
+  if (woody > 0.0 && static_cast<size_t>(*row) < ground.Table().Count()) {
     steep = Limit_.BareBySlope(
         ground.SlopeDeg(eastM, northM),
-        static_cast<double>(ground.Table().At(static_cast<size_t>(row)).SlopeMaxDeg));
+        static_cast<double>(ground.Table().At(static_cast<size_t>(*row)).SlopeMaxDeg));
   }
   if (woody <= 0.0) { return Outcome::AboveTreeline; }
   if (steep >= 1.0) { return Outcome::TooSteep; }

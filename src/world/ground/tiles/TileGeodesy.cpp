@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <cstdint>
 
 namespace outshine::Ground {
@@ -154,15 +155,15 @@ TileEnuMap TileEnuMap::Over(const EnuFrame &frame, int z, uint32_t x, uint32_t y
   bottomRight.LatitudeDeg = b.MinLatDeg;
 
   TileEnuMap map;
-  Enu etl;
-  Enu ebr;
-  if (!frame.TryFromGeo(topLeft, &etl) || !frame.TryFromGeo(bottomRight, &ebr)) { return map; }
+  const std::optional<Enu> etl = frame.FromGeo(topLeft);
+  const std::optional<Enu> ebr = frame.FromGeo(bottomRight);
+  if (!etl || !ebr) { return map; }
 
-  map.OriginE_ = etl.EastM;
-  map.OriginN_ = etl.NorthM;
+  map.OriginE_ = etl->EastM;
+  map.OriginN_ = etl->NorthM;
   const double invExtent = (extent == 0) ? 0.0 : 1.0 / static_cast<double>(extent);
-  map.ScaleE_ = (ebr.EastM - etl.EastM) * invExtent;
-  map.ScaleN_ = (ebr.NorthM - etl.NorthM) * invExtent;
+  map.ScaleE_ = (ebr->EastM - etl->EastM) * invExtent;
+  map.ScaleN_ = (ebr->NorthM - etl->NorthM) * invExtent;
   map.Extent_ = extent;
   return map;
 }

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdio>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -78,30 +79,30 @@ ContentStore::ContentStore(const Config &config)
   }
 }
 
-bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) const {
-  if (Using_ != Use::On) { return false; }
+std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key) const {
+  if (Using_ != Use::On) { return std::nullopt; }
   const std::string path = Directory_ + "/" + std::string(key);
   std::FILE *f = std::fopen(path.c_str(), "rb");
   if (f == nullptr) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
-    return false;
+    return std::nullopt;
   }
   std::fseek(f, 0, SEEK_END);
   const long size = std::ftell(f);
   std::fseek(f, 0, SEEK_SET);
+  std::vector<uint8_t> kept;
   bool whole = size > 0;
   if (whole) {
-    out->resize(static_cast<size_t>(size));
-    whole = std::fread(out->data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
+    kept.resize(static_cast<size_t>(size));
+    whole = std::fread(kept.data(), 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
   }
   std::fclose(f);
   if (!whole) {
-    out->clear();
     Misses_.fetch_add(1, std::memory_order_relaxed);
-    return false;
+    return std::nullopt;
   }
   Hits_.fetch_add(1, std::memory_order_relaxed);
-  return true;
+  return kept;
 }
 
 void ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {

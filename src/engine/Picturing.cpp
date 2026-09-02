@@ -312,10 +312,8 @@ bool Engine::State::Composes() {
     how.Seed = Session.Declared.Ground.Shape.Seed;
     World.Stack.Pool().Shapes(how);
     Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
-    double hereM = 0.0;
-    double eastM = 0.0;
-    (void)World.Stack.Ground().At(atLat, atLon).TryAslM(&hereM);
-    (void)World.Stack.Ground().At(atLat, atLon + kEastStepDeg).TryAslM(&eastM);
+    const double hereM = World.Stack.Ground().At(atLat, atLon).AslM().value_or(0.0);
+    const double eastM = World.Stack.Ground().At(atLat, atLon + kEastStepDeg).AslM().value_or(0.0);
     Published.Places("ground: the relief says this at the origin", hereM, "m");
     Published.Places("ground: and this a kilometre east", eastM, "m");
   }
@@ -1758,10 +1756,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           if (first.Bridge == second.Bridge) { continue; }
           const size_t spans = first.Bridge ? a : b;
           const Ground::StreetField::Way &below = first.Bridge ? second : first;
-          double aslM = 0.0;
-          if (!World.Stack.Ground().At(one.LatitudeDeg, one.LongitudeDeg).TryAslM(&aslM)) {
-            continue;
-          }
+          const std::optional<double> stood =
+              World.Stack.Ground().At(one.LatitudeDeg, one.LongitudeDeg).AslM();
+          if (!stood) { continue; }
+          const double aslM = *stood;
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
@@ -1797,8 +1795,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         return true;
       };
       const auto groundAt = [&](double lat, double lon, double *out) {
-        double aslM = 0.0;
-        if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { return false; }
+        const std::optional<double> stood = World.Stack.Ground().At(lat, lon).AslM();
+        if (!stood) { return false; }
+        const double aslM = *stood;
         double eastM = 0.0;
         double upM = 0.0;
         double northM = 0.0;
@@ -2030,8 +2029,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             along.clear();
             bool whole = true;
             const auto station = [&](double lat, double lon, uint64_t node) {
-              double aslM = 0.0;
-              if (!World.Stack.Ground().At(lat, lon).TryAslM(&aslM)) { return false; }
+              const std::optional<double> stood = World.Stack.Ground().At(lat, lon).AslM();
+              if (!stood) { return false; }
+              const double aslM = *stood;
               double eastM = 0.0;
               double upM = 0.0;
               double northM = 0.0;
