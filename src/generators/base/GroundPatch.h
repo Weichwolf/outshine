@@ -6,10 +6,16 @@
 #include <vector>
 
 #include "GroundSample.h"
+#include "Earth.h"
 #include "Tile.h"
 #include "Span.h"
 
 namespace outshine::Generators {
+
+struct Gradient {
+  double PerEastM = 0.0;
+  double PerNorthM = 0.0;
+};
 
 class GroundPatch {
 public:
@@ -26,10 +32,10 @@ public:
 
   [[nodiscard]] double SpacingNm() const { return SpacingNm_; }
 
-  [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept;
+  [[nodiscard]] double HeightAslM(EastNorth at) const noexcept;
 
-  void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept;
-  [[nodiscard]] double SlopeDeg(double eastM, double northM) const noexcept;
+  [[nodiscard]] Gradient GradientAt(EastNorth at) const noexcept;
+  [[nodiscard]] double SlopeDeg(EastNorth at) const noexcept;
 
   [[nodiscard]] size_t HeapBytes() const;
 

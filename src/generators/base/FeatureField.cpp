@@ -78,8 +78,10 @@ double SegmentGapM2(double em, double nm, double e0, double n0, double e1, doubl
 
 } // namespace
 
-bool FeatureField::Contains(const Feature &f, double eastM, double northM) const noexcept {
-  if (!Boxed(f, eastM, northM)) { return false; }
+bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
+  const double eastM = at.EastM;
+  const double northM = at.NorthM;
+  if (!Boxed(f, at)) { return false; }
   if (f.Form == FeatureForm::Ribbon) {
     const double reach2 = static_cast<double>(f.HalfWidthM) * static_cast<double>(f.HalfWidthM);
     for (const Ring &r : Rings(f)) {

@@ -27,19 +27,13 @@ public:
 
   [[nodiscard]] const Tile &Where() const noexcept { return Region_; }
 
-  [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept {
-    return Patch_->HeightAslM(eastM, northM);
-  }
+  [[nodiscard]] double HeightAslM(EastNorth at) const noexcept { return Patch_->HeightAslM(at); }
 
-  [[nodiscard]] double SlopeDeg(double eastM, double northM) const noexcept {
-    return Patch_->SlopeDeg(eastM, northM);
-  }
+  [[nodiscard]] double SlopeDeg(EastNorth at) const noexcept { return Patch_->SlopeDeg(at); }
 
-  void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept {
-    Patch_->GradientAt(eastM, northM, dhde, dhdn);
-  }
+  [[nodiscard]] Gradient GradientAt(EastNorth at) const noexcept { return Patch_->GradientAt(at); }
 
-  [[nodiscard]] Cover CoverAt(double eastM, double northM) const noexcept;
+  [[nodiscard]] Cover CoverAt(EastNorth at) const noexcept;
 
   [[nodiscard]] const FeatureField &Features() const noexcept { return *Features_; }
 

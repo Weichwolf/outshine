@@ -229,8 +229,8 @@ Result Engine::declare(const Scenario::Document &scenario) {
         }
         whenS = static_cast<int64_t>(std::time(nullptr));
       }
-      const Solar sun = SolarAt(scenario.Ground.Origin.LatitudeDeg,
-                                scenario.Ground.Origin.LongitudeDeg,
+      const Solar sun = SolarAt({.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg,
+                                 .LatitudeDeg = scenario.Ground.Origin.LatitudeDeg},
                                 static_cast<double>(whenS));
       declared.KeyElevationDeg = static_cast<double>(sun.SunElDeg);
       declared.KeyBearingDeg = static_cast<double>(sun.SunAzDeg);

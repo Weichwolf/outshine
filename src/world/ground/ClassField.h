@@ -58,7 +58,9 @@ public:
   const Vec3 &NorthEcef() const { return Frame_.NorthEcef(); }
 
   void Project(double lat, double lon, double *e, double *n) const {
-    Frame_.Project(lat, lon, e, n);
+    const EastNorth on = Frame_.Project({.LongitudeDeg = lon, .LatitudeDeg = lat});
+    *e = on.EastM;
+    *n = on.NorthM;
   }
 
   [[nodiscard]] int
@@ -75,7 +77,11 @@ public:
     return ClassAt(*held, lat, lon, edgeM, runnerUp);
   }
 
-  void FromEnu(double e, double n, double *lat, double *lon) const { Frame_.Geo(e, n, lat, lon); }
+  void FromEnu(double e, double n, double *lat, double *lon) const {
+    const LongitudeLatitude at = Frame_.Geo({.EastM = e, .NorthM = n});
+    *lat = at.LatitudeDeg;
+    *lon = at.LongitudeDeg;
+  }
 
   void ToEnu(double lat, double lon, double *e, double *n) const { Project(lat, lon, e, n); }
 

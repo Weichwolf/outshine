@@ -41,7 +41,7 @@ double Clock() {
 } // namespace
 
 void ClassField::Open(double lat, double lon) {
-  Frame_ = TangentFrame::At(lat, lon);
+  Frame_ = TangentFrame::At({.LongitudeDeg = lon, .LatitudeDeg = lat});
   Opened_ = true;
 }
 

@@ -33,7 +33,7 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
     yield.Count(Footprints);
     const double e = 0.5 * (static_cast<double>(f.MinEm) + static_cast<double>(f.MaxEm));
     const double n = 0.5 * (static_cast<double>(f.MinNm) + static_cast<double>(f.MaxNm));
-    const double standsAtM = ground.HeightAslM(e, n);
+    const double standsAtM = ground.HeightAslM({.EastM = e, .NorthM = n});
     yield.Raise(HighestRoofAglM, static_cast<double>(topAslM) - standsAtM);
 
     Body body;
@@ -52,17 +52,21 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
   }
 }
 
-const FeatureField::Feature *
-Buildings::Over(const Ground &ground, double eastM, double northM) noexcept {
+const FeatureField::Feature *Buildings::Over(const Ground &ground, EastNorth at) noexcept {
+  const double eastM = at.EastM;
+  const double northM = at.NorthM;
   const FeatureField &features = ground.Features();
   const FeatureField::Feature *highest = nullptr;
   float highestAslM = 0.0f;
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (f.Kind != FeatureKind::Structure || !FeatureField::Boxed(f, eastM, northM)) { continue; }
+    if (f.Kind != FeatureKind::Structure ||
+        !FeatureField::Boxed(f, {.EastM = eastM, .NorthM = northM})) {
+      continue;
+    }
     const float topAslM = f.Top.AslM().value_or(0.0f);
     if ((highest != nullptr) && topAslM <= highestAslM) { continue; }
-    if (!features.Contains(f, eastM, northM)) { continue; }
+    if (!features.Contains(f, {.EastM = eastM, .NorthM = northM})) { continue; }
     highest = &f;
     highestAslM = topAslM;
   }

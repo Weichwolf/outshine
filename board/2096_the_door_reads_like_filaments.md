@@ -80,6 +80,13 @@ CLAUDE.md names by name.
 edges. Two named records, two overloads told apart by TYPE, and the asymmetry that cannot be held
 is refused at the door instead of silently centred.
 
+**DONE 2026-09-02.** `Camera::Perspective`, `Camera::Ortho` and `Camera::Exposure` stand in
+`include/scenario/Scenario.h`, each field with its unit in its name and its Doxygen; the two
+`setProjection` overloads are chosen by type; and `Render::CameraOf` hands over the half-extents it
+already had instead of building four symmetric edges for the setter to undo. `Engine::sampleHeight`
+went the same way in the same round -- `Holds<double> sampleHeight(const LongitudeLatitudeHeight &)`
+-- so the third row of the table above is closed too.
+
 ## `Renderer::render(Extent)` is the one STRUCTURAL question here, and it is not a rename
 
 Filament's is `Renderer::render(View*)` -- the view carries its own viewport, and rendering names

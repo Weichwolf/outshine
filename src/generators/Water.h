@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_WATER_H
 
 #include "FeatureField.h"
+#include "Earth.h"
 #include "Making.h"
 #include "WaterDepth.h"
 
@@ -9,8 +10,7 @@ namespace outshine::Generators {
 
 class Water : public Making {
 public:
-  [[nodiscard]] static WaterDepth
-  DepthAt(const Ground &ground, double eastM, double northM) noexcept;
+  [[nodiscard]] static WaterDepth DepthAt(const Ground &ground, EastNorth at) noexcept;
 
   enum Note { Surfaces, Untested, LevelBelowGround, DeepestM, kNotes };
 

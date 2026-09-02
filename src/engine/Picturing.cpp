@@ -169,7 +169,8 @@ void Engine::State::WhereTheEyeStands(double &atLat, double &atLon) const {
   atLat = anchorLat;
   atLon = anchorLon;
   if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return; }
-  const TangentFrame anchored = TangentFrame::At(anchorLat, anchorLon);
+  const TangentFrame anchored =
+      TangentFrame::At({.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat});
   const Vec3 &eye = Picture.Standing->Watching().EyeM;
   Vec3 held;
   for (int axis = 0; axis < 3; ++axis) {
@@ -449,7 +450,10 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
-    standing.Place(held, &eastM, &upM, &northM);
+    const EastNorthUp eastMEnu = standing.Place(held);
+    eastM = eastMEnu.EastM;
+    upM = eastMEnu.UpM;
+    northM = eastMEnu.NorthM;
     places[at * 3] = static_cast<float>(eastM);
     places[at * 3 + 1] = static_cast<float>(upM);
     places[at * 3 + 2] = static_cast<float>(-northM);
@@ -458,7 +462,10 @@ size_t CarryIntoTheFrame(const std::vector<float> &corners,
     double alongEast = 0.0;
     double alongUp = 0.0;
     double alongNorth = 0.0;
-    standing.Turn(aim, &alongEast, &alongUp, &alongNorth);
+    const EastNorthUp alongEastEnu = standing.Turn(aim);
+    alongEast = alongEastEnu.EastM;
+    alongUp = alongEastEnu.UpM;
+    alongNorth = alongEastEnu.NorthM;
     turned[at * 3] = static_cast<float>(alongEast);
     turned[at * 3 + 1] = static_cast<float>(alongUp);
     turned[at * 3 + 2] = static_cast<float>(-alongNorth);
@@ -663,7 +670,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   if (!Watches()) { return false; }
   if (Picture.Standing->Watched()) {
     const Vec3 &at = Picture.Standing->Watching().EyeM;
-    const TangentFrame eyed = TangentFrame::At(atLat, atLon);
+    const TangentFrame eyed = TangentFrame::At({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
     for (int axis = 0; axis < 3; ++axis) {
       over.EyeM[axis] = eyed.OriginEcef()[axis] + at[0] * eyed.EastEcef()[axis] +
                         at[1] * eyed.UpEcef()[axis] - at[2] * eyed.NorthEcef()[axis];
@@ -757,7 +764,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
 
   const double frameLat = anchorLat;
   const double frameLon = anchorLon;
-  const TangentFrame standing = TangentFrame::At(frameLat, frameLon);
+  const TangentFrame standing =
+      TangentFrame::At({.LongitudeDeg = frameLon, .LatitudeDeg = frameLat});
   std::vector<float> inFrame;
   inFrame.resize(laid->PositionM.size());
   double sank = 0.0;
@@ -772,7 +780,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
     double eastM = 0.0;
     double upM = 0.0;
     double northM = 0.0;
-    standing.Place(held, &eastM, &upM, &northM);
+    const EastNorthUp eastMEnu = standing.Place(held);
+    eastM = eastMEnu.EastM;
+    upM = eastMEnu.UpM;
+    northM = eastMEnu.NorthM;
     inFrame[at] = static_cast<float>(eastM);
     inFrame[at + 1] = static_cast<float>(upM);
     inFrame[at + 2] = static_cast<float>(-northM);
@@ -1069,7 +1080,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       double alongEast = 0.0;
       double alongUp = 0.0;
       double alongNorth = 0.0;
-      standing.Turn(held, &alongEast, &alongUp, &alongNorth);
+      const EastNorthUp alongEastEnu = standing.Turn(held);
+      alongEast = alongEastEnu.EastM;
+      alongUp = alongEastEnu.UpM;
+      alongNorth = alongEastEnu.NorthM;
       laid->NormalM[at] = static_cast<float>(alongEast);
       laid->NormalM[at + 1] = static_cast<float>(alongUp);
       laid->NormalM[at + 2] = static_cast<float>(-alongNorth);
@@ -1733,10 +1747,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
       if (net.Crossings(crossed)) {
         crossingsSeen = crossed.size();
         for (const Path::Network::Crossing &one : crossed) {
-          double eastM = 0.0;
-          double upM = 0.0;
-          double northM = 0.0;
-          standing.Place(one.LatitudeDeg, one.LongitudeDeg, 0.0, &eastM, &upM, &northM);
+          const EastNorthUp crossedAt = standing.Place(
+              {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
+          const double eastM = crossedAt.EastM;
+          const double northM = crossedAt.NorthM;
           const uint64_t named = WayEndKey(one.LatitudeDeg, one.LongitudeDeg) | 1ULL;
           const auto east = static_cast<int64_t>(std::floor(eastM / kCrossCellM));
           const auto south = static_cast<int64_t>(std::floor(-northM / kCrossCellM));
@@ -1765,7 +1779,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
           double eastM = 0.0;
           double upM = 0.0;
           double northM = 0.0;
-          standing.Place(one.LatitudeDeg, one.LongitudeDeg, aslM, &eastM, &upM, &northM);
+          const EastNorthUp eastMEnu = standing.Place(
+              {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = aslM});
+          eastM = eastMEnu.EastM;
+          upM = eastMEnu.UpM;
+          northM = eastMEnu.NorthM;
           const double onDrawn = drapedOver(eastM, -northM, upM);
           const double need = onDrawn + static_cast<double>(below.ClearanceM);
           if (need > deckM[spans]) {
@@ -1803,7 +1821,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         double eastM = 0.0;
         double upM = 0.0;
         double northM = 0.0;
-        standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
+        const EastNorthUp eastMEnu =
+            standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
+        eastM = eastMEnu.EastM;
+        upM = eastMEnu.UpM;
+        northM = eastMEnu.NorthM;
         *out = drapedOver(eastM, -northM, upM);
         return true;
       };
@@ -2037,7 +2059,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               double eastM = 0.0;
               double upM = 0.0;
               double northM = 0.0;
-              standing.Place(lat, lon, aslM, &eastM, &upM, &northM);
+              const EastNorthUp eastMEnu =
+                  standing.Place({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = aslM});
+              eastM = eastMEnu.EastM;
+              upM = eastMEnu.UpM;
+              northM = eastMEnu.NorthM;
               along.push_back({.EastM = eastM,
                                .SouthM = -northM,
                                .GradeM = drapedOver(eastM, -northM, upM),
@@ -2229,7 +2255,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
               double lon = 0.0;
               const double midE = 0.5 * (along[at - 1].EastM + along[at].EastM);
               const double midS = 0.5 * (along[at - 1].SouthM + along[at].SouthM);
-              standing.Geo(midE, -midS, &lat, &lon);
+              const LongitudeLatitude midAt = standing.Geo({.EastM = midE, .NorthM = -midS});
+              lat = midAt.LatitudeDeg;
+              lon = midAt.LongitudeDeg;
               double edgeM = 0.0;
               int second = -1;
               const int which =
@@ -2690,11 +2718,11 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             whole = false;
             break;
           }
-          double eastM = 0.0;
-          double upM = 0.0;
-          double northM = 0.0;
-          standing.Place(
-              points[at], points[at + 1], static_cast<double>(one.SeatM), &eastM, &upM, &northM);
+          const EastNorthUp seated = standing.Place({.LongitudeDeg = points[at + 1],
+                                                     .LatitudeDeg = points[at],
+                                                     .HeightM = static_cast<double>(one.SeatM)});
+          const double eastM = seated.EastM;
+          const double northM = seated.NorthM;
           made.RingEastSouthM.push_back(eastM);
           made.RingEastSouthM.push_back(-northM);
           made.LowE = std::min(made.LowE, eastM);
@@ -2705,16 +2733,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
         if (!whole) { continue; }
         {
           const size_t first = static_cast<size_t>(one.FirstPoint) * 2u;
-          double eastM = 0.0;
-          double upM = 0.0;
-          double northM = 0.0;
-          standing.Place(points[first],
-                         points[first + 1],
-                         static_cast<double>(one.SeatM),
-                         &eastM,
-                         &upM,
-                         &northM);
-          made.PlateauM = upM;
+          const EastNorthUp placed = standing.Place({.LongitudeDeg = points[first + 1],
+                                                     .LatitudeDeg = points[first],
+                                                     .HeightM = static_cast<double>(one.SeatM)});
+          made.PlateauM = placed.UpM;
         }
         made.ApronM = kPadApronM;
         made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
@@ -2877,12 +2899,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
             double eastM = 0.0;
             double upM = 0.0;
             double northM = 0.0;
-            standing.Place(points[at],
-                           points[at + 1],
-                           static_cast<double>(lake.LevelM),
-                           &eastM,
-                           &upM,
-                           &northM);
+            const EastNorthUp placed =
+                standing.Place({.LongitudeDeg = points[at + 1],
+                                .LatitudeDeg = points[at],
+                                .HeightM = static_cast<double>(lake.LevelM)});
+            eastM = placed.EastM;
+            upM = placed.UpM;
+            northM = placed.NorthM;
             places.push_back(static_cast<float>(eastM));
             places.push_back(static_cast<float>(upM));
             places.push_back(static_cast<float>(-northM));

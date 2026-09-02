@@ -94,7 +94,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
       (static_cast<double>(cell.J) + 0.25 + 0.5 * static_cast<double>(Unit24(place >> 24u))) *
       lattice.Nm;
 
-  const std::optional<int> row = ground.CoverAt(eastM, northM).Row();
+  const std::optional<int> row = ground.CoverAt({.EastM = eastM, .NorthM = northM}).Row();
   if (!row || static_cast<size_t>(*row) >= PerM2_.Size()) { return Outcome::NoTemplate; }
   const float perM2 = PerM2_[static_cast<size_t>(*row)];
   if (perM2 <= 0.0f) { return Outcome::ZeroDensity; }
@@ -104,7 +104,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
     return Outcome::DensityDraw;
   }
 
-  const double aslM = ground.HeightAslM(eastM, northM);
+  const double aslM = ground.HeightAslM({.EastM = eastM, .NorthM = northM});
 
   const double latDeg = region.AnchorLat();
   const double jitterE = Wrap180(region.AnchorLon()) * kMPerDeg * std::cos(latDeg * kDeg2Rad);
@@ -113,7 +113,7 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   double steep = 0.0;
   if (woody > 0.0 && static_cast<size_t>(*row) < ground.Table().Count()) {
     steep = Limit_.BareBySlope(
-        ground.SlopeDeg(eastM, northM),
+        ground.SlopeDeg({.EastM = eastM, .NorthM = northM}),
         static_cast<double>(ground.Table().At(static_cast<size_t>(*row)).SlopeMaxDeg));
   }
   if (woody <= 0.0) { return Outcome::AboveTreeline; }

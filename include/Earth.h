@@ -37,6 +37,22 @@ struct LongitudeLatitudeHeight {
   [[nodiscard]] constexpr bool operator==(const LongitudeLatitudeHeight &) const = default;
 };
 
+/// A place on the ellipsoid with NO height, because some questions do not have one.
+///
+/// A tile scheme and a map projection carry a longitude and a latitude and nothing else; handing
+/// them a `LongitudeLatitudeHeight` means inventing a zero and then hoping nobody reads it. Cesium
+/// keeps the same distinction -- `Cartographic` is the three, `GlobeRectangle`'s corners are the
+/// two.
+struct LongitudeLatitude {
+  /// East of Greenwich, in degrees.
+  double LongitudeDeg = 0.0;
+  /// North of the equator, in degrees.
+  double LatitudeDeg = 0.0;
+
+  /// Two places are the same place when both measures are.
+  [[nodiscard]] constexpr bool operator==(const LongitudeLatitude &) const = default;
+};
+
 /// A place in the local horizontal frame of some origin, in metres.
 ///
 /// East and north span the tangent plane and up leaves it. Cesium calls the frame a local

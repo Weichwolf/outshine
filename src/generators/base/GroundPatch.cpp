@@ -40,9 +40,9 @@ GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm, Span<cons
   }
 }
 
-double GroundPatch::HeightAslM(double eastM, double northM) const noexcept {
-  const double u = Clamped(eastM / SpacingEm_, 0.0, static_cast<double>(Side_ - 1));
-  const double v = Clamped(northM / SpacingNm_, 0.0, static_cast<double>(Side_ - 1));
+double GroundPatch::HeightAslM(EastNorth at) const noexcept {
+  const double u = Clamped(at.EastM / SpacingEm_, 0.0, static_cast<double>(Side_ - 1));
+  const double v = Clamped(at.NorthM / SpacingNm_, 0.0, static_cast<double>(Side_ - 1));
   const int i0 = static_cast<int>(u);
   const int j0 = static_cast<int>(v);
   const int i1 = i0 + 1 < Side_ ? i0 + 1 : i0;
@@ -60,21 +60,19 @@ double GroundPatch::HeightAslM(double eastM, double northM) const noexcept {
   return (a + (b - a) * fu) * (1.0 - fv) + (c + (d - c) * fu) * fv;
 }
 
-void GroundPatch::GradientAt(double eastM,
-                             double northM,
-                             double *dhde,
-                             double *dhdn) const noexcept {
-  *dhde = (HeightAslM(eastM + SpacingEm_, northM) - HeightAslM(eastM - SpacingEm_, northM)) /
-          (2.0 * SpacingEm_);
-  *dhdn = (HeightAslM(eastM, northM + SpacingNm_) - HeightAslM(eastM, northM - SpacingNm_)) /
-          (2.0 * SpacingNm_);
+Gradient GroundPatch::GradientAt(EastNorth at) const noexcept {
+  const EastNorth eastOf = {.EastM = at.EastM + SpacingEm_, .NorthM = at.NorthM};
+  const EastNorth westOf = {.EastM = at.EastM - SpacingEm_, .NorthM = at.NorthM};
+  const EastNorth northOf = {.EastM = at.EastM, .NorthM = at.NorthM + SpacingNm_};
+  const EastNorth southOf = {.EastM = at.EastM, .NorthM = at.NorthM - SpacingNm_};
+  return {.PerEastM = (HeightAslM(eastOf) - HeightAslM(westOf)) / (2.0 * SpacingEm_),
+          .PerNorthM = (HeightAslM(northOf) - HeightAslM(southOf)) / (2.0 * SpacingNm_)};
 }
 
-double GroundPatch::SlopeDeg(double eastM, double northM) const noexcept {
-  double de = 0.0;
-  double dn = 0.0;
-  GradientAt(eastM, northM, &de, &dn);
-  return std::atan(std::sqrt(de * de + dn * dn)) * kRad2Deg;
+double GroundPatch::SlopeDeg(EastNorth at) const noexcept {
+  const Gradient rise = GradientAt(at);
+  return std::atan(std::sqrt(rise.PerEastM * rise.PerEastM + rise.PerNorthM * rise.PerNorthM)) *
+         kRad2Deg;
 }
 
 size_t GroundPatch::HeapBytes() const {

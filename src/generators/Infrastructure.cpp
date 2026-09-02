@@ -12,19 +12,24 @@ Span<const char *const> Infrastructure::NoteNames() const noexcept {
   return {kNames.data(), kNames.size()};
 }
 
-std::optional<Infrastructure::Made>
-Infrastructure::MadeAt(const Ground &ground, double eastM, double northM) noexcept {
+std::optional<Infrastructure::Made> Infrastructure::MadeAt(const Ground &ground,
+                                                           EastNorth at) noexcept {
+  const double eastM = at.EastM;
+  const double northM = at.NorthM;
   const FeatureField &features = ground.Features();
   std::optional<Made> made;
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (f.Kind != FeatureKind::Way || !FeatureField::Boxed(f, eastM, northM)) { continue; }
+    if (f.Kind != FeatureKind::Way || !FeatureField::Boxed(f, {.EastM = eastM, .NorthM = northM})) {
+      continue;
+    }
 
     const float widthM = f.Form == FeatureForm::Ribbon ? 2.0f * f.HalfWidthM : 0.0f;
     if (made && widthM <= made->WidthM) { continue; }
-    if (!features.Contains(f, eastM, northM)) { continue; }
-    made = Made{
-        .CoverRow = f.CoverRow, .WidthM = widthM, .SurfaceAslM = ground.HeightAslM(eastM, northM)};
+    if (!features.Contains(f, {.EastM = eastM, .NorthM = northM})) { continue; }
+    made = Made{.CoverRow = f.CoverRow,
+                .WidthM = widthM,
+                .SurfaceAslM = ground.HeightAslM({.EastM = eastM, .NorthM = northM})};
   }
   return made;
 }

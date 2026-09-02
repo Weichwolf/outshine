@@ -11,13 +11,11 @@ namespace outshine {
 
 class TangentFrame {
 public:
-  TangentFrame() : TangentFrame(0.0, 0.0) {}
+  TangentFrame() : TangentFrame(LongitudeLatitude{}) {}
 
-  static TangentFrame At(double latDeg, double lonDeg) { return {latDeg, lonDeg}; }
+  static TangentFrame At(LongitudeLatitude anchor) { return TangentFrame(anchor); }
 
-  [[nodiscard]] double AnchorLat() const { return Lat_; }
-
-  [[nodiscard]] double AnchorLon() const { return Lon_; }
+  [[nodiscard]] LongitudeLatitude Anchor() const { return Anchor_; }
 
   [[nodiscard]] const Vec3 &OriginEcef() const { return O_; }
 
@@ -27,46 +25,42 @@ public:
 
   [[nodiscard]] const Vec3 &UpEcef() const { return Up_; }
 
-  void Place(const Vec3 &ecef, double *eastM, double *upM, double *northM) const {
-    const Vec3 d = ecef - O_;
-    *eastM = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
-    *upM = d[0] * Up_[0] + d[1] * Up_[1] + d[2] * Up_[2];
-    *northM = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
-  }
+  [[nodiscard]] EastNorthUp Place(const Vec3 &ecef) const { return Turn(ecef - O_); }
 
-  void Place(
-      double latDeg, double lonDeg, double altM, double *eastM, double *upM, double *northM) const {
+  [[nodiscard]] EastNorthUp Place(const LongitudeLatitudeHeight &at) const {
     Vec3 p;
-    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = altM}, p);
-    Place(p, eastM, upM, northM);
+    GeoToEcef(at, p);
+    return Place(p);
   }
 
-  void Turn(const Vec3 &ecef, double *eastward, double *upward, double *northward) const {
-    *eastward = ecef[0] * East_[0] + ecef[1] * East_[1] + ecef[2] * East_[2];
-    *upward = ecef[0] * Up_[0] + ecef[1] * Up_[1] + ecef[2] * Up_[2];
-    *northward = ecef[0] * North_[0] + ecef[1] * North_[1] + ecef[2] * North_[2];
+  [[nodiscard]] EastNorthUp Turn(const Vec3 &ecef) const {
+    return {.EastM = ecef[0] * East_[0] + ecef[1] * East_[1] + ecef[2] * East_[2],
+            .NorthM = ecef[0] * North_[0] + ecef[1] * North_[1] + ecef[2] * North_[2],
+            .UpM = ecef[0] * Up_[0] + ecef[1] * Up_[1] + ecef[2] * Up_[2]};
   }
 
-  void Project(double latDeg, double lonDeg, double *eastM, double *northM) const {
-    Vec3 p;
-    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = 0.0}, p);
-    const Vec3 d = p - O_;
-    *eastM = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
-    *northM = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
+  [[nodiscard]] EastNorth Project(LongitudeLatitude at) const {
+    const EastNorthUp on =
+        Place({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = 0.0});
+    return {.EastM = on.EastM, .NorthM = on.NorthM};
   }
 
-  void Geo(double eastM, double northM, double *latDeg, double *lonDeg) const {
-    *latDeg = Lat_ + northM / kMPerDeg;
-    *lonDeg = Lon_ + eastM / (kMPerDeg * std::cos(Lat_ * kDeg2Rad));
+  [[nodiscard]] LongitudeLatitude Geo(EastNorth at) const {
+    return {.LongitudeDeg = Anchor_.LongitudeDeg +
+                            at.EastM / (kMPerDeg * std::cos(Anchor_.LatitudeDeg * kDeg2Rad)),
+            .LatitudeDeg = Anchor_.LatitudeDeg + at.NorthM / kMPerDeg};
   }
 
 private:
-  TangentFrame(double latDeg, double lonDeg) : Lat_(latDeg), Lon_(lonDeg) {
-    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = 0.0}, O_);
-    EnuAxesEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg}, East_, North_, Up_);
+  explicit TangentFrame(LongitudeLatitude anchor) : Anchor_(anchor) {
+    GeoToEcef({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg}, O_);
+    EnuAxesEcef({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg},
+                East_,
+                North_,
+                Up_);
   }
 
-  double Lat_, Lon_;
+  LongitudeLatitude Anchor_;
   Vec3 O_, East_, North_, Up_;
 };
 

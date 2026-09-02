@@ -405,20 +405,47 @@ struct Camera {
   bool Orthographic = false;
   double XMagM = 0.0, YMagM = 0.0;
 
-  void setProjection(double fovDeg, double nearM, double farM) {
+  /// A perspective camera as glTF declares one: a vertical field of view and a depth range.
+  struct Perspective {
+    /// The vertical field of view, in degrees.
+    double FovDeg = 0.0;
+    /// The nearest depth the camera keeps, in metres.
+    double NearM = 0.0;
+    /// The furthest, in metres.
+    double FarM = 0.0;
+  };
+
+  /// An orthographic camera as glTF declares one: HALF-EXTENTS, never frustum edges.
+  ///
+  /// The edges are not taken because this camera cannot hold an off-centre frustum, and a setter
+  /// that accepted four edges and kept `0.5 * (right - left)` would be answering a different
+  /// question than it was asked.
+  struct Ortho {
+    /// Half the width the camera sees, in metres.
+    double XMagM = 0.0;
+    /// Half the height, in metres.
+    double YMagM = 0.0;
+    /// The nearest depth the camera keeps, in metres.
+    double NearM = 0.0;
+    /// The furthest, in metres.
+    double FarM = 0.0;
+  };
+
+  /// Stands the camera on a perspective projection. Filament's verb; glTF's numbers.
+  void setProjection(Perspective sees) {
     Orthographic = false;
-    FovDeg = fovDeg;
-    NearM = nearM;
-    FarM = farM;
+    FovDeg = sees.FovDeg;
+    NearM = sees.NearM;
+    FarM = sees.FarM;
   }
 
-  void setProjection(
-      double leftM, double rightM, double bottomM, double topM, double nearM, double farM) {
+  /// Stands it on an orthographic one. The overloads are told apart by TYPE, not by counting.
+  void setProjection(Ortho sees) {
     Orthographic = true;
-    XMagM = 0.5 * (rightM - leftM);
-    YMagM = 0.5 * (topM - bottomM);
-    NearM = nearM;
-    FarM = farM;
+    XMagM = sees.XMagM;
+    YMagM = sees.YMagM;
+    NearM = sees.NearM;
+    FarM = sees.FarM;
   }
 
   [[nodiscard]] bool viewMatrix(Mat4 &out) const;
@@ -437,10 +464,21 @@ struct Camera {
     return ApertureFStops > 0.0 && ShutterS > 0.0 && SensitivityIso > 0.0;
   }
 
-  void setExposure(double apertureFStops, double shutterS, double sensitivityIso) {
-    ApertureFStops = apertureFStops;
-    ShutterS = shutterS;
-    SensitivityIso = sensitivityIso;
+  /// The photographic triangle, as Filament's Camera::setExposure takes it.
+  struct Exposure {
+    /// The aperture, in f-stops.
+    double ApertureFStops = 0.0;
+    /// The shutter, in seconds.
+    double ShutterS = 0.0;
+    /// The sensitivity, in ISO.
+    double SensitivityIso = 0.0;
+  };
+
+  /// Stands the camera on an exposure.
+  void setExposure(Exposure by) {
+    ApertureFStops = by.ApertureFStops;
+    ShutterS = by.ShutterS;
+    SensitivityIso = by.SensitivityIso;
   }
 
   [[nodiscard]] double exposureScale() const;

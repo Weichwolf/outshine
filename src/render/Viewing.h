@@ -77,9 +77,11 @@ inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {
     out.UpM[axis] = from.Up[axis];
   }
   if (from.Kind == CameraKind::Orthographic) {
-    out.setProjection(-from.XMagM, from.XMagM, -from.YMagM, from.YMagM, from.ZNearM, from.ZFarM);
+    out.setProjection(outshine::Scenario::Camera::Ortho{
+        .XMagM = from.XMagM, .YMagM = from.YMagM, .NearM = from.ZNearM, .FarM = from.ZFarM});
   } else {
-    out.setProjection(from.YfovRad * kRad2Deg, from.ZNearM, from.ZFarM);
+    out.setProjection(outshine::Scenario::Camera::Perspective{
+        .FovDeg = from.YfovRad * kRad2Deg, .NearM = from.ZNearM, .FarM = from.ZFarM});
   }
 }
 

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BASE_TILE_H
 #define OUTSHINE_GENERATORS_BASE_TILE_H
 
+#include "Earth.h"
 #include "math/Vec3.h"
 #include <cstdint>
 
@@ -32,11 +33,11 @@ public:
 
   [[nodiscard]] double SpanNm() const { return SpanNm_; }
 
-  void Enu(double lat, double lon, double *eastM, double *northM) const;
-  void Geo(double eastM, double northM, double *lat, double *lon) const;
+  [[nodiscard]] EastNorth Enu(LongitudeLatitude at) const;
+  [[nodiscard]] LongitudeLatitude Geo(EastNorth at) const;
 
-  [[nodiscard]] bool Holds(double eastM, double northM) const {
-    return eastM >= 0.0 && northM >= 0.0 && eastM < SpanEm_ && northM < SpanNm_;
+  [[nodiscard]] bool Holds(EastNorth at) const {
+    return at.EastM >= 0.0 && at.NorthM >= 0.0 && at.EastM < SpanEm_ && at.NorthM < SpanNm_;
   }
 
   void AnchorEcef(double aslM, Vec3 &out) const;

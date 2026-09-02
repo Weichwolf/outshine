@@ -68,15 +68,16 @@ uint64_t Tile::Seed(uint64_t stream) const {
   return Mix(Seed_ ^ Mix(stream));
 }
 
-void Tile::Enu(double lat, double lon, double *eastM, double *northM) const {
-  *northM = (lat - AnchorLat_) * kMPerDeg;
-  *eastM = Wrap180(lon - AnchorLon_) * kMPerDeg * std::cos(lat * kDeg2Rad);
+EastNorth Tile::Enu(LongitudeLatitude at) const {
+  return {.EastM = Wrap180(at.LongitudeDeg - AnchorLon_) * kMPerDeg *
+                   std::cos(at.LatitudeDeg * kDeg2Rad),
+          .NorthM = (at.LatitudeDeg - AnchorLat_) * kMPerDeg};
 }
 
-void Tile::Geo(double eastM, double northM, double *lat, double *lon) const {
-  const double atLat = AnchorLat_ + northM / kMPerDeg;
-  *lat = atLat;
-  *lon = AnchorLon_ + eastM / (kMPerDeg * std::cos(atLat * kDeg2Rad));
+LongitudeLatitude Tile::Geo(EastNorth at) const {
+  const double atLat = AnchorLat_ + at.NorthM / kMPerDeg;
+  return {.LongitudeDeg = AnchorLon_ + at.EastM / (kMPerDeg * std::cos(atLat * kDeg2Rad)),
+          .LatitudeDeg = atLat};
 }
 
 void Tile::AnchorEcef(double aslM, Vec3 &out) const {

@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDINGS_H
 
 #include "FeatureField.h"
+#include "Earth.h"
 #include "Making.h"
 
 namespace outshine::Generators {
@@ -17,8 +18,8 @@ public:
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 
 private:
-  [[nodiscard]] static const FeatureField::Feature *
-  Over(const Ground &ground, double eastM, double northM) noexcept;
+  [[nodiscard]] static const FeatureField::Feature *Over(const Ground &ground,
+                                                         EastNorth at) noexcept;
 
   ContactMaterial Contact_;
 };

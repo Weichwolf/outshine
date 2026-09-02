@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_SKY_EPHEMERIS_H
 #include <algorithm>
 #include <cmath>
+#include "Earth.h"
 #include "State.h"
 #include "Units.h"
 
@@ -9,9 +10,14 @@ namespace outshine {
 
 constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 
-inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {
+struct Lunar {
+  LookDirection Sees;
+  double Phase = 0.0;
+};
+
+[[nodiscard]] inline LookDirection EarthSunPos(LongitudeLatitude at, double utcS) {
   const double D2R = kDeg2Rad;
-  const double jd = utc / 86400.0 + 2440587.5;
+  const double jd = utcS / 86400.0 + 2440587.5;
   const double n = jd - 2451545.0;
   const double L = fmod(280.460 + 0.9856474 * n, kDegPerTurn);
   const double g = fmod(357.528 + 0.9856003 * n, kDegPerTurn) * D2R;
@@ -20,18 +26,19 @@ inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az
   const double dec = asin(sin(eps) * sin(lam));
   const double ra = atan2(cos(eps) * sin(lam), cos(lam));
   const double gmst = fmod(18.697374558 + 24.06570982441908 * n, 24.0);
-  const double lst = fmod(gmst * 15.0 + lon, kDegPerTurn);
+  const double lst = fmod(gmst * 15.0 + at.LongitudeDeg, kDegPerTurn);
   const double ha = (lst - ra / D2R) * D2R;
-  const double la = lat * D2R;
+  const double la = at.LatitudeDeg * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
-  *el = static_cast<float>(asin(sinel) / D2R);
-  *az = static_cast<float>(fmod(
-      atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn, kDegPerTurn));
+  return {.AzimuthDeg =
+              fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn,
+                   kDegPerTurn),
+          .ElevationDeg = asin(sinel) / D2R};
 }
 
-inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
+[[nodiscard]] inline Lunar EarthMoonPos(LongitudeLatitude at, double utcS) {
   const double D2R = kDeg2Rad;
-  const double jd = utc / 86400.0 + 2440587.5;
+  const double jd = utcS / 86400.0 + 2440587.5;
   const double d = jd - 2451543.5;
 
   const double N = fmod(125.1228 - 0.0529538083 * d, kDegPerTurn) * D2R;
@@ -67,17 +74,17 @@ inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *a
 
   const double n = jd - 2451545.0;
   const double gmst = fmod(18.697374558 + 24.06570982441908 * n, 24.0);
-  const double lst = fmod(gmst * 15.0 + lon, kDegPerTurn);
+  const double lst = fmod(gmst * 15.0 + at.LongitudeDeg, kDegPerTurn);
   const double ha = (lst - ra / D2R) * D2R;
-  const double la = lat * D2R;
+  const double la = at.LatitudeDeg * D2R;
   const double sinel = sin(la) * sin(dec) + cos(la) * cos(dec) * cos(ha);
-  *el = static_cast<float>(asin(sinel) / D2R);
-  *az = static_cast<float>(fmod(
-      atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn, kDegPerTurn));
-
   const double Lsun = fmod(280.460 + 0.9856474 * n, kDegPerTurn) * D2R;
   const double elong = lonecl - Lsun;
-  *phase = static_cast<float>((1.0 - cos(elong)) * 0.5);
+  return {.Sees = {.AzimuthDeg = fmod(
+                       atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + kDegPerTurn,
+                       kDegPerTurn),
+                   .ElevationDeg = asin(sinel) / D2R},
+          .Phase = (1.0 - cos(elong)) * 0.5};
 }
 
 struct Solar {
@@ -85,11 +92,14 @@ struct Solar {
   float MoonElDeg = 0.0f, MoonAzDeg = 0.0f, MoonPhase = 0.0f;
 };
 
-inline Solar SolarAt(double lat, double lon, double utc) {
-  Solar s;
-  EarthSunPos(lat, lon, utc, &s.SunElDeg, &s.SunAzDeg);
-  EarthMoonPos(lat, lon, utc, &s.MoonElDeg, &s.MoonAzDeg, &s.MoonPhase);
-  return s;
+[[nodiscard]] inline Solar SolarAt(LongitudeLatitude at, double utcS) {
+  const LookDirection sun = EarthSunPos(at, utcS);
+  const Lunar moon = EarthMoonPos(at, utcS);
+  return {.SunElDeg = static_cast<float>(sun.ElevationDeg),
+          .SunAzDeg = static_cast<float>(sun.AzimuthDeg),
+          .MoonElDeg = static_cast<float>(moon.Sees.ElevationDeg),
+          .MoonAzDeg = static_cast<float>(moon.Sees.AzimuthDeg),
+          .MoonPhase = static_cast<float>(moon.Phase)};
 }
 
 inline void SolarToEnv(const Solar &s, State &st) {

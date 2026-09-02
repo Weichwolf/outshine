@@ -49,13 +49,10 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.RingCount = 1;
     rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = count});
     for (uint32_t k = 0; k < count; k++) {
-      double eastM = 0.0;
-      double northM = 0.0;
-      region.Enu(points[(static_cast<size_t>(firstPoint) + k) * 2],
-                 points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
-                 &eastM,
-                 &northM);
-      vertices.push_back({.Em = static_cast<float>(eastM), .Nm = static_cast<float>(northM)});
+      const EastNorth on =
+          region.Enu({.LongitudeDeg = points[(static_cast<size_t>(firstPoint) + k) * 2 + 1],
+                      .LatitudeDeg = points[(static_cast<size_t>(firstPoint) + k) * 2]});
+      vertices.push_back({.Em = static_cast<float>(on.EastM), .Nm = static_cast<float>(on.NorthM)});
     }
     features.push_back(f);
   };
@@ -120,13 +117,15 @@ Snapped SnapshotOver(const Tile &region,
   const double stepE = region.SpanEm() / static_cast<double>(side - 1);
   const double stepN = region.SpanNm() / static_cast<double>(side - 1);
   for (int j = 0; j < side; j++) {
-    double lat = 0.0;
-    double lonFrom = 0.0;
-    double latAgain = 0.0;
-    double lonNext = 0.0;
-    region.Geo(0.0, static_cast<double>(j) * stepN, &lat, &lonFrom);
-    region.Geo(stepE, static_cast<double>(j) * stepN, &latAgain, &lonNext);
-    block.AslMRow(lat, lonFrom, lonNext - lonFrom, side, row.data());
+    const LongitudeLatitude from =
+        region.Geo({.EastM = 0.0, .NorthM = static_cast<double>(j) * stepN});
+    const LongitudeLatitude next =
+        region.Geo({.EastM = stepE, .NorthM = static_cast<double>(j) * stepN});
+    block.AslMRow(from.LatitudeDeg,
+                  from.LongitudeDeg,
+                  next.LongitudeDeg - from.LongitudeDeg,
+                  side,
+                  row.data());
     for (int i = 0; i < side; i++) {
       postings[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)].Height =
           GroundSample::At(row[static_cast<size_t>(i)]);

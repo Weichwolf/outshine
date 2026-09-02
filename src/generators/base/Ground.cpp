@@ -19,16 +19,11 @@ Ground::Ground(const Tile &region, const Snapshot &snapshot)
   region.AnchorEcef(0.0, AnchorEcef_);
 }
 
-Cover Ground::CoverAt(double eastM, double northM) const noexcept {
-  double lat = 0.0;
-  double lon = 0.0;
-  Region_.Geo(eastM, northM, &lat, &lon);
-  double e = 0.0;
-  double n = 0.0;
-  Classes_->Frame().Project(lat, lon, &e, &n);
+Cover Ground::CoverAt(EastNorth at) const noexcept {
+  const EastNorth on = Classes_->Frame().Project(Region_.Geo(at));
   double edgeM = 0.0;
   int runnerUp = -1;
-  const int row = Classes_->Evaluate(e, n, &edgeM, &runnerUp);
+  const int row = Classes_->Evaluate(on.EastM, on.NorthM, &edgeM, &runnerUp);
   if (row < 0) { return Cover::None(); }
   if (edgeM >= ClassStructure::kNoEdgeM) { return Cover::Of(row, runnerUp); }
   return Cover::Of(row, static_cast<float>(edgeM), runnerUp);

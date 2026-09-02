@@ -4,6 +4,7 @@
 #include <optional>
 
 #include "FeatureField.h"
+#include "Earth.h"
 #include "Making.h"
 
 namespace outshine::Generators {
@@ -16,8 +17,7 @@ public:
     double SurfaceAslM = 0.0;
   };
 
-  [[nodiscard]] static std::optional<Made>
-  MadeAt(const Ground &ground, double eastM, double northM) noexcept;
+  [[nodiscard]] static std::optional<Made> MadeAt(const Ground &ground, EastNorth at) noexcept;
 
   enum Note { Ways, WidestM, kNotes };
 
