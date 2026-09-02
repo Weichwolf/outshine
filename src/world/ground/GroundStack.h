@@ -53,6 +53,8 @@ public:
 
   [[nodiscard]] std::size_t OverCeiling() const { return Overflowed_; }
 
+  [[nodiscard]] bool Overflowing() const { return Overflowing_; }
+
   [[nodiscard]] std::size_t HeapBytes() const {
     return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
            Ways_.HeapBytes() + (Vectors_ ? Vectors_->HeapBytes() : 0u);
@@ -107,6 +109,7 @@ private:
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
   std::size_t Overflowed_ = 0;
+  bool Overflowing_ = false;
   std::unique_ptr<OsmField> Vectors_;
   BuildingField Footprints_;
   WaterField WaterBodies_;

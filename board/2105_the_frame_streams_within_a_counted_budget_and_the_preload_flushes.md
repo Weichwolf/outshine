@@ -54,6 +54,47 @@ And the same runs say eight of nine places break the frame budget, each on ONE o
 
 ZurichPlan is the control: where nothing streams during the walk, no frame is late.
 
+## The two are ONE defect, and the measurement says so
+
+Once `preload` refuses on a stack that stopped at its ceiling, and `PlaceCamera::Draw`
+stops measuring a place that did not preload, the nine places split exactly along the
+line the digests had already drawn:
+
+| place | preloads | digest across every run |
+|---|---|---|
+| Shibuya | **no** | wandered |
+| CentralPark | **no** | wandered |
+| OldTown, Heidelberg, Venice, Jura, ZurichPlan, Kaiserberg, Koehlbrand | yes | steady |
+
+Seven of nine load and seven of nine are steady; two do not load and those two are the
+two that wander. Kaiserberg is the caveat: it preloads and still drew a second digest
+twice, so preloading is necessary and not yet sufficient -- it stands close enough to
+the ceiling that the round it stops on still varies.
+
+## And the ceiling cannot see a quarter of what is held
+
+Measured at Shibuya, 2026-09-03:
+
+| held | MB | inside `HeapBytes()`? |
+|---|---|---|
+| raised building geometry | **360** | yes |
+| OSM features | 181 | yes |
+| land classes | 70 | yes |
+| footprints | 22 | yes |
+| streets and water | 1.3 | yes |
+| **the frame copies the renderer reads** | **124** | **NO** |
+| **actually held** | **759** | the ceiling sees 634 |
+
+`GroundStack::HeapBytes()` sums `Cls_ + Footprints_ + WaterBodies_ + Ways_ + Vectors_`.
+`World.WallPlaces`, `WallFacing`, `RoofPlaces` and `RoofFacing` live in
+`Engine::State::World` and are not in that sum, so a ceiling of 512 MB is enforced
+against 634 of 759 MB. **A ceiling blind to a quarter of the spend is not a ceiling**,
+and this is CLAUDE.md's "a measure that cannot see" with a number on it.
+
+And the geometry itself: 377 487 360 bytes over 2 732 059 triangles is **138 bytes per
+triangle**, against 108 for the three unshared 8-float corners plus a 3-index run --
+about 28 per cent of capacity overhang from geometric growth.
+
 ## What is wrong
 
 `Engine::advance` -> `Updates()` (`src/engine/Advancing.cpp:191`) calls `GroundStack::Restand(at)`,

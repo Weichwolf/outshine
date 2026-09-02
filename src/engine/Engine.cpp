@@ -392,6 +392,15 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
       if (!S_->Grounds(true)) { return std::unexpected(S_->Error); }
       if (settled()) { return Result{}; }
     }
+    if (S_->World.Stack.Overflowing()) {
+      (void)S_->Grounds(true);
+      S_->Error = "the world at this place holds " + std::to_string(S_->World.Stack.HeapBytes()) +
+                  " bytes against a ceiling of " +
+                  std::to_string(Ground::GroundStack::kHoldsBytes) +
+                  ", so it stopped ingesting part-way. What it did take depends on which tiles had "
+                  "landed when the round ran, which is a picture the declaration does not name";
+      return std::unexpected(S_->Error);
+    }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
       const bool built = S_->Grounds(true);
       S_->Error = "the world at this place did not become resident within " +

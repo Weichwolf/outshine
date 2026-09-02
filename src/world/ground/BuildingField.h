@@ -68,6 +68,10 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
+  [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
+
+  [[nodiscard]] size_t RaisedBytes() const { return Built_.HeapBytes(); }
+
   [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Prints_) + Built_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }

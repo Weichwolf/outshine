@@ -118,6 +118,7 @@ void GroundStack::Restand(LongitudeLatitude at) {
   for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       ++Overflowed_;
+      Overflowing_ = true;
       break;
     }
     const size_t before =

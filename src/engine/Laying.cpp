@@ -2,6 +2,7 @@
 #include "Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
+#include "Capacity.h"
 #include "Log.h"
 #include <algorithm>
 #include <atomic>
@@ -1157,6 +1158,17 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
                    "bytes");
   Published.Places(
       "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
+  Published.Places("world: of those, the footprints it keeps",
+                   static_cast<double>(World.Stack.Footprints().PrintBytes()),
+                   "bytes");
+  Published.Places("world: and the raised geometry",
+                   static_cast<double>(World.Stack.Footprints().RaisedBytes()),
+                   "bytes");
+  Published.Places(
+      "world: the frame copies the renderer reads",
+      static_cast<double>(CapacityBytes(World.WallPlaces) + CapacityBytes(World.WallFacing) +
+                          CapacityBytes(World.RoofPlaces) + CapacityBytes(World.RoofFacing)),
+      "bytes");
   Published.Places(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
   Published.Places(

@@ -298,6 +298,13 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   const auto stood = std::chrono::steady_clock::now();
   shot.StreamedS = last.ElapsedS;
   shot.Preloaded = ready;
+  if (!ready) {
+    shot.Why = std::string(name) +
+               " did not preload, so nothing measured after this point is "
+               "about the declaration: " +
+               std::string(engine.error());
+    return shot;
+  }
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
 
   const int settle = engine.renderer().settleFrames();
