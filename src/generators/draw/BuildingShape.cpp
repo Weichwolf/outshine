@@ -151,8 +151,8 @@ std::vector<En> RingInMetres(Span<const double> latLon) {
   const double refLon = latLon[1];
   ring.reserve(latLon.Size() / 2);
   for (size_t k = 0; k + 1 < latLon.Size(); k += 2) {
-    En p;
-    EnuOffsetM(refLat, refLon, latLon[k], latLon[k + 1], p.EastM, p.NorthM);
+    const En p = EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
+                            {.LongitudeDeg = latLon[k + 1], .LatitudeDeg = latLon[k]});
     if (!ring.empty() &&
         std::hypot(p.EastM - ring.back().EastM, p.NorthM - ring.back().NorthM) < kSameCornerM) {
       continue;

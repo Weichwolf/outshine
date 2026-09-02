@@ -74,12 +74,11 @@ int main(int argc, char **argv) {
   size_t settled = 0;
   double widestUnsettledM = 0.0, closestUnsettledM = 1.0e18;
   for (const Row &one : rows) {
-    const outshine::Geodesic said = outshine::GeodesicOn(one.FromLatDeg,
-                                                         one.FromLonDeg,
-                                                         one.ToLatDeg,
-                                                         one.ToLonDeg,
-                                                         outshine::Data::kWgs84A,
-                                                         outshine::Data::kWgs84F);
+    const outshine::Geodesic said =
+        outshine::GeodesicOn({.LongitudeDeg = one.FromLonDeg, .LatitudeDeg = one.FromLatDeg},
+                             {.LongitudeDeg = one.ToLonDeg, .LatitudeDeg = one.ToLatDeg},
+                             outshine::Data::kWgs84A,
+                             outshine::Data::kWgs84F);
     if (!said.Converged) {
       if (one.AlongM > widestUnsettledM) { widestUnsettledM = one.AlongM; }
       if (one.AlongM < closestUnsettledM) { closestUnsettledM = one.AlongM; }

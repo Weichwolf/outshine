@@ -37,7 +37,7 @@ public:
   void Place(
       double latDeg, double lonDeg, double altM, double *eastM, double *upM, double *northM) const {
     Vec3 p;
-    GeoToEcef(latDeg, lonDeg, altM, p);
+    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = altM}, p);
     Place(p, eastM, upM, northM);
   }
 
@@ -49,7 +49,7 @@ public:
 
   void Project(double latDeg, double lonDeg, double *eastM, double *northM) const {
     Vec3 p;
-    GeoToEcef(latDeg, lonDeg, 0.0, p);
+    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = 0.0}, p);
     const Vec3 d = p - O_;
     *eastM = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
     *northM = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
@@ -62,8 +62,8 @@ public:
 
 private:
   TangentFrame(double latDeg, double lonDeg) : Lat_(latDeg), Lon_(lonDeg) {
-    GeoToEcef(latDeg, lonDeg, 0.0, O_);
-    EnuAxesEcef(latDeg, lonDeg, East_, North_, Up_);
+    GeoToEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg, .HeightM = 0.0}, O_);
+    EnuAxesEcef({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg}, East_, North_, Up_);
   }
 
   double Lat_, Lon_;

@@ -184,27 +184,27 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     {
       Vec3 e;
       Vec3 nn;
-      EnuAxesEcef(refLat, refLon, e, nn, up);
+      EnuAxesEcef({.LongitudeDeg = refLon, .LatitudeDeg = refLat}, e, nn, up);
     }
 
     p3.resize(static_cast<size_t>(n) * 3);
     for (uint32_t k = 0; k < n; k++) {
       Vec3 p;
-      GeoToEcef(ring[(static_cast<size_t>(s.FirstPoint) + k) * 2],
-                ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
-                s.LevelM + kLiftM,
+      GeoToEcef({.LongitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
+                 .LatitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2],
+                 .HeightM = s.LevelM + kLiftM},
                 p);
       for (int c = 0; c < 3; c++) { p3[static_cast<size_t>(k) * 3 + c] = p[c] - Anchor_[c]; }
     }
 
     std::vector<double> en(static_cast<size_t>(n) * 2);
     for (uint32_t k = 0; k < n; k++) {
-      EnuOffsetM(refLat,
-                 refLon,
-                 ring[(static_cast<size_t>(s.FirstPoint) + k) * 2],
-                 ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
-                 en[static_cast<size_t>(k) * 2],
-                 en[static_cast<size_t>(k) * 2 + 1]);
+      const EastNorth at =
+          EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
+                     {.LongitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2 + 1],
+                      .LatitudeDeg = ring[(static_cast<size_t>(s.FirstPoint) + k) * 2]});
+      en[static_cast<size_t>(k) * 2] = at.EastM;
+      en[static_cast<size_t>(k) * 2 + 1] = at.NorthM;
     }
     double area2 = 0.0;
     for (uint32_t k = 0; k < n; k++) {
@@ -263,30 +263,23 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     Vec3 up;
     Vec3 ea;
     Vec3 no;
-    EnuAxesEcef(refLat, refLon, ea, no, up);
+    EnuAxesEcef({.LongitudeDeg = refLon, .LatitudeDeg = refLat}, ea, no, up);
     std::vector<double> L(static_cast<size_t>(c.PointCount) * 3);
     std::vector<double> R(static_cast<size_t>(c.PointCount) * 3);
     for (uint32_t k = 0; k < c.PointCount; k++) {
-      double e0 = 0.0;
-      double n0 = 0.0;
-      double e1 = 0.0;
-      double n1 = 0.0;
       const uint32_t a = k > 0 ? k - 1 : k;
       const uint32_t b = k + 1 < c.PointCount ? k + 1 : k;
-      EnuOffsetM(refLat,
-                 refLon,
-                 ring[(static_cast<size_t>(c.FirstPoint) + a) * 2],
-                 ring[(static_cast<size_t>(c.FirstPoint) + a) * 2 + 1],
-                 e0,
-                 n0);
-      EnuOffsetM(refLat,
-                 refLon,
-                 ring[(static_cast<size_t>(c.FirstPoint) + b) * 2],
-                 ring[(static_cast<size_t>(c.FirstPoint) + b) * 2 + 1],
-                 e1,
-                 n1);
-      double tx = e1 - e0;
-      double ty = n1 - n0;
+      const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
+      const EastNorth before =
+          EnuOffsetM(from,
+                     {.LongitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + a) * 2 + 1],
+                      .LatitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + a) * 2]});
+      const EastNorth after =
+          EnuOffsetM(from,
+                     {.LongitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + b) * 2 + 1],
+                      .LatitudeDeg = ring[(static_cast<size_t>(c.FirstPoint) + b) * 2]});
+      double tx = after.EastM - before.EastM;
+      double ty = after.NorthM - before.NorthM;
       const double tl = std::sqrt(tx * tx + ty * ty);
       if (tl < kLeastRunM2) {
         tx = 1.0;
@@ -301,7 +294,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       const double lon = ring[(static_cast<size_t>(c.FirstPoint) + k) * 2 + 1];
       const double lev = static_cast<double>(Levels_[c.FirstLevel + k]) + kLiftM;
       Vec3 base;
-      GeoToEcef(lat, lon, lev, base);
+      GeoToEcef({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = lev}, base);
       for (int cc = 0; cc < 3; cc++) {
         L[static_cast<size_t>(k) * 3 + cc] = base[cc] - Anchor_[cc] + ea[cc] * px + no[cc] * py;
         R[static_cast<size_t>(k) * 3 + cc] = base[cc] - Anchor_[cc] - ea[cc] * px - no[cc] * py;

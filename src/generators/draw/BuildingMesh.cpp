@@ -153,8 +153,8 @@ public:
     const double lat = plan.RingLatLon[0];
     const double lon = plan.RingLatLon[1];
     Vec3 origin;
-    GeoToEcef(lat, lon, plan.BaseAslM, origin);
-    EnuAxesEcef(lat, lon, East_, North_, Up_);
+    GeoToEcef({.LongitudeDeg = lon, .LatitudeDeg = lat, .HeightM = plan.BaseAslM}, origin);
+    EnuAxesEcef({.LongitudeDeg = lon, .LatitudeDeg = lat}, East_, North_, Up_);
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
     ReachM_ =
         std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
@@ -294,11 +294,11 @@ public:
     if (n < 3) { return; }
     std::array<std::array<double, 4>, 3> m = {};
     for (size_t k = 0; k < n; k++) {
-      double e = 0.0;
-      double nn = 0.0;
-      EnuOffsetM(ringLatLon[0], ringLatLon[1], ringLatLon[k * 2], ringLatLon[k * 2 + 1], e, nn);
+      const EastNorth away =
+          EnuOffsetM({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]},
+                     {.LongitudeDeg = ringLatLon[k * 2 + 1], .LatitudeDeg = ringLatLon[k * 2]});
       const double z = cornerAslM[k] - baseAslM;
-      const Vec3 b = {{1.0, e, nn}};
+      const Vec3 b = {{1.0, away.EastM, away.NorthM}};
       for (int r = 0; r < 3; r++) {
         for (int c = 0; c < 3; c++) { m[r][c] += b[r] * b[c]; }
         m[r][3] += b[r] * z;

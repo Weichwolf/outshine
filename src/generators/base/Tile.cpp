@@ -80,7 +80,7 @@ void Tile::Geo(double eastM, double northM, double *lat, double *lon) const {
 }
 
 void Tile::AnchorEcef(double aslM, Vec3 &out) const {
-  GeoToEcef(AnchorLat_, AnchorLon_, aslM, out);
+  GeoToEcef({.LongitudeDeg = AnchorLon_, .LatitudeDeg = AnchorLat_, .HeightM = aslM}, out);
 }
 
 } // namespace outshine::Generators

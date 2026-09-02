@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_GEO_GEODESY_H
 
 #include <cmath>
+#include "Earth.h"
 #include "math/Vec3.h"
 #include "Units.h"
 
@@ -14,12 +15,14 @@ struct Geodesic {
   bool Converged = false;
 };
 
-[[nodiscard]] inline Geodesic GeodesicOn(double fromLatDeg,
-                                         double fromLonDeg,
-                                         double toLatDeg,
-                                         double toLonDeg,
+[[nodiscard]] inline Geodesic GeodesicOn(const LongitudeLatitudeHeight &from,
+                                         const LongitudeLatitudeHeight &to,
                                          double semiMajorM,
                                          double flattening) {
+  const double fromLatDeg = from.LatitudeDeg;
+  const double fromLonDeg = from.LongitudeDeg;
+  const double toLatDeg = to.LatitudeDeg;
+  const double toLonDeg = to.LongitudeDeg;
   constexpr int kMostTurns = 200;
   constexpr double kSettledRad = kParallelCross;
 
@@ -92,7 +95,10 @@ struct Geodesic {
   return out;
 }
 
-inline void GeoToEcef(double latDeg, double lonDeg, double altM, Vec3 &out) {
+inline void GeoToEcef(const LongitudeLatitudeHeight &at, Vec3 &out) {
+  const double latDeg = at.LatitudeDeg;
+  const double lonDeg = at.LongitudeDeg;
+  const double altM = at.HeightM;
   const double a = 6378137.0;
   const double e2 = 6.69437999014e-3;
   const double lat = latDeg * kDeg2Rad;
@@ -105,7 +111,9 @@ inline void GeoToEcef(double latDeg, double lonDeg, double altM, Vec3 &out) {
   out[2] = (N * (1.0 - e2) + altM) * sl;
 }
 
-inline void EnuAxesEcef(double latDeg, double lonDeg, Vec3 &E, Vec3 &N, Vec3 &U) {
+inline void EnuAxesEcef(const LongitudeLatitudeHeight &at, Vec3 &E, Vec3 &N, Vec3 &U) {
+  const double latDeg = at.LatitudeDeg;
+  const double lonDeg = at.LongitudeDeg;
   const double P = latDeg * kDeg2Rad;
   const double L = lonDeg * kDeg2Rad;
   const double sP = std::sin(P);
@@ -129,25 +137,23 @@ inline double Wrap180(double deg) {
   return deg;
 }
 
-inline void
-EnuOffsetM(double refLat, double refLon, double lat, double lon, double &eastM, double &northM) {
-  const double coslat = std::cos(refLat * kDeg2Rad);
-  northM = (lat - refLat) * kMPerDeg;
-  eastM = Wrap180(lon - refLon) * kMPerDeg * coslat;
+[[nodiscard]] inline EastNorth EnuOffsetM(const LongitudeLatitudeHeight &from,
+                                          const LongitudeLatitudeHeight &at) {
+  const double coslat = std::cos(from.LatitudeDeg * kDeg2Rad);
+  return {.EastM = Wrap180(at.LongitudeDeg - from.LongitudeDeg) * kMPerDeg * coslat,
+          .NorthM = (at.LatitudeDeg - from.LatitudeDeg) * kMPerDeg};
 }
 
-inline double PlanarDistM(double refLat, double refLon, double lat, double lon) {
-  double e;
-  double n;
-  EnuOffsetM(refLat, refLon, lat, lon, e, n);
-  return std::sqrt(e * e + n * n);
+[[nodiscard]] inline double PlanarDistM(const LongitudeLatitudeHeight &from,
+                                        const LongitudeLatitudeHeight &at) {
+  const EastNorth away = EnuOffsetM(from, at);
+  return std::hypot(away.EastM, away.NorthM);
 }
 
-inline double BearingDeg(double refLat, double refLon, double lat, double lon) {
-  double e;
-  double n;
-  EnuOffsetM(refLat, refLon, lat, lon, e, n);
-  const double brg = std::atan2(e, n) * kRad2Deg;
+[[nodiscard]] inline double BearingDeg(const LongitudeLatitudeHeight &from,
+                                       const LongitudeLatitudeHeight &at) {
+  const EastNorth away = EnuOffsetM(from, at);
+  const double brg = std::atan2(away.EastM, away.NorthM) * kRad2Deg;
   return brg < 0.0 ? brg + kDegPerTurn : brg;
 }
 
@@ -257,19 +263,15 @@ inline void EnuToBodyVec(double rollDeg,
   down = -mag * se;
 }
 
-inline void TrackProjectM(double refLat,
-                          double refLon,
+inline void TrackProjectM(const LongitudeLatitudeHeight &from,
                           double courseDeg,
-                          double lat,
-                          double lon,
+                          const LongitudeLatitudeHeight &at,
                           double &alongM,
                           double &acrossM) {
-  double e;
-  double n;
-  EnuOffsetM(refLat, refLon, lat, lon, e, n);
+  const EastNorth away = EnuOffsetM(from, at);
   const double c = courseDeg * kDeg2Rad;
-  alongM = e * std::sin(c) + n * std::cos(c);
-  acrossM = e * std::cos(c) - n * std::sin(c);
+  alongM = away.EastM * std::sin(c) + away.NorthM * std::cos(c);
+  acrossM = away.EastM * std::cos(c) - away.NorthM * std::sin(c);
 }
 
 } // namespace outshine

@@ -87,23 +87,16 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
   double a = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
     const uint32_t j = (k + 1) % ring.Count;
-    double ek = 0.0;
-    double nk = 0.0;
-    double ej = 0.0;
-    double nj = 0.0;
-    EnuOffsetM(refLat,
-               refLon,
-               pts[(static_cast<size_t>(ring.First) + k) * 2],
-               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-               ek,
-               nk);
-    EnuOffsetM(refLat,
-               refLon,
-               pts[(static_cast<size_t>(ring.First) + j) * 2],
-               pts[(static_cast<size_t>(ring.First) + j) * 2 + 1],
-               ej,
-               nj);
-    a += ek * nj - ej * nk;
+    const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
+    const EastNorth at =
+        EnuOffsetM(from,
+                   {.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                    .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]});
+    const EastNorth next =
+        EnuOffsetM(from,
+                   {.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + j) * 2 + 1],
+                    .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + j) * 2]});
+    a += at.EastM * next.NorthM - next.EastM * at.NorthM;
   }
   return std::fabs(0.5 * a);
 }
@@ -117,18 +110,14 @@ double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   double n0 = kBeyondAnyCoordinate;
   double n1 = -kBeyondAnyCoordinate;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    double e = 0.0;
-    double n = 0.0;
-    EnuOffsetM(refLat,
-               refLon,
-               pts[(static_cast<size_t>(ring.First) + k) * 2],
-               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-               e,
-               n);
-    e0 = std::min(e0, e);
-    e1 = std::max(e1, e);
-    n0 = std::min(n0, n);
-    n1 = std::max(n1, n);
+    const EastNorth at =
+        EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
+                   {.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                    .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]});
+    e0 = std::min(e0, at.EastM);
+    e1 = std::max(e1, at.EastM);
+    n0 = std::min(n0, at.NorthM);
+    n1 = std::max(n1, at.NorthM);
   }
   return std::min(e1 - e0, n1 - n0);
 }
@@ -145,16 +134,12 @@ Frontage NearestStreet(const OsmField &field,
   double cE = 0.0;
   double cN = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    double e = 0.0;
-    double n = 0.0;
-    EnuOffsetM(refLat,
-               refLon,
-               pts[(static_cast<size_t>(ring.First) + k) * 2],
-               pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
-               e,
-               n);
-    cE += e;
-    cN += n;
+    const EastNorth at =
+        EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
+                   {.LongitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2 + 1],
+                    .LatitudeDeg = pts[(static_cast<size_t>(ring.First) + k) * 2]});
+    cE += at.EastM;
+    cN += at.NorthM;
   }
   cE /= static_cast<double>(ring.Count);
   cN /= static_cast<double>(ring.Count);
@@ -171,14 +156,15 @@ Frontage NearestStreet(const OsmField &field,
     if (refLat < w.MinLat - padDeg || refLat > w.MaxLat + padDeg) { continue; }
     if (refLon < w.MinLon - padDeg || refLon > w.MaxLon + padDeg) { continue; }
     for (size_t k = 0; k + 3 < w.LatLon.Size(); k += 2) {
-      double aE = 0.0;
-      double aN = 0.0;
-      double bE2 = 0.0;
-      double bN2 = 0.0;
-      EnuOffsetM(refLat, refLon, w.LatLon[k], w.LatLon[k + 1], aE, aN);
-      EnuOffsetM(refLat, refLon, w.LatLon[k + 2], w.LatLon[k + 3], bE2, bN2);
-      const double dE = bE2 - aE;
-      const double dN = bN2 - aN;
+      const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
+      const EastNorth a =
+          EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 1], .LatitudeDeg = w.LatLon[k]});
+      const EastNorth b =
+          EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 3], .LatitudeDeg = w.LatLon[k + 2]});
+      const double aE = a.EastM;
+      const double aN = a.NorthM;
+      const double dE = b.EastM - aE;
+      const double dN = b.NorthM - aN;
       const double len2 = dE * dE + dN * dN;
       if (len2 < kLeastRunM) { continue; }
       double t = ((cE - aE) * dE + (cN - aN) * dN) / len2;
