@@ -53,6 +53,8 @@ public:
 
   [[nodiscard]] long LayerSaidCount() const { return LayerSaid_; }
 
+  void Settle() { Ways_.shrink_to_fit(); }
+
   [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }

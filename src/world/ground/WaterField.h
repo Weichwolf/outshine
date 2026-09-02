@@ -49,6 +49,12 @@ public:
 
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
 
+  void Settle() {
+    Surfaces_.shrink_to_fit();
+    Courses_.shrink_to_fit();
+    Levels_.shrink_to_fit();
+  }
+
   [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_) +
            Mark_.HeapBytes() + ByTile_.HeapBytes();

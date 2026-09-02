@@ -227,6 +227,18 @@ int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   return added;
 }
 
+void OsmField::Settle() {
+  Features_.shrink_to_fit();
+  Rings_.shrink_to_fit();
+  Points_.shrink_to_fit();
+  Tiles_.shrink_to_fit();
+  Tags_.shrink_to_fit();
+  Values_.shrink_to_fit();
+  Settled_.shrink_to_fit();
+  Scratch_.Bytes.shrink_to_fit();
+  Keys_.shrink_to_fit();
+}
+
 size_t OsmField::HeapBytes() const {
   size_t strings = 0;
   for (const std::string &s : Keys_) { strings += s.capacity(); }

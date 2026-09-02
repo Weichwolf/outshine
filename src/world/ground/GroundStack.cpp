@@ -117,9 +117,12 @@ void GroundStack::Restand(LongitudeLatitude at) {
   }
   for (int pass = 0; pass < kVectorTiles; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
-      ++Overflowed_;
-      Overflowing_ = true;
-      break;
+      Settle();
+      if (HeapBytes() > kHoldsBytes) {
+        ++Overflowed_;
+        Overflowing_ = true;
+        break;
+      }
     }
     const size_t before =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
@@ -130,6 +133,14 @@ void GroundStack::Restand(LongitudeLatitude at) {
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }
   }
+  if (Drained()) { Settle(); }
+}
+
+void GroundStack::Settle() {
+  Footprints_.Settle();
+  Ways_.Settle();
+  WaterBodies_.Settle();
+  if (Vectors_) { Vectors_->Settle(); }
 }
 
 bool GroundStack::Drained() const {

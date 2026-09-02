@@ -71,6 +71,30 @@ two that wander. Kaiserberg is the caveat: it preloads and still drew a second d
 twice, so preloading is necessary and not yet sufficient -- it stands close enough to
 the ceiling that the round it stops on still varies.
 
+## Preloading is necessary and NOT sufficient: there is a second source
+
+Measured 2026-09-03, after `Settle` freed 96 MB and CentralPark began to preload:
+
+| run | CentralPark | triangles |
+|---|---|---|
+| 1 | `d56ae2e1` | 3 932 159 |
+| 2 | `3cdca8d5` | 3 932 159 |
+| 3 | `d56ae2e1` | 3 932 159 |
+
+It preloads, it holds the same count of triangles every time, and it still draws two
+pictures. So the second source is the ORDER the tiles were meshed in, not the amount.
+
+`TileWatermark::Ask` sorts its candidates by `(distance^2, zoom, X, Y)` and is right to.
+But the CANDIDATE SET is whatever tiles have arrived by the time the round runs. With A
+(near) and B (far) both resident, A is meshed first; with only B resident, B is meshed
+first and A follows. Same tiles, same triangles, different order in the vertex buffer --
+and for coplanar faces the draw order decides the pixel.
+
+**This is the invariant, stated exactly**: work is combined in a DECLARED order and
+never in completion order. The fix is the same `FlushLevelStreaming` shape this item
+already argues for: fetch the whole ring FIRST, then mesh it in the watermark's order,
+so the candidate set is the ring rather than whatever landed.
+
 ## And the ceiling cannot see a quarter of what is held
 
 Measured at Shibuya, 2026-09-03:

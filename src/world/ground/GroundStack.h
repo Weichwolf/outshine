@@ -95,6 +95,7 @@ public:
 
   [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
 
+  void Settle();
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;

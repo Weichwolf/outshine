@@ -22,6 +22,13 @@ struct Raised {
     RoofRun.clear();
   }
 
+  void Settle() {
+    WallCorners.shrink_to_fit();
+    RoofCorners.shrink_to_fit();
+    WallRun.shrink_to_fit();
+    RoofRun.shrink_to_fit();
+  }
+
   [[nodiscard]] std::size_t HeapBytes() const noexcept {
     return WallCorners.capacity() * sizeof(float) + RoofCorners.capacity() * sizeof(float) +
            WallRun.capacity() * sizeof(uint32_t) + RoofRun.capacity() * sizeof(uint32_t);

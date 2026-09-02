@@ -68,6 +68,11 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
+  void Settle() {
+    Built_.Settle();
+    Prints_.shrink_to_fit();
+  }
+
   [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
 
   [[nodiscard]] size_t RaisedBytes() const { return Built_.HeapBytes(); }

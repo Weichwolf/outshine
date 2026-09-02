@@ -92,6 +92,8 @@ public:
 
   [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
 
+  void Settle();
+
   [[nodiscard]] size_t HeapBytes() const;
 
   [[nodiscard]] int Layer(const char *name) const;
