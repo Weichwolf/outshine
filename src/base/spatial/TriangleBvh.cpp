@@ -1,5 +1,7 @@
 #include <span>
 #include "TriangleBvh.h"
+
+#include "math/Box.h"
 #include "math/Vec3.h"
 
 #include <array>
@@ -21,36 +23,7 @@ constexpr int kBins = 12;
 constexpr uint32_t kMaxLeafBits = 8;
 constexpr uint32_t kMaxLeafTriangles = (1u << kMaxLeafBits) - 1u;
 
-struct Box {
-  Vec3f Min = {{std::numeric_limits<float>::infinity(),
-                std::numeric_limits<float>::infinity(),
-                std::numeric_limits<float>::infinity()}};
-  Vec3f Max = {{-std::numeric_limits<float>::infinity(),
-                -std::numeric_limits<float>::infinity(),
-                -std::numeric_limits<float>::infinity()}};
-
-  void Cover(const Vec3f &point) {
-    for (int axis = 0; axis < 3; ++axis) {
-      Min[axis] = std::min(Min[axis], point[axis]);
-      Max[axis] = std::max(Max[axis], point[axis]);
-    }
-  }
-
-  void Cover(const Box &other) {
-    for (int axis = 0; axis < 3; ++axis) {
-      Min[axis] = std::min(Min[axis], other.Min[axis]);
-      Max[axis] = std::max(Max[axis], other.Max[axis]);
-    }
-  }
-
-  [[nodiscard]] float HalfArea() const {
-    const float dx = Max[0] - Min[0];
-    const float dy = Max[1] - Min[1];
-    const float dz = Max[2] - Min[2];
-    if (dx < 0.0f || dy < 0.0f || dz < 0.0f) { return 0.0f; }
-    return dx * dy + dy * dz + dz * dx;
-  }
-};
+using Box = Boxf;
 
 struct Building {
   std::vector<Box> Bounds;

@@ -1348,24 +1348,18 @@ bool Subject::Append(const Subject &other) {
   return true;
 }
 
-void Subject::BoundsOf(size_t parts, Vec3 &least, Vec3 &most) const {
-  for (int axis = 0; axis < 3; ++axis) {
-    least[axis] = Min_[axis];
-    most[axis] = Max_[axis];
-  }
-  if (parts == 0 || parts >= Parts_.size()) { return; }
-  bool any = false;
+Box Subject::BoundsOf(size_t parts) const {
+  const Box whole{.Min = Min_, .Max = Max_};
+  if (parts == 0 || parts >= Parts_.size()) { return whole; }
+  Box over;
   for (size_t at = 0; at < parts; ++at) {
     const Part &part = Parts_[at];
     for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount; ++vertex) {
-      for (int axis = 0; axis < 3; ++axis) {
-        const double held = Positions_[vertex * 3 + static_cast<size_t>(axis)];
-        if (!any || held < least[axis]) { least[axis] = held; }
-        if (!any || held > most[axis]) { most[axis] = held; }
-      }
-      any = true;
+      over.Cover(
+          Vec3{{Positions_[vertex * 3], Positions_[vertex * 3 + 1], Positions_[vertex * 3 + 2]}});
     }
   }
+  return over.Empty() ? whole : over;
 }
 
 double Subject::RadiusM() const {

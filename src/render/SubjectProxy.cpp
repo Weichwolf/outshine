@@ -136,9 +136,9 @@ namespace {
                                    [[maybe_unused]] bool standsInside,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : static_cast<double>(SceneRenderer::kNearM);
-  Vec3 framedLeast;
-  Vec3 framedMost;
-  subject.BoundsOf(framedParts, framedLeast, framedMost);
+  const Box framed = subject.BoundsOf(framedParts);
+  const Vec3 &framedLeast = framed.Min;
+  const Vec3 &framedMost = framed.Max;
   size_t beyond = subject.VertexCount();
   if (framedParts > 0 && framedParts < subject.Parts.size()) {
     const ShapePart &last = subject.Parts[framedParts - 1];

@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SHAPE_H
 
 #include <cstddef>
+#include "math/Box.h"
 #include "math/Vec3.h"
 #include "ClusterCook.h"
 #include "scene/SurfaceState.h"
@@ -63,7 +64,7 @@ struct Shape {
 
   [[nodiscard]] bool Empty() const { return Parts.empty() || Indices.empty(); }
 
-  void BoundsOf(size_t parts, Vec3 &leastM, Vec3 &mostM) const;
+  [[nodiscard]] Box BoundsOf(size_t parts) const;
 };
 
 struct ShapeStore {

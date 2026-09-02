@@ -403,10 +403,10 @@ bool Live::Build(std::string &error) {
   if (Carrying_ > 0) { Joined_ = Carrying_; }
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
-    Vec3 least;
-    Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least, most);
+    const Box bounded = Shaped_.BoundsOf(Joined_);
+    const Vec3 &least = bounded.Min;
+    const Vec3 &most = bounded.Max;
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
@@ -744,23 +744,17 @@ bool Live::Stand(std::string &error) {
   if (declared) { eye = placed; }
   Looking_.Eye = eye;
   if (!HaveEye_ && (Declared_.Fill > 0.0 || !declared)) {
-    Vec3 least;
-    Vec3 most;
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Shaped_.BoundsOf(Joined_, least, most);
+    Box bounded = Shaped_.BoundsOf(Joined_);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int sample = 1; sample < Sweeps(); ++sample) {
       if (!Measure(Seconds(sample), error)) { return false; }
-      Vec3 posedLeast;
-      Vec3 posedMost;
-      Shaped_.BoundsOf(Joined_, posedLeast, posedMost);
-      for (int axis = 0; axis < 3; ++axis) {
-        least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
-        most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
-      }
+      bounded.Cover(Shaped_.BoundsOf(Joined_));
     }
+    const Vec3 &least = bounded.Min;
+    const Vec3 &most = bounded.Max;
     if (Held_.Frames() > 1 && !Measure(0.0, error)) { return false; }
     Gltf::Viewpoint fitted;
     if (!Gltf::FramingFor(least, most, fitted, Framing())) {

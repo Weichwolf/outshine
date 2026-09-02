@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_IMPORT_SUBJECT_H
 #define OUTSHINE_IMPORT_SUBJECT_H
 
+#include "math/Box.h"
 #include "math/Vec3.h"
 #include "Viewing.h"
 #include <array>
@@ -136,7 +137,7 @@ public:
 
   [[nodiscard]] size_t TriangleCount() const { return Indices_.size() / 3; }
 
-  void BoundsOf(size_t parts, Vec3 &least, Vec3 &most) const;
+  [[nodiscard]] Box BoundsOf(size_t parts) const;
 
   [[nodiscard]] const Vec3 &MinM() const { return Min_; }
 
