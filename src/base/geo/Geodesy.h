@@ -157,20 +157,13 @@ inline double Wrap180(double deg) {
   return brg < 0.0 ? brg + kDegPerTurn : brg;
 }
 
-inline void EnuToBodyLos(double rollDeg,
-                         double pitchDeg,
-                         double yawDeg,
-                         double eastM,
-                         double northM,
-                         double upM,
-                         double &azDeg,
-                         double &elDeg) {
-  const double N = northM;
-  const double E = eastM;
-  const double D = -upM;
-  const double ph = rollDeg * kDeg2Rad;
-  const double th = pitchDeg * kDeg2Rad;
-  const double ps = yawDeg * kDeg2Rad;
+[[nodiscard]] inline LookDirection EnuToBodyLos(const Attitude &stands, const EastNorthUp &at) {
+  const double N = at.NorthM;
+  const double E = at.EastM;
+  const double D = -at.UpM;
+  const double ph = stands.RollDeg * kDeg2Rad;
+  const double th = stands.PitchDeg * kDeg2Rad;
+  const double ps = stands.YawDeg * kDeg2Rad;
   const double cph = std::cos(ph);
   const double sph = std::sin(ph);
   const double cth = std::cos(th);
@@ -182,85 +175,53 @@ inline void EnuToBodyLos(double rollDeg,
       (sph * sth * cps - cph * sps) * N + (sph * sth * sps + cph * cps) * E + sph * cth * D;
   const double zb =
       (cph * sth * cps + sph * sps) * N + (cph * sth * sps - sph * cps) * E + cph * cth * D;
-  azDeg = std::atan2(yb, xb) * kRad2Deg;
-  elDeg = -std::atan2(zb, std::sqrt(xb * xb + yb * yb)) * kRad2Deg;
+  return {.AzimuthDeg = std::atan2(yb, xb) * kRad2Deg,
+          .ElevationDeg = -std::atan2(zb, std::hypot(xb, yb)) * kRad2Deg};
 }
 
-inline void BodyLosToEnu(double rollDeg,
-                         double pitchDeg,
-                         double yawDeg,
-                         double azDeg,
-                         double elDeg,
-                         double &eastM,
-                         double &northM,
-                         double &upM) {
-  const double ph = rollDeg * kDeg2Rad;
-  const double th = pitchDeg * kDeg2Rad;
-  const double ps = yawDeg * kDeg2Rad;
+[[nodiscard]] inline EastNorthUp BodyLosToEnu(const Attitude &stands, const LookDirection &sees) {
+  const double ph = stands.RollDeg * kDeg2Rad;
+  const double th = stands.PitchDeg * kDeg2Rad;
+  const double ps = stands.YawDeg * kDeg2Rad;
   const double cph = std::cos(ph);
   const double sph = std::sin(ph);
   const double cth = std::cos(th);
   const double sth = std::sin(th);
   const double cps = std::cos(ps);
   const double sps = std::sin(ps);
-  const double ca = std::cos(azDeg * kDeg2Rad);
-  const double sa = std::sin(azDeg * kDeg2Rad);
-  const double ce = std::cos(elDeg * kDeg2Rad);
-  const double se = std::sin(elDeg * kDeg2Rad);
+  const double ca = std::cos(sees.AzimuthDeg * kDeg2Rad);
+  const double sa = std::sin(sees.AzimuthDeg * kDeg2Rad);
+  const double ce = std::cos(sees.ElevationDeg * kDeg2Rad);
+  const double se = std::sin(sees.ElevationDeg * kDeg2Rad);
   const double xb = ce * ca;
   const double yb = ce * sa;
   const double zb = -se;
-  northM = cth * cps * xb + (sph * sth * cps - cph * sps) * yb + (cph * sth * cps + sph * sps) * zb;
-  eastM = cth * sps * xb + (sph * sth * sps + cph * cps) * yb + (cph * sth * sps - sph * cps) * zb;
-  upM = -(-sth * xb + sph * cth * yb + cph * cth * zb);
+  return {.EastM = cth * sps * xb + (sph * sth * sps + cph * cps) * yb +
+                   (cph * sth * sps - sph * cps) * zb,
+          .NorthM = cth * cps * xb + (sph * sth * cps - cph * sps) * yb +
+                    (cph * sth * cps + sph * sps) * zb,
+          .UpM = -(-sth * xb + sph * cth * yb + cph * cth * zb)};
 }
 
-inline void BodyVecToEnu(double rollDeg,
-                         double pitchDeg,
-                         double yawDeg,
-                         double fwd,
-                         double right,
-                         double down,
-                         double &eastM,
-                         double &northM,
-                         double &upM) {
-  const double mag = std::sqrt(fwd * fwd + right * right + down * down);
-  if (mag <= 0.0) {
-    eastM = northM = upM = 0.0;
-    return;
-  }
-  const double azDeg = std::atan2(right, fwd) * kRad2Deg;
-  const double elDeg = -std::atan2(down, std::sqrt(fwd * fwd + right * right)) * kRad2Deg;
-  BodyLosToEnu(rollDeg, pitchDeg, yawDeg, azDeg, elDeg, eastM, northM, upM);
-  eastM *= mag;
-  northM *= mag;
-  upM *= mag;
+[[nodiscard]] inline EastNorthUp BodyVecToEnu(const Attitude &stands, const Vec3 &body) {
+  const double mag = Length(body);
+  if (mag <= 0.0) { return {}; }
+  const LookDirection sees{.AzimuthDeg = std::atan2(body[1], body[0]) * kRad2Deg,
+                           .ElevationDeg =
+                               -std::atan2(body[2], std::hypot(body[0], body[1])) * kRad2Deg};
+  const EastNorthUp unit = BodyLosToEnu(stands, sees);
+  return {.EastM = unit.EastM * mag, .NorthM = unit.NorthM * mag, .UpM = unit.UpM * mag};
 }
 
-inline void EnuToBodyVec(double rollDeg,
-                         double pitchDeg,
-                         double yawDeg,
-                         double eastM,
-                         double northM,
-                         double upM,
-                         double &fwd,
-                         double &right,
-                         double &down) {
-  const double mag = std::sqrt(eastM * eastM + northM * northM + upM * upM);
-  if (mag <= 0.0) {
-    fwd = right = down = 0.0;
-    return;
-  }
-  double azDeg = 0.0;
-  double elDeg = 0.0;
-  EnuToBodyLos(rollDeg, pitchDeg, yawDeg, eastM, northM, upM, azDeg, elDeg);
-  const double ca = std::cos(azDeg * kDeg2Rad);
-  const double sa = std::sin(azDeg * kDeg2Rad);
-  const double ce = std::cos(elDeg * kDeg2Rad);
-  const double se = std::sin(elDeg * kDeg2Rad);
-  fwd = mag * ce * ca;
-  right = mag * ce * sa;
-  down = -mag * se;
+[[nodiscard]] inline Vec3 EnuToBodyVec(const Attitude &stands, const EastNorthUp &at) {
+  const double mag = std::sqrt(at.EastM * at.EastM + at.NorthM * at.NorthM + at.UpM * at.UpM);
+  if (mag <= 0.0) { return {}; }
+  const LookDirection sees = EnuToBodyLos(stands, at);
+  const double ca = std::cos(sees.AzimuthDeg * kDeg2Rad);
+  const double sa = std::sin(sees.AzimuthDeg * kDeg2Rad);
+  const double ce = std::cos(sees.ElevationDeg * kDeg2Rad);
+  const double se = std::sin(sees.ElevationDeg * kDeg2Rad);
+  return {{mag * ce * ca, mag * ce * sa, -mag * se}};
 }
 
 inline void TrackProjectM(const LongitudeLatitudeHeight &from,

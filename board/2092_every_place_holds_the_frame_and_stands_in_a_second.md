@@ -98,3 +98,28 @@ mid-run. `meshMs=545` appears in the log around there, which is half a second an
 So: a named suspect and a plausible mechanism, and no measurement joining them. Whoever takes this
 item states what they will measure BEFORE changing anything -- per-frame timing with the phase that
 owns each millisecond, so the four seconds have a name rather than a theory.
+
+## The nine places, CONFIRMED BY THE OWNER 2026-09-02
+
+Rendered together and looked at. These digests are the reference from here: a change that moves one
+of them says which and why, and a change that does not moves none.
+
+| place | digest | triangles | p50 | p95 | p99 | over 16.67 |
+|---|---|---|---|---|---|---|
+| OldTown | `a23e97f2` | 349 766 | 3.29 | 6.46 | 5951.67 | 3 |
+| Heidelberg | `8892d581` | 1 040 292 | 4.01 | 16.73 | 9014.88 | 7 |
+| Shibuya | `70e2c675` | 2 732 059 | 4.20 | 24.97 | 7667.48 | 7 |
+| CentralPark | `8f5e8e3f` | 3 673 071 | 6.37 | 8.52 | 9.39 | 0 |
+| Venice | `05b6863d` | 1 379 233 | 2.86 | 4.07 | 4196.72 | 4 |
+| Jura | `6fca5698` | 405 592 | 4.02 | 5.37 | 16.02 | 1 |
+| ZurichPlan | `02336e15` | 1 637 850 | 7.92 | 8.43 | 8.66 | 0 |
+| Kaiserberg | `97c911b5` | 1 529 841 | 5.10 | 19.68 | 11243.28 | 8 |
+| Koehlbrand | `2f6acab3` | 722 223 | 4.18 | 9.80 | 9429.33 | 5 |
+
+**Two of the nine already hold the frame** -- CentralPark and ZurichPlan are 0 of 120 over budget
+and their p99 is 9.39 and 8.66 ms. Both are the places that finished streaming before the camera
+moved. That is the shape of this item's answer: the seven that do not hold it have a p99 of four to
+eleven SECONDS, which is not a frame that is slightly late, it is a frame waiting for IO.
+
+Venice's digest is the one that wanders between 05b6863d and 9c9a4758; the others were seen once
+each here and their stability is not yet measured.

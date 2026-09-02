@@ -67,6 +67,37 @@ struct EastNorth {
   [[nodiscard]] constexpr bool operator==(const EastNorth &) const = default;
 };
 
+/// How a body stands in its local horizontal frame, in degrees.
+///
+/// Unreal calls this an FRotator and RAGE carries the same three angles; the order they are
+/// APPLIED is yaw, then pitch, then roll, and the field order here says nothing about that -- the
+/// function that consumes them does.
+struct Attitude {
+  /// Rotation about the forward axis, positive right wing down.
+  double RollDeg = 0.0;
+  /// Rotation about the right axis, positive nose up.
+  double PitchDeg = 0.0;
+  /// Rotation about the up axis, positive turning east from north.
+  double YawDeg = 0.0;
+
+  /// Two attitudes are the same attitude when all three angles are.
+  [[nodiscard]] constexpr bool operator==(const Attitude &) const = default;
+};
+
+/// A direction relative to a body, in degrees.
+///
+/// Azimuth turns right from the body's nose and elevation lifts from its horizontal -- what a
+/// sensor reports and what a scenario declares when it aims one.
+struct LookDirection {
+  /// Right of the nose, in degrees.
+  double AzimuthDeg = 0.0;
+  /// Above the horizontal, in degrees.
+  double ElevationDeg = 0.0;
+
+  /// Two directions are the same direction when both angles are.
+  [[nodiscard]] constexpr bool operator==(const LookDirection &) const = default;
+};
+
 } // namespace outshine
 
 #endif
