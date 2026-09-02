@@ -1,3 +1,4 @@
+#include "Utf8.h"
 #include "Paint.h"
 
 #include <algorithm>
@@ -31,27 +32,6 @@ Clip Intersected(const Clip &a, const Clip &b) {
 
 bool Reaches(uint32_t colour) {
   return (colour & kByteMask) != 0u;
-}
-
-size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
-  const auto lead = static_cast<unsigned char>(text[at]);
-  size_t length = 1;
-  code = lead;
-  if ((lead & 0xE0u) == 0xC0u) {
-    length = 2;
-    code = lead & 0x1Fu;
-  } else if ((lead & 0xF0u) == 0xE0u) {
-    length = 3;
-    code = lead & 0x0Fu;
-  } else if ((lead & 0xF8u) == 0xF0u) {
-    length = 4;
-    code = lead & 0x07u;
-  }
-  if (at + length > text.size()) { return text.size() - at; }
-  for (size_t i = 1; i < length; ++i) {
-    code = (code << 6u) | (static_cast<unsigned char>(text[at + i]) & 0x3Fu);
-  }
-  return length;
 }
 
 class Painter {
@@ -161,7 +141,7 @@ private:
     double pen = run.X;
     for (size_t at = 0; at < run.Text.size();) {
       char32_t code = 0;
-      at += NextCodePoint(run.Text, at, code);
+      at += ReadUtf8(run.Text, at, code);
       const Glyph glyph = Face.Shape(code, run.FontSize, run.Face);
       if (glyph.Drawn) {
         Add({.X = pen + glyph.LeftPx,

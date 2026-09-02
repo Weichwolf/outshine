@@ -26,13 +26,25 @@ constexpr std::array<uint32_t, 64> kRoundConstants = {
   return (v >> n) | (v << (32u - n));
 }
 
+constexpr std::array<uint32_t, 8> kInitialState = {{0x6a09e667u,
+                                                    0xbb67ae85u,
+                                                    0x3c6ef372u,
+                                                    0xa54ff53au,
+                                                    0x510e527fu,
+                                                    0x9b05688cu,
+                                                    0x1f83d9abu,
+                                                    0x5be0cd19u}};
+
+constexpr unsigned kByteShift = 8u;
+constexpr size_t kWordBytes = 4;
+
 void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) {
   std::array<uint32_t, 64> w{};
   for (int i = 0; i < 16; i++) {
-    w[i] = (static_cast<uint32_t>(block[i * 4]) << 24u) |
-           (static_cast<uint32_t>(block[i * 4 + 1]) << 16u) |
-           (static_cast<uint32_t>(block[i * 4 + 2]) << 8u) |
-           static_cast<uint32_t>(block[i * 4 + 3]);
+    w[i] = (static_cast<uint32_t>(block[i * kWordBytes]) << (3u * kByteShift)) |
+           (static_cast<uint32_t>(block[i * kWordBytes + 1]) << (2u * kByteShift)) |
+           (static_cast<uint32_t>(block[i * kWordBytes + 2]) << kByteShift) |
+           static_cast<uint32_t>(block[i * kWordBytes + 3]);
   }
   for (int i = 16; i < 64; i++) {
     const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3u);
@@ -76,14 +88,7 @@ void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) 
 } // namespace
 
 std::string Sha256Hex(const void *data, size_t bytes) {
-  std::array<uint32_t, 8> state = {{0x6a09e667u,
-                                    0xbb67ae85u,
-                                    0x3c6ef372u,
-                                    0xa54ff53au,
-                                    0x510e527fu,
-                                    0x9b05688cu,
-                                    0x1f83d9abu,
-                                    0x5be0cd19u}};
+  std::array<uint32_t, 8> state = kInitialState;
   const auto *p = static_cast<const uint8_t *>(data);
   size_t left = bytes;
   while (left >= 64) {

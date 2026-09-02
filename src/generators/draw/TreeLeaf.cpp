@@ -16,6 +16,14 @@ namespace outshine::Generators {
 
 namespace {
 
+constexpr float kNeedleNarrowing = 0.12f;
+constexpr float kNeedleTipFrom = 0.82f;
+constexpr float kNeedleTipSpan = 0.18f;
+constexpr float kBroadWidestGain = 1.5f;
+constexpr float kBroadBase = 0.95f;
+constexpr float kBroadLeast = 0.55f;
+constexpr float kSerrationBite = 0.45f;
+
 constexpr float kQuarterTurnRad = std::numbers::pi_v<float> / 2.0f;
 constexpr float kOutlineFloor = 0.82f;
 constexpr float kOutlineSwing = 0.18f;
@@ -51,15 +59,16 @@ private:
 
 float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   if (p.Kind == TreeSpecies::LeafKind::Needle) {
-    float w = p.NeedleWidth * (1.0f - 0.12f * t);
-    if (t > 0.82f) { w *= (1.0f - t) / 0.18f; }
+    float w = p.NeedleWidth * (1.0f - kNeedleNarrowing * t);
+    if (t > kNeedleTipFrom) { w *= (1.0f - t) / kNeedleTipSpan; }
     return w;
   }
   const float a = p.Widest * 1.5f + 0.80f;
-  float b = (1.0f - p.Widest) * 1.5f + 0.95f - p.Tip * 1.25f;
-  b = std::max(b, 0.55f);
+  float b = (1.0f - p.Widest) * kBroadWidestGain + kBroadBase - p.Tip * 1.25f;
+  b = std::max(b, kBroadLeast);
   const float peak = std::pow(p.Widest, a) * std::pow(1.0f - p.Widest, b);
-  float w = (peak > 1e-6f) ? std::pow(t, a) * std::pow(1.0f - t, b) / peak : 0.0f;
+  float w = (peak > static_cast<float>(kLeastRunM)) ? std::pow(t, a) * std::pow(1.0f - t, b) / peak
+                                                    : 0.0f;
   w *= p.Width;
   if (p.BaseFill > 0.0f) { w += p.BaseFill * p.Width * std::exp(-t * 9.0f); }
   if (p.Lobes > 0) {
@@ -69,7 +78,7 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   if (p.Serration > 0.0f) {
     const float f = static_cast<float>(p.Lobes > 0 ? p.Lobes : 7) * 2.0f;
     const float saw = std::fabs(2.0f * (t * f - std::floor(t * f + 0.5f)));
-    w *= 1.0f - p.Serration * 0.45f * saw;
+    w *= 1.0f - p.Serration * kSerrationBite * saw;
   }
   return w;
 }

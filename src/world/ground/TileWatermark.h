@@ -12,6 +12,11 @@
 
 namespace outshine::Ground {
 
+constexpr uint64_t kNoWatermark = 0xffffffffffffffffull;
+constexpr unsigned kAwayShift = 48u;
+constexpr unsigned kZoomShift = 40u;
+constexpr unsigned kSidewaysShift = 20u;
+
 class TileWatermark {
 public:
   struct Next {
@@ -38,7 +43,7 @@ public:
       at = end;
     }
     const auto key = [tiles, centreX, centreY](const Next &one) {
-      if (one.Tile >= tiles.size()) { return 0xffffffffffffffffull; }
+      if (one.Tile >= tiles.size()) { return kNoWatermark; }
       const OsmField::Tile &which = tiles[one.Tile];
       const long across = static_cast<long>(which.X) - static_cast<long>(centreX);
       const long down = static_cast<long>(which.Y) - static_cast<long>(centreY);
@@ -47,7 +52,7 @@ public:
       const unsigned long long zoom = static_cast<unsigned long long>(which.Z) & 0xffull;
       const unsigned long long sideways = static_cast<unsigned long long>(which.X) & 0xfffffull;
       const unsigned long long along = static_cast<unsigned long long>(which.Y) & 0xfffffull;
-      return (away << 48u) | (zoom << 40u) | (sideways << 20u) | along;
+      return (away << kAwayShift) | (zoom << kZoomShift) | (sideways << kSidewaysShift) | along;
     };
     std::sort(Candidates_.begin(), Candidates_.end(), [&key](const Next &a, const Next &b) {
       return key(a) < key(b);
