@@ -808,12 +808,7 @@ void Engine::State::FitAlongLane(Paved &into) {
 }
 
 void Engine::State::TrimLaneEnds(size_t laneAt, Paved &into) {
-  std::vector<double> reached(into.Along.size(), 0.0);
-  for (size_t at = 1; at < into.Along.size(); ++at) {
-    const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
-    const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
-    reached[at] = reached[at - 1] + std::sqrt(spanE * spanE + spanS * spanS);
-  }
+  const std::vector<double> reached = ReachedAlong(into.Along);
   const double wholeM = reached.back();
   const double fromM = into.TrimM[laneAt * 2u];
   const double toM = wholeM - into.TrimM[laneAt * 2u + 1u];
@@ -956,6 +951,21 @@ void Engine::State::DesignLane(const Paving &on,
   into.Designed[laneAt] = into.Along;
 }
 
+double Engine::State::StepAlongM(std::span<const Generators::RoadStation> along, size_t at) {
+  if (at == 0 || at >= along.size()) { return 0.0; }
+  const double spanE = along[at].EastM - along[at - 1].EastM;
+  const double spanS = along[at].SouthM - along[at - 1].SouthM;
+  return std::sqrt(spanE * spanE + spanS * spanS);
+}
+
+std::vector<double> Engine::State::ReachedAlong(std::span<const Generators::RoadStation> along) {
+  std::vector<double> reached(along.size(), 0.0);
+  for (size_t at = 1; at < along.size(); ++at) {
+    reached[at] = reached[at - 1] + StepAlongM(along, at);
+  }
+  return reached;
+}
+
 void Engine::State::PaveLane(const Paving &on,
                              int phase,
                              size_t laneAt,
@@ -1014,9 +1024,7 @@ void Engine::State::PaveLane(const Paving &on,
         continue;
       }
       ++into.WetOverBridge;
-      const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
-      const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
-      overWaterM += std::sqrt(spanE * spanE + spanS * spanS);
+      overWaterM += StepAlongM(into.Along, at);
     }
     if (overWaterM > 0.0) {
       double clear = 0.0;
@@ -1049,14 +1057,8 @@ void Engine::State::PaveLane(const Paving &on,
       const auto to = into.EndM.find(
           PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
       if (from != into.EndM.end() && to != into.EndM.end()) {
-        double runM = 0.0;
-        std::vector<double> reached(into.Along.size(), 0.0);
-        for (size_t at = 1; at < into.Along.size(); ++at) {
-          const double spanE = into.Along[at].EastM - into.Along[at - 1].EastM;
-          const double spanS = into.Along[at].SouthM - into.Along[at - 1].SouthM;
-          runM += std::sqrt(spanE * spanE + spanS * spanS);
-          reached[at] = runM;
-        }
+        const std::vector<double> reached = ReachedAlong(into.Along);
+        const double runM = reached.back();
         for (size_t at = 0; at < into.Along.size(); ++at) {
           const double along01 = runM > kLeastRunM ? reached[at] / runM : 0.0;
           const double wanted = from->second + (to->second - from->second) * along01;

@@ -608,6 +608,11 @@ struct Engine::State {
   static void
   Shortens(const Ground::StreetField &ways, const Ground::OsmField &vectors, Paved &into);
 
+  [[nodiscard]] static double StepAlongM(std::span<const Generators::RoadStation> along, size_t at);
+
+  [[nodiscard]] static std::vector<double>
+  ReachedAlong(std::span<const Generators::RoadStation> along);
+
   void PaveLane(const Paving &on,
                 int phase,
                 size_t laneAt,
