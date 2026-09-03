@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include "math/Quantile.h"
 #include "CorridorLay.h"
 
 #include "Pilot.h"
@@ -33,9 +34,6 @@ constexpr double kGripMargin = 0.95;
 constexpr size_t kSayLineBytes = 96;
 constexpr int kSweeps = 400;
 constexpr double kSlowStationKmh = 30.0;
-constexpr double kNearestQuantile = 0.01;
-constexpr double kBroadQuantile = 0.95;
-constexpr double kWidestQuantile = 0.99;
 
 constexpr double kPatienceS = 900.0;
 } // namespace

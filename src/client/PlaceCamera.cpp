@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include "math/Quantile.h"
 #include "PlaceCamera.h"
 
 #include <algorithm>
@@ -33,8 +34,6 @@ constexpr std::uint8_t kByteMost = 255;
 constexpr double kFillShare = 0.6;
 constexpr double kOverheadPitchDeg = -90.0;
 constexpr double kProgressEveryS = 0.25;
-constexpr double kBroadQuantile = 0.95;
-constexpr double kWidestQuantile = 0.99;
 
 namespace {
 
@@ -408,23 +407,15 @@ Shot Draw(Engine &engine, std::string_view name, bool tells, std::string_view un
   }
   shot.Frames = heldMs.size();
   std::ranges::sort(heldMs);
-  const auto quantile = [&heldMs](double share) {
-    if (heldMs.empty()) { return 0.0; }
-    const auto which =
-        static_cast<std::size_t>(std::llround(share * static_cast<double>(heldMs.size() - 1)));
-    return heldMs[which < heldMs.size() ? which : heldMs.size() - 1];
-  };
-  shot.P50Ms = quantile(0.50);
-  shot.P95Ms = quantile(kBroadQuantile);
-  shot.P99Ms = quantile(kWidestQuantile);
+  shot.P50Ms = QuantileOf(heldMs, kMiddleQuantile);
+  shot.P95Ms = QuantileOf(heldMs, kBroadQuantile);
+  shot.P99Ms = QuantileOf(heldMs, kWidestQuantile);
 
   const auto widest = [](std::vector<double> &of) {
     if (of.empty()) { return std::pair<double, double>{0.0, 0.0}; }
     const double worst = *std::ranges::max_element(of);
     std::ranges::sort(of);
-    const auto which = static_cast<std::size_t>(
-        std::llround(kWidestQuantile * static_cast<double>(of.size() - 1)));
-    return std::pair<double, double>{of[which < of.size() ? which : of.size() - 1], worst};
+    return std::pair<double, double>{QuantileOf(of, kWidestQuantile), worst};
   };
   std::tie(shot.AdvanceP99Ms, shot.AdvanceWorstMs) = widest(advancedMs);
   std::tie(shot.RenderP99Ms, shot.RenderWorstMs) = widest(renderedMs);

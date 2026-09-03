@@ -1,4 +1,5 @@
 #include "Digest.h"
+#include "math/Quantile.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -65,7 +66,6 @@ static_assert(Ground::kStreamGrid == 2 * (kPatchGrid - 1),
 
 namespace {
 
-constexpr double kBroadQuantile = 0.95;
 constexpr double kLeastSineBetween = 1.0e-3;
 constexpr double kLeastCapM = 0.01;
 constexpr double kLeastSpanM = 0.05;
@@ -114,7 +114,6 @@ constexpr size_t kMostYieldTriangles = 24000;
 constexpr double kFlyingM = 1.0;
 constexpr double kTrimMostWidths = 4.0;
 constexpr double kFitWithinM = 0.5;
-constexpr double kFifthPart = 0.05;
 
 constexpr double kStampWorthM = 0.25;
 constexpr double kBrokenGroundM = 1.0;
@@ -429,9 +428,6 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing,
     if (!fill.empty()) {
       std::ranges::sort(fill);
       std::ranges::sort(across);
-      const auto pick = [](const std::vector<double> &of, double part) {
-        return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
-      };
       size_t wouldStamp = 0;
       for (const double filled : fill) {
         if (filled > kStampWorthM) { ++wouldStamp; }
@@ -440,13 +436,16 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing,
       for (const double wide : across) {
         if (wide < kGroundCellM) { ++underOneCell; }
       }
-      Published.Places("buildings: a stamp would fill, p50", pick(fill, 0.5), "m");
-      Published.Places("buildings: a stamp would fill, p95", pick(fill, kBroadQuantile), "m");
+      Published.Places(
+          "buildings: a stamp would fill, p50", QuantileOf(fill, kMiddleQuantile), "m");
+      Published.Places("buildings: a stamp would fill, p95", QuantileOf(fill, kBroadQuantile), "m");
       Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
       Published.Places(
           "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
-      Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
-      Published.Places("buildings: footprint across, p05", pick(across, kFifthPart), "m");
+      Published.Places(
+          "buildings: footprint across, p50", QuantileOf(across, kMiddleQuantile), "m");
+      Published.Places(
+          "buildings: footprint across, p05", QuantileOf(across, kNarrowQuantile), "m");
       Published.Places("buildings: and the narrowest of them", across.front(), "m");
       Published.Places("buildings: footprints narrower than a ground cell",
                        static_cast<double>(underOneCell),
@@ -1718,14 +1717,14 @@ void Engine::State::Paves(const TangentFrame &standing,
   if (!into.ShortByM.empty()) {
     std::ranges::sort(into.ShortByM);
     std::ranges::sort(into.ForkDeg);
-    const auto pick = [](const std::vector<double> &of, double part) {
-      return of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
-    };
-    Published.Places("streets: what a capped end was short by, p50", pick(into.ShortByM, 0.5), "m");
-    Published.Places("streets: and p95", pick(into.ShortByM, kBroadQuantile), "m");
+    Published.Places("streets: what a capped end was short by, p50",
+                     QuantileOf(into.ShortByM, kMiddleQuantile),
+                     "m");
+    Published.Places("streets: and p95", QuantileOf(into.ShortByM, kBroadQuantile), "m");
     Published.Places("streets: and the most", into.ShortByM.back(), "m");
-    Published.Places(
-        "streets: the fork angle where the cap bit, p50", pick(into.ForkDeg, 0.5), "deg");
+    Published.Places("streets: the fork angle where the cap bit, p50",
+                     QuantileOf(into.ForkDeg, kMiddleQuantile),
+                     "deg");
     Published.Places("streets: and the sharpest", into.ForkDeg.front(), "deg");
   }
   Published.Places(
@@ -1850,9 +1849,6 @@ void Engine::State::Paves(const TangentFrame &standing,
   if (!into.FitOffsetM.empty()) {
     std::ranges::sort(into.FitOffsetM);
     std::ranges::sort(into.FitRadiusM);
-    const auto pick = [](const std::vector<double> &of, double part) {
-      return of.empty() ? 0.0 : of[static_cast<size_t>(static_cast<double>(of.size() - 1u) * part)];
-    };
     Published.Places(
         "streets: ways a reference line was fitted to", static_cast<double>(into.FitLaid), "ways");
     Published.Places(
@@ -1891,17 +1887,19 @@ void Engine::State::Paves(const TangentFrame &standing,
                        "m");
       Published.Places("streets: and the tightest", into.TightDemandM.front(), "m");
     }
-    Published.Places(
-        "streets: the offset a fitted line needed, p50", pick(into.FitOffsetM, 0.5), "m");
+    Published.Places("streets: the offset a fitted line needed, p50",
+                     QuantileOf(into.FitOffsetM, kMiddleQuantile),
+                     "m");
     Published.Places("streets: the offset a fitted line needed, p95",
-                     pick(into.FitOffsetM, kBroadQuantile),
+                     QuantileOf(into.FitOffsetM, kBroadQuantile),
                      "m");
     Published.Places(
         "streets: the offset a fitted line needed, worst", into.FitOffsetM.back(), "m");
     Published.Places(
-        "streets: the radius a fitted line found, tightest", pick(into.FitRadiusM, 0.0), "m");
-    Published.Places(
-        "streets: the radius a fitted line found, p50", pick(into.FitRadiusM, 0.5), "m");
+        "streets: the radius a fitted line found, tightest", QuantileOf(into.FitRadiusM, 0.0), "m");
+    Published.Places("streets: the radius a fitted line found, p50",
+                     QuantileOf(into.FitRadiusM, kMiddleQuantile),
+                     "m");
     Published.Places("streets: stations the fit calls undrivable",
                      static_cast<double>(into.FitUndrivable),
                      "stations");
@@ -1959,11 +1957,11 @@ void Engine::State::Paves(const TangentFrame &standing,
     }
     if (!aboveM.empty()) {
       std::ranges::sort(aboveM);
-      const auto pick = [&aboveM](double part) {
-        return aboveM[static_cast<size_t>(static_cast<double>(aboveM.size() - 1u) * part)];
-      };
-      Published.Places("streets: a vertex stands over the ground, p50", pick(0.5), "m");
-      Published.Places("streets: a vertex stands over the ground, p95", pick(kBroadQuantile), "m");
+      Published.Places("streets: a vertex stands over the ground, p50",
+                       QuantileOf(aboveM, kMiddleQuantile),
+                       "m");
+      Published.Places(
+          "streets: a vertex stands over the ground, p95", QuantileOf(aboveM, kBroadQuantile), "m");
       Published.Places("streets: a vertex stands over the ground, highest", aboveM.back(), "m");
       Published.Places("streets: a vertex stands under it, deepest", aboveM.front(), "m");
       Published.Places(
