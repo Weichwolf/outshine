@@ -96,6 +96,35 @@ is a finding.
 `reaches`. Make the areas real and each gets one, and `flora/` reaching into `built/` then fails at
 the `#include` with a file and a line. The split stops depending on discipline.
 
-**The measurement that shows I was wrong:** count the cross-area includes after the move. If more
-than a couple of files need to reach across, the subjects are not as separable as this claims and
-the stage-cut was carrying real weight.
+**The measurement that shows I was wrong:** count the cross-area includes after the move. NO
+generator may reach into another -- they meet at the door and nowhere else -- so the number that
+matters is zero, and anything above it is a finding rather than a tolerance.
+
+## What the move cost, measured on flora
+
+Nothing, and the reason is worth writing down: `test/run.sh` derives every include path from
+`find src/<tier> -type d`, and not one `#include` in the tree carries a directory prefix. A new
+directory under `src/generators/` gets its `-I` for free and every existing include keeps
+resolving. The 27 files moved and the build was green on the first try. The guards were renamed to
+spell their new folder, which `EveryGuardSpellsItsFolder` requires.
+
+  out of flora/  4 includes, ALL of them shared machinery -- `Making.h`, `ModelLadder.h`,
+                 `ClusterId.h`, `DrawSource.h`. Not one names another subject
+  into flora/    3 includes, ALL of them from `Shipped`, which is the registry that stands the
+                 generators up and is entitled to know each of them
+
+So the cut holds where it has been tested: flora touches no other subject, and no other subject
+touches flora. `ClusterId.h` and `DrawSource.h` sitting in `draw/` is the next thing to fix --
+`draw/` holds subject code AND shared machinery, which is why it looked load-bearing.
+
+## What the tiers cannot do yet
+
+`LayerReaches` refuses any name with a `/` in it, so a TIER is exactly one level under `src/`. An
+area inside `generators/` cannot carry its own `reaches` today, and the include path for every
+generator file is all of `src/generators`'s subdirectories at once. The split is therefore a
+convention until `LayerReaches` learns nested tiers -- which is the step that turns "generators do
+not reach into each other" from a rule into something the compiler refuses.
+
+`Shipping` holds `std::vector<Forest::Stem>`: the registry knows one generator's INSIDES rather
+than knowing it through `Making` and `DrawSource`. That is the same rule pointed at the door
+itself, and it is where this item goes after the seven directories exist.
