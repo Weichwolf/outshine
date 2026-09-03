@@ -40,13 +40,13 @@ public:
   [[nodiscard]] size_t HeapBytes() const;
 
 private:
-  struct Laid {
+  struct Spaced {
     int Side = 0;
     double EastM = 0.0;
     double NorthM = 0.0;
   };
 
-  GroundPatch(Laid grid, std::span<const Posting> postings);
+  GroundPatch(Spaced grid, std::span<const Posting> postings);
 
   int Side_;
   double SpacingEm_, SpacingNm_;

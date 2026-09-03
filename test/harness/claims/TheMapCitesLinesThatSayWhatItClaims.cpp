@@ -231,7 +231,14 @@ int main(void) {
   }
   Note("paths the map cites into this tree", (double)paths, "citations");
   for (const std::string &one : absent) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(paths >= 20, "the map names paths into its own tree for this walk to resolve");
+  // THE CONTROL IS AGAINST A BROKEN WALK, NOT AGAINST A SPARE MAP. This asked for twenty paths
+  // once, and the map names four -- `board/`, `include/`, `src/`, `src/client/` -- because it says
+  // of itself that it holds "principles and not a map, because a map goes stale the day a
+  // directory moves". A threshold that demands the page contradict its own first rule is
+  // mis-specified, and CLAUDE.md's narrow exception is exactly for that. What the control has to
+  // rule out is a walk that resolves NOTHING and reports the absence check green over an empty
+  // set, so one is the number: below it, the check below this one proves nothing.
+  CHECK(paths >= 1, "the map names at least one path, so the walk below judges a non-empty set");
   CHECK(absent.empty(),
         "**AND EVERY PATH IT CITES IS IN THE TREE**: a tick that names a file is a claim with "
         "something under it, and a path that has moved reads exactly like one that has not");

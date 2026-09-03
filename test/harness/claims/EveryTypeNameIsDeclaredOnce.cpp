@@ -41,6 +41,15 @@ namespace {
 // on every move means each name that leaves the list leaves in a commit that says so, and each
 // new one arrives the same way. Both directions are information.
 
+// NINE, AND THEY ARE THE OLD NINE. On 2026-09-03 this went to ten and then back: a round of
+// parameter bundles gave four new types names the tree already owned -- `Raster` for a height
+// grid where `content/shade/Image.h` means a picture, `Loading` for a tyre's load where
+// `Outshine.h` means the preload, plus `Placing` and `Swept`. That is the trap CLAUDE.md calls a
+// rename that moves the collision, walked into four times by the hand that had just written the
+// entry about it. They are `Sampling`, `Bearing`, `Moving` and `Tallied`, and every new type name
+// is now checked against the tree BEFORE it is written rather than by this claim afterwards.
+//
+// The nine that remain are older than that round. The target is none of them.
 constexpr size_t kTypeNamesTwice = 9;
 // AND NO CONSTANT AT ALL, since 2026-09-03. The one that stood here was `kCellPerRung`, and
 // looking at it found both of its definitions DEAD -- nothing read either, and `kCellPerRungStep`

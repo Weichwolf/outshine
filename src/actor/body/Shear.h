@@ -21,7 +21,7 @@ struct Shear {
   bool Sliding = false;
 };
 
-struct Loading {
+struct Bearing {
   double LoadN = 0.0;
   double SlipRad = 0.0;
   double AskedAlongN = 0.0;
@@ -34,7 +34,7 @@ struct Rolling {
   double AskedAlongN = 0.0;
 };
 
-[[nodiscard]] Shear ShedAt(const Shearing &through, Loading under);
+[[nodiscard]] Shear ShedAt(const Shearing &through, Bearing under);
 
 [[nodiscard]] Shear Shed(const Shearing &through, Rolling under);
 

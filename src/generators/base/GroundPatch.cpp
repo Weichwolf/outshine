@@ -32,7 +32,7 @@ GroundPatch::Complete(const Tile &region, int side, std::span<const Posting> pos
       postings));
 }
 
-GroundPatch::GroundPatch(Laid grid, std::span<const Posting> postings)
+GroundPatch::GroundPatch(Spaced grid, std::span<const Posting> postings)
     : Side_(grid.Side), SpacingEm_(grid.EastM), SpacingNm_(grid.NorthM) {
   AslM_.reserve(postings.size());
   for (const Posting &p : postings) {

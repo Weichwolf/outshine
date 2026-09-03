@@ -86,7 +86,7 @@ private:
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &error);
 
-struct Placing {
+struct Moving {
   size_t Rows = 0;
   size_t Many = 1;
   size_t Which = 0;
@@ -95,7 +95,7 @@ struct Placing {
 };
 
 [[nodiscard]] bool
-Moved(SceneRenderer &renderer, Placing what, const Mat4 &ecef, std::string &error);
+Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error);
 
 struct SubjectScratch {
   bool Digests = false;

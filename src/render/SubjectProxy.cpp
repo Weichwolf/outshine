@@ -101,7 +101,7 @@ bool Placed(SceneRenderer &renderer, const SubjectProxy &proxy, std::string &err
   return renderer.HandSubjectPlacements(error);
 }
 
-bool Moved(SceneRenderer &renderer, Placing what, const Mat4 &ecef, std::string &error) {
+bool Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error) {
   if (what.Many == 0 || what.Which >= what.Many) { return true; }
   if (!renderer.SubjectPlacementRows(what.Rows, error)) { return false; }
   for (size_t part = what.FromPart; part < what.ToPart; ++part) {

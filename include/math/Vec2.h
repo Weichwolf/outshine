@@ -13,33 +13,45 @@ template <typename Number> struct Vector2 {
   std::array<Number, 2> Axis = {Number{0}, Number{0}};
 
   /// Reads one component.
+  /// @param axis Which axis, counting from 0.
+  /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t axis) const { return Axis[axis]; }
 
   /// Reaches one component for writing.
+  /// @param axis Which axis, counting from 0.
+  /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t axis) { return Axis[axis]; }
 
   /// The two components as a fixed-extent view.
+  /// @return A span over all two, in order.
   [[nodiscard]] constexpr std::span<const Number, 2> Row() const { return Axis; }
 
   /// The two components as a writable fixed-extent view.
+  /// @return A writable span over all two, in order.
   [[nodiscard]] constexpr std::span<Number, 2> Row() { return Axis; }
 
   /// The first component, so a pair reads in a range-for.
+  /// @return An iterator to the first component.
   [[nodiscard]] constexpr auto begin() const { return Axis.begin(); }
 
   /// One past the last component.
+  /// @return An iterator one past the last component.
   [[nodiscard]] constexpr auto end() const { return Axis.end(); }
 
   /// The first component, writable.
+  /// @return A writable iterator to the first component.
   [[nodiscard]] constexpr auto begin() { return Axis.begin(); }
 
   /// One past the last component, writable.
+  /// @return A writable iterator one past the last component.
   [[nodiscard]] constexpr auto end() { return Axis.end(); }
 
   /// The components as contiguous storage, for a boundary that takes a pointer.
+  /// @return A pointer to the first component.
   [[nodiscard]] constexpr const Number *data() const { return Axis.data(); }
 
   /// The components as writable contiguous storage.
+  /// @return A writable pointer to the first component.
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
 
   /// Two pairs are the same pair when their components are.

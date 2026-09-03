@@ -20,7 +20,7 @@ double Brushed(double linearN, double holdN) {
   return sign * holdN * (1.0 - left * left * left);
 }
 
-Shear ShedAt(const Shearing &through, Loading under) {
+Shear ShedAt(const Shearing &through, Bearing under) {
   Shear out;
   if (!(under.LoadN > 0.0)) { return out; }
 

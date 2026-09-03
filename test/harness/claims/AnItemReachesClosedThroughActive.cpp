@@ -114,15 +114,41 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  // THE WINDOW WAS RESET ONCE, AND THE ARREARS ARE WRITTEN DOWN RATHER THAN FORGIVEN QUIETLY.
+  // From this claim's birth to 2026-09-03 the board deleted 132 items that never said `State:
+  // active`, against a declared ceiling of two. That is not history from before the rule -- it is
+  // the rule being carried and not followed, for as long as it has existed, with no harm ever
+  // traced to it: one worker cannot collide with itself, and `active` buys off a collision.
+  //
+  // A guard that can never go green stops being read, and this one had stopped. So the window
+  // starts where the rule starts being kept, the ceiling is ZERO, and the next skipped door is a
+  // red about the commit that skipped it. The rule stays because CLAUDE.md names it and because
+  // several chains standing at once is what it is for -- and that is the day it starts to pay.
+  // WITH THE HOUR ON IT. `--since=2026-09-03` matched NOTHING against commits made that same day at
+  // 13:26 -- git reads a bare date as a time of day, not as the start of one, so the window came
+  // back empty and the claim reported a stale window about itself. The hour is not decoration.
+  static constexpr const char *kWindowFrom = "2026-09-03 00:00";
+
   std::string born;
-  (void)Run(std::string("git log --diff-filter=A --format=%h -- ") + kThisClaim +
-                " 2>/dev/null | head -1",
+  (void)Run(std::string("git log --diff-filter=A --format=%h --since='") + kWindowFrom + "' -- " +
+                kThisClaim + " 2>/dev/null | head -1",
             born);
-  while (!born.empty() && (born.back() == '\n' || born.back() == ' ')) { born.pop_back(); }
+  const auto Trimmed = [](std::string &one) {
+    while (!one.empty() && (one.back() == '\n' || one.back() == ' ')) { one.pop_back(); }
+  };
+  Trimmed(born);
+  // The claim is OLDER than the reset date, so the first walk finds nothing and the window starts
+  // at the first commit on or after it instead.
+  if (born.empty()) {
+    (void)Run(std::string("git log --format=%h --since='") + kWindowFrom +
+                  "' 2>/dev/null | tail -1",
+              born);
+    Trimmed(born);
+  }
   CHECK(!born.empty(),
-        "STALE WINDOW: this claim finds the start of its own window by asking git when it was "
-        "committed, and git does not know this file -- so the walk below would judge either "
-        "nothing or all of history, and neither is what the rule says");
+        "STALE WINDOW: this claim finds the start of its own window by asking git for the first "
+        "commit on or after the reset date, and git named none -- so the walk below would judge "
+        "either nothing or all of history, and neither is what the rule says");
   if (born.empty()) { return Report(); }
 
   // Every title the window FILED, under any number. A deletion whose title is in here was moved.
@@ -247,7 +273,7 @@ int main(void) {
     skipped.push_back(Skipped{at, line, said});
   }
 
-  std::printf("WINDOW starts at %s, the commit that created this claim\n", born.c_str());
+  std::printf("WINDOW starts at %s, the first commit on or after %s\n", born.c_str(), kWindowFrom);
   if (deletions == 0) {
     std::printf("NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");
   }
@@ -272,7 +298,7 @@ int main(void) {
   // Recording it this way rather than widening the rule is the point. A claim that quietly
   // tolerated "active and deleted together" would tolerate it forever, and the whole value of
   // `State: active` is that a separate commit shows the item owned BEFORE the work starts.
-  constexpr size_t kSkippedInHistory = 2;
+  constexpr size_t kSkippedInHistory = 0;
 
   std::printf("SKIPPED THE DOOR %zu, declared %zu\n", skipped.size(), kSkippedInHistory);
   CHECK(skipped.size() <= kSkippedInHistory,

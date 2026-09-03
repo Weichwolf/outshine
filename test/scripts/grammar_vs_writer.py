@@ -23,25 +23,16 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import scenario_grammar as grammar
 
-BASELINE = grammar.TREE / "test" / "writer-baseline"
-
-
 def main():
     written = set(re.findall(r'"\s*<(\w+)', grammar.WRITER.read_text()))
     declared = grammar.children()
     missing = sorted(one for one in declared if one not in written)
-    allowed = int(BASELINE.read_text().split()[0])
     print(f"{len(declared)} child(ren) the grammar declares, {len(declared) - len(missing)} the "
-          f"writer writes back, {len(missing)} it cannot -- the baseline allows {allowed}")
+          f"writer writes back, {len(missing)} it cannot -- the target is 0")
     print("  NOT COVERED: attributes. A child written with half of its attributes passes here.")
-    if len(missing) > allowed:
-        for one in missing:
-            print(f"  {one}")
-        return 1
-    if len(missing) < allowed:
-        BASELINE.write_text(f"{len(missing)}\n")
-        print(f"  the writer baseline SHRANK to {len(missing)} -- recorded.")
-    return 0
+    for one in missing:
+        print(f"  {one}")
+    return 1 if missing else 0
 
 
 if __name__ == "__main__":

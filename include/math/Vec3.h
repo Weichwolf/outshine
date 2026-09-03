@@ -10,8 +10,8 @@ namespace outshine {
 
 /// A three-component vector, written once and instantiated for each precision the door speaks.
 ///
-/// Precision has one boundary and it is the camera: the scene keeps @ref Vec3 (64-bit) and the
-/// renderer hands the device @ref Vec3f (32-bit). The type carries no alignment of its own -- a
+/// Precision has one boundary and it is the camera: the scene keeps `Vec3` (64-bit) and the
+/// renderer hands the device `Vec3f` (32-bit). The type carries no alignment of its own -- a
 /// record that wants its rows on a 128-bit boundary for whole-row NEON loads says `alignas(16)`
 /// on the MEMBER, so the padding is that record's decision rather than a tax on every vector.
 template <typename Number> struct Vector3 {
@@ -19,36 +19,49 @@ template <typename Number> struct Vector3 {
   std::array<Number, 3> Axis = {Number{0}, Number{0}, Number{0}};
 
   /// Reads one component.
+  /// @param axis Which axis, counting from 0.
+  /// @return That component.
   [[nodiscard]] constexpr Number operator[](size_t axis) const { return Axis[axis]; }
 
   /// Reaches one component for writing.
+  /// @param axis Which axis, counting from 0.
+  /// @return A reference to that component.
   [[nodiscard]] constexpr Number &operator[](size_t axis) { return Axis[axis]; }
 
   /// The three components as a fixed-extent view, for an algorithm that takes a row.
+  /// @return A span over all three, in order.
   [[nodiscard]] constexpr std::span<const Number, 3> Row() const { return Axis; }
 
   /// The three components as a writable fixed-extent view.
+  /// @return A writable span over all three, in order.
   [[nodiscard]] constexpr std::span<Number, 3> Row() { return Axis; }
 
   /// The first component, so a vector reads in a range-for.
+  /// @return An iterator to the first component.
   [[nodiscard]] constexpr auto begin() const { return Axis.begin(); }
 
   /// One past the last component.
+  /// @return An iterator one past the last component.
   [[nodiscard]] constexpr auto end() const { return Axis.end(); }
 
   /// The first component, writable.
+  /// @return A writable iterator to the first component.
   [[nodiscard]] constexpr auto begin() { return Axis.begin(); }
 
   /// One past the last component, writable.
+  /// @return A writable iterator one past the last component.
   [[nodiscard]] constexpr auto end() { return Axis.end(); }
 
   /// The components as contiguous storage, for the one boundary that takes a pointer: the device.
+  /// @return A pointer to the first component.
   [[nodiscard]] constexpr const Number *data() const { return Axis.data(); }
 
   /// The components as writable contiguous storage.
+  /// @return A writable pointer to the first component.
   [[nodiscard]] constexpr Number *data() { return Axis.data(); }
 
   /// Two vectors are the same vector when their components are.
+  /// @return True when every component agrees.
   [[nodiscard]] constexpr bool operator==(const Vector3 &) const = default;
 };
 

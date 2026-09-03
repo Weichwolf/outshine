@@ -321,13 +321,13 @@ void DesignProfile(std::span<RoadStation> along, double mostGradient, double lea
   for (auto &one : along) { one.GradeM -= apart; }
 }
 
-Swept SweepRoad(std::span<const RoadStation> along,
-                double halfWidthM,
-                RoadProfile profile,
-                const Vec3f &wearsLinear,
-                double crossfall,
-                RoadRaised &into) {
-  Swept tally;
+Tallied SweepRoad(std::span<const RoadStation> along,
+                  double halfWidthM,
+                  RoadProfile profile,
+                  const Vec3f &wearsLinear,
+                  double crossfall,
+                  RoadRaised &into) {
+  Tallied tally;
   RoadRefusals *const why = &tally.Why;
   if (along.size() < 3 || !(halfWidthM > 0.0)) { return tally; }
 

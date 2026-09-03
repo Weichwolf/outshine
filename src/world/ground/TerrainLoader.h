@@ -20,7 +20,7 @@ namespace outshine::Ground {
 
 constexpr int kStreamGrid = 64;
 
-struct Raster {
+struct Sampling {
   int Side = 0;
   uint32_t Postings = 0;
 };
@@ -49,7 +49,7 @@ public:
 
   void AslMRow(LongitudeLatitude from, double lonStepDeg, std::span<double> out) const noexcept;
 
-  static GroundBlock Over(const float *nodes, TileSpot at, Raster raster) {
+  static GroundBlock Over(const float *nodes, TileSpot at, Sampling raster) {
     GroundBlock out;
     out.Nodes_ = nodes;
     out.Zoom_ = at.Zoom;

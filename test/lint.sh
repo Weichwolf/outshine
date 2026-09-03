@@ -1,11 +1,14 @@
 #!/bin/sh
 # `make lint` -- the format, the static analysis, and this tree's own repository rules.
 #
-# THE BASELINE MAY ONLY SHRINK. A strict analysis over 57 000 lines finds thousands on the first
-# day, and a gate that is red on the first day is a gate that is switched off in the first week. So
-# the count is recorded and a commit may LOWER it and never raise it: new code is held to zero
-# because every finding it adds shows up in the total, and old code is repaired at whatever pace it
-# is touched. That is the only version of "very strict" that survives contact.
+# EVERY TARGET IS ZERO. This carried a ratchet once -- a recorded count a commit could lower and
+# never raise -- and the argument for it was that a gate red on the first day is a gate switched
+# off in the first week. That argument is about a tired human, and it bought a real cost: a
+# baseline standing at its own current value is GREEN, so it says "fine" about 714 undocumented
+# names, and the number stops being read. The target is 0 and every trailer says how far that is.
+#
+# What the ratchet did protect is a REGRESSION -- a count that grew. That is now read where it
+# belongs, in `git log`: every commit names its measured number, so two commits name two numbers.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -13,7 +16,6 @@ LLVM=${LLVM_BIN:-/opt/homebrew/opt/llvm/bin}
 # run-clang-tidy spawns clang-tidy by NAME, so naming the directory is not enough.
 PATH="$LLVM:$PATH"
 export PATH
-BASELINE=test/lint-baseline
 REPORT=build/lint
 # EVERY GUARD REPORTS, AND THE VERDICT COMES AT THE END. An `exit 1` at the first red made every
 # check below it unreachable for as long as the tree was over its baseline -- the repository rules,
@@ -58,8 +60,8 @@ grep 'warning:' "$REPORT/tidy.log" | grep -vE '^/(Library|usr|opt|System|Applica
   sed 's/ \[/\t[/' | sort -u > "$REPORT/tidy.unique"
 found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
 # A LINT THAT FINDS NOTHING HAS BROKEN, NOT PASSED. clang-tidy writes its diagnostics to STDERR and
-# this redirected them to /dev/null for one round, which reported zero and recorded a baseline of
-# zero -- a gate blind to its own path, which is the first trap on CLAUDE.md's list.
+# this redirected them to /dev/null for one round, which reported zero and was believed -- a gate
+# blind to its own path, which is the first trap on CLAUDE.md's list.
 if [ "$found" -eq 0 ]; then
   printf 'lint: the analysis found NOTHING over 172 units, which means it did not run.\n' >&2
   printf 'lint: %s\n' "$REPORT/tidy.log" >&2
@@ -68,18 +70,10 @@ fi
 grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
 head -12 "$REPORT/tidy.checks"
 
-allowed=$(cat "$BASELINE" 2>/dev/null || echo 0)
-printf '\nlint: %s finding(s), the baseline allows %s\n' "$found" "$allowed"
-if [ "$found" -gt "$allowed" ]; then
-  printf 'lint: THE BASELINE GREW by %s. A commit lowers it or leaves it; it never raises it.\n' \
-    "$((found - allowed))" >&2
-  printf 'lint: what is new is in %s\n' "$REPORT/tidy.unique" >&2
+printf '\nlint: %s finding(s), the target is 0\n' "$found"
+if [ "$found" -gt 0 ]; then
+  printf 'lint: %s to go. They are in %s\n' "$found" "$REPORT/tidy.unique" >&2
   red=$((red + 1))
-fi
-if [ "$found" -lt "$allowed" ]; then
-  printf '%s\n' "$found" > "$BASELINE"
-  printf 'lint: the baseline SHRANK to %s -- recorded. Commit %s with the repair.\n' \
-    "$found" "$BASELINE"
 fi
 
 printf '\n== the repository rules ==\n'
@@ -96,18 +90,10 @@ if [ -x "$(command -v doxygen)" ]; then
   mkdir -p build/doc
   doxygen doc/Doxyfile >/dev/null 2>&1 || true
   undocumented=$(wc -l < build/doc/warnings.txt 2>/dev/null | tr -d ' ')
-  allowedDoc=$(cat test/doc-baseline 2>/dev/null || echo 0)
-  printf 'lint: %s undocumented public entit(ies), the baseline allows %s\n' \
-    "$undocumented" "$allowedDoc"
-  if [ "$undocumented" -gt "$allowedDoc" ]; then
-    printf 'lint: THE DOCUMENTATION BASELINE GREW by %s -- a new public name arrived undocumented.\n' \
-      "$((undocumented - allowedDoc))" >&2
-    printf 'lint: they are named in build/doc/warnings.txt\n' >&2
+  printf 'lint: %s undocumented public entit(ies), the target is 0\n' "$undocumented"
+  if [ "$undocumented" -gt 0 ]; then
+    printf 'lint: %s to go. They are named in build/doc/warnings.txt\n' "$undocumented" >&2
     red=$((red + 1))
-  fi
-  if [ "$undocumented" -lt "$allowedDoc" ]; then
-    printf '%s\n' "$undocumented" > test/doc-baseline
-    printf 'lint: the documentation baseline SHRANK to %s -- recorded.\n' "$undocumented"
   fi
 else
   printf 'lint: doxygen is not installed, so the door is not checked. `brew install doxygen`\n' >&2
@@ -117,21 +103,14 @@ fi
 # so a public member in a header could be reached from any other unit and no single-unit pass may
 # call it dead. The LINKER resolves the whole archive, and this tree already reads exactly what it
 # resolves. The count is a SUSPICION rather than a verdict -- a symbol may be reached through a
-# table this graph cannot see -- so it carries a baseline that may fall and never rise.
+# table this graph cannot see -- so a name here is read before it is deleted, never after.
 if [ -f build/liboutshine.a ]; then
   unreached=$(python3 test/scripts/unreached.py | sed -n 's/.* \([0-9][0-9]*\) that nothing in the archive calls.*/\1/p')
-  allowedUnreached=$(cat test/unreached-baseline 2>/dev/null || echo 0)
-  printf '\nlint: %s symbol(s) nothing in the archive calls, the baseline allows %s\n' \
-    "$unreached" "$allowedUnreached"
-  if [ "$unreached" -gt "$allowedUnreached" ]; then
-    printf 'lint: THE UNREACHED BASELINE GREW by %s -- something was written that nothing calls.\n' \
-      "$((unreached - allowedUnreached))" >&2
-    printf 'lint: they are named by `python3 test/scripts/unreached.py`\n' >&2
+  printf '\nlint: %s symbol(s) nothing in the archive calls, the target is 0\n' "$unreached"
+  if [ "$unreached" -gt 0 ]; then
+    printf 'lint: %s to go. They are named by `python3 test/scripts/unreached.py`\n' \
+      "$unreached" >&2
     red=$((red + 1))
-  fi
-  if [ "$unreached" -lt "$allowedUnreached" ]; then
-    printf '%s\n' "$unreached" > test/unreached-baseline
-    printf 'lint: the unreached baseline SHRANK to %s -- recorded.\n' "$unreached"
   fi
 fi
 
@@ -139,7 +118,7 @@ fi
 # drift; eight drifts have been found this way, each of them a capability no declaration could
 # reach. board:2052 removes the guard by removing the second copy -- derive the grammar from the
 # declaration types -- and until it lands this is what holds them together. It goes RED rather than
-# carrying a baseline, because a child the reader reads and the grammar refuses is a defect with no
+# carrying a count, because a child the reader reads and the grammar refuses is a defect with no
 # legitimate population.
 if ! python3 test/scripts/grammar_vs_reader.py; then
   printf 'lint: the scenario reader reads a child its grammar refuses -- a capability no\n' >&2
@@ -151,7 +130,7 @@ fi
 # writing it, reading that back and writing it again holds even when the writer DROPS a section --
 # measured: with `<clock>` removed every place lost 59 bytes and `roundtrip` still said `0 place(s)
 # apart`. A child declared and never written is a capability the engine can be told and can never
-# hand back. It carries a baseline because 64 of them stand today; the baseline may only fall.
+# hand back. Sixty-four stand today and the target is none of them.
 if ! python3 test/scripts/grammar_vs_writer.py; then
   printf 'lint: the scenario grammar declares a child its writer cannot write back, and the\n' >&2
   printf 'lint: count GREW. A declaration that cannot be handed back is not declared.\n' >&2

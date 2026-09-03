@@ -14,13 +14,11 @@ nothing with it is worse than refusing it.
 The book itself is sound and stays -- `mdspan` grid, a `ByKey` index, a numeric/text distinction
 the reader enforces. What is missing is the consumer.
 
-**What Unreal does:** data tables (`UDataTable`) are assets a Blueprint or C++ class looks up by row
-name, and the row struct is the schema. The lookup is a first-class engine verb, not a side table.
-
-**What RAGE does:** `parCodeGen`-generated metadata and `configFile` tables are read by the systems
-that need them at load, and a table nothing loads is not shipped.
-
-**Taken:** Unreal's. A table is looked up BY A GENERATOR through a reader it is handed, because that
+**Benchmark**: Unreal ships data tables as ASSETS -- a `UDataTable` is looked up by row name from
+Blueprint or C++, the row struct is the schema, and the lookup is a first-class engine verb. RAGE
+reads `parCodeGen` metadata and `configFile` tables in the systems that need them at load, and a
+table nothing loads is not shipped. They agree on the part that matters here: a table exists
+because a consumer asks for it, never the other way round. Taken: Unreal's, A table is looked up BY A GENERATOR through a reader it is handed, because that
 is who has a use for one -- a species table for a flora generator, a storey table for buildings.
 This closes when a generator reads a declared cell and a case declares a table whose value changes
 the picture.
