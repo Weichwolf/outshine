@@ -127,6 +127,24 @@ namespace {}
 
 namespace {}
 
+std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
+                                              const Render::Medium &fallback) {
+  const size_t rows = wearing.TemplateCount();
+  std::vector<float> palette(kPaletteStride * (rows + 2u), 0.0f);
+  palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
+  const auto rowAt = [](size_t row) { return kPaletteStride * (row + 1u); };
+  for (size_t row = 0; row < rows; ++row) {
+    for (size_t channel = 0; channel < 3; ++channel) {
+      palette[rowAt(row) + channel] = wearing.Rows()[row].Ground[channel];
+    }
+    palette[rowAt(row) + 3u] = wearing.Rows()[row].Mix[2];
+  }
+  for (size_t channel = 0; channel < 3; ++channel) {
+    palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
+  }
+  return palette;
+}
+
 Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<float> &inFrame) {
   Classed out;
   const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
@@ -138,21 +156,7 @@ Engine::State::Classed Engine::State::Classify(Patchwork &laid, std::vector<floa
   size_t named = 0;
   if (classes && wearing.Ready()) {
     out.Structure = classes;
-    out.Palette.assign(4u + (wearing.TemplateCount() + 1u) * 4u, 0.0f);
-    const auto rows = static_cast<uint32_t>(wearing.TemplateCount());
-    out.Palette[0] = std::bit_cast<float>(rows);
-    for (size_t row = 0; row < wearing.TemplateCount(); ++row) {
-      for (int channel = 0; channel < 3; ++channel) {
-        out.Palette[4u + row * 4u + static_cast<size_t>(channel)] =
-            wearing.Rows()[row].Ground[channel];
-      }
-      out.Palette[4u + row * 4u + 3u] = wearing.Rows()[row].Mix[2];
-    }
-    for (int channel = 0; channel < 3; ++channel) {
-      out.Palette[4u + wearing.TemplateCount() * 4u + static_cast<size_t>(channel)] =
-          fallback.GroundAlbedo[channel];
-    }
-    out.Palette[4u + wearing.TemplateCount() * 4u + 3u] = 0.0f;
+    out.Palette = PaletteOver(wearing, fallback);
     out.Tinted.resize((inFrame.size() / 3) * 4);
     out.Uv.resize((inFrame.size() / 3) * 2);
     for (size_t at = 0, one = 0; at + 2 < laid.PositionM.size(); at += 3, ++one) {

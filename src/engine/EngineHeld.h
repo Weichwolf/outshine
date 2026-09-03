@@ -398,6 +398,11 @@ struct Engine::State {
     std::shared_ptr<const ClassStructure> Structure;
   };
 
+  static constexpr size_t kPaletteStride = 4u;
+
+  [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
+                                                      const Render::Medium &fallback);
+
   [[nodiscard]] Classed Classify(Patchwork &laid, std::vector<float> &inFrame);
 
   struct Phasing {
