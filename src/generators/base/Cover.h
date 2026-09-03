@@ -10,15 +10,20 @@ class Cover {
 public:
   static Cover None() { return {}; }
 
-  static Cover Of(int row, int runnerUpRow) {
+  struct Covering {
+    int Row = -1;
+    int RunnerUpRow = -1;
+  };
+
+  static Cover Of(Covering by) {
     Cover c;
-    c.Row_ = static_cast<int16_t>(row);
-    c.RunnerUp_ = static_cast<int16_t>(runnerUpRow);
+    c.Row_ = static_cast<int16_t>(by.Row);
+    c.RunnerUp_ = static_cast<int16_t>(by.RunnerUpRow);
     return c;
   }
 
-  static Cover Of(int row, float edgeM, int runnerUpRow) {
-    Cover c = Of(row, runnerUpRow);
+  static Cover Of(Covering by, float edgeM) {
+    Cover c = Of(by);
     c.EdgeM_ = edgeM;
     c.HasEdge_ = true;
     return c;

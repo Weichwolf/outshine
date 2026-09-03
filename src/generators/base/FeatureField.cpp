@@ -63,17 +63,17 @@ std::span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) cons
 
 namespace {
 
-double SegmentGapM2(double em, double nm, double e0, double n0, double e1, double n1) {
-  const double de = e1 - e0;
-  const double dn = n1 - n0;
+double SegmentGapM2(EastNorth at, EastNorth from, EastNorth to) {
+  const double de = to.EastM - from.EastM;
+  const double dn = to.NorthM - from.NorthM;
   const double len2 = de * de + dn * dn;
   double t = 0.0;
   if (len2 > 0.0) {
-    t = ((em - e0) * de + (nm - n0) * dn) / len2;
+    t = ((at.EastM - from.EastM) * de + (at.NorthM - from.NorthM) * dn) / len2;
     t = std::clamp(t, 0.0, 1.0);
   }
-  const double ge = em - (e0 + t * de);
-  const double gn = nm - (n0 + t * dn);
+  const double ge = at.EastM - (from.EastM + t * de);
+  const double gn = at.NorthM - (from.NorthM + t * dn);
   return ge * ge + gn * gn;
 }
 
@@ -88,7 +88,9 @@ bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
     for (const Ring &r : Rings(f)) {
       const std::span<const Vertex> v = Vertices(r);
       for (size_t i = 0; i + 1 < v.size(); i++) {
-        if (SegmentGapM2(eastM, northM, v[i].Em, v[i].Nm, v[i + 1].Em, v[i + 1].Nm) <= reach2) {
+        if (SegmentGapM2({.EastM = eastM, .NorthM = northM},
+                         {.EastM = v[i].Em, .NorthM = v[i].Nm},
+                         {.EastM = v[i + 1].Em, .NorthM = v[i + 1].Nm}) <= reach2) {
           return true;
         }
       }

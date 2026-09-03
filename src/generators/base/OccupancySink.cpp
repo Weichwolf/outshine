@@ -49,17 +49,18 @@ void OccupancySink::Open(const Ground &ground) noexcept {
   MaxRadiusM_ = 0.0f;
 }
 
-int OccupancySink::CellOf(double m, int cells) const noexcept {
+int OccupancySink::CellOf(double m, Axis on) const noexcept {
+  const int cells = on == Axis::East ? CellsE_ : CellsN_;
   const int i = static_cast<int>(std::floor(m / Store_.CellM));
   return std::clamp(i, 0, cells - 1);
 }
 
 bool OccupancySink::Clear(const Solid &body) const noexcept {
   const double reach = static_cast<double>(body.RadiusM) + static_cast<double>(MaxRadiusM_);
-  const int e0 = CellOf(body.Em - reach, CellsE_);
-  const int e1 = CellOf(body.Em + reach, CellsE_);
-  const int n0 = CellOf(body.Nm - reach, CellsN_);
-  const int n1 = CellOf(body.Nm + reach, CellsN_);
+  const int e0 = CellOf(body.Em - reach, Axis::East);
+  const int e1 = CellOf(body.Em + reach, Axis::East);
+  const int n0 = CellOf(body.Nm - reach, Axis::North);
+  const int n1 = CellOf(body.Nm + reach, Axis::North);
   for (int n = n0; n <= n1; n++) {
     for (int e = e0; e <= e1; e++) {
       for (uint32_t i = Store_.Cells[static_cast<size_t>(n) * static_cast<size_t>(CellsE_) +
@@ -86,8 +87,9 @@ Claim OccupancySink::Place(const Solid &body) noexcept {
 
   const uint32_t slot = Count()++;
   Store_.Bodies[slot] = body;
-  const size_t cell = static_cast<size_t>(CellOf(body.Nm, CellsN_)) * static_cast<size_t>(CellsE_) +
-                      static_cast<size_t>(CellOf(body.Em, CellsE_));
+  const size_t cell =
+      static_cast<size_t>(CellOf(body.Nm, Axis::North)) * static_cast<size_t>(CellsE_) +
+      static_cast<size_t>(CellOf(body.Em, Axis::East));
   Store_.Links[slot] = Store_.Cells[cell];
   Store_.Cells[cell] = slot;
   MaxRadiusM_ = std::max(body.RadiusM, MaxRadiusM_);

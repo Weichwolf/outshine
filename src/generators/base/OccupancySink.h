@@ -48,7 +48,9 @@ private:
     return Claims_[static_cast<size_t>(Claim::Outcome::Placed)];
   }
 
-  [[nodiscard]] int CellOf(double m, int cells) const noexcept;
+  enum class Axis : uint8_t { East, North };
+
+  [[nodiscard]] int CellOf(double m, Axis on) const noexcept;
   [[nodiscard]] bool Clear(const Solid &body) const noexcept;
 
   Storage Store_;

@@ -25,8 +25,10 @@ Cover Ground::CoverAt(EastNorth at) const noexcept {
   int runnerUp = -1;
   const int row = Classes_->Evaluate(on.EastM, on.NorthM, &edgeM, &runnerUp);
   if (row < 0) { return Cover::None(); }
-  if (edgeM >= ClassStructure::kNoEdgeM) { return Cover::Of(row, runnerUp); }
-  return Cover::Of(row, static_cast<float>(edgeM), runnerUp);
+  if (edgeM >= ClassStructure::kNoEdgeM) {
+    return Cover::Of({.Row = row, .RunnerUpRow = runnerUp});
+  }
+  return Cover::Of({.Row = row, .RunnerUpRow = runnerUp}, static_cast<float>(edgeM));
 }
 
 } // namespace outshine::Generators

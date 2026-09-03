@@ -326,13 +326,19 @@ void MinAreaBox(const std::vector<En> &ring, BuildingShape *out) {
   }
 }
 
-[[nodiscard]] BuildingUse UseOf(double areaM2, double aspect, double heightM) {
-  if (areaM2 < kOutbuildingUnderM2) { return BuildingUse::Outbuilding; }
-  if (heightM > kSpireOverM && areaM2 < kSpireUnderM2) { return BuildingUse::Spire; }
-  if (heightM > kTowerOverM) { return BuildingUse::Tower; }
-  if (areaM2 > kHallOverM2) { return BuildingUse::Hall; }
-  if (areaM2 > kBlockOverM2) { return BuildingUse::Block; }
-  if (aspect > kTerraceOverAspect && areaM2 > kTerraceOverM2) { return BuildingUse::Terrace; }
+struct Proportions {
+  double AreaM2 = 0.0;
+  double Aspect = 0.0;
+  double HeightM = 0.0;
+};
+
+[[nodiscard]] BuildingUse UseOf(Proportions of) {
+  if (of.AreaM2 < kOutbuildingUnderM2) { return BuildingUse::Outbuilding; }
+  if (of.HeightM > kSpireOverM && of.AreaM2 < kSpireUnderM2) { return BuildingUse::Spire; }
+  if (of.HeightM > kTowerOverM) { return BuildingUse::Tower; }
+  if (of.AreaM2 > kHallOverM2) { return BuildingUse::Hall; }
+  if (of.AreaM2 > kBlockOverM2) { return BuildingUse::Block; }
+  if (of.Aspect > kTerraceOverAspect && of.AreaM2 > kTerraceOverM2) { return BuildingUse::Terrace; }
   return BuildingUse::House;
 }
 
@@ -413,7 +419,12 @@ double BayPreferenceM(BuildingUse use) {
   return kBayHouseM;
 }
 
-void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
+struct Roofing {
+  double TopM = 0.0;
+  double PitchDeg = 0.0;
+};
+
+void SplitHeight(BuildingShape *s, Roofing under) {
   const double halfSpan =
       s->Roof == RoofKind::Hip || s->Roof == RoofKind::Gable || s->Roof == RoofKind::Mansard
           ? s->HalfVm
@@ -421,21 +432,21 @@ void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
   double rise = 0.0;
   switch (s->Roof) {
     case RoofKind::Flat: rise = s->HalfVm > kParapetLeastHalfVm ? kParapetM : 0.0; break;
-    case RoofKind::Shed: rise = 2.0 * s->HalfVm * std::tan(pitchDeg * kDeg2Rad); break;
+    case RoofKind::Shed: rise = 2.0 * s->HalfVm * std::tan(under.PitchDeg * kDeg2Rad); break;
     case RoofKind::Sawtooth: rise = kSawtoothRiseShare * s->PeriodM; break;
     case RoofKind::Dome: rise = kDomeRiseShare * s->HalfVm; break;
     case RoofKind::Mansard:
-      rise = kMansardRiseShare * halfSpan * std::tan(pitchDeg * kDeg2Rad);
+      rise = kMansardRiseShare * halfSpan * std::tan(under.PitchDeg * kDeg2Rad);
       break;
     case RoofKind::Gable:
-    case RoofKind::Hip: rise = halfSpan * std::tan(pitchDeg * kDeg2Rad); break;
+    case RoofKind::Hip: rise = halfSpan * std::tan(under.PitchDeg * kDeg2Rad); break;
   }
 
   const double roofShare = s->Use == BuildingUse::Spire ? 0.72 : 0.45;
-  s->RiseM = s->Roof == RoofKind::Flat ? std::min(rise, kFlatRiseShare * topM)
-                                       : std::min({rise, roofShare * topM, kRiseMostM});
-  s->EavesM = std::max(topM - s->RiseM, kEavesLeastM);
-  s->RiseM = std::max(topM - s->EavesM, 0.0);
+  s->RiseM = s->Roof == RoofKind::Flat ? std::min(rise, kFlatRiseShare * under.TopM)
+                                       : std::min({rise, roofShare * under.TopM, kRiseMostM});
+  s->EavesM = std::max(under.TopM - s->RiseM, kEavesLeastM);
+  s->RiseM = std::max(under.TopM - s->EavesM, 0.0);
 
   const double want = FloorPreferenceM(s->Use);
   s->Storeys = std::max(1, static_cast<int>(std::lround(s->EavesM / want)));
@@ -520,13 +531,13 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
 
   const double top = std::max(order.TopOverFootM, 2.6);
   const double aspect = s.HalfUm / s.HalfVm;
-  s.Use = order.Use ? *order.Use : UseOf(s.AreaM2, aspect, top);
+  s.Use = order.Use ? *order.Use : UseOf({.AreaM2 = s.AreaM2, .Aspect = aspect, .HeightM = top});
   s.PeriodM = std::max(kPeriodLeastM,
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));
   s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
   s.Roof = RoofOf(s, aspect);
-  SplitHeight(&s, top, PitchDegOf(s.Use, s.Seed, order.HeightMeasured));
+  SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Use, s.Seed, order.HeightMeasured)});
 
   const double bay = BayPreferenceM(s.Use);
   s.BayM = bay * (kBayJitterFloor + kBayJitterSwing * UnitOf(s.Seed, kBayJitterStream));
@@ -744,7 +755,7 @@ Massing MassOf(std::span<const double> ringLatLon,
     o.Use = s.Use;
     BuildingShape top = Finish(std::move(cap), o);
     BuildingShape base = s;
-    SplitHeight(&base, lower, 0.0);
+    SplitHeight(&base, {.TopM = lower, .PitchDeg = 0.0});
     stacked.push_back(std::move(base));
     if (top.Valid()) { stacked.push_back(std::move(top)); }
   }
