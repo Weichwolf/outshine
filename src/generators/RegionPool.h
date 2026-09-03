@@ -15,10 +15,6 @@ namespace outshine::Generators {
 
 constexpr double kCellUnsaidM = 8.0;
 
-constexpr double kCellPerRungStep = 8.0;
-
-constexpr double kCellPerRung = 8.0;
-
 class RegionPool {
 public:
   struct Shape {

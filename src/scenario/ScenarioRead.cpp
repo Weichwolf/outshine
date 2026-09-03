@@ -445,7 +445,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
 
   const Xml::Ref generators = root.Child("generators");
   for (const Xml::Ref one : generators.Children("generator")) {
-    Scenario::Generator made;
+    Scenario::Generating made;
     made.Kind = one.Attr("kind");
     for (const Xml::Ref parameter : one.Children("set")) {
       made.Parameters.push_back(

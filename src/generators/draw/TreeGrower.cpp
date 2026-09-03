@@ -296,7 +296,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
 
     int last = static_cast<int>(Plant_->Nodes.size()) - 1;
     for (int s = 0; s < t.Steps; ++s) {
-      if (static_cast<int>(Plant_->Nodes.size()) >= kMaxNodes) { break; }
+      if (static_cast<int>(Plant_->Nodes.size()) >= kMostTreeNodes) { break; }
       const Vec3f oldDir = t.Dir;
 
       const Frame turned = FrameFrom({.Along = t.Dir, .Reference = t.Up});
@@ -340,7 +340,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
 
       if (t.Bare > 0) {
         t.Bare--;
-      } else if (t.Order < g.MaxOrder && static_cast<int>(Plant_->Nodes.size()) < kMaxNodes) {
+      } else if (t.Order < g.MaxOrder && static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes) {
         if (g.WhorlCount > 0 && t.Order == 0) {
           if (((s - bareSteps) % g.WhorlSpacing) == 0) {
             for (int wb = 0; wb < g.WhorlCount; ++wb) {
@@ -361,7 +361,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     }
 
     if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
-        static_cast<int>(Plant_->Nodes.size()) < kMaxNodes &&
+        static_cast<int>(Plant_->Nodes.size()) < kMostTreeNodes &&
         last > Plant_->Shoots[static_cast<size_t>(t.Shoot)].First) {
       for (int j = 0; j < 2; ++j) {
         const float roll = j == 0 ? 0.0f : kTau * 0.5f;

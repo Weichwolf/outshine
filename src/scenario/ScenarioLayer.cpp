@@ -153,7 +153,7 @@ bool MergeLayer(Scenario::Document &into,
             layer.Generators,
             named,
             "generator",
-            ByKindField<Scenario::Generator>{},
+            ByKindField<Scenario::Generating>{},
             trace);
   MergeRows(into.Compositors,
             layer.Compositors,

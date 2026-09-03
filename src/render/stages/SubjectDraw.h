@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "FragmentArms.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "scene/SurfaceState.h"
@@ -277,8 +278,6 @@ private:
 
   [[nodiscard]] static size_t
   PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
-
-  static constexpr size_t kSurfaceKinds = 5;
 
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;

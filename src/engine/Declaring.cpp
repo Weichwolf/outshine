@@ -148,7 +148,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   const auto offers = [this](const std::string &kind) {
     return S_->World.Offering.named(kind) != nullptr;
   };
-  for (const Scenario::Generator &named : scenario.Generators) {
+  for (const Scenario::Generating &named : scenario.Generators) {
     if (offers(named.Kind)) { continue; }
     S_->Error = "the scenario declares a generator of kind '" + named.Kind +
                 "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
@@ -377,7 +377,7 @@ bool Engine::generated(const Scenario::Document &scenario) {
     if (shown.Kind != "generated") { continue; }
     if (!offered(shown.Uri)) { return false; }
   }
-  for (const Scenario::Generator &named : scenario.Generators) {
+  for (const Scenario::Generating &named : scenario.Generators) {
     if (!offered(named.Kind)) { return false; }
   }
   return made.parts() == 0 || setGeometry(made);

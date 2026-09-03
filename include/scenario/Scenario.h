@@ -171,8 +171,16 @@ struct Setting {
   std::string Value;
 };
 
-struct Generator {
+/// One generator a scenario ASKS FOR, by kind, with the settings it is to run under.
+///
+/// It is not a generator: `Generators::Generator` is the thing with `kind()` and `make()`, and it
+/// lives in the generator library's own door. This is the DECLARATION of one -- the same shape as
+/// @ref Compositor beside it -- and naming both ends `Generator` made one word mean the asking and
+/// the answering at once.
+struct Generating {
+  /// Which generator, by the `kind()` it answers to.
   std::string Kind;
+  /// What it is to run under. A setting not named leaves the generator's own default standing.
   std::vector<Setting> Parameters;
 };
 
@@ -662,7 +670,7 @@ struct Document {
   std::vector<Layer> Layers;
   WorldSettings Ground;
   std::vector<Provider> Providers;
-  std::vector<Generator> Generators;
+  std::vector<Generating> Generators;
   std::vector<Compositor> Compositors;
   RenderPlan Render;
   Lighting Lit;

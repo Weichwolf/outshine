@@ -21,7 +21,7 @@ public:
   [[nodiscard]] float GrowHeight() const { return GrowHeight_; }
 
 private:
-  static constexpr int kMaxNodes = 250000;
+  static constexpr int kMostTreeNodes = 250000;
   static constexpr int kBranchSides = 8;
 
   struct Tip {

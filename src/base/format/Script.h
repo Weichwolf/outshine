@@ -11,7 +11,7 @@
 namespace outshine::Script {
 
 inline constexpr size_t kMaxTokens = 4096;
-inline constexpr size_t kMaxNodes = 2048;
+inline constexpr size_t kMostScriptNodes = 2048;
 inline constexpr size_t kMaxDepth = 32;
 inline constexpr size_t kMaxSteps = 100000;
 inline constexpr size_t kMaxNames = 128;

@@ -42,7 +42,15 @@ namespace {
 // new one arrives the same way. Both directions are information.
 
 constexpr size_t kTypeNamesTwice = 9;
-constexpr size_t kConstantNamesTwice = 1;
+// AND NO CONSTANT AT ALL, since 2026-09-03. The one that stood here was `kCellPerRung`, and
+// looking at it found both of its definitions DEAD -- nothing read either, and `kCellPerRungStep`
+// carried the same 8.0 a third time in the same header. The other two the walk found were never
+// declared here: `kSurfaceKinds` was 5 in two files that derive the same arm index from it, and
+// `kMaxNodes` was 250000 tree nodes in one file and 2048 script nodes in another. That last one is
+// what this number is FOR -- two quantities under one word, differing by a factor of 122, where a
+// reader has no way to know which is meant and picking the wrong one is silent. They are
+// `kMostTreeNodes` and `kMostScriptNodes` now.
+constexpr size_t kConstantNamesTwice = 0;
 
 [[nodiscard]] std::string Word(const std::string &from, size_t at) {
   while (at < from.size() && from[at] == ' ') { ++at; }

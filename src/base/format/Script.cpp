@@ -322,8 +322,8 @@ struct Reading {
   }
 
   [[nodiscard]] bool Room() {
-    if (Nodes.size() < kMaxNodes) { return true; }
-    Error = "the script reaches the node bound of " + std::to_string(kMaxNodes);
+    if (Nodes.size() < kMostScriptNodes) { return true; }
+    Error = "the script reaches the node bound of " + std::to_string(kMostScriptNodes);
     return false;
   }
 
