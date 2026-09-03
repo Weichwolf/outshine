@@ -168,6 +168,15 @@ These are C++ truths rather than decisions about outshine, and they do not move.
   dependency rather than a choice, so a second mechanism beside one it already carries is not
   insulation, it is a duplicate that has to be kept true to a driver nobody here wrote. A thin RAII handle
   over an SDL type is ownership and stays; a scheme that re-decides what SDL decides is a finding
+- **TELEMETRY IS A TOOL FOR PEOPLE, AND I AM NOT ONE.** A person plants a counter ON SPEC because
+  a rebuild costs minutes and the moment may not come again; I rebuild this tree in twenty seconds
+  and `make shots` hands me the same place back. So a number worth keeping is one a CLIENT reads —
+  frame time, memory, triangles, whether the preload finished — and everything else is built the
+  day it is needed and removed the same day. A count that states a CORRECTNESS claim is not
+  telemetry at all: `houses buried in the ground` belongs in a case with an oracle that goes RED,
+  never in a line somebody might read. Measured: fifteen counters in the building mesher, threaded
+  through ten functions, printed by a block that never executed — and the round that made them
+  tidier instead of asking whether they could go ADDED four findings
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population;
   calibration measures, never decides
 - **A diagnostic is a declared LABEL**, never a free literal: `namespace Says` at the top of the
@@ -198,6 +207,21 @@ Four architectural commitments. Everything else is a decision an item can revisi
   replay plays a drive back frame for frame, and Unreal's automation compares screenshots bit for
   bit and calls a wandering one a streaming bug. `make shots` writes every picture under its own
   digest, which is how a lost determinism is noticed the same day.
+- **PROVIDERS ANSWER · GENERATORS EXPAND · THE ENGINE HOLDS THE VERBS · THE RENDERER GIVES THE
+  LOOK.** Four roles, and the line between them is TESTABLE rather than a matter of taste. A
+  PROVIDER answers a question that has one right answer — how high is it here, what does OSM say
+  stands there, where is the sun at 17:40 — and it answers the same way whether it reads SRTM,
+  MOLA or noise, because the role is the ANSWER and never the source. A GENERATOR EXPANDS: a
+  loader is linear, N bytes in and N bytes out, while eight outline points become four hundred
+  triangles and a seed becomes twenty thousand. So the question that sorts them is "can this be
+  checked against a truth OUTSIDE this tree" — the height of a point can (SRTM), a house outline
+  can (OSM), that house's untagged HEIGHT cannot, and neither can a cloud or the shape of a tree.
+  The ENGINE owns the verbs — fetch, hold, ask, place, draw, simulate, hold the frame — and the
+  RENDERER owns the LOOK, which is why the atmosphere belongs to the engine and only a cloud's
+  FORM to a generator: scattering is physics, form is invention. A generator therefore hands over
+  GEOMETRY and a material, never a light. **The planet is a PARAMETER and the Earth is the
+  YARDSTICK**: a Mars needs no other engine, only other providers and another catalogue — and it
+  is the Earth, alone, that a photograph can argue with
 - **FOUR THINGS RUN INDEPENDENTLY — SIM · VIDEO · AUDIO · IO — and what passes between them is a
   SNAPSHOT.** The simulation owns the world and hands the renderer a delta; the renderer draws a
   frame behind and never reaches back; the mixer reads where sources stood when it mixed. **IO is

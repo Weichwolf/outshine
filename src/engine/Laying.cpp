@@ -705,33 +705,6 @@ void Engine::State::Models(const TangentFrame &standing,
       Published.Places(
           "buildings: triangles reaching over 20 m", static_cast<double>(reaching), "triangles");
       Published.Places("buildings: the furthest any reaches", furthest, "m");
-      Published.Places("buildings: roofs the clipper could not cover",
-                       static_cast<double>(Generators::RoofSurface::UnclippedTaken()),
-                       "roofs");
-      Published.Places("buildings: roof triangles with a vertex outside their footprint",
-                       static_cast<double>(Generators::RoofSurface::OutsideTaken()),
-                       "triangles");
-      Published.Places("buildings: seated BELOW the ground they stand on",
-                       static_cast<double>(Generators::BuildingMesh::BuriedTaken()),
-                       "buildings");
-      Published.Places("buildings: raised with full architecture",
-                       static_cast<double>(Generators::BuildingMesh::RaisedTaken()),
-                       "buildings");
-      Published.Places("buildings: reduced to a hull box",
-                       static_cast<double>(Generators::BuildingMesh::BoxesTaken()),
-                       "buildings");
-      Published.Places("buildings: past even a BOX's pixel budget",
-                       static_cast<double>(Generators::BuildingMesh::OverBudgetTaken()),
-                       "buildings");
-      Published.Places("buildings: meshed with NO pixel scale declared",
-                       static_cast<double>(Generators::BuildingMesh::UnscaledTaken()),
-                       "buildings");
-      Published.Places("buildings: the farthest one meshed lies",
-                       static_cast<double>(Generators::BuildingMesh::FarthestMTaken()),
-                       "m out");
-      Published.Places("buildings: and the deepest of them is buried by",
-                       static_cast<double>(Generators::BuildingMesh::DeepestBuriedMmTaken()),
-                       "mm");
     }
     if (declared.Render.Audits) {
       double least = kBeyondAnyCoordinate;

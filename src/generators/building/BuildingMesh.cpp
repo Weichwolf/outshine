@@ -6,7 +6,6 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -40,57 +39,7 @@ constexpr double kSameHeightM = 1.0e-3;
 constexpr double kLeastEdgeM = 0.05;
 constexpr double kLeastRiseM = 0.03;
 
-std::atomic<size_t> gBuried{0};
-std::atomic<size_t> gDeepestMm{0};
-std::atomic<size_t> gRaised{0};
-std::atomic<size_t> gFarthestM{0};
-std::atomic<size_t> gBoxes{0};
-std::atomic<size_t> gUnscaled{0};
-std::atomic<size_t> gFootless{0};
-std::atomic<size_t> gPlinthSteps{0};
-std::atomic<size_t> gFloorRim{0};
-std::atomic<size_t> gOverBudget{0};
 } // namespace
-
-size_t BuildingMesh::BuriedTaken() {
-  return gBuried.exchange(0u);
-}
-
-size_t BuildingMesh::DeepestBuriedMmTaken() {
-  return gDeepestMm.exchange(0u);
-}
-
-size_t BuildingMesh::RaisedTaken() {
-  return gRaised.exchange(0u);
-}
-
-size_t BuildingMesh::FarthestMTaken() {
-  return gFarthestM.exchange(0u);
-}
-
-size_t BuildingMesh::BoxesTaken() {
-  return gBoxes.exchange(0u);
-}
-
-size_t BuildingMesh::UnscaledTaken() {
-  return gUnscaled.exchange(0u);
-}
-
-size_t BuildingMesh::FootlessTaken() {
-  return gFootless.exchange(0u);
-}
-
-size_t BuildingMesh::PlinthStepsTaken() {
-  return gPlinthSteps.exchange(0u);
-}
-
-size_t BuildingMesh::FloorRimTaken() {
-  return gFloorRim.exchange(0u);
-}
-
-size_t BuildingMesh::OverBudgetTaken() {
-  return gOverBudget.exchange(0u);
-}
 
 namespace {
 
@@ -534,7 +483,6 @@ void Plinth(const BuildingShape &s,
       const En ra = Along(s.Ring[i], s.Ring[j], was);
       const En rb = Along(s.Ring[i], s.Ring[j], now);
       was = now;
-      gPlinthSteps.fetch_add(1u, std::memory_order_relaxed);
       site.Quad(Face(s, oa, lowZ, Facade::Plinth),
                 Face(s, ob, lowZ, Facade::Plinth),
                 Face(s, ob, topZ, Facade::Plinth),
@@ -757,13 +705,6 @@ double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   const double seatZ = ground.High();
   const double seat = std::max(seatZ, highest) + kPlinthM;
 
-  const double deepest = seatZ - seat;
-  if (deepest > 0.0) {
-    gBuried.fetch_add(1u, std::memory_order_relaxed);
-    const auto mm = static_cast<size_t>(deepest * 1000.0);
-    size_t was = gDeepestMm.load(std::memory_order_relaxed);
-    while (mm > was && !gDeepestMm.compare_exchange_weak(was, mm)) {}
-  }
   return seat;
 }
 
@@ -848,10 +789,6 @@ void Box(const BuildingShape &s, const std::vector<En> &ring, Site &site) {
 
 void RaisePart(const BuildingShape &s, Site &site) {
   const double outM = site.ReachM();
-  const auto whole = static_cast<size_t>(outM);
-  for (size_t seen = gFarthestM.load(); whole > seen;) {
-    if (gFarthestM.compare_exchange_weak(seen, whole)) { break; }
-  }
   const double focalPx = site.FocalPx();
   if (focalPx > 0.0) {
     double leastE = kBeyondAnyCoordinate;
@@ -868,18 +805,13 @@ void RaisePart(const BuildingShape &s, Site &site) {
     const double highM = s.TopM() - s.SoleM;
     const double asDetailed = std::min(ArchitectureReachM(focalPx),
                                        FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
-    if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {
-      gOverBudget.fetch_add(1u, std::memory_order_relaxed);
-    }
+    if (outM > FitsInPixelsM(focalPx, highM, wideM, kBoxTris)) {}
     if (outM > asDetailed) {
-      gBoxes.fetch_add(1u, std::memory_order_relaxed);
       Box(s, Hull(s.Ring), site);
       return;
     }
   } else {
-    gUnscaled.fetch_add(1u, std::memory_order_relaxed);
   }
-  gRaised.fetch_add(1u, std::memory_order_relaxed);
   const RoofSurface roof(s);
   const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
   const std::vector<En> overhang = RoofSurface::Widened(s.Ring, s.OverhangM);
@@ -893,8 +825,6 @@ void RaisePart(const BuildingShape &s, Site &site) {
     Plinth(s, roof, overhang, s.SeatM, site);
     const std::vector<En> proud = RoofSurface::Widened(s.Ring, kPlinthProudM);
     const std::vector<En> foot = RefinedLike(s.Ring, overhang, proud, roof);
-    if (foot.empty()) { gFootless.fetch_add(1u, std::memory_order_relaxed); }
-    gFloorRim.fetch_add(foot.empty() ? s.Ring.size() : foot.size(), std::memory_order_relaxed);
     Floor(s, foot.empty() ? s.Ring : foot, s.SoleM, site);
   } else {
     Floor(s, s.Ring, lowZ, site);
@@ -1002,5 +932,4 @@ bool BuildingMesh::Mesh(const StructurePlan &plan, Raised &into) const noexcept 
   }
   return true;
 }
-
 } // namespace outshine::Generators

@@ -1,6 +1,5 @@
 #include <array>
 #include <algorithm>
-#include <atomic>
 #include "math/Units.h"
 #include "RoofSurface.h"
 
@@ -24,10 +23,6 @@ namespace {
 struct Line {
   double A = 0.0, B = 0.0, C = 0.0;
 };
-
-std::atomic<size_t> gBreaksKept{0};
-std::atomic<size_t> gBreaksDropped{0};
-std::atomic<size_t> gBreaksMerged{0};
 
 constexpr double kSamePointM = 0.01;
 constexpr double kWeldM = 0.02;
@@ -239,7 +234,6 @@ bool RoofSurface::Fill(std::span<const En> plan, std::vector<En> &tris) {
   const size_t first = tris.size();
   if (!EarClip(plan, tris)) {
     tris.resize(first);
-    RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
     return false;
   }
   return true;
@@ -284,18 +278,6 @@ ClipHalf(const BuildingShape &shape, std::span<const En> poly, const Line &line,
 }
 } // namespace
 
-size_t RoofSurface::BreaksKeptTaken() {
-  return gBreaksKept.exchange(0u);
-}
-
-size_t RoofSurface::BreaksDroppedTaken() {
-  return gBreaksDropped.exchange(0u);
-}
-
-size_t RoofSurface::BreaksMergedTaken() {
-  return gBreaksMerged.exchange(0u);
-}
-
 void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
   at.clear();
   std::array<Line, kMaxCreases> lines{};
@@ -319,19 +301,12 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
     const double t = d0 / span;
     const double reach = std::hypot(to.EastM - from.EastM, to.NorthM - from.NorthM);
     const double keepAway = reach > kLeastRunM ? kWeldM / reach : 1.0;
-    if (t > keepAway && t < 1.0 - keepAway) {
-      at.push_back(t);
-      gBreaksKept.fetch_add(1u, std::memory_order_relaxed);
-    } else {
-      gBreaksDropped.fetch_add(1u, std::memory_order_relaxed);
-    }
+    if (t > keepAway && t < 1.0 - keepAway) { at.push_back(t); }
   }
   std::ranges::sort(at);
-  const size_t before = at.size();
   at.erase(std::ranges::unique(at, [](double a, double b) { return std::fabs(a - b) < kSameLineM; })
                .begin(),
            at.end());
-  gBreaksMerged.fetch_add(before - at.size(), std::memory_order_relaxed);
 }
 
 void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
@@ -360,7 +335,6 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   for (const std::vector<En> &cell : cells) {
     if (!EarClip(cell, mine)) {
       tris.resize(first);
-      RoofSurface::Unclipped_.fetch_add(1u, std::memory_order_relaxed);
       return;
     }
   }
@@ -369,10 +343,7 @@ void RoofSurface::Cover(std::span<const En> plan, std::vector<En> &tris) const {
   for (size_t at = 0; at + 2 < mine.size(); at += 3) {
     for (size_t corner = 0; corner < 3; ++corner) {
       const double reach = 4.0 * std::max({Shape_.OverhangM, kCorniceM, kOverhangM});
-      if (!Inside(Shape_.Ring, mine[at + corner], reach)) {
-        Outside_.fetch_add(1u, std::memory_order_relaxed);
-        break;
-      }
+      if (!Inside(Shape_.Ring, mine[at + corner], reach)) { break; }
     }
   }
   tris.insert(tris.end(), mine.begin(), mine.end());
