@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <Outshine.h>
-#include "Units.h"
+#include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Fetching.h"
@@ -358,6 +358,8 @@ struct Spent {
   };
 
   Counter Advance;
+  double StreamedMs = 0.0;
+  size_t StreamedTiles = 0;
   Counter Render;
 };
 

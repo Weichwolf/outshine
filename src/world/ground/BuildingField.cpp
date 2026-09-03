@@ -1,4 +1,4 @@
-#include "Units.h"
+#include "math/Units.h"
 #include "BuildingField.h"
 #include "math/Vec3.h"
 
@@ -21,8 +21,6 @@
 #include <ratio>
 
 namespace outshine::Ground {
-
-constexpr int kBuildingRings = 1;
 
 constexpr uint32_t kKnuthWord = 2654435761u;
 constexpr uint32_t kSecondKnuthWord = 2246822519u;
@@ -320,7 +318,7 @@ int BuildingField::Build(const GroundQuery &ground,
   const TileWatermark::Next next = Mark_.Ask(
       feats,
       field.Tiles(),
-      {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kBuildingRings},
+      {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
       [&](size_t from, size_t to) { return TileGroundResolved(ground, field, from, to, layer); });
   if (!next.Found) { return static_cast<int>(Prints_.size()); }
   Mark_.Take(next.Tile);

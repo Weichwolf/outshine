@@ -1,4 +1,4 @@
-#include "Units.h"
+#include "math/Units.h"
 #include "PlaceCamera.h"
 
 #include <algorithm>
@@ -21,6 +21,8 @@
 
 #include <Outshine.h>
 #include <scenario/Scenario.h>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "Sha256.h"
@@ -38,6 +40,22 @@ namespace {
 
 constexpr double kPatienceS = 15.0;
 constexpr double kSightM = 240000.0;
+
+/// THE PLACES STAND IN THE CLEAREST AIR THE MODEL CAN STATE, which is the gases alone.
+///
+/// Koschmieder: visual range = 3.912 / extinction. kEarthAir carries Rayleigh 0.0136 /km at 550 nm
+/// -- the air itself, which no weather removes -- and Mie 0.0444 /km, which is dust, smoke and
+/// humidity. The average day it describes reaches 3.912 / 0.058 = 67 km, and Venice's ring meshes
+/// the Alps at 213.9 km: they arrived transmitting exp(-0.058 * 213.9), which is nothing.
+///
+///     haze 1.0   0.0580 /km    67 km    the Alps are white
+///     haze 0.1   0.0180 /km   217 km    the Alps are there, at 2.1 per cent contrast
+///     haze 0.0   0.0136 /km   288 km    5.4 per cent, and this is the CEILING
+///
+/// Zero is not "scattering off" -- every gas the model states is still there and the sky is still
+/// blue, because Rayleigh is what makes it blue. It is the hardest, clearest day physics allows,
+/// and 288 km is the wall behind it that no weather gets past.
+constexpr double kClearDayHaze = 0.0;
 constexpr double kEyeAglM = 60.0;
 constexpr double kPlanAboveM = 4000.0;
 constexpr double kPitchDeg = -6.0;
@@ -191,6 +209,7 @@ Scenario::Document ScenarioFor(const Place &place) {
   stands.Ground.Origin.LongitudeDeg = place.LongitudeDeg;
   stands.Ground.PatienceS = 3.0;
   stands.Ground.SightM = kSightM;
+  stands.Ground.Sky.Haze = kClearDayHaze;
   stands.Render.Declared = true;
   stands.Render.Frame = Extent{.WidthPx = kWidePx, .HeightPx = kHighPx};
   stands.Render.Fill = kFillShare;

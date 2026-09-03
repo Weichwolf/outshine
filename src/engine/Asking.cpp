@@ -1,5 +1,5 @@
 #include "Digest.h"
-#include "Units.h"
+#include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Log.h"
@@ -276,6 +276,11 @@ bool Engine::State::Composes() {
                               : 720.0;
     World.Stack.SeeFootprintsWith(highPx /
                                   (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn)));
+    const int vectorZoom = World.Stack.FinestZoomOf(Data::DataKind::VectorMap);
+    const double vectorSpanM = 40075017.0 *
+                               std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
+                               std::ldexp(1.0, vectorZoom);
+    World.Stack.FootprintTilesSpan(vectorSpanM);
   }
   if (!World.Shipping.Ready() && World.Stack.Vegetated()) {
     std::string why;

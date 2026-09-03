@@ -1,5 +1,5 @@
 #include "Digest.h"
-#include "Units.h"
+#include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Capacity.h"
@@ -112,6 +112,8 @@ constexpr size_t kMostYieldTriangles = 24000;
 constexpr double kFlyingM = 1.0;
 constexpr double kTrimMostWidths = 4.0;
 constexpr double kFitWithinM = 0.5;
+constexpr double kFifthPart = 0.05;
+
 constexpr double kStampWorthM = 0.25;
 constexpr double kBrokenGroundM = 1.0;
 constexpr double kFitTightestM = 5.5;
@@ -350,6 +352,8 @@ void Engine::State::Models(const TangentFrame &standing,
         Published.Places(
             "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
         Published.Places("buildings: footprint across, p50", pick(across, 0.5), "m");
+        Published.Places("buildings: footprint across, p05", pick(across, kFifthPart), "m");
+        Published.Places("buildings: and the narrowest of them", across.front(), "m");
         Published.Places("buildings: footprints narrower than a ground cell",
                          static_cast<double>(underOneCell),
                          "footprints");

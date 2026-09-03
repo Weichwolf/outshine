@@ -18,6 +18,8 @@
 
 namespace outshine::Ground {
 
+constexpr double kTilePx = 256.0;
+
 class BuildingField {
 public:
   enum class HeightSource : uint8_t { Osm, Default };
@@ -33,6 +35,12 @@ public:
   };
 
   void SeenWith(double focalPx) { FocalPx_ = focalPx; }
+
+  void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
+
+  [[nodiscard]] double CarriesFromM() const {
+    return TileSpanM_ > 0.0 ? TileSpanM_ / kTilePx : 0.0;
+  }
 
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
@@ -91,6 +99,7 @@ private:
                                const OsmField::Ring &ring,
                                std::vector<double> *corners,
                                double *seatAslM = nullptr);
+
   [[nodiscard]] static bool TileGroundResolved(
       const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer);
   void Raise(const OsmField &field, const Footprint &f);
@@ -102,6 +111,7 @@ private:
   TileRanges ByTile_;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;
+  double TileSpanM_ = 0.0;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
 
   std::vector<double> Corners_;

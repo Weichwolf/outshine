@@ -84,6 +84,20 @@ inline constexpr Medium kEarthAir = {
     .Pad2 = 0.0f,
 };
 
+[[nodiscard]] constexpr Medium Hazed(const Medium &air, double haze) {
+  Medium out = air;
+  const auto scale = static_cast<float>(haze > 0.0 ? haze : 0.0);
+  out.MieScatteringPerKm = air.MieScatteringPerKm * scale;
+  out.MieExtinctionPerKm = air.MieExtinctionPerKm * scale;
+  return out;
+}
+
+static_assert(Hazed(kEarthAir, 1.0) == kEarthAir, "the declared day is the model's own air");
+static_assert(Hazed(kEarthAir, 0.0).MieExtinctionPerKm == 0.0f &&
+                  Hazed(kEarthAir, 0.0).RayleighScatteringPerKm ==
+                      kEarthAir.RayleighScatteringPerKm,
+              "clear air keeps its GASES -- a sky with no Rayleigh is not clear, it is black");
+
 static_assert(sizeof(Medium) == kMediumBytes,
               "the medium is five float4 rows a device can bind unpadded");
 static_assert(alignof(Medium) == 16,

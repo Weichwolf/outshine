@@ -63,6 +63,7 @@ std::string WriteScenario(const Scenario::Document &declared) {
     Number(said, "lon", declared.Ground.Origin.LongitudeDeg);
     Number(said, "patienceS", declared.Ground.PatienceS);
     Number(said, "sightM", declared.Ground.SightM);
+    Number(said, "haze", declared.Ground.Sky.Haze);
     if (declared.Ground.Shape.Kind.empty() && declared.Ground.Osm.empty()) {
       said += "/>\n";
     } else {

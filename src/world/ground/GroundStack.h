@@ -83,6 +83,8 @@ public:
 
   void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
 
+  void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }
+
   [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
 
   [[nodiscard]] const StreetField &Ways() const { return Ways_; }

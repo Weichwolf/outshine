@@ -79,6 +79,19 @@ struct Weather {
   double CloudBaseAglM = 0.0;
   double WindDeg = 0.0;
   double WindMs = 0.0;
+
+  /// How much the air between eye and subject is allowed to whiten it, from 0 to 1.
+  ///
+  /// AERIAL PERSPECTIVE IS PHYSICS AND NOT DECORATION -- Rayleigh scattering over a long path is
+  /// why a distant ridge is pale blue, and a renderer that omits it draws a cardboard cutout. But
+  /// the amount is WEATHER: the same Jura ridge is razor-sharp on a cold clear morning and gone by
+  /// noon in summer haze, and a scenario that wants to see the Alps from Venice is declaring the
+  /// morning rather than switching off a shader.
+  ///
+  /// So this scales the scattering the atmosphere already computes. One is the physical amount for
+  /// the declared air; zero is the clearest air the model can state. The DEFAULT IS ONE, because a
+  /// scenario that says nothing about the weather gets the physics rather than a preference.
+  double Haze = 1.0;
 };
 
 /// A ground STATED as a function of place instead of fetched as tiles.

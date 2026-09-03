@@ -254,6 +254,7 @@ void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   into.Ground.Sky.CloudMid = from.Num("cloudMid", into.Ground.Sky.CloudMid);
   into.Ground.Sky.CloudHigh = from.Num("cloudHigh", into.Ground.Sky.CloudHigh);
   into.Ground.Sky.CloudBaseAglM = from.Num("cloudBaseAglM", into.Ground.Sky.CloudBaseAglM);
+  into.Ground.Sky.Haze = from.Num("haze", into.Ground.Sky.Haze);
   into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
   into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
   const Xml::Ref relief = from.Child("relief");

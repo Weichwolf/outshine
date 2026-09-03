@@ -1,7 +1,7 @@
 #include <span>
 #include <array>
 #include <chrono>
-#include "Units.h"
+#include "math/Units.h"
 #include "math/Mat4.h"
 #include "Live.h"
 
@@ -477,7 +477,9 @@ bool Live::Build(std::string &error) {
     }
   }
   if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
-    if (Declared_.DrawsSky) { Renderer_->SetMedium(Render::kEarthAir); }
+    if (Declared_.DrawsSky) {
+      Renderer_->SetMedium(Render::Hazed(Render::kEarthAir, Declared_.Haze));
+    }
 
     const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
     const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;

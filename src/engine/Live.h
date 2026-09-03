@@ -35,6 +35,7 @@ namespace outshine::Core {
 constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
 
 struct Declaration {
+  double Haze = 1.0;
   Scenario::AssetAnimation Animation = Scenario::AssetAnimation::Play;
   int Clip = 0;
 

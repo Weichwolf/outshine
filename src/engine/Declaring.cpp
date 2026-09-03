@@ -165,6 +165,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   const Scenario::Asset *const subject = scenario.subject();
 
   Core::Declaration declared;
+  declared.Haze = scenario.Ground.Sky.Haze;
   declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
   declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
   if (subject != nullptr) {

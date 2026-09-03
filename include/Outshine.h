@@ -117,6 +117,44 @@ public:
   [[nodiscard]] SwapChain swapChain();
   [[nodiscard]] Result inspect();
   [[nodiscard]] bool settled() const;
+
+  /// What @ref Engine::bench measured: the preload, then one row per frame.
+  ///
+  /// The three per-frame series are the whole point. `AdvanceMs` is what the simulation took and
+  /// `StreamedMs` is how much of that was WAITING FOR DATA -- their difference is the simulation's
+  /// own work, and it is the only one of the three a renderer change can move. Measured here: a
+  /// place reported a worst advance of 15 177 ms, none of which was simulation.
+  struct Benched {
+    /// What the blocking phase cost, and what it fetched. Zero when the caller preloaded first.
+    double PreloadMs = 0.0;
+    size_t PreloadTiles = 0;
+
+    /// One entry per frame that ran, in the order they ran.
+    std::vector<double> AdvanceMs;
+    std::vector<double> RenderMs;
+    std::vector<double> StreamedMs;
+
+    /// How many frames waited for data at all, and how many tiles they pulled in doing it.
+    ///
+    /// **This is the number that says whether the preload was WHOLE.** Zero of them means the
+    /// walk asked for nothing the preload had not already fetched -- which is the claim a refusal
+    /// would have made, except this one carries how far off it was rather than only that it was.
+    size_t FramesThatStreamed = 0;
+    size_t TilesInFrames = 0;
+
+    [[nodiscard]] size_t frames() const { return AdvanceMs.size(); }
+  };
+
+  /// Runs @p frames frames from where the engine stands, timing each one.
+  ///
+  /// The engine is NOT required to be settled first. Whether to preload and then bench, or to
+  /// bench the preload itself with `frames == 0`, is the caller's measurement to choose -- so this
+  /// reports what streaming cost rather than refusing to run beside it. `before` is called with
+  /// each frame's index before it is timed, for a caller that moves the camera; passing nothing
+  /// leaves the camera where it stands.
+  [[nodiscard]] Result bench(int frames, Benched &into);
+  [[nodiscard]] Result bench(int frames, Benched &into, const std::function<bool(int)> &before);
+
   [[nodiscard]] Result preload(double patienceS);
   [[nodiscard]] Result preload(double patienceS, const std::function<void(const Loading &)> &tell);
   [[nodiscard]] Loading loading() const;

@@ -1,5 +1,5 @@
 #include "Earth.h"
-#include "Units.h"
+#include "math/Units.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "Heap.h"
@@ -187,12 +187,23 @@ bool Engine::State::Updates() {
   if (Ticking.Drove || Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = WhereTheEyeStands();
     if (World.Stack.Opened()) {
-      const Heap::Tagged restanding("world-restand");
-      World.Stack.Restand(stands);
+      const auto streamingFrom = std::chrono::steady_clock::now();
+      const size_t heldBefore = World.Stack.Footprints().IngestedTiles();
       {
-        const Heap::Tagged growing("world-grow");
-        (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
+        const Heap::Tagged restanding("world-restand");
+        World.Stack.Restand(stands);
+        {
+          const Heap::Tagged growing("world-grow");
+          (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
+        }
       }
+      Cost.StreamedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                                  streamingFrom)
+                            .count();
+      Cost.StreamedTiles = World.Stack.Footprints().IngestedTiles() - heldBefore;
+    } else {
+      Cost.StreamedMs = 0.0;
+      Cost.StreamedTiles = 0;
     }
   }
 

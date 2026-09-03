@@ -1,7 +1,16 @@
 #ifndef OUTSHINE_EARTH_H
 #define OUTSHINE_EARTH_H
 
+#include "math/Units.h"
+
 namespace outshine {
+
+/// `-ln(0.02)`: the contrast at which the eye stops separating a dark object from the horizon.
+///
+/// Two per cent is the threshold Koschmieder's law is stated with and the one the WMO uses to
+/// define meteorological visibility, so it is a convention of the field rather than a choice made
+/// here.
+constexpr double kContrastThresholdLn = 3.912;
 
 /// The mean radius of the WGS84 ellipsoid, in metres.
 ///
@@ -17,6 +26,88 @@ constexpr double kStandardGravityMs2 = 9.80665;
 
 /// Air density at sea level in the International Standard Atmosphere, in kilograms per cubic metre.
 constexpr double kIsaSeaLevelDensityKgM3 = 1.2250;
+
+/// A web-mercator tile is drawn across this many pixels, by the Slippy Map convention every tile
+/// server on Earth serves.
+constexpr double kTilePx = 256.0;
+
+/// The smallest feature a tile at this span can carry, in metres.
+///
+/// WHY A GARDEN FENCE IS NOT VISIBLE FROM ORBIT AND THE PENTAGON IS, stated as arithmetic. A tile
+/// is drawn across @ref kTilePx pixels, so anything narrower than one of those pixels cannot be
+/// seen at ANY distance where this level is the one being drawn. The levels therefore form a
+/// ladder, and over Zurich it reads:
+///
+///     z14   1668 m wide   carries from  6.5 m   houses
+///     z12   6672 m wide   carries from   26 m   blocks and churches
+///     z10  26689 m wide   carries from  104 m   the Great Wall
+///
+/// MEASURED AGAINST THE DATA IT DESCRIBES: the fifth percentile of building footprint widths over
+/// Zurich is 6.47 m against the 6.51 m this returns for z14 -- two per cent apart, with nothing
+/// fitted. OSM tiles at a zoom carry the geometry that zoom resolves, and this recovers the same
+/// number from the projection alone.
+///
+/// IT SAYS WHAT A LEVEL CARRIES, NEVER WHAT MAY BE DISCARDED. On the finest level loaded nothing
+/// is dropped, because no child is left to hold it and a camera may stand a centimetre from a
+/// wall. Dropping happens on a COARSER level only, and only because the same feature still stands
+/// on the finer one -- which is Cesium's rule for 3D Tiles.
+[[nodiscard]] constexpr double CarriesFromM(double tileSpanM) {
+  return tileSpanM > 0.0 ? tileSpanM / kTilePx : 0.0;
+}
+
+/// How strongly clean air scatters green light, per kilometre at sea level.
+///
+/// Rayleigh scattering off the gas molecules themselves, at 550 nm, from Bruneton's fit to the US
+/// Standard Atmosphere. It is why the sky is blue and why a far ridge is pale blue rather than
+/// pale grey, and NO WEATHER REMOVES IT -- it is the air, not something in the air.
+constexpr double kRayleighExtinctionPerKm = 0.0136;
+
+/// How strongly the AEROSOLS of an average day scatter, per kilometre at sea level.
+///
+/// Mie scattering off dust, smoke, salt and humidity. Unlike the gases this is weather: a hard
+/// foehn morning carries a fraction of it and a summer afternoon over a city carries several
+/// times as much. The figure is the average-day value the same fit states, and it is what
+/// @ref Scenario::Weather::Haze scales.
+constexpr double kMieExtinctionPerKm = 0.0444;
+
+/// How far one can see through air carrying no aerosols at all, in metres.
+///
+/// The gases alone, and the ceiling no weather passes: on the clearest day physics allows, a dark
+/// ridge stops being distinguishable at this range and not one metre further.
+constexpr double kClearAirRangeM = kContrastThresholdLn / kRayleighExtinctionPerKm * kMPerKm;
+
+/// How far one can see on the average day @ref kMieExtinctionPerKm describes, in metres.
+///
+/// This is why the Alps are invisible from Venice on most days: the ring reaches them at 214 km
+/// and this reads a third of that.
+constexpr double kAverageDayRangeM =
+    kContrastThresholdLn / (kRayleighExtinctionPerKm + kMieExtinctionPerKm) * kMPerKm;
+
+/// How far one can see through air carrying @p haze times the average day's aerosols, in metres.
+///
+/// KOSCHMIEDER'S LAW, which is the meteorological standard for exactly this question: a black
+/// object against the horizon sky stops being distinguishable once its contrast falls to about two
+/// per cent, and that happens at `3.912 / extinction`. The 3.912 is `-ln(0.02)` and not a fitted
+/// number.
+///
+/// This is what a scenario is choosing when it declares haze, so it belongs where the declaration
+/// can be read rather than inside the renderer:
+///
+///     haze 1.0    67 km   an average day
+///     haze 0.1   217 km   a hard clear one
+///     haze 0.0   288 km   the gases alone, and the ceiling no weather passes
+[[nodiscard]] constexpr double VisualRangeM(double haze) {
+  const double perKm = kRayleighExtinctionPerKm + kMieExtinctionPerKm * (haze > 0.0 ? haze : 0.0);
+  return kContrastThresholdLn / perKm * kMPerKm;
+}
+
+static_assert(VisualRangeM(0.0) == kClearAirRangeM,
+              "no aerosol is the gases alone, and that is the ceiling");
+static_assert(VisualRangeM(1.0) == kAverageDayRangeM, "and one is the average day it is scaled to");
+static_assert(kClearAirRangeM > kAverageDayRangeM, "more aerosol is less sight");
+static_assert(VisualRangeM(-kAverageDayRangeM) == kClearAirRangeM,
+              "haze below zero is clear air rather than a negative extinction, which would read "
+              "as air that ADDS contrast with distance");
 
 /// A place on the ellipsoid.
 ///
