@@ -525,6 +525,11 @@ struct Engine::State {
 
   [[nodiscard]] static uint64_t SharedNodeAt(const Paving &on, double latDeg, double lonDeg);
 
+  [[nodiscard]] static bool
+  StationsAlong(const Paving &on,
+                const Ground::StreetField::Way &lane,
+                const std::function<bool(double, double, uint64_t)> &station);
+
   void DesignLane(const Paving &on,
                   const Ground::StreetField::Way &lane,
                   size_t laneAt,

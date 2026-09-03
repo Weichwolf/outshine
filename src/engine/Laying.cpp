@@ -16,6 +16,7 @@
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <array>
+#include <functional>
 #include <optional>
 #include <span>
 #include <numbers>
@@ -884,6 +885,30 @@ uint64_t Engine::State::SharedNodeAt(const Paving &on, double latDeg, double lon
   return seen != on.SharedNodes.end() && seen->second > 1u ? key : 0u;
 }
 
+bool Engine::State::StationsAlong(const Paving &on,
+                                  const Ground::StreetField::Way &lane,
+                                  const std::function<bool(double, double, uint64_t)> &station) {
+  for (uint32_t step = 0; step + 1 < lane.PointCount; ++step) {
+    const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
+    const size_t next = here + 2;
+    if (next + 1 >= on.Points.size()) { return false; }
+    const size_t pieces = StepsAcross(on, {.Here = here, .Next = next});
+    for (size_t piece = 0; piece < pieces; ++piece) {
+      const double at = static_cast<double>(piece) / static_cast<double>(pieces);
+      const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
+      const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
+      if (!station(onLat, onLon, piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u)) {
+        return false;
+      }
+    }
+  }
+  const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
+  return last + 1 < on.Points.size() &&
+         station(on.Points[last],
+                 on.Points[last + 1],
+                 SharedNodeAt(on, on.Points[last], on.Points[last + 1]));
+}
+
 void Engine::State::DesignLane(const Paving &on,
                                const Ground::StreetField::Way &lane,
                                size_t laneAt,
@@ -898,36 +923,7 @@ void Engine::State::DesignLane(const Paving &on,
         {.EastM = stood->EastM, .SouthM = stood->SouthM, .GradeM = stood->GradeM, .Node = node});
     return true;
   };
-  for (uint32_t step = 0; step + 1 < lane.PointCount && whole; ++step) {
-    const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
-    const size_t next = here + 2;
-    if (next + 1 >= on.Points.size()) {
-      whole = false;
-      break;
-    }
-    const size_t pieces = StepsAcross(on, {.Here = here, .Next = next});
-    for (size_t piece = 0; piece < pieces && whole; ++piece) {
-      const double at = static_cast<double>(piece) / static_cast<double>(pieces);
-      const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
-      const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
-      whole = station(onLat, onLon, piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u);
-    }
-  }
-  if (whole) {
-    const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
-    if (last + 1 < on.Points.size()) {
-      const auto seen = on.SharedNodes.find(
-          PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
-      whole = station(
-          on.Points[last],
-          on.Points[last + 1],
-          seen != on.SharedNodes.end() && seen->second > 1u
-              ? PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]})
-              : 0ULL);
-    } else {
-      whole = false;
-    }
-  }
+  whole = StationsAlong(on, lane, station);
   if (!whole || into.Along.size() < 2) {
     ++into.RefusedWays;
     return;
