@@ -12,14 +12,13 @@
 
 #include "Capacity.h"
 #include "GroundSample.h"
+#include <Earth.h>
 #include "GroundQuery.h"
 #include "StructureMesher.h"
 #include "TileRanges.h"
 #include "TileWatermark.h"
 
 namespace outshine::Ground {
-
-constexpr double kTilePx = 256.0;
 
 class BuildingField {
 public:
@@ -39,9 +38,7 @@ public:
 
   void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
 
-  [[nodiscard]] double CarriesFromM() const {
-    return TileSpanM_ > 0.0 ? TileSpanM_ / kTilePx : 0.0;
-  }
+  [[nodiscard]] double CarriesFromM() const { return outshine::CarriesFromM(TileSpanM_); }
 
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
