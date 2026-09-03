@@ -25,6 +25,8 @@ public:
   [[nodiscard]] std::span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
+
+  [[nodiscard]] std::string_view Called() const noexcept override { return "road"; }
 };
 
 } // namespace outshine::Generators

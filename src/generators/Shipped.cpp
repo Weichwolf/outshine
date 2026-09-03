@@ -13,6 +13,12 @@
 #include <utility>
 
 namespace outshine::Generators {
+namespace {
+
+constexpr Rank kRankBuilding{100};
+constexpr Rank kRankFlora{200};
+
+} // namespace
 
 bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
                       std::string_view speciesDir,
@@ -45,7 +51,7 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
                                        std::span<const float>(PerM2_.data(), PerM2_.size()),
                                        declared.Limit());
   auto drawn = std::make_unique<ForestDraw>(ClusterId{0}, Stems_.front().HeightM);
-  if (!Placing_.Add(Rank{0}, *made) || !Drawing_.Add(Rank{0}, *drawn)) {
+  if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
     error = "the shipped catalogue names one rank twice";
     return false;
   }
@@ -54,7 +60,7 @@ bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
 
   auto built = std::make_unique<Buildings>(ContactMaterial{0});
   auto drawnBuilt = std::make_unique<BuildingDraw>(ClusterId{1}, 1.0);
-  if (!Placing_.Add(Rank{1}, *built) || !Drawing_.Add(Rank{1}, *drawnBuilt)) {
+  if (!Placing_.Add(kRankBuilding, *built) || !Drawing_.Add(kRankBuilding, *drawnBuilt)) {
     error = "the shipped catalogue names one rank twice";
     return false;
   }

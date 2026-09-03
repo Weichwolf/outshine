@@ -12,6 +12,8 @@
 #include <expected>
 #include <memory>
 #include <cmath>
+#include <format>
+#include <string_view>
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <array>
@@ -166,7 +168,21 @@ bool Engine::State::Grows(double atLat, double atLon) {
                         std::span<Generators::Yield::Note>(notes[at].data(), notes[at].size()));
   }
   placing.Occupy(*over, std::span<Generators::Yield>(yields.data(), yields.size()));
-  for (const Generators::Yield &one : yields) { World.Placed += one.Placed().Count; }
+  for (size_t at = 0; at < yields.size(); ++at) {
+    const Generators::Yield &one = yields[at];
+    const std::string_view called = placing.At(at).Called();
+    World.Placed += one.Placed().Count;
+    Published.Places(std::format("generators: {} placed", called),
+                     static_cast<double>(one.Placed().Count),
+                     "bodies");
+    Published.Places(
+        std::format("generators: and {} wanted ground another body already held", called),
+        static_cast<double>(one.Claims(Generators::Claim::Outcome::Occupied)),
+        "claims");
+    Published.Places(std::format("generators: and {} wanted ground off the region", called),
+                     static_cast<double>(one.Claims(Generators::Claim::Outcome::Outside)),
+                     "claims");
+  }
   Published.Places("generators: bodies they placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");

@@ -213,16 +213,16 @@ LayerIncludes() {
     # layering this file exists to prevent -- and it went stale the day `Json.h` moved into the
     # door, breaking `make` while every suite stayed green.
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
-    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base " ;;
-    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/world/data -Itest/harness/shared" ;;
+    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water " ;;
+    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
     outshine/content) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
-    outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/compositor -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared -Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/base/curve -Isrc/generators/path" ;;
-    outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Itest/harness/shared" ;;
-    outshine/physics) printf '%s' "-Iinclude -Isrc/base -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/actor/body -Isrc/base/curve -Isrc/generators/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
+    outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/compositor -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Isrc/base/curve -Isrc/generators/path" ;;
+    outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Isrc/import -Itest/harness/shared" ;;
+    outshine/physics) printf '%s' "-Iinclude -Isrc/base -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Isrc/actor/body -Isrc/base/curve -Isrc/generators/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
     outshine/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base/math" ;;
-    outshine/places) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
-    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Itest/harness/shared" ;;
+    outshine/places) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Isrc/import -Isrc/import/surface -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
+    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/ground -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/water -Itest/harness/shared" ;;
     # THE CORPUS RUNNER SEES THE DOOR AND ITS OWN DIRECTORIES, AND THIS LINE IS THE GUARD. The
     # vendor cases must break when BEHAVIOUR changes and never when a file moves, so the runner is
     # given `include/` and nothing from `src/` at all -- not one path. A rename anywhere under
@@ -283,12 +283,12 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     outshine/scenario) printf '%s' "src/base/Geometry.cpp src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp src/scenario/ScenarioRead.cpp src/scenario/Tables.cpp" ;;
     outshine/content) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/import" ;;
-    outshine/geo) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/compositor src/import src/generators/base src/generators src/generators/draw" ;;
+    outshine/geo) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/compositor src/import src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/water src/generators" ;;
     outshine/fuzz) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/world/weather src/world/sky src/base/io src/import" ;;
     outshine/physics) printf '%s' "src/base src/base/math src/base/geo src/base/spatial src/actor/body src/base/curve src/generators/path src/actor/mind src/sim/Rigging.cpp src/sim/DriveTick.cpp" ;;
     outshine/audio) printf '%s' "src/audio src/base/math" ;;
-    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/base/curve src/generators/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators src/generators/draw src/sim src/base/curve src/generators/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    outshine/places) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/water src/generators src/sim src/base/curve src/generators/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/import src/import/surface src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/water src/generators src/sim src/base/curve src/generators/path src/actor/body src/actor/mind src/host src/compositor src/engine/Asset.cpp src/engine/Overlay.cpp src/engine/Live.cpp src/engine/Laying.cpp src/engine/Asking.cpp src/engine/Telling.cpp src/engine/Framing.cpp src/engine/Declaring.cpp src/engine/Keeping.cpp src/engine/Advancing.cpp src/engine/Engine.cpp src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -337,9 +337,39 @@ LayerExtraSources() {
 # A directory with no `reaches` file is REFUSED rather than assumed to reach nothing -- silence
 # and "nothing" are different claims, and the second one has to be written down.
 LayerReaches() {
-  case "$1" in */*|"") return 1 ;; esac
+  case "$1" in "") return 1 ;; esac
   [ -f "src/$1/reaches" ] || return 1
   printf '%s' "$(cat "src/$1/reaches")"
+}
+
+# A TIER IS THE NEAREST ANCESTOR CARRYING A `reaches` FILE, so a tier may sit INSIDE a tier.
+# `src/generators/` is one library with one door, and the subjects under it -- flora, building,
+# road, water -- are areas that must not reach into each other. Without this a tier was exactly one
+# level under `src/`, every generator compiled with all of `src/generators` on its path, and
+# "no generator reaches into another" was a convention nobody could enforce. Now flora's include
+# path is flora's own directory and what flora's `reaches` names, and reaching into building fails
+# at the `#include` with a file and a line.
+#
+# The registry keeps its reach: `Shipped` and `Registry` sit at `src/generators/` itself, whose
+# tier is `generators`, so their path still carries every area. The one that stands the generators
+# up is entitled to know each of them; the areas are not entitled to know each other.
+TierOf() {
+  tierWalk=${1#src/}
+  case "$1" in src/*) ;; *) return 1 ;; esac
+  [ -d "src/$tierWalk" ] || tierWalk=$(printf '%s' "$tierWalk" | sed 's|/[^/]*$||')
+  while [ -n "$tierWalk" ]; do
+    if [ -f "src/$tierWalk/reaches" ]; then
+      printf '%s' "$tierWalk"
+      return 0
+    fi
+    case "$tierWalk" in */*) tierWalk=${tierWalk%/*} ;; *) return 1 ;; esac
+  done
+  return 1
+}
+
+# Every directory that declares a reach, nested ones included.
+EveryTier() {
+  find src -name reaches | sed 's|^src/||; s|/reaches$||' | sort
 }
 
 
@@ -364,7 +394,7 @@ LayerReaches() {
 # map beside the two this replaced. `src/render/shaders` holds no headers and is left off every path.
 GroupIncludes() {
   case "$1" in src/*) ;; *) return 1 ;; esac
-  includeTier=$(printf '%s' "$1" | cut -d/ -f2)
+  includeTier=$(TierOf "$1") || return 1
   includeReaches=$(LayerReaches "$includeTier") || return 1
   includeSet="-Iinclude"
   for includeFrom in $includeTier $includeReaches; do
@@ -939,7 +969,7 @@ StateShape() {
 StateTiers() {
 
   printf '\n## Tiers\n\nWhat each directory under `src/` may include. `--audit-layers` refuses a crossing.\n\n| tier | reaches |\n|---|---|\n'
-  for tier in base content world actor render scene scenario ui audio host compositor sim engine; do
+  for tier in $(EveryTier); do
     reaches=$(LayerReaches "$tier") || continue
     printf '| `%s` | %s |\n' "$tier" "${reaches:-nothing}"
   done

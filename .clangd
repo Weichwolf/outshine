@@ -30,7 +30,6 @@ CompileFlags:
     - -I/Users/cosmo/Git/flightbox/src/core/io
     - -I/Users/cosmo/Git/flightbox/src/data
     - -I/Users/cosmo/Git/flightbox/src/generators
-    - -I/Users/cosmo/Git/flightbox/src/generators/draw
     - -I/Users/cosmo/Git/flightbox/src/render
     - -I/Users/cosmo/Git/flightbox/src/render/stages
     - -I/Users/cosmo/Git/flightbox/src/world

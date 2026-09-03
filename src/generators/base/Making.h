@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_BASE_MAKING_H
 #define OUTSHINE_GENERATORS_BASE_MAKING_H
 
+#include <string_view>
+
 #include <span>
 #include <array>
 #include "ContactMaterial.h"
@@ -24,6 +26,8 @@ public:
   Making &operator=(const Making &) = delete;
 
   virtual void Occupy(const Ground &ground, Yield &yield) const noexcept = 0;
+
+  [[nodiscard]] virtual std::string_view Called() const noexcept = 0;
 
   [[nodiscard]] virtual std::span<const char *const> NoteNames() const noexcept { return {}; }
 

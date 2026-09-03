@@ -18,6 +18,8 @@ public:
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 
+  [[nodiscard]] std::string_view Called() const noexcept override { return "building"; }
+
 private:
   [[nodiscard]] static const FeatureField::Feature *Over(const Ground &ground,
                                                          EastNorth at) noexcept;

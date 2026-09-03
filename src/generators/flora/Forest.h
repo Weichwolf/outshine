@@ -52,6 +52,8 @@ public:
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
 
+  [[nodiscard]] std::string_view Called() const noexcept override { return "flora"; }
+
   static constexpr double kCellM = 3.33;
 
 private:

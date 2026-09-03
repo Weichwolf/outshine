@@ -52,6 +52,13 @@ time" means something different here: the fine geometry and the proxy are produc
 meshing pass, and the frame only chooses. It is also why the generators are a tier with their own
 door in this tree and are not one in RAGE.
 
+**Benchmark**: Unreal cuts by SUBJECT -- `Foliage/`, `Landscape/`, `Water/` -- and each module
+carries its own meshing inside it; there is no `Draw/` holding every subject's mesher side by side.
+RAGE does the same. They agree, so the matter is closed and the cut is theirs. Where they differ is
+WHEN: for RAGE a generator is a tool in the studio and the map is content, and that is the one
+place a measurement of this tree overrules them -- our world arrives over the wire, so the same
+work has to land in the preload.
+
 ## What the engine holds
 
 The Earth (georeference, elevation, the tile pyramid), the sky (sun, moon, stars, scattering --
