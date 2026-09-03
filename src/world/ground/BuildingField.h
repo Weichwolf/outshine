@@ -86,6 +86,8 @@ public:
 
   [[nodiscard]] size_t RaisedBytes() const { return Built_.HeapBytes(); }
 
+  [[nodiscard]] size_t RaisedUsedBytes() const { return Built_.UsedBytes(); }
+
   [[nodiscard]] size_t HeapBytes() const {
     return CapacityBytes(Prints_) + Built_.HeapBytes() + Mark_.HeapBytes() + ByTile_.HeapBytes();
   }

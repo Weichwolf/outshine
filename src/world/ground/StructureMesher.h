@@ -33,6 +33,11 @@ struct Raised {
     return WallCorners.capacity() * sizeof(float) + RoofCorners.capacity() * sizeof(float) +
            WallRun.capacity() * sizeof(uint32_t) + RoofRun.capacity() * sizeof(uint32_t);
   }
+
+  [[nodiscard]] std::size_t UsedBytes() const noexcept {
+    return WallCorners.size() * sizeof(float) + RoofCorners.size() * sizeof(float) +
+           WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t);
+  }
 };
 
 struct WayLine {

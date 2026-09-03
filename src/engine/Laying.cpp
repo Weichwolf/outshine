@@ -1227,6 +1227,9 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   Published.Places("world: and the raised geometry",
                    static_cast<double>(World.Stack.Footprints().RaisedBytes()),
                    "bytes");
+  Published.Places("world: of that, the bytes it actually fills",
+                   static_cast<double>(World.Stack.Footprints().RaisedUsedBytes()),
+                   "bytes");
   Published.Places(
       "world: the frame copies the renderer reads",
       static_cast<double>(CapacityBytes(World.WallPlaces) + CapacityBytes(World.WallFacing) +
