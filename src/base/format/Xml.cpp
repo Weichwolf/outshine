@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -86,9 +87,9 @@ bool Xml::Ref::Spelt(const char *attribute) const {
   return false;
 }
 
-std::string Xml::Ref::Attr(const char *attribute, const char *whenAbsent) const {
+std::optional<std::string> Xml::Ref::Said(const char *attribute) const {
   const uint32_t which = Asking(attribute);
-  if (which == kNoAttribute) { return {whenAbsent}; }
+  if (which == kNoAttribute) { return std::nullopt; }
   const Attribute &one = From_->Attributes_[which];
   return From_->Span(one.ValueOff, one.ValueLen);
 }

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iterator>
 #include <ranges>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,7 +46,12 @@ public:
 
     [[nodiscard]] bool Has(const char *attribute) const;
     [[nodiscard]] bool Spelt(const char *attribute) const;
-    [[nodiscard]] std::string Attr(const char *attribute, const char *whenAbsent = "") const;
+    [[nodiscard]] std::optional<std::string> Said(const char *attribute) const;
+
+    [[nodiscard]] std::string Attr(const char *attribute) const {
+      return Said(attribute).value_or(std::string());
+    }
+
     [[nodiscard]] double Num(const char *attribute, double whenAbsent) const;
     [[nodiscard]] long long Int(const char *attribute, long long whenAbsent) const;
     [[nodiscard]] bool Flag(const char *attribute, bool whenAbsent) const;

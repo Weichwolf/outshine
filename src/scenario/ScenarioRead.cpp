@@ -226,7 +226,7 @@ void ReadStanding(const Xml::Ref &from, Scenario::Standing &into) {
     into.Geodetic.LatitudeDeg = from.Num("lat", into.Geodetic.LatitudeDeg);
     into.Geodetic.LongitudeDeg = from.Num("lon", into.Geodetic.LongitudeDeg);
     into.Geodetic.HeightM = from.Num("heightM", into.Geodetic.HeightM);
-    into.SamplesHeight = std::string(from.Attr("samplesHeight", "no")) == "yes";
+    into.SamplesHeight = std::string(from.Said("samplesHeight").value_or("no")) == "yes";
     into.BearingDeg = from.Num("bearingDeg", into.BearingDeg);
     into.PitchDeg = from.Num("pitchDeg", into.PitchDeg);
   }
@@ -259,7 +259,7 @@ void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   into.Ground.SightM = from.Num("sightM", into.Ground.SightM);
   const Xml::Ref relief = from.Child("relief");
   if (relief.Valid()) {
-    into.Ground.Shape.Kind = relief.Attr("kind", into.Ground.Shape.Kind.c_str());
+    into.Ground.Shape.Kind = relief.Said("kind").value_or(into.Ground.Shape.Kind.c_str());
     into.Ground.Shape.AmplitudeM = relief.Num("amplitudeM", into.Ground.Shape.AmplitudeM);
     into.Ground.Shape.WavelengthM = relief.Num("wavelengthM", into.Ground.Shape.WavelengthM);
     into.Ground.Shape.Gradient = relief.Num("gradient", into.Ground.Shape.Gradient);
@@ -271,14 +271,14 @@ void ReadWorld(const Xml::Ref &from, Scenario::Document &into) {
   if (osm.Valid()) {
     const auto take = [&into](const Xml::Ref &node, bool area) {
       Scenario::Structure made;
-      made.Kind = node.Attr("kind", "");
+      made.Kind = node.Said("kind").value_or("");
       made.WidthM = node.Num("widthM", 0.0);
       made.HeightM = node.Num("heightM", 0.0);
       made.Area = area;
-      made.Bridge = std::string(node.Attr("bridge", "no")) == "yes";
-      made.Tunnel = std::string(node.Attr("tunnel", "no")) == "yes";
+      made.Bridge = std::string(node.Said("bridge").value_or("no")) == "yes";
+      made.Tunnel = std::string(node.Said("tunnel").value_or("no")) == "yes";
       made.Level = static_cast<int>(node.Num("level", 0.0));
-      const std::string said = node.Attr("points", "");
+      const std::string said = node.Said("points").value_or("");
       size_t at = 0;
       while (at < said.size()) {
         const size_t comma = said.find(',', at);
@@ -305,11 +305,11 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   into.Render.Frame.HeightPx = static_cast<int>(from.Int("heightPx", into.Render.Frame.HeightPx));
   into.Render.Fps = from.Num("fps", into.Render.Fps);
   into.Render.Fill = from.Num("fill", into.Render.Fill);
-  into.Render.Audits = std::string(from.Attr("audits", "no")) == "yes";
+  into.Render.Audits = std::string(from.Said("audits").value_or("no")) == "yes";
   into.Render.OrbitDegPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegPerFrame);
-  into.Render.Transfer = from.Attr("transfer", into.Render.Transfer.c_str());
+  into.Render.Transfer = from.Said("transfer").value_or(into.Render.Transfer.c_str());
   into.Render.Exposure = from.Num("exposure", into.Render.Exposure);
-  into.Render.Precision = from.Attr("precision", into.Render.Precision.c_str());
+  into.Render.Precision = from.Said("precision").value_or(into.Render.Precision.c_str());
   for (const Xml::Ref output : from.Children("output")) {
     into.Render.Outputs.push_back(output.Attr("name"));
   }
@@ -351,7 +351,7 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
   const Xml::Ref physics = root.Child("physics");
   if (physics.Valid()) {
     into.Motion.Declared = true;
-    into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
+    into.Motion.Dial = physics.Said("dial").value_or(into.Motion.Dial.c_str());
     into.Motion.StepS = physics.Num("stepS", into.Motion.StepS);
     into.Motion.MostStepsInArrears = static_cast<int>(
         physics.Num("mostStepsInArrears", static_cast<double>(into.Motion.MostStepsInArrears)));
@@ -360,18 +360,19 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
   const Xml::Ref clock = root.Child("clock");
   if (clock.Valid()) {
     into.Time.Declared = true;
-    into.Time.Start = clock.Attr("start", into.Time.Start.c_str());
+    into.Time.Start = clock.Said("start").value_or(into.Time.Start.c_str());
     into.Time.Rate = clock.Num("rate", into.Time.Rate);
-    into.Time.Live = std::string(clock.Attr("live", into.Time.Live ? "yes" : "no")) == "yes" ||
-                     into.Time.Start.empty();
+    into.Time.Live =
+        std::string(clock.Said("live").value_or(into.Time.Live ? "yes" : "no")) == "yes" ||
+        into.Time.Start.empty();
   }
 
   const Xml::Ref player = root.Child("player");
   if (player.Valid()) {
     into.Played.Declared = true;
-    into.Played.Is = player.Attr("is", into.Played.Is.c_str());
-    into.Played.Starts = player.Attr("starts", into.Played.Starts.c_str());
-    into.Played.View = player.Attr("view", into.Played.View.c_str());
+    into.Played.Is = player.Said("is").value_or(into.Played.Is.c_str());
+    into.Played.Starts = player.Said("starts").value_or(into.Played.Starts.c_str());
+    into.Played.View = player.Said("view").value_or(into.Played.View.c_str());
     into.Played.EyeHeightM = player.Num("eyeHeightM", into.Played.EyeHeightM);
     into.Played.WalkMs = player.Num("walkMs", into.Played.WalkMs);
     into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
@@ -472,7 +473,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.Kind = one.Attr("kind");
     made.Variant = one.Attr("variant");
     made.Clip = static_cast<int>(one.Num("clip", 0.0));
-    const std::string animation = one.Attr("animation", "play");
+    const std::string animation = one.Said("animation").value_or("play");
     if (animation == "play") {
       made.Animation = Scenario::AssetAnimation::Play;
     } else if (animation == "loop") {
@@ -491,7 +492,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
       said.Named = worn.Attr("named");
       said.Node = worn.Attr("node");
       said.Part = static_cast<int>(worn.Num("part", -1.0));
-      said.KeepsMaps = std::string(worn.Attr("keepsMaps", "no")) == "yes";
+      said.KeepsMaps = std::string(worn.Said("keepsMaps").value_or("no")) == "yes";
       const Xml::Ref row = worn.Child("row");
       if (row.Valid()) {
         said.Row.BaseColour[0] =
@@ -512,8 +513,8 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
             static_cast<float>(row.Num("emissionG", static_cast<double>(said.Row.Emission[1])));
         said.Row.Emission[2] =
             static_cast<float>(row.Num("emissionB", static_cast<double>(said.Row.Emission[2])));
-        said.Row.Unlit = std::string(row.Attr("unlit", "no")) == "yes";
-        said.Row.DoubleSided = std::string(row.Attr("doubleSided", "no")) == "yes";
+        said.Row.Unlit = std::string(row.Said("unlit").value_or("no")) == "yes";
+        said.Row.DoubleSided = std::string(row.Said("doubleSided").value_or("no")) == "yes";
         said.Row.CoverageCut =
             static_cast<float>(row.Num("coverageCut", static_cast<double>(said.Row.CoverageCut)));
       }
@@ -623,13 +624,13 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     Scenario::Volume made;
     made.Id = one.Attr("id");
     made.In = one.Attr("in");
-    made.Shape = one.Attr("shape", "box");
+    made.Shape = one.Said("shape").value_or("box");
     ReadVector(one, "x", "y", "z", made.AtM);
     made.ExtentM[0] = one.Num("extentX", 0.0);
     made.ExtentM[1] = one.Num("extentY", 0.0);
     made.ExtentM[2] = one.Num("extentZ", 0.0);
     made.Fires = one.Attr("fires");
-    made.When = one.Attr("when", "enter");
+    made.When = one.Said("when").value_or("enter");
     made.DwellS = one.Num("dwellS", 0.0);
     into.Volumes.push_back(made);
   }
@@ -689,7 +690,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.Id = one.Attr("id");
     for (const Xml::Ref column : one.Children("column")) {
       made.Columns.push_back(column.Attr("name"));
-      const std::string kind = column.Attr("type", "text");
+      const std::string kind = column.Said("type").value_or("text");
       if (kind != "text" && kind != "number") {
         error = "<column> declares type='" + kind + "', and a cell is text or number";
         return false;
@@ -733,7 +734,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &into, std::string &er
     made.Sees.FovDeg = one.Num("fovDeg", 0.0);
     made.Sees.NearM = one.Num("nearM", 0.0);
     made.Sees.FarM = one.Num("farM", 0.0);
-    made.Sees.Orthographic = std::string(one.Attr("orthographic", "no")) == "yes";
+    made.Sees.Orthographic = std::string(one.Said("orthographic").value_or("no")) == "yes";
     made.Sees.XMagM = one.Num("xMagM", 0.0);
     made.Sees.YMagM = one.Num("yMagM", 0.0);
     made.Sees.ApertureFStops = one.Num("apertureFStops", 0.0);
