@@ -9,11 +9,6 @@
 
 namespace outshine::Data {
 
-constexpr int kHttpOk = 200;
-constexpr int kHttpNotFound = 404;
-constexpr int kHttpTimeout = 408;
-constexpr int kHttpTooMany = 429;
-constexpr int kHttpServerFirst = 500;
 constexpr size_t kTypicalPayloadBytes = 80000;
 
 namespace Says {
@@ -50,15 +45,6 @@ std::string VersatilesVector::Url(const Address &at) const {
   const std::optional<TileId> tile = at.Tile();
   if (!tile) { return {}; }
   return std::format(Says::kTile, tile->Zoom, tile->X, tile->Y);
-}
-
-Meaning VersatilesVector::Classify(int status, size_t bytes) const noexcept {
-  if (status == kHttpOk) { return bytes > 0 ? Meaning::Bytes : Meaning::Retry; }
-  if (status == kHttpNotFound) { return Meaning::Absent; }
-  if (status == kHttpTimeout || status == kHttpTooMany || status >= kHttpServerFirst) {
-    return Meaning::Retry;
-  }
-  return Meaning::Refused;
 }
 
 } // namespace outshine::Data

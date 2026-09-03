@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_VIEWING_H
 
 #include <span>
+#include <optional>
 
 #include "math/Units.h"
 #include "math/Vec3.h"
@@ -30,44 +31,50 @@ struct Viewpoint : CameraBasis {
   double ZNearM = 0;
   double ZFarM = 0;
 
-  [[nodiscard]] static bool
-  LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad, Viewpoint &out);
-  [[nodiscard]] static bool
-  LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &upM, Viewpoint &out);
+  struct Looking {
+    Vec3 EyeM;
+    Vec3 AimM;
+  };
+
+  [[nodiscard]] static std::optional<Viewpoint> LookAt(Looking from, double rollRad);
+
+  [[nodiscard]] static std::optional<Viewpoint> LookAt(Looking from, const Vec3 &upM);
 };
 
-inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, double rollRad, Viewpoint &out) {
-  Vec3 forward = aimM - eyeM;
-  if (!Normalise(forward)) { return false; }
+inline std::optional<Viewpoint> Viewpoint::LookAt(Looking from, double rollRad) {
+  Vec3 forward = from.AimM - from.EyeM;
+  if (!Normalise(forward)) { return std::nullopt; }
   const Vec3 worldUp = {{0, 1, 0}};
   Vec3 right = Cross(forward, worldUp);
-  if (!Normalise(right)) { return false; }
+  if (!Normalise(right)) { return std::nullopt; }
   const Vec3 up = Cross(right, forward);
 
   const double turn = std::cos(rollRad);
   const double lean = std::sin(rollRad);
+  Viewpoint out;
   for (int axis = 0; axis < 3; ++axis) {
-    out.EyeM[axis] = eyeM[axis];
+    out.EyeM[axis] = from.EyeM[axis];
     out.Forward[axis] = forward[axis];
     out.Right[axis] = right[axis] * turn + up[axis] * lean;
     out.Up[axis] = up[axis] * turn - right[axis] * lean;
   }
-  return true;
+  return out;
 }
 
-inline bool Viewpoint::LookAt(const Vec3 &eyeM, const Vec3 &aimM, const Vec3 &upM, Viewpoint &out) {
-  Vec3 forward = aimM - eyeM;
-  if (!Normalise(forward)) { return false; }
+inline std::optional<Viewpoint> Viewpoint::LookAt(Looking from, const Vec3 &upM) {
+  Vec3 forward = from.AimM - from.EyeM;
+  if (!Normalise(forward)) { return std::nullopt; }
   Vec3 right = Cross(forward, upM);
-  if (!Normalise(right)) { return false; }
+  if (!Normalise(right)) { return std::nullopt; }
   const Vec3 up = Cross(right, forward);
+  Viewpoint out;
   for (int axis = 0; axis < 3; ++axis) {
-    out.EyeM[axis] = eyeM[axis];
+    out.EyeM[axis] = from.EyeM[axis];
     out.Forward[axis] = forward[axis];
     out.Right[axis] = right[axis];
     out.Up[axis] = up[axis];
   }
-  return true;
+  return out;
 }
 
 inline void CameraOf(const Viewpoint &from, outshine::Scenario::Camera &out) {

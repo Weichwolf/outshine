@@ -182,19 +182,18 @@ TTF_Font *Typeface::Set(Family family, int sizePx) const {
   return made;
 }
 
-bool Typeface::Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const {
-  if (Rgba_.empty()) { return false; }
-  if (ShelfX_ + widthPx + kPad > SheetW_) {
+std::optional<Typeface::AtPx> Typeface::Packs(SizePx want) const {
+  if (Rgba_.empty()) { return std::nullopt; }
+  if (ShelfX_ + want.Width + kPad > SheetW_) {
     ShelfX_ = 0;
     ShelfY_ += ShelfTall_ + kPad;
     ShelfTall_ = 0;
   }
-  if (ShelfY_ + heightPx + kPad > SheetH_) { return false; }
-  leftPx = ShelfX_;
-  topPx = ShelfY_;
-  ShelfX_ += widthPx + kPad;
-  ShelfTall_ = std::max(ShelfTall_, heightPx);
-  return true;
+  if (ShelfY_ + want.Height + kPad > SheetH_) { return std::nullopt; }
+  const AtPx given{.Left = ShelfX_, .Top = ShelfY_};
+  ShelfX_ += want.Width + kPad;
+  ShelfTall_ = std::max(ShelfTall_, want.Height);
+  return given;
 }
 
 const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code) const {
@@ -238,9 +237,11 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
 
   SDL_Surface *rgba =
       ink->format == SDL_PIXELFORMAT_RGBA32 ? ink : SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);
-  int leftPx = 0;
-  int topPx = 0;
-  if (rgba != nullptr && Packs(rgba->w, rgba->h, leftPx, topPx)) {
+  const std::optional<AtPx> given =
+      rgba != nullptr ? Packs({.Width = rgba->w, .Height = rgba->h}) : std::nullopt;
+  if (given) {
+    const int leftPx = given->Left;
+    const int topPx = given->Top;
     const auto *from = static_cast<const uint8_t *>(rgba->pixels);
     for (int row = 0; row < rgba->h; ++row) {
       uint8_t *into =

@@ -9,12 +9,6 @@
 
 namespace outshine::Data {
 
-constexpr int kHttpOk = 200;
-constexpr int kHttpForbidden = 403;
-constexpr int kHttpNotFound = 404;
-constexpr int kHttpTimeout = 408;
-constexpr int kHttpTooMany = 429;
-constexpr int kHttpServerFirst = 500;
 constexpr size_t kTypicalPayloadBytes = 60000;
 
 namespace Says {
@@ -55,14 +49,8 @@ std::string TerrariumDem::Url(const Address &at) const {
   return std::format(Says::kTile, tile->Zoom, tile->X, tile->Y);
 }
 
-Meaning TerrariumDem::Classify(int status, size_t bytes) const noexcept {
-  if (status == kHttpOk) { return bytes > 0 ? Meaning::Bytes : Meaning::Retry; }
-
-  if (status == kHttpForbidden || status == kHttpNotFound) { return Meaning::Absent; }
-  if (status == kHttpTimeout || status == kHttpTooMany || status >= kHttpServerFirst) {
-    return Meaning::Retry;
-  }
-  return Meaning::Refused;
+bool TerrariumDem::CountsAbsent(int status) const noexcept {
+  return status == kHttpForbidden || status == kHttpNotFound;
 }
 
 } // namespace outshine::Data

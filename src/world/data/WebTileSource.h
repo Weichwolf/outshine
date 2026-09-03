@@ -1,12 +1,25 @@
 #ifndef OUTSHINE_WORLD_DATA_WEBTILESOURCE_H
 #define OUTSHINE_WORLD_DATA_WEBTILESOURCE_H
 
+#include <cstddef>
 #include <string>
 #include <utility>
 
 #include "Source.h"
 
 namespace outshine::Data {
+
+constexpr int kHttpOk = 200;
+constexpr int kHttpForbidden = 403;
+constexpr int kHttpNotFound = 404;
+constexpr int kHttpTimeout = 408;
+constexpr int kHttpTooMany = 429;
+constexpr int kHttpServerFirst = 500;
+
+struct Replied {
+  int Status = 0;
+  size_t Bytes = 0;
+};
 
 class WebTileSource : public Source {
 public:
@@ -21,7 +34,12 @@ protected:
   explicit WebTileSource(SourceDecl decl) : Decl_(std::move(decl)) {}
 
   [[nodiscard]] virtual std::string Url(const Address &at) const = 0;
-  [[nodiscard]] virtual Meaning Classify(int status, size_t bytes) const noexcept = 0;
+
+  [[nodiscard]] Meaning Classify(Replied said) const noexcept;
+
+  [[nodiscard]] virtual bool CountsAbsent(int status) const noexcept {
+    return status == kHttpNotFound;
+  }
 
 private:
   SourceDecl Decl_;

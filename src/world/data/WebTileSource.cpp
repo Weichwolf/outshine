@@ -50,9 +50,19 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   }
   std::optional<Wire::Response> answered = wire.Take();
   if (!answered) { return Fetched::Meant(Meaning::Refused); }
-  const Meaning what = Classify(answered->Status, answered->Body.size());
+  const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
   if (what != Meaning::Bytes) { return Fetched::MeantAfter(what, wire.RetryAfterS()); }
   return Fetched::Delivered(std::move(answered->Body));
+}
+
+Meaning WebTileSource::Classify(Replied said) const noexcept {
+  if (said.Status == kHttpOk) { return said.Bytes > 0 ? Meaning::Bytes : Meaning::Retry; }
+  if (CountsAbsent(said.Status)) { return Meaning::Absent; }
+  if (said.Status == kHttpTimeout || said.Status == kHttpTooMany ||
+      said.Status >= kHttpServerFirst) {
+    return Meaning::Retry;
+  }
+  return Meaning::Refused;
 }
 
 } // namespace outshine::Data

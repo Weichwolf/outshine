@@ -89,7 +89,10 @@ bool Engine::State::Watches() {
   }
   const Vec3 onto = seen.Sees.LooksAt ? seen.Sees.LookAtM : station + ahead;
   Render::Viewpoint standing;
-  if (!Render::Viewpoint::LookAt(station, onto, seen.Sees.UpM, standing)) { return true; }
+  const std::optional<Render::Viewpoint> held =
+      Render::Viewpoint::LookAt({.EyeM = station, .AimM = onto}, seen.Sees.UpM);
+  if (!held) { return true; }
+  standing = *held;
   standing.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
   standing.ZNearM = seen.Sees.NearM > 0.0 ? seen.Sees.NearM : Core::Live::NearestStandable();
   standing.ZFarM = seen.Sees.FarM > 0.0 ? seen.Sees.FarM : 0.0;
@@ -174,10 +177,10 @@ bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3
   Published.Places("the carried eye, east", eye[0], "m");
   Published.Places("the carried eye, up", eye[1], "m");
   Published.Places("the carried eye, south", eye[2], "m");
-  Render::Viewpoint from;
-  if (!Render::Viewpoint::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
-    return true;
-  }
+  const std::optional<Render::Viewpoint> stood =
+      Render::Viewpoint::LookAt({.EyeM = eye, .AimM = seen.DistanceM > 0.0 ? at : ahead}, 0.0);
+  if (!stood) { return true; }
+  Render::Viewpoint from = *stood;
   from.YfovRad = (seen.Sees.FovDeg > 0.0 ? seen.Sees.FovDeg : kFovUnsaidDeg) * kDeg2Rad;
   if (Picture.Standing) { Picture.Standing->Eye(from); }
   return true;

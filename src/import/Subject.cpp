@@ -1395,7 +1395,9 @@ bool FramingFor(const Vec3 &minM, const Vec3 &maxM, Viewpoint &out, double fill)
   Vec3 eye;
   for (int axis = 0; axis < 3; ++axis) { eye[axis] = centre[axis] + toEye[axis] * distance; }
 
-  if (!Viewpoint::LookAt(eye, centre, 0.0, out)) { return false; }
+  const std::optional<Viewpoint> seen = Viewpoint::LookAt({.EyeM = eye, .AimM = centre}, 0.0);
+  if (!seen) { return false; }
+  out = *seen;
   out.YfovRad = yfov;
   const double floor = radius * Render::kFramingNearFloorFraction;
   out.ZNearM = (distance - radius > floor) ? distance - radius : floor;

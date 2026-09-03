@@ -2,6 +2,7 @@
 #define OUTSHINE_UI_TYPEFACE_H
 
 #include <array>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -56,7 +57,18 @@ private:
 
   [[nodiscard]] TTF_Font *Set(Family family, int sizePx) const;
   [[nodiscard]] const Cell &Cell0f(Family family, int sizePx, char32_t code) const;
-  [[nodiscard]] bool Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const;
+
+  struct SizePx {
+    int Width = 0;
+    int Height = 0;
+  };
+
+  struct AtPx {
+    int Left = 0;
+    int Top = 0;
+  };
+
+  [[nodiscard]] std::optional<AtPx> Packs(SizePx want) const;
 
   struct Sized {
     uint64_t Key = 0;
