@@ -22,13 +22,10 @@ class Telling final : public outshine::LogSink {
 public:
   void Write(double simTimeS,
              outshine::LogLevel level,
-             const char *unit,
-             const char *tag,
-             const char *event,
+             Saying who,
              std::span<const outshine::LogField> fields) override {
     if (level == outshine::LogLevel::Debug && !Loud) { return; }
-    std::printf("t=%.1f %-5s %-8s %s", simTimeS, Name(level), unit, event);
-    (void)tag;
+    std::printf("t=%.1f %-5s %-8s %s", simTimeS, Name(level), who.Unit, who.Event);
     for (const outshine::LogField &one : fields) {
       std::printf(" %s=%s", one.Key, one.Value.c_str());
     }

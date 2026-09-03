@@ -45,7 +45,10 @@ void Log::Emit(LogLevel level,
   if ((Sink_ == nullptr) || level < Level_) { return; }
 
   LogSink *out = (ThreadSink_ != nullptr) ? ThreadSink_ : Sink_;
-  out->Write(TimeS_, level, (Unit_[0] != 0) ? Unit_.data() : nullptr, tag, event, fields);
+  out->Write(TimeS_,
+             level,
+             {.Unit = (Unit_[0] != 0) ? Unit_.data() : nullptr, .Tag = tag, .Event = event},
+             fields);
 }
 
 } // namespace outshine

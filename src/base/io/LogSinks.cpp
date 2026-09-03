@@ -19,10 +19,11 @@ const char *LevelStr(LogLevel l) {
 
 void TextLogSink::Write(double simTimeS,
                         LogLevel level,
-                        const char *unit,
-                        const char *tag,
-                        const char *event,
+                        Saying who,
                         std::span<const LogField> fields) {
+  const char *const unit = who.Unit;
+  const char *const tag = who.Tag;
+  const char *const event = who.Event;
   if (File_ == nullptr) { return; }
   std::print(File_, "t={:.1f} {} {} {}", simTimeS, LevelStr(level), tag, event);
   if (unit != nullptr) { std::print(File_, " unit={}", unit); }
