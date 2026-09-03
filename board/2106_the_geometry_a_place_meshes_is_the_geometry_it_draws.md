@@ -174,6 +174,27 @@ Venice and Kaiserberg report zero. **That is the whole chain**: bad pixels in th
 elevation tiles, 441 ring vertices dragged 24 km down, triangles that reach the frame as
 near-vertical sheets, and a picture that does not change when the buildings double.
 
+### Filling the scattered holes takes two thirds of it, and shows the bound is too coarse
+
+A pixel that decoded off the planet is filled from its sound neighbours, and a tile with no
+sound pixel anywhere is refused whole. Measured:
+
+| | before | after |
+|---|---|---|
+| CentralPark's deepest near vertex | -24 149.8 m | **-9 513.7 m** |
+| near vertices below -100 m | 441 | **375** |
+| OldTown, Venice, Kaiserberg digests | -- | unmoved |
+
+Two thirds of the depth, a sixth of the count -- and then it stops, because **the bound is
+global and the nonsense is local.** [-11 500, +9 500] m admits the Mariana Trench, so a
+Manhattan pixel reading -9 514 m passes it and gets filled INTO the neighbourhood rather
+than out of it. A height that is possible on Earth can still be impossible here.
+
+What catches the rest is a continuity test rather than a range test: a sample that departs
+from its neighbours by more than the terrain's own slope can manage is an outlier wherever
+it sits, and needs no knowledge of where that is. That is the next step and it is a
+different predicate, not a wider one.
+
 What it does NOT do is repair it. What stands in for a sample that decoded off the planet
 -- the neighbour, the tile's median, a refusal of the whole tile -- is a decision about
 what the world IS, and inventing one quietly is how a place ends up drawn from data nobody

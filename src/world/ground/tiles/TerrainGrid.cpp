@@ -4,6 +4,7 @@
 
 #include "Log.h"
 #include "Png.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <utility>
@@ -13,6 +14,55 @@ namespace outshine::Ground {
 constexpr float kTerrariumOffsetM = 32768.0f;
 
 constexpr float kByteSteps = 256.0f;
+
+namespace {
+
+struct Texel {
+  uint32_t Row = 0;
+  uint32_t Col = 0;
+};
+
+float SoundNeighbourMean(const TerrainField &field, Texel at) {
+  double summed = 0.0;
+  size_t took = 0;
+  for (int dr = -1; dr <= 1; ++dr) {
+    for (int dc = -1; dc <= 1; ++dc) {
+      const int64_t nr = static_cast<int64_t>(at.Row) + dr;
+      const int64_t nc = static_cast<int64_t>(at.Col) + dc;
+      if (nr < 0 || nc < 0 || std::cmp_greater_equal(nr, field.Rows()) ||
+          std::cmp_greater_equal(nc, field.Cols())) {
+        continue;
+      }
+      const float held = field.AtM(static_cast<uint32_t>(nr), static_cast<uint32_t>(nc));
+      if (!GroundSample::HeightIsOnEarth(held)) { continue; }
+      summed += held;
+      ++took;
+    }
+  }
+  return took > 0 ? static_cast<float>(summed / static_cast<double>(took)) : 0.0f;
+}
+
+bool AnySoundSample(const TerrainField &field) {
+  for (uint32_t r = 0; r < field.Rows(); ++r) {
+    for (uint32_t c = 0; c < field.Cols(); ++c) {
+      if (GroundSample::HeightIsOnEarth(field.AtM(r, c))) { return true; }
+    }
+  }
+  return false;
+}
+
+bool FillOffEarth(TerrainField &field) {
+  if (!AnySoundSample(field)) { return false; }
+  for (uint32_t r = 0; r < field.Rows(); ++r) {
+    for (uint32_t c = 0; c < field.Cols(); ++c) {
+      if (GroundSample::HeightIsOnEarth(field.AtM(r, c))) { continue; }
+      field.SetM(r, c, SoundNeighbourMean(field, {.Row = r, .Col = c}));
+    }
+  }
+  return true;
+}
+
+} // namespace
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   if ((png == nullptr) || len == 0) { return NotHere(); }
@@ -27,6 +77,10 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   const size_t stride = static_cast<size_t>(read.Wide) * read.Channels;
   size_t offEarth = 0;
   float deepest = 0.0f;
+  uint32_t firstRow = read.High;
+  uint32_t lastRow = 0;
+  uint32_t firstCol = read.Wide;
+  uint32_t lastCol = 0;
   for (uint32_t r = 0; r < read.High; r++) {
     const uint8_t *p = read.Bytes.data() + static_cast<size_t>(r) * stride;
     for (uint32_t c = 0; c < read.Wide; c++, p += read.Channels) {
@@ -35,16 +89,29 @@ TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
       if (!GroundSample::HeightIsOnEarth(aslM)) {
         ++offEarth;
         deepest = aslM < deepest ? aslM : deepest;
+        firstRow = std::min(firstRow, r);
+        lastRow = std::max(lastRow, r);
+        firstCol = std::min(firstCol, c);
+        lastCol = std::max(lastCol, c);
       }
       field.SetM(r, c, aslM);
     }
+  }
+  if (offEarth > 0 && !FillOffEarth(field)) {
+    Log::Error("world",
+               "dem_all_off_earth",
+               {{"pixels", static_cast<int>(offEarth)},
+                {"ofPixels", static_cast<int>(read.High * read.Wide)}});
+    return Undecodable();
   }
   if (offEarth > 0) {
     Log::Error("world",
                "dem_off_earth",
                {{"pixels", static_cast<int>(offEarth)},
                 {"deepestM", static_cast<int>(deepest)},
-                {"ofPixels", static_cast<int>(read.High * read.Wide)}});
+                {"ofPixels", static_cast<int>(read.High * read.Wide)},
+                {"rowsSpanned", static_cast<int>(lastRow - firstRow + 1)},
+                {"colsSpanned", static_cast<int>(lastCol - firstCol + 1)}});
   }
   return Holding(std::move(field));
 }
@@ -80,5 +147,4 @@ TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, 
   }
   return mesh;
 }
-
 } // namespace outshine::Ground
