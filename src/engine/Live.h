@@ -313,6 +313,11 @@ private:
   PaintsPart(Wearing what, const Scenario::SurfaceOverride &said, std::vector<uint32_t> &wearers);
   [[nodiscard]] size_t WornByNodeOrPart();
   [[nodiscard]] bool WearsOverrides(std::string &error);
+  [[nodiscard]] bool StandsPlan(std::string &error);
+  void StandsKeyLight();
+  void StandsShadowRadius();
+  void ClearsSubject();
+  [[nodiscard]] bool CarriesBuilt(std::string &error);
   [[nodiscard]] bool JoinsBuilt(std::string &error);
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);

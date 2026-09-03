@@ -373,73 +373,89 @@ bool Live::StandsSubjects(std::string &error) {
   return true;
 }
 
-bool Live::Build(std::string &error) {
-  if (Declared_.Built == nullptr && !Held_.HoldsBuilt() && Declared_.Stands.empty()) {
-    Held_.Clears();
-    Table_ = Render::SurfaceTable();
-    ShadowRadiusStoodM_ = 0.0;
-    Joined_ = 0;
-    Carrying_ = 0;
-    Stoodup_ = false;
-    PartBounds_.clear();
-    if (Renderer_ != nullptr) {
-      std::string ignored;
-      (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
-      (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
-    }
+void Live::ClearsSubject() {
+  Held_.Clears();
+  Table_ = Render::SurfaceTable();
+  ShadowRadiusStoodM_ = 0.0;
+  Joined_ = 0;
+  Carrying_ = 0;
+  Stoodup_ = false;
+  PartBounds_.clear();
+  if (Renderer_ != nullptr) {
+    std::string ignored;
+    (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
+    (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
   }
-  if ((Declared_.Built != nullptr || Held_.HoldsBuilt()) && Declared_.Stands.empty()) {
-    if (Declared_.Surfacing.empty()) {
-      error = "the declaration carries a built subject and no surface -- a body without a "
-              "material cannot be resolved, and an empty list is a refusal, not a "
-              "dereference";
-      return false;
-    }
-    const auto tookFrom = std::chrono::steady_clock::now();
-    if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
-    CarryMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
-            .count();
-    const auto reshapedFrom = std::chrono::steady_clock::now();
-    Reshape();
-    ReshapeMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - reshapedFrom)
-            .count();
-    const auto resolvedFrom = std::chrono::steady_clock::now();
-    Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
-    if (GroundSurface_ >= 0) {
-      for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
-        if (Table_.Material[slot] == GroundSurface_) {
-          Table_.Slots[slot].Domain = Render::SurfaceDomain::Ground;
-        }
+}
+
+bool Live::CarriesBuilt(std::string &error) {
+  if (Declared_.Surfacing.empty()) {
+    error = "the declaration carries a built subject and no surface -- a body without a "
+            "material cannot be resolved, and an empty list is a refusal, not a "
+            "dereference";
+    return false;
+  }
+  const auto tookFrom = std::chrono::steady_clock::now();
+  if (Declared_.Built != nullptr) { Held_.Carries(*Declared_.Built); }
+  CarryMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tookFrom)
+                 .count();
+  const auto reshapedFrom = std::chrono::steady_clock::now();
+  Reshape();
+  ReshapeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - reshapedFrom)
+          .count();
+  const auto resolvedFrom = std::chrono::steady_clock::now();
+  Render::ResolveDeclaredSurface(Shaped_, Declared_.Surfacing.front(), Table_);
+  if (GroundSurface_ >= 0) {
+    for (size_t slot = 0; slot < Table_.Slots.size(); ++slot) {
+      if (Table_.Material[slot] == GroundSurface_) {
+        Table_.Slots[slot].Domain = Render::SurfaceDomain::Ground;
       }
     }
-    ResolveMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
-            .count();
   }
-  if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
+  ResolveMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resolvedFrom)
+          .count();
+  return true;
+}
 
-  if (!Held_.HoldsBuilt()) { Reshape(); }
-  if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
-  if (Carrying_ > 0) { Joined_ = Carrying_; }
+void Live::StandsShadowRadius() {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (!(ShadowRadiusStoodM_ > 0.0) && Shaped_.TriangleCount() > 0) {
-    const auto boundedFrom = std::chrono::steady_clock::now();
-    const Box bounded = Shaped_.BoundsOf(Joined_);
-    const Vec3 &least = bounded.Min;
-    const Vec3 &most = bounded.Max;
-    BoundsMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
-            .count();
-    double across = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
-      across += span * span;
-    }
-    ShadowRadiusStoodM_ = 0.5 * std::sqrt(across);
+  if (ShadowRadiusStoodM_ > 0.0 || Shaped_.TriangleCount() == 0) { return; }
+  const auto boundedFrom = std::chrono::steady_clock::now();
+  const Box bounded = Shaped_.BoundsOf(Joined_);
+  BoundsMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
+          .count();
+  double across = 0.0;
+  for (int axis = 0; axis < 3; ++axis) {
+    const double span = (bounded.Max[axis] - bounded.Min[axis]) * Declared_.MetresPerUnit;
+    across += span * span;
+  }
+  ShadowRadiusStoodM_ = 0.5 * std::sqrt(across);
+}
+
+void Live::StandsKeyLight() {
+  if (Declared_.DrawsSky) {
+    Renderer_->SetMedium(Render::Hazed(Render::kEarthAir, Declared_.Haze));
   }
 
+  const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
+  const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
+  const Vec3f toSun = {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
+                        static_cast<float>(std::sin(elevation)),
+                        static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
+  const Vec3f up = {{0.0f, 1.0f, 0.0f}};
+
+  Renderer_->SetSky(
+      toSun,
+      up,
+      static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
+      0.0f);
+  if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
+}
+
+bool Live::StandsPlan(std::string &error) {
   Render::PlanSpec declaration;
   if (!DeclarePlan(Table_.Slots,
                    Declared_.DrawsSky,
@@ -500,25 +516,26 @@ bool Live::Build(std::string &error) {
       return false;
     }
   }
-  if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) {
-    if (Declared_.DrawsSky) {
-      Renderer_->SetMedium(Render::Hazed(Render::kEarthAir, Declared_.Haze));
-    }
+  return true;
+}
 
-    const double elevation = Declared_.KeyElevationDeg * kDeg2Rad;
-    const double bearing = Declared_.KeyBearingDeg * kDeg2Rad;
-    const Vec3f toSun = {{static_cast<float>(std::cos(elevation) * std::sin(bearing)),
-                          static_cast<float>(std::sin(elevation)),
-                          static_cast<float>(std::cos(elevation) * std::cos(bearing))}};
-    const Vec3f up = {{0.0f, 1.0f, 0.0f}};
-
-    Renderer_->SetSky(
-        toSun,
-        up,
-        static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
-        0.0f);
-    if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
+bool Live::Build(std::string &error) {
+  if (Declared_.Built == nullptr && !Held_.HoldsBuilt() && Declared_.Stands.empty()) {
+    ClearsSubject();
   }
+  if ((Declared_.Built != nullptr || Held_.HoldsBuilt()) && Declared_.Stands.empty() &&
+      !CarriesBuilt(error)) {
+    return false;
+  }
+  if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
+
+  if (!Held_.HoldsBuilt()) { Reshape(); }
+  if (Declared_.Built == nullptr) { Joined_ = Shaped_.Parts.size(); }
+  if (Carrying_ > 0) { Joined_ = Carrying_; }
+  StandsShadowRadius();
+
+  if (!StandsPlan(error)) { return false; }
+  if (Declared_.KeyLux > 0.0 || Declared_.KeyFromClock) { StandsKeyLight(); }
 
   Renderer_->SetCameraBasis(Render::CameraBasis{});
 
