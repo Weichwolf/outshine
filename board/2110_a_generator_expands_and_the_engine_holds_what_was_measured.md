@@ -26,9 +26,21 @@ one so the engine never names it.
   RoadMesher        stations -> RoadRaised   RoadMesh
   GroundMesher      Around -> Patchwork  Patchworker
 
-What remains for this item: `Registry::offers` takes no RANK, so a client can register a generator
-but not say when it takes ground; and `Shipping` still holds `std::vector<Forest::Stem>`, knowing
-one generator's insides rather than knowing it through `Making`.
+What remains for this item, and the first half was stated wrongly once:
+
+`Registry::offers` takes no rank AND DOES NOT NEED ONE. The door's `Generator` is `kind()` plus
+`make(Request, Geometry &)` -- a MODEL asked for by name, which is called rather than queued. The
+rank belongs to PLACEMENT, which is `Making::Occupy` and `GeneratorSet`, and those are entirely
+internal.
+
+So the real gap is bigger than a missing parameter: **a client may contribute a MODEL and not a
+PLACER.** It can say what its tree looks like and not where its trees go, because `Making`,
+`Yield`, `Claim` and `Ground` never reach the door. That is the next thing this item asks, and it
+is a door question rather than a directory one -- the placement vocabulary has to be worth
+publishing before it is published.
+
+`Shipping` holding `std::vector<Forest::Stem>` is done: `Forest` owns its own densities now and
+`Shipped.h` names no generator at all.
 
 ## The order the move goes in
 
