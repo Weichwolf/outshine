@@ -43,13 +43,6 @@ Shear ShedAt(const Shearing &through, Bearing under) {
   return out;
 }
 
-Shear Shed(const Shearing &through, Rolling under) {
-  const double rollingMs = std::fabs(under.AlongMs);
-  const double slipRad = rollingMs > 0.0 ? std::atan2(-under.AcrossMs, rollingMs) : 0.0;
-  return ShedAt(through,
-                {.LoadN = under.LoadN, .SlipRad = slipRad, .AskedAlongN = under.AskedAlongN});
-}
-
 double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM) {
   if (!(through.RelaxationM > 0.0) || !(rolledM > 0.0)) { return isRad; }
   const double caught = 1.0 - std::exp(-rolledM / through.RelaxationM);

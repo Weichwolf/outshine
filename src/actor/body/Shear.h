@@ -27,16 +27,7 @@ struct Bearing {
   double AskedAlongN = 0.0;
 };
 
-struct Rolling {
-  double LoadN = 0.0;
-  double AcrossMs = 0.0;
-  double AlongMs = 0.0;
-  double AskedAlongN = 0.0;
-};
-
 [[nodiscard]] Shear ShedAt(const Shearing &through, Bearing under);
-
-[[nodiscard]] Shear Shed(const Shearing &through, Rolling under);
 
 [[nodiscard]] double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM);
 

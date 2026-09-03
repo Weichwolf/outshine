@@ -50,7 +50,17 @@ def main():
     # declares `virtual` or marks `override` is dispatched rather than dead. Read out of the source
     # rather than guessed from the mangling, which carries no such flag.
     dispatched = set()
+    # WHAT THE LINKER CANNOT SEE. A call inside the translation unit that DEFINES its target is
+    # bound directly or inlined away and leaves no relocation, so the graph reports the callee as
+    # unreached. Measured: `Live::Reshape` is called five times in Live.cpp and stood in this list
+    # beside `KeyLight` and `TowardTheKey`, both of which were extracted from a function that calls
+    # them. Reading the SOURCE for the name is coarse -- an overload, or a same-named method of
+    # another class, reads as a call -- but the error runs ONE WAY: it makes this walk report less,
+    # and a missed candidate costs a look while a false one costs a deletion.
+    calls = {}
     for one in list((TREE / "src").rglob("*.h")) + list((TREE / "src").rglob("*.cpp")):
+        for name in re.findall(r"(\w+)\s*\(", one.read_text()):
+            calls[name] = calls.get(name, 0) + 1
         for line in one.read_text().splitlines():
             if "virtual" in line or "override" in line:
                 for name in re.findall(r"(\w+)\s*\(", line):
@@ -81,9 +91,14 @@ def main():
             continue
         if bare in dispatched:
             continue
+        # A declaration and a definition are two mentions. A third is a CALL.
+        if calls.get(bare, 0) > 2:
+            continue
         suspect.append(plain)
     print(f"{len(defines)} symbol(s) defined, {len(called)} called, "
           f"{len(suspect)} that nothing in the archive calls and the door does not name")
+    print("  NOT COVERED: a name mentioned three times in src/ is taken as called, so an overload "
+          "of a dead function keeps it off this list. The walk reports less, never more.")
     for one in sorted(suspect)[:40]:
         print(f"  {one}")
     if len(suspect) > 40:
