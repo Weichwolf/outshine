@@ -40,7 +40,7 @@ Reading Bear(Rig &of,
 
     const double clearanceM = (worldM[1] - ground.HeightM) * normal[1];
     const double closingMs = -Dot(worldMs, normal);
-    const Reaction against = Press(mount.Strut, clearanceM, closingMs);
+    const Reaction against = Press(mount.Strut, {.ClearanceM = clearanceM, .ClosingMs = closingMs});
 
     out.Touching[which] = against.Touching;
     out.LoadN[which] = against.LoadN;
@@ -69,7 +69,8 @@ Reading Bear(Rig &of,
     const double rollingMs = std::fabs(alongMs);
     const double rawSlipRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
     const double rolledM = rollingMs * dtS;
-    of.HeldSlipRad[which] = Relaxed(mount.Sheds, of.HeldSlipRad[which], rawSlipRad, rolledM);
+    of.HeldSlipRad[which] =
+        Relaxed(mount.Sheds, {.WasRad = of.HeldSlipRad[which], .IsRad = rawSlipRad}, rolledM);
 
     double askedAlongN = with.AppliedN * mount.Spin.Applied.Ratio;
     const double brakingN = with.ResistingN * mount.Spin.Resisting.Ratio;

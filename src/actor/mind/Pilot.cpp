@@ -8,9 +8,9 @@ namespace outshine::Pilot {
 
 namespace {}
 
-double ReachOf(const Holding &with, double speedMs, double curvatureRatePerM) {
-  double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
-  const double ramp = std::fabs(curvatureRatePerM);
+double ReachOf(const Holding &with, Travelling how) {
+  double reachM = with.SettleS * (how.SpeedMs > 0.0 ? how.SpeedMs : 0.0);
+  const double ramp = std::fabs(how.CurvatureRatePerM);
   if (with.HoldWithinM > 0.0 && ramp > 0.0) {
     const double byLag = std::cbrt(6.0 * with.HoldWithinM / ramp);
     reachM = std::min(byLag, reachM);
@@ -28,7 +28,8 @@ Demand Hold(const ReferenceLine &along,
   out.SpeedMs = wantedMs;
   if (!at.Found || !(with.SettleS > 0.0)) { return out; }
 
-  const double reachM = ReachOf(with, speedMs, at.CurvatureRatePerM);
+  const double reachM =
+      ReachOf(with, {.SpeedMs = speedMs, .CurvatureRatePerM = at.CurvatureRatePerM});
   out.ReachM = reachM;
 
   const Sighting ahead = Sight(along, at, reachM, with.AsideM);

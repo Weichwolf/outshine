@@ -19,7 +19,12 @@ struct Reaction {
   bool PastLimit = false;
 };
 
-[[nodiscard]] Reaction Press(const Prismatic &joint, double clearanceM, double closingMs);
+struct Approach {
+  double ClearanceM = 0.0;
+  double ClosingMs = 0.0;
+};
+
+[[nodiscard]] Reaction Press(const Prismatic &joint, Approach under);
 
 [[nodiscard]] double PressedForM(const Prismatic &joint, double loadN);
 

@@ -28,7 +28,12 @@ struct Demand {
   bool Saturated = false;
 };
 
-[[nodiscard]] double ReachOf(const Holding &with, double speedMs, double curvatureRatePerM = 0.0);
+struct Travelling {
+  double SpeedMs = 0.0;
+  double CurvatureRatePerM = 0.0;
+};
+
+[[nodiscard]] double ReachOf(const Holding &with, Travelling how);
 
 [[nodiscard]] Demand Hold(const ReferenceLine &along,
                           const Holding &with,

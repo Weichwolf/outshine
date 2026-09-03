@@ -29,7 +29,12 @@ struct Bearing {
 
 [[nodiscard]] Shear ShedAt(const Shearing &through, Bearing under);
 
-[[nodiscard]] double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM);
+struct Turning {
+  double WasRad = 0.0;
+  double IsRad = 0.0;
+};
+
+[[nodiscard]] double Relaxed(const Shearing &through, Turning by, double rolledM);
 
 [[nodiscard]] double FrictionAt(const Shearing &through, double loadN);
 

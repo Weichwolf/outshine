@@ -43,10 +43,10 @@ Shear ShedAt(const Shearing &through, Bearing under) {
   return out;
 }
 
-double Relaxed(const Shearing &through, double wasRad, double isRad, double rolledM) {
-  if (!(through.RelaxationM > 0.0) || !(rolledM > 0.0)) { return isRad; }
+double Relaxed(const Shearing &through, Turning by, double rolledM) {
+  if (!(through.RelaxationM > 0.0) || !(rolledM > 0.0)) { return by.IsRad; }
   const double caught = 1.0 - std::exp(-rolledM / through.RelaxationM);
-  return wasRad + (isRad - wasRad) * caught;
+  return by.WasRad + (by.IsRad - by.WasRad) * caught;
 }
 
 } // namespace outshine::Physics

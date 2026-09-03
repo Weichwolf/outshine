@@ -69,14 +69,19 @@ constexpr int kTimedFrames = 120;
 constexpr int kWalkViews = 24;
 constexpr double kWalkStepM = 25.0;
 
-LongitudeLatitude WalkedTo(LongitudeLatitude from, double bearingDeg, double alongM) {
-  constexpr double kMetresPerDegree = 111320.0;
-  const double heading = bearingDeg * kDeg2Rad;
+/// One step over the ground: which way, and how far.
+struct Step {
+  double BearingDeg = 0.0;
+  double AlongM = 0.0;
+};
+
+LongitudeLatitude WalkedTo(LongitudeLatitude from, Step by) {
+  const double heading = by.BearingDeg * kDeg2Rad;
   const double shrink = std::cos(from.LatitudeDeg * kDeg2Rad);
   return {.LongitudeDeg =
-              from.LongitudeDeg + alongM * std::sin(heading) /
-                                      (kMetresPerDegree * (shrink > kLeastRunM ? shrink : 1.0)),
-          .LatitudeDeg = from.LatitudeDeg + alongM * std::cos(heading) / kMetresPerDegree};
+              from.LongitudeDeg +
+              by.AlongM * std::sin(heading) / (kMPerDegLon * (shrink > kLeastRunM ? shrink : 1.0)),
+          .LatitudeDeg = from.LatitudeDeg + by.AlongM * std::cos(heading) / kMPerDegLat};
 }
 
 constexpr std::array<Place, 9> kPlaces{{
@@ -243,10 +248,9 @@ Scenario::Document ScenarioFor(const Place &place) {
   for (int step = 1; step <= kWalkViews; ++step) {
     Scenario::View along = watches;
     along.Id = "walk" + std::to_string(step - 1);
-    const LongitudeLatitude walked =
-        WalkedTo({.LongitudeDeg = place.LongitudeDeg, .LatitudeDeg = place.LatitudeDeg},
-                 place.BearingDeg,
-                 static_cast<double>(step) * kWalkStepM);
+    const LongitudeLatitude walked = WalkedTo(
+        {.LongitudeDeg = place.LongitudeDeg, .LatitudeDeg = place.LatitudeDeg},
+        {.BearingDeg = place.BearingDeg, .AlongM = static_cast<double>(step) * kWalkStepM});
     along.Sees.Stands.Geodetic.LatitudeDeg = walked.LatitudeDeg;
     along.Sees.Stands.Geodetic.LongitudeDeg = walked.LongitudeDeg;
     stands.Views.push_back(along);

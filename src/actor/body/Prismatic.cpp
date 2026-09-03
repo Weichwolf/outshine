@@ -4,10 +4,10 @@
 
 namespace outshine::Physics {
 
-Reaction Press(const Prismatic &joint, double clearanceM, double closingMs) {
+Reaction Press(const Prismatic &joint, Approach under) {
   Reaction out;
-  out.ClosingMs = closingMs;
-  out.PressedM = joint.ReachM - clearanceM;
+  out.ClosingMs = under.ClosingMs;
+  out.PressedM = joint.ReachM - under.ClearanceM;
   if (!(out.PressedM > 0.0)) {
     out.PressedM = 0.0;
     return out;
@@ -23,7 +23,7 @@ Reaction Press(const Prismatic &joint, double clearanceM, double closingMs) {
   }
   out.ElasticN = joint.StiffnessNPerM * within;
   out.StopN = joint.StopNPerM * beyond;
-  out.DampingN = joint.DampingNsPerM * closingMs;
+  out.DampingN = joint.DampingNsPerM * under.ClosingMs;
 
   out.LoadN = out.ElasticN + out.StopN + out.DampingN;
   out.LoadN = std::max(out.LoadN, 0.0);
