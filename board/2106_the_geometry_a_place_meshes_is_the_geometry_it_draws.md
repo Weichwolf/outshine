@@ -78,6 +78,27 @@ because Jura's red is a true finding rather than an artefact: sixty-two thousand
 triangles meshed for a frame that cannot hold them is the same defect seen from the
 other side.
 
+## AND THE GROUND IT STANDS ON IS 24 KILOMETRES DOWN
+
+Measured 2026-09-03, the same measure at two places:
+
+| place | `buildings: the ring within 3.2 km runs from` | eye, up | case |
+|---|---|---|---|
+| OldTown | **+317.7 m** | 496.9 m | green |
+| CentralPark | **-24 149.8 m** | 83.2 m | red |
+
+Twenty-four kilometres below the surface, WITHIN 3.2 km of the eye. Earth's curvature
+drops 0.8 m over 3.2 km, so this is not the sphere -- it is a ring vertex placed where no
+camera can see it, and the buildings are meshed onto that ring.
+
+`tiles laid bare on the ellipsoid` reads 0, so the case's other guard -- elevation never
+arrived, everything drawn at sea level -- does not catch it: the tiles ARE resident and
+the height is wrong anyway. Sea level would be 0 m, not -24 km.
+
+That is a sharper question than "built but not drawn", and probably the same one: geometry
+does reach the frame and sits below the world. The counter this item owes would have said
+`drawn > 0` and sent the search here in one step instead of three.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
