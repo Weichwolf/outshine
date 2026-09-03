@@ -84,6 +84,20 @@ the ceiling that the round it stops on still varies.
 **Eight of nine hold a steady digest across three runs, and the ninth does not draw at
 all.** CentralPark was one of the two that wandered.
 
+**AND THE COMMAND SHAPE REACHES THE PICTURE AT THREE PLACES, not one.** Measured
+2026-09-03 with the ring cut in:
+
+| place | variation inside `--all` | the suite, one place per run |
+|---|---|---|
+| Kaiserberg | 0.477 | green (bar is 1.0) |
+| Koehlbrand | 0.596 | green |
+| CentralPark | 0.959 | red |
+
+The suite runs each place in its own process and reads a picture the same place does not
+draw inside `--all`. Two of the three cross the case's bar in one shape and not the other,
+so **the bar is being decided by what ran before**, which is the whole of what this item is
+about, one level up from a tile.
+
 Two things this does NOT settle. Shibuya still holds 537 951 538 bytes against a
 536 870 912 ceiling, so its determinism is untested rather than proven. And CentralPark
 draws `d56ae2e1` inside `--all` against `3cdca8d5` over sixteen runs of `--rows
