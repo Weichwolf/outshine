@@ -32,7 +32,7 @@
 #include "ReferenceLine.h"
 
 #include "EngineHeld.h"
-#include "GroundYield.h"
+#include "GroundMesher.h"
 
 namespace outshine {
 
@@ -329,7 +329,7 @@ bool Engine::State::Asks() {
         1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
   }
   World.Stack.Pool().Focus({.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
-  auto asked = LayPatchwork(World.Stack.Pool(), over);
+  auto asked = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
   if (!asked) {
     Error = asked.error();
     return false;

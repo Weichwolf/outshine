@@ -9,6 +9,7 @@
 #include <generate/Generate.h>
 
 #include "DrawSet.h"
+#include "GroundMesher.h"
 #include "RoadMesher.h"
 #include "StructureMesher.h"
 #include "Forest.h"
@@ -40,8 +41,11 @@ public:
 
   [[nodiscard]] const Generator &Offered() const { return *Offered_; }
 
+  [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
+
 private:
   std::unique_ptr<Generator> Offered_;
+  std::unique_ptr<GroundMesher> Coverer_;
   std::unique_ptr<StructureMesher> Shaper_;
   std::unique_ptr<RoadMesher> Paver_;
   std::vector<Forest::Stem> Stems_;

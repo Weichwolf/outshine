@@ -2,6 +2,7 @@
 #include "Shipped.h"
 
 #include "BuildingMesh.h"
+#include "GroundPatchwork.h"
 #include "Structures.h"
 #include "RoadMesh.h"
 
@@ -20,6 +21,7 @@ namespace outshine::Generators {
 
 Shipping::Shipping()
     : Offered_(std::make_unique<Structures>()),
+      Coverer_(std::make_unique<Patchworker>()),
       Shaper_(std::make_unique<BuildingMesh>()),
       Paver_(std::make_unique<RoadMesh>()) {}
 

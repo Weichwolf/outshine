@@ -1,8 +1,11 @@
 #include "GroundPatchwork.h"
+
+#include "GroundYield.h"
 #include "math/Vec3.h"
 
 #include <cmath>
 #include <utility>
+#include <span>
 #include <vector>
 #include <cstdint>
 #include <cstddef>
@@ -299,6 +302,18 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                            " absent, " + std::to_string(out.Refused) + " refused");
   }
   return out;
+}
+
+std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,
+                                                       const Around &over) const {
+  return LayPatchwork(tiles, over);
+}
+
+void Patchworker::Yield(std::span<const Yields> these,
+                        Budget within,
+                        GroundMesh mesh,
+                        Yielded &told) const {
+  YieldGround(these, within, mesh, told);
 }
 
 } // namespace outshine

@@ -38,7 +38,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "EngineHeld.h"
-#include "GroundYield.h"
+#include "GroundMesher.h"
 
 namespace outshine {
 
@@ -1208,7 +1208,7 @@ Engine::State::Focuses(const Around &over, LongitudeLatitude at, bool alsoWhenTi
   ++World.Asked;
   Around asking = over;
   asking.Asking = true;
-  auto sees = LayPatchwork(World.Stack.Pool(), asking);
+  auto sees = World.Shipping.Covering().Lay(World.Stack.Pool(), asking);
   if (!sees) {
     Error = sees.error();
     return Laid::Refused;
@@ -2111,7 +2111,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
   std::optional<Patchwork> patchwork;
   {
     const Heap::Tagged patching("ground-patchwork");
-    auto made = LayPatchwork(World.Stack.Pool(), over);
+    auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
     if (!made) {
       Error = made.error();
       return false;
@@ -2448,14 +2448,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded) {
                     std::make_move_iterator(corridor.end()));
     Yielded told;
     const Heap::Tagged yielding_("ground-yield");
-    YieldGround(std::span<const Yields>(yielding),
-                Budget{.FinestM = kFinestGroundM, .MostTriangles = kMostYieldTriangles},
-                GroundMesh{.PositionM = &inFrame,
-                           .NormalM = &laid->NormalM,
-                           .ColourRgba = tinted.empty() ? nullptr : &tinted,
-                           .Uv = classUv.empty() ? nullptr : &classUv,
-                           .Index = &laid->Index},
-                told);
+    World.Shipping.Covering().Yield(
+        std::span<const Yields>(yielding),
+        Budget{.FinestM = kFinestGroundM, .MostTriangles = kMostYieldTriangles},
+        GroundMesh{.PositionM = &inFrame,
+                   .NormalM = &laid->NormalM,
+                   .ColourRgba = tinted.empty() ? nullptr : &tinted,
+                   .Uv = classUv.empty() ? nullptr : &classUv,
+                   .Index = &laid->Index},
+        told);
     Published.Places("ground: of that, refining", told.RefineMs, "ms");
     Published.Places("ground: of that, cutting the seams", told.CutMs, "ms");
     Published.Places("ground: of that, sewing them", told.SewMs, "ms");
