@@ -55,6 +55,29 @@ question Unreal answers with `MaxDrawDistance` PLUS its cull volumes and RAGE wi
 streaming radii PLUS the portal graph: distance is the cheap half and visibility is the
 other. This tree has the cheap half now.
 
+## THE PROOF: twice the geometry, the same picture
+
+Measured 2026-09-03 by moving the building ring between one tile and two:
+
+| ring | CentralPark triangles | CentralPark variation | Jura variation | Shibuya |
+|---|---|---|---|---|
+| 1 | 1 239 419 | 0.959 | 0.743 | loads |
+| 2 | 2 371 451 | 0.994 | 1.361 | does NOT load |
+
+**CentralPark's geometry nearly doubles and its picture does not change.** 1.13 million
+extra triangles move the horizontal variation by 0.035 of 255. If those triangles were
+reaching the frame, doubling them would not leave the picture where it was.
+
+So for CentralPark the answer is settled without the counter this item still owes: what
+is built is not drawn. Jura is the other case -- there the ring cut removed geometry the
+picture WAS carrying, and it crosses back over the bar at ring 2. Two places, two
+directions, one missing number between them.
+
+Ring 1 is what stands, because it is the only setting where all nine places load, and
+because Jura's red is a true finding rather than an artefact: sixty-two thousand
+triangles meshed for a frame that cannot hold them is the same defect seen from the
+other side.
+
 ## What is not yet known
 
 Whether the geometry is outside the frustum, behind the near plane, culled by the cluster pass, or
