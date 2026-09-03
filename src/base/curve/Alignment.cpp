@@ -53,6 +53,12 @@ struct Ray {
 constexpr double kLeastClothoidShare = 1.0 / 3.0;
 constexpr double kMostClothoidShare = 1.0;
 
+struct Spiralling {
+  double RadiusM = 0.0;
+  double SwingRad = 0.0;
+  double RoomM = 0.0;
+};
+
 [[nodiscard]] double SpiralAtLeast(double radiusM, bool againstAStraight) {
   return againstAStraight ? radiusM * kLeastClothoidShare * kLeastClothoidShare : 0.0;
 }
@@ -67,8 +73,10 @@ constexpr double kMostClothoidShare = 1.0;
          0.5 * spiralM;
 }
 
-[[nodiscard]] double
-SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight) {
+[[nodiscard]] double SpiralInto(Spiralling by, bool againstAStraight) {
+  const double radiusM = by.RadiusM;
+  const double swingRad = by.SwingRad;
+  const double roomM = by.RoomM;
   if (!(radiusM > 0.0)) { return 0.0; }
   const double half = std::tan(0.5 * swingRad);
   const double bareM = radiusM * half;
@@ -83,13 +91,19 @@ SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight)
   return held < sweptOut ? held : sweptOut;
 }
 
-[[nodiscard]] double FurthestFromArcM(
-    std::span<const double> points, size_t from, size_t to, EastNorth centre, double radiusM) {
+struct Arc {
+  size_t From = 0;
+  size_t To = 0;
+  EastNorth Centre;
+  double RadiusM = 0.0;
+};
+
+[[nodiscard]] double FurthestFromArcM(std::span<const double> points, Arc over) {
   double worst = 0.0;
-  for (size_t at = from; at <= to; ++at) {
-    const double east = points[2 * at] - centre.EastM;
-    const double north = points[2 * at + 1] - centre.NorthM;
-    const double away = std::fabs(std::sqrt(east * east + north * north) - radiusM);
+  for (size_t at = over.From; at <= over.To; ++at) {
+    const double east = points[2 * at] - over.Centre.EastM;
+    const double north = points[2 * at + 1] - over.Centre.NorthM;
+    const double away = std::fabs(std::sqrt(east * east + north * north) - over.RadiusM);
     worst = away > worst ? away : worst;
   }
   return worst;
@@ -106,17 +120,14 @@ SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight)
 }
 
 [[nodiscard]] double FurthestShareOfArc(std::span<const double> points,
-                                        size_t from,
-                                        size_t to,
-                                        EastNorth centre,
-                                        double radiusM,
+                                        Arc over,
                                         std::span<const double> withinAtM,
                                         double withinM) {
   double worst = 0.0;
-  for (size_t at = from; at <= to; ++at) {
-    const double east = points[2 * at] - centre.EastM;
-    const double north = points[2 * at + 1] - centre.NorthM;
-    const double away = std::fabs(std::sqrt(east * east + north * north) - radiusM);
+  for (size_t at = over.From; at <= over.To; ++at) {
+    const double east = points[2 * at] - over.Centre.EastM;
+    const double north = points[2 * at + 1] - over.Centre.NorthM;
+    const double away = std::fabs(std::sqrt(east * east + north * north) - over.RadiusM);
     const double share = away / AllowedAt(withinAtM, at, withinM);
     worst = share > worst ? share : worst;
   }
@@ -201,9 +212,15 @@ SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight)
       centreOf(oneThird, aE, aN);
       centreOf(twoThirds, bE, bN);
       if (FurthestShareOfArc(
-              points, at, last, {.EastM = aE, .NorthM = aN}, oneThird, withinAtM, withinM) <
+              points,
+              {.From = at, .To = last, .Centre = {.EastM = aE, .NorthM = aN}, .RadiusM = oneThird},
+              withinAtM,
+              withinM) <
           FurthestShareOfArc(
-              points, at, last, {.EastM = bE, .NorthM = bN}, twoThirds, withinAtM, withinM)) {
+              points,
+              {.From = at, .To = last, .Centre = {.EastM = bE, .NorthM = bN}, .RadiusM = twoThirds},
+              withinAtM,
+              withinM)) {
         high = twoThirds;
       } else {
         low = oneThird;
@@ -226,11 +243,20 @@ SpiralInto(double radiusM, double swingRad, double roomM, bool againstAStraight)
   double centreE = 0.0;
   double centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
-  bend.AwayM =
-      FurthestFromArcM(points, at, last, {.EastM = centreE, .NorthM = centreN}, bend.RadiusM);
-  bend.AwayShare = FurthestShareOfArc(
-      points, at, last, {.EastM = centreE, .NorthM = centreN}, bend.RadiusM, withinAtM, withinM);
-  bend.SpiralM = SpiralInto(bend.RadiusM, swing, roomM, againstAStraight);
+  bend.AwayM = FurthestFromArcM(points,
+                                {.From = at,
+                                 .To = last,
+                                 .Centre = {.EastM = centreE, .NorthM = centreN},
+                                 .RadiusM = bend.RadiusM});
+  bend.AwayShare = FurthestShareOfArc(points,
+                                      {.From = at,
+                                       .To = last,
+                                       .Centre = {.EastM = centreE, .NorthM = centreN},
+                                       .RadiusM = bend.RadiusM},
+                                      withinAtM,
+                                      withinM);
+  bend.SpiralM =
+      SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = roomM}, againstAStraight);
   bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
   bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
   bend.IntoHeadingRad = legs[at - 1].HeadingRad;
@@ -323,7 +349,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
   const auto shrink = [&](Bend &bend, double toM) {
     const double swing = std::fabs(bend.TurnRad);
     bend.RadiusM = toM / TangentFor(1.0, swing, SpiralAtLeast(1.0, true));
-    bend.SpiralM = SpiralInto(bend.RadiusM, swing, toM, true);
+    bend.SpiralM = SpiralInto({.RadiusM = bend.RadiusM, .SwingRad = swing, .RoomM = toM}, true);
     bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
     bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
     bend.IntoEastM = bend.PiEastM - toM * std::cos(bend.IntoHeadingRad);

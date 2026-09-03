@@ -41,13 +41,12 @@ Named(std::span<const Scenario::Setting> parameters, std::string_view name, doub
   return standing;
 }
 
-[[nodiscard]] std::string Spelt(std::span<const Scenario::Setting> parameters,
-                                std::string_view name,
-                                std::string_view standing) {
+[[nodiscard]] std::optional<std::string> Spelt(std::span<const Scenario::Setting> parameters,
+                                               std::string_view name) {
   for (const Scenario::Setting &one : parameters) {
     if (one.Name == name) { return one.Value; }
   }
-  return std::string(standing);
+  return std::nullopt;
 }
 
 [[nodiscard]] double Shaped(std::string_view shape, double phase) {
@@ -119,7 +118,7 @@ void Voiced(const Scenario::Sound &sound,
     switch (makes.Does) {
       case Scenario::Makes::Oscillator: {
         const double hz = Named(makes.Parameters, "frequency", 440.0) * pitch;
-        const std::string shape = Spelt(makes.Parameters, "shape", "sine");
+        const std::string shape = Spelt(makes.Parameters, "shape").value_or("sine");
         for (size_t frame = 0; frame < frames; ++frame) {
           out[frame] = Shaped(shape, kept.Phase);
           kept.Phase += hz / static_cast<double>(rate);

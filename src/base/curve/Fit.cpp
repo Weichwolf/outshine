@@ -50,13 +50,12 @@ double AwayFromChordM(std::span<const double> points, size_t point, Chord of) {
 }
 
 void KeepBetween(std::span<const double> points,
-                 size_t wholeFrom,
-                 size_t wholeTo,
+                 Chord whole,
                  double withinM,
                  std::vector<bool> &keep) {
   std::vector<std::pair<size_t, size_t>> spans;
   spans.reserve(64);
-  spans.emplace_back(wholeFrom, wholeTo);
+  spans.emplace_back(whole.From, whole.To);
   while (!spans.empty()) {
     const auto [from, to] = spans.back();
     spans.pop_back();
@@ -96,7 +95,7 @@ Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t>
   std::vector<bool> keep(points, false);
   keep.front() = true;
   keep.back() = true;
-  KeepBetween(eastNorthM, 0, points - 1, withinM, keep);
+  KeepBetween(eastNorthM, {.From = 0, .To = points - 1}, withinM, keep);
 
   std::vector<double> out;
   out.reserve(eastNorthM.size());
