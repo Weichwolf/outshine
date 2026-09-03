@@ -17,7 +17,7 @@ bool DrawSet::Add(Rank rank, const DrawSource &source) {
 void DrawSet::Draw(const Ground &ground,
                    const GeneratorSet &generators,
                    std::span<const Yield> yields,
-                   std::span<const Body> placed,
+                   std::span<const Solid> placed,
                    DrawSink &sink) const noexcept {
   assert(yields.size() == generators.Count());
   for (size_t i = 0; i < generators.Count(); i++) {

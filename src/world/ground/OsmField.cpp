@@ -117,10 +117,10 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
 }
 
 bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added, bool &refused) {
-  const Data::Request request(Data::DataKind::VectorMap,
-                              Data::Address::At(Data::TileId{.Zoom = Zoom_,
-                                                             .X = static_cast<uint32_t>(tx),
-                                                             .Y = static_cast<uint32_t>(ty)}));
+  const Data::Fetch request(Data::DataKind::VectorMap,
+                            Data::Address::At(Data::TileId{.Zoom = Zoom_,
+                                                           .X = static_cast<uint32_t>(tx),
+                                                           .Y = static_cast<uint32_t>(ty)}));
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   refused = reply == TilePool::Reply::Refused;

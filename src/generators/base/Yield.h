@@ -24,7 +24,7 @@ public:
 
   Yield(OccupancySink &space, std::span<const char *const> names, std::span<Note> notes) noexcept;
 
-  [[nodiscard]] Claim Place(const Body &body) noexcept;
+  [[nodiscard]] Claim Place(const Solid &body) noexcept;
 
   void Count(size_t name) noexcept { Notes_[name].Times++; }
 

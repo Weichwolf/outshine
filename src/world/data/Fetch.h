@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_DATA_REQUEST_H
-#define OUTSHINE_WORLD_DATA_REQUEST_H
+#ifndef OUTSHINE_WORLD_DATA_FETCH_H
+#define OUTSHINE_WORLD_DATA_FETCH_H
 
 #include <string>
 
@@ -8,9 +8,9 @@
 
 namespace outshine::Data {
 
-class Request {
+class Fetch {
 public:
-  Request(DataKind kind, Address where) : Kind_(kind), Where_(where) {}
+  Fetch(DataKind kind, Address where) : Kind_(kind), Where_(where) {}
 
   [[nodiscard]] DataKind Kind() const noexcept { return Kind_; }
 

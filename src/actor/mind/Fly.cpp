@@ -19,8 +19,8 @@ double TightestPerM(const Wings &of, double speedMs, double gravityMs2) {
   return gravityMs2 * std::tan(BankLimitOf(of)) / (speedMs * speedMs);
 }
 
-Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked) {
-  Attitude out;
+Flying Fly(const Wings &of, const Envelope &within, const Demand &asked) {
+  Flying out;
   if (!asked.Held) { return out; }
 
   const double speedMs = asked.SpeedMs;

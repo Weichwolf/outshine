@@ -66,7 +66,7 @@ private:
   void Release(size_t slot);
 
   struct Slot {
-    std::vector<Body> Bodies;
+    std::vector<Solid> Bodies;
     std::vector<uint32_t> Links, Cells;
     std::unique_ptr<OccupancySink> Sink;
     bool Out = false;

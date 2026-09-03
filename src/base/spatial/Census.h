@@ -13,7 +13,7 @@
 
 namespace outshine {
 
-struct Surface {
+struct Counted {
   std::span<const float> PlacesM;
   std::span<const float> Facing;
   std::span<const uint32_t> Run;
@@ -61,11 +61,11 @@ struct CornerHash {
   }
 };
 
-struct Laid {
+struct Starts {
   std::vector<size_t> FirstVertex;
   std::vector<size_t> FirstTriangle;
 
-  explicit Laid(std::span<const Surface> made)
+  explicit Starts(std::span<const Counted> made)
       : FirstVertex(made.size() + 1, 0), FirstTriangle(made.size() + 1, 0) {
     for (size_t at = 0; at < made.size(); ++at) {
       FirstVertex[at + 1] = FirstVertex[at] + made[at].PlacesM.size() / 3;
@@ -79,17 +79,17 @@ struct Laid {
     return at;
   }
 
-  [[nodiscard]] const float *PlaceAt(std::span<const Surface> made, size_t one) const {
+  [[nodiscard]] const float *PlaceAt(std::span<const Counted> made, size_t one) const {
     const size_t part = PartOfVertex(one, made.size());
     return made[part].PlacesM.data() + (one - FirstVertex[part]) * 3;
   }
 
-  [[nodiscard]] const float *TurnAt(std::span<const Surface> made, size_t one) const {
+  [[nodiscard]] const float *TurnAt(std::span<const Counted> made, size_t one) const {
     const size_t part = PartOfVertex(one, made.size());
     return made[part].Facing.data() + (one - FirstVertex[part]) * 3;
   }
 
-  [[nodiscard]] size_t CornerOf(std::span<const Surface> made, size_t tri, size_t corner) const {
+  [[nodiscard]] size_t CornerOf(std::span<const Counted> made, size_t tri, size_t corner) const {
     size_t at = 0;
     while (at + 1 < made.size() && tri >= FirstTriangle[at + 1]) { ++at; }
     return FirstVertex[at] + made[at].Run[(tri - FirstTriangle[at]) * 3 + corner];
@@ -97,7 +97,7 @@ struct Laid {
 };
 
 inline std::vector<uint32_t>
-WeldedPlaces(std::span<const Surface> made, const Laid &laid, Census &out) {
+WeldedPlaces(std::span<const Counted> made, const Starts &laid, Census &out) {
   std::unordered_map<AtCm, uint32_t, AtCmHash> seenAt;
   std::vector<uint32_t> welded;
   welded.reserve(out.Vertices);
@@ -120,8 +120,8 @@ WeldedPlaces(std::span<const Surface> made, const Laid &laid, Census &out) {
   return welded;
 }
 
-inline void CountEdges(std::span<const Surface> made,
-                       const Laid &laid,
+inline void CountEdges(std::span<const Counted> made,
+                       const Starts &laid,
                        std::span<const uint32_t> welded,
                        size_t triangles,
                        Census &out) {
@@ -149,7 +149,7 @@ inline void CountEdges(std::span<const Surface> made,
   out.Edges = edges.size();
 }
 
-inline void CountIdentical(std::span<const Surface> made, const Laid &laid, Census &out) {
+inline void CountIdentical(std::span<const Counted> made, const Starts &laid, Census &out) {
   std::unordered_map<Corner, uint32_t, CornerHash> whole;
   for (size_t one = 0; one < out.Vertices; ++one) {
     const float *const held = laid.PlaceAt(made, one);
@@ -165,8 +165,8 @@ inline void CountIdentical(std::span<const Surface> made, const Laid &laid, Cens
   out.Distinct = whole.size();
 }
 
-[[nodiscard]] inline Census CensusOver(std::span<const Surface> made) {
-  const Laid laid(made);
+[[nodiscard]] inline Census CensusOver(std::span<const Counted> made) {
+  const Starts laid(made);
   Census out;
   out.Vertices = laid.FirstVertex.back();
   const std::vector<uint32_t> welded = WeldedPlaces(made, laid, out);

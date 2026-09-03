@@ -487,7 +487,7 @@ void Engine::State::Models(const TangentFrame &standing,
         "ms");
     clocks.CensusAt = std::chrono::steady_clock::now();
     if (declared.Render.Audits) {
-      const std::array<Surface, 2> made = {
+      const std::array<Counted, 2> made = {
           {{.PlacesM = wallPlaces, .Facing = wallFacing, .Run = wallRun},
            {.PlacesM = roofPlaces, .Facing = roofFacing, .Run = roofRun}}};
       const Census counted = CensusOver(made);

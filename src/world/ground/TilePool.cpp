@@ -262,7 +262,7 @@ void TilePool::Remember(
   Cache_.push_back(std::move(e));
 }
 
-TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) {
+TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
   if (!tCarries) {
     const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.FetchOnCompute++;
@@ -326,7 +326,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) 
   return reply;
 }
 
-TilePool::Reply TilePool::Bytes(const Data::Request &request, Landing *out) {
+TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
   const std::string key = request.Key();
   const Reply resident = Lookup(key, out);
   if (resident != Reply::Pending) { return resident; }
@@ -342,7 +342,7 @@ TilePool::Reply TilePool::Bytes(const Data::Request &request, Landing *out) {
   return Lookup(key, out);
 }
 
-TilePool::Reply TilePool::BytesBlocking(const Data::Request &request, Landing *out) {
+TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out) {
   const Reply resident = Lookup(request.Key(), out);
   if (resident != Reply::Pending) { return resident; }
   return FetchInto(request, out);
@@ -355,7 +355,7 @@ public:
   explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
 
   TerrainBytes Take(Data::TileId at) override {
-    const Data::Request request(Data::DataKind::Elevation, Data::Address::At(at));
+    const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
     TilePool::Landing landing;
     const TilePool::Reply asked =
         Pool_.Carries() ? Pool_.Bytes(request, &landing) : Pool_.BytesBlocking(request, &landing);

@@ -274,7 +274,7 @@ struct Surrounds {
   struct Standing {
     uint32_t Body = 0;
     uint32_t Cluster = 0;
-    Generators::Instance Where;
+    Generators::Scattered Where;
   };
 
   std::vector<Standing> Instances;

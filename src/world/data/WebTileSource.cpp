@@ -11,7 +11,7 @@ constexpr int kDeepestTileZoom = 30;
 
 }
 
-Coverage WebTileSource::Covers(const Request &request) const noexcept {
+Coverage WebTileSource::Covers(const Fetch &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return Coverage::Outside; }
@@ -23,7 +23,7 @@ Coverage WebTileSource::Covers(const Request &request) const noexcept {
   return Coverage::Inside;
 }
 
-Address WebTileSource::Serves(const Request &request) const noexcept {
+Address WebTileSource::Serves(const Fetch &request) const noexcept {
   const std::optional<TileId> tile = request.Where().Tile();
   if (!tile) { return request.Where(); }
   const auto [zoom, tileX, tileY] = *tile;

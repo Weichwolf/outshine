@@ -12,7 +12,7 @@ struct Wings {
   double ClimbLimitRad = 0.0;
 };
 
-struct Attitude {
+struct Flying {
   double BankRad = 0.0;
   double ClimbRad = 0.0;
   double LoadFactor = 1.0;
@@ -21,7 +21,7 @@ struct Attitude {
 
 [[nodiscard]] double BankLimitOf(const Wings &of);
 [[nodiscard]] double TightestPerM(const Wings &of, double speedMs, double gravityMs2);
-[[nodiscard]] Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked);
+[[nodiscard]] Flying Fly(const Wings &of, const Envelope &within, const Demand &asked);
 
 } // namespace outshine::Pilot
 

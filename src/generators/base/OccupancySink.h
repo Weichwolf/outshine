@@ -14,7 +14,7 @@ namespace outshine::Generators {
 class OccupancySink {
 public:
   struct Storage {
-    std::span<Body> Bodies;
+    std::span<Solid> Bodies;
     std::span<uint32_t> Links;
     std::span<uint32_t> Cells;
     double CellM = 0.0;
@@ -26,9 +26,9 @@ public:
     return static_cast<uint32_t>(Store_.Bodies.size());
   }
 
-  [[nodiscard]] Claim Place(const Body &body) noexcept;
+  [[nodiscard]] Claim Place(const Solid &body) noexcept;
 
-  [[nodiscard]] std::span<const Body> Placed() const noexcept {
+  [[nodiscard]] std::span<const Solid> Placed() const noexcept {
     return Store_.Bodies.subspan(0, Count());
   }
 
@@ -49,7 +49,7 @@ private:
   }
 
   [[nodiscard]] int CellOf(double m, int cells) const noexcept;
-  [[nodiscard]] bool Clear(const Body &body) const noexcept;
+  [[nodiscard]] bool Clear(const Solid &body) const noexcept;
 
   Storage Store_;
   double SpanEm_ = 0.0, SpanNm_ = 0.0;

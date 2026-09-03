@@ -77,7 +77,7 @@ private:
 
   static Lattice Of(const Tile &region);
   [[nodiscard]] Outcome
-  Consider(const Ground &ground, const Lattice &lattice, Cell cell, Body *out) const noexcept;
+  Consider(const Ground &ground, const Lattice &lattice, Cell cell, Solid *out) const noexcept;
 
   std::array<Stem, kMostSpecies> Stems_{};
   size_t Held_ = 0;

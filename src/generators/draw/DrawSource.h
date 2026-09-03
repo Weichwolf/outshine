@@ -16,7 +16,7 @@ public:
   DrawSource &operator=(const DrawSource &) = delete;
 
   virtual void Draw(const Ground &ground,
-                    std::span<const Body> placed,
+                    std::span<const Solid> placed,
                     BodyRange mine,
                     DrawSink &sink) const noexcept = 0;
 

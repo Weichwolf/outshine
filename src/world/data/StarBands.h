@@ -15,9 +15,9 @@ public:
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Coverage Covers(const Request &request) const noexcept override;
+  [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept override;
 
-  [[nodiscard]] Address Serves(const Request &request) const noexcept override {
+  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
     return request.Where();
   }
 

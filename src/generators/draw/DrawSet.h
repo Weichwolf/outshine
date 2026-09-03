@@ -20,7 +20,7 @@ public:
   void Draw(const Ground &ground,
             const GeneratorSet &generators,
             std::span<const Yield> yields,
-            std::span<const Body> placed,
+            std::span<const Solid> placed,
             DrawSink &sink) const noexcept;
 
 private:

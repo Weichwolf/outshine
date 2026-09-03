@@ -11,7 +11,7 @@ public:
   BuildingDraw(ClusterId cluster, double heightM) : Cluster_(cluster), HeightM_(heightM) {}
 
   void Draw(const Ground &ground,
-            std::span<const Body> placed,
+            std::span<const Solid> placed,
             BodyRange mine,
             DrawSink &sink) const noexcept override;
 

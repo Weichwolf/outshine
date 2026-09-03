@@ -37,7 +37,7 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
     const double standsAtM = ground.HeightAslM({.EastM = e, .NorthM = n});
     yield.Raise(HighestRoofAglM, static_cast<double>(topAslM) - standsAtM);
 
-    Body body;
+    Solid body;
     body.Em = e;
     body.Nm = n;
     body.BaseAslM = standsAtM;

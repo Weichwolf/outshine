@@ -17,7 +17,7 @@ Yield::Yield(OccupancySink &space,
   }
 }
 
-Claim Yield::Place(const Body &body) noexcept {
+Claim Yield::Place(const Solid &body) noexcept {
   const uint32_t before = Space_->Claims(Claim::Outcome::Placed);
   const Claim claim = Space_->Place(body);
   Claims_[static_cast<size_t>(claim.Why())]++;

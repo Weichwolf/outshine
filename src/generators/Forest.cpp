@@ -85,7 +85,7 @@ Forest::Lattice Forest::Of(const Tile &region) {
 Forest::Outcome Forest::Consider(const Ground &ground,
                                  const Lattice &lattice,
                                  Cell cell,
-                                 Body *out) const noexcept {
+                                 Solid *out) const noexcept {
   const Tile &region = ground.Where();
   const uint64_t index = static_cast<uint64_t>(cell.J) * static_cast<uint64_t>(lattice.Cols) +
                          static_cast<uint64_t>(cell.I);
@@ -145,7 +145,7 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const Lattice lattice = Of(ground.Where());
   for (int j = 0; j < lattice.Rows; j++) {
     for (int i = 0; i < lattice.Cols; i++) {
-      Body body;
+      Solid body;
       const Outcome why = Consider(ground, lattice, Cell{.I = i, .J = j}, &body);
       switch (why) {
         case Outcome::NoTemplate: yield.Count(NoTemplate); continue;

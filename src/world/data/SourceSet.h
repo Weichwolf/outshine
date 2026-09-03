@@ -38,9 +38,9 @@ public:
   private:
     friend class SourceSet;
 
-    explicit Query(Request request) : Request_(request) {}
+    explicit Query(Fetch request) : Request_(request) {}
 
-    Request Request_;
+    Fetch Request_;
     std::vector<const Source *> Candidates_;
     size_t Next_ = 0;
     const Source *Current_ = nullptr;
@@ -50,7 +50,7 @@ public:
     double RetryAtMs_ = 0.0;
   };
 
-  [[nodiscard]] Query Ask(const Request &request) const;
+  [[nodiscard]] Query Ask(const Fetch &request) const;
 
   [[nodiscard]] Delivery Collect(Query &query, Transport &transport);
 

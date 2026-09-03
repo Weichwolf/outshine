@@ -35,7 +35,7 @@ namespace {
 
 StarBands::StarBands(std::string directory) : Directory_(std::move(directory)), Decl_(Declared()) {}
 
-Coverage StarBands::Covers(const Request &request) const noexcept {
+Coverage StarBands::Covers(const Fetch &request) const noexcept {
   if (request.Kind() != Decl_.Kind) { return Coverage::Outside; }
   const std::optional<uint32_t> band = request.Where().Index();
   if (!band) { return Coverage::Outside; }

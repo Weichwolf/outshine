@@ -119,7 +119,7 @@ struct GroundStream::Held {
 
     TerrainBytes Take(Data::TileId at) override {
       Held_.Decodes++;
-      const Data::Request request(Data::DataKind::Elevation, Data::Address::At(at));
+      const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
       TilePool::Landing landing;
       switch (Held_.Pool.BytesBlocking(request, &landing)) {
         case TilePool::Reply::Ready: {

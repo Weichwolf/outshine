@@ -41,7 +41,7 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   return Registration::Accepted;
 }
 
-SourceSet::Query SourceSet::Ask(const Request &request) const {
+SourceSet::Query SourceSet::Ask(const Fetch &request) const {
   Query query(request);
   for (const std::unique_ptr<Source> &source : Sources_) {
     if (source->Covers(request) == Coverage::Inside) { query.Candidates_.push_back(source.get()); }

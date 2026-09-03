@@ -60,7 +60,7 @@ public:
 
   [[nodiscard]] bool Add(Generators::BodyId body,
                          Generators::ClusterId cluster,
-                         const Generators::Instance &instance) noexcept override {
+                         const Generators::Scattered &instance) noexcept override {
     if (Full()) { return false; }
     try {
       Into_->push_back(

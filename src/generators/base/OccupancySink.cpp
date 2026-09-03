@@ -14,7 +14,7 @@ namespace {
 
 constexpr uint32_t kNoBody = kNoCell;
 
-[[nodiscard]] bool CylindersCut(const Body &a, const Body &b) {
+[[nodiscard]] bool CylindersCut(const Solid &a, const Solid &b) {
   const double de = a.Em - b.Em;
   const double dn = a.Nm - b.Nm;
   const double reach = static_cast<double>(a.RadiusM) + static_cast<double>(b.RadiusM);
@@ -54,7 +54,7 @@ int OccupancySink::CellOf(double m, int cells) const noexcept {
   return std::clamp(i, 0, cells - 1);
 }
 
-bool OccupancySink::Clear(const Body &body) const noexcept {
+bool OccupancySink::Clear(const Solid &body) const noexcept {
   const double reach = static_cast<double>(body.RadiusM) + static_cast<double>(MaxRadiusM_);
   const int e0 = CellOf(body.Em - reach, CellsE_);
   const int e1 = CellOf(body.Em + reach, CellsE_);
@@ -73,7 +73,7 @@ bool OccupancySink::Clear(const Body &body) const noexcept {
   return true;
 }
 
-Claim OccupancySink::Place(const Body &body) noexcept {
+Claim OccupancySink::Place(const Solid &body) noexcept {
   const auto refuse = [this](Claim::Outcome why) {
     Claims_[static_cast<size_t>(why)]++;
     return Claim::Refused(why);

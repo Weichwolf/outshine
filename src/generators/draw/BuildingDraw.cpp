@@ -5,15 +5,15 @@
 namespace outshine::Generators {
 
 void BuildingDraw::Draw(const Ground &ground,
-                        std::span<const Body> placed,
+                        std::span<const Solid> placed,
                         BodyRange mine,
                         DrawSink &sink) const noexcept {
   (void)ground;
   if (!(HeightM_ > 0.0)) { return; }
   for (uint32_t at = 0; at < mine.Count; ++at) {
-    const Body &body = placed[at];
+    const Solid &body = placed[at];
     if (!(body.HeightM > 0.0f)) { continue; }
-    Instance instance;
+    Scattered instance;
     instance.Em = static_cast<float>(body.Em);
     instance.Nm = static_cast<float>(body.Nm);
     instance.AslM = static_cast<float>(body.BaseAslM);

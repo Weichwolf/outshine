@@ -17,7 +17,7 @@
 #include "Earth.h"
 #include "ClusterDag.h"
 #include "TileMeshes.h"
-#include "Request.h"
+#include "Fetch.h"
 
 namespace outshine::Data {
 class SourceSet;
@@ -98,9 +98,9 @@ public:
     Data::Address At = Data::Address::Whole(0);
   };
 
-  [[nodiscard]] Reply Bytes(const Data::Request &request, Landing *out);
+  [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
 
-  [[nodiscard]] Reply BytesBlocking(const Data::Request &request, Landing *out);
+  [[nodiscard]] Reply BytesBlocking(const Data::Fetch &request, Landing *out);
 
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
@@ -126,7 +126,7 @@ private:
     uint64_t Key = 0;
     double TileDist = 0.0;
 
-    std::optional<Data::Request> Ask;
+    std::optional<Data::Fetch> Ask;
   };
 
   struct Result {
@@ -162,7 +162,7 @@ private:
                 size_t len,
                 const Data::Address &at,
                 bool absent);
-  [[nodiscard]] Reply FetchInto(const Data::Request &request, Landing *out);
+  [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
 
   Data::SourceSet &Sources_;
   Data::Transport &Wire_;

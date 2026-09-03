@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "Fetched.h"
-#include "Request.h"
+#include "Fetch.h"
 #include "SourceDecl.h"
 #include "Transport.h"
 
@@ -18,9 +18,9 @@ public:
 
   [[nodiscard]] virtual const SourceDecl &Declaration() const noexcept = 0;
 
-  [[nodiscard]] virtual Coverage Covers(const Request &request) const noexcept = 0;
+  [[nodiscard]] virtual Coverage Covers(const Fetch &request) const noexcept = 0;
 
-  [[nodiscard]] virtual Address Serves(const Request &request) const noexcept = 0;
+  [[nodiscard]] virtual Address Serves(const Fetch &request) const noexcept = 0;
 
   [[nodiscard]] virtual Ticket Begin(const Address &at, Transport &transport) const = 0;
 

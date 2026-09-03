@@ -7,7 +7,7 @@ namespace outshine::Generators {
 
 enum class ClusterId : uint32_t {};
 
-struct Instance {
+struct Scattered {
   float Em = 0.0f, Nm = 0.0f;
   float AslM = 0.0f;
   float YawRad = 0.0f;
